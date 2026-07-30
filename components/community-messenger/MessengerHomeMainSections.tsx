@@ -10,6 +10,7 @@ import { MessengerFriendsScreen } from "@/components/community-messenger/Messeng
 import { MessengerHomeInlineFriendSearch } from "@/components/community-messenger/MessengerHomeInlineFriendSearch";
 import { MessengerHomeSectionTabs } from "@/components/community-messenger/MessengerHomeSectionTabs";
 import { MessengerHomeSectionTransition } from "@/components/community-messenger/MessengerHomeSectionTransition";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import {
   inboxKindToChatListChip,
   messengerChatListEmptyMessageForChip,
@@ -155,6 +156,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   showSectionTabs = false,
   onPrimarySectionChange,
 }: Props) {
+  const isMessengerSplit = useIsMessengerSplitViewport();
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
   const showInlineFriendSearch =
     mainSection === "friends" ||
@@ -162,15 +164,20 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     mainSection === "chats" ||
     mainSection === "archive";
 
+  /**
+   * Portrait hub: this chrome is the top inset owner (AppStickyHeader often absent on hub list).
+   * Landscape split: SplitTopBar owns safe-top — DO NOT double-pad.
+   */
+  const hubStickyChromeClass = isMessengerSplit
+    ? "sticky top-0 z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
+    : "sticky top-0 z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)] pt-[var(--safe-top)]";
+
   return (
     <section
       data-cm-messenger-main
       className="flex min-h-0 min-w-0 flex-1 flex-col space-y-0"
     >
-      <div
-        className="sticky top-0 z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
-        data-messenger-hub-sticky-chrome=""
-      >
+      <div className={hubStickyChromeClass} data-messenger-hub-sticky-chrome="">
         {showSectionTabs && onPrimarySectionChange ? (
           <MessengerHomeSectionTabs
             mainSection={mainSection}

@@ -57,14 +57,14 @@ describe("messenger hub list scroll authority (portrait+landscape)", () => {
     expect(split).toContain("pt-[var(--safe-top)]");
   });
 
-  it("hub MasterDetail never reopens right pane via min-width media", () => {
+  it("hub sticky chrome owns safe-top only in portrait (not landscape split)", () => {
     const src = readFileSync(
-      resolve(root, "components/community-messenger/home/CommunityMessengerHomeMasterDetail.tsx"),
+      resolve(root, "components/community-messenger/MessengerHomeMainSections.tsx"),
       "utf8"
     );
-    expect(src).not.toMatch(/rightPaneClass[\s\S]*min-\[768px\]/);
-    expect(src).not.toMatch(/LIST_PANE_[A-Z_]+ = `[^`]*min-\[768px\]/);
-    expect(src).toContain('splitMode === "split"');
-    expect(src).toMatch(/rightPaneClass[\s\S]*"hidden"/);
+    expect(src).toContain("useIsMessengerSplitViewport");
+    expect(src).toContain("data-messenger-hub-sticky-chrome");
+    expect(src).toContain("pt-[var(--safe-top)]");
+    expect(src).toContain("isMessengerSplit");
   });
 });
