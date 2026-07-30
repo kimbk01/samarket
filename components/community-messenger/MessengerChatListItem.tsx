@@ -954,11 +954,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               {titleSuffix}
             </span>
           ) : null}
-          <CommunityMessengerChatTypeBadge room={room} />
-          {showStrangerBadge ? (
-            <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
-              {t("cm_peer_badge_not_friend")}
-            </span>
+          {room.roomType !== "direct" ||
+          commerceMeta?.kind === "trade" ||
+          commerceMeta?.kind === "delivery" ? (
+            <CommunityMessengerChatTypeBadge room={room} />
           ) : null}
           {room.philifeMeetingMemberLabel ? (
             <span
@@ -986,6 +985,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           </p>
         ) : null}
         <div className="mt-0.5 flex min-w-0 items-center gap-1">
+          {showStrangerBadge ? (
+            <span
+              className="shrink-0 sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"
+              data-cm-peer-not-friend=""
+            >
+              {t("cm_peer_badge_not_friend")}
+            </span>
+          ) : null}
           {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
             <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
               {deliveryStepLabel}

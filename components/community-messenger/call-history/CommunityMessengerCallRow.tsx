@@ -183,9 +183,9 @@ export function CommunityMessengerCallRow({
   const avatarNode = (
     <SamarketThumbnail
       src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
-      size={52}
+      size={48}
       roundedClassName="rounded-full"
-      className="shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
+      className="h-full w-full shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
       fallbackSrc=""
       fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
     />
@@ -226,7 +226,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className={`relative z-[1] flex min-h-[72px] w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
+        className={`relative z-[1] flex w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
@@ -246,7 +246,8 @@ export function CommunityMessengerCallRow({
             handleNavigate();
           }}
           data-cm-messenger-list-row=""
-          className={`flex min-w-0 flex-1 items-center gap-3 px-[14px] py-2 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
+          data-cm-list-surface="call"
+          className={`flex min-w-0 flex-1 items-center py-1.5 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >
@@ -255,22 +256,35 @@ export function CommunityMessengerCallRow({
             <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
               {vm.peerName}
               {vm.peerPublicId && vm.peerName.toLowerCase() !== vm.peerPublicId.toLowerCase() ? (
-                <span className="font-medium text-sam-fg-muted"> (@{vm.peerPublicId})</span>
+                <span className="ml-1.5 font-medium text-sam-fg-muted">@{vm.peerPublicId}</span>
               ) : null}
             </p>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5">
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               {call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend" ? (
-                <span className="rounded-full bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg-muted">
+                <span className="shrink-0 text-sam-fg-muted" data-cm-list-preview="">
                   {t("cm_peer_badge_not_friend")}
                 </span>
               ) : null}
+              {call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend" ? (
+                <span className="text-sam-border" aria-hidden>
+                  ·
+                </span>
+              ) : null}
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
-              <p data-cm-list-preview="" className="truncate" style={{ color: vm.subtitleColor }}>
+              <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
                 {vm.durationLabel ? (
                   <>
-                    <span className="mx-1.5 text-sam-border">·</span>
+                    <span className="mx-1 text-sam-border">·</span>
                     <span className="font-medium tabular-nums text-sam-fg">{vm.durationLabel}</span>
+                  </>
+                ) : null}
+                {timeLabel ? (
+                  <>
+                    <span className="mx-1 text-sam-border">·</span>
+                    <span data-cm-list-meta="" className="tabular-nums text-sam-fg-muted">
+                      {timeLabel}
+                    </span>
                   </>
                 ) : null}
               </p>
@@ -278,12 +292,7 @@ export function CommunityMessengerCallRow({
           </div>
         </button>
 
-        <aside className="flex shrink-0 flex-col items-end justify-center gap-1.5 px-3 py-2">
-          {timeLabel ? (
-            <span data-cm-list-meta="" className="tabular-nums text-sam-fg-muted">
-              {timeLabel}
-            </span>
-          ) : null}
+        <aside className="flex shrink-0 items-center justify-center px-1 py-1">
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton

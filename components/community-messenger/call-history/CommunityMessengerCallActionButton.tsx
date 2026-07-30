@@ -34,7 +34,8 @@ export function CommunityMessengerCallActionButton({
         if (disabled || loading) return;
         onPress();
       }}
-      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00754A] text-white transition-transform duration-[80ms] hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00754A]/40 active:scale-[0.93] active:bg-[#006241] disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#00754A] text-white transition-transform duration-[80ms] hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00754A]/40 active:scale-[0.93] active:bg-[#006241] disabled:cursor-not-allowed disabled:opacity-50"
+      data-cm-call-redial=""
     >
       {loading ? (
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />

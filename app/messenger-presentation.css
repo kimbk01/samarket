@@ -1,21 +1,38 @@
 /**
  * DIBAY 메신저 presentation SSOT — Telegram 반응형 밀도·전환 계약.
  * 전역 app typography 를 바꾸지 않는다. 메신저 shell / room 스코프만.
+ *
+ * 행 높이 분리 (합치지 말 것):
+ * - friend/contact ≈ 56dp
+ * - call ≈ 64–72dp (48dp redial)
+ * - chat/direct ≈ 72dp (Telegram landscape ~71.4dp 기준; portrait chat 재실측 N/A)
  */
 
 [data-messenger-shell],
 [data-cm-messenger-main],
 [data-messenger-detail-empty],
 [data-cm-room] {
+  /* default = general chat / archive shared density */
   --cm-list-row-min-h: 72px;
-  --cm-list-row-max-h: 74px;
+  --cm-list-row-max-h: 76px;
   --cm-list-avatar: 52px;
   --cm-list-gap: 12px;
   --cm-list-pad-x: 14px;
   --cm-list-title-size: 15px;
+  --cm-list-title-lh: 1.25;
   --cm-list-preview-size: 13px;
+  --cm-list-preview-lh: 1.3;
   --cm-list-meta-size: 12px;
   --cm-list-search-h: 40px;
+  --cm-list-unread-min: 20px;
+  --cm-list-trailing-min: 48px;
+  --cm-friend-row-min-h: 56px;
+  --cm-friend-row-max-h: 60px;
+  --cm-friend-avatar: 46px;
+  --cm-call-row-min-h: 64px;
+  --cm-call-row-max-h: 72px;
+  --cm-call-avatar: 48px;
+  --cm-call-redial: 48px;
   /* Telegram selected row — soft light blue (not brand green soft) */
   --cm-list-row-selected: color-mix(in srgb, #64b5f6 22%, #ffffff);
   --cm-wallpaper-tint: color-mix(in srgb, var(--sam-primary, #5b3a29) 4%, #f3f6f4);
@@ -57,7 +74,8 @@
   background-repeat: repeat;
 }
 
-[data-cm-messenger-list-row] {
+[data-cm-messenger-list-row],
+[data-messenger-chat-row] {
   min-height: var(--cm-list-row-min-h);
   max-height: var(--cm-list-row-max-h);
   gap: var(--cm-list-gap);
@@ -65,28 +83,63 @@
   padding-right: var(--cm-list-pad-x);
 }
 
-[data-cm-messenger-list-row] [data-cm-list-avatar-slot] {
+[data-cm-messenger-list-row][data-cm-list-surface="friend"] {
+  min-height: var(--cm-friend-row-min-h);
+  max-height: var(--cm-friend-row-max-h);
+  --cm-list-avatar: var(--cm-friend-avatar);
+}
+
+[data-cm-messenger-list-row][data-cm-list-surface="call"] {
+  min-height: var(--cm-call-row-min-h);
+  max-height: var(--cm-call-row-max-h);
+  --cm-list-avatar: var(--cm-call-avatar);
+}
+
+[data-cm-messenger-list-row] [data-cm-list-avatar-slot],
+[data-messenger-chat-row] [data-cm-list-avatar-slot] {
   width: var(--cm-list-avatar);
   height: var(--cm-list-avatar);
+  overflow: visible;
 }
 
 [data-cm-messenger-list-row] [data-cm-list-title],
 [data-messenger-chat-row] [data-cm-list-title] {
   font-size: var(--cm-list-title-size);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: var(--cm-list-title-lh);
 }
 
 [data-cm-messenger-list-row] [data-cm-list-preview],
 [data-messenger-chat-row] [data-cm-list-preview] {
   font-size: var(--cm-list-preview-size);
-  line-height: 1.3;
+  line-height: var(--cm-list-preview-lh);
 }
 
 [data-cm-messenger-list-row] [data-cm-list-meta],
 [data-messenger-chat-row] [data-cm-list-meta] {
   font-size: var(--cm-list-meta-size);
   line-height: 1.2;
+}
+
+[data-cm-unread-badge] {
+  box-sizing: border-box;
+  min-width: var(--cm-list-unread-min);
+  min-height: var(--cm-list-unread-min);
+  height: var(--cm-list-unread-min);
+  padding-left: 6px;
+  padding-right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-cm-call-redial] {
+  width: var(--cm-call-redial);
+  height: var(--cm-call-redial);
+  min-width: var(--cm-call-redial);
+  min-height: var(--cm-call-redial);
 }
 
 [data-cm-messenger-search-input] {
