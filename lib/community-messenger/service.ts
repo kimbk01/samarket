@@ -208,10 +208,7 @@ import {
   syncChatRoomMessengerLink,
 } from "@/lib/trade/persist-trade-messenger-room-link";
 import { scheduleItemTradeReadSyncAfterMessengerMark } from "@/lib/trade/schedule-item-trade-read-sync-after-messenger-mark";
-import {
-  itemTradeChatRoomIdFromMessengerDirectKey,
-  mirrorCommunityMessengerTextToItemTradeLedger,
-} from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
+import { itemTradeChatRoomIdFromMessengerDirectKey } from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
 import {
   resolveProductChat,
   type ProductChatRow,
@@ -15922,6 +15919,8 @@ export async function sendCommunityMessengerMessage(input: {
               .eq("room_id", roomId)
               .eq("user_id", input.userId)
           : Promise.resolve({ data: null, error: null });
+      // Trade ledger write authority = post-ack only (`runCommunityMessengerSendPostAckEffects`).
+      // Do not mirror here — fallback previously double-inserted chat_messages when post-ack also ran.
       const itemTradeLedgerId = itemTradeChatRoomIdFromMessengerDirectKey(
         (roomData as { direct_key?: unknown }).direct_key
       );
@@ -15929,16 +15928,6 @@ export async function sendCommunityMessengerMessage(input: {
       const unreadRpcError = (postInsertBatch[1] as { error?: { message?: string } | null })?.error;
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
-      if (itemTradeLedgerId) {
-        void mirrorCommunityMessengerTextToItemTradeLedger(sb as any, {
-          itemTradeChatRoomId: itemTradeLedgerId,
-          senderUserId: input.userId,
-          textContent: content,
-          createdAt,
-        }).catch(() => {
-          /* 원장은 베스트에포트 — 전송 RTT 에 chat_* 연쇄 쿼리를 끌어들이지 않음 */
-        });
       }
       const recipientUserIds = ((recipientRowsPrefetch ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
