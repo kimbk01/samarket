@@ -55,7 +55,7 @@ export function MessengerHomeSectionTabs({
     <div
       data-cm-primary-nav
       data-cm-messenger-section-tabs
-      className="sticky top-0 z-20 min-w-0 w-full overflow-x-hidden bg-[color:var(--messenger-bg)]"
+      className="min-w-0 w-full overflow-x-hidden bg-[color:var(--messenger-bg)]"
     >
       <div className="box-border py-2 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]">
         <div className="flex min-w-0 items-center gap-2">

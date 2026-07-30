@@ -79,6 +79,16 @@ describe("hub shell bottom padding", () => {
     expect(f.mainBottomClass).toBe("pb-0");
   });
 
+  it("/community-messenger hub list owns scroll without main-column lock", () => {
+    const f = resolveConditionalAppShellFlags("/community-messenger", false);
+    expect(f.isCommunityMessengerHubListSurface).toBe(true);
+    expect(f.isMainColumnViewportLocked).toBe(false);
+    const trade = resolveConditionalAppShellFlags("/community-messenger/trade-chats", false);
+    expect(trade.isCommunityMessengerHubListSurface).toBe(true);
+    const delivery = resolveConditionalAppShellFlags("/community-messenger/delivery-chats", false);
+    expect(delivery.isCommunityMessengerHubListSurface).toBe(true);
+  });
+
   it("delivery consumer surfaces with bottom nav use pb-0 on shell", () => {
     for (const path of [
       "/stores/browse/food",

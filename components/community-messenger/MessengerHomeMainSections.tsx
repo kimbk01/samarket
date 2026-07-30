@@ -168,7 +168,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
       className="flex min-h-0 min-w-0 flex-1 flex-col space-y-0"
     >
       <div
-        className="sticky top-0 z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
+        className="z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
         data-messenger-hub-sticky-chrome=""
       >
         {showSectionTabs && onPrimarySectionChange ? (

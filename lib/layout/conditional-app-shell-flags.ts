@@ -128,6 +128,11 @@ export type ConditionalAppShellResolvedFlags = {
   /** `/stores/[slug]/cart|checkout` — 헤더·주문바 고정용 뷰포트 잠금 */
   isStoreCommerceCartCheckoutPage: boolean;
   isMainColumnViewportLocked: boolean;
+  /**
+   * 메신저 허브·거래/배달 목록 — `[data-messenger-hub-list-scroll]` 단일 스크롤.
+   * `isMainColumnViewportLocked` 에 합치지 않음(합치면 hubScrollColumn 꺼져 1단 헤더 유실).
+   */
+  isCommunityMessengerHubListSurface: boolean;
   /** `/stores/owner/*` 매장 오너 운영 센터 */
   isStoreOwnerAdminRoute: boolean;
 };
@@ -167,6 +172,14 @@ export function resolveConditionalAppShellFlags(
   /** cart/checkout·주소 관리·매장 주문 리뷰 — `main` flex 잠금, 페이지 내부 스크롤 */
   const isMainColumnViewportLocked =
     isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage;
+  /**
+   * 메신저 허브·거래/주문 목록 — list SSOT 스크롤.
+   * DO NOT fold into isMainColumnViewportLocked — hubScrollColumn(AppStickyHeader) 유지.
+   */
+  const isCommunityMessengerHubListSurface =
+    pathname === "/community-messenger" ||
+    pathname === "/community-messenger/trade-chats" ||
+    pathname === "/community-messenger/delivery-chats";
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -355,6 +368,7 @@ export function resolveConditionalAppShellFlags(
     showRegionBar: showRegionBarComputed,
     isStoreCommerceCartCheckoutPage,
     isMainColumnViewportLocked: isChatRoomDetail || isMainColumnViewportLocked,
+    isCommunityMessengerHubListSurface,
     isStoreOwnerAdminRoute,
   };
 }

@@ -277,12 +277,14 @@ export function ConditionalAppShell({
       : mainScrollInMainColumn
         ? MAIN_COLUMN_SCROLL_CLASS
         : "overflow-x-hidden";
+  const fillColumnForChildScroll =
+    f.isMainColumnViewportLocked ||
+    f.isStoreOwnerAdminRoute ||
+    f.isCommunityMessengerHubListSurface;
   const mainInnerColumn = (
     <div
       className={`${APP_MAIN_COLUMN_CLASS} ${
-        f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-          ? " flex min-h-0 min-w-0 flex-1 flex-col"
-          : ""
+        fillColumnForChildScroll ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
       }`}
     >
       {children}
@@ -295,7 +297,13 @@ export function ConditionalAppShell({
       contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
       {hubScrollColumn ? (
-        <MainHubScrollBody className={mainSurfaceClass}>{mainInnerColumn}</MainHubScrollBody>
+        <MainHubScrollBody
+          className={`${mainSurfaceClass}${
+            f.isCommunityMessengerHubListSurface ? " main-hub-scroll-body--child-scroll-lock" : ""
+          }`}
+        >
+          {mainInnerColumn}
+        </MainHubScrollBody>
       ) : (
         <div
           className={`min-h-0 min-w-0 flex-1 flex-col ${

@@ -2879,10 +2879,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data-cm-messenger-home-root
       className={
         tabletSplitListOnly
-          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-0 bg-[color:var(--messenger-bg)] px-0 py-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
           : fromPhilifeHeaderStack
-          ? `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
-          : `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 pt-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          : `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
       }
     >
       <CommunityMessengerHomeReturnConsume />
