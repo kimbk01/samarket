@@ -27,7 +27,7 @@ import {
   stabilizeSoCustomerListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
 export type { SoCustomerListDto };
@@ -88,7 +88,9 @@ export function DomainStoreOrderCustomerListCanaryGate({
 }) {
   void _filter;
   const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
-  const clearanceClass = bottomNavOccupiesClearance ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS : "";
+  const listScrollInsetClass = bottomNavOccupiesClearance
+    ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
+    : "";
   const [{ mode: initialMode, dto: initialDto }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
@@ -204,7 +206,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className="flex h-full min-h-0 flex-col bg-sam-app"
         data-domain-so-customer-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
@@ -214,7 +216,11 @@ export function DomainStoreOrderCustomerListCanaryGate({
             <div className="text-base font-semibold text-sam-fg">{title}</div>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
+          data-messenger-hub-list-scroll=""
+          data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+        >
           <DomainListRowSkeleton />
         </div>
       </div>
@@ -224,7 +230,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className="flex h-full min-h-0 flex-col bg-sam-app"
         data-domain-so-customer-list="error"
         data-domain-list-mode="domain"
       >
@@ -256,7 +262,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+      className="flex h-full min-h-0 flex-col bg-sam-app"
       data-domain-so-customer-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}
@@ -272,7 +278,11 @@ export function DomainStoreOrderCustomerListCanaryGate({
           ) : null}
         </div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
+      <div
+        className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
+        data-messenger-hub-list-scroll=""
+        data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+      >
         {dto.rows.map((row) => (
           <DomainCanaryShellRow
             key={row.roomId}

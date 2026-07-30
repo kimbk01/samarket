@@ -3,9 +3,10 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 /**
- * BottomNav chrome SSOT for scroll-hide + body clearance.
- * `occupiesClearance` = mounted BottomNav AND not scroll-hidden.
- * DO NOT add keyboard / Zustand switches — route + scroll only.
+ * BottomNav chrome SSOT.
+ * - `hidden`: scroll-hide visual only (transform). Never drives layout clearance.
+ * - `occupiesClearance`: `showBottomNavEffective` mount only — never gated by scroll-hide.
+ * DO NOT add keyboard / Zustand / section switches.
  */
 export type BottomNavScrollChromeValue = {
   hidden: boolean;
@@ -26,7 +27,7 @@ export function BottomNavScrollChromeProvider({
   children,
 }: {
   hidden: boolean;
-  /** `showBottomNavEffective && !hidden` — single clearance authority */
+  /** Mount authority only: `showBottomNavEffective` (never gated by scroll-hide) */
   occupiesClearance: boolean;
   children: ReactNode;
 }) {
@@ -43,7 +44,7 @@ export function useBottomNavScrollChromeHidden(): boolean {
   return useContext(BottomNavScrollChromeContext).hidden;
 }
 
-/** True only while main BottomNav is mounted and not scroll-hidden. */
+/** True while main BottomNav is mounted — independent of scroll-hide. */
 export function useBottomNavOccupiesClearance(): boolean {
   return useContext(BottomNavScrollChromeContext).occupiesClearance;
 }

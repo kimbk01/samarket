@@ -5,6 +5,14 @@ import { isMypageHomePath } from "@/lib/mypage/mypage-profile-routes";
 export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
   "pb-[calc(60px+var(--safe-bottom))]";
 
+/**
+ * Messenger list scrollport inset — SAME length as hub clearance.
+ * Apply ONLY on `[data-messenger-hub-list-scroll]` (not outer shell).
+ * DO NOT toggle with scroll-hide — hide is transform-only; inset follows mount.
+ */
+export const MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS =
+  MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
+
 function normalizeHubPath(pathname: string | null | undefined): string {
   return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
 }

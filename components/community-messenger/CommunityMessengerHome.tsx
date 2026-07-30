@@ -36,8 +36,6 @@ import {
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
 import {
   resolveImportantRoomHighlightReason,
@@ -2875,23 +2873,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [setData]
   );
 
-  /** BottomNav clearance — Provider SSOT only (mount && !scrollHidden). */
-  const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
-  const hubBottomClearanceClass = bottomNavOccupiesClearance
-    ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS
-    : "";
-
   return (
     <div
       data-messenger-shell
       data-cm-messenger-home-root
-      data-cm-bottom-nav-occupies-clearance={bottomNavOccupiesClearance ? "1" : "0"}
       className={
         tabletSplitListOnly
-          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 ${hubBottomClearanceClass} text-[color:var(--messenger-text)]`
+          ? "flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 text-[color:var(--messenger-text)]"
           : fromPhilifeHeaderStack
-          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 pt-0 ${hubBottomClearanceClass} text-[color:var(--messenger-text)]`
-          : `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-2 ${hubBottomClearanceClass} text-[color:var(--messenger-text)]`
+          ? "flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 pt-0 text-[color:var(--messenger-text)]"
+          : "flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-2 text-[color:var(--messenger-text)]"
       }
     >
       <CommunityMessengerHomeReturnConsume />

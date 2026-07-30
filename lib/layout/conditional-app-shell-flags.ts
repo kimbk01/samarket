@@ -299,6 +299,11 @@ export function resolveConditionalAppShellFlags(
     !isCommunityMessengerCallPage;
   const chatDetailUsesZeroBottomPadding =
     isChatRoomDetail && (!isCommunityMessengerRoom || isCommunityMessengerCallPage);
+  /**
+   * Shell `pb-0` only when hub body owns padding.
+   * DO NOT use `showBottomNav` (viewport-blind) as messenger list inset / occupiesClearance
+   * authority — that is `showBottomNavEffective` via BottomNavScrollChromeProvider only.
+   */
   const hubBodyBottomNavClearance = isMainBottomNavHubBodyClearancePath(pathname) && showBottomNav;
   const mainBottomClass = chatDetailUsesZeroBottomPadding
     ? "pb-0"

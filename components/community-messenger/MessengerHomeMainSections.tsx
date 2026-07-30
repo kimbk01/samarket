@@ -28,6 +28,8 @@ import type {
   UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 type Props = {
   mainSection: MessengerMainSection;
@@ -161,6 +163,11 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onPrimarySectionChange,
   archiveDetailExternal = false,
 }: Props) {
+  /** Mount-only inset on scrollport — never coupled to scroll-hide. */
+  const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
+  const listScrollInsetClass = bottomNavOccupiesClearance
+    ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
+    : "";
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
   const showInlineFriendSearch =
     mainSection === "friends" ||
@@ -197,8 +204,9 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         ) : null}
       </div>
       <div
-        className={`min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain ${showSectionTabs ? "px-0" : "px-3"}`}
+        className={`min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain ${showSectionTabs ? "px-0" : "px-3"} ${listScrollInsetClass}`}
         data-messenger-hub-list-scroll=""
+        data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
         onPointerDownCapture={(e) => {

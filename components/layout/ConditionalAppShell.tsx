@@ -320,8 +320,11 @@ export function ConditionalAppShell({
     </MainShellTabContentTransition>
   );
   const bottomNavScrollHidden = Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll);
-  /** Clearance SSOT — mount effective AND not scroll-hidden (no keyboard/Zustand). */
-  const bottomNavOccupiesClearance = showBottomNavEffective && !bottomNavScrollHidden;
+  /**
+   * Clearance SSOT — mount only (`showBottomNavEffective`).
+   * DO NOT couple to scroll-hide: hide is transform-only; coupling caused hub thrash.
+   */
+  const bottomNavOccupiesClearance = showBottomNavEffective;
   return (
     <BottomNavScrollChromeProvider
       hidden={bottomNavScrollHidden}

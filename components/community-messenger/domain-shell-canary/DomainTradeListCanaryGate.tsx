@@ -27,7 +27,7 @@ import {
   filterTradeListRowsByRole,
   type TradeListRoleFilter,
 } from "@/lib/messenger/trade/list-sort-filter";
-import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
 export type TradeListDto = {
@@ -123,7 +123,9 @@ export function DomainTradeListCanaryGate({
 }) {
   void _filter;
   const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
-  const clearanceClass = bottomNavOccupiesClearance ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS : "";
+  const listScrollInsetClass = bottomNavOccupiesClearance
+    ? MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS
+    : "";
   const [{ mode: initialMode, dto: initialDto, needsRefetch: initialNeedsRefetch }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainTradeListCanaryCache(syncUid);
@@ -283,7 +285,7 @@ export function DomainTradeListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className="flex h-full min-h-0 flex-col bg-sam-app"
         data-domain-trade-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
@@ -293,7 +295,11 @@ export function DomainTradeListCanaryGate({
             <div className="text-base font-semibold text-sam-fg">{title}</div>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
+          data-messenger-hub-list-scroll=""
+          data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+        >
           <DomainListRowSkeleton />
         </div>
       </div>
@@ -303,7 +309,7 @@ export function DomainTradeListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className="flex h-full min-h-0 flex-col bg-sam-app"
         data-domain-trade-list="error"
         data-domain-list-mode="domain"
       >
@@ -335,7 +341,7 @@ export function DomainTradeListCanaryGate({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+      className="flex h-full min-h-0 flex-col bg-sam-app"
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}
@@ -379,7 +385,11 @@ export function DomainTradeListCanaryGate({
           })}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
+      <div
+        className={`min-h-0 flex-1 overflow-y-auto ${listScrollInsetClass}`}
+        data-messenger-hub-list-scroll=""
+        data-cm-list-scroll-bottom-inset={bottomNavOccupiesClearance ? "1" : "0"}
+      >
         {visibleRows.map((row) => (
           <TradeDomainShellRow
             key={row.roomId}
