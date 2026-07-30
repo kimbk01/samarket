@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   isMainBottomNavHubBodyClearancePath,
   MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS,
+  MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS,
+  resolveMainBottomNavBodyClearanceClass,
 } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
@@ -34,6 +36,15 @@ describe("main-bottom-nav-hub-clearance", () => {
   it("uses tab height + safe-area only", () => {
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("60px");
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("--safe-bottom");
+  });
+
+  it("scroll-hide drops tab clearance but keeps safe-bottom (portrait+landscape)", () => {
+    expect(resolveMainBottomNavBodyClearanceClass(false)).toBe(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS);
+    expect(resolveMainBottomNavBodyClearanceClass(true)).toBe(
+      MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS
+    );
+    expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS).toContain("--safe-bottom");
+    expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS).not.toContain("60px");
   });
 
   it("delivery consumer clearance paths align with delivery-bottom-nav-layout", () => {
