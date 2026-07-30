@@ -143,6 +143,8 @@ async function fetchProfileRestricted(
 function evaluateExplicitPrivacyDeny(input: {
   policy: DirectCallPolicy;
   friendship: FriendshipPairResolution;
+  /** Callee saved caller as contact — Telegram contacts-only direction. */
+  calleeSavedCaller: boolean;
   listPolicy?: DirectCallListPolicy;
   callerUserId: string;
 }): DirectCallPermissionResult | null {
@@ -161,14 +163,18 @@ function evaluateExplicitPrivacyDeny(input: {
   if (input.policy === "everybody") {
     return null;
   }
-  /** friends_only — 사용자가 명시적으로 설정한 경우만 비친구 차단 */
+  /**
+   * friends_only / contacts — 수신자(callee)가 발신자를 자기 연락처에 저장했을 때만 허용.
+   * 발신자가 수신자를 저장한 사실만으로는 통과하지 않는다.
+   */
   if (input.policy === "friends_only") {
-    if (input.friendship.state === "accepted") {
+    if (input.calleeSavedCaller) {
       return null;
     }
     if (caller && allow.includes(caller)) {
       return null;
     }
+    void input.friendship;
     return { allowed: false, code: "deny_privacy", relationLabel: "stranger" };
   }
   return null;
@@ -330,6 +336,7 @@ export async function canStartDirectCallBetweenUsers(
   const privacyDeny = evaluateExplicitPrivacyDeny({
     policy: calleePolicy,
     friendship,
+    calleeSavedCaller: savedByPeer,
     listPolicy: args.listPolicy,
     callerUserId,
   });

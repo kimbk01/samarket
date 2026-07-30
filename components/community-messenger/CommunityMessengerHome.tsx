@@ -1415,10 +1415,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       try {
         const result = await postCommunityMessengerFriendRequestApi(targetUserId);
         if (result.ok) {
-          showMessengerSnackbar(
-            t(result.mergedFromIncoming ? "cm_ui_friend_accept_success_snackbar" : "cm_ui_sent_friend_request"),
-            { variant: "success" }
-          );
+          showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
           void hydrateMessengerFriends();
           const roomId = result.directRoomId?.trim();
           if (roomId) {

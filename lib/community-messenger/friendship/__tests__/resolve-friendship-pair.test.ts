@@ -12,12 +12,8 @@ vi.mock("@/lib/community-messenger/friendship/community-messenger-friendships-ss
   };
 });
 
+import { fetchFriendshipPairRow } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 import {
-  fetchFriendshipPairRow,
-  listFriendshipSsotRowsForViewer,
-} from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
-import {
-  listAcceptedFriendshipPeersForViewer,
   listContactFriendPeersForViewer,
   mapFriendshipDirectionFromSsot,
   mapFriendshipPairStateFromSsotRow,
@@ -41,18 +37,13 @@ function row(partial: Partial<FriendshipSsotRow> & Pick<FriendshipSsotRow, "stat
   };
 }
 
-function mockSbSocialAndLegacy({
-  mutualFriend = false,
+function mockSbContact({
   viewerSavedPeer = false,
-  legacyAccepted = false,
   contactList = [] as Array<{ target_user_id: string; created_at?: string }>,
 }: {
-  mutualFriend?: boolean;
   viewerSavedPeer?: boolean;
-  legacyAccepted?: boolean;
   contactList?: Array<{ target_user_id: string; created_at?: string }>;
 } = {}) {
-  const savedPair = mutualFriend || viewerSavedPeer;
   const from = vi.fn((table: string) => {
     if (table === "user_social_relations") {
       return {
@@ -68,11 +59,11 @@ function mockSbSocialAndLegacy({
             };
           }
           const chain = {
-            eq: vi.fn(function eq(this: unknown, col: string, val: string) {
+            eq: vi.fn(function eq(this: unknown, col: string, _val: string) {
               if (col === "relation_type") {
                 return {
                   maybeSingle: vi.fn().mockResolvedValue({
-                    data: savedPair ? { id: "sr-1" } : null,
+                    data: viewerSavedPeer ? { id: "sr-1" } : null,
                     error: null,
                   }),
                 };
@@ -80,28 +71,12 @@ function mockSbSocialAndLegacy({
               return chain;
             }),
             maybeSingle: vi.fn().mockResolvedValue({
-              data: savedPair ? { id: "sr-1" } : null,
+              data: viewerSavedPeer ? { id: "sr-1" } : null,
               error: null,
             }),
           };
           return chain;
         }),
-      };
-    }
-    if (table === "community_friend_requests") {
-      return {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            or: vi.fn(() => ({
-              limit: vi.fn(() => ({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: legacyAccepted ? { id: "legacy-1" } : null,
-                  error: null,
-                }),
-              })),
-            })),
-          })),
-        })),
       };
     }
     return { select: vi.fn() };
@@ -116,35 +91,14 @@ describe("mapFriendshipPairStateFromSsotRow", () => {
     expect(mapFriendshipPairStateFromSsotRow(row({ status: "blocked" }), NOW)).toBe("blocked");
     expect(mapFriendshipPairStateFromSsotRow(row({ status: "removed" }), NOW)).toBe("removed");
   });
-
-  it("maps readd_cooldown when until is in the future", () => {
-    expect(
-      mapFriendshipPairStateFromSsotRow(
-        row({ status: "accepted", readd_blocked_until: "2026-07-01T00:00:00.000Z" }),
-        NOW
-      )
-    ).toBe("readd_cooldown");
-  });
-
-  it("uses status when readd_cooldown expired", () => {
-    expect(
-      mapFriendshipPairStateFromSsotRow(
-        row({ status: "accepted", readd_blocked_until: "2026-06-01T00:00:00.000Z" }),
-        NOW
-      )
-    ).toBe("accepted");
-  });
 });
 
-describe("mapFriendshipDirectionFromSsot", () => {
-  it("maps mutual_accepted, outgoing, incoming, none", () => {
-    const pendingOut = row({ status: "pending", requester_user_id: VIEWER, addressee_user_id: PEER });
-    const pendingIn = row({ status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER });
-    expect(mapFriendshipDirectionFromSsot(VIEWER, row({ status: "accepted" }), "accepted")).toBe("mutual_accepted");
-    expect(mapFriendshipDirectionFromSsot(VIEWER, pendingOut, "pending")).toBe("outgoing_pending");
-    expect(mapFriendshipDirectionFromSsot(VIEWER, pendingIn, "pending")).toBe("incoming_pending");
-    expect(mapFriendshipDirectionFromSsot(VIEWER, row({ status: "blocked" }), "blocked")).toBe("none");
-    expect(mapFriendshipDirectionFromSsot(VIEWER, null, "none")).toBe("none");
+describe("mapFriendshipDirectionFromSsot — Contact LOCK", () => {
+  it("maps accepted to mutual_accepted label; pending unused", () => {
+    expect(mapFriendshipDirectionFromSsot(VIEWER, row({ status: "accepted" }), "accepted")).toBe(
+      "mutual_accepted"
+    );
+    expect(mapFriendshipDirectionFromSsot(VIEWER, row({ status: "pending" }), "pending")).toBe("none");
   });
 });
 
@@ -159,155 +113,55 @@ describe("peerUserIdFromFriendshipSsotRow", () => {
   });
 });
 
-describe("resolveFriendshipPair", () => {
+describe("resolveFriendshipPair — Contact only", () => {
   beforeEach(() => {
     vi.mocked(fetchFriendshipPairRow).mockReset();
-    vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
   });
 
   it("returns none for empty ids or same user", async () => {
     const r = await resolveFriendshipPair({} as any, "", PEER);
     expect(r.state).toBe("none");
-    expect(r.direction).toBe("none");
     expect(r.source).toBe("none");
   });
 
-  it("returns contact save as accepted before SSOT row lookup", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(
-      row({ status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER })
-    );
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy({ viewerSavedPeer: true }), VIEWER, PEER, {
-      nowMs: NOW,
-    });
+  it("returns contact save as accepted", async () => {
+    const r = await resolveFriendshipPair(mockSbContact({ viewerSavedPeer: true }), VIEWER, PEER);
     expect(r.state).toBe("accepted");
     expect(r.source).toBe("social_relations");
     expect(fetchFriendshipPairRow).not.toHaveBeenCalled();
   });
 
-  it("returns SSOT accepted with mutual_accepted direction", async () => {
-    const ssotRow = row({ status: "accepted" });
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(ssotRow);
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy(), VIEWER, PEER, { nowMs: NOW });
-    expect(r.state).toBe("accepted");
-    expect(r.direction).toBe("mutual_accepted");
-    expect(r.source).toBe("friendships_ssot");
-    expect(r.row).toBe(ssotRow);
-  });
-
-  it("returns SSOT pending incoming direction", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(
-      row({ status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER })
-    );
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy(), VIEWER, PEER, { nowMs: NOW });
-    expect(r.state).toBe("pending");
-    expect(r.direction).toBe("incoming_pending");
-  });
-
-  it("returns SSOT pending outgoing direction", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(
-      row({ status: "pending", requester_user_id: VIEWER, addressee_user_id: PEER })
-    );
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy(), VIEWER, PEER, { nowMs: NOW });
-    expect(r.direction).toBe("outgoing_pending");
-  });
-
-  it("returns SSOT blocked with none direction", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(row({ status: "blocked" }));
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy(), VIEWER, PEER, { nowMs: NOW });
-    expect(r.state).toBe("blocked");
-    expect(r.direction).toBe("none");
-  });
-
-  it("falls back to social_relations accepted when no SSOT row", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(null);
-    const r = await resolveFriendshipPair(mockSbSocialAndLegacy({ mutualFriend: true }), VIEWER, PEER, {
-      nowMs: NOW,
-    });
-    expect(r.state).toBe("accepted");
-    expect(r.direction).toBe("mutual_accepted");
-    expect(r.source).toBe("social_relations");
-    expect(r.row).toBeNull();
-  });
-
-  it("falls back to legacy_requests accepted when no SSOT row", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(null);
-    const r = await resolveFriendshipPair(
-      mockSbSocialAndLegacy({ mutualFriend: false, legacyAccepted: true }),
-      VIEWER,
-      PEER,
-      { nowMs: NOW }
-    );
-    expect(r.state).toBe("accepted");
-    expect(r.source).toBe("legacy_requests");
+  it("ignores friendships SSOT when no contact — returns none", async () => {
+    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(row({ status: "accepted" }));
+    const r = await resolveFriendshipPair(mockSbContact(), VIEWER, PEER);
+    expect(r.state).toBe("none");
+    expect(r.source).toBe("none");
   });
 });
 
 describe("listContactFriendPeersForViewer", () => {
-  beforeEach(() => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
-  });
-
-  it("lists contact saves and legacy SSOT accepted peers", async () => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
-      row({ id: "a1", status: "accepted", requester_user_id: VIEWER, addressee_user_id: PEER }),
-      row({ id: "p1", status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER }),
-    ]);
-    const sb = mockSbSocialAndLegacy({
-      contactList: [{ target_user_id: "33333333-3333-3333-3333-333333333333", created_at: "2026-06-29T00:00:00.000Z" }],
-    });
-    const list = await listContactFriendPeersForViewer(sb, VIEWER, { nowMs: NOW });
-    expect(list.map((e) => e.peerUserId).sort()).toEqual(
-      [PEER, "33333333-3333-3333-3333-333333333333"].sort()
+  it("lists contact saves only", async () => {
+    const peers = await listContactFriendPeersForViewer(
+      mockSbContact({
+        contactList: [{ target_user_id: PEER, created_at: "2026-06-01T00:00:00.000Z" }],
+      }),
+      VIEWER
     );
+    expect(peers).toEqual([
+      {
+        peerUserId: PEER,
+        savedAt: "2026-06-01T00:00:00.000Z",
+        source: "social_relations",
+        row: null,
+      },
+    ]);
   });
 });
 
-describe("listAcceptedFriendshipPeersForViewer", () => {
-  beforeEach(() => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
-  });
-
-  it("lists accepted peers with SSOT rows only (alias)", async () => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
-      row({ id: "a1", status: "accepted", requester_user_id: VIEWER, addressee_user_id: PEER }),
-      row({ id: "p1", status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER }),
-      row({
-        id: "c1",
-        status: "accepted",
-        readd_blocked_until: "2026-07-01T00:00:00.000Z",
-        requester_user_id: VIEWER,
-        addressee_user_id: "22222222-2222-2222-2222-222222222222",
-      }),
-    ]);
-    const list = await listAcceptedFriendshipPeersForViewer(
-      mockSbSocialAndLegacy({
-        contactList: [],
-      }),
-      VIEWER,
-      { nowMs: NOW }
-    );
-    expect(list).toHaveLength(1);
-    expect(list[0]?.peerUserId).toBe(PEER);
-  });
-});
-
-describe("getFriendshipPairState delegation", () => {
-  beforeEach(() => {
-    vi.mocked(fetchFriendshipPairRow).mockReset();
-  });
-
+describe("getFriendshipPairState", () => {
   it("delegates to resolveFriendshipPair", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(row({ status: "accepted" }));
-    const resolved = await getFriendshipPairState(mockSbSocialAndLegacy(), VIEWER, PEER, { nowMs: NOW });
-    expect(resolved.state).toBe("accepted");
-    expect(resolved.source).toBe("friendships_ssot");
-  });
-});
-
-describe("Gate A — resolver uniqueness contract", () => {
-  it("exports resolveFriendshipPair as the pair judgment entry", async () => {
-    const mod = await import("@/lib/community-messenger/friendship/resolve-friendship-pair");
-    expect(typeof mod.resolveFriendshipPair).toBe("function");
-    expect(typeof mod.listAcceptedFriendshipPeersForViewer).toBe("function");
+    const r = await getFriendshipPairState(mockSbContact({ viewerSavedPeer: true }), VIEWER, PEER);
+    expect(r.state).toBe("accepted");
+    expect(r.source).toBe("social_relations");
   });
 });

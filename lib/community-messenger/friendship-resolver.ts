@@ -41,16 +41,14 @@ export async function getFriendshipPairState(
   };
 }
 
-/** UI·guard·group invite — viewer saved contact OR legacy accepted fallback (P1). */
+/** UI·guard·group invite — viewer-local contact only (Telegram unilateral). */
 export async function isAcceptedFriendPair(
   sb: SupabaseClient<any> | null,
   userId: string,
   targetUserId: string,
-  options?: { nowMs?: number }
+  _options?: { nowMs?: number }
 ): Promise<boolean> {
-  if (sb && (await isFriendSavedByOwner(sb, userId, targetUserId))) return true;
-  const resolved = await resolveFriendshipPair(sb, userId, targetUserId, options);
-  return resolved.state === "accepted";
+  return isFriendSavedByOwner(sb, userId, targetUserId);
 }
 
 async function isFriendSavedRow(

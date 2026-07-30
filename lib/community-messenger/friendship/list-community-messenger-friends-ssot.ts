@@ -1,6 +1,6 @@
 /**
- * Friend List read path — viewer-local contact + legacy accepted fallback (P1).
- * Design: docs/community-messenger/friendship-ssot-design.md (G1 amendment)
+ * Friend List read path — viewer-local contact only (Telegram unilateral).
+ * LOCK: docs/community-messenger/friend-contact-ssot-lock.md
  */
 
 import {
@@ -34,7 +34,7 @@ async function listFavoriteFriendTargetIds(
     .filter(Boolean);
 }
 
-/** GET /api/community-messenger/friends — contact saves + legacy accepted fallback. */
+/** GET /api/community-messenger/friends — viewer contact saves only. */
 export async function listCommunityMessengerFriendsFromSsot(
   userId: string,
   options?: { nowMs?: number }

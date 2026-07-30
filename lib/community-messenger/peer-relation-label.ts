@@ -20,16 +20,17 @@ export type PeerRelationLabelInput = {
   friendship?: FriendshipPairResolution | null;
 };
 
-/** mutual = friendships accepted 또는 양쪽 friend 저장 */
+/**
+ * mutual = 양쪽 unilateral contact 저장만.
+ * friendship.state=accepted 는 viewer→peer 연락처 저장과 동치이며 mutual 이 아니다.
+ */
 export function resolvePeerRelationLabel(input: PeerRelationLabelInput): PeerRelationLabel {
   if (input.blockedEitherWay || input.blockedByMe) return "blocked";
   const friendshipState = input.friendship?.state;
   if (friendshipState === "blocked") return "blocked";
 
-  const mutualFromFriendship = friendshipState === "accepted";
-  const mutualFromSaves = input.savedByMe && input.savedByPeer;
-  if (mutualFromFriendship || mutualFromSaves) return "mutual_friend";
-  if (input.savedByMe) return "saved_by_me";
+  if (input.savedByMe && input.savedByPeer) return "mutual_friend";
+  if (input.savedByMe || friendshipState === "accepted") return "saved_by_me";
   if (input.savedByPeer) return "saved_by_peer";
   return "stranger";
 }

@@ -54,11 +54,11 @@ describe("Gate D — bootstrap/home-sync SSOT friends path", () => {
     expect(src).not.toContain("resolveBootstrapAcceptedFriendRows");
   });
 
-  it("listCommunityMessengerFriends legacy body unchanged (Step 2 LOCK)", async () => {
+  it("listCommunityMessengerFriends routes to FromSsot (Contact LOCK)", async () => {
     const src = await readRepoFile("../../service.ts");
     const body = extractFunctionBody(src, "export async function listCommunityMessengerFriends");
-    expect(body).toContain("fetchCommunityFriendAcceptedRowsForViewer");
-    expect(body).not.toContain("listBootstrapAcceptedFriendRowsFromSsot");
+    expect(body).toContain("listCommunityMessengerFriendsFromSsot");
+    expect(body).not.toContain("fetchCommunityFriendAcceptedRowsForViewer");
   });
 
   it("GET /api/friends route still uses SSOT list (Step 2 LOCK)", async () => {
@@ -67,9 +67,9 @@ describe("Gate D — bootstrap/home-sync SSOT friends path", () => {
     expect(src).not.toMatch(/listCommunityMessengerFriends\s*\(/);
   });
 
-  it("home realtime subscribes community_messenger_friendships for refresh", async () => {
+  it("home realtime subscribes user_social_relations for contact refresh", async () => {
     const src = await readRepoFile("../../realtime/community-messenger-home-realtime-channels.ts");
-    expect(src).toContain('table: "community_messenger_friendships"');
+    expect(src).toContain('table: "user_social_relations"');
   });
 });
 

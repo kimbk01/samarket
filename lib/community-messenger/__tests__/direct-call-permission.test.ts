@@ -114,15 +114,23 @@ describe("resolveDirectCallPolicy", () => {
 });
 
 describe("resolvePeerRelationLabel", () => {
-  it("classifies mutual friend and stranger", () => {
+  it("classifies mutual only when both sides saved", () => {
     expect(
       resolvePeerRelationLabel({
         blockedEitherWay: false,
         savedByMe: true,
         savedByPeer: true,
-        friendship: { state: "accepted", source: "friendships_ssot" },
+        friendship: { state: "accepted", source: "social_relations" },
       })
     ).toBe("mutual_friend");
+    expect(
+      resolvePeerRelationLabel({
+        blockedEitherWay: false,
+        savedByMe: true,
+        savedByPeer: false,
+        friendship: { state: "accepted", source: "social_relations" },
+      })
+    ).toBe("saved_by_me");
     expect(
       resolvePeerRelationLabel({
         blockedEitherWay: false,
@@ -194,17 +202,16 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
     expect(result).toEqual({ allowed: false, code: "deny_blocked", relationLabel: "blocked" });
   });
 
-  it("M: mutual friend allows without extra privacy gate", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" });
+  it("M: mutual contact saves allow without extra privacy gate", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "everyone", status: "active" },
+      [],
+      null,
+      [
+        { owner_user_id: CALLER, target_user_id: CALLEE },
+        { owner_user_id: CALLEE, target_user_id: CALLER },
+      ]
+    );
     const result = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
@@ -213,6 +220,40 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
       skipRoomCheck: true,
     });
     expect(result).toMatchObject({ allowed: true, relationLabel: "mutual_friend" });
+  });
+
+  it("friends_only allows when callee saved caller (Telegram direction)", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "friends_only", status: "active" },
+      [],
+      null,
+      [{ owner_user_id: CALLEE, target_user_id: CALLER }]
+    );
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      callKind: "audio",
+      supabase: sb,
+      skipRoomCheck: true,
+    });
+    expect(result).toMatchObject({ allowed: true, relationLabel: "saved_by_peer" });
+  });
+
+  it("friends_only denies when only caller saved callee", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "friends_only", status: "active" },
+      [],
+      null,
+      [{ owner_user_id: CALLER, target_user_id: CALLEE }]
+    );
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      callKind: "audio",
+      supabase: sb,
+      skipRoomCheck: true,
+    });
+    expect(result).toMatchObject({ allowed: false, code: "deny_privacy", relationLabel: "saved_by_me" });
   });
 
   it("N: hidden room is not a deny reason when room active", async () => {
@@ -243,17 +284,16 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
     expect(result).toMatchObject({ allowed: false, code: "deny_privacy" });
   });
 
-  it("nobody policy denies even mutual friend", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "nobody", status: "active" });
+  it("nobody policy denies even mutual contact", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "nobody", status: "active" },
+      [],
+      null,
+      [
+        { owner_user_id: CALLER, target_user_id: CALLEE },
+        { owner_user_id: CALLEE, target_user_id: CALLER },
+      ]
+    );
     const result = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
@@ -313,19 +353,15 @@ describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
 });
 
 describe("getFriendshipPairState", () => {
-  it("prioritizes friendships SSOT accepted", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ status: "active" });
+  it("uses viewer-local contact save (social_relations)", async () => {
+    const sb = mockSb(
+      { status: "active" },
+      [],
+      null,
+      [{ owner_user_id: CALLER, target_user_id: CALLEE }]
+    );
     const resolved = await getFriendshipPairState(sb, CALLER, CALLEE);
     expect(resolved.state).toBe("accepted");
-    expect(resolved.source).toBe("friendships_ssot");
+    expect(resolved.source).toBe("social_relations");
   });
 });

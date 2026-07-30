@@ -206,18 +206,20 @@ export function communityMessengerFriendRequestFailureMessage(
   }
   switch (err) {
     case "blocked_target":
-      return "차단 상태에서는 친구 요청을 보낼 수 없습니다.";
+      return "차단 상태에서는 친구를 추가할 수 없습니다.";
     case "already_friend":
       return "이미 친구입니다.";
     case "already_requested":
-      return "이미 친구 요청을 보냈습니다.";
+      return "이미 친구입니다.";
     case "incoming_request_exists":
-      return "상대가 보낸 요청이 있습니다. 알림에서 수락할 수 있습니다.";
+      return "이미 친구입니다.";
+    case "friend_request_retired":
+      return "친구 신청 기능은 더 이상 사용되지 않습니다.";
     case "bad_target":
-      return "요청을 보낼 수 없습니다.";
+      return "친구를 추가할 수 없습니다.";
     case "network_error":
-      return "네트워크 오류로 요청을 보내지 못했습니다.";
+      return "네트워크 오류로 친구를 추가하지 못했습니다.";
     default:
-      return "친구 요청을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      return "친구를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
   }
 }

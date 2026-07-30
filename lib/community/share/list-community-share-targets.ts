@@ -1,8 +1,6 @@
 import type { CommunityShareTargetItem } from "@/components/community/share/CommunityShareTargetPicker";
-import {
-  listCommunityMessengerFriends,
-  listCommunityMessengerMyChatsAndGroups,
-} from "@/lib/community-messenger/service";
+import { listCommunityMessengerMyChatsAndGroups } from "@/lib/community-messenger/service";
+import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
 
 export async function listCommunityShareTargets(userId: string): Promise<{
   recent: CommunityShareTargetItem[];
@@ -10,7 +8,7 @@ export async function listCommunityShareTargets(userId: string): Promise<{
 }> {
   const [{ chats, groups }, friendProfiles] = await Promise.all([
     listCommunityMessengerMyChatsAndGroups(userId, { tier: "full", roomListCap: 30 }),
-    listCommunityMessengerFriends(userId),
+    listCommunityMessengerFriendsFromSsot(userId),
   ]);
 
   const roomRows = [...chats, ...groups].filter(

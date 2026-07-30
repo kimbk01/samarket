@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { FriendshipSsotRow } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 
 const VIEWER = "11111111-1111-1111-1111-111111111111";
 const PEER_A = "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
@@ -10,13 +9,13 @@ vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: vi.fn(),
 }));
 
-vi.mock("@/lib/community-messenger/friendship/community-messenger-friendships-ssot", async (importOriginal) => {
+vi.mock("@/lib/community-messenger/friendship/resolve-friendship-pair", async (importOriginal) => {
   const actual = await importOriginal<
-    typeof import("@/lib/community-messenger/friendship/community-messenger-friendships-ssot")
+    typeof import("@/lib/community-messenger/friendship/resolve-friendship-pair")
   >();
   return {
     ...actual,
-    listFriendshipSsotRowsForViewer: vi.fn(),
+    listContactFriendPeersForViewer: vi.fn(),
   };
 });
 
@@ -34,7 +33,7 @@ vi.mock("@/lib/community-messenger/service", async (importOriginal) => {
 });
 
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { listFriendshipSsotRowsForViewer } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
+import { listContactFriendPeersForViewer } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 import { listHiddenUserRelationshipRows } from "@/lib/community-messenger/social-relations";
 import {
   buildProfilesFromKnownRelations,
@@ -42,21 +41,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
 
-function ssotRow(partial: Partial<FriendshipSsotRow> & Pick<FriendshipSsotRow, "status">): FriendshipSsotRow {
-  return {
-    id: partial.id ?? "row-1",
-    requester_user_id: partial.requester_user_id ?? VIEWER,
-    addressee_user_id: partial.addressee_user_id ?? PEER_A,
-    created_at: partial.created_at ?? "2026-06-30T00:00:00.000Z",
-    updated_at: partial.updated_at ?? "2026-06-30T00:00:00.000Z",
-    ...partial,
-  };
-}
-
-function mockSbForFavorites(
-  favoriteIds: string[] = [],
-  contactRows: Array<{ target_user_id: string; created_at?: string }> = []
-) {
+function mockSbForFavorites(favoriteIds: string[] = []) {
   return {
     from: vi.fn((table: string) => {
       if (table === "community_friend_favorites") {
@@ -71,27 +56,15 @@ function mockSbForFavorites(
           })),
         };
       }
-      if (table === "user_social_relations") {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(async () => ({
-                data: contactRows,
-                error: null,
-              })),
-            })),
-          })),
-        };
-      }
       return { select: vi.fn() };
     }),
   };
 }
 
-describe("listCommunityMessengerFriendsFromSsot — Gate B", () => {
+describe("listCommunityMessengerFriendsFromSsot — Gate B (Contact SSOT)", () => {
   beforeEach(() => {
     vi.mocked(tryCreateSupabaseServiceClient).mockReset();
-    vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
+    vi.mocked(listContactFriendPeersForViewer).mockReset();
     vi.mocked(listHiddenUserRelationshipRows).mockReset();
     vi.mocked(hydrateProfilesLabelsOnlyWithMap).mockReset();
     vi.mocked(buildProfilesFromKnownRelations).mockReset();
@@ -99,28 +72,14 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B", () => {
     vi.mocked(tryCreateSupabaseServiceClient).mockReturnValue(mockSbForFavorites() as any);
   });
 
-  it("includes SSOT accepted peers only and maps accepted_at", async () => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
-      ssotRow({
-        id: "a1",
-        status: "accepted",
-        accepted_at: "2026-06-30T10:00:00.000Z",
-        requester_user_id: VIEWER,
-        addressee_user_id: PEER_A,
-      }),
-      ssotRow({
-        id: "p1",
-        status: "pending",
-        requester_user_id: PEER_B,
-        addressee_user_id: VIEWER,
-      }),
-      ssotRow({
-        id: "c1",
-        status: "accepted",
-        readd_blocked_until: "2026-07-01T00:00:00.000Z",
-        requester_user_id: VIEWER,
-        addressee_user_id: PEER_B,
-      }),
+  it("includes contact peers only and maps savedAt", async () => {
+    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([
+      {
+        peerUserId: PEER_A,
+        savedAt: "2026-06-30T10:00:00.000Z",
+        source: "social_relations",
+        row: null,
+      },
     ]);
 
     const profileMap = new Map([
@@ -170,9 +129,9 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B", () => {
   });
 
   it("excludes hidden friends from hydrate target ids", async () => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
-      ssotRow({ id: "a1", status: "accepted", addressee_user_id: PEER_A }),
-      ssotRow({ id: "a2", status: "accepted", addressee_user_id: PEER_B }),
+    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([
+      { peerUserId: PEER_A, savedAt: null, source: "social_relations", row: null },
+      { peerUserId: PEER_B, savedAt: null, source: "social_relations", row: null },
     ]);
     vi.mocked(listHiddenUserRelationshipRows).mockResolvedValue([
       { id: "h1", targetUserId: PEER_B, createdAt: "2026-06-30T00:00:00.000Z" },
@@ -188,10 +147,10 @@ describe("listCommunityMessengerFriendsFromSsot — Gate B", () => {
     expect(hydrateProfilesLabelsOnlyWithMap).toHaveBeenCalledWith(VIEWER, [PEER_A]);
   });
 
-  it("does not call legacy merge helpers (spy via ssot list only)", async () => {
-    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([]);
+  it("does not hydrate when contact list empty", async () => {
+    vi.mocked(listContactFriendPeersForViewer).mockResolvedValue([]);
     await listCommunityMessengerFriendsFromSsot(VIEWER, { nowMs: NOW });
-    expect(listFriendshipSsotRowsForViewer).toHaveBeenCalledTimes(1);
+    expect(listContactFriendPeersForViewer).toHaveBeenCalledTimes(1);
     expect(hydrateProfilesLabelsOnlyWithMap).not.toHaveBeenCalled();
   });
 });

@@ -3,7 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   removeCommunityMessengerFriend,
-  sendCommunityMessengerFriendRequest,
+  addCommunityMessengerFriendContact,
 } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
   }
 
-  const result = await sendCommunityMessengerFriendRequest(auth.userId, targetUserId);
+  const result = await addCommunityMessengerFriendContact(auth.userId, targetUserId);
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }
 

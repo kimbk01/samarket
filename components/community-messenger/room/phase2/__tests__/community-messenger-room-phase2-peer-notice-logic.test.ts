@@ -111,7 +111,7 @@ describe("resolvePeerNoticeBranch — P2 A/B", () => {
     ).toBe("add_contact");
   });
 
-  it("PN-01: initiator → none", () => {
+  it("PN-01: initiator stranger → add_contact (Telegram Contact)", () => {
     expect(
       resolvePeerNoticeBranch({
         isGeneralFriendDirect: true,
@@ -123,7 +123,7 @@ describe("resolvePeerNoticeBranch — P2 A/B", () => {
         peerRelationLabel: "stranger",
         isInboundRecipient: false,
       })
-    ).toBe("none");
+    ).toBe("add_contact");
   });
 
   it("PN-10: legacy pending direction ignored — recipient still add_contact", () => {
@@ -172,14 +172,14 @@ describe("resolvePeerNoticeBranch — P2 A/B", () => {
 });
 
 describe("shouldHidePeerAddContactForInitiator", () => {
-  it("hides add for initiator on general direct", () => {
+  it("does not hide add for initiator on general direct (Telegram Contact)", () => {
     expect(
       shouldHidePeerAddContactForInitiator({
         isGeneralFriendDirect: true,
         isInboundRecipient: false,
         isContactSaved: false,
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("shows add for recipient", () => {
@@ -188,6 +188,16 @@ describe("shouldHidePeerAddContactForInitiator", () => {
         isGeneralFriendDirect: true,
         isInboundRecipient: true,
         isContactSaved: false,
+      })
+    ).toBe(false);
+  });
+
+  it("hides when already contact", () => {
+    expect(
+      shouldHidePeerAddContactForInitiator({
+        isGeneralFriendDirect: true,
+        isInboundRecipient: false,
+        isContactSaved: true,
       })
     ).toBe(false);
   });

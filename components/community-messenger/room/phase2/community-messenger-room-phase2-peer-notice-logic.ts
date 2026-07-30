@@ -75,7 +75,9 @@ export function resolvePeerNoticeBranch(input: {
   ) {
     return "none";
   }
-  if (!input.isInboundRecipient) return "none";
+  // Telegram Contact: show Add|Block for any non-friend general 1:1 (search or inbound).
+  // Do not surface "blocked by peer" explicitly — stranger notice helper still gates exposure.
+  void input.isInboundRecipient;
   if (
     !shouldShowStrangerPeerNotice({
       relationLabel: input.peerRelationLabel,
@@ -88,7 +90,7 @@ export function resolvePeerNoticeBranch(input: {
   return "add_contact";
 }
 
-/** Dot menu — hide Add Contact for initiator (same rule as PeerNotice). */
+/** Dot menu — allow Add Contact for any non-friend general 1:1 (initiator or recipient). */
 export function shouldHidePeerAddContactForInitiator(input: {
   isGeneralFriendDirect: boolean;
   isInboundRecipient: boolean;
@@ -96,5 +98,6 @@ export function shouldHidePeerAddContactForInitiator(input: {
 }): boolean {
   if (!input.isGeneralFriendDirect) return false;
   if (input.isContactSaved) return false;
-  return !input.isInboundRecipient;
+  void input.isInboundRecipient;
+  return false;
 }

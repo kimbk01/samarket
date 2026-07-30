@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { respondIncomingCommunityMessengerFriendRequestByRequester } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Incoming friend-request respond retired — Telegram Contact LOCK. */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -14,32 +14,13 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:friend-request-respond-incoming:${getRateLimitKey(req, auth.userId)}`,
     limit: 45,
     windowMs: 60_000,
-    message: "친구 요청 처리 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_friend_request_respond_incoming_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { requesterUserId?: string; action?: "accept" | "reject" };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-
-  const action = body.action;
-  if (action !== "accept" && action !== "reject") {
-    return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
-  }
-
-  const requesterUserId = String(body.requesterUserId ?? "").trim();
-  if (!requesterUserId) {
-    return NextResponse.json({ ok: false, error: "bad_requester" }, { status: 400 });
-  }
-
-  const result = await respondIncomingCommunityMessengerFriendRequestByRequester(
-    auth.userId,
-    requesterUserId,
-    action
+  return NextResponse.json(
+    { ok: false, error: "friend_request_retired" },
+    { status: 410 }
   );
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }
