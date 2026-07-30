@@ -99,6 +99,23 @@ export async function GET(
   }
   seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomId = canon.canonicalRoomId;
+
+  {
+    const { resolveGroupRoomSupabase } = await import(
+      "@/lib/community-messenger/group/group-room-repository"
+    );
+    const { isUserBannedFromGroup } = await import(
+      "@/lib/community-messenger/group/group-room-ban-service"
+    );
+    const sb = resolveGroupRoomSupabase();
+    if (sb && (await isUserBannedFromGroup(sb, roomId, auth.userId))) {
+      return NextResponse.json(
+        { ok: false, error: "이 그룹에서 차단되어 입장할 수 없습니다.", code: "user_banned" },
+        { status: 403 }
+      );
+    }
+  }
+
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
   const hydrateFullMemberList = memberHydration !== "minimal";

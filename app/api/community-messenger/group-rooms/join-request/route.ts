@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     if (result.error === GROUP_ROOM_ERROR.ROOM_NOT_FOUND) {
       return jsonError("유효하지 않은 초대 링크입니다.", 404, { code: result.error });
     }
+    if (result.error === GROUP_ROOM_ERROR.USER_BANNED) {
+      return jsonError("이 그룹에서 차단되어 가입 요청을 할 수 없습니다.", 403, { code: result.error });
+    }
     return jsonError("가입 요청에 실패했습니다.", 400, { code: result.error });
   }
   if (result.alreadyMember) {

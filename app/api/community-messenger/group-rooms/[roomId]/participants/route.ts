@@ -28,6 +28,8 @@ function groupRoomServiceJsonError(error: string) {
       return jsonError("차단된 사용자와는 대화할 수 없습니다.", 403, { code: error });
     case GROUP_ROOM_ERROR.FRIEND_REQUIRED:
       return jsonError("친구만 그룹에 초대할 수 있습니다.", 403, { code: error });
+    case GROUP_ROOM_ERROR.USER_BANNED:
+      return jsonError("차단된 사용자는 그룹에 초대할 수 없습니다.", 403, { code: error });
     case GROUP_ROOM_ERROR.FORBIDDEN:
       return jsonError("권한이 없습니다.", 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_UNAVAILABLE:

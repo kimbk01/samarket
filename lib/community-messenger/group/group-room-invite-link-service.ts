@@ -272,7 +272,7 @@ export type GroupInvitePreview = {
   memberCount: number;
   requiresApproval: boolean;
   linkName: string | null;
-  viewerStatus: "guest" | "member" | "pending";
+  viewerStatus: "guest" | "member" | "pending" | "banned";
   requestId: string | null;
 };
 
@@ -297,19 +297,26 @@ export async function previewGroupInviteLink(input: {
   let requestId: string | null = null;
   const userId = trimText(input.userId);
   if (userId) {
-    const active = await fetchActiveParticipant(sb, link.room_id, userId);
-    if (active) viewerStatus = "member";
-    else {
-      const { data: pending } = await (sb as any)
-        .from("community_messenger_group_join_requests")
-        .select("id")
-        .eq("room_id", link.room_id)
-        .eq("user_id", userId)
-        .eq("status", "pending")
-        .maybeSingle();
-      if (pending?.id) {
-        viewerStatus = "pending";
-        requestId = String(pending.id);
+    const { isUserBannedFromGroup } = await import(
+      "@/lib/community-messenger/group/group-room-ban-service"
+    );
+    if (await isUserBannedFromGroup(sb, link.room_id, userId)) {
+      viewerStatus = "banned";
+    } else {
+      const active = await fetchActiveParticipant(sb, link.room_id, userId);
+      if (active) viewerStatus = "member";
+      else {
+        const { data: pending } = await (sb as any)
+          .from("community_messenger_group_join_requests")
+          .select("id")
+          .eq("room_id", link.room_id)
+          .eq("user_id", userId)
+          .eq("status", "pending")
+          .maybeSingle();
+        if (pending?.id) {
+          viewerStatus = "pending";
+          requestId = String(pending.id);
+        }
       }
     }
   }
@@ -372,6 +379,11 @@ export async function joinGroupRoomByInviteToken(input: {
   const { upsertGroupMemberParticipants } = await import("@/lib/community-messenger/group/group-room-repository");
   const roomId = await findRoomIdByInviteToken(sb, token);
   if (!roomId) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+  const { assertNotBannedFromGroup } = await import(
+    "@/lib/community-messenger/group/group-room-ban-service"
+  );
+  const banGate = await assertNotBannedFromGroup(sb, roomId, userId);
+  if (!banGate.ok) return banGate;
   const existing = await fetchActiveParticipant(sb, roomId, userId);
   if (existing) return { ok: true, roomId, alreadyMember: true };
   const joined = await upsertGroupMemberParticipants(sb, roomId, [userId]);

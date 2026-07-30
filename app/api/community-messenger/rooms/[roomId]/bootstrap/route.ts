@@ -67,6 +67,24 @@ export async function GET(
   }
   seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomKey = canon.canonicalRoomId;
+
+  // Phase3 S2-1: banned viewers cannot open private group rooms (orthogonal to left_at).
+  {
+    const { resolveGroupRoomSupabase } = await import(
+      "@/lib/community-messenger/group/group-room-repository"
+    );
+    const { isUserBannedFromGroup } = await import(
+      "@/lib/community-messenger/group/group-room-ban-service"
+    );
+    const sb = resolveGroupRoomSupabase();
+    if (sb && (await isUserBannedFromGroup(sb, roomKey, auth.userId))) {
+      return jsonErrorWithRequest(req, "이 그룹에서 차단되어 입장할 수 없습니다.", {
+        status: 403,
+        code: "user_banned",
+      });
+    }
+  }
+
   const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase() ?? "";
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase() ?? "";

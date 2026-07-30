@@ -14,7 +14,7 @@ type Preview = {
   memberCount: number;
   requiresApproval: boolean;
   linkName: string | null;
-  viewerStatus: "guest" | "member" | "pending";
+  viewerStatus: "guest" | "member" | "pending" | "banned";
   requestId: string | null;
 };
 
@@ -75,17 +75,27 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ inviteToken: token }),
     });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; roomPath?: string };
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      roomId?: string;
+      roomPath?: string;
+      code?: string;
+    };
     if (res.ok && json.ok && json.roomId) {
       router.replace(json.roomPath ?? buildGroupRoomWebPath(json.roomId));
       return;
     }
     setStatus("ready");
     setMessage(
-      safeT("cm_ui_group_invite_join_failed", {
-        fallbackKo: "그룹 참여에 실패했습니다.",
-        fallbackEn: "Could not join the group.",
-      })
+      json.code === "user_banned"
+        ? safeT("cm_ui_group_user_banned", {
+            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
+            fallbackEn: "You are banned from this group and cannot join.",
+          })
+        : safeT("cm_ui_group_invite_join_failed", {
+            fallbackKo: "그룹 참여에 실패했습니다.",
+            fallbackEn: "Could not join the group.",
+          })
     );
   }
 
@@ -103,6 +113,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
       roomId?: string;
       roomPath?: string;
       requestId?: string;
+      code?: string;
     };
     if (res.ok && json.ok && json.alreadyMember && json.roomId) {
       router.replace(json.roomPath ?? buildGroupRoomWebPath(json.roomId));
@@ -119,10 +130,15 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
     }
     setStatus("ready");
     setMessage(
-      safeT("cm_ui_group_join_request_failed", {
-        fallbackKo: "가입 요청에 실패했습니다.",
-        fallbackEn: "Could not send join request.",
-      })
+      json.code === "user_banned"
+        ? safeT("cm_ui_group_user_banned", {
+            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
+            fallbackEn: "You are banned from this group and cannot join.",
+          })
+        : safeT("cm_ui_group_join_request_failed", {
+            fallbackKo: "가입 요청에 실패했습니다.",
+            fallbackEn: "Could not send join request.",
+          })
     );
   }
 
@@ -186,6 +202,13 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
         >
           {safeT("cm_ui_group_open", { fallbackKo: "그룹 열기", fallbackEn: "Open group" })}
         </button>
+      ) : preview.viewerStatus === "banned" ? (
+        <p className="text-center sam-text-body font-semibold text-red-700">
+          {safeT("cm_ui_group_user_banned", {
+            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
+            fallbackEn: "You are banned from this group and cannot join.",
+          })}
+        </p>
       ) : preview.viewerStatus === "pending" ? (
         <div className="flex w-full flex-col gap-2">
           <p className="text-center sam-text-body text-sam-fg">

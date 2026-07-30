@@ -56,6 +56,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
+import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 
@@ -391,6 +392,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       onCopy={() => void vm.copyGroupInviteLink()}
                       onRegenerate={() => void vm.regenerateGroupInviteLink()}
                       onDisable={() => void vm.disableGroupInviteLink()}
+                    />
+                    <GroupBlockedMembersSection
+                      roomId={vm.roomId}
+                      canManage={vm.canKickGroupMembers}
                     />
                   </div>
                 ) : null}

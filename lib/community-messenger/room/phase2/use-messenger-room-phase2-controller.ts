@@ -2047,6 +2047,39 @@ export function useMessengerRoomPhase2Controller() {
     [getRoomActionErrorMessage, isPrivateGroupRoom, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
   );
 
+  const banGroupMember = useCallback(
+    async (targetUserId: string, label: string) => {
+      if (!isPrivateGroupRoom) return;
+      if (
+        !window.confirm(t("cm_ui_confirm_ban_group_member", { name: label }))
+      ) {
+        return;
+      }
+      setBusy(`group-ban:${targetUserId}`);
+      try {
+        const res = await fetch(
+          `${communityMessengerGroupRoomApiPath(streamRoomId)}/bans`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetUserId }),
+          }
+        );
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
+        if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        setMemberActionTarget(null);
+        await refresh(true);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getRoomActionErrorMessage, isPrivateGroupRoom, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
+  );
+
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
       if (!canStartGroupCall) {
@@ -2504,6 +2537,7 @@ export function useMessengerRoomPhase2Controller() {
     startDirectChatWithMember,
     startDirectCallWithMember,
     removeGroupMember,
+    banGroupMember,
     startGroupCall,
     reportTarget,
     getMessageCopyText,

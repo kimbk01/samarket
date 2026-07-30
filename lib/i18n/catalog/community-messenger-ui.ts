@@ -483,6 +483,14 @@ export const communityMessengerUiMessages = {
     cm_ui_confirm_transfer_group_owner:
       "{name}님에게 방장을 위임할까요? 위임 후에는 내가 관리자 권한으로 내려갑니다.",
     cm_ui_confirm_remove_group_member: "{name}님을 이 그룹에서보낼까요?",
+    cm_ui_confirm_ban_group_member:
+      "{name}님을 이 그룹에서 차단할까요? 차단 해제 전까지 다시 참여할 수 없습니다.",
+    cm_ui_ban_from_group: "그룹에서 차단",
+    cm_ui_ban_from_group_desc: "초대·링크·가입 요청·방 입장을 모두 막습니다. 내보내기와 다릅니다.",
+    cm_ui_blocked_members: "차단된 멤버",
+    cm_ui_blocked_members_empty: "차단된 멤버가 없습니다.",
+    cm_ui_unban_member: "차단 해제",
+    cm_ui_group_user_banned: "이 그룹에서 차단되어 참여할 수 없습니다.",
     cm_ui_delete_for_me_only: "나에게서만 삭제",
     cm_ui_delete_recording: "녹음 삭제",
     cm_ui_voice_recording_start_failed:
@@ -1517,6 +1525,14 @@ export const communityMessengerUiMessages = {
     cm_ui_confirm_transfer_group_owner:
       "Transfer ownership to {name}? You will become an admin afterward.",
     cm_ui_confirm_remove_group_member: "Remove {name} from this group?",
+    cm_ui_confirm_ban_group_member:
+      "Ban {name} from this group? They cannot rejoin until unbanned.",
+    cm_ui_ban_from_group: "Ban from group",
+    cm_ui_ban_from_group_desc: "Blocks invite, links, join requests, and room entry. Different from remove.",
+    cm_ui_blocked_members: "Blocked members",
+    cm_ui_blocked_members_empty: "No blocked members.",
+    cm_ui_unban_member: "Unban",
+    cm_ui_group_user_banned: "You are banned from this group and cannot join.",
     cm_ui_delete_for_me_only: "Delete for me only",
     cm_ui_delete_recording: "Delete recording",
     cm_ui_voice_recording_start_failed:

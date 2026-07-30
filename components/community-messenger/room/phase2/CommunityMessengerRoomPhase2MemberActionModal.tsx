@@ -191,18 +191,38 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
               vm.snapshot?.room.ownerUserId &&
               !messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId) &&
               !(vm.snapshot.myRole !== "owner" && memberActionTarget.memberRole === "admin") ? (
-                <button
-                  type="button"
-                  onClick={() => void vm.removeGroupMember(memberActionTarget.id, memberActionTarget.label)}
-                  disabled={vm.busy === `group-remove:${memberActionTarget.id}`}
-                  className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
-                >
-                  <div>
-                    <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_remove_from_group")}</p>
-                    <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_end_current_group_participation")}</p>
-                  </div>
-                  <span className="sam-text-page-title text-red-300">›</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void vm.removeGroupMember(memberActionTarget.id, memberActionTarget.label)}
+                    disabled={vm.busy === `group-remove:${memberActionTarget.id}`}
+                    className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
+                  >
+                    <div>
+                      <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_remove_from_group")}</p>
+                      <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_end_current_group_participation")}</p>
+                    </div>
+                    <span className="sam-text-page-title text-red-300">›</span>
+                  </button>
+                  {vm.isPrivateGroupRoom ? (
+                    <button
+                      type="button"
+                      onClick={() => void vm.banGroupMember(memberActionTarget.id, memberActionTarget.label)}
+                      disabled={vm.busy === `group-ban:${memberActionTarget.id}`}
+                      className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
+                    >
+                      <div>
+                        <p className="sam-text-body font-semibold text-red-700">
+                          {vm.t("cm_ui_ban_from_group")}
+                        </p>
+                        <p className="mt-1 sam-text-helper text-red-600/80">
+                          {vm.t("cm_ui_ban_from_group_desc")}
+                        </p>
+                      </div>
+                      <span className="sam-text-page-title text-red-300">›</span>
+                    </button>
+                  ) : null}
+                </>
               ) : null}
               <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_protection")}</div>
               <button

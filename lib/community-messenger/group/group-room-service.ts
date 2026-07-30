@@ -43,6 +43,7 @@ import type {
   GroupRoomRow,
   GroupRoomSettingsPatch,
 } from "@/lib/community-messenger/group/group-room.types";
+import { isUserBannedFromGroup } from "@/lib/community-messenger/group/group-room-ban-service";
 import { isBlockedEitherWayActive } from "@/lib/community-messenger/social-relations";
 import { notifyCommunityMessengerGroupInviteReceived } from "@/lib/notifications/community-messenger-group-inapp-notify";
 
@@ -111,7 +112,8 @@ async function resolveGroupTitle(userId: string, memberIds: string[], title: str
 export async function validateGroupInviteTargets(
   userId: string,
   memberIds: string[],
-  supabase?: SupabaseClient<any> | null
+  supabase?: SupabaseClient<any> | null,
+  options?: { roomId?: string | null }
 ): Promise<{ ok: true; memberIds: string[] } | { ok: false; error: string }> {
   const viewer = trimText(userId);
   const peerIds = dedupeGroupMemberIds(memberIds.filter((id) => id && id !== viewer));
@@ -120,7 +122,11 @@ export async function validateGroupInviteTargets(
   const sb = supabase ?? resolveGroupRoomSupabase();
   if (!sb) return { ok: false, error: GROUP_ROOM_ERROR.INVALID_TARGET };
 
+  const roomId = trimText(options?.roomId);
   for (const peerId of peerIds) {
+    if (roomId && (await isUserBannedFromGroup(sb, roomId, peerId))) {
+      return { ok: false, error: GROUP_ROOM_ERROR.USER_BANNED };
+    }
     if (await isBlockedEitherWayActive(viewer, peerId, sb)) {
       return { ok: false, error: GROUP_ROOM_ERROR.BLOCKED_TARGET };
     }
@@ -220,7 +226,7 @@ export async function inviteGroupMembers(input: {
   const permCtx: GroupRoomPermissionContext = { viewerUserId: userId, viewerRole: myRole, room };
   if (!canInviteToGroup(permCtx)) return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
 
-  const memberValidation = await validateGroupInviteTargets(userId, memberIds, sb);
+  const memberValidation = await validateGroupInviteTargets(userId, memberIds, sb, { roomId });
   if (!memberValidation.ok) return memberValidation;
 
   const upsert = await upsertGroupMemberParticipants(sb, roomId, memberValidation.memberIds);

@@ -23,6 +23,8 @@ function err(error: string) {
       return jsonError("가입 요청을 찾을 수 없습니다.", 404, { code: error });
     case GROUP_ROOM_ERROR.REQUEST_ALREADY_DECIDED:
       return jsonError("이미 처리된 가입 요청입니다.", 409, { code: error });
+    case GROUP_ROOM_ERROR.USER_BANNED:
+      return jsonError("차단된 사용자는 승인할 수 없습니다.", 403, { code: error });
     default:
       return jsonError("가입 요청을 처리하지 못했습니다.", 400, { code: error });
   }

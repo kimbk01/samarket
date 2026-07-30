@@ -90,6 +90,8 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_peer_not_found");
     case "forbidden":
       return t("nav_messenger_forbidden");
+    case "user_banned":
+      return t("cm_ui_group_user_banned");
     case "call_provider_not_configured":
       return t("nav_messenger_call_provider_not_ready");
     case "trade_chat_calls_disabled":

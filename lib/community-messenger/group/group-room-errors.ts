@@ -27,6 +27,7 @@ export const GROUP_ROOM_ERROR = {
   APPROVAL_NOT_REQUIRED: "approval_not_required",
   REQUEST_ALREADY_DECIDED: "request_already_decided",
   LINK_REVOKED: "link_revoked",
+  USER_BANNED: "user_banned",
 } as const;
 
 export type GroupRoomErrorCode = (typeof GROUP_ROOM_ERROR)[keyof typeof GROUP_ROOM_ERROR];
