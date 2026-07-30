@@ -6,22 +6,25 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import {
+  incomingCallPeerNicknameLabel,
+  labelFromDisplayAndUsername,
+} from "@/lib/users/user-label";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
 };
 
 /**
- * 친구 탭 상단 — 닉네임 / @아이디 / 나의 상태(bio) · 편집은 마이페이지 프로필 수정과 동일 데이터
+ * 친구 탭 상단 — `닉네임 (@아이디)` · 나의 상태(bio) · 편집은 마이페이지 프로필 수정과 동일 데이터
  */
 export function MessengerFriendsMyProfileStrip({ me }: Props) {
-  const handleLine = me?.subtitle?.trim() || "";
-  const fallbackId =
-    me?.id && !handleLine ? `ID · ${me.id.slice(0, 8)}…` : "";
-  const secondLine = handleLine || fallbackId;
+  const rawLabel = me?.label?.trim() || "";
+  const nick = incomingCallPeerNicknameLabel(rawLabel) || rawLabel;
+  const atFromLabel = rawLabel.match(/\((@[^)]+)\)/)?.[1] ?? null;
+  const username = me?.subtitle?.trim() || atFromLabel || null;
+  const titleName = labelFromDisplayAndUsername(nick, username) || nick || "내 프로필";
   const bioLine = me?.bio?.trim() ?? "";
-  const titleName = incomingCallPeerNicknameLabel(me?.label) || me?.label || "내 프로필";
 
   return (
     <div className="flex items-center gap-2.5 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-1 py-2">
@@ -37,11 +40,6 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
         <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
           {titleName}
         </p>
-        {secondLine ? (
-          <p className="truncate sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-            {secondLine}
-          </p>
-        ) : null}
         {bioLine ? (
           <p className="mt-0.5 line-clamp-2 sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {bioLine}

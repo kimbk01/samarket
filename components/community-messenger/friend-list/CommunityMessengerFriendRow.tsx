@@ -17,7 +17,7 @@ type Props = {
 };
 
 /**
- * Telegram contacts 정렬 — 1행 nick + @id · 2행 lastSeen · 아바타 녹점 · 우측 즐겨찾기 표시.
+ * Telegram contacts 정렬 — 1행 `닉네임 (@아이디)` · 2행 lastSeen · 아바타 녹점 · 우측 즐겨찾기 표시.
  * 큰 「친구」상태 뱃지·bio 기본 2행은 사용하지 않는다.
  */
 export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disabled = false }: Props) {
@@ -49,7 +49,7 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
         <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
           {row.displayName}
           {publicIdLabel ? (
-            <span className="ml-1.5 font-medium text-sam-fg-muted">{publicIdLabel}</span>
+            <span className="ml-1.5 font-medium text-sam-fg-muted">{`(${publicIdLabel})`}</span>
           ) : null}
         </p>
         <CommunityMessengerFriendPresenceLine peerUserId={row.profileId} />
