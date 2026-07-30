@@ -863,6 +863,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [groupSelectedProfiles, setGroupSelectedProfiles] = useState<Record<string, CommunityMessengerProfileLite>>({});
   const groupInviteSearchSeqRef = useRef(0);
   const [groupCreateStep, setGroupCreateStep] = useState<"closed" | "select" | "private_group" | "open_group">("closed");
+  const [privateGroupSubStep, setPrivateGroupSubStep] = useState<"members" | "details">("members");
   const [openGroupTitle, setOpenGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
   const [openGroupPassword, setOpenGroupPassword] = useState("");
@@ -894,6 +895,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     setGroupInviteSearchBusy((prev) => (prev ? false : prev));
     setGroupInviteSearchFailed((prev) => (prev ? false : prev));
     setGroupSelectedProfiles((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+    setPrivateGroupSubStep("members");
     setOpenGroupTitle((prev) => (prev === "" ? prev : ""));
     setOpenGroupSummary((prev) => (prev === "" ? prev : ""));
     setOpenGroupPassword((prev) => (prev === "" ? prev : ""));
@@ -1614,7 +1616,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const createPrivateGroup = useCallback(async () => {
     const memberIds = [...new Set(groupMembers.filter(Boolean))];
-    if (memberIds.length === 0) return;
+    const title = groupTitle.trim();
+    if (memberIds.length === 0 || !title) return;
     setActionError((prev) => (prev === null ? prev : null));
     setBusyId("create-private-group");
     try {
@@ -1623,7 +1626,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           groupType: "private_group",
-          title: groupTitle,
+          title,
           memberIds,
         }),
       });
@@ -3390,7 +3393,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                 <div className="mt-4 grid gap-3">
                   <button
                     type="button"
-                    onClick={() => setGroupCreateStep("private_group")}
+                    onClick={() => {
+                      setPrivateGroupSubStep("members");
+                      setGroupCreateStep("private_group");
+                    }}
                     className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
                   >
                     <p className="sam-text-helper text-sam-muted">{t("cm_ui_friend_invite_type")}</p>
@@ -3413,6 +3419,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             {groupCreateStep === "private_group" ? (
               <CommunityMessengerPrivateGroupCreatePanel
                 t={t}
+                subStep={privateGroupSubStep}
                 groupTitle={groupTitle}
                 onGroupTitleChange={setGroupTitle}
                 groupTitlePreview={groupTitlePreview}
@@ -3420,7 +3427,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                 selectedMemberProfiles={selectedGroupMemberProfiles}
                 onClearSelection={clearPrivateGroupSelection}
                 onToggleMember={togglePrivateGroupMember}
-                onBack={() => setGroupCreateStep("select")}
+                onBack={() => {
+                  if (privateGroupSubStep === "details") {
+                    setPrivateGroupSubStep("members");
+                    return;
+                  }
+                  setGroupCreateStep("select");
+                }}
                 inviteSearchQuery={groupInviteSearchQuery}
                 onInviteSearchQueryChange={setGroupInviteSearchQuery}
                 inviteSearchBusy={groupInviteSearchBusy}
@@ -3589,14 +3602,29 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             {groupCreateStep === "private_group" || groupCreateStep === "open_group" ? (
               <div className="mt-5">
                 {groupCreateStep === "private_group" ? (
-                  <button
-                    type="button"
-                    onClick={() => void createPrivateGroup()}
-                    disabled={busyId === "create-private-group" || groupMembers.length === 0}
-                    className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                  >
-                    {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_private_group")}
-                  </button>
+                  privateGroupSubStep === "members" ? (
+                    <button
+                      type="button"
+                      onClick={() => setPrivateGroupSubStep("details")}
+                      disabled={groupMembers.length === 0}
+                      className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                    >
+                      {t("cm_ui_next")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void createPrivateGroup()}
+                      disabled={
+                        busyId === "create-private-group" ||
+                        groupMembers.length === 0 ||
+                        !groupTitle.trim()
+                      }
+                      className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                    >
+                      {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_group_submit")}
+                    </button>
+                  )
                 ) : null}
                 {groupCreateStep === "open_group" ? (
                   <button

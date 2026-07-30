@@ -383,6 +383,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </button>
                     </div>
                     <GroupInviteLinkSection
+                      roomId={vm.roomId}
                       state={vm.groupInviteLinkState}
                       loading={vm.groupInviteLinkLoading}
                       canManage={vm.canEditPrivateGroupMeta}

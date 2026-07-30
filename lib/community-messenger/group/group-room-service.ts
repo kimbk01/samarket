@@ -226,6 +226,16 @@ export async function inviteGroupMembers(input: {
   const upsert = await upsertGroupMemberParticipants(sb, roomId, memberValidation.memberIds);
   if (!upsert.ok) return { ok: false, error: upsert.error };
 
+  const { closePendingJoinRequestsOnDirectAdd } = await import(
+    "@/lib/community-messenger/group/group-room-join-request-service"
+  );
+  await closePendingJoinRequestsOnDirectAdd({
+    sb,
+    roomId,
+    memberIds: memberValidation.memberIds,
+    actorUserId: userId,
+  });
+
   const labelMap = await fetchProfileLabels(sb, memberValidation.memberIds);
   const labels = memberValidation.memberIds
     .map((id) => labelMap.get(id))

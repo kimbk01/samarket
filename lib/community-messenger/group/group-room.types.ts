@@ -39,6 +39,7 @@ export type GroupRoomRow = {
   owner_user_id: string | null;
   title: string | null;
   summary: string | null;
+  avatar_url?: string | null;
   is_discoverable: boolean | null;
   allow_member_invite: boolean | null;
   notice_text: string | null;

@@ -157,7 +157,7 @@ export async function fetchPrivateGroupRoom(
   const { data, error } = await (sb as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type"
+      "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, avatar_url, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type"
     )
     .eq("id", id)
     .maybeSingle();

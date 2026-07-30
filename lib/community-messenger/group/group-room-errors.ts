@@ -21,6 +21,12 @@ export const GROUP_ROOM_ERROR = {
   MESSENGER_MIGRATION_REQUIRED: "messenger_migration_required",
   CONTENT_REQUIRED: "content_required",
   MARK_READ_UNAVAILABLE: "mark_read_unavailable",
+  INVITE_EXPIRED: "invite_expired",
+  INVITE_USAGE_EXCEEDED: "invite_usage_exceeded",
+  APPROVAL_REQUIRED: "approval_required",
+  APPROVAL_NOT_REQUIRED: "approval_not_required",
+  REQUEST_ALREADY_DECIDED: "request_already_decided",
+  LINK_REVOKED: "link_revoked",
 } as const;
 
 export type GroupRoomErrorCode = (typeof GROUP_ROOM_ERROR)[keyof typeof GROUP_ROOM_ERROR];
