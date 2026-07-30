@@ -43,7 +43,10 @@ export function isMainBottomNavHubBodyClearancePath(pathname: string | null | un
   if (isPhilifeFeedHubPath(pathname)) return true;
   if (isMypageHomePath(pathname)) return true;
   if (isMypageTradeHubPath(p)) return true;
+  /** Messenger hub + trade/delivery list pillars — shell pb-0; body clearance via Provider only */
   if (p === "/community-messenger") return true;
+  if (p === "/community-messenger/trade-chats") return true;
+  if (p === "/community-messenger/delivery-chats") return true;
   if (p === "/stores") return true;
   if (isMarketTradeFeedHubPath(p)) return true;
   return isDeliveryConsumerHubBodyClearancePath(p);

@@ -22,7 +22,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
-  MESSENGER_LIST_ROOM_ENTER_MS,
   MESSENGER_LIST_ROOM_EXIT_EASING,
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
@@ -32,7 +31,8 @@ const HORIZONTAL_LOCK_PX = 10;
 const THRESHOLD_RATIO = 0.3;
 const MIN_COMMIT_PX = 56;
 
-type AnimPhase = "enter" | "enter-active" | "idle" | "dragging" | "snap-back" | "snap-away" | "exit-active";
+/** Mount starts `idle` — no room-enter slide (avoids first-frame translateY 32% flicker). Swipe/exit keep exit-active. */
+type AnimPhase = "idle" | "dragging" | "snap-back" | "snap-away" | "exit-active";
 
 type Props = {
   children: ReactNode;
@@ -79,7 +79,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     [roomId, searchParams]
   );
 
-  const [phase, setPhase] = useState<AnimPhase>("enter");
+  const [phase, setPhase] = useState<AnimPhase>("idle");
   const [dragPx, setDragPx] = useState(0);
   const dragPxRef = useRef(0);
   useEffect(() => {
@@ -120,7 +120,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       router,
       splitPaneMode ? { ...backPlan, forceDirect: true } : backPlan
     );
-  }, [router, backPlan, roomType, roomId]);
+  }, [router, backPlan, roomType, roomId, splitPaneMode]);
 
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;
@@ -130,27 +130,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
      * 나가기: 방 → 목록 직행 (중간 빈 화면 금지).
      */
     commitNavigation();
-  }, [commitNavigation]);
-
-  useEffect(() => {
-    /** split 에서도 우→좌 enter 유지 — 끄면 우측 pane 팝인(=깜빡임). 스와이프만 split 에서 비활성. */
-    if (reducedMotion) {
-      setPhase("idle");
-      return;
-    }
-    const raf = window.requestAnimationFrame(() => {
-      setPhase((current) => (current === "enter" ? "enter-active" : current));
-    });
-    return () => window.cancelAnimationFrame(raf);
-  }, [reducedMotion]);
-
-  useEffect(() => {
-    if (phase !== "enter-active") return;
-    const t = window.setTimeout(() => {
-      setPhase((current) => (current === "enter-active" ? "idle" : current));
-    }, MESSENGER_LIST_ROOM_ENTER_MS + 80);
-    return () => window.clearTimeout(t);
-  }, [phase]);
+  }, [commitNavigation, roomId]);
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -267,10 +247,6 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         commitNavigation();
         return;
       }
-      if (phase === "enter-active") {
-        setPhase("idle");
-        return;
-      }
       if (phase === "snap-back") {
         setPhase("idle");
       }
@@ -305,7 +281,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     return {
       transform,
       transition: dragging ? "none" : animating ? transition : undefined,
-      willChange: dragging || animating || phase === "enter" || phase === "enter-active" || phase === "exit-active"
+      willChange: dragging || animating || phase === "exit-active"
         ? ("transform" as const)
         : ("auto" as const),
     } as const;
@@ -316,9 +292,10 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     "messenger-page",
     "messenger-room-page",
     "flex min-h-0 min-w-0 flex-1 flex-col",
-    phase === "enter" ? "messenger-enter" : "",
-    phase === "enter-active" ? "messenger-enter-active" : "",
-    phase === "idle" ? "messenger-exit" : "",
+    /** idle uses messenger-exit (identity transform) — DO NOT apply messenger-enter on mount */
+    phase === "idle" || phase === "dragging" || phase === "snap-back" || phase === "snap-away"
+      ? "messenger-exit"
+      : "",
     phase === "exit-active" ? "messenger-exit-active" : "",
   ]
     .filter(Boolean)

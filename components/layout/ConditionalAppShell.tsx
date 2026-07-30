@@ -319,8 +319,14 @@ export function ConditionalAppShell({
       )}
     </MainShellTabContentTransition>
   );
+  const bottomNavScrollHidden = Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll);
+  /** Clearance SSOT — mount effective AND not scroll-hidden (no keyboard/Zustand). */
+  const bottomNavOccupiesClearance = showBottomNavEffective && !bottomNavScrollHidden;
   return (
-    <BottomNavScrollChromeProvider hidden={Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll)}>
+    <BottomNavScrollChromeProvider
+      hidden={bottomNavScrollHidden}
+      occupiesClearance={bottomNavOccupiesClearance}
+    >
     {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${

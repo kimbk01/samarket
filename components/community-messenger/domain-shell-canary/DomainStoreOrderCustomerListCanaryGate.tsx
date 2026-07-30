@@ -28,6 +28,7 @@ import {
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
 export type { SoCustomerListDto };
 
@@ -85,6 +86,9 @@ export function DomainStoreOrderCustomerListCanaryGate({
   tabletSplitListOnly?: boolean;
   filter?: string;
 }) {
+  void _filter;
+  const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
+  const clearanceClass = bottomNavOccupiesClearance ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS : "";
   const [{ mode: initialMode, dto: initialDto }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
@@ -200,7 +204,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
         data-domain-so-customer-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
@@ -220,7 +224,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
         data-domain-so-customer-list="error"
         data-domain-list-mode="domain"
       >
@@ -252,7 +256,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
       data-domain-so-customer-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}

@@ -28,6 +28,7 @@ import {
   type TradeListRoleFilter,
 } from "@/lib/messenger/trade/list-sort-filter";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -121,6 +122,8 @@ export function DomainTradeListCanaryGate({
   filter?: string;
 }) {
   void _filter;
+  const bottomNavOccupiesClearance = useBottomNavOccupiesClearance();
+  const clearanceClass = bottomNavOccupiesClearance ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS : "";
   const [{ mode: initialMode, dto: initialDto, needsRefetch: initialNeedsRefetch }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainTradeListCanaryCache(syncUid);
@@ -280,7 +283,7 @@ export function DomainTradeListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
         data-domain-trade-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
@@ -300,7 +303,7 @@ export function DomainTradeListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
         data-domain-trade-list="error"
         data-domain-list-mode="domain"
       >
@@ -332,7 +335,7 @@ export function DomainTradeListCanaryGate({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}

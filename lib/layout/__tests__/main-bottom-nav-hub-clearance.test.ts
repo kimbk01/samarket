@@ -14,6 +14,8 @@ describe("main-bottom-nav-hub-clearance", () => {
     expect(isMainBottomNavHubBodyClearancePath("/market/used-goods")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/stores")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/community-messenger")).toBe(true);
+    expect(isMainBottomNavHubBodyClearancePath("/community-messenger/trade-chats")).toBe(true);
+    expect(isMainBottomNavHubBodyClearancePath("/community-messenger/delivery-chats")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/mypage/trade")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/stores/browse/food")).toBe(true);
     expect(isMainBottomNavHubBodyClearancePath("/stores/search")).toBe(true);
@@ -77,6 +79,14 @@ describe("hub shell bottom padding", () => {
     const f = resolveConditionalAppShellFlags("/community-messenger", false);
     expect(f.showBottomNav).toBe(true);
     expect(f.mainBottomClass).toBe("pb-0");
+  });
+
+  it("/community-messenger/trade-chats and delivery-chats use pb-0 (no shell+child double pad)", () => {
+    for (const path of ["/community-messenger/trade-chats", "/community-messenger/delivery-chats"]) {
+      const f = resolveConditionalAppShellFlags(path, false);
+      expect(f.showBottomNav).toBe(true);
+      expect(f.mainBottomClass).toBe("pb-0");
+    }
   });
 
   it("/community-messenger hub list owns scroll without main-column lock", () => {
