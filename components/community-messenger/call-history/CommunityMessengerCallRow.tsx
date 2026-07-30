@@ -256,7 +256,7 @@ export function CommunityMessengerCallRow({
             <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
               {vm.peerName}
               {vm.peerPublicId && vm.peerName.toLowerCase() !== vm.peerPublicId.toLowerCase() ? (
-                <span className="ml-1.5 font-medium text-sam-fg-muted">@{vm.peerPublicId}</span>
+                <span className="font-medium text-sam-fg-muted">(@{vm.peerPublicId})</span>
               ) : null}
             </p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
@@ -273,26 +273,12 @@ export function CommunityMessengerCallRow({
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
               <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
-                {vm.durationLabel ? (
-                  <>
-                    <span className="mx-1 text-sam-border">·</span>
-                    <span className="font-medium tabular-nums text-sam-fg">{vm.durationLabel}</span>
-                  </>
-                ) : null}
-                {timeLabel ? (
-                  <>
-                    <span className="mx-1 text-sam-border">·</span>
-                    <span data-cm-list-meta="" className="tabular-nums text-sam-fg-muted">
-                      {timeLabel}
-                    </span>
-                  </>
-                ) : null}
               </p>
             </div>
           </div>
         </button>
 
-        <aside className="flex shrink-0 items-center justify-center px-1 py-1">
+        <aside className="flex w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 px-1 py-1">
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton
@@ -302,6 +288,13 @@ export function CommunityMessengerCallRow({
                 onPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
               />
             </div>
+          ) : (
+            <span className="h-12 w-12" aria-hidden />
+          )}
+          {vm.durationLabel || timeLabel ? (
+            <span data-cm-list-meta="" className="max-w-[52px] truncate text-center tabular-nums text-sam-fg-muted">
+              {vm.durationLabel || timeLabel}
+            </span>
           ) : null}
         </aside>
       </div>

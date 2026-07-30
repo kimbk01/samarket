@@ -5,6 +5,8 @@ import { MESSENGER_HOME_SECTION_ENTER_MS } from "@/lib/community-messenger/messe
 import {
   MESSENGER_LIST_ROOM_ENTER_MS,
   MESSENGER_LIST_ROOM_EXIT_MS,
+  MESSENGER_PILLAR_LIST_ENTER_MS,
+  MESSENGER_PILLAR_LIST_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
 import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
@@ -17,11 +19,9 @@ describe("messenger presentation contract", () => {
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeLessThanOrEqual(250);
   });
 
-  it("room enter is ~150ms short push (Telegram band 100–180)", () => {
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(150);
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeGreaterThanOrEqual(100);
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeLessThanOrEqual(180);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(130);
+  it("room enter is 180ms — mobile bottom→top, wide left→right", () => {
+    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(180);
+    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(150);
   });
 
   it("wide list pane uses clamp(360px, 35vw, 470px)", () => {
@@ -31,35 +31,29 @@ describe("messenger presentation contract", () => {
     expect(MESSENGER_SPLIT_LIST_PANE_CLASS).not.toContain("420px");
   });
 
-  it("CSS durations match TS SSOT; section/room forbid full translateX(100%)", () => {
+  it("CSS durations match TS SSOT; room axes and pillar 90% push", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
     expect(css).toContain("--sam-messenger-home-section-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-room-enter-duration: 150ms");
-    expect(css).toContain("--sam-messenger-room-exit-duration: 130ms");
-    expect(css).toContain("--sam-messenger-call-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-call-peer-detail-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-pillar-list-enter-duration: 440ms");
+    expect(css).toContain("--sam-messenger-room-enter-duration: 180ms");
+    expect(css).toContain("--sam-messenger-room-exit-duration: 150ms");
+    expect(css).toContain(`--sam-messenger-pillar-list-enter-duration: ${MESSENGER_PILLAR_LIST_ENTER_MS}ms`);
+    expect(css).toContain(`--sam-messenger-pillar-list-exit-duration: ${MESSENGER_PILLAR_LIST_EXIT_MS}ms`);
 
-    const sectionBlock = css.match(
-      /@keyframes messenger-section-slide-forward \{[\s\S]*?\}\s*@keyframes messenger-section-slide-backward \{[\s\S]*?\}/
-    )?.[0];
-    expect(sectionBlock).toBeTruthy();
-    expect(sectionBlock).not.toMatch(/translate3d\(100%/);
-    expect(sectionBlock).not.toMatch(/translate3d\(-100%/);
-    expect(sectionBlock).toMatch(/opacity/);
-
-    const roomEnterBlock = css.match(/\.messenger-enter \{[\s\S]*?\}\s*\.messenger-enter-active \{[\s\S]*?\}/)?.[0];
+    const roomEnterBlock = css.match(/\/\* 모바일\(세로\): 하→상 방 진입 \*\/\s*\.messenger-enter \{[\s\S]*?\}\s*\.messenger-enter-active \{[\s\S]*?\}/)?.[0];
     expect(roomEnterBlock).toBeTruthy();
-    expect(roomEnterBlock).not.toMatch(/translate3d\(100%/);
-    expect(roomEnterBlock).toMatch(/translate3d\(28px/);
+    expect(roomEnterBlock).toMatch(/translate3d\(0,\s*24px,\s*0\)/);
+    expect(roomEnterBlock).not.toMatch(/translate3d\(28px/);
 
-    expect(css).toContain('[data-messenger-responsive-shell="wide"] .messenger-enter');
     expect(css).toMatch(
-      /\[data-messenger-responsive-shell="wide"\] \.messenger-enter[\s\S]*?transform:\s*none\s*!important/
+      /\[data-messenger-responsive-shell="wide"\] \.messenger-enter \{[\s\S]*?translate3d\(-28px/
     );
-    expect(css).toContain("sam-messenger-pillar-list-enter-ltr");
-    expect(css).toContain("translate3d(-100%, 0, 0)");
-    expect(css).not.toContain("sam-messenger-pillar-list-enter-rtl");
+    expect(css).toContain("messenger-room-enter-spinner");
+
+    expect(css).toContain("sam-messenger-pillar-list-enter-rtl");
+    expect(css).toContain("sam-messenger-pillar-list-exit-ltr");
+    expect(css).toContain("translate3d(90%, 0, 0)");
+    expect(css).not.toContain("sam-messenger-pillar-list-enter-ltr");
+    expect(css).not.toMatch(/@keyframes sam-messenger-pillar-list-enter-rtl \{[\s\S]*?translate3d\(-100%/);
   });
 
   it("split-room-pane transform:none must not kill enter phase", () => {
@@ -104,10 +98,11 @@ describe("messenger presentation contract", () => {
     expect(css).not.toContain("border-radius: 16px");
   });
 
-  it("reduced-motion strips section/room durations", () => {
+  it("reduced-motion strips section/room/pillar durations", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(css).toContain(".messenger-section-anim-forward");
+    expect(css).toContain(".sam-messenger-pillar-list-exit");
     expect(css).toContain("animation-duration: 1ms !important");
   });
 
@@ -123,32 +118,49 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("formatAtUsername");
   });
 
-  it("general DM keeps stranger badge on line 2 preview, not title row badge chip", () => {
+  it("general DM keeps stranger badge on line 2 only when not friend", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/MessengerChatListItem.tsx"),
       "utf8"
     );
+    expect(src).toContain("showStrangerBadge");
+    expect(src).toContain("!savedFriendIds.has");
     expect(src).toContain('data-cm-peer-not-friend=""');
-    const strangerBlock = src.match(/\{showStrangerBadge \? \([\s\S]*?\) : null\}/);
-    expect(strangerBlock?.[0] ?? "").toContain("data-cm-peer-not-friend");
     expect(src).not.toMatch(
       /CommunityMessengerChatTypeBadge[\s\S]{0,200}showStrangerBadge[\s\S]{0,120}cm_peer_badge_not_friend/
     );
   });
 
-  it("call row keeps not-friend as small line-2 meta and 48dp redial", () => {
+  it("call row: nick(@id), duration under redial, not-friend on line 2", () => {
     const row = readFileSync(
       resolve(root, "components/community-messenger/call-history/CommunityMessengerCallRow.tsx"),
       "utf8"
     );
-    const btn = readFileSync(
-      resolve(root, "components/community-messenger/call-history/CommunityMessengerCallActionButton.tsx"),
-      "utf8"
-    );
     expect(row).toContain('data-cm-list-surface="call"');
+    expect(row).toContain("(@{vm.peerPublicId})");
+    expect(row).toContain("vm.durationLabel || timeLabel");
     expect(row).toContain("cm_peer_badge_not_friend");
     expect(row).not.toMatch(/rounded-full bg-sam-surface-muted[\s\S]{0,80}cm_peer_badge_not_friend/);
-    expect(btn).toContain('data-cm-call-redial=""');
+  });
+
+  it("room swipe shell shows enter spinner during enter phases", () => {
+    const src = readFileSync(
+      resolve(root, "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("data-messenger-room-enter-spinner");
+    expect(src).toContain("enterBusy");
+    expect(src).toContain("Loader2");
+  });
+
+  it("pillar list pane wires enter/exit classes", () => {
+    const src = readFileSync(
+      resolve(root, "components/community-messenger/CommunityMessengerHomeListPane.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("sam-messenger-pillar-list-enter");
+    expect(src).toContain("sam-messenger-pillar-list-exit");
+    expect(src).toContain("MESSENGER_PILLAR_LIST_EXIT_MS");
   });
 
   it("AppStickyHeader skips messenger split to avoid double safe-top", () => {

@@ -8,15 +8,16 @@
 }
 
 :root {
-  /* 방 진입: Telegram short push ~150ms (제품 SSOT — `MESSENGER_LIST_ROOM_ENTER_MS`) */
-  --sam-messenger-room-enter-duration: 150ms;
-  --sam-messenger-room-exit-duration: 130ms;
+  /* 방 진입: 모바일 하→상 / wide 좌→우 — `MESSENGER_LIST_ROOM_ENTER_MS` */
+  --sam-messenger-room-enter-duration: 180ms;
+  --sam-messenger-room-exit-duration: 150ms;
   --sam-messenger-call-enter-duration: 180ms;
   --sam-messenger-call-exit-duration: 160ms;
   --sam-messenger-call-peer-detail-enter-duration: 180ms;
   --sam-messenger-call-peer-detail-exit-duration: 160ms;
-  /* 허브(거래/주문) 묶음 진입은 별도; 홈 섹션 탭은 Telegram ~180ms */
-  --sam-messenger-pillar-list-enter-duration: 440ms;
+  /* 허브(거래/주문): 90% 우→좌 진입 · 좌→우 퇴장 */
+  --sam-messenger-pillar-list-enter-duration: 320ms;
+  --sam-messenger-pillar-list-exit-duration: 280ms;
   --sam-messenger-home-section-enter-duration: 180ms;
   --sam-messenger-home-section-enter-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
   --sam-messenger-room-enter-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -68,19 +69,32 @@
   z-index: auto;
 }
 
-/* 768px+ split — 우측 room 교체: transform 없음 (Telegram near-instant; 좌측 목록 고정) */
-[data-messenger-responsive-shell="wide"] .messenger-enter,
-[data-messenger-responsive-shell="wide"] .messenger-enter-active {
-  transform: none !important;
-  opacity: 1 !important;
+/* 768px+ split — 우측 pane: 좌→우 진입 (이전 transform:none 제거) */
+[data-messenger-responsive-shell="wide"] .messenger-enter {
+  transform: translate3d(-28px, 0, 0) !important;
+  opacity: 0.92 !important;
   transition: none !important;
 }
 
-[data-messenger-responsive-shell="wide"] .messenger-exit,
-[data-messenger-responsive-shell="wide"] .messenger-exit-active {
-  transform: none !important;
+[data-messenger-responsive-shell="wide"] .messenger-enter-active {
+  transform: translate3d(0, 0, 0) !important;
   opacity: 1 !important;
-  transition: none !important;
+  transition:
+    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important,
+    opacity var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
+}
+
+[data-messenger-responsive-shell="wide"] .messenger-exit {
+  transform: translate3d(0, 0, 0) !important;
+  opacity: 1 !important;
+}
+
+[data-messenger-responsive-shell="wide"] .messenger-exit-active {
+  transform: translate3d(-16px, 0, 0) !important;
+  opacity: 0.92 !important;
+  transition:
+    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important,
+    opacity var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important;
 }
 
 /**
@@ -112,7 +126,7 @@
   /**
    * CONTRACT: layout lock (position/size) vs enter phase (transform).
    * DO NOT apply `transform:none` to `.messenger-enter` / `.messenger-enter-active` —
-   * that killed wide 우→좌 440ms enter (same-specificity later !important).
+   * that kills wide 좌→우 room enter (same-specificity later !important).
    */
   [data-messenger-split-room-pane] .messenger-page,
   [data-messenger-split-room-pane] [data-cm-room-segment-layout],
@@ -166,8 +180,9 @@
   }
 }
 
+/* 모바일(세로): 하→상 방 진입 */
 .messenger-enter {
-  transform: translate3d(28px, 0, 0);
+  transform: translate3d(0, 24px, 0);
   opacity: 0.92;
 }
 
@@ -185,11 +200,23 @@
 }
 
 .messenger-exit-active {
-  transform: translate3d(12px, 0, 0);
+  transform: translate3d(0, 16px, 0);
   opacity: 0.92;
   transition:
     transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing),
     opacity var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
+}
+
+/* 방 진입 중 스피너 오버레이 — MessengerRoomSwipeBackShell */
+.messenger-room-enter-spinner {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--cm-room-bg, #fff) 72%, transparent);
 }
 
 .messenger-call-enter {
@@ -303,23 +330,40 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 }
 
 /**
- * 거래/주문 허브 진입 — 좌→우 440ms (pane 폭 100%).
- * 구 `…-rtl` 이름은 방향과 불일치 → ltr 로 정리.
+ * 거래/주문 허브 진입 — 우→좌, 거리 90% (앞 화면을 밀고 들어옴).
+ * 퇴장 — 좌→우 90%.
  */
-@keyframes sam-messenger-pillar-list-enter-ltr {
+@keyframes sam-messenger-pillar-list-enter-rtl {
   from {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(90%, 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
   }
 }
 
+@keyframes sam-messenger-pillar-list-exit-ltr {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(90%, 0, 0);
+  }
+}
+
 .sam-messenger-pillar-list-enter {
-  animation: sam-messenger-pillar-list-enter-ltr var(--sam-messenger-pillar-list-enter-duration)
+  animation: sam-messenger-pillar-list-enter-rtl var(--sam-messenger-pillar-list-enter-duration)
     var(--sam-messenger-pillar-list-enter-easing) both;
   contain: paint;
   will-change: transform;
+}
+
+.sam-messenger-pillar-list-exit {
+  animation: sam-messenger-pillar-list-exit-ltr var(--sam-messenger-pillar-list-exit-duration)
+    var(--sam-messenger-pillar-list-enter-easing) both;
+  contain: paint;
+  will-change: transform;
+  pointer-events: none;
 }
 
 /*
@@ -374,6 +418,7 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
   .messenger-section-anim-forward,
   .messenger-section-anim-backward,
   .sam-messenger-pillar-list-enter,
+  .sam-messenger-pillar-list-exit,
   html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;
