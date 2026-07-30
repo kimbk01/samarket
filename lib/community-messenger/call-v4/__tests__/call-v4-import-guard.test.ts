@@ -386,6 +386,62 @@ describe("call-v4 import isolation", () => {
     expect(outgoingTap).toBeLessThan(iosBypass);
   });
 
+  it("launchOutgoingDirectCall forces Android Capacitor to V4 before V3/Legacy (even if V4 flag off)", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    const launch = nav.slice(nav.indexOf("export async function launchOutgoingDirectCall"));
+    const androidPath = launch.indexOf('selectedPath: "android_native_v4"');
+    const telegramLane = launch.indexOf("isCallV4TelegramLaneEnabled()");
+    const v3Lane = launch.indexOf("isDibayCallV3SafeLaneEnabled()");
+    const v3Launch = launch.indexOf("callV3LaunchOutgoingDirectCall");
+    const legacyShell = launch.indexOf("web_tmp_shell");
+    expect(androidPath).toBeGreaterThan(-1);
+    expect(telegramLane).toBeGreaterThan(androidPath);
+    expect(v3Lane).toBeGreaterThan(androidPath);
+    expect(v3Launch).toBeGreaterThan(androidPath);
+    expect(legacyShell).toBeGreaterThan(androidPath);
+    // Include Cap+android gate immediately above the selectedPath log.
+    const androidBlock = launch.slice(Math.max(0, androidPath - 350), telegramLane);
+    expect(androidBlock).toContain('resolveCapacitorShellPlatform() === "android"');
+    expect(androidBlock).toContain("isCapacitorNativePlatform()");
+    expect(androidBlock).toContain("callV4LaunchOutgoingDirectCall");
+    expect(androidBlock).not.toContain("callV3LaunchOutgoingDirectCall");
+    expect(androidBlock).not.toContain("web_tmp_shell");
+    expect(androidBlock).not.toContain("buildCommunityMessengerInstantOutgoingCallHref");
+    // Must not use isLegacyWebCallEstablishmentRemoved alone as the gate (Desktop-safe).
+    expect(androidBlock).not.toContain("isLegacyWebCallEstablishmentRemoved");
+  });
+
+  it("Android Cap chrome always mounts CallV4 companion so V4 launch works without Telegram lane env", () => {
+    const chrome = read("components/layout/providers/CallIncomingChrome.tsx");
+    expect(chrome).toContain("isLegacyWebCallEstablishmentRemoved()");
+    const removedIdx = chrome.indexOf("if (isLegacyWebCallEstablishmentRemoved())");
+    const v4ChromeIdx = chrome.indexOf("return <CallV4IncomingChrome />", removedIdx);
+    const v4FlagIdx = chrome.indexOf("isCallV4TelegramLaneEnabled()");
+    expect(removedIdx).toBeGreaterThan(-1);
+    expect(v4ChromeIdx).toBeGreaterThan(removedIdx);
+    expect(v4FlagIdx).toBeGreaterThan(v4ChromeIdx);
+    const legacyRemoved = read("lib/call/native/legacy-web-call-establishment-removed.ts");
+    expect(legacyRemoved).toContain('resolveCapacitorShellPlatform() === "android"');
+    expect(legacyRemoved).toContain("isCapacitorNativePlatform()");
+    const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
+    expect(provider).toContain("isLegacyWebCallEstablishmentRemoved()");
+    expect(provider).toContain("function shouldMountCallV4Companion");
+  });
+
+  it("Android Cap V4 native handoff failure stays on V4 path (no V3/Legacy from launch)", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    const launch = nav.slice(nav.indexOf("export async function launchOutgoingDirectCall"));
+    const androidPath = launch.indexOf('selectedPath: "android_native_v4"');
+    const telegramLane = launch.indexOf("isCallV4TelegramLaneEnabled()");
+    const androidBlock = launch.slice(Math.max(0, androidPath - 350), telegramLane);
+    expect(androidBlock).toContain("return callV4LaunchOutgoingDirectCall");
+    expect(androidBlock).not.toContain("callV3LaunchOutgoingDirectCall");
+    // Failure contract remains inside call-v4-actions (Web outgoing presentation or native end) — not launch V3/Legacy.
+    const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
+    expect(actions).toContain("startNativeOutgoingEstablishment");
+    expect(actions).toContain("native_outgoing_failed");
+  });
+
   it("CallIncomingChrome lazy-loads V4 provider and active call host", () => {
     const chrome = read("components/layout/providers/CallIncomingChrome.tsx");
     expect(chrome).not.toMatch(

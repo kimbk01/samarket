@@ -856,6 +856,24 @@ export async function launchOutgoingDirectCall(
       }
     }
   }
+  // Android Capacitor — V4 create + Native handoff regardless of Telegram lane env.
+  // Cap + android only (never Desktop). V3/Legacy outgoing must not run here (Native SSOT).
+  {
+    const { isCapacitorNativePlatform, resolveCapacitorShellPlatform } = await import(
+      "@/lib/platform/capacitor-native"
+    );
+    if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android") {
+      logCallUxEvent("call_shell_or_route_requested", {
+        ...latencyBase,
+        selectedPath: "android_native_v4",
+        elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+      });
+      const { callV4LaunchOutgoingDirectCall } = await import(
+        "@/lib/community-messenger/call-v4/call-v4-actions"
+      );
+      return callV4LaunchOutgoingDirectCall(input, router);
+    }
+  }
   if (isCallV4TelegramLaneEnabled()) {
     logCallUxEvent("call_shell_or_route_requested", {
       ...latencyBase,
