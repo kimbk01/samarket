@@ -99,6 +99,13 @@ export const adminCommunityMessengerMessages = {
     admin_cm_page_overview_desc: "친구 요청, 1:1·그룹 채팅방, 통화 기록을 관리자에서 통합 관리합니다.",
     admin_cm_page_detail_title: "메신저 방 상세",
     admin_cm_page_detail_desc: "방 상태 조치, 참여자 확인, 메시지 흐름 점검",
+    admin_cm_ghost_banner_title: "Ghost 읽기 전용 (Invisible)",
+    admin_cm_ghost_banner_body:
+      "Platform Admin 전용입니다. 참여자로 추가되지 않으며 전송·반응·읽음·typing·presence가 없습니다.",
+    admin_cm_ghost_audits_title: "Ghost 감사 로그",
+    admin_cm_ghost_audits_empty: "Ghost 입장/종료 기록이 없습니다.",
+    admin_cm_ghost_action_enter: "입장",
+    admin_cm_ghost_action_exit: "종료",
     admin_cm_page_monitoring_title: "커뮤니티 메신저 · 성능 모니터링",
     admin_cm_page_monitoring_desc:
       "프로세스 인메모리 집계(샘플). 멀티 인스턴스에서는 노드별로 다를 수 있습니다. 클라이언트 이벤트는 로그인 사용자 POST로 수집됩니다.",
@@ -375,6 +382,13 @@ export const adminCommunityMessengerMessages = {
     admin_cm_page_overview_desc: "Manage friend requests, direct/group rooms, and call logs in one place.",
     admin_cm_page_detail_title: "Messenger room detail",
     admin_cm_page_detail_desc: "Room actions, participants, and message flow review",
+    admin_cm_ghost_banner_title: "Ghost read-only (Invisible)",
+    admin_cm_ghost_banner_body:
+      "Platform Admin only. You are not added as a participant. No send, reaction, read cursor, typing, or presence.",
+    admin_cm_ghost_audits_title: "Ghost audit log",
+    admin_cm_ghost_audits_empty: "No ghost enter/exit records.",
+    admin_cm_ghost_action_enter: "Enter",
+    admin_cm_ghost_action_exit: "Exit",
     admin_cm_page_monitoring_title: "Community messenger · performance monitoring",
     admin_cm_page_monitoring_desc:
       "In-process in-memory aggregates (sample). May differ per instance. Client events are collected via logged-in user POST.",

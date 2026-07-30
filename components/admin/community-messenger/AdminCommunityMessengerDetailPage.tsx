@@ -65,6 +65,30 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
     void refresh();
   }, [refresh]);
 
+  // Phase3 S2-2: Ghost enter on Admin Console room open; exit on leave.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "enter", reason: "admin_console_detail" }),
+      });
+      if (!cancelled && res.ok) {
+        void refresh(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void fetch(`/api/admin/community-messenger/rooms/${encodeURIComponent(roomId)}/ghost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "exit", reason: "admin_console_leave" }),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+  }, [refresh, roomId]);
+
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
@@ -311,6 +335,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         descriptionKey="admin_cm_page_detail_desc"
       />
 
+      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3">
+        <p className="sam-text-body font-semibold text-amber-900">{t("admin_cm_ghost_banner_title")}</p>
+        <p className="mt-1 sam-text-helper text-amber-800">{t("admin_cm_ghost_banner_body")}</p>
+      </div>
+
       <AdminCard titleKey="admin_cm_card_room_info">
         <div className="grid gap-3 md:grid-cols-2">
           <Info label={t("admin_cm_label_room_title")} value={room.title} />
@@ -336,6 +365,28 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           <Info label={t("admin_cm_label_last_moderator")} value={room.moderatedByLabel} />
           <Info label={t("admin_cm_label_last_moderated_at")} value={room.moderatedAt ? formatDateTime(room.moderatedAt) : t("admin_cm_common_dash")} />
         </div>
+      </AdminCard>
+
+      <AdminCard titleKey="admin_cm_ghost_audits_title">
+        {(detail.ghostAudits?.length ?? 0) === 0 ? (
+          <p className="sam-text-helper text-sam-muted">{t("admin_cm_ghost_audits_empty")}</p>
+        ) : (
+          <ul className="space-y-2">
+            {(detail.ghostAudits ?? []).slice(0, 20).map((row) => (
+              <li key={row.id} className="rounded border border-sam-border-soft px-3 py-2 sam-text-helper text-sam-fg">
+                <span className="font-semibold">
+                  {row.action.includes("enter")
+                    ? t("admin_cm_ghost_action_enter")
+                    : t("admin_cm_ghost_action_exit")}
+                </span>
+                {" · "}
+                {formatDateTime(row.createdAt)}
+                {row.actorId ? ` · ${row.actorId.slice(0, 8)}` : ""}
+                {row.reason ? ` · ${row.reason}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
       </AdminCard>
 
       <AdminCard titleKey="admin_cm_card_ops_actions">

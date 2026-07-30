@@ -294,6 +294,16 @@ export type AdminCommunityMessengerRoomDetail = {
   calls: AdminCommunityMessengerCallLog[];
   activeCalls: AdminCommunityMessengerActiveCallSession[];
   callAudits: AdminCommunityMessengerCallAuditLog[];
+  /** Phase3 S2-2 Ghost enter/exit audits (admin console only) */
+  ghostAudits?: Array<{
+    id: string;
+    action: string;
+    actorId: string | null;
+    createdAt: string;
+    reason: string | null;
+    enteredAt: string | null;
+    exitedAt: string | null;
+  }>;
   reports: AdminCommunityMessengerReport[];
 };
 
@@ -831,7 +841,7 @@ export async function getAdminCommunityMessengerRoomDetail(
     reportCountByMessageId.set(report.message_id, (reportCountByMessageId.get(report.message_id) ?? 0) + 1);
   }
 
-  return {
+  const detail: AdminCommunityMessengerRoomDetail = {
     room: {
       ...summary,
       moderatedByLabel: room.moderated_by
@@ -867,6 +877,17 @@ export async function getAdminCommunityMessengerRoomDetail(
     callAudits: auditRows.map((row) => mapCallAuditLog(row, roomMap, profileMap)),
     reports: reports.map((report) => mapReport(report, roomMap, profileMap)),
   };
+
+  // Phase3 S2-2: Ghost audit trail (admin console only; not user timeline)
+  try {
+    const { listGhostAuditsForRoom } = await import(
+      "@/lib/community-messenger/group/group-room-ghost-service"
+    );
+    detail.ghostAudits = await listGhostAuditsForRoom(roomId, 40);
+  } catch {
+    detail.ghostAudits = [];
+  }
+  return detail;
 }
 
 export async function runAdminCommunityMessengerRoomAction(input: {
