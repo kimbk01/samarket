@@ -1,6 +1,5 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -27,7 +26,6 @@ import {
   MESSENGER_LIST_ROOM_EXIT_EASING,
   MESSENGER_LIST_ROOM_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const EDGE_HIT_PX = 18;
 const HORIZONTAL_LOCK_PX = 10;
@@ -68,7 +66,6 @@ export function useMessengerRoomAnimatedBack(): (() => void) | null {
  */
 export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Props) {
   const router = useRouter();
-  const { safeT } = useI18n();
   const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
   const isMessengerSplit = useIsMessengerSplitViewport();
@@ -315,11 +312,6 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   }, [dragPx, phase]);
 
   const disabled = reducedMotion || roomType == null || splitPaneMode;
-  const enterBusy = !reducedMotion && (phase === "enter" || phase === "enter-active");
-  const enteringLabel = safeT("cm_ui_entering", {
-    fallbackKo: "채팅방 입장 중…",
-    fallbackEn: "Entering chat…",
-  });
   const surfaceClassName = [
     "messenger-page",
     "messenger-room-page",
@@ -358,18 +350,6 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         onTransitionEnd={onSurfaceTransitionEnd}
       >
         {children}
-        {enterBusy ? (
-          <div
-            className="messenger-room-enter-spinner"
-            data-messenger-room-enter-spinner=""
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-            aria-label={enteringLabel}
-          >
-            <Loader2 className="h-8 w-8 animate-spin text-[color:var(--cm-room-primary,#006241)]" aria-hidden />
-          </div>
-        ) : null}
       </div>
     </div>
     </MessengerRoomAnimatedBackContext.Provider>

@@ -173,7 +173,7 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
       data-cm-call-event-bubble=""
       data-cm-call-missed={isMissed ? "true" : "false"}
       data-cm-call-direction={isMine ? "outgoing" : "incoming"}
-      className={`inline-flex min-h-[44px] max-w-[min(76vw,420px)] items-center gap-2.5 rounded-[16px] border px-3.5 py-2 text-left ${cardToneClass} ${
+      className={`inline-flex min-h-[44px] min-w-0 max-w-full items-center gap-2.5 rounded-[16px] border px-3.5 py-2 text-left ${cardToneClass} ${
         stubBusy ? "opacity-45" : ""
       }`}
     >

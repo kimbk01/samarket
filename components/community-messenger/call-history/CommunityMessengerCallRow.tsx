@@ -278,7 +278,7 @@ export function CommunityMessengerCallRow({
           </div>
         </button>
 
-        <aside className="flex w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 px-1 py-1">
+        <aside className="flex w-auto min-w-[52px] shrink-0 grow-0 basis-auto flex-col items-center justify-center gap-0.5 px-1 py-1">
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton
@@ -292,7 +292,10 @@ export function CommunityMessengerCallRow({
             <span className="h-12 w-12" aria-hidden />
           )}
           {vm.durationLabel || timeLabel ? (
-            <span data-cm-list-meta="" className="max-w-[52px] truncate text-center tabular-nums text-sam-fg-muted">
+            <span
+              data-cm-list-meta=""
+              className="shrink-0 grow-0 basis-auto whitespace-nowrap text-center tabular-nums text-sam-fg-muted"
+            >
               {vm.durationLabel || timeLabel}
             </span>
           ) : null}

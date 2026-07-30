@@ -409,11 +409,7 @@ export function formatFileSize(bytes: number): string {
   return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)}MB`;
 }
 
-export function formatTime(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
+export { formatMessengerClockTime as formatTime } from "@/lib/community-messenger/messenger-clock-time";
 
 export function formatRoomCallStatus(status?: string | null): string {
   if (status === "missed") return translateCmUi("cm_ui_call_status_missed_short");

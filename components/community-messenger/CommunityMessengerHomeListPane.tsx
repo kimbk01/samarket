@@ -19,10 +19,9 @@ import {
   recordCmClientMergeListRenderMs,
   recordCmClientMergePaneRender,
 } from "@/lib/community-messenger/cm-client-merge-breakdown";
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MESSENGER_PILLAR_LIST_EXIT_MS } from "@/lib/community-messenger/messenger-list-room-slide";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { CommunityMessengerHomeMasterDetail } from "@/components/community-messenger/home/CommunityMessengerHomeMasterDetail";
@@ -282,18 +281,21 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
     isPillarChatList ? "sam-messenger-pillar-list-enter" : ""
   );
   const pillarExitLockRef = useRef(false);
+  const pillarPendingHrefRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isPillarChatList) {
       setPillarAnimClass("");
       pillarExitLockRef.current = false;
+      pillarPendingHrefRef.current = null;
       return;
     }
     setPillarAnimClass("sam-messenger-pillar-list-enter");
     pillarExitLockRef.current = false;
+    pillarPendingHrefRef.current = null;
   }, [isPillarChatList, props.chatListVisual]);
 
-  /** 거래/주문 허브 → 인박스 복귀: 좌→우 90% exit 후 navigate */
+  /** 거래/주문 허브 → 인박스 복귀: 좌→우 90% exit 후 animationend 로 navigate (setTimeout 금지) */
   useEffect(() => {
     if (!isPillarChatList) return;
     const onClickCapture = (event: MouseEvent) => {
@@ -315,15 +317,22 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
       event.preventDefault();
       event.stopPropagation();
       pillarExitLockRef.current = true;
+      pillarPendingHrefRef.current = href;
       setPillarAnimClass("sam-messenger-pillar-list-exit");
-      window.setTimeout(() => {
-        router.push(href);
-      }, MESSENGER_PILLAR_LIST_EXIT_MS);
     };
     document.addEventListener("click", onClickCapture, true);
     return () => document.removeEventListener("click", onClickCapture, true);
-  }, [isPillarChatList, router]);
+  }, [isPillarChatList]);
 
+  const onPillarAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (!pillarAnimClass.includes("exit")) return;
+    const href = pillarPendingHrefRef.current;
+    pillarPendingHrefRef.current = null;
+    if (href) {
+      router.push(href);
+    }
+  };
   useLayoutEffect(() => {
     if (listFrozen) return;
     const frame = frameRef.current;
@@ -408,6 +417,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
         data-cm-home-frame="true"
         data-cm-pillar-list={isPillarChatList ? props.chatListVisual : undefined}
         data-cm-pillar-anim={isPillarChatList ? (pillarAnimClass.includes("exit") ? "exit" : "enter") : undefined}
+        onAnimationEnd={isPillarChatList ? onPillarAnimationEnd : undefined}
         data-cm-home-state={
           canRenderList
             ? showRefreshingOverlay

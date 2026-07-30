@@ -9,15 +9,15 @@
 
 :root {
   /* 방 진입: 모바일 하→상 / wide 좌→우 — `MESSENGER_LIST_ROOM_ENTER_MS` */
-  --sam-messenger-room-enter-duration: 180ms;
-  --sam-messenger-room-exit-duration: 150ms;
+  --sam-messenger-room-enter-duration: 360ms;
+  --sam-messenger-room-exit-duration: 280ms;
   --sam-messenger-call-enter-duration: 180ms;
   --sam-messenger-call-exit-duration: 160ms;
   --sam-messenger-call-peer-detail-enter-duration: 180ms;
   --sam-messenger-call-peer-detail-exit-duration: 160ms;
   /* 허브(거래/주문): 90% 우→좌 진입 · 좌→우 퇴장 */
-  --sam-messenger-pillar-list-enter-duration: 320ms;
-  --sam-messenger-pillar-list-exit-duration: 280ms;
+  --sam-messenger-pillar-list-enter-duration: 369ms;
+  --sam-messenger-pillar-list-exit-duration: 300ms;
   --sam-messenger-home-section-enter-duration: 180ms;
   --sam-messenger-home-section-enter-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
   --sam-messenger-room-enter-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -72,7 +72,7 @@
 /* 768px+ split — 우측 pane: 좌→우 진입 (이전 transform:none 제거) */
 [data-messenger-responsive-shell="wide"] .messenger-enter {
   transform: translate3d(-28px, 0, 0) !important;
-  opacity: 0.92 !important;
+  opacity: 1 !important;
   transition: none !important;
 }
 
@@ -80,8 +80,7 @@
   transform: translate3d(0, 0, 0) !important;
   opacity: 1 !important;
   transition:
-    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing),
-    opacity var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
+    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
 }
 
 [data-messenger-responsive-shell="wide"] .messenger-exit {
@@ -91,10 +90,9 @@
 
 [data-messenger-responsive-shell="wide"] .messenger-exit-active {
   transform: translate3d(-16px, 0, 0) !important;
-  opacity: 0.92 !important;
+  opacity: 1 !important;
   transition:
-    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing),
-    opacity var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important;
+    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important;
 }
 
 /**
@@ -180,18 +178,16 @@
   }
 }
 
-/* 모바일(세로): 하→상 방 진입 */
+/* 모바일(세로): 하→상 방 진입 — pane 높이 기준 32% (24px 미만·100% 금지) */
 .messenger-enter {
-  transform: translate3d(0, 24px, 0);
-  opacity: 0.92;
+  transform: translate3d(0, 32%, 0);
+  opacity: 1;
 }
 
 .messenger-enter-active {
   transform: translate3d(0, 0, 0);
   opacity: 1;
-  transition:
-    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing),
-    opacity var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing);
+  transition: transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing);
 }
 
 .messenger-exit {
@@ -200,36 +196,22 @@
 }
 
 .messenger-exit-active {
-  transform: translate3d(0, 16px, 0);
-  opacity: 0.92;
-  transition:
-    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing),
-    opacity var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
+  transform: translate3d(0, 20%, 0);
+  opacity: 1;
+  transition: transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
-/* 방 진입 중 스피너 오버레이 — MessengerRoomSwipeBackShell */
-.messenger-room-enter-spinner {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--cm-room-bg, #fff) 72%, transparent);
-}
+/* 방 진입 전체 오버레이 스피너 — 제거됨(캐시 무관 enterBusy 금지). 본문 skeleton만 timeline 경로. */
 
 .messenger-call-enter {
   transform: translate3d(24px, 0, 0);
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .messenger-call-enter-active {
   transform: translate3d(0, 0, 0);
   opacity: 1;
-  transition:
-    transform var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing),
-    opacity var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing);
+  transition: transform var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing);
 }
 
 .messenger-call-exit {
@@ -239,10 +221,8 @@
 
 .messenger-call-exit-active {
   transform: translate3d(20px, 0, 0);
-  opacity: 0.92;
-  transition:
-    transform var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing),
-    opacity var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing);
+  opacity: 1;
+  transition: transform var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
 @keyframes sam-call-outgoing-overlay-enter {
@@ -368,12 +348,12 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 
 /*
  * 메신저 홈 2단 탭 본문 — 친구·통화·대화·보관함
- * 제품: Telegram ~180ms · opacity + 소폭 translate (full-pane 100% slide 금지).
+ * 제품: Telegram ~180ms · transform only (opacity fade 금지 — 1프레임 깜빡임 방지).
  */
 @keyframes messenger-section-slide-forward {
   from {
     transform: translate3d(16px, 0, 0);
-    opacity: 0.85;
+    opacity: 1;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -384,7 +364,7 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 @keyframes messenger-section-slide-backward {
   from {
     transform: translate3d(-16px, 0, 0);
-    opacity: 0.85;
+    opacity: 1;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -395,14 +375,12 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 .messenger-section-anim-forward {
   animation: messenger-section-slide-forward var(--sam-messenger-home-section-enter-duration)
     var(--sam-messenger-home-section-enter-easing) both;
-  contain: paint;
   will-change: transform;
 }
 
 .messenger-section-anim-backward {
   animation: messenger-section-slide-backward var(--sam-messenger-home-section-enter-duration)
     var(--sam-messenger-home-section-enter-easing) both;
-  contain: paint;
   will-change: transform;
 }
 

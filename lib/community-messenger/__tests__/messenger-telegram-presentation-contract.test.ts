@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { formatMessengerClockTime } from "@/lib/community-messenger/messenger-clock-time";
 import { MESSENGER_HOME_SECTION_ENTER_MS } from "@/lib/community-messenger/messenger-home-section-slide";
 import {
   MESSENGER_LIST_ROOM_ENTER_MS,
@@ -9,19 +10,25 @@ import {
   MESSENGER_PILLAR_LIST_EXIT_MS,
 } from "@/lib/community-messenger/messenger-list-room-slide";
 import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-layout";
+import { simulateMessengerHomeSectionClickCycle } from "@/lib/community-messenger/messenger-home-section-slide";
 
 const root = resolve(process.cwd());
 
 describe("messenger presentation contract", () => {
-  it("section transition is ~180ms short slide+fade (Telegram band 150–250)", () => {
+  it("section transition is ~180ms transform-only (Telegram band 150–250)", () => {
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBe(180);
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeGreaterThanOrEqual(150);
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeLessThanOrEqual(250);
   });
 
-  it("room enter is 180ms — mobile bottom→top, wide left→right", () => {
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(180);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(150);
+  it("room enter is 360ms — mobile bottom→top, wide left→right", () => {
+    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(360);
+    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(280);
+  });
+
+  it("pillar enter is 369ms — trade/order hub 우→좌", () => {
+    expect(MESSENGER_PILLAR_LIST_ENTER_MS).toBe(369);
+    expect(MESSENGER_PILLAR_LIST_EXIT_MS).toBe(300);
   });
 
   it("wide list pane uses clamp(360px, 35vw, 470px)", () => {
@@ -31,29 +38,84 @@ describe("messenger presentation contract", () => {
     expect(MESSENGER_SPLIT_LIST_PANE_CLASS).not.toContain("420px");
   });
 
-  it("CSS durations match TS SSOT; room axes and pillar 90% push", () => {
+  it("CSS durations match TS SSOT; room axes opacity=1; pillar 90% push", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
     expect(css).toContain("--sam-messenger-home-section-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-room-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-room-exit-duration: 150ms");
+    expect(css).toContain("--sam-messenger-room-enter-duration: 360ms");
+    expect(css).toContain("--sam-messenger-room-exit-duration: 280ms");
     expect(css).toContain(`--sam-messenger-pillar-list-enter-duration: ${MESSENGER_PILLAR_LIST_ENTER_MS}ms`);
     expect(css).toContain(`--sam-messenger-pillar-list-exit-duration: ${MESSENGER_PILLAR_LIST_EXIT_MS}ms`);
 
-    const roomEnterBlock = css.match(/\/\* 모바일\(세로\): 하→상 방 진입 \*\/\s*\.messenger-enter \{[\s\S]*?\}\s*\.messenger-enter-active \{[\s\S]*?\}/)?.[0];
+    const roomEnterBlock = css.match(
+      /\/\* 모바일\(세로\): 하→상 방 진입[^*]*\*\/\s*\.messenger-enter \{[\s\S]*?\}\s*\.messenger-enter-active \{[\s\S]*?\}/
+    )?.[0];
     expect(roomEnterBlock).toBeTruthy();
-    expect(roomEnterBlock).toMatch(/translate3d\(0,\s*24px,\s*0\)/);
-    expect(roomEnterBlock).not.toMatch(/translate3d\(28px/);
+    expect(roomEnterBlock).toMatch(/translate3d\(0,\s*32%,\s*0\)/);
+    expect(roomEnterBlock).not.toMatch(/translate3d\(0,\s*24px/);
+    expect(roomEnterBlock).not.toMatch(/opacity:\s*0\./);
+    expect(roomEnterBlock).toMatch(/opacity:\s*1/);
 
     expect(css).toMatch(
       /\[data-messenger-responsive-shell="wide"\] \.messenger-enter \{[\s\S]*?translate3d\(-28px/
     );
-    expect(css).toContain("messenger-room-enter-spinner");
+    expect(css).not.toContain("messenger-room-enter-spinner");
 
     expect(css).toContain("sam-messenger-pillar-list-enter-rtl");
     expect(css).toContain("sam-messenger-pillar-list-exit-ltr");
     expect(css).toContain("translate3d(90%, 0, 0)");
     expect(css).not.toContain("sam-messenger-pillar-list-enter-ltr");
     expect(css).not.toMatch(/@keyframes sam-messenger-pillar-list-enter-rtl \{[\s\S]*?translate3d\(-100%/);
+  });
+
+  it("section slide keyframes keep opacity at 1 (no fade flicker)", () => {
+    const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
+    const forward = css.match(/@keyframes messenger-section-slide-forward \{[\s\S]*?\}/)?.[0] ?? "";
+    const backward = css.match(/@keyframes messenger-section-slide-backward \{[\s\S]*?\}/)?.[0] ?? "";
+    expect(forward).toMatch(/opacity:\s*1/);
+    expect(backward).toMatch(/opacity:\s*1/);
+    expect(forward).not.toMatch(/opacity:\s*0\./);
+    expect(backward).not.toMatch(/opacity:\s*0\./);
+  });
+
+  it("AM/PM clock time is single SSOT authority", () => {
+    const iso = new Date(2026, 6, 30, 15, 5, 0).toISOString();
+    const label = formatMessengerClockTime(iso);
+    expect(label).toMatch(/^\d{1,2}:\d{2}\s*(AM|PM)$/i);
+    const helpers = readFileSync(
+      resolve(root, "components/community-messenger/room/community-messenger-room-helpers.tsx"),
+      "utf8"
+    );
+    expect(helpers).toContain('export { formatMessengerClockTime as formatTime }');
+    const callCopy = readFileSync(resolve(root, "lib/community-messenger/call-log-row-copy.ts"), "utf8");
+    expect(callCopy).toContain("formatMessengerClockTime");
+    expect(callCopy).not.toMatch(/hour12:\s*lang\s*===\s*"ko"/);
+  });
+
+  it("call stub occurrence time is nowrap + non-shrink; no vw max-width", () => {
+    const row = readFileSync(
+      resolve(root, "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx"),
+      "utf8"
+    );
+    expect(row).toContain("data-cm-call-occurrence-time");
+    expect(row).toMatch(/data-cm-call-occurrence-time[\s\S]*?whitespace-nowrap/);
+    expect(row).toMatch(/data-cm-call-occurrence-time[\s\S]*?shrink-0/);
+    expect(row).not.toMatch(/callStubEventRow[\s\S]{0,400}max-w-\[min\(76vw/);
+    const bubble = readFileSync(
+      resolve(root, "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx"),
+      "utf8"
+    );
+    expect(bubble).not.toMatch(/data-cm-call-event-bubble[\s\S]{0,200}76vw/);
+  });
+
+  it("call list meta does not truncate clock time", () => {
+    const row = readFileSync(
+      resolve(root, "components/community-messenger/call-history/CommunityMessengerCallRow.tsx"),
+      "utf8"
+    );
+    expect(row).toContain('data-cm-list-meta=""');
+    expect(row).toContain("whitespace-nowrap");
+    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,80}truncate/);
+    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,80}max-w-\[52px\]/);
   });
 
   it("split-room-pane transform:none must not kill enter phase", () => {
@@ -143,24 +205,26 @@ describe("messenger presentation contract", () => {
     expect(row).not.toMatch(/rounded-full bg-sam-surface-muted[\s\S]{0,80}cm_peer_badge_not_friend/);
   });
 
-  it("room swipe shell shows enter spinner during enter phases", () => {
+  it("room swipe shell forbids full-surface enter spinner", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
       "utf8"
     );
-    expect(src).toContain("data-messenger-room-enter-spinner");
-    expect(src).toContain("enterBusy");
-    expect(src).toContain("Loader2");
+    expect(src).not.toContain("data-messenger-room-enter-spinner");
+    expect(src).not.toContain("enterBusy");
+    expect(src).not.toContain("Loader2");
   });
 
-  it("pillar list pane wires enter/exit classes", () => {
+  it("pillar list pane wires enter/exit + animationend navigate", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/CommunityMessengerHomeListPane.tsx"),
       "utf8"
     );
     expect(src).toContain("sam-messenger-pillar-list-enter");
     expect(src).toContain("sam-messenger-pillar-list-exit");
-    expect(src).toContain("MESSENGER_PILLAR_LIST_EXIT_MS");
+    expect(src).toContain("onAnimationEnd");
+    expect(src).toContain("pillarPendingHrefRef");
+    expect(src).not.toMatch(/setTimeout\([\s\S]{0,80}MESSENGER_PILLAR_LIST_EXIT_MS/);
   });
 
   it("AppStickyHeader skips messenger split to avoid double safe-top", () => {
@@ -191,5 +255,15 @@ describe("messenger presentation contract", () => {
     );
     expect(src).not.toMatch(/key=\{[^}]*generation/);
     expect(src).toContain("data-messenger-section-transition-generation");
+  });
+
+  it("tab click once bumps generation exactly once", () => {
+    const result = simulateMessengerHomeSectionClickCycle({
+      from: "friends",
+      to: "chats",
+      urlSectionSequenceAfterClick: ["chats"],
+    });
+    expect(result.generationAfterClick).toBe(1);
+    expect(result.generationAfterUrlSync).toBe(1);
   });
 });

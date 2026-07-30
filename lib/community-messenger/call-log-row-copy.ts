@@ -2,6 +2,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
 import { formatCallHistoryDurationSeconds } from "@/lib/community-messenger/call-history/call-duration";
+import { formatMessengerClockTime } from "@/lib/community-messenger/messenger-clock-time";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallLog,
@@ -130,24 +131,17 @@ export function enrichCommunityMessengerCallLogsWithProfiles(
   });
 }
 
-/** 카카오톡 통화목록형 — 오늘·어제·이전 모두 시·분 표시 */
+/** 카카오톡 통화목록형 — 오늘·어제·이전 모두 시·분(AM/PM SSOT) 표시 */
 export function formatCallLogListTime(
   iso: string,
   lang: AppLanguageCode,
   yesterdayLabel: string
 ): string {
-  const raw = iso.trim();
-  if (!raw) return "";
-  const date = new Date(raw);
-  if (!Number.isFinite(date.getTime())) return "";
+  const timePart = formatMessengerClockTime(iso);
+  if (!timePart) return "";
+  const date = new Date(iso.trim());
 
   const locale = lang === "ko" ? "ko-KR" : "en-US";
-  const timePart = new Intl.DateTimeFormat(locale, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: lang === "ko",
-  }).format(date);
-
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
   const yesterday = new Date(now);
@@ -167,15 +161,7 @@ export function formatCallLogListTime(
   return `${datePart} ${timePart}`;
 }
 
-/** 상대 통화 상세 이력 행 — 구간 헤더 아래 시각만(오후 7:05) */
-export function formatCallPeerDetailRowTime(iso: string, lang: AppLanguageCode): string {
-  const raw = iso.trim();
-  if (!raw) return "";
-  const date = new Date(raw);
-  if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: lang === "ko",
-  }).format(date);
+/** 상대 통화 상세 이력 행 — 시각만 (AM/PM SSOT) */
+export function formatCallPeerDetailRowTime(iso: string, _lang: AppLanguageCode): string {
+  return formatMessengerClockTime(iso);
 }

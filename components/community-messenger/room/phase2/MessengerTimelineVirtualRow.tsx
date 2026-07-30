@@ -488,24 +488,22 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   );
 
   const callStubTimeLabel = showMessageTime ? (
-    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
+    <span
+      data-cm-call-occurrence-time=""
+      className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]"
+    >
       {formatTime(item.createdAt)}
     </span>
   ) : null;
 
   const callStubEventRow = (
     <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`flex min-w-0 max-w-[min(76vw,520px)] items-end gap-1.5 ${
-          item.isMine ? "flex-row justify-end" : "flex-row justify-start"
-        }`}
-      >
-        {item.isMine ? callStubTimeLabel : null}
+      <div className="flex min-w-0 max-w-full items-end gap-1.5">
         <div
           role="button"
           aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
           aria-disabled={stubBusy || undefined}
-          className={`inline-flex max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
+          className={`inline-flex min-w-0 max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
             longPressVisualActive
               ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
               : ""
@@ -514,7 +512,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         >
           {viberInnerBody}
         </div>
-        {!item.isMine ? callStubTimeLabel : null}
+        {callStubTimeLabel}
       </div>
     </div>
   );
@@ -616,7 +614,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               {item.isMine ? (
                 <>
                   {showMessageTime ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
+                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {formatTime(item.createdAt)}
                     </span>
                   ) : null}
@@ -633,7 +631,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 <>
                   {renderBubbleStack(viberBubble)}
                   {showMessageTime ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
+                    <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {formatTime(item.createdAt)}
                     </span>
                   ) : null}
