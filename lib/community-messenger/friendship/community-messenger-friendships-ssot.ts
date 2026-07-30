@@ -1,5 +1,7 @@
 /**
- * community_messenger_friendships SSOT — bootstrap RPC·Realtime·친구 요청 API 공통 저장소.
+ * community_messenger_friendships — archive/compat readers only.
+ * Pending friend-request writers removed (Telegram Contact LOCK).
+ * Friend list SSOT: user_social_relations.friend via listContactFriendPeersForViewer.
  */
 
 import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";
@@ -36,10 +38,6 @@ function isMissingTableError(error: unknown): boolean {
   return /does not exist|relation .* does not exist/i.test(msg);
 }
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
 export function friendshipRowToRequestRow(row: FriendshipSsotRow): FriendshipRequestRow {
   const status: CommunityMessengerFriendRequestStatus =
     row.status === "pending"
@@ -59,6 +57,7 @@ export function friendshipRowToRequestRow(row: FriendshipSsotRow): FriendshipReq
   };
 }
 
+/** @deprecated Prefer resolveFriendshipPair / user_social_relations — retained for test mocks. */
 export async function fetchFriendshipPairRow(
   sb: { from: (table: string) => unknown },
   userId: string,
@@ -84,6 +83,7 @@ export async function fetchFriendshipPairRow(
   return (data as FriendshipSsotRow | null) ?? null;
 }
 
+/** @deprecated pending archive reader — listCommunityMessengerFriendRequests returns []. */
 export async function listPendingFriendRequestRowsFromFriendshipsSsot(
   sb: { from: (table: string) => unknown },
   userId: string
@@ -103,109 +103,7 @@ export async function listPendingFriendRequestRowsFromFriendshipsSsot(
   return ((data ?? []) as FriendshipSsotRow[]).map(friendshipRowToRequestRow);
 }
 
-/** @deprecated P1 Contact transition — no new pending writes. L7 removal. */
-export async function insertPendingFriendshipRequest(
-  sb: { from: (table: string) => unknown },
-  requesterId: string,
-  addresseeId: string
-): Promise<{ ok: true; row: FriendshipRequestRow } | { ok: false; error: string }> {
-  const { data, error } = await (sb as any)
-    .from("community_messenger_friendships")
-    .insert({
-      requester_user_id: requesterId,
-      addressee_user_id: addresseeId,
-      status: "pending",
-    })
-    .select("id, requester_user_id, addressee_user_id, status, created_at, accepted_at, removed_at, updated_at")
-    .single();
-  if (error) {
-    if (isMissingTableError(error)) return { ok: false, error: "friend_store_unavailable" };
-    return { ok: false, error: String(error.message ?? "friend_request_failed") };
-  }
-  return { ok: true, row: friendshipRowToRequestRow(data as FriendshipSsotRow) };
-}
-
-export async function resetFriendshipToPending(
-  sb: { from: (table: string) => unknown },
-  friendshipId: string,
-  requesterId: string,
-  addresseeId: string
-): Promise<{ ok: true; row: FriendshipRequestRow } | { ok: false; error: string }> {
-  const ts = nowIso();
-  const { data, error } = await (sb as any)
-    .from("community_messenger_friendships")
-    .update({
-      requester_user_id: requesterId,
-      addressee_user_id: addresseeId,
-      status: "pending",
-      accepted_at: null,
-      removed_at: null,
-      blocked_by_user_id: null,
-      blocked_at: null,
-      updated_at: ts,
-    })
-    .eq("id", friendshipId)
-    .select("id, requester_user_id, addressee_user_id, status, created_at, accepted_at, removed_at, updated_at")
-    .single();
-  if (error) {
-    return { ok: false, error: String(error.message ?? "friend_request_reset_failed") };
-  }
-  return { ok: true, row: friendshipRowToRequestRow(data as FriendshipSsotRow) };
-}
-
-export async function fetchFriendshipRequestRowById(
-  sb: { from: (table: string) => unknown },
-  requestId: string
-): Promise<FriendshipSsotRow | null> {
-  const id = trimText(requestId);
-  if (!id) return null;
-  const { data, error } = await (sb as any)
-    .from("community_messenger_friendships")
-    .select(
-      "id, requester_user_id, addressee_user_id, status, blocked_by_user_id, blocked_at, readd_blocked_until, created_at, accepted_at, removed_at, updated_at"
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (error) {
-    if (isMissingTableError(error)) return null;
-    throw error;
-  }
-  return (data as FriendshipSsotRow | null) ?? null;
-}
-
-export async function applyFriendshipRequestAction(
-  sb: { from: (table: string) => unknown },
-  row: FriendshipSsotRow,
-  userId: string,
-  action: "accept" | "reject" | "cancel"
-): Promise<{ ok: true; row: FriendshipSsotRow } | { ok: false; error: string }> {
-  const allowed =
-    (action === "cancel" && row.requester_user_id === userId) ||
-    ((action === "accept" || action === "reject") && row.addressee_user_id === userId);
-  if (!allowed) return { ok: false, error: "forbidden" };
-  if (row.status !== "pending") return { ok: false, error: "not_pending" };
-
-  const ts = nowIso();
-  const patch =
-    action === "accept"
-      ? { status: "accepted", accepted_at: ts, removed_at: null, updated_at: ts }
-      : { status: "removed", removed_at: ts, accepted_at: null, updated_at: ts };
-
-  const { data, error } = await (sb as any)
-    .from("community_messenger_friendships")
-    .update(patch)
-    .eq("id", row.id)
-    .select(
-      "id, requester_user_id, addressee_user_id, status, blocked_by_user_id, blocked_at, readd_blocked_until, created_at, accepted_at, removed_at, updated_at"
-    )
-    .single();
-  if (error) {
-    return { ok: false, error: String(error.message ?? "update_failed") };
-  }
-  return { ok: true, row: data as FriendshipSsotRow };
-}
-
-/** viewer 가 참여한 friendships 전체 — accepted·pending·blocked·removed (친구 목록 merge SSOT). */
+/** viewer 가 참여한 friendships 전체 — bootstrap accepted merge compat. */
 export async function listFriendshipSsotRowsForViewer(
   sb: { from: (table: string) => unknown },
   userId: string
@@ -224,34 +122,4 @@ export async function listFriendshipSsotRowsForViewer(
     throw error;
   }
   return (data ?? []) as FriendshipSsotRow[];
-}
-
-export async function findPendingOutgoingFriendshipRow(
-  sb: { from: (table: string) => unknown },
-  requesterId: string,
-  addresseeId: string
-): Promise<FriendshipSsotRow | null> {
-  const { data, error } = await (sb as any)
-    .from("community_messenger_friendships")
-    .select(
-      "id, requester_user_id, addressee_user_id, status, blocked_by_user_id, blocked_at, readd_blocked_until, created_at, accepted_at, removed_at, updated_at"
-    )
-    .eq("requester_user_id", requesterId)
-    .eq("addressee_user_id", addresseeId)
-    .eq("status", "pending")
-    .maybeSingle();
-  if (error) {
-    if (isMissingTableError(error)) return null;
-    throw error;
-  }
-  return (data as FriendshipSsotRow | null) ?? null;
-}
-
-/** addressee(viewer) 기준 requester 가 보낸 pending incoming */
-export async function findPendingIncomingFriendshipRow(
-  sb: { from: (table: string) => unknown },
-  addresseeId: string,
-  requesterId: string
-): Promise<FriendshipSsotRow | null> {
-  return findPendingOutgoingFriendshipRow(sb, requesterId, addresseeId);
 }

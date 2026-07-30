@@ -98,4 +98,19 @@ describe("friend-contact-ssot-lock", () => {
     expect(src).toContain("calleeSavedCaller");
     expect(src).toContain("savedByPeer");
   });
+
+  it("pending friendship writers are removed from friendships-ssot module", async () => {
+    const src = await readRepo("lib/community-messenger/friendship/community-messenger-friendships-ssot.ts");
+    expect(src).not.toContain("insertPendingFriendshipRequest");
+    expect(src).not.toContain("applyFriendshipRequestAction");
+    expect(src).not.toContain("resetFriendshipToPending");
+    expect(src).not.toContain("findPendingIncomingFriendshipRow");
+  });
+
+  it("friend request notify writer module is deleted", async () => {
+    const fs = await import("node:fs/promises");
+    await expect(
+      fs.access(path.join(process.cwd(), "lib/notifications/community-messenger-friend-inapp-notify.ts"))
+    ).rejects.toBeTruthy();
+  });
 });
