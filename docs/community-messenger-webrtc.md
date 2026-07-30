@@ -29,9 +29,12 @@ sequenceDiagram
   A<-->B: STUN/TURN 경로 협상 후 미디어
 ```
 
-## 최적화된 WebRTC 설정
+## 최적화된 WebRTC 설정 (레거시 P2P 참고)
 
-클라이언트는 `lib/call/webrtc-configuration.ts`의 `buildMessengerRtcConfiguration(iceServers)`를 사용합니다.
+> **삭제됨 (Fix 5):** `lib/call/createPeerConnection.ts`, `lib/call/webrtc-configuration.ts` — runtime importer 0.
+> 제품 통화 establishment는 **Native Runtime / Agora / Call V4·V3·CallEngine** 경로를 사용한다. 아래 ICE·미디어 표는 과거 P2P 참고용이며, 새 헬퍼를 재도입하지 않는다.
+
+ICE 서버 목록은 **`GET /api/community-messenger/calls/ice-servers`** (인증) · `lib/call/ice-servers.ts` (`fetchMessengerIceServers` / `warmMessengerIceServers`)에서 내려줍니다.
 
 | 항목 | 값 | 목적 |
 |------|-----|------|
@@ -39,8 +42,6 @@ sequenceDiagram
 | `bundlePolicy` | `max-bundle` | RTP/RTCP 단일 포트로 지연·방화벽 부담 감소 |
 | `rtcpMuxPolicy` | `require` | RTCP 멀티플렉싱 |
 | `iceCandidatePoolSize` | `8` | (Chromium) ICE 수집 선행 |
-
-ICE 서버 목록은 **`GET /api/community-messenger/calls/ice-servers`** (인증)에서 내려줍니다.
 
 ### 환경 변수 (서버)
 
@@ -53,41 +54,17 @@ ICE 서버 목록은 **`GET /api/community-messenger/calls/ice-servers`** (인�
 ### 미디어 (느린 링크)
 
 - 영상: 연결 후 `degradationPreference: maintain-framerate` (오디오·움직임 우선)
-- RTT가 나쁘게 측정되면 송신 비디오 `maxBitrate` 상한 + `scaleResolutionDownBy: 2` 적용 — Agora 클라·`lib/call/webrtc-configuration.ts` 계열과 동일 정책
+- RTT가 나쁘게 측정되면 송신 비디오 `maxBitrate` 상한 + `scaleResolutionDownBy: 2` 적용 — Agora 클라와 동일 정책
 
 ### 사전 준비
 
 - `CommunityMessengerMediaPreflight`: 마이크/카메라 권한·장치 ID
 - `warmMessengerIceServers()` (유휴 시): ICE 목록 HTTP 선요청
 
-## 샘플: PeerConnection 생성
+## 샘플: ICE 서버만 조회
 
 ```typescript
 import { fetchMessengerIceServers } from "@/lib/call/ice-servers";
-import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration";
 
 const iceServers = await fetchMessengerIceServers();
-const pc = new RTCPeerConnection(buildMessengerRtcConfiguration(iceServers));
-
-localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-
-pc.onicecandidate = (e) => {
-  if (!e.candidate) return;
-  // 시그널 서버로 JSON 후보 전송 (trickle)
-  sendToPeer({ candidate: e.candidate.toJSON() });
-};
-
-const offer = await pc.createOffer({
-  offerToReceiveAudio: true,
-  offerToReceiveVideo: true,
-});
-await pc.setLocalDescription(offer);
-```
-
-또는 헬퍼:
-
-```typescript
-import { createMessengerPeerConnection } from "@/lib/call/createPeerConnection";
-
-const pc = await createMessengerPeerConnection();
 ```
