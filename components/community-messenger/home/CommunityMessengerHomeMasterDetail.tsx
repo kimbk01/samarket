@@ -8,43 +8,46 @@ type Props = {
   list: ReactNode;
   detail?: ReactNode;
   showDetail: boolean;
-  /** hub(모바일 MasterDetail) vs split(≥768 room/list shell) — safe-top 담당은 각자 유지 */
+  /** hub(768+) vs split room pane */
   splitMode?: "hub" | "split";
-  /** @deprecated 스크롤 권위는 list SSOT — 호출부 호환용 no-op */
+  /** BottomNav clearance 포함 shell 높이 */
   reserveBottomNavClearance?: boolean;
 };
 
 const SPLIT_MIN_TW = "min-[768px]";
 
+const HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV =
+  "md:min-h-[calc(100dvh-var(--app-bottom-nav-height,60px)-var(--sam-header-row-height,52px)-var(--safe-top,0px))]";
 /**
- * CONTRACT — list pane 은 hub/split 모두 `overflow-hidden`.
- * 스크롤 SSOT: `[data-messenger-hub-list-scroll]` 만.
- * DO NOT hub 만 `overflow-y-auto` — pane 이 스크롤러가 되면 list ch===sh → BottomNav hide 실패(가로 CDP).
+ * Split: BottomNav 는 좌측 pane 만 — 셸 전체 높이에서 탭을 빼지 않음.
+ * 좌측 목록 clearance 는 list 본문 `MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS` 가 담당.
  */
-const LIST_PANE_SPLIT_CLASS = `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col border-sam-border shrink-0 overflow-hidden`;
-const LIST_PANE_HUB_CLASS = `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 w-full flex-1 flex-col overflow-hidden`;
-
-/**
- * 높이 체인 — viewport-lock 부모 안에서 h-full 로 가둠.
- * DO NOT unbounded min-h only — list 가 콘텐츠 높이로 팽창함.
- */
-const SHELL_HEIGHT_CLASS = "min-h-0 h-full max-h-full w-full flex-1 overflow-hidden";
+const SPLIT_SHELL_HEIGHT_FULL =
+  "min-h-0 flex-1 min-h-[calc(100dvh-var(--sector-header-h,52px)-var(--safe-top,0px))]";
 
 export function CommunityMessengerHomeMasterDetail({
   list,
   detail,
   showDetail,
   splitMode = "hub",
+  reserveBottomNavClearance = true,
 }: Props) {
   const isSplitRoom = splitMode === "split";
-  const listPaneClass = isSplitRoom ? LIST_PANE_SPLIT_CLASS : LIST_PANE_HUB_CLASS;
+  const shellHeightClass = isSplitRoom
+    ? SPLIT_SHELL_HEIGHT_FULL
+    : `min-h-0 w-full flex-1 ${reserveBottomNavClearance ? HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV : ""}`;
+
+  /** Split: pane 자체 스크롤 금지(탭·검색 sticky). Hub: pane 스크롤 + sticky chrome. */
+  const listPaneClass = isSplitRoom
+    ? `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col border-sam-border shrink-0 overflow-hidden`
+    : `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col shrink-0 overflow-y-auto overflow-x-hidden`;
 
   const rightPaneClass = isSplitRoom
     ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     : `hidden min-h-0 min-w-0 flex-1 ${SPLIT_MIN_TW}:flex ${SPLIT_MIN_TW}:flex-col overflow-hidden`;
 
   return (
-    <div className={`flex min-h-0 w-full flex-row ${SHELL_HEIGHT_CLASS}`} data-messenger-master-detail={splitMode}>
+    <div className={`flex min-h-0 w-full flex-row ${shellHeightClass}`}>
       <div className={listPaneClass}>{list}</div>
       <div className={`${rightPaneClass} min-w-0`}>
         {showDetail && detail ? detail : <CommunityMessengerHomeDetailEmpty />}

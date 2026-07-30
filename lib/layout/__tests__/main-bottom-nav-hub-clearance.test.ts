@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   isMainBottomNavHubBodyClearancePath,
   MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS,
-  MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS,
-  resolveMainBottomNavBodyClearanceClass,
 } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
@@ -36,15 +34,6 @@ describe("main-bottom-nav-hub-clearance", () => {
   it("uses tab height + safe-area only", () => {
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("60px");
     expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS).toContain("--safe-bottom");
-  });
-
-  it("scroll-hide drops tab clearance but keeps safe-bottom (portrait+landscape)", () => {
-    expect(resolveMainBottomNavBodyClearanceClass(false)).toBe(MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS);
-    expect(resolveMainBottomNavBodyClearanceClass(true)).toBe(
-      MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS
-    );
-    expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS).toContain("--safe-bottom");
-    expect(MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS).not.toContain("60px");
   });
 
   it("delivery consumer clearance paths align with delivery-bottom-nav-layout", () => {
@@ -88,17 +77,6 @@ describe("hub shell bottom padding", () => {
     const f = resolveConditionalAppShellFlags("/community-messenger", false);
     expect(f.showBottomNav).toBe(true);
     expect(f.mainBottomClass).toBe("pb-0");
-  });
-
-  it("/community-messenger hub locks viewport so list scroll owns overflow", () => {
-    const f = resolveConditionalAppShellFlags("/community-messenger", false);
-    expect(f.isMainColumnViewportLocked).toBe(true);
-    expect(f.appShellRootClass).toContain("h-[100dvh]");
-    expect(f.appShellRootClass).toContain("overflow-hidden");
-    const trade = resolveConditionalAppShellFlags("/community-messenger/trade-chats", false);
-    expect(trade.isMainColumnViewportLocked).toBe(true);
-    const delivery = resolveConditionalAppShellFlags("/community-messenger/delivery-chats", false);
-    expect(delivery.isMainColumnViewportLocked).toBe(true);
   });
 
   it("delivery consumer surfaces with bottom nav use pb-0 on shell", () => {

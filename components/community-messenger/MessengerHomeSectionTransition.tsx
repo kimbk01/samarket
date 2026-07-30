@@ -91,7 +91,7 @@ export function MessengerHomeSectionTransition({ section, children }: Props) {
 
   return (
     <div
-      className={["min-h-0 min-w-0 overflow-x-hidden", animClass].filter(Boolean).join(" ")}
+      className={["min-w-0 overflow-x-hidden", animClass].filter(Boolean).join(" ")}
       data-messenger-section-animation-phase={direction ? "enter-active" : "idle"}
       data-messenger-section-slide-direction={direction ?? "none"}
       data-messenger-section-transition-generation={String(generation)}

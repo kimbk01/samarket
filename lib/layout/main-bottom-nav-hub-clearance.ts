@@ -5,20 +5,6 @@ import { isMypageHomePath } from "@/lib/mypage/mypage-profile-routes";
 export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS =
   "pb-[calc(60px+var(--safe-bottom))]";
 
-/**
- * BottomNav scroll-hide 중 — 탭 높이만 걷고 safe-bottom 유지(홈 인디케이터).
- * DO NOT 숨김 후에도 60px clearance 유지 — 가로에서 빈 블럭으로 남음.
- */
-export const MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS =
-  "pb-[var(--safe-bottom)]";
-
-/** `useBottomNavScrollChromeHidden` 과 쌍 — 세로/가로 동일 */
-export function resolveMainBottomNavBodyClearanceClass(navHiddenByScroll: boolean): string {
-  return navHiddenByScroll
-    ? MAIN_BOTTOM_NAV_BODY_CLEARANCE_WHEN_NAV_HIDDEN_CLASS
-    : MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS;
-}
-
 function normalizeHubPath(pathname: string | null | undefined): string {
   return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
 }

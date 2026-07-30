@@ -36,8 +36,7 @@ import {
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
-import { resolveMainBottomNavBodyClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { useBottomNavScrollChromeHidden } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
 import {
   resolveImportantRoomHighlightReason,
@@ -596,9 +595,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   bumpMessengerRenderPerf("messenger_home_render");
   const { t, language } = useI18n();
   const router = useRouter();
-  /** BottomNav hide 와 동일 타이밍 — 가로/세로 clearance 블럭 동기 */
-  const bottomNavHiddenByScroll = useBottomNavScrollChromeHidden();
-  const messengerHubClearanceClass = resolveMainBottomNavBodyClearanceClass(bottomNavHiddenByScroll);
   const messengerListPathname = useMemo(
     () => resolveCommunityMessengerHomeListPathname(pillar),
     [pillar]
@@ -2883,10 +2879,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data-cm-messenger-home-root
       className={
         tabletSplitListOnly
-          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-0 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-0 ${messengerHubClearanceClass} text-[color:var(--messenger-text)]`
+          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-0 bg-[color:var(--messenger-bg)] px-0 py-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
           : fromPhilifeHeaderStack
-          ? `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 pt-0 ${messengerHubClearanceClass} text-[color:var(--messenger-text)]`
-          : `flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-hidden bg-[color:var(--messenger-bg)] px-0 py-2 ${messengerHubClearanceClass} text-[color:var(--messenger-text)]`
+          ? `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          : `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
       }
     >
       <CommunityMessengerHomeReturnConsume />
