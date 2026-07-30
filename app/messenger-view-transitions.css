@@ -80,7 +80,7 @@
   transform: translate3d(0, 0, 0) !important;
   opacity: 1 !important;
   transition:
-    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important,
+    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing),
     opacity var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
 }
 
@@ -93,7 +93,7 @@
   transform: translate3d(-16px, 0, 0) !important;
   opacity: 0.92 !important;
   transition:
-    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important,
+    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing),
     opacity var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important;
 }
 
