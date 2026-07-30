@@ -41,14 +41,30 @@ describe("messenger hub list scroll authority (portrait+landscape)", () => {
     expect(src).toContain('mainSection === "archive"');
   });
 
-  it("does not collapse safe-top owners (mobile StickyHeader vs split SplitTopBar)", () => {
+  it("does not collapse safe-top owners (portrait StickyHeader vs landscape SplitTopBar)", () => {
     const sticky = readFileSync(resolve(root, "components/layout/AppStickyHeader.tsx"), "utf8");
     const split = readFileSync(
       resolve(root, "components/community-messenger/MessengerSplitTopBar.tsx"),
       "utf8"
     );
+    const breakpoints = readFileSync(
+      resolve(root, "lib/ui/app-viewport-layout-breakpoints.ts"),
+      "utf8"
+    );
+    expect(breakpoints).toContain("orientation: landscape");
     expect(sticky).toContain("isMessengerSplit && isCommunityMessengerSurface");
     expect(sticky).toContain("return null");
     expect(split).toContain("pt-[var(--safe-top)]");
+  });
+
+  it("hub MasterDetail never reopens right pane via min-width media", () => {
+    const src = readFileSync(
+      resolve(root, "components/community-messenger/home/CommunityMessengerHomeMasterDetail.tsx"),
+      "utf8"
+    );
+    expect(src).not.toMatch(/rightPaneClass[\s\S]*min-\[768px\]/);
+    expect(src).not.toMatch(/LIST_PANE_[A-Z_]+ = `[^`]*min-\[768px\]/);
+    expect(src).toContain('splitMode === "split"');
+    expect(src).toMatch(/rightPaneClass[\s\S]*"hidden"/);
   });
 });

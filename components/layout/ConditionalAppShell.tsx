@@ -349,8 +349,9 @@ export function ConditionalAppShell({
               ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
               : "",
             /**
-             * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
-             * Avoids SSR false → full-width flash then shrink.
+             * Path-based (not JS matchMedia) — CSS
+             * `@media (min-width:768px) and (orientation:landscape)` owns width.
+             * Portrait keeps full-width even with this class. Avoids SSR flash.
              */
             pathname === "/community-messenger" ||
             (pathname?.startsWith("/community-messenger/") ?? false)

@@ -17,7 +17,7 @@ alwaysApply: false
 1. **메인 하단 탭(`BottomNav`) 노출은 `resolveConditionalAppShellFlags` + `shouldRenderMainBottomNav` / `isBottomNavEligibleRoute` 경로 규칙으로만 결정한다.**
    - **모바일 방 상세** (`/community-messenger/rooms/[roomId]` 등, split viewport 아님): 메인 탭 **비표시**.
    - **메신저 허브** `/community-messenger` · trade/delivery 목록: 메인 탭 **표시**.
-   - **≥768 메신저 split + room path**: 탭 **유지**하되 셸 클래스로 **좌측 목록 pane 폭만** (`app-bottom-nav-shell--messenger-split-list` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`). 우측 채팅·composer 위에 전폭 탭을 올리지 않는다.
+   - **≥768 AND landscape 메신저 split + room path**: 탭 **유지**하되 셸 클래스로 **좌측 목록 pane 폭만** (`app-bottom-nav-shell--messenger-split-list` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`). 세로(태블릿 portrait)는 전폭 허브. 우측 채팅·composer 위에 전폭 탭을 올리지 않는다.
 
 2. **키보드·입력 포커스는 메인 탭 노출과 분리한다.**  
    방 내부에서는 `composerFocused`(Zustand)·iOS `useCmRoomKbOffset`(`--kb-offset`)·flex shell safe-area만 다루고, **`BottomNav` 마운트 여부를 Zustand·Phase 이펙트로 덮어쓰지 않는다.**  
@@ -32,7 +32,8 @@ alwaysApply: false
 
 - `suppressBottomNavForChatDetail` 에서 **특정 채팅 상세만 예외로 탭 유지**하는 분기를 넣으면, 런타임 휴리스틱과 다시 충돌한다. 예외가 필요하면 제품 결정·문서화 후 **한 규칙 안에서**만 허용한다.
 - `ConditionalAppShell` 에서 pathname 플래그를 우회하는 **두 번째 탭 표시 스위치**를 두지 않는다.
-- ≥768 split 에서 BottomNav 를 다시 **뷰포트 전폭**으로 되돌리면 우측 composer 가림이 재발한다.
+- ≥768 landscape split 에서 BottomNav 를 다시 **뷰포트 전폭**으로 되돌리면 우측 composer 가림이 재발한다.
+- width-only `min-width:768` 로 split/BottomNav 를 묶으면 태블릿 세로가 가로와 같이 깨진다 — `orientation: landscape` 필수.
 
 ## 관련 코드
 
