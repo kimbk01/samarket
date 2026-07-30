@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
+import { resolveGroupRoomCapabilities } from "@/lib/community-messenger/group/group-room-permissions";
 import {
   parseCommunityMessengerRoomContextMeta,
   resolveCommunityMessengerDeliveryContextMeta,
@@ -121,7 +122,23 @@ export function useMessengerRoomPhase2RoomPresentation({
       : roomSummaryHoldsOnlyTradeOrDeliveryMeta
         ? ""
         : snapshot?.room.summary?.trim() ?? "";
-  const canInviteMembers = Boolean(isPrivateGroupRoom && snapshot?.room.allowMemberInvite);
+  const groupCaps =
+    snapshot && (isPrivateGroupRoom || isOpenGroupRoom)
+      ? resolveGroupRoomCapabilities({
+          viewerUserId: snapshot.viewerUserId,
+          viewerRole: (snapshot.myRole === "owner" || snapshot.myRole === "admin"
+            ? snapshot.myRole
+            : "member") as "owner" | "admin" | "member",
+          room: {
+            owner_user_id: snapshot.room.ownerUserId ?? null,
+            allow_member_invite: snapshot.room.allowMemberInvite ?? true,
+            allow_admin_invite: snapshot.room.allowAdminInvite ?? true,
+            allow_admin_kick: snapshot.room.allowAdminKick ?? true,
+            allow_admin_edit_notice: snapshot.room.allowAdminEditNotice ?? true,
+          },
+        })
+      : null;
+  const canInviteMembers = Boolean(isPrivateGroupRoom && groupCaps?.canInviteMembers);
   const myRoleLabel = snapshot
     ? isOwner
       ? t("nav_messenger_owner_label")
@@ -129,24 +146,15 @@ export function useMessengerRoomPhase2RoomPresentation({
     : "";
   const privateGroupNotice = snapshot?.room.noticeText?.trim() ?? "";
   const canEditGroupNotice = Boolean(
-    (isPrivateGroupRoom || isOpenGroupRoom) &&
-      snapshot &&
-      (snapshot.myRole === "owner" || (snapshot.myRole === "admin" && snapshot.room.allowAdminEditNotice))
+    (isPrivateGroupRoom || isOpenGroupRoom) && groupCaps?.canEditNotice
   );
-  const canEditPrivateGroupMeta = Boolean(
-    isPrivateGroupRoom &&
-      snapshot &&
-      (snapshot.myRole === "owner" ||
-        (snapshot.myRole === "admin" && snapshot.room.allowAdminEditNotice !== false))
-  );
+  const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && groupCaps?.canEditGroupInfo);
   const canPinGroupMessage = canEditPrivateGroupMeta;
-  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
-  const canManageMemberRoles = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
-  const canKickGroupMembers = Boolean(
-    isPrivateGroupRoom &&
-      snapshot &&
-      (snapshot.myRole === "owner" || (snapshot.myRole === "admin" && snapshot.room.allowAdminKick))
+  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && groupCaps?.canUpdatePermissions);
+  const canManageMemberRoles = Boolean(
+    isPrivateGroupRoom && (groupCaps?.canPromoteMember || groupCaps?.canDemoteAdmin)
   );
+  const canKickGroupMembers = Boolean(isPrivateGroupRoom && groupCaps?.canKickMembers);
   const canStartGroupCall = Boolean(
     isGroupRoom &&
       snapshot &&

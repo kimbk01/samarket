@@ -311,36 +311,111 @@ export async function countActiveOwners(sb: GroupRoomSupabase, roomId: string): 
   return Array.isArray(data) ? data.length : 0;
 }
 
+export type UpsertGroupMembersResult =
+  | {
+      ok: true;
+      /** Inserted or reactivated (left_at cleared). Active rows are never mutated. */
+      newlyInvitedMemberIds: string[];
+      alreadyActiveMemberIds: string[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Invite / invite-link join SSOT.
+ * - active (left_at null): no-op (do not demote admin/owner)
+ * - inactive (left_at set): restore left_at=null, role=member (never restore admin/owner)
+ * - missing row: insert member
+ * Does not touch blocked_hidden_at.
+ */
 export async function upsertGroupMemberParticipants(
   sb: GroupRoomSupabase,
   roomId: string,
   memberIds: string[]
-): Promise<{ ok: true; newlyInvitedMemberIds: string[] } | { ok: false; error: string }> {
+): Promise<UpsertGroupMembersResult> {
   const rid = trimText(roomId);
   const ids = dedupeGroupMemberIds(memberIds);
   if (!rid || !ids.length) return { ok: false, error: "members_required" };
   const { data: existingRows, error: existingError } = await (sb as any)
     .from("community_messenger_participants")
-    .select("user_id")
+    .select("user_id, left_at, role")
     .eq("room_id", rid)
     .in("user_id", ids);
   if (existingError && !isMissingTableError(existingError)) {
     return { ok: false, error: String(existingError.message ?? "participant_lookup_failed") };
   }
-  const existing = new Set(
-    ((existingRows ?? []) as Array<{ user_id?: string }>).map((row) => trimText(row.user_id)).filter(Boolean)
-  );
-  const newlyInvitedMemberIds = ids.filter((id) => !existing.has(id));
-  const { error } = await (sb as any).from("community_messenger_participants").upsert(
-    ids.map((memberId) => ({
-      room_id: rid,
-      user_id: memberId,
-      role: "member",
-    })),
-    { onConflict: "room_id,user_id" }
-  );
-  if (error) return { ok: false, error: String(error.message ?? "invite_failed") };
-  return { ok: true, newlyInvitedMemberIds };
+
+  const byUser = new Map<string, { left_at: string | null; role: string }>();
+  for (const row of (existingRows ?? []) as Array<{
+    user_id?: string;
+    left_at?: string | null;
+    role?: string | null;
+  }>) {
+    const uid = trimText(row.user_id);
+    if (!uid) continue;
+    byUser.set(uid, { left_at: row.left_at ?? null, role: trimText(row.role) || "member" });
+  }
+
+  const alreadyActiveMemberIds: string[] = [];
+  const toReactivate: string[] = [];
+  const toInsert: string[] = [];
+  for (const id of ids) {
+    const existing = byUser.get(id);
+    if (!existing) {
+      toInsert.push(id);
+      continue;
+    }
+    if (existing.left_at == null) {
+      alreadyActiveMemberIds.push(id);
+      continue;
+    }
+    toReactivate.push(id);
+  }
+
+  if (toReactivate.length > 0) {
+    const { error: reactivateError } = await (sb as any)
+      .from("community_messenger_participants")
+      .update({ left_at: null, role: "member" })
+      .eq("room_id", rid)
+      .in("user_id", toReactivate)
+      .not("left_at", "is", null);
+    if (reactivateError) {
+      return { ok: false, error: String(reactivateError.message ?? "invite_failed") };
+    }
+  }
+
+  if (toInsert.length > 0) {
+    const { error: insertError } = await (sb as any).from("community_messenger_participants").insert(
+      toInsert.map((memberId) => ({
+        room_id: rid,
+        user_id: memberId,
+        role: "member" as GroupRoomRole,
+        left_at: null,
+      }))
+    );
+    if (insertError) {
+      // Concurrent invite: unique conflict → treat as reactivation/idempotent.
+      const msg = String(insertError.message ?? "");
+      if (/duplicate|unique/i.test(msg)) {
+        const { error: retryError } = await (sb as any)
+          .from("community_messenger_participants")
+          .update({ left_at: null, role: "member" })
+          .eq("room_id", rid)
+          .in("user_id", toInsert)
+          .not("left_at", "is", null);
+        if (retryError) {
+          return { ok: false, error: String(retryError.message ?? "invite_failed") };
+        }
+      } else {
+        return { ok: false, error: String(insertError.message ?? "invite_failed") };
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    newlyInvitedMemberIds: [...toReactivate, ...toInsert],
+    alreadyActiveMemberIds,
+  };
 }
 
 export async function countActiveParticipants(sb: GroupRoomSupabase, roomId: string): Promise<number> {

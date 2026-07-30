@@ -18,6 +18,17 @@ export type GroupRoomPermissionContext = {
 /** Owner always; admin when room flag allows. */
 export const GROUP_ADMIN_CAN_EDIT_ROOM_META = true;
 
+export type GroupRoomCapabilities = {
+  canInviteMembers: boolean;
+  canEditGroupInfo: boolean;
+  canEditNotice: boolean;
+  /** Viewer may kick some members (target still checked via canKickGroupMember). */
+  canKickMembers: boolean;
+  canPromoteMember: boolean;
+  canDemoteAdmin: boolean;
+  canUpdatePermissions: boolean;
+};
+
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -54,4 +65,20 @@ export function canEditGroupRoomMeta(ctx: GroupRoomPermissionContext): boolean {
   if (!GROUP_ADMIN_CAN_EDIT_ROOM_META) return false;
   if (ctx.viewerRole !== "admin") return false;
   return ctx.room.allow_admin_edit_notice !== false;
+}
+
+/** Canonical UI+server capability snapshot (invite/meta/roles). Target-specific kick uses canKickGroupMember. */
+export function resolveGroupRoomCapabilities(ctx: GroupRoomPermissionContext): GroupRoomCapabilities {
+  const owner = isRoomOwner(ctx);
+  const canEditMeta = canEditGroupRoomMeta(ctx);
+  return {
+    canInviteMembers: canInviteToGroup(ctx),
+    canEditGroupInfo: canEditMeta,
+    canEditNotice: canEditMeta,
+    canKickMembers:
+      owner || (ctx.viewerRole === "admin" && ctx.room.allow_admin_kick !== false),
+    canPromoteMember: owner,
+    canDemoteAdmin: owner,
+    canUpdatePermissions: owner,
+  };
 }

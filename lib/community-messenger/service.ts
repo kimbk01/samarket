@@ -10846,14 +10846,49 @@ export async function joinOpenGroupRoomWithPassword(input: {
       }
       const memberLimit = Number(room.member_limit ?? 0);
       if (memberLimit > 0 && (participantHead?.length ?? 0) > memberLimit) return { ok: false, error: "room_full" };
-      const { error } = await (sb as any).from("community_messenger_participants").upsert(
-        {
+      const existingJoin = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id, left_at, role")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle();
+      if (existingJoin?.error && !isMissingTableError(existingJoin.error)) {
+        return { ok: false, error: String(existingJoin.error.message ?? "join_failed") };
+      }
+      const existingRow = existingJoin?.data as
+        | { user_id?: string; left_at?: string | null; role?: string | null }
+        | null
+        | undefined;
+      if (existingRow && existingRow.left_at == null) {
+        const roomProfileActive = await upsertRoomIdentityProfile({
+          userId: input.userId,
+          roomId,
+          identityMode,
+          aliasProfile: input.aliasProfile,
+        });
+        if (roomProfileActive.ok) return { ok: true, roomId };
+        return roomProfileActive;
+      }
+      // Rejoin: member unless still the room owner_user_id (never restore stale admin).
+      const joinRole = input.userId === room.owner_user_id ? "owner" : "member";
+      let error: { message?: string } | null = null;
+      if (existingRow) {
+        const upd = await (sb as any)
+          .from("community_messenger_participants")
+          .update({ left_at: null, role: joinRole })
+          .eq("room_id", roomId)
+          .eq("user_id", input.userId)
+          .not("left_at", "is", null);
+        error = upd.error;
+      } else {
+        const ins = await (sb as any).from("community_messenger_participants").insert({
           room_id: roomId,
           user_id: input.userId,
-          role: input.userId === room.owner_user_id ? "owner" : "member",
-        },
-        { onConflict: "room_id,user_id" }
-      );
+          role: joinRole,
+          left_at: null,
+        });
+        error = ins.error;
+      }
       if (!error) {
         const roomProfile = await upsertRoomIdentityProfile({
           userId: input.userId,
