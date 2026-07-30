@@ -104,10 +104,19 @@ export async function GET(
     const { resolveGroupRoomSupabase } = await import(
       "@/lib/community-messenger/group/group-room-repository"
     );
+    const { isPrivateGroupRoomDeleted } = await import(
+      "@/lib/community-messenger/group/group-room-delete-service"
+    );
     const { isUserBannedFromGroup } = await import(
       "@/lib/community-messenger/group/group-room-ban-service"
     );
     const sb = resolveGroupRoomSupabase();
+    if (sb && (await isPrivateGroupRoomDeleted(sb, roomId))) {
+      return NextResponse.json(
+        { ok: false, error: "이 그룹은 더 이상 사용할 수 없습니다.", code: "group_deleted" },
+        { status: 410 }
+      );
+    }
     if (sb && (await isUserBannedFromGroup(sb, roomId, auth.userId))) {
       return NextResponse.json(
         { ok: false, error: "이 그룹에서 차단되어 입장할 수 없습니다.", code: "user_banned" },

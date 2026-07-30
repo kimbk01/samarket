@@ -701,6 +701,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         ? vm.t("cm_ui_leave_after_owner_transfer")
                         : vm.t("nav_messenger_leave_group_room")}
                   </button>
+                  {vm.isOwner && vm.isPrivateGroupRoom ? (
+                    <button
+                      type="button"
+                      onClick={() => void vm.deletePrivateGroupRoom()}
+                      disabled={vm.busy === "group-delete"}
+                      className="w-full rounded-ui-rect border border-red-600 bg-red-50 px-4 py-3 text-left sam-text-body font-semibold text-red-800 disabled:opacity-40"
+                    >
+                      {vm.busy === "group-delete" ? vm.t("common_processing") : vm.t("cm_ui_delete_group")}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {

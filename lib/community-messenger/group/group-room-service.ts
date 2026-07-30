@@ -58,7 +58,12 @@ function normalizeRole(value: unknown): GroupRoomRole {
 }
 
 function roomUnavailable(room: GroupRoomRow): boolean {
+  if (room.deleted_at) return true;
   return (room.room_status ?? "active") !== "active" || room.is_readonly === true;
+}
+
+function roomDeletedError(room: GroupRoomRow): string | null {
+  return room.deleted_at ? GROUP_ROOM_ERROR.ROOM_DELETED : null;
 }
 
 async function appendGroupMgmtSystemMessage(
@@ -217,6 +222,7 @@ export async function inviteGroupMembers(input: {
 
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.NOT_GROUP_ROOM };
+  if (roomDeletedError(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
   if (roomUnavailable(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_UNAVAILABLE };
 
   const me = await fetchActiveParticipant(sb, roomId, userId);
@@ -289,6 +295,7 @@ export async function kickGroupMember(input: {
 
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.NOT_GROUP_ROOM };
+  if (roomDeletedError(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
 
   const me = await fetchActiveParticipant(sb, roomId, userId);
   const target = await fetchActiveParticipant(sb, roomId, targetUserId);
@@ -329,6 +336,7 @@ export async function leaveGroupRoom(input: {
 
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+  if (roomDeletedError(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
 
   const me = await fetchActiveParticipant(sb, roomId, userId);
   if (!me) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
@@ -503,6 +511,7 @@ export async function assertActivePrivateGroupSender(input: {
 
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.NOT_GROUP_ROOM };
+  if (roomDeletedError(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
   if (roomUnavailable(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_UNAVAILABLE };
 
   const participant = await fetchActiveParticipant(sb, roomId, userId);

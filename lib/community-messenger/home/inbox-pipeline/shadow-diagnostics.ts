@@ -134,7 +134,7 @@ function sourceToPhase(source: MessengerHomeSource): ShadowTimelinePhase {
 }
 
 function legacyBucketFromSummary(room: CommunityMessengerRoomSummary): MessengerHomeBucket {
-  if (room.roomStatus === "archived" || room.roomStatus === "blocked" || room.isArchivedByViewer || room.isBlockedHiddenByViewer) {
+  if (room.roomStatus === "archived" || room.roomStatus === "blocked" || room.isArchivedByViewer || room.isBlockedHiddenByViewer || room.deletedAt) {
     return "excluded";
   }
   if (communityMessengerRoomIsConfirmedTrade(room)) return "trade";

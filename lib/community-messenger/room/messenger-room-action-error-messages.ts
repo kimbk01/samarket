@@ -92,6 +92,13 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_forbidden");
     case "user_banned":
       return t("cm_ui_group_user_banned");
+    case "room_deleted":
+    case "group_deleted":
+      return t("cm_ui_group_deleted_unavailable");
+    case "delete_failed":
+      return t("cm_ui_group_delete_failed");
+    case "not_owner":
+      return t("cm_ui_group_delete_owner_only");
     case "call_provider_not_configured":
       return t("nav_messenger_call_provider_not_ready");
     case "trade_chat_calls_disabled":

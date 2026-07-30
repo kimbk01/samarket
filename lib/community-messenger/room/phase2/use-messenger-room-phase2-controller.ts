@@ -2080,6 +2080,49 @@ export function useMessengerRoomPhase2Controller() {
     [getRoomActionErrorMessage, isPrivateGroupRoom, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
   );
 
+  const deletePrivateGroupRoom = useCallback(async () => {
+    if (!isPrivateGroupRoom || !isOwner) return;
+    const confirmed = window.confirm(
+      `${t("cm_ui_delete_group_confirm_title")}\n\n${t("cm_ui_delete_group_confirm_body")}`
+    );
+    if (!confirmed) return;
+    setBusy("group-delete");
+    try {
+      const res = await fetch(communityMessengerGroupRoomApiPath(streamRoomId), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+      };
+      if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), {
+          variant: "error",
+        });
+        return;
+      }
+      showMessengerSnackbar(t("cm_ui_group_deleted"), { variant: "success" });
+      syncMessengerHomeAfterRoomLeave(streamRoomId);
+      dismissRoomSheet();
+      router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    dismissRoomSheet,
+    getRoomActionErrorMessage,
+    isOwner,
+    isPrivateGroupRoom,
+    redirectIfMessengerAuthBlocked,
+    router,
+    streamRoomId,
+    t,
+  ]);
+
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
       if (!canStartGroupCall) {
@@ -2538,6 +2581,7 @@ export function useMessengerRoomPhase2Controller() {
     startDirectCallWithMember,
     removeGroupMember,
     banGroupMember,
+    deletePrivateGroupRoom,
     startGroupCall,
     reportTarget,
     getMessageCopyText,

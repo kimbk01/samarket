@@ -96,6 +96,21 @@ export async function POST(
   const targetUserId = trimText(parsed.value.targetUserId);
   if (!roomId || !targetUserId) return jsonError("대상이 필요합니다.", 400);
 
+  {
+    const { resolveGroupRoomSupabase } = await import(
+      "@/lib/community-messenger/group/group-room-repository"
+    );
+    const { isPrivateGroupRoomDeleted } = await import(
+      "@/lib/community-messenger/group/group-room-delete-service"
+    );
+    const sb = resolveGroupRoomSupabase();
+    if (sb && (await isPrivateGroupRoomDeleted(sb, roomId))) {
+      return jsonError("이 그룹은 더 이상 사용할 수 없습니다.", 410, {
+        code: GROUP_ROOM_ERROR.ROOM_DELETED,
+      });
+    }
+  }
+
   const result = await banGroupMember({
     userId: auth.userId,
     roomId,

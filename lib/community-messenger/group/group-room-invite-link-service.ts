@@ -67,6 +67,7 @@ async function requireInviteManager(userId: string, roomId: string) {
   if (!sb) return { ok: false as const, error: GROUP_ROOM_ERROR.MESSENGER_MIGRATION_REQUIRED };
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false as const, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+  if (room.deleted_at) return { ok: false as const, error: GROUP_ROOM_ERROR.ROOM_DELETED };
   const participant = await fetchActiveParticipant(sb, roomId, userId);
   if (!participant) return { ok: false as const, error: GROUP_ROOM_ERROR.FORBIDDEN };
   const viewerRole = normalizeRole(participant.role);
@@ -289,7 +290,7 @@ export async function previewGroupInviteLink(input: {
     return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
   }
   const room = await fetchPrivateGroupRoom(sb, link.room_id);
-  if (!room || (room.room_status ?? "active") !== "active") {
+  if (!room || room.deleted_at || (room.room_status ?? "active") !== "active") {
     return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
   }
   const memberCount = await countActiveParticipants(sb, link.room_id);
@@ -345,6 +346,14 @@ export async function joinGroupRoomByInviteToken(input: {
   const userId = trimText(input.userId);
   const token = normalizeGroupInviteToken(input.inviteToken);
   if (!token) return { ok: false, error: GROUP_ROOM_ERROR.CONTENT_REQUIRED };
+
+  const linkPre = await fetchInviteLinkByToken(sb, token);
+  if (linkPre) {
+    const roomPre = await fetchPrivateGroupRoom(sb, linkPre.room_id);
+    if (!roomPre || roomPre.deleted_at) {
+      return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
+    }
+  }
 
   const { data, error } = await (sb as any).rpc("community_messenger_join_group_via_invite_link", {
     p_token: token,

@@ -27,6 +27,8 @@ export type CanonicalMessengerHomeRoom = {
   isArchived: boolean;
   isBlockedHidden: boolean;
   roomStatus: CommunityMessengerRoomStatus;
+  /** Phase3 S2-4 soft-delete tombstone ISO — exclude from active home when set */
+  deletedAt?: string | null;
 
   memberCount: number;
 };
@@ -52,6 +54,7 @@ export type CanonicalMessengerHomeRoomPatch = {
   isArchived?: boolean;
   isBlockedHidden?: boolean;
   roomStatus?: CommunityMessengerRoomStatus;
+  deletedAt?: string | null;
 
   memberCount?: number;
 };

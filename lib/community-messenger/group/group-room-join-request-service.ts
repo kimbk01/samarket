@@ -144,6 +144,7 @@ export async function listPendingGroupJoinRequests(input: {
   const userId = trimText(input.userId);
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+  if (room.deleted_at) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
   const me = await fetchActiveParticipant(sb, roomId, userId);
   if (!me) return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
   const role = normalizeRole(me.role);

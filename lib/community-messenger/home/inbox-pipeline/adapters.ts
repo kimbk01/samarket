@@ -61,6 +61,7 @@ export function adaptRoomSummaryToCanonicalPatch(
     isArchived: Boolean(summary.isArchivedByViewer),
     isBlockedHidden: Boolean(summary.isBlockedHiddenByViewer),
     roomStatus: summary.roomStatus,
+    deletedAt: summary.deletedAt ?? null,
     memberCount: summary.memberCount,
   };
   if (hasOwn(summary, "contextMeta")) {

@@ -51,6 +51,9 @@ export type GroupRoomRow = {
   last_message: string | null;
   last_message_at: string | null;
   last_message_type: string | null;
+  /** Phase3 S2-4 soft-delete tombstone — orthogonal to room_status / viewer archive */
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 
 export type GroupParticipantRow = {

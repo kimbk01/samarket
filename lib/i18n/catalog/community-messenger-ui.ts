@@ -491,6 +491,14 @@ export const communityMessengerUiMessages = {
     cm_ui_blocked_members_empty: "차단된 멤버가 없습니다.",
     cm_ui_unban_member: "차단 해제",
     cm_ui_group_user_banned: "이 그룹에서 차단되어 참여할 수 없습니다.",
+    cm_ui_delete_group: "그룹 삭제",
+    cm_ui_delete_group_confirm_title: "이 그룹을 삭제할까요?",
+    cm_ui_delete_group_confirm_body:
+      "모든 멤버에게 그룹이 종료됩니다. 새 메시지와 참여가 차단됩니다. 기존 메시지 기록은 보존되며, 이번 버전에서는 복구할 수 없습니다.",
+    cm_ui_group_deleted: "그룹이 삭제되었습니다",
+    cm_ui_group_deleted_unavailable: "이 그룹은 더 이상 사용할 수 없습니다.",
+    cm_ui_group_delete_failed: "그룹을 삭제하지 못했습니다.",
+    cm_ui_group_delete_owner_only: "그룹 삭제는 방장만 할 수 있습니다.",
     cm_ui_delete_for_me_only: "나에게서만 삭제",
     cm_ui_delete_recording: "녹음 삭제",
     cm_ui_voice_recording_start_failed:
@@ -1537,6 +1545,14 @@ export const communityMessengerUiMessages = {
     cm_ui_blocked_members_empty: "No blocked members.",
     cm_ui_unban_member: "Unban",
     cm_ui_group_user_banned: "You are banned from this group and cannot join.",
+    cm_ui_delete_group: "Delete group",
+    cm_ui_delete_group_confirm_title: "Delete this group?",
+    cm_ui_delete_group_confirm_body:
+      "This closes the group for all members. New messages and joins will be blocked. Existing message history will be retained. This action cannot be recovered in this version.",
+    cm_ui_group_deleted: "Group deleted",
+    cm_ui_group_deleted_unavailable: "This group is no longer available.",
+    cm_ui_group_delete_failed: "Failed to delete group.",
+    cm_ui_group_delete_owner_only: "Only the owner can delete this group.",
     cm_ui_delete_for_me_only: "Delete for me only",
     cm_ui_delete_recording: "Delete recording",
     cm_ui_voice_recording_start_failed:

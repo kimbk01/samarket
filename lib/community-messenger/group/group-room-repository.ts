@@ -154,13 +154,22 @@ export async function fetchPrivateGroupRoom(
 ): Promise<GroupRoomRow | null> {
   const id = trimText(roomId);
   if (!id) return null;
-  const { data, error } = await (sb as any)
+  const selectWithTombstone =
+    "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, avatar_url, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type, deleted_at, deleted_by";
+  const selectLegacy =
+    "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, avatar_url, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type";
+  let { data, error } = await (sb as any)
     .from("community_messenger_rooms")
-    .select(
-      "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, avatar_url, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type"
-    )
+    .select(selectWithTombstone)
     .eq("id", id)
     .maybeSingle();
+  if (error && /deleted_at|column/i.test(String(error.message ?? ""))) {
+    ({ data, error } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select(selectLegacy)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && !isMissingTableError(error)) return null;
   const row = data as GroupRoomRow | null;
   if (!row || row.room_type !== "private_group") return null;
@@ -205,17 +214,28 @@ export async function listMyPrivateGroupRooms(
   const participants = (participantRows ?? []) as GroupParticipantRow[];
   const roomIds = dedupeGroupMemberIds(participants.map((row) => row.room_id));
   if (!roomIds.length) return [];
-  const { data: roomRows, error: roomError } = await (sb as any)
+  const listSelectTombstone =
+    "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type, deleted_at, deleted_by";
+  const listSelectLegacy =
+    "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type";
+  let { data: roomRows, error: roomError } = await (sb as any)
     .from("community_messenger_rooms")
-    .select(
-      "id, room_type, room_status, visibility, join_policy, is_readonly, created_by, owner_user_id, title, summary, is_discoverable, allow_member_invite, notice_text, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, last_message, last_message_at, last_message_type"
-    )
+    .select(listSelectTombstone)
     .in("id", roomIds)
-    .eq("room_type", "private_group");
+    .eq("room_type", "private_group")
+    .is("deleted_at", null);
+  if (roomError && /deleted_at|column/i.test(String(roomError.message ?? ""))) {
+    ({ data: roomRows, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select(listSelectLegacy)
+      .in("id", roomIds)
+      .eq("room_type", "private_group"));
+  }
   if (roomError && !isMissingTableError(roomError)) return [];
   const participantByRoom = new Map(participants.map((row) => [row.room_id, row]));
   const out: Array<GroupRoomRow & { participant: GroupParticipantRow }> = [];
   for (const row of (roomRows ?? []) as GroupRoomRow[]) {
+    if (row.deleted_at) continue;
     const participant = participantByRoom.get(row.id);
     if (!participant) continue;
     out.push({ ...row, participant });

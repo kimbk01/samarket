@@ -68,6 +68,23 @@ export async function GET(
   seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomKey = canon.canonicalRoomId;
 
+  // Phase3 S2-4: soft-deleted groups cannot open/bootstrap as active rooms.
+  {
+    const { resolveGroupRoomSupabase } = await import(
+      "@/lib/community-messenger/group/group-room-repository"
+    );
+    const { isPrivateGroupRoomDeleted } = await import(
+      "@/lib/community-messenger/group/group-room-delete-service"
+    );
+    const sb = resolveGroupRoomSupabase();
+    if (sb && (await isPrivateGroupRoomDeleted(sb, roomKey))) {
+      return jsonErrorWithRequest(req, "이 그룹은 더 이상 사용할 수 없습니다.", {
+        status: 410,
+        code: "group_deleted",
+      });
+    }
+  }
+
   // Phase3 S2-1: banned viewers cannot open private group rooms (orthogonal to left_at).
   {
     const { resolveGroupRoomSupabase } = await import(

@@ -87,13 +87,44 @@ async function sumCommunityMessengerParticipantUnreadLegacy(
   const { data, error } = await sbAny
     .from("community_messenger_participants")
     .select(
-      "id, room:community_messenger_rooms!inner(chat_domain, direct_key, room_type)"
+      "id, room:community_messenger_rooms!inner(chat_domain, direct_key, room_type, deleted_at)"
     )
     .eq("user_id", uid)
     .gt("unread_count", 0);
   const wallMs = devPerfNow() - legacy0;
   const payloadBytes = Buffer.byteLength(JSON.stringify({ data, error: error?.message ?? null }), "utf8");
   if (error) {
+    // Pre-migration: deleted_at column missing — retry without tombstone filter
+    if (/deleted_at|column/i.test(String(error.message ?? ""))) {
+      const retry = await sbAny
+        .from("community_messenger_participants")
+        .select("id, room:community_messenger_rooms!inner(chat_domain, direct_key, room_type)")
+        .eq("user_id", uid)
+        .gt("unread_count", 0);
+      if (retry.error) {
+        return { result: 0, error: retry.error.message, wallMs, payloadBytes };
+      }
+      const rowsRetry = Array.isArray(retry.data) ? retry.data : [];
+      let resultRetry = 0;
+      for (const row of rowsRetry) {
+        const roomRaw = (row as { room?: unknown }).room;
+        const room = (Array.isArray(roomRaw) ? roomRaw[0] : roomRaw) as
+          | { chat_domain?: unknown; direct_key?: unknown; room_type?: unknown }
+          | null
+          | undefined;
+        if (
+          roomSummaryCountsForBottomChat({
+            chatDomain: (room?.chat_domain as CommunityMessengerRoomSummary["chatDomain"]) ?? null,
+            roomType: (room?.room_type as CommunityMessengerRoomSummary["roomType"]) ?? "direct",
+            messengerDirectKey: typeof room?.direct_key === "string" ? room.direct_key : null,
+            contextMeta: null,
+          })
+        ) {
+          resultRetry += 1;
+        }
+      }
+      return { result: resultRetry, wallMs, payloadBytes };
+    }
     return { result: 0, error: error.message, wallMs, payloadBytes };
   }
   const rows = Array.isArray(data) ? data : [];
@@ -101,9 +132,10 @@ async function sumCommunityMessengerParticipantUnreadLegacy(
   for (const row of rows) {
     const roomRaw = (row as { room?: unknown }).room;
     const room = (Array.isArray(roomRaw) ? roomRaw[0] : roomRaw) as
-      | { chat_domain?: unknown; direct_key?: unknown; room_type?: unknown }
+      | { chat_domain?: unknown; direct_key?: unknown; room_type?: unknown; deleted_at?: unknown }
       | null
       | undefined;
+    if (typeof room?.deleted_at === "string" && room.deleted_at.trim()) continue;
     if (
       roomSummaryCountsForBottomChat({
         chatDomain: (room?.chat_domain as CommunityMessengerRoomSummary["chatDomain"]) ?? null,

@@ -27,6 +27,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "room_id_required" }, { status: 400 });
   }
 
+  {
+    const { resolveGroupRoomSupabase } = await import(
+      "@/lib/community-messenger/group/group-room-repository"
+    );
+    const { isPrivateGroupRoomDeleted } = await import(
+      "@/lib/community-messenger/group/group-room-delete-service"
+    );
+    const sb = resolveGroupRoomSupabase();
+    if (sb && (await isPrivateGroupRoomDeleted(sb, roomId))) {
+      return NextResponse.json({ ok: false, error: "group_deleted" }, { status: 410 });
+    }
+  }
+
   let body: { action?: string; reason?: string | null } = {};
   try {
     body = (await req.json()) as typeof body;

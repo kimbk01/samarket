@@ -18,7 +18,13 @@ export function resolveMessengerHomeBucket(
   room: CanonicalMessengerHomeRoom,
   _viewerUserId: string
 ): MessengerHomeBucket {
-  if (room.isArchived || room.isBlockedHidden || room.roomStatus === "archived" || room.roomStatus === "blocked") {
+  if (
+    room.isArchived ||
+    room.isBlockedHidden ||
+    room.roomStatus === "archived" ||
+    room.roomStatus === "blocked" ||
+    Boolean(room.deletedAt)
+  ) {
     return "excluded";
   }
   /** Domain chatDomain SSOT when present (Domain list paint slice-2). */

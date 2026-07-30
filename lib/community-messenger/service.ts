@@ -424,6 +424,9 @@ type RoomRow = {
   chat_domain?: string | null;
   domain_identity?: string | null;
   domain_identity_key?: string | null;
+  /** Phase3 S2-4 soft-delete tombstone */
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 
 type ParticipantRow = {
@@ -2490,6 +2493,8 @@ function buildRoomSummaryFromHydratedMembers(
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
     isArchivedByViewer,
     isBlockedHiddenByViewer,
+    deletedAt: trimText(isDbRoom ? room.deleted_at : (room as { deletedAt?: string | null }).deletedAt) || null,
+    deletedBy: trimText(isDbRoom ? room.deleted_by : (room as { deletedBy?: string | null }).deletedBy) || null,
     messengerDirectKey,
     contextMeta: contextMeta ?? null,
     ...(chatDomainAttached ? { chatDomain: chatDomainAttached } : {}),
@@ -3171,7 +3176,7 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
 
 /** home-sync critical — DB select 최소(응답 필드는 summarize·hydrate 로 동일 표면 유지) */
 const HOME_SYNC_CRITICAL_ROOMS_SELECT =
-  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
+  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
 
 export async function fetchMyRoomsPayload(
   userId: string,
@@ -3193,7 +3198,7 @@ export async function fetchMyRoomsPayload(
   const bootstrapLiteBundle = options?.bootstrapLiteBundle === true;
   const roomsTableSelect = criticalSlimRoomSelect
     ? HOME_SYNC_CRITICAL_ROOMS_SELECT
-    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
+    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -13909,9 +13914,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
     /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
     const roomSelectColsDeferSeedNoNoticeBody =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
@@ -13969,6 +13974,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       diagnostics.snapshotQueryAParallelEndMs = Math.round(performance.now() - tBootstrap0);
     }
     room = (roomData as RoomRow | null) ?? null;
+    // Phase3 S2-4: soft-deleted groups — no active snapshot (Online/Ghost surfaces never resolve).
+    if (room && trimText(room.deleted_at)) {
+      return null;
+    }
     const listSplit = embeddedProfilesFromParticipantQueryRows(participantData);
     const mineSplit = embeddedProfilesFromParticipantQueryRows(
       myParticipantData && typeof myParticipantData === "object" ? [myParticipantData] : []
@@ -15575,7 +15584,7 @@ export async function sendCommunityMessengerMessage(input: {
     }
     const roomQ = (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_status, is_readonly, direct_key")
+      .select("id, room_status, is_readonly, direct_key, deleted_at")
       .eq("id", roomId)
       .maybeSingle();
     const dedupeQ =
@@ -15604,6 +15613,9 @@ export async function sendCommunityMessengerMessage(input: {
     const participant = participantRes.data;
     const roomData = roomRes.data;
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
@@ -15968,12 +15980,15 @@ export async function sendCommunityMessengerImageMessage(input: {
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
+        .select("id, room_status, is_readonly, deleted_at")
         .eq("id", roomId)
         .maybeSingle(),
     ]);
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
@@ -16102,12 +16117,15 @@ export async function sendCommunityMessengerStickerMessage(input: {
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
+        .select("id, room_status, is_readonly, deleted_at")
         .eq("id", roomId)
         .maybeSingle(),
     ]);
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
@@ -16303,12 +16321,15 @@ export async function sendCommunityPostShareMessage(input: {
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
+        .select("id, room_status, is_readonly, deleted_at")
         .eq("id", roomId)
         .maybeSingle(),
     ]);
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
@@ -16480,12 +16501,15 @@ export async function sendCommunityMessengerFileMessage(input: {
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
+        .select("id, room_status, is_readonly, deleted_at")
         .eq("id", roomId)
         .maybeSingle(),
     ]);
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
@@ -17232,12 +17256,15 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
+        .select("id, room_status, is_readonly, deleted_at")
         .eq("id", roomId)
         .maybeSingle(),
     ]);
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    if (trimText((roomData as { deleted_at?: unknown }).deleted_at)) {
+      return { ok: false, error: "room_deleted" };
+    }
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };

@@ -59,6 +59,7 @@ function roomFromPatch(patch: CanonicalMessengerHomeRoomPatch): CanonicalMesseng
     isArchived: Boolean(patch.isArchived),
     isBlockedHidden: Boolean(patch.isBlockedHidden),
     roomStatus: patch.roomStatus!,
+    deletedAt: patch.deletedAt ?? null,
     memberCount: Math.max(0, Math.floor(Number(patch.memberCount) || 0)),
   };
 }
@@ -124,6 +125,7 @@ function mergeRoom(
   if (patch.isArchived !== undefined) assign("isArchived", patch.isArchived);
   if (patch.isBlockedHidden !== undefined) assign("isBlockedHidden", patch.isBlockedHidden);
   if (patch.roomStatus !== undefined) assign("roomStatus", patch.roomStatus);
+  if (patch.deletedAt !== undefined) assign("deletedAt", patch.deletedAt);
   if (patch.memberCount !== undefined) {
     assign("memberCount", Math.max(0, Math.floor(Number(patch.memberCount) || 0)));
   }

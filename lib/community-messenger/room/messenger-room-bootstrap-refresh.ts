@@ -1019,7 +1019,7 @@ export function createMessengerRoomBootstrapRefresh(
       if (
         shouldBlock &&
         !roomRes.ok &&
-        (roomRes.status === 403 || roomRes.status === 404)
+        (roomRes.status === 403 || roomRes.status === 404 || roomRes.status === 410)
       ) {
         onBlockingBootstrapDenied?.(roomRes.status);
       }
