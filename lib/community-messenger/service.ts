@@ -14745,10 +14745,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   }
 
-  /** Phase 3 S2-3 — group Online SSOT (presence read aggregate; skip on defer seed paint). */
+  /** Phase 3 S2-3 — group Online SSOT (presence read aggregate; all group snapshot tiers). */
   let groupOnlineMemberCount: number | undefined;
   let groupOnlineCount: number | undefined;
-  if (sb && isCommunityMessengerGroupRoomType(summary.roomType) && !deferSecondary) {
+  if (sb && isCommunityMessengerGroupRoomType(summary.roomType)) {
     const { resolveGroupRoomOnlineAuthority } = await import(
       "@/lib/community-messenger/group/group-room-online-authority"
     );
