@@ -1,6 +1,27 @@
-import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
-
-/** 배달 묶음 세그먼트 전환 시 인박스 전체 목록이 잠깐 보이지 않도록 즉시 스켈레톤 유지 */
+/**
+ * 주문 허브 loading — 전체 홈 skeleton 금지. layout pillar enter 유지.
+ */
 export default function DeliveryChatsLoading() {
-  return <CommunityMessengerHomeShellSkeleton />;
+  return (
+    <div
+      className="flex min-h-0 flex-1 flex-col bg-sam-app"
+      data-domain-so-customer-list="loading-shell"
+      data-messenger-hub-list-scroll=""
+    >
+      <div className="border-b border-sam-border px-4 py-3">
+        <div className="h-4 w-24 rounded bg-sam-muted/20" />
+      </div>
+      <div className="min-h-0 flex-1 space-y-0 overflow-hidden px-3 pt-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex min-h-[72px] items-center gap-3 border-b border-sam-border/60 py-2">
+            <div className="h-12 w-12 shrink-0 rounded-ui-rect bg-sam-muted/20" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-3 w-2/5 rounded bg-sam-muted/20" />
+              <div className="h-3 w-3/5 rounded bg-sam-muted/15" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

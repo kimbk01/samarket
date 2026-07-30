@@ -113,9 +113,12 @@ describe("messenger presentation contract", () => {
       "utf8"
     );
     expect(row).toContain('data-cm-list-meta=""');
+    expect(row).toContain("data-cm-call-occurrence-time");
     expect(row).toContain("whitespace-nowrap");
-    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,80}truncate/);
-    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,80}max-w-\[52px\]/);
+    expect(row).toContain("text-right");
+    expect(row).not.toMatch(/data-cm-list-meta[\s\S]{0,120}truncate/);
+    expect(row).not.toMatch(/data-cm-call-occurrence-time[\s\S]{0,80}max-w-\[52px\]/);
+    expect(row).not.toContain("durationLabel || timeLabel");
   });
 
   it("split-room-pane transform:none must not kill enter phase", () => {
@@ -193,16 +196,21 @@ describe("messenger presentation contract", () => {
     );
   });
 
-  it("call row: nick(@id), duration under redial, not-friend on line 2", () => {
+  it("call row: occurrence time right meta; duration in subtitle only", () => {
     const row = readFileSync(
       resolve(root, "components/community-messenger/call-history/CommunityMessengerCallRow.tsx"),
       "utf8"
     );
     expect(row).toContain('data-cm-list-surface="call"');
     expect(row).toContain("(@{vm.peerPublicId})");
-    expect(row).toContain("vm.durationLabel || timeLabel");
+    expect(row).toContain("data-cm-call-occurrence-time");
+    expect(row).toContain("text-right");
+    expect(row).toContain("whitespace-nowrap");
+    expect(row).not.toContain("durationLabel || timeLabel");
+    expect(row).toContain("durationOnly");
     expect(row).toContain("cm_peer_badge_not_friend");
     expect(row).not.toMatch(/rounded-full bg-sam-surface-muted[\s\S]{0,80}cm_peer_badge_not_friend/);
+    expect(row).toContain("openedSwipeItemId !== swipeItemId");
   });
 
   it("room swipe shell forbids full-surface enter spinner", () => {
@@ -215,16 +223,42 @@ describe("messenger presentation contract", () => {
     expect(src).not.toContain("Loader2");
   });
 
-  it("pillar list pane wires enter/exit + animationend navigate", () => {
-    const src = readFileSync(
+  it("trade/delivery hub enter lives on route layout (369ms), not HomeListPane", () => {
+    const homePane = readFileSync(
       resolve(root, "components/community-messenger/CommunityMessengerHomeListPane.tsx"),
       "utf8"
     );
-    expect(src).toContain("sam-messenger-pillar-list-enter");
-    expect(src).toContain("sam-messenger-pillar-list-exit");
-    expect(src).toContain("onAnimationEnd");
-    expect(src).toContain("pillarPendingHrefRef");
-    expect(src).not.toMatch(/setTimeout\([\s\S]{0,80}MESSENGER_PILLAR_LIST_EXIT_MS/);
+    expect(homePane).not.toContain("sam-messenger-pillar-list-enter");
+    expect(homePane).toContain("layout SSOT");
+
+    const tradeLayout = readFileSync(
+      resolve(root, "app/(main)/community-messenger/trade-chats/layout.tsx"),
+      "utf8"
+    );
+    const deliveryLayout = readFileSync(
+      resolve(root, "app/(main)/community-messenger/delivery-chats/layout.tsx"),
+      "utf8"
+    );
+    expect(tradeLayout).toContain("sam-messenger-pillar-list-enter");
+    expect(deliveryLayout).toContain("sam-messenger-pillar-list-enter");
+    expect(tradeLayout).toContain('data-messenger-pillar-enter-ms="369"');
+    expect(deliveryLayout).toContain('data-messenger-pillar-enter-ms="369"');
+
+    const tradeLoading = readFileSync(
+      resolve(root, "app/(main)/community-messenger/trade-chats/loading.tsx"),
+      "utf8"
+    );
+    expect(tradeLoading).not.toContain("CommunityMessengerHomeShellSkeleton");
+    expect(tradeLoading).toContain("loading-shell");
+  });
+
+  it("chat list dismisses other swipe on pointerdown", () => {
+    const src = readFileSync(
+      resolve(root, "components/community-messenger/MessengerChatListItem.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("openedSwipeItemId !== swipeItemId");
+    expect(src).toContain("onOpenSwipeItem?.(null)");
   });
 
   it("AppStickyHeader skips messenger split to avoid double safe-top", () => {

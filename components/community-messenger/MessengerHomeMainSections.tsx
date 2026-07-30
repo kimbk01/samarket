@@ -201,6 +201,16 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         data-messenger-hub-list-scroll=""
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
+        onPointerDownCapture={(e) => {
+          const target = e.target;
+          if (!(target instanceof Element)) return;
+          if (target.closest("[data-messenger-chat-row='true']")) return;
+          if (target.closest("[data-call-log-row='true']")) return;
+          if (target.closest("[data-messenger-friend-row='true']")) return;
+          if (target.closest("[data-messenger-friend-quick-popup='true']")) return;
+          if (target.closest("[data-call-log-delete-action='true']")) return;
+          onResetTransientUi();
+        }}
       >
         <MessengerHomeSectionTransition section={mainSection}>
         {mainSection === "friends" ? (
@@ -231,6 +241,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onResetTransientUi={onResetTransientUi}
             messengerOverlayGeneration={messengerOverlayGeneration}
             friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
+            isScrolling={isScrolling}
           />
         ) : null}
 

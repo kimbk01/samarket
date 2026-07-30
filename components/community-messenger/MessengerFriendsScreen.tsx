@@ -39,6 +39,7 @@ type Props = {
   onResetTransientUi: MessengerResetTransientUiFn;
   messengerOverlayGeneration: number;
   friendQuickMenuBlocksTabSwipeRef: MutableRefObject<boolean>;
+  isScrolling?: boolean;
 };
 
 export function MessengerFriendsScreen({
@@ -68,6 +69,7 @@ export function MessengerFriendsScreen({
   onResetTransientUi,
   messengerOverlayGeneration,
   friendQuickMenuBlocksTabSwipeRef,
+  isScrolling = false,
 }: Props) {
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
@@ -82,6 +84,11 @@ export function MessengerFriendsScreen({
   useEffect(() => {
     setQuickMenuUserId((prev) => (prev === null ? prev : null));
   }, [messengerOverlayGeneration]);
+
+  useEffect(() => {
+    if (!isScrolling) return;
+    setQuickMenuUserId((prev) => (prev === null ? prev : null));
+  }, [isScrolling]);
 
   const openFriendQuickMenu = useCallback(
     (userId: string) => {

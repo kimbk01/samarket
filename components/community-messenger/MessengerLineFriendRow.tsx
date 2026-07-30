@@ -118,6 +118,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      if (
+        openedSwipeItemId &&
+        openedSwipeItemId !== leftSwipeItemId &&
+        openedSwipeItemId !== rightSwipeItemId
+      ) {
+        onOpenSwipeItem(null);
+      }
+      onCloseFriendQuickMenu();
       clearLongPressTimer();
       longPressFiredRef.current = false;
       suppressTapRef.current = false;
@@ -136,7 +144,15 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
       }, FRIEND_QUICK_MENU_LONG_PRESS_MS);
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     },
-    [clearLongPressTimer, openQuickMenu]
+    [
+      clearLongPressTimer,
+      leftSwipeItemId,
+      onCloseFriendQuickMenu,
+      onOpenSwipeItem,
+      openQuickMenu,
+      openedSwipeItemId,
+      rightSwipeItemId,
+    ]
   );
 
   const onPointerMove = useCallback(

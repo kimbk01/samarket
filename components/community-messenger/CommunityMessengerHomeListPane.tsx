@@ -19,8 +19,7 @@ import {
   recordCmClientMergeListRenderMs,
   recordCmClientMergePaneRender,
 } from "@/lib/community-messenger/cm-client-merge-breakdown";
-import { memo, useEffect, useLayoutEffect, useRef, useState, type AnimationEvent, type ReactElement } from "react";
-import { useRouter } from "next/navigation";
+import { memo, useLayoutEffect, useRef, type ReactElement } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -276,63 +275,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
   }
   recordCmClientMergePaneRender();
   const isPillarChatList = props.chatListVisual === "trade" || props.chatListVisual === "delivery";
-  const router = useRouter();
-  const [pillarAnimClass, setPillarAnimClass] = useState(
-    isPillarChatList ? "sam-messenger-pillar-list-enter" : ""
-  );
-  const pillarExitLockRef = useRef(false);
-  const pillarPendingHrefRef = useRef<string | null>(null);
+  /** 거래/주문 허브 우→좌 enter 는 `/trade-chats`·`/delivery-chats` layout SSOT — 여기 중복 금지 */
 
-  useEffect(() => {
-    if (!isPillarChatList) {
-      setPillarAnimClass("");
-      pillarExitLockRef.current = false;
-      pillarPendingHrefRef.current = null;
-      return;
-    }
-    setPillarAnimClass("sam-messenger-pillar-list-enter");
-    pillarExitLockRef.current = false;
-    pillarPendingHrefRef.current = null;
-  }, [isPillarChatList, props.chatListVisual]);
-
-  /** 거래/주문 허브 → 인박스 복귀: 좌→우 90% exit 후 animationend 로 navigate (setTimeout 금지) */
-  useEffect(() => {
-    if (!isPillarChatList) return;
-    const onClickCapture = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const anchor = target.closest("a[href]");
-      if (!(anchor instanceof HTMLAnchorElement)) return;
-      const href = anchor.getAttribute("href")?.trim() || "";
-      if (!href) return;
-      if (href.includes("/trade-chats") || href.includes("/delivery-chats") || href.includes("/rooms/")) {
-        return;
-      }
-      if (!href.startsWith("/community-messenger")) return;
-      if (pillarExitLockRef.current) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      pillarExitLockRef.current = true;
-      pillarPendingHrefRef.current = href;
-      setPillarAnimClass("sam-messenger-pillar-list-exit");
-    };
-    document.addEventListener("click", onClickCapture, true);
-    return () => document.removeEventListener("click", onClickCapture, true);
-  }, [isPillarChatList]);
-
-  const onPillarAnimationEnd = (event: AnimationEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (!pillarAnimClass.includes("exit")) return;
-    const href = pillarPendingHrefRef.current;
-    pillarPendingHrefRef.current = null;
-    if (href) {
-      router.push(href);
-    }
-  };
   useLayoutEffect(() => {
     if (listFrozen) return;
     const frame = frameRef.current;
@@ -413,11 +357,9 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
     <>
       <div
         ref={frameRef}
-        className={`relative flex min-h-0 flex-1 flex-col overflow-hidden ${isPillarChatList ? pillarAnimClass : ""}`}
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
         data-cm-home-frame="true"
         data-cm-pillar-list={isPillarChatList ? props.chatListVisual : undefined}
-        data-cm-pillar-anim={isPillarChatList ? (pillarAnimClass.includes("exit") ? "exit" : "enter") : undefined}
-        onAnimationEnd={isPillarChatList ? onPillarAnimationEnd : undefined}
         data-cm-home-state={
           canRenderList
             ? showRefreshingOverlay

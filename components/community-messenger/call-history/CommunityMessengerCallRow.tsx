@@ -179,6 +179,7 @@ export function CommunityMessengerCallRow({
     fallbackKo: "통화 기록",
     fallbackEn: "Call log",
   });
+  const durationOnly = vm.durationLabel?.trim() || null;
 
   const avatarNode = (
     <SamarketThumbnail
@@ -232,7 +233,12 @@ export function CommunityMessengerCallRow({
           transform: `translate3d(${dragX}px,0,0)`,
           transition: isDragging ? "none" : "transform 180ms cubic-bezier(0.2,0,0,1)",
         }}
-        onPointerDown={onPointerDown}
+        onPointerDown={(e) => {
+          if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
+            onOpenSwipeItem(null);
+          }
+          onPointerDown(e);
+        }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -273,12 +279,22 @@ export function CommunityMessengerCallRow({
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
               <p data-cm-list-preview="" className="min-w-0 truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
+                {durationOnly ? ` · ${durationOnly}` : ""}
               </p>
             </div>
           </div>
         </button>
 
-        <aside className="flex w-auto min-w-[52px] shrink-0 grow-0 basis-auto flex-col items-center justify-center gap-0.5 px-1 py-1">
+        <aside className="flex w-auto min-w-[52px] shrink-0 grow-0 basis-auto flex-col items-end justify-center gap-1 px-1.5 py-1">
+          {timeLabel ? (
+            <span
+              data-cm-list-meta=""
+              data-cm-call-occurrence-time=""
+              className="shrink-0 grow-0 basis-auto whitespace-nowrap text-right tabular-nums text-sam-fg-muted"
+            >
+              {timeLabel}
+            </span>
+          ) : null}
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton
@@ -291,14 +307,6 @@ export function CommunityMessengerCallRow({
           ) : (
             <span className="h-12 w-12" aria-hidden />
           )}
-          {vm.durationLabel || timeLabel ? (
-            <span
-              data-cm-list-meta=""
-              className="shrink-0 grow-0 basis-auto whitespace-nowrap text-center tabular-nums text-sam-fg-muted"
-            >
-              {vm.durationLabel || timeLabel}
-            </span>
-          ) : null}
         </aside>
       </div>
     </li>

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   isMessengerBottomNavScrollHideSurface,
@@ -34,5 +36,12 @@ describe("messenger bottom-nav scroll hide surface", () => {
     expect(resolveBottomNavScrollHideEnabled("/community-messenger", false, "")).toBe(true);
     expect(resolveBottomNavScrollHideEnabled("/community-messenger/trade-chats", false, "")).toBe(true);
     expect(resolveBottomNavScrollHideEnabled("/community-messenger/rooms/r1", false, "")).toBe(true);
+  });
+
+  it("scroll-hidden translate includes messenger orbit rise extra", () => {
+    const css = readFileSync(resolve(process.cwd(), "app/app-bottom-nav.css"), "utf8");
+    expect(css).toContain("--app-bottom-nav-scroll-hide-orbit-extra");
+    expect(css).toContain("app-bottom-nav-item--messenger-hub");
+    expect(css).toMatch(/\.app-bottom-nav-shell--scroll-hidden \{[\s\S]*?scroll-hide-orbit-extra/);
   });
 });

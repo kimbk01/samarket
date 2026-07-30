@@ -638,6 +638,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
+    if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
+      onOpenSwipeItem?.(null);
+    }
     clearReleasePressTimer();
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
@@ -652,7 +655,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
+  }, [
+    clearReleasePressTimer,
+    compact,
+    kickRoomNavPrefetchOnPointerDown,
+    onOpenSwipeItem,
+    openedSwipeItemId,
+    swipeItemId,
+    swipeOpen,
+  ]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {

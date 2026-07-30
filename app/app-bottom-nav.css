@@ -37,12 +37,24 @@
   height: calc(60px + var(--delivery-home-overhang, 0px) + var(--safe-bottom));
 }
 
-/** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 */
+/** 스크롤 숨김 — 홈 원·safe-area·여유·messenger/domain hub orbit 돌출까지 완전 이탈 */
+.app-bottom-nav-shell {
+  --app-bottom-nav-scroll-hide-orbit-extra: 0px;
+}
+
+.app-bottom-nav-shell:has(.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit),
+.app-bottom-nav-shell:has(.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit) {
+  --app-bottom-nav-scroll-hide-orbit-extra: var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36));
+}
+
 .app-bottom-nav-shell--scroll-hidden {
   pointer-events: none;
   transform: translate3d(
     0,
-    calc(100% + var(--safe-bottom) + var(--app-bottom-nav-scroll-hide-buffer, 0.5rem)),
+    calc(
+      100% + var(--safe-bottom) + var(--app-bottom-nav-scroll-hide-buffer, 0.5rem) +
+        var(--app-bottom-nav-scroll-hide-orbit-extra, 0px)
+    ),
     0
   );
 }
