@@ -167,6 +167,14 @@ export function resolveConditionalAppShellFlags(
   /** cart/checkout·주소 관리·매장 주문 리뷰 — `main` flex 잠금, 페이지 내부 스크롤 */
   const isMainColumnViewportLocked =
     isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage;
+  /**
+   * 메신저 허브·거래/주문 목록 — `[data-messenger-hub-list-scroll]` 내부 스크롤 권위.
+   * hub-scroll-body 가 콘텐츠 높이로 늘어나면 list 가 같이 늘어 scrollTop 불변 → BottomNav hide 실패.
+   */
+  const isCommunityMessengerHubListSurface =
+    pathname === "/community-messenger" ||
+    pathname === "/community-messenger/trade-chats" ||
+    pathname === "/community-messenger/delivery-chats";
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -195,7 +203,7 @@ export function resolveConditionalAppShellFlags(
     ? topTier1RuleSet.showRegionBar
       ? "flex h-[calc(100dvh-3.5rem-var(--safe-top))] max-h-[calc(100dvh-3.5rem-var(--safe-top))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
       : storeCartViewportLockedShellClass
-    : isMainColumnViewportLocked
+    : isMainColumnViewportLocked || isCommunityMessengerHubListSurface
       ? storeCartViewportLockedShellClass
       : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
@@ -354,7 +362,8 @@ export function resolveConditionalAppShellFlags(
     mainBottomClass,
     showRegionBar: showRegionBarComputed,
     isStoreCommerceCartCheckoutPage,
-    isMainColumnViewportLocked: isChatRoomDetail || isMainColumnViewportLocked,
+    isMainColumnViewportLocked:
+      isChatRoomDetail || isMainColumnViewportLocked || isCommunityMessengerHubListSurface,
     isStoreOwnerAdminRoute,
   };
 }

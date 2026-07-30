@@ -160,4 +160,13 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
     position: relative;
     z-index: 0;
   }
+
+  /**
+   * 메신저 허브·cart 등 viewport-lock — hub body 가 스크롤하면
+   * `[data-messenger-hub-list-scroll]` 이 콘텐츠 높이로 팽창(ch===sh) → 가로/세로 스크롤·BottomNav hide 실패.
+   * 자식(list) 만 overflow 권위.
+   */
+  .main-hub-scroll-body.main-hub-scroll-body--child-scroll-lock {
+    overflow-y: hidden;
+  }
 }
