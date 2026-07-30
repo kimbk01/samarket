@@ -18,16 +18,12 @@ describe("messenger split BottomNav left-pane contract", () => {
     expect(APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS).toBe("app-bottom-nav-shell--messenger-split-list");
   });
 
-  it("CSS constrains messenger-split BottomNav to list pane width only in landscape", () => {
+  it("CSS constrains messenger-split BottomNav to list pane width", () => {
     const css = read("app/app-bottom-nav.css");
     expect(css).toContain(".app-bottom-nav-shell--messenger-split-list");
     expect(css).toContain("clamp(360px, 35vw, 470px)");
     expect(css).toContain("right: auto");
     expect(css).toContain("min-width: 360px");
-    expect(css).toContain("@media (min-width: 768px) and (orientation: landscape)");
-    expect(css).not.toMatch(
-      /@media \(min-width: 768px\) \{\s*\n\s*\.app-bottom-nav-shell\.app-bottom-nav-shell--messenger-split-list/
-    );
   });
 
   it("messenger-split BottomNav left tracks APP_MAIN_COLUMN mx-auto max-w chain", () => {
@@ -47,7 +43,7 @@ describe("messenger split BottomNav left-pane contract", () => {
     const src = read("components/layout/ConditionalAppShell.tsx");
     expect(src).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
     expect(src).toContain('pathname === "/community-messenger"');
-    expect(src).toContain("orientation:landscape");
+    expect(src).toContain("Avoids SSR false");
     expect(src).not.toMatch(
       /isMessengerSplitViewport\s*&&\s*\n?\s*\(pathname === "\/community-messenger"/
     );

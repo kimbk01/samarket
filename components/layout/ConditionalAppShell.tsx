@@ -295,13 +295,7 @@ export function ConditionalAppShell({
       contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
       {hubScrollColumn ? (
-        <MainHubScrollBody
-          className={`${mainSurfaceClass}${
-            f.isMainColumnViewportLocked ? " main-hub-scroll-body--child-scroll-lock" : ""
-          }`}
-        >
-          {mainInnerColumn}
-        </MainHubScrollBody>
+        <MainHubScrollBody className={mainSurfaceClass}>{mainInnerColumn}</MainHubScrollBody>
       ) : (
         <div
           className={`min-h-0 min-w-0 flex-1 flex-col ${
@@ -349,9 +343,8 @@ export function ConditionalAppShell({
               ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
               : "",
             /**
-             * Path-based (not JS matchMedia) — CSS
-             * `@media (min-width:768px) and (orientation:landscape)` owns width.
-             * Portrait keeps full-width even with this class. Avoids SSR flash.
+             * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
+             * Avoids SSR false → full-width flash then shrink.
              */
             pathname === "/community-messenger" ||
             (pathname?.startsWith("/community-messenger/") ?? false)

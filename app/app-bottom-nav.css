@@ -70,16 +70,15 @@
 /**
  * CONTRACT — 탭은 컨테이너 전폭에 `flex:1` 비율 분배.
  * 기본: BottomNav shell·container 는 viewport 전폭 (max-width 금지).
- * 예외: ≥768 **AND landscape** 메신저 — `.app-bottom-nav-shell--messenger-split-list` 만 좌측 pane 폭
+ * 예외: ≥768 메신저 — `.app-bottom-nav-shell--messenger-split-list` 만 좌측 pane 폭
  * (`--cm-split-list-pane-width` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`).
- * 세로(태블릿 portrait 포함)는 전폭 — width-only 768 금지.
  * 클래스은 pathname 기준(SSR 안전); 폭은 media query 만 적용 → hydration 폭 플래시 금지.
  *
  * left 는 viewport 0 이 아니라 `APP_MAIN_COLUMN_CLASS`(mx-auto + max-w rem 체인)과 동일 오프셋.
  * bodyPortal fixed nav 가 컬럼 inset 을 무시하면 list left≠nav left (실측 Xiaomi Δleft≈87).
  * rem 체인 SSOT: `lib/ui/app-content-layout.ts` `APP_MAIN_COLUMN_MAX_WIDTH_CLASS`.
  */
-@media (min-width: 768px) and (orientation: landscape) {
+@media (min-width: 768px) {
   .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list {
     --cm-split-list-pane-width: clamp(360px, 35vw, 470px);
     /* md: max-w-[52rem] */
@@ -99,14 +98,14 @@
   }
 }
 
-@media (min-width: 1024px) and (orientation: landscape) {
+@media (min-width: 1024px) {
   .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list {
     /* lg: max-w-[60rem] */
     left: max(0px, calc((100vw - min(100vw, 60rem)) / 2));
   }
 }
 
-@media (min-width: 1280px) and (orientation: landscape) {
+@media (min-width: 1280px) {
   .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list {
     /* xl: max-w-[66rem] */
     left: max(0px, calc((100vw - min(100vw, 66rem)) / 2));

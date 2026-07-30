@@ -27,8 +27,7 @@ import {
   filterTradeListRowsByRole,
   type TradeListRoleFilter,
 } from "@/lib/messenger/trade/list-sort-filter";
-import { resolveMainBottomNavBodyClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { useBottomNavScrollChromeHidden } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -122,7 +121,6 @@ export function DomainTradeListCanaryGate({
   filter?: string;
 }) {
   void _filter;
-  const clearanceClass = resolveMainBottomNavBodyClearanceClass(useBottomNavScrollChromeHidden());
   const [{ mode: initialMode, dto: initialDto, needsRefetch: initialNeedsRefetch }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainTradeListCanaryCache(syncUid);
@@ -282,7 +280,7 @@ export function DomainTradeListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-trade-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
@@ -302,7 +300,7 @@ export function DomainTradeListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-trade-list="error"
         data-domain-list-mode="domain"
       >
@@ -334,7 +332,7 @@ export function DomainTradeListCanaryGate({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col bg-sam-app ${clearanceClass}`}
+      className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}

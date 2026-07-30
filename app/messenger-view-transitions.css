@@ -90,11 +90,10 @@
 }
 
 /**
- * 768px+ **AND landscape** split — 방 route 가 우측 pane 밖(뷰포트 전체)으로 탈출하지 못하게 격리.
- * 세로 태블릿 wide 미디어만으로는 적용하지 않음 (`APP_MESSENGER_SPLIT_MEDIA_QUERY` 동기).
+ * 768px+ split — 방 route 가 우측 pane 밖(뷰포트 전체)으로 탈출하지 못하게 격리.
  * `.messenger-page { position:fixed }` · pre-route shell · segment inline shell 우회 방지.
  */
-@media (min-width: 768px) and (orientation: landscape) {
+@media (min-width: 768px) {
   [data-messenger-responsive-shell="wide"] {
     isolation: isolate;
     min-height: 0;

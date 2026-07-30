@@ -46,8 +46,9 @@ export function AppStickyHeader() {
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
 
   /**
-   * 768+ landscape split 메신저만: StickyHeader null — SplitTopBar 가 safe-top 단일 담당.
-   * 세로(태블릿 portrait 포함)는 StickyHeader 유지. DO NOT width-only ≥768 로 null.
+   * ≥768 메신저: `RegionBar` 가 null 이어도 이 래퍼가 `pt-[var(--safe-top)]` 만 남겨
+   * `MessengerSplitTopBar` 와 이중 inset 이 됨 (Android tablet CDP: stickyH≈29, children=0).
+   * SplitTopBar 가 safe-top 단일 담당.
    */
   if (isMessengerSplit && isCommunityMessengerSurface) return null;
 

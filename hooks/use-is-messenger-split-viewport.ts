@@ -1,26 +1,25 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { APP_MESSENGER_SPLIT_MEDIA_QUERY } from "@/lib/ui/app-viewport-layout-breakpoints";
+import { APP_MESSENGER_SPLIT_MIN_PX } from "@/lib/ui/app-viewport-layout-breakpoints";
+
+const QUERY = `(min-width: ${APP_MESSENGER_SPLIT_MIN_PX}px)`;
 
 function subscribe(onChange: () => void) {
-  const m = window.matchMedia(APP_MESSENGER_SPLIT_MEDIA_QUERY);
+  const m = window.matchMedia(QUERY);
   m.addEventListener("change", onChange);
   return () => m.removeEventListener("change", onChange);
 }
 
 function getSnapshot() {
-  return window.matchMedia(APP_MESSENGER_SPLIT_MEDIA_QUERY).matches;
+  return window.matchMedia(QUERY).matches;
 }
 
 function getServerSnapshot() {
   return false;
 }
 
-/**
- * 768px+ **AND** landscape — 메신저 Kakao/Telegram형 master-detail.
- * 세로(폰·태블릿 portrait)는 항상 false → full hub.
- */
+/** 768px+ — 메신저 Kakao/Telegram형 master-detail (모바일 full-page와 분리) */
 export function useIsMessengerSplitViewport() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

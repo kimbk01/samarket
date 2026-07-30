@@ -351,7 +351,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
     <>
       <div
         ref={frameRef}
-        className={`relative flex min-h-0 flex-1 flex-col overflow-hidden ${isPillarChatList ? "sam-messenger-pillar-list-enter" : ""}`}
+        className={`relative ${props.splitLayoutMode === "list-only" ? "flex min-h-0 flex-1 flex-col" : "min-h-[56dvh]"} ${isPillarChatList ? "sam-messenger-pillar-list-enter" : ""}`}
         data-cm-home-frame="true"
         data-cm-pillar-list={isPillarChatList ? props.chatListVisual : undefined}
         data-cm-home-state={
@@ -369,7 +369,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
         {canRenderList && props.data ? (
           <div
             data-cm-home-list-mounted="true"
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className={props.splitLayoutMode === "list-only" ? "flex min-h-0 flex-1 flex-col" : undefined}
           >
             {props.splitLayoutMode === "list-only" ? (
               <MessengerHomeMainSections

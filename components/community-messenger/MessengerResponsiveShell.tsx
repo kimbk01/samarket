@@ -11,7 +11,6 @@ import {
 import { MessengerSplitListPane } from "@/components/community-messenger/MessengerSplitListPane";
 import { MessengerSplitTopBar } from "@/components/community-messenger/MessengerSplitTopBar";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
-import { useMessengerHubSurfaceDataAttrs } from "@/hooks/use-messenger-hub-surface";
 import { MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY } from "@/lib/community-messenger/messenger-entry-origin";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 import { resolveMessengerSplitListScope } from "@/lib/community-messenger/messenger-split-list-scope";
@@ -26,7 +25,6 @@ function MessengerWideShellBody({ children }: Props) {
   const roomId = parseCommunityMessengerRoomIdFromPathname(pathname);
   const detailOverrideApi = useMessengerSplitDetailOverride();
   const detailOverride = detailOverrideApi?.detailOverride ?? null;
-  const surfaceAttrs = useMessengerHubSurfaceDataAttrs();
   const scope = resolveMessengerSplitListScope({
     pathname,
     cmList: searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY),
@@ -65,7 +63,6 @@ function MessengerWideShellBody({ children }: Props) {
       data-messenger-responsive-shell="wide"
       data-messenger-room-id={roomId ?? undefined}
       data-messenger-list-scope={scope}
-      {...surfaceAttrs}
     >
       <MessengerSplitTopBar />
       <CommunityMessengerHomeMasterDetail
@@ -80,20 +77,16 @@ function MessengerWideShellBody({ children }: Props) {
 }
 
 /**
- * split = 768+ **AND** landscape only.
- * portrait(폰·태블릿) · window 세로 = mobile hub children (전폭 스크롤).
+ * 768px+ — URL roomId 만 바꿔 우측 pane 에 route children 표시 (Telegram형, shell·목록 유지).
+ * 통화 peer 상세는 detail override 로 우측 pane 에 임베드.
+ * <768 — children(기존 hub/room full-page).
  */
 export function MessengerResponsiveShell({ children }: Props) {
   const isWide = useIsMessengerSplitViewport();
-  const surfaceAttrs = useMessengerHubSurfaceDataAttrs();
 
   if (!isWide) {
     return (
-      <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col"
-        data-messenger-responsive-shell="mobile"
-        {...surfaceAttrs}
-      >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-messenger-responsive-shell="mobile">
         {children}
       </div>
     );

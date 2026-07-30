@@ -29,8 +29,6 @@ function readMessengerHubListScrollTop(): number | null {
   if (typeof document === "undefined") return null;
   const el = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
   if (!(el instanceof HTMLElement)) return null;
-  // List mounted but not the active scroller (expanded to content) — fall through to main root.
-  if (el.scrollHeight <= el.clientHeight + 1) return null;
   return el.scrollTop;
 }
 
@@ -153,15 +151,8 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
 
     const hubListEl = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
     const onHubListScroll = () => onScroll();
-    let hubListResizeObserver: ResizeObserver | null = null;
     if (hubListEl instanceof HTMLElement) {
       hubListEl.addEventListener("scroll", onHubListScroll, { passive: true });
-      if (typeof ResizeObserver !== "undefined") {
-        hubListResizeObserver = new ResizeObserver(() => {
-          syncScrollChromeFromLayout();
-        });
-        hubListResizeObserver.observe(hubListEl);
-      }
     }
 
     window.addEventListener("resize", onResize, { passive: true });
@@ -214,7 +205,6 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       if (hubListEl instanceof HTMLElement) {
         hubListEl.removeEventListener("scroll", onHubListScroll);
       }
-      hubListResizeObserver?.disconnect();
       window.removeEventListener("resize", onResize);
       if (resizeTimer != null) clearTimeout(resizeTimer);
       if (syncRaf) window.cancelAnimationFrame(syncRaf);
