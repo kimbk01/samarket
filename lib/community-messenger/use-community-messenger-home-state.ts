@@ -544,6 +544,12 @@ export function useCommunityMessengerHomeState({
     return stabilizeRoomListItems(next, archiveListItemsStableRef);
   }, [unifiedRooms]);
 
+  const mutedListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
+  const mutedListItems = useMemo(() => {
+    const next = unifiedRooms.filter((item) => item.room.isMuted);
+    return stabilizeRoomListItems(next, mutedListItemsStableRef);
+  }, [unifiedRooms]);
+
   const openChatJoinedItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const openChatJoinedItems = useMemo(() => {
     const next = unifiedRooms.filter(
@@ -625,6 +631,7 @@ export function useCommunityMessengerHomeState({
     /** pillar 서브 라우트(거래/배달)에서 필터·칩 적용 전 해당 pillar 방 목록 — realtime 구독 합집합용 */
     pillarBaseChatListItems,
     archiveListItems,
+    mutedListItems,
     openChatJoinedItems,
     visibleChatListItems,
     searchSheetRoomItems,

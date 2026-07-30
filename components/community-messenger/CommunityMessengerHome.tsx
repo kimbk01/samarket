@@ -1839,6 +1839,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     openChatJoinedItems,
     searchSheetRoomItems,
     primaryListItems,
+    mutedListItems,
     friendStateModel,
     tradePillarSummary,
     deliveryPillarSummary,
@@ -2975,6 +2976,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         onFriendToggleRoomMuteStable={onFriendToggleRoomMuteStable}
         friendHasDirectRoomStable={friendHasDirectRoomStable}
         primaryListItems={primaryListItems}
+        mutedListItems={mutedListItems}
         favoriteFriendIds={favoriteFriendIds}
         savedFriendIds={savedFriendIds}
         handleMessengerHomeTogglePin={handleMessengerHomeTogglePin}

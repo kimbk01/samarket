@@ -65,6 +65,8 @@ type Props = {
   onFriendToggleRoomMute: (userId: string) => void;
   friendHasDirectRoom: (userId: string) => boolean;
   primaryListItems: UnifiedRoomListItem[];
+  /** 알림 끔 대화 — 보관함 muted_chats 전용 */
+  mutedListItems: UnifiedRoomListItem[];
   favoriteFriendIds: Set<string>;
   savedFriendIds?: Set<string>;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -94,6 +96,8 @@ type Props = {
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
+  /** hub MasterDetail 우측이 보관함 detail 을 담당 */
+  archiveDetailExternal?: boolean;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -132,6 +136,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onFriendToggleRoomMute,
   friendHasDirectRoom,
   primaryListItems,
+  mutedListItems,
   favoriteFriendIds,
   savedFriendIds,
   onTogglePin,
@@ -154,6 +159,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onBootstrapCallsChange,
   showSectionTabs = false,
   onPrimarySectionChange,
+  archiveDetailExternal = false,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
   const showInlineFriendSearch =
@@ -299,6 +305,10 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         {mainSection === "archive" ? (
           <MessengerArchiveScreen
             items={primaryListItems}
+            mutedItems={mutedListItems}
+            friendStateModel={friendStateModel}
+            onToggleHiddenFriend={onFriendSwipeHide}
+            onToggleBlock={onFriendSwipeBlock}
             viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
             savedFriendIds={savedFriendIds}
@@ -311,7 +321,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onOpenRoomActions={onOpenRoomActions}
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}
-            listContext="archive"
             openedSwipeItemId={openedSwipeItemId}
             selectedArchiveSection={selectedArchiveSection}
             onOpenSwipeItem={onOpenSwipeItem}
@@ -319,6 +328,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
             onSelectArchiveSection={onSelectArchiveSection}
+            detailExternal={archiveDetailExternal}
           />
         ) : null}
         </MessengerHomeSectionTransition>
