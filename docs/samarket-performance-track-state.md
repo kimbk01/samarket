@@ -2491,3 +2491,22 @@ harness: `milestone_poll_v6_bn14_s4_only` · origin `http://localhost:3001`
 | 판정 | **코드 완료 후보 / 체감 미판정** — Phase F NOT READY |
 | 다음 후보 1개 | ④ notifications → owner invalidate 스코프 분리 |
 
+---
+
+## MESSENGER-FIX1 — alias → canonical 단일 mount/bootstrap (2026-07-30)
+
+| 항목 | 내용 |
+|---|---|
+| 원인 1개 | alias bootstrap 뒤 canonical `router.replace`가 route `roomId`를 바꾸면서 `CommunityMessengerRoomClient key={roomId}`를 재마운트하고 BootstrapGate effect를 다시 실행함 |
+| 수정 | bootstrap이 확정한 exact alias→canonical pair만 canonical mount identity를 공유하고, canonical replace 직후 준비된 snapshot을 재사용. route/snapshot identity가 다른 실제 방은 mount를 차단 |
+| 정적 검증 | `npx tsc --noEmit` PASS · bootstrap gate contract 7/7 PASS · `npm run build` PASS |
+| 제품 브라우저 검증 | alias 보유 QA 계정의 앱 세션을 로컬 Production 서버에 확립하지 못해 BLOCKED. 제품/실기기 PASS로 승격하지 않음 |
+
+| runtime contract run | RoomClient mount | bootstrap command | 이전 방 snapshot 노출 |
+|---:|---:|---:|---:|
+| 1 | 1 | 1 | 0 |
+| 2 | 1 | 1 | 0 |
+| 3 | 1 | 1 | 0 |
+
+**판정:** 코드 완료 / 제품 실측 BLOCKED. BN13·BN14 종료 트랙은 재개하지 않으며, 본 수정은 alias canonicalization 재마운트라는 별도 원인만 닫는다.
+

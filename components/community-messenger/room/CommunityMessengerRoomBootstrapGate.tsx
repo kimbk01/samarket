@@ -16,6 +16,55 @@ import {
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
 
+type MessengerRoomCanonicalConvergence = {
+  requestedRoomId: string;
+  canonicalRoomId: string;
+};
+
+function normalizedRoomId(value: string | null | undefined): string {
+  return String(value ?? "").trim();
+}
+
+/**
+ * Alias route may temporarily differ from the canonical room id returned by bootstrap.
+ * Only the exact alias→canonical pair recorded from that bootstrap may share one RoomClient mount.
+ */
+export function resolveMessengerRoomEntryMountIdentity(args: {
+  routeRoomId: string;
+  snapshotRoomId: string;
+  convergence: MessengerRoomCanonicalConvergence | null;
+}): string | null {
+  const routeRoomId = normalizedRoomId(args.routeRoomId);
+  const snapshotRoomId = normalizedRoomId(args.snapshotRoomId);
+  if (!routeRoomId || !snapshotRoomId) return null;
+  if (routeRoomId === snapshotRoomId) return snapshotRoomId;
+  if (
+    args.convergence?.requestedRoomId === routeRoomId &&
+    args.convergence.canonicalRoomId === snapshotRoomId
+  ) {
+    return snapshotRoomId;
+  }
+  return null;
+}
+
+export function shouldReusePreparedSnapshotAfterCanonicalReplace(args: {
+  routeRoomId: string;
+  snapshotRoomId: string;
+  convergence: MessengerRoomCanonicalConvergence | null;
+}): boolean {
+  const routeRoomId = normalizedRoomId(args.routeRoomId);
+  const snapshotRoomId = normalizedRoomId(args.snapshotRoomId);
+  const convergence = args.convergence;
+  return Boolean(
+    routeRoomId &&
+      snapshotRoomId &&
+      convergence &&
+      convergence.requestedRoomId !== convergence.canonicalRoomId &&
+      routeRoomId === convergence.canonicalRoomId &&
+      snapshotRoomId === convergence.canonicalRoomId
+  );
+}
+
 /** TTL fresh 여부와 무관 — mountable cache면 즉시 실방. */
 function peekMountableEntrySnapshot(
   roomId: string,
@@ -66,6 +115,15 @@ export function CommunityMessengerRoomBootstrapGate({
   const [entrySnapshot, setEntrySnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() =>
     peekMountableEntrySnapshot(roomId, viewerUserId)
   );
+  const entrySnapshotRef = useRef(entrySnapshot);
+  const canonicalConvergenceRef = useRef<MessengerRoomCanonicalConvergence | null>(
+    entrySnapshot && normalizedRoomId(entrySnapshot.room.id) !== normalizedRoomId(roomId)
+      ? {
+          requestedRoomId: normalizedRoomId(roomId),
+          canonicalRoomId: normalizedRoomId(entrySnapshot.room.id),
+        }
+      : null
+  );
   const [bootstrapPending, setBootstrapPending] = useState(
     () => !peekMountableEntrySnapshot(roomId, viewerUserId)
   );
@@ -80,11 +138,31 @@ export function CommunityMessengerRoomBootstrapGate({
       return;
     }
 
+    const preparedSnapshot = entrySnapshotRef.current;
+    if (
+      preparedSnapshot &&
+      shouldReusePreparedSnapshotAfterCanonicalReplace({
+        routeRoomId: rid,
+        snapshotRoomId: preparedSnapshot.room.id,
+        convergence: canonicalConvergenceRef.current,
+      })
+    ) {
+      canonicalConvergenceRef.current = null;
+      setBootstrapPending(false);
+      return;
+    }
+
     let cancelled = false;
     setEntryError(null);
 
     const cached = peekMountableEntrySnapshot(rid, viewerUserId);
     if (cached) {
+      const canonicalRoomId = normalizedRoomId(cached.room.id);
+      canonicalConvergenceRef.current =
+        canonicalRoomId && canonicalRoomId !== rid
+          ? { requestedRoomId: rid, canonicalRoomId }
+          : null;
+      entrySnapshotRef.current = cached;
       setEntrySnapshot(cached);
       setBootstrapPending(false);
       // background refresh — do not clear room to spinner
@@ -96,6 +174,12 @@ export function CommunityMessengerRoomBootstrapGate({
         });
         if (cancelled || !result.ok) return;
         if (!canMountCommunityMessengerRoomClient(result.snapshot)) return;
+        const canonicalRoomId = normalizedRoomId(result.roomId);
+        const snapshotRoomId = normalizedRoomId(result.snapshot.room.id);
+        if (!canonicalRoomId || canonicalRoomId !== snapshotRoomId) return;
+        canonicalConvergenceRef.current =
+          canonicalRoomId !== rid ? { requestedRoomId: rid, canonicalRoomId } : null;
+        entrySnapshotRef.current = result.snapshot;
         setEntrySnapshot(result.snapshot);
       })();
       return () => {
@@ -104,6 +188,7 @@ export function CommunityMessengerRoomBootstrapGate({
     }
 
     setBootstrapPending(true);
+    entrySnapshotRef.current = null;
     setEntrySnapshot(null);
 
     void (async () => {
@@ -123,6 +208,16 @@ export function CommunityMessengerRoomBootstrapGate({
         setBootstrapPending(false);
         return;
       }
+      const canonicalRoomId = normalizedRoomId(result.roomId);
+      const snapshotRoomId = normalizedRoomId(result.snapshot.room.id);
+      if (!canonicalRoomId || canonicalRoomId !== snapshotRoomId) {
+        setEntryError("room_identity_mismatch");
+        setBootstrapPending(false);
+        return;
+      }
+      canonicalConvergenceRef.current =
+        canonicalRoomId !== rid ? { requestedRoomId: rid, canonicalRoomId } : null;
+      entrySnapshotRef.current = result.snapshot;
       setEntrySnapshot(result.snapshot);
       setBootstrapPending(false);
     })();
@@ -142,7 +237,21 @@ export function CommunityMessengerRoomBootstrapGate({
     return null;
   }
 
-  if (bootstrapPending || !entrySnapshot || !canMountCommunityMessengerRoomClient(entrySnapshot)) {
+  const roomClientMountIdentity =
+    entrySnapshot ?
+      resolveMessengerRoomEntryMountIdentity({
+        routeRoomId: roomId,
+        snapshotRoomId: entrySnapshot.room.id,
+        convergence: canonicalConvergenceRef.current,
+      })
+    : null;
+
+  if (
+    bootstrapPending ||
+    !entrySnapshot ||
+    !roomClientMountIdentity ||
+    !canMountCommunityMessengerRoomClient(entrySnapshot)
+  ) {
     return (
       <CommunityMessengerRoomEntryEmpty
         roomId={roomId}
@@ -157,7 +266,7 @@ export function CommunityMessengerRoomBootstrapGate({
 
   return (
     <CommunityMessengerRoomClient
-      key={roomId}
+      key={roomClientMountIdentity}
       roomId={roomId}
       initialServerSnapshot={entrySnapshot}
       initialViewerUserId={viewer}
