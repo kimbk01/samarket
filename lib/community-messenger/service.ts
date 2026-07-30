@@ -14745,14 +14745,30 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   }
 
+  /** Phase 3 S2-3 — group Online SSOT (presence read aggregate; skip on defer seed paint). */
+  let groupOnlineMemberCount: number | undefined;
+  let groupOnlineCount: number | undefined;
+  if (sb && isCommunityMessengerGroupRoomType(summary.roomType) && !deferSecondary) {
+    const { resolveGroupRoomOnlineAuthority } = await import(
+      "@/lib/community-messenger/group/group-room-online-authority"
+    );
+    const onlineAuth = await resolveGroupRoomOnlineAuthority(sb as any, id);
+    groupOnlineMemberCount = onlineAuth.memberCount;
+    groupOnlineCount = onlineAuth.onlineCount;
+  }
+
+  const roomMemberCountForSnapshot = groupOnlineMemberCount ?? summary.memberCount;
+
   const snapshot = {
     viewerUserId: userId,
     room: {
       ...summary,
+      memberCount: roomMemberCountForSnapshot,
+      ...(typeof groupOnlineCount === "number" ? { onlineCount: groupOnlineCount } : {}),
       description: cmRoomSnapshotDescription({
         roomType: summary.roomType,
         summary: summary.summary,
-        memberCount: summary.memberCount,
+        memberCount: roomMemberCountForSnapshot,
       }),
     },
     members: membersForSnapshot,

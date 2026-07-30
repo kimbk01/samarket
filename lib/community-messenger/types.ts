@@ -171,6 +171,11 @@ export type CommunityMessengerRoomSummary = {
   lastMessageType?: CommunityMessengerMessageType;
   lastMessageAt: string;
   memberCount: number;
+  /**
+   * Phase 3 S2-3 — group rooms only.
+   * Active participants ∩ Presence online − active ban (same SSOT as Header / Info / Members).
+   */
+  onlineCount?: number;
   ownerUserId: string | null;
   ownerLabel: string;
   memberLimit: number | null;

@@ -58,6 +58,7 @@ import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } f
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
+import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
@@ -411,7 +412,13 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   />
                   <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
-                    {vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })} · {vm.myRoleLabel}
+                    {typeof vm.snapshot.room.onlineCount === "number"
+                      ? vm.t("cm_ui_group_members_online_line", {
+                          memberCount: vm.snapshot.room.memberCount,
+                          onlineCount: vm.snapshot.room.onlineCount,
+                        })
+                      : vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}{" "}
+                    · {vm.myRoleLabel}
                   </p>
                 </div>
 
@@ -729,20 +736,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                         <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
+                        <p className="mt-1 sam-text-helper text-sam-muted">
+                          {typeof vm.snapshot.room.onlineCount === "number"
+                            ? vm.t("cm_ui_group_members_online_line", {
+                                memberCount: vm.snapshot.room.memberCount,
+                                onlineCount: vm.snapshot.room.onlineCount,
+                              })
+                            : vm.roomTypeLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_online")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
+                          {typeof vm.snapshot.room.onlineCount === "number"
+                            ? vm.t("nav_chat_count_people", { count: vm.snapshot.room.onlineCount })
+                            : "—"}
+                        </p>
+                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_online_ssot_hint")}</p>
                       </div>
                       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                         <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_operation_team")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_owner_admin_count", { count: vm.groupAdminCount })}</p>
                         <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_operation_capacity")}</p>
-                      </div>
-                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_invite_status")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.canInviteMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.t("cm_ui_alias_profile_count", { count: vm.aliasProfileCount })}
-                          {vm.roomMembersDisplay.length < vm.snapshot.room.memberCount ? ` · ${vm.t("cm_ui_based_on_display_range")}` : ""}
-                        </p>
                       </div>
                     </div>
                   ) : null}
@@ -799,7 +814,22 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             ) : null}
                           </div>
                           <p className="mt-1 sam-text-helper text-sam-muted">
-                            {member.subtitle ?? (member.identityMode === "alias" ? vm.t("nav_messenger_member_alias_joined") : vm.t("nav_messenger_member_joined"))}
+                            {vm.isGroupRoom ? (
+                              <GroupMemberPresenceLabel
+                                userId={member.id}
+                                fallback={
+                                  member.subtitle ??
+                                  (member.identityMode === "alias"
+                                    ? vm.t("nav_messenger_member_alias_joined")
+                                    : vm.t("nav_messenger_member_joined"))
+                                }
+                              />
+                            ) : (
+                              member.subtitle ??
+                              (member.identityMode === "alias"
+                                ? vm.t("nav_messenger_member_alias_joined")
+                                : vm.t("nav_messenger_member_joined"))
+                            )}
                           </p>
                           {!messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
                             <p className="mt-2 sam-text-xxs text-sam-meta">
@@ -929,6 +959,15 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
+                    </div>
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_online")}</p>
+                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
+                        {typeof vm.snapshot.room.onlineCount === "number"
+                          ? vm.t("nav_chat_count_people", { count: vm.snapshot.room.onlineCount })
+                          : "—"}
+                      </p>
+                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_online_ssot_hint")}</p>
                     </div>
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_my_status")}</p>

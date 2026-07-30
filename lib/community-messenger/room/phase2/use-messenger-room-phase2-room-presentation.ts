@@ -100,11 +100,15 @@ export function useMessengerRoomPhase2RoomPresentation({
     : isPrivateGroupRoom
       ? t("nav_messenger_private_group")
       : t("nav_messenger_direct_room");
-  const roomSubtitle =
-    snapshot?.room.description ||
-    (isGroupRoom
-      ? t("nav_messenger_group_room_subtitle", { count: snapshot?.room.memberCount ?? 0 })
-      : t("nav_messenger_friend_room_subtitle"));
+  const roomSubtitle = isGroupRoom
+    ? typeof snapshot?.room.onlineCount === "number"
+      ? t("cm_ui_group_members_online_line", {
+          memberCount: snapshot?.room.memberCount ?? 0,
+          onlineCount: snapshot.room.onlineCount,
+        })
+      : snapshot?.room.description ||
+        t("nav_messenger_group_room_subtitle", { count: snapshot?.room.memberCount ?? 0 })
+    : snapshot?.room.description || t("nav_messenger_friend_room_subtitle");
   const roomJoinLabel = isOpenGroupRoom
     ? snapshot?.room.joinPolicy === "password"
       ? t("nav_messenger_join_password")
@@ -221,12 +225,22 @@ export function useMessengerRoomPhase2RoomPresentation({
 
   const roomHeaderStatus = useMemo(() => {
     if (!snapshot) return "";
+    if (isGroupRoom) {
+      // Telegram-style Members · Online; typing wins in Header statusLine
+      return (
+        roomSubtitle ||
+        (typeof snapshot.room.onlineCount === "number"
+          ? t("cm_ui_group_members_online_line", {
+              memberCount: snapshot.room.memberCount,
+              onlineCount: snapshot.room.onlineCount,
+            })
+          : `${snapshot.room.memberCount}`)
+      );
+    }
     return (
-      [roomTypeLabel, roomSubtitle || (isGroupRoom ? `${snapshot.room.memberCount}명` : "마지막 활동 없음")]
-        .filter(Boolean)
-        .join(" · ") || ""
+      [roomTypeLabel, roomSubtitle || "마지막 활동 없음"].filter(Boolean).join(" · ") || ""
     );
-  }, [snapshot, roomTypeLabel, roomSubtitle, isGroupRoom]);
+  }, [snapshot, roomTypeLabel, roomSubtitle, isGroupRoom, t]);
 
   return {
     roomUnavailable,
