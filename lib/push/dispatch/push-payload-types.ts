@@ -96,6 +96,22 @@ export function isCallPush(out: NotificationSideEffectPayloadOut, opts?: Dispatc
   return nt === "community_messenger_incoming_call" || nt === "community_messenger_missed_call";
 }
 
+/**
+ * Canonical call_push_kind for provider routing.
+ * CONTRACT: VoIP/PushKit may only be used when this returns a non-null kind.
+ * DO NOT invent `incoming_call` for admin/chat/notice payloads.
+ */
+export function resolveCallPushKindForProviderPolicy(
+  out: NotificationSideEffectPayloadOut,
+  opts?: DispatchPushOptions
+): NonNullable<DispatchPushOptions["call_push_kind"]> | null {
+  if (opts?.call_push_kind) return opts.call_push_kind;
+  const nt = String(out.notification_type ?? "").trim();
+  if (nt === "community_messenger_incoming_call") return "incoming_call";
+  if (nt === "community_messenger_missed_call") return "missed_call";
+  return null;
+}
+
 const TERMINAL_DISMISS_CALL_PUSH_KINDS: ReadonlySet<NonNullable<DispatchPushOptions["call_push_kind"]>> = new Set([
   "call_canceled",
   "call_rejected",
@@ -145,11 +161,20 @@ export function resolveCallPushProviderPolicy(input: {
   const terminalDismiss = isTerminalDismissCallPushKind(input.callPushKind);
 
   if (input.provider === "voip_apns") {
+    // CONTRACT: PushKit VoIP is call-authority only (incoming + terminal dismiss + missed).
+    // Admin/campaign/chat/notice MUST NOT fan out to voip_apns — that rings CallKit as a fake call.
+    if (!input.callPushKind) {
+      return { allow: false, reason: "voip_reserved_for_call_push" };
+    }
     // Restore pre-da5ad3fdb: terminal dismiss must reach VoIPPushRegistry for CallKit end.
     return { allow: true };
   }
 
   if (input.provider === "web_push") {
+    // Only apply native-preferred suppression for actual call pushes.
+    if (!input.callPushKind) {
+      return { allow: true };
+    }
     // incoming/missed 은 native(voip/fcm) 가 있으면 web 중복 착신을 막는다(기존 정책).
     if (!terminalDismiss && input.hasNativeCallTarget) {
       return { allow: false, reason: "native_call_preferred" };

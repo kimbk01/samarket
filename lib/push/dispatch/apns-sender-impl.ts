@@ -140,7 +140,14 @@ export async function sendVoipApnsImpl(input: {
   const token = input.deviceToken.trim();
   if (!token) return { status: "failed", error_message: "empty_voip_token" };
 
-  const isCancel = input.callPushKind === "call_canceled";
+  // CONTRACT: VoIP payload must carry an explicit call kind. Never default to incoming_call
+  // (that made admin/notice pushes ring CallKit as a fake incoming call).
+  const callPushKind = typeof input.callPushKind === "string" ? input.callPushKind.trim() : "";
+  if (!callPushKind) {
+    return { status: "skipped", provider_response: { reason: "voip_requires_call_push_kind" } };
+  }
+
+  const isCancel = callPushKind === "call_canceled";
 
   return await new Promise((resolve) => {
     const jwt = apnsJwt();
@@ -193,7 +200,7 @@ export async function sendVoipApnsImpl(input: {
       client.close();
       resolve({ status: "failed", error_message: e.message, provider_response: { provider: "voip_apns" } });
     });
-    req.write(JSON.stringify({ ...input.data, call_push_kind: input.callPushKind ?? "incoming_call" }));
+    req.write(JSON.stringify({ ...input.data, call_push_kind: callPushKind }));
     req.end();
   });
 }

@@ -1,6 +1,11 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { buildWebPushJsonPayload } from "@/lib/push/dispatch/build-web-push-json-payload";
-import type { DispatchPushOptions, PushTarget, SendPushResult } from "@/lib/push/dispatch/push-payload-types";
+import {
+  resolveCallPushKindForProviderPolicy,
+  type DispatchPushOptions,
+  type PushTarget,
+  type SendPushResult,
+} from "@/lib/push/dispatch/push-payload-types";
 
 function isApnsConfigured(): boolean {
   const key = process.env.APNS_KEY_P8?.trim();
@@ -60,6 +65,11 @@ export async function sendVoipApnsToTarget(
   if (!isVoipApnsConfigured()) {
     return { status: "skipped", provider_response: { reason: "voip_apns_not_configured" } };
   }
+  // CONTRACT: never send VoIP without an explicit call kind — do not default to incoming_call.
+  const callPushKind = resolveCallPushKindForProviderPolicy(out, opts);
+  if (!callPushKind) {
+    return { status: "skipped", provider_response: { reason: "voip_requires_call_push_kind" } };
+  }
 
   try {
     const { sendVoipApnsImpl } = await import("@/lib/push/dispatch/voip-apns-sender-impl");
@@ -67,7 +77,7 @@ export async function sendVoipApnsToTarget(
     return await sendVoipApnsImpl({
       deviceToken: target.push_token,
       data: payload.data,
-      callPushKind: opts?.call_push_kind ?? null,
+      callPushKind,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

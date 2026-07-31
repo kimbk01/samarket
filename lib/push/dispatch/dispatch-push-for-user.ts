@@ -9,6 +9,7 @@ import {
 } from "@/lib/push/dispatch/load-active-push-targets";
 import {
   isCallPush,
+  resolveCallPushKindForProviderPolicy,
   resolveCallPushProviderPolicy,
   resolveEventType,
   type DispatchDeliveryAudit,
@@ -328,9 +329,11 @@ export async function dispatchPushForUser(
   );
 
   for (const target of targets) {
-    if (callPush) {
+    // SSOT: always gate voip_apns (even for non-call). Call web_push policy only when callPush.
+    const callPushKind = resolveCallPushKindForProviderPolicy(enrichedOut, opts);
+    if (target.push_provider === "voip_apns" || callPush) {
       const decision = resolveCallPushProviderPolicy({
-        callPushKind: opts?.call_push_kind ?? null,
+        callPushKind,
         provider: target.push_provider,
         hasNativeCallTarget,
       });
@@ -342,7 +345,7 @@ export async function dispatchPushForUser(
             ? "[DIBAY_CALL_PUSH] call_push_provider_allowed"
             : "[DIBAY_CALL_PUSH] call_push_provider_skipped",
           {
-            kind: opts?.call_push_kind ?? null,
+            kind: callPushKind,
             provider: "voip_apns",
             ...(decision.reason ? { reason: decision.reason } : {}),
             sessionId: callIdFromOutput(enrichedOut),
