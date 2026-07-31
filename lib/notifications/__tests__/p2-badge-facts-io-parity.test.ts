@@ -136,6 +136,7 @@ describe("P2-a domain badge target facts parity", () => {
       "utf8"
     );
     expect(src).toContain("loadDomainBadgeTargetFacts");
+    expect(src).toContain("loadMessengerUnreadRoomFactsFromParticipants");
     expect(src).toContain("loadOrphanMissedCallFacts");
     expect(src).not.toContain("loadMessengerChatRoomUnreadTargetRoomIds");
     expect(src).not.toContain("loadTradeUnreadTargetIdentityKeys");

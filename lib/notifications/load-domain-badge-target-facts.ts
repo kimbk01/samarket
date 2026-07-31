@@ -1,8 +1,10 @@
 /**
  * P2-a — Domain badge target facts in ONE notification_targets SELECT.
  *
- * Meaning-identical to the previous five parallel loaders in
- * `buildDomainBadgeAuthorityHttpPayload`. Partition only — no Builder/Authority change.
+ * Used for trade / store_order (and legacy chat_room target rows).
+ * Messenger Bottom GD+Group counts are NOT taken from this loader alone —
+ * `loadMessengerUnreadRoomFactsFromParticipants` is the product SSOT for those axes
+ * (Phase A: targets lagged participant unread → Bottom 2 vs list 4).
  *
  * DO NOT add Hub API merge or new migrations here.
  */

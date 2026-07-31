@@ -27,9 +27,12 @@ Bell **must not** mirror App Icon. App Icon **must not** mirror Bell.
 
 ```
 Event / room unread fact
-  → Domain (rooms.chat_domain + domain_identity_key) OR notification_events
-  → Server loaders (targets + orphan missed + count_notification_events_badge)
-  → buildNotificationBadgeProjection (single Builder)
+    → Domain (rooms.chat_domain + domain_identity_key) OR notification_events
+    → Server loaders:
+         messenger GD+Group = community_messenger_participants.unread_count (active)
+         trade/store_order = notification_targets
+         orphan missed + count_notification_events_badge
+    → buildNotificationBadgeProjection (single Builder)
   → Projection Authority commit (COMPLETE)
   → applyNotificationBadgeProjection
        → Bell store (events)
