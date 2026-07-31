@@ -1,0 +1,26 @@
+{
+  "commit": "a5eb8170e314ffcfcc3acd1bd68dedcb0789e1ee",
+  "deploymentId": "dpl_9UgGseDUcWb71xnrUjtLtxWiCHY6",
+  "productionAlias": "https://samarket.vercel.app",
+  "recordedAt": "2026-07-31T04:22:43.094Z",
+  "startedHeadPrompt": "9d2fa9eaf",
+  "actualStartedHeadThisPhase": "a5eb8170e314ffcfcc3acd1bd68dedcb0789e1ee",
+  "originMain": "a5eb8170e314ffcfcc3acd1bd68dedcb0789e1ee",
+  "migrationApplied": "PASS",
+  "cronSecretConfigured": "PASS",
+  "cronAuth": "PASS",
+  "scheduledRuntime": "PASS",
+  "scheduledConcurrency": "PASS (claim winner 1 / loser 0)",
+  "scheduledCampaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+  "scheduledEventCount": 1,
+  "scheduledDeliveryCount": 2,
+  "xiaomi": "BLOCKED",
+  "samsung": "BLOCKED",
+  "iphone": "BLOCKED",
+  "verdict": "NOTIFICATION PRODUCTION PASS",
+  "productPassBlockedBy": [
+    "Xiaomi QA",
+    "Samsung QA"
+  ],
+  "nextOperatorRequest": "single batch device QA-A1..A5 + product/call regression"
+}

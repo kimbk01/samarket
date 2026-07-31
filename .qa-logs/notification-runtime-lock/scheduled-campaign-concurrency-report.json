@@ -1,0 +1,42 @@
+{
+  "campaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+  "recipientUserIdHash": "2d7c6dee8b7f",
+  "concurrentInvokes": [
+    {
+      "label": "concurrent_a",
+      "http": 200,
+      "ok": true,
+      "claimed": 1,
+      "results": [
+        {
+          "campaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+          "ok": true,
+          "done": true,
+          "batches": 1,
+          "sent": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "label": "concurrent_b",
+      "http": 200,
+      "ok": true,
+      "claimed": 0,
+      "results": []
+    }
+  ],
+  "campaignAfter": {
+    "id": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+    "status": "sent",
+    "sent_count": 2,
+    "skipped_count": 0,
+    "failed_count": 0,
+    "target_count": 2,
+    "send_claimed_at": "2026-07-31T04:22:21.398+00:00",
+    "last_error": null
+  },
+  "eventCount": 1,
+  "deliveryCount": 2
+}

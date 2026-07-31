@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "marker": "QA-CRON-1785471740245",
+  "campaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+  "recipientUserIdHash": "2d7c6dee8b7f",
+  "t0": {
+    "campaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+    "status": "scheduled",
+    "scheduled_at": "2026-07-31T04:21:50.567+00:00",
+    "send_claimed_at": null,
+    "eventTitleMatches": 0
+  },
+  "concurrency": {
+    "c1": {
+      "label": "concurrent_a",
+      "http": 200,
+      "ok": true,
+      "claimed": 1,
+      "results": [
+        {
+          "campaignId": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+          "ok": true,
+          "done": true,
+          "batches": 1,
+          "sent": 1,
+          "skipped": 0,
+          "failed": 0
+        }
+      ]
+    },
+    "c2": {
+      "label": "concurrent_b",
+      "http": 200,
+      "ok": true,
+      "claimed": 0,
+      "results": []
+    }
+  },
+  "afterFirstWave": {
+    "campaign": {
+      "id": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+      "status": "sent",
+      "sent_count": 2,
+      "skipped_count": 0,
+      "failed_count": 0,
+      "target_count": 2,
+      "send_claimed_at": "2026-07-31T04:22:21.398+00:00",
+      "last_error": null
+    },
+    "eventIds": [
+      "996f967d-b92b-4fcf-acaf-fe9e0588680e"
+    ],
+    "eventCount": 1,
+    "deliveryCount": 2,
+    "deliveries": [
+      {
+        "channel": "in_app",
+        "status": "sent",
+        "deviceHash": null
+      },
+      {
+        "channel": "push",
+        "status": "sent",
+        "deviceHash": "d76ccd2834e4"
+      }
+    ]
+  },
+  "t3Rerun": {
+    "cron": {
+      "label": "rerun",
+      "http": 200,
+      "ok": true,
+      "claimed": 0,
+      "results": []
+    },
+    "campaign": {
+      "id": "840cb22c-3cd4-4a5d-b76a-c864f6cc4233",
+      "status": "sent",
+      "sent_count": 2,
+      "skipped_count": 0,
+      "failed_count": 0,
+      "target_count": 2,
+      "send_claimed_at": "2026-07-31T04:22:21.398+00:00",
+      "last_error": null
+    },
+    "eventCount": 1,
+    "deliveryCount": 2
+  },
+  "pass": {
+    "eventExactlyOne": true,
+    "noExtraEventsOnRerun": true,
+    "noExtraDeliveriesOnRerun": true,
+    "terminalStatus": true
+  }
+}

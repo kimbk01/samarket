@@ -1,0 +1,33 @@
+{
+  "commit": "a5eb8170e314ffcfcc3acd1bd68dedcb0789e1ee",
+  "deploymentId": "dpl_9UgGseDUcWb71xnrUjtLtxWiCHY6",
+  "productionAlias": "https://samarket.vercel.app",
+  "recordedAt": "2026-07-31T04:22:43.094Z",
+  "probes": [
+    {
+      "name": "unauth",
+      "http": 401,
+      "error": "unauthorized",
+      "result": "PASS"
+    },
+    {
+      "name": "bad_secret",
+      "http": 401,
+      "error": "unauthorized",
+      "result": "PASS"
+    },
+    {
+      "name": "good_secret_bearer",
+      "http": 200,
+      "ok": true,
+      "result": "PASS"
+    },
+    {
+      "name": "good_secret_header",
+      "http": 200,
+      "ok": true,
+      "result": "PASS"
+    }
+  ],
+  "result": "PASS"
+}

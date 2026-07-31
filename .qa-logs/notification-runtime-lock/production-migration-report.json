@@ -1,0 +1,23 @@
+{
+  "commit": "a5eb8170e314ffcfcc3acd1bd68dedcb0789e1ee",
+  "deploymentId": "dpl_9UgGseDUcWb71xnrUjtLtxWiCHY6",
+  "productionAlias": "https://samarket.vercel.app",
+  "recordedAt": "2026-07-31T04:22:43.094Z",
+  "migration": "20261013120000_admin_notification_campaign_claim.sql",
+  "alsoRequired": "20260622120000_admin_notification_campaigns_phase_a.sql (channel)",
+  "probe": {
+    "selectClaimColumns": "PASS",
+    "columns": [
+      "send_claimed_at",
+      "send_claim_token",
+      "last_error",
+      "send_idempotency_key",
+      "test_send_idempotency_key",
+      "channel"
+    ],
+    "rpc_claim_due": "PASS",
+    "rpc_claim_send": "PASS",
+    "unknownColumnErrors": 0
+  },
+  "result": "PASS"
+}

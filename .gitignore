@@ -59,6 +59,10 @@ dist/apk/**/*.apk
 # vercel
 .vercel
 
+# notification runtime QA — never commit live cron secrets
+.qa-logs/**/.cron-secret.local
+.qa-logs/notification-runtime-lock/.cron-secret.local
+
 # local dev junk (curl dumps, pid files)
 /_curl_body.txt
 /_dev*.pid
