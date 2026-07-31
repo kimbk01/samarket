@@ -151,6 +151,23 @@ export function useMessengerRoomBumpBroadcastSubscription({
       });
       if (!communityMessengerBumpPayloadMatchesKnownRooms(payload, known)) return;
 
+      const listAction = typeof payload.listAction === "string" ? payload.listAction.trim() : "";
+      const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
+      if (listAction === "remove" || reason === "group_deleted") {
+        const rid =
+          (typeof payload.canonicalRoomId === "string" && payload.canonicalRoomId.trim()) ||
+          (typeof payload.roomId === "string" && payload.roomId.trim()) ||
+          String(streamRoomId ?? roomId ?? "").trim();
+        const eventId =
+          (typeof payload.eventIdentity === "string" && payload.eventIdentity.trim()) ||
+          (typeof payload.messageId === "string" && payload.messageId.trim()) ||
+          `group_deleted:${rid}`;
+        void import("@/lib/community-messenger/home/group-delete-home-list-eviction").then((mod) => {
+          mod.evictDeletedGroupRoomFromHomeLists({ roomId: rid, eventId });
+        });
+        return;
+      }
+
       const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
       const rawMessage = payload.message;
       const messageMetadata =

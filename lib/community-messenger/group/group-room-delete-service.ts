@@ -127,7 +127,13 @@ export async function deletePrivateGroupRoomSoft(input: {
     // cache best-effort
   }
 
-  await publishGroupRoomListBump({ roomId, fromUserId: userId });
+  await publishGroupRoomListBump({
+    roomId,
+    fromUserId: userId,
+    listAction: "remove",
+    reason: "group_deleted",
+    messageId: `group_deleted:${roomId}:${deletedAt}`,
+  });
 
   return {
     ok: true,

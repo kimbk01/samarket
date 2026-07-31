@@ -171,6 +171,9 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
    */
   eventIdentity?: string | null;
   badgeGeneration?: number | null;
+  /** Soft-delete: hub list remove (no message tip) */
+  listAction?: "remove" | null;
+  reason?: "group_deleted" | null;
 }): Promise<void> {
   const channelKey = args.channelRoomId.trim();
   const canonicalRoomId = args.canonicalRoomId.trim();
@@ -191,6 +194,12 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
     fromUserId,
     at: atIso,
   };
+  if (args.listAction === "remove") {
+    payload.listAction = "remove";
+  }
+  if (args.reason === "group_deleted") {
+    payload.reason = "group_deleted";
+  }
   if (rawTagged && rawTagged.toLowerCase() !== canonicalRoomId.toLowerCase()) {
     payload.rawRouteRoomId = rawTagged;
   }

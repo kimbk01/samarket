@@ -20,6 +20,9 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
    * Skip post-response target write so mark_read cannot race a second bump.
    */
   skipBadgeTargetBump?: boolean;
+  /** Soft-delete hub eviction — no message tip */
+  listAction?: "remove";
+  reason?: "group_deleted";
 }): Promise<void> {
   const raw = args.rawRouteRoomId.trim();
   const canon = args.canonicalRoomId.trim();
@@ -88,6 +91,8 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
     messageCreatedAt: args.messageCreatedAt,
     rawRouteRoomId: rawTagged || null,
     messageSnapshot,
+    listAction: args.listAction,
+    reason: args.reason,
     ...domainFields,
   });
   if (rawTagged) {
@@ -99,6 +104,8 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
       messageCreatedAt: args.messageCreatedAt,
       rawRouteRoomId: rawTagged,
       messageSnapshot,
+      listAction: args.listAction,
+      reason: args.reason,
       ...domainFields,
     });
   }

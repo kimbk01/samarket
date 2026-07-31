@@ -6,6 +6,9 @@ export async function publishGroupRoomListBump(args: {
   fromUserId: string;
   messageId?: string;
   messageCreatedAt?: string;
+  /** Soft-delete: peers remove hub row without tip merge */
+  listAction?: "remove";
+  reason?: "group_deleted";
 }): Promise<void> {
   const roomId = args.roomId.trim();
   const fromUserId = args.fromUserId.trim();
@@ -16,5 +19,8 @@ export async function publishGroupRoomListBump(args: {
     fromUserId,
     messageId: args.messageId,
     messageCreatedAt: args.messageCreatedAt,
+    listAction: args.listAction,
+    reason: args.reason,
+    skipBadgeTargetBump: args.listAction === "remove",
   });
 }

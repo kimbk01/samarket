@@ -119,6 +119,22 @@ describe("group delete stale list eviction contract", () => {
     expect(out.groups.map((g) => g.id)).toEqual(["g-keep"]);
   });
 
+  it("delete service publishes listAction remove bump for peers", () => {
+    const svc = readFileSync(
+      join(process.cwd(), "lib/community-messenger/group/group-room-delete-service.ts"),
+      "utf8"
+    );
+    expect(svc).toContain('listAction: "remove"');
+    expect(svc).toContain('reason: "group_deleted"');
+    const rt = readFileSync(join(process.cwd(), "lib/community-messenger/group/group-room-realtime.ts"), "utf8");
+    expect(rt).toContain("listAction");
+    const bumpSub = readFileSync(
+      join(process.cwd(), "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts"),
+      "utf8"
+    );
+    expect(bumpSub).toContain('listAction === "remove"');
+    expect(bumpSub).toContain("evictDeletedGroupRoomFromHomeLists");
+  });
   it("does not import Ban/Ghost/Online LOCK services", () => {
     const eviction = readFileSync(
       join(process.cwd(), "lib/community-messenger/home/group-delete-home-list-eviction.ts"),

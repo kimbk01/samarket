@@ -12,10 +12,20 @@ function trimRoomId(roomId: string): string {
   return normalizeMessengerRealtimeRoomId(roomId) || roomId.trim();
 }
 
-function readStorage(): void {
-  if (typeof sessionStorage === "undefined") return;
+function storage(): Storage | null {
+  if (typeof localStorage === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readStorage(): void {
+  const s = storage();
+  if (!s) return;
+  try {
+    const raw = s.getItem(STORAGE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return;
@@ -28,9 +38,10 @@ function readStorage(): void {
 }
 
 function writeStorage(): void {
-  if (typeof sessionStorage === "undefined") return;
+  const s = storage();
+  if (!s) return;
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...remembered].slice(-200)));
+    s.setItem(STORAGE_KEY, JSON.stringify([...remembered].slice(-200)));
   } catch {
     /* ignore */
   }
@@ -62,9 +73,10 @@ export function isRememberedDeletedGroupRoomId(roomId: string): boolean {
 export function clearDeletedGroupRoomTombstonesForTests(): void {
   remembered.clear();
   storageHydrated = true;
-  if (typeof sessionStorage !== "undefined") {
+  const s = storage();
+  if (s) {
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      s.removeItem(STORAGE_KEY);
     } catch {
       /* ignore */
     }
