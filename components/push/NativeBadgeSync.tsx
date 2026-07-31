@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSyncExternalStore } from "react";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
@@ -15,6 +15,7 @@ import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
  * Runtime App Icon authority = domain-badge-surface-store only.
  * DO NOT read Phase H App Icon contract mirror as a runtime/fallback source.
  * DO NOT mirror Header Bell total.
+ * Same appIconTotal → skip duplicate Badge.set (Phase 3-1).
  */
 function readAppIconTotal(): number {
   const surface = getDomainBadgeSurfaceSnapshot();
@@ -27,6 +28,7 @@ export function NativeBadgeSync() {
     readAppIconTotal,
     () => 0
   );
+  const lastAppliedRef = useRef<{ phase: string; count: number } | null>(null);
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
@@ -34,10 +36,16 @@ export function NativeBadgeSync() {
     const apply = () => {
       const phase = getSessionPhase();
       if (phase !== "authenticated") {
+        const prev = lastAppliedRef.current;
+        if (prev?.phase === phase && prev.count === 0) return;
+        lastAppliedRef.current = { phase, count: 0 };
         void clearNativeBadgeCount();
         return;
       }
       const n = readAppIconTotal();
+      const prev = lastAppliedRef.current;
+      if (prev?.phase === "authenticated" && prev.count === n) return;
+      lastAppliedRef.current = { phase: "authenticated", count: n };
       void syncNativeBadgeCount(n);
       logNotifyBadge("native_set", { count: n, source: "app_icon_projection" });
     };

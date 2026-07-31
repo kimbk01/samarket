@@ -73,5 +73,6 @@ LOCK 이후만 Legacy 제거. 순서 고정:
 - Residual review — 삭제 대상 0 · 즉시 삭제 금지로 분류 (`2026-07-24-badge-bell-phase-j-residual-review.md`)
 - **Phase J LOCK — 보류** (2기기 QA + 명시 승인)
 - **Bell Contract B** — 2026-07-25 product unlock (room-sum Bell → approved events)
+- **2026-07-31** — Product decision: LOCK 유지 (숫자 강제 동등 금지). Authority Map: `2026-07-31-badge-authority-map-lock.md`. Phase 3-1 atomic App Icon complete publish. Product PASS 미선언 (device QA PENDING).
 
 **실삭제·공식 변경은 슬라이스별 승인 전 금지** (Bell B 제외 — 승인됨).

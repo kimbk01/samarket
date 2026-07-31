@@ -55,6 +55,7 @@ import { disconnectNativeDevicesOnAccountSwitch } from "@/lib/push/disconnect-na
 import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 import { resetNotificationBadgeCountForAuthEpoch } from "@/lib/notifications/notification-badge-count-store";
 import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
+import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -163,6 +164,7 @@ function resetAuthClientCaches(previousUserId?: string | null): void {
    */
   invalidateAppBootAll();
   resetNotificationBadgeCountForAuthEpoch();
+  resetDomainBadgeSurfaceForAuthEpoch();
   resetProjectionAuthorityForAuthEpoch();
   resetMessengerNotificationSurfacesAfterSignOut();
   setSupabaseProfileCache(null);

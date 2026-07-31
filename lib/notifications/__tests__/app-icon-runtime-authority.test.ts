@@ -6,9 +6,12 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   __resetDomainBadgeSurfaceStoreForTests,
+  getDomainBadgeSurfaceAuthEpoch,
   getDomainBadgeSurfaceSnapshot,
+  publishDomainAppIconCompleteSnapshot,
   publishDomainBadgeShellToSurfaceStore,
   publishMissedCallToDomainBadgeSurface,
+  resetDomainBadgeSurfaceForAuthEpoch,
   subscribeDomainBadgeSurface,
 } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { resolveDomainAppIconBadgeCount } from "@/lib/notifications/domain-app-icon-badge";
@@ -17,8 +20,10 @@ import {
   applyDomainAuthorityHubBadgeOptimistic,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
+import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
+import { buildNotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
 
-describe("App Icon runtime authority (Option A)", () => {
+describe("App Icon runtime authority (Option A + Phase 3-1 atomic)", () => {
   beforeEach(() => {
     __resetDomainBadgeSurfaceStoreForTests();
     __resetOwnerHubBadgeStoreForTest();
@@ -35,57 +40,130 @@ describe("App Icon runtime authority (Option A)", () => {
     ).toBe(2 + 1 + 3 + 1);
   });
 
-  it("same 4-axis values do not notify subscribers or bump generation", () => {
+  it("complete snapshot: shell+missedCall change notifies once with final appIconTotal", () => {
     const onChange = vi.fn();
     subscribeDomainBadgeSurface(onChange);
-    publishDomainBadgeShellToSurfaceStore({
+    const result = publishDomainAppIconCompleteSnapshot({
       communityMessengerUnread: 2,
       tradeUnread: 1,
       storeOrderChatUnread: 0,
+      missedCall: 1,
     });
-    publishMissedCallToDomainBadgeSurface(1);
+    expect(result.committed).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(4);
+    expect(getDomainBadgeSurfaceSnapshot().missedCall).toBe(1);
+  });
+
+  it("same complete values do not notify or bump generation", () => {
+    const onChange = vi.fn();
+    subscribeDomainBadgeSurface(onChange);
+    publishDomainAppIconCompleteSnapshot({
+      communityMessengerUnread: 2,
+      tradeUnread: 1,
+      storeOrderChatUnread: 0,
+      missedCall: 1,
+    });
     const gen = getDomainBadgeSurfaceSnapshot().generation;
     onChange.mockClear();
 
-    publishDomainBadgeShellToSurfaceStore({
+    const again = publishDomainAppIconCompleteSnapshot({
       communityMessengerUnread: 2,
       tradeUnread: 1,
       storeOrderChatUnread: 0,
+      missedCall: 1,
     });
-    publishMissedCallToDomainBadgeSurface(1);
+    expect(again.committed).toBe(false);
+    expect(again.reason).toBe("unchanged");
     expect(onChange).toHaveBeenCalledTimes(0);
     expect(getDomainBadgeSurfaceSnapshot().generation).toBe(gen);
-    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(4);
   });
 
-  it("notifies once per distinct axis change", () => {
-    const onChange = vi.fn();
-    subscribeDomainBadgeSurface(onChange);
+  it("rejects stale auth epoch after logout reset", () => {
+    const epoch = getDomainBadgeSurfaceAuthEpoch();
+    publishDomainAppIconCompleteSnapshot({
+      communityMessengerUnread: 3,
+      tradeUnread: 0,
+      storeOrderChatUnread: 0,
+      missedCall: 0,
+      authEpochAtSchedule: epoch,
+    });
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(3);
 
-    publishDomainBadgeShellToSurfaceStore({
+    resetDomainBadgeSurfaceForAuthEpoch();
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(0);
+
+    const late = publishDomainAppIconCompleteSnapshot({
+      communityMessengerUnread: 9,
+      tradeUnread: 9,
+      storeOrderChatUnread: 9,
+      missedCall: 9,
+      authEpochAtSchedule: epoch,
+    });
+    expect(late.committed).toBe(false);
+    expect(late.reason).toBe("stale_auth_epoch");
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(0);
+  });
+
+  it("rejects older projectionFactsVersion", () => {
+    publishDomainAppIconCompleteSnapshot({
       communityMessengerUnread: 1,
       tradeUnread: 0,
       storeOrderChatUnread: 0,
+      missedCall: 0,
+      projectionFactsVersion: 5_000,
+    });
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(1);
+
+    const stale = publishDomainAppIconCompleteSnapshot({
+      communityMessengerUnread: 8,
+      tradeUnread: 0,
+      storeOrderChatUnread: 0,
+      missedCall: 0,
+      projectionFactsVersion: 4_000,
+    });
+    expect(stale.committed).toBe(false);
+    expect(stale.reason).toBe("stale_facts_version");
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(1);
+  });
+
+  it("applyNotificationBadgeProjection publishes App Icon atomically (one surface notify)", () => {
+    const onChange = vi.fn();
+    subscribeDomainBadgeSurface(onChange);
+    const projection = buildNotificationBadgeProjection({
+      domainUnreadRooms: {
+        general_direct: 2,
+        group: 1,
+        trade: 1,
+        store_order: 0,
+      },
+      storeOrderBuyerDeliveryUnread: 0,
+      storeOrderOwnerChatUnread: 0,
+      orphanMissedCall: 2,
+      nonChatEventAttention: {
+        tradeStatus: 0,
+        orderStatus: 0,
+        deliveryStatus: 0,
+        communityActivity: 0,
+        adminNotice: 0,
+      },
+      unreadApprovedNotificationEvents: 5,
+    });
+    applyNotificationBadgeProjection(projection, {
+      applyBell: true,
+      projectionVersionMs: 10_000,
     });
     expect(onChange).toHaveBeenCalledTimes(1);
-
-    publishDomainBadgeShellToSurfaceStore({
-      communityMessengerUnread: 1,
-      tradeUnread: 1,
-      storeOrderChatUnread: 0,
-    });
-    expect(onChange).toHaveBeenCalledTimes(2);
-
-    publishMissedCallToDomainBadgeSurface(1);
-    expect(onChange).toHaveBeenCalledTimes(3);
-    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(3);
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(projection.appIconTotal);
+    expect(getDomainBadgeSurfaceSnapshot().missedCall).toBe(2);
   });
 
   it("Owner hub-only changes do not notify App Icon surface subscribers", () => {
-    publishDomainBadgeShellToSurfaceStore({
+    publishDomainAppIconCompleteSnapshot({
       communityMessengerUnread: 2,
       tradeUnread: 0,
       storeOrderChatUnread: 0,
+      missedCall: 0,
     });
     const appIconOnChange = vi.fn();
     const hubOnChange = vi.fn();
@@ -114,20 +192,31 @@ describe("App Icon runtime authority (Option A)", () => {
     expect(src).toContain("subscribeDomainBadgeSurface");
     expect(src).toContain("getDomainBadgeSurfaceSnapshot");
     expect(src).toContain("surface.appIconTotal");
+    expect(src).toContain("lastAppliedRef");
     expect(src).not.toContain("getAppIconBadgeProjection");
     expect(src).not.toMatch(/from\s+["']@\/lib\/chat-domain\/projections\/app-icon-badge-projection["']/);
-    expect(src).not.toContain("generation > 0");
     expect(src).not.toContain("subscribeOwnerHubBadge");
   });
 
-  it("bridge separates Owner hub apply from App Icon runtime publish", () => {
+  it("bridge uses complete snapshot only (no split shell/missedCall product path)", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "lib/messenger/contracts/domain-badge-authority-product-bridge.ts"),
       "utf8"
     );
-    expect(src).toContain("applyOwnerHubSurfacesFromProjection");
-    expect(src).toContain("applyAppIconRuntimeAuthorityFromProjection");
-    expect(src).toContain("publishDomainBadgeShellToSurfaceStore");
-    expect(src).toContain("Phase H contract mirror");
+    expect(src).toContain("publishDomainAppIconCompleteSnapshot");
+    expect(src).not.toContain("publishDomainBadgeShellToSurfaceStore");
+    expect(src).not.toContain("publishMissedCallToDomainBadgeSurface");
+    expect(src).not.toMatch(/void import\(["']@\/lib\/messenger\/contracts\/domain-badge-surface-store["']\)/);
+  });
+
+  it("deprecated split helpers still converge without requiring product use", () => {
+    publishDomainBadgeShellToSurfaceStore({
+      communityMessengerUnread: 1,
+      tradeUnread: 0,
+      storeOrderChatUnread: 0,
+    });
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(1);
+    publishMissedCallToDomainBadgeSurface(2);
+    expect(getDomainBadgeSurfaceSnapshot().appIconTotal).toBe(3);
   });
 });

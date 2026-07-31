@@ -15,5 +15,6 @@ export function buildGroupChatWebPath(roomId: string): string {
 }
 
 export function buildTradeLegacyChatWebPath(roomId: string): string {
+  /** Legacy alias `/chats/:id` — Bell/FCM trade SSOT is `buildChatRoomWebPath` (CM). Keep for entry-intent compatibility only. */
   return `/chats/${encodeURIComponent(roomId.trim())}`;
 }

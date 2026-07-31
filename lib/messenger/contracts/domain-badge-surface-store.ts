@@ -1,6 +1,11 @@
 /**
- * Client Domain Badge surface store — shared by Bottom Nav publish + App Icon.
- * Written only via Domain Badge Authority publish (single writer).
+ * Client Domain Badge surface store — App Icon runtime authority only.
+ * Written only via Domain Badge Authority complete snapshot (single atomic publish).
+ *
+ * LOCK (2026-07-31 Phase 3-1):
+ * - DO NOT publish shell and missedCall in separate emits (intermediate appIconTotal banned).
+ * - Product path: publishDomainAppIconCompleteSnapshot only.
+ * - Stale authEpoch / older async completion must not commit.
  */
 "use client";
 
@@ -18,6 +23,7 @@ export type DomainBadgeSurfaceSnapshot = Readonly<{
   appIconTotal: number;
   generation: number;
   authority: "domain_badge";
+  authEpoch: number;
 }>;
 
 const EMPTY: DomainBadgeSurfaceSnapshot = {
@@ -28,9 +34,12 @@ const EMPTY: DomainBadgeSurfaceSnapshot = {
   appIconTotal: 0,
   generation: 0,
   authority: "domain_badge",
+  authEpoch: 0,
 };
 
 let snapshot: DomainBadgeSurfaceSnapshot = EMPTY;
+/** Bumped on logout / auth wipe — late async complete must not restore badge. */
+let authEpoch = 0;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -51,75 +60,167 @@ function rebuild(parts: DomainAppIconBadgeParts, generation: number): DomainBadg
     appIconTotal: resolveDomainAppIconBadgeCount(parts),
     generation,
     authority: "domain_badge",
+    authEpoch,
   };
 }
 
-/** Domain shell publish — updates messenger/trade/storeOrder; keeps missedCall. */
-export function publishDomainBadgeShellToSurfaceStore(input: {
+export type DomainAppIconCompletePublishInput = Readonly<{
   communityMessengerUnread: number;
   tradeUnread: number;
   storeOrderChatUnread: number;
-}): void {
+  missedCall: number;
+  /** Auth epoch captured when apply was scheduled; reject if logout happened since. */
+  authEpochAtSchedule?: number;
+  /**
+   * Optional monotonic facts version from server (`projectionVersionMs`).
+   * Reject when older than last committed factsVersion.
+   */
+  projectionFactsVersion?: number;
+}>;
+
+export type DomainAppIconCompletePublishResult = Readonly<{
+  committed: boolean;
+  reason?:
+    | "unchanged"
+    | "stale_auth_epoch"
+    | "stale_facts_version"
+    | "applied";
+  appIconTotal: number;
+  generation: number;
+}>;
+
+let lastFactsVersion = 0;
+
+/**
+ * THE App Icon surface commit — all four axes in one generation / one emit.
+ */
+export function publishDomainAppIconCompleteSnapshot(
+  input: DomainAppIconCompletePublishInput
+): DomainAppIconCompletePublishResult {
+  if (input.authEpochAtSchedule != null && input.authEpochAtSchedule !== authEpoch) {
+    badgeSurfaceProbe("b_surface_complete_rejected_auth_epoch", {
+      scheduled: input.authEpochAtSchedule,
+      current: authEpoch,
+    });
+    return {
+      committed: false,
+      reason: "stale_auth_epoch",
+      appIconTotal: snapshot.appIconTotal,
+      generation: snapshot.generation,
+    };
+  }
+
+  const factsVersion = Math.max(0, Math.floor(Number(input.projectionFactsVersion) || 0));
+  if (factsVersion > 0 && factsVersion < lastFactsVersion) {
+    badgeSurfaceProbe("b_surface_complete_rejected_stale_facts", {
+      incoming: factsVersion,
+      last: lastFactsVersion,
+    });
+    return {
+      committed: false,
+      reason: "stale_facts_version",
+      appIconTotal: snapshot.appIconTotal,
+      generation: snapshot.generation,
+    };
+  }
+
   const parts = resolveDomainAppIconBadgeParts({
-    ...input,
-    missedCall: snapshot.missedCall,
+    communityMessengerUnread: input.communityMessengerUnread,
+    tradeUnread: input.tradeUnread,
+    storeOrderChatUnread: input.storeOrderChatUnread,
+    missedCall: input.missedCall,
   });
-  const next = rebuild(parts, snapshot.generation + 1);
+  const nextTotal = resolveDomainAppIconBadgeCount(parts);
   if (
-    next.messenger === snapshot.messenger &&
-    next.trade === snapshot.trade &&
-    next.storeOrder === snapshot.storeOrder &&
-    next.appIconTotal === snapshot.appIconTotal
+    parts.messenger === snapshot.messenger &&
+    parts.trade === snapshot.trade &&
+    parts.storeOrder === snapshot.storeOrder &&
+    parts.missedCall === snapshot.missedCall &&
+    nextTotal === snapshot.appIconTotal
   ) {
-    badgeSurfaceProbe("b_surface_publish_skipped_unchanged", {
-      messenger: next.messenger,
-      trade: next.trade,
-      storeOrder: next.storeOrder,
-      missedCall: snapshot.missedCall,
-      appIconTotal: next.appIconTotal,
+    if (factsVersion > lastFactsVersion) lastFactsVersion = factsVersion;
+    badgeSurfaceProbe("b_surface_complete_skipped_unchanged", {
+      appIconTotal: nextTotal,
       generation: snapshot.generation,
     });
-    return;
+    return {
+      committed: false,
+      reason: "unchanged",
+      appIconTotal: snapshot.appIconTotal,
+      generation: snapshot.generation,
+    };
   }
-  snapshot = next;
-  badgeSurfaceProbe("b_surface_publish_applied", {
+
+  snapshot = rebuild(parts, snapshot.generation + 1);
+  if (factsVersion > lastFactsVersion) lastFactsVersion = factsVersion;
+  badgeSurfaceProbe("b_surface_complete_applied", {
     messenger: snapshot.messenger,
     trade: snapshot.trade,
     storeOrder: snapshot.storeOrder,
     missedCall: snapshot.missedCall,
     appIconTotal: snapshot.appIconTotal,
     generation: snapshot.generation,
+    authEpoch: snapshot.authEpoch,
+    factsVersion: lastFactsVersion,
   });
   emit();
-}
-
-/** System orphan missedCall only — from badge-count poll / read patch. Room-attached excluded. */
-export function publishMissedCallToDomainBadgeSurface(missedCall: number): void {
-  const n = Math.max(0, Math.floor(Number(missedCall) || 0));
-  if (n === snapshot.missedCall) return;
-  snapshot = rebuild(
-    {
-      messenger: snapshot.messenger,
-      trade: snapshot.trade,
-      storeOrder: snapshot.storeOrder,
-      missedCall: n,
-    },
-    snapshot.generation + 1
-  );
-  badgeSurfaceProbe("b_surface_missed_call_publish", {
-    missedCall: snapshot.missedCall,
+  return {
+    committed: true,
+    reason: "applied",
     appIconTotal: snapshot.appIconTotal,
     generation: snapshot.generation,
+  };
+}
+
+/**
+ * @deprecated Split shell publish — routes to complete with **current** missedCall only.
+ * Product Apply must use publishDomainAppIconCompleteSnapshot with all axes.
+ */
+export function publishDomainBadgeShellToSurfaceStore(input: {
+  communityMessengerUnread: number;
+  tradeUnread: number;
+  storeOrderChatUnread: number;
+}): void {
+  publishDomainAppIconCompleteSnapshot({
+    ...input,
+    missedCall: snapshot.missedCall,
   });
-  emit();
+}
+
+/**
+ * @deprecated Split missedCall publish — routes to complete with **current** shell axes.
+ * Product Apply must use publishDomainAppIconCompleteSnapshot with all axes.
+ */
+export function publishMissedCallToDomainBadgeSurface(missedCall: number): void {
+  publishDomainAppIconCompleteSnapshot({
+    communityMessengerUnread: snapshot.messenger,
+    tradeUnread: snapshot.trade,
+    storeOrderChatUnread: snapshot.storeOrder,
+    missedCall,
+  });
 }
 
 export function getDomainBadgeSurfaceSnapshot(): DomainBadgeSurfaceSnapshot {
   return snapshot;
 }
 
+export function getDomainBadgeSurfaceAuthEpoch(): number {
+  return authEpoch;
+}
+
 export function getDomainBadgeSurfaceServerSnapshot(): DomainBadgeSurfaceSnapshot {
-  return EMPTY;
+  return { ...EMPTY, authEpoch };
+}
+
+/**
+ * Logout / auth wipe — clear App Icon surface and invalidate in-flight completes.
+ */
+export function resetDomainBadgeSurfaceForAuthEpoch(): void {
+  authEpoch += 1;
+  lastFactsVersion = 0;
+  snapshot = { ...EMPTY, authEpoch, generation: 0 };
+  badgeSurfaceProbe("b_surface_auth_epoch_reset", { authEpoch });
+  emit();
 }
 
 export function subscribeDomainBadgeSurface(onChange: () => void): () => void {
@@ -131,6 +232,8 @@ export function subscribeDomainBadgeSurface(onChange: () => void): () => void {
 
 /** Test helper */
 export function __resetDomainBadgeSurfaceStoreForTests(): void {
+  authEpoch = 0;
+  lastFactsVersion = 0;
   snapshot = EMPTY;
   listeners.clear();
 }

@@ -8,6 +8,7 @@
  * - DO NOT overwrite store-scoped FAB field (`storeOrderChatUnread`) with global owner aggregate
  *   (prevents owner FAB 1→3→1 when customer route applies Domain badge-count).
  * Phase J4: half-publish + dead surface-resync helper removed (call-0).
+ * Phase 3-1 (2026-07-31): App Icon = one complete snapshot publish (no shell/missedCall split emit).
  *
  * App Icon runtime authority = domain-badge-surface-store only.
  * applyAppIconBadgeProjection remains a Phase H contract mirror (not NativeBadgeSync source).
@@ -16,6 +17,10 @@ import { applyAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-i
 import { applyDomainAuthorityHubBadgeOptimistic } from "@/lib/chats/owner-hub-badge-store";
 import type { NotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
 import { patchNotificationBadgeCountSnapshot } from "@/lib/notifications/notification-badge-count-store";
+import {
+  getDomainBadgeSurfaceAuthEpoch,
+  publishDomainAppIconCompleteSnapshot,
+} from "@/lib/messenger/contracts/domain-badge-surface-store";
 
 /** Owner hub / FAB / Bottom Chat CM publish — not App Icon runtime authority. */
 function applyOwnerHubSurfacesFromProjection(projection: NotificationBadgeProjection): void {
@@ -30,20 +35,22 @@ function applyOwnerHubSurfacesFromProjection(projection: NotificationBadgeProjec
 }
 
 /**
- * App Icon runtime publish (4-axis surface) + Phase H contract mirror.
+ * App Icon runtime publish (4-axis complete) + Phase H contract mirror.
  * Separated from Owner hub apply so hub-only writes cannot drive NativeBadgeSync.
+ * Synchronous complete snapshot — one generation, one emit, one NativeBadgeSync reaction.
  */
 function applyAppIconRuntimeAuthorityFromProjection(
   projection: NotificationBadgeProjection,
   versionMs: number
 ): void {
-  void import("@/lib/messenger/contracts/domain-badge-surface-store").then((mod) => {
-    mod.publishDomainBadgeShellToSurfaceStore({
-      communityMessengerUnread: projection.appIcon.messenger,
-      tradeUnread: projection.appIcon.trade,
-      storeOrderChatUnread: projection.appIcon.storeOrder,
-    });
-    mod.publishMissedCallToDomainBadgeSurface(projection.appIcon.missedCall);
+  const authEpochAtSchedule = getDomainBadgeSurfaceAuthEpoch();
+  publishDomainAppIconCompleteSnapshot({
+    communityMessengerUnread: projection.appIcon.messenger,
+    tradeUnread: projection.appIcon.trade,
+    storeOrderChatUnread: projection.appIcon.storeOrder,
+    missedCall: projection.appIcon.missedCall,
+    authEpochAtSchedule,
+    projectionFactsVersion: versionMs,
   });
   /** Phase H contract mirror — NativeBadgeSync must not read this store. */
   applyAppIconBadgeProjection({

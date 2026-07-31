@@ -47,6 +47,9 @@ describe("resolvePushRouteFromFcmData", () => {
     expect(resolvePushRouteFromFcmData({ type: "trade_message", roomId: "trade-room-1" })).toBe(
       "/community-messenger/rooms/trade-room-1"
     );
+    expect(resolvePushRouteFromFcmData({ type: "group_message", roomId: "grp-1" })).toBe(
+      "/group-chat/grp-1"
+    );
     expect(resolvePushRouteFromFcmData({ type: "delivery_order", orderId: "order-1" })).toBe(
       "/orders/store/order-1"
     );

@@ -4,6 +4,10 @@
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
+import {
+  buildChatRoomWebPath,
+  buildGroupChatWebPath,
+} from "@/lib/notifications/policy/notification-deeplink-paths";
 
 export type FcmRouteData = Record<string, string | undefined>;
 
@@ -78,13 +82,14 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
   }
 
   if (type === "chat_message" && roomId) {
-    return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+    return buildChatRoomWebPath(roomId);
   }
   if (type === "trade_message" && roomId) {
-    return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+    return buildChatRoomWebPath(roomId);
   }
   if (type === "group_message" && roomId) {
-    return `/community-messenger/rooms/${encodeURIComponent(roomId)}?type=group`;
+    // Canonical group product path — same as Bell registry `group_room` (not CM type=group query).
+    return buildGroupChatWebPath(roomId);
   }
 
   const orderId = firstNonEmpty(data.orderId, data.order_id);
