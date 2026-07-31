@@ -1,9 +1,16 @@
+/**
+ * Order Domain — store_order room read.
+ *
+ * Room Unread Authority v1:
+ *   readOrderChat → dibay_mark_room_read_atomic (single TX)
+ * DO NOT: parallel counter-only reset · skip message_reads · Phase 8B wiring
+ */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clearNotificationTarget } from "@/lib/notifications/notification-targets";
 import {
   fetchDomainBadgeAuthorityPayload,
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
+import { DIBAY_MARK_ROOM_READ_ATOMIC_RPC } from "@/lib/messenger/contracts/room-unread-authority";
 
 export type OrderChatReadRole = "owner" | "customer";
 
@@ -31,6 +38,7 @@ export type ReadOrderChatResult =
       nativeBadgeTotal: number;
       surface: "bottom_nav_delivery" | "owner_commerce_inbox";
       ownerFabSurface?: "fab_owner_order_chat";
+      authority: "room_unread_v1";
     }
   | { ok: false; error: string; status?: number };
 
@@ -41,6 +49,7 @@ type StoreOrderChatContext = {
   buyerUserId: string;
   ownerUserId: string;
   role: OrderChatReadRole;
+  domainIdentityKey: string;
 };
 
 function trim(v: unknown): string {
@@ -91,153 +100,8 @@ async function loadStoreOrderChatContext(
     buyerUserId,
     ownerUserId,
     role: actualRole,
+    domainIdentityKey: `store_order:${orderId}`,
   };
-}
-
-async function resolveLastReadMessageId(
-  sb: SupabaseClient<any>,
-  roomId: string,
-  explicitId?: string | null
-): Promise<string | null> {
-  const explicit = explicitId?.trim() ?? "";
-  if (explicit) return explicit;
-  const { data } = await sb
-    .from("community_messenger_messages")
-    .select("id")
-    .eq("room_id", roomId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return trim((data as { id?: unknown } | null)?.id) || null;
-}
-
-async function markOrderParticipantRead(
-  sb: SupabaseClient<any>,
-  ctx: StoreOrderChatContext,
-  userId: string,
-  lastReadMessageId: string | null,
-  now: string
-): Promise<number> {
-  const patch: Record<string, unknown> = {
-    unread_count: 0,
-    last_read_at: now,
-  };
-  if (lastReadMessageId) patch.last_read_message_id = lastReadMessageId;
-  const { data, error } = await sb
-    .from("community_messenger_participants")
-    .update(patch)
-    .eq("room_id", ctx.roomId)
-    .eq("user_id", userId)
-    .select("id");
-  if (error) return 0;
-  return data?.length ?? 0;
-}
-
-async function markOrderChatEventsRead(
-  sb: SupabaseClient<any>,
-  ctx: StoreOrderChatContext,
-  userId: string,
-  now: string
-): Promise<number> {
-  const { data, error } = await sb
-    .from("notification_events")
-    .update({ unread: false, read_at: now, opened_at: now })
-    .eq("user_id", userId)
-    .eq("type", "store_order_message")
-    .eq("unread", true)
-    .is("read_at", null)
-    .or(
-      [
-        `room_id.eq.${ctx.roomId}`,
-        `display_payload->legacyMeta->>room_id.eq.${ctx.roomId}`,
-        `display_payload->legacyMeta->>order_id.eq.${ctx.orderId}`,
-        `display_payload->>orderId.eq.${ctx.orderId}`,
-        `display_payload->>order_id.eq.${ctx.orderId}`,
-      ].join(",")
-    )
-    .select("id");
-  if (error) return 0;
-  return data?.length ?? 0;
-}
-
-async function clearOrderChatTarget(
-  sb: SupabaseClient<any>,
-  ctx: StoreOrderChatContext,
-  userId: string
-): Promise<void> {
-  if (ctx.role === "owner") {
-    await clearNotificationTarget(sb, {
-      userId,
-      targetType: "owner_order_chat",
-      targetId: ctx.roomId,
-      storeId: ctx.storeId,
-    });
-    return;
-  }
-  await clearNotificationTarget(sb, {
-    userId,
-    targetType: "buyer_order",
-    targetId: ctx.orderId,
-  });
-}
-
-async function countParticipantUnread(
-  sb: SupabaseClient<any>,
-  roomId: string,
-  userId: string
-): Promise<number> {
-  const { data, error } = await sb
-    .from("community_messenger_participants")
-    .select("unread_count")
-    .eq("room_id", roomId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error || !data) return 1;
-  return Math.max(0, Math.floor(Number((data as { unread_count?: unknown }).unread_count) || 0));
-}
-
-async function countOrderChatTargetUnread(
-  sb: SupabaseClient<any>,
-  ctx: StoreOrderChatContext,
-  userId: string
-): Promise<number> {
-  const targetType = ctx.role === "owner" ? "owner_order_chat" : "buyer_order";
-  const targetId = ctx.role === "owner" ? ctx.roomId : ctx.orderId;
-  const { data, error } = await sb
-    .from("notification_targets")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("target_type", targetType)
-    .eq("target_id", targetId)
-    .eq("is_unread", true)
-    .limit(50);
-  if (error) return 1;
-  return data?.length ?? 0;
-}
-
-async function countOrderChatEventUnread(
-  sb: SupabaseClient<any>,
-  ctx: StoreOrderChatContext,
-  userId: string
-): Promise<number> {
-  const { data, error } = await sb
-    .from("notification_events")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("type", "store_order_message")
-    .eq("unread", true)
-    .or(
-      [
-        `room_id.eq.${ctx.roomId}`,
-        `display_payload->legacyMeta->>room_id.eq.${ctx.roomId}`,
-        `display_payload->legacyMeta->>order_id.eq.${ctx.orderId}`,
-        `display_payload->>orderId.eq.${ctx.orderId}`,
-        `display_payload->>order_id.eq.${ctx.orderId}`,
-      ].join(",")
-    )
-    .limit(50);
-  if (error) return 1;
-  return data?.length ?? 0;
 }
 
 export async function readOrderChat(
@@ -249,45 +113,69 @@ export async function readOrderChat(
   const ctx = await loadStoreOrderChatContext(sb, input);
   if (!ctx) return { ok: false, error: "order_chat_not_found_or_forbidden", status: 404 };
 
-  const now = new Date().toISOString();
-  const lastReadMessageId = await resolveLastReadMessageId(sb, ctx.roomId, input.lastReadMessageId);
-  const [updatedParticipantUnreadCount, updatedNotificationEventCount] = await Promise.all([
-    markOrderParticipantRead(sb, ctx, userId, lastReadMessageId, now),
-    markOrderChatEventsRead(sb, ctx, userId, now),
-    clearOrderChatTarget(sb, ctx, userId),
-  ]).then(([participantCount, eventCount]) => [participantCount, eventCount] as const);
+  const through = trim(input.lastReadMessageId) || null;
+  const idempotencyKey = [
+    "so_mark_read",
+    userId,
+    ctx.roomId,
+    ctx.role,
+    through ?? "open_tail",
+  ].join(":");
+
+  const { data: rpcRaw, error: rpcError } = await (sb as any).rpc(DIBAY_MARK_ROOM_READ_ATOMIC_RPC, {
+    p_viewer_id: userId,
+    p_room_id: ctx.roomId,
+    p_chat_domain: "store_order",
+    p_domain_identity_key: ctx.domainIdentityKey,
+    p_viewer_role: ctx.role,
+    p_store_id: ctx.storeId,
+    p_order_id: ctx.orderId,
+    p_read_through_message_id: through,
+    p_idempotency_key: idempotencyKey,
+  });
+
+  if (rpcError) {
+    return { ok: false, error: String(rpcError.message ?? "mark_room_read_failed"), status: 500 };
+  }
+
+  const payload = rpcRaw as {
+    ok?: unknown;
+    error?: unknown;
+    unreadCount?: unknown;
+    clearedEventCount?: unknown;
+    clearedTargetCount?: unknown;
+  } | null;
+
+  if (!payload || payload.ok !== true) {
+    const reason = typeof payload?.error === "string" ? payload.error : "mark_room_read_denied";
+    const status =
+      reason === "forbidden" || reason === "not_buyer" || reason === "not_owner" ? 403 : 409;
+    return { ok: false, error: reason, status };
+  }
+
+  const participantUnreadAfter = Math.max(0, Math.floor(Number(payload.unreadCount) || 0));
+  if (participantUnreadAfter !== 0) {
+    return { ok: false, error: "order_chat_read_incomplete", status: 409 };
+  }
 
   invalidateNotificationBadgeCache(userId);
-
-  const [participantUnreadAfter, targetUnreadAfter, eventUnreadAfter, domain] = await Promise.all([
-    countParticipantUnread(sb, ctx.roomId, userId),
-    countOrderChatTargetUnread(sb, ctx, userId),
-    countOrderChatEventUnread(sb, ctx, userId),
-    fetchDomainBadgeAuthorityPayload(sb, userId, { force: true }),
-  ]);
-
-  if (participantUnreadAfter !== 0 || targetUnreadAfter !== 0 || eventUnreadAfter !== 0) {
-    return {
-      ok: false,
-      error: "order_chat_read_incomplete",
-      status: 409,
-    };
-  }
+  const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
 
   return {
     ok: true,
     orderId: ctx.orderId,
     roomId: ctx.roomId,
     role: ctx.role,
-    participantUnreadAfter,
-    targetUnreadAfter,
-    eventUnreadAfter,
-    updatedParticipantUnreadCount,
-    updatedNotificationTargetCount: 1,
-    updatedNotificationEventCount,
+    participantUnreadAfter: 0,
+    targetUnreadAfter: 0,
+    eventUnreadAfter: 0,
+    updatedParticipantUnreadCount: 1,
+    updatedNotificationTargetCount: Math.max(0, Math.floor(Number(payload.clearedTargetCount) || 0)),
+    updatedNotificationEventCount: Math.max(0, Math.floor(Number(payload.clearedEventCount) || 0)),
     nextBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.bellTotal) || 0)),
     nativeBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.appIconTotal) || 0)),
     surface: ctx.role === "owner" ? "owner_commerce_inbox" : "bottom_nav_delivery",
     ...(ctx.role === "owner" ? { ownerFabSurface: "fab_owner_order_chat" as const } : {}),
+    authority: "room_unread_v1",
   };
 }

@@ -5171,20 +5171,31 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     if (input.replaceExisting && sessionId) {
       /* legacy path — sessionId 매칭 행 없으면 복구 INSERT */
     }
-    await (sb as any).from("community_messenger_messages").insert({
-      room_id: input.roomId,
-      sender_id: input.userId,
-      message_type: "call_stub",
+    const { appendTypedMessengerMessageAtomic } = await import(
+      "@/lib/community-messenger/room-unread-authority-rpc"
+    );
+    const createdAt = trimText(input.createdAt) || nowIso();
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      roomId: input.roomId,
+      senderId: input.userId,
+      messageType: "call_stub",
       content: label,
       metadata,
-      created_at: input.createdAt,
+      createdAt,
+      countsAsUnread: shouldIncrementUnread,
+      idempotencyKey: `cm_call_stub:${input.userId}:${input.roomId}:${sessionId || tmp || createdAt}:${label}:${shouldIncrementUnread ? "u" : "n"}`,
     });
-    const roomPatch: Record<string, unknown> = {
-      last_message: label,
-      last_message_type: "call_stub",
-    };
+    if (!appended.ok) {
+      console.error("[room_unread_v1] call_stub_append", {
+        roomId: input.roomId,
+        error: appended.error,
+        fallbackUsed: false,
+        rpc_used: "dibay_append_room_message_atomic",
+      });
+      return;
+    }
     if (bumpRoomLastMessageAt) {
-      /** lastActivityAt SSOT — terminal occurred_at 기준 forward-only */
+      /** lastActivityAt SSOT — terminal occurred_at 기준 forward-only (room preview only). */
       const { data: roomRow } = await (sb as any)
         .from("community_messenger_rooms")
         .select("last_message_at")
@@ -5192,25 +5203,12 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         .maybeSingle();
       const currentAt = trimText((roomRow as { last_message_at?: string } | null)?.last_message_at);
       const bumped = applyForwardOnlyRoomLastMessageAt(currentAt, listActivityAt);
-      if (bumped) {
-        roomPatch.last_message_at = bumped;
-        roomPatch.updated_at = bumped;
+      if (bumped && bumped !== currentAt) {
+        await (sb as any)
+          .from("community_messenger_rooms")
+          .update({ last_message_at: bumped, updated_at: bumped })
+          .eq("id", input.roomId);
       }
-    }
-    await (sb as any).from("community_messenger_rooms").update(roomPatch).eq("id", input.roomId);
-    const { data: participants } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("id, user_id, unread_count")
-      .eq("room_id", input.roomId);
-    if (!shouldIncrementUnread) return;
-    for (const participant of (participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>) {
-      await (sb as any)
-        .from("community_messenger_participants")
-        .update({
-          unread_count: participant.user_id === input.userId ? 0 : Number(participant.unread_count ?? 0) + 1,
-          last_read_at: participant.user_id === input.userId ? input.createdAt : null,
-        })
-        .eq("id", participant.id);
     }
     return;
   }
@@ -11348,6 +11346,89 @@ export async function markCommunityMessengerRoomAsRead(input: {
       return earlyDuplicate;
     }
 
+    /**
+     * Room Unread Authority v1 — GD/Group/Trade mark-read via dibay_mark_room_read_atomic.
+     * store_order delivery remains OrderDomain.readOrderChat (do not dual-write here).
+     * RPC missing (migration not applied) → fall through to legacy open_tail / apply_room_read_mark.
+     */
+    {
+      const { loadRoomDomainForUnreadAuthority, markRoomReadAtomic } = await import(
+        "@/lib/community-messenger/room-unread-authority-rpc"
+      );
+      const domainMeta = await loadRoomDomainForUnreadAuthority(sb as any, roomId);
+      if (domainMeta && domainMeta.chatDomain !== "store_order") {
+        const atomic = await markRoomReadAtomic(sb as any, {
+          viewerId: input.userId,
+          roomId,
+          chatDomain: domainMeta.chatDomain,
+          domainIdentityKey: domainMeta.domainIdentityKey,
+          viewerRole: "member",
+          readThroughMessageId: flushOpen || !requestedLastReadMessageId ? null : requestedLastReadMessageId,
+          idempotencyKey: [
+            "cm_mark_read",
+            input.userId,
+            roomId,
+            flushOpen ? "open" : requestedLastReadMessageId || "none",
+          ].join(":"),
+        });
+        if (atomic.ok) {
+          invalidateOwnerHubBadgeCache(input.userId);
+          invalidateHomeSyncSnapshotCache(input.userId);
+          invalidateCmBootstrapSnapshotCache(input.userId);
+          invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
+          invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
+          storeMarkReadParticipantSnapshotsFromRow(
+            input.userId,
+            roomId,
+            { flushOpen, requestedLastReadMessageId },
+            {
+              id: "",
+              last_read_message_id: atomic.lastReadMessageId ?? "",
+              last_read_at: atomic.lastReadAt,
+              unread_count: atomic.unreadCount,
+            }
+          );
+          if (flushOpen && !requestedLastReadMessageId) {
+            rememberMarkReadOpenTailCoalesce(
+              input.userId,
+              roomId,
+              atomic.lastReadAt,
+              atomic.lastReadMessageId
+            );
+          }
+          if (diag) {
+            diag.mark_read_rpc_mode = flushOpen ? "open" : "cursor";
+            diag.mark_read_combined_rpc_used = 1;
+            diag.snapshot_source = "room_unread_v1_atomic";
+          }
+          return {
+            ok: true,
+            lastReadAt: atomic.lastReadAt,
+            lastReadMessageId: atomic.lastReadMessageId,
+            duplicateAckSkipped: atomic.duplicateSkipped,
+            broadcastSkipped: atomic.duplicateSkipped,
+            sameLastReadDetected: atomic.duplicateSkipped && !atomic.lastReadAdvanced,
+            lastReadAdvanced: atomic.lastReadAdvanced,
+            regressionBlocked: atomic.regressionBlocked,
+          };
+        }
+        const atomicErr = atomic.error.toLowerCase();
+        const rpcMissing =
+          atomicErr.includes("does not exist") ||
+          atomicErr.includes("schema cache") ||
+          atomicErr.includes("dibay_mark_room_read_atomic");
+        if (!rpcMissing) {
+          return { ok: false, error: atomic.error };
+        }
+        console.error("[room_unread_v1] mark_read_legacy_fallback", {
+          roomId,
+          domain: domainMeta.chatDomain,
+          error: atomic.error,
+          fallbackUsed: true,
+        });
+      }
+    }
+
     const rpcMode: "open" | "cursor" = flushOpen || !requestedLastReadMessageId ? "open" : "cursor";
     const rpcThrough = rpcMode === "cursor" ? requestedLastReadMessageId : null;
 
@@ -15994,66 +16075,45 @@ export async function sendCommunityMessengerImageMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
     const createdAt = nowIso();
-    const { data: insertedMessage, error: insertError } = await (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: input.userId,
-        message_type: "image",
-        content: first.chatPublicUrl,
-        metadata,
-        created_at: createdAt,
-      })
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-      .single();
-    if (!insertError && insertedMessage) {
-      const [, unreadRpcResult] = await Promise.all([
-        (sb as any)
-          .from("community_messenger_rooms")
-          .update({
-            last_message: lastPreview,
-            last_message_at: createdAt,
-            last_message_type: "image",
-            updated_at: createdAt,
-          })
-          .eq("id", roomId),
-        (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-          p_room_id: roomId,
-          p_sender_id: input.userId,
-          p_read_at: createdAt,
-        }),
-      ]);
-      const unreadRpcError = unreadRpcResult?.error;
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
-      const { data: imageRecipientRows } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("user_id")
-        .eq("room_id", roomId)
-        .neq("user_id", input.userId)
-        .is("left_at", null)
-        .is("blocked_hidden_at", null);
-      const imageRecipientUserIds = ((imageRecipientRows ?? []) as Array<{ user_id: string }>)
-        .map((p) => p.user_id)
-        .filter((uid) => Boolean(uid?.trim()));
-      const mid = String((insertedMessage as { id?: unknown }).id ?? "");
-      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const { appendTypedMessengerMessageAtomic } = await import(
+      "@/lib/community-messenger/room-unread-authority-rpc"
+    );
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      roomId,
+      senderId: input.userId,
+      messageType: "image",
+      content: first.chatPublicUrl,
+      metadata,
+      createdAt,
+      idempotencyKey: `cm_append_image:${input.userId}:${roomId}:${first.chatPublicUrl}:${createdAt}`,
+    });
+    if (!appended.ok) {
+      console.error("[room_unread_v1] image_append", {
         roomId,
-        messageId: mid,
-        senderUserId: input.userId,
-        preview: lastPreview,
-        recipientUserIds: imageRecipientUserIds,
+        error: appended.error,
+        fallbackUsed: false,
+        rpc_used: "dibay_append_room_message_atomic",
       });
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds, roomId);
-      return {
-        ok: true,
-        message: communityMessengerBuiltImageClientMessage(items, createdAt, mid, roomId, input.userId),
-      };
+      return { ok: false, error: appended.error };
     }
-    if (!isMissingTableError(insertError)) {
-      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
-    }
+    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: lastPreview,
+      recipientUserIds: appended.recipientUserIds,
+    });
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    return {
+      ok: true,
+      message: communityMessengerBuiltImageClientMessage(
+        items,
+        appended.createdAt,
+        appended.messageId,
+        roomId,
+        input.userId
+      ),
+    };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -16181,73 +16241,52 @@ export async function sendCommunityMessengerStickerMessage(input: {
     }
 
     const createdAt = nowIso();
-    const { data: insertedMessage, error: insertError } = await (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: input.userId,
-        message_type: "sticker",
-        content: path,
-        metadata,
-        created_at: createdAt,
-      })
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-      .single();
-    if (!insertError && insertedMessage) {
-      await (sb as any)
-        .from("community_messenger_rooms")
-        .update({
-          last_message: cmLastPreviewSticker(),
-          last_message_at: createdAt,
-          last_message_type: "sticker",
-          updated_at: createdAt,
-        })
-        .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-        p_room_id: roomId,
-        p_sender_id: input.userId,
-        p_read_at: createdAt,
-      });
-      const { data: recipientRows } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("user_id")
-        .eq("room_id", roomId)
-        .neq("user_id", input.userId)
-        .is("left_at", null)
-        .is("blocked_hidden_at", null);
-      const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
-        .map((p) => p.user_id)
-        .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const { appendTypedMessengerMessageAtomic } = await import(
+      "@/lib/community-messenger/room-unread-authority-rpc"
+    );
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      roomId,
+      senderId: input.userId,
+      messageType: "sticker",
+      content: path,
+      metadata,
+      createdAt,
+      clientMessageId: clientMessageId || null,
+      idempotencyKey: `cm_sticker:${input.userId}:${roomId}:${clientMessageId || path}:${createdAt}`,
+    });
+    if (!appended.ok) {
+      console.error("[room_unread_v1] sticker_append", {
         roomId,
-        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
-        senderUserId: input.userId,
-        preview: cmLastPreviewSticker(),
-        recipientUserIds,
+        error: appended.error,
+        fallbackUsed: false,
+        rpc_used: "dibay_append_room_message_atomic",
       });
-      if (!unreadRpcError) {
-        invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
-      }
-      return {
-        ok: true,
-        message: {
-          id: String((insertedMessage as { id?: unknown }).id ?? ""),
-          roomId,
-          senderId: input.userId,
-          senderLabel: cmServiceT("common_me"),
-          messageType: "sticker",
-          content: path,
-          createdAt,
-          clientMessageId: clientMessageId || null,
-          isMine: true,
-          callKind: null,
-          callStatus: null,
-        },
-      };
+      return { ok: false, error: appended.error };
     }
-    if (!isMissingTableError(insertError)) {
-      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
-    }
+    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: cmLastPreviewSticker(),
+      recipientUserIds: appended.recipientUserIds,
+    });
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    return {
+      ok: true,
+      message: {
+        id: appended.messageId,
+        roomId,
+        senderId: input.userId,
+        senderLabel: cmServiceT("common_me"),
+        messageType: "sticker",
+        content: path,
+        createdAt: appended.createdAt,
+        clientMessageId: clientMessageId || null,
+        isMine: true,
+        callKind: null,
+        callStatus: null,
+      },
+    };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -16515,76 +16554,53 @@ export async function sendCommunityMessengerFileMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
     const createdAt = nowIso();
-    const { data: insertedMessage, error: insertError } = await (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: input.userId,
-        message_type: "file",
-        content: filePublicUrl,
-        metadata,
-        created_at: createdAt,
-      })
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-      .single();
-    if (!insertError && insertedMessage) {
-      await (sb as any)
-        .from("community_messenger_rooms")
-        .update({
-          last_message: cmLastPreviewFile(fileName),
-          last_message_at: createdAt,
-          last_message_type: "file",
-          updated_at: createdAt,
-        })
-        .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-        p_room_id: roomId,
-        p_sender_id: input.userId,
-        p_read_at: createdAt,
-      });
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
-      const { data: fileRecipientRows } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("user_id")
-        .eq("room_id", roomId)
-        .neq("user_id", input.userId)
-        .is("left_at", null)
-        .is("blocked_hidden_at", null);
-      const fileRecipientUserIds = ((fileRecipientRows ?? []) as Array<{ user_id: string }>)
-        .map((p) => p.user_id)
-        .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const { appendTypedMessengerMessageAtomic } = await import(
+      "@/lib/community-messenger/room-unread-authority-rpc"
+    );
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      roomId,
+      senderId: input.userId,
+      messageType: "file",
+      content: filePublicUrl,
+      metadata,
+      createdAt,
+      idempotencyKey: `cm_file:${input.userId}:${roomId}:${filePublicUrl}:${createdAt}`,
+    });
+    if (!appended.ok) {
+      console.error("[room_unread_v1] file_append", {
         roomId,
-        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
-        senderUserId: input.userId,
-        preview: cmLastPreviewFile(fileName),
-        recipientUserIds: fileRecipientUserIds,
+        error: appended.error,
+        fallbackUsed: false,
+        rpc_used: "dibay_append_room_message_atomic",
       });
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds, roomId);
-      return {
-        ok: true,
-        message: {
-          id: String((insertedMessage as { id?: unknown }).id ?? ""),
-          roomId,
-          senderId: input.userId,
-          senderLabel: cmServiceT("common_me"),
-          messageType: "file",
-          content: filePublicUrl,
-          createdAt,
-          isMine: true,
-          callKind: null,
-          callStatus: null,
-          fileName,
-          fileMimeType: mimeType,
-          fileSizeBytes,
-        },
-      };
+      return { ok: false, error: appended.error };
     }
-    if (!isMissingTableError(insertError)) {
-      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
-    }
+    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: cmLastPreviewFile(fileName),
+      recipientUserIds: appended.recipientUserIds,
+    });
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    return {
+      ok: true,
+      message: {
+        id: appended.messageId,
+        roomId,
+        senderId: input.userId,
+        senderLabel: cmServiceT("common_me"),
+        messageType: "file",
+        content: filePublicUrl,
+        createdAt: appended.createdAt,
+        isMine: true,
+        callKind: null,
+        callStatus: null,
+        fileName,
+        fileMimeType: mimeType,
+        fileSizeBytes,
+      },
+    };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -17270,76 +17286,53 @@ export async function sendCommunityMessengerVoiceMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
     const createdAt = nowIso();
-    const { data: insertedMessage, error: insertError } = await (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: input.userId,
-        message_type: "voice",
-        content: audioPublicUrl,
-        metadata,
-        created_at: createdAt,
-      })
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-      .single();
-    if (!insertError && insertedMessage) {
-      await (sb as any)
-        .from("community_messenger_rooms")
-        .update({
-          last_message: cmLastPreviewVoice(),
-          last_message_at: createdAt,
-          last_message_type: "voice",
-          updated_at: createdAt,
-        })
-        .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-        p_room_id: roomId,
-        p_sender_id: input.userId,
-        p_read_at: createdAt,
-      });
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
-      const { data: voiceRecipientRows } = await (sb as any)
-        .from("community_messenger_participants")
-        .select("user_id")
-        .eq("room_id", roomId)
-        .neq("user_id", input.userId)
-        .is("left_at", null)
-        .is("blocked_hidden_at", null);
-      const voiceRecipientUserIds = ((voiceRecipientRows ?? []) as Array<{ user_id: string }>)
-        .map((p) => p.user_id)
-        .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+    const { appendTypedMessengerMessageAtomic } = await import(
+      "@/lib/community-messenger/room-unread-authority-rpc"
+    );
+    const appended = await appendTypedMessengerMessageAtomic(sb as any, {
+      roomId,
+      senderId: input.userId,
+      messageType: "voice",
+      content: audioPublicUrl,
+      metadata,
+      createdAt,
+      idempotencyKey: `cm_voice:${input.userId}:${roomId}:${audioPublicUrl}:${createdAt}`,
+    });
+    if (!appended.ok) {
+      console.error("[room_unread_v1] voice_append", {
         roomId,
-        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
-        senderUserId: input.userId,
-        preview: cmLastPreviewVoice(),
-        recipientUserIds: voiceRecipientUserIds,
+        error: appended.error,
+        fallbackUsed: false,
+        rpc_used: "dibay_append_room_message_atomic",
       });
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds, roomId);
-      return {
-        ok: true,
-        message: {
-          id: String((insertedMessage as { id?: unknown }).id ?? ""),
-          roomId,
-          senderId: input.userId,
-          senderLabel: cmServiceT("common_me"),
-          messageType: "voice",
-          content: audioPublicUrl,
-          createdAt,
-          isMine: true,
-          callKind: null,
-          callStatus: null,
-          voiceDurationSeconds: durationSeconds,
-          voiceWaveformPeaks: waveformPeaksStored ?? null,
-          voiceMimeType: mimeType,
-        },
-      };
+      return { ok: false, error: appended.error };
     }
-    if (!isMissingTableError(insertError)) {
-      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
-    }
+    void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
+      roomId,
+      messageId: appended.messageId,
+      senderUserId: input.userId,
+      preview: cmLastPreviewVoice(),
+      recipientUserIds: appended.recipientUserIds,
+    });
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, appended.recipientUserIds, roomId);
+    return {
+      ok: true,
+      message: {
+        id: appended.messageId,
+        roomId,
+        senderId: input.userId,
+        senderLabel: cmServiceT("common_me"),
+        messageType: "voice",
+        content: audioPublicUrl,
+        createdAt: appended.createdAt,
+        isMine: true,
+        callKind: null,
+        callStatus: null,
+        voiceDurationSeconds: durationSeconds,
+        voiceWaveformPeaks: waveformPeaksStored ?? null,
+        voiceMimeType: mimeType,
+      },
+    };
   }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();

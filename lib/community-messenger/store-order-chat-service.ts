@@ -363,43 +363,36 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
     // DO NOT: publishStoreOrderMessengerSystemMessageBump on this branch.
     return;
   }
-  const { data: inserted, error } = await sb
-    .from("community_messenger_messages")
-    .insert({
-      room_id: ensured.roomId,
-      sender_id: null,
-      message_type: "system",
-      content,
-      metadata,
-      created_at: createdAt,
-    })
-    .select("id")
-    .single();
-  if (error) return;
-  await sb
-    .from("community_messenger_rooms")
-    .update({
-      last_message: content.slice(0, 200),
-      last_message_type: "system",
-      last_message_at: createdAt,
-      updated_at: createdAt,
-    })
-    .eq("id", ensured.roomId);
   const actor = ensured.buyerUserId;
-  await sb.rpc("community_messenger_apply_unread_for_text_message", {
-    p_room_id: ensured.roomId,
-    p_sender_id: actor,
-    p_read_at: createdAt,
+  const identity = `store_order:${orderId.trim()}`;
+  const { appendRoomMessageAtomic } = await import(
+    "@/lib/community-messenger/room-unread-authority-rpc"
+  );
+  const appended = await appendRoomMessageAtomic(sb, {
+    idempotencyKey: `so_system:${ensured.roomId}:${createdAt}:${content.slice(0, 40)}`,
+    roomId: ensured.roomId,
+    chatDomain: "store_order",
+    domainIdentityKey: identity,
+    senderId: actor,
+    messageType: "system",
+    content,
+    metadata,
+    createdAt,
+    countsAsUnread: true,
+    forceNullMessageSender: true,
   });
-  const messageId = trimText((inserted as { id?: unknown } | null)?.id);
-  if (messageId) {
-    await sb
-      .from("community_messenger_participants")
-      .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
-      .eq("room_id", ensured.roomId)
-      .eq("user_id", actor);
-    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
+  if (appended.ok) {
+    const messageId = trimText(String(appended.message.id ?? ""));
+    if (messageId) {
+      await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
+    }
+    return;
   }
+  console.error("[room_unread_v1] store_order_system_append_failed", {
+    error: appended.error,
+    rpcMissing: appended.rpcMissing === true,
+    fallbackUsed: false,
+  });
 }
 
 /**
@@ -647,40 +640,36 @@ async function appendStoreOrderMessengerSystemMessage(
             : null,
     audience: "buyer_seller",
   };
-  const { data: inserted, error } = await sb
-    .from("community_messenger_messages")
-    .insert({
-      room_id: ensured.roomId,
-      sender_id: null,
-      message_type: "system",
-      content,
-      metadata,
-      created_at: createdAt,
-    })
-    .select("id")
-    .single();
-  if (error) return;
-  await sb
-    .from("community_messenger_rooms")
-    .update({ last_message: content, last_message_type: "system", last_message_at: createdAt, updated_at: createdAt })
-    .eq("id", ensured.roomId);
-  // System lines use the actor only to decide who should not receive unread.
-  // Order-created/payment lines are buyer-originated, while status lines pass owner explicitly.
   const actor = trimText(input.actorUserId) || ensured.buyerUserId;
-  await sb.rpc("community_messenger_apply_unread_for_text_message", {
-    p_room_id: ensured.roomId,
-    p_sender_id: actor,
-    p_read_at: createdAt,
+  const identity = `store_order:${input.orderId}`;
+  const { appendRoomMessageAtomic } = await import(
+    "@/lib/community-messenger/room-unread-authority-rpc"
+  );
+  const appended = await appendRoomMessageAtomic(sb, {
+    idempotencyKey: `so_sys_line:${ensured.roomId}:${createdAt}:${content.slice(0, 40)}`,
+    roomId: ensured.roomId,
+    chatDomain: "store_order",
+    domainIdentityKey: identity,
+    senderId: actor,
+    messageType: "system",
+    content,
+    metadata,
+    createdAt,
+    countsAsUnread: true,
+    forceNullMessageSender: true,
   });
-  const messageId = trimText((inserted as { id?: unknown } | null)?.id);
-  if (messageId) {
-    await sb
-      .from("community_messenger_participants")
-      .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
-      .eq("room_id", ensured.roomId)
-      .eq("user_id", actor);
-    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
+  if (appended.ok) {
+    const messageId = trimText(String(appended.message.id ?? ""));
+    if (messageId) {
+      await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
+    }
+    return;
   }
+  console.error("[room_unread_v1] store_order_sys_line_append_failed", {
+    error: appended.error,
+    rpcMissing: appended.rpcMissing === true,
+    fallbackUsed: false,
+  });
 }
 
 export async function appendStoreOrderMessengerPaymentCompletedLine(
