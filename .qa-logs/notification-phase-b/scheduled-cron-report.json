@@ -1,0 +1,16 @@
+{
+  "path": "/api/cron/notification-campaigns-dispatch-scheduled",
+  "probedAt": "2026-07-31T03:42:00.000Z",
+  "deploymentSha": "1f9558217b16041c693623f9ccd55e8fe224b2cb",
+  "results": [
+    {
+      "name": "unauthenticated_get",
+      "url": "https://samarket.vercel.app/api/cron/notification-campaigns-dispatch-scheduled",
+      "http": 503,
+      "body": { "ok": false, "error": "cron_secret_not_configured" },
+      "pass": true,
+      "note": "Endpoint deployed; secret missing blocks dispatch (expected fail-closed)"
+    }
+  ],
+  "authorizedDispatch": "BLOCKED — CRON_SECRET not configured on Production"
+}

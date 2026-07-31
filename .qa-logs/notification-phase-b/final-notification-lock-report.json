@@ -1,0 +1,59 @@
+{
+  "phase": "notification-phase-b-d",
+  "verdict": "NOTIFICATION CODE PASS",
+  "productionDeployStatus": "DEPLOYED",
+  "cronAuthStatus": "BLOCKED_CRON_SECRET_NOT_CONFIGURED",
+  "deviceQaStatus": "BLOCKED_AWAITING_OPERATOR",
+  "productPass": false,
+  "startedHead": "e13069d21de8ec6218cc19a3960dec909a9b0adc",
+  "finalHead": "1f9558217b16041c693623f9ccd55e8fe224b2cb",
+  "originMain": "1f9558217b16041c693623f9ccd55e8fe224b2cb",
+  "commit": "1f9558217b16041c693623f9ccd55e8fe224b2cb",
+  "pushed": true,
+  "localBuild": "PASS",
+  "addGate": {
+    "lint": "PASS",
+    "tsc": "PASS",
+    "verifyI18nKeyExposure": "PASS",
+    "relatedVitest": "PASS"
+  },
+  "productionDeploy": {
+    "status": "SUCCESS",
+    "provider": "vercel-git-integration",
+    "deploymentUrl": "https://vercel.com/kimbk01s-projects/samarket/8Kc6QNLL2xGGMhMjsas2Yt9mmsiL",
+    "deploymentId": "8Kc6QNLL2xGGMhMjsas2Yt9mmsiL",
+    "sha": "1f9558217b16041c693623f9ccd55e8fe224b2cb",
+    "cliFallback": "vercel CLI local deploy crashes startsWith; git push triggered deploy"
+  },
+  "cronSmoke": {
+    "path": "/api/cron/notification-campaigns-dispatch-scheduled",
+    "unauthProbe": {
+      "url": "https://samarket.vercel.app/api/cron/notification-campaigns-dispatch-scheduled",
+      "http": 503,
+      "body": { "ok": false, "error": "cron_secret_not_configured" }
+    },
+    "note": "Route is live on Production. Set CRON_SECRET in Vercel project env (same as other crons) then re-smoke Bearer auth → 200."
+  },
+  "migration": "supabase/migrations/20261013120000_admin_notification_campaign_claim.sql — confirm applied on Production DB",
+  "cronSchedule": "*/5 * * * * in vercel.json",
+  "apk": "not rebuilt this phase (web/server only)",
+  "iosBuild": "not rebuilt this phase",
+  "capacitorDirtyExcluded": true,
+  "fixes": {
+    "fix1_cron": "PASS_CODE",
+    "fix2_segment": "PASS_CODE",
+    "fix3_audience": "PASS_CODE",
+    "fix4_idempotency": "PASS_CODE",
+    "fix5_preview": "PASS_CODE",
+    "fix6_deeplink": "PASS_CODE",
+    "fix7_friend": "RETIRED",
+    "fix8_call_obs": "PASS_CODE",
+    "fix9_legacy": "ADAPTER_ISOLATED",
+    "fix10_contracts": "PASS_UNIT"
+  },
+  "operatorNext": [
+    "Set Vercel Production env CRON_SECRET",
+    "Apply claim migration on Production Supabase if pending",
+    "Xiaomi+Samsung: QA-A1..A5 + message/order/trade/missed-call + incoming call accept/reject/cancel/timeout"
+  ]
+}
