@@ -21,14 +21,4 @@ describe("owner order status transition ends Notification Event attention", () =
     expect(src).toContain("ack_owner_notifications");
     expect(src).toContain('readReason: "order_detail_opened"');
   });
-
-  it("ships historical heal matching forward owner intake end rule", () => {
-    const src = readFileSync(
-      join(process.cwd(), "lib/notifications/heal-stale-owner-order-intake-notification-events.ts"),
-      "utf8"
-    );
-    expect(src).toContain("orderStillNeedsOwnerIntake");
-    expect(src).toContain("markOrderNotificationEventsRead");
-    expect(src).toContain("dryRun");
-  });
 });

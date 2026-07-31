@@ -144,11 +144,9 @@ Same identity can contribute **different numbers** on different surfaces; attrib
 | 5 Runtime QA | After Production |
 | 6 Legacy delete | After Phase 5 PASS |
 
-### Historical backfill (not a digit hack)
+### Historical backfill (removed — Phase 4-2 Batch A)
 
-`healStaleOwnerOrderIntakeNotificationEvents` ends owner intake unread rows whose `store_orders.order_status` is no longer `pending` — same rule as the forward writer. Run explicitly after deploy; do not hide unread by changing Bell math alone.
-
-Evidence (asas55, pre-heal measure): **21/21** unread owner `order_status` pointed at orders already `completed` / `cancelled` / `cancel_requested` — **0 still pending**.
+Manual heal `healStaleOwnerOrderIntakeNotificationEvents` was deleted after Caller/Import/Runtime reachability = 0 (not a product path). Owner intake attention end remains on the forward writer: `applyStoreOrderStatusTransition` → `markOrderNotificationsRead`.
 
 ---
 
