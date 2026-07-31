@@ -12,6 +12,7 @@ import {
   projectRoomActivityToHomeList,
   roomActivityFromMessageRow,
 } from "@/lib/community-messenger/home/project-room-activity-to-home-list";
+import { evictDeletedGroupRoomFromHomeLists } from "@/lib/community-messenger/home/group-delete-home-list-eviction";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
@@ -865,6 +866,33 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           (prev) => {
             const next = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: ev.summary }, "multi-tab");
             if (!next || next === prev) return prev;
+            return next;
+          },
+          "bus",
+          { bypassRenderPause: true }
+        );
+        queueMicrotask(() => {
+          requestMessengerHubBadgeResync("home_list_merge_summary");
+        });
+        return;
+      }
+
+      if (ev.type === "cm.home.remove_room") {
+        const rid = String(ev.roomId ?? "").trim();
+        if (!rid) return;
+        if (ev.reason === "deleted") {
+          evictDeletedGroupRoomFromHomeLists({
+            roomId: rid,
+            eventId: typeof ev.eventId === "string" ? ev.eventId : `group_deleted:${rid}`,
+            postBus: false,
+          });
+          shadowDispatch?.dispatchRemove("multi_tab", nextShadowGeneration(), rid, "deleted");
+        }
+        scheduleListPatch(
+          (prev) => {
+            const next = applyHomeListPatch(prev, { kind: "remove_room", roomId: rid }, "multi-tab");
+            if (!next || next === prev) return prev;
+            primeBootstrapCache(next);
             return next;
           },
           "bus",

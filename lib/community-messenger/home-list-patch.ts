@@ -27,6 +27,7 @@ import {
   mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
   mergeMessengerRoomSummaryMonotonicLastEventForHomeList,
 } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import { stripRememberedDeletedGroupRoomsFromBootstrap } from "@/lib/community-messenger/home/group-delete-list-tombstone";
 import {
   resolveMessengerHomeBootstrapSetData,
   type CmHomeSetDataSource,
@@ -940,6 +941,7 @@ export function applyHomeListPatch(
   /** Telegram list authority: hub paint is GD+group only — drop commerce domain rows. */
   if (next) {
     next = stripCommerceDomainRowsFromHubLists(next);
+    next = stripRememberedDeletedGroupRoomsFromBootstrap(next);
   }
 
   if (patch.kind === "local_unread" && next) {

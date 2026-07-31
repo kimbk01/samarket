@@ -13,6 +13,7 @@ import {
   normalizeHomeMessageUpdateLivePatch,
   normalizeHomeRoomTipUpdateLivePatch,
 } from "@/lib/community-messenger/home/home-room-live-patch-from-realtime";
+import { noteGroupRoomDeletedFromRealtime } from "@/lib/community-messenger/home/group-delete-home-list-eviction";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
   cmRtRoomSubLog,
@@ -272,6 +273,27 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                   payload.old && typeof payload.old === "object"
                     ? (payload.old as Record<string, unknown>)
                     : null;
+                const deletedAtRaw = row.deleted_at;
+                const deletedAt =
+                  typeof deletedAtRaw === "string" && deletedAtRaw.trim() ? deletedAtRaw.trim() : "";
+                if (deletedAt) {
+                  const rid =
+                    typeof row.id === "string" && row.id.trim()
+                      ? row.id.trim()
+                      : typeof oldRow?.id === "string"
+                        ? String(oldRow.id).trim()
+                        : "";
+                  if (rid) {
+                    cmRtReadSyncLog("room_deleted_at_received", {
+                      channelScope: "home_rooms_in",
+                      roomId: rid,
+                      viewerUserId: args.userId,
+                      deletedAt,
+                    });
+                    noteGroupRoomDeletedFromRealtime({ roomId: rid, deletedAt });
+                  }
+                  return;
+                }
                 const tip = normalizeHomeRoomTipUpdateLivePatch(oldRow, row);
                 if (tip) {
                   cmRtReadSyncLog("room_tip_update_received", {

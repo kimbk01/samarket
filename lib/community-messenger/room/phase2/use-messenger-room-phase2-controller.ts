@@ -60,6 +60,7 @@ import {
   requestLeaveMessengerRoomClient,
   syncMessengerHomeAfterRoomLeave,
 } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
+import { evictDeletedGroupRoomFromHomeLists } from "@/lib/community-messenger/home/group-delete-home-list-eviction";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { useGroupRoomInviteLink } from "@/lib/community-messenger/group/use-group-room-invite-link";
@@ -2097,6 +2098,9 @@ export function useMessengerRoomPhase2Controller() {
         ok?: boolean;
         error?: string;
         code?: string;
+        deletedAt?: string;
+        deletedBy?: string;
+        alreadyDeleted?: boolean;
       };
       if (!res.ok || !json.ok) {
         if (redirectIfMessengerAuthBlocked(res, json)) return;
@@ -2106,7 +2110,12 @@ export function useMessengerRoomPhase2Controller() {
         return;
       }
       showMessengerSnackbar(t("cm_ui_group_deleted"), { variant: "success" });
-      syncMessengerHomeAfterRoomLeave(streamRoomId);
+      const deletedAt =
+        typeof json.deletedAt === "string" ? json.deletedAt.trim() : "";
+      evictDeletedGroupRoomFromHomeLists({
+        roomId: streamRoomId,
+        eventId: deletedAt ? `group_deleted:${streamRoomId}:${deletedAt}` : `group_deleted:${streamRoomId}`,
+      });
       dismissRoomSheet();
       router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
     } finally {

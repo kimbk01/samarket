@@ -51,6 +51,14 @@ export type MessengerBusEvent =
       at: number;
     }
   | {
+      /** Group soft-delete / membership drop — canonical home list remove_room */
+      type: "cm.home.remove_room";
+      roomId: string;
+      reason: "deleted" | "leave" | "membership_removed";
+      eventId?: string;
+      at: number;
+    }
+  | {
       type: "cm.room.incoming_message";
       roomId: string;
       viewerUserId: string;
@@ -333,6 +341,7 @@ function validateAndDispatchMessengerBusEvent(
       d.type !== "cm.room.bump" &&
       d.type !== "cm.room.local_unread" &&
       d.type !== "cm.home.merge_room_summary" &&
+      d.type !== "cm.home.remove_room" &&
       d.type !== "cm.home.social_sync" &&
       d.type !== "cm.room.incoming_message" &&
       d.type !== "cm.room.read" &&
@@ -342,6 +351,12 @@ function validateAndDispatchMessengerBusEvent(
     )
       return;
     if (d.type === "cm.home.social_sync") {
+      handler(d as MessengerBusEvent);
+      return;
+    }
+    if (d.type === "cm.home.remove_room") {
+      if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
+      if (d.reason !== "deleted" && d.reason !== "leave" && d.reason !== "membership_removed") return;
       handler(d as MessengerBusEvent);
       return;
     }

@@ -15,6 +15,7 @@ import {
   applyDomainTradeListRealtimeMessagePatch,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { isRememberedDeletedGroupRoomId } from "@/lib/community-messenger/home/group-delete-list-tombstone";
 import {
   applyHomeListPatch,
   findHomeListRoomRow,
@@ -307,6 +308,16 @@ export function projectRoomActivityToHomeList(
       ...baseEmpty,
       accepted: false,
       reason: "missing_room_id",
+      changedRoomCount: 0,
+      listOrderChanged: false,
+      nextBootstrap: null,
+    });
+  }
+  if (isRememberedDeletedGroupRoomId(roomId)) {
+    return finish({
+      ...baseEmpty,
+      accepted: false,
+      reason: "room_missing",
       changedRoomCount: 0,
       listOrderChanged: false,
       nextBootstrap: null,
