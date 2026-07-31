@@ -5,6 +5,7 @@ import {
   syncStoreOrderMessengerRoomContextMeta,
 } from "@/lib/community-messenger/store-order-chat-service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
+import { markOrderNotificationsRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
@@ -214,6 +215,29 @@ export async function applyStoreOrderStatusTransition(
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);
+  }
+
+  /**
+   * Notification Event SSOT — owner intake attention end.
+   * Business status transition = owner handled the order → end unread order_status for that order.
+   * DO NOT leave commerce:owner:new_order:* unread after accept/progress (Bell inflation root cause).
+   * @see docs/notifications/notification-event-ssot.md §3
+   */
+  {
+    const { data: storeRow } = await sb
+      .from("stores")
+      .select("owner_user_id")
+      .eq("id", sid)
+      .maybeSingle();
+    const ownerUid = String(storeRow?.owner_user_id ?? "").trim();
+    const actorUid =
+      opts.audit.actor_type === "user" ? String(opts.audit.actor_id ?? "").trim() : "";
+    const viewers = new Set<string>();
+    if (ownerUid) viewers.add(ownerUid);
+    if (actorUid) viewers.add(actorUid);
+    for (const uid of viewers) {
+      void markOrderNotificationsRead(sb, uid, oid);
+    }
   }
 
   void appendAuditLog(sb, {

@@ -548,36 +548,35 @@ export function OwnerStoreOrdersView() {
     };
   }, [state, summaryCounts, metaCounts, tabBadges, highlightOrderId]);
 
+  /**
+   * Bell deep-link ack — THAT order only (Notification Event SSOT).
+   * DO NOT clear every owner-commerce event for the viewer from a single-order deep link.
+   * Order-scoped read via postNotificationThreadRead; then strip the ack query flag.
+   */
   useEffect(() => {
     if (state.kind !== "ok") return;
     if (searchParams.get("ack_owner_notifications") !== "1") return;
     if (ownerNotifAckRef.current) return;
     ownerNotifAckRef.current = true;
-    void (async () => {
-      try {
-        await fetch("/api/me/notifications", {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mark_all_owner_store_commerce_read: true }),
-        });
-      } finally {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
-        }
-        if (state.kind !== "ok") return;
-        const oid = searchParams.get("order_id")?.trim();
-        const ackTab = effectiveOwnerMobileOrdersTab(parseStoreOrderTab(searchParams.get("tab")));
-        router.replace(
-          buildStoreOrdersHref({
-            storeId: state.storeId,
-            tab: ackTab,
-            orderId: oid || undefined,
-          }),
-          { scroll: false }
-        );
-      }
-    })();
+    const oid = searchParams.get("order_id")?.trim();
+    if (oid) {
+      void postNotificationThreadRead(oid, {
+        threadType: "order",
+        readReason: "order_detail_opened",
+      });
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+    }
+    const ackTab = effectiveOwnerMobileOrdersTab(parseStoreOrderTab(searchParams.get("tab")));
+    router.replace(
+      buildStoreOrdersHref({
+        storeId: state.storeId,
+        tab: ackTab,
+        orderId: oid || undefined,
+      }),
+      { scroll: false }
+    );
   }, [state, searchParams, router]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }));

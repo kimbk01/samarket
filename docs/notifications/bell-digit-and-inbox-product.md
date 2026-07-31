@@ -1,47 +1,36 @@
-# Bell digit · Inbox product authority (2026-08-01)
+# Bell digit · Inbox (aligned with Notification Event SSOT)
 
-## Digit meaning — **A. unread raw event count**
+**Canonical product model:** [`notification-event-ssot.md`](./notification-event-ssot.md)
+
+## Digit
 
 ```text
-Bell digit = count of approved unread notification_events for the viewer
+Bell digit = unread notification_events for the viewer
+            AFTER create / dedupe / supersede / destination-end rules
 ```
 
-Not App Icon rooms. Not compressed “attention” projection.
+This is **not** “naïve raw business transitions forever.”
 
-### Measurement (QA viewer asas55)
+| Pipeline | Bell unread meaning |
+|----------|---------------------|
+| Buyer order status chain | **Attention ≈ 1 / order** (prior status auto-read before next insert) |
+| Owner new_order / intake | **1 / order** until destination open **or** status transition by owner |
+| Owner fee / points | Separate attention |
+| Chat messages | Unread events until room read (room may hold many events) |
+| Admin notice | One per campaign dedupe |
 
-| Moment | Bell | order_status | distinct orders | max / order | trade_status |
-|--------|------|--------------|-----------------|-------------|--------------|
-| Snapshot matrix | 63 | 47 | (many fee + new-order) | — | 9 |
-| Product PASS step1 | 23 | 21 | 20 | 2 | 0 |
+Optional future: digit = distinct `attention_key` among unread rows. Only after every writer ends prior keys consistently — do not shrink the number in UI alone.
 
-`max_per_order = 2` on remaining unread → **order-level attention compression would barely change the digit**. Keep **A**. Manageability comes from Inbox list + filters + role labels + mark-all, not digit rewrite.
+## Digit / list / mark-all
 
-DB history is retained. Optional future **B** (actionable attention) requires digit builder + Inbox grouping + tests + docs in one change — do not shrink the number alone.
+Full Header Bell + `/my/notifications` must include chat + owner commerce so list matches digit.  
+「모두 읽음」 on full Inbox = `mark_all_read` → events only (not room cursors / App Icon rooms).
 
-## Digit / list / mark-all consistency
+## Measurement note (asas55)
 
-| Surface | Must include |
-|---------|----------------|
-| Bell digit | All approved unread `notification_events` |
-| Header Bell + `/my/notifications` list | Same set (chat + owner commerce + status) |
-| 「모두 읽음」 on full Inbox | `mark_all_read` → events only (not room cursors / App Icon rooms) |
-
-**DO NOT** default `exclude_owner_store_commerce=1` on the full Bell list — that hid owner `order_status` while the digit still counted them.
-
-Consumer-only delivery hub may still pass `excludeOwnerStoreCommerce: true`.
-
-## Presentation
-
-`bell_presentation_type` on mapped rows drives surface badges:
-
-- `customer_order_*` vs `owner_order_*`
-- `trade_message` vs `trade_status`
-- general / group / system / missed_call
-
-Owner status without `routeUrl` falls back to `/stores/owner/orders?…`, not customer mypage.
+Snapshot Bell 63 → later 23; remaining order_status were **owner intake**, not buyer status stacks.
 
 ## Related
 
-- Status read lifecycle: `docs/notifications/status-event-read-lifecycle.md`
-- Events-only list: `docs/notifications/legacy-inbox-dual-read-compat.md`
+- Lifecycle: `status-event-read-lifecycle.md`
+- Events-only list: `legacy-inbox-dual-read-compat.md`
