@@ -81,8 +81,16 @@ export function DiBaYDevicePermissionOnboardingGate() {
   }, []);
 
   const tryOpen = useCallback(() => {
-    if (!isPostLoginOnboardingPathEligible(pathname, deferStoresHomeLcp)) return;
-    if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
+    // Any early skip must settle waiters — otherwise alert APNs registration can hang forever
+    // while VoIP still registers (NativePushRegistration historically awaited settle).
+    if (!isPostLoginOnboardingPathEligible(pathname, deferStoresHomeLcp)) {
+      markNotificationOnboardingSettled();
+      return;
+    }
+    if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) {
+      markNotificationOnboardingSettled();
+      return;
+    }
     if (shownRef.current || runningRef.current) return;
 
     const run = () => {

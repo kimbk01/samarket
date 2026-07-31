@@ -29,7 +29,6 @@ import {
   subscribeNotificationPermissionSnapshot,
 } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT } from "@/lib/permissions/dibay-post-login-onboarding-gate";
-import { waitForNotificationOnboardingSettled } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
@@ -38,6 +37,8 @@ const VOIP_LISTENER_BRIDGE_READY_TIMEOUT_MS = 5_000;
 /**
  * Native FCM/APNS — authenticated phase only.
  * Push register is independent of UI onboarding; check-only permission (no OS request).
+ * DO NOT await onboarding settle — VoIP already registers without it; waiting forever when
+ * post-login gate early-returns left Production with voip_apns only and zero alert apns.
  */
 export function NativePushRegistration() {
   const [phase, setPhase] = useState<DibaySessionPhase>(() => getSessionPhase());
@@ -126,9 +127,6 @@ export function NativePushRegistration() {
 
     const attemptRegister = async (userAttempt: number, registerAttempt: number) => {
       if (cancelled || runId !== registerRunIdRef.current || registerInFlightRef.current) return;
-
-      await waitForNotificationOnboardingSettled();
-      if (cancelled || runId !== registerRunIdRef.current) return;
 
       const cached = getCachedNotificationReceiveSnapshot();
       const pushCheck =
