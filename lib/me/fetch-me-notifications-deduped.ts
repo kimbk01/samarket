@@ -74,6 +74,12 @@ export type FetchMeNotificationsListOpts = {
   force?: boolean;
   /** true면 채팅 메시지(notification_type=chat)를 목록에서 제외 */
   excludeChatMessages?: boolean;
+  /**
+   * true면 오너 매장 커머스 알림 제외.
+   * Header Bell / My Notifications 전체 Inbox는 기본 false — digit(notification_events)과 list 일치.
+   * 소비자-only 표면이 필요할 때만 명시.
+   */
+  excludeOwnerStoreCommerce?: boolean;
   /** 인박스 종류 필터 (서버 push_kind·채팅 병합 쿼리) */
   pushKind?: InboxPushKindFilter;
   /** 페이지 크기 1–100, 지정 시 서버에 limit·offset 전달 */
@@ -89,7 +95,7 @@ function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string 
   const ownerSid = opts?.ownerStoreId?.trim();
   if (ownerSid) {
     sp.set("owner_store_id", ownerSid);
-  } else {
+  } else if (opts?.excludeOwnerStoreCommerce === true) {
     sp.set("exclude_owner_store_commerce", "1");
   }
   if (opts?.excludeChatMessages === true) {

@@ -17,6 +17,7 @@ import { NotificationDeleteConfirmDialog } from "@/components/notifications/Noti
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
+import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 
 type Row = {
   id: string;
@@ -29,6 +30,7 @@ type Row = {
   meta?: Record<string, unknown> | null;
   domain?: string | null;
   push_kind?: string | null;
+  bell_presentation_type?: BellPresentationType | null;
 };
 
 const INBOX_PAGE_SIZE = 40;
@@ -249,7 +251,7 @@ export function MyNotificationsView() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_my_notifications_read_excluding_owner_commerce: true }),
+        body: JSON.stringify({ mark_all_read: true }),
       });
       const j = await res.json();
       if (!j?.ok) {

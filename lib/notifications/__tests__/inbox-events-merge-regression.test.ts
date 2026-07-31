@@ -236,9 +236,34 @@ describe("inbox-events-merge-regression", () => {
     ).toBe("owner_order_message");
     expect(
       mapNotificationEventToInboxRow(
+        baseEvent({
+          type: "order_status",
+          category: "order_status",
+          display_payload: {
+            legacyMeta: { kind: "store_order_created", order_id: "o1", store_id: "s1" },
+            legacyRefId: "o1",
+            routeUrl: "/stores/owner/orders?storeId=s1&order_id=o1",
+          },
+        })
+      ).bell_presentation_type
+    ).toBe("owner_order_status");
+    expect(
+      mapNotificationEventToInboxRow(
+        baseEvent({
+          type: "order_status",
+          category: "order_status",
+          display_payload: {
+            legacyMeta: { kind: "store_order_owner_status", order_id: "o2" },
+            legacyRefId: "o2",
+          },
+        })
+      ).bell_presentation_type
+    ).toBe("customer_order_status");
+    expect(
+      mapNotificationEventToInboxRow(
         baseEvent({ type: "order_status", category: "order_status" })
       ).bell_presentation_type
-    ).toBe("order_status");
+    ).toBe("customer_order_status");
   });
 
   it("documents that merge helper is quarantine-only; product route is events-only", () => {

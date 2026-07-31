@@ -35,6 +35,8 @@ export type BellPresentationType =
   | "owner_order_message"
   | "trade_status"
   | "order_status"
+  | "customer_order_status"
+  | "owner_order_status"
   | "delivery_status"
   | "missed_call"
   | "admin_notice"
@@ -167,6 +169,11 @@ function isOwnerOrderSide(event: NotificationEventInboxSource, meta: Record<stri
   if (payload?.ownerSide === true || payload?.owner_side === true) return true;
   if (meta?.owner_store_commerce === true || meta?.is_owner === true) return true;
   if (trimText(meta?.kind) === "owner_store_commerce") return true;
+  if (isOwnerStoreCommerceNotificationRow({ meta })) return true;
+  const kind = trimText(meta?.kind);
+  if (kind.startsWith("store_point_")) return true;
+  const route = trimText(payload?.routeUrl ?? payload?.link_url ?? meta?.link_url);
+  if (route.includes("/stores/owner")) return true;
   return false;
 }
 
@@ -187,7 +194,9 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   if (type === "admin_notice") return "admin_notice";
   if (type === "trade_status") return "trade_status";
   if (type === "delivery_status") return "delivery_status";
-  if (type === "order_status") return "order_status";
+  if (type === "order_status") {
+    return isOwnerOrderSide(event, meta) ? "owner_order_status" : "customer_order_status";
+  }
   if (type === "trade_message") return "trade_message";
   if (type === "group_message" || type === "mention_message" || type === "pin_message") return "group_message";
   if (type === "store_order_message") {
@@ -215,7 +224,9 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   if (roomKind === "direct" || kind === "community_chat") return "general_message";
   if (category === "trade_status") return "trade_status";
   if (category === "delivery_status") return "delivery_status";
-  if (category === "order_status") return "order_status";
+  if (category === "order_status") {
+    return isOwnerOrderSide(event, meta) ? "owner_order_status" : "customer_order_status";
+  }
   return "unsupported";
 }
 
@@ -257,9 +268,20 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
     trimText(meta?.order_id) ||
     trimText(payload?.legacyRefId);
   if ((type === "order_status" || type === "delivery_status") && orderId) {
+    if (isOwnerOrderSide(event, meta)) {
+      const storeId = trimText(meta?.store_id) || trimText(payload?.storeId) || trimText(payload?.store_id);
+      const sp = new URLSearchParams();
+      if (storeId) sp.set("storeId", storeId);
+      sp.set("order_id", orderId);
+      sp.set("ack_owner_notifications", "1");
+      return `/stores/owner/orders?${sp.toString()}`;
+    }
     return `/mypage/store-orders/${encodeURIComponent(orderId)}`;
   }
-  if (type === "order_status" || type === "delivery_status") return "/my/store-orders";
+  if (type === "order_status" || type === "delivery_status") {
+    if (isOwnerOrderSide(event, meta)) return "/stores/owner/orders";
+    return "/my/store-orders";
+  }
   if (type === "community_activity") return "/philife";
   if (type === "admin_marketing_banner") {
     const landing = trimText(payload?.deeplinkUrl ?? payload?.webUrl ?? payload?.landing_url);

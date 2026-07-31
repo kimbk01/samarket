@@ -18,6 +18,7 @@ import {
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
+import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 
 export type InboxRowInput = {
   id: string;
@@ -31,6 +32,7 @@ export type InboxRowInput = {
   meta?: Record<string, unknown> | null;
   domain?: string | null;
   push_kind?: string | null;
+  bell_presentation_type?: BellPresentationType | null;
 };
 
 export type InboxGroupItem = {
@@ -201,6 +203,7 @@ export function buildInboxGroupItems(
         domain: latest.domain,
         meta: metaObj,
         link_url: latest.link_url,
+        bell_presentation_type: latest.bell_presentation_type,
       },
       language
     );

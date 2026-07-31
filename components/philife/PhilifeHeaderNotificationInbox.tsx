@@ -157,6 +157,10 @@ type Row = {
 
   domain?: string | null;
 
+  push_kind?: string | null;
+
+  bell_presentation_type?: import("@/lib/notifications/inbox-events-merge").BellPresentationType | null;
+
 };
 
 
@@ -780,13 +784,14 @@ export function PhilifeHeaderNotificationInbox({
         .filter((g) => g.unreadCount > 0)
         .flatMap((g) => g.ids);
       const rowUnreadIds = rows.filter((r) => !r.is_read).map((r) => r.id);
-      const markBody =
+      const markBody = resolveTier1BellMarkAllReadBody(
+        resolvedSurface,
         resolvedSurface === "tier1_inbox_bell"
-          ? ({ mark_my_notifications_read_excluding_owner_and_chat: true } as const)
-          : resolveTier1BellMarkAllReadBody(
-              resolvedSurface,
-              unreadIds.length > 0 ? unreadIds : rowUnreadIds
-            );
+          ? []
+          : unreadIds.length > 0
+            ? unreadIds
+            : rowUnreadIds
+      );
 
       const res = await fetch("/api/me/notifications", {
 

@@ -57,7 +57,7 @@ export function resolveTier1BellSurfaceFromPathname(
 
 export type Tier1BellListFetchOpts = Pick<
   FetchMeNotificationsListOpts,
-  "excludeChatMessages" | "pushKind"
+  "excludeChatMessages" | "excludeOwnerStoreCommerce" | "pushKind"
 > & {
   ownerStoreId?: string;
 };
@@ -75,12 +75,17 @@ export function resolveTier1BellListFetchOpts(
     case "bottom_nav_my":
       return { excludeChatMessages: true, pushKind: "trade" as InboxPushKindFilter };
     case "bottom_nav_delivery":
-      return { excludeChatMessages: true, pushKind: "delivery" as InboxPushKindFilter };
+      return {
+        excludeChatMessages: true,
+        excludeOwnerStoreCommerce: true,
+        pushKind: "delivery" as InboxPushKindFilter,
+      };
     case "owner_commerce_inbox":
       return { ownerStoreId: ownerStoreId?.trim() || undefined };
     case "tier1_inbox_bell":
     default:
-      return { excludeChatMessages: true, pushKind: "all" as InboxPushKindFilter };
+      // Full Notification Inbox — include chat + owner commerce so list matches Bell digit.
+      return { pushKind: "all" as InboxPushKindFilter };
   }
 }
 
@@ -109,6 +114,7 @@ export function badgeSurfaceToPriorityPushKind(
 /** PATCH /api/me/notifications — surface별 「모두 읽음」 fallback (목록 ids 우선) */
 export type Tier1BellMarkAllReadBody =
   | { ids: string[] }
+  | { mark_all_read: true }
   | { mark_all_owner_store_commerce_read: true }
   | { mark_my_chat_notifications_read: true }
   | { mark_my_notifications_read_excluding_owner_and_chat: true };
@@ -121,6 +127,9 @@ export function resolveTier1BellMarkAllReadBody(
   if (ids.length > 0) return { ids };
 
   switch (surface) {
+    case "tier1_inbox_bell":
+      // Bell digit Authority = all approved unread notification_events (not rooms).
+      return { mark_all_read: true };
     case "owner_commerce_inbox":
       return { mark_all_owner_store_commerce_read: true };
     case "bottom_nav_chat":

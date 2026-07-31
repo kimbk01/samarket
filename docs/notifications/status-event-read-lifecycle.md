@@ -28,6 +28,9 @@ order_status 47 + trade_status 9 + admin_notice 6 + chat_message 1 = 63
 
 These remain until individual Bell read or destination-entry read above.
 
+Digit policy (**A** raw unread events) and Inbox digit/list/mark-all consistency:
+`docs/notifications/bell-digit-and-inbox-product.md`.
+
 ## Related
 
 - Bell list Authority: `docs/notifications/legacy-inbox-dual-read-compat.md` (events-only)

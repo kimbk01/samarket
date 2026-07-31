@@ -2,6 +2,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { commerceMetaKindLabel } from "@/lib/notifications/notification-display-labels";
+import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 
 function toPathname(u: string): string {
   const t = u.trim();
@@ -20,7 +21,44 @@ export type InboxSurfaceRowInput = {
   domain?: string | null;
   meta?: Record<string, unknown> | null;
   link_url?: string | null;
+  /** Canonical Bell presentation — preferred over generic notification_type when set. */
+  bell_presentation_type?: BellPresentationType | null;
 };
+
+function surfaceFromBellPresentation(
+  presentation: BellPresentationType,
+  language: AppLanguageCode
+): string | null {
+  switch (presentation) {
+    case "general_message":
+      return notifySafeT(language, "notif_surface_direct_chat");
+    case "group_message":
+      return notifySafeT(language, "notif_surface_group_chat");
+    case "trade_message":
+      return notifySafeT(language, "notif_surface_trade_chat");
+    case "customer_order_message":
+      return notifySafeT(language, "notif_surface_customer_order_message");
+    case "owner_order_message":
+      return notifySafeT(language, "notif_surface_owner_order_message");
+    case "customer_order_status":
+      return notifySafeT(language, "notif_surface_customer_order_status");
+    case "owner_order_status":
+      return notifySafeT(language, "notif_surface_owner_order_status");
+    case "order_status":
+      return notifySafeT(language, "notif_surface_order");
+    case "delivery_status":
+      return notifySafeT(language, "notif_surface_delivery_status");
+    case "trade_status":
+      return notifySafeT(language, "notif_surface_trade_status");
+    case "missed_call":
+      return notifySafeT(language, "notif_surface_missed_call");
+    case "admin_notice":
+    case "system_important":
+      return notifySafeT(language, "notif_surface_system");
+    default:
+      return null;
+  }
+}
 
 /**
  * 인박스 카드 상단 요약 뱃지 — 채널(거래 채팅 / 1:1 / 그룹 / 주문·매장 등).
@@ -29,6 +67,12 @@ export function resolveInboxSurfaceBadge(
   row: InboxSurfaceRowInput,
   language: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string {
+  const fromPresentation =
+    row.bell_presentation_type != null
+      ? surfaceFromBellPresentation(row.bell_presentation_type, language)
+      : null;
+  if (fromPresentation) return fromPresentation;
+
   const domain = typeof row.domain === "string" ? row.domain.trim() : "";
   const meta = row.meta ?? null;
   const kind = typeof (meta as { kind?: unknown } | null)?.kind === "string"
