@@ -11,6 +11,7 @@ const ROOT = process.cwd();
 const REMOVED_WRAPPER = join(ROOT, "utils", "notificationSound.ts");
 
 function sourceFiles(root: string): string[] {
+  if (!existsSync(root)) return [];
   const files: string[] = [];
   for (const name of readdirSync(root)) {
     const path = join(root, name);
