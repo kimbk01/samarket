@@ -117,6 +117,24 @@ describe("notification-sound-gate", () => {
     expect(playEventNotificationSound).not.toHaveBeenCalled();
   });
 
+  it("yields background sound ownership to the OS notification", () => {
+    syncNotificationSoundGateSnapshot({
+      ...DEFAULT_GATE,
+      isWindowFocused: false,
+    });
+
+    const routed = routeNotificationInsertSound({
+      id: "evt-background",
+      notification_type: "chat",
+      unread: true,
+      sound_suppressed_reason: null,
+      meta: { kind: "community_chat", room_id: "room-background" },
+    });
+
+    expect(routed).toBe(false);
+    expect(playEventNotificationSound).not.toHaveBeenCalled();
+  });
+
   it("suppresses INSERT sound from window pathname when gate activeRoom is still null", () => {
     const prevPath = window.location.pathname;
     window.history.pushState({}, "", "/community-messenger/rooms/room-enter");

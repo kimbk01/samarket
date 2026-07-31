@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { parseJsonBody } from "@/lib/http/api-route";
 import { deactivateAllUserDevicesForLogout } from "@/lib/push/dispatch/deactivate-failed-token";
+import { resolvePushEnvironment } from "@/lib/push/push-environment";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -32,27 +33,36 @@ export async function POST(req: NextRequest) {
   const pushProvider = typeof body.push_provider === "string" ? body.push_provider.trim().toLowerCase() : "";
   const scope = typeof body.scope === "string" ? body.scope.trim() : "";
   const now = new Date().toISOString();
+  const environment = resolvePushEnvironment();
 
   if (scope === "device_all_users" && deviceId) {
     await svc
       .from("user_devices")
       .update({ is_active: false, updated_at: now })
-      .eq("device_id", deviceId);
+      .eq("device_id", deviceId)
+      .eq("environment", environment);
   } else if (pushToken && pushProvider) {
     await svc
       .from("user_devices")
       .update({ is_active: false, updated_at: now })
       .eq("user_id", auth.userId)
       .eq("push_provider", pushProvider)
-      .eq("push_token", pushToken);
+      .eq("push_token", pushToken)
+      .eq("environment", environment);
   } else if (pushProvider) {
     await svc
       .from("user_devices")
       .update({ is_active: false, updated_at: now })
       .eq("user_id", auth.userId)
-      .eq("push_provider", pushProvider);
+      .eq("push_provider", pushProvider)
+      .eq("environment", environment);
   } else {
-    await deactivateAllUserDevicesForLogout(svc, auth.userId, deviceId || null);
+    await deactivateAllUserDevicesForLogout(
+      svc,
+      auth.userId,
+      deviceId || null,
+      environment
+    );
   }
 
   return NextResponse.json({ ok: true });

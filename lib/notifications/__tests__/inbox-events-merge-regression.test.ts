@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mapNotificationEventToInboxRow,
   mergeInboxNotificationRows,
+  mergeInboxNotificationRowsEventsPrimary,
   resolveEventInboxLinkUrl,
   type InboxNotificationRow,
   type NotificationEventInboxSource,
@@ -78,6 +79,24 @@ describe("inbox-events-merge-regression", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]?.id).toBe("evt-dm-1");
     expect(merged[0]?.source).toBe("event");
+  });
+
+  it("exposes an events-primary merge with legacy compatibility tail", () => {
+    const event = mapNotificationEventToInboxRow(baseEvent());
+    const legacy: InboxNotificationRow = {
+      id: "legacy-only",
+      notification_type: "system",
+      title: "Legacy only",
+      body: null,
+      link_url: "/notifications",
+      is_read: false,
+      created_at: "2026-06-30T09:00:00.000Z",
+    };
+    const merged = mergeInboxNotificationRowsEventsPrimary(
+      [event],
+      [legacy]
+    );
+    expect(merged.map((row) => row.source)).toEqual(["event", "legacy"]);
   });
 
   it("partitions read ids by lookup sets", () => {

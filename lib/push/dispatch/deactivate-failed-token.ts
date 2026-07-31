@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PushTarget, PushTargetSource } from "@/lib/push/dispatch/push-payload-types";
+import type { PushEnvironment } from "@/lib/push/push-environment";
 
 export async function deactivateFailedPushTarget(
   svc: SupabaseClient,
@@ -29,12 +30,16 @@ export async function deactivateFailedPushTarget(
 export async function deactivateAllUserDevicesForLogout(
   svc: SupabaseClient,
   userId: string,
-  deviceId?: string | null
+  deviceId?: string | null,
+  environment?: PushEnvironment
 ): Promise<void> {
   const uid = userId.trim();
   if (!uid) return;
   const now = new Date().toISOString();
   let q = svc.from("user_devices").update({ is_active: false, updated_at: now }).eq("user_id", uid);
+  if (environment) {
+    q = q.eq("environment", environment);
+  }
   const did = deviceId?.trim();
   if (did) {
     q = q.eq("device_id", did);

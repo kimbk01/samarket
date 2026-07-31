@@ -6,6 +6,7 @@ import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
 import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,12 +93,23 @@ export async function POST(
   }
 
   try {
-    await sbAny.from("notifications").insert({
+    await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "report",
       title: "거래 관련 문의가 접수되었어요",
       body: "운영팀 검토 전까지 온도 반영이 보류될 수 있어요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      domain: "trade_chat",
+      ref_id: resolved.productChatId,
+      sender_id: userId,
+      dedupe_key: `trade-dispute:${resolved.productChatId}:${userId}`,
+      push_kind: "community",
+      meta: {
+        kind: "trade_dispute",
+        room_id: resolved.productChatId,
+        product_id: pc.post_id,
+        actor_id: userId,
+      },
     });
   } catch {
     /* ignore */

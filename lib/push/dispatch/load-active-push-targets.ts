@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { filterUserDevicePushTargets } from "@/lib/push/dispatch/filter-user-device-push-targets";
+import {
+  resolvePushEnvironment,
+  type PushEnvironment,
+} from "@/lib/push/push-environment";
 import type { DeliveryStatus, PushTarget } from "@/lib/push/dispatch/push-payload-types";
 
 type WebPushRow = {
@@ -20,8 +24,9 @@ function normalizePlatform(raw: string | null | undefined): PushTarget["platform
 }
 
 export type LoadActivePushTargetsOptions = {
-  /** Call ringing / terminal dismiss — one FCM per device. Chat stays single_fcm. */
+  /** Recipient fan-out mode. Canonical notification dispatch uses multi-device. */
   fcmMode?: "single_fcm" | "multi_device_fcm";
+  environment?: PushEnvironment;
 };
 
 /**
@@ -34,14 +39,16 @@ export async function loadActivePushTargets(
 ): Promise<PushTarget[]> {
   const uid = userId.trim();
   if (!uid) return [];
+  const environment = options?.environment ?? resolvePushEnvironment();
 
   const targets: PushTarget[] = [];
 
   const { data: deviceRows, error: deviceErr } = await svc
     .from("user_devices")
-    .select("id, platform, device_id, push_token, push_provider, last_seen_at, updated_at")
+    .select("id, platform, device_id, push_token, push_provider, environment, last_seen_at, updated_at")
     .eq("user_id", uid)
     .eq("is_active", true)
+    .eq("environment", environment)
     .order("last_seen_at", { ascending: false })
     .order("updated_at", { ascending: false });
 
@@ -49,10 +56,13 @@ export async function loadActivePushTargets(
     targets.push(...filterUserDevicePushTargets(deviceRows, { fcmMode: options?.fcmMode }));
   }
 
-  const { data: webRows, error: webErr } = await svc
-    .from("web_push_subscriptions")
-    .select("id, endpoint, key_p256dh, key_auth, platform, is_active")
-    .eq("user_id", uid);
+  const { data: webRows, error: webErr } =
+    environment === "production"
+      ? await svc
+          .from("web_push_subscriptions")
+          .select("id, endpoint, key_p256dh, key_auth, platform, is_active")
+          .eq("user_id", uid)
+      : { data: [] as WebPushRow[], error: null };
 
   if (!webErr && webRows?.length) {
     for (const row of webRows as WebPushRow[]) {
@@ -68,6 +78,7 @@ export async function loadActivePushTargets(
         endpoint,
         key_p256dh: row.key_p256dh,
         key_auth: row.key_auth,
+        environment,
       });
     }
   }
@@ -85,6 +96,8 @@ export async function insertNotificationDelivery(
     target_id?: string | null;
     status: DeliveryStatus;
     provider_response?: Record<string, unknown> | null;
+    notification_event_id?: string | null;
+    environment?: PushEnvironment;
   }
 ): Promise<string | null> {
   const { data, error } = await svc
@@ -97,11 +110,16 @@ export async function insertNotificationDelivery(
       target_id: row.target_id ?? null,
       status: row.status,
       provider_response: row.provider_response ?? null,
+      notification_event_id: row.notification_event_id ?? null,
+      environment: row.environment ?? resolvePushEnvironment(),
     })
     .select("id")
     .maybeSingle();
 
   if (error) {
+    if (error.code === "23505") {
+      return null;
+    }
     if (error.message?.includes("does not exist") || error.code === "42P01") {
       return null;
     }

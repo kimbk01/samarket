@@ -81,6 +81,8 @@ export function resolveFcmPushType(
     if (metaKind === "mention_message") return "group_message";
     if (metaKind === "pin_message") return "group_message";
     if (metaKind === "trade_chat") return "trade_message";
+    if (metaKind === "trade_message") return "trade_message";
+    if (metaKind === "store_order_message") return "delivery_order";
     if (metaKind === "community_chat") return "chat_message";
     if (meta?.room_id) return "chat_message";
   }
@@ -165,6 +167,9 @@ function appendMessageDisplayFields(
   const routeUrl = trimText(display?.routeUrl ?? meta.route_url ?? meta.routeUrl);
   const category = trimText(meta.category ?? display?.category);
   const campaignId = trimText(meta.campaign_id ?? meta.campaignId ?? display?.campaignId);
+  const resolverKey = trimText(
+    meta.deeplink_resolver_key ?? meta.deeplinkResolverKey
+  );
   const pushImageUrl = trimText(
     meta.push_image_url ?? meta.pushImageUrl ?? display?.imageUrl ?? display?.pushImageUrl
   );
@@ -181,6 +186,10 @@ function appendMessageDisplayFields(
   if (routeUrl) fields.routeUrl = routeUrl;
   if (category) fields.category = category;
   if (campaignId) fields.campaignId = campaignId;
+  if (resolverKey) {
+    fields.deeplinkResolverKey = resolverKey;
+    fields.deeplink_resolver_key = resolverKey;
+  }
   if (pushImageUrl) {
     fields.imageUrl = pushImageUrl;
     fields.bigPictureUrl = pushImageUrl;

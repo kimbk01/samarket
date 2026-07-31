@@ -9,7 +9,6 @@ import {
 } from "@/lib/push/dispatch/load-active-push-targets";
 import {
   isCallPush,
-  isMultiDeviceCallPushKind,
   resolveCallPushProviderPolicy,
   resolveEventType,
   type DispatchDeliveryAudit,
@@ -22,6 +21,9 @@ import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notification
 import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
 import { isWebPushConfigured, sendWebPushToTarget } from "@/lib/push/dispatch/web-push-sender";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { resolvePushEnvironment } from "@/lib/push/push-environment";
+import { evaluateNotificationDeliverySafety } from "@/lib/push/dispatch/notification-delivery-safety-gate";
+import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 
 export function isPushDispatchEnabled(): boolean {
   return process.env.PUSH_DISPATCH_ENABLED === "1" || process.env.WEB_PUSH_ENABLED === "1";
@@ -89,6 +91,9 @@ function baseDeliveryDiagnostics(target: PushTarget, out: NotificationSideEffect
     target_source: target.source,
     push_provider: target.push_provider,
     tokenPrefix: tokenPrefix(target),
+    ...(opts?.notification_event_id
+      ? { notificationEventId: opts.notification_event_id }
+      : {}),
     ...(callId ? { callId } : {}),
     ...(callPush
       ? {
@@ -155,6 +160,8 @@ async function auditDelivery(
     status: DispatchDeliveryAudit["status"];
     provider_response?: Record<string, unknown> | null;
     push_provider?: string | null;
+    notification_event_id?: string | null;
+    environment?: ReturnType<typeof resolvePushEnvironment>;
   }
 ): Promise<string | null> {
   const deliveryId = await insertNotificationDelivery(svc, row);
@@ -211,6 +218,55 @@ export async function dispatchPushForUser(
     opts?.call_push_kind === "call_ended" ||
     opts?.call_push_kind === "call_answered_elsewhere";
 
+  if (!callPush && opts?.notification_event_id) {
+    const { data: eventRow, error: eventError } = await svc
+      .from("notification_events")
+      .select("*")
+      .eq("id", opts.notification_event_id)
+      .eq("user_id", out.user_id)
+      .maybeSingle();
+    if (eventError || !eventRow) {
+      await auditDelivery(svc, audits, {
+        user_id: out.user_id,
+        event_type: eventType,
+        target_type: opts?.target_type ?? null,
+        target_id: opts?.target_id ?? null,
+        status: "skipped",
+        provider_response: { reason: "notification_event_not_found" },
+        notification_event_id: opts.notification_event_id,
+        environment: resolvePushEnvironment(),
+      });
+      return {
+        ok: true,
+        targets_found: 0,
+        deliveries: audits,
+        skipped_reason: "notification_event_not_found",
+      };
+    }
+    const safety = await evaluateNotificationDeliverySafety(
+      svc,
+      eventRow as NotificationEventRow
+    );
+    if (!safety.allow) {
+      await auditDelivery(svc, audits, {
+        user_id: out.user_id,
+        event_type: eventType,
+        target_type: opts?.target_type ?? null,
+        target_id: opts?.target_id ?? null,
+        status: "skipped",
+        provider_response: { reason: safety.reason },
+        notification_event_id: opts.notification_event_id,
+        environment: resolvePushEnvironment(),
+      });
+      return {
+        ok: true,
+        targets_found: 0,
+        deliveries: audits,
+        skipped_reason: safety.reason,
+      };
+    }
+  }
+
   if (!opts?.skip_settings_gate && !terminalDismiss) {
     const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(() => true);
     if (!allowed) {
@@ -221,19 +277,29 @@ export async function dispatchPushForUser(
         target_id: opts?.target_id ?? null,
         status: "skipped",
         provider_response: { reason: "user_settings_gate" },
+        notification_event_id: opts?.notification_event_id ?? null,
+        environment: resolvePushEnvironment(),
       });
       console.info("[dispatchPushForUser] done — settings gate", { ...logCtx, deliveries: audits.length });
       return { ok: true, targets_found: 0, deliveries: audits };
     }
   }
 
-  const targets = await loadActivePushTargets(svc, out.user_id, {
-    fcmMode: isMultiDeviceCallPushKind(opts?.call_push_kind) ? "multi_device_fcm" : "single_fcm",
+  const loadedTargets = await loadActivePushTargets(svc, out.user_id, {
+    fcmMode: "multi_device_fcm",
   });
+  const targetDeviceId = opts?.target_device_id?.trim() ?? "";
+  const targets = targetDeviceId
+    ? loadedTargets.filter(
+        (target) =>
+          target.id === targetDeviceId ||
+          String(target.device_id ?? "").trim() === targetDeviceId
+      )
+    : loadedTargets;
   console.info("[dispatchPushForUser] targets loaded", {
     ...logCtx,
     targets_found: targets.length,
-    fcmMode: isMultiDeviceCallPushKind(opts?.call_push_kind) ? "multi_device_fcm" : "single_fcm",
+    fcmMode: "multi_device_fcm",
   });
 
   if (!targets.length) {
@@ -301,7 +367,24 @@ export async function dispatchPushForUser(
       target_id: opts?.target_id ?? null,
       status: "pending",
       provider_response: baseDeliveryDiagnostics(target, enrichedOut, opts),
+      notification_event_id: opts?.notification_event_id ?? null,
+      environment: target.environment ?? resolvePushEnvironment(),
     });
+
+    if (!deliveryId && opts?.notification_event_id) {
+      audits.push({
+        id: null,
+        status: "skipped",
+        event_type: eventType,
+        device_id: deviceIdForDelivery(target),
+        push_provider: target.push_provider,
+        provider_response: {
+          ...baseDeliveryDiagnostics(target, enrichedOut, opts),
+          reason: "duplicate_delivery",
+        },
+      });
+      continue;
+    }
 
     const result = await sendToTarget(target, enrichedOut, opts);
 

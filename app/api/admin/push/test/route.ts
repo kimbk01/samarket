@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
+import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { ensureFirebaseAdminApp } from "@/lib/push/dispatch/fcm-sender-impl";
 import {
@@ -19,28 +22,8 @@ type TestBody = {
   title?: unknown;
   body?: unknown;
   device_id?: unknown;
+  idempotency_key?: unknown;
 };
-
-type DeliveryRow = {
-  id: string;
-  status: string;
-  event_type: string | null;
-  provider_response: Record<string, unknown> | null;
-  created_at: string;
-  device_id?: string | null;
-};
-
-async function loadRecentDeliveries(userId: string): Promise<DeliveryRow[]> {
-  const svc = tryCreateSupabaseServiceClient();
-  if (!svc) return [];
-  const { data } = await svc
-    .from("notification_deliveries")
-    .select("id, status, event_type, provider_response, created_at, device_id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  return (data ?? []) as DeliveryRow[];
-}
 
 export async function POST(req: NextRequest) {
   const perm = await requireAdminPermission("dev");
@@ -58,6 +41,12 @@ export async function POST(req: NextRequest) {
   const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 120) : "DIBAY 테스트 푸시";
   const messageBody =
     typeof body.body === "string" && body.body.trim() ? body.body.trim().slice(0, 500) : "관리자 테스트 알림입니다.";
+  const targetDeviceId =
+    typeof body.device_id === "string" ? body.device_id.trim().slice(0, 128) : "";
+  const idempotencyKey =
+    typeof body.idempotency_key === "string" && body.idempotency_key.trim()
+      ? body.idempotency_key.trim().slice(0, 160)
+      : randomUUID();
 
   console.info("[admin/push/test] start", {
     user_id: userId,
@@ -74,6 +63,54 @@ export async function POST(req: NextRequest) {
     project_id: fcmHandle?.projectId ?? null,
   });
 
+  const svc = tryCreateSupabaseServiceClient();
+  if (!svc) {
+    return NextResponse.json(
+      { ok: false, error: "server_misconfigured" },
+      { status: 503 }
+    );
+  }
+
+  const definition = getNotificationEventDefinition("admin_test");
+  const expiresAt = new Date(
+    Date.now() + definition.ttlSeconds * 1_000
+  ).toISOString();
+  const created = await createNotificationEvent(svc, {
+    userId,
+    type: definition.type,
+    category: definition.eventCategory,
+    title,
+    body: messageBody,
+    dedupeKey: `admin-test:${userId}:${idempotencyKey}`,
+    displayPayload: {
+      routeUrl: "/my/notifications",
+      previewKind: "admin_test",
+      excludeFromBadge: true,
+      expires_at: expiresAt,
+      targetDeviceId: targetDeviceId || null,
+    },
+    unread: false,
+  });
+  if (!created.ok) {
+    if (created.duplicate) {
+      return NextResponse.json({
+        ok: true,
+        duplicate: true,
+        dispatch: {
+          ok: true,
+          targets_found: 0,
+          deliveries: [],
+          skipped_reason: "duplicate_admin_test",
+        },
+        deliveries: [],
+      });
+    }
+    return NextResponse.json(
+      { ok: false, error: created.error },
+      { status: 500 }
+    );
+  }
+
   const dispatchResult = await dispatchPushForUser(
     {
       user_id: userId,
@@ -82,13 +119,25 @@ export async function POST(req: NextRequest) {
       body: messageBody,
       link_url: "/my/notifications",
       link_url_absolute: null,
-      occurred_at: new Date().toISOString(),
+      occurred_at: created.row.created_at,
+      meta: {
+        kind: "admin_test",
+        notification_event_id: created.row.id,
+        notification_id: created.row.id,
+        event_key: definition.soundEventKey,
+        badge_count: 0,
+      },
     },
     {
       target_type: "admin_test",
+      target_id: targetDeviceId || userId,
       skip_settings_gate: true,
       force_dispatch: true,
       event_type: "admin_test",
+      event_key: definition.soundEventKey ?? undefined,
+      badge_count: 0,
+      notification_event_id: created.row.id,
+      target_device_id: targetDeviceId || undefined,
     }
   );
 
@@ -99,7 +148,7 @@ export async function POST(req: NextRequest) {
     skipped_reason: dispatchResult.skipped_reason ?? null,
   });
 
-  const recentDeliveries = await loadRecentDeliveries(userId);
+  const recentDeliveries = dispatchResult.deliveries;
   const fcmEnv = getFcmEnvDiagnostics();
 
   if (recentDeliveries.length === 0) {

@@ -1,4 +1,5 @@
 import type { PushTarget } from "@/lib/push/dispatch/push-payload-types";
+import type { PushEnvironment } from "@/lib/push/push-environment";
 
 export type UserDevicePushRow = {
   id: string;
@@ -6,14 +7,15 @@ export type UserDevicePushRow = {
   device_id: string;
   push_token: string;
   push_provider: string;
+  environment?: PushEnvironment | null;
   last_seen_at?: string | null;
   updated_at?: string | null;
 };
 
 export type FilterUserDevicePushTargetsOptions = {
   /**
-   * `single_fcm` (default): at most one FCM per user (chat / legacy).
-   * `multi_device_fcm`: one FCM per device_id — call ringing / terminal dismiss fan-out.
+   * `multi_device_fcm` (default): one FCM per physical device.
+   * `single_fcm`: compatibility-only at most one FCM per user.
    * @see docs/dibay-call-multi-device-policy.md
    */
   fcmMode?: "single_fcm" | "multi_device_fcm";
@@ -46,7 +48,7 @@ export function filterUserDevicePushTargets(
   const seenDeviceIds = new Set<string>();
   const seenFcmDeviceIds = new Set<string>();
   let fcmIncluded = false;
-  const multiFcm = options?.fcmMode === "multi_device_fcm";
+  const multiFcm = options?.fcmMode !== "single_fcm";
 
   for (const row of rows) {
     const provider = normalizeProvider(row.push_provider);
@@ -77,6 +79,7 @@ export function filterUserDevicePushTargets(
       push_token: token,
       platform: normalizePlatform(row.platform),
       device_id: row.device_id,
+      environment: row.environment ?? undefined,
     });
   }
 

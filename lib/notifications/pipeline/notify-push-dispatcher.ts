@@ -3,16 +3,12 @@ import type { NotificationEventRow } from "@/lib/notifications/core/notification
 import { shouldSkipPushForEventDedupe } from "@/lib/notifications/core/notification-dedupe";
 import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
-import {
-  buildChatRoomWebPath,
-  buildMissedCallWebPath,
-} from "@/lib/notifications/policy/notification-deeplink-policy";
-import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
+import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
+import { resolveNotificationDeepLink } from "@/lib/notifications/policy/notification-deeplink-policy";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { getSiteOrigin } from "@/lib/env/runtime";
-import { eventKeyForNotificationEventType } from "@/lib/notifications/notification-sound-event-map";
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 
@@ -30,19 +26,13 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       : null;
   const routeFromDisplay =
     display && typeof display.routeUrl === "string" ? String(display.routeUrl).trim() : "";
-  const link_url =
-    routeFromDisplay ||
-    (row.type === "missed_call" && roomId && row.call_session_id
-      ? buildMissedCallWebPath(roomId, row.call_session_id)
-      : (row.type === "group_message" ||
-            row.type === "mention_message" ||
-            row.type === "pin_message") &&
-          roomId
-        ? buildGroupRoomWebPath(roomId)
-        : roomId
-          ? buildChatRoomWebPath(roomId)
-          : "/community-messenger");
-  const eventKey = eventKeyForNotificationEventType(row.type);
+  const definition = getNotificationEventDefinition(row.type);
+  const link_url = resolveNotificationDeepLink(definition.deepLinkResolverKey, {
+    roomId,
+    callSessionId: row.call_session_id,
+    displayRoute: routeFromDisplay,
+  });
+  const eventKey = definition.soundEventKey ?? "system_default";
   const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
   return {
     user_id: row.user_id,
@@ -78,6 +68,7 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       campaign_id: display?.campaignId,
       display_payload: display,
       event_key: eventKey,
+      deeplink_resolver_key: definition.deepLinkResolverKey,
       sound_asset_id: soundResolved.assetId,
       android_channel_id: soundResolved.androidChannelId,
       ios_sound_name: soundResolved.iosSoundName,

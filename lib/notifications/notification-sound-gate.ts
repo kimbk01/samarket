@@ -60,6 +60,8 @@ export function shouldPlayInAppSoundFromGate(
   refId: string | null | undefined
 ): boolean {
   if (!snap.userNotificationSettings.sound_enabled) return false;
+  // Background/unfocused surfaces yield sound ownership to OS push.
+  if (!snap.isWindowFocused) return false;
   if (domain === "trade_chat" && snap.userNotificationSettings.trade_chat_enabled === false) {
     return false;
   }
@@ -76,9 +78,6 @@ export function shouldPlayInAppSoundFromGate(
   if (isCommunityChatSoundDomain(domain) && ref) {
     if (snap.activeCommunityChatRoomId === ref) return false;
   }
-  if (!snap.isWindowFocused) {
-    return true;
-  }
   return true;
 }
 
@@ -87,6 +86,7 @@ export function shouldPlayGroupChatInAppSoundFromGate(
   roomId: string | null | undefined
 ): boolean {
   if (!snap.userNotificationSettings.sound_enabled) return false;
+  if (!snap.isWindowFocused) return false;
   if (snap.userNotificationSettings.community_chat_enabled === false) return false;
   const ref = roomId != null ? String(roomId).trim() : "";
   if (ref && snap.activeGroupChatRoomId === ref) return false;

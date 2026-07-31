@@ -11,6 +11,7 @@ export const NOTIFICATION_EVENT_TYPES = [
   "community_activity",
   "admin_marketing_banner",
   "admin_notice",
+  "admin_test",
   "missed_call",
   "incoming_call_signal",
 ] as const;

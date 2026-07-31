@@ -70,4 +70,23 @@ describe("resolvePushRouteFromFcmData", () => {
   it("detects type from legacy dibay_call", () => {
     expect(resolveFcmPushTypeFromData({ dibay_call: "1" })).toBe("incoming_call");
   });
+
+  it("rejects unsafe external schemes and uses the canonical resolver key", () => {
+    expect(
+      resolvePushRouteFromFcmData({
+        routeUrl: "javascript:alert(1)",
+        deeplinkResolverKey: "chat_room",
+        roomId: "safe-room",
+      })
+    ).toBe("/community-messenger/rooms/safe-room");
+  });
+
+  it("converts absolute notification URLs to internal routes only", () => {
+    expect(
+      resolvePushRouteFromFcmData({
+        routeUrl:
+          "https://external.example/post/post-1?from=notification",
+      })
+    ).toBe("/post/post-1?from=notification");
+  });
 });

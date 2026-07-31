@@ -1,6 +1,7 @@
 import { tradeMessengerRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 
 export type InboxHrefRow = {
   notification_type: string;
@@ -101,13 +102,31 @@ function resolveTradeOfferInboxHref(r: InboxHrefRow): string | null {
  */
 export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
   const trade = resolveTradeOfferInboxHref(r);
-  if (trade != null && trade.length > 0) return trade;
+  if (trade != null && trade.length > 0) {
+    return resolveSafeNotificationInternalRoute(
+      trade,
+      defaultInboxFallbackHref()
+    );
+  }
 
   const u = r.link_url?.trim();
   if (!u) return null;
-  if (r.notification_type !== "commerce") return u;
-  if (isOwnerStoreCommerceNotificationRow(r)) return u;
-  return u;
+  if (r.notification_type !== "commerce") {
+    return resolveSafeNotificationInternalRoute(
+      u,
+      defaultInboxFallbackHref()
+    );
+  }
+  if (isOwnerStoreCommerceNotificationRow(r)) {
+    return resolveSafeNotificationInternalRoute(
+      u,
+      defaultInboxFallbackHref()
+    );
+  }
+  return resolveSafeNotificationInternalRoute(
+    u,
+    defaultInboxFallbackHref()
+  );
 }
 
 export function defaultInboxFallbackHref(): string {

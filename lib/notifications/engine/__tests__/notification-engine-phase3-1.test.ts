@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createNotificationDecision } from "@/lib/notifications/engine/notification-decision";
 import type { ChatMessageCreatedNotificationEvent } from "@/lib/notifications/engine/notification-event";
@@ -43,6 +45,21 @@ describe("notification-event-log phase3-1", () => {
 });
 
 describe("persistence shadow compare phase3-1", () => {
+  it("keeps the Engine persistence pipeline shadow-only", () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        "lib/notifications/engine/run-engine-persistence-pipeline.ts"
+      ),
+      "utf8"
+    );
+    expect(source).not.toContain(
+      'import { executePersistencePlan } from "@/lib/notifications/engine/consumers/persistence-consumer"'
+    );
+    expect(source).not.toMatch(/\bawait\s+executePersistencePlan\s*\(/);
+    expect(source).toContain("executed: false");
+  });
+
   it("PASS when legacy and engine message event plans match", () => {
     const legacyPlan = {
       operations: [

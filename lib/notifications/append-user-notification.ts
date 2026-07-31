@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { publishNotificationSideEffect } from "@/lib/notifications/publish-notification-side-effect";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 import {
@@ -12,8 +11,6 @@ import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
-
-const LEGACY_NOTIFICATIONS_FALLBACK_ENABLED = process.env.DIBAY_LEGACY_NOTIFICATIONS_MODE === "1";
 
 function afterOwnerCommerceNotificationInserted(
   userId: string,
@@ -29,40 +26,6 @@ function afterOwnerCommerceNotificationInserted(
     route: "append-user-notification",
     reason: "owner_commerce_notification",
   });
-}
-
-function afterNotificationInsertedSuccess(
-  sb: SupabaseClient,
-  row: {
-    user_id: string;
-    notification_type: AppNotificationType;
-    title: string;
-    body?: string | null;
-    link_url?: string | null;
-    ref_id?: string | null;
-    meta?: Record<string, unknown> | null;
-  },
-  metaMerged: Record<string, unknown> | null
-): void {
-  const uid = row.user_id.trim();
-  afterOwnerCommerceNotificationInserted(uid, metaMerged ?? undefined);
-  void bumpNotificationTargetFromInboxRow(sb, {
-    user_id: uid,
-    notification_type: row.notification_type,
-    ref_id: row.ref_id ?? null,
-    meta: metaMerged,
-  }).catch(() => {});
-  void publishNotificationSideEffect(
-    {
-      user_id: uid,
-      notification_type: row.notification_type,
-      title: row.title,
-      body: row.body ?? null,
-      link_url: row.link_url ?? null,
-      meta: metaMerged,
-    },
-    sb
-  );
 }
 
 export type AppNotificationType =
@@ -224,150 +187,12 @@ export async function appendUserNotification(
       }).catch(() => {});
       return true;
     }
-  } catch {
-    // create/dispatch 예외는 legacy DB fallback 로 흡수한다.
-    if (!LEGACY_NOTIFICATIONS_FALLBACK_ENABLED) return false;
+  } catch (error) {
+    console.error("[appendUserNotification] notification_events failed", {
+      userId: uid,
+      eventType,
+      reason: error instanceof Error ? error.message : "unknown_error",
+    });
   }
-
-  if (!LEGACY_NOTIFICATIONS_FALLBACK_ENABLED) return false;
-
-  /**
-   * LEGACY DB FALLBACK:
-   * 아래 블록은 `notification_events` 경로 실패 시에만 유지되는 구버전 `notifications` 삽입 경로다.
-   * 신규 기능은 이 경로를 추가하지 말고, 위의 `createAndDispatchNotificationEvent` 만 사용한다.
-   */
-  const insert: Record<string, unknown> = {
-    user_id: uid,
-    notification_type: row.notification_type,
-    title: row.title,
-    body: row.body ?? null,
-    link_url: row.link_url ?? null,
-    is_read: false,
-  };
-  if (metaMerged != null) insert.meta = metaMerged;
-  if (row.domain) insert.domain = row.domain;
-  if (row.ref_id != null && String(row.ref_id).trim()) insert.ref_id = String(row.ref_id).trim();
-  if (row.push_kind) insert.push_kind = row.push_kind;
-  if (row.image_url != null && String(row.image_url).trim()) insert.image_url = String(row.image_url).trim();
-  if (row.sender_id != null && String(row.sender_id).trim()) insert.sender_id = String(row.sender_id).trim();
-  const dk = typeof row.dedupe_key === "string" ? row.dedupe_key.trim() : "";
-  if (dk) insert.dedupe_key = dk;
-  const evId = typeof row.store_order_event_id === "string" ? row.store_order_event_id.trim() : "";
-  if (evId) insert.store_order_event_id = evId;
-
-  let { error } = await sb.from("notifications").insert(insert);
-  if (
-    error &&
-    (error.message?.includes("push_kind") ||
-      error.message?.includes("image_url") ||
-      error.message?.includes("sender_id"))
-  ) {
-    const fallbackInsert = { ...insert };
-    delete fallbackInsert.push_kind;
-    delete fallbackInsert.image_url;
-    delete fallbackInsert.sender_id;
-    const retry = await sb.from("notifications").insert(fallbackInsert);
-    error = retry.error;
-  }
-
-  const pgCode = (error as { code?: string } | null)?.code;
-  if (error && pgCode === "23505") {
-    return true;
-  }
-
-  if (
-    error &&
-    (error.message?.includes("dedupe_key") ||
-      error.message?.includes("store_order_event_id") ||
-      error.message?.includes("notifications_user_store_order_event_uidx") ||
-      error.message?.includes("notifications_user_dedupe_key_uidx"))
-  ) {
-    const fallbackDedupe = { ...insert };
-    delete fallbackDedupe.dedupe_key;
-    delete fallbackDedupe.store_order_event_id;
-    const retryDedupe = await sb.from("notifications").insert(fallbackDedupe);
-    const err2 = retryDedupe.error;
-    const code2 = (err2 as { code?: string } | null)?.code;
-    if (err2 && code2 === "23505") return true;
-    if (!err2) {
-      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
-      return true;
-    }
-    error = err2;
-  }
-
-  if (!error) {
-    afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
-    return true;
-  }
-
-  if (error.message?.includes("notifications") && error.message?.includes("does not exist")) {
-    return false;
-  }
-
-  /* meta 컬럼 없음 → meta 없이 재시도 */
-  if (error.message?.includes("meta") && metaMerged != null) {
-    delete insert.meta;
-    const { error: e2 } = await sb.from("notifications").insert(insert);
-    if (e2 && (e2 as { code?: string }).code === "23505") return true;
-    if (!e2) {
-      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
-      return true;
-    }
-    if (e2.message?.includes("notifications") && e2.message?.includes("does not exist")) return false;
-    console.error("[appendUserNotification] retry without meta", e2.message);
-    return false;
-  }
-
-  /* commerce 타입 미적용 → system 으로 재시도 */
-  if (
-    row.notification_type === "commerce" &&
-    (error.message?.includes("check constraint") || error.message?.includes("violates check"))
-  ) {
-    const sysRow: Record<string, unknown> = {
-      user_id: uid,
-      notification_type: "system",
-      title: row.title,
-      body: row.body ?? null,
-      link_url: row.link_url ?? null,
-      is_read: false,
-    };
-    if (dk) sysRow.dedupe_key = dk;
-    if (evId) sysRow.store_order_event_id = evId;
-    const { error: e3 } = await sb.from("notifications").insert(sysRow);
-    if (e3 && (e3 as { code?: string }).code === "23505") return true;
-    if (!e3) {
-      afterNotificationInsertedSuccess(
-        sb,
-        { ...row, notification_type: "system" },
-        metaMerged as Record<string, unknown>
-      );
-      return true;
-    }
-    if (e3.message?.includes("notifications") && e3.message?.includes("does not exist")) return false;
-    console.error("[appendUserNotification] fallback system", e3.message);
-    return false;
-  }
-
-  /* domain/ref_id 컬럼 미적용 스키마 → 제거 후 재시도 */
-  if (
-    (error.message?.includes("domain") || error.message?.includes("ref_id")) &&
-    (insert.domain != null || insert.ref_id != null)
-  ) {
-    const fallback = { ...insert };
-    delete fallback.domain;
-    delete fallback.ref_id;
-    const { error: e4 } = await sb.from("notifications").insert(fallback);
-    if (e4 && (e4 as { code?: string }).code === "23505") return true;
-    if (!e4) {
-      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
-      return true;
-    }
-    if (e4.message?.includes("notifications") && e4.message?.includes("does not exist")) return false;
-    console.error("[appendUserNotification] retry without domain", e4.message);
-    return false;
-  }
-
-  console.error("[appendUserNotification]", error.message);
   return false;
 }

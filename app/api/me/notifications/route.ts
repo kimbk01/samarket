@@ -30,7 +30,7 @@ import {
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 import {
   fetchNotificationEventsForInbox,
-  mergeInboxNotificationRows,
+  mergeInboxNotificationRowsEventsPrimary,
   type InboxNotificationRow,
 } from "@/lib/notifications/inbox-events-merge";
 import {
@@ -396,10 +396,21 @@ export async function GET(req: NextRequest) {
     excludeChatMessageList,
     ownerStoreId: ownerStoreId || undefined,
   };
+  // notification_events is the primary inbox source. Production still has
+  // legacy-only rows, so start both reads in parallel and merge legacy as a
+  // compatibility tail only.
+  const eventRowsPromise = fetchNotificationEventsForInbox(
+    sbx,
+    inboxUserId,
+    eventInboxOpts
+  );
 
   async function finalizeMergedInboxList(legacyRows: InboxNotificationRow[]): Promise<InboxNotificationRow[]> {
-    const eventRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts);
-    let merged = mergeInboxNotificationRows(legacyRows, eventRows);
+    const eventRows = await eventRowsPromise;
+    let merged = mergeInboxNotificationRowsEventsPrimary(
+      eventRows,
+      legacyRows
+    );
     if (explicitPage) {
       merged = merged.slice(listOffset, listOffset + displayCap + 1);
     } else if (!ownerStoreId) {
@@ -417,7 +428,16 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-      return NextResponse.json({ ok: true, notifications: [], table_missing: true });
+      const eventOnly = await finalizeMergedInboxList([]);
+      const notifications = eventOnly.slice(0, displayCap);
+      return NextResponse.json({
+        ok: true,
+        notifications,
+        ...(explicitPage
+          ? { has_more: eventOnly.length > displayCap }
+          : {}),
+        legacy_table_missing: true,
+      });
     }
     const { data: rowsWithMeta, error: eMeta } = await sb
       .from("notifications")
@@ -456,6 +476,18 @@ export async function GET(req: NextRequest) {
       }
       list = await finalizeMergedInboxList(list);
       return NextResponse.json({ ok: true, notifications: list });
+    }
+    const eventOnly = await finalizeMergedInboxList([]);
+    if (eventOnly.length > 0) {
+      const notifications = eventOnly.slice(0, displayCap);
+      return NextResponse.json({
+        ok: true,
+        notifications,
+        ...(explicitPage
+          ? { has_more: eventOnly.length > displayCap }
+          : {}),
+        legacy_reader_degraded: true,
+      });
     }
     console.error("[GET notifications]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -556,6 +588,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.mark_all_read === true) {
+    await markAllNotificationEventsRead(sb, userId);
     const { error } = await sb
       .from("notifications")
       .update({ is_read: true })
@@ -568,7 +601,6 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
-    await markAllNotificationEventsRead(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
     return NextResponse.json({ ok: true, updated: "all" });

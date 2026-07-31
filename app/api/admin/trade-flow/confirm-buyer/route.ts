@@ -8,6 +8,7 @@ import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,12 +80,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const sellerId = (pc as { seller_id: string }).seller_id;
-    await sbAny.from("notifications").insert({
+    await appendUserNotification(sbAny, {
       user_id: sellerId,
       notification_type: "status",
       title: "구매자 확인이 처리되었어요",
       body: "운영에서 거래완료 확인이 반영되었습니다.",
       link_url: tradeChatNotificationHref(roomId, "product_chat"),
+      domain: "trade_chat",
+      ref_id: roomId,
+      dedupe_key: `admin-buyer-confirm:${roomId}`,
+      push_kind: "trade",
+      meta: {
+        kind: "trade_completed",
+        room_id: roomId,
+        product_id: (pc as { post_id?: string | null }).post_id ?? null,
+        admin_action: "buyer_confirmed",
+      },
     });
   } catch {
     /* ignore */

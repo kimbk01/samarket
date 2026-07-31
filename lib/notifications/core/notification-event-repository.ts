@@ -167,6 +167,7 @@ export async function createNotificationEvent(
     sound_suppressed_reason: input.soundSuppressedReason ?? null,
     delivered_at: input.deliveredAt ?? new Date().toISOString(),
     dedupe_key: dedupeKey,
+    origin_device_id: input.originDeviceId?.trim() || null,
     ...(chatDomain && domainIdentityKey
       ? { chat_domain: chatDomain, domain_identity_key: domainIdentityKey }
       : {}),

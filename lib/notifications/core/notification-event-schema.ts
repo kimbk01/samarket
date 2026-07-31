@@ -42,6 +42,7 @@ export type CreateNotificationEventInput = {
   /** Required by DB for message event types (notification_events_message_domain_required_check). */
   chatDomain?: string | null;
   domainIdentityKey?: string | null;
+  originDeviceId?: string | null;
 };
 
 export type NotificationEventRow = {
@@ -67,4 +68,5 @@ export type NotificationEventRow = {
   created_at: string;
   chat_domain?: string | null;
   domain_identity_key?: string | null;
+  origin_device_id?: string | null;
 };

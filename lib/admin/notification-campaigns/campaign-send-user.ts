@@ -15,10 +15,11 @@ import {
   type AdminNotificationCampaignRow,
   type CampaignChannel,
 } from "@/lib/admin/notification-campaigns/campaign-types";
-import type {
-  NotificationEventCategory,
-  NotificationEventType,
-} from "@/lib/notifications/core/notification-event-types";
+import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
+import {
+  eventTypeForAdminCampaignType,
+  getNotificationEventDefinition,
+} from "@/lib/notifications/core/notification-event-registry";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import {
   resolveNotificationPolicyProfile,
@@ -31,11 +32,13 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import { getSiteOrigin } from "@/lib/env/runtime";
 
 function campaignEventType(campaignType: AdminNotificationCampaignRow["type"]): NotificationEventType {
-  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
+  return eventTypeForAdminCampaignType(campaignType);
 }
 
-function campaignCategory(campaignType: AdminNotificationCampaignRow["type"]): NotificationEventCategory {
-  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
+function campaignCategory(campaignType: AdminNotificationCampaignRow["type"]) {
+  return getNotificationEventDefinition(
+    eventTypeForAdminCampaignType(campaignType)
+  ).eventCategory;
 }
 
 function buildCampaignPushPayload(

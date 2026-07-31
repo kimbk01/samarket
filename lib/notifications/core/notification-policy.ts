@@ -3,53 +3,10 @@ import type {
   NotificationEventType,
   NotificationMessageRoomKind,
 } from "@/lib/notifications/core/notification-event-types";
-
-const ADMIN_SOUND_KEY_BY_TYPE: Record<NotificationEventType, string> = {
-  chat_message: "message_default",
-  group_message: "group_message",
-  mention_message: "group_message",
-  pin_message: "group_message",
-  trade_message: "trade_message",
-  store_order_message: "store_order",
-  trade_status: "trade_status",
-  order_status: "order_status",
-  delivery_status: "delivery_status",
-  community_activity: "community_activity",
-  admin_marketing_banner: "admin_marketing_banner",
-  admin_notice: "admin_notice",
-  missed_call: "missed_call",
-  incoming_call_signal: "incoming_call_ringtone",
-};
+import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
 
 export function categoryForEventType(type: NotificationEventType): NotificationEventCategory {
-  switch (type) {
-    case "group_message":
-    case "mention_message":
-    case "pin_message":
-      return "group_message";
-    case "trade_message":
-      return "trade_message";
-    case "store_order_message":
-      return "order_status";
-    case "trade_status":
-      return "trade_status";
-    case "order_status":
-      return "order_status";
-    case "delivery_status":
-      return "delivery_status";
-    case "community_activity":
-      return "community_activity";
-    case "admin_marketing_banner":
-      return "admin_marketing_banner";
-    case "admin_notice":
-      return "admin_notice";
-    case "missed_call":
-      return "missed_call";
-    case "incoming_call_signal":
-      return "incoming_call_signal";
-    default:
-      return "chat_message";
-  }
+  return getNotificationEventDefinition(type).eventCategory;
 }
 
 export function eventTypeForMessageRoomKind(kind: NotificationMessageRoomKind): NotificationEventType {
@@ -74,7 +31,7 @@ export function resolveMessageEventTypeFromDirectKey(directKey: string | null | 
 }
 
 export function adminSoundKeyForEventType(type: NotificationEventType): string {
-  return ADMIN_SOUND_KEY_BY_TYPE[type];
+  return getNotificationEventDefinition(type).legacyAdminSoundKey;
 }
 
 export function buildMessageDedupeKey(roomId: string, messageId: string): string {

@@ -1,4 +1,5 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
+import type { PushEnvironment } from "@/lib/push/push-environment";
 
 export type PushProvider = "fcm" | "apns" | "voip_apns" | "web_push";
 
@@ -16,6 +17,7 @@ export type PushTarget = {
   push_token: string;
   platform: PushPlatform;
   device_id?: string | null;
+  environment?: PushEnvironment;
   /** Web Push VAPID keys (web_push only) */
   key_p256dh?: string;
   key_auth?: string;
@@ -40,6 +42,8 @@ export type DispatchPushOptions = {
   skip_settings_gate?: boolean;
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
   force_dispatch?: boolean;
+  /** Admin test/device diagnostics — restrict dispatch to one registered device. */
+  target_device_id?: string;
   /** notification_events SSOT badge total for FCM setNumber */
   badge_count?: number;
   /** notification_events row id — native 10s dedupe */

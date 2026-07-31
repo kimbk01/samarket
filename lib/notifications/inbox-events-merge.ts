@@ -6,6 +6,7 @@ import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-s
 import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
+import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 
 export type InboxNotificationRow = {
   id: string;
@@ -37,7 +38,10 @@ export type NotificationEventInboxSource = Pick<
   | "room_id"
 >;
 
-const INBOX_EXCLUDED_EVENT_TYPES = new Set(["incoming_call_signal"]);
+const INBOX_EXCLUDED_EVENT_TYPES = new Set([
+  "incoming_call_signal",
+  "admin_test",
+]);
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -140,9 +144,19 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
   const routeUrl = trimText(payload?.routeUrl);
-  if (routeUrl) return routeUrl;
+  if (routeUrl) {
+    return resolveSafeNotificationInternalRoute(
+      routeUrl,
+      defaultInboxFallbackHref()
+    )!;
+  }
   const linkUrl = trimText(payload?.link_url);
-  if (linkUrl) return linkUrl;
+  if (linkUrl) {
+    return resolveSafeNotificationInternalRoute(
+      linkUrl,
+      defaultInboxFallbackHref()
+    )!;
+  }
 
   const meta = metaFromEvent(event);
   const metaKind = trimText(meta?.kind);
@@ -171,7 +185,12 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   if (type === "community_activity") return "/philife";
   if (type === "admin_marketing_banner") {
     const landing = trimText(payload?.deeplinkUrl ?? payload?.webUrl ?? payload?.landing_url);
-    if (landing) return landing;
+    if (landing) {
+      return resolveSafeNotificationInternalRoute(
+        landing,
+        defaultInboxFallbackHref()
+      )!;
+    }
   }
 
   return defaultInboxFallbackHref();
@@ -211,19 +230,29 @@ export function mergeInboxNotificationRows(
   legacyRows: InboxNotificationRow[],
   eventRows: InboxNotificationRow[]
 ): InboxNotificationRow[] {
+  return mergeInboxNotificationRowsEventsPrimary(eventRows, legacyRows);
+}
+
+export function mergeInboxNotificationRowsEventsPrimary(
+  eventRows: InboxNotificationRow[],
+  legacyCompatibilityRows: InboxNotificationRow[]
+): InboxNotificationRow[] {
   const eventDedupeKeys = new Set(
     eventRows.map((r) => trimText(r.dedupe_key)).filter(Boolean)
   );
 
-  const filteredLegacy = legacyRows.filter((row) => {
+  const filteredLegacy = legacyCompatibilityRows.filter((row) => {
     const key = legacyDedupeKey(row);
     if (key && eventDedupeKeys.has(key)) return false;
     return true;
   });
 
   const merged = [
-    ...filteredLegacy.map((row) => ({ ...row, source: row.source ?? ("legacy" as const) })),
     ...eventRows,
+    ...filteredLegacy.map((row) => ({
+      ...row,
+      source: row.source ?? ("legacy" as const),
+    })),
   ];
 
   merged.sort((a, b) => {

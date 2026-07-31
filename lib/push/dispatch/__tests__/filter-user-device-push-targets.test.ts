@@ -18,14 +18,26 @@ const row = (
 });
 
 describe("filterUserDevicePushTargets", () => {
-  it("keeps only the first FCM row when multiple active tokens exist (chat / single_fcm)", () => {
+  it("fans out recipient FCM to every physical device by default", () => {
     const targets = filterUserDevicePushTargets([
       row("new", "cabc4186", "eIeEExQe-new", "fcm", "2026-06-30T12:00:00.000Z"),
       row("old", "dibay-mr00", "dvDcuB9H-old", "fcm", "2026-06-30T07:00:00.000Z"),
     ]);
-    expect(targets).toHaveLength(1);
+    expect(targets).toHaveLength(2);
     expect(targets[0]?.id).toBe("new");
     expect(targets[0]?.push_token).toBe("eIeEExQe-new");
+  });
+
+  it("keeps explicit single_fcm compatibility behavior", () => {
+    const targets = filterUserDevicePushTargets(
+      [
+        row("new", "device-a", "token-a"),
+        row("old", "device-b", "token-b"),
+      ],
+      { fcmMode: "single_fcm" }
+    );
+    expect(targets).toHaveLength(1);
+    expect(targets[0]?.id).toBe("new");
   });
 
   it("fans out one FCM per device_id for multi_device_fcm call mode", () => {

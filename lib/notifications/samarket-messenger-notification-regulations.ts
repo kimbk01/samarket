@@ -22,7 +22,8 @@
  * - **Community 원인**: tier1 `bottom_nav_community` 종 + 게시글 진입 clear.
  * - **Trade 원인**: tier1 `bottom_nav_my` 종 + 거래 채팅 row unread.
  * - **Delivery 원인**: tier1 `bottom_nav_delivery` 종 + FAB 주문내역/주문채팅.
- * - **App icon**: `notification_events` category total — BottomNav와 독립.
+ * - **App icon**: general/group + trade + store_order unread room projection
+ *   + orphan missed call — event category SUM 금지, BottomNav와 독립.
  *
  * ---------------------------------------------------------------------------
  * [2. 탭 역할]

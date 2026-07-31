@@ -1,6 +1,11 @@
 /**
  * Resolve in-app route from FCM data payload — mirrors Android MainActivity / FcmPayloadResolver.
  */
+import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
+import {
+  resolveNotificationDeepLink,
+} from "@/lib/notifications/policy/notification-deeplink-policy";
+import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
 
 export type FcmRouteData = Record<string, string | undefined>;
 
@@ -33,20 +38,37 @@ export function resolveFcmPushTypeFromData(data: FcmRouteData): string {
 
 export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
   const url = firstNonEmpty(data.routeUrl, data.route_url, data.url, data.link_url, data.link_url_absolute);
-  if (url.startsWith("/")) return url;
-
   if (url) {
-    try {
-      const parsed = new URL(url);
-      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    } catch {
-      return url;
-    }
+    const safe = resolveSafeNotificationInternalRoute(url);
+    if (safe) return safe;
   }
 
   const type = resolveFcmPushTypeFromData(data);
   const callId = firstNonEmpty(data.callId, data.sessionId, data.session_id);
   const roomId = firstNonEmpty(data.roomId, data.room_id);
+  const resolverKey = firstNonEmpty(
+    data.deeplinkResolverKey,
+    data.deeplink_resolver_key
+  );
+  const resolverKeys: ReadonlySet<string> = new Set([
+    "chat_room",
+    "group_room",
+    "trade_room",
+    "store_order_room",
+    "display_route",
+    "missed_call",
+    "notification_inbox",
+    "call_authority",
+  ]);
+  if (resolverKeys.has(resolverKey)) {
+    return resolveNotificationDeepLink(
+      resolverKey as NotificationDeepLinkResolverKey,
+      {
+        roomId,
+        callSessionId: callId,
+      }
+    );
+  }
 
   if (type === "missed_call" && callId) {
     if (roomId) {

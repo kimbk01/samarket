@@ -8,7 +8,6 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import type { PostStatus } from "@/lib/posts/schema";
 
 export type UpdateProductStatusResult = { ok: true } | { ok: false; error: string };
@@ -20,25 +19,9 @@ const ALLOWED_TRANSITIONS: Record<string, PostStatus[]> = {
   hidden: ["active", "reserved", "sold"],
 };
 
-function tradeStatusNotificationMeta(
-  status: PostStatus,
-  roomId: string
-): { domain: "trade_chat"; ref_id: string; meta: Record<string, string> } | null {
-  if (status !== "sold" && status !== "reserved") return null;
-  const kind = status === "sold" ? "trade_completed" : "trade_reserved";
-  return {
-    domain: "trade_chat",
-    ref_id: roomId,
-    meta: {
-      kind,
-      room_id: roomId,
-      product_chat_id: roomId,
-    },
-  };
-}
-
 /**
- * 당근형: 상품 상태 변경 (판매자만) + 시스템 메시지 + 상대방 알림
+ * Deprecated browser fallback: 상품 상태 변경 (판매자만) + 시스템 메시지.
+ * Recipient notification is intentionally server-only.
  */
 export async function updateProductStatusWithNotify(
   productId: string,
@@ -69,23 +52,14 @@ export async function updateProductStatusWithNotify(
     .eq("post_id", productId);
 
   for (const room of rooms ?? []) {
-    const otherId = room.seller_id === user.id ? room.buyer_id : room.seller_id;
     await sb.from("product_chat_messages").insert({
       product_chat_id: room.id,
       sender_id: user.id,
       message_type: "system",
       content: `판매자가 상태를 ${statusLabel}(으)로 변경했습니다.`,
     });
-    const tradeStatusMeta = tradeStatusNotificationMeta(nextStatus, room.id);
-    await sb.from("notifications").insert({
-      user_id: otherId,
-      notification_type: "status",
-      title: "거래 상태 변경",
-      body: statusLabel,
-      link_url: tradeChatNotificationHref(room.id, "product_chat"),
-      is_read: false,
-      ...(tradeStatusMeta ?? {}),
-    });
+    // This deprecated browser fallback cannot securely create recipient events.
+    // Canonical listing-state routes own status events and push dispatch.
   }
 
   return { ok: true };

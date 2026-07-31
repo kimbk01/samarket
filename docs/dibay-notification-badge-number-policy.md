@@ -1,4 +1,4 @@
-# DIBAY 알림·배지 숫자 정책 (Legacy Authority)
+# DIBAY 알림·배지 숫자 정책 (Domain Authority)
 
 P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 유지한다.  
 **표면마다 숫자가 다를 수 있으며, 그것이 정상**이다.
@@ -10,9 +10,9 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 
 | 항목 | 정의 |
 |------|------|
-| 소스 | `GET /api/me/notifications/badge-count` → `notification_events` unread (`read_at IS NULL`) |
-| 합산 | `total` — chat/group/trade/order/delivery/community_activity/**admin_notice**/missed_call (**event 건수 SUM**) |
-| 제외 | `admin_marketing_banner` (`badgeEnabled: false`) |
+| 소스 | `GET /api/me/notifications/badge-count` → Domain room projection + orphan missed call |
+| 합산 | unread `general_direct/group` room + `trade` room + `store_order` room + `room_id IS NULL` missed call |
+| 제외 | room-attached missed call(해당 room에서 이미 계산), admin notice/marketing/test, status event SUM |
 | 동기화 | `NativeBadgeSync` — Capacitor native only |
 | 비고 | **BottomNav Chat·feed 탭과 단위가 다를 수 있음** (정상) |
 
@@ -79,14 +79,14 @@ bottom_nav_delivery = count_notification_targets(p_user_id, 'bottom_nav_delivery
 
 | 예시 | 이유 |
 |------|------|
-| App icon ≠ BottomNav Chat | App icon = event total; Chat = unread room count |
+| App icon ≠ BottomNav Chat | App icon = 4-domain room projection; Chat = general/group unread room count |
 | App icon > 0, feed tabs = 0 | feed 탭은 badge 없음 — 원인은 종/FAB/row |
 | Chat row ≠ Chat 탭 | row = room message unread; 탭 = unread room 수 |
 | marketing 배너 | foreground 배너만, tab/app badge total 제외 |
 
 ## 6. 변경 금지 / Legacy 락
 
-- `notification_events` badge/read SSOT (App icon total)
+- `notification_events` = durable inbox/read SSOT; App Icon은 Domain room projection + orphan missed call
 - room visible read / same-room foreground suppress
 - incoming_call_signal ↔ missed_call 분리
 - order_status/delivery_status read
@@ -123,4 +123,5 @@ Badge Engine / Badge Store / Badge Authority / Bell Modal은 **이 시점 기준
 - 규정: `lib/notifications/samarket-messenger-notification-regulations.ts` (`notif-0002` Legacy)
 - Tier1 bell supplement: `lib/notifications/tier1-admin-notice-bell-supplement.ts`
 - App icon: `components/push/NativeBadgeSync.tsx`
+- App icon formula: `lib/notifications/domain-app-icon-badge.ts`
 - badge targets: `lib/notifications/badge-target-policy.ts` (`badge-target-0001`)

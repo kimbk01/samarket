@@ -1,10 +1,12 @@
 /**
- * Phase 3-1 — Engine persistence pipeline: Event Log → plan → shadow compare → execute.
+ * Phase 3-1 — Engine shadow pipeline: Event Log → plan → compare.
+ *
+ * Live persistence belongs to the legacy/canonical notification pipeline.
+ * The Engine must never become a second writer.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PersistenceConsumerMessageDisplayInput } from "@/lib/notifications/engine/consumers/persistence-consumer";
-import { executePersistencePlan } from "@/lib/notifications/engine/consumers/persistence-consumer";
 import type { NotificationEngineResult } from "@/lib/notifications/engine/notification-engine";
 import { appendNotificationEventLog } from "@/lib/notifications/engine/notification-event-log";
 import {
@@ -55,10 +57,5 @@ export async function runEnginePersistencePipeline(
     logSeq: logEntry.seq,
   });
 
-  if (!compare.match || !input.sb || !enginePlan?.operations.length) {
-    return { logSeq: logEntry.seq, compare, executed: false };
-  }
-
-  await executePersistencePlan(input.sb, enginePlan, input.displayInput);
-  return { logSeq: logEntry.seq, compare, executed: true };
+  return { logSeq: logEntry.seq, compare, executed: false };
 }

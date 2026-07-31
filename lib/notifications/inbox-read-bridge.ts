@@ -339,18 +339,6 @@ export async function patchInboxNotificationIdsRead(
 
   let updated = 0;
 
-  if (legacyIds.length > 0) {
-    const { error } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", legacyIds);
-    if (error) return { ok: false, error: error.message };
-    updated += legacyIds.length;
-    const legacyRows = rows.filter((r) => legacyIds.includes(r.id));
-    await clearNotificationTargetsForInboxRows(sb, userId, legacyRows);
-  }
-
   const eventRows = rows.filter((r) => eventIds.includes(r.id));
   const threadPlans = new Map<string, InboxBellThreadReadPlan>();
   for (const row of eventRows) {
@@ -381,6 +369,18 @@ export async function patchInboxNotificationIdsRead(
     await clearNotificationTargetsForInboxRows(sb, userId, [row]);
   }
 
+  if (legacyIds.length > 0) {
+    const { error } = await sb
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .in("id", legacyIds);
+    if (error) return { ok: false, error: error.message };
+    updated += legacyIds.length;
+    const legacyRows = rows.filter((r) => legacyIds.includes(r.id));
+    await clearNotificationTargetsForInboxRows(sb, userId, legacyRows);
+  }
+
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
 
@@ -405,6 +405,11 @@ export async function patchInboxNotificationIdsDelete(
 
   let deleted = 0;
 
+  for (const eventId of eventIds) {
+    const ok = await dismissNotificationEventFromInbox(sb, userId, eventId);
+    if (ok) deleted += 1;
+  }
+
   if (legacyIds.length > 0) {
     const { data: deletedRows, error } = await sb
       .from("notifications")
@@ -414,11 +419,6 @@ export async function patchInboxNotificationIdsDelete(
       .select("id");
     if (error) return { ok: false, error: error.message };
     deleted += deletedRows?.length ?? 0;
-  }
-
-  for (const eventId of eventIds) {
-    const ok = await dismissNotificationEventFromInbox(sb, userId, eventId);
-    if (ok) deleted += 1;
   }
 
   invalidateNotificationUnreadCountCache(userId);
