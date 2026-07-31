@@ -73,7 +73,11 @@ App Icon → Bell → FCM → Bottom → 각 허브 → 각 리스트 → 각 �
 ## 7. 상단 Bell (알림 Inbox)
 
 - 단순 숫자만이 아니다. **레거시 메신저형 Notification Inbox**.
-- Authority: approved unread `notification_events` (lifecycle/supersede 적용 후).
+- Authority: approved unread `notification_events` after lifecycle  
+  (`create` / `dedupe` / `supersede` / destination read / terminal business handling).
+- **공식 digit:** `bellTotal = count(distinct unread active attention IDs)`  
+  (raw DB row 개수가 최종 제품 정의가 아님 — attention 단위. 현재 RPC는 event unread count이며 attention projection과 정렬 중).
+- **필수:** Bell digit unread ID 집합 = Bell Inbox unread ID 집합.
 - 종류가 명확히 구분되어야 한다:
 
 | 종류 |

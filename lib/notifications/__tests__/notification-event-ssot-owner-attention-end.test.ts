@@ -29,5 +29,6 @@ describe("owner order status transition ends Notification Event attention", () =
     );
     expect(src).toContain("orderStillNeedsOwnerIntake");
     expect(src).toContain("markOrderNotificationEventsRead");
+    expect(src).toContain("dryRun");
   });
 });

@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { markOrderNotificationEventsRead } from "@/lib/notifications/core/notification-event-repository";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { resolveNotificationAttentionKey } from "@/lib/notifications/core/notification-attention-key";
 
 function trim(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -35,16 +36,44 @@ function orderIdFromEvent(row: {
 }
 
 /** Orders still requiring owner intake attention in Bell. */
-function orderStillNeedsOwnerIntake(status: string): boolean {
+export function orderStillNeedsOwnerIntake(status: string): boolean {
   return status === "pending";
 }
 
+export type StaleOwnerIntakeHealCandidate = {
+  event_id: string;
+  order_id: string;
+  dedupe_key: string | null;
+  attention_key: string;
+  order_status: string | null;
+  reason: string;
+};
+
+export type StaleOwnerIntakeHealResult = {
+  dry_run: boolean;
+  scanned: number;
+  candidates: StaleOwnerIntakeHealCandidate[];
+  orderIdsEnded: string[];
+  eventsMarked: number;
+  skipped: Array<{ event_id: string; reason: string }>;
+};
+
 export async function healStaleOwnerOrderIntakeNotificationEvents(
   sb: SupabaseClient,
-  userId: string
-): Promise<{ scanned: number; orderIdsEnded: string[]; eventsMarked: number }> {
+  userId: string,
+  opts?: { dryRun?: boolean }
+): Promise<StaleOwnerIntakeHealResult> {
+  const dryRun = opts?.dryRun === true;
   const uid = userId.trim();
-  if (!uid) return { scanned: 0, orderIdsEnded: [], eventsMarked: 0 };
+  const empty: StaleOwnerIntakeHealResult = {
+    dry_run: dryRun,
+    scanned: 0,
+    candidates: [],
+    orderIdsEnded: [],
+    eventsMarked: 0,
+    skipped: [],
+  };
+  if (!uid) return empty;
 
   const { data, error } = await sb
     .from("notification_events")
@@ -56,7 +85,7 @@ export async function healStaleOwnerOrderIntakeNotificationEvents(
     .limit(500);
 
   if (error || !data?.length) {
-    return { scanned: 0, orderIdsEnded: [], eventsMarked: 0 };
+    return empty;
   }
 
   const intakeRows = data.filter((row) => {
@@ -71,11 +100,20 @@ export async function healStaleOwnerOrderIntakeNotificationEvents(
     return dk.includes(":owner:new_order:") || dk.includes(":owner:buyer_cancel:");
   });
 
-  const orderIds = [
-    ...new Set(intakeRows.map((r) => orderIdFromEvent(r)).filter(Boolean)),
-  ];
+  const skipped: StaleOwnerIntakeHealResult["skipped"] = [];
+  const withOrder: Array<(typeof intakeRows)[number] & { order_id: string }> = [];
+  for (const row of intakeRows) {
+    const oid = orderIdFromEvent(row);
+    if (!oid) {
+      skipped.push({ event_id: String(row.id), reason: "missing_order_id" });
+      continue;
+    }
+    withOrder.push({ ...row, order_id: oid });
+  }
+
+  const orderIds = [...new Set(withOrder.map((r) => r.order_id))];
   if (orderIds.length === 0) {
-    return { scanned: intakeRows.length, orderIdsEnded: [], eventsMarked: 0 };
+    return { ...empty, scanned: intakeRows.length, skipped };
   }
 
   const { data: orders } = await sb
@@ -83,19 +121,64 @@ export async function healStaleOwnerOrderIntakeNotificationEvents(
     .select("id, order_status")
     .in("id", orderIds);
 
-  const ended: string[] = [];
-  for (const o of orders ?? []) {
-    const st = trim(o.order_status);
-    if (!orderStillNeedsOwnerIntake(st)) {
-      ended.push(String(o.id));
+  const statusById = new Map(
+    (orders ?? []).map((o) => [String(o.id), trim(o.order_status)])
+  );
+
+  const candidates: StaleOwnerIntakeHealCandidate[] = [];
+  const endedSet = new Set<string>();
+
+  for (const row of withOrder) {
+    const st = statusById.get(row.order_id);
+    if (st == null) {
+      skipped.push({ event_id: String(row.id), reason: "order_not_found" });
+      continue;
     }
+    if (orderStillNeedsOwnerIntake(st)) {
+      skipped.push({
+        event_id: String(row.id),
+        reason: `still_actionable_pending:${st}`,
+      });
+      continue;
+    }
+    endedSet.add(row.order_id);
+    candidates.push({
+      event_id: String(row.id),
+      order_id: row.order_id,
+      dedupe_key: row.dedupe_key == null ? null : String(row.dedupe_key),
+      attention_key: resolveNotificationAttentionKey({
+        type: "order_status",
+        dedupe_key: row.dedupe_key,
+        display_payload: row.display_payload,
+      }),
+      order_status: st,
+      reason: `business_status_not_pending:${st}`,
+    });
+  }
+
+  if (dryRun) {
+    return {
+      dry_run: true,
+      scanned: intakeRows.length,
+      candidates,
+      orderIdsEnded: [...endedSet],
+      eventsMarked: 0,
+      skipped,
+    };
   }
 
   let eventsMarked = 0;
-  for (const oid of ended) {
+  for (const oid of endedSet) {
     eventsMarked += await markOrderNotificationEventsRead(sb, uid, oid);
   }
   if (eventsMarked > 0) invalidateNotificationBadgeCache(uid);
 
-  return { scanned: intakeRows.length, orderIdsEnded: ended, eventsMarked };
+  return {
+    dry_run: false,
+    scanned: intakeRows.length,
+    candidates,
+    orderIdsEnded: [...endedSet],
+    eventsMarked,
+    skipped,
+  };
 }
