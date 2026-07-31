@@ -130,14 +130,15 @@ describe("P2-a domain badge target facts parity", () => {
     expect(unified.storeOrderOwnerChatUnread).toBe(owner.roomIds.size);
   });
 
-  it("badge-count HTTP builder uses single targets loader (no five parallel loaders)", () => {
+  it("badge-count HTTP builder uses participant Facts for messenger/trade/SO (not five target loaders)", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/notifications/pipeline/build-domain-badge-authority-http.ts"),
       "utf8"
     );
-    expect(src).toContain("loadDomainBadgeTargetFacts");
     expect(src).toContain("loadMessengerUnreadRoomFactsFromParticipants");
+    expect(src).toContain("loadTradeStoreOrderUnreadRoomFactsFromParticipants");
     expect(src).toContain("loadOrphanMissedCallFacts");
+    expect(src).not.toContain("loadDomainBadgeTargetFacts");
     expect(src).not.toContain("loadMessengerChatRoomUnreadTargetRoomIds");
     expect(src).not.toContain("loadTradeUnreadTargetIdentityKeys");
     expect(src).not.toContain("loadStoreOrderUnreadTargetOrderIds");

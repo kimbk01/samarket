@@ -6,8 +6,9 @@
  * categoryCounts also feeds inbox filter / diagnostics.
  *
  * P2-a/b LOCK (IO only):
- * - Trade / store_order rooms: ONE notification_targets SELECT (not five).
  * - Messenger GD+Group rooms: community_messenger_participants.unread_count (same as list row).
+ * - Trade / store_order rooms: community_messenger_participants.unread_count (same as list row;
+ *   role-scoped for store_order; phantoms excluded). notification_targets are derived only.
  * - Orphan missed: thin SELECT → in-memory COUNT + byRoom (byRoom required — canary/list).
  * - Builder / Projection Authority / Hub / room-fact / event-fact unchanged.
  */
@@ -20,9 +21,9 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
-import { loadDomainBadgeTargetFacts } from "@/lib/notifications/load-domain-badge-target-facts";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
+import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
 
 export type DomainBadgeAuthorityHttpPayload = {
   ok: true;
@@ -47,10 +48,15 @@ export type DomainBadgeAuthorityHttpPayload = {
     trade: number;
     store_order: number;
   };
-  /** Auditable room ID sets — messenger GD/Group from participants (not targets). */
+  /** Auditable room ID sets — messenger / trade / SO from participants (not targets). */
   messengerUnreadRoomIds: {
     general_direct: readonly string[];
     group: readonly string[];
+  };
+  tradeUnreadRoomIds: readonly string[];
+  storeOrderUnreadRoomIds: {
+    customer: readonly string[];
+    owner: readonly string[];
   };
   domainAppIcon: {
     messenger: number;
@@ -106,22 +112,22 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
-  const [targetFacts, messengerRooms, missed, categoryCounts] = await Promise.all([
-    loadDomainBadgeTargetFacts(sb, uid),
+  const [messengerRooms, tradeStoreRooms, missed, categoryCounts] = await Promise.all([
     loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
+    loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
     loadOrphanMissedCallFacts(sb, uid),
     countNotificationEventsBadge(sb, uid),
   ]);
 
-  // Messenger GD+Group: participants unread (list SSOT). Trade/SO: targets.
+  // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
   const domainUnreadRooms = {
     general_direct: messengerRooms.domainUnreadRooms.general_direct,
     group: messengerRooms.domainUnreadRooms.group,
-    trade: targetFacts.domainUnreadRooms.trade,
-    store_order: targetFacts.domainUnreadRooms.store_order,
+    trade: tradeStoreRooms.domainUnreadRooms.trade,
+    store_order: tradeStoreRooms.domainUnreadRooms.store_order,
   };
-  const storeOrderBuyerDeliveryUnread = targetFacts.storeOrderBuyerDeliveryUnread;
-  const storeOrderOwnerChatUnread = targetFacts.storeOrderOwnerChatUnread;
+  const storeOrderBuyerDeliveryUnread = tradeStoreRooms.storeOrderBuyerDeliveryUnread;
+  const storeOrderOwnerChatUnread = tradeStoreRooms.storeOrderOwnerChatUnread;
   const nonChatEventAttention = nonChatFromCategoryCounts(categoryCounts);
   const unreadApprovedNotificationEvents = Math.max(
     0,
@@ -132,6 +138,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     domainUnreadRooms,
     storeOrderBuyerDeliveryUnread,
     storeOrderOwnerChatUnread,
+    storeOrderOwnerUnreadByStoreId: tradeStoreRooms.ownerOrderUnreadByStoreId,
     orphanMissedCall: missed.orphan,
     nonChatEventAttention,
     unreadApprovedNotificationEvents,
@@ -139,6 +146,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     rowUnreadByRoomId: {
       ...missed.byRoom,
       ...messengerRooms.rowUnreadByRoomId,
+      ...tradeStoreRooms.rowUnreadByRoomId,
     },
   });
 
@@ -152,8 +160,11 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     ...domainUnreadRooms,
     messenger_gd_rooms: messengerRooms.generalDirectUnreadRoomIds.length,
     messenger_group_rooms: messengerRooms.groupUnreadRoomIds.length,
-    p2_target_select: 1,
+    trade_rooms: tradeStoreRooms.tradeUnreadRoomIds.length,
+    so_customer_rooms: tradeStoreRooms.customerOrderUnreadRoomIds.length,
+    so_owner_rooms: tradeStoreRooms.ownerOrderUnreadRoomIds.length,
     p2_messenger_participant_select: 1,
+    p2_trade_so_participant_select: 1,
     p2_orphan_select: 1,
   });
 
@@ -173,6 +184,11 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     messengerUnreadRoomIds: {
       general_direct: messengerRooms.generalDirectUnreadRoomIds,
       group: messengerRooms.groupUnreadRoomIds,
+    },
+    tradeUnreadRoomIds: tradeStoreRooms.tradeUnreadRoomIds,
+    storeOrderUnreadRoomIds: {
+      customer: tradeStoreRooms.customerOrderUnreadRoomIds,
+      owner: tradeStoreRooms.ownerOrderUnreadRoomIds,
     },
     domainAppIcon: {
       messenger: projection.appIcon.messenger,

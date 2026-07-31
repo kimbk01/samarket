@@ -22,7 +22,24 @@ export type InboxNotificationRow = {
   ref_id?: string | null;
   push_kind?: string | null;
   dedupe_key?: string | null;
+  /** Canonical Bell row presentation (Phase 2) — not legacy notification_type. */
+  bell_presentation_type?: BellPresentationType;
 };
+
+/** Bell Inbox presentation SSOT — digit/list share notification_events; UI subtypes here. */
+export type BellPresentationType =
+  | "general_message"
+  | "group_message"
+  | "trade_message"
+  | "customer_order_message"
+  | "owner_order_message"
+  | "trade_status"
+  | "order_status"
+  | "delivery_status"
+  | "missed_call"
+  | "admin_notice"
+  | "system_important"
+  | "unsupported";
 
 export type NotificationEventInboxSource = Pick<
   NotificationEventRow,
@@ -141,6 +158,67 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
   return Object.keys(meta).length > 0 ? meta : null;
 }
 
+function isOwnerOrderSide(event: NotificationEventInboxSource, meta: Record<string, unknown> | null): boolean {
+  const payload = payloadRecord(event.display_payload);
+  const role = trimText(
+    payload?.viewerRole ?? payload?.viewer_role ?? meta?.viewer_role ?? meta?.role ?? meta?.owner_role
+  ).toLowerCase();
+  if (role === "owner" || role === "admin" || role === "store_owner") return true;
+  if (payload?.ownerSide === true || payload?.owner_side === true) return true;
+  if (meta?.owner_store_commerce === true || meta?.is_owner === true) return true;
+  if (trimText(meta?.kind) === "owner_store_commerce") return true;
+  return false;
+}
+
+/**
+ * Maps canonical notification_events.type (+ payload roomKind) to Bell UI subtype.
+ * DO NOT invent new event types here — presentation only.
+ */
+export function resolveBellPresentationType(event: NotificationEventInboxSource): BellPresentationType {
+  const type = trimText(event.type);
+  const category = trimText(event.category);
+  const payload = payloadRecord(event.display_payload);
+  const roomKind = trimText(payload?.roomKind).toLowerCase();
+  const meta = metaFromEvent(event);
+  const kind = trimText(meta?.kind).toLowerCase();
+
+  // Explicit event.type first (status vs message — do not let leftover roomKind win).
+  if (type === "missed_call") return "missed_call";
+  if (type === "admin_notice") return "admin_notice";
+  if (type === "trade_status") return "trade_status";
+  if (type === "delivery_status") return "delivery_status";
+  if (type === "order_status") return "order_status";
+  if (type === "trade_message") return "trade_message";
+  if (type === "group_message" || type === "mention_message" || type === "pin_message") return "group_message";
+  if (type === "store_order_message") {
+    return isOwnerOrderSide(event, meta) ? "owner_order_message" : "customer_order_message";
+  }
+  if (type === "chat_message") return "general_message";
+  if (type === "community_activity") return "system_important";
+  if (type === "admin_marketing_banner" || type === "admin_test" || type === "incoming_call_signal") {
+    return "unsupported";
+  }
+
+  // Payload roomKind / meta when type is absent or legacy-shaped.
+  if (category === "missed_call" || kind === "missed_call") return "missed_call";
+  if (
+    roomKind === "trade" ||
+    roomKind === "trade_legacy" ||
+    kind === "trade_chat"
+  ) {
+    return "trade_message";
+  }
+  if (roomKind === "group" || kind === "group_chat") return "group_message";
+  if (roomKind === "store_order" || kind === "store_order_message") {
+    return isOwnerOrderSide(event, meta) ? "owner_order_message" : "customer_order_message";
+  }
+  if (roomKind === "direct" || kind === "community_chat") return "general_message";
+  if (category === "trade_status") return "trade_status";
+  if (category === "delivery_status") return "delivery_status";
+  if (category === "order_status") return "order_status";
+  return "unsupported";
+}
+
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
   const routeUrl = trimText(payload?.routeUrl);
@@ -215,6 +293,7 @@ export function mapNotificationEventToInboxRow(event: NotificationEventInboxSour
     ref_id: refId,
     push_kind: pushKindFromEvent(event),
     dedupe_key: event.dedupe_key,
+    bell_presentation_type: resolveBellPresentationType(event),
   };
 }
 
@@ -237,6 +316,10 @@ export function mergeInboxNotificationRowsEventsPrimary(
   eventRows: InboxNotificationRow[],
   legacyCompatibilityRows: InboxNotificationRow[]
 ): InboxNotificationRow[] {
+  /**
+   * Historical dual-read helper. Product Bell GET must NOT call this with legacy
+   * rows (Phase 2 LOCK — events-only). Kept for regression / quarantine tooling.
+   */
   const eventDedupeKeys = new Set(
     eventRows.map((r) => trimText(r.dedupe_key)).filter(Boolean)
   );

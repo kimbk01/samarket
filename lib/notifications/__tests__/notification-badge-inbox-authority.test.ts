@@ -25,11 +25,14 @@ describe("notification badge and inbox authority", () => {
     );
   });
 
-  it("keeps the measured Production legacy reader as compatibility-only", () => {
+  it("product Bell list uses notification_events only (no legacy unread merge)", () => {
     const route = read("app/api/me/notifications/route.ts");
-    expect(route).toContain("eventRowsPromise");
-    expect(route).toContain("mergeInboxNotificationRowsEventsPrimary");
-    expect(route).toContain("legacy_reader_degraded");
+    expect(route).toContain('authority: "notification_events"');
+    expect(route).toContain("legacy_merge: false");
+    expect(route).toContain("countNotificationEventsBadge");
+    expect(route).toContain("unread_total");
+    expect(route).not.toContain("mergeInboxNotificationRowsEventsPrimary");
+    expect(route).not.toContain("legacy_reader_degraded");
   });
 
   it("excludes call signals and admin tests from inbox presentation", () => {

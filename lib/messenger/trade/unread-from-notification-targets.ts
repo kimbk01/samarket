@@ -1,16 +1,13 @@
 /**
- * Trade list/hub unread SSOT = notification_targets rows
- * (target_type=trade, chat_domain=trade) matched by domain_identity_key.
+ * Trade list binary presence = derived `notification_targets` (target_type=trade)
+ * matched by domain_identity_key — healed from participant unread Facts.
  *
- * NOT target_id: target_id is buildTradeTargetId(postId, sellerId, buyerId)
+ * App Icon / Trade Hub room counts = `loadTradeStoreOrderUnreadRoomFactsFromParticipants`
+ * (participants.unread_count, non-phantom). Targets are projection only.
+ *
+ * NOT target_id for list match: target_id is buildTradeTargetId(postId, sellerId, buyerId)
  * (no `trade:` prefix), while the room's domain_identity_key is
- * `trade:{itemId}:{sellerId}:{counterpartyId}` (lib/messenger/trade/identity.ts).
- * domain_identity_key is the column the atomic mark-read RPC actually matches on
- * (supabase/migrations/20261005120000_dibay_messenger_domain_atomic_mark_read.sql:179),
- * so the read side must match the same way.
- *
- * DO NOT use community_messenger_participants.unread_count for list/hub badges —
- * same staleness class fixed for GD/group/store_order in 41f3e950.
+ * `trade:{itemId}:{sellerId}:{counterpartyId}`.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 

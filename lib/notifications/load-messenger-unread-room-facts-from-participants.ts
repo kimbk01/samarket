@@ -8,7 +8,8 @@
  * - Active = unread_count > 0 AND left_at IS NULL AND room.deleted_at IS NULL
  *   AND chat_domain ∈ {general_direct, group}.
  *
- * Trade / store_order stay on notification_targets loaders.
+ * Trade / store_order stay on
+ * `loadTradeStoreOrderUnreadRoomFactsFromParticipants` (same participant unread SSOT).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 

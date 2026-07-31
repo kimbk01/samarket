@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import {
   getCachedNotificationUnreadCount,
@@ -30,9 +29,8 @@ import {
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 import {
   fetchNotificationEventsForInbox,
-  mergeInboxNotificationRowsEventsPrimary,
-  type InboxNotificationRow,
 } from "@/lib/notifications/inbox-events-merge";
+import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import {
   clearChatInboxTargetsAfterMarkAll,
   markAllNotificationEventsRead,
@@ -365,29 +363,13 @@ export async function GET(req: NextRequest) {
     fetchUpper = displayCap + 1;
   }
 
-  const selectWithPushKind =
-    "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id, push_kind";
-  const selectBase = "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id";
-
-  /** merge 후 slice — legacy range 대신 양쪽 SSOT를 합친 뒤 페이지네이션 */
+  /**
+   * Bell Inbox Authority LOCK (2026-07-31 Phase 2):
+   * List rows = notification_events only — same Authority as Bell digit.
+   * DO NOT merge legacy `notifications` unread into product Bell list.
+   * Legacy table remains history / PATCH mark-all compatibility only (not list SSOT).
+   */
   const mergeFetchUpper = explicitPage ? listOffset + displayCap + 1 : fetchUpper;
-
-  async function inboxQuery(includePushKindCol: boolean) {
-    const cols = includePushKindCol ? selectWithPushKind : selectBase;
-    let q = sbx
-      .from("notifications")
-      .select(cols as typeof selectBase)
-      .eq("user_id", userId);
-    if (includePushKindCol && inboxPushKind === "chat") {
-      q = q.or("push_kind.eq.chat,notification_type.eq.chat");
-    } else if (includePushKindCol && inboxPushKind === "delivery") {
-      q = q.or("push_kind.eq.delivery,notification_type.eq.commerce");
-    } else if (includePushKindCol && inboxPushKind) {
-      q = q.eq("push_kind", inboxPushKind);
-    }
-    q = q.order("created_at", { ascending: false }).range(0, mergeFetchUpper - 1);
-    return q;
-  }
 
   const eventInboxOpts = {
     fetchUpper: mergeFetchUpper,
@@ -396,119 +378,34 @@ export async function GET(req: NextRequest) {
     excludeChatMessageList,
     ownerStoreId: ownerStoreId || undefined,
   };
-  // notification_events is the primary inbox source. Production still has
-  // legacy-only rows, so start both reads in parallel and merge legacy as a
-  // compatibility tail only.
-  const eventRowsPromise = fetchNotificationEventsForInbox(
-    sbx,
-    inboxUserId,
-    eventInboxOpts
-  );
 
-  async function finalizeMergedInboxList(legacyRows: InboxNotificationRow[]): Promise<InboxNotificationRow[]> {
-    const eventRows = await eventRowsPromise;
-    let merged = mergeInboxNotificationRowsEventsPrimary(
-      eventRows,
-      legacyRows
-    );
-    if (explicitPage) {
-      merged = merged.slice(listOffset, listOffset + displayCap + 1);
-    } else if (!ownerStoreId) {
-      merged = merged.slice(0, excludeOwnerList ? 80 : fetchUpper);
-    }
-    return merged;
+  const [eventRows, badgeCount] = await Promise.all([
+    fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts),
+    countNotificationEventsBadge(sbx, inboxUserId),
+  ]);
+
+  let notifications = eventRows;
+  if (explicitPage) {
+    notifications = notifications.slice(listOffset, listOffset + displayCap + 1);
+  } else if (!ownerStoreId) {
+    notifications = notifications.slice(0, excludeOwnerList ? 80 : fetchUpper);
   }
 
-  let usePushKindCol = true;
-  let { data, error } = await inboxQuery(true);
-  if (error && usePushKindCol && error.message?.includes("push_kind")) {
-    usePushKindCol = false;
-    ({ data, error } = await inboxQuery(false));
-  }
-
-  if (error) {
-    if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-      const eventOnly = await finalizeMergedInboxList([]);
-      const notifications = eventOnly.slice(0, displayCap);
-      return NextResponse.json({
-        ok: true,
-        notifications,
-        ...(explicitPage
-          ? { has_more: eventOnly.length > displayCap }
-          : {}),
-        legacy_table_missing: true,
-      });
-    }
-    const { data: rowsWithMeta, error: eMeta } = await sb
-      .from("notifications")
-      .select("id, notification_type, title, body, link_url, is_read, created_at, meta")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(fetchUpper);
-    if (!eMeta) {
-      let list = (rowsWithMeta ?? []) as InboxNotificationRow[];
-      if (ownerStoreId) {
-        list = filterOwnerStoreCommerceByStoreId(list, ownerStoreId).slice(0, 200);
-      } else if (excludeOwnerList) {
-        list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
-      }
-      if (excludeChatMessageList) {
-        list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
-      }
-      list = await finalizeMergedInboxList(list);
-      return NextResponse.json({ ok: true, notifications: list });
-    }
-    const { data: rowsBare, error: eBare } = await sb
-      .from("notifications")
-      .select("id, notification_type, title, body, link_url, is_read, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(fetchUpper);
-    if (!eBare) {
-      let list = (rowsBare ?? []) as InboxNotificationRow[];
-      if (ownerStoreId) {
-        list = [];
-      } else if (excludeOwnerList) {
-        list = list.slice(0, 80);
-      }
-      if (excludeChatMessageList) {
-        list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
-      }
-      list = await finalizeMergedInboxList(list);
-      return NextResponse.json({ ok: true, notifications: list });
-    }
-    const eventOnly = await finalizeMergedInboxList([]);
-    if (eventOnly.length > 0) {
-      const notifications = eventOnly.slice(0, displayCap);
-      return NextResponse.json({
-        ok: true,
-        notifications,
-        ...(explicitPage
-          ? { has_more: eventOnly.length > displayCap }
-          : {}),
-        legacy_reader_degraded: true,
-      });
-    }
-    console.error("[GET notifications]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
-  let legacyNotifications = (data ?? []) as InboxNotificationRow[];
-  if (ownerStoreId) {
-    legacyNotifications = filterOwnerStoreCommerceByStoreId(legacyNotifications, ownerStoreId).slice(0, 200);
-  } else if (excludeOwnerList) {
-    legacyNotifications = legacyNotifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r));
-  }
-  if (excludeChatMessageList) {
-    legacyNotifications = legacyNotifications.filter((r) => !isInAppChatMessageNotificationRow(r));
-  }
-
-  let notifications = await finalizeMergedInboxList(legacyNotifications);
+  const unreadTotal = Math.max(0, Math.floor(Number(badgeCount.total) || 0));
 
   if (explicitPage) {
     const hasMore = notifications.length > displayCap;
     notifications = notifications.slice(0, displayCap);
-    const body = { ok: true as const, notifications, has_more: hasMore };
+    const unreadLoaded = notifications.filter((r) => !r.is_read).length;
+    const body = {
+      ok: true as const,
+      notifications,
+      has_more: hasMore,
+      unread_total: unreadTotal,
+      unread_loaded: unreadLoaded,
+      authority: "notification_events" as const,
+      legacy_merge: false as const,
+    };
     if (ownerStoreId) {
       logOwnerDashboardPerf({
         route: "/api/me/notifications",
@@ -524,7 +421,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(body);
   }
 
-  const body = { ok: true as const, notifications };
+  const unreadLoaded = notifications.filter((r) => !r.is_read).length;
+  const body = {
+    ok: true as const,
+    notifications,
+    unread_total: unreadTotal,
+    unread_loaded: unreadLoaded,
+    authority: "notification_events" as const,
+    legacy_merge: false as const,
+  };
   if (ownerStoreId) {
     logOwnerDashboardPerf({
       route: "/api/me/notifications",

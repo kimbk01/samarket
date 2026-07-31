@@ -1,10 +1,9 @@
 /**
  * P2-a — Domain badge target facts in ONE notification_targets SELECT.
  *
- * Used for trade / store_order (and legacy chat_room target rows).
- * Messenger Bottom GD+Group counts are NOT taken from this loader alone —
- * `loadMessengerUnreadRoomFactsFromParticipants` is the product SSOT for those axes
- * (Phase A: targets lagged participant unread → Bottom 2 vs list 4).
+ * Trade / store_order App Icon / Hub Facts come from
+ * `loadTradeStoreOrderUnreadRoomFactsFromParticipants` (participants SSOT).
+ * This targets loader remains for heal / legacy diagnostics — not product App Icon origin.
  *
  * DO NOT add Hub API merge or new migrations here.
  */

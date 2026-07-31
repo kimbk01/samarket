@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   mapNotificationEventToInboxRow,
   mergeInboxNotificationRows,
@@ -206,5 +208,44 @@ describe("inbox-events-merge-regression", () => {
     expect(resolveNotificationSoundEventKeyFromRow(direct)).toBe("messenger_direct_message_received");
     expect(group.meta?.kind).toBe("group_chat");
     expect(resolveNotificationSoundEventKeyFromRow(group)).toBe("messenger_group_message_received");
+  });
+
+  it("maps chat_message roomKind to Bell presentation subtypes", () => {
+    expect(
+      mapNotificationEventToInboxRow(
+        baseEvent({ display_payload: { roomKind: "direct" } })
+      ).bell_presentation_type
+    ).toBe("general_message");
+    expect(
+      mapNotificationEventToInboxRow(
+        baseEvent({
+          type: "group_message",
+          category: "group_message",
+          display_payload: { roomKind: "group" },
+        })
+      ).bell_presentation_type
+    ).toBe("group_message");
+    expect(
+      mapNotificationEventToInboxRow(
+        baseEvent({
+          type: "store_order_message",
+          category: "order_status",
+          display_payload: { roomKind: "store_order", viewerRole: "owner" },
+        })
+      ).bell_presentation_type
+    ).toBe("owner_order_message");
+    expect(
+      mapNotificationEventToInboxRow(
+        baseEvent({ type: "order_status", category: "order_status" })
+      ).bell_presentation_type
+    ).toBe("order_status");
+  });
+
+  it("documents that merge helper is quarantine-only; product route is events-only", () => {
+    const merge = readFileSync(
+      join(process.cwd(), "lib/notifications/inbox-events-merge.ts"),
+      "utf8"
+    );
+    expect(merge).toContain("Product Bell GET must NOT call this with legacy");
   });
 });

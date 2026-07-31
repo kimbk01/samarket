@@ -1,9 +1,10 @@
 /**
- * Store-order List/Hub unread SSOT = notification_targets room rows
- * (customer: buyer_order · owner: owner_order_chat) — same axis as hub-bundle delivery/store_order.
+ * Store-order list binary presence = derived notification_targets
+ * (customer: buyer_order · owner: owner_order_chat).
  *
- * DO NOT use community_messenger_participants.unread_count for list/hub badges:
- * that counter stays >0 on completed old orders and diverges from targets (measured 29 vs 1).
+ * App Icon / Order Hub room counts = `loadTradeStoreOrderUnreadRoomFactsFromParticipants`
+ * (participants.unread_count, role-scoped, non-phantom). Targets are projection only.
+ * Terminal orders with real unread messages are included (not auto-excluded).
  *
  * target_id semantics (do not mix):
  * - buyer_order → order_id
