@@ -3,6 +3,9 @@
 **Product decision (2026-07-31):** Domain Badge Authority LOCK **유지**.  
 숫자 강제 동등 금지. “일치” = 이벤트 귀속 · 표시 표면 · 확인 처리 · deep-link · App Icon `appIconTotal` 동기화.
 
+**표면 제품 정의 (한국어 LOCK, 2026-08-01):**  
+→ [`docs/notifications/dibay-notification-surface-authority-product-lock.md`](../notifications/dibay-notification-surface-authority-product-lock.md)
+
 **Baseline HEAD (start):** `90e7725a64e66c396ab9a2eab824839b146eb6e9`  
 **Supersedes digit-equality goals.** Continues: `2026-07-24-badge-notification-domain-authority-lock.md` + Bell Contract B.
 
