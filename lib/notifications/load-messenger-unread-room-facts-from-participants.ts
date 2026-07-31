@@ -39,10 +39,13 @@ type RoomRow = {
   id?: unknown;
   chat_domain?: unknown;
   deleted_at?: unknown;
+  /** Empty last_message + unread_count>0 = phantom/stale counter (Xiaomi zxzx44). */
+  last_message?: unknown;
 };
 
 /**
  * Pure partition — join participants unread with room domain/deleted.
+ * Excludes phantom rooms: unread_count>0 but no last_message body (stale counter).
  */
 export function partitionMessengerUnreadRoomFactsFromParticipants(
   parts: ReadonlyArray<PartRow>,
@@ -67,6 +70,8 @@ export function partitionMessengerUnreadRoomFactsFromParticipants(
     const room = roomById.get(roomId);
     if (!room) continue;
     if (room.deleted_at != null && String(room.deleted_at).trim() !== "") continue;
+    const lastMessage = room.last_message;
+    if (lastMessage !== undefined && !String(lastMessage ?? "").trim()) continue;
     const domain = String(room.chat_domain ?? "").trim();
     if (domain === "general_direct") {
       gd.add(roomId);
@@ -118,7 +123,7 @@ export async function loadMessengerUnreadRoomFactsFromParticipants(
 
   const { data: rooms, error: roomErr } = await sb
     .from("community_messenger_rooms")
-    .select("id, chat_domain, deleted_at")
+    .select("id, chat_domain, deleted_at, last_message")
     .in("id", roomIds);
 
   if (roomErr) {
