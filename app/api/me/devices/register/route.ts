@@ -84,11 +84,15 @@ export async function POST(req: NextRequest) {
     .eq("environment", environment)
     .neq("user_id", auth.userId);
 
+  // Same physical device may hold apns + voip_apns concurrently.
+  // Token rotation must deactivate only within the same push_provider —
+  // never kill alert APNs when VoIP re-registers (and vice versa).
   await svc
     .from("user_devices")
     .update({ is_active: false, updated_at: now })
     .eq("user_id", auth.userId)
     .eq("device_id", deviceId)
+    .eq("push_provider", pushProvider)
     .eq("environment", environment)
     .neq("push_token", pushToken);
 

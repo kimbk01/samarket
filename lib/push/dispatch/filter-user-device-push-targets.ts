@@ -38,14 +38,15 @@ function normalizeProvider(raw: string): PushTarget["push_provider"] | null {
 /**
  * Rows must be pre-sorted by last_seen_at desc, then updated_at desc.
  * FCM: mode-dependent (single user vs one per device).
- * Other providers: dedupe by device_id (first row per device_id wins).
+ * Other providers: dedupe by (push_provider, device_id) — apns and voip_apns
+ * on the same physical device must both remain dispatch targets.
  */
 export function filterUserDevicePushTargets(
   rows: UserDevicePushRow[],
   options?: FilterUserDevicePushTargetsOptions,
 ): PushTarget[] {
   const targets: PushTarget[] = [];
-  const seenDeviceIds = new Set<string>();
+  const seenProviderDeviceKeys = new Set<string>();
   const seenFcmDeviceIds = new Set<string>();
   let fcmIncluded = false;
   const multiFcm = options?.fcmMode !== "single_fcm";
@@ -65,11 +66,10 @@ export function filterUserDevicePushTargets(
         fcmIncluded = true;
       }
     } else {
-      const deviceKey = String(row.device_id ?? "").trim();
-      if (deviceKey) {
-        if (seenDeviceIds.has(deviceKey)) continue;
-        seenDeviceIds.add(deviceKey);
-      }
+      const deviceKey = String(row.device_id ?? "").trim() || `id:${row.id}`;
+      const providerDeviceKey = `${provider}|${deviceKey}`;
+      if (seenProviderDeviceKeys.has(providerDeviceKey)) continue;
+      seenProviderDeviceKeys.add(providerDeviceKey);
     }
 
     targets.push({

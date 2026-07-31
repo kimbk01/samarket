@@ -74,7 +74,7 @@ The surviving row is the upserted row (`device_id` + `push_token` from the curre
 
 - **FCM (chat / default):** first row only (latest wins).
 - **FCM (call multi-device kinds):** one row per `device_id` (`fcmMode: multi_device_fcm`).
-- **Other providers (apns / voip_apns):** dedupe by `device_id` (unchanged).
+- **Other providers (apns / voip_apns):** dedupe by `(push_provider, device_id)` — same physical iOS device may expose **both** alert APNs and VoIP.
 - **web_push_subscriptions:** legacy path unchanged.
 
 ### 3.3 Defense in depth
@@ -91,9 +91,9 @@ Even if DB temporarily has >1 active FCM row (race / manual ops), dispatch sends
 
 | Step | Rule |
 |------|------|
-| Cross-user device | `device_id` match + `user_id ≠ auth` → `is_active = false` |
-| Same device, new token | same `user_id` + `device_id` + different `push_token` → old token row `is_active = false` |
-| Token recycle | `DELETE` row with same `(push_provider, push_token)` before upsert (global token uniqueness) |
+| Cross-user device | `device_id` match + `user_id ≠ auth` → `is_active = false` (all providers on that device for prior user) |
+| Same device, new token | same `user_id` + `device_id` + **same `push_provider`** + different `push_token` → old token row `is_active = false`. **Do not** deactivate `apns` when registering `voip_apns` (or the reverse). |
+| Token recycle | `DELETE` row with same `(push_provider, push_token, environment)` before upsert (global token uniqueness) |
 
 ### 4.2 Activation decision (P0-2)
 

@@ -57,6 +57,20 @@ describe("notification device delivery authority", () => {
     }
   });
 
+  it("rotates stale tokens only within the same push_provider on one device", () => {
+    const register = read("app/api/me/devices/register/route.ts");
+    // Same device_id may hold apns + voip_apns; VoIP re-register must not kill alert APNs.
+    expect(register).toContain('eq("push_provider", pushProvider)');
+    expect(register).toContain('eq("device_id", deviceId)');
+    expect(register).toContain('.neq("push_token", pushToken)');
+  });
+
+  it("dispatch filter keeps apns and voip_apns for the same device_id", () => {
+    const filter = read("lib/push/dispatch/filter-user-device-push-targets.ts");
+    expect(filter).toContain("providerDeviceKey");
+    expect(filter).toContain("apns and voip_apns");
+  });
+
   it("reserves durable device deliveries before provider send", () => {
     const dispatch = read(
       "lib/push/dispatch/dispatch-push-for-user.ts"

@@ -61,12 +61,27 @@ describe("filterUserDevicePushTargets", () => {
     expect(targets).toHaveLength(2);
   });
 
-  it("dedupes non-FCM rows by device_id", () => {
+  it("dedupes same-provider non-FCM rows by device_id", () => {
     const targets = filterUserDevicePushTargets([
       row("a", "same-device", "apns-token-1", "apns"),
       row("b", "same-device", "apns-token-2", "apns"),
     ]);
     expect(targets).toHaveLength(1);
     expect(targets[0]?.id).toBe("a");
+  });
+
+  it("keeps apns and voip_apns on the same physical device", () => {
+    const targets = filterUserDevicePushTargets([
+      {
+        ...row("voip", "iphone-1", "voip-token", "voip_apns", "2026-07-31T12:00:00.000Z"),
+        platform: "ios",
+      },
+      {
+        ...row("alert", "iphone-1", "apns-token", "apns", "2026-07-31T11:00:00.000Z"),
+        platform: "ios",
+      },
+    ]);
+    expect(targets).toHaveLength(2);
+    expect(targets.map((t) => t.push_provider).sort()).toEqual(["apns", "voip_apns"]);
   });
 });
