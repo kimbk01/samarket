@@ -9,7 +9,7 @@ import {
   DIBAY_APPEND_ROOM_MESSAGE_ATOMIC_RPC,
   DIBAY_MARK_ROOM_READ_ATOMIC_RPC,
   type RoomUnreadViewerRole,
-} from "@/lib/messenger/contracts/room-unread-authority";
+} from "@/lib/community-messenger/contracts/room-unread-authority";
 
 function trim(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";

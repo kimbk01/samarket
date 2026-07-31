@@ -6,7 +6,7 @@
  * Callers must not treat this as success for CM participants.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ROOM_UNREAD_HEAL_FROZEN } from "@/lib/messenger/contracts/room-unread-authority";
+import { ROOM_UNREAD_HEAL_FROZEN } from "@/lib/community-messenger/contracts/room-unread-authority";
 
 /**
  * @deprecated Room Unread Authority v1 — counter-only bulk mark-all quarantined.

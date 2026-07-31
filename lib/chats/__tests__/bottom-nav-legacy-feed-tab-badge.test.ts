@@ -68,6 +68,7 @@ describe("bottom nav Legacy feed tab badges", () => {
     });
     expect(resolveTier1BellListFetchOpts("bottom_nav_delivery")).toEqual({
       excludeChatMessages: true,
+      excludeOwnerStoreCommerce: true,
       pushKind: "delivery",
     });
     const hub = {

@@ -157,7 +157,7 @@ describe("order chat re-bump prevention contract (summary paths)", () => {
     const src = readFileSync(servicePath, "utf8");
     const updateBranch = src.slice(
       src.indexOf("if (updateSummaryId)"),
-      src.indexOf("const { data: inserted, error } = await sb")
+      src.indexOf("const actor = ensured.buyerUserId")
     );
     expect(updateBranch).toContain("Re-bump Prevention A");
     expect(updateBranch).not.toMatch(/await\s+publishStoreOrderMessengerSystemMessageBump\s*\(/);
@@ -166,9 +166,10 @@ describe("order chat re-bump prevention contract (summary paths)", () => {
   it("summary INSERT branch still publishes system message bump", () => {
     const src = readFileSync(servicePath, "utf8");
     const insertBranch = src.slice(
-      src.indexOf("const { data: inserted, error } = await sb"),
+      src.indexOf("const actor = ensured.buyerUserId"),
       src.indexOf("/**\n * Mutation-only")
     );
+    expect(insertBranch).toContain("appendRoomMessageAtomic");
     expect(insertBranch).toContain("publishStoreOrderMessengerSystemMessageBump");
   });
 

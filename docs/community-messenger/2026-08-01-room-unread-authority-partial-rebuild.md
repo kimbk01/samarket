@@ -66,4 +66,4 @@ peer messages after cursor, `deleted_at IS NULL`, join/leave aware.
 
 ## Contract module
 
-`lib/messenger/contracts/room-unread-authority.ts`
+`lib/community-messenger/contracts/room-unread-authority.ts`
