@@ -33,13 +33,12 @@ const scrollOrderBranch = sliceBetween(
 );
 
 describe("CM room order authority read contract", () => {
-  it("keeps OrderDomain official success as full participant+target+events clear", () => {
-    expect(readOrderSrc).toContain(
-      "participantUnreadAfter !== 0 || targetUnreadAfter !== 0 || eventUnreadAfter !== 0"
-    );
+  it("keeps OrderDomain success gated on Room Unread Authority mark-read projection", () => {
+    expect(readOrderSrc).toContain("dibay_mark_room_read_atomic");
     expect(readOrderSrc).toContain('error: "order_chat_read_incomplete"');
-    expect(readOrderSrc).toContain('targetType: "owner_order_chat"');
-    expect(readOrderSrc).toContain('targetType: "buyer_order"');
+    expect(readOrderSrc).toContain("participantUnreadAfter !== 0");
+    expect(readOrderSrc).toContain('p_chat_domain: "store_order"');
+    expect(readOrderSrc).not.toContain("markOrderParticipantRead");
   });
 
   it("routes delivery rooms to OrderDomain for both immediate_open and scroll_ack", () => {
