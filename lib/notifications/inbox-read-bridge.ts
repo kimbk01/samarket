@@ -15,6 +15,7 @@ import {
   clearNotificationTargetsAfterThreadRead,
   clearNotificationTargetsForLegacyInboxRow,
 } from "@/lib/notifications/notification-target-read-bridge";
+import { legacyNotificationsSelect } from "@/lib/notifications/legacy-inbox-compatibility-adapter";
 
 export type PartitionInboxReadIdsResult = {
   legacyIds: string[];
@@ -199,7 +200,7 @@ export async function lookupInboxReadIdSets(
   if (unique.length === 0) return { legacyIdSet, eventIdSet };
 
   const [legacyRes, eventRes] = await Promise.all([
-    sb.from("notifications").select("id").eq("user_id", userId).in("id", unique),
+    legacyNotificationsSelect(sb).select("id").eq("user_id", userId).in("id", unique),
     sb.from("notification_events").select("id").eq("user_id", userId).in("id", unique),
   ]);
 
@@ -229,7 +230,7 @@ export async function fetchInboxRowsForIds(
   if (unique.length === 0) return [];
 
   const [legacyRes, eventRes] = await Promise.all([
-    sb.from("notifications").select(INBOX_ROW_SELECT).eq("user_id", userId).in("id", unique),
+    legacyNotificationsSelect(sb).select(INBOX_ROW_SELECT).eq("user_id", userId).in("id", unique),
     sb
       .from("notification_events")
       .select(EVENT_ROW_SELECT)
@@ -370,8 +371,7 @@ export async function patchInboxNotificationIdsRead(
   }
 
   if (legacyIds.length > 0) {
-    const { error } = await sb
-      .from("notifications")
+    const { error } = await legacyNotificationsSelect(sb)
       .update({ is_read: true })
       .eq("user_id", userId)
       .in("id", legacyIds);
@@ -411,8 +411,7 @@ export async function patchInboxNotificationIdsDelete(
   }
 
   if (legacyIds.length > 0) {
-    const { data: deletedRows, error } = await sb
-      .from("notifications")
+    const { data: deletedRows, error } = await legacyNotificationsSelect(sb)
       .delete()
       .eq("user_id", userId)
       .in("id", legacyIds)

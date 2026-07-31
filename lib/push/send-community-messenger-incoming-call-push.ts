@@ -90,4 +90,14 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
     call_push_kind: "incoming_call",
     skip_settings_gate: true,
   });
+
+  console.info("[incoming_call_push_dispatch]", {
+    callId: sessionId,
+    roomId,
+    callerUserIdHash: callerId.slice(0, 8),
+    recipientUserIdHash: recipient.slice(0, 8),
+    pushKind: "incoming_call",
+    mediaType: input.callKind,
+    sentAt: out.occurred_at,
+  });
 }

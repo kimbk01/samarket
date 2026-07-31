@@ -6,5 +6,11 @@
     "NEXT_PUBLIC_SAMARKET_PROD_PERF_MEASURE": "1",
     "OWNER_DASHBOARD_PERF_ENV": "prod_same_region",
     "SUPABASE_REGION": "ap-south-1"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/notification-campaigns-dispatch-scheduled",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

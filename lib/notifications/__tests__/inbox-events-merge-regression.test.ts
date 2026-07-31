@@ -107,7 +107,7 @@ describe("inbox-events-merge-regression", () => {
     expect(result.eventIds).toEqual(["evt-b", "unknown-c"]);
   });
 
-  it("resolves friend request href fallback", () => {
+  it("retires friend request href to inbox fallback (Contact SSOT)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
         type: "admin_notice",
@@ -118,7 +118,7 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/community-messenger?section=friends");
+    expect(href).toBe("/mypage/notifications#notification-inbox");
   });
 
   it("resolves community post href from meta", () => {

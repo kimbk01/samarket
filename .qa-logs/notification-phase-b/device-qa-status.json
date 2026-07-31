@@ -1,0 +1,25 @@
+{
+  "phase": "notification-phase-b-d",
+  "updatedAt": "2026-07-31T03:30:00.000Z",
+  "xiaomi": {
+    "status": "BLOCKED",
+    "reason": "Awaiting operator device session for QA-A1..A5 and call regression"
+  },
+  "samsung": {
+    "status": "BLOCKED",
+    "reason": "Awaiting operator device session for QA-A1..A5 and call regression"
+  },
+  "iphone": {
+    "status": "BLOCKED",
+    "reason": "Optional; not available this turn"
+  },
+  "requiredScenarios": [
+    "QA-A1 text push fg/bg/terminated",
+    "QA-A2 image push",
+    "QA-A3 scheduled cron within 5m",
+    "QA-A4 send idempotency double-click",
+    "QA-A5 audience preview vs targets",
+    "product message/order/trade/missed-call",
+    "incoming call accept/reject/cancel/timeout"
+  ]
+}

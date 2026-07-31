@@ -6,21 +6,15 @@ import {
 import { recordCampaignDelivery } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import { resolveCampaignUserAppState } from "@/lib/admin/notification-campaigns/campaign-presence";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
+import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
 import {
   campaignNeedsInApp,
   campaignNeedsPush,
-  resolveCampaignInAppImageUrl,
-  resolveCampaignPushImageUrl,
-  resolveCampaignRouteUrl,
   type AdminNotificationCampaignRow,
   type CampaignChannel,
 } from "@/lib/admin/notification-campaigns/campaign-types";
-import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
-import {
-  eventTypeForAdminCampaignType,
-  getNotificationEventDefinition,
-} from "@/lib/notifications/core/notification-event-registry";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
+import type { NotificationEventCategory } from "@/lib/notifications/core/notification-event-types";
 import {
   resolveNotificationPolicyProfile,
   shouldUseOsNotificationForState,
@@ -28,55 +22,6 @@ import {
 import { loadActivePushTargets } from "@/lib/push/dispatch/load-active-push-targets";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
-import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
-import { getSiteOrigin } from "@/lib/env/runtime";
-
-function campaignEventType(campaignType: AdminNotificationCampaignRow["type"]): NotificationEventType {
-  return eventTypeForAdminCampaignType(campaignType);
-}
-
-function campaignCategory(campaignType: AdminNotificationCampaignRow["type"]) {
-  return getNotificationEventDefinition(
-    eventTypeForAdminCampaignType(campaignType)
-  ).eventCategory;
-}
-
-function buildCampaignPushPayload(
-  row: { id: string; user_id: string; title: string; body: string; created_at: string; category: string; type: string },
-  campaign: AdminNotificationCampaignRow,
-  routeUrl: string,
-  pushImageUrl: string | null,
-  badgeCount: number
-): NotificationSideEffectPayloadOut {
-  const origin = getSiteOrigin();
-  const link = routeUrl.startsWith("/") ? routeUrl : `/${routeUrl}`;
-  return {
-    user_id: row.user_id,
-    notification_type: campaign.type === "marketing" ? "marketing" : "notice",
-    title: row.title,
-    body: row.body,
-    link_url: link,
-    link_url_absolute: origin ? `${origin}${link}` : link,
-    occurred_at: row.created_at,
-    meta: {
-      kind: row.type,
-      category: row.category,
-      notification_event_id: row.id,
-      notification_id: row.id,
-      badge_count: badgeCount,
-      campaign_id: campaign.id,
-      push_image_url: pushImageUrl,
-      display_payload: {
-        routeUrl: link,
-        imageUrl: pushImageUrl,
-        campaignId: campaign.id,
-        campaignType: campaign.type,
-        previewKind: "admin_campaign",
-      },
-      push_kind: campaign.type === "marketing" ? "marketing" : "notice",
-    },
-  };
-}
 
 export type CampaignUserSendResult = {
   ok: boolean;
@@ -113,6 +58,7 @@ async function recordUserTargetStatus(
 
 /**
  * Send campaign to one user — channel-aware in-app + push with delivery SSOT.
+ * Presentation comes from buildAdminCampaignNotificationPresentation (preview SSOT).
  */
 export async function sendCampaignToUser(
   svc: SupabaseClient,
@@ -122,9 +68,23 @@ export async function sendCampaignToUser(
   opts?: { forceChannel?: CampaignChannel; skipDuplicateCheck?: boolean }
 ): Promise<CampaignUserSendResult> {
   const channel = opts?.forceChannel ?? campaign.channel;
-  const routeUrl = resolveCampaignRouteUrl(campaign);
-  const inAppImageUrl = resolveCampaignInAppImageUrl(campaign);
-  const pushImageUrl = resolveCampaignPushImageUrl(campaign);
+  const presentation = buildAdminCampaignNotificationPresentation({
+    title: campaign.title,
+    body: campaign.body,
+    type: campaign.type,
+    channel,
+    deeplink_url: campaign.deeplink_url,
+    web_url: campaign.web_url,
+    target_url: campaign.target_url,
+    push_image_url: campaign.push_image_url,
+    in_app_image_url: campaign.in_app_image_url,
+    image_url: campaign.image_url,
+    campaignId: campaign.id,
+    target_type: campaign.target_type,
+  });
+  const routeUrl = presentation.routeUrl;
+  const inAppImageUrl = presentation.inAppImageUrl;
+  const pushImageUrl = presentation.pushImageUrl;
   const now = new Date().toISOString();
 
   if (channel === "test_only" && !opts?.forceChannel) {
@@ -142,8 +102,8 @@ export async function sendCampaignToUser(
   }
 
   const appState = await resolveCampaignUserAppState(svc, userId);
-  const eventType = campaignEventType(campaign.type);
-  const category = campaignCategory(campaign.type);
+  const eventType = presentation.eventType;
+  const category = presentation.category as NotificationEventCategory;
   const profile = resolveNotificationPolicyProfile(category);
   const shouldOsPush = shouldUseOsNotificationForState(profile, appState);
 
@@ -158,20 +118,15 @@ export async function sendCampaignToUser(
       userId,
       type: eventType,
       category,
-      title: campaign.title,
-      body: campaign.body,
+      title: presentation.title,
+      body: presentation.body,
       dedupeKey: opts?.skipDuplicateCheck
         ? `admin_campaign:${campaign.id}:${userId}:${Date.now()}`
         : `admin_campaign:${campaign.id}:${userId}`,
       displayPayload: {
-        routeUrl,
+        ...presentation.displayPayload,
         imageUrl: inAppImageUrl,
-        campaignId: campaign.id,
-        campaignType: campaign.type,
-        targetType: campaign.target_type,
-        previewKind: "admin_campaign",
-        deeplinkUrl: campaign.deeplink_url,
-        webUrl: campaign.web_url,
+        routeUrl,
       },
       unread: true,
     });
@@ -268,8 +223,6 @@ export async function sendCampaignToUser(
           const deviceRow = dev as {
             id: string;
             notification_permission_status?: string | null;
-            push_provider?: string | null;
-            platform?: string | null;
           };
           if (deviceRow.notification_permission_status === "denied") {
             await recordCampaignDelivery(svc, {
@@ -286,24 +239,33 @@ export async function sendCampaignToUser(
           }
         }
 
-        const eventRow =
-          notificationEventId != null
-            ? { id: notificationEventId, user_id: userId, title: campaign.title, body: campaign.body, created_at: now, category, type: eventType }
-            : {
-                id: `campaign-push-${campaign.id}-${userId}`,
-                user_id: userId,
-                title: campaign.title,
-                body: campaign.body,
-                created_at: now,
-                category,
-                type: eventType,
-              };
-
         const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
           () => null
         );
         const badgeCount = Math.max(0, Math.floor(Number(domain?.projection?.appIconTotal) || 0));
-        const pushPayload = buildCampaignPushPayload(eventRow, campaign, routeUrl, pushImageUrl, badgeCount);
+        const pushPresentation = buildAdminCampaignNotificationPresentation(
+          {
+            title: campaign.title,
+            body: campaign.body,
+            type: campaign.type,
+            channel,
+            deeplink_url: campaign.deeplink_url,
+            web_url: campaign.web_url,
+            target_url: campaign.target_url,
+            push_image_url: campaign.push_image_url,
+            in_app_image_url: campaign.in_app_image_url,
+            image_url: campaign.image_url,
+            campaignId: campaign.id,
+            target_type: campaign.target_type,
+          },
+          {
+            userId,
+            notificationEventId,
+            badgeCount,
+            occurredAt: now,
+          }
+        );
+        const pushPayload = pushPresentation.pushPayload;
 
         const gate = await evaluateCampaignPushGate(svc, userId, pushPayload);
         if (!gate.allowed) {
@@ -322,6 +284,7 @@ export async function sendCampaignToUser(
             target_type: "admin_campaign",
             target_id: campaign.id,
             skip_settings_gate: true,
+            notification_event_id: notificationEventId ?? undefined,
           });
 
           for (const delivery of pushResult.deliveries) {
@@ -337,48 +300,51 @@ export async function sendCampaignToUser(
               notificationEventId,
               channel: "push",
               status: delivery.status === "sent" ? "sent" : delivery.status === "failed" ? "failed" : "skipped",
-              skipReason: skipReason as CampaignSkipReason | string | null,
+              skipReason,
               providerMessageId:
-                typeof delivery.provider_response?.providerMessageId === "string"
-                  ? delivery.provider_response.providerMessageId
-                  : typeof delivery.provider_response?.message_id === "string"
-                    ? delivery.provider_response.message_id
-                    : null,
+                typeof delivery.provider_response?.message_id === "string"
+                  ? delivery.provider_response.message_id
+                  : null,
               sentAt: delivery.status === "sent" ? now : null,
             });
             if (delivery.status === "sent") anyPushSent = true;
+            if (delivery.status === "failed") {
+              lastSkipReason =
+                typeof delivery.provider_response?.error === "string"
+                  ? delivery.provider_response.error
+                  : "push_failed";
+            }
+            if (delivery.status === "skipped" && skipReason) lastSkipReason = skipReason;
           }
 
-          if (!anyPushSent && pushResult.skipped_reason) {
-            lastSkipReason = pushResult.skipped_reason;
+          if (!pushResult.deliveries.length) {
+            lastSkipReason = "token_missing";
+            await recordCampaignDelivery(svc, {
+              campaignId: campaign.id,
+              userId,
+              notificationEventId,
+              channel: "push",
+              status: "skipped",
+              skipReason: "token_missing",
+            });
           }
         }
       }
     }
   }
 
-  const effectiveSent = inAppSent || anyPushSent;
-  const effectiveSkipped = !effectiveSent && !pushAttempted && lastSkipReason != null;
-  const effectiveFailed = !effectiveSent && pushAttempted && !anyPushSent && !inAppSent;
-
-  if (effectiveSent) {
+  const sent = inAppSent || anyPushSent;
+  if (sent) {
     await recordUserTargetStatus(svc, campaign, userId, "sent", {
       notificationEventId,
       sentAt: now,
     });
-    return {
-      ok: true,
-      sent: true,
-      skipped: false,
-      failed: false,
-      skipReason: null,
-      notificationEventId,
-    };
+    return { ok: true, sent: true, skipped: false, failed: false, skipReason: null, notificationEventId };
   }
 
-  if (effectiveSkipped || lastSkipReason === "duplicate_campaign_user") {
+  if (lastSkipReason) {
     await recordUserTargetStatus(svc, campaign, userId, "skipped", {
-      skipReason: lastSkipReason,
+      skipReason: String(lastSkipReason),
       notificationEventId,
     });
     return {
@@ -391,13 +357,31 @@ export async function sendCampaignToUser(
     };
   }
 
-  await recordUserTargetStatus(svc, campaign, userId, "failed", { skipReason: lastSkipReason });
+  if (pushAttempted) {
+    await recordUserTargetStatus(svc, campaign, userId, "failed", {
+      skipReason: "push_failed",
+      notificationEventId,
+    });
+    return {
+      ok: false,
+      sent: false,
+      skipped: false,
+      failed: true,
+      skipReason: "push_failed",
+      notificationEventId,
+    };
+  }
+
+  await recordUserTargetStatus(svc, campaign, userId, "skipped", {
+    skipReason: "no_channel_action",
+    notificationEventId,
+  });
   return {
-    ok: false,
+    ok: true,
     sent: false,
-    skipped: false,
-    failed: true,
-    skipReason: lastSkipReason,
+    skipped: true,
+    failed: false,
+    skipReason: "no_channel_action",
     notificationEventId,
   };
 }

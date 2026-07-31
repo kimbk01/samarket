@@ -4,7 +4,7 @@ import { shouldSkipPushForEventDedupe } from "@/lib/notifications/core/notificat
 import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
-import { resolveNotificationDeepLink } from "@/lib/notifications/policy/notification-deeplink-policy";
+import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
@@ -27,11 +27,14 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
   const routeFromDisplay =
     display && typeof display.routeUrl === "string" ? String(display.routeUrl).trim() : "";
   const definition = getNotificationEventDefinition(row.type);
-  const link_url = resolveNotificationDeepLink(definition.deepLinkResolverKey, {
+  const dest = resolveNotificationDestination({
+    resolverKey: definition.deepLinkResolverKey,
     roomId,
     callSessionId: row.call_session_id,
     displayRoute: routeFromDisplay,
+    fallbackHref: "/notifications",
   });
+  const link_url = dest.href;
   const eventKey = definition.soundEventKey ?? "system_default";
   const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
   return {

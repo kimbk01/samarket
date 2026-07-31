@@ -160,9 +160,7 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
 
   const meta = metaFromEvent(event);
   const metaKind = trimText(meta?.kind);
-  if (metaKind === "friend_request" || metaKind === "friend_accepted" || metaKind === "friend_rejected") {
-    return "/community-messenger?section=friends";
-  }
+  // Friend-request product path retired (Contact SSOT). Ignore legacy meta kinds.
 
   const roomId = trimText(event.room_id);
   const type = trimText(event.type);

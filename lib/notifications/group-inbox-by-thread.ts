@@ -14,8 +14,8 @@ import {
 } from "@/lib/notifications/resolve-commerce-notification-inbox-text";
 import {
   defaultInboxFallbackHref,
-  resolveNotificationInboxHref,
 } from "@/lib/notifications/resolve-notification-inbox-href";
+import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 
@@ -174,7 +174,17 @@ export function buildInboxGroupItems(
     const unreadCount = g.filter((x) => !x.is_read).length;
     const isThread = latest.notification_type === "chat" && (g.length > 1 || /^(cm|ch|mp):/.test(key));
     const isOrderGroup = latest.notification_type === "commerce" && key.startsWith("order:");
-    const rawHref = resolveNotificationInboxHref(latest) ?? latest.link_url?.trim() ?? null;
+    const rawHref =
+      resolveNotificationDestination({
+        inboxRow: {
+          notification_type: latest.notification_type,
+          link_url: latest.link_url,
+          meta: latest.meta ?? null,
+        },
+        fallbackHref: defaultInboxFallbackHref(),
+      }).href ||
+      latest.link_url?.trim() ||
+      null;
     const href = rawHref && rawHref.length > 0 ? rawHref : defaultInboxFallbackHref();
     const knd =
       latest.notification_type === "commerce"

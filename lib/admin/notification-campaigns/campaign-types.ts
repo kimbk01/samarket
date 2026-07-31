@@ -56,6 +56,11 @@ export type AdminNotificationCampaignRow = {
   sent_count: number | null;
   skipped_count: number | null;
   failed_count: number | null;
+  send_claimed_at?: string | null;
+  send_claim_token?: string | null;
+  last_error?: string | null;
+  send_idempotency_key?: string | null;
+  test_send_idempotency_key?: string | null;
 };
 
 export function campaignNeedsInApp(channel: CampaignChannel): boolean {

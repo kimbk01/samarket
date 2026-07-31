@@ -2,9 +2,7 @@
  * Resolve in-app route from FCM data payload — mirrors Android MainActivity / FcmPayloadResolver.
  */
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
-import {
-  resolveNotificationDeepLink,
-} from "@/lib/notifications/policy/notification-deeplink-policy";
+import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
 
 export type FcmRouteData = Record<string, string | undefined>;
@@ -61,13 +59,12 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
     "call_authority",
   ]);
   if (resolverKeys.has(resolverKey)) {
-    return resolveNotificationDeepLink(
-      resolverKey as NotificationDeepLinkResolverKey,
-      {
-        roomId,
-        callSessionId: callId,
-      }
-    );
+    return resolveNotificationDestination({
+      resolverKey: resolverKey as NotificationDeepLinkResolverKey,
+      roomId,
+      callSessionId: callId,
+      fallbackHref: "/notifications",
+    }).href;
   }
 
   if (type === "missed_call" && callId) {

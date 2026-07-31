@@ -194,7 +194,15 @@ export async function dispatchPushForUser(
   const force = isForceDispatch(opts);
   const audits: DispatchDeliveryAudit[] = [];
   const eventType = resolveEventType(out, opts);
-  const logCtx = { user_id: out.user_id, force, event_type: eventType, target_type: opts?.target_type ?? null };
+  const logCtx = {
+    user_id: out.user_id,
+    force,
+    event_type: eventType,
+    target_type: opts?.target_type ?? null,
+    call_push_kind: opts?.call_push_kind ?? null,
+    target_id: opts?.target_id ?? null,
+    notification_event_id: opts?.notification_event_id ?? null,
+  };
 
   console.info("[dispatchPushForUser] start", logCtx);
 

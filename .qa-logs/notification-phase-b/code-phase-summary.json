@@ -1,0 +1,30 @@
+{
+  "phase": "notification-phase-b",
+  "startedAt": "2026-07-31",
+  "baseHead": "e13069d21de8ec6218cc19a3960dec909a9b0adc",
+  "fixes": {
+    "fix1_cron": "PASS_CODE",
+    "fix2_segment": "PASS_CODE",
+    "fix3_audience": "PASS_CODE",
+    "fix4_idempotency": "PASS_CODE",
+    "fix5_preview": "PASS_CODE",
+    "fix6_deeplink": "PASS_CODE",
+    "fix7_friend": "RETIRED",
+    "fix8_call_obs": "PASS_CODE",
+    "fix9_legacy": "ADAPTER_ISOLATED",
+    "fix10_contracts": "PASS_UNIT"
+  },
+  "unitTests": {
+    "claim-scheduled-campaign": "PASS",
+    "cron-route": "PASS",
+    "phase-b-contracts": "PASS",
+    "phase-b-bans": "PASS",
+    "campaign-send-user": "PASS",
+    "notification-event-registry": "PASS"
+  },
+  "friendPolicy": "Contact SSOT LOCK — friend_request retired; no writer restore",
+  "notes": [
+    "Capacitor HTML dirty excluded from commits",
+    "Production deploy and device QA pending after push"
+  ]
+}

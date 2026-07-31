@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TYPES = new Set(["notice", "marketing", "system"]);
-const TARGETS = new Set(["all", "selected_users", "segment", "marketing_opt_in", "active_users", "region"]);
+const TARGETS = new Set(["all", "selected_users", "marketing_opt_in", "active_users", "region"]);
 
 /** GET — 목록 */
 export async function GET(req: NextRequest) {
@@ -105,6 +105,16 @@ export async function POST(req: NextRequest) {
 
   if (!title || !content || !TYPES.has(typ)) {
     return NextResponse.json({ ok: false, error: "invalid_fields" }, { status: 400 });
+  }
+  if (targetType === "segment") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "segment_unsupported",
+        message: "Segment targeting is not supported yet. Choose another audience.",
+      },
+      { status: 400 }
+    );
   }
   if (!TARGETS.has(targetType)) {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });

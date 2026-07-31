@@ -8,11 +8,10 @@ import {
   refreshCampaignDeliveryCounts,
 } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
+import { fetchCampaignProfileScanSlice } from "@/lib/admin/notification-campaigns/campaign-target-scan";
 import type { AdminNotificationCampaignRow, CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-types";
 
 export const NOTIFICATION_CAMPAIGN_BATCH_SIZE = 120;
-
-const ACTIVE_USER_DAYS = 30;
 
 const TERMINAL_STATUSES = new Set<CampaignStatus>(["sent", "partially_failed", "failed", "cancelled"]);
 
@@ -53,55 +52,6 @@ export function eligibleForCampaign(
   return evaluateCampaignUserEligibility(campaignType, userId, maps).eligible;
 }
 
-async function fetchProfileScanSlice(
-  svc: SupabaseClient,
-  campaign: AdminNotificationCampaignRow,
-  offset: number,
-  limit: number
-): Promise<string[]> {
-  const tt = campaign.target_type;
-
-  if (tt === "marketing_opt_in") {
-    const { data, error } = await svc
-      .from("user_notification_settings")
-      .select("user_id")
-      .eq("marketing_enabled", true)
-      .order("user_id", { ascending: true })
-      .range(offset, offset + limit - 1);
-    if (error) {
-      console.error("[campaign batch marketing_opt_in]", error.message);
-      return [];
-    }
-    return (data ?? []).map((r) => String((r as { user_id: string }).user_id)).filter(Boolean);
-  }
-
-  let q = svc.from("profiles").select("id").order("id", { ascending: true }).range(offset, offset + limit - 1);
-
-  if (tt === "region" && campaign.segment_region_code?.trim()) {
-    q = svc
-      .from("profiles")
-      .select("id")
-      .eq("region_code", campaign.segment_region_code.trim())
-      .order("id", { ascending: true })
-      .range(offset, offset + limit - 1);
-  } else if (tt === "active_users") {
-    const since = new Date(Date.now() - ACTIVE_USER_DAYS * 86_400_000).toISOString();
-    q = svc
-      .from("profiles")
-      .select("id")
-      .gte("updated_at", since)
-      .order("id", { ascending: true })
-      .range(offset, offset + limit - 1);
-  }
-
-  const { data, error } = await q;
-  if (error) {
-    console.error("[campaign batch profiles]", error.message);
-    return [];
-  }
-  return (data ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean);
-}
-
 function resolveFinalCampaignStatus(sent: number, skipped: number, failed: number): CampaignStatus {
   if (failed > 0 && sent > 0) return "partially_failed";
   if (failed > 0 && sent === 0) return "failed";
@@ -140,6 +90,23 @@ export async function runNotificationCampaignSendBatch(
   const allowed = assertCampaignSendAllowed(String(campaign.status));
   if (!allowed.ok) {
     return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: true, error: allowed.error };
+  }
+
+  if (String(campaign.target_type) === "segment") {
+    const nowSeg = new Date().toISOString();
+    await svc
+      .from("admin_notification_campaigns")
+      .update({ status: "failed", last_error: "segment_unsupported", updated_at: nowSeg })
+      .eq("id", campaignId);
+    return {
+      ok: false,
+      processed: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      done: true,
+      error: "segment_unsupported",
+    };
   }
 
   if (campaign.channel === "test_only") {
@@ -192,7 +159,7 @@ export async function runNotificationCampaignSendBatch(
       }
     }
   } else {
-    scannedRaw = await fetchProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE);
+    scannedRaw = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE);
     if (scannedRaw.length === 0) {
       await refreshCampaignDeliveryCounts(svc, campaignId);
       const finalStatus = resolveFinalCampaignStatus(
@@ -262,7 +229,7 @@ export async function runNotificationCampaignSendBatch(
       .eq("status", "pending");
     done = (count ?? 0) === 0;
   } else {
-    const peek = await fetchProfileScanSlice(svc, campaign, nextOffset, 1);
+    const peek = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, 1);
     done = peek.length === 0;
   }
 
