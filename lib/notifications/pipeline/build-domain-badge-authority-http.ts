@@ -21,6 +21,15 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
+import {
+  buildBadgeExplainMatrix,
+  type BadgeExplainMatrix,
+} from "@/lib/notifications/badge-explain-matrix";
+import {
+  buildBellExplainMatrix,
+  type BellExplainMatrix,
+} from "@/lib/notifications/bell-explain-matrix";
+import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
 import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
@@ -58,6 +67,16 @@ export type DomainBadgeAuthorityHttpPayload = {
     customer: readonly string[];
     owner: readonly string[];
   };
+  /**
+   * Phase 2-1 Explain Matrix — surface digit = ID set + count (Runtime proof).
+   * App Icon / Bottom / Trade / Customer / Owner.
+   */
+  explainMatrix: BadgeExplainMatrix;
+  /**
+   * Phase 3-1 Bell Explain Matrix — bellTotal = kind parts + event ID sets.
+   * DO NOT use for App Icon. Badge HARD LOCK.
+   */
+  bellExplainMatrix: BellExplainMatrix;
   domainAppIcon: {
     messenger: number;
     trade: number;
@@ -112,12 +131,14 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
-  const [messengerRooms, tradeStoreRooms, missed, categoryCounts] = await Promise.all([
-    loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
-    loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
-    loadOrphanMissedCallFacts(sb, uid),
-    countNotificationEventsBadge(sb, uid),
-  ]);
+  const [messengerRooms, tradeStoreRooms, missed, categoryCounts, bellExplainRows] =
+    await Promise.all([
+      loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
+      loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
+      loadOrphanMissedCallFacts(sb, uid),
+      countNotificationEventsBadge(sb, uid),
+      loadBellExplainUnreadEventRows(sb, uid),
+    ]);
 
   // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
   const domainUnreadRooms = {
@@ -151,6 +172,18 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   });
 
   const bell = projection.bell;
+  const explainMatrix = buildBadgeExplainMatrix({
+    generalDirectRoomIds: messengerRooms.generalDirectUnreadRoomIds,
+    groupRoomIds: messengerRooms.groupUnreadRoomIds,
+    tradeRoomIds: tradeStoreRooms.tradeUnreadRoomIds,
+    customerOrderRoomIds: tradeStoreRooms.customerOrderUnreadRoomIds,
+    ownerOrderRoomIds: tradeStoreRooms.ownerOrderUnreadRoomIds,
+    ownerOrderUnreadByStoreId: tradeStoreRooms.ownerOrderUnreadByStoreId,
+    orphanMissedCallCount: missed.orphan,
+    orphanMissedCallEventIds: missed.orphanEventIds,
+  });
+  const bellExplainMatrix = buildBellExplainMatrix(bellExplainRows);
+
   logNotifyBadge("server_count", {
     userId: uid,
     authority: "domain_badge",
@@ -163,9 +196,12 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     trade_rooms: tradeStoreRooms.tradeUnreadRoomIds.length,
     so_customer_rooms: tradeStoreRooms.customerOrderUnreadRoomIds.length,
     so_owner_rooms: tradeStoreRooms.ownerOrderUnreadRoomIds.length,
+    explain_app_icon: explainMatrix.appIcon.total,
+    explain_bell: bellExplainMatrix.total,
     p2_messenger_participant_select: 1,
     p2_trade_so_participant_select: 1,
     p2_orphan_select: 1,
+    p3_bell_explain_select: 1,
   });
 
   return {
@@ -190,6 +226,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
       customer: tradeStoreRooms.customerOrderUnreadRoomIds,
       owner: tradeStoreRooms.ownerOrderUnreadRoomIds,
     },
+    explainMatrix,
+    bellExplainMatrix,
     domainAppIcon: {
       messenger: projection.appIcon.messenger,
       trade: projection.appIcon.trade,

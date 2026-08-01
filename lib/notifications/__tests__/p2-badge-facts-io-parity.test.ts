@@ -150,15 +150,16 @@ describe("P2-a domain badge target facts parity", () => {
 describe("P2-b orphan missed facts (byRoom required)", () => {
   it("counts orphan and byRoom with eligibility; excludes muted-badge payloads", () => {
     const out = aggregateOrphanMissedCallFacts([
-      { room_id: null, display_payload: null },
-      { room_id: "", display_payload: {} },
+      { id: "e1", room_id: null, display_payload: null },
+      { id: "e2", room_id: "", display_payload: {} },
       { room_id: "room-a", display_payload: {} },
       { room_id: "room-a", display_payload: {} },
       { room_id: "room-b", display_payload: {} },
-      { room_id: null, display_payload: { exclude_from_badge: true } },
+      { id: "e-muted", room_id: null, display_payload: { exclude_from_badge: true } },
       { room_id: "room-c", display_payload: { badge_enabled: false } },
     ]);
     expect(out.orphan).toBe(2);
+    expect(out.orphanEventIds).toEqual(["e1", "e2"]);
     expect(out.byRoom).toEqual({ "room-a": 2, "room-b": 1 });
   });
 

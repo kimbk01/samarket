@@ -59,6 +59,14 @@ describe("resolveTier1BellListFetchOpts", () => {
   it("uses chat push kind for messenger surface", () => {
     expect(resolveTier1BellListFetchOpts("bottom_nav_chat")).toEqual({ pushKind: "chat" });
   });
+
+  it("delivery surface excludes owner store commerce (owner has own surface)", () => {
+    expect(resolveTier1BellListFetchOpts("bottom_nav_delivery")).toEqual({
+      excludeChatMessages: true,
+      excludeOwnerStoreCommerce: true,
+      pushKind: "delivery",
+    });
+  });
 });
 
 describe("resolveTier1BellMarkAllReadBody", () => {

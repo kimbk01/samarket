@@ -30,6 +30,7 @@ export function domainBadgeReadMutationAckFields(domain: DomainBadgeAuthorityHtt
   categoryCounts: DomainBadgeAuthorityHttpPayload["categoryCounts"];
   domainUnreadRooms: DomainBadgeAuthorityHttpPayload["domainUnreadRooms"];
   domainAppIcon: DomainBadgeAuthorityHttpPayload["domainAppIcon"];
+  explainMatrix: DomainBadgeAuthorityHttpPayload["explainMatrix"];
   nonChatEventAttention: DomainBadgeAuthorityHttpPayload["nonChatEventAttention"];
   storeOrderBuyerDeliveryUnread: number;
   storeOrderOwnerChatUnread: number;
@@ -61,6 +62,7 @@ export function domainBadgeReadMutationAckFields(domain: DomainBadgeAuthorityHtt
     categoryCounts: domain.categoryCounts,
     domainUnreadRooms: domain.domainUnreadRooms,
     domainAppIcon: domain.domainAppIcon,
+    explainMatrix: domain.explainMatrix,
     nonChatEventAttention: domain.nonChatEventAttention,
     storeOrderBuyerDeliveryUnread: domain.storeOrderBuyerDeliveryUnread,
     storeOrderOwnerChatUnread: domain.storeOrderOwnerChatUnread,
