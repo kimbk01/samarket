@@ -338,9 +338,8 @@ async function main() {
     const created = await createPriceOffer(productId, `t-${Date.now()}`);
     if (!created.ok || !created.id) throw new Error(`create_failed:${created.error}`);
     // Hard reload → Boot Apply → NativeBadgeSync → Cap+Delivery one cycle (team PASS gate)
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       location.reload();
-      return null;
     });
     await sleep(4000);
     await probe(page, "T3_offer_native_cycle", `id=${created.id} PASS iff proj==cap==summary`);
@@ -375,9 +374,8 @@ async function main() {
     await probe(page, "T9_resume_while_proj_plus", "onResume Cap cache vs Projection");
 
     await markNotificationEventRead(sb, VIEWER, created.id, { openedAt: true });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       location.reload();
-      return null;
     });
     await sleep(4000);
     await probe(page, "T10_read_native_cycle", "PASS iff proj==cap==summary after −1");
