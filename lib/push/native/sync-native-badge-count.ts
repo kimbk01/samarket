@@ -1,6 +1,13 @@
 "use client";
 
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+
+type DibayAppIconDeliveryPlugin = {
+  apply: (options: { count: number }) => Promise<{ ok?: boolean; count?: number }>;
+};
+
+const DibayAppIconDelivery = registerPlugin<DibayAppIconDeliveryPlugin>("DibayAppIconDelivery");
 
 function clampBadgeCount(count: number): number {
   if (!Number.isFinite(count)) return 0;
@@ -8,9 +15,10 @@ function clampBadgeCount(count: number): number {
 }
 
 /**
- * App icon badge — absolute set of Domain appIconTotal (never Bell, never +1).
- * Android launcher support is OEM-dependent (ShortcutBadger); failures are logged,
- * not swallowed silently. Notification tray number still comes from FCM setNumber.
+ * Delivery Adapter entry — absolute appIconTotal only (never Bell, never +1).
+ * Cap Badge.set = cache echo.
+ * Android Launcher = DibayAppIconDeliveryAdapter (S3) — LOCKED.
+ * iOS SpringBoard = DibayAppIconDeliveryAdapter (APNS badge / setBadgeCount).
  */
 export async function syncNativeBadgeCount(count: number): Promise<{
   attempted: boolean;
@@ -31,17 +39,31 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     } catch {
       supported = null;
     }
-    // ShortcutBadger.isSupported is OEM-heuristic only. Still apply absolute count —
-    // Xiaomi often reports unsupported while Samsung accepts; OS tray number from
-    // FCM setNumber remains the notification-based App Icon path when launcher API fails.
     if (supported === false) {
       console.warn("[native-badge] launcher_badge_unsupported_try_set count=", value);
     }
     if (value <= 0) {
       await Badge.clear();
-      return { attempted: true, supported, applied: true };
+    } else {
+      await Badge.set({ count: value });
     }
-    await Badge.set({ count: value });
+
+    const platform = Capacitor.getPlatform();
+    // Delivery Adapter v1 — platform OS badge only (never Kernel).
+    if (platform === "android" || platform === "ios") {
+      try {
+        await DibayAppIconDelivery.apply({ count: value });
+      } catch (deliveryErr) {
+        const message =
+          deliveryErr instanceof Error ? deliveryErr.message : String(deliveryErr);
+        console.warn(
+          `[native-badge] ${platform}_delivery_apply_failed count=`,
+          value,
+          message
+        );
+      }
+    }
+
     return { attempted: true, supported, applied: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
