@@ -108,22 +108,22 @@ describe("notify-badge-service (Domain authority)", () => {
     buildDomainBadgeAuthorityHttpPayload.mockResolvedValue(SAMPLE_DOMAIN);
   });
 
-  it("caches domain authority within TTL", async () => {
+  it("does not serve cross-request TTL cache (Delivery absolute Projection)", async () => {
     const first = await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     const second = await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     expect(first).toEqual(SAMPLE_DOMAIN);
     expect(second).toEqual(SAMPLE_DOMAIN);
-    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(1);
-    expect(peekNotificationBadgeCacheHit("user-1")).toBe(true);
+    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
+    expect(peekNotificationBadgeCacheHit("user-1")).toBe(false);
   });
 
-  it("force bypasses domain cache", async () => {
+  it("force still rebuilds Domain authority", async () => {
     await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     await fetchDomainBadgeAuthorityPayload(sb, "user-1", { force: true });
     expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
   });
 
-  it("singleflight merges concurrent domain misses", async () => {
+  it("singleflight merges concurrent domain loads", async () => {
     const [a, b] = await Promise.all([
       fetchDomainBadgeAuthorityPayload(sb, "user-1"),
       fetchDomainBadgeAuthorityPayload(sb, "user-1"),
@@ -133,7 +133,7 @@ describe("notify-badge-service (Domain authority)", () => {
     expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(1);
   });
 
-  it("invalidate clears domain cache", async () => {
+  it("invalidate remains safe after sequential loads", async () => {
     await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     invalidateNotificationBadgeCache("user-1");
     expect(peekNotificationBadgeCacheHit("user-1")).toBe(false);
@@ -141,8 +141,7 @@ describe("notify-badge-service (Domain authority)", () => {
     expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
   });
 
-  it("uses 12-20s server cache TTL window", () => {
-    expect(NOTIFICATION_BADGE_SERVER_CACHE_MS).toBeGreaterThanOrEqual(12_000);
-    expect(NOTIFICATION_BADGE_SERVER_CACHE_MS).toBeLessThanOrEqual(20_000);
+  it("Delivery LOCK: badge-count TTL serve disabled (0ms)", () => {
+    expect(NOTIFICATION_BADGE_SERVER_CACHE_MS).toBe(0);
   });
 });
