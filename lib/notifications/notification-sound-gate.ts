@@ -10,6 +10,7 @@ import {
   type NotificationDomain,
 } from "@/lib/notifications/notification-domains";
 import { isChatRoomMessageSoundMuted } from "@/lib/chats/chat-room-message-sound-mute";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 /** `NotificationSurfaceProvider` 가 매 렌더 동기 갱신 — Realtime 콜백은 컨텍스트 리렌더 없이 읽는다. */
 export type NotificationSoundGateSnapshot = {
@@ -116,11 +117,103 @@ function hasSoundSuppression(row: Record<string, unknown>): boolean {
  * INSERT 알림 행에 대한 인앱 알림음 라우팅.
  * 게이트가 없으면 `undefined` — `useSupabaseNotificationsRealtime` 기본 재생 경로로 넘김.
  */
-export function routeNotificationInsertSound(row: Record<string, unknown>): boolean | void {
-  const surface = gateSnapshot;
-  if (!surface) return undefined;
+function explainShouldPlayInAppSoundFromGate(
+  snap: NotificationSoundGateSnapshot,
+  domain: NotificationDomain,
+  refId: string | null | undefined,
+): { play: boolean; skipReason: string | null } {
+  if (!snap.userNotificationSettings.sound_enabled) {
+    return { play: false, skipReason: "sound_disabled" };
+  }
+  if (!snap.isWindowFocused) {
+    return { play: false, skipReason: "window_unfocused_os_owns_sound" };
+  }
+  if (domain === "trade_chat" && snap.userNotificationSettings.trade_chat_enabled === false) {
+    return { play: false, skipReason: "trade_chat_disabled" };
+  }
+  if (isCommunityChatSoundDomain(domain) && snap.userNotificationSettings.community_chat_enabled === false) {
+    return { play: false, skipReason: "community_chat_disabled" };
+  }
+  if (domain === "order" && snap.userNotificationSettings.order_enabled === false) {
+    return { play: false, skipReason: "order_disabled" };
+  }
+  if (domain === "store" && snap.userNotificationSettings.store_enabled === false) {
+    return { play: false, skipReason: "store_disabled" };
+  }
+  const ref = refId != null ? String(refId).trim() : "";
+  if (domain === "trade_chat" && ref && snap.activeTradeChatRoomId === ref) {
+    return { play: false, skipReason: "active_trade_room" };
+  }
+  if (isCommunityChatSoundDomain(domain) && ref && snap.activeCommunityChatRoomId === ref) {
+    return { play: false, skipReason: "active_community_room" };
+  }
+  return { play: true, skipReason: null };
+}
 
-  if (hasSoundSuppression(row)) return false;
+function explainShouldPlayGroupChatInAppSoundFromGate(
+  snap: NotificationSoundGateSnapshot,
+  roomId: string | null | undefined,
+): { play: boolean; skipReason: string | null } {
+  if (!snap.userNotificationSettings.sound_enabled) {
+    return { play: false, skipReason: "sound_disabled" };
+  }
+  if (!snap.isWindowFocused) {
+    return { play: false, skipReason: "window_unfocused_os_owns_sound" };
+  }
+  if (snap.userNotificationSettings.community_chat_enabled === false) {
+    return { play: false, skipReason: "community_chat_disabled" };
+  }
+  const ref = roomId != null ? String(roomId).trim() : "";
+  if (ref && snap.activeGroupChatRoomId === ref) {
+    return { play: false, skipReason: "active_group_room" };
+  }
+  return { play: true, skipReason: null };
+}
+
+export function routeNotificationInsertSound(row: Record<string, unknown>): boolean | void {
+  const eventId = typeof row.id === "string" ? row.id : null;
+  const roomIdFromRow =
+    typeof row.room_id === "string"
+      ? row.room_id
+      : typeof (row.meta as { room_id?: string } | undefined)?.room_id === "string"
+        ? (row.meta as { room_id: string }).room_id
+        : null;
+  const probeBase = {
+    eventId,
+    roomId: roomIdFromRow,
+    type: typeof row.type === "string" ? row.type : null,
+    category: typeof row.category === "string" ? row.category : null,
+  };
+  logBadgeFdProbe("routeNotificationInsertSound.enter", {
+    ...probeBase,
+    hasGateSnapshot: Boolean(gateSnapshot),
+    focused: gateSnapshot?.isWindowFocused ?? null,
+    sound_enabled: gateSnapshot?.userNotificationSettings.sound_enabled ?? null,
+    activeCommunityChatRoomId: gateSnapshot?.activeCommunityChatRoomId ?? null,
+    activeTradeChatRoomId: gateSnapshot?.activeTradeChatRoomId ?? null,
+    activeGroupChatRoomId: gateSnapshot?.activeGroupChatRoomId ?? null,
+  });
+
+  const finish = (result: boolean | void, skipReason: string | null, extra?: Record<string, unknown>) => {
+    logBadgeFdProbe("routeNotificationInsertSound.exit", {
+      ...probeBase,
+      result: result === undefined ? "undefined" : result,
+      skipReason,
+      ...extra,
+    });
+    return result;
+  };
+
+  const surface = gateSnapshot;
+  if (!surface) return finish(undefined, "gate_snapshot_missing");
+
+  if (hasSoundSuppression(row)) {
+    return finish(false, "row_sound_suppressed", {
+      muted_snapshot: row.muted_snapshot === true,
+      sound_suppressed_reason:
+        typeof row.sound_suppressed_reason === "string" ? row.sound_suppressed_reason : null,
+    });
+  }
 
   const rowInput = rowInputFromRecord(row);
   const metaKind = (row.meta as { kind?: string; room_id?: string } | undefined)?.kind;
@@ -131,7 +224,7 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
 
   /** 해당 방 세션/로컬 mute — polling 과 INSERT 공통 */
   if (roomRef && isChatRoomMessageSoundMuted(String(roomRef))) {
-    return false;
+    return finish(false, "chat_room_message_sound_muted", { roomRef });
   }
 
   /**
@@ -147,66 +240,109 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const gateActiveTrade =
     surface.activeTradeChatRoomId != null ? String(surface.activeTradeChatRoomId).trim() : "";
   if (roomRefNorm) {
-    if (pathActiveRoom && pathActiveRoom === roomRefNorm) return false;
-    if (gateActiveCm && gateActiveCm === roomRefNorm) return false;
-    if (gateActiveTrade && gateActiveTrade === roomRefNorm) return false;
+    if (pathActiveRoom && pathActiveRoom === roomRefNorm) {
+      return finish(false, "path_active_same_room", { roomRef: roomRefNorm, pathActiveRoom });
+    }
+    if (gateActiveCm && gateActiveCm === roomRefNorm) {
+      return finish(false, "gate_active_community_same_room", { roomRef: roomRefNorm });
+    }
+    if (gateActiveTrade && gateActiveTrade === roomRefNorm) {
+      return finish(false, "gate_active_trade_same_room", { roomRef: roomRefNorm });
+    }
   }
   const gateDomainEarly = resolveNotificationSoundGateDomainFromRow(rowInput);
   if (
     (gateDomainEarly == null || isCommunityChatSoundDomain(gateDomainEarly) || metaKind === "community_chat" || metaKind === "group_chat") &&
     shouldSkipNotificationInsertSoundForCmParticipant(roomRef)
   ) {
-    return false;
+    return finish(false, "cm_participant_already_played", { roomRef, gateDomainEarly });
   }
 
   if (metaKind === "community_group_invite") {
     const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;
     if (typeof roomId === "string" && roomId.trim()) {
+      const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, roomId);
+      logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
+        ...probeBase,
+        roomId,
+        play: gate.play,
+        skipReason: gate.skipReason,
+      });
       if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomId)) {
-        return false;
+        return finish(false, gate.skipReason ?? "group_invite_gate_false", { roomId });
       }
       playRowEventSound(row);
-      return true;
+      return finish(true, null, { played: "community_group_invite" });
     }
-    return false;
+    return finish(false, "group_invite_missing_room");
   }
 
   if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
+    const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id);
+    logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
+      ...probeBase,
+      roomId: metaAny.room_id,
+      play: gate.play,
+      skipReason: gate.skipReason,
+    });
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
-      return false;
+      return finish(false, gate.skipReason ?? "group_chat_gate_false", { roomId: metaAny.room_id });
     }
     playRowEventSound(row);
-    return true;
+    return finish(true, null, { played: "group_chat" });
   }
 
   const gateDomain = gateDomainEarly;
 
   if (gateDomain === "community_group_chat") {
+    const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, roomRef);
+    logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
+      ...probeBase,
+      roomId: roomRef,
+      play: gate.play,
+      skipReason: gate.skipReason,
+    });
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomRef)) {
-      return false;
+      return finish(false, gate.skipReason ?? "community_group_chat_gate_false", { roomRef });
     }
     playRowEventSound(row);
-    return true;
+    return finish(true, null, { played: "community_group_chat" });
   }
 
   if (gateDomain) {
+    const gate = explainShouldPlayInAppSoundFromGate(surface, gateDomain, roomRef);
+    logBadgeFdProbe("shouldPlayInAppSoundFromGate", {
+      ...probeBase,
+      domain: gateDomain,
+      roomRef,
+      play: gate.play,
+      skipReason: gate.skipReason,
+    });
     if (!shouldPlayInAppSoundFromGate(surface, gateDomain, roomRef)) {
-      return false;
+      return finish(false, gate.skipReason ?? "domain_gate_false", { gateDomain, roomRef });
     }
     playRowEventSound(row);
-    return true;
+    return finish(true, null, { played: gateDomain });
   }
 
   const domainRaw = row.domain;
   if (typeof domainRaw === "string" && isNotificationDomain(domainRaw)) {
     const routedDomain =
       domainRaw === "community_chat" ? "community_direct_chat" : (domainRaw as NotificationDomain);
+    const gate = explainShouldPlayInAppSoundFromGate(surface, routedDomain, refId);
+    logBadgeFdProbe("shouldPlayInAppSoundFromGate", {
+      ...probeBase,
+      domain: routedDomain,
+      refId,
+      play: gate.play,
+      skipReason: gate.skipReason,
+    });
     if (!shouldPlayInAppSoundFromGate(surface, routedDomain, refId)) {
-      return false;
+      return finish(false, gate.skipReason ?? "legacy_domain_gate_false", { routedDomain, refId });
     }
     playRowEventSound(row);
-    return true;
+    return finish(true, null, { played: routedDomain });
   }
 
-  return undefined;
+  return finish(undefined, "no_domain_route");
 }

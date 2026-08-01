@@ -10,6 +10,7 @@ import {
 } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { clearNativeBadgeCount, syncNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 /**
  * Runtime App Icon authority = domain-badge-surface-store only.
@@ -37,6 +38,12 @@ export function NativeBadgeSync() {
       const phase = getSessionPhase();
       const n = readAppIconTotal();
       // Delivery Trigger trace (Samsung lag) — do not change Formula/Projection.
+      logBadgeFdProbe("NativeBadgeSync.apply", {
+        reason,
+        phase,
+        surfaceAppIcon: n,
+        prev_count: lastAppliedRef.current?.count ?? null,
+      });
       console.log("[dibay-delivery-trace]", {
         step: "NativeBadgeSync.apply",
         reason,

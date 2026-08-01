@@ -20,7 +20,9 @@ import { patchNotificationBadgeCountSnapshot } from "@/lib/notifications/notific
 import {
   getDomainBadgeSurfaceAuthEpoch,
   publishDomainAppIconCompleteSnapshot,
+  getDomainBadgeSurfaceSnapshot,
 } from "@/lib/messenger/contracts/domain-badge-surface-store";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 /** Owner hub / FAB / Bottom Chat CM publish — not App Icon runtime authority. */
 function applyOwnerHubSurfacesFromProjection(projection: NotificationBadgeProjection): void {
@@ -71,11 +73,36 @@ export function applyNotificationBadgeProjection(
 ): void {
   if (typeof window === "undefined") return;
   const versionMs = Math.max(0, Math.floor(Number(opts?.projectionVersionMs) || Date.now()));
+  const before = getDomainBadgeSurfaceSnapshot();
+  logBadgeFdProbe("applyNotificationBadgeProjection.enter", {
+    applyBell: opts?.applyBell !== false,
+    projectionVersionMs: versionMs,
+    in_bellTotal: projection.bellTotal,
+    in_appIconTotal: projection.appIconTotal,
+    in_bottomChat: projection.bottomChat,
+    in_general_direct: projection.generalDirectUnreadRooms,
+    before_appIconTotal: before.appIconTotal,
+  });
   applyOwnerHubSurfacesFromProjection(projection);
   applyAppIconRuntimeAuthorityFromProjection(projection, versionMs);
   if (opts?.applyBell !== false) {
+    logBadgeFdProbe("Bell.apply.enter", {
+      in_bellTotal: projection.bellTotal,
+      in_bell_breakdown_total: projection.bell?.total ?? null,
+      projectionVersionMs: versionMs,
+    });
     patchNotificationBadgeCountSnapshot(projection.bell, "network", versionMs);
+    logBadgeFdProbe("Bell.apply.exit", {
+      out_bellTotal: projection.bellTotal,
+      projectionVersionMs: versionMs,
+    });
   }
+  const after = getDomainBadgeSurfaceSnapshot();
+  logBadgeFdProbe("applyNotificationBadgeProjection.exit", {
+    out_appIconTotal: after.appIconTotal,
+    out_bellTotal: projection.bellTotal,
+    out_bottomChat: projection.bottomChat,
+  });
   if (projection.osNotificationRemove.length > 0) {
     void import("@/lib/push/native/remove-delivered-notifications").then((mod) => {
       for (const match of projection.osNotificationRemove) {

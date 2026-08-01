@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications/build-notification-badge-projection";
 import { normalizeNotificationBadgeCountPayload } from "@/lib/notifications/notification-badge-count-store";
 import { commitCompleteProjectionSnapshot } from "@/lib/notifications/projection-authority";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 export type BadgeCountAuthorityJson = {
   authority?: string;
@@ -198,8 +199,21 @@ export function applyAuthorityJsonAsProjection(
   body: BadgeCountAuthorityJson | Record<string, unknown>,
   opts?: { applyBell?: boolean; projectionVersionMs?: number }
 ): boolean {
+  const b = body as BadgeCountAuthorityJson;
+  logBadgeFdProbe("projection_payload.receive", {
+    authority: typeof b.authority === "string" ? b.authority : null,
+    bellTotal: b.notificationAttentionTotal ?? (b as { total?: unknown }).total ?? null,
+    appIcon_messenger: b.domainAppIcon?.messenger ?? null,
+    appIcon_trade: b.domainAppIcon?.trade ?? null,
+    appIcon_storeOrder: b.domainAppIcon?.storeOrder ?? null,
+    general_direct: b.domainUnreadRooms?.general_direct ?? null,
+    applyBell: opts?.applyBell !== false,
+  });
   const input = projectionInputFromBadgeCountAuthorityJson(body as BadgeCountAuthorityJson);
-  if (!input) return false;
+  if (!input) {
+    logBadgeFdProbe("projection_payload.reject", { reason: "projection_input_null" });
+    return false;
+  }
   const versionMs = Math.max(
     0,
     Math.floor(
@@ -208,9 +222,16 @@ export function applyAuthorityJsonAsProjection(
     )
   );
   /** P0: complete HTTP snapshot registers in Projection Authority (sole apply gate). */
-  return commitCompleteProjectionSnapshot(input, {
+  const ok = commitCompleteProjectionSnapshot(input, {
     projectionVersionMs: versionMs,
     source: "badge_count_http",
     applyBell: opts?.applyBell !== false,
   });
+  logBadgeFdProbe("projection_payload.commit", {
+    ok,
+    notificationAttentionTotal: input.notificationAttentionTotal ?? null,
+    general_direct: input.domainUnreadRooms.general_direct,
+    versionMs,
+  });
+  return ok;
 }

@@ -6,6 +6,7 @@
 
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import type { SurfaceProjectionApplyResult } from "@/lib/chat-domain/projections/surface-projection-types";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 export type BellBadgeProjectionSourceKind =
   | "network"
@@ -37,8 +38,19 @@ export function getBellBadgeProjection(): BellBadgeProjectionSnapshot | null {
 export function applyBellBadgeProjection(
   snapshot: BellBadgeProjectionSnapshot,
 ): SurfaceProjectionApplyResult {
+  const prevTotal = lastBell?.totalUnread ?? null;
+  logBadgeFdProbe("applyBellBadgeProjection.enter", {
+    in_totalUnread: snapshot.totalUnread,
+    in_source: snapshot.source,
+    in_versionMs: snapshot.versionMs,
+    prev_totalUnread: prevTotal,
+  });
   lastBell = snapshot;
   sink?.(snapshot);
+  logBadgeFdProbe("applyBellBadgeProjection.exit", {
+    out_totalUnread: snapshot.totalUnread,
+    status: "ok",
+  });
   return { status: "ok" };
 }
 
