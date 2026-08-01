@@ -6,6 +6,10 @@ import {
   describeThrownForDeviceRegisterAudit,
   logDeviceRegisterAudit,
 } from "@/lib/push/device-register/device-register-audit-log";
+import {
+  assertRegisterUserDeviceRpcAuthority,
+  callRegisterUserDeviceRpc,
+} from "@/lib/push/device-register/register-user-device-rpc";
 import { shouldActivateFcmDeviceRegister } from "@/lib/push/device-register/should-activate-fcm-device-register";
 import { resolvePushEnvironment } from "@/lib/push/push-environment";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -46,6 +50,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
 
+  // Never trust body user_id as register authority — session user wins.
   const bodyUserId =
     typeof body.user_id === "string" && body.user_id.trim() ? body.user_id.trim() : "";
   if (bodyUserId && bodyUserId !== auth.userId) {
@@ -80,7 +85,6 @@ export async function POST(req: NextRequest) {
   }
 
   const requestTs = new Date().toISOString();
-  const now = requestTs;
   const environment = resolvePushEnvironment();
   const tokenEvidence = buildDeviceRegisterTokenEvidence(pushToken);
   const auditBase = {
@@ -95,120 +99,6 @@ export async function POST(req: NextRequest) {
 
   try {
     logDeviceRegisterAudit({ stage: "request", ...auditBase });
-
-    const { error: otherUserDeactivateErr } = await svc
-      .from("user_devices")
-      .update({ is_active: false, updated_at: now })
-      .eq("device_id", deviceId)
-      .eq("environment", environment)
-      .neq("user_id", auth.userId);
-    logDeviceRegisterAudit({
-      stage: "other_user_deactivate",
-      ...auditBase,
-      other_user_deactivate_err: otherUserDeactivateErr?.message ?? null,
-      other_user_deactivate_code: otherUserDeactivateErr?.code ?? null,
-    });
-
-    // Same physical device may hold apns + voip_apns concurrently.
-    // Token rotation must deactivate only within the same push_provider —
-    // never kill alert APNs when VoIP re-registers (and vice versa).
-    const { error: oldTokenDeactivateErr } = await svc
-      .from("user_devices")
-      .update({ is_active: false, updated_at: now })
-      .eq("user_id", auth.userId)
-      .eq("device_id", deviceId)
-      .eq("push_provider", pushProvider)
-      .eq("environment", environment)
-      .neq("push_token", pushToken);
-    logDeviceRegisterAudit({
-      stage: "old_token_deactivate",
-      ...auditBase,
-      old_token_deactivate_err: oldTokenDeactivateErr?.message ?? null,
-      old_token_deactivate_code: oldTokenDeactivateErr?.code ?? null,
-    });
-
-    logDeviceRegisterAudit({ stage: "token_wipe_start", ...auditBase });
-    const { error: wipeErr } = await svc
-      .from("user_devices")
-      .delete()
-      .eq("push_provider", pushProvider)
-      .eq("push_token", pushToken)
-      .eq("environment", environment);
-    const wipeFatal = Boolean(wipeErr && !wipeErr.message?.includes("does not exist"));
-    logDeviceRegisterAudit({
-      stage: "token_wipe_result",
-      ...auditBase,
-      wipe_ok: !wipeFatal,
-      wipe_err: wipeErr?.message ?? null,
-      wipe_code: wipeErr?.code ?? null,
-    });
-    if (wipeFatal) {
-      logDeviceRegisterAudit({
-        stage: "response",
-        ...auditBase,
-        http_status: 500,
-        response_category: "query_failed",
-        wipe_ok: false,
-        wipe_err: wipeErr?.message ?? null,
-        wipe_code: wipeErr?.code ?? null,
-      });
-      return NextResponse.json({ ok: false, error: "query_failed" }, { status: 500 });
-    }
-
-    logDeviceRegisterAudit({ stage: "active_count_start", ...auditBase });
-    const { count, error: countErr } = await svc
-      .from("user_devices")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", auth.userId)
-      .eq("is_active", true)
-      .eq("environment", environment);
-    logDeviceRegisterAudit({
-      stage: "active_count_result",
-      ...auditBase,
-      count_ok: !countErr,
-      active_count: count ?? null,
-      count_err: countErr?.message ?? null,
-      count_code: countErr?.code ?? null,
-    });
-
-    if (countErr) {
-      if (countErr.message?.includes("does not exist") || countErr.code === "42P01") {
-        logDeviceRegisterAudit({
-          stage: "response",
-          ...auditBase,
-          http_status: 503,
-          response_category: "table_missing",
-          count_ok: false,
-          count_err: countErr.message ?? null,
-          count_code: countErr.code ?? null,
-        });
-        return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
-      }
-      logDeviceRegisterAudit({
-        stage: "response",
-        ...auditBase,
-        http_status: 500,
-        response_category: "query_failed",
-        count_ok: false,
-        count_err: countErr.message ?? null,
-        count_code: countErr.code ?? null,
-      });
-      return NextResponse.json({ ok: false, error: "query_failed" }, { status: 500 });
-    }
-
-    const n = count ?? 0;
-    if (n >= MAX_DEVICES_PER_USER) {
-      const { data: oldest } = await svc
-        .from("user_devices")
-        .select("id")
-        .eq("user_id", auth.userId)
-        .eq("environment", environment)
-        .order("last_seen_at", { ascending: true })
-        .limit(1);
-      if (oldest?.length) {
-        await svc.from("user_devices").delete().eq("id", oldest[0].id);
-      }
-    }
 
     const { data: fcmPeers } =
       pushProvider === "fcm"
@@ -232,50 +122,39 @@ export async function POST(req: NextRequest) {
       ...auditBase,
       activate_row: activateRow,
     });
-    // Keep select("id") identical to pre-audit behavior — read shape must not change outcomes.
-    const { data: upserted, error: upsertErr } = await svc
-      .from("user_devices")
-      .upsert(
-        {
-          user_id: auth.userId,
-          platform,
-          device_id: deviceId,
-          push_token: pushToken,
-          push_provider: pushProvider,
-          environment,
-          app_version: appVersion,
-          is_active: activateRow,
-          last_seen_at: now,
-          updated_at: now,
-        },
-        { onConflict: "push_provider,push_token,environment" }
-      )
-      .select("id")
-      .maybeSingle();
 
-    if (upsertErr) {
+    const rpcResult = await callRegisterUserDeviceRpc(svc, {
+      authUserId: auth.userId,
+      deviceId,
+      platform,
+      pushToken,
+      pushProvider,
+      environment,
+      appVersion,
+      activateRow,
+      maxDevices: MAX_DEVICES_PER_USER,
+    });
+
+    if (!rpcResult.ok) {
       logDeviceRegisterAudit({
         stage: "upsert_result",
         ...auditBase,
         activate_row: activateRow,
         upsert_ok: false,
-        upsert_err: upsertErr.message ?? null,
-        upsert_code: upsertErr.code ?? null,
+        upsert_err: rpcResult.db_message ?? rpcResult.error,
+        upsert_code: rpcResult.db_code ?? null,
       });
-      if (upsertErr.message?.includes("does not exist") || upsertErr.code === "42P01") {
+      if (rpcResult.error === "rpc_missing" || rpcResult.error === "table_missing") {
         logDeviceRegisterAudit({
           stage: "response",
           ...auditBase,
           activate_row: activateRow,
           http_status: 503,
-          response_category: "table_missing",
-          upsert_ok: false,
-          upsert_err: upsertErr.message ?? null,
-          upsert_code: upsertErr.code ?? null,
+          response_category: "rpc_missing",
         });
         return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
       }
-      console.error("[devices/register]", upsertErr.message);
+      console.error("[devices/register]", rpcResult.error, rpcResult.db_code, rpcResult.db_message);
       logDeviceRegisterAudit({
         stage: "response",
         ...auditBase,
@@ -283,8 +162,33 @@ export async function POST(req: NextRequest) {
         http_status: 500,
         response_category: "save_failed",
         upsert_ok: false,
-        upsert_err: upsertErr.message ?? null,
-        upsert_code: upsertErr.code ?? null,
+        upsert_err: rpcResult.db_message ?? rpcResult.error,
+        upsert_code: rpcResult.db_code ?? null,
+      });
+      return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
+    }
+
+    const authority = assertRegisterUserDeviceRpcAuthority(rpcResult, {
+      authUserId: auth.userId,
+      deviceId,
+      environment,
+      activateRow,
+    });
+    if (!authority.ok) {
+      console.error("[devices/register] authority_mismatch", authority.error, {
+        authUserId: auth.userId,
+        resultUserId: rpcResult.user_id,
+        resultActive: rpcResult.is_active,
+      });
+      logDeviceRegisterAudit({
+        stage: "response",
+        ...auditBase,
+        activate_row: activateRow,
+        http_status: 500,
+        response_category: authority.error,
+        row_id: rpcResult.device_row_id,
+        is_active: rpcResult.is_active,
+        last_seen_at: rpcResult.last_seen_at,
       });
       return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
     }
@@ -294,9 +198,9 @@ export async function POST(req: NextRequest) {
       ...auditBase,
       activate_row: activateRow,
       upsert_ok: true,
-      row_id: upserted?.id ?? null,
-      is_active: activateRow,
-      last_seen_at: now,
+      row_id: rpcResult.device_row_id,
+      is_active: rpcResult.is_active,
+      last_seen_at: rpcResult.last_seen_at,
       upsert_err: null,
       upsert_code: null,
     });
@@ -304,9 +208,9 @@ export async function POST(req: NextRequest) {
       stage: "response",
       ...auditBase,
       activate_row: activateRow,
-      row_id: upserted?.id ?? null,
-      is_active: activateRow,
-      last_seen_at: now,
+      row_id: rpcResult.device_row_id,
+      is_active: rpcResult.is_active,
+      last_seen_at: rpcResult.last_seen_at,
       http_status: 200,
       response_category: "ok",
       upsert_ok: true,
@@ -314,11 +218,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      device_row_id: upserted?.id ?? null,
-      environment,
+      device_row_id: rpcResult.device_row_id,
+      environment: rpcResult.environment,
+      is_active: rpcResult.is_active,
+      last_seen_at: rpcResult.last_seen_at,
     });
   } catch (err) {
-    // Log then rethrow — preserve prior uncaught failure behavior (e.g. ETIMEDOUT).
     const thrown = describeThrownForDeviceRegisterAudit(err);
     logDeviceRegisterAudit({
       stage: "thrown",

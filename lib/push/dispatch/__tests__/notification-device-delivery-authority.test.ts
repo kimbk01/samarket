@@ -58,11 +58,24 @@ describe("notification device delivery authority", () => {
   });
 
   it("rotates stale tokens only within the same push_provider on one device", () => {
-    const register = read("app/api/me/devices/register/route.ts");
+    const rpc = read("supabase/migrations/20261015140000_register_user_device_rpc.sql");
     // Same device_id may hold apns + voip_apns; VoIP re-register must not kill alert APNs.
-    expect(register).toContain('eq("push_provider", pushProvider)');
-    expect(register).toContain('eq("device_id", deviceId)');
-    expect(register).toContain('.neq("push_token", pushToken)');
+    expect(rpc).toContain("push_provider = v_provider");
+    expect(rpc).toContain("device_id = v_device_id");
+    expect(rpc).toContain("push_token IS DISTINCT FROM btrim(p_push_token)");
+  });
+
+  it("registers devices via atomic RPC without physical DELETE", () => {
+    const register = read("app/api/me/devices/register/route.ts");
+    const rpc = read("supabase/migrations/20261015140000_register_user_device_rpc.sql");
+    expect(register).toContain("callRegisterUserDeviceRpc");
+    expect(register).toContain("assertRegisterUserDeviceRpcAuthority");
+    expect(register).not.toMatch(/\.from\(\s*["']user_devices["']\s*\)\s*\.delete\s*\(/);
+    expect(rpc).toContain("pg_advisory_xact_lock");
+    expect(rpc).toContain("ON CONFLICT (push_provider, push_token, environment)");
+    expect(rpc).toContain("auth.role()") ;
+    expect(rpc).toContain("service_role");
+    expect(rpc).not.toMatch(/\bDELETE\s+FROM\s+public\.user_devices\b/i);
   });
 
   it("dispatch filter keeps apns and voip_apns for the same device_id", () => {

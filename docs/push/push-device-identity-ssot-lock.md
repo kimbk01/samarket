@@ -44,11 +44,13 @@
 |-------|------|
 | Physical device identity (client) | `dibay:client_instance_id` → `ensureClientInstanceId()` (`lib/auth/client-instance-id.ts`) |
 | Server row | `public.user_devices` (`supabase/migrations/20260915100000_user_devices_notification_deliveries.sql`) |
-| Upsert unique key | `(push_provider, push_token)` — **not** `(user_id, device_id)` |
-| Active FCM invariant | **At most one** row per `user_id` where `push_provider = 'fcm'` AND `is_active = true` |
+| Upsert unique key | `(push_provider, push_token, environment)` — **not** `(user_id, device_id)` |
+| Token ownership invariant | At most one row per `(push_provider, push_token, environment)`; that row’s `user_id` is the sole owner |
+| Multi-device invariant | One `user_id` MAY have multiple active rows for different `device_id` values (call fan-out). Chat dispatch may still apply `single_fcm` filter at read time. |
+| Register authority | `public.register_user_device` RPC (service_role) — atomic upsert + deactivate + cap-inactive; **no physical DELETE** |
 | Dispatch read path | `loadActivePushTargets()` → `filterUserDevicePushTargets()` |
 
-**Known structural limit (LOCK accepts, do not “fix” without explicit approval):** DB unique constraint remains `(push_provider, push_token)`. Identity SSOT is enforced in **register route + dispatch filter**, not via new migration.
+**Phase A (2026-08-02):** Token recycle must **not** `DELETE` `user_devices` rows (Campaign FK / UNIQUE collision). Ownership moves in place via `ON CONFLICT` upsert inside the RPC.
 
 ---
 
@@ -58,15 +60,11 @@
 
 After any **successful** FCM register where `activateRow === true`:
 
-```
-COUNT(*) FROM user_devices
- WHERE user_id = <auth user>
-   AND push_provider = 'fcm'
-   AND is_active = true
-== 1
-```
-
-The surviving row is the upserted row (`device_id` + `push_token` from the current register POST).
+1. The upserted `(push_provider, push_token, environment)` row has `user_id = auth` AND `is_active = true` AND fresh `last_seen_at`.
+2. No other row shares that token key.
+3. Other users’ rows for the same physical `device_id` + `environment` are `is_active = false`.
+4. Same user + device + provider rows with a different `push_token` are `is_active = false`.
+5. Other `device_id` rows for the same user may remain active (multi-device).
 
 ### 3.2 Dispatch invariant
 
@@ -87,13 +85,19 @@ Even if DB temporarily has >1 active FCM row (race / manual ops), dispatch sends
 
 **Route:** `POST /api/me/devices/register` (`app/api/me/devices/register/route.ts`)
 
-### 4.1 Pre-upsert (unchanged baseline)
+### 4.1 Register authority (Phase A — no physical DELETE)
+
+**Authority:** `POST /api/me/devices/register` validates session, then calls `register_user_device` RPC with **session `auth.userId` only** (body `user_id` never trusted). RPC is `service_role` only and uses `pg_advisory_xact_lock` on token then device keys.
 
 | Step | Rule |
 |------|------|
-| Cross-user device | `device_id` match + `user_id ≠ auth` → `is_active = false` (all providers on that device for prior user) |
-| Same device, new token | same `user_id` + `device_id` + **same `push_provider`** + different `push_token` → old token row `is_active = false`. **Do not** deactivate `apns` when registering `voip_apns` (or the reverse). |
-| Token recycle | `DELETE` row with same `(push_provider, push_token, environment)` before upsert (global token uniqueness) |
+| Token bind | `UPSERT` on `(push_provider, push_token, environment)` setting `user_id=auth`, `device_id`, `is_active=activateRow`, `last_seen_at=now`. **Do not DELETE** token rows for recycle; ownership moves in place. |
+| Cross-user device | After bind: `device_id` + `environment` + `user_id ≠ auth` → `is_active = false` (all providers on that device for prior users). |
+| Same device, new token | After bind: same `user_id` + `device_id` + **same `push_provider`** + different `push_token` → old token row `is_active = false`. **Do not** deactivate `apns` when registering `voip_apns` (or the reverse). |
+| Cap | If active row count for `user_id`+`environment` exceeds max: set oldest active rows `is_active=false` (**never DELETE**). |
+| Failure | Any error before RPC commit → full rollback; prior bindings unchanged. |
+| Result check | Route verifies returned `user_id`, `device_id`, `environment`, `is_active`, `last_seen_at`. |
+| Campaign | Register MUST NOT depend on deleting `user_devices` rows referenced by `notification_campaign_deliveries`. |
 
 ### 4.2 Activation decision (P0-2)
 
@@ -108,17 +112,10 @@ Even if DB temporarily has >1 active FCM row (race / manual ops), dispatch sends
 
 Upsert still returns `{ ok: true }` when `activateRow === false` (token recorded but not promoted).
 
-### 4.3 Post-upsert stale sweep (P0-2)
+### 4.3 Post-bind stale sweep (Phase A)
 
-When `push_provider === 'fcm'` AND `activateRow === true` AND upsert succeeded:
-
-```
-UPDATE user_devices SET is_active = false
- WHERE user_id = auth.user_id
-   AND push_provider = 'fcm'
-   AND is_active = true
-   AND id ≠ upserted.id
-```
+Do **not** deactivate other `device_id` FCM rows for the same user after register (multi-device).  
+Stale cleanup is limited to RPC steps in §4.1: other users on the same physical `device_id`, and same user + same `device_id` + same `push_provider` with a different `push_token`.
 
 ### 4.4 Client register gate (P0-1 — do not regress)
 
@@ -194,9 +191,8 @@ New account login:
 ```
 New FCM token on device
   → register POST with same device_id + new push_token
-  → pre-upsert: deactivate old token for same device_id (§4.1)
-  → upsert on (push_provider, push_token)
-  → post-upsert: deactivate other active FCM rows (§4.3)
+  → RPC register authority (§4.1): upsert new token bind, then deactivate
+    same-device previous tokens only (not other devices)
 ```
 
 **Identity key for client dedupe:** `userId|deviceId|platform|pushProvider|pushToken` (`deviceRegisterIdentityKey`).
