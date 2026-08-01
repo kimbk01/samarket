@@ -37,6 +37,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DibayActiveCallSessionManager.shared.onAppForeground()
         ScreenAwakeBridge.shared.reapplyOnBecomeActive()
         CallV4SurfaceOwnerBridge.flushPending()
+        // iOS Delivery Adapter v1 — re-echo Cap cache → SpringBoard before remote JS.
+        DibayAppIconDeliveryAdapter.applyFromCapBadgeCache()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -68,6 +70,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
+    // iOS Delivery Adapter v1 — APNS aps.badge / badgeCount → SpringBoard (echo only).
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        DibayAppIconDeliveryAdapter.applyFromPushUserInfo(userInfo)
+        completionHandler(.noData)
     }
 
 }

@@ -120,7 +120,10 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static int parseBadgeCount(Map<String, String> data) {
     if (data == null) return 0;
     try {
-      return Math.max(0, Integer.parseInt(firstNonEmpty(data.get("badgeCount"), "0")));
+      return Math.max(
+          0,
+          Integer.parseInt(
+              firstNonEmpty(data.get("badgeCount"), data.get("badge_count"), "0")));
     } catch (NumberFormatException e) {
       return 0;
     }
@@ -325,6 +328,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(requestCode, builder.build());
+      // Android Delivery Adapter v1: real domain tray ⇒ drop summary (never coexist).
+      DibayAppIconDeliveryAdapter.onDomainNotificationPosted(this, badgeCount);
       String previewKind = data != null ? firstNonEmpty(data.get("previewKind")) : null;
       String senderName = data != null ? firstNonEmpty(data.get("senderName")) : null;
       Log.i(

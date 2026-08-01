@@ -102,6 +102,7 @@ public final class DibayNotificationChannelRegistry {
     NotificationChannel channel =
         new NotificationChannel(channelId, name, NotificationManager.IMPORTANCE_HIGH);
     channel.setDescription(description);
+    channel.setShowBadge(true);
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);

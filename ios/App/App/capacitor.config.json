@@ -25,6 +25,7 @@
 		"DibayVoipCallPlugin",
 		"DibayCallPipPlugin",
 		"NativeAppleAuthPlugin",
-		"NativeKakaoAuthPlugin"
+		"NativeKakaoAuthPlugin",
+		"DibayAppIconDeliveryPlugin"
 	]
 }

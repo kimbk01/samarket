@@ -65,6 +65,12 @@ export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
     mustContain: ["aps.badge", "badgeCount", "badge_count"],
   },
   {
+    surface: "ios_delivery_adapter",
+    sourceOfTruth: "appIconTotal",
+    evidencePath: "ios/App/App/Plugins/DibayAppIconDeliveryAdapter.swift",
+    mustContain: ["setBadgeCount", "applicationIconBadgeNumber", "appIconTotal"],
+  },
+  {
     surface: "logout_clear",
     sourceOfTruth: "appIconTotal",
     evidencePath: "lib/auth/client-session-wipe.ts",

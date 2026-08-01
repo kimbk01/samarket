@@ -15,7 +15,7 @@ describe("Phase 2-4 Badge Native Runtime Identity", () => {
     expect(BADGE_NATIVE_RUNTIME_AUTHORITY).toBe("domain_badge_native_identity_v1");
   });
 
-  it("wires Cap / NativeBadgeSync / FCM / setNumber / APNS / logout clear", () => {
+  it("wires Cap / NativeBadgeSync / FCM / setNumber / APNS / iOS Delivery / logout clear", () => {
     const surfaces = new Set(BADGE_NATIVE_IDENTITY_WIRES.map((w) => w.surface));
     for (const s of [
       "capawesome_badge",
@@ -23,6 +23,7 @@ describe("Phase 2-4 Badge Native Runtime Identity", () => {
       "fcm_badge_count",
       "android_tray_setNumber",
       "apns_badge",
+      "ios_delivery_adapter",
       "logout_clear",
     ]) {
       expect(surfaces.has(s)).toBe(true);

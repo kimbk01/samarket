@@ -27,6 +27,7 @@ Must always include (order may vary; presence is required):
 - `DibayCallPipPlugin`
 - `NativeAppleAuthPlugin`
 - `NativeKakaoAuthPlugin`
+- `DibayAppIconDeliveryPlugin` — iOS Delivery Adapter v1 (App Icon / SpringBoard)
 
 Source of truth for the merge list: `scripts/patch-ios-capacitor-package-class-list.mjs` → `IOS_APP_TARGET_PACKAGE_CLASSES`.
 

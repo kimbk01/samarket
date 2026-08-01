@@ -20,6 +20,7 @@ Regression: `95e8100bc`. Restore: `a8cc203ec`.
 - `DibayCallPipPlugin`
 - `NativeAppleAuthPlugin`
 - `NativeKakaoAuthPlugin`
+- `DibayAppIconDeliveryPlugin`
 
 Merge SSOT: `scripts/patch-ios-capacitor-package-class-list.mjs`.
 

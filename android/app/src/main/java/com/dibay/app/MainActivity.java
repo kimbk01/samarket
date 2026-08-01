@@ -955,6 +955,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     registerPlugin(NotificationSoundBridgePlugin.class);
+    registerPlugin(DibayAppIconDeliveryPlugin.class);
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
@@ -1039,6 +1040,8 @@ public class MainActivity extends BridgeActivity {
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
     DibayWebSafeAreaBridge.syncIfPossible(this);
+    // Android Delivery Adapter v1: Cap badge cache → Notification.setNumber / S3 summary.
+    DibayAppIconDeliveryAdapter.applyFromCapBadgeCache(this);
   }
 
   @Override

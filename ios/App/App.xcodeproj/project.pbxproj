@@ -63,6 +63,8 @@
 		C7VID0B22FED79650016851F /* NativeVideoCallBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0B12FED79650016851F /* NativeVideoCallBridge.swift */; };
 		C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */; };
 		C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */; };
+		C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */; };
+		C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -124,6 +126,8 @@
 		C7VID0B12FED79650016851F /* NativeVideoCallBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallBridge.swift; sourceTree = "<group>"; };
 		C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallPipPlugin.swift; sourceTree = "<group>"; };
 		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
+		C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryAdapter.swift; sourceTree = "<group>"; };
+		C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayAppIconDeliveryPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -196,6 +200,8 @@
 				C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */,
 				C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */,
 				C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */,
+				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
+				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 			);
 			path = Plugins;
 			sourceTree = "<group>";
@@ -392,6 +398,8 @@
 				C7VID0B22FED79650016851F /* NativeVideoCallBridge.swift in Sources */,
 				C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
+				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
+				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

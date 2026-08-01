@@ -18,6 +18,7 @@ export const IOS_APP_TARGET_PACKAGE_CLASSES = [
   "DibayCallPipPlugin",
   "NativeAppleAuthPlugin",
   "NativeKakaoAuthPlugin",
+  "DibayAppIconDeliveryPlugin",
 ];
 
 function mergePackageClassList(existing, required) {
