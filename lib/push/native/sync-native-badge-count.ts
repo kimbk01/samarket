@@ -30,6 +30,12 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     return { attempted: false, supported: null, applied: false };
   }
   const value = clampBadgeCount(count);
+  const t0 = Date.now();
+  console.log("[dibay-delivery-trace]", {
+    step: "syncNativeBadgeCount.enter",
+    count: value,
+    t: t0,
+  });
   try {
     const { Badge } = await import("@capawesome/capacitor-badge");
     let supported: boolean | null = null;
@@ -44,8 +50,18 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     }
     if (value <= 0) {
       await Badge.clear();
+      console.log("[dibay-delivery-trace]", {
+        step: "Badge.clear",
+        count: 0,
+        t: Date.now(),
+      });
     } else {
       await Badge.set({ count: value });
+      console.log("[dibay-delivery-trace]", {
+        step: "Badge.set",
+        count: value,
+        t: Date.now(),
+      });
     }
 
     const platform = Capacitor.getPlatform();
@@ -53,6 +69,12 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     if (platform === "android" || platform === "ios") {
       try {
         await DibayAppIconDelivery.apply({ count: value });
+        console.log("[dibay-delivery-trace]", {
+          step: "DibayAppIconDelivery.apply",
+          count: value,
+          platform,
+          t: Date.now(),
+        });
       } catch (deliveryErr) {
         const message =
           deliveryErr instanceof Error ? deliveryErr.message : String(deliveryErr);
@@ -61,9 +83,22 @@ export async function syncNativeBadgeCount(count: number): Promise<{
           value,
           message
         );
+        console.log("[dibay-delivery-trace]", {
+          step: "DibayAppIconDelivery.apply_failed",
+          count: value,
+          message,
+          t: Date.now(),
+        });
       }
     }
 
+    console.log("[dibay-delivery-trace]", {
+      step: "syncNativeBadgeCount.return",
+      count: value,
+      supported,
+      elapsedMs: Date.now() - t0,
+      t: Date.now(),
+    });
     return { attempted: true, supported, applied: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

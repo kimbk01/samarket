@@ -33,8 +33,18 @@ export function NativeBadgeSync() {
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
-    const apply = () => {
+    const apply = (reason: string) => {
       const phase = getSessionPhase();
+      const n = readAppIconTotal();
+      // Delivery Trigger trace (Samsung lag) — do not change Formula/Projection.
+      console.log("[dibay-delivery-trace]", {
+        step: "NativeBadgeSync.apply",
+        reason,
+        phase,
+        surfaceAppIcon: n,
+        prev: lastAppliedRef.current,
+        t: Date.now(),
+      });
       if (phase !== "authenticated") {
         const prev = lastAppliedRef.current;
         if (prev?.phase === phase && prev.count === 0) return;
@@ -42,16 +52,41 @@ export function NativeBadgeSync() {
         void clearNativeBadgeCount();
         return;
       }
-      const n = readAppIconTotal();
       const prev = lastAppliedRef.current;
-      if (prev?.phase === "authenticated" && prev.count === n) return;
+      if (prev?.phase === "authenticated" && prev.count === n) {
+        console.log("[dibay-delivery-trace]", {
+          step: "NativeBadgeSync.skip_same",
+          count: n,
+          t: Date.now(),
+        });
+        return;
+      }
       lastAppliedRef.current = { phase: "authenticated", count: n };
+      console.log("[dibay-delivery-trace]", {
+        step: "NativeBadgeSync→syncNativeBadgeCount",
+        count: n,
+        t: Date.now(),
+      });
       void syncNativeBadgeCount(n);
       logNotifyBadge("native_set", { count: n, source: "app_icon_projection" });
     };
 
-    apply();
-    return subscribeSessionPhase(() => apply());
+    apply("effect_mount_or_total");
+    const onPageShow = (ev: PageTransitionEvent) => {
+      console.log("[dibay-delivery-trace]", {
+        step: "pageshow",
+        persisted: Boolean(ev.persisted),
+        surfaceAppIcon: readAppIconTotal(),
+        phase: getSessionPhase(),
+        t: Date.now(),
+      });
+    };
+    window.addEventListener("pageshow", onPageShow);
+    const unsubPhase = subscribeSessionPhase(() => apply("session_phase"));
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      unsubPhase();
+    };
   }, [total]);
 
   return null;

@@ -321,6 +321,13 @@ export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<v
       boot_initial_skip_complete: 1,
       bootEpoch: bootEpoch ?? bootOwnedEpoch,
     });
+    // Delivery Trigger trace — Boot skip leaves Cap stuck until next Apply.
+    console.log("[dibay-delivery-trace]", {
+      step: "boot_initial_skip_complete",
+      snapTotal: snap.total,
+      bootEpoch: bootEpoch ?? bootOwnedEpoch,
+      t: Date.now(),
+    });
     return Promise.resolve();
   }
   if (bootEpoch != null && bootOwnedInflight && bootOwnedEpoch === bootEpoch) {
