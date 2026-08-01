@@ -78,7 +78,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
   func reportIncomingCall(
     uuidString: String,
-    handle: String,
+    callerDisplayName: String,
+    remoteHandle: String,
     hasVideo: Bool,
     roomId: String? = nil,
     callerId: String? = nil,
@@ -87,6 +88,10 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     completion: @escaping (Error?) -> Void
   ) {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    let displayName = callerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let handleValue = remoteHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+    let resolvedDisplayName = displayName.isEmpty ? "수신 통화" : displayName
+    let resolvedRemoteHandle = handleValue.isEmpty ? resolvedDisplayName : handleValue
     applyIncomingRingtoneSsot(iosSoundName: iosSoundName, policy: ringtonePolicy)
     reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
     let uuid = uuidFromSession(sessionId: sessionId)
@@ -102,7 +107,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         direction: .incoming,
         roomId: roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
         callerId: callerId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-        callerName: handle.trimmingCharacters(in: .whitespacesAndNewlines),
+        callerName: resolvedDisplayName,
         createdAt: Date()
       )
       do {
@@ -122,7 +127,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
           sessionId: sessionId,
           roomId: roomId ?? "",
           callerId: callerId ?? "",
-          callerName: handle,
+          callerName: resolvedDisplayName,
           mediaType: "video",
           callUUID: uuid
         )
@@ -136,9 +141,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
 
     let update = CXCallUpdate()
-    update.remoteHandle = CXHandle(type: .generic, value: handle)
+    update.remoteHandle = CXHandle(type: .generic, value: resolvedRemoteHandle)
     update.hasVideo = hasVideo
-    update.localizedCallerName = handle
+    update.localizedCallerName = resolvedDisplayName
     if terminalAlreadySeen {
       DibayCallLog.info(
         "ios_callkit_incoming_after_terminal_suppress",

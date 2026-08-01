@@ -105,13 +105,12 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       completion()
       return
     }
-    let caller = (data["title"] as? String) ?? "수신 통화"
-    let hasVideo = (data["kind"] as? String) == "video"
+    let identity = IncomingCallCallerIdentity.resolve(from: data)
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
     // Baseline (8dcfa709): queue native_fsi before CallKit so background/locked VoIP wake
     // can seed owner even when WebView is not ready yet (pendingByCallId).
-    if NativeVoiceCallLane.isEnabled() && !hasVideo {
+    if NativeVoiceCallLane.isEnabled() && !identity.hasVideo {
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,
         owner: "native_fsi",
@@ -128,8 +127,9 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let ringtonePolicy = stringField(data, keys: ["ringtone_policy", "ringtonePolicy"])
     callProvider.reportIncomingCall(
       uuidString: sessionId,
-      handle: caller,
-      hasVideo: hasVideo,
+      callerDisplayName: identity.displayName,
+      remoteHandle: identity.remoteHandle,
+      hasVideo: identity.hasVideo,
       roomId: roomId,
       callerId: callerId,
       iosSoundName: iosSoundName,

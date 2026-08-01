@@ -48,6 +48,7 @@
 		C7PUSH0022FED79650016851F /* VoIPPushRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */; };
 		C7PUSH0122FED79650016851F /* CallKitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0112FED79650016851F /* CallKitProvider.swift */; };
 		C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */; };
+		C7PUSH0322FED79650016851F /* IncomingCallCallerIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */; };
 		C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */; };
 		C7VID0122FED79650016851F /* NativeVideoCallOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */; };
 		C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0212FED79650016851F /* NativeVideoCallLog.swift */; };
@@ -110,6 +111,7 @@
 		C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallV4SurfaceOwnerBridge.swift; sourceTree = "<group>"; };
 		C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoIPPushRegistry.swift; sourceTree = "<group>"; };
 		C7PUSH0112FED79650016851F /* CallKitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitProvider.swift; sourceTree = "<group>"; };
+		C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallCallerIdentity.swift; sourceTree = "<group>"; };
 		C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayPushTokenBridge.swift; sourceTree = "<group>"; };
 		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
 		C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallOwner.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 		C7PUSH0032FED79650016851F /* Push */ = {
 			isa = PBXGroup;
 			children = (
+				C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */,
 				C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */,
 				C7PUSH0112FED79650016851F /* CallKitProvider.swift */,
 				C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */,
@@ -355,6 +358,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				C7STU0022FED79650016851F /* DibayStartupBridgeViewController.swift in Sources */,
 				C7KBD0022FED79650016851F /* DibayWebViewKeyboardChrome.swift in Sources */,
+				C7PUSH0322FED79650016851F /* IncomingCallCallerIdentity.swift in Sources */,
 				C7PUSH0022FED79650016851F /* VoIPPushRegistry.swift in Sources */,
 				C7PUSH0122FED79650016851F /* CallKitProvider.swift in Sources */,
 				C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */,
