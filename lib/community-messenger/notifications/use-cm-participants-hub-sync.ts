@@ -247,15 +247,17 @@ export function useCmParticipantsHubSync(
               tRef,
               routerRef,
             });
-            const sound_schedule_ms =
-              typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+            /**
+             * sound/banner 실측은 applyCmParticipantUnreadFullEffects 의 participant_increase 만.
+             * 여기서 elapsed 를 sound_schedule_ms 로 쓰면 "scheduled" 오판이 난다.
+             */
             logCmSurfaceSync({
               phase: "participant_increase",
               roomId: nextRoomId,
               t0,
               bottom_ms,
               list_cache_ms,
-              sound_schedule_ms,
+              sound_schedule_ms: null,
               banner_ms: null,
               unread: applied.unreadCount,
               prevUnread,

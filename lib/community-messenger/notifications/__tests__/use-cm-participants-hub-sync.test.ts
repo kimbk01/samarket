@@ -73,6 +73,8 @@ describe("cm-participant-hub-sync increase path", () => {
     expect(src).toContain('participantUnreadDirection: "decrease"');
     expect(src).toContain("logCmSurfaceSync");
     expect(src).toContain("dismissMessengerInAppBannerForRoom");
+    expect(src).toContain("sound_schedule_ms: null");
+    expect(src).toContain("applyCmParticipantUnreadFullEffects 의 participant_increase 만");
   });
 });
 

@@ -36,6 +36,7 @@ import {
   noteCmParticipantSurfaceSoundHandled,
 } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 import { resolveCmInAppSoundNotificationDomain } from "@/lib/community-messenger/notifications/cm-in-app-sound-domain";
 import {
@@ -157,6 +158,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
       });
       return;
     }
+    /** domain 미상 — CM 재생 생략만. INSERT 가 row domain 으로 소유권 가져가도록 handled 금지. */
     if (soundDomain) {
       const scheduled = playCoalescedChatNotificationSound(
         `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
@@ -167,8 +169,6 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
         sound_schedule_ms =
           typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
       }
-    } else {
-      noteCmParticipantSurfaceSoundHandled(nextRoomId);
     }
     tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
@@ -234,20 +234,44 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
    * 배너와 소리는 같은 decision 에서 파생하되 결과가 다를 수 있음(현재 방 등).
    */
   const allowSound = playInAppMessageSound && soundDomain != null;
+  let insertOwnerClaimed = false;
+  let coalesceStatus: string | null = null;
   if (dedupeKey && allowSound && soundDomain) {
     cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
     const scheduled = playCoalescedChatNotificationSound(dedupeKey, soundDomain);
+    coalesceStatus = scheduled.status;
     if (scheduled.status === "scheduled") {
       noteCmParticipantSurfaceSoundHandled(nextRoomId);
+      insertOwnerClaimed = true;
       sound_schedule_ms =
         typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
     }
-  } else if (dedupeKey && !allowSound) {
+  } else if (dedupeKey && !playInAppMessageSound) {
     /**
-     * 현재 방·음소거·설정 OFF·도메인 미상 — notif INSERT 가 늦게 울리지 않게 handled.
+     * 현재 방·음소거·설정 OFF — 의도적 억제만 INSERT 중복음 차단.
+     * domain 미상(soundDomain==null)인데 정책상 재생 허용이면 INSERT 가 row domain 소유.
      */
     noteCmParticipantSurfaceSoundHandled(nextRoomId);
+    insertOwnerClaimed = true;
   }
+  logBadgeFdProbe("cm_participant_sound.decision", {
+    roomId: nextRoomId,
+    prevUnread,
+    nextUnread,
+    playInAppMessageSound,
+    allowSound,
+    soundDomain,
+    insertOwnerClaimed,
+    coalesceStatus,
+    soundScheduleMs: sound_schedule_ms,
+    skipReason: !playInAppMessageSound
+      ? "policy_suppress"
+      : soundDomain == null
+        ? "domain_unknown_insert_may_own"
+        : coalesceStatus === "scheduled"
+          ? null
+          : coalesceStatus,
+  });
   if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
     useMessengerInAppMessageBannerStore.getState().pushOrMerge({
       roomId: nextRoomId,

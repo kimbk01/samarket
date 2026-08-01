@@ -122,7 +122,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
     );
   });
 
-  it("skips sound when domain is unknown (no direct disguise)", async () => {
+  it("skips CM sound when domain is unknown but does not claim INSERT ownership", async () => {
     const { resolveCmInAppSoundNotificationDomain } = await import(
       "@/lib/community-messenger/notifications/cm-in-app-sound-domain"
     );
@@ -146,6 +146,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
     });
 
     expect(playCoalescedMock).not.toHaveBeenCalled();
+    expect(shouldSkipNotificationInsertSoundForCmParticipant("room-unknown")).toBe(false);
   });
 
   it("does not treat missing settings as sound OFF when surface and gate are both empty", async () => {
@@ -203,5 +204,6 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
     });
 
     expect(playCoalescedMock).not.toHaveBeenCalled();
+    expect(shouldSkipNotificationInsertSoundForCmParticipant("room-open")).toBe(true);
   });
 });

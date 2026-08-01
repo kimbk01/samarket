@@ -16,6 +16,7 @@ import {
   ensureNotificationSoundSsotHydratedForClient,
   invalidateNotificationSoundSsotClientHydrate,
 } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
+import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
 /** Realtime INSERT + 미읽음 배지 폴링이 같은 수신을 거의 동시에 재생할 때 1회로 줄임 */
@@ -59,13 +60,33 @@ export function invalidatePendingNotificationSoundPlayback(): void {
 }
 
 function playOneShot(url: string, volume: number, entryEpoch: number): void {
-  if (entryEpoch !== roomEntryCancelEpoch) return;
+  if (entryEpoch !== roomEntryCancelEpoch) {
+    logBadgeFdProbe("playOneShot.skip", { reason: "room_entry_cancel", url });
+    return;
+  }
   try {
     const a = new Audio(url);
     a.volume = Math.max(0, Math.min(1, volume));
-    void a.play().catch(() => {});
-  } catch {
-    /* ignore */
+    logBadgeFdProbe("playOneShot.play", {
+      url,
+      volume: a.volume,
+      muted: a.muted,
+      currentTime: a.currentTime,
+    });
+    void a.play().then(
+      () => {
+        logBadgeFdProbe("playOneShot.result", { url, ok: true });
+      },
+      (err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        logBadgeFdProbe("playOneShot.result", { url, ok: false, error: message });
+        console.warn("[notification-sound] playOneShot_failed", message);
+      }
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logBadgeFdProbe("playOneShot.result", { url, ok: false, error: message });
+    console.warn("[notification-sound] playOneShot_throw", message);
   }
 }
 
@@ -78,17 +99,43 @@ export async function playEventNotificationSound(
 ): Promise<void> {
   if (typeof window === "undefined") return;
   const entryEpochAtStart = roomEntryCancelEpoch;
-  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:enter", { eventKey });
+  console.info(
+    `${RUNTIME_LINK_P1_LOG} ${JSON.stringify({ stage: "playEventNotificationSound:enter", eventKey })}`
+  );
   await ensureNotificationSoundSsotHydratedForClient();
   /** 방 진입 invalidate 만 pending 취소 — 일반 stop 은 여기 안 걸림 */
-  if (entryEpochAtStart !== roomEntryCancelEpoch) return;
+  if (entryEpochAtStart !== roomEntryCancelEpoch) {
+    logBadgeFdProbe("playEventNotificationSound.skip", {
+      eventKey,
+      reason: "room_entry_cancel_after_hydrate",
+    });
+    return;
+  }
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
-  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:resolved", {
-    eventKey: resolved.eventKey,
-    fileUrl: resolved.webUrl ?? null,
-  });
-  if (!resolved.enabled || resolved.kind === "silent") return;
-  if (!resolved.webUrl) return;
+  console.info(
+    `${RUNTIME_LINK_P1_LOG} ${JSON.stringify({
+      stage: "playEventNotificationSound:resolved",
+      eventKey: resolved.eventKey,
+      fileUrl: resolved.webUrl ?? null,
+      enabled: resolved.enabled,
+      kind: resolved.kind,
+      volume: resolved.volume,
+    })}`
+  );
+  if (!resolved.enabled || resolved.kind === "silent") {
+    logBadgeFdProbe("playEventNotificationSound.skip", {
+      eventKey: resolved.eventKey,
+      reason: resolved.kind === "silent" ? "silent" : "disabled",
+    });
+    return;
+  }
+  if (!resolved.webUrl) {
+    logBadgeFdProbe("playEventNotificationSound.skip", {
+      eventKey: resolved.eventKey,
+      reason: "missing_webUrl",
+    });
+    return;
+  }
 
   stopNotificationPlayback();
   const entryEpochForShots = roomEntryCancelEpoch;
@@ -97,10 +144,15 @@ export async function playEventNotificationSound(
   const vol = resolved.volume;
   const repeats = Math.max(1, Math.min(5, resolved.repeatCount));
 
-  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:before-audio", {
-    eventKey: resolved.eventKey,
-    fileUrl: url,
-  });
+  console.info(
+    `${RUNTIME_LINK_P1_LOG} ${JSON.stringify({
+      stage: "playEventNotificationSound:before-audio",
+      eventKey: resolved.eventKey,
+      fileUrl: url,
+      volume: vol,
+      repeats,
+    })}`
+  );
   for (let i = 0; i < repeats; i++) {
     const t = window.setTimeout(() => {
       playOneShot(url, vol, entryEpochForShots);
@@ -119,11 +171,17 @@ export async function playDomainNotificationSound(domain: NotificationDomain): P
   const nowDedupe = Date.now();
   const prevAt = lastDomainPlayAt.get(domain) ?? 0;
   if (nowDedupe - prevAt < DOMAIN_PLAY_DEDUPE_MS) {
+    logBadgeFdProbe("playDomainNotificationSound.skip", {
+      domain,
+      reason: "domain_dedupe",
+      gapMs: nowDedupe - prevAt,
+    });
     return;
   }
   lastDomainPlayAt.set(domain, nowDedupe);
 
   const eventKey = eventKeyForNotificationDomain(domain);
+  logBadgeFdProbe("playDomainNotificationSound.enter", { domain, eventKey });
   await playEventNotificationSound(eventKey);
 }
 
