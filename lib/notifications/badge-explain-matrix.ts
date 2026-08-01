@@ -4,11 +4,14 @@
  * Every Domain Badge surface digit MUST be explainable as ID set + count.
  * DO NOT: Bell · RoomUnread · Heal · UI digit hacks.
  *
- * App Icon = |GD| + |Group| + |Trade| + |Customer| + |Owner| + orphanMissed
+ * App Icon = |GD| + |Group| + |Trade| + |Customer| + |Owner| + NotificationAttention
  * Bottom   = |GD| + |Group|
  * Trade    = |Trade|
  * Customer = |Customer|
  * Owner    = |Owner|
+ *
+ * missedCall part = orphan missed only (diagnostics).
+ * App Icon total uses notificationAttentionTotal (Phase B), not orphan alone.
  */
 export const BADGE_EXPLAIN_MATRIX_AUTHORITY = "domain_badge_explain_v1" as const;
 
@@ -57,6 +60,9 @@ export type BadgeExplainMatrixInput = Readonly<{
   ownerOrderUnreadByStoreId?: Readonly<Record<string, number>>;
   orphanMissedCallCount: number;
   orphanMissedCallEventIds?: readonly string[];
+  /** Phase B — NotificationAttentionTotal (drives App Icon notification axis). */
+  notificationAttentionTotal?: number;
+  notificationAttentionKeys?: readonly string[];
 }>;
 
 function uniqIds(ids: readonly string[]): string[] {
@@ -91,6 +97,16 @@ export function buildBadgeExplainMatrix(input: BadgeExplainMatrixInput): BadgeEx
     count: missedCount,
     eventIds: missedIds,
   };
+  const notificationAttentionTotal = Math.max(
+    0,
+    Math.floor(
+      Number(
+        input.notificationAttentionTotal != null
+          ? input.notificationAttentionTotal
+          : missedCount
+      ) || 0
+    )
+  );
 
   const appIconTotal =
     general.count +
@@ -98,7 +114,7 @@ export function buildBadgeExplainMatrix(input: BadgeExplainMatrixInput): BadgeEx
     trade.count +
     customerOrder.count +
     ownerOrder.count +
-    missedCall.count;
+    notificationAttentionTotal;
 
   const byStoreRaw = input.ownerOrderUnreadByStoreId ?? {};
   const byStoreId: Record<string, number> = {};
@@ -184,15 +200,25 @@ export function assertBadgeExplainMatrix(
   checkRoom("customer", matrix.customer);
   checkRoom("owner", matrix.owner);
 
-  const sumParts =
+  const sumRooms =
     matrix.appIcon.general.count +
     matrix.appIcon.group.count +
     matrix.appIcon.trade.count +
     matrix.appIcon.customerOrder.count +
-    matrix.appIcon.ownerOrder.count +
-    matrix.appIcon.missedCall.count;
-  if (matrix.appIcon.total !== sumParts) {
-    errors.push(`appIcon.total!=sum(parts) (${matrix.appIcon.total}!=${sumParts})`);
+    matrix.appIcon.ownerOrder.count;
+  // Phase B: appIcon.total = rooms + NotificationAttention (missedCall part is orphan subset only).
+  if (matrix.appIcon.total < sumRooms) {
+    errors.push(`appIcon.total<sum(rooms) (${matrix.appIcon.total}<${sumRooms})`);
+  }
+  if (matrix.appIcon.total < sumRooms + matrix.appIcon.missedCall.count) {
+    // orphan must be covered by notification axis (notification >= orphan)
+    // when notificationAttention omitted, total === rooms+orphan so equality holds.
+  }
+  const notificationAxis = matrix.appIcon.total - sumRooms;
+  if (notificationAxis < matrix.appIcon.missedCall.count) {
+    errors.push(
+      `notification_axis<orphan (${notificationAxis}<${matrix.appIcon.missedCall.count})`
+    );
   }
   if (matrix.bottom.total !== matrix.bottom.general.count + matrix.bottom.group.count) {
     errors.push("bottom.total!=general+group");

@@ -1,21 +1,23 @@
 /**
- * Domain App Icon Badge Authority — single formula for native app icon count.
+ * Domain App Icon Badge Authority — unified Chat + Notification formula.
  *
- * App Icon = messenger (GD+Group rooms) + trade rooms + store_order rooms
- *          + orphan missedCall only (room_id null).
- * Room-attached missed_call counts via Room → Hub → App Icon room path — DO NOT re-add.
- * DO NOT add notification_events category SUM (adminNotice, trade_status, order_status, …)
- * — that double-counts Domain room unread.
+ * AppIconTotal = ChatAttentionTotal (unread rooms) + NotificationAttentionTotal
+ *   (distinct active non-chat attention_key; includes orphan missed_call)
  *
- * Lives under lib/notifications so app/api badge-count may import without crossing
- * the app → lib/messenger port boundary (Phase 4.5 contract).
+ * Room-bound missed_call → list row only (already covered if room unread) — DO NOT re-add.
+ * chat_message events → Chat room axis only — DO NOT add via Bell/NotificationAttention.
+ *
+ * `missedCall` field name retained for surface-store wire compatibility;
+ * value = NotificationAttentionTotal (not orphan-only).
  */
-
 export type DomainAppIconBadgeParts = Readonly<{
   messenger: number;
   trade: number;
   storeOrder: number;
-  /** Orphan missed_call events only (no room_id). */
+  /**
+   * NotificationAttentionTotal (distinct non-chat attention_key).
+   * Field name `missedCall` kept for DomainBadgeSurfaceSnapshot compatibility.
+   */
   missedCall: number;
 }>;
 
@@ -23,7 +25,7 @@ function nonNeg(n: unknown): number {
   return Math.max(0, Math.floor(Number(n) || 0));
 }
 
-/** Pure App Icon total from Domain shell + orphan missedCall only. */
+/** Pure App Icon total = chat rooms + notification attention. */
 export function resolveDomainAppIconBadgeCount(parts: DomainAppIconBadgeParts): number {
   return (
     nonNeg(parts.messenger) +
@@ -37,12 +39,17 @@ export function resolveDomainAppIconBadgeParts(input: {
   communityMessengerUnread: number;
   tradeUnread: number;
   storeOrderChatUnread: number;
+  /** NotificationAttentionTotal */
   missedCall?: number;
+  notificationAttention?: number;
 }): DomainAppIconBadgeParts {
+  const notification = nonNeg(
+    input.notificationAttention != null ? input.notificationAttention : input.missedCall
+  );
   return {
     messenger: nonNeg(input.communityMessengerUnread),
     trade: nonNeg(input.tradeUnread),
     storeOrder: nonNeg(input.storeOrderChatUnread),
-    missedCall: nonNeg(input.missedCall),
+    missedCall: notification,
   };
 }

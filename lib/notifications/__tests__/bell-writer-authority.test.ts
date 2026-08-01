@@ -90,12 +90,12 @@ describe("Phase 3-2 Bell Writer Authority SSOT", () => {
     expect(bridge).toContain("if (opts?.applyBell !== false)");
   });
 
-  it("Explain matches digit helper", () => {
+  it("Explain matches digit helper (chat excluded from Bell digit)", () => {
     const matrix = buildBellExplainMatrix([
       { id: "a", type: "chat_message", category: "chat", unread: true, read_at: null },
       { id: "b", type: "admin_notice", category: "admin_notice", unread: true, read_at: null },
     ]);
-    expect(assertBellExplainMatchesDigit({ bellExplainMatrix: matrix, bellTotal: 2 })).toEqual({
+    expect(assertBellExplainMatchesDigit({ bellExplainMatrix: matrix, bellTotal: 1 })).toEqual({
       ok: true,
       errors: [],
     });

@@ -38,6 +38,27 @@ const EMPTY_DOMAIN = {
   storeOrderBuyerDeliveryUnread: 0,
   storeOrderOwnerChatUnread: 0,
   unreadApprovedNotificationEvents: 0,
+  notificationAttentionTotal: 0,
+  unifiedAttention: {
+    authority: "chat_notification_attention_v1" as const,
+    chat: {
+      generalRoomIds: [] as string[],
+      groupRoomIds: [] as string[],
+      tradeRoomIds: [] as string[],
+      customerOrderRoomIds: [] as string[],
+      ownerOrderRoomIds: [] as string[],
+      total: 0,
+    },
+    notification: {
+      attentionKeys: [] as string[],
+      eventIdsByAttentionKey: {} as Record<string, string[]>,
+      byType: {} as Record<string, number>,
+      excludedChatMessageEventIds: [] as string[],
+      excludedRoomBoundMissedCallEventIds: [] as string[],
+      total: 0,
+    },
+    appIconTotal: 0,
+  },
   nonChatEventAttention: {
     tradeStatus: 0,
     orderStatus: 0,

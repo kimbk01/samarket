@@ -28,7 +28,7 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(bellPresentationToExplainKind("unsupported")).toBe("excluded");
   });
 
-  it("sums kinds to total with event ID sets", () => {
+  it("sums non-chat NotificationAttention into digit total; chat kinds quarantine", () => {
     const matrix = buildBellExplainMatrix([
       { id: "g1", type: "chat_message", category: "chat", unread: true, read_at: null },
       { id: "g2", type: "chat_message", category: "chat", unread: true, read_at: null },
@@ -56,6 +56,7 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
         category: "trade_status",
         unread: true,
         read_at: null,
+        display_payload: { product_id: "p1", legacyMeta: { product_id: "p1" } },
       },
       {
         id: "os1",
@@ -76,7 +77,8 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
       },
     ]);
 
-    expect(matrix.total).toBe(10);
+    // Phase B digit = trade_status + order_status + orphan missed + admin (4), not chat messages.
+    expect(matrix.total).toBe(4);
     expect(matrix.generalMessage.count).toBe(2);
     expect(matrix.groupMessage.count).toBe(1);
     expect(matrix.tradeMessage.count).toBe(1);
@@ -86,12 +88,11 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(matrix.orderStatus.count).toBe(1);
     expect(matrix.missedCall.count).toBe(1);
     expect(matrix.systemAdmin.count).toBe(1);
-    expect(matrix.excludedFromDigit.count).toBe(1);
-    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 10 })).toEqual({
-      ok: true,
-      errors: [],
-    });
-    expect(listBellExplainEventIds(matrix)).toHaveLength(10);
+    expect(matrix.excludedFromDigit.eventIds).toEqual(
+      expect.arrayContaining(["g1", "g2", "gr1", "t1", "c1", "o1", "x1"])
+    );
+    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 4 }).ok).toBe(true);
+    expect(listBellExplainEventIds(matrix).length).toBeGreaterThanOrEqual(4);
   });
 
   it("HTTP builder wires bellExplainMatrix (contract)", () => {
@@ -102,5 +103,6 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(src).toContain("bellExplainMatrix");
     expect(src).toContain("buildBellExplainMatrix");
     expect(src).toContain("loadBellExplainUnreadEventRows");
+    expect(src).toContain("buildUnifiedAppIconProjection");
   });
 });

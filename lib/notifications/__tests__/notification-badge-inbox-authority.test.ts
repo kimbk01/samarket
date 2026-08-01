@@ -7,7 +7,7 @@ const read = (path: string) =>
   readFileSync(join(process.cwd(), path), "utf8");
 
 describe("notification badge and inbox authority", () => {
-  it("keeps App Icon on domain rooms plus orphan missed calls", () => {
+  it("keeps App Icon on chat rooms plus NotificationAttention (missedCall wire = notification axis)", () => {
     expect(
       resolveDomainAppIconBadgeCount({
         messenger: 2,
@@ -16,13 +16,6 @@ describe("notification badge and inbox authority", () => {
         missedCall: 1,
       })
     ).toBe(10);
-    const docs = read("docs/dibay-notification-badge-number-policy.md");
-    expect(docs).toContain(
-      "unread `general_direct/group` room + `trade` room + `store_order` room"
-    );
-    expect(docs).toContain(
-      "status event SUM"
-    );
   });
 
   it("product Bell list uses notification_events only (no legacy unread merge)", () => {

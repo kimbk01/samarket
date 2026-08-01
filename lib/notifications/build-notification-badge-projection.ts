@@ -7,12 +7,12 @@
  * - All inputs (Cold Start / Bootstrap / Hub / Push / Realtime / Resume / Poll /
  *   Broadcast / Atomic Read) normalize to ProjectionInput then call this Builder only.
  *
- * Bell (product live badge) — Contract B:
- *   bellTotal = unreadApprovedNotificationEvents
- *   (eligible unread notification_events for the viewer — NOT domain unread room sum)
+ * Bell (product live badge) — Phase B:
+ *   bellTotal = NotificationAttentionTotal (distinct non-chat attention_key)
+ *   chat_message events are Inbox history/quarantine — NOT Bell digit
  *
- * App Icon — Domain Attention Projection only (no non-chat status/notice):
- *   messenger(GD+Group) + trade + storeOrderCustomer + storeOrderOwner + orphan missed
+ * App Icon — Phase B:
+ *   ChatAttentionTotal (unread rooms) + NotificationAttentionTotal
  *
  * Bottom Chat — general_direct + group unread rooms only.
  */
@@ -67,7 +67,7 @@ export type NotificationBadgeProjectionInput = Readonly<{
   storeOrderOwnerUnreadByStoreId?: Readonly<Record<string, number>>;
   /** Fact: philife/community tab rooms (optional). */
   philifeChatUnread?: number;
-  /** Fact: orphan missed_call events (room_id null). */
+  /** Fact: orphan missed_call events (room_id null) — diagnostics / list byRoom. */
   orphanMissedCall: number;
   /**
    * Fact: independent non-chat event attention breakdown (diagnostics).
@@ -75,8 +75,12 @@ export type NotificationBadgeProjectionInput = Readonly<{
    */
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   /**
-   * Fact: unread approved notification_events total (Bell Contract B).
-   * Prefer this; else `bell.total` from event category count.
+   * Phase B — NotificationAttentionTotal (distinct non-chat attention_key).
+   * Drives Bell digit + App Icon notification axis. Prefer this over raw event counts.
+   */
+  notificationAttentionTotal?: number;
+  /**
+   * @deprecated Prefer `notificationAttentionTotal`. Legacy unread event row count (includes chat).
    */
   unreadApprovedNotificationEvents?: number;
   /**
@@ -122,11 +126,11 @@ export type NotificationBadgeProjection = Readonly<{
   bellChatAttentionCount: number;
   /** Diagnostic: non-chat event attention sum (NOT product Bell alone). */
   bellNonChatEventCount: number;
-  /** Product Bell live total = unreadApprovedNotificationEvents. */
+  /** Product Bell live total = NotificationAttentionTotal. */
   bellTotal: number;
   /**
-   * Bell snapshot for Surface store — `total` is Projection bellTotal (event inbox).
-   * Category fields from approved events for inbox UI filters.
+   * Bell snapshot for Surface store — `total` is Projection bellTotal (NotificationAttention).
+   * Category fields from approved events for inbox UI filters (may include chat for diagnostics).
    */
   bell: NotificationBadgeCount;
   generalDirectUnreadRooms: number;
@@ -235,16 +239,24 @@ export function buildNotificationBadgeProjection(
     },
     nonNeg(input.philifeChatUnread)
   );
-  /** App Icon = owner rooms + buyer rooms (no double-count of buyer inside combined). */
+  /** App Icon chat axis = owner rooms + buyer rooms (no double-count). */
   const storeOrderForAppIcon = ownerForHub + buyer;
+  /**
+   * Phase B Bell + App Icon notification axis = NotificationAttentionTotal.
+   * Fallback to orphan-only only when notificationAttentionTotal omitted (legacy callers).
+   */
+  const notificationAttentionTotal =
+    input.notificationAttentionTotal != null
+      ? nonNeg(input.notificationAttentionTotal)
+      : orphan;
   const appIcon = resolveDomainAppIconBadgeParts({
     communityMessengerUnread: shell.communityMessengerUnread,
     tradeUnread: shell.tradeUnread,
     storeOrderChatUnread: storeOrderForAppIcon,
-    missedCall: orphan,
+    notificationAttention: notificationAttentionTotal,
   });
 
-  /** Diagnostic only — NOT product Bell (Contract B). */
+  /** Diagnostic only — NOT product Bell digit. */
   const storeOrderCombinedForDiag =
     input.storeOrderOwnerChatUnread != null || buyer > 0
       ? ownerForHub + buyer
@@ -259,7 +271,8 @@ export function buildNotificationBadgeProjection(
       : input.bell
         ? nonNeg(eventBell.total) || sumApprovedEventCategories(eventBell)
         : 0;
-  const bellTotal = unreadApprovedNotificationEvents;
+  /** Product Bell digit = NotificationAttentionTotal (not raw event SUM / chat). */
+  const bellTotal = notificationAttentionTotal;
 
   const bell: NotificationBadgeCount = {
     ...eventBell,

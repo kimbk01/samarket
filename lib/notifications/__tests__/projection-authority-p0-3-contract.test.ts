@@ -53,8 +53,10 @@ function seedHttp(versionMs = 100_000) {
         communityActivity: 0,
         adminNotice: 4,
       },
+      // Phase B: Bell + App Icon notification axis = attention keys (not raw event 20).
+      notificationAttentionTotal: 11, // orphan5 + admin4 + tradeStatus1 + orderStatus1
       unreadApprovedNotificationEvents: 20,
-      bell: { ...EMPTY_BELL_BADGE_FACTS, total: 20, missedCall: 5, adminNotice: 4 },
+      bell: { ...EMPTY_BELL_BADGE_FACTS, total: 11, missedCall: 5, adminNotice: 4 },
       rowUnreadByRoomId: {},
     },
     { projectionVersionMs: versionMs }
@@ -81,7 +83,7 @@ describe("P0-3 notification event read fact Authority contract", () => {
     expect(getProjectionAuthorityCounters().event_fact_baseline_missing).toBe(1);
   });
 
-  it("admin_notice_absolute=0 changes Bell only; App Icon / CM / Trade / Order unchanged", () => {
+  it("admin_notice_absolute=0 reduces NotificationAttention (Bell + App Icon); CM rooms unchanged", () => {
     seedHttp();
     applySpy.mockClear();
     const before = getLastCompleteProjectionInput();
@@ -96,21 +98,18 @@ describe("P0-3 notification event read fact Authority contract", () => {
     ).toBe(true);
 
     const p = lastProjection();
-    // Bell adminNotice cleared; approved total reduced by cleared admin (4).
     expect(p.bell.adminNotice).toBe(0);
-    expect(p.bellTotal).toBe(16);
-    // App Icon axes stable (App Icon never counts adminNotice anyway).
+    expect(p.bellTotal).toBe(7); // 11 - 4 admin
+    expect(p.appIcon.missedCall).toBe(7); // notification axis
     expect(p.appIcon.messenger).toBe(3); // gd(2)+group(1)
     expect(p.appIcon.trade).toBe(3);
-    expect(p.appIcon.missedCall).toBe(5);
-    // Domain rooms unchanged.
     const after = getLastCompleteProjectionInput();
     expect(after?.domainUnreadRooms).toEqual(before?.domainUnreadRooms);
     expect(after?.orphanMissedCall).toBe(before?.orphanMissedCall);
     expect(getProjectionAuthorityCounters().event_fact_commit_ok).toBe(1);
   });
 
-  it("orphan_missed_absolute=0 changes orphan/Bell missed/App Icon missed only; CM unchanged", () => {
+  it("orphan_missed_absolute=0 reduces orphan + NotificationAttention; CM unchanged", () => {
     seedHttp();
     applySpy.mockClear();
     const before = getLastCompleteProjectionInput();
@@ -126,10 +125,9 @@ describe("P0-3 notification event read fact Authority contract", () => {
     ).toBe(true);
 
     const p = lastProjection();
-    expect(p.appIcon.missedCall).toBe(0);
+    expect(p.appIcon.missedCall).toBe(6); // 11 - 5 orphan
     expect(p.bell.missedCall).toBe(0);
-    expect(p.bellTotal).toBe(15); // 20 - 5 cleared missed
-    // CM / trade / store unchanged.
+    expect(p.bellTotal).toBe(6);
     expect(p.appIcon.messenger).toBe(3);
     const after = getLastCompleteProjectionInput();
     expect(after?.domainUnreadRooms).toEqual(before?.domainUnreadRooms);
@@ -147,7 +145,7 @@ describe("P0-3 notification event read fact Authority contract", () => {
       })
     ).toBe(true);
     expect(getLastCompleteProjectionInput()?.orphanMissedCall).toBe(3);
-    expect(lastProjection().appIcon.missedCall).toBe(3);
+    expect(lastProjection().appIcon.missedCall).toBe(9); // 11 - 2
   });
 
   it("duplicate eventIdentity → no second commit", () => {

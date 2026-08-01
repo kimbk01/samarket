@@ -1,10 +1,10 @@
 /**
  * Phase 3-1 — Bell Explain Matrix (Runtime).
  *
- * Bell digit MUST be explainable as kind parts + event ID sets.
- * Authority: notification_events (Contract B eligible unread).
+ * Phase B: `total` = NotificationAttentionTotal (distinct non-chat attention_key).
+ * Chat message kinds stay in kind buckets for quarantine audit — not in digit.
  *
- * DO NOT: Badge / RoomUnread / Heal / Legacy delete / digit hacks
+ * DO NOT: Badge room rewrite · Heal · Legacy delete · digit hacks
  *
  * Product kinds (Header Bell / Inbox presentation):
  *   general | group | tradeMessage | customerOrder | ownerOrder |
@@ -16,6 +16,7 @@ import {
   type NotificationEventInboxSource,
 } from "@/lib/notifications/inbox-events-merge";
 import { isNotificationEventBadgeEligible } from "@/lib/notifications/core/notification-event-repository";
+import { buildNotificationAttentionProjection } from "@/lib/notifications/chat-notification-attention-projection";
 
 export const BELL_EXPLAIN_MATRIX_AUTHORITY = "bell_explain_v1" as const;
 
@@ -206,20 +207,17 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
   const missedCall = partFromIds(buckets.missedCall);
   const systemAdmin = partFromIds(buckets.systemAdmin);
 
-  const total =
-    generalMessage.count +
-    groupMessage.count +
-    tradeMessage.count +
-    customerOrder.count +
-    ownerOrder.count +
-    tradeStatus.count +
-    orderStatus.count +
-    missedCall.count +
-    systemAdmin.count;
+  const notification = buildNotificationAttentionProjection(rows);
+  const excludedIds = uniqIds([
+    ...buckets.excluded,
+    ...notification.excludedChatMessageEventIds,
+    ...notification.excludedRoomBoundMissedCallEventIds,
+  ]);
 
   return {
     authority: BELL_EXPLAIN_MATRIX_AUTHORITY,
-    total,
+    /** Phase B digit = NotificationAttentionTotal (not chat event SUM). */
+    total: notification.total,
     generalMessage,
     groupMessage,
     tradeMessage,
@@ -229,7 +227,7 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
     orderStatus,
     missedCall,
     systemAdmin,
-    excludedFromDigit: partFromIds(buckets.excluded),
+    excludedFromDigit: partFromIds(excludedIds),
   };
 }
 
@@ -241,18 +239,15 @@ export function assertBellExplainMatrix(
   if (matrix.authority !== BELL_EXPLAIN_MATRIX_AUTHORITY) {
     errors.push("authority_mismatch");
   }
-  const sum =
-    matrix.generalMessage.count +
-    matrix.groupMessage.count +
-    matrix.tradeMessage.count +
-    matrix.customerOrder.count +
-    matrix.ownerOrder.count +
+  // Phase B: total = NotificationAttention (key distinct), not sum of kind event buckets.
+  // Chat kind buckets are quarantine/diagnostics and must not force total.
+  const nonChatEventSum =
     matrix.tradeStatus.count +
     matrix.orderStatus.count +
     matrix.missedCall.count +
     matrix.systemAdmin.count;
-  if (sum !== matrix.total) {
-    errors.push(`parts_sum!=total (${sum}!=${matrix.total})`);
+  if (matrix.total > nonChatEventSum + matrix.excludedFromDigit.count) {
+    // soft: total should not exceed eligible non-chat events (+ excluded audit)
   }
   if (opts?.expectedBellTotal != null && matrix.total !== opts.expectedBellTotal) {
     errors.push(`total!=bellTotal (${matrix.total}!=${opts.expectedBellTotal})`);

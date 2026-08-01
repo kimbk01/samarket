@@ -699,8 +699,8 @@ export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boole
 
 /**
  * P0-3 — notification event read fact (never an aggregate surface number).
- * `admin_notice_absolute` clears Bell adminNotice only; App Icon / CM / Trade / Order stay.
- * `orphan_missed_*` change orphan missed + Bell missed + App Icon missed only.
+ * Phase B: admin_notice / orphan_missed adjust NotificationAttentionTotal
+ * (Bell digit + App Icon notification axis). Chat room axes stay untouched.
  */
 export type NotificationEventReadFact =
   | { kind: "admin_notice_absolute"; absolute: number }
@@ -746,6 +746,11 @@ function buildEventFactMergedInput(
 ): { merged: NotificationBadgeProjectionInput; changed: boolean } {
   const bell: NotificationBadgeCount = base.bell ?? EMPTY_BELL_BADGE_FACTS;
   const prevApproved = nonNeg(base.unreadApprovedNotificationEvents ?? bell.total);
+  const prevNotificationAttention = nonNeg(
+    base.notificationAttentionTotal != null
+      ? base.notificationAttentionTotal
+      : base.orphanMissedCall
+  );
 
   if (fact.kind === "admin_notice_absolute") {
     const prevAdmin = nonNeg(bell.adminNotice);
@@ -753,12 +758,18 @@ function buildEventFactMergedInput(
     if (nextAdmin === prevAdmin) return { merged: base, changed: false };
     const cleared = Math.max(0, prevAdmin - nextAdmin);
     const nextApproved = Math.max(0, prevApproved - cleared);
-    const nextBell: NotificationBadgeCount = { ...bell, adminNotice: nextAdmin, total: nextApproved };
+    const nextNotificationAttention = Math.max(0, prevNotificationAttention - cleared);
+    const nextBell: NotificationBadgeCount = {
+      ...bell,
+      adminNotice: nextAdmin,
+      total: nextNotificationAttention,
+    };
     const merged: NotificationBadgeProjectionInput = {
       ...base,
-      // Bell-only axis — domainUnreadRooms / orphanMissedCall untouched (App Icon stable).
+      // Chat room axes untouched — NotificationAttention / Bell digit decline together.
       bell: nextBell,
       unreadApprovedNotificationEvents: nextApproved,
+      notificationAttentionTotal: nextNotificationAttention,
       nonChatEventAttention: { ...base.nonChatEventAttention, adminNotice: nextAdmin },
     };
     return { merged, changed: true };
@@ -773,13 +784,19 @@ function buildEventFactMergedInput(
   if (nextOrphan === prevOrphan) return { merged: base, changed: false };
   const cleared = Math.max(0, prevOrphan - nextOrphan);
   const nextApproved = Math.max(0, prevApproved - cleared);
-  const nextBell: NotificationBadgeCount = { ...bell, missedCall: nextOrphan, total: nextApproved };
+  const nextNotificationAttention = Math.max(0, prevNotificationAttention - cleared);
+  const nextBell: NotificationBadgeCount = {
+    ...bell,
+    missedCall: nextOrphan,
+    total: nextNotificationAttention,
+  };
   const merged: NotificationBadgeProjectionInput = {
     ...base,
     // Orphan missed axis only — never touches CM room facts or domainUnreadRooms.
     orphanMissedCall: nextOrphan,
     bell: nextBell,
     unreadApprovedNotificationEvents: nextApproved,
+    notificationAttentionTotal: nextNotificationAttention,
   };
   return { merged, changed: true };
 }

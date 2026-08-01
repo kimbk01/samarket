@@ -10,11 +10,11 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 
 | 항목 | 정의 |
 |------|------|
-| 소스 | `GET /api/me/notifications/badge-count` → Domain room projection + orphan missed call |
-| 합산 | unread `general_direct/group` room + `trade` room + `store_order` room + `room_id IS NULL` missed call |
-| 제외 | room-attached missed call(해당 room에서 이미 계산), admin notice/marketing/test, status event SUM |
-| 동기화 | `NativeBadgeSync` — Capacitor native only |
-| 비고 | **BottomNav Chat·feed 탭과 단위가 다를 수 있음** (정상) |
+| 소스 | `GET /api/me/notifications/badge-count` → ChatAttention + NotificationAttention |
+| 합산 | unread rooms (GD+Group+Trade+Customer+Owner) + distinct non-chat `attention_key` |
+| 제외 | chat_message events (room axis only), room-bound missed (row only), marketing/test/call signals |
+| 동기화 | `NativeBadgeSync` — Capacitor Adapter echo of `appIconTotal` only |
+| 비고 | **Bell digit = NotificationAttention only** (not chat room / chat event SUM) |
 
 ## 2. BottomNav 탭 badge (Legacy)
 
