@@ -38,6 +38,7 @@ const domainPayload = {
     communityActivity: 0,
     adminNotice: 0,
   },
+  notificationAttentionTotal: 1,
   total: 1,
   chatMessage: 1,
   groupMessage: 0,

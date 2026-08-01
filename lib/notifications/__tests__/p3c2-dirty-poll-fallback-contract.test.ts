@@ -45,6 +45,7 @@ const domainPayload = {
     communityActivity: 0,
     adminNotice: 0,
   },
+  notificationAttentionTotal: 1,
   total: 1,
   chatMessage: 1,
   groupMessage: 0,
@@ -139,7 +140,14 @@ describe("P3-c2 runtime dirty poll", () => {
     vi.stubGlobal("document", { visibilityState: "visible" });
     const fetchMock = vi.fn().mockResolvedValue({
       status: 200,
-      json: async () => ({ ...domainPayload, projectionVersionMs: 200, total: 2, chatMessage: 2, chat: 2 }),
+      json: async () => ({
+        ...domainPayload,
+        projectionVersionMs: 200,
+        notificationAttentionTotal: 2,
+        total: 2,
+        chatMessage: 2,
+        chat: 2,
+      }),
     });
     vi.stubGlobal("fetch", fetchMock);
 

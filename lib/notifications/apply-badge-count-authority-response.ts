@@ -19,6 +19,10 @@ export type BadgeCountAuthorityJson = {
     messenger?: number;
     trade?: number;
     storeOrder?: number;
+    /**
+     * Phase B wire: NotificationAttentionTotal (not orphan-only).
+     * Prefer `notificationAttentionTotal` when both present.
+     */
     missedCall?: number;
   };
   domainUnreadRooms?: {
@@ -31,10 +35,59 @@ export type BadgeCountAuthorityJson = {
   storeOrderOwnerChatUnread?: number;
   philifeChatUnread?: number;
   nonChatEventAttention?: Partial<NotificationNonChatEventAttentionFacts>;
+  /** Phase B Bell digit SSOT — distinct non-chat attention_key count. */
+  notificationAttentionTotal?: number;
+  /** True orphan missed_call event count (diagnostics); optional. */
+  orphanMissedCallCount?: number;
   unreadApprovedNotificationEvents?: number;
   missedCallByRoom?: Record<string, number>;
   [key: string]: unknown;
 };
+
+/**
+ * Phase B: Bell / App Icon notification axis.
+ * Prefer explicit `notificationAttentionTotal`, then icon wire, then HTTP `total` (prod = Bell digit).
+ */
+function resolveNotificationAttentionTotal(
+  body: BadgeCountAuthorityJson,
+  bellTotalFallback: number
+): number {
+  if (body.notificationAttentionTotal != null) {
+    return Math.max(0, Math.floor(Number(body.notificationAttentionTotal) || 0));
+  }
+  const proj = body.projection;
+  if (proj && typeof proj === "object") {
+    const bellTotal = (proj as { bellTotal?: unknown }).bellTotal;
+    if (bellTotal != null) return Math.max(0, Math.floor(Number(bellTotal) || 0));
+  }
+  if (body.domainAppIcon?.missedCall != null) {
+    return Math.max(0, Math.floor(Number(body.domainAppIcon.missedCall) || 0));
+  }
+  return Math.max(0, Math.floor(Number(bellTotalFallback) || 0));
+}
+
+function resolveOrphanMissedCall(
+  body: BadgeCountAuthorityJson,
+  bell: { missedCall?: number }
+): number {
+  if (body.orphanMissedCallCount != null) {
+    return Math.max(0, Math.floor(Number(body.orphanMissedCallCount) || 0));
+  }
+  // When Phase B notificationAttention is explicit, do not treat icon.missedCall as orphan
+  // (prod wire overloads missedCall = NotificationAttentionTotal).
+  if (
+    body.notificationAttentionTotal != null ||
+    (body.projection &&
+      typeof body.projection === "object" &&
+      (body.projection as { bellTotal?: unknown }).bellTotal != null)
+  ) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    Math.floor(Number(body.domainAppIcon?.missedCall ?? bell.missedCall) || 0)
+  );
+}
 
 function nonChatFromBody(body: BadgeCountAuthorityJson): NotificationNonChatEventAttentionFacts {
   const n = body.nonChatEventAttention;
@@ -75,6 +128,7 @@ export function projectionInputFromBadgeCountAuthorityJson(
               Math.floor(Number((body.projection as { bellTotal?: number }).bellTotal) || 0)
             )
           : Math.max(0, Math.floor(Number(bell.total) || 0));
+    const notificationAttentionTotal = resolveNotificationAttentionTotal(body, bell.total);
     return {
       domainUnreadRooms: {
         general_direct: Math.max(0, Math.floor(Number(rooms.general_direct) || 0)),
@@ -95,13 +149,11 @@ export function projectionInputFromBadgeCountAuthorityJson(
           }
         : {}),
       philifeChatUnread: Math.max(0, Math.floor(Number(body.philifeChatUnread) || 0)),
-      orphanMissedCall: Math.max(
-        0,
-        Math.floor(Number(body.domainAppIcon?.missedCall ?? bell.missedCall) || 0)
-      ),
+      orphanMissedCall: resolveOrphanMissedCall(body, bell),
       nonChatEventAttention: nonChatFromBody(body),
+      notificationAttentionTotal,
       unreadApprovedNotificationEvents: unreadApproved,
-      bell,
+      bell: { ...bell, total: notificationAttentionTotal },
       rowUnreadByRoomId: body.missedCallByRoom ?? {},
     };
   }
@@ -121,6 +173,7 @@ export function projectionInputFromBadgeCountAuthorityJson(
     body.unreadApprovedNotificationEvents != null
       ? Math.max(0, Math.floor(Number(body.unreadApprovedNotificationEvents) || 0))
       : Math.max(0, Math.floor(Number(bell.total) || 0));
+  const notificationAttentionTotal = resolveNotificationAttentionTotal(body, bell.total);
   return {
     domainUnreadRooms: {
       general_direct: messenger,
@@ -132,10 +185,11 @@ export function projectionInputFromBadgeCountAuthorityJson(
     ...(ownerExplicit != null
       ? { storeOrderOwnerChatUnread: ownerExplicit }
       : { storeOrderOwnerChatUnread: owner }),
-    orphanMissedCall: Math.max(0, Math.floor(Number(icon.missedCall) || 0)),
+    orphanMissedCall: resolveOrphanMissedCall(body, bell),
     nonChatEventAttention: nonChatFromBody(body),
+    notificationAttentionTotal,
     unreadApprovedNotificationEvents: unreadApproved,
-    bell,
+    bell: { ...bell, total: notificationAttentionTotal },
     rowUnreadByRoomId: body.missedCallByRoom ?? {},
   };
 }

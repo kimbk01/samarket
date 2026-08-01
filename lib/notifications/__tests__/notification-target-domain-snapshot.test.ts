@@ -221,7 +221,7 @@ describe("notification-target-domain-snapshot (A–O)", () => {
     expect(p.storeOrderHub).toBe(3);
   });
 
-  it("O. Bell Contract B — room facts alone do not set Bell; events do", () => {
+  it("O. Bell Phase B — room facts alone do not set Bell; NotificationAttention does", () => {
     const roomsOnly = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
       orphanMissedCall: 0,
@@ -233,7 +233,7 @@ describe("notification-target-domain-snapshot (A–O)", () => {
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
-      unreadApprovedNotificationEvents: 4,
+      notificationAttentionTotal: 4,
     });
     expect(withEvents.bellTotal).toBe(4);
   });
