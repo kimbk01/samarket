@@ -8,7 +8,7 @@
 | 1 RoomUnread Authority | CLOSED | LOCK |
 | 2 Badge SSOT | CLOSED | HARD LOCK |
 | 3 Bell SSOT | CLOSED | HARD LOCK |
-| 4 Legacy Cleanup | IN PROGRESS | 4-1 COMPLETE · 4-2 Batch A PASS · Batch B+ WAIT · 4-3 / PRODUCT PASS not declared |
+| 4 Legacy Cleanup | IN PROGRESS | 4-1 COMPLETE · 4-2 Batch A CODE+RUNTIME LOCK (`838d7a130`) · Commit B / Batch B+ WAIT · 4-3 / PRODUCT PASS not declared |
 
 ## Order (immutable)
 
