@@ -58,6 +58,7 @@ import {
   mergeRouteHubBadgeDeepBreakdown,
   peekLastHubBadgeDeepBreakdown,
 } from "@/lib/chats/hub-badge-deep-breakdown";
+import { resolveFreshOwnerStoreOrderChatRoomCount } from "@/lib/chats/refresh-owner-hub-store-order-chat-unread-on-cache-hit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -164,6 +165,13 @@ export async function GET(request: Request) {
   let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];
   let badgeMeta: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["meta"];
   let hubBreakdown = peekLastHubBadgeBreakdown();
+  /** Slice 2-4 — cache HIT may be another isolate; refresh B_store room count only. */
+  const refreshStoreOrderChatUnreadOnHit = async () =>
+    resolveFreshOwnerStoreOrderChatRoomCount({
+      sb: sbAny,
+      storesSb,
+      userId,
+    });
   if (bypassShortCache) {
     const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, {
       findHubStoreFresh,
@@ -177,11 +185,15 @@ export async function GET(request: Request) {
     hubBreakdown = built.breakdown;
   } else if (ttlCacheHit) {
     observeCmUnreadAggregateOnHubRouteCacheHit(userId);
-    payload = await getCachedOwnerHubBadge(userId, async () => {
-      const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
-      hubBreakdown = built.breakdown;
-      return built.payload;
-    });
+    payload = await getCachedOwnerHubBadge(
+      userId,
+      async () => {
+        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+        hubBreakdown = built.breakdown;
+        return built.payload;
+      },
+      { refreshStoreOrderChatUnreadOnHit }
+    );
     badgeMeta = {
       queryType: "owner_hub_badge_light",
       aggregateFallbackUsed: 0,
@@ -210,11 +222,15 @@ export async function GET(request: Request) {
       ...hubBadgeBreakdownForUser(userId),
     });
   } else {
-    payload = await getCachedOwnerHubBadge(userId, async () => {
-      const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
-      hubBreakdown = built.breakdown;
-      return built.payload;
-    });
+    payload = await getCachedOwnerHubBadge(
+      userId,
+      async () => {
+        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+        hubBreakdown = built.breakdown;
+        return built.payload;
+      },
+      { refreshStoreOrderChatUnreadOnHit }
+    );
     badgeMeta = {
       queryType: "owner_hub_badge_light",
       aggregateFallbackUsed: 0,

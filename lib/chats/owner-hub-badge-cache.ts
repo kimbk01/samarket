@@ -88,9 +88,31 @@ function pruneExpiredHubBadgeCache(now: number) {
   }
 }
 
+export type GetCachedOwnerHubBadgeOptions = {
+  /**
+   * Slice 2-4 cross-isolate: on HIT, recompute B_store room count without mutating cache.
+   * Return `null` to keep cached storeOrderChatUnread (never SQL message-sum fallback here).
+   */
+  refreshStoreOrderChatUnreadOnHit?: (
+    cached: OwnerHubBadgePayload
+  ) => Promise<number | null>;
+};
+
+async function applyStoreOrderChatUnreadRefreshOnHit(
+  cached: OwnerHubBadgePayload,
+  refresh?: GetCachedOwnerHubBadgeOptions["refreshStoreOrderChatUnreadOnHit"]
+): Promise<OwnerHubBadgePayload> {
+  if (!refresh) return cached;
+  const fresh = await refresh(cached);
+  if (fresh == null || !Number.isFinite(fresh)) return cached;
+  const n = Math.max(0, Math.floor(Number(fresh) || 0));
+  return { ...cached, storeOrderChatUnread: n };
+}
+
 export async function getCachedOwnerHubBadge(
   userId: string,
-  factory: () => Promise<OwnerHubBadgePayload>
+  factory: () => Promise<OwnerHubBadgePayload>,
+  options?: GetCachedOwnerHubBadgeOptions
 ): Promise<OwnerHubBadgePayload> {
   const cacheKey = userId.trim();
   if (!cacheKey) {
@@ -106,7 +128,10 @@ export async function getCachedOwnerHubBadge(
       user_id: cacheKey,
       ttl_remaining_ms: cached.expiresAt - now,
     });
-    return cached.value;
+    return applyStoreOrderChatUnreadRefreshOnHit(
+      cached.value,
+      options?.refreshStoreOrderChatUnreadOnHit
+    );
   }
 
   pruneExpiredHubBadgeCache(now);
@@ -118,7 +143,10 @@ export async function getCachedOwnerHubBadge(
   return runSingleFlight(hubBadgeFlightKey(cacheKey), async () => {
     const again = hubBadgeCache.get(cacheKey);
     if (again && again.expiresAt > Date.now()) {
-      return again.value;
+      return applyStoreOrderChatUnreadRefreshOnHit(
+        again.value,
+        options?.refreshStoreOrderChatUnreadOnHit
+      );
     }
     const value = await factory();
     hubBadgeCache.set(cacheKey, {
