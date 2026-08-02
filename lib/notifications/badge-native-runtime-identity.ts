@@ -1,16 +1,18 @@
 /**
- * Phase 2-4 — Native Runtime Identity (no structure change)
+ * Phase 2-4 / Slice 2-6 — Native Runtime Identity (no structure change)
  *
  * Proves wire identity:
- *   AppIcon Projection.appIconTotal
+ *   MemberAppIconTotal (memberAppIconWebTotal / surface appIconTotal)
  *     → Capawesome Badge.set / Badge.get
  *     → Android Launcher (OEM Cap path)
- *     → FCM badge_count → DibayAppIconDeliveryAdapter summary setNumber (Android)
+ *     → FCM badge_count (resolveMemberAppIconTotalForNativeFcm) → Delivery Adapter setNumber
  *     → domain tray children setNumber(0) (no launcher authority)
  *     → APNS aps.badge
  *
  * DO NOT: Projection · Writer · RoomUnread · Bell · Lifecycle · Explain · Heal · Legacy delete · OEM patch
+ * DO NOT: B_store / C_store on Member Native/FCM wire
  */
+
 import fs from "node:fs";
 import path from "node:path";
 
@@ -24,7 +26,7 @@ export type NativeIdentityWireRow = Readonly<{
   mustNotContain?: readonly string[];
 }>;
 
-/** Static product wires — each emitter echoes Domain appIconTotal only. */
+/** Static product wires — each emitter echoes MemberAppIconTotal absolute only. */
 export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
   {
     surface: "capawesome_badge",
@@ -49,9 +51,12 @@ export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
     evidencePath: "lib/notifications/pipeline/notify-push-dispatcher.ts",
     mustContain: [
       "fetchDomainBadgeAuthorityPayload",
+      "resolveMemberAppIconTotalForNativeFcm",
+      "memberAppIconWebTotal",
       "projection?.appIconTotal",
-      "badge_count: appIconTotal",
+      "badge_count: memberAppIconTotal",
     ],
+    mustNotContain: ["badge_count: appIconTotal"],
   },
   {
     surface: "android_tray_setNumber",

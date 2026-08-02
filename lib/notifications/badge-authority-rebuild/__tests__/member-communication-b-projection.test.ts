@@ -341,16 +341,27 @@ describe("Slice 2-3 member communication B projection", () => {
     }
   });
 
-  it("Native/FCM product files unchanged by Slice 2-3 markers", () => {
+  it("Native sync must not import B_member projection module (Slice 2-3 isolation)", () => {
     const root = process.cwd();
     const natives = [
       "lib/push/native/sync-native-badge-count.ts",
-      "lib/notifications/pipeline/notify-push-dispatcher.ts",
+      "components/push/NativeBadgeSync.tsx",
     ];
     for (const rel of natives) {
       const src = fs.readFileSync(path.join(root, rel), "utf8");
       expect(src.includes("member-communication-b-projection"), rel).toBe(false);
-      expect(src.includes("memberAppIconWebTotal"), rel).toBe(false);
+      expect(src.includes("buildMemberCommunicationBProjection"), rel).toBe(false);
     }
   });
+
+  it("Slice 2-6 FCM dispatcher echoes memberAppIconWebTotal via resolver (not B projection import)", () => {
+    const root = process.cwd();
+    const rel = "lib/notifications/pipeline/notify-push-dispatcher.ts";
+    const src = fs.readFileSync(path.join(root, rel), "utf8");
+    expect(src.includes("member-communication-b-projection"), rel).toBe(false);
+    expect(src.includes("buildMemberCommunicationBProjection"), rel).toBe(false);
+    expect(src.includes("resolveMemberAppIconTotalForNativeFcm"), rel).toBe(true);
+    expect(src.includes("memberAppIconWebTotal"), rel).toBe(true);
+  });
 });
+
