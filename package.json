@@ -119,6 +119,7 @@
     "verify:chat-thread-scroll-contract": "node scripts/verify-chat-thread-scroll-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
     "verify:badge-import-ban": "node scripts/verify-badge-import-ban.mjs",
+    "verify:badge-authority-rebuild-isolation": "node scripts/verify-badge-authority-rebuild-isolation.mjs",
     "verify:bottom-nav-chat-surface": "node scripts/verify-bottom-nav-chat-surface-post-migrate.mjs",
     "verify:delivery-dial-navigation-contract": "node scripts/verify-delivery-dial-navigation-contract.cjs",
     "check:bundle": "node scripts/check-bundle-budgets.mjs",
