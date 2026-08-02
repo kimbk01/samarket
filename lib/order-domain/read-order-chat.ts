@@ -166,15 +166,15 @@ export async function readOrderChat(
   }
 
   invalidateNotificationBadgeCache(userId);
-  if (ctx.role === "owner" && ctx.storeId) {
-    try {
-      const { invalidateHubStoreOrderUnreadMemory } = await import(
-        "@/lib/community-messenger/hub-store-order-unread-memory-cache"
-      );
-      invalidateHubStoreOrderUnreadMemory(userId, ctx.storeId);
-    } catch {
-      /* ignore — hub memory optional */
-    }
+  /**
+   * Slice 2-4 R2 — owner read must invalidate Owner Hub/FAB route cache (12s TTL),
+   * not only store-order unread memory. Otherwise Hub can stay stale-high while
+   * byStore authority is already fresh → strict hubPlus1 appears to fail.
+   * `invalidateOwnerHubBadgeCache` also clears hub store-order memory.
+   */
+  if (ctx.role === "owner") {
+    const { invalidateOwnerHubBadgeCache } = await import("@/lib/chats/owner-hub-badge-cache");
+    invalidateOwnerHubBadgeCache(userId);
   }
   const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
 
