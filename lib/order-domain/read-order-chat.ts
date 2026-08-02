@@ -11,6 +11,10 @@ import {
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
 import { DIBAY_MARK_ROOM_READ_ATOMIC_RPC } from "@/lib/messenger/contracts/room-unread-authority";
+import {
+  buildSoMarkReadIdempotencyKey,
+  resolveRoomReadableTipMessageId,
+} from "@/lib/community-messenger/room-unread-authority-rpc";
 
 export type OrderChatReadRole = "owner" | "customer";
 
@@ -114,13 +118,16 @@ export async function readOrderChat(
   if (!ctx) return { ok: false, error: "order_chat_not_found_or_forbidden", status: 404 };
 
   const through = trim(input.lastReadMessageId) || null;
-  const idempotencyKey = [
-    "so_mark_read",
+  const tipMessageId = through
+    ? ""
+    : await resolveRoomReadableTipMessageId(sb, ctx.roomId);
+  const idempotencyKey = buildSoMarkReadIdempotencyKey({
     userId,
-    ctx.roomId,
-    ctx.role,
-    through ?? "open_tail",
-  ].join(":");
+    roomId: ctx.roomId,
+    role: ctx.role,
+    throughMessageId: through,
+    tipMessageId,
+  });
 
   const { data: rpcRaw, error: rpcError } = await (sb as any).rpc(DIBAY_MARK_ROOM_READ_ATOMIC_RPC, {
     p_viewer_id: userId,

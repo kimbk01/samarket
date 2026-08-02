@@ -92,6 +92,66 @@ export async function loadRoomDomainForUnreadAuthority(
   return { chatDomain, domainIdentityKey };
 }
 
+/**
+ * CONTRACT: open / open_tail mark-read idempotency must include current tip.
+ * Fixed keys (`…:open`, `…:open_tail`) return a prior `{ok, unreadCount:0}` forever
+ * after the first clean mark, so later messages never advance the cursor.
+ * Matches `dibay_mark_room_read_atomic` tip ORDER BY created_at DESC, id DESC.
+ */
+export async function resolveRoomReadableTipMessageId(
+  sb: SupabaseClient<any>,
+  roomId: string
+): Promise<string> {
+  const rid = trim(roomId);
+  if (!rid) return "empty";
+  const { data, error } = await sb
+    .from("community_messenger_messages")
+    .select("id")
+    .eq("room_id", rid)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return "empty";
+  return trim((data as { id?: unknown } | null)?.id) || "empty";
+}
+
+/** CM GD/Group/Trade — tip-scoped when open_tail (no explicit through id). */
+export function buildCmMarkReadIdempotencyKey(input: {
+  userId: string;
+  roomId: string;
+  openTail: boolean;
+  requestedLastReadMessageId: string;
+  tipMessageId: string;
+}): string {
+  const segment = input.openTail
+    ? `open:${trim(input.tipMessageId) || "empty"}`
+    : trim(input.requestedLastReadMessageId) || "none";
+  return ["cm_mark_read", trim(input.userId), trim(input.roomId), segment].join(":");
+}
+
+/** Store-order — tip-scoped when open_tail (no explicit through id). */
+export function buildSoMarkReadIdempotencyKey(input: {
+  userId: string;
+  roomId: string;
+  role: string;
+  throughMessageId: string | null;
+  tipMessageId: string;
+}): string {
+  const through = trim(input.throughMessageId ?? "");
+  const segment = through
+    ? through
+    : `open_tail:${trim(input.tipMessageId) || "empty"}`;
+  return [
+    "so_mark_read",
+    trim(input.userId),
+    trim(input.roomId),
+    trim(input.role),
+    segment,
+  ].join(":");
+}
+
 export async function appendRoomMessageAtomic(
   sb: SupabaseClient<any>,
   input: {

@@ -27,4 +27,10 @@ describe("OrderDomain.readOrderChat → Room Unread Authority v1", () => {
     expect(src).toContain("p_store_id: ctx.storeId");
     expect(src).toContain("domainIdentityKey: `store_order:${orderId}`");
   });
+
+  it("scopes open_tail idempotency by tip message id (read-clear after new messages)", () => {
+    expect(src).toContain("buildSoMarkReadIdempotencyKey");
+    expect(src).toContain("resolveRoomReadableTipMessageId");
+    expect(src).not.toMatch(/through \?\? "open_tail"/);
+  });
 });

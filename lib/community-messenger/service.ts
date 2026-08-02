@@ -11352,24 +11352,32 @@ export async function markCommunityMessengerRoomAsRead(input: {
      * RPC missing (migration not applied) → fall through to legacy open_tail / apply_room_read_mark.
      */
     {
-      const { loadRoomDomainForUnreadAuthority, markRoomReadAtomic } = await import(
-        "@/lib/community-messenger/room-unread-authority-rpc"
-      );
+      const {
+        loadRoomDomainForUnreadAuthority,
+        markRoomReadAtomic,
+        resolveRoomReadableTipMessageId,
+        buildCmMarkReadIdempotencyKey,
+      } = await import("@/lib/community-messenger/room-unread-authority-rpc");
       const domainMeta = await loadRoomDomainForUnreadAuthority(sb as any, roomId);
       if (domainMeta && domainMeta.chatDomain !== "store_order") {
+        const openTail = flushOpen || !requestedLastReadMessageId;
+        const tipMessageId = openTail
+          ? await resolveRoomReadableTipMessageId(sb as any, roomId)
+          : "";
         const atomic = await markRoomReadAtomic(sb as any, {
           viewerId: input.userId,
           roomId,
           chatDomain: domainMeta.chatDomain,
           domainIdentityKey: domainMeta.domainIdentityKey,
           viewerRole: "member",
-          readThroughMessageId: flushOpen || !requestedLastReadMessageId ? null : requestedLastReadMessageId,
-          idempotencyKey: [
-            "cm_mark_read",
-            input.userId,
+          readThroughMessageId: openTail ? null : requestedLastReadMessageId,
+          idempotencyKey: buildCmMarkReadIdempotencyKey({
+            userId: input.userId,
             roomId,
-            flushOpen ? "open" : requestedLastReadMessageId || "none",
-          ].join(":"),
+            openTail,
+            requestedLastReadMessageId,
+            tipMessageId,
+          }),
         });
         if (atomic.ok) {
           invalidateOwnerHubBadgeCache(input.userId);
