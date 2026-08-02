@@ -35,7 +35,7 @@ import {
   clearChatInboxTargetsAfterMarkAll,
   markAllNotificationEventsRead,
   markChatNotificationEventsRead,
-  markNonChatNonOwnerNotificationEventsRead,
+  markMemberANotificationsAllRead,
   markOwnerStoreCommerceNotificationEventsRead,
   patchInboxNotificationIdsDelete,
   patchInboxNotificationIdsRead,
@@ -694,59 +694,23 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.mark_my_notifications_read_excluding_owner_and_chat === true) {
-    type MarkReadScanRow = {
-      id?: unknown;
-      meta?: unknown;
-      notification_type?: string;
-      push_kind?: unknown;
+    // Slice 2-2 — legacy + notification_events A stores run independently.
+    // DO NOT early-return when legacy unread is empty.
+    const result = await markMemberANotificationsAllRead(sb, userId);
+    if ("ok" in result && result.ok === false) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+    }
+    const okResult = result as {
+      updated: number;
+      legacyUpdated: number;
+      eventUpdated: number;
     };
-
-    const markWithPk = await sb
-      .from("notifications")
-      .select("id, meta, notification_type, push_kind")
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .limit(500);
-    let data = markWithPk.data as MarkReadScanRow[] | null;
-    let error = markWithPk.error;
-    if (
-      error &&
-      /push_kind|column|schema cache/i.test(String(error.message ?? ""))
-    ) {
-      const markFallback = await sb
-        .from("notifications")
-        .select("id, meta, notification_type")
-        .eq("user_id", userId)
-        .eq("is_read", false)
-        .limit(500);
-      data = markFallback.data as MarkReadScanRow[] | null;
-      error = markFallback.error;
-    }
-    if (error) {
-      if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-        return NextResponse.json({ ok: true, updated: 0 });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    const ids = (data ?? [])
-      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isInAppChatMessageNotificationRow(r))
-      .map((r) => r.id as string)
-      .filter(Boolean);
-    if (ids.length === 0) {
-      return NextResponse.json({ ok: true, updated: 0 });
-    }
-    const { error: uErr } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", ids);
-    if (uErr) {
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-    }
-    await markNonChatNonOwnerNotificationEventsRead(sb, userId);
-    invalidateNotificationUnreadCountCache(userId);
-    invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({ ok: true, updated: ids.length });
+    return NextResponse.json({
+      ok: true,
+      updated: okResult.updated,
+      legacyUpdated: okResult.legacyUpdated,
+      eventUpdated: okResult.eventUpdated,
+    });
   }
 
   const ids = Array.isArray(body.ids) ? body.ids.map((x) => String(x).trim()).filter(Boolean) : [];

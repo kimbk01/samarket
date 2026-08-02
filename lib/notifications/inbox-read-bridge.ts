@@ -462,6 +462,106 @@ const CHAT_EVENT_TYPES = new Set([
   "store_order_message",
 ]);
 
+/**
+ * Slice 2-2 — Member Bell mark-all across both A stores.
+ * Legacy `notifications` and `notification_events` run independently.
+ * legacyUpdated === 0 must NOT skip event mark-all.
+ */
+export type MemberAMarkAllResult = Readonly<{
+  legacyUpdated: number;
+  eventUpdated: number;
+  /** Sum of store counts — UI Bell must use A projection resync, not subtract this. */
+  updated: number;
+}>;
+
+export function aggregateMemberAMarkAllUpdated(
+  legacyUpdated: number,
+  eventUpdated: number
+): MemberAMarkAllResult {
+  const legacy = Math.max(0, Math.floor(Number(legacyUpdated) || 0));
+  const event = Math.max(0, Math.floor(Number(eventUpdated) || 0));
+  return { legacyUpdated: legacy, eventUpdated: event, updated: legacy + event };
+}
+
+type LegacyMarkScanRow = {
+  id?: unknown;
+  meta?: unknown;
+  notification_type?: string;
+  push_kind?: unknown;
+};
+
+/**
+ * Mark-all for Header / My Bell (A_member only).
+ * Always attempts notification_events A mark even when legacy unread is empty.
+ */
+export async function markMemberANotificationsAllRead(
+  sb: SupabaseClient,
+  userId: string,
+  opts?: {
+    /** Test seam — defaults to markNonChatNonOwnerNotificationEventsRead. */
+    markEvents?: (sb: SupabaseClient, userId: string) => Promise<number>;
+  }
+): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
+  const uid = userId.trim();
+  let legacyUpdated = 0;
+
+  const markWithPk = await sb
+    .from("notifications")
+    .select("id, meta, notification_type, push_kind")
+    .eq("user_id", uid)
+    .eq("is_read", false)
+    .limit(500);
+  let data = markWithPk.data as LegacyMarkScanRow[] | null;
+  let error = markWithPk.error;
+  if (error && /push_kind|column|schema cache/i.test(String(error.message ?? ""))) {
+    const markFallback = await sb
+      .from("notifications")
+      .select("id, meta, notification_type")
+      .eq("user_id", uid)
+      .eq("is_read", false)
+      .limit(500);
+    data = markFallback.data as LegacyMarkScanRow[] | null;
+    error = markFallback.error;
+  }
+
+  if (error) {
+    // Missing meta column — skip legacy store but still mark notification_events A.
+    const metaMissing =
+      error.message?.includes("meta") && error.message.includes("does not exist");
+    if (!metaMissing) {
+      return { ok: false, error: error.message };
+    }
+  } else {
+    const { isOwnerStoreCommerceNotificationRow } = await import(
+      "@/lib/notifications/owner-store-commerce-notification-meta"
+    );
+    const { isInAppChatMessageNotificationRow } = await import(
+      "@/lib/notifications/inapp-chat-message-notification"
+    );
+    const ids = (data ?? [])
+      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isInAppChatMessageNotificationRow(r))
+      .map((r) => String(r.id ?? "").trim())
+      .filter(Boolean);
+
+    if (ids.length > 0) {
+      const { error: uErr } = await sb
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", uid)
+        .in("id", ids);
+      if (uErr) return { ok: false, error: uErr.message };
+      legacyUpdated = ids.length;
+    }
+  }
+
+  // Independent of legacyUpdated — always run A event mark-all.
+  const markEvents = opts?.markEvents ?? markNonChatNonOwnerNotificationEventsRead;
+  const eventUpdated = await markEvents(sb, uid);
+  invalidateNotificationUnreadCountCache(uid);
+  invalidateNotificationBadgeCache(uid);
+  return aggregateMemberAMarkAllUpdated(legacyUpdated, eventUpdated);
+}
+
 export async function markNonChatNonOwnerNotificationEventsRead(
   sb: SupabaseClient,
   userId: string
