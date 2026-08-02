@@ -4,11 +4,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { countPendingAcceptForStore } from "@/lib/stores/owner-store-pending-counts";
 import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
+import { countCancelRequestedForStore } from "@/lib/stores/owner-store-cancel-count";
 import { countOpenStoreInquiriesForStore } from "@/lib/stores/count-open-store-inquiries";
 import {
   getOwnerHubStoreAttentionCounts,
   type OwnerHubStoreAttentionCounts,
 } from "@/lib/stores/get-owner-hub-store-attention-counts";
+import {
+  cStoreOwnerReviewAttentionBlocked,
+  resolveCStoreInquiryActionCount,
+  resolveCStoreOrderActionCount,
+} from "@/lib/notifications/badge-authority-rebuild/store-operation-c-projection";
 import {
   hubStoreAttentionMemoryTtlMs,
   invalidateHubStoreAttentionMemory,
@@ -275,16 +281,21 @@ async function findOwnerHubStore(
   return flight;
 }
 
+/**
+ * Slice 2-5 — C_store authority is store-state Action Required only.
+ * DO NOT max() with fab_owner_orders (dual authority banned).
+ * REVIEW remains UNKNOWN_BLOCKED (ownerReviewAttention = 0).
+ * buyerOrderAttention stays consumer delivery targets (not C_store).
+ */
 function enrichStorePartialWithTargetBundle(
   store: OwnerHubBadgeStorePartial,
   bundle: import("@/lib/notifications/notification-targets").NotificationTargetHubBundle
 ): OwnerHubBadgeStorePartial {
-  const inquiryAttention = Math.max(0, store.inquiryAttention);
-  const ownerReviewAttention = Math.max(0, bundle.fab_owner_store - inquiryAttention);
   return {
     ...store,
-    orderAttention: Math.max(store.orderAttention, bundle.fab_owner_orders),
-    ownerReviewAttention,
+    orderAttention: Math.max(0, store.orderAttention),
+    inquiryAttention: Math.max(0, store.inquiryAttention),
+    ownerReviewAttention: cStoreOwnerReviewAttentionBlocked(),
     buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),
   };
 }
@@ -332,12 +343,14 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   const attention0 = devPerfNow();
   let refund = 0;
   let pending = 0;
+  let cancel = 0;
   let openInq = 0;
 
   const mem = readHubStoreAttentionMemory(hubStore.id);
   if (mem.hit) {
     refund = mem.counts.refundPendingCount;
     pending = mem.counts.orderPendingCount;
+    cancel = mem.counts.cancelPendingCount ?? 0;
     openInq = mem.counts.inquiryPendingCount;
     const totalMs = devPerfNow() - attention0;
     if (timingOut) {
@@ -360,8 +373,14 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
         stale_snapshot_within_ttl: true,
       });
     }
-    orderAttention = Math.max(0, refund) + Math.max(0, pending);
-    inquiryAttention = Math.max(0, openInq);
+    const cCounts = {
+      pendingOrderActions: pending,
+      refundActions: refund,
+      cancelActions: cancel,
+      openInquiryActions: openInq,
+    };
+    orderAttention = resolveCStoreOrderActionCount(cCounts);
+    inquiryAttention = resolveCStoreInquiryActionCount(cCounts);
     if (inquiryAttention > 0) {
       storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
     } else if (orderAttention > 0) {
@@ -372,7 +391,7 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     return {
       orderAttention,
       inquiryAttention,
-      ownerReviewAttention: 0,
+      ownerReviewAttention: cStoreOwnerReviewAttentionBlocked(),
       buyerOrderAttention: 0,
       storeDeepLink,
     };
@@ -390,6 +409,7 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   if (rpcCounts) {
     refund = rpcCounts.refundPendingCount;
     pending = rpcCounts.orderPendingCount;
+    cancel = rpcCounts.cancelPendingCount;
     openInq = rpcCounts.inquiryPendingCount;
     if (timingOut) {
       timingOut.store_attention_via = "rpc";
@@ -405,8 +425,9 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     const legacy0 = devPerfNow();
     let refundMs = 0;
     let pendingMs = 0;
+    let cancelMs = 0;
     let inquiryMs = 0;
-    const [refundLegacy, pendingLegacy, openInqLegacy] = await Promise.all([
+    const [refundLegacy, pendingLegacy, cancelLegacy, openInqLegacy] = await Promise.all([
       (async () => {
         const t0 = devPerfNow();
         try {
@@ -426,6 +447,14 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
       (async () => {
         const t0 = devPerfNow();
         try {
+          return await countCancelRequestedForStore(storesSb, hubStore.id);
+        } finally {
+          cancelMs = devPerfNow() - t0;
+        }
+      })(),
+      (async () => {
+        const t0 = devPerfNow();
+        try {
           return await countOpenStoreInquiriesForStore(storesSb, hubStore.id);
         } finally {
           inquiryMs = devPerfNow() - t0;
@@ -434,7 +463,9 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     ]);
     refund = refundLegacy;
     pending = pendingLegacy;
+    cancel = cancelLegacy;
     openInq = openInqLegacy;
+    void cancelMs;
     if (timingOut) {
       timingOut.store_attention_via = "legacy";
       timingOut.store_attention_memory_hit = 0;
@@ -447,8 +478,16 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     }
   }
 
-  orderAttention = Math.max(0, refund) + Math.max(0, pending);
-  inquiryAttention = Math.max(0, openInq);
+  {
+    const cCounts = {
+      pendingOrderActions: pending,
+      refundActions: refund,
+      cancelActions: cancel,
+      openInquiryActions: openInq,
+    };
+    orderAttention = resolveCStoreOrderActionCount(cCounts);
+    inquiryAttention = resolveCStoreInquiryActionCount(cCounts);
+  }
   if (inquiryAttention > 0) {
     storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
   } else if (orderAttention > 0) {
@@ -460,7 +499,7 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   return {
     orderAttention,
     inquiryAttention,
-    ownerReviewAttention: 0,
+    ownerReviewAttention: cStoreOwnerReviewAttentionBlocked(),
     buyerOrderAttention: 0,
     storeDeepLink,
   };

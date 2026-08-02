@@ -85,7 +85,7 @@ export function useOwnerFabOrdersBadgeCount(): number {
   );
 }
 
-/** FAB 스토어 — `inquiryAttention + ownerReviewAttention` */
+/** FAB 스토어 — `inquiryAttention` only (REVIEW blocked) */
 export function useOwnerFabStoreBadgeCount(): number {
   return useSyncExternalStore(
     subscribeOwnerHubBadge,

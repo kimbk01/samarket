@@ -1,13 +1,13 @@
 /**
  * @vitest-environment jsdom
  *
- * Owner FAB / Owner Header meaning LOCK.
+ * Owner FAB / Owner Header meaning LOCK (Slice 2-5 C_store).
  *
  * Owner FAB  = Owner-role store attention only
- *   orders     = orderAttention
- *   store      = inquiryAttention + ownerReviewAttention
- *   orderChat  = storeOrderChatUnread (current hub store scope)
- * Owner Header = same Owner projection sum (operations center attention)
+ *   orders     = orderAttention (C: pending+refund+cancel)
+ *   store      = inquiryAttention only (C; REVIEW blocked)
+ *   orderChat  = storeOrderChatUnread (B_store)
+ * Owner Header ops = C_store only (orders + inquiry) — not B chat
  *
  * DO NOT include: Customer buyer_order, General/Group, Trade, App Icon total, Bell.
  */
@@ -56,9 +56,9 @@ describe("Owner FAB / Header value contract", () => {
   it("locks each Owner surface input axis", () => {
     const bd = ownerBreakdown();
     expect(resolveFabOwnerOrdersBadgeCount(bd)).toBe(5);
-    expect(resolveFabOwnerStoreBadgeCount(bd)).toBe(1 + 2);
+    expect(resolveFabOwnerStoreBadgeCount(bd)).toBe(1);
     expect(resolveFabOwnerOrderChatBadgeCount(bd)).toBe(8);
-    expect(resolveOwnerOperationsCenterAttentionCount(bd)).toBe(5 + 3 + 8);
+    expect(resolveOwnerOperationsCenterAttentionCount(bd)).toBe(5 + 1);
   });
 
   it("Customer buyer_order unread does not change Owner FAB/Header", () => {
@@ -227,7 +227,8 @@ describe("Owner FAB / Header selector snapshots (re-render gate)", () => {
     expect(afterChat.fabOrderChat).toBe(before.fabOrderChat + 1);
     expect(afterChat.fabOrders).toBe(afterOrders.fabOrders);
     expect(afterChat.fabStore).toBe(before.fabStore);
-    expect(afterChat.header).toBe(afterOrders.header + 1);
+    // Header is C_store only — chat unread must not change ops header.
+    expect(afterChat.header).toBe(afterOrders.header);
   });
 
   it("same Owner values re-apply leave selector snapshots unchanged", () => {
@@ -241,9 +242,9 @@ describe("Owner FAB / Header selector snapshots (re-render gate)", () => {
     __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
     expect(selectorSnapshots()).toEqual({
       fabOrders: 5,
-      fabStore: 3,
+      fabStore: 1,
       fabOrderChat: 8,
-      header: 5 + 3 + 8,
+      header: 5 + 1,
     });
   });
 });

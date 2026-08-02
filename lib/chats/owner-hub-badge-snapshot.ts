@@ -15,6 +15,11 @@ import {
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
 import {
+  cStoreOwnerReviewAttentionBlocked,
+  resolveCStoreInquiryActionCount,
+  resolveCStoreOrderActionCount,
+} from "@/lib/notifications/badge-authority-rebuild/store-operation-c-projection";
+import {
   hubBadgeBreakdownForUser,
   logHubBadgeBreakdown,
   logHubBadgeCacheAnalysis,
@@ -72,6 +77,8 @@ export type OwnerHubBadgeSnapshotRow = {
   store_order_chat_unread: number;
   refund_pending_count: number;
   order_pending_count: number;
+  /** Slice 2-5 C_store — cancel_requested (0 when column/RPC older) */
+  cancel_pending_count: number;
   inquiry_pending_count: number;
   nt_bottom_nav_chat?: number;
   nt_bottom_nav_community?: number;
@@ -130,6 +137,7 @@ function counterBareSelectFields(): string {
     "store_order_chat_unread",
     "refund_pending_count",
     "order_pending_count",
+    "cancel_pending_count",
     "inquiry_pending_count",
     "updated_at",
   ].join(",");
@@ -205,6 +213,7 @@ function parseSnapshotRpcData(data: unknown): Omit<OwnerHubBadgeSnapshotRow, "up
     store_order_chat_unread: floorCount(d.store_order_chat_unread),
     refund_pending_count: floorCount(d.refund_pending_count),
     order_pending_count: floorCount(d.order_pending_count),
+    cancel_pending_count: floorCount(d.cancel_pending_count),
     inquiry_pending_count: floorCount(d.inquiry_pending_count),
   };
   if ("nt_bottom_nav_chat" in d) {
@@ -234,6 +243,7 @@ function rowFromDb(
     store_order_chat_unread: floorCount(data.store_order_chat_unread),
     refund_pending_count: floorCount(data.refund_pending_count),
     order_pending_count: floorCount(data.order_pending_count),
+    cancel_pending_count: floorCount(data.cancel_pending_count),
     inquiry_pending_count: floorCount(data.inquiry_pending_count),
     updated_at: data.updated_at,
   };
@@ -452,6 +462,7 @@ export async function upsertOwnerHubBadgeSnapshotCounter(
     store_order_chat_unread: snapshot.store_order_chat_unread,
     refund_pending_count: snapshot.refund_pending_count,
     order_pending_count: snapshot.order_pending_count,
+    cancel_pending_count: snapshot.cancel_pending_count,
     inquiry_pending_count: snapshot.inquiry_pending_count,
     updated_at: now,
   };
@@ -523,6 +534,7 @@ export function syncProcessMemoryLayersFromSnapshot(
     writeHubStoreAttentionMemory(snapshot.hub_store_id, {
       refundPendingCount: snapshot.refund_pending_count,
       orderPendingCount: snapshot.order_pending_count,
+      cancelPendingCount: snapshot.cancel_pending_count,
       inquiryPendingCount: snapshot.inquiry_pending_count,
     });
   } else {
@@ -546,9 +558,19 @@ function payloadFromSnapshot(
       : snapshot.has_hub_store
         ? 0
         : 0;
-  const orderAttention = snapshot.refund_pending_count + snapshot.order_pending_count;
-  const inquiryAttention = snapshot.inquiry_pending_count;
-  const ownerReviewAttention = Math.max(0, bundle.fab_owner_store - inquiryAttention);
+  const orderAttention = resolveCStoreOrderActionCount({
+    pendingOrderActions: snapshot.order_pending_count,
+    refundActions: snapshot.refund_pending_count,
+    cancelActions: snapshot.cancel_pending_count,
+    openInquiryActions: snapshot.inquiry_pending_count,
+  });
+  const inquiryAttention = resolveCStoreInquiryActionCount({
+    pendingOrderActions: snapshot.order_pending_count,
+    refundActions: snapshot.refund_pending_count,
+    cancelActions: snapshot.cancel_pending_count,
+    openInquiryActions: snapshot.inquiry_pending_count,
+  });
+  const ownerReviewAttention = cStoreOwnerReviewAttentionBlocked();
   let storeDeepLink: string | null = null;
   if (snapshot.has_hub_store && snapshot.hub_store_id) {
     if (inquiryAttention > 0) {
@@ -562,7 +584,8 @@ function payloadFromSnapshot(
   return mergeOwnerHubBadgeUnreadAndStore(
     { ...unread, storeOrderChatUnread },
     {
-      orderAttention: Math.max(orderAttention, bundle.fab_owner_orders),
+      // Slice 2-5 — state Action Required only; never max(fab_owner_orders).
+      orderAttention,
       inquiryAttention,
       ownerReviewAttention,
       buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),

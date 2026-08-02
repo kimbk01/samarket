@@ -11,6 +11,8 @@ export const OWNER_HUB_STORE_ATTENTION_COUNTS_RPC = "get_owner_hub_store_attenti
 export type OwnerHubStoreAttentionCounts = {
   refundPendingCount: number;
   orderPendingCount: number;
+  /** Slice 2-5 C_store — cancel_requested Action Required */
+  cancelPendingCount: number;
   inquiryPendingCount: number;
 };
 
@@ -42,6 +44,7 @@ export async function getOwnerHubStoreAttentionCounts(
   const counts: OwnerHubStoreAttentionCounts = {
     refundPendingCount: Math.max(0, Math.floor(Number(d.refund_pending_count) || 0)),
     orderPendingCount: Math.max(0, Math.floor(Number(d.order_pending_count) || 0)),
+    cancelPendingCount: Math.max(0, Math.floor(Number(d.cancel_pending_count) || 0)),
     inquiryPendingCount: Math.max(0, Math.floor(Number(d.inquiry_pending_count) || 0)),
   };
   writeHubStoreAttentionMemory(sid, counts);

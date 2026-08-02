@@ -30,7 +30,7 @@ describe("owner FAB badge display (3-way split)", () => {
   it("maps FAB rows independently", () => {
     const bd = sampleBreakdown();
     expect(resolveFabOwnerOrdersBadgeCount(bd)).toBe(5);
-    expect(resolveFabOwnerStoreBadgeCount(bd)).toBe(3);
+    expect(resolveFabOwnerStoreBadgeCount(bd)).toBe(1);
     expect(resolveFabOwnerOrderChatBadgeCount(bd)).toBe(8);
   });
 
