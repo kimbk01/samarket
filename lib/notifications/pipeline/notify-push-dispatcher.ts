@@ -7,6 +7,7 @@ import { getNotificationEventDefinition } from "@/lib/notifications/core/notific
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
+import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
@@ -112,8 +113,12 @@ export async function dispatchNotificationPushIfAllowed(
   logNotifyMessage("push_dispatch_start", { userId: row.user_id, eventId: row.id });
   await ensureNotificationSoundSsotHydratedForServer(sb);
   const domain = await fetchDomainBadgeAuthorityPayload(sb, row.user_id, { force: true });
-  const appIconTotal = Math.max(0, Math.floor(Number(domain.projection?.appIconTotal) || 0));
-  const out = buildPushPayload(row, appIconTotal);
+  // Slice 2-6 — FCM badge_count = MemberAppIconTotal absolute (A+B_member). Never compute; never B_store/C_store.
+  const memberAppIconTotal = resolveMemberAppIconTotalForNativeFcm({
+    memberAppIconWebTotal: domain.memberAppIconWebTotal,
+    appIconTotal: domain.projection?.appIconTotal,
+  });
+  const out = buildPushPayload(row, memberAppIconTotal);
 
   if (opts?.callPushKind === "missed_call") {
     await dispatchPushForUser(out, {
@@ -121,13 +126,13 @@ export async function dispatchNotificationPushIfAllowed(
       target_type: "call_session",
       target_id: row.call_session_id ?? undefined,
       call_push_kind: "missed_call",
-      badge_count: appIconTotal,
+      badge_count: memberAppIconTotal,
       notification_event_id: row.id,
     });
   } else {
     await dispatchPushForUser(out, {
       event_type: row.type,
-      badge_count: appIconTotal,
+      badge_count: memberAppIconTotal,
       notification_event_id: row.id,
     });
   }
@@ -135,7 +140,7 @@ export async function dispatchNotificationPushIfAllowed(
   logNotifyMessage("push_dispatch_done", {
     userId: row.user_id,
     eventId: row.id,
-    badgeCount: appIconTotal,
+    badgeCount: memberAppIconTotal,
   });
 }
 

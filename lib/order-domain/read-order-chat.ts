@@ -10,6 +10,7 @@ import {
   fetchDomainBadgeAuthorityPayload,
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
+import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 import { DIBAY_MARK_ROOM_READ_ATOMIC_RPC } from "@/lib/messenger/contracts/room-unread-authority";
 import {
   buildSoMarkReadIdempotencyKey,
@@ -190,7 +191,10 @@ export async function readOrderChat(
     updatedNotificationTargetCount: Math.max(0, Math.floor(Number(payload.clearedTargetCount) || 0)),
     updatedNotificationEventCount: Math.max(0, Math.floor(Number(payload.clearedEventCount) || 0)),
     nextBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.bellTotal) || 0)),
-    nativeBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.appIconTotal) || 0)),
+    nativeBadgeTotal: resolveMemberAppIconTotalForNativeFcm({
+      memberAppIconWebTotal: domain.memberAppIconWebTotal,
+      appIconTotal: domain.projection?.appIconTotal,
+    }),
     surface: ctx.role === "owner" ? "owner_commerce_inbox" : "bottom_nav_delivery",
     ...(ctx.role === "owner" ? { ownerFabSurface: "fab_owner_order_chat" as const } : {}),
     authority: "room_unread_v1",

@@ -22,6 +22,7 @@ import {
 import { loadActivePushTargets } from "@/lib/push/dispatch/load-active-push-targets";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
+import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 
 export type CampaignUserSendResult = {
   ok: boolean;
@@ -242,7 +243,10 @@ export async function sendCampaignToUser(
         const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
           () => null
         );
-        const badgeCount = Math.max(0, Math.floor(Number(domain?.projection?.appIconTotal) || 0));
+        const badgeCount = resolveMemberAppIconTotalForNativeFcm({
+          memberAppIconWebTotal: domain?.memberAppIconWebTotal,
+          appIconTotal: domain?.projection?.appIconTotal,
+        });
         const pushPresentation = buildAdminCampaignNotificationPresentation(
           {
             title: campaign.title,

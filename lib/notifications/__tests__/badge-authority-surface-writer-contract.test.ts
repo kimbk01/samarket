@@ -45,10 +45,11 @@ describe("badge authority surface writer contracts (2026-07-31)", () => {
     expect(native).not.toContain("getNotificationBadgeCountSnapshot");
   });
 
-  it("Push dispatcher uses Domain appIconTotal only", () => {
+  it("Push dispatcher uses MemberAppIconTotal for FCM (Slice 2-6)", () => {
     const push = read("lib/notifications/pipeline/notify-push-dispatcher.ts");
     expect(push).toContain("fetchDomainBadgeAuthorityPayload");
-    expect(push).toContain("appIconTotal");
+    expect(push).toContain("resolveMemberAppIconTotalForNativeFcm");
+    expect(push).toContain("memberAppIconWebTotal");
     expect(push).not.toMatch(/badge_count:\s*bell/i);
   });
 

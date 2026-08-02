@@ -131,4 +131,24 @@ describe("buildWebPushJsonPayload", () => {
     expect(payload.data.messageId).toBe("msg-1");
     expect(payload.data.url).toBe("/community-messenger/rooms/room-9");
   });
+
+  it("Slice 2-6: always sends absolute badgeCount including 0", () => {
+    const zero = buildWebPushJsonPayload(
+      baseOut({
+        notification_type: "system",
+        meta: { badge_count: 0 },
+      }),
+      { badge_count: 0 }
+    );
+    expect(zero.data.badgeCount).toBe("0");
+
+    const positive = buildWebPushJsonPayload(
+      baseOut({
+        notification_type: "system",
+        meta: { badge_count: 5 },
+      }),
+      { badge_count: 5 }
+    );
+    expect(positive.data.badgeCount).toBe("5");
+  });
 });

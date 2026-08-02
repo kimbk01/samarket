@@ -13,10 +13,11 @@ import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 
 /**
- * Runtime App Icon authority = domain-badge-surface-store only.
+ * Slice 2-6 — Native echoes MemberAppIconTotal absolute (surface.appIconTotal).
+ * Surface is fed by Web Authority (A_member + B_member). Native does not compute.
  * DO NOT read Phase H App Icon contract mirror as a runtime/fallback source.
- * DO NOT mirror Header Bell total.
- * Same appIconTotal → skip duplicate Badge.set (Phase 3-1).
+ * DO NOT mirror Header Bell total / B_store / C_store.
+ * Same total → skip duplicate Badge.set (Phase 3-1).
  */
 function readAppIconTotal(): number {
   const surface = getDomainBadgeSurfaceSnapshot();

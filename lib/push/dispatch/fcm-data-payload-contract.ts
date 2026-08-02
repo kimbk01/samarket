@@ -224,7 +224,8 @@ export function buildFcmDataFields(
       : Number.isFinite(badgeFromMeta)
         ? Math.max(0, Math.trunc(badgeFromMeta))
         : 0;
-  if (badgeCount > 0) fields.badgeCount = String(badgeCount);
+  // Slice 2-6 — always send absolute badge (including 0) so Native clear is not omitted.
+  fields.badgeCount = String(badgeCount);
 
   const eventId =
     trimText(opts?.notification_event_id) ||

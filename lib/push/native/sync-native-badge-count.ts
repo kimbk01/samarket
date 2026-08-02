@@ -16,10 +16,11 @@ function clampBadgeCount(count: number): number {
 }
 
 /**
- * Delivery Adapter entry — absolute appIconTotal only (never Bell, never +1).
+ * Slice 2-6 — Delivery Adapter: absolute MemberAppIconTotal only.
+ * Never Bell invent, never +1/-1, never B_store/C_store compute.
  * Cap Badge.set = cache echo.
- * Android Launcher = DibayAppIconDeliveryAdapter (S3) — LOCKED.
- * iOS SpringBoard = DibayAppIconDeliveryAdapter (APNS badge / setBadgeCount).
+ * Android Launcher = DibayAppIconDeliveryAdapter — LOCKED absolute setNumber.
+ * iOS SpringBoard = setBadgeCount / applicationIconBadgeNumber — absolute.
  */
 export async function syncNativeBadgeCount(count: number): Promise<{
   attempted: boolean;

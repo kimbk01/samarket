@@ -11,6 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DomainBadgeAuthorityHttpPayload } from "@/lib/notifications/pipeline/build-domain-badge-authority-http";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
+import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 
 /** Build + cache exactly one Domain snapshot for this ACK (Generation Owner). */
 export async function issueDomainBadgeAuthorityForAck(
@@ -58,7 +59,10 @@ export function domainBadgeReadMutationAckFields(domain: DomainBadgeAuthorityHtt
     badgeGeneration: domain.projectionVersionMs,
     projectionVersionMs: domain.projectionVersionMs,
     nextBadgeTotal: domain.projection.bellTotal,
-    nativeBadgeTotal: domain.projection.appIconTotal,
+    nativeBadgeTotal: resolveMemberAppIconTotalForNativeFcm({
+      memberAppIconWebTotal: domain.memberAppIconWebTotal,
+      appIconTotal: domain.projection.appIconTotal,
+    }),
     categoryCounts: domain.categoryCounts,
     domainUnreadRooms: domain.domainUnreadRooms,
     domainAppIcon: domain.domainAppIcon,
