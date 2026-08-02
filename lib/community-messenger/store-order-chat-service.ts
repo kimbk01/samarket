@@ -859,7 +859,10 @@ function applyStoreOrderUnreadMemoryHitTiming(
   timingOut.store_order_unread_parts_rows = 0;
 }
 
-/** 허브 매장 1건 기준 주문 채팅 미읽음 합 — 전체 매장·전체 주문 스캔 금지 */
+/**
+ * Hub store scoped owner order-chat unread — Slice 2-4 B_store room count.
+ * DO NOT scan all stores. DO NOT return message-sum as FAB digit.
+ */
 export type CountOwnerStoreOrderMessengerUnreadOpts = {
   onRoomIdsCacheHit?: () => void;
 };
@@ -954,18 +957,26 @@ export async function countOwnerStoreOrderMessengerUnreadForHubStore(
   const parts0 = devPerfNow();
   const { data: parts, error: partsErr } = await sb
     .from("community_messenger_participants")
-    .select("unread_count")
+    .select("room_id, unread_count")
     .eq("user_id", uid)
-    .in("room_id", roomIds);
+    .in("room_id", roomIds)
+    .gt("unread_count", 0);
   const partsMs = devPerfNow() - parts0;
   const totalMs = devPerfNow() - total0;
   const err = ordersErr ?? partsErr;
-  const sum = (parts ?? []).reduce(
-    (acc, row) => acc + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)),
-    0
-  );
+  /**
+   * Slice 2-4 B_store — Hub/FAB = unread **room** count for this store only.
+   * DO NOT sum participant unread_count (message units) into the FAB digit.
+   */
+  const unreadRoomIds = new Set<string>();
+  for (const row of parts ?? []) {
+    const rid = trimText((row as { room_id?: unknown }).room_id);
+    const unread = Math.max(0, Math.floor(Number((row as { unread_count?: unknown }).unread_count ?? 0) || 0));
+    if (rid && unread > 0) unreadRoomIds.add(rid);
+  }
+  const roomCount = unreadRoomIds.size;
   if (!err) {
-    writeHubStoreOrderUnreadMemory(uid, sid, sum);
+    writeHubStoreOrderUnreadMemory(uid, sid, roomCount);
   }
   if (timingOut) {
     timingOut.store_order_unread_ms = Math.round(totalMs);
@@ -979,7 +990,7 @@ export async function countOwnerStoreOrderMessengerUnreadForHubStore(
     if (err?.message) timingOut.store_order_unread_error = err.message.slice(0, 120);
   }
   if (err) return 0;
-  return sum;
+  return roomCount;
 }
 
 /** @deprecated 배지·허브는 `countOwnerStoreOrderMessengerUnreadForHubStore` 우선 */

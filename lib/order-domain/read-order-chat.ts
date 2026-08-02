@@ -166,6 +166,16 @@ export async function readOrderChat(
   }
 
   invalidateNotificationBadgeCache(userId);
+  if (ctx.role === "owner" && ctx.storeId) {
+    try {
+      const { invalidateHubStoreOrderUnreadMemory } = await import(
+        "@/lib/community-messenger/hub-store-order-unread-memory-cache"
+      );
+      invalidateHubStoreOrderUnreadMemory(userId, ctx.storeId);
+    } catch {
+      /* ignore — hub memory optional */
+    }
+  }
   const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
 
   return {

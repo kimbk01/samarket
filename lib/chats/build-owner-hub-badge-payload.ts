@@ -21,6 +21,7 @@ import {
   invalidateCommunityMessengerUnreadTotalCache,
 } from "@/lib/community-messenger/community-messenger-unread-total";
 import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import { countOwnerStoreOrderMessengerUnreadForHubStore } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateHubStoreOrderRoomIdsMemory } from "@/lib/community-messenger/hub-store-order-roomids-memory-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import {
@@ -634,14 +635,31 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const unreadPartsVia = "skipped_no_hub" as const;
   const findHubStoreMs = findHubStoreTiming.find_hub_store_ms;
   const cmUnreadMs = 0;
-  const storeOrderUnreadMs = 0;
+  let storeOrderUnreadMs = 0;
   const wave1ParallelSlackMs = Math.max(0, Math.round(queryWave1Ms - findHubStoreMs));
   const hasOwnerStore = hasOwnerStoreEarly;
   const queryWave2Ms = 0;
   const wave2ParallelSlackMs = 0;
   const wave2Worst = { stage: "target_bundle" as const, ms: queryWave1Ms };
 
-  const unread = ownerHubUnreadPartialFromTargetBundle(targetBundle);
+  const unreadFromTargets = ownerHubUnreadPartialFromTargetBundle(targetBundle);
+  /** Slice 2-4 — FAB/Hub chat = active store unread **room** count (not targets message/event sum). */
+  let storeOrderChatUnreadRooms = 0;
+  if (hubStore?.id) {
+    const so0 = devPerfNow();
+    invalidateHubStoreOrderUnreadMemory(userId, hubStore.id);
+    storeOrderChatUnreadRooms = await countOwnerStoreOrderMessengerUnreadForHubStore(
+      sbAny,
+      userId,
+      hubStore.id,
+      storeOrderUnreadTiming
+    );
+    storeOrderUnreadMs = devPerfNow() - so0;
+  }
+  const unread = {
+    ...unreadFromTargets,
+    storeOrderChatUnread: storeOrderChatUnreadRooms,
+  };
 
   const attentionTiming: OwnerHubBadgeStoreAttentionTiming = {
     refund_pending_ms: 0,

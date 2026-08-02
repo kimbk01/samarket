@@ -16,6 +16,7 @@ const FOUNDATION_MARKERS = [
   "badge-authority-rebuild/badge-authority-assertions",
   "badge-authority-rebuild/member-notification-a-projection",
   "badge-authority-rebuild/member-communication-b-projection",
+  "badge-authority-rebuild/store-communication-b-projection",
 ];
 
 const ALLOW_A_PROJECTION_IMPORT = new Set([
@@ -30,6 +31,13 @@ const ALLOW_B_PROJECTION_IMPORT = new Set([
   "lib/notifications/build-notification-badge-projection.ts",
   "lib/notifications/pipeline/build-domain-badge-authority-http.ts",
   "lib/notifications/load-orphan-missed-call-facts.ts",
+]);
+
+const ALLOW_B_STORE_PROJECTION_IMPORT = new Set([
+  "lib/chats/owner-hub-badge-snapshot.ts",
+  "lib/chats/build-owner-hub-badge-payload.ts",
+  "lib/community-messenger/store-order-chat-service.ts",
+  "lib/order-domain/read-order-chat.ts",
 ]);
 
 const PRODUCT_SCAN_ROOTS = ["app", "components", "hooks", "services", "android", "ios"];
@@ -90,6 +98,12 @@ describe("Slice 2-1 runtime isolation", () => {
         if (
           marker.includes("member-communication-b-projection") &&
           ALLOW_B_PROJECTION_IMPORT.has(rel)
+        ) {
+          continue;
+        }
+        if (
+          marker.includes("store-communication-b-projection") &&
+          ALLOW_B_STORE_PROJECTION_IMPORT.has(rel)
         ) {
           continue;
         }

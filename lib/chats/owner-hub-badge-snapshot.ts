@@ -47,8 +47,12 @@ import {
 } from "@/lib/notifications/notification-targets";
 import { ownerHubUnreadPartialFromTargetBundle } from "@/lib/chats/build-owner-hub-badge-from-targets";
 import { writeCmUnreadRoomCountMemory } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
-import { writeHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import {
+  invalidateHubStoreOrderUnreadMemory,
+  writeHubStoreOrderUnreadMemory,
+} from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
 import { writeHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
+import { countOwnerStoreOrderMessengerUnreadForHubStore } from "@/lib/community-messenger/store-order-chat-service";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -528,9 +532,20 @@ export function syncProcessMemoryLayersFromSnapshot(
 
 function payloadFromSnapshot(
   snapshot: OwnerHubBadgeSnapshotRow,
-  bundle: NotificationTargetHubBundle
+  bundle: NotificationTargetHubBundle,
+  /**
+   * Slice 2-4 — active-store owner chat unread **room** count.
+   * Prefer this over notification_targets fab_owner_order_chat / RPC message-sum.
+   */
+  storeOrderChatUnreadRooms?: number
 ): OwnerHubBadgeApiPayload {
   const unread = ownerHubUnreadPartialFromTargetBundle(bundle);
+  const storeOrderChatUnread =
+    storeOrderChatUnreadRooms != null
+      ? Math.max(0, Math.floor(Number(storeOrderChatUnreadRooms) || 0))
+      : snapshot.has_hub_store
+        ? 0
+        : 0;
   const orderAttention = snapshot.refund_pending_count + snapshot.order_pending_count;
   const inquiryAttention = snapshot.inquiry_pending_count;
   const ownerReviewAttention = Math.max(0, bundle.fab_owner_store - inquiryAttention);
@@ -540,17 +555,20 @@ function payloadFromSnapshot(
       storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(snapshot.hub_store_id)}`;
     } else if (orderAttention > 0) {
       storeDeepLink = buildStoreOrdersHref({ storeId: snapshot.hub_store_id });
-    } else if (unread.storeOrderChatUnread > 0) {
+    } else if (storeOrderChatUnread > 0) {
       storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
     }
   }
-  return mergeOwnerHubBadgeUnreadAndStore(unread, {
-    orderAttention: Math.max(orderAttention, bundle.fab_owner_orders),
-    inquiryAttention,
-    ownerReviewAttention,
-    buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),
-    storeDeepLink,
-  });
+  return mergeOwnerHubBadgeUnreadAndStore(
+    { ...unread, storeOrderChatUnread },
+    {
+      orderAttention: Math.max(orderAttention, bundle.fab_owner_orders),
+      inquiryAttention,
+      ownerReviewAttention,
+      buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),
+      storeDeepLink,
+    }
+  );
 }
 
 function participantUnreadTotal(snapshot: OwnerHubBadgeSnapshotRow): number {
@@ -688,7 +706,19 @@ function buildSnapshotBreakdown(input: {
   return breakdown;
 }
 
-function buildSnapshotFromCounterHit(input: {
+async function resolveActiveStoreOwnerChatRoomCount(
+  sbAny: SupabaseClient<any>,
+  userId: string,
+  hubStoreId: string | null | undefined
+): Promise<number> {
+  const sid = typeof hubStoreId === "string" ? hubStoreId.trim() : "";
+  if (!sid) return 0;
+  // Drop stale message-sum cache entries from pre–Slice-2-4 writers.
+  invalidateHubStoreOrderUnreadMemory(userId, sid);
+  return countOwnerStoreOrderMessengerUnreadForHubStore(sbAny, userId, sid);
+}
+
+async function buildSnapshotFromCounterHit(input: {
   userId: string;
   build0: number;
   counter: SnapshotCounterRead & { hit: true };
@@ -696,14 +726,20 @@ function buildSnapshotFromCounterHit(input: {
   bundleTiming: SnapshotTargetBundleTiming;
   stale?: boolean;
   meta: OwnerHubBadgeBuildMeta;
-}): SnapshotBuildResult {
-  const { userId: uid, counter, bundle, bundleTiming, stale, meta, build0 } = input;
+  sbAny: SupabaseClient<any>;
+}): Promise<SnapshotBuildResult> {
+  const { userId: uid, counter, bundle, bundleTiming, stale, meta, build0, sbAny } = input;
   const readMs = counter.timing.db_fetch_ms;
   const merge0 = devPerfNow();
   syncProcessMemoryLayersFromSnapshot(uid, counter.row);
   const participant_merge_ms = devPerfNow() - merge0;
   const payload0 = devPerfNow();
-  const payload = payloadFromSnapshot(counter.row, bundle);
+  const storeOrderChatUnreadRooms = await resolveActiveStoreOwnerChatRoomCount(
+    sbAny,
+    uid,
+    counter.row.hub_store_id
+  );
+  const payload = payloadFromSnapshot(counter.row, bundle, storeOrderChatUnreadRooms);
   const payload_build_ms = devPerfNow() - payload0;
   const breakdown = buildSnapshotBreakdown({
     userId: uid,
@@ -774,19 +810,20 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       const fetched = await fetchSnapshotCounterAndTargetBundle(sbAny, uid);
 
       if (fetched.counter.hit && !fetched.counter.stale && fetched.bundle) {
-        return buildSnapshotFromCounterHit({
+        return await buildSnapshotFromCounterHit({
           userId: uid,
           build0,
           counter: fetched.counter,
           bundle: fetched.bundle,
           bundleTiming: fetched.timing,
           meta,
+          sbAny,
         });
       }
 
       if (fetched.counter.hit && fetched.counter.stale && fetched.bundle) {
         scheduleOwnerHubBadgeSnapshotRefresh(uid);
-        return buildSnapshotFromCounterHit({
+        return await buildSnapshotFromCounterHit({
           userId: uid,
           build0,
           counter: fetched.counter,
@@ -794,6 +831,7 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
           bundleTiming: fetched.timing,
           stale: true,
           meta,
+          sbAny,
         });
       }
     }
@@ -833,7 +871,12 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       };
     }
     const payload0 = devPerfNow();
-    const payload = payloadFromSnapshot(fullRow, bundle);
+    const storeOrderChatUnreadRooms = await resolveActiveStoreOwnerChatRoomCount(
+      sbAny,
+      uid,
+      fullRow.hub_store_id
+    );
+    const payload = payloadFromSnapshot(fullRow, bundle, storeOrderChatUnreadRooms);
     const payload_build_ms = devPerfNow() - payload0;
     const rpcTiming: SnapshotCounterReadTiming = {
       db_fetch_ms: Math.round(rpcMs || rpcWallMs),
