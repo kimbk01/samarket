@@ -84,10 +84,12 @@ export function resolveTier1BellListFetchOpts(
       return { ownerStoreId: ownerStoreId?.trim() || undefined };
     case "tier1_inbox_bell":
     default:
-      // Phase B — Header Bell digit = NotificationAttention only.
-      // Chat message rows may still appear as history/quarantine in some list paths,
-      // but default Tier1 list excludes chat so digit and list stay aligned.
-      return { excludeChatMessages: true, pushKind: "all" as InboxPushKindFilter };
+      // Slice 2-2 — Header Bell list = A_member only (no chat, no owner commerce).
+      return {
+        excludeChatMessages: true,
+        excludeOwnerStoreCommerce: true,
+        pushKind: "all" as InboxPushKindFilter,
+      };
   }
 }
 
@@ -130,8 +132,8 @@ export function resolveTier1BellMarkAllReadBody(
 
   switch (surface) {
     case "tier1_inbox_bell":
-      // Bell digit Authority = all approved unread notification_events (not rooms).
-      return { mark_all_read: true };
+      // Slice 2-2 — mark-all clears A_member only (excludes owner commerce + chat).
+      return { mark_my_notifications_read_excluding_owner_and_chat: true };
     case "owner_commerce_inbox":
       return { mark_all_owner_store_commerce_read: true };
     case "bottom_nav_chat":

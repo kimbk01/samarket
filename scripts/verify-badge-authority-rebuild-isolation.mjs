@@ -9,6 +9,14 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const errors = [];
 
+const ALLOW_PRODUCT_IMPORT_OF_A_PROJECTION = new Set([
+  "lib/notifications/pipeline/build-domain-badge-authority-http.ts",
+  "lib/notifications/apply-badge-count-authority-response.ts",
+  "lib/notifications/inbox-read-bridge.ts",
+  "components/philife/PhilifeHeaderNotificationInbox.tsx",
+  "components/my/MyNotificationsView.tsx",
+]);
+
 const MARKERS = [
   "badge-authority-rebuild/badge-authority-types",
   "badge-authority-rebuild/badge-recipient-identity",
@@ -16,6 +24,7 @@ const MARKERS = [
   "badge-authority-rebuild/badge-surface-eligibility",
   "badge-authority-rebuild/badge-count-units",
   "badge-authority-rebuild/badge-authority-assertions",
+  "badge-authority-rebuild/member-notification-a-projection",
 ];
 
 const SCAN = ["app", "components", "hooks", "services", "android", "ios"];
@@ -60,7 +69,15 @@ for (const abs of files) {
   if (allow(rel)) continue;
   const src = readFileSync(abs, "utf8");
   for (const m of MARKERS) {
-    if (src.includes(m)) errors.push(`${rel} imports foundation marker: ${m}`);
+    if (!src.includes(m)) continue;
+    // Slice 2-2 — Bell A projection may be imported only by allowlisted serverside/apply adapters.
+    if (
+      m.includes("member-notification-a-projection") &&
+      ALLOW_PRODUCT_IMPORT_OF_A_PROJECTION.has(rel)
+    ) {
+      continue;
+    }
+    errors.push(`${rel} imports foundation marker: ${m}`);
   }
 }
 

@@ -85,6 +85,7 @@ import {
   resolveTier1BellSurfaceFromPathname,
   type Tier1BellBadgeSurface,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 
 import {
   getNotificationBadgeCountSnapshot,
@@ -533,6 +534,7 @@ export function PhilifeHeaderNotificationInbox({
       const { status, json: raw } = await fetchMeNotificationsListDeduped({
         force,
         excludeChatMessages: listFetchOpts.excludeChatMessages,
+        excludeOwnerStoreCommerce: listFetchOpts.excludeOwnerStoreCommerce,
         pushKind: listFetchOpts.pushKind,
         ownerStoreId: listFetchOpts.ownerStoreId,
       });
@@ -555,7 +557,12 @@ export function PhilifeHeaderNotificationInbox({
 
       }
 
-      const nextRows = (j.notifications ?? []) as Row[];
+      const fetched = (j.notifications ?? []) as Row[];
+      // Slice 2-2 — Header Bell list = A_member only when on tier1_inbox_bell.
+      const nextRows =
+        resolvedSurface === "tier1_inbox_bell"
+          ? (filterMemberNotificationAInboxRows(fetched) as Row[])
+          : fetched;
 
       setRows(nextRows);
 
@@ -571,7 +578,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [listFetchOpts]);
+  }, [listFetchOpts, resolvedSurface]);
 
 
 

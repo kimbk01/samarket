@@ -483,16 +483,31 @@ export async function markNonChatNonOwnerNotificationEventsRead(
     "@/lib/notifications/inapp-chat-message-notification"
   );
 
+  const { isMemberNotificationAUnread } = await import(
+    "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection"
+  );
+
   const rowsToMark = data.filter((row) => {
     const category = String(row.category ?? "");
     const type = String(row.type ?? "");
     if (CHAT_EVENT_CATEGORIES.has(category) || CHAT_EVENT_TYPES.has(type)) return false;
+    if (type === "missed_call" || category === "missed_call") return false;
+    if (type === "admin_marketing_banner" || category === "admin_marketing_banner") return false;
     const mapped = mapNotificationEventToInboxRow(
       row as Parameters<typeof mapNotificationEventToInboxRow>[0]
     );
     if (isInAppChatMessageNotificationRow(mapped)) return false;
     if (isOwnerStoreCommerceNotificationRow(mapped)) return false;
-    return true;
+    // Slice 2-2 — mark-all only A_member (unknown / B / C stay unread).
+    return isMemberNotificationAUnread({
+      id: row.id,
+      type,
+      category,
+      unread: true,
+      read_at: null,
+      room_id: (row as { room_id?: string | null }).room_id,
+      display_payload: row.display_payload,
+    });
   });
 
   const idsToMark = rowsToMark

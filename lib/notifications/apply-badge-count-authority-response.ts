@@ -36,8 +36,10 @@ export type BadgeCountAuthorityJson = {
   storeOrderOwnerChatUnread?: number;
   philifeChatUnread?: number;
   nonChatEventAttention?: Partial<NotificationNonChatEventAttentionFacts>;
-  /** Phase B Bell digit SSOT — distinct non-chat attention_key count. */
+  /** Phase B App Icon notification axis (may include owner_intake until Slice 2-5). */
   notificationAttentionTotal?: number;
+  /** Slice 2-2 — Member Bell digit = A_member only. */
+  memberUnreadNotificationCount?: number;
   /** True orphan missed_call event count (diagnostics); optional. */
   orphanMissedCallCount?: number;
   unreadApprovedNotificationEvents?: number;
@@ -46,25 +48,37 @@ export type BadgeCountAuthorityJson = {
 };
 
 /**
- * Phase B: Bell / App Icon notification axis.
- * Prefer explicit `notificationAttentionTotal`, then icon wire, then HTTP `total` (prod = Bell digit).
+ * Phase B App Icon notification axis.
+ * Prefer explicit `notificationAttentionTotal` / icon wire.
+ * DO NOT use HTTP `total` or projection.bellTotal (Slice 2-2 = A Bell digit).
  */
 function resolveNotificationAttentionTotal(
   body: BadgeCountAuthorityJson,
-  bellTotalFallback: number
+  legacyFallback: number
 ): number {
   if (body.notificationAttentionTotal != null) {
     return Math.max(0, Math.floor(Number(body.notificationAttentionTotal) || 0));
+  }
+  if (body.domainAppIcon?.missedCall != null) {
+    return Math.max(0, Math.floor(Number(body.domainAppIcon.missedCall) || 0));
+  }
+  return Math.max(0, Math.floor(Number(legacyFallback) || 0));
+}
+
+/** Slice 2-2 Member Bell digit = A_member. */
+function resolveMemberBellDigit(body: BadgeCountAuthorityJson, fallback: number): number {
+  if (body.memberUnreadNotificationCount != null) {
+    return Math.max(0, Math.floor(Number(body.memberUnreadNotificationCount) || 0));
   }
   const proj = body.projection;
   if (proj && typeof proj === "object") {
     const bellTotal = (proj as { bellTotal?: unknown }).bellTotal;
     if (bellTotal != null) return Math.max(0, Math.floor(Number(bellTotal) || 0));
   }
-  if (body.domainAppIcon?.missedCall != null) {
-    return Math.max(0, Math.floor(Number(body.domainAppIcon.missedCall) || 0));
+  if (body.total != null) {
+    return Math.max(0, Math.floor(Number(body.total) || 0));
   }
-  return Math.max(0, Math.floor(Number(bellTotalFallback) || 0));
+  return Math.max(0, Math.floor(Number(fallback) || 0));
 }
 
 function resolveOrphanMissedCall(
@@ -129,7 +143,8 @@ export function projectionInputFromBadgeCountAuthorityJson(
               Math.floor(Number((body.projection as { bellTotal?: number }).bellTotal) || 0)
             )
           : Math.max(0, Math.floor(Number(bell.total) || 0));
-    const notificationAttentionTotal = resolveNotificationAttentionTotal(body, bell.total);
+    const notificationAttentionTotal = resolveNotificationAttentionTotal(body, 0);
+    const memberUnreadNotificationCount = resolveMemberBellDigit(body, bell.total);
     return {
       domainUnreadRooms: {
         general_direct: Math.max(0, Math.floor(Number(rooms.general_direct) || 0)),
@@ -153,8 +168,9 @@ export function projectionInputFromBadgeCountAuthorityJson(
       orphanMissedCall: resolveOrphanMissedCall(body, bell),
       nonChatEventAttention: nonChatFromBody(body),
       notificationAttentionTotal,
+      memberUnreadNotificationCount,
       unreadApprovedNotificationEvents: unreadApproved,
-      bell: { ...bell, total: notificationAttentionTotal },
+      bell: { ...bell, total: memberUnreadNotificationCount },
       rowUnreadByRoomId: body.missedCallByRoom ?? {},
     };
   }
@@ -174,7 +190,8 @@ export function projectionInputFromBadgeCountAuthorityJson(
     body.unreadApprovedNotificationEvents != null
       ? Math.max(0, Math.floor(Number(body.unreadApprovedNotificationEvents) || 0))
       : Math.max(0, Math.floor(Number(bell.total) || 0));
-  const notificationAttentionTotal = resolveNotificationAttentionTotal(body, bell.total);
+  const notificationAttentionTotal = resolveNotificationAttentionTotal(body, 0);
+  const memberUnreadNotificationCount = resolveMemberBellDigit(body, bell.total);
   return {
     domainUnreadRooms: {
       general_direct: messenger,
@@ -189,8 +206,9 @@ export function projectionInputFromBadgeCountAuthorityJson(
     orphanMissedCall: resolveOrphanMissedCall(body, bell),
     nonChatEventAttention: nonChatFromBody(body),
     notificationAttentionTotal,
+    memberUnreadNotificationCount,
     unreadApprovedNotificationEvents: unreadApproved,
-    bell: { ...bell, total: notificationAttentionTotal },
+    bell: { ...bell, total: memberUnreadNotificationCount },
     rowUnreadByRoomId: body.missedCallByRoom ?? {},
   };
 }

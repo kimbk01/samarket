@@ -76,9 +76,14 @@ export type NotificationBadgeProjectionInput = Readonly<{
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   /**
    * Phase B — NotificationAttentionTotal (distinct non-chat attention_key).
-   * Drives Bell digit + App Icon notification axis. Prefer this over raw event counts.
+   * Drives App Icon notification axis. Prefer this over raw event counts.
    */
   notificationAttentionTotal?: number;
+  /**
+   * Slice 2-2 — Member Bell digit = A_member unread only.
+   * When omitted, falls back to `notificationAttentionTotal` (legacy Phase B parity).
+   */
+  memberUnreadNotificationCount?: number;
   /**
    * @deprecated Prefer `notificationAttentionTotal`. Legacy unread event row count (includes chat).
    */
@@ -242,7 +247,7 @@ export function buildNotificationBadgeProjection(
   /** App Icon chat axis = owner rooms + buyer rooms (no double-count). */
   const storeOrderForAppIcon = ownerForHub + buyer;
   /**
-   * Phase B Bell + App Icon notification axis = NotificationAttentionTotal.
+   * Phase B App Icon notification axis = NotificationAttentionTotal (unchanged in Slice 2-2).
    * Fallback to orphan-only only when notificationAttentionTotal omitted (legacy callers).
    */
   const notificationAttentionTotal =
@@ -265,14 +270,21 @@ export function buildNotificationBadgeProjection(
   const bellNonChatEventCount = nonChat;
 
   const eventBell = input.bell ?? EMPTY_BELL_BADGE_FACTS;
-  const unreadApprovedNotificationEvents =
+  const _unreadApprovedNotificationEvents =
     input.unreadApprovedNotificationEvents != null
       ? nonNeg(input.unreadApprovedNotificationEvents)
       : input.bell
         ? nonNeg(eventBell.total) || sumApprovedEventCategories(eventBell)
         : 0;
-  /** Product Bell digit = NotificationAttentionTotal (not raw event SUM / chat). */
-  const bellTotal = notificationAttentionTotal;
+  void _unreadApprovedNotificationEvents;
+  /**
+   * Slice 2-2 Product Bell digit = A_member unread count.
+   * App Icon still uses notificationAttentionTotal (Phase B) until later slices.
+   */
+  const bellTotal =
+    input.memberUnreadNotificationCount != null
+      ? nonNeg(input.memberUnreadNotificationCount)
+      : notificationAttentionTotal;
 
   const bell: NotificationBadgeCount = {
     ...eventBell,

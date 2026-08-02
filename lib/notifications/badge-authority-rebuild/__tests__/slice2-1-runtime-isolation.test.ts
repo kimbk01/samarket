@@ -14,7 +14,16 @@ const FOUNDATION_MARKERS = [
   "badge-authority-rebuild/badge-surface-eligibility",
   "badge-authority-rebuild/badge-count-units",
   "badge-authority-rebuild/badge-authority-assertions",
+  "badge-authority-rebuild/member-notification-a-projection",
 ];
+
+const ALLOW_A_PROJECTION_IMPORT = new Set([
+  "lib/notifications/pipeline/build-domain-badge-authority-http.ts",
+  "lib/notifications/apply-badge-count-authority-response.ts",
+  "lib/notifications/inbox-read-bridge.ts",
+  "components/philife/PhilifeHeaderNotificationInbox.tsx",
+  "components/my/MyNotificationsView.tsx",
+]);
 
 const PRODUCT_SCAN_ROOTS = ["app", "components", "hooks", "services", "android", "ios"];
 
@@ -64,9 +73,14 @@ describe("Slice 2-1 runtime isolation", () => {
       if (isAllowlisted(rel)) continue;
       const src = fs.readFileSync(abs, "utf8");
       for (const marker of FOUNDATION_MARKERS) {
-        if (src.includes(marker)) {
-          hits.push(`${rel} :: ${marker}`);
+        if (!src.includes(marker)) continue;
+        if (
+          marker.includes("member-notification-a-projection") &&
+          ALLOW_A_PROJECTION_IMPORT.has(rel)
+        ) {
+          continue;
         }
+        hits.push(`${rel} :: ${marker}`);
       }
     }
     expect(hits).toEqual([]);

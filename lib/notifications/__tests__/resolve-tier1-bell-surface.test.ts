@@ -50,9 +50,10 @@ describe("resolveTier1BellUnreadFetchUrl", () => {
 });
 
 describe("resolveTier1BellListFetchOpts", () => {
-  it("excludes chat messages for full tier1 inbox (Bell = NotificationAttention)", () => {
+  it("excludes chat + owner commerce for full tier1 inbox (Bell = A_member)", () => {
     expect(resolveTier1BellListFetchOpts("tier1_inbox_bell")).toEqual({
       excludeChatMessages: true,
+      excludeOwnerStoreCommerce: true,
       pushKind: "all",
     });
   });
@@ -89,9 +90,9 @@ describe("resolveTier1BellMarkAllReadBody", () => {
     });
   });
 
-  it("falls back to full Bell mark-all for tier1 inbox", () => {
+  it("falls back to A-only mark-all for tier1 inbox (exclude owner + chat)", () => {
     expect(resolveTier1BellMarkAllReadBody("tier1_inbox_bell", [])).toEqual({
-      mark_all_read: true,
+      mark_my_notifications_read_excluding_owner_and_chat: true,
     });
   });
 

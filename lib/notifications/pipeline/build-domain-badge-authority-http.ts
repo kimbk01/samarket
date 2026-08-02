@@ -1,11 +1,14 @@
 /**
  * Server Domain Badge Authority for GET /api/me/notifications/badge-count.
  *
- * Phase B Formula SSOT:
+ * Phase B Formula SSOT (App Icon — unchanged in Slice 2-2):
  *   ChatAttentionTotal = unread room ID sets (GD+Group+Trade+Customer+Owner)
  *   NotificationAttentionTotal = distinct non-chat attention_key
  *   AppIconTotal = Chat + Notification
- *   Bell digit = NotificationAttentionTotal (chat_message excluded)
+ *
+ * Slice 2-2 Bell digit:
+ *   memberUnreadNotificationCount = A_member only
+ *   (owner_intake / chat / missed / marketing excluded)
  *
  * categoryCounts remain inbox filter / diagnostics (may include chat rows).
  *
@@ -35,6 +38,7 @@ import {
   buildUnifiedAppIconProjection,
   type UnifiedAppIconProjection,
 } from "@/lib/notifications/chat-notification-attention-projection";
+import { deriveMemberUnreadNotificationCount } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
@@ -101,8 +105,10 @@ export type DomainBadgeAuthorityHttpPayload = {
   notificationAttentionTotal: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
-  /** Product Bell snapshot fields — Header digit SSOT (= notificationAttentionTotal). */
+  /** Product Bell digit SSOT (= memberUnreadNotificationCount / A). */
   total: number;
+  /** Slice 2-2 — A_member unread count for Bell. */
+  memberUnreadNotificationCount: number;
   chatMessage: number;
   groupMessage: number;
   tradeMessage: number;
@@ -178,6 +184,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     notificationEvents: bellExplainRows,
   });
   const notificationAttentionTotal = unifiedAttention.notification.total;
+  /** Slice 2-2 — Bell digit only (A_member). App Icon still uses notificationAttentionTotal. */
+  const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(bellExplainRows);
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
     domainUnreadRooms,
@@ -187,6 +195,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     orphanMissedCall: missed.orphan,
     nonChatEventAttention,
     notificationAttentionTotal,
+    memberUnreadNotificationCount,
     unreadApprovedNotificationEvents,
     bell: categoryCounts,
     rowUnreadByRoomId: {
@@ -270,9 +279,11 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     storeOrderOwnerChatUnread,
     unreadApprovedNotificationEvents,
     notificationAttentionTotal,
+    memberUnreadNotificationCount,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
-    total: notificationAttentionTotal,
+    /** Slice 2-2 — Header Bell digit = A_member only. */
+    total: projection.bellTotal,
     chatMessage: Math.max(0, Math.floor(Number(bell.chatMessage) || 0)),
     groupMessage: Math.max(0, Math.floor(Number(bell.groupMessage) || 0)),
     tradeMessage: Math.max(0, Math.floor(Number(bell.tradeMessage) || 0)),

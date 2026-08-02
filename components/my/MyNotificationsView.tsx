@@ -18,6 +18,7 @@ import { NotificationInboxByDateSections } from "@/components/notifications/Noti
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 
 type Row = {
   id: string;
@@ -64,12 +65,11 @@ export function MyNotificationsView() {
   const { language, t } = useI18n();
   const inboxFilterChips = useMemo(
     (): { key: InboxPushKindFilter; label: string }[] => [
+      // Slice 2-2 — Member notification page = A surfaces only (no chat/marketing tabs).
       { key: "all", label: t("notif_filter_all") },
       { key: "delivery", label: t("notif_filter_delivery") },
       { key: "trade", label: t("notif_filter_trade") },
-      { key: "chat", label: t("notif_filter_chat") },
       { key: "notice", label: t("notif_filter_notice") },
-      { key: "marketing", label: t("notif_filter_marketing") },
     ],
     [t]
   );
@@ -114,6 +114,8 @@ export function MyNotificationsView() {
           pushKind: filterTab,
           limit: requestLimit,
           offset: requestOffset,
+          excludeChatMessages: true,
+          excludeOwnerStoreCommerce: true,
         });
         const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
         if (status === 401) {
@@ -133,7 +135,8 @@ export function MyNotificationsView() {
           setHasMore(false);
           return;
         }
-        const batch = (j.notifications ?? []) as Row[];
+        const batchRaw = (j.notifications ?? []) as Row[];
+        const batch = filterMemberNotificationAInboxRows(batchRaw) as Row[];
         setRows((prev) => {
           const next = append ? [...prev, ...batch] : batch;
           rowsLengthRef.current = next.length;
@@ -251,7 +254,7 @@ export function MyNotificationsView() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_all_read: true }),
+        body: JSON.stringify({ mark_my_notifications_read_excluding_owner_and_chat: true }),
       });
       const j = await res.json();
       if (!j?.ok) {
