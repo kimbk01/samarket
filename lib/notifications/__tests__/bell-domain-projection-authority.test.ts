@@ -6,12 +6,11 @@ import {
 } from "@/lib/notifications/build-notification-badge-projection";
 
 /**
- * A/B Formula SSOT (LOCKED — do not redesign in tests):
- *   Bell = A memberNotificationAttention (orphan missed ∉ Bell)
- *   AppIcon = GD+Group+Trade+Customer rooms + A + orphan missed (owner rooms ∉)
+ * Phase B Formula SSOT (LOCKED — do not redesign in tests):
+ *   Bell = NotificationAttentionTotal
+ *   AppIcon = ChatAttention (unread rooms) + NotificationAttentionTotal
  *   Bottom = GD + Group rooms only
  *   unreadApprovedNotificationEvents is legacy input — does NOT drive Bell digit
- *   When notificationAttentionTotal omitted → Bell = 0 (do not fall back to orphan)
  */
 
 describe("Bell Phase B — notificationAttentionTotal", () => {
@@ -28,8 +27,8 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
     expect(p.bellTotal).toBe(3);
     expect(p.bellChatAttentionCount).toBeGreaterThan(3);
     expect(p.bottomChat).toBe(6);
-    // Member App Icon: GD+Group+Trade+Customer + A + orphan (owner rooms excluded)
-    expect(p.appIconTotal).toBe(4 + 2 + 2 + 1 + 3 + 1);
+    // Chat rooms 4+2+2+1+1 + NotificationAttention 3
+    expect(p.appIconTotal).toBe(4 + 2 + 2 + 1 + 1 + 3);
   });
 
   it("Bottom Chat ignores trade/order/orphan", () => {
@@ -60,8 +59,8 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
       },
       notificationAttentionTotal: 40,
     });
-    // messenger 3 + trade 4 + customer 5 + A 40 + orphan 1 (owner 6 excluded)
-    expect(p.appIconTotal).toBe(3 + 4 + 5 + 40 + 1);
+    // messenger 3 + trade 4 + store 11 + notif 40
+    expect(p.appIconTotal).toBe(3 + 4 + 11 + 40);
     expect(p.bellTotal).toBe(40);
     expect(p.appIconTotal).not.toBe(p.bellTotal);
   });
@@ -78,26 +77,25 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
     expect(p.bellNonChatEventCount).toBe(5);
   });
 
-  it("when notificationAttentionTotal omitted, Bell = 0 (orphan stays B / App Icon only)", () => {
+  it("when notificationAttentionTotal omitted, Bell falls back to orphan only", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 9, group: 9, trade: 9, store_order: 9 },
       orphanMissedCall: 9,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       bell: { ...EMPTY_BELL_BADGE_FACTS, total: 7, chatMessage: 4, missedCall: 3 },
     });
-    expect(p.bellTotal).toBe(0);
+    expect(p.bellTotal).toBe(9);
   });
 
-  it("without notificationAttentionTotal, Bell = 0; rooms never copied to Bell", () => {
+  it("without notificationAttentionTotal, Bell = orphan (rooms never copied to Bell)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 5, group: 5, trade: 5, store_order: 5 },
       orphanMissedCall: 2,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
     });
-    expect(p.bellTotal).toBe(0);
+    expect(p.bellTotal).toBe(2);
     expect(p.bottomChat).toBe(10);
-    // buyer omitted → customer store axis 0; owner store_order count not folded into App Icon
-    expect(p.appIconTotal).toBe(5 + 5 + 5 + 0 + 0 + 2);
+    expect(p.appIconTotal).toBe(5 + 5 + 5 + 5 + 2);
   });
 });
 
@@ -224,8 +222,7 @@ describe("Bell Domain projection — Hub / Bottom / App Icon (room facts)", () =
       notificationAttentionTotal: 17,
     });
     expect(p.bellTotal).toBe(17);
-    // rooms 1 + A 17 + orphan 1
-    expect(p.appIconTotal).toBe(1 + 17 + 1);
+    expect(p.appIconTotal).toBe(1 + 17);
     expect(p.appIconTotal).not.toBe(p.bellTotal);
   });
 });
