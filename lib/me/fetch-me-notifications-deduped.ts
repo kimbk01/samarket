@@ -80,11 +80,6 @@ export type FetchMeNotificationsListOpts = {
    * 소비자-only 표면이 필요할 때만 명시.
    */
   excludeOwnerStoreCommerce?: boolean;
-  /**
-   * true면 missed_call 행을 목록에서 제외 (B axis — Member Bell A_member list).
-   * Digit builder와 별개; call log / RoomUnread 미개봉.
-   */
-  excludeMissedCalls?: boolean;
   /** 인박스 종류 필터 (서버 push_kind·채팅 병합 쿼리) */
   pushKind?: InboxPushKindFilter;
   /** 페이지 크기 1–100, 지정 시 서버에 limit·offset 전달 */
@@ -105,9 +100,6 @@ function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string 
   }
   if (opts?.excludeChatMessages === true) {
     sp.set("exclude_chat_message", "1");
-  }
-  if (opts?.excludeMissedCalls === true) {
-    sp.set("exclude_missed_call", "1");
   }
   const pk = opts?.pushKind;
   if (pk && pk !== "all") {

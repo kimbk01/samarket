@@ -16,11 +16,7 @@ import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/g
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
-import {
-  applyTier1InboxDeleteAllMemberAOptimistic,
-  applyTier1InboxMarkAllReadOptimistic,
-  resyncBadgesAfterNotificationEventsRead,
-} from "@/lib/notifications/client/notification-events-read-resync";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 
 type Row = {
@@ -262,41 +258,8 @@ export function MyNotificationsView() {
         setError(typeof j?.error === "string" ? j.error : "failed");
         return;
       }
-      applyTier1InboxMarkAllReadOptimistic();
       invalidateMeNotificationsListDedupedCache();
       broadcastNotificationsUpdated();
-      resyncBadgesAfterNotificationEventsRead("mark_all_read_cross_tab");
-      await load(true, true, false, 0);
-    } catch {
-      setError("network_error");
-    } finally {
-      setBusy((prev) => (prev ? false : prev));
-    }
-  }
-
-  async function deleteAllMemberA() {
-    if (rows.length === 0) return;
-    if (typeof window !== "undefined" && !window.confirm(t("notif_tier1_delete_all_confirm"))) {
-      return;
-    }
-    setBusy((prev) => (prev ? prev : true));
-    setError((prev) => (prev === null ? prev : null));
-    try {
-      const res = await fetch("/api/me/notifications", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delete_all_member_a: true }),
-      });
-      const j = await res.json();
-      if (!j?.ok) {
-        setError(typeof j?.error === "string" ? j.error : "failed");
-        return;
-      }
-      applyTier1InboxDeleteAllMemberAOptimistic();
-      invalidateMeNotificationsListDedupedCache();
-      broadcastNotificationsUpdated();
-      resyncBadgesAfterNotificationEventsRead("notification_opened");
       await load(true, true, false, 0);
     } catch {
       setError("network_error");
@@ -418,7 +381,7 @@ export function MyNotificationsView() {
         ))}
       </div>
       {rows.length > 0 ? (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end">
           <button
             type="button"
             disabled={busy || !rows.some((r) => !r.is_read)}
@@ -427,14 +390,6 @@ export function MyNotificationsView() {
             className="shrink-0 rounded-ui-rect border-0 bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
           >
             {busy ? t("common_processing") : t("notif_tier1_mark_read")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void deleteAllMemberA()}
-            className="shrink-0 rounded-ui-rect border-0 bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
-          >
-            {t("notif_tier1_delete_all")}
           </button>
         </div>
       ) : null}

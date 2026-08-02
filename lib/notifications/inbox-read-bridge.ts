@@ -487,13 +487,10 @@ export async function markNonChatNonOwnerNotificationEventsRead(
     const category = String(row.category ?? "");
     const type = String(row.type ?? "");
     if (CHAT_EVENT_CATEGORIES.has(category) || CHAT_EVENT_TYPES.has(type)) return false;
-    // Member mark-all must not clear missed calls (B axis / call tab).
-    if (type === "missed_call" || category === "missed_call") return false;
     const mapped = mapNotificationEventToInboxRow(
       row as Parameters<typeof mapNotificationEventToInboxRow>[0]
     );
     if (isInAppChatMessageNotificationRow(mapped)) return false;
-    // Store Operational Identity — never cleared by member mark-all.
     if (isOwnerStoreCommerceNotificationRow(mapped)) return false;
     return true;
   });
@@ -540,61 +537,6 @@ export async function markOwnerStoreCommerceNotificationEventsRead(
     total += await markOrderNotificationEventsRead(sb, userId, orderId);
   }
   return total;
-}
-
-/**
- * Member A 전체 삭제 — dismiss A events only (not chat/missed/owner).
- * B rooms and orphan missed stay.
- */
-export async function deleteAllMemberANotificationEvents(
-  sb: SupabaseClient,
-  userId: string
-): Promise<number> {
-  const { data, error } = await sb
-    .from("notification_events")
-    .select("id, category, type, display_payload, room_id")
-    .eq("user_id", userId.trim())
-    .limit(500);
-  if (error || !data?.length) return 0;
-
-  const { mapNotificationEventToInboxRow } = await import("@/lib/notifications/inbox-events-merge");
-  const { isOwnerStoreCommerceNotificationRow } = await import(
-    "@/lib/notifications/owner-store-commerce-notification-meta"
-  );
-  const { isInAppChatMessageNotificationRow } = await import(
-    "@/lib/notifications/inapp-chat-message-notification"
-  );
-
-  const idsToDelete = data
-    .filter((row) => {
-      const category = String(row.category ?? "");
-      const type = String(row.type ?? "");
-      if (CHAT_EVENT_CATEGORIES.has(category) || CHAT_EVENT_TYPES.has(type)) return false;
-      if (type === "missed_call" || category === "missed_call") return false;
-      const mapped = mapNotificationEventToInboxRow(
-        row as Parameters<typeof mapNotificationEventToInboxRow>[0]
-      );
-      if (isInAppChatMessageNotificationRow(mapped)) return false;
-      if (isOwnerStoreCommerceNotificationRow(mapped)) return false;
-      const payload =
-        row.display_payload && typeof row.display_payload === "object"
-          ? (row.display_payload as Record<string, unknown>)
-          : null;
-      if (payload?.inbox_dismissed_at || payload?.deleted_at) return false;
-      return true;
-    })
-    .map((row) => String(row.id ?? "").trim())
-    .filter(Boolean);
-
-  let deleted = 0;
-  for (const id of idsToDelete) {
-    if (await dismissNotificationEventFromInbox(sb, userId, id)) deleted += 1;
-  }
-  if (deleted > 0) {
-    invalidateNotificationUnreadCountCache(userId);
-    invalidateNotificationBadgeCache(userId);
-  }
-  return deleted;
 }
 
 export async function clearChatInboxTargetsAfterMarkAll(

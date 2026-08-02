@@ -33,7 +33,7 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import {
   clearChatInboxTargetsAfterMarkAll,
-  deleteAllMemberANotificationEvents,
+  markAllNotificationEventsRead,
   markChatNotificationEventsRead,
   markNonChatNonOwnerNotificationEventsRead,
   markOwnerStoreCommerceNotificationEventsRead,
@@ -296,7 +296,6 @@ export async function GET(req: NextRequest) {
 
   const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
   const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
-  const excludeMissedCallList = searchParams.get("exclude_missed_call") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
   const ownerListDb0 = ownerStoreId ? perfNowMs() : 0;
 
@@ -377,7 +376,6 @@ export async function GET(req: NextRequest) {
     inboxPushKind: inboxPushKind as import("@/lib/me/fetch-me-notifications-deduped").InboxPushKindFilter | null,
     excludeOwnerList,
     excludeChatMessageList,
-    excludeMissedCallList,
     ownerStoreId: ownerStoreId || undefined,
   };
 
@@ -450,8 +448,6 @@ export async function GET(req: NextRequest) {
 type PatchBody = {
   /** 해당 id들만 삭제 (본인 알림만, 최대 200건) */
   delete_ids?: string[];
-  /** Member A 전체 삭제 — chat/missed/owner 제외 */
-  delete_all_member_a?: boolean;
   mark_all_read?: boolean;
   /** /my/notifications 목록에 맞춰, 매장 오너 전용 매장주문 알림은 읽음 처리하지 않음 */
   mark_my_notifications_read_excluding_owner_commerce?: boolean;
@@ -496,101 +492,23 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: deleteResult.deleted });
   }
 
-  if (body.delete_all_member_a === true) {
-    const deletedEvents = await deleteAllMemberANotificationEvents(sb, userId);
-    const { data: legacyRows, error: legacySelErr } = await sb
-      .from("notifications")
-      .select("id, meta, notification_type, push_kind")
-      .eq("user_id", userId)
-      .limit(500);
-    let deletedLegacy = 0;
-    if (!legacySelErr && legacyRows?.length) {
-      const legacyIds = legacyRows
-        .filter((r) => {
-          if (isOwnerStoreCommerceNotificationRow(r)) return false;
-          if (isInAppChatMessageNotificationRow(r)) return false;
-          const kind = String(
-            (r.meta && typeof r.meta === "object" ? (r.meta as { kind?: unknown }).kind : "") ?? ""
-          )
-            .trim()
-            .toLowerCase();
-          const nt = String(r.notification_type ?? "").trim().toLowerCase();
-          if (kind === "missed_call" || nt === "missed_call") return false;
-          return true;
-        })
-        .map((r) => r.id as string)
-        .filter(Boolean);
-      if (legacyIds.length > 0) {
-        const { data: deletedRows, error } = await sb
-          .from("notifications")
-          .delete()
-          .eq("user_id", userId)
-          .in("id", legacyIds)
-          .select("id");
-        if (error) {
-          return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-        }
-        deletedLegacy = deletedRows?.length ?? 0;
-      }
-    }
-    invalidateNotificationUnreadCountCache(userId);
-    invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({
-      ok: true,
-      deleted: deletedEvents + deletedLegacy,
-      deleted_events: deletedEvents,
-      deleted_legacy: deletedLegacy,
-    });
-  }
-
   if (body.mark_all_read === true) {
-    // Member A mark-all only — not chat (B), missed (B), owner commerce (Owner).
-    await markNonChatNonOwnerNotificationEventsRead(sb, userId);
-    const { data: legacyRows, error: legacySelErr } = await sb
+    await markAllNotificationEventsRead(sb, userId);
+    const { error } = await sb
       .from("notifications")
-      .select("id, meta, notification_type, push_kind")
+      .update({ is_read: true })
       .eq("user_id", userId)
-      .eq("is_read", false)
-      .limit(500);
-    if (legacySelErr) {
-      if (
-        legacySelErr.message?.includes("notifications") &&
-        legacySelErr.message.includes("does not exist")
-      ) {
-        invalidateNotificationUnreadCountCache(userId);
-        invalidateNotificationBadgeCache(userId);
-        return NextResponse.json({ ok: true, updated: "member_events" });
+      .eq("is_read", false);
+
+    if (error) {
+      if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
+        return NextResponse.json({ ok: true, updated: 0 });
       }
-      return NextResponse.json({ ok: false, error: legacySelErr.message }, { status: 500 });
-    }
-    const legacyIds = (legacyRows ?? [])
-      .filter((r) => {
-        if (isOwnerStoreCommerceNotificationRow(r)) return false;
-        if (isInAppChatMessageNotificationRow(r)) return false;
-        const kind = String(
-          (r.meta && typeof r.meta === "object" ? (r.meta as { kind?: unknown }).kind : "") ?? ""
-        )
-          .trim()
-          .toLowerCase();
-        const nt = String(r.notification_type ?? "").trim().toLowerCase();
-        if (kind === "missed_call" || nt === "missed_call") return false;
-        return true;
-      })
-      .map((r) => r.id as string)
-      .filter(Boolean);
-    if (legacyIds.length > 0) {
-      const { error } = await sb
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", userId)
-        .in("id", legacyIds);
-      if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-      }
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({ ok: true, updated: "member_all" });
+    return NextResponse.json({ ok: true, updated: "all" });
   }
 
   if (body.mark_all_owner_store_commerce_read === true) {

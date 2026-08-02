@@ -77,8 +77,8 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
       },
     ]);
 
-    // Slice 2 digit = trade_status + buyer order_status + admin (3); orphan missed ∉ digit.
-    expect(matrix.total).toBe(3);
+    // Phase B digit = trade_status + order_status + orphan missed + admin (4), not chat messages.
+    expect(matrix.total).toBe(4);
     expect(matrix.generalMessage.count).toBe(2);
     expect(matrix.groupMessage.count).toBe(1);
     expect(matrix.tradeMessage.count).toBe(1);
@@ -89,10 +89,10 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(matrix.missedCall.count).toBe(1);
     expect(matrix.systemAdmin.count).toBe(1);
     expect(matrix.excludedFromDigit.eventIds).toEqual(
-      expect.arrayContaining(["g1", "g2", "gr1", "t1", "c1", "o1", "x1", "m1"])
+      expect.arrayContaining(["g1", "g2", "gr1", "t1", "c1", "o1", "x1"])
     );
-    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 3 }).ok).toBe(true);
-    expect(listBellExplainEventIds(matrix).length).toBeGreaterThanOrEqual(3);
+    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 4 }).ok).toBe(true);
+    expect(listBellExplainEventIds(matrix).length).toBeGreaterThanOrEqual(4);
   });
 
   it("HTTP builder wires bellExplainMatrix (contract)", () => {

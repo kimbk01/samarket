@@ -1,11 +1,14 @@
 /**
- * Domain App Icon Badge parts — memberAppIconTotal wire.
+ * Domain App Icon Badge Authority — unified Chat + Notification formula.
  *
- * memberAppIconTotal =
- *   messenger(GD+Group) + trade + customerOrderRooms + (memberA + orphanMissed)
+ * AppIconTotal = ChatAttentionTotal (unread rooms) + NotificationAttentionTotal
+ *   (distinct active non-chat attention_key; includes orphan missed_call)
  *
- * Owner rooms / store ops NEVER enter these parts.
- * `missedCall` field name retained for surface-store wire; value = memberA + orphan.
+ * Room-bound missed_call → list row only (already covered if room unread) — DO NOT re-add.
+ * chat_message events → Chat room axis only — DO NOT add via Bell/NotificationAttention.
+ *
+ * `missedCall` field name retained for surface-store wire compatibility;
+ * value = NotificationAttentionTotal (not orphan-only).
  */
 export type DomainAppIconBadgeParts = Readonly<{
   messenger: number;

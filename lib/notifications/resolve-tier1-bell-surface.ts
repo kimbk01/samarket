@@ -57,7 +57,7 @@ export function resolveTier1BellSurfaceFromPathname(
 
 export type Tier1BellListFetchOpts = Pick<
   FetchMeNotificationsListOpts,
-  "excludeChatMessages" | "excludeOwnerStoreCommerce" | "excludeMissedCalls" | "pushKind"
+  "excludeChatMessages" | "excludeOwnerStoreCommerce" | "pushKind"
 > & {
   ownerStoreId?: string;
 };
@@ -84,13 +84,10 @@ export function resolveTier1BellListFetchOpts(
       return { ownerStoreId: ownerStoreId?.trim() || undefined };
     case "tier1_inbox_bell":
     default:
-      // Member Bell list = A_member only (same set as digit builder exclusions).
-      return {
-        excludeChatMessages: true,
-        excludeOwnerStoreCommerce: true,
-        excludeMissedCalls: true,
-        pushKind: "all" as InboxPushKindFilter,
-      };
+      // Phase B — Header Bell digit = NotificationAttention only.
+      // Chat message rows may still appear as history/quarantine in some list paths,
+      // but default Tier1 list excludes chat so digit and list stay aligned.
+      return { excludeChatMessages: true, pushKind: "all" as InboxPushKindFilter };
   }
 }
 

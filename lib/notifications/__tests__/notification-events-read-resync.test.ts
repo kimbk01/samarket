@@ -37,7 +37,7 @@ describe("notification-events-read-resync (P0-3 event fact)", () => {
     expect(requestNotificationBadgeCountResync).not.toHaveBeenCalled();
   });
 
-  it("tier1 mark-all commits member_notification_a_absolute=0 (full A; B untouched)", () => {
+  it("tier1 mark-all commits admin_notice_absolute=0 event fact only (no surface rebuild)", () => {
     applyTier1InboxMarkAllReadOptimistic();
     expect(commitNotificationEventReadFact).toHaveBeenCalledTimes(1);
     const arg = commitNotificationEventReadFact.mock.calls[0]?.[0] as {
@@ -46,7 +46,7 @@ describe("notification-events-read-resync (P0-3 event fact)", () => {
       eventVersion: number;
       eventIdentity: string;
     };
-    expect(arg.fact).toEqual({ kind: "member_notification_a_absolute", absolute: 0 });
+    expect(arg.fact).toEqual({ kind: "admin_notice_absolute", absolute: 0 });
     expect(arg.source).toBe("tier1_mark_all");
     expect(arg.eventVersion).toBeGreaterThan(0);
     expect(arg.eventIdentity).toContain("tier1_mark_all:");

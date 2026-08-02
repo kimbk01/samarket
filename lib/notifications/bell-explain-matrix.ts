@@ -1,8 +1,8 @@
 /**
  * Phase 3-1 — Bell Explain Matrix (Runtime).
  *
- * Slice 2: `total` = memberNotificationAttention (no store ops, no orphan missed).
- * Chat / missed / store-ops kinds stay in buckets for audit — not in digit.
+ * Phase B: `total` = NotificationAttentionTotal (distinct non-chat attention_key).
+ * Chat message kinds stay in kind buckets for quarantine audit — not in digit.
  *
  * DO NOT: Badge room rewrite · Heal · Legacy delete · digit hacks
  *
@@ -212,13 +212,11 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
     ...buckets.excluded,
     ...notification.excludedChatMessageEventIds,
     ...notification.excludedRoomBoundMissedCallEventIds,
-    ...notification.excludedOrphanMissedCallEventIds,
-    ...notification.excludedStoreOwnerIntakeEventIds,
   ]);
 
   return {
     authority: BELL_EXPLAIN_MATRIX_AUTHORITY,
-    /** Member Bell digit = memberNotificationAttention. */
+    /** Phase B digit = NotificationAttentionTotal (not chat event SUM). */
     total: notification.total,
     generalMessage,
     groupMessage,

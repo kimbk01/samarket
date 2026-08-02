@@ -139,13 +139,11 @@ describe("Phase 2-2 Badge Writer Authority SSOT", () => {
       customerOrderRoomIds: ["c1", "c2"],
       ownerOrderRoomIds: ["o1"],
       orphanMissedCallCount: 0,
-      notificationAttentionTotal: 0,
     });
-    // Member App Icon = GD2+Group1+Trade1+Customer2 = 6 (owner room excluded).
     const match = assertExplainMatchesProjection({
       explainMatrix,
-      projection: { appIconTotal: 6, bottomChatTotal: 3 },
-      domainAppIcon: { messenger: 3, trade: 1, storeOrder: 2, missedCall: 0 },
+      projection: { appIconTotal: 7, bottomChatTotal: 3 },
+      domainAppIcon: { messenger: 3, trade: 1, storeOrder: 3, missedCall: 0 },
       storeOrderBuyerDeliveryUnread: 2,
       storeOrderOwnerChatUnread: 1,
       domainUnreadRooms: { trade: 1 },
