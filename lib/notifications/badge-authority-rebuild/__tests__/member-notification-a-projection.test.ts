@@ -50,7 +50,7 @@ describe("Slice 2-2 member notification A projection", () => {
     expect(deriveMemberUnreadNotificationCount(rows)).toBe(3);
   });
 
-  it("Bell total uses memberUnreadNotificationCount while App Icon keeps notificationAttention", () => {
+  it("Bell uses A; App Icon uses A + B_member (not Phase B NotificationAttention)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: {
         general_direct: 1,
@@ -70,8 +70,10 @@ describe("Slice 2-2 member notification A projection", () => {
       memberUnreadNotificationCount: 2,
     });
     expect(p.bellTotal).toBe(2);
-    expect(p.appIcon.missedCall).toBe(9);
-    expect(p.appIconTotal).toBe(1 + 9);
+    // missedCall wire = A(2) + B_missed(0); rooms on messenger axis
+    expect(p.appIcon.missedCall).toBe(2);
+    expect(p.appIconTotal).toBe(1 + 2);
+    expect(p.memberAppIconWebTotal).toBe(3);
   });
 
   it("unknown / owner_intake without store still excluded from A", () => {

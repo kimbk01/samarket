@@ -160,7 +160,33 @@ describe("P2-b orphan missed facts (byRoom required)", () => {
     ]);
     expect(out.orphan).toBe(2);
     expect(out.orphanEventIds).toEqual(["e1", "e2"]);
+    expect(out.orphanCallIds).toEqual(["event:e1", "event:e2"]);
     expect(out.byRoom).toEqual({ "room-a": 2, "room-b": 1 });
+  });
+
+  it("dedupes orphan missed by call session id", () => {
+    const out = aggregateOrphanMissedCallFacts([
+      {
+        id: "a",
+        room_id: null,
+        dedupe_key: "missed:sess-1:u1",
+        display_payload: {},
+      },
+      {
+        id: "b",
+        room_id: null,
+        dedupe_key: "missed:sess-1:u1",
+        display_payload: {},
+      },
+      {
+        id: "c",
+        room_id: null,
+        dedupe_key: "missed:sess-2:u1",
+        display_payload: {},
+      },
+    ]);
+    expect(out.orphan).toBe(3);
+    expect(out.orphanCallIds).toEqual(["sess-1", "sess-2"]);
   });
 
   it("documents byRoom product consumers remain (cannot drop for COUNT-only)", () => {

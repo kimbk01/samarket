@@ -7,12 +7,13 @@
  * - All inputs (Cold Start / Bootstrap / Hub / Push / Realtime / Resume / Poll /
  *   Broadcast / Atomic Read) normalize to ProjectionInput then call this Builder only.
  *
- * Bell (product live badge) — Phase B:
- *   bellTotal = NotificationAttentionTotal (distinct non-chat attention_key)
- *   chat_message events are Inbox history/quarantine — NOT Bell digit
+ * Bell (product) — Slice 2-2:
+ *   bellTotal = A_member (memberUnreadNotificationCount)
+ *   Fallback (legacy callers): NotificationAttentionTotal
  *
- * App Icon — Phase B:
- *   ChatAttentionTotal (unread rooms) + NotificationAttentionTotal
+ * Member App Icon (web/server) — Slice 2-3:
+ *   A_member + B_member rooms (GD+Group+Trade+Customer) + unresolved missed
+ *   Owner store_order rooms are NEVER in Member App Icon (B_store → Slice 2-4)
  *
  * Bottom Chat — general_direct + group unread rooms only.
  */
@@ -27,6 +28,7 @@ import {
   type DomainAppIconBadgeParts,
 } from "@/lib/notifications/domain-app-icon-badge";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
+import { buildMemberCommunicationBProjection } from "@/lib/notifications/badge-authority-rebuild/member-communication-b-projection";
 
 function nonNeg(n: unknown): number {
   return Math.max(0, Math.floor(Number(n) || 0));
@@ -76,14 +78,21 @@ export type NotificationBadgeProjectionInput = Readonly<{
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   /**
    * Phase B — NotificationAttentionTotal (distinct non-chat attention_key).
-   * Drives App Icon notification axis. Prefer this over raw event counts.
+   * Legacy App Icon notification axis when A_member omitted.
+   * Slice 2-3 Member App Icon prefers A + B_missed when A is provided.
    */
   notificationAttentionTotal?: number;
   /**
    * Slice 2-2 — Member Bell digit = A_member unread only.
+   * Slice 2-3 — also drives Member App Icon = A + B_member when set.
    * When omitted, falls back to `notificationAttentionTotal` (legacy Phase B parity).
    */
   memberUnreadNotificationCount?: number;
+  /**
+   * Slice 2-3E — optional call/session ids for unresolved missed dedupe.
+   * When omitted, `orphanMissedCall` Fact is used.
+   */
+  unresolvedMissedCallIds?: readonly string[];
   /**
    * @deprecated Prefer `notificationAttentionTotal`. Legacy unread event row count (includes chat).
    */
@@ -125,6 +134,12 @@ export type NotificationBadgeProjection = Readonly<{
   shell: ChatDomainBadgeShellResult;
   appIcon: DomainAppIconBadgeParts;
   appIconTotal: number;
+  /** Slice 2-3 — Member B room count (owner store_order excluded). */
+  memberUnreadRoomCount: number;
+  /** Slice 2-3 — unresolved missed (call_id / orphan Fact). */
+  memberUnresolvedMissedCallCount: number;
+  /** Slice 2-3 — A + B_member web/server total (same as appIconTotal when A provided). */
+  memberAppIconWebTotal: number;
   /**
    * Diagnostic: domain unread rooms + orphan (NOT product Bell under Contract B).
    */
@@ -244,24 +259,51 @@ export function buildNotificationBadgeProjection(
     },
     nonNeg(input.philifeChatUnread)
   );
-  /** App Icon chat axis = owner rooms + buyer rooms (no double-count). */
-  const storeOrderForAppIcon = ownerForHub + buyer;
   /**
-   * Phase B App Icon notification axis = NotificationAttentionTotal (unchanged in Slice 2-2).
-   * Fallback to orphan-only only when notificationAttentionTotal omitted (legacy callers).
+   * Slice 2-3 — Member App Icon store_order axis = customer/buyer rooms ONLY.
+   * Owner rooms stay on storeOrderOwnerUnreadRooms / Owner FAB (B_store — Slice 2-4).
+   */
+  const storeOrderForAppIcon = buyer;
+  const memberB = buildMemberCommunicationBProjection({
+    generalDirectUnreadRooms: gd,
+    groupUnreadRooms: group,
+    tradeUnreadRooms: trade,
+    customerStoreOrderUnreadRooms: buyer,
+    callIds: input.unresolvedMissedCallIds,
+    orphanMissedCallCount: orphan,
+  });
+  /**
+   * Phase B NotificationAttentionTotal — retained for diagnostics / legacy callers.
+   * Fallback to orphan-only only when notificationAttentionTotal omitted.
    */
   const notificationAttentionTotal =
     input.notificationAttentionTotal != null
       ? nonNeg(input.notificationAttentionTotal)
       : orphan;
+  /**
+   * Slice 2-3 Member App Icon notification wire:
+   *   when A provided → A_member + B_missed (rooms already on messenger/trade/store axes)
+   *   else legacy → notificationAttentionTotal (Phase B)
+   */
+  const aMember =
+    input.memberUnreadNotificationCount != null
+      ? nonNeg(input.memberUnreadNotificationCount)
+      : null;
+  const appIconNotificationAxis =
+    aMember != null
+      ? aMember + memberB.memberUnresolvedMissedCallCount
+      : notificationAttentionTotal;
   const appIcon = resolveDomainAppIconBadgeParts({
     communityMessengerUnread: shell.communityMessengerUnread,
     tradeUnread: shell.tradeUnread,
     storeOrderChatUnread: storeOrderForAppIcon,
-    notificationAttention: notificationAttentionTotal,
+    notificationAttention: appIconNotificationAxis,
   });
+  const appIconTotal = resolveDomainAppIconBadgeCount(appIcon);
+  const memberAppIconWebTotal =
+    aMember != null ? aMember + memberB.bMemberTotal : appIconTotal;
 
-  /** Diagnostic only — NOT product Bell digit. */
+  /** Diagnostic only — NOT product Bell digit. Includes owner rooms. */
   const storeOrderCombinedForDiag =
     input.storeOrderOwnerChatUnread != null || buyer > 0
       ? ownerForHub + buyer
@@ -279,7 +321,7 @@ export function buildNotificationBadgeProjection(
   void _unreadApprovedNotificationEvents;
   /**
    * Slice 2-2 Product Bell digit = A_member unread count.
-   * App Icon still uses notificationAttentionTotal (Phase B) until later slices.
+   * Slice 2-3 App Icon uses A + B_member (see above) — Bell stays A-only.
    */
   const bellTotal =
     input.memberUnreadNotificationCount != null
@@ -304,7 +346,10 @@ export function buildNotificationBadgeProjection(
     socialChatUnread: shell.socialChatUnread,
     shell,
     appIcon,
-    appIconTotal: resolveDomainAppIconBadgeCount(appIcon),
+    appIconTotal,
+    memberUnreadRoomCount: memberB.memberUnreadRoomCount,
+    memberUnresolvedMissedCallCount: memberB.memberUnresolvedMissedCallCount,
+    memberAppIconWebTotal,
     bellChatAttentionCount,
     bellNonChatEventCount,
     bellTotal,

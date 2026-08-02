@@ -42,6 +42,8 @@ export type BadgeCountAuthorityJson = {
   memberUnreadNotificationCount?: number;
   /** True orphan missed_call event count (diagnostics); optional. */
   orphanMissedCallCount?: number;
+  /** Slice 2-3 — distinct call/session ids for B_member missed. */
+  unresolvedMissedCallIds?: readonly string[];
   unreadApprovedNotificationEvents?: number;
   missedCallByRoom?: Record<string, number>;
   [key: string]: unknown;
@@ -88,14 +90,16 @@ function resolveOrphanMissedCall(
   if (body.orphanMissedCallCount != null) {
     return Math.max(0, Math.floor(Number(body.orphanMissedCallCount) || 0));
   }
+  const proj = body.projection;
+  if (proj && typeof proj === "object") {
+    const nested = (proj as { orphanMissedCallCount?: unknown }).orphanMissedCallCount;
+    if (nested != null) {
+      return Math.max(0, Math.floor(Number(nested) || 0));
+    }
+  }
   // When Phase B notificationAttention is explicit, do not treat icon.missedCall as orphan
-  // (prod wire overloads missedCall = NotificationAttentionTotal).
-  if (
-    body.notificationAttentionTotal != null ||
-    (body.projection &&
-      typeof body.projection === "object" &&
-      (body.projection as { bellTotal?: unknown }).bellTotal != null)
-  ) {
+  // (prod wire overloads missedCall = A+B_missed or NotificationAttentionTotal).
+  if (body.notificationAttentionTotal != null) {
     return 0;
   }
   return Math.max(
@@ -169,6 +173,9 @@ export function projectionInputFromBadgeCountAuthorityJson(
       nonChatEventAttention: nonChatFromBody(body),
       notificationAttentionTotal,
       memberUnreadNotificationCount,
+      ...(Array.isArray(body.unresolvedMissedCallIds)
+        ? { unresolvedMissedCallIds: body.unresolvedMissedCallIds.map(String) }
+        : {}),
       unreadApprovedNotificationEvents: unreadApproved,
       bell: { ...bell, total: memberUnreadNotificationCount },
       rowUnreadByRoomId: body.missedCallByRoom ?? {},

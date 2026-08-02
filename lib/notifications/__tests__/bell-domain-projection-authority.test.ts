@@ -6,11 +6,11 @@ import {
 } from "@/lib/notifications/build-notification-badge-projection";
 
 /**
- * Phase B Formula SSOT (LOCKED — do not redesign in tests):
- *   Bell = NotificationAttentionTotal
- *   AppIcon = ChatAttention (unread rooms) + NotificationAttentionTotal
+ * Slice 2-2/2-3 Formula:
+ *   Bell = A_member when provided, else NotificationAttentionTotal (legacy)
+ *   Member App Icon (A provided) = A + B rooms (no owner) + unresolved missed
+ *   Member App Icon (legacy) = chat rooms (buyer-only SO) + NotificationAttentionTotal
  *   Bottom = GD + Group rooms only
- *   unreadApprovedNotificationEvents is legacy input — does NOT drive Bell digit
  */
 
 describe("Bell Phase B — notificationAttentionTotal", () => {
@@ -27,8 +27,9 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
     expect(p.bellTotal).toBe(3);
     expect(p.bellChatAttentionCount).toBeGreaterThan(3);
     expect(p.bottomChat).toBe(6);
-    // Chat rooms 4+2+2+1+1 + NotificationAttention 3
-    expect(p.appIconTotal).toBe(4 + 2 + 2 + 1 + 1 + 3);
+    // Slice 2-3: owner excluded — rooms 4+2+2+buyer1 + NotificationAttention 3
+    expect(p.appIconTotal).toBe(4 + 2 + 2 + 1 + 3);
+    expect(p.storeOrderOwnerUnreadRooms).toBe(1);
   });
 
   it("Bottom Chat ignores trade/order/orphan", () => {
@@ -59,10 +60,11 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
       },
       notificationAttentionTotal: 40,
     });
-    // messenger 3 + trade 4 + store 11 + notif 40
-    expect(p.appIconTotal).toBe(3 + 4 + 11 + 40);
+    // Slice 2-3: messenger 3 + trade 4 + buyer 5 (owner 6 excluded) + notif 40
+    expect(p.appIconTotal).toBe(3 + 4 + 5 + 40);
     expect(p.bellTotal).toBe(40);
     expect(p.appIconTotal).not.toBe(p.bellTotal);
+    expect(p.storeOrderOwnerUnreadRooms).toBe(6);
   });
 
   it("legacy unreadApprovedNotificationEvents does not drive Bell digit", () => {
@@ -95,7 +97,9 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
     });
     expect(p.bellTotal).toBe(2);
     expect(p.bottomChat).toBe(10);
-    expect(p.appIconTotal).toBe(5 + 5 + 5 + 5 + 2);
+    // Unsplit store_order treated as owner hub; excluded from Member App Icon
+    expect(p.appIconTotal).toBe(5 + 5 + 5 + 0 + 2);
+    expect(p.storeOrderOwnerUnreadRooms).toBe(5);
   });
 });
 

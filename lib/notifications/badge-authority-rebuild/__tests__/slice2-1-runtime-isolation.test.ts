@@ -15,6 +15,7 @@ const FOUNDATION_MARKERS = [
   "badge-authority-rebuild/badge-count-units",
   "badge-authority-rebuild/badge-authority-assertions",
   "badge-authority-rebuild/member-notification-a-projection",
+  "badge-authority-rebuild/member-communication-b-projection",
 ];
 
 const ALLOW_A_PROJECTION_IMPORT = new Set([
@@ -23,6 +24,12 @@ const ALLOW_A_PROJECTION_IMPORT = new Set([
   "lib/notifications/inbox-read-bridge.ts",
   "components/philife/PhilifeHeaderNotificationInbox.tsx",
   "components/my/MyNotificationsView.tsx",
+]);
+
+const ALLOW_B_PROJECTION_IMPORT = new Set([
+  "lib/notifications/build-notification-badge-projection.ts",
+  "lib/notifications/pipeline/build-domain-badge-authority-http.ts",
+  "lib/notifications/load-orphan-missed-call-facts.ts",
 ]);
 
 const PRODUCT_SCAN_ROOTS = ["app", "components", "hooks", "services", "android", "ios"];
@@ -80,16 +87,21 @@ describe("Slice 2-1 runtime isolation", () => {
         ) {
           continue;
         }
+        if (
+          marker.includes("member-communication-b-projection") &&
+          ALLOW_B_PROJECTION_IMPORT.has(rel)
+        ) {
+          continue;
+        }
         hits.push(`${rel} :: ${marker}`);
       }
     }
     expect(hits).toEqual([]);
   });
 
-  it("Phase B product projection files are unchanged by foundation (no foundation import)", () => {
+  it("Phase B product paths stay free of unwired foundation (allow A/B projection adapters only)", () => {
     const phaseB = [
       "lib/notifications/chat-notification-attention-projection.ts",
-      "lib/notifications/build-notification-badge-projection.ts",
       "lib/notifications/domain-app-icon-badge.ts",
       "lib/notifications/projection-authority.ts",
       "lib/notifications/pipeline/notify-push-dispatcher.ts",
@@ -103,5 +115,13 @@ describe("Slice 2-1 runtime isolation", () => {
       }
       expect(src.includes("badge-authority-rebuild/badge-")).toBe(false);
     }
+    // Slice 2-3 — Builder may import B projection only.
+    const builder = fs.readFileSync(
+      path.join(ROOT, "lib/notifications/build-notification-badge-projection.ts"),
+      "utf8"
+    );
+    expect(builder).toContain("badge-authority-rebuild/member-communication-b-projection");
+    expect(builder).not.toContain("badge-authority-rebuild/badge-count-units");
+    expect(builder).not.toContain("badge-authority-rebuild/member-notification-a-projection");
   });
 });

@@ -109,6 +109,16 @@ export type DomainBadgeAuthorityHttpPayload = {
   total: number;
   /** Slice 2-2 — A_member unread count for Bell. */
   memberUnreadNotificationCount: number;
+  /** Slice 2-3 — orphan missed Fact (client Apply). */
+  orphanMissedCallCount: number;
+  /** Slice 2-3 — distinct unresolved missed call/session ids. */
+  unresolvedMissedCallIds: readonly string[];
+  /** Slice 2-3 — Member B room count (owner excluded). */
+  memberUnreadRoomCount: number;
+  /** Slice 2-3 — unresolved missed for B_member. */
+  memberUnresolvedMissedCallCount: number;
+  /** Slice 2-3 — A + B_member web/server total. */
+  memberAppIconWebTotal: number;
   chatMessage: number;
   groupMessage: number;
   tradeMessage: number;
@@ -184,7 +194,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     notificationEvents: bellExplainRows,
   });
   const notificationAttentionTotal = unifiedAttention.notification.total;
-  /** Slice 2-2 — Bell digit only (A_member). App Icon still uses notificationAttentionTotal. */
+  /** Slice 2-2 — Bell digit only (A_member). Slice 2-3 App Icon = A + B_member. */
   const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(bellExplainRows);
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
@@ -196,6 +206,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     nonChatEventAttention,
     notificationAttentionTotal,
     memberUnreadNotificationCount,
+    unresolvedMissedCallIds: missed.orphanCallIds,
     unreadApprovedNotificationEvents,
     bell: categoryCounts,
     rowUnreadByRoomId: {
@@ -280,6 +291,12 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     unreadApprovedNotificationEvents,
     notificationAttentionTotal,
     memberUnreadNotificationCount,
+    /** Slice 2-3 — top-level orphan Fact for client Apply B_missed. */
+    orphanMissedCallCount: missed.orphan,
+    unresolvedMissedCallIds: missed.orphanCallIds,
+    memberUnreadRoomCount: projection.memberUnreadRoomCount,
+    memberUnresolvedMissedCallCount: projection.memberUnresolvedMissedCallCount,
+    memberAppIconWebTotal: projection.memberAppIconWebTotal,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
     /** Slice 2-2 — Header Bell digit = A_member only. */

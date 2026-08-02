@@ -17,6 +17,12 @@ const ALLOW_PRODUCT_IMPORT_OF_A_PROJECTION = new Set([
   "components/my/MyNotificationsView.tsx",
 ]);
 
+const ALLOW_PRODUCT_IMPORT_OF_B_PROJECTION = new Set([
+  "lib/notifications/build-notification-badge-projection.ts",
+  "lib/notifications/pipeline/build-domain-badge-authority-http.ts",
+  "lib/notifications/load-orphan-missed-call-facts.ts",
+]);
+
 const MARKERS = [
   "badge-authority-rebuild/badge-authority-types",
   "badge-authority-rebuild/badge-recipient-identity",
@@ -25,6 +31,7 @@ const MARKERS = [
   "badge-authority-rebuild/badge-count-units",
   "badge-authority-rebuild/badge-authority-assertions",
   "badge-authority-rebuild/member-notification-a-projection",
+  "badge-authority-rebuild/member-communication-b-projection",
 ];
 
 const SCAN = ["app", "components", "hooks", "services", "android", "ios"];
@@ -74,6 +81,12 @@ for (const abs of files) {
     if (
       m.includes("member-notification-a-projection") &&
       ALLOW_PRODUCT_IMPORT_OF_A_PROJECTION.has(rel)
+    ) {
+      continue;
+    }
+    if (
+      m.includes("member-communication-b-projection") &&
+      ALLOW_PRODUCT_IMPORT_OF_B_PROJECTION.has(rel)
     ) {
       continue;
     }
