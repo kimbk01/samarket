@@ -11,7 +11,8 @@
 | SSOT API | `GET /api/me/notifications/badge-count` |
 | Client store | `lib/notifications/notification-badge-count-store.ts` |
 | React bridge | `components/push/NativeBadgeSync.tsx` |
-| Android tray | `DibayFirebaseMessagingService` — `setNumber(badgeCount)` on `dibay_messages` |
+| Android launcher | `DibayAppIconDeliveryAdapter` — sole `dibay_app_icon_summary_v1` + `setNumber(total)` |
+| Android domain tray | `DibayFirebaseMessagingService` — UX only (`setNumber(0)`; no launcher authority) |
 
 ## 동작
 
@@ -30,7 +31,7 @@
 
 - 채팅 channel: `dibay_messages`
 - 부재중 channel: `dibay_calls_missed`
-- Launcher별 아이콘 badge 지원은 기기마다 상이; tray `setNumber`가 P0 주 경로.
+- App Icon Badge SSOT: summary carrier 1회만 `setNumber(appIconTotal)`. Domain child number 합산 금지.
 
 ## QA
 

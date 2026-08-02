@@ -321,14 +321,14 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(Notification.DEFAULT_ALL);
-    if (badgeCount > 0) {
-      builder.setNumber(badgeCount);
-    }
+    // App Icon Badge SSOT: domain children never carry launcher number authority.
+    // Absolute appIconTotal is applied once via DibayAppIconDeliveryAdapter summary.
+    builder.setNumber(0);
 
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(requestCode, builder.build());
-      // Android Delivery Adapter v1: real domain tray ⇒ drop summary (never coexist).
+      // Keep/update single summary carrier (do not cancel when domain tray present).
       DibayAppIconDeliveryAdapter.onDomainNotificationPosted(this, badgeCount);
       String previewKind = data != null ? firstNonEmpty(data.get("previewKind")) : null;
       String senderName = data != null ? firstNonEmpty(data.get("senderName")) : null;

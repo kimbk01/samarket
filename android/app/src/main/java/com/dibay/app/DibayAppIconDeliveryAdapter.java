@@ -1,6 +1,5 @@
 package com.dibay.app;
 
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -8,21 +7,22 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
-import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 /**
- * Android Delivery Adapter v1 — S3.
+ * Android Delivery Adapter — App Icon Badge single-carrier SSOT.
  *
  * Sole duty: deliver projected {@code appIconTotal} to the Android Launcher via
- * {@code Notification.setNumber}. Does not compute Badge/Bell/RoomUnread.
+ * exactly one summary notification {@code setNumber(total)}. Does not compute
+ * Badge/Bell/RoomUnread.
  *
  * <ul>
- *   <li>Domain tray present → cancel summary; launcher uses domain notifications' numbers
- *   <li>Domain tray empty and total &gt; 0 → one product summary notification + setNumber
- *   <li>total == 0 → cancel summary immediately
+ *   <li>{@code dibay_app_icon_summary_v1} is the only App Icon Badge carrier
+ *   <li>Domain tray notifications never carry launcher badge authority
+ *   <li>Domain tray present → keep/update summary (do not cancel)
+ *   <li>total == 0 → cancel summary only (do not cancel domain children)
  *   <li>Never writes notification_events / Bell
  * </ul>
  */
@@ -47,7 +47,7 @@ public final class DibayAppIconDeliveryAdapter {
     apply(app, cached);
   }
 
-  /** Apply absolute appIconTotal to Android launcher delivery. */
+  /** Apply absolute appIconTotal to Android launcher delivery (summary carrier only). */
   public static void apply(Context context, int appIconTotal) {
     if (context == null) return;
     Context app = context.getApplicationContext();
@@ -58,32 +58,25 @@ public final class DibayAppIconDeliveryAdapter {
       return;
     }
 
-    // Drop debug probe leftovers so they cannot block S3 summary.
+    // Drop debug probe leftovers so they cannot share badge authority.
     nm.cancel(710032);
 
     if (n <= 0) {
       cancelSummary(nm);
-      Log.i(TAG, "apply clear total=0 summary_cancelled");
-      return;
-    }
-
-    if (hasActiveDomainNotification(nm)) {
-      cancelSummary(nm);
-      Log.i(TAG, "apply domain_tray_present total=" + n + " summary_cancelled");
+      Log.i(TAG, "summary_cleared total=0");
       return;
     }
 
     postOrUpdateSummary(app, nm, n);
-    Log.i(TAG, "apply summary_posted total=" + n);
+    Log.i(TAG, "summary_applied total=" + n);
   }
 
-  /** Call when a real domain tray notification is posted (FCM). */
+  /**
+   * Domain tray posted (FCM). Keep summary as sole badge carrier with latest total.
+   * Does not write setNumber onto domain children. Does not cancel summary.
+   */
   public static void onDomainNotificationPosted(Context context, int appIconTotal) {
-    if (context == null) return;
-    NotificationManager nm = context.getApplicationContext().getSystemService(NotificationManager.class);
-    if (nm == null) return;
-    cancelSummary(nm);
-    Log.i(TAG, "on_domain_posted summary_cancelled total=" + Math.max(0, appIconTotal));
+    apply(context, appIconTotal);
   }
 
   public static void cancelSummary(Context context) {
@@ -96,44 +89,22 @@ public final class DibayAppIconDeliveryAdapter {
     nm.cancel(SUMMARY_NOTIFICATION_ID);
   }
 
-  private static boolean hasActiveDomainNotification(NotificationManager nm) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
-    StatusBarNotification[] active;
-    try {
-      active = nm.getActiveNotifications();
-    } catch (Exception e) {
-      Log.w(TAG, "getActiveNotifications_failed", e);
-      return false;
-    }
-    if (active == null) return false;
-    for (StatusBarNotification sbn : active) {
-      if (sbn == null) continue;
-      if (sbn.getId() == SUMMARY_NOTIFICATION_ID) continue;
-      Notification n = sbn.getNotification();
-      if (n == null) continue;
-      String channelId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? n.getChannelId() : null;
-      if (channelId == null || channelId.trim().isEmpty()) {
-        // Pre-O or missing channel: treat as domain if not our summary id
-        return true;
-      }
-      String id = channelId.trim();
-      if (SUMMARY_CHANNEL_ID.equals(id)) continue;
-      if (DibayNotificationChannelRegistry.isCallChannelId(id)) continue;
-      if (id.contains("badge_silent_probe")) continue;
-      // Real user message / trade / order / admin tray only (S3 domain carrier)
-      if (DibayNotificationChannelRegistry.isAllowedMessageChannelId(id)) return true;
-    }
-    return false;
-  }
-
   private static void ensureSummaryChannel(NotificationManager nm) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    if (nm.getNotificationChannel(SUMMARY_CHANNEL_ID) != null) return;
+    NotificationChannel existing = nm.getNotificationChannel(SUMMARY_CHANNEL_ID);
+    if (existing != null) {
+      // Ensure badge carrier stays enabled even if OEM/user demoted sound.
+      if (!existing.canShowBadge()) {
+        existing.setShowBadge(true);
+        nm.createNotificationChannel(existing);
+      }
+      return;
+    }
     NotificationChannel channel =
         new NotificationChannel(
             SUMMARY_CHANNEL_ID,
             "읽지 않은 알림",
-            NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationManager.IMPORTANCE_LOW);
     channel.setDescription("App Icon delivery — unread summary (not Bell)");
     channel.setShowBadge(true);
     channel.enableVibration(false);
@@ -172,16 +143,17 @@ public final class DibayAppIconDeliveryAdapter {
             .setAutoCancel(false)
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) {
-        Log.w(TAG, "notifications_disabled_skip_summary total=" + total);
+        Log.w(TAG, "apply_failed notifications_disabled total=" + total);
         return;
       }
     }
 
+    // Fixed id → idempotent upsert; never creates a second summary carrier.
     nm.notify(SUMMARY_NOTIFICATION_ID, builder.build());
   }
 }

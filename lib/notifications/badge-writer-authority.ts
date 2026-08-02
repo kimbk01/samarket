@@ -130,7 +130,8 @@ export const BADGE_SURFACE_WRITER_INVENTORY: readonly BadgeSurfaceWriterInventor
     bootstrap: "Cap Badge / push after Apply",
     realtime: "Cap Badge via NativeBadgeSync",
     poll: "same",
-    secondaryEmitter: "OEM launcher (Cap + FCM setNumber) — Phase 2-4 prove identity",
+    secondaryEmitter:
+      "Android summary setNumber (dibay_app_icon_summary_v1) + Cap echo — domain child number=0",
     legacyWriter: null,
     fallbackWriter: null,
     commitEntry: "Domain appIconTotal only (no Bell)",

@@ -5,7 +5,8 @@
  *   AppIcon Projection.appIconTotal
  *     → Capawesome Badge.set / Badge.get
  *     → Android Launcher (OEM Cap path)
- *     → FCM badge_count → DibayFirebaseMessagingService.setNumber
+ *     → FCM badge_count → DibayAppIconDeliveryAdapter summary setNumber (Android)
+ *     → domain tray children setNumber(0) (no launcher authority)
  *     → APNS aps.badge
  *
  * DO NOT: Projection · Writer · RoomUnread · Bell · Lifecycle · Explain · Heal · Legacy delete · OEM patch
@@ -55,8 +56,30 @@ export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
   {
     surface: "android_tray_setNumber",
     sourceOfTruth: "appIconTotal",
+    evidencePath: "android/app/src/main/java/com/dibay/app/DibayAppIconDeliveryAdapter.java",
+    mustContain: [
+      "SUMMARY_CHANNEL_ID",
+      "SUMMARY_NOTIFICATION_ID",
+      "setNumber(total)",
+      "summary_applied",
+      "onDomainNotificationPosted",
+    ],
+    mustNotContain: [
+      "domain_tray_present",
+      "cancelSummary(nm);\n      Log.i(TAG, \"apply domain_tray_present",
+      "miui",
+      "xiaomi",
+      "samsung",
+      "notificationCount",
+      "total /",
+    ],
+  },
+  {
+    surface: "android_domain_child_no_badge_number",
+    sourceOfTruth: "appIconTotal",
     evidencePath: "android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java",
-    mustContain: ["setNumber(badgeCount)", "badgeCount"],
+    mustContain: ["setNumber(0)", "onDomainNotificationPosted", "badgeCount"],
+    mustNotContain: ["setNumber(badgeCount)"],
   },
   {
     surface: "apns_badge",
