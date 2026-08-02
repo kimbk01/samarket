@@ -704,6 +704,8 @@ export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boole
  */
 export type NotificationEventReadFact =
   | { kind: "admin_notice_absolute"; absolute: number }
+  /** Member A digit absolute (Bell + App Icon A). Does not touch B rooms / orphan. */
+  | { kind: "member_notification_a_absolute"; absolute: number }
   | { kind: "orphan_missed_absolute"; absolute: number }
   | { kind: "orphan_missed_delta"; cleared: number };
 
@@ -718,10 +720,12 @@ export type NotificationEventFactEvent = Readonly<{
   applyBell?: boolean;
 }>;
 
-type EventFactAxis = "admin_notice" | "orphan_missed";
+type EventFactAxis = "admin_notice" | "member_notification_a" | "orphan_missed";
 
 function eventFactAxis(kind: NotificationEventReadFact["kind"]): EventFactAxis {
-  return kind === "admin_notice_absolute" ? "admin_notice" : "orphan_missed";
+  if (kind === "admin_notice_absolute") return "admin_notice";
+  if (kind === "member_notification_a_absolute") return "member_notification_a";
+  return "orphan_missed";
 }
 
 function rejectEventFact(
@@ -775,7 +779,43 @@ function buildEventFactMergedInput(
     return { merged, changed: true };
   }
 
+  if (fact.kind === "member_notification_a_absolute") {
+    const nextA = nonNeg(fact.absolute);
+    if (nextA === prevNotificationAttention) return { merged: base, changed: false };
+    const cleared = Math.max(0, prevNotificationAttention - nextA);
+    const nextApproved = Math.max(0, prevApproved - cleared);
+    const nextBell: NotificationBadgeCount = {
+      ...bell,
+      tradeStatus: nextA === 0 ? 0 : nonNeg(bell.tradeStatus),
+      orderStatus: nextA === 0 ? 0 : nonNeg(bell.orderStatus),
+      deliveryStatus: nextA === 0 ? 0 : nonNeg(bell.deliveryStatus),
+      communityActivity: nextA === 0 ? 0 : nonNeg(bell.communityActivity),
+      adminNotice: nextA === 0 ? 0 : nonNeg(bell.adminNotice),
+      adminMarketingBanner: nextA === 0 ? 0 : nonNeg(bell.adminMarketingBanner),
+      // B chat buckets stay; Bell digit is A-only.
+      total: nextA,
+    };
+    const merged: NotificationBadgeProjectionInput = {
+      ...base,
+      bell: nextBell,
+      unreadApprovedNotificationEvents: nextApproved,
+      notificationAttentionTotal: nextA,
+      nonChatEventAttention:
+        nextA === 0
+          ? {
+              tradeStatus: 0,
+              orderStatus: 0,
+              deliveryStatus: 0,
+              communityActivity: 0,
+              adminNotice: 0,
+            }
+          : base.nonChatEventAttention,
+    };
+    return { merged, changed: true };
+  }
+
   // orphan_missed_absolute | orphan_missed_delta
+  // Slice 2: orphan is B-axis — must NOT reduce member Bell digit (notificationAttentionTotal).
   const prevOrphan = nonNeg(base.orphanMissedCall);
   const nextOrphan =
     fact.kind === "orphan_missed_absolute"
@@ -784,19 +824,24 @@ function buildEventFactMergedInput(
   if (nextOrphan === prevOrphan) return { merged: base, changed: false };
   const cleared = Math.max(0, prevOrphan - nextOrphan);
   const nextApproved = Math.max(0, prevApproved - cleared);
-  const nextNotificationAttention = Math.max(0, prevNotificationAttention - cleared);
+  const nextMemberMissed =
+    base.memberMissedCallCount != null
+      ? Math.max(0, nonNeg(base.memberMissedCallCount) - cleared)
+      : nextOrphan;
   const nextBell: NotificationBadgeCount = {
     ...bell,
     missedCall: nextOrphan,
-    total: nextNotificationAttention,
+    // Bell digit stays member notification attention (unchanged).
+    total: prevNotificationAttention,
   };
   const merged: NotificationBadgeProjectionInput = {
     ...base,
-    // Orphan missed axis only — never touches CM room facts or domainUnreadRooms.
+    // Orphan missed axis only — never touches CM rooms or member Bell digit.
     orphanMissedCall: nextOrphan,
+    memberMissedCallCount: nextMemberMissed,
     bell: nextBell,
     unreadApprovedNotificationEvents: nextApproved,
-    notificationAttentionTotal: nextNotificationAttention,
+    notificationAttentionTotal: prevNotificationAttention,
   };
   return { merged, changed: true };
 }
@@ -809,6 +854,7 @@ export function commitNotificationEventReadFact(event: NotificationEventFactEven
   const kind = event.fact?.kind;
   if (
     kind !== "admin_notice_absolute" &&
+    kind !== "member_notification_a_absolute" &&
     kind !== "orphan_missed_absolute" &&
     kind !== "orphan_missed_delta"
   ) {

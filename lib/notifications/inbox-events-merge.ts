@@ -375,8 +375,17 @@ export type FetchNotificationEventsForInboxOpts = {
   inboxPushKind?: InboxPushKindFilter | null;
   excludeOwnerList?: boolean;
   excludeChatMessageList?: boolean;
+  /** Member Bell A_member list — exclude B-axis missed_call rows. */
+  excludeMissedCallList?: boolean;
   ownerStoreId?: string;
 };
+
+function isMissedCallInboxRow(row: InboxNotificationRow): boolean {
+  if (row.bell_presentation_type === "missed_call") return true;
+  if (trimText(row.notification_type).toLowerCase() === "missed_call") return true;
+  const kind = trimText(row.meta?.kind).toLowerCase();
+  return kind === "missed_call";
+}
 
 function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKindFilter): boolean {
   if (pushKind === "all") return true;
@@ -399,6 +408,9 @@ export function filterMappedInboxEventRows(
   }
   if (opts.excludeChatMessageList) {
     list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
+  }
+  if (opts.excludeMissedCallList) {
+    list = list.filter((r) => !isMissedCallInboxRow(r));
   }
   if (opts.inboxPushKind && opts.inboxPushKind !== "all") {
     list = list.filter((r) => matchesInboxPushKind(r, opts.inboxPushKind!));

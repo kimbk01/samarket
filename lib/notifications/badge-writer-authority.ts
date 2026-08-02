@@ -241,18 +241,26 @@ export function assertExplainMatchesProjection(
 
   const m = input.explainMatrix;
   const messenger = m.appIcon.general.count + m.appIcon.group.count;
-  const store = m.appIcon.customerOrder.count + m.appIcon.ownerOrder.count;
+  /** Member App Icon store axis = customer rooms only (owner → Store Identity). */
+  const memberStoreOrder = m.appIcon.customerOrder.count;
+  const memberRooms =
+    m.appIcon.general.count +
+    m.appIcon.group.count +
+    m.appIcon.trade.count +
+    m.appIcon.customerOrder.count;
+  const notificationAxis = Math.max(0, m.appIcon.total - memberRooms);
   if (input.domainAppIcon.messenger !== messenger) {
     errors.push(`domainAppIcon.messenger!=explain (${input.domainAppIcon.messenger}!=${messenger})`);
   }
   if (input.domainAppIcon.trade !== m.appIcon.trade.count) {
     errors.push(`domainAppIcon.trade!=explain`);
   }
-  if (input.domainAppIcon.storeOrder !== store) {
-    errors.push(`domainAppIcon.storeOrder!=explain`);
+  if (input.domainAppIcon.storeOrder !== memberStoreOrder) {
+    errors.push(`domainAppIcon.storeOrder!=explain_customer`);
   }
-  if (input.domainAppIcon.missedCall !== m.appIcon.missedCall.count) {
-    errors.push(`domainAppIcon.missedCall!=explain`);
+  // Wire field `missedCall` = memberA + orphan (= notification axis), not orphan alone.
+  if (input.domainAppIcon.missedCall !== notificationAxis) {
+    errors.push(`domainAppIcon.missedCall!=notification_axis`);
   }
   if (m.appIcon.total !== input.projection.appIconTotal) {
     errors.push("explain.appIcon!=projection.appIconTotal");

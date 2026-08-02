@@ -1,24 +1,30 @@
 /**
- * Phase B — Chat Attention / Notification Attention / Unified App Icon Formula SSOT.
+ * A/B Badge Projection SSOT (REBUILD — no Store Authority).
  *
- * Product (LOCKED 2026-08-01):
- *   ChatAttentionTotal = |unread room IDs| across GD+Group+Trade+Customer+Owner
- *   NotificationAttentionTotal = |distinct active non-chat attention_key|
- *   AppIconTotal = Chat + Notification
- *   BellBadge = NotificationAttentionTotal
+ * memberBellTotal = A_member
+ *   (system / trade / buyer order / notice — not chat, not missed, not store owner intake)
  *
- * DO NOT: RoomUnread rewrite · Adapter calc · heal · raw event SUM · chat_message in Bell digit
+ * memberAppIconTotal =
+ *   A_member
+ *   + |GD| + |Group| + |Trade| + |Customer SO|
+ *   + orphan missed
+ *
+ * Owner SO rooms → existing Owner Row/Hub/FAB only (not member App Icon).
+ * Store intake → Bell exclude (classify only); FAB/Bottom/Admin unchanged.
+ *
+ * DO NOT: Store Projection · RoomUnread rewrite · Adapter calc · heal · App Icon ±
  */
 import {
   resolveNotificationAttentionKey,
   type NotificationAttentionKeyInput,
 } from "@/lib/notifications/core/notification-attention-key";
 import { isNotificationEventBadgeEligible } from "@/lib/notifications/core/notification-event-repository";
+import { OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
 
 export const CHAT_NOTIFICATION_ATTENTION_AUTHORITY =
   "chat_notification_attention_v1" as const;
 
-/** Chat-message event types — Bell digit / NotificationAttention EXCLUDE. */
+/** Chat-message event types — Bell digit / A_member EXCLUDE. */
 export const CHAT_MESSAGE_NOTIFICATION_TYPES = new Set([
   "chat_message",
   "group_message",
@@ -28,7 +34,7 @@ export const CHAT_MESSAGE_NOTIFICATION_TYPES = new Set([
   "store_order_message",
 ]);
 
-/** Never count toward Bell digit / NotificationAttention. */
+/** Never count toward Bell digit / A_member. */
 const DIGIT_EXCLUDED_TYPES = new Set([
   "admin_marketing_banner",
   "admin_test",
@@ -41,26 +47,38 @@ export type ChatAttentionProjection = Readonly<{
   groupRoomIds: readonly string[];
   tradeRoomIds: readonly string[];
   customerOrderRoomIds: readonly string[];
+  /** Owner SO — existing store surfaces; excluded from memberAppIconTotal. */
   ownerOrderRoomIds: readonly string[];
+  /** All domains including owner (diagnostics / owner hub). */
   total: number;
+  /** B_member_rooms count (no owner SO). */
+  memberAppIconRoomCount: number;
 }>;
 
 export type NotificationAttentionProjection = Readonly<{
+  /** A_member attention keys (Bell digit). */
   attentionKeys: readonly string[];
   eventIdsByAttentionKey: Readonly<Record<string, readonly string[]>>;
   byType: Readonly<Record<string, number>>;
-  /** Event ids that are unread chat_message-family (history/quarantine — not in total). */
   excludedChatMessageEventIds: readonly string[];
-  /** Room-bound missed_call event ids (row/timeline only — not in total). */
   excludedRoomBoundMissedCallEventIds: readonly string[];
+  /** Orphan missed — B_member_missed; in memberAppIconTotal, not Bell. */
+  excludedOrphanMissedCallEventIds: readonly string[];
+  /** Store owner intake — Bell exclude classify only (not a Store Projection). */
+  excludedStoreOwnerIntakeEventIds: readonly string[];
+  /** A_member / Bell digit. */
   total: number;
+  orphanMissedCallCount: number;
 }>;
 
 export type UnifiedAppIconProjection = Readonly<{
   authority: typeof CHAT_NOTIFICATION_ATTENTION_AUTHORITY;
   chat: ChatAttentionProjection;
   notification: NotificationAttentionProjection;
+  /** memberAppIconTotal. */
   appIconTotal: number;
+  memberNotificationTotal: number;
+  missedCallCount: number;
 }>;
 
 export type ChatAttentionProjectionInput = Readonly<{
@@ -96,14 +114,44 @@ function nonNeg(n: unknown): number {
   return Math.max(0, Math.floor(Number(n) || 0));
 }
 
+function payloadRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+/**
+ * Classify-only: store owner intake must not enter Member Bell / memberAppIcon A axis.
+ * Not a Store Badge Authority — existing FAB/Bottom/Admin paths stay as-is.
+ */
+function isStoreOwnerIntakeNotificationRow(row: NotificationAttentionKeyInput): boolean {
+  const payload = payloadRecord(row.display_payload);
+  const legacyMeta = payloadRecord(payload?.legacyMeta);
+  const kind = String(legacyMeta?.kind ?? payload?.kind ?? "")
+    .trim()
+    .toLowerCase();
+  if (kind && OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(kind)) return true;
+  if (kind.startsWith("store_point_")) return true;
+  const dedupe = String(row.dedupe_key ?? "").trim();
+  if (
+    dedupe.includes(":owner:new_order:") ||
+    dedupe.includes(":owner:accept_reminder:") ||
+    dedupe.includes(":owner:buyer_cancel:") ||
+    dedupe.includes(":owner:sold_out:") ||
+    dedupe.includes(":owner:refund_req:") ||
+    dedupe.includes(":owner:payment_ok:") ||
+    dedupe.includes("store_point")
+  ) {
+    return true;
+  }
+  const key = resolveNotificationAttentionKey(row);
+  return (
+    key.startsWith("order_status:owner_intake:") || key.startsWith("order_status:owner_fee:")
+  );
+}
+
 export function isChatMessageNotificationType(type: string | null | undefined): boolean {
   return CHAT_MESSAGE_NOTIFICATION_TYPES.has(String(type ?? "").trim());
 }
 
-/**
- * Orphan missed_call = no room_id (NotificationAttention).
- * Room-bound = has room_id (list row only — App Icon via room path if unread).
- */
 export function isOrphanMissedCallEvent(row: {
   type?: string | null;
   category?: string | null;
@@ -135,24 +183,25 @@ export function buildChatAttentionProjection(
   const tradeRoomIds = uniqIds(input.tradeRoomIds);
   const customerOrderRoomIds = uniqIds(input.customerOrderRoomIds);
   const ownerOrderRoomIds = uniqIds(input.ownerOrderRoomIds);
+  const memberAppIconRoomCount =
+    generalRoomIds.length +
+    groupRoomIds.length +
+    tradeRoomIds.length +
+    customerOrderRoomIds.length;
   return {
     generalRoomIds,
     groupRoomIds,
     tradeRoomIds,
     customerOrderRoomIds,
     ownerOrderRoomIds,
-    total:
-      generalRoomIds.length +
-      groupRoomIds.length +
-      tradeRoomIds.length +
-      customerOrderRoomIds.length +
-      ownerOrderRoomIds.length,
+    total: memberAppIconRoomCount + ownerOrderRoomIds.length,
+    memberAppIconRoomCount,
   };
 }
 
 /**
- * Distinct active non-chat attention_key set from unread eligible events.
- * Compresses multiple rows sharing one key → count 1.
+ * A_member attentions only.
+ * Orphan missed + store owner intake excluded from Bell digit.
  */
 export function buildNotificationAttentionProjection(
   rows: readonly NotificationAttentionEventRow[]
@@ -161,6 +210,9 @@ export function buildNotificationAttentionProjection(
   const byType: Record<string, number> = {};
   const excludedChatMessageEventIds: string[] = [];
   const excludedRoomBoundMissedCallEventIds: string[] = [];
+  const excludedOrphanMissedCallEventIds: string[] = [];
+  const excludedStoreOwnerIntakeEventIds: string[] = [];
+  const orphanMissedKeys = new Set<string>();
   const keyOrder: string[] = [];
   const keySeen = new Set<string>();
 
@@ -180,6 +232,18 @@ export function buildNotificationAttentionProjection(
 
     if (isRoomBoundMissedCallEvent(row)) {
       if (id) excludedRoomBoundMissedCallEventIds.push(id);
+      continue;
+    }
+
+    if (isOrphanMissedCallEvent(row)) {
+      if (id) excludedOrphanMissedCallEventIds.push(id);
+      const missedKey = resolveNotificationAttentionKey(row);
+      if (missedKey) orphanMissedKeys.add(missedKey);
+      continue;
+    }
+
+    if (isStoreOwnerIntakeNotificationRow(row)) {
+      if (id) excludedStoreOwnerIntakeEventIds.push(id);
       continue;
     }
 
@@ -205,7 +269,10 @@ export function buildNotificationAttentionProjection(
     byType,
     excludedChatMessageEventIds,
     excludedRoomBoundMissedCallEventIds,
+    excludedOrphanMissedCallEventIds,
+    excludedStoreOwnerIntakeEventIds,
     total: keyOrder.length,
+    orphanMissedCallCount: orphanMissedKeys.size,
   };
 }
 
@@ -215,11 +282,17 @@ export function buildUnifiedAppIconProjection(input: {
 }): UnifiedAppIconProjection {
   const chat = buildChatAttentionProjection(input.chat);
   const notification = buildNotificationAttentionProjection(input.notificationEvents);
+  const missedCallCount = notification.orphanMissedCallCount;
+  const memberNotificationTotal = notification.total;
+  const appIconTotal =
+    chat.memberAppIconRoomCount + memberNotificationTotal + missedCallCount;
   return {
     authority: CHAT_NOTIFICATION_ATTENTION_AUTHORITY,
     chat,
     notification,
-    appIconTotal: chat.total + notification.total,
+    appIconTotal,
+    memberNotificationTotal,
+    missedCallCount,
   };
 }
 
@@ -236,13 +309,28 @@ export function assertUnifiedAppIconProjection(
   if (projection.chat.total !== chatSum) {
     errors.push(`chat.total!=sum_rooms (${projection.chat.total}!=${chatSum})`);
   }
+  const memberRooms =
+    projection.chat.generalRoomIds.length +
+    projection.chat.groupRoomIds.length +
+    projection.chat.tradeRoomIds.length +
+    projection.chat.customerOrderRoomIds.length;
+  if (projection.chat.memberAppIconRoomCount !== memberRooms) {
+    errors.push("memberAppIconRoomCount!=member_rooms");
+  }
   if (projection.notification.total !== projection.notification.attentionKeys.length) {
     errors.push("notification.total!=|attentionKeys|");
   }
-  if (projection.appIconTotal !== projection.chat.total + projection.notification.total) {
+  const expected =
+    projection.chat.memberAppIconRoomCount +
+    projection.memberNotificationTotal +
+    projection.missedCallCount;
+  if (projection.appIconTotal !== expected) {
     errors.push(
-      `appIconTotal!=chat+notification (${projection.appIconTotal}!=${projection.chat.total}+${projection.notification.total})`
+      `appIconTotal!=member_formula (${projection.appIconTotal}!=${expected})`
     );
+  }
+  if (projection.memberNotificationTotal !== projection.notification.total) {
+    errors.push("memberNotificationTotal!=notification.total");
   }
   return { ok: errors.length === 0, errors };
 }

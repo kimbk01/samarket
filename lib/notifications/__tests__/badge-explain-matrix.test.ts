@@ -21,7 +21,8 @@ describe("Phase 2-1 Badge Explain Matrix", () => {
     });
 
     expect(matrix.authority).toBe(BADGE_EXPLAIN_MATRIX_AUTHORITY);
-    expect(matrix.appIcon.total).toBe(37);
+    // Member App Icon = GD+Group+Trade+Customer+missed (Owner rooms excluded — R6 KEEP).
+    expect(matrix.appIcon.total).toBe(34);
     expect(matrix.appIcon.general).toEqual({ count: 4, roomIds: ["g1", "g2", "g3", "g4"] });
     expect(matrix.appIcon.group.count).toBe(3);
     expect(matrix.appIcon.trade.count).toBe(5);
@@ -35,7 +36,7 @@ describe("Phase 2-1 Badge Explain Matrix", () => {
     expect(matrix.owner.byStoreId).toEqual({ storeA: 2, storeB: 1 });
 
     const asserted = assertBadgeExplainMatrix(matrix, {
-      expectedAppIconTotal: 37,
+      expectedAppIconTotal: 34,
       expectedBottomTotal: 7,
       expectedTradeTotal: 5,
       expectedCustomerTotal: 21,

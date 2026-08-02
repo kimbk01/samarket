@@ -7,14 +7,14 @@
  * - All inputs (Cold Start / Bootstrap / Hub / Push / Realtime / Resume / Poll /
  *   Broadcast / Atomic Read) normalize to ProjectionInput then call this Builder only.
  *
- * Bell (product live badge) — Phase B:
- *   bellTotal = NotificationAttentionTotal (distinct non-chat attention_key)
- *   chat_message events are Inbox history/quarantine — NOT Bell digit
+ * Bell (Slice 2a/2b):
+ *   bellTotal = memberNotificationAttention (no store ops, no orphan missed)
  *
- * App Icon — Phase B:
- *   ChatAttentionTotal (unread rooms) + NotificationAttentionTotal
+ * Member App Icon (APPROVED):
+ *   memberNotification + GD+Group+Trade+Customer rooms + orphan missed
+ *   Owner rooms / store ops → Store Identity surfaces only
  *
- * Bottom Chat — general_direct + group unread rooms only.
+ * Bottom Chat — general_direct + group unread rooms only (UNCHANGED).
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
@@ -75,10 +75,15 @@ export type NotificationBadgeProjectionInput = Readonly<{
    */
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   /**
-   * Phase B — NotificationAttentionTotal (distinct non-chat attention_key).
-   * Drives Bell digit + App Icon notification axis. Prefer this over raw event counts.
+   * Member NotificationAttentionTotal (Bell digit).
+   * Must already exclude store ops + orphan missed + chat_message.
    */
   notificationAttentionTotal?: number;
+  /**
+   * Orphan missed count for memberAppIconTotal (B axis).
+   * When omitted, falls back to `orphanMissedCall` fact.
+   */
+  memberMissedCallCount?: number;
   /**
    * @deprecated Prefer `notificationAttentionTotal`. Legacy unread event row count (includes chat).
    */
@@ -126,7 +131,7 @@ export type NotificationBadgeProjection = Readonly<{
   bellChatAttentionCount: number;
   /** Diagnostic: non-chat event attention sum (NOT product Bell alone). */
   bellNonChatEventCount: number;
-  /** Product Bell live total = NotificationAttentionTotal. */
+  /** Product Bell live total = memberNotificationAttention. */
   bellTotal: number;
   /**
    * Bell snapshot for Surface store — `total` is Projection bellTotal (NotificationAttention).
@@ -190,20 +195,6 @@ export function sumNonChatEventAttention(
   );
 }
 
-function sumApprovedEventCategories(bell: NotificationBadgeCount): number {
-  return (
-    nonNeg(bell.chatMessage) +
-    nonNeg(bell.groupMessage) +
-    nonNeg(bell.tradeMessage) +
-    nonNeg(bell.tradeStatus) +
-    nonNeg(bell.orderStatus) +
-    nonNeg(bell.deliveryStatus) +
-    nonNeg(bell.communityActivity) +
-    nonNeg(bell.adminNotice) +
-    nonNeg(bell.missedCall)
-  );
-}
-
 /**
  * THE Notification/Badge Projection Builder — pure, single implementation.
  */
@@ -239,21 +230,24 @@ export function buildNotificationBadgeProjection(
     },
     nonNeg(input.philifeChatUnread)
   );
-  /** App Icon chat axis = owner rooms + buyer rooms (no double-count). */
-  const storeOrderForAppIcon = ownerForHub + buyer;
+  /** Member App Icon: customer order rooms only — never owner rooms. */
+  const storeOrderForMemberAppIcon = buyer;
   /**
-   * Phase B Bell + App Icon notification axis = NotificationAttentionTotal.
-   * Fallback to orphan-only only when notificationAttentionTotal omitted (legacy callers).
+   * Member Bell digit. Fallback 0 when omitted (do not fall back to orphan — orphan is B).
    */
-  const notificationAttentionTotal =
+  const memberNotificationAttention =
     input.notificationAttentionTotal != null
       ? nonNeg(input.notificationAttentionTotal)
-      : orphan;
+      : 0;
+  const memberMissed =
+    input.memberMissedCallCount != null ? nonNeg(input.memberMissedCallCount) : orphan;
+  /** App Icon notification axis wire = member A + orphan missed (field name retained). */
+  const appIconNotificationAxis = memberNotificationAttention + memberMissed;
   const appIcon = resolveDomainAppIconBadgeParts({
     communityMessengerUnread: shell.communityMessengerUnread,
     tradeUnread: shell.tradeUnread,
-    storeOrderChatUnread: storeOrderForAppIcon,
-    notificationAttention: notificationAttentionTotal,
+    storeOrderChatUnread: storeOrderForMemberAppIcon,
+    notificationAttention: appIconNotificationAxis,
   });
 
   /** Diagnostic only — NOT product Bell digit. */
@@ -265,14 +259,8 @@ export function buildNotificationBadgeProjection(
   const bellNonChatEventCount = nonChat;
 
   const eventBell = input.bell ?? EMPTY_BELL_BADGE_FACTS;
-  const unreadApprovedNotificationEvents =
-    input.unreadApprovedNotificationEvents != null
-      ? nonNeg(input.unreadApprovedNotificationEvents)
-      : input.bell
-        ? nonNeg(eventBell.total) || sumApprovedEventCategories(eventBell)
-        : 0;
-  /** Product Bell digit = NotificationAttentionTotal (not raw event SUM / chat). */
-  const bellTotal = notificationAttentionTotal;
+  /** Product Bell digit = member A only. */
+  const bellTotal = memberNotificationAttention;
 
   const bell: NotificationBadgeCount = {
     ...eventBell,

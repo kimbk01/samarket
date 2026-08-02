@@ -50,9 +50,11 @@ describe("resolveTier1BellUnreadFetchUrl", () => {
 });
 
 describe("resolveTier1BellListFetchOpts", () => {
-  it("excludes chat messages for full tier1 inbox (Bell = NotificationAttention)", () => {
+  it("excludes chat + store ops + missed for full tier1 inbox (Bell = member A)", () => {
     expect(resolveTier1BellListFetchOpts("tier1_inbox_bell")).toEqual({
       excludeChatMessages: true,
+      excludeOwnerStoreCommerce: true,
+      excludeMissedCalls: true,
       pushKind: "all",
     });
   });

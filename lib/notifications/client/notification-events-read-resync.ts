@@ -47,13 +47,13 @@ function nextEventFactSeq(): number {
 }
 
 /**
- * tier1 종 모두 읽음 (admin/notice inbox) — Bell adminNotice 만 0.
- * App Icon / CM / Trade / Order 는 불변 (event fact = admin_notice_absolute).
+ * Tier1 / My inbox mark-all — Member A digit → 0 immediately.
+ * B rooms + orphan missed unchanged (event fact = member_notification_a_absolute).
  */
 export function applyTier1InboxMarkAllReadOptimistic(): void {
   const now = Date.now();
   const committed = commitNotificationEventReadFact({
-    fact: { kind: "admin_notice_absolute", absolute: 0 },
+    fact: { kind: "member_notification_a_absolute", absolute: 0 },
     eventIdentity: `tier1_mark_all:${now}:${nextEventFactSeq()}`,
     eventVersion: now,
     source: "tier1_mark_all",
@@ -61,6 +61,11 @@ export function applyTier1InboxMarkAllReadOptimistic(): void {
   if (!committed) {
     requestNotificationBadgeCountResync("optimistic_admin_baseline_missing");
   }
+}
+
+/** Same A→0 fact as mark-all; used after Member A delete-all. */
+export function applyTier1InboxDeleteAllMemberAOptimistic(): void {
+  applyTier1InboxMarkAllReadOptimistic();
 }
 
 /**

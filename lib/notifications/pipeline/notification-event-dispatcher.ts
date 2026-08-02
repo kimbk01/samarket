@@ -12,6 +12,7 @@ import {
   type NotificationRuntimeAppState,
 } from "@/lib/notifications/policy/notification-policy-profiles";
 import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
+import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 
 export type CreateAndDispatchNotificationEventInput = CreateNotificationEventInput & {
   appState?: NotificationRuntimeAppState;
@@ -23,6 +24,8 @@ export async function createAndDispatchNotificationEvent(
 ): Promise<{ ok: true; row: NotificationEventRow } | { ok: false; error: string; duplicate?: boolean }> {
   const created = await createNotificationEvent(sb, input);
   if (!created.ok) return created;
+  // A/B create → next badge-count must recompute (Bell A and/or App Icon B).
+  invalidateNotificationBadgeCache(created.row.user_id);
   await dispatchNotificationEvent(sb, created.row, { appState: input.appState });
   return created;
 }

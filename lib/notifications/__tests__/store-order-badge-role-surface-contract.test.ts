@@ -114,7 +114,8 @@ describe("store-order badge role surface contract", () => {
     expect(p.storeOrderCustomerUnreadRooms + p.storeOrderOwnerUnreadRooms).toBe(5);
     expect(p.storeOrderOwnerUnreadRooms).not.toBe(5);
     expect(p.storeOrderCustomerUnreadRooms).not.toBe(5);
-    expect(p.appIcon.storeOrder).toBe(5);
+    // Member App Icon store axis = customer rooms only (Owner ∉ memberAppIcon — R6 KEEP).
+    expect(p.appIcon.storeOrder).toBe(2);
   });
 
   it("owner FAB store-scoped 1 is not overwritten by global owner 3 (1→3→1 guard)", () => {

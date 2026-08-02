@@ -2317,8 +2317,16 @@ export function applyDomainAuthorityHubBadgeOptimistic(input: {
       chatUnread: tradeUnread,
       /** Preserve store-scoped FAB — never replace with global owner aggregate. */
       storeOrderChatUnread: current.storeOrderChatUnread,
+      /** Owner ops axes — Domain Member projection must not zero Owner FAB. */
+      orderAttention: current.orderAttention,
+      inquiryAttention: current.inquiryAttention,
+      ownerReviewAttention: current.ownerReviewAttention,
       storeOrderOwnerUnreadRooms,
       buyerOrderAttention,
+      /**
+       * Delivery-tab digit for non-owner (= customer order rooms).
+       * Owner Bottom 「배달/매장」 is forced 0 via hasOwnerStore gate — FAB owns Owner attention.
+       */
       storesTabAttention: buyerOrderAttention,
       socialChatUnread: communityMessengerUnread + philife,
     },

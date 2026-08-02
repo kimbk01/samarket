@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  filterMappedInboxEventRows,
   mapNotificationEventToInboxRow,
   mergeInboxNotificationRows,
   mergeInboxNotificationRowsEventsPrimary,
@@ -264,6 +265,55 @@ describe("inbox-events-merge-regression", () => {
         baseEvent({ type: "order_status", category: "order_status" })
       ).bell_presentation_type
     ).toBe("customer_order_status");
+  });
+
+  it("A_member list filter excludes chat + owner intake + missed_call", () => {
+    const chat = mapNotificationEventToInboxRow(baseEvent());
+    const missed = mapNotificationEventToInboxRow(
+      baseEvent({
+        id: "evt-missed",
+        type: "missed_call",
+        category: "missed_call",
+        room_id: null,
+        dedupe_key: "missed:call-1",
+        display_payload: { legacyMeta: { kind: "missed_call" } },
+      })
+    );
+    const ownerIntake = mapNotificationEventToInboxRow(
+      baseEvent({
+        id: "evt-owner",
+        type: "order_status",
+        category: "order_status",
+        dedupe_key: "commerce:owner:new_order:ord-1",
+        display_payload: {
+          legacyNotificationType: "commerce",
+          legacyMeta: { kind: "store_order_created", store_id: "s1", order_id: "ord-1" },
+        },
+      })
+    );
+    const tradeStatus = mapNotificationEventToInboxRow(
+      baseEvent({
+        id: "evt-trade",
+        type: "trade_status",
+        category: "trade_status",
+        room_id: null,
+        dedupe_key: "ts:p1",
+        display_payload: {
+          legacyNotificationType: "status",
+          legacyMeta: { product_id: "p1" },
+        },
+      })
+    );
+    const filtered = filterMappedInboxEventRows(
+      [chat, missed, ownerIntake, tradeStatus],
+      {
+        fetchUpper: 40,
+        excludeOwnerList: true,
+        excludeChatMessageList: true,
+        excludeMissedCallList: true,
+      }
+    );
+    expect(filtered.map((r) => r.id)).toEqual(["evt-trade"]);
   });
 
   it("documents that merge helper is quarantine-only; product route is events-only", () => {

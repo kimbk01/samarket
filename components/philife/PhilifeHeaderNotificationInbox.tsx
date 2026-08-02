@@ -74,7 +74,11 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
-import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
+import {
+  resyncBadgesAfterNotificationEventsRead,
+  applyTier1InboxMarkAllReadOptimistic,
+  applyTier1InboxDeleteAllMemberAOptimistic,
+} from "@/lib/notifications/client/notification-events-read-resync";
 
 import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
@@ -533,6 +537,8 @@ export function PhilifeHeaderNotificationInbox({
       const { status, json: raw } = await fetchMeNotificationsListDeduped({
         force,
         excludeChatMessages: listFetchOpts.excludeChatMessages,
+        excludeOwnerStoreCommerce: listFetchOpts.excludeOwnerStoreCommerce,
+        excludeMissedCalls: listFetchOpts.excludeMissedCalls,
         pushKind: listFetchOpts.pushKind,
         ownerStoreId: listFetchOpts.ownerStoreId,
       });
@@ -839,6 +845,70 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
+  const deleteAllMemberA = useCallback(async () => {
+
+    if (markBusy || rows.length === 0) return;
+
+    if (typeof window !== "undefined") {
+
+      const ok = window.confirm(t("notif_tier1_delete_all_confirm"));
+
+      if (!ok) return;
+
+    }
+
+    setMarkBusy(true);
+
+    try {
+
+      const res = await fetch("/api/me/notifications", {
+
+        method: "PATCH",
+
+        credentials: "include",
+
+        headers: { "Content-Type": "application/json" },
+
+        body: JSON.stringify({ delete_all_member_a: true }),
+
+      });
+
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+
+      if (res.ok && j?.ok) {
+
+        setRows([]);
+
+        if (resolvedSurface === "tier1_inbox_bell") {
+
+          applyTier1InboxDeleteAllMemberAOptimistic();
+
+        }
+
+        invalidateMeNotificationsListDedupedCache();
+
+        await loadInbox(true, { silent: true });
+
+        if (typeof window !== "undefined") {
+
+          window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+
+        }
+
+        resyncBadgesAfterNotificationEventsRead("notification_opened");
+
+      }
+
+    } finally {
+
+      setMarkBusy(false);
+
+    }
+
+  }, [loadInbox, markBusy, resolvedSurface, rows.length, t]);
+
+
+
   const requestDeleteGroup = useCallback((item: InboxGroupItem) => {
 
     setPendingDelete(item);
@@ -1082,23 +1152,43 @@ export function PhilifeHeaderNotificationInbox({
 
                 {!showListLoading && rows.length > 0 ? (
 
-                  <button
+                  <div className="flex shrink-0 flex-wrap items-center gap-3">
 
-                    type="button"
+                    <button
 
-                    disabled={markBusy || totalUnread === 0}
+                      type="button"
 
-                    title={totalUnread === 0 ? t("notif_inbox_mark_all_disabled_hint") : undefined}
+                      disabled={markBusy || totalUnread === 0}
 
-                    onClick={() => void markAllRead()}
+                      title={totalUnread === 0 ? t("notif_inbox_mark_all_disabled_hint") : undefined}
 
-                    className="shrink-0 text-[13px] font-medium text-sam-muted underline-offset-2 hover:enabled:underline disabled:cursor-not-allowed disabled:opacity-45"
+                      onClick={() => void markAllRead()}
 
-                  >
+                      className="shrink-0 text-[13px] font-medium text-sam-muted underline-offset-2 hover:enabled:underline disabled:cursor-not-allowed disabled:opacity-45"
 
-                    {markBusy ? t("common_processing") : t("notif_tier1_mark_read")}
+                    >
 
-                  </button>
+                      {markBusy ? t("common_processing") : t("notif_tier1_mark_read")}
+
+                    </button>
+
+                    <button
+
+                      type="button"
+
+                      disabled={markBusy}
+
+                      onClick={() => void deleteAllMemberA()}
+
+                      className="shrink-0 text-[13px] font-medium text-sam-muted underline-offset-2 hover:enabled:underline disabled:cursor-not-allowed disabled:opacity-45"
+
+                    >
+
+                      {t("notif_tier1_delete_all")}
+
+                    </button>
+
+                  </div>
 
                 ) : (
 

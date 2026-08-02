@@ -46,6 +46,7 @@ function seedHttp(versionMs = 100_000) {
       storeOrderBuyerDeliveryUnread: 1,
       storeOrderOwnerChatUnread: 3,
       orphanMissedCall: 5,
+      memberMissedCallCount: 5,
       nonChatEventAttention: {
         tradeStatus: 1,
         orderStatus: 1,
@@ -53,10 +54,10 @@ function seedHttp(versionMs = 100_000) {
         communityActivity: 0,
         adminNotice: 4,
       },
-      // Phase B: Bell + App Icon notification axis = attention keys (not raw event 20).
-      notificationAttentionTotal: 11, // orphan5 + admin4 + tradeStatus1 + orderStatus1
+      // Slice 2: Bell = member A only (admin4 + trade1 + order1); orphan is B-axis.
+      notificationAttentionTotal: 6,
       unreadApprovedNotificationEvents: 20,
-      bell: { ...EMPTY_BELL_BADGE_FACTS, total: 11, missedCall: 5, adminNotice: 4 },
+      bell: { ...EMPTY_BELL_BADGE_FACTS, total: 6, missedCall: 5, adminNotice: 4 },
       rowUnreadByRoomId: {},
     },
     { projectionVersionMs: versionMs }
@@ -99,14 +100,39 @@ describe("P0-3 notification event read fact Authority contract", () => {
 
     const p = lastProjection();
     expect(p.bell.adminNotice).toBe(0);
-    expect(p.bellTotal).toBe(7); // 11 - 4 admin
-    expect(p.appIcon.missedCall).toBe(7); // notification axis
+    expect(p.bellTotal).toBe(2); // member 6 - 4 admin
+    expect(p.appIcon.missedCall).toBe(2 + 5); // memberA + orphan
     expect(p.appIcon.messenger).toBe(3); // gd(2)+group(1)
     expect(p.appIcon.trade).toBe(3);
     const after = getLastCompleteProjectionInput();
     expect(after?.domainUnreadRooms).toEqual(before?.domainUnreadRooms);
     expect(after?.orphanMissedCall).toBe(before?.orphanMissedCall);
     expect(getProjectionAuthorityCounters().event_fact_commit_ok).toBe(1);
+  });
+
+  it("member_notification_a_absolute=0 clears full A; rooms + orphan B unchanged", () => {
+    seedHttp();
+    applySpy.mockClear();
+    const before = getLastCompleteProjectionInput();
+
+    expect(
+      commitNotificationEventReadFact({
+        fact: { kind: "member_notification_a_absolute", absolute: 0 },
+        eventIdentity: "tier1-a-all",
+        eventVersion: 1_500,
+        source: "tier1_mark_all",
+      })
+    ).toBe(true);
+
+    const p = lastProjection();
+    expect(p.bellTotal).toBe(0);
+    expect(p.bell.adminNotice).toBe(0);
+    expect(p.appIcon.missedCall).toBe(5); // orphan only
+    expect(p.appIcon.messenger).toBe(3);
+    expect(p.appIcon.trade).toBe(3);
+    const after = getLastCompleteProjectionInput();
+    expect(after?.domainUnreadRooms).toEqual(before?.domainUnreadRooms);
+    expect(after?.orphanMissedCall).toBe(before?.orphanMissedCall);
   });
 
   it("orphan_missed_absolute=0 reduces orphan + NotificationAttention; CM unchanged", () => {
@@ -125,9 +151,9 @@ describe("P0-3 notification event read fact Authority contract", () => {
     ).toBe(true);
 
     const p = lastProjection();
-    expect(p.appIcon.missedCall).toBe(6); // 11 - 5 orphan
+    expect(p.appIcon.missedCall).toBe(6); // memberA 6 + orphan 0
     expect(p.bell.missedCall).toBe(0);
-    expect(p.bellTotal).toBe(6);
+    expect(p.bellTotal).toBe(6); // member Bell unchanged by orphan clear
     expect(p.appIcon.messenger).toBe(3);
     const after = getLastCompleteProjectionInput();
     expect(after?.domainUnreadRooms).toEqual(before?.domainUnreadRooms);
@@ -145,7 +171,8 @@ describe("P0-3 notification event read fact Authority contract", () => {
       })
     ).toBe(true);
     expect(getLastCompleteProjectionInput()?.orphanMissedCall).toBe(3);
-    expect(lastProjection().appIcon.missedCall).toBe(9); // 11 - 2
+    expect(lastProjection().appIcon.missedCall).toBe(6 + 3); // memberA + remaining orphan
+    expect(lastProjection().bellTotal).toBe(6);
   });
 
   it("duplicate eventIdentity → no second commit", () => {
