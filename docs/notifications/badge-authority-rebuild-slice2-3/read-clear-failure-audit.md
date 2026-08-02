@@ -91,6 +91,7 @@ Explicit through-message keys unchanged. No digit math · Native/FCM · Bell · 
 ## Verdict
 
 **SLICE 2-3 READ-CLEAR ROOT CAUSE CONFIRMED**  
-**SLICE 2-3 READ-CLEAR FIX CODE PASS** (related vitest 12 PASS)  
-**Not committed / not redeployed** — awaiting explicit commit+deploy before Part B  
-**SLICE 2-3 RUNTIME RECHECK PENDING** (Part B clean fixture — not run)
+**SLICE 2-3 READ-CLEAR FIX CODE PASS** (`f3dd1bb5d`)  
+**SLICE 2-3 REDEPLOYED** · Production SHA match YES  
+**SLICE 2-3 B_MEMBER RUNTIME PASS** (Part B clean fixture)  
+Slice 2-4 not started.
