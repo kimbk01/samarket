@@ -620,21 +620,116 @@ export function dryRunLegacyNotificationsBackfill(
   };
 }
 
+/** Content-identity keys from a plan (winners + collapsed duplicates). Required for second-run. */
+export function contentIdentitySeedFromPlan(
+  plan: readonly LegacyBackfillPlanItem[]
+): Set<string> {
+  const seed = new Set<string>();
+  for (const p of plan) {
+    const ck = trim(p.contentIdentityKey ?? "");
+    if (ck) seed.add(ck);
+  }
+  return seed;
+}
+
+/** Dedupe keys excluded solely by content-identity collapse (not yet in canonical). */
+export function listContentIdentityDuplicateDedupeKeys(
+  plan: readonly LegacyBackfillPlanItem[]
+): string[] {
+  return plan
+    .filter(
+      (p) =>
+        p.disposition === "already_canonical" &&
+        p.reason === "duplicate_content_identity"
+    )
+    .map((p) => p.dedupeKey);
+}
+
+/**
+ * First-run plan for apply/dry-run/verify — same classifier + in-plan collapse.
+ * `contentIdentitySeed` is always passed (empty Set on cold first run).
+ */
+export function planBackfillFirstRun(
+  rows: readonly LegacyNotificationsBackfillRow[],
+  opts?: LegacyBackfillPlanOpts
+): {
+  plan: LegacyBackfillPlanItem[];
+  toInsert: LegacyBackfillPlanItem[];
+  contentIdentitySeed: Set<string>;
+  contentIdentityDuplicateDedupeKeys: string[];
+} {
+  const seed = opts?.contentIdentitySeed
+    ? new Set([...opts.contentIdentitySeed].map(trim).filter(Boolean))
+    : new Set<string>();
+  const plan = planLegacyNotificationsBackfill(rows, {
+    ...opts,
+    contentIdentitySeed: seed,
+  });
+  const toInsert = plan.filter((p) => p.disposition === "backfill_a" && p.proposed);
+  return {
+    plan,
+    toInsert,
+    contentIdentitySeed: contentIdentitySeedFromPlan(plan),
+    contentIdentityDuplicateDedupeKeys: listContentIdentityDuplicateDedupeKeys(plan),
+  };
+}
+
+/**
+ * Second-run plan after first inserts — MUST include contentIdentitySeed from first plan.
+ * Omitting seed is the Production incident failure mode (duplicate content rows re-proposed).
+ */
+export function planBackfillSecondRun(
+  rows: readonly LegacyNotificationsBackfillRow[],
+  args: {
+    canonicalDedupeKeys: ReadonlySet<string>;
+    contentIdentitySeed: ReadonlySet<string>;
+    expectedMemberId?: string | null;
+  }
+): {
+  plan: LegacyBackfillPlanItem[];
+  toInsert: LegacyBackfillPlanItem[];
+  proposedInserts: number;
+} {
+  if (!args.contentIdentitySeed) {
+    throw new Error("contentIdentitySeed_required_for_second_run");
+  }
+  const plan = planLegacyNotificationsBackfill(rows, {
+    canonicalDedupeKeys: args.canonicalDedupeKeys,
+    contentIdentitySeed: args.contentIdentitySeed,
+    expectedMemberId: args.expectedMemberId,
+  });
+  const toInsert = plan.filter((p) => p.disposition === "backfill_a" && p.proposed);
+  return { plan, toInsert, proposedInserts: toInsert.length };
+}
+
+/** Incident reproduction helper: second-run without seed (must stay non-zero when dups exist). */
+export function countSecondRunProposedInsertsOmittingContentSeed(
+  rows: readonly LegacyNotificationsBackfillRow[],
+  canonicalDedupeKeys: ReadonlySet<string>
+): number {
+  return planLegacyNotificationsBackfill(rows, { canonicalDedupeKeys }).filter(
+    (p) => p.disposition === "backfill_a"
+  ).length;
+}
+
+/** Canonical keys that match content-identity duplicates (repair candidates only). */
+export function listRepairCandidatesFromCanonicalKeys(
+  firstPlan: readonly LegacyBackfillPlanItem[],
+  canonicalDedupeKeys: ReadonlySet<string>
+): string[] {
+  return listContentIdentityDuplicateDedupeKeys(firstPlan).filter((k) =>
+    canonicalDedupeKeys.has(k)
+  );
+}
+
 export function assertBackfillIdempotent(
   rows: readonly LegacyNotificationsBackfillRow[]
 ): { ok: true; secondInserts: 0 } | { ok: false; secondInserts: number } {
-  const first = planLegacyNotificationsBackfill(rows);
-  const keys = new Set(
-    first.filter((p) => p.disposition === "backfill_a").map((p) => p.dedupeKey)
-  );
-  const contentIdentitySeed = new Set(
-    first
-      .map((p) => trim(p.contentIdentityKey ?? ""))
-      .filter(Boolean)
-  );
-  const second = dryRunLegacyNotificationsBackfill(rows, {
+  const first = planBackfillFirstRun(rows);
+  const keys = new Set(first.toInsert.map((p) => p.dedupeKey));
+  const second = planBackfillSecondRun(rows, {
     canonicalDedupeKeys: keys,
-    contentIdentitySeed,
+    contentIdentitySeed: first.contentIdentitySeed,
   });
   if (second.proposedInserts !== 0) {
     return { ok: false, secondInserts: second.proposedInserts };
