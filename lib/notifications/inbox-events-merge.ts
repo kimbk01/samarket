@@ -382,8 +382,22 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
   if (pushKind === "all") return true;
   const pk = trimText(row.push_kind).toLowerCase();
   const nt = trimText(row.notification_type).toLowerCase();
+  const bell = trimText(row.bell_presentation_type).toLowerCase();
   if (pushKind === "chat") return pk === "chat" || nt === "chat";
   if (pushKind === "delivery") return pk === "delivery" || (pk === "" && nt === "commerce");
+  // Product 「시스템」 tab = persistent system + admin_notice (push_kind notice).
+  if (pushKind === "system") {
+    return (
+      pk === "system" ||
+      pk === "notice" ||
+      nt === "system" ||
+      bell === "admin_notice" ||
+      bell === "system_important"
+    );
+  }
+  if (pushKind === "notice") {
+    return pk === "notice" || bell === "admin_notice";
+  }
   return pk === pushKind;
 }
 

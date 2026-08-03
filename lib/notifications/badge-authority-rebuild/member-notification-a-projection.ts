@@ -106,7 +106,14 @@ export function deriveMemberUnreadNotificationCount(
   return resolveMemberNotificationAuthorityFromRows(rows, memberId).unreadCount;
 }
 
-/** Map inbox API row → A projection row shape. */
+/**
+ * Map inbox API row → A projection row shape.
+ *
+ * Inbox DTO collapses many event types to legacy `notification_type: "system"`
+ * while keeping canonical meaning on `bell_presentation_type` (e.g. admin_notice).
+ * Prefer bell/category when legacy type is the collapsed "system" bucket so
+ * Bell digit N and list/filter A sets stay aligned.
+ */
 export function memberNotificationAEventFromInboxRow(row: {
   id?: string | null;
   type?: string | null;
@@ -122,16 +129,24 @@ export function memberNotificationAEventFromInboxRow(row: {
   display_payload?: unknown;
   push_kind?: string | null;
 }): MemberNotificationAEventRow {
+  const legacyType =
+    String(row.type ?? "").trim() || String(row.notification_type ?? "").trim();
+  const bell = String(row.bell_presentation_type ?? "").trim();
+  const categoryRaw = String(row.category ?? "").trim();
   const type =
-    String(row.type ?? "").trim() ||
-    String(row.notification_type ?? "").trim() ||
-    String(row.bell_presentation_type ?? "").trim();
+    (legacyType === "" || legacyType === "system") && bell
+      ? bell
+      : legacyType || bell || categoryRaw;
+  const category =
+    categoryRaw ||
+    (bell && (legacyType === "" || legacyType === "system") ? bell : "") ||
+    type;
   const unread =
     row.unread != null ? row.unread !== false : row.is_read === false;
   return {
     id: row.id,
     type,
-    category: String(row.category ?? "").trim() || type,
+    category,
     unread,
     read_at: row.read_at ?? null,
     room_id: row.room_id,

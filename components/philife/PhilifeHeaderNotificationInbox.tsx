@@ -98,6 +98,14 @@ import {
   hasOwnerBellOperationRows,
   OwnerBellOperationSummary,
 } from "@/components/notifications/OwnerBellOperationSummary";
+import {
+  NotificationInboxTabBar,
+  type NotificationInboxTabKey,
+} from "@/components/notifications/NotificationInboxTabBar";
+import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
+import {
+  buildNotificationCenterTabUnreadCounts,
+} from "@/lib/notifications/notification-center-tab-unread";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 
@@ -345,7 +353,8 @@ export function PhilifeHeaderNotificationInbox({
 
   const [soundLoaded, setSoundLoaded] = useState(false);
 
-
+  /** Bell modal triage tab — Member A tabs + optional store (O). */
+  const [modalTab, setModalTab] = useState<NotificationInboxTabKey>("all");
 
   const grouped = useMemo(
     () => buildInboxGroupItems(rows, language, priorityPushKind),
@@ -360,12 +369,64 @@ export function PhilifeHeaderNotificationInbox({
 
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
+  const storeAttention =
+    Math.max(0, Math.floor(Number(ownerHub.orderAttention) || 0)) +
+    Math.max(0, Math.floor(Number(ownerHub.inquiryAttention) || 0));
   const hasOPreview = hasOwnerBellOperationRows({
     hasOwnerStore: ownerStore != null,
     orderAttention: ownerHub.orderAttention,
     inquiryAttention: ownerHub.inquiryAttention,
   });
-  const hasNPreview = unreadPreviewItems.length > 0;
+
+  const modalTabChips = useMemo(() => {
+    const base: { key: NotificationInboxTabKey; label: string }[] = [
+      { key: "all", label: t("notif_filter_all") },
+      { key: "trade", label: t("notif_filter_trade") },
+      { key: "delivery", label: t("notif_filter_delivery") },
+      { key: "system", label: t("notif_filter_system") },
+    ];
+    if (ownerStore != null) {
+      base.push({ key: "store", label: t("notif_filter_store") });
+    }
+    return base;
+  }, [ownerStore, t]);
+
+  const modalTabCounts = useMemo(
+    () =>
+      buildNotificationCenterTabUnreadCounts({
+        memberRows: rows.filter((r) => r.is_read !== true),
+        storeAttention,
+      }),
+    [rows, storeAttention]
+  );
+
+  const tabFilteredUnreadItems = useMemo(() => {
+    if (modalTab === "store") return [];
+    if (modalTab === "all") return unreadPreviewItems;
+    const allowIds = new Set(
+      rows
+        .filter((r) => r.is_read !== true)
+        .filter((r) =>
+          matchesNotificationCenterMemberTab(
+            {
+              push_kind: r.push_kind,
+              notification_type: r.notification_type,
+              bell_presentation_type: r.bell_presentation_type,
+            },
+            modalTab
+          )
+        )
+        .map((r) => r.id)
+    );
+    return unreadPreviewItems.filter((item) => item.ids.some((id) => allowIds.has(id)));
+  }, [modalTab, unreadPreviewItems, rows]);
+
+  const hasNPreview = tabFilteredUnreadItems.length > 0;
+  const showStoreTab = modalTab === "store";
+
+  useEffect(() => {
+    if (!open) setModalTab("all");
+  }, [open]);
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
@@ -1084,36 +1145,59 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-              <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-surface py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-
+              <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${APP_MAIN_GUTTER_X_CLASS}`}>
+                <div className="shrink-0 border-b border-sam-border/60 bg-sam-surface px-0 py-2">
+                  <NotificationInboxTabBar
+                    chips={modalTabChips}
+                    active={modalTab}
+                    counts={modalTabCounts}
+                    onSelect={setModalTab}
+                    compact
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
                 {showListLoading ? (
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
-                ) : (
-                  <>
+                ) : showStoreTab ? (
+                  hasOPreview ? (
                     <OwnerBellOperationSummary
                       onNavigate={closePanel}
                       compact
-                      className="mb-2"
+                      className="mb-1"
                     />
+                  ) : (
+                    <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
+                      {t("notif_store_tab_empty")}
+                    </p>
+                  )
+                ) : (
+                  <>
+                    {modalTab === "all" && hasOPreview ? (
+                      <OwnerBellOperationSummary
+                        onNavigate={closePanel}
+                        compact
+                        className="mb-2"
+                      />
+                    ) : null}
                     {hasNPreview ? (
                       <InboxGroupCardList
-                        items={unreadPreviewItems}
+                        items={tabFilteredUnreadItems}
                         summaryOnly
                         emptyLabel={t("notif_tier1_empty")}
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                       />
                     ) : null}
-                    {!hasNPreview && !hasOPreview ? (
+                    {!hasNPreview && !(modalTab === "all" && hasOPreview) ? (
                       <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
-                        {totalUnread > 0
+                        {totalUnread > 0 && unreadPreviewItems.length === 0
                           ? t("notif_tier1_empty_with_digit_hint")
                           : t("notif_tier1_empty")}
                       </p>
                     ) : null}
                   </>
                 )}
-
+                </div>
               </div>
 
 
@@ -1148,7 +1232,13 @@ export function PhilifeHeaderNotificationInbox({
 
                 <button
                   type="button"
-                  onClick={() => openNotificationsCenter("all")}
+                  onClick={() =>
+                    openNotificationsCenter(
+                      modalTab === "store" || modalTab === "all" || modalTab === "marketing"
+                        ? "all"
+                        : modalTab
+                    )
+                  }
                   className="ml-auto shrink-0 text-[14px] font-semibold text-sam-primary underline-offset-2 hover:underline"
                 >
                   {t("notif_tier1_see_all")}

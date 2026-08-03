@@ -28,6 +28,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
     expect(src.includes("compact")).toBe(true);
+    expect(src.includes("NotificationInboxTabBar")).toBe(true);
+    expect(src.includes("modalTabCounts")).toBe(true);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
   });
@@ -96,6 +98,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
     expect(view.includes("filterMarketingInboxDisplayRows")).toBe(true);
     expect(view.includes("OwnerBellOperationSummary")).toBe(true);
+    expect(view.includes("NotificationInboxTabBar")).toBe(true);
+    expect(view.includes("tabCounts")).toBe(true);
     expect(view.includes('"chat"')).toBe(false);
   });
 

@@ -4,14 +4,14 @@ export const TIER1_NOTIFICATION_INBOX_MOTION_MS = 240;
 /** 모바일 뷰포트 가로 80% (좌·우 각 10% 여백) */
 export const TIER1_NOTIFICATION_INBOX_POPUP_WIDTH_RATIO = 0.8;
 
-/** 팝업 높이 — 벨 아래 가용 세로 (현행 유지) */
-export const TIER1_NOTIFICATION_INBOX_POPUP_HEIGHT_RATIO = 2 / 3;
+/** 팝업 높이 — 벨 아래 가용 세로 (읽기 편한 높이) */
+export const TIER1_NOTIFICATION_INBOX_POPUP_HEIGHT_RATIO = 0.78;
 
 /** 태블릿·데스크톱 상한 — `MyHeaderNotificationInbox` · `min(92vw,24rem)` 과 동일 계열 */
-export const TIER1_NOTIFICATION_INBOX_POPUP_MAX_WIDTH_PX = 384;
+export const TIER1_NOTIFICATION_INBOX_POPUP_MAX_WIDTH_PX = 400;
 
-/** 세로 상한 — 기존 1단 시트 `32rem` */
-export const TIER1_NOTIFICATION_INBOX_POPUP_MAX_HEIGHT_PX = 512;
+/** 세로 상한 — 탭+목록이 한 화면에 들어오도록 */
+export const TIER1_NOTIFICATION_INBOX_POPUP_MAX_HEIGHT_PX = 560;
 
 export type Tier1NotificationInboxPopupLayout = {
   top: number;
@@ -35,8 +35,8 @@ function readMobileViewportWidth(): { width: number; offsetLeft: number } {
 export function computeTier1NotificationInboxPopupLayout(anchorRect: DOMRect): Tier1NotificationInboxPopupLayout {
   const { width: viewportWidth, offsetLeft } = readMobileViewportWidth();
   const top = Math.max(anchorRect.top, 0);
-  const bottomReserve = 72;
-  const availableHeight = Math.max(240, window.innerHeight - top - bottomReserve);
+  const bottomReserve = 56;
+  const availableHeight = Math.max(280, window.innerHeight - top - bottomReserve);
   const width = Math.round(
     Math.min(
       viewportWidth * TIER1_NOTIFICATION_INBOX_POPUP_WIDTH_RATIO,

@@ -21,6 +21,16 @@ import type { BellPresentationType } from "@/lib/notifications/inbox-events-merg
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { filterMarketingInboxDisplayRows } from "@/lib/notifications/notification-center-inbox-filter";
 import { OwnerBellOperationSummary } from "@/components/notifications/OwnerBellOperationSummary";
+import {
+  NotificationInboxTabBar,
+  type NotificationInboxTabKey,
+} from "@/components/notifications/NotificationInboxTabBar";
+import {
+  buildNotificationCenterTabUnreadCounts,
+  EMPTY_NOTIFICATION_CENTER_TAB_UNREAD,
+  type NotificationCenterTabUnreadCounts,
+} from "@/lib/notifications/notification-center-tab-unread";
+import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
 
 type Row = {
@@ -39,7 +49,7 @@ type Row = {
 
 const INBOX_PAGE_SIZE = 40;
 
-const NOTIF_CENTER_TABS: InboxPushKindFilter[] = [
+const NOTIF_CENTER_TABS: NotificationInboxTabKey[] = [
   "all",
   "trade",
   "delivery",
@@ -47,12 +57,12 @@ const NOTIF_CENTER_TABS: InboxPushKindFilter[] = [
   "marketing",
 ];
 
-type CenterTab = InboxPushKindFilter | "store";
+type CenterTab = NotificationInboxTabKey;
 
 function parseNotificationsTabParam(raw: string | null): CenterTab {
   if (raw === "store") return "store";
   if (raw && (NOTIF_CENTER_TABS as string[]).includes(raw)) {
-    return raw as InboxPushKindFilter;
+    return raw as NotificationInboxTabKey;
   }
   return "all";
 }
@@ -111,9 +121,13 @@ export function MyNotificationsView({
   const searchParams = useSearchParams();
   const { language, t } = useI18n();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
+  const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(hasOwnerStore);
+  const storeAttention =
+    Math.max(0, Math.floor(Number(ownerHub.orderAttention) || 0)) +
+    Math.max(0, Math.floor(Number(ownerHub.inquiryAttention) || 0));
   const inboxFilterChips = useMemo(
-    (): { key: CenterTab; label: string }[] => {
-      const base: { key: CenterTab; label: string }[] = [
+    (): { key: NotificationInboxTabKey; label: string }[] => {
+      const base: { key: NotificationInboxTabKey; label: string }[] = [
         { key: "all", label: t("notif_filter_all") },
         { key: "trade", label: t("notif_filter_trade") },
         { key: "delivery", label: t("notif_filter_delivery") },
@@ -126,6 +140,9 @@ export function MyNotificationsView({
       return base;
     },
     [hasOwnerStore, t]
+  );
+  const [tabCounts, setTabCounts] = useState<NotificationCenterTabUnreadCounts>(
+    EMPTY_NOTIFICATION_CENTER_TAB_UNREAD
   );
   const [pollEnabled, setPollEnabled] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -149,6 +166,46 @@ export function MyNotificationsView({
     },
     [router, variant]
   );
+
+  const refreshTabCounts = useCallback(async (forceFetch = false) => {
+    try {
+      const [aRes, mRes] = await Promise.all([
+        fetchMeNotificationsListDeduped({
+          force: forceFetch,
+          pushKind: "all",
+          limit: 100,
+          offset: 0,
+          excludeChatMessages: true,
+          excludeOwnerStoreCommerce: true,
+        }),
+        fetchMeNotificationsListDeduped({
+          force: forceFetch,
+          pushKind: "marketing",
+          limit: 100,
+          offset: 0,
+          excludeChatMessages: true,
+          excludeOwnerStoreCommerce: true,
+        }),
+      ]);
+      const aJson = aRes.json as { ok?: boolean; notifications?: Row[] };
+      const mJson = mRes.json as { ok?: boolean; notifications?: Row[] };
+      const memberRows = filterMemberNotificationAInboxRows(
+        (aJson?.notifications ?? []) as Row[]
+      ) as Row[];
+      const marketingRows = filterMarketingInboxDisplayRows(
+        (mJson?.notifications ?? []) as Row[]
+      ) as Row[];
+      setTabCounts(
+        buildNotificationCenterTabUnreadCounts({
+          memberRows,
+          marketingRows,
+          storeAttention,
+        })
+      );
+    } catch {
+      /* keep last counts */
+    }
+  }, [storeAttention]);
   const [hasMore, setHasMore] = useState(false);
   const [loadMoreBusy, setLoadMoreBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
@@ -181,6 +238,7 @@ export function MyNotificationsView({
           setRows([]);
           setHasMore(false);
         }
+        void refreshTabCounts(forceFetch);
         return;
       }
       if (!silent && !append) {
@@ -239,6 +297,7 @@ export function MyNotificationsView({
         setHasMore(j?.has_more === true);
         setError(null);
         setPollEnabled(true);
+        void refreshTabCounts(forceFetch);
       } catch {
         if (!silent && !append) {
           setError("network_error");
@@ -251,12 +310,18 @@ export function MyNotificationsView({
         if (append) setLoadMoreBusy(false);
       }
     },
-    [filterTab]
+    [filterTab, refreshTabCounts]
   );
 
   useEffect(() => {
     void load(false, true, false, 0);
   }, [load]);
+
+  useEffect(() => {
+    setTabCounts((prev) =>
+      prev.store === storeAttention ? prev : { ...prev, store: storeAttention }
+    );
+  }, [storeAttention]);
 
   const broadcastNotificationsUpdated = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -582,38 +647,13 @@ export function MyNotificationsView({
 
   return (
     <div className="space-y-2">
-      <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
-        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {inboxFilterChips
-            .filter((c) => c.key !== "store")
-            .map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => selectFilterTab(key)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition-transform active:scale-[0.97] ${
-                  filterTab === key
-                    ? "bg-signature text-white"
-                    : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-        </div>
-        {hasOwnerStore ? (
-          <button
-            type="button"
-            onClick={() => selectFilterTab("store")}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-transform active:scale-[0.97] ${
-              filterTab === "store"
-                ? "bg-sam-danger text-white"
-                : "border border-sam-danger/30 bg-sam-danger/10 text-sam-danger"
-            }`}
-          >
-            {t("notif_filter_store")}
-          </button>
-        ) : null}
+      <div className="sticky top-0 z-10 -mx-1 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
+        <NotificationInboxTabBar
+          chips={inboxFilterChips}
+          active={filterTab}
+          counts={tabCounts}
+          onSelect={(key) => selectFilterTab(key)}
+        />
       </div>
       {filterTab === "store" ? (
         <div className="space-y-3 pt-1">

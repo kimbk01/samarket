@@ -209,4 +209,29 @@ describe("Slice 2-2 member notification A projection", () => {
     const filtered = filterMemberNotificationAInboxRows(inbox);
     expect(filtered.map((r) => r.id)).toEqual(["a1"]);
   });
+
+  it("legacy inbox type=system + bell_presentation_type=admin_notice stays in A list", () => {
+    const inbox = [
+      {
+        id: "n20",
+        notification_type: "system",
+        type: "system",
+        bell_presentation_type: "admin_notice",
+        is_read: false,
+        title: "P1 notice",
+        body: "wire",
+      },
+      {
+        id: "chat1",
+        notification_type: "chat",
+        is_read: false,
+        room_id: "r1",
+      },
+    ];
+    const mapped = memberNotificationAEventFromInboxRow(inbox[0]!);
+    expect(mapped.type).toBe("admin_notice");
+    expect(mapped.category).toBe("admin_notice");
+    expect(isMemberNotificationAListItem(mapped)).toBe(true);
+    expect(filterMemberNotificationAInboxRows(inbox).map((r) => r.id)).toEqual(["n20"]);
+  });
 });
