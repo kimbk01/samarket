@@ -210,27 +210,33 @@ describe("notification-target-domain-snapshot (A–O)", () => {
     expect(ids.has("null-domain-room")).toBe(false);
   });
 
-  it("N. Bottom 경계 — GD/group only in Bell bottomChat", () => {
+  it("N. Bottom 경계 — GD/group/trade/customer in Bottom Chat; owner store_order hub separate", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 2, store_order: 3 },
+      storeOrderBuyerDeliveryUnread: 3,
+      storeOrderOwnerChatUnread: 0,
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
     });
-    expect(p.bottomChat).toBe(2);
+    expect(p.bottomChat).toBe(1 + 1 + 2 + 3);
     expect(p.tradeHub).toBe(2);
-    expect(p.storeOrderHub).toBe(3);
+    expect(p.storeOrderHub).toBe(0);
   });
 
   it("O. Bell Phase B — room facts alone do not set Bell; NotificationAttention does", () => {
     const roomsOnly = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
+      storeOrderBuyerDeliveryUnread: 1,
+      storeOrderOwnerChatUnread: 0,
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
     });
     expect(roomsOnly.bellTotal).toBe(0);
-    expect(roomsOnly.bottomChat).toBe(2);
+    expect(roomsOnly.bottomChat).toBe(1 + 1 + 1 + 1);
     const withEvents = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
+      storeOrderBuyerDeliveryUnread: 1,
+      storeOrderOwnerChatUnread: 0,
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       notificationAttentionTotal: 4,

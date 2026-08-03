@@ -49,7 +49,8 @@ describe("Slice 2-4 B_store exclusion + hub room unit", () => {
     expect(p.appIcon.storeOrder).toBe(1); // buyer only
     expect(p.storeOrderOwnerUnreadRooms).toBe(4);
     expect(p.storeOrderOwnerUnreadByStoreId["store-a"]).toBe(2);
-    expect(p.bottomChat).toBe(0);
+    // Bottom Chat = GD+Group+Trade+Customer — buyer room, not owner rooms
+    expect(p.bottomChat).toBe(1);
     expect(p.bellTotal).toBe(0);
     expect(p.storeOrderCustomerUnreadRooms).toBe(1);
   });

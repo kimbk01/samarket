@@ -338,8 +338,14 @@ describe("Gate3 Step5 Conversation Authority B", () => {
     ];
     const auth = resolveMemberConversationAuthority(MEMBER, rooms);
     const surfaces = projectSurfacesFromConversationAuthority(auth);
-    expect(surfaces.bottomChat).toBe(auth.generalUnreadRooms + auth.groupUnreadRooms);
-    expect(surfaces.bottomChat).toBe(2);
+    // Bottom Chat = 일반+그룹+거래+주문(고객) room count
+    expect(surfaces.bottomChat).toBe(
+      auth.generalUnreadRooms +
+        auth.groupUnreadRooms +
+        auth.tradeUnreadRooms +
+        auth.orderUnreadRooms
+    );
+    expect(surfaces.bottomChat).toBe(4);
     expect(surfaces.tradeHub).toBe(auth.tradeUnreadRooms);
     expect(surfaces.tradeHub).toBe(1);
     expect(surfaces.orderHub).toBe(auth.orderUnreadRooms);
