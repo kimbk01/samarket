@@ -49,15 +49,19 @@ import {
 } from "@/lib/business/owner-order-main-tab";
 import {
   effectiveOwnerMobileOrdersTab,
+  isOwnerMobileOrderTabId,
   orderMatchesOwnerMobileOrdersTab,
   ownerMobileOrdersTabForStatus,
+  pickOwnerMobileOrdersTabForOpsAttention,
 } from "@/lib/business/owner-mobile-orders-tab";
 import { replaceOwnerOrdersUrlQuery } from "@/lib/business/owner-orders-url";
 import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
 import {
   ownerOrdersEntrySearchParamsFromUrlSearchParams,
   OWNER_ORDERS_FRESH_LIST_PARAM,
+  OWNER_ORDERS_OPS_ATTENTION_PARAM,
   parseOwnerOrdersFreshList,
+  parseOwnerOrdersOpsAttention,
   shouldOwnerOrdersForceNetwork,
 } from "@/lib/business/owner-orders-entry-policy";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
@@ -377,6 +381,9 @@ export function OwnerStoreOrdersView() {
         tab,
         orderId: oid || undefined,
         chatOrderId: highlightChatOrderId || undefined,
+        opsAttention: parseOwnerOrdersOpsAttention(
+          searchParams.get(OWNER_ORDERS_OPS_ATTENTION_PARAM)
+        ),
       }),
       { scroll: false }
     );
@@ -388,6 +395,30 @@ export function OwnerStoreOrdersView() {
     highlightChatOrderId,
     router,
   ]);
+
+  const opsAttentionAppliedRef = useRef(false);
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    if (!parseOwnerOrdersOpsAttention(searchParams.get(OWNER_ORDERS_OPS_ATTENTION_PARAM))) {
+      opsAttentionAppliedRef.current = false;
+      return;
+    }
+    if (opsAttentionAppliedRef.current) return;
+    opsAttentionAppliedRef.current = true;
+    const want = pickOwnerMobileOrdersTabForOpsAttention(state.orders);
+    const current = effectiveOwnerMobileOrdersTab(tab);
+    const needRetarget = current !== want || !isOwnerMobileOrderTabId(tab);
+    router.replace(
+      buildStoreOrdersHref({
+        storeId: state.storeId,
+        tab: needRetarget ? want : current,
+        orderId: highlightOrderId.trim() || undefined,
+        chatOrderId: highlightChatOrderId || undefined,
+        freshList: parseOwnerOrdersFreshList(searchParams.get(OWNER_ORDERS_FRESH_LIST_PARAM)),
+      }),
+      { scroll: false }
+    );
+  }, [state, searchParams, tab, highlightOrderId, highlightChatOrderId, router]);
 
   useEffect(() => {
     setExpandedOrderId(highlightOrderId);

@@ -167,7 +167,8 @@ export function buildMemberAppIconWebProjection(input: {
     orphanMissedCallCount: input.orphanMissedCallCount,
   });
   const a = asUnreadNotificationCount(input.aMemberUnreadNotificationCount);
-  const o = nonNeg(input.storeActionRequiredCount);
+  /** Owner ops (C) — FAB only until Icon∪O is product-decided. */
+  void nonNeg(input.storeActionRequiredCount);
   return {
     ok: true,
     projection: {
@@ -176,20 +177,28 @@ export function buildMemberAppIconWebProjection(input: {
       memberUnreadRoomCount: b.memberUnreadRoomCount,
       /** Diagnostic only — not part of App Icon total (orphan ∈ A). */
       memberUnresolvedMissedCallCount: b.memberUnresolvedMissedCallCount,
-      memberAppIconWebTotal: a + b.memberUnreadRoomCount + o,
+      /** Icon = Bell(A) + Bottom room set (GD+Group+Trade+Customer). */
+      memberAppIconWebTotal: a + b.memberUnreadRoomCount,
     },
   };
 }
 
 /**
- * Bottom Chat = unread General rooms + unread Group rooms only.
+ * Bottom Chat = 일반+그룹+거래+주문(고객) unread room count.
  * Prefer projectSurfacesFromConversationAuthority(canonical B).
  */
 export function projectMemberBottomChatBadge(input: {
   generalDirectUnreadRooms: number;
   groupUnreadRooms: number;
+  tradeUnreadRooms?: number;
+  customerStoreOrderUnreadRooms?: number;
 }): number {
-  return nonNeg(input.generalDirectUnreadRooms) + nonNeg(input.groupUnreadRooms);
+  return (
+    nonNeg(input.generalDirectUnreadRooms) +
+    nonNeg(input.groupUnreadRooms) +
+    nonNeg(input.tradeUnreadRooms) +
+    nonNeg(input.customerStoreOrderUnreadRooms)
+  );
 }
 
 export function projectMemberTradeHubBadge(tradeUnreadRooms: number): number {

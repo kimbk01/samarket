@@ -1,10 +1,9 @@
 /**
- * O (Operation) facts for Product Bible:
- *   Top Bell = |N ∪ O_bell|
- *   App Icon = |N ∪ C ∪ O|
+ * O (Operation) facts — FAB / delivery Bottom (store-scoped).
+ * Product Bell digit = A_member only (O not added to Bell).
+ * App Icon ∪ O undecided — HTTP currently excludes O from Icon total.
  *
  * Loads C_store attention counts for all stores owned by the member.
- * N/C namespaces are disjoint from operation identities → digit = |N|+|O| / |N|+|C|+|O|.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOwnerHubStoreAttentionCounts, invalidateHubStoreAttentionMemory } from "@/lib/stores/get-owner-hub-store-attention-counts";
@@ -13,7 +12,7 @@ import { resolveOwnerOperationAttentionCountForStore } from "@/lib/notifications
 export type OwnerOperationOFacts = Readonly<{
   /** |O| = Σ C_store over managed stores (same Task ∪1 per action inside RPC counts). */
   ownerOperationCount: number;
-  /** O_bell uses the same O set (Bible: Top Bell = |N ∪ O_bell|). */
+  /** Same |O| for FAB diagnostics (not product Bell digit). */
   ownerOperationBellCount: number;
   storeIds: readonly string[];
 }>;

@@ -70,7 +70,7 @@ function resolveNotificationAttentionTotal(
   return Math.max(0, Math.floor(Number(legacyFallback) || 0));
 }
 
-/** Product Bell digit = |N ∪ O_bell| — prefer projection.bellTotal / total. */
+/** Product Bell digit = A_member (N) — prefer projection.bellTotal / total. */
 function resolveMemberBellDigit(body: BadgeCountAuthorityJson, fallback: number): number {
   const proj = body.projection;
   if (proj && typeof proj === "object") {

@@ -2,16 +2,13 @@
  * Phase 2-1 — Badge Explain Matrix (Runtime).
  *
  * Every Domain Badge surface digit MUST be explainable as ID set + count.
- * DO NOT: Bell · RoomUnread · Heal · UI digit hacks.
  *
- * App Icon = |GD| + |Group| + |Trade| + |Customer| + |Owner| + NotificationAttention
- * Bottom   = |GD| + |Group|
+ * App Icon = |GD| + |Group| + |Trade| + |Customer| + NotificationAttention (Bell axis)
+ *            Owner rooms / O ops not in Icon until product lock.
+ * Bottom   = |GD| + |Group| + |Trade| + |Customer|
  * Trade    = |Trade|
  * Customer = |Customer|
- * Owner    = |Owner|
- *
- * missedCall part = orphan missed only (diagnostics).
- * App Icon total uses notificationAttentionTotal (Phase B), not orphan alone.
+ * Owner    = |Owner| (FAB / delivery — explain only)
  */
 export const BADGE_EXPLAIN_MATRIX_AUTHORITY = "domain_badge_explain_v1" as const;
 
@@ -41,6 +38,8 @@ export type BadgeExplainMatrix = Readonly<{
     total: number;
     general: BadgeExplainRoomPart;
     group: BadgeExplainRoomPart;
+    trade: BadgeExplainRoomPart;
+    customerOrder: BadgeExplainRoomPart;
   }>;
   trade: BadgeExplainRoomPart;
   customer: BadgeExplainRoomPart;
@@ -113,7 +112,6 @@ export function buildBadgeExplainMatrix(input: BadgeExplainMatrixInput): BadgeEx
     group.count +
     trade.count +
     customerOrder.count +
-    ownerOrder.count +
     notificationAttentionTotal;
 
   const byStoreRaw = input.ownerOrderUnreadByStoreId ?? {};
@@ -136,9 +134,11 @@ export function buildBadgeExplainMatrix(input: BadgeExplainMatrixInput): BadgeEx
       missedCall,
     },
     bottom: {
-      total: general.count + group.count,
+      total: general.count + group.count + trade.count + customerOrder.count,
       general,
       group,
+      trade,
+      customerOrder,
     },
     trade,
     customer: customerOrder,
@@ -196,6 +196,8 @@ export function assertBadgeExplainMatrix(
   checkRoom("appIcon.ownerOrder", matrix.appIcon.ownerOrder);
   checkRoom("bottom.general", matrix.bottom.general);
   checkRoom("bottom.group", matrix.bottom.group);
+  checkRoom("bottom.trade", matrix.bottom.trade);
+  checkRoom("bottom.customerOrder", matrix.bottom.customerOrder);
   checkRoom("trade", matrix.trade);
   checkRoom("customer", matrix.customer);
   checkRoom("owner", matrix.owner);
@@ -204,9 +206,8 @@ export function assertBadgeExplainMatrix(
     matrix.appIcon.general.count +
     matrix.appIcon.group.count +
     matrix.appIcon.trade.count +
-    matrix.appIcon.customerOrder.count +
-    matrix.appIcon.ownerOrder.count;
-  // Phase B: appIcon.total = rooms + NotificationAttention (missedCall part is orphan subset only).
+    matrix.appIcon.customerOrder.count;
+  // App Icon = Bottom rooms + NotificationAttention (owner rooms excluded from Icon total).
   if (matrix.appIcon.total < sumRooms) {
     errors.push(`appIcon.total<sum(rooms) (${matrix.appIcon.total}<${sumRooms})`);
   }
@@ -220,11 +221,23 @@ export function assertBadgeExplainMatrix(
       `notification_axis<orphan (${notificationAxis}<${matrix.appIcon.missedCall.count})`
     );
   }
-  if (matrix.bottom.total !== matrix.bottom.general.count + matrix.bottom.group.count) {
-    errors.push("bottom.total!=general+group");
+  if (
+    matrix.bottom.total !==
+    matrix.bottom.general.count +
+      matrix.bottom.group.count +
+      matrix.bottom.trade.count +
+      matrix.bottom.customerOrder.count
+  ) {
+    errors.push("bottom.total!=general+group+trade+customer");
   }
-  if (matrix.bottom.total !== matrix.appIcon.general.count + matrix.appIcon.group.count) {
-    errors.push("bottom.total!=appIcon.general+group");
+  if (
+    matrix.bottom.total !==
+    matrix.appIcon.general.count +
+      matrix.appIcon.group.count +
+      matrix.appIcon.trade.count +
+      matrix.appIcon.customerOrder.count
+  ) {
+    errors.push("bottom.total!=appIcon.gd+group+trade+customer");
   }
   if (matrix.trade.count !== matrix.appIcon.trade.count) {
     errors.push("trade!=appIcon.trade");

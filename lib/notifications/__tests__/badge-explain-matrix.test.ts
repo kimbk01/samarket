@@ -21,22 +21,22 @@ describe("Phase 2-1 Badge Explain Matrix", () => {
     });
 
     expect(matrix.authority).toBe(BADGE_EXPLAIN_MATRIX_AUTHORITY);
-    expect(matrix.appIcon.total).toBe(37);
+    expect(matrix.appIcon.total).toBe(34);
     expect(matrix.appIcon.general).toEqual({ count: 4, roomIds: ["g1", "g2", "g3", "g4"] });
     expect(matrix.appIcon.group.count).toBe(3);
     expect(matrix.appIcon.trade.count).toBe(5);
     expect(matrix.appIcon.customerOrder.count).toBe(21);
     expect(matrix.appIcon.ownerOrder.count).toBe(3);
     expect(matrix.appIcon.missedCall).toEqual({ count: 1, eventIds: ["miss1"] });
-    expect(matrix.bottom.total).toBe(7);
+    expect(matrix.bottom.total).toBe(33);
     expect(matrix.trade.count).toBe(5);
     expect(matrix.customer.count).toBe(21);
     expect(matrix.owner.count).toBe(3);
     expect(matrix.owner.byStoreId).toEqual({ storeA: 2, storeB: 1 });
 
     const asserted = assertBadgeExplainMatrix(matrix, {
-      expectedAppIconTotal: 37,
-      expectedBottomTotal: 7,
+      expectedAppIconTotal: 34,
+      expectedBottomTotal: 33,
       expectedTradeTotal: 5,
       expectedCustomerTotal: 21,
       expectedOwnerTotal: 3,
@@ -61,7 +61,13 @@ describe("Phase 2-1 Badge Explain Matrix", () => {
         general: { count: 2, roomIds: ["a"] },
         total: 2,
       },
-      bottom: { total: 2, general: { count: 2, roomIds: ["a"] }, group: matrix.bottom.group },
+      bottom: {
+        total: 2,
+        general: { count: 2, roomIds: ["a"] },
+        group: matrix.bottom.group,
+        trade: matrix.bottom.trade,
+        customerOrder: matrix.bottom.customerOrder,
+      },
     };
     const asserted = assertBadgeExplainMatrix(broken);
     expect(asserted.ok).toBe(false);

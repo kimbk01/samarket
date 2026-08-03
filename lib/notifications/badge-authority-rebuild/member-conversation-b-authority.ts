@@ -197,8 +197,13 @@ export function resolveMemberConversationAuthority(
 export function projectSurfacesFromConversationAuthority(
   auth: MemberConversationAuthority
 ): MemberConversationBSurfaces {
+  /** Bottom Chat = 일반+그룹+거래+주문(고객) unread room count (not message sum). */
   return {
-    bottomChat: auth.generalUnreadRooms + auth.groupUnreadRooms,
+    bottomChat:
+      auth.generalUnreadRooms +
+      auth.groupUnreadRooms +
+      auth.tradeUnreadRooms +
+      auth.orderUnreadRooms,
     tradeHub: auth.tradeUnreadRooms,
     orderHub: auth.orderUnreadRooms,
     conversationB: auth.totalUnreadRooms,

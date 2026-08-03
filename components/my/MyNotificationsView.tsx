@@ -555,9 +555,7 @@ export function MyNotificationsView({
       selectAll: selectAllVisible,
       clearSelection,
       markSelectedRead,
-      deleteSelected: async () => {
-        setPendingSelectedDelete(true);
-      },
+      deleteSelected,
       selectedCount: selectedKeys.size,
       totalCount: grouped.length,
     });
@@ -665,8 +663,19 @@ export function MyNotificationsView({
         <div
           role="toolbar"
           aria-label={t("notif_center_selection_toolbar")}
-          className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2"
+          className="sticky top-[2.75rem] z-20 -mx-1 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-app/95 px-2 py-2 backdrop-blur-sm"
         >
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              clearSelection();
+              onSelectionModeChange?.(false);
+            }}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[12px] font-semibold text-sam-fg disabled:opacity-50"
+          >
+            {t("notif_center_cancel_selection")}
+          </button>
           <span className="px-1 text-[12px] font-medium text-sam-muted">
             {t("notif_center_selected_n", { n: selectedKeys.size })}
           </span>
@@ -694,17 +703,9 @@ export function MyNotificationsView({
             type="button"
             disabled={busy || selectedKeys.size === 0}
             onClick={() => setPendingSelectedDelete(true)}
-            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-red-700 disabled:opacity-50"
+            className="rounded-ui-rect bg-red-600 px-2.5 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
           >
             {t("notif_center_delete_selected")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !rows.some((r) => !r.is_read)}
-            onClick={() => void markAllRead()}
-            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
-          >
-            {t("notif_tier1_mark_read")}
           </button>
         </div>
       ) : null}

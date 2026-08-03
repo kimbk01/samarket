@@ -154,7 +154,7 @@ describe("Slice 2-3 member communication B projection", () => {
     expect(p.appIcon.storeOrder).toBe(1);
     expect(p.memberUnreadRoomCount).toBe(1);
     expect(p.appIconTotal).toBe(1);
-    expect(p.bottomChat).toBe(0);
+    expect(p.bottomChat).toBe(1);
 
     const withOrderStatusA = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 0, group: 0, trade: 0, store_order: 1 },
@@ -252,7 +252,7 @@ describe("Slice 2-3 member communication B projection", () => {
         orphanMissedCallCount: 1,
         storeActionRequiredCount: 4,
       })
-    ).toMatchObject({ ok: true, projection: { memberAppIconWebTotal: 2 + 3 + 4 } });
+    ).toMatchObject({ ok: true, projection: { memberAppIconWebTotal: 2 + 3 } });
 
     const builder = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 9 },
@@ -265,7 +265,7 @@ describe("Slice 2-3 member communication B projection", () => {
       ownerOperationBellCount: 4,
     });
     expect(builder.memberAppIconWebTotal).toBe(2 + 3);
-    expect(builder.bellTotal).toBe(2 + 4);
+    expect(builder.bellTotal).toBe(2);
     expect(builder.storeOrderOwnerUnreadRooms).toBe(9);
   });
 
@@ -309,13 +309,15 @@ describe("Slice 2-3 member communication B projection", () => {
     expect(p.appIconTotal).toBe(0);
   });
 
-  it("Bottom helper = GD + Group only", () => {
+  it("Bottom helper = GD + Group + Trade + Customer Order", () => {
     expect(
       projectMemberBottomChatBadge({
         generalDirectUnreadRooms: 2,
         groupUnreadRooms: 3,
+        tradeUnreadRooms: 1,
+        customerStoreOrderUnreadRooms: 4,
       })
-    ).toBe(5);
+    ).toBe(10);
   });
 
   it("resolveMissedCallIdForBMember prefers session then dedupe", () => {

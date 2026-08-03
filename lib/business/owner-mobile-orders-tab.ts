@@ -66,8 +66,39 @@ export function ownerMobileOrdersTabForStatus(orderStatus: string): OwnerMobileO
   const s = orderStatus.trim();
   if (s === "pending") return "new";
   if (s === "completed") return "done";
-  if (s === "cancelled" || s === "cancel_requested" || s === "refunded" || s === "refund_requested") return "cancelled";
+  if (s === "cancelled" || s === "cancel_requested" || s === "refunded" || s === "refund_requested") {
+    return "cancelled";
+  }
   if (s === "delivering" || s === "arrived") return "shipping";
   if (s === "accepted" || s === "preparing" || s === "ready_for_pickup") return "progress";
   return "progress";
+}
+
+/** `order_status` 가 C_store orderAttention(pending+refund+cancel) 에 속하는지 */
+export function isOwnerOrderActionRequiredStatus(orderStatus: string): boolean {
+  const s = orderStatus.trim();
+  return (
+    s === "pending" ||
+    s === "cancel_requested" ||
+    s === "cancelled" ||
+    s === "refunded" ||
+    s === "refund_requested"
+  );
+}
+
+/** ops_attention 딥링크 — 건수 있는 모바일 탭(신규 → 취소) 선택 */
+export function pickOwnerMobileOrdersTabForOpsAttention(
+  orders: readonly { order_status: string }[]
+): OwnerMobileOrderTabId {
+  let pending = 0;
+  let cancelledFamily = 0;
+  for (const o of orders) {
+    if (!isOwnerOrderActionRequiredStatus(o.order_status)) continue;
+    const tab = ownerMobileOrdersTabForStatus(o.order_status);
+    if (tab === "new") pending += 1;
+    else if (tab === "cancelled") cancelledFamily += 1;
+  }
+  if (pending > 0) return "new";
+  if (cancelledFamily > 0) return "cancelled";
+  return "new";
 }

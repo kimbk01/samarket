@@ -10,7 +10,7 @@ import {
  *   Bell = A_member when provided, else NotificationAttentionTotal (legacy)
  *   Member App Icon (A provided) = A + B rooms (no owner) + unresolved missed
  *   Member App Icon (legacy) = chat rooms (buyer-only SO) + NotificationAttentionTotal
- *   Bottom = GD + Group rooms only
+ *   Bottom = GD + Group + Trade + Customer Order rooms
  */
 
 describe("Bell Phase B — notificationAttentionTotal", () => {
@@ -26,13 +26,13 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
     });
     expect(p.bellTotal).toBe(3);
     expect(p.bellChatAttentionCount).toBeGreaterThan(3);
-    expect(p.bottomChat).toBe(6);
+    expect(p.bottomChat).toBe(4 + 2 + 2 + 1);
     // Slice 2-3: owner excluded — rooms 4+2+2+buyer1 + NotificationAttention 3
     expect(p.appIconTotal).toBe(4 + 2 + 2 + 1 + 3);
     expect(p.storeOrderOwnerUnreadRooms).toBe(1);
   });
 
-  it("Bottom Chat ignores trade/order/orphan", () => {
+  it("Bottom Chat includes trade + customer order rooms (owner excluded)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 2, group: 1, trade: 4, store_order: 11 },
       storeOrderBuyerDeliveryUnread: 5,
@@ -41,7 +41,7 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       notificationAttentionTotal: 99,
     });
-    expect(p.bottomChat).toBe(3);
+    expect(p.bottomChat).toBe(2 + 1 + 4 + 5);
     expect(p.bellTotal).toBe(99);
   });
 
@@ -96,7 +96,7 @@ describe("Bell Phase B — notificationAttentionTotal", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
     });
     expect(p.bellTotal).toBe(2);
-    expect(p.bottomChat).toBe(10);
+    expect(p.bottomChat).toBe(5 + 5 + 5 + 0);
     // Unsplit store_order treated as owner hub; excluded from Member App Icon
     expect(p.appIconTotal).toBe(5 + 5 + 5 + 0 + 2);
     expect(p.storeOrderOwnerUnreadRooms).toBe(5);
@@ -127,14 +127,14 @@ describe("Bell Domain projection — Hub / Bottom / App Icon (room facts)", () =
     expect(p.groupUnreadRooms).toBe(1);
   });
 
-  it("C. Trade: Bottom unchanged Trade Hub+1", () => {
+  it("C. Trade: Bottom+1 Trade Hub+1", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 0, group: 0, trade: 1, store_order: 0 },
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       notificationAttentionTotal: 1,
     });
-    expect(p.bottomChat).toBe(0);
+    expect(p.bottomChat).toBe(1);
     expect(p.tradeHub).toBe(1);
   });
 
@@ -151,7 +151,7 @@ describe("Bell Domain projection — Hub / Bottom / App Icon (room facts)", () =
     expect(p.storeOrderHub).toBe(1);
   });
 
-  it("E. Multi-domain rooms: Bottom=2 hubs=1 each", () => {
+  it("E. Multi-domain rooms: Bottom=GD+Group+Trade (+customer if buyer)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
       storeOrderOwnerChatUnread: 1,
@@ -161,7 +161,7 @@ describe("Bell Domain projection — Hub / Bottom / App Icon (room facts)", () =
     });
     expect(p.bellChatAttentionCount).toBe(4);
     expect(p.bellTotal).toBe(4);
-    expect(p.bottomChat).toBe(2);
+    expect(p.bottomChat).toBe(3);
     expect(p.tradeHub).toBe(1);
     expect(p.storeOrderHub).toBe(1);
   });

@@ -117,7 +117,7 @@ export type DomainBadgeAuthorityHttpPayload = {
   notificationAttentionTotal: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
-  /** Product Bell digit = |N ∪ O_bell| (= projection.bellTotal). */
+  /** Product Bell digit = A_member (N) only (= projection.bellTotal). */
   total: number;
   /** N axis only (A_member) — not the full Bell digit. */
   memberUnreadNotificationCount: number;
@@ -218,12 +218,13 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     notificationEvents: bellExplainRows,
   });
   const notificationAttentionTotal = unifiedAttention.notification.total;
-  /** N = A_member. Bell digit = |N ∪ O_bell|. */
+  /** N = A_member. Bell digit = N only (owner ops → FAB). */
   const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(
     bellExplainRows,
     uid
   );
   const ownerOperationBellCount = ownerO.ownerOperationBellCount;
+  /** O kept for FAB / diagnostics — Icon∪O undecided (not in App Icon total). */
   const ownerOperationCount = ownerO.ownerOperationCount;
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
@@ -295,7 +296,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const memberAppIconAuthority = resolveMemberAppIconAuthority({
     notificationA,
     conversationB: memberConversationAuthority,
-    ownerOperationCount,
+    /** Icon = Bell + Bottom rooms; O undecided — do not add until product lock. */
+    ownerOperationCount: 0,
     revision: projectionVersionMs,
   });
 
@@ -392,7 +394,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     memberAppIconAuthority,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
-    /** Product Bell digit = |N ∪ O_bell|. */
+    /** Product Bell digit = A_member (N) only. */
     total: projection.bellTotal,
     chatMessage: Math.max(0, Math.floor(Number(bell.chatMessage) || 0)),
     groupMessage: Math.max(0, Math.floor(Number(bell.groupMessage) || 0)),

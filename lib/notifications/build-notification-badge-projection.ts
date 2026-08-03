@@ -7,16 +7,16 @@
  * - All inputs (Cold Start / Bootstrap / Hub / Push / Realtime / Resume / Poll /
  *   Broadcast / Atomic Read) normalize to ProjectionInput then call this Builder only.
  *
- * Bell (product) — Slice 2-2:
- *   bellTotal = A_member (memberUnreadNotificationCount)
+ * Bell (product):
+ *   bellTotal = A_member event count only (chat messages · owner ops excluded)
  *   Fallback (legacy callers): NotificationAttentionTotal
  *
- * Member App Icon (web/server) — Gate 3 Step 6:
- *   A_member + Conversation B rooms (GD+Group+Trade+Customer)
+ * Member App Icon (web/server):
+ *   Bell + Bottom room set = A_member + (GD+Group+Trade+Customer)
  *   Orphan missed ∈ A only (never re-added as B_missed)
- *   Owner store_order rooms are NEVER in Member App Icon (C / B_store → Step 7)
+ *   Owner ops / owner rooms → FAB (Icon∪O undecided — not added here)
  *
- * Bottom Chat — general_direct + group unread rooms only.
+ * Bottom Chat — GD + Group + Trade + Customer Order unread rooms.
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
@@ -84,13 +84,13 @@ export type NotificationBadgeProjectionInput = Readonly<{
    */
   notificationAttentionTotal?: number;
   /**
-   * Slice 2-2 — N axis (A_member unread). Bell digit = |N ∪ O_bell| when O provided.
+   * N axis (A_member unread events). Product Bell digit = N only.
    * When omitted, falls back to `notificationAttentionTotal` (legacy Phase B parity).
    */
   memberUnreadNotificationCount?: number;
   /**
-   * Product Bible O_bell — owner operation count (|O|).
-   * Top Bell = |N ∪ O_bell|; N/O namespaces disjoint → N + O.
+   * Owner ops (|O|) — FAB / delivery only. Not added to Bell digit.
+   * Kept for diagnostics / callers that still load O facts.
    */
   ownerOperationBellCount?: number;
   /**
@@ -327,15 +327,14 @@ export function buildNotificationBadgeProjection(
         : 0;
   void _unreadApprovedNotificationEvents;
   /**
-   * Product Bell digit = |N ∪ O_bell|.
-   * N = A_member; O_bell = owner operations (disjoint identity namespace).
+   * Product Bell digit = A_member (N) only — chat · owner ops excluded.
    */
   const nOnly =
     input.memberUnreadNotificationCount != null
       ? nonNeg(input.memberUnreadNotificationCount)
       : notificationAttentionTotal;
-  const oBell = nonNeg(input.ownerOperationBellCount);
-  const bellTotal = nOnly + oBell;
+  void nonNeg(input.ownerOperationBellCount);
+  const bellTotal = nOnly;
 
   const bell: NotificationBadgeCount = {
     ...eventBell,
@@ -343,9 +342,11 @@ export function buildNotificationBadgeProjection(
   };
 
   const byStore = input.storeOrderOwnerUnreadByStoreId ?? {};
+  /** Bottom Chat = 일반+그룹+거래+주문(고객) room count. */
+  const bottomChat = gd + group + trade + buyer;
 
   return {
-    bottomChat: shell.communityMessengerUnread,
+    bottomChat,
     tradeHub: shell.tradeUnread,
     storeOrderHub: shell.storeOrderChatUnread,
     storeOrderCustomerUnread: buyer,

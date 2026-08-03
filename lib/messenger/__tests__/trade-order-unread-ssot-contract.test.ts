@@ -34,7 +34,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
     expect(src).not.toMatch(/Badge SSOT: buyer_order targets/);
   });
 
-  it("Bottom = GD+Group only; Trade/CO contribute to conversationB not bottomChat", () => {
+  it("Bottom = GD+Group+Trade+Customer Order room count", () => {
     const auth = resolveMemberConversationAuthority("viewer-1", [
       {
         roomId: "g1",
@@ -116,7 +116,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
       },
     ]);
     const surfaces = projectSurfacesFromConversationAuthority(auth);
-    expect(surfaces.bottomChat).toBe(3);
+    expect(surfaces.bottomChat).toBe(10);
     expect(surfaces.tradeHub).toBe(4);
     expect(surfaces.orderHub).toBe(3);
     expect(surfaces.conversationB).toBe(10);

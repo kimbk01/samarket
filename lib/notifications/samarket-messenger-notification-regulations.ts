@@ -85,8 +85,8 @@ export const SAMARKET_ROOM_TYPE_TO_NOTIFICATION_DOMAIN: Record<
 };
 
 /**
- * Chat 탭: unread **room/target** count (`bottom_nav_chat` = consumer `chat_room` only).
- * trade/delivery CM 방은 각각 `trade`·`buyer_order` target — Chat에 합산 금지.
+ * Chat 탭: unread **room** count = Bottom Chat
+ * (일반+그룹+거래+주문(고객); owner ops / owner chat rooms excluded).
  * DO NOT substitute notification_events chat/group message SUM.
  */
 export function resolveMessengerTabTotalUnreadBadgeCount(bd: OwnerHubBadgeBreakdown): number {

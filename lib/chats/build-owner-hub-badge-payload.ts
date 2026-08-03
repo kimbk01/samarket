@@ -384,7 +384,11 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     if (inquiryAttention > 0) {
       storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
     } else if (orderAttention > 0) {
-      storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
+      storeDeepLink = buildStoreOrdersHref({
+        storeId: hubStore.id,
+        freshList: true,
+        opsAttention: true,
+      });
     } else if (storeOrderChatUnread > 0) {
       storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
     }
@@ -491,7 +495,11 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   if (inquiryAttention > 0) {
     storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
   } else if (orderAttention > 0) {
-    storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
+    storeDeepLink = buildStoreOrdersHref({
+      storeId: hubStore.id,
+      freshList: true,
+      opsAttention: true,
+    });
   } else if (storeOrderChatUnread > 0) {
     storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
   }

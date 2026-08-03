@@ -4,21 +4,30 @@ import { buildStoreOrdersHref, type StoreOrderTabId } from "@/lib/business/store
 /** 대시보드·알림·하단 탭 → 주문 목록 진입 시 목록 캐시 peek·silent load 금지 힌트 */
 export const OWNER_ORDERS_FRESH_LIST_PARAM = "fresh_list";
 export const OWNER_ORDERS_FRESH_LIST_VALUE = "1";
+/** Bell/매장 탭 → action-required 주문 표면 (신규·취소 자동 탭) */
+export const OWNER_ORDERS_OPS_ATTENTION_PARAM = "ops_attention";
+export const OWNER_ORDERS_OPS_ATTENTION_VALUE = "1";
 
 export type OwnerOrdersEntrySearchParams = {
   orderId?: string | null;
   freshList?: string | null;
   ackOwnerNotifications?: string | null;
+  opsAttention?: string | null;
 };
 
 export function parseOwnerOrdersFreshList(raw: string | null | undefined): boolean {
   return (raw ?? "").trim() === OWNER_ORDERS_FRESH_LIST_VALUE;
 }
 
+export function parseOwnerOrdersOpsAttention(raw: string | null | undefined): boolean {
+  return (raw ?? "").trim() === OWNER_ORDERS_OPS_ATTENTION_VALUE;
+}
+
 export function shouldOwnerOrdersForceNetwork(params: OwnerOrdersEntrySearchParams): boolean {
   const oid = (params.orderId ?? "").trim();
   if (oid.length > 0) return true;
   if (parseOwnerOrdersFreshList(params.freshList)) return true;
+  if (parseOwnerOrdersOpsAttention(params.opsAttention)) return true;
   if ((params.ackOwnerNotifications ?? "").trim() === "1") return true;
   return false;
 }
@@ -66,5 +75,6 @@ export function ownerOrdersEntrySearchParamsFromUrlSearchParams(
     orderId: searchParams.get("order_id"),
     freshList: searchParams.get(OWNER_ORDERS_FRESH_LIST_PARAM),
     ackOwnerNotifications: searchParams.get("ack_owner_notifications"),
+    opsAttention: searchParams.get(OWNER_ORDERS_OPS_ATTENTION_PARAM),
   };
 }

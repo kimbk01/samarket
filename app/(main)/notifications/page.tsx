@@ -12,6 +12,15 @@ import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/cli
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 
+type SelectionApi = {
+  selectAll: () => void;
+  clearSelection: () => void;
+  markSelectedRead: () => Promise<void>;
+  deleteSelected: () => Promise<void>;
+  selectedCount: number;
+  totalCount: number;
+};
+
 /**
  * Notification Center — member N history.
  * Owner store ops live behind the right-side 「매장」 tab (not a sticky OwnerLite strip).
@@ -22,10 +31,14 @@ export default function NotificationsCenterPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | null>(null);
+  const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | "selected_delete" | null>(
+    null
+  );
+  const [selectedCount, setSelectedCount] = useState(0);
   const confirmRef = useRef(confirm);
   confirmRef.current = confirm;
   const markAllRef = useRef<(() => Promise<void>) | null>(null);
+  const selectionApiRef = useRef<SelectionApi | null>(null);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -35,6 +48,12 @@ export default function NotificationsCenterPage() {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
     }
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    selectionApiRef.current?.clearSelection();
+    setSelectionMode(false);
+    setSelectedCount(0);
   }, []);
 
   const runBulkDelete = useCallback(
@@ -66,6 +85,11 @@ export default function NotificationsCenterPage() {
     [broadcast, busy]
   );
 
+  const onRegisterSelectionApi = useCallback((api: SelectionApi | null) => {
+    selectionApiRef.current = api;
+    setSelectedCount(api?.selectedCount ?? 0);
+  }, []);
+
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
@@ -75,77 +99,98 @@ export default function NotificationsCenterPage() {
         hideCtaStrip
         rightSlot={
           <div className="flex items-center gap-1 pr-[max(0.25rem,env(safe-area-inset-right))]">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setSelectionMode((v) => !v)}
-              className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
-              aria-pressed={selectionMode}
-              aria-label={
-                selectionMode ? t("notif_center_select_done") : t("notif_center_select")
-              }
-            >
-              {selectionMode ? t("notif_center_select_done") : t("notif_center_select")}
-            </button>
-            {!selectionMode ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void markAllRef.current?.()}
-                className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
-                aria-label={t("notif_tier1_mark_read")}
-              >
-                {t("notif_tier1_mark_read")}
-              </button>
-            ) : null}
-            <div className="relative">
-              <button
-                type="button"
-                className="sam-header-action flex min-h-11 min-w-[44px] items-center justify-center px-2 text-[13px] font-medium text-sam-fg"
-                aria-label={t("notif_center_more_menu")}
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                {t("notif_center_more_label")}
-              </button>
-              {menuOpen ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md"
+            {selectionMode ? (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={exitSelection}
+                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-sam-fg disabled:opacity-50"
+                  aria-label={t("notif_center_cancel_selection")}
                 >
+                  {t("notif_center_cancel_selection")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || selectedCount === 0}
+                  onClick={() => setConfirm("selected_delete")}
+                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-semibold text-red-700 disabled:opacity-50"
+                  aria-label={t("notif_center_delete_selected")}
+                >
+                  {t("notif_center_delete_selected")}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setSelectionMode(true)}
+                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+                  aria-pressed={false}
+                  aria-label={t("notif_center_select")}
+                >
+                  {t("notif_center_select")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void markAllRef.current?.()}
+                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+                  aria-label={t("notif_tier1_mark_read")}
+                >
+                  {t("notif_tier1_mark_read")}
+                </button>
+                <div className="relative">
                   <button
                     type="button"
-                    role="menuitem"
-                    className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setConfirm("read_delete");
-                    }}
+                    className="sam-header-action flex min-h-11 min-w-[44px] items-center justify-center px-2 text-[13px] font-medium text-sam-fg"
+                    aria-label={t("notif_center_more_menu")}
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((v) => !v)}
                   >
-                    {t("notif_center_delete_read")}
+                    {t("notif_center_more_label")}
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setConfirm("all_delete");
-                    }}
-                  >
-                    {t("notif_center_delete_all")}
-                  </button>
-                  <Link
-                    href="/mypage/section/settings/notifications"
-                    role="menuitem"
-                    className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {t("notifications_settings_title")}
-                  </Link>
+                  {menuOpen ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirm("read_delete");
+                        }}
+                      >
+                        {t("notif_center_delete_read")}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setConfirm("all_delete");
+                        }}
+                      >
+                        {t("notif_center_delete_all")}
+                      </button>
+                      <Link
+                        href="/mypage/section/settings/notifications"
+                        role="menuitem"
+                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        {t("notifications_settings_title")}
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+              </>
+            )}
           </div>
         }
       />
@@ -160,7 +205,11 @@ export default function NotificationsCenterPage() {
               <MyNotificationsView
                 variant="notification_center"
                 selectionMode={selectionMode}
-                onSelectionModeChange={setSelectionMode}
+                onSelectionModeChange={(next) => {
+                  setSelectionMode(next);
+                  if (!next) setSelectedCount(0);
+                }}
+                registerSelectionApi={onRegisterSelectionApi}
                 registerMarkAll={(fn) => {
                   markAllRef.current = fn;
                 }}
@@ -177,13 +226,28 @@ export default function NotificationsCenterPage() {
         message={
           confirm === "all_delete"
             ? t("notif_center_delete_all_confirm")
-            : t("notif_center_delete_read_confirm")
+            : confirm === "selected_delete"
+              ? t("notif_center_delete_selected_confirm")
+              : t("notif_center_delete_read_confirm")
         }
         cancelLabel={t("notif_inbox_delete_dialog_cancel")}
         confirmLabel={t("common_delete")}
         busy={busy}
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
+          if (confirmRef.current === "selected_delete") {
+            void (async () => {
+              setBusy(true);
+              try {
+                await selectionApiRef.current?.deleteSelected();
+                exitSelection();
+              } finally {
+                setBusy(false);
+                setConfirm(null);
+              }
+            })();
+            return;
+          }
           const mode = confirmRef.current === "all_delete" ? "all" : "read_only";
           void runBulkDelete(mode);
         }}

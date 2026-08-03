@@ -576,7 +576,11 @@ function payloadFromSnapshot(
     if (inquiryAttention > 0) {
       storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(snapshot.hub_store_id)}`;
     } else if (orderAttention > 0) {
-      storeDeepLink = buildStoreOrdersHref({ storeId: snapshot.hub_store_id });
+      storeDeepLink = buildStoreOrdersHref({
+        storeId: snapshot.hub_store_id,
+        freshList: true,
+        opsAttention: true,
+      });
     } else if (storeOrderChatUnread > 0) {
       storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
     }

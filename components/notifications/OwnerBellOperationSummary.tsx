@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * O_bell Surface — owner Action Required only (pending+refund+cancel / inquiry).
- * Deep link must match the attention set (not forced `tab=new` — that empty-lists refund/cancel).
- * Digit honesty: preferred hub store counts; multi-store O still lives in Projection.
+ * Owner ops surface — pending+refund+cancel / inquiry.
+ * Deep link: orders → ops_attention (not forced tab=new); inquiries → inquiries page.
+ * Compact modal always splits order vs inquiry (never merge into one wrong destination).
  */
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -16,7 +16,7 @@ type Props = {
   onNavigate?: () => void;
   className?: string;
   showSectionTitle?: boolean;
-  /** Compact one-row summary for bell modal */
+  /** Compact rows for bell modal / store tab */
   compact?: boolean;
   /** Show OwnerLite primary/secondary shortcuts under ops rows */
   showShortcuts?: boolean;
@@ -49,47 +49,18 @@ export function OwnerBellOperationSummary({
   if (orderAttention <= 0 && inquiryAttention <= 0 && !showShortcuts) return null;
 
   const storeId = ownerStore.id;
-  /** Prefer hub storeDeepLink (orders default = all tabs) — never force `new` only. */
-  const orderHref =
-    (breakdown.storeDeepLink &&
-    breakdown.storeDeepLink.includes("/stores/owner/orders")
-      ? breakdown.storeDeepLink
-      : null) ?? buildStoreOrdersHref({ storeId, freshList: true });
+  /** Always land on action-required orders surface (auto-picks new/cancelled tab). */
+  const orderHref = buildStoreOrdersHref({
+    storeId,
+    freshList: true,
+    opsAttention: true,
+  });
   const inquiryHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
   const { primary, secondary } = resolveOwnerLiteStoreShortcuts(ownerStore, breakdown);
 
   const rowClass = compact
     ? "flex min-h-12 w-full items-center gap-3 rounded-2xl bg-sam-surface-muted/80 px-3 py-2.5 text-left transition active:scale-[0.99] active:bg-sam-muted/20"
     : "flex min-h-11 w-full items-center gap-2 rounded-ui-rect px-2.5 py-2 text-left transition hover:bg-sam-muted/10 active:scale-[0.99] active:bg-sam-muted/15";
-
-  if (compact && (orderAttention > 0 || inquiryAttention > 0)) {
-    const total = orderAttention + inquiryAttention;
-    const href = inquiryAttention > 0 && orderAttention <= 0 ? inquiryHref : orderHref;
-    return (
-      <section className={`min-w-0 ${className}`} aria-label={t("notif_store_ops_section")}>
-        <Link href={href} onClick={onNavigate} className={rowClass}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-danger/15 text-[13px] font-bold text-sam-danger">
-            {t("notif_store_ops_chip")}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-semibold text-sam-fg">
-              {t("notif_store_ops_section")}
-            </span>
-            <span className="block truncate text-[12px] text-sam-muted">
-              {orderAttention > 0
-                ? t("notif_store_ops_orders_n", { n: orderAttention })
-                : null}
-              {orderAttention > 0 && inquiryAttention > 0 ? " · " : null}
-              {inquiryAttention > 0
-                ? t("notif_store_ops_inquiries_n", { n: inquiryAttention })
-                : null}
-            </span>
-          </span>
-          <DangerBadge n={total} />
-        </Link>
-      </section>
-    );
-  }
 
   return (
     <section className={`min-w-0 ${className}`} aria-label={t("notif_store_ops_section")}>
@@ -98,17 +69,29 @@ export function OwnerBellOperationSummary({
           {t("notif_store_ops_section")}
         </h2>
       ) : null}
-      <ul className="min-w-0 space-y-1">
+      <ul className={`min-w-0 ${compact ? "space-y-1.5" : "space-y-1"}`}>
         {orderAttention > 0 ? (
           <li>
             <Link href={orderHref} onClick={onNavigate} className={rowClass}>
-              <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
-                {t("notif_store_ops_chip")}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-sam-fg">
-                {t("store_lite_order_manage")}
-                <span className="ml-1 font-medium text-sam-muted">
-                  {t("notif_store_ops_pending_n", { n: orderAttention })}
+              {compact ? (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-danger/15 text-[13px] font-bold text-sam-danger">
+                  {t("notif_store_ops_chip")}
+                </span>
+              ) : (
+                <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
+                  {t("notif_store_ops_chip")}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate font-semibold text-sam-fg ${
+                    compact ? "text-[14px]" : "text-[13px]"
+                  }`}
+                >
+                  {t("store_lite_order_manage")}
+                </span>
+                <span className="block truncate text-[12px] text-sam-muted">
+                  {t("notif_store_ops_orders_n", { n: orderAttention })}
                 </span>
               </span>
               <DangerBadge n={orderAttention} />
@@ -118,13 +101,25 @@ export function OwnerBellOperationSummary({
         {inquiryAttention > 0 ? (
           <li>
             <Link href={inquiryHref} onClick={onNavigate} className={rowClass}>
-              <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
-                {t("notif_store_ops_chip")}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-sam-fg">
-                {t("store_lite_received_inquiries")}
-                <span className="ml-1 font-medium text-sam-muted">
-                  {t("notif_store_ops_pending_n", { n: inquiryAttention })}
+              {compact ? (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-danger/15 text-[13px] font-bold text-sam-danger">
+                  {t("notif_store_ops_chip")}
+                </span>
+              ) : (
+                <span className="inline-flex shrink-0 items-center rounded-md bg-sam-danger/12 px-1.5 py-0.5 text-[10px] font-semibold text-sam-danger">
+                  {t("notif_store_ops_chip")}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate font-semibold text-sam-fg ${
+                    compact ? "text-[14px]" : "text-[13px]"
+                  }`}
+                >
+                  {t("store_lite_received_inquiries")}
+                </span>
+                <span className="block truncate text-[12px] text-sam-muted">
+                  {t("notif_store_ops_inquiries_n", { n: inquiryAttention })}
                 </span>
               </span>
               <DangerBadge n={inquiryAttention} />

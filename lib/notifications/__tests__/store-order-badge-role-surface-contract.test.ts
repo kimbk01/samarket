@@ -64,7 +64,7 @@ describe("store-order badge role surface contract", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       unreadApprovedNotificationEvents: 0,
     });
-    expect(p.bottomChat).toBe(1);
+    expect(p.bottomChat).toBe(4);
     expect(p.storeOrderCustomerUnreadRooms).toBe(3);
     expect(p.storeOrderOwnerUnreadRooms).toBe(0);
     const bd = hub({
@@ -73,7 +73,7 @@ describe("store-order badge role surface contract", () => {
       storeOrderChatUnread: 0,
       storeOrderOwnerUnreadRooms: p.storeOrderOwnerUnreadRooms,
     });
-    expect(resolveMessengerTabTotalUnreadBadgeCount(bd)).toBe(1);
+    expect(resolveMessengerTabTotalUnreadBadgeCount(bd)).toBe(4);
     expect(resolveFabOwnerOrderChatBadgeCount(bd)).toBe(0);
     expect(bd.buyerOrderAttention).toBe(3);
   });
@@ -109,7 +109,7 @@ describe("store-order badge role surface contract", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       unreadApprovedNotificationEvents: 0,
     });
-    expect(p.bottomChat).toBe(1);
+    expect(p.bottomChat).toBe(3);
     expect(p.storeOrderCustomerUnreadRooms).toBe(2);
     expect(p.storeOrderOwnerUnreadRooms).toBe(3);
     expect(p.storeOrderCustomerUnreadRooms + p.storeOrderOwnerUnreadRooms).toBe(5);
@@ -134,7 +134,7 @@ describe("store-order badge role surface contract", () => {
     expect(afterCustomerRouteProjection.buyerOrderAttention).toBe(2);
   });
 
-  it("Bottom Chat independent of store_order", () => {
+  it("Bottom Chat includes Trade + Customer Order rooms (owner rooms excluded)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 0, trade: 9, store_order: 9 },
       storeOrderBuyerDeliveryUnread: 2,
@@ -143,7 +143,7 @@ describe("store-order badge role surface contract", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       unreadApprovedNotificationEvents: 0,
     });
-    expect(p.bottomChat).toBe(1);
+    expect(p.bottomChat).toBe(1 + 9 + 2);
     expect(p.tradeHub).toBe(9);
     expect(p.storeOrderCustomerUnreadRooms).toBe(2);
     expect(p.storeOrderOwnerUnreadRooms).toBe(3);
@@ -168,7 +168,7 @@ describe("store-order badge role surface contract", () => {
     expect(rows.find((r) => r.orderId === "order-done")?.unreadCount).toBe(0);
   });
 
-  it("Read one customer room: customer count −1, owner and bottom unchanged", () => {
+  it("Read one customer room: customer count −1 and Bottom −1; owner unchanged", () => {
     const before = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 0, trade: 0, store_order: 5 },
       storeOrderBuyerDeliveryUnread: 2,
@@ -187,7 +187,7 @@ describe("store-order badge role surface contract", () => {
     });
     expect(after.storeOrderCustomerUnreadRooms).toBe(before.storeOrderCustomerUnreadRooms - 1);
     expect(after.storeOrderOwnerUnreadRooms).toBe(before.storeOrderOwnerUnreadRooms);
-    expect(after.bottomChat).toBe(before.bottomChat);
+    expect(after.bottomChat).toBe(before.bottomChat - 1);
   });
 
   it("Read one owner room: owner −1, customer and bottom unchanged", () => {

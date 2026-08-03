@@ -1,9 +1,9 @@
 /**
- * Bottom Chat (하단 「메신저」탭) unread room count — Messenger-only projection.
+ * Bottom Chat (하단 「메신저」탭) unread room count.
  *
  * CONTRACT:
- * - Value = General + Group unread **room** count (`communityMessengerUnread`).
- * - DO NOT include Trade / Store Order / Owner order unread.
+ * - Value = 일반+그룹+거래+주문(고객) unread **room** count (`projection.bottomChat`).
+ * - DO NOT include Owner ops / owner order-chat rooms.
  * - Same value re-apply must not notify subscribers (no spurious re-render).
  * - Bottom Chat must subscribe here — not Owner hub aggregate.
  */
