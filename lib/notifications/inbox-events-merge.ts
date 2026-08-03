@@ -24,6 +24,10 @@ export type InboxNotificationRow = {
   dedupe_key?: string | null;
   /** Canonical Bell row presentation (Phase 2) — not legacy notification_type. */
   bell_presentation_type?: BellPresentationType;
+  /** Canonical notification_events.type (not collapsed legacy notification_type). */
+  event_type?: string | null;
+  /** Admin campaign type when present in display_payload.campaignType. */
+  campaign_type?: string | null;
 };
 
 /** Bell Inbox presentation SSOT — digit/list share notification_events; UI subtypes here. */
@@ -40,6 +44,8 @@ export type BellPresentationType =
   | "delivery_status"
   | "missed_call"
   | "admin_notice"
+  /** Admin campaign type=system (same event.type admin_notice; presentation only). */
+  | "admin_system"
   | "system_important"
   | "unsupported";
 
@@ -96,6 +102,11 @@ function pushKindFromEvent(event: NotificationEventInboxSource): string | null {
   const payload = payloadRecord(event.display_payload);
   const legacy = trimText(payload?.legacyPushKind);
   if (legacy) return legacy;
+
+  const campaignType = trimText(payload?.campaignType).toLowerCase();
+  if (campaignType === "marketing") return "marketing";
+  if (campaignType === "system") return "system";
+  if (campaignType === "notice") return "notice";
 
   const type = trimText(event.type);
   const category = trimText(event.category);
@@ -191,7 +202,11 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
 
   // Explicit event.type first (status vs message — do not let leftover roomKind win).
   if (type === "missed_call") return "missed_call";
-  if (type === "admin_notice") return "admin_notice";
+  if (type === "admin_notice") {
+    const campaignType = trimText(payload?.campaignType).toLowerCase();
+    if (campaignType === "system") return "admin_system";
+    return "admin_notice";
+  }
   if (type === "trade_status") return "trade_status";
   if (type === "delivery_status") return "delivery_status";
   if (type === "order_status") {
@@ -292,6 +307,10 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
       )!;
     }
   }
+  const noteThreadId = trimText(payload?.noteThreadId);
+  if (noteThreadId) {
+    return `/notifications/notes/${encodeURIComponent(noteThreadId)}`;
+  }
 
   return defaultInboxFallbackHref();
 }
@@ -300,6 +319,7 @@ export function mapNotificationEventToInboxRow(event: NotificationEventInboxSour
   const payload = payloadRecord(event.display_payload);
   const meta = metaFromEvent(event);
   const refId = trimText(payload?.legacyRefId) || null;
+  const campaignType = trimText(payload?.campaignType) || null;
 
   return {
     id: event.id,
@@ -316,6 +336,8 @@ export function mapNotificationEventToInboxRow(event: NotificationEventInboxSour
     push_kind: pushKindFromEvent(event),
     dedupe_key: event.dedupe_key,
     bell_presentation_type: resolveBellPresentationType(event),
+    event_type: trimText(event.type) || null,
+    campaign_type: campaignType,
   };
 }
 

@@ -53,6 +53,9 @@ function surfaceFromBellPresentation(
     case "missed_call":
       return notifySafeT(language, "notif_surface_missed_call");
     case "admin_notice":
+      return notifySafeT(language, "notif_surface_notice");
+    case "admin_system":
+      return notifySafeT(language, "notif_surface_system");
     case "system_important":
       return notifySafeT(language, "notif_surface_system");
     default:

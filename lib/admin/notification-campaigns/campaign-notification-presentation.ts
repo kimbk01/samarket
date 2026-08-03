@@ -116,14 +116,23 @@ export function buildAdminCampaignNotificationPresentation(
     webUrl: campaign.web_url,
   };
 
-  const eventClass = campaign.type === "marketing" ? "admin_marketing" : "admin_notice";
+  const eventClass =
+    campaign.type === "marketing"
+      ? "admin_marketing"
+      : campaign.type === "system"
+        ? "admin_system"
+        : "admin_notice";
   const targetTab = campaign.type === "marketing" ? "marketing" : "system";
   const channel = campaign.channel;
   const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
+  const pushKind =
+    campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
+  const pushNotificationType =
+    campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
 
   const pushPayload: NotificationSideEffectPayloadOut = {
     user_id: userId,
-    notification_type: campaign.type === "marketing" ? "marketing" : "notice",
+    notification_type: pushNotificationType,
     title: campaign.title,
     body: campaign.body,
     link_url: link,
@@ -141,7 +150,7 @@ export function buildAdminCampaignNotificationPresentation(
         ...displayPayload,
         imageUrl: pushImageUrl,
       },
-      push_kind: campaign.type === "marketing" ? "marketing" : "notice",
+      push_kind: pushKind,
       event_key: soundPolicyKey,
       sound_asset_id: soundResolved.assetId,
       android_channel_id: soundResolved.androidChannelId,

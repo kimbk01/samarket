@@ -33,6 +33,8 @@ export type InboxRowInput = {
   domain?: string | null;
   push_kind?: string | null;
   bell_presentation_type?: BellPresentationType | null;
+  event_type?: string | null;
+  campaign_type?: string | null;
 };
 
 export type InboxGroupItem = {
@@ -56,6 +58,10 @@ export type InboxGroupItem = {
   surfaceBadge: string;
   /** stable sort — groupKeyForInboxRow prefix */
   groupSortKey: string;
+  push_kind?: string | null;
+  bell_presentation_type?: BellPresentationType | null;
+  event_type?: string | null;
+  campaign_type?: string | null;
 };
 
 function toPathname(u: string): string {
@@ -241,6 +247,10 @@ export function buildInboxGroupItems(
       kindLabel,
       surfaceBadge,
       groupSortKey: key,
+      push_kind: latest.push_kind ?? null,
+      bell_presentation_type: latest.bell_presentation_type ?? null,
+      event_type: latest.event_type ?? null,
+      campaign_type: latest.campaign_type ?? null,
     });
   }
   const pk = priorityPushKind && priorityPushKind !== "all" ? priorityPushKind : null;

@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -20,6 +21,7 @@ import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/cli
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { filterMarketingInboxDisplayRows } from "@/lib/notifications/notification-center-inbox-filter";
+import { isAdminNoticeOrSystemInboxItem } from "@/lib/notifications/admin-campaign-inbox";
 import { OwnerBellOperationSummary } from "@/components/notifications/OwnerBellOperationSummary";
 import {
   NotificationInboxTabBar,
@@ -150,6 +152,7 @@ export function MyNotificationsView({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tabFromUrl = parseNotificationsTabParam(searchParams?.get("tab") ?? null);
+  const focusNotificationId = String(searchParams?.get("notificationId") ?? "").trim();
   const [filterTab, setFilterTab] = useState<CenterTab>(tabFromUrl);
 
   useEffect(() => {
@@ -160,11 +163,13 @@ export function MyNotificationsView({
     (key: CenterTab) => {
       setFilterTab(key);
       if (variant !== "notification_center") return;
-      const next =
-        key === "all" ? "/notifications" : `/notifications?tab=${encodeURIComponent(key)}`;
-      router.replace(next, { scroll: false });
+      const sp = new URLSearchParams();
+      if (key !== "all") sp.set("tab", key);
+      if (focusNotificationId) sp.set("notificationId", focusNotificationId);
+      const q = sp.toString();
+      router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
     },
-    [router, variant]
+    [focusNotificationId, router, variant]
   );
 
   const refreshTabCounts = useCallback(async (forceFetch = false) => {
@@ -478,6 +483,29 @@ export function MyNotificationsView({
 
   const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
 
+  const focusOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (variant !== "notification_center") return;
+    if (!focusNotificationId || !onOpenDetail || loading) return;
+    if (focusOpenedRef.current === focusNotificationId) return;
+    const hit = grouped.find((g) => g.ids.includes(focusNotificationId));
+    if (!hit) return;
+    if (
+      !isAdminNoticeOrSystemInboxItem({
+        notification_type: hit.notification_type,
+        push_kind: hit.push_kind,
+        bell_presentation_type: hit.bell_presentation_type,
+        event_type: hit.event_type,
+        campaign_type: hit.campaign_type,
+        meta: hit.meta,
+      })
+    ) {
+      return;
+    }
+    focusOpenedRef.current = focusNotificationId;
+    onOpenDetail(focusNotificationId);
+  }, [focusNotificationId, grouped, loading, onOpenDetail, variant]);
+
   const toggleSelectItem = useCallback((item: InboxGroupItem) => {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
@@ -586,10 +614,27 @@ export function MyNotificationsView({
         if (!ok) return;
       }
       const primaryId = item.ids[0] ?? "";
-      const nType = String(item.notification_type ?? "");
-      const isAnnouncement =
-        nType === "admin_notice" || nType === "admin_announcement" || nType.includes("admin_notice");
-      if (variant === "notification_center" && isAnnouncement && primaryId && onOpenDetail) {
+      if (
+        variant === "notification_center" &&
+        primaryId &&
+        onOpenDetail &&
+        isAdminNoticeOrSystemInboxItem({
+          notification_type: item.notification_type,
+          push_kind: item.push_kind,
+          bell_presentation_type: item.bell_presentation_type,
+          event_type: item.event_type,
+          campaign_type: item.campaign_type,
+          meta: item.meta,
+        })
+      ) {
+        if (item.href.includes("/notifications/notes/")) {
+          try {
+            router.push(item.href);
+          } catch {
+            /* read committed */
+          }
+          return;
+        }
         onOpenDetail(primaryId);
         return;
       }
@@ -652,6 +697,16 @@ export function MyNotificationsView({
           counts={tabCounts}
           onSelect={(key) => selectFilterTab(key)}
         />
+        {variant === "notification_center" ? (
+          <div className="mt-2 flex justify-end px-0.5">
+            <Link
+              href="/notifications/notes"
+              className="text-[12px] font-medium text-signature underline-offset-2 hover:underline"
+            >
+              {t("notif_admin_notes_entry")}
+            </Link>
+          </div>
+        ) : null}
       </div>
       {filterTab === "store" ? (
         <div className="space-y-3 pt-1">

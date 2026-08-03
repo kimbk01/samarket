@@ -45,16 +45,18 @@ export function matchesNotificationCenterMemberTab(
     return (
       pk === "marketing" ||
       nt === "admin_marketing_banner" ||
-      bell === "admin_marketing_banner"
+      bell === "admin_marketing_banner" ||
+      (bell === "unsupported" && pk === "marketing")
     );
   }
-  // system — persistent notices + misc system (not chat)
+  // system — persistent notices + system updates + misc (not chat, not marketing)
   return (
     pk === "system" ||
     pk === "notice" ||
     pk === "community" ||
     nt === "system" ||
     bell === "admin_notice" ||
+    bell === "admin_system" ||
     bell === "system_important" ||
     bell === "missed_call"
   );
