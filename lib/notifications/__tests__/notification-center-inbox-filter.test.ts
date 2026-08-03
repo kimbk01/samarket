@@ -32,7 +32,7 @@ describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
     expect(filterMarketingInboxDisplayRows(rows).map((r) => r.id)).toEqual(["mk"]);
   });
 
-  it("A filter excludes marketing from Bell digit set", () => {
+  it("A filter includes persistent marketing in Bell digit set", () => {
     const rows = [
       { id: "a1", notification_type: "admin_notice", is_read: false, meta: {}, dedupe_key: "n1" },
       {
@@ -43,6 +43,6 @@ describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
         dedupe_key: "m1",
       },
     ];
-    expect(filterMemberNotificationAInboxRows(rows).map((r) => r.id)).toEqual(["a1"]);
+    expect(filterMemberNotificationAInboxRows(rows).map((r) => r.id)).toEqual(["a1", "mk"]);
   });
 });

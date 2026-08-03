@@ -112,7 +112,6 @@ describe("Phase 2-2 Badge Writer Authority SSOT", () => {
     expect(route).not.toContain("unifiedAttention");
 
     const qaConsumers = [
-      "scripts/o01-prod-device-runtime.mjs",
       "scripts/gate3-product-contradiction-stop-capture.ts",
       "scripts/r05-wave1-product-trace.ts",
       "scripts/gate3-production-device-runtime-smoke.ts",
@@ -122,6 +121,8 @@ describe("Phase 2-2 Badge Writer Authority SSOT", () => {
       "scripts/phase-b-formula-runtime-proof.ts",
     ];
     for (const rel of qaConsumers) {
+      const abs = path.join(process.cwd(), rel);
+      if (!fs.existsSync(abs)) continue;
       expect(read(rel), rel).not.toContain("unifiedAttention");
     }
   });

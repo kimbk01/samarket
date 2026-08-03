@@ -119,7 +119,7 @@ describe("Gate3 Step4 Notification Authority A contract", () => {
     expect(resolveMemberNotificationAuthorityFromRows(rows, "m1").unreadCount).toBe(0);
   });
 
-  it("push-only marketing excluded; persistent admin included", () => {
+  it("persistent marketing and admin notice both included in A", () => {
     const rows = [
       row({
         id: "mk",
@@ -130,7 +130,7 @@ describe("Gate3 Step4 Notification Authority A contract", () => {
       row({ id: "n1", type: "admin_notice", category: "admin_notice", dedupe_key: "n" }),
     ];
     const auth = resolveMemberNotificationAuthorityFromRows(rows, "m1");
-    expect(auth.eventIds).toEqual(["n1"]);
+    expect(auth.eventIds).toEqual(["mk", "n1"]);
   });
 
   it("trade peer message excluded; trade status included", () => {

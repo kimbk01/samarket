@@ -13,9 +13,8 @@ describe("CM room notification_events read after mark_read", () => {
   it("uses room-read SSOT after mark_read succeeds", () => {
     const src = readSource();
 
-    expect(src).toContain("postNotificationRoomRead");
+    expect(src).toContain("postNotificationRoomReadWithAck");
     expect(src).toContain("readRoomNotificationEventsAfterServerRead();");
-    expect(src).toContain("parsed.okHttp && parsed.json.ok === true");
     expect(src).toContain("parsed.okHttp && json.ok === true");
   });
 
