@@ -56,6 +56,9 @@ export type PushTransportClassifyInput = Readonly<{
   campaignId?: string | null;
   /** admin_marketing_banner / push-only promo without persistent A event */
   pushOnlyPromotion?: boolean | null;
+  /** P0 envelope eventClass (admin_notice | admin_marketing | owner_operation). */
+  eventClass?: string | null;
+  campaignChannel?: string | null;
 }>;
 
 function trim(v: unknown): string {
@@ -110,6 +113,7 @@ export function classifyPushTransport(
   input: PushTransportClassifyInput
 ): PushTransportClassification {
   const type = trim(input.type) || trim(input.notificationType);
+  const eventClass = trim(input.eventClass);
   const path = pathFromInput(input);
   const metaKind = trim(input.metaKind);
   const storeId =
@@ -124,7 +128,11 @@ export function classifyPushTransport(
     allowsDirectSurfaceBadgeMutation: false as const,
   };
 
-  if (input.pushOnlyPromotion === true || type === "admin_marketing_banner") {
+  if (
+    input.pushOnlyPromotion === true ||
+    type === "admin_marketing_banner" ||
+    eventClass === "admin_marketing"
+  ) {
     return {
       ...base,
       recipientScope: "delivery_only",
@@ -132,6 +140,28 @@ export function classifyPushTransport(
       recipientMemberId: memberId,
       recipientStoreId: null,
       allowsMemberAReadOnTap: false,
+    };
+  }
+
+  if (eventClass === "owner_operation") {
+    return {
+      ...base,
+      recipientScope: "store",
+      pipeline: "owner_c",
+      recipientMemberId: null,
+      recipientStoreId: storeId,
+      allowsMemberAReadOnTap: false,
+    };
+  }
+
+  if (eventClass === "admin_notice") {
+    return {
+      ...base,
+      recipientScope: "member",
+      pipeline: "member_notification_a",
+      recipientMemberId: memberId,
+      recipientStoreId: null,
+      allowsMemberAReadOnTap: true,
     };
   }
 
@@ -211,7 +241,12 @@ export function shouldApplyMemberNotificationReadOnPushTap(input: {
   recipientScope?: string | null;
   pipeline?: string | null;
   type?: string | null;
+  eventClass?: string | null;
 }): boolean {
+  const eventClass = trim(input.eventClass);
+  if (eventClass === "admin_marketing" || eventClass === "owner_operation") return false;
+  if (eventClass === "admin_notice") return true;
+
   const scope = trim(input.recipientScope);
   const pipeline = trim(input.pipeline);
   if (scope === "store" || scope === "delivery_only") return false;
@@ -226,6 +261,7 @@ export function shouldApplyMemberNotificationReadOnPushTap(input: {
   return classifyPushTransport({
     path: input.path,
     type: input.type,
+    eventClass: input.eventClass,
   }).allowsMemberAReadOnTap;
 }
 

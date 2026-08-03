@@ -116,6 +116,11 @@ export function buildAdminCampaignNotificationPresentation(
     webUrl: campaign.web_url,
   };
 
+  const eventClass = campaign.type === "marketing" ? "admin_marketing" : "admin_notice";
+  const targetTab = campaign.type === "marketing" ? "marketing" : "system";
+  const channel = campaign.channel;
+  const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
+
   const pushPayload: NotificationSideEffectPayloadOut = {
     user_id: userId,
     notification_type: campaign.type === "marketing" ? "marketing" : "notice",
@@ -141,6 +146,14 @@ export function buildAdminCampaignNotificationPresentation(
       sound_asset_id: soundResolved.assetId,
       android_channel_id: soundResolved.androidChannelId,
       ios_sound_name: soundResolved.iosSoundName,
+      // P0 additive envelope (flat FCM via buildFcmDataFields)
+      schemaVersion: "1",
+      eventClass,
+      campaignChannel: channel,
+      targetKind: isPushOnlyMarketing ? "approved_internal_route" : "notification",
+      targetTab: isPushOnlyMarketing ? undefined : targetTab,
+      targetNotificationId: isPushOnlyMarketing ? undefined : eventId,
+      targetApprovedRoute: isPushOnlyMarketing ? link : undefined,
     },
   };
 

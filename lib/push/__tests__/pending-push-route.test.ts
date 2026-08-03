@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingPushRoute,
+  consumePendingPushRoute,
   PENDING_PUSH_ROUTE_STORAGE_KEY,
   PENDING_PUSH_ROUTE_TTL_MS,
   readPendingPushRoute,
@@ -71,6 +72,31 @@ describe("pending-push-route", () => {
   it("clearPendingPushRoute removes storage", () => {
     writePendingPushRoute({ path: "/mypage", at: Date.now() });
     clearPendingPushRoute();
+    expect(readPendingPushRoute()).toBeNull();
+  });
+
+  it("consumePendingPushRoute reads once", () => {
+    writePendingPushRoute({
+      path: "/notifications?tab=system",
+      notificationId: "n-1",
+      source: "envelope",
+      at: Date.now(),
+    });
+    const first = consumePendingPushRoute();
+    expect(first?.path).toBe("/notifications?tab=system");
+    expect(consumePendingPushRoute()).toBeNull();
+  });
+
+  it("rejects pending payloads that include title/body", () => {
+    sessionStorage.setItem(
+      PENDING_PUSH_ROUTE_STORAGE_KEY,
+      JSON.stringify({
+        path: "/notifications",
+        title: "secret",
+        body: "nope",
+        at: Date.now(),
+      })
+    );
     expect(readPendingPushRoute()).toBeNull();
   });
 });

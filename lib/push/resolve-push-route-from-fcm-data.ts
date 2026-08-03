@@ -1,5 +1,12 @@
 /**
  * Resolve in-app route from FCM data payload — mirrors Android MainActivity / FcmPayloadResolver.
+ *
+ * Priority (P0):
+ * 1. schemaVersion/eventClass envelope (valid → canonical; invalid → safe fallback, no legacy URL bypass)
+ * 2. existing deeplinkResolverKey
+ * 3. verified internal route/url
+ * 4. type-based legacy resolvers
+ * 5. safe fallback
  */
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
@@ -8,8 +15,27 @@ import {
   buildChatRoomWebPath,
   buildGroupChatWebPath,
 } from "@/lib/notifications/policy/notification-deeplink-paths";
+import {
+  isPushEnvelopeV1Present,
+  parsePushEnvelopeV1,
+  resolveRouteFromPushEnvelopeV1,
+  PUSH_SAFE_FALLBACK_ROUTE,
+} from "@/lib/push/push-envelope-v1";
 
 export type FcmRouteData = Record<string, string | undefined>;
+
+export type PushRouteResolveMeta = {
+  path: string;
+  source:
+    | "envelope"
+    | "envelope_invalid_fallback"
+    | "legacy_resolver_key"
+    | "legacy_url"
+    | "legacy_type"
+    | "fallback";
+  fallbackReason?: string;
+  eventClass?: string | null;
+};
 
 function trim(value: string | undefined): string {
   return value?.trim() ?? "";
@@ -38,38 +64,10 @@ export function resolveFcmPushTypeFromData(data: FcmRouteData): string {
   return "unknown";
 }
 
-export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
-  const url = firstNonEmpty(data.routeUrl, data.route_url, data.url, data.link_url, data.link_url_absolute);
-  if (url) {
-    const safe = resolveSafeNotificationInternalRoute(url);
-    if (safe) return safe;
-  }
-
+function resolveLegacyTypeRoute(data: FcmRouteData): string | null {
   const type = resolveFcmPushTypeFromData(data);
   const callId = firstNonEmpty(data.callId, data.sessionId, data.session_id);
   const roomId = firstNonEmpty(data.roomId, data.room_id);
-  const resolverKey = firstNonEmpty(
-    data.deeplinkResolverKey,
-    data.deeplink_resolver_key
-  );
-  const resolverKeys: ReadonlySet<string> = new Set([
-    "chat_room",
-    "group_room",
-    "trade_room",
-    "store_order_room",
-    "display_route",
-    "missed_call",
-    "notification_inbox",
-    "call_authority",
-  ]);
-  if (resolverKeys.has(resolverKey)) {
-    return resolveNotificationDestination({
-      resolverKey: resolverKey as NotificationDeepLinkResolverKey,
-      roomId,
-      callSessionId: callId,
-      fallbackHref: "/notifications",
-    }).href;
-  }
 
   if (type === "missed_call" && callId) {
     if (roomId) {
@@ -88,7 +86,6 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
     return buildChatRoomWebPath(roomId);
   }
   if (type === "group_message" && roomId) {
-    // Canonical group product path — same as Bell registry `group_room` (not CM type=group query).
     return buildGroupChatWebPath(roomId);
   }
 
@@ -112,6 +109,76 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
   return null;
 }
 
+/**
+ * Full decision with source metadata (tests + pending route).
+ */
+export function resolvePushRouteDecisionFromFcmData(data: FcmRouteData): PushRouteResolveMeta {
+  if (isPushEnvelopeV1Present(data)) {
+    const parsed = parsePushEnvelopeV1(data);
+    if (parsed.present) {
+      const resolved = resolveRouteFromPushEnvelopeV1(parsed);
+      return {
+        path: resolved.path,
+        source: resolved.reason,
+        fallbackReason: resolved.fallbackReason,
+        eventClass: resolved.eventClass ?? (parsed.valid ? parsed.eventClass : null),
+      };
+    }
+  }
+
+  const resolverKey = firstNonEmpty(data.deeplinkResolverKey, data.deeplink_resolver_key);
+  const resolverKeys: ReadonlySet<string> = new Set([
+    "chat_room",
+    "group_room",
+    "trade_room",
+    "store_order_room",
+    "display_route",
+    "missed_call",
+    "notification_inbox",
+    "call_authority",
+  ]);
+  const callId = firstNonEmpty(data.callId, data.sessionId, data.session_id);
+  const roomId = firstNonEmpty(data.roomId, data.room_id);
+  if (resolverKeys.has(resolverKey)) {
+    const href = resolveNotificationDestination({
+      resolverKey: resolverKey as NotificationDeepLinkResolverKey,
+      roomId,
+      callSessionId: callId,
+      fallbackHref: PUSH_SAFE_FALLBACK_ROUTE,
+    }).href;
+    return { path: href, source: "legacy_resolver_key" };
+  }
+
+  const url = firstNonEmpty(
+    data.routeUrl,
+    data.route_url,
+    data.url,
+    data.link_url,
+    data.link_url_absolute
+  );
+  if (url) {
+    const safe = resolveSafeNotificationInternalRoute(url);
+    if (safe) return { path: safe, source: "legacy_url" };
+  }
+
+  const legacyType = resolveLegacyTypeRoute(data);
+  if (legacyType) return { path: legacyType, source: "legacy_type" };
+
+  return {
+    path: PUSH_SAFE_FALLBACK_ROUTE,
+    source: "fallback",
+    fallbackReason: "unresolved_payload",
+  };
+}
+
+export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
+  return resolvePushRouteDecisionFromFcmData(data).path;
+}
+
+/**
+ * Routes that require an authenticated viewer before navigation.
+ * `/notifications` is member Inbox — login required (guest must not resume as another user).
+ */
 export function isAuthRequiredPushRoute(path: string): boolean {
   const p = path.trim();
   if (!p || p.startsWith("/auth")) return false;
@@ -120,6 +187,11 @@ export function isAuthRequiredPushRoute(path: string): boolean {
     p.startsWith("/chats") ||
     p.startsWith("/orders") ||
     p.startsWith("/philife") ||
-    p.startsWith("/mypage")
+    p.startsWith("/mypage") ||
+    p.startsWith("/my") ||
+    p.startsWith("/notifications") ||
+    p.startsWith("/stores/owner")
   );
 }
+
+export { PUSH_SAFE_FALLBACK_ROUTE };

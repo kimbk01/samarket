@@ -414,6 +414,10 @@ export function buildFcmDataFields(
 
   // Gate 3 Step 9 — transport envelope (A/B/C identity). badgeCount stays absolute echo.
   const metaKind = meta ? trimText(meta.kind) : "";
+  const eventClassWire = meta ? trimText(meta.eventClass ?? meta.event_class) : "";
+  const campaignChannelWire = meta
+    ? trimText(meta.campaignChannel ?? meta.campaign_channel)
+    : "";
   applyPushTransportEnvelope(fields, {
     type,
     eventType: type,
@@ -427,8 +431,34 @@ export function buildFcmDataFields(
     chatDomain: meta ? trimText(meta.chat_domain ?? meta.chatDomain) : "",
     dedupeKey: eventId || null,
     pushOnlyPromotion:
-      out.notification_type === "marketing" || metaKind === "admin_marketing_banner",
+      out.notification_type === "marketing" ||
+      metaKind === "admin_marketing_banner" ||
+      eventClassWire === "admin_marketing",
+    eventClass: eventClassWire || null,
+    campaignChannel: campaignChannelWire || null,
   });
+
+  // P0 additive envelope flat fields (string) — do not replace legacy keys.
+  if (meta) {
+    const schemaVersion = trimText(meta.schemaVersion ?? meta.schema_version);
+    if (schemaVersion) fields.schemaVersion = schemaVersion;
+    if (eventClassWire) fields.eventClass = eventClassWire;
+    if (campaignChannelWire) fields.campaignChannel = campaignChannelWire;
+    const targetKind = trimText(meta.targetKind ?? meta.target_kind);
+    if (targetKind) fields.targetKind = targetKind;
+    const targetTab = trimText(meta.targetTab ?? meta.target_tab);
+    if (targetTab) fields.targetTab = targetTab;
+    const targetNotificationId = trimText(
+      meta.targetNotificationId ?? meta.target_notification_id
+    );
+    if (targetNotificationId) fields.targetNotificationId = targetNotificationId;
+    const targetApprovedRoute = trimText(
+      meta.targetApprovedRoute ?? meta.target_approved_route
+    );
+    if (targetApprovedRoute) fields.targetApprovedRoute = targetApprovedRoute;
+    const operationType = trimText(meta.operationType ?? meta.operation_type);
+    if (operationType) fields.operationType = operationType;
+  }
 
   return fields;
 }
