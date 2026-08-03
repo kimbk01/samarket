@@ -35,17 +35,18 @@ describe("notification badge and inbox authority", () => {
     );
   });
 
-  it("processes event IDs before legacy compatibility IDs on read", () => {
+  it("reads mark event IDs on canonical path; legacy notifications write forbidden", () => {
     const bridge = read("lib/notifications/inbox-read-bridge.ts");
-    const eventRead = bridge.indexOf(
-      "const eventRows = rows.filter",
-      bridge.indexOf("patchInboxNotificationIdsRead")
-    );
-    const legacyRead = bridge.indexOf(
-      "if (legacyIds.length > 0)",
-      eventRead
-    );
+    const fnStart = bridge.indexOf("export async function patchInboxNotificationIdsRead");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = bridge.slice(fnStart, fnStart + 2800);
+    const eventRead = fnBody.indexOf("const eventRows = rows.filter");
     expect(eventRead).toBeGreaterThan(-1);
-    expect(legacyRead).toBeGreaterThan(eventRead);
+    // Gate 3 Step 10 — partition may still see legacy ids for lookup, but must not UPDATE them.
+    expect(fnBody).toContain("void legacyIds");
+    expect(fnBody).toMatch(/Canonical-only write|Legacy `notifications` update FORBIDDEN/);
+    expect(fnBody).not.toMatch(
+      /if\s*\(\s*legacyIds\.length\s*>\s*0\s*\)[\s\S]*?\.from\(\s*["']notifications["']\s*\)/
+    );
   });
 });

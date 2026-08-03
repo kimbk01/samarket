@@ -47,11 +47,12 @@ describe("markPriorBuyerOrderStatusNotificationsRead", () => {
     vi.clearAllMocks();
   });
 
-  it("marks prior unread store_order_owner_status for same order", async () => {
+  it("marks prior unread order status on canonical events only (no legacy dual-write)", async () => {
     const sb = makeSb();
     await markPriorBuyerOrderStatusNotificationsRead(sb, "user-1", "order-abc");
+    // Gate 3 Step 10 — markOrderNotificationsRead → notification_events only.
     expect(markOrderNotificationsRead).toHaveBeenCalledWith(sb, "user-1", "order-abc");
-    expect(sb.from).toHaveBeenCalledWith("notifications");
+    expect(sb.from).not.toHaveBeenCalledWith("notifications");
     expect(invalidateNotificationUnreadCountCache).toHaveBeenCalledWith("user-1");
   });
 });
