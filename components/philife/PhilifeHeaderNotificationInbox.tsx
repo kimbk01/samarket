@@ -36,7 +36,9 @@ import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/
 
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 
-import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
+import { InboxGroupCardList } from "@/components/notifications/InboxGroupCardList";
+
+import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 
 import {
 
@@ -222,6 +224,37 @@ function SettingsGearIcon() {
 
  */
 
+
+const BELL_PREVIEW_FILTER_TABS: InboxPushKindFilter[] = [
+  "all",
+  "trade",
+  "delivery",
+  "system",
+  "marketing",
+];
+
+function bellPreviewFilterLabelKey(
+  key: InboxPushKindFilter
+):
+  | "notif_filter_all"
+  | "notif_filter_trade"
+  | "notif_filter_delivery"
+  | "notif_filter_system"
+  | "notif_filter_benefit" {
+  switch (key) {
+    case "trade":
+      return "notif_filter_trade";
+    case "delivery":
+      return "notif_filter_delivery";
+    case "system":
+      return "notif_filter_system";
+    case "marketing":
+      return "notif_filter_benefit";
+    default:
+      return "notif_filter_all";
+  }
+}
+
 export function PhilifeHeaderNotificationInbox({
 
   tone = "default",
@@ -266,7 +299,7 @@ export function PhilifeHeaderNotificationInbox({
 
   storeId?: string | null;
 
-  /** 패널 상단 고정(친구 요청 등) */
+  /** @deprecated Bell sheet is single-layer; pinned nested cards removed. Kept for call-site compat. */
 
   pinnedSections?: ReactNode;
 
@@ -343,6 +376,13 @@ export function PhilifeHeaderNotificationInbox({
     [rows, language, priorityPushKind]
   );
 
+  /** Bell sheet: badge-bearing (unread) rows only — detail lives on /notifications. */
+  const unreadPreviewItems = useMemo(
+    () => grouped.filter((item) => item.unreadCount > 0),
+    [grouped]
+  );
+
+
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
   const badgeCountSnap = useSyncExternalStore(
@@ -402,6 +442,17 @@ export function PhilifeHeaderNotificationInbox({
     setOpen(false);
 
   }, []);
+
+  const openNotificationsCenter = useCallback(
+    (tab: InboxPushKindFilter = "all") => {
+      closePanel();
+      const href =
+        tab === "all" ? "/notifications" : `/notifications?tab=${encodeURIComponent(tab)}`;
+      router.push(href);
+    },
+    [closePanel, router]
+  );
+
 
 
 
@@ -1051,34 +1102,30 @@ export function PhilifeHeaderNotificationInbox({
 
               <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-surface py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
 
-                {pinnedSections ? (
-                  <div className="mb-2 border-b border-sam-border/60 pb-2">{pinnedSections}</div>
-                ) : null}
+                <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={t("notif_tier1_sheet_title")}>
+                  {BELL_PREVIEW_FILTER_TABS.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      onClick={() => openNotificationsCenter(key)}
+                      className="shrink-0 rounded-full bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg transition-colors hover:bg-sam-muted/20 active:bg-sam-muted/25"
+                    >
+                      {t(bellPreviewFilterLabelKey(key))}
+                    </button>
+                  ))}
+                </div>
 
                 {showListLoading ? (
-
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
-
                 ) : (
-
-                  <NotificationInboxByDateSections
-
-                    items={grouped}
-
-                    compact
-
+                  <InboxGroupCardList
+                    items={unreadPreviewItems}
+                    summaryOnly
                     emptyLabel={t("notif_tier1_empty")}
-
                     onItemWarm={onItemWarm}
-
                     onActivate={(item) => onActivate(item)}
-
-                    onDelete={(item) => requestDeleteGroup(item)}
-
-                    deleteBusyKey={deleteBusyKey}
-
                   />
-
                 )}
 
               </div>
@@ -1113,19 +1160,13 @@ export function PhilifeHeaderNotificationInbox({
 
                 )}
 
-                <Link
-
-                  href="/notifications"
-
-                  onClick={closePanel}
-
+                <button
+                  type="button"
+                  onClick={() => openNotificationsCenter("all")}
                   className="ml-auto shrink-0 text-[14px] font-semibold text-sam-primary underline-offset-2 hover:underline"
-
                 >
-
                   {t("notif_tier1_see_all")}
-
-                </Link>
+                </button>
 
               </div>
 

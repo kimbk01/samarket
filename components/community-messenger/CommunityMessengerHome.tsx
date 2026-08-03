@@ -2340,14 +2340,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     () => (
       <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
-          messengerAlertSummary={notificationCenterSummary}
           onOpenSearch={() => openHomeOverlay("search")}
-          onOpenNotificationCenter={() => openHomeOverlay("requests")}
           onOpenSettings={() => openHomeOverlay("settings")}
         />
       </div>
     ),
-    [notificationCenterSummary, openHomeOverlay]
+    [openHomeOverlay]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {

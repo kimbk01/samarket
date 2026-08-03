@@ -15,30 +15,41 @@ import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority
 const root = process.cwd();
 
 describe("Gate3 Step8 Notification Center UI contract", () => {
-  it("Bell click opens inbox modal; see-all goes to /notifications", () => {
+  it("Bell click opens inbox modal; see-all and tabs go to /notifications", () => {
     const src = fs.readFileSync(
       path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
       "utf8"
     );
     expect(src.includes("setOpen((v) => !v)")).toBe(true);
-    expect(src.includes('href="/notifications"')).toBe(true);
+    expect(src.includes("openNotificationsCenter")).toBe(true);
+    expect(src.includes('"/notifications"')).toBe(true);
+    expect(src.includes("BELL_PREVIEW_FILTER_TABS")).toBe(true);
+    expect(src.includes("summaryOnly")).toBe(true);
+    expect(src.includes("unreadPreviewItems")).toBe(true);
+    expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
   });
 
-  it("Notification Center excludes write FAB and mounts OwnerLite inside sticky safe-top", () => {
+  it("Notification Center excludes write FAB and does not stack OwnerLite above title", () => {
     const flags = fs.readFileSync(
       path.join(root, "lib/layout/conditional-app-shell-flags.ts"),
       "utf8"
     );
     expect(flags.includes("isNotificationsCenterPathname")).toBe(true);
     expect(flags.includes("!isNotificationsCenter")).toBe(true);
-    expect(flags.includes("showOwnerLiteStoreBarInNotificationsSticky")).toBe(true);
+    expect(flags.includes("showOwnerLiteStoreBarInNotificationsSticky = false")).toBe(true);
     const sticky = fs.readFileSync(
       path.join(root, "components/layout/AppStickyHeader.tsx"),
       "utf8"
     );
-    expect(sticky.includes("showOwnerLiteInNotificationsSticky")).toBe(true);
-    expect(sticky.includes("OwnerLiteStoreBarLazy")).toBe(true);
+    expect(sticky.includes("showOwnerLiteInNotificationsSticky")).toBe(false);
+    expect(sticky.includes("OwnerLiteStoreBarLazy")).toBe(false);
+    const actions = fs.readFileSync(
+      path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),
+      "utf8"
+    );
+    expect(actions.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
+    expect(actions.includes("pinnedSections")).toBe(false);
   });
 
   it("Notification Center page supports selection mode for read/delete", () => {

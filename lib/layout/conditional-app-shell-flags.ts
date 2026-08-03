@@ -294,12 +294,12 @@ export function resolveConditionalAppShellFlags(
     !isPersonalProductComposerPage &&
     !isTermsPage;
   /**
-   * External OwnerLite (above AppStickyHeader) — OFF on Notification Center.
-   * Store-owner chrome on `/notifications` mounts inside sticky (safe-top first).
+   * External OwnerLite — OFF on Notification Center.
+   * Do not mount OwnerLite inside sticky either: title header must stay primary
+   * (store strip above title broke legacy-style chrome).
    */
   const showOwnerLiteStoreBar = ownerLiteEligibleBase && !isNotificationsCenter;
-  const showOwnerLiteStoreBarInNotificationsSticky =
-    ownerLiteEligibleBase && isNotificationsCenter;
+  const showOwnerLiteStoreBarInNotificationsSticky = false;
   const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
     isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =

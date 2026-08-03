@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { KASAMA_NOTIFICATIONS_UPDATED, NOTIFICATION_SYNC_POLL_MS } from "@/lib/notifications/notification-events";
@@ -35,6 +35,21 @@ type Row = {
 };
 
 const INBOX_PAGE_SIZE = 40;
+
+const NOTIF_CENTER_TABS: InboxPushKindFilter[] = [
+  "all",
+  "trade",
+  "delivery",
+  "system",
+  "marketing",
+];
+
+function parseNotificationsTabParam(raw: string | null): InboxPushKindFilter {
+  if (raw && (NOTIF_CENTER_TABS as string[]).includes(raw)) {
+    return raw as InboxPushKindFilter;
+  }
+  return "all";
+}
 
 type TradeOfferNotificationMeta = {
   kind?: string;
@@ -87,6 +102,7 @@ export function MyNotificationsView({
   registerSelectionApi,
 }: MyNotificationsViewProps = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language, t } = useI18n();
   const inboxFilterChips = useMemo(
     (): { key: InboxPushKindFilter; label: string }[] => [
@@ -104,7 +120,23 @@ export function MyNotificationsView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [filterTab, setFilterTab] = useState<InboxPushKindFilter>("all");
+  const tabFromUrl = parseNotificationsTabParam(searchParams?.get("tab") ?? null);
+  const [filterTab, setFilterTab] = useState<InboxPushKindFilter>(tabFromUrl);
+
+  useEffect(() => {
+    setFilterTab(tabFromUrl);
+  }, [tabFromUrl]);
+
+  const selectFilterTab = useCallback(
+    (key: InboxPushKindFilter) => {
+      setFilterTab(key);
+      if (variant !== "notification_center") return;
+      const next =
+        key === "all" ? "/notifications" : `/notifications?tab=${encodeURIComponent(key)}`;
+      router.replace(next, { scroll: false });
+    },
+    [router, variant]
+  );
   const [hasMore, setHasMore] = useState(false);
   const [loadMoreBusy, setLoadMoreBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
@@ -529,7 +561,7 @@ export function MyNotificationsView({
           <button
             key={key}
             type="button"
-            onClick={() => setFilterTab(key)}
+            onClick={() => selectFilterTab(key)}
             className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
               filterTab === key ? "bg-signature text-white" : "bg-sam-surface-muted text-sam-fg"
             }`}

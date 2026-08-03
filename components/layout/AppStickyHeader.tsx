@@ -14,7 +14,6 @@ const TradePrimaryTabs = dynamic(
   { ssr: false }
 );
 import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
-import { isNotificationsCenterPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
@@ -22,11 +21,6 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
-
-const OwnerLiteStoreBarLazy = dynamic(
-  () => import("@/components/layout/OwnerLiteStoreBar").then((m) => m.OwnerLiteStoreBar),
-  { ssr: false }
-);
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
@@ -50,12 +44,6 @@ export function AppStickyHeader() {
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
-  /**
-   * Notification Center + store owner: OwnerLite must sit **inside** safe-top sticky stack.
-   * External mount above `AppStickyHeader` overflows the status bar (store accounts only).
-   */
-  const showOwnerLiteInNotificationsSticky = isNotificationsCenterPathname(pathname);
-
   /**
    * ≥768 메신저: `RegionBar` 가 null 이어도 이 래퍼가 `pt-[var(--safe-top)]` 만 남겨
    * `MessengerSplitTopBar` 와 이중 inset 이 됨 (Android tablet CDP: stickyH≈29, children=0).
@@ -93,7 +81,6 @@ export function AppStickyHeader() {
           </div>
         ) : (
           <>
-            {showOwnerLiteInNotificationsSticky ? <OwnerLiteStoreBarLazy embedded /> : null}
             <RegionBar tier1RuleSet={topTier1RuleSet} />
             {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
             {stickyBelow}

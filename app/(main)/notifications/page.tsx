@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
@@ -169,17 +169,19 @@ export default function NotificationsCenterPage() {
             className="min-w-0 scroll-mt-4"
             aria-label={t("common_notifications")}
           >
-            <MyNotificationsView
-              variant="notification_center"
-              selectionMode={selectionMode}
-              onSelectionModeChange={setSelectionMode}
-              registerMarkAll={(fn) => {
-                markAllRef.current = fn;
-              }}
-              onOpenDetail={(id) => {
-                router.push(`/notifications/${encodeURIComponent(id)}`);
-              }}
-            />
+            <Suspense fallback={<p className="text-sm text-sam-muted">{t("common_loading")}</p>}>
+              <MyNotificationsView
+                variant="notification_center"
+                selectionMode={selectionMode}
+                onSelectionModeChange={setSelectionMode}
+                registerMarkAll={(fn) => {
+                  markAllRef.current = fn;
+                }}
+                onOpenDetail={(id) => {
+                  router.push(`/notifications/${encodeURIComponent(id)}`);
+                }}
+              />
+            </Suspense>
           </section>
         </div>
       </div>
