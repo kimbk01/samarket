@@ -125,9 +125,17 @@ public final class FcmPayloadResolver {
     }
   }
 
+  /**
+   * P1 — Prefer P0 push envelope (schemaVersion/eventClass) over legacy url.
+   * Invalid/present envelope → {@code /notifications} (no legacy URL bypass).
+   * Absent envelope → legacy type/url resolution.
+   */
   public static String resolveRouteUrl(Map<String, String> data) {
     if (data == null) return null;
-    String url = firstNonEmpty(data.get("url"));
+    String envelopeRoute = resolveEnvelopeRoute(data);
+    if (envelopeRoute != null) return envelopeRoute;
+
+    String url = firstNonEmpty(data.get("url"), data.get("routeUrl"), data.get("route_url"));
     if (url != null && url.startsWith("/")) return url;
 
     String type = resolveType(data);
@@ -137,49 +145,49 @@ public final class FcmPayloadResolver {
         String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
         if (callId != null && roomId != null) {
           return "/community-messenger/rooms/"
-              + android.net.Uri.encode(roomId)
+              + encQuery(roomId)
               + "?focus=call-history&callId="
-              + android.net.Uri.encode(callId);
+              + encQuery(callId);
         }
         if (callId != null) {
-          return "/community-messenger/calls/logs?callId=" + android.net.Uri.encode(callId);
+          return "/community-messenger/calls/logs?callId=" + encQuery(callId);
         }
         break;
       }
       case "incoming_call": {
         String callId = resolveCallId(data);
         if (callId != null) {
-          return "/community-messenger/calls/" + android.net.Uri.encode(callId);
+          return "/community-messenger/calls/" + encQuery(callId);
         }
         break;
       }
       case "chat_message": {
         String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
-        if (roomId != null) return "/community-messenger/rooms/" + android.net.Uri.encode(roomId);
+        if (roomId != null) return "/community-messenger/rooms/" + encQuery(roomId);
         break;
       }
       case "group_message": {
         String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
         if (roomId != null) {
           return "/community-messenger/rooms/"
-              + android.net.Uri.encode(roomId)
+              + encQuery(roomId)
               + "?type=group";
         }
         break;
       }
       case "trade_message": {
         String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
-        if (roomId != null) return "/chats/" + android.net.Uri.encode(roomId);
+        if (roomId != null) return "/chats/" + encQuery(roomId);
         break;
       }
       case "delivery_order": {
         String orderId = firstNonEmpty(data.get("orderId"), data.get("order_id"));
-        if (orderId != null) return "/orders/store/" + android.net.Uri.encode(orderId);
+        if (orderId != null) return "/orders/store/" + encQuery(orderId);
         break;
       }
       case "community_comment": {
         String postId = firstNonEmpty(data.get("postId"), data.get("post_id"));
-        if (postId != null) return "/philife/posts/" + android.net.Uri.encode(postId);
+        if (postId != null) return "/philife/posts/" + encQuery(postId);
         break;
       }
       default:
@@ -188,7 +196,7 @@ public final class FcmPayloadResolver {
 
     if (url != null && !url.isEmpty()) return url;
     String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
-    if (roomId != null) return "/community-messenger/rooms/" + android.net.Uri.encode(roomId);
+    if (roomId != null) return "/community-messenger/rooms/" + encQuery(roomId);
     return null;
   }
 
@@ -197,11 +205,11 @@ public final class FcmPayloadResolver {
     String rid = roomId != null ? roomId.trim() : "";
     if (!cid.isEmpty() && !rid.isEmpty()) {
       return "/community-messenger/rooms/"
-          + android.net.Uri.encode(rid)
+          + encQuery(rid)
           + "?focus=call-history&callId="
-          + android.net.Uri.encode(cid);
+          + encQuery(cid);
     }
-    if (!cid.isEmpty()) return "/community-messenger/calls/logs?callId=" + android.net.Uri.encode(cid);
+    if (!cid.isEmpty()) return "/community-messenger/calls/logs?callId=" + encQuery(cid);
     return null;
   }
 
@@ -211,6 +219,141 @@ public final class FcmPayloadResolver {
         || "trade_message".equals(type)
         || "delivery_order".equals(type)
         || "community_comment".equals(type);
+  }
+
+  /** True when P0 envelope wire fields are present on FCM data. */
+  public static boolean isPushEnvelopePresent(Map<String, String> data) {
+    if (data == null) return false;
+    return firstNonEmpty(data.get("schemaVersion"), data.get("eventClass")) != null;
+  }
+
+  /**
+   * @return envelope canonical/fallback path when present; null when envelope absent
+   */
+  public static String resolveEnvelopeRoute(Map<String, String> data) {
+    if (!isPushEnvelopePresent(data)) return null;
+    String schema = firstNonEmpty(data.get("schemaVersion"));
+    String eventClass = firstNonEmpty(data.get("eventClass"));
+    if (schema != null && !"1".equals(schema)) {
+      return PUSH_SAFE_FALLBACK_ROUTE;
+    }
+    if (eventClass == null) return PUSH_SAFE_FALLBACK_ROUTE;
+
+    String channel = firstNonEmpty(data.get("campaignChannel"), data.get("campaign_channel"));
+    String targetKind = firstNonEmpty(data.get("targetKind"), data.get("target_kind"));
+    String targetTab = firstNonEmpty(data.get("targetTab"), data.get("target_tab"));
+    String notificationEventId =
+        firstNonEmpty(
+            data.get("targetNotificationId"),
+            data.get("target_notification_id"),
+            data.get("notificationEventId"),
+            data.get("notification_event_id"),
+            data.get("notificationId"));
+    String approvedRoute =
+        safeInternalRoute(
+            firstNonEmpty(
+                data.get("targetApprovedRoute"),
+                data.get("approvedRoute"),
+                data.get("routeUrl"),
+                data.get("route_url")));
+    String storeId = firstNonEmpty(data.get("storeId"), data.get("store_id"));
+    String operationType = firstNonEmpty(data.get("operationType"), data.get("operation_type"));
+    String entityId =
+        firstNonEmpty(data.get("targetEntityId"), data.get("entityId"), data.get("entity_id"));
+
+    if ("admin_notice".equals(eventClass)) {
+      if (notificationEventId == null) return PUSH_SAFE_FALLBACK_ROUTE;
+      if ("approved_internal_route".equals(targetKind) && approvedRoute != null) {
+        return approvedRoute;
+      }
+      return buildNotificationCenterPath("system", notificationEventId);
+    }
+
+    if ("admin_marketing".equals(eventClass)) {
+      String effectiveChannel = channel != null ? channel : "push_and_in_app";
+      if ("push_only".equals(effectiveChannel)) {
+        if (approvedRoute != null) return approvedRoute;
+        return PUSH_SAFE_FALLBACK_ROUTE;
+      }
+      if (notificationEventId == null) return PUSH_SAFE_FALLBACK_ROUTE;
+      if ("approved_internal_route".equals(targetKind) && approvedRoute != null) {
+        return approvedRoute;
+      }
+      String tab = "marketing".equals(targetTab) ? "marketing" : "marketing";
+      return buildNotificationCenterPath(tab, notificationEventId);
+    }
+
+    if ("owner_operation".equals(eventClass)) {
+      if (storeId == null || operationType == null) return PUSH_SAFE_FALLBACK_ROUTE;
+      return resolveOwnerOperationRoute(storeId, operationType, entityId);
+    }
+
+    return PUSH_SAFE_FALLBACK_ROUTE;
+  }
+
+  private static final String PUSH_SAFE_FALLBACK_ROUTE = "/notifications";
+
+  private static String buildNotificationCenterPath(String tab, String notificationId) {
+    return PUSH_SAFE_FALLBACK_ROUTE
+        + "?tab="
+        + encQuery(tab)
+        + "&notificationId="
+        + encQuery(notificationId);
+  }
+
+  private static String resolveOwnerOperationRoute(
+      String storeId, String operationType, String entityId) {
+    String op = operationType.trim().toLowerCase(Locale.US);
+    String q = "storeId=" + encQuery(storeId) + "&fresh_list=1";
+    if ("inquiry".equals(op) || "inquiries".equals(op) || "open_inquiry".equals(op)) {
+      String path = "/stores/owner/inquiries?" + q;
+      if (entityId != null) path += "&inquiryId=" + encQuery(entityId);
+      return path;
+    }
+    String tab = "all";
+    if ("refund".equals(op) || "refund_pending".equals(op)) tab = "refund";
+    else if ("cancel".equals(op) || "cancelled".equals(op) || "cancel_pending".equals(op)) {
+      tab = "cancelled";
+    } else if ("new_order".equals(op)
+        || "pending_order".equals(op)
+        || "order".equals(op)
+        || "orders".equals(op)
+        || "pending".equals(op)) {
+      tab = "new";
+    }
+    String path = "/stores/owner/orders?" + q;
+    if (!"all".equals(tab)) path += "&tab=" + encQuery(tab);
+    if (entityId != null) path += "&order_id=" + encQuery(entityId);
+    return path;
+  }
+
+  /** JVM-unit-test safe query encoding (avoid unmocked {@code Uri.encode}). */
+  private static String encQuery(String value) {
+    try {
+      return java.net.URLEncoder.encode(value, "UTF-8");
+    } catch (java.io.UnsupportedEncodingException e) {
+      return value;
+    }
+  }
+
+  private static String safeInternalRoute(String raw) {
+    if (raw == null) return null;
+    String route = raw.trim();
+    if (route.isEmpty()) return null;
+    if (route.startsWith("http://") || route.startsWith("https://")) {
+      try {
+        android.net.Uri parsed = android.net.Uri.parse(route);
+        String path = parsed.getPath();
+        if (path == null || path.isEmpty()) return null;
+        String q = parsed.getEncodedQuery();
+        String f = parsed.getEncodedFragment();
+        route = path + (q != null && !q.isEmpty() ? "?" + q : "") + (f != null ? "#" + f : "");
+      } catch (Exception e) {
+        return null;
+      }
+    }
+    if (!route.startsWith("/") || route.startsWith("//")) return null;
+    return route;
   }
 
   private static String firstNonEmpty(String... values) {

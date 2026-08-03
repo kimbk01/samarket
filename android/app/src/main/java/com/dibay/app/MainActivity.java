@@ -2008,6 +2008,22 @@ public class MainActivity extends BridgeActivity {
   private static String resolveAppPathFromPushExtras(Bundle extras) {
     if (extras == null) return null;
 
+    // P1: reuse FcmPayloadResolver (envelope-first) so tap matches FCM receive path.
+    java.util.HashMap<String, String> data = new java.util.HashMap<>();
+    for (String key : extras.keySet()) {
+      if (key == null) continue;
+      Object raw = extras.get(key);
+      if (raw instanceof String) {
+        data.put(key, (String) raw);
+      }
+    }
+    String fromResolver = FcmPayloadResolver.resolveRouteUrl(data);
+    if (fromResolver != null && !fromResolver.isEmpty()) {
+      if (fromResolver.startsWith("/")) return fromResolver;
+      String mapped = mapHttpsDeepLinkToAppPath(Uri.parse(fromResolver));
+      if (mapped != null && !mapped.isEmpty()) return mapped;
+    }
+
     String url = firstNonEmpty(
         extras.getString("url"),
         extras.getString("link_url"),

@@ -86,24 +86,23 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
         return;
       }
-      String routeUrl = firstNonEmpty(data.get("routeUrl"), resolveChatRouteUrl(data));
-      String payloadTitle = firstNonEmpty(data.get("title"), title);
-      String payloadBody = firstNonEmpty(data.get("body"), body);
-      showMessageNotification(
-          payloadTitle,
-          payloadBody,
-          routeUrl,
-          data.get("tag"),
-          firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
-          type,
-          parseBadgeCount(data),
-          data);
+      showStandardOrEnvelopeNotification(data, title, body, type);
       return;
     }
 
     Log.i(TAG, "[fcm] unknown_type_fallback type=" + type);
-    if (appVisible) return;
-    String routeUrl = firstNonEmpty(data.get("routeUrl"), resolveChatRouteUrl(data));
+    // P1: admin notice/marketing envelope must still show tray in foreground for tap wire.
+    if (appVisible && !FcmPayloadResolver.isPushEnvelopePresent(data)) return;
+    showStandardOrEnvelopeNotification(data, title, body, type);
+  }
+
+  private void showStandardOrEnvelopeNotification(
+      Map<String, String> data, String title, String body, String type) {
+    // Envelope-first route (blocks legacy url bypass when envelope present/invalid).
+    String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
+    if (routeUrl == null) {
+      routeUrl = firstNonEmpty(data.get("routeUrl"), resolveChatRouteUrl(data));
+    }
     String payloadTitle = firstNonEmpty(data.get("title"), title);
     String payloadBody = firstNonEmpty(data.get("body"), body);
     showMessageNotification(
@@ -288,17 +287,39 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    // P1: copy FCM data first, then overlay resolved route/type/id so envelope wins.
+    if (data != null) {
+      for (Map.Entry<String, String> entry : data.entrySet()) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+        if (key == null || key.isEmpty() || value == null) continue;
+        if ("title".equals(key) || "body".equals(key)) continue;
+        launch.putExtra(key, value);
+      }
+    }
     if (url != null && !url.isEmpty()) {
       if (url.startsWith("/")) {
         launch.putExtra("url", url);
       } else {
         launch.setData(Uri.parse(url));
       }
-    } else {
+    } else if (data == null || firstNonEmpty(data.get("url")) == null) {
       launch.setAction(Intent.ACTION_MAIN);
     }
     if (type != null) launch.putExtra("type", type);
     if (notificationId != null) launch.putExtra("notificationId", notificationId);
+    Log.i(
+        TAG,
+        "[notify-message] pending_intent_extras eventClass="
+            + (data != null ? firstNonEmpty(data.get("eventClass")) : null)
+            + " targetKind="
+            + (data != null ? firstNonEmpty(data.get("targetKind")) : null)
+            + " campaignId="
+            + (data != null ? firstNonEmpty(data.get("campaignId"), data.get("campaign_id")) : null)
+            + " notificationEventId="
+            + notificationId
+            + " url="
+            + url);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

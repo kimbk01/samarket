@@ -42,7 +42,7 @@ public class FcmPayloadResolverTest {
     assertEquals("/chats/trade-room-1", FcmPayloadResolver.resolveRouteUrl(trade));
 
     Map<String, String> order = new HashMap<>();
-    order.put("type", "order_status");
+    order.put("type", "delivery_order");
     order.put("orderId", "order-1");
     assertEquals("/orders/store/order-1", FcmPayloadResolver.resolveRouteUrl(order));
 
@@ -50,5 +50,61 @@ public class FcmPayloadResolverTest {
     community.put("type", "community_comment");
     community.put("postId", "post-1");
     assertEquals("/philife/posts/post-1", FcmPayloadResolver.resolveRouteUrl(community));
+  }
+
+  @Test
+  public void resolveRouteUrl_envelopeNotice_prefersCanonicalOverLegacyUrl() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_notice");
+    data.put("campaignChannel", "push_and_in_app");
+    data.put("targetKind", "notification");
+    data.put("targetTab", "system");
+    data.put("targetNotificationId", "evt-notice-1");
+    data.put("url", "/legacy-bypass");
+    data.put("routeUrl", "/legacy-bypass");
+
+    assertEquals(
+        "/notifications?tab=system&notificationId=evt-notice-1",
+        FcmPayloadResolver.resolveRouteUrl(data));
+  }
+
+  @Test
+  public void resolveRouteUrl_envelopeMarketingPersistent_canonicalMarketingTab() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_marketing");
+    data.put("campaignChannel", "push_and_in_app");
+    data.put("targetNotificationId", "evt-mkt-1");
+    data.put("url", "/community?banner=x");
+
+    assertEquals(
+        "/notifications?tab=marketing&notificationId=evt-mkt-1",
+        FcmPayloadResolver.resolveRouteUrl(data));
+  }
+
+  @Test
+  public void resolveRouteUrl_envelopeMarketingPushOnly_usesApprovedRoute() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_marketing");
+    data.put("campaignChannel", "push_only");
+    data.put("targetKind", "approved_internal_route");
+    data.put("targetApprovedRoute", "/market");
+    data.put("url", "/notifications?tab=marketing");
+
+    assertEquals("/market", FcmPayloadResolver.resolveRouteUrl(data));
+  }
+
+  @Test
+  public void resolveRouteUrl_invalidEnvelope_blocksLegacyUrlBypass() {
+    Map<String, String> data = new HashMap<>();
+    data.put("schemaVersion", "1");
+    data.put("eventClass", "admin_marketing");
+    data.put("campaignChannel", "push_only");
+    data.put("targetKind", "approved_internal_route");
+    data.put("url", "/community?banner=legacy");
+
+    assertEquals("/notifications", FcmPayloadResolver.resolveRouteUrl(data));
   }
 }
