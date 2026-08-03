@@ -1,0 +1,81 @@
+{
+  "audit": "badge-full-rearchitecture",
+  "mode": "AUDIT_ONLY",
+  "productClearRules": {
+    "A_member": "read_or_delete",
+    "B_member": "room_read_cursor",
+    "B_store": "owner_room_read_cursor",
+    "C_store": "action_complete",
+    "NO_BADGE": "ephemeral_delivery_only"
+  },
+  "axes": [
+    {
+      "axis": "A_member",
+      "events": [
+        "admin_notice",
+        "service_notice",
+        "trade_status",
+        "buyer_order_status",
+        "buyer_payment_cancel_refund_status"
+      ],
+      "surfaces": ["bell_digit", "full_list", "app_icon_A"],
+      "origin": "notification_events",
+      "designMatch": true,
+      "implementationGaps": [
+        "digit_unit_attention_keys_vs_list_event_rows",
+        "popup_not_on_A_pipeline",
+        "mark_all_dual_legacy_notifications"
+      ]
+    },
+    {
+      "axis": "B_member",
+      "events": [
+        "general_message",
+        "group_message",
+        "trade_message",
+        "customer_store_order_message",
+        "unresolved_missed_call"
+      ],
+      "surfaces": ["room_row", "bottom_chat", "trade_hub", "customer_hub", "app_icon_B"],
+      "origin": "participants_unread_plus_missed",
+      "designMatch": true,
+      "implementationGaps": ["app_icon_membership_live_dump_unproven"]
+    },
+    {
+      "axis": "B_store",
+      "events": ["customer_to_store_order_chat"],
+      "surfaces": ["owner_room_row", "owner_chat_hub_fab"],
+      "forbiddenSurfaces": ["member_bell", "member_app_icon", "bottom", "customer_hub"],
+      "origin": "owner_participants_store_scoped",
+      "designMatch": true,
+      "implementationGaps": ["hub_cache_stale_risk"]
+    },
+    {
+      "axis": "C_store",
+      "events": [
+        "new_order_accept_required",
+        "refund_requested",
+        "cancel_requested",
+        "open_inquiry"
+      ],
+      "surfaces": ["owner_ops_hub_fab_dashboard"],
+      "origin": "store_orders_store_inquiries_rpc",
+      "designMatch": true,
+      "implementationGaps": ["owner_intake_user_id_writer_residual"]
+    },
+    {
+      "axis": "NO_BADGE",
+      "events": ["marketing_ephemeral_fcm", "campaign_push"],
+      "surfaces": ["os_notification_only"],
+      "designMatch": true
+    }
+  ],
+  "formulas": {
+    "bell": "A_unread_only",
+    "listUnreadProductIntent": "same_A_set_as_bell",
+    "bottomChat": "GD_rooms + Group_rooms",
+    "memberAppIcon": "A + member_unread_rooms + unresolved_missed",
+    "ownerChatFab": "active_store_unread_owner_chat_rooms",
+    "ownerOps": "incomplete_store_actions"
+  }
+}

@@ -18,6 +18,16 @@ describe("Slice 2-6 native-fcm-member-app-icon-authority", () => {
     expect(NATIVE_FCM_ONE_LINER).toContain("echo MemberAppIconTotal");
   });
 
+  it("prefers memberAppIconAuthority.appIconTotal over web/surface totals", () => {
+    expect(
+      resolveMemberAppIconTotalForNativeFcm({
+        memberAppIconAuthority: { appIconTotal: 3 },
+        memberAppIconWebTotal: 4,
+        appIconTotal: 99,
+      })
+    ).toBe(3);
+  });
+
   it("prefers memberAppIconWebTotal over appIconTotal", () => {
     expect(
       resolveMemberAppIconTotalForNativeFcm({

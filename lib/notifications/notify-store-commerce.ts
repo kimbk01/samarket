@@ -21,22 +21,8 @@ export async function markPriorBuyerOrderStatusNotificationsRead(
   const oid = orderId.trim();
   if (!uid || !oid) return;
 
+  // Gate 3 Step 10 — Canonical-only. Do not dual-write legacy `notifications`.
   await markOrderNotificationsRead(sb, uid, oid);
-
-  // Legacy notifications 호환 보조: badge/read truth 는 notification_events 이다.
-  const { error } = await sb
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", uid)
-    .eq("notification_type", "commerce")
-    .eq("is_read", false)
-    .eq("meta->>kind", BUYER_ORDER_STATUS_META_KIND)
-    .or(`ref_id.eq.${oid},meta->>order_id.eq.${oid}`);
-
-  if (error && !/does not exist|schema cache/i.test(String(error.message ?? ""))) {
-    console.warn("[markPriorBuyerOrderStatusNotificationsRead]", error.message);
-    return;
-  }
   invalidateNotificationUnreadCountCache(uid);
 }
 

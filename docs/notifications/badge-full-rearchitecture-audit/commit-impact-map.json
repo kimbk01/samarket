@@ -1,0 +1,82 @@
+{
+  "audit": "badge-full-rearchitecture",
+  "mode": "AUDIT_ONLY",
+  "head": "f438f37e2e07b6c7dcb49faed37c72de0bbfbc8f",
+  "baseline": "1e2a560c102cc3605a2ef29dcf68ccda0bd08a14",
+  "baselineIsHealthyProduct": false,
+  "baselineProblems": [
+    "owner_intake_in_bell_and_app_icon",
+    "owner_rooms_in_member_app_icon",
+    "RUNTIME_PARTIAL_OR_FAIL"
+  ],
+  "commits": [
+    {
+      "sha": "ca86a20c1",
+      "summary": "Slice 2-1 foundation",
+      "surfaces": ["contracts_tests"],
+      "classification": "KEEP_CONTRACT"
+    },
+    {
+      "sha": "d6dbb91d4",
+      "summary": "Slice 2-2 member Bell A",
+      "surfaces": ["bell_digit", "full_list", "mark_all", "a_projection"],
+      "classification": "REBUILD_LAYER",
+      "notes": "Introduced A digit vs list dual-unit structure"
+    },
+    {
+      "sha": "1a814053b",
+      "summary": "mark-all member stores",
+      "surfaces": ["mark_all"],
+      "classification": "REBUILD_LAYER"
+    },
+    {
+      "sha": "06bab8001",
+      "summary": "Slice 2-3 B_member App Icon",
+      "surfaces": ["member_app_icon", "bottom", "hubs"],
+      "classification": "KEEP_DIRECTION_REVALIDATE"
+    },
+    {
+      "sha": "f3dd1bb5d",
+      "summary": "room read reconcile",
+      "surfaces": ["b_member_read_clear"],
+      "classification": "KEEP_DIRECTION_REVALIDATE"
+    },
+    {
+      "sha": "5ee177ca6",
+      "summary": "Slice 2-4 B_store",
+      "surfaces": ["owner_chat_fab"],
+      "classification": "KEEP_DIRECTION_REVALIDATE"
+    },
+    {
+      "sha": "c78dd7a1e",
+      "summary": "hub cache invalidate",
+      "surfaces": ["owner_chat_fab_cache"],
+      "classification": "KEEP_WITH_STALE_RISK"
+    },
+    {
+      "sha": "c673ac444",
+      "summary": "hub cache refresh on hit",
+      "surfaces": ["owner_chat_fab_cache"],
+      "classification": "KEEP_WITH_STALE_RISK"
+    },
+    {
+      "sha": "aa2d46b09",
+      "summary": "Slice 2-5 C_store",
+      "surfaces": ["owner_ops"],
+      "classification": "KEEP_DIRECTION_WRITER_DEBT"
+    },
+    {
+      "sha": "e2cb00ec8",
+      "summary": "Slice 2-6 Native FCM",
+      "surfaces": ["fcm", "native_comments_only_on_web_sync"],
+      "classification": "REVERT_CANDIDATE_SELECTIVE",
+      "notes": "Does not touch Bell list UI"
+    },
+    {
+      "sha": "f438f37e2",
+      "summary": "2-6 test align",
+      "surfaces": ["tests"],
+      "classification": "UNRELATED_TO_PRODUCT_FAIL"
+    }
+  ]
+}

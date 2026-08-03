@@ -12,6 +12,7 @@ import {
 import { normalizeNotificationBadgeCountPayload } from "@/lib/notifications/notification-badge-count-store";
 import { commitCompleteProjectionSnapshot } from "@/lib/notifications/projection-authority";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
+import { commitMemberAppIconAuthorityFromHttpBody } from "@/lib/notifications/badge-authority-rebuild/member-app-icon-authority-commit";
 
 export type BadgeCountAuthorityJson = {
   authority?: string;
@@ -46,6 +47,8 @@ export type BadgeCountAuthorityJson = {
   unresolvedMissedCallIds?: readonly string[];
   unreadApprovedNotificationEvents?: number;
   missedCallByRoom?: Record<string, number>;
+  /** Gate 3 Step 6 — canonical App Icon snapshot (components + authorityVersion). */
+  memberAppIconAuthority?: unknown;
   [key: string]: unknown;
 };
 
@@ -246,6 +249,27 @@ export function applyAuthorityJsonAsProjection(
         Date.now()
     )
   );
+  /** Gate 3 Step 6 — App Icon snapshot version gate (stale Cap/HTTP cannot overwrite). */
+  if ((body as BadgeCountAuthorityJson).memberAppIconAuthority != null) {
+    const iconPub = commitMemberAppIconAuthorityFromHttpBody(
+      body as Record<string, unknown>
+    );
+    if (!iconPub.ok && iconPub.reason === "STALE_VERSION") {
+      logBadgeFdProbe("projection_payload.reject", {
+        reason: "app_icon_stale_version",
+        versionMs,
+      });
+      return false;
+    }
+    if (!iconPub.ok && iconPub.reason === "MEMBER_MISMATCH") {
+      logBadgeFdProbe("projection_payload.reject", {
+        reason: "app_icon_member_mismatch",
+        versionMs,
+      });
+      return false;
+    }
+  }
+
   /** P0: complete HTTP snapshot registers in Projection Authority (sole apply gate). */
   const ok = commitCompleteProjectionSnapshot(input, {
     projectionVersionMs: versionMs,

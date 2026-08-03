@@ -12,6 +12,7 @@
  * `loadTradeStoreOrderUnreadRoomFactsFromParticipants` (same participant unread SSOT).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isRoomUuidFallbackIdentityKey } from "@/lib/notifications/badge-authority-rebuild/canonical-conversation-room-identity";
 
 export type MessengerUnreadRoomFactsFromParticipants = Readonly<{
   generalDirectUnreadRoomIds: readonly string[];
@@ -21,6 +22,10 @@ export type MessengerUnreadRoomFactsFromParticipants = Readonly<{
     group: number;
   };
   rowUnreadByRoomId: Readonly<Record<string, number>>;
+  /** Gate 3 Step 12 — proven domain keys only (no invent). */
+  domainIdentityKeyByRoomId: Readonly<Record<string, string>>;
+  /** Peer for general_direct ADAPTER when key missing. */
+  peerUserIdByRoomId: Readonly<Record<string, string>>;
 }>;
 
 const EMPTY: MessengerUnreadRoomFactsFromParticipants = {
@@ -28,6 +33,8 @@ const EMPTY: MessengerUnreadRoomFactsFromParticipants = {
   groupUnreadRoomIds: [],
   domainUnreadRooms: { general_direct: 0, group: 0 },
   rowUnreadByRoomId: {},
+  domainIdentityKeyByRoomId: {},
+  peerUserIdByRoomId: {},
 };
 
 type PartRow = {
@@ -42,6 +49,7 @@ type RoomRow = {
   deleted_at?: unknown;
   /** Empty last_message + unread_count>0 = phantom/stale counter (Xiaomi zxzx44). */
   last_message?: unknown;
+  domain_identity_key?: unknown;
 };
 
 /**
@@ -61,6 +69,7 @@ export function partitionMessengerUnreadRoomFactsFromParticipants(
   const gd = new Set<string>();
   const group = new Set<string>();
   const rowUnread: Record<string, number> = {};
+  const domainIdentityKeyByRoomId: Record<string, string> = {};
 
   for (const p of parts) {
     const roomId = String(p.room_id ?? "").trim();
@@ -74,12 +83,18 @@ export function partitionMessengerUnreadRoomFactsFromParticipants(
     const lastMessage = room.last_message;
     if (lastMessage !== undefined && !String(lastMessage ?? "").trim()) continue;
     const domain = String(room.chat_domain ?? "").trim();
+    const rawIdentity = String(room.domain_identity_key ?? "").trim();
+    const identity =
+      rawIdentity && !isRoomUuidFallbackIdentityKey(rawIdentity) ? rawIdentity : "";
     if (domain === "general_direct") {
       gd.add(roomId);
       rowUnread[roomId] = unread;
+      if (identity) domainIdentityKeyByRoomId[roomId] = identity;
     } else if (domain === "group") {
       group.add(roomId);
       rowUnread[roomId] = unread;
+      if (identity) domainIdentityKeyByRoomId[roomId] = identity;
+      else domainIdentityKeyByRoomId[roomId] = `group:${roomId}`;
     }
   }
 
@@ -91,6 +106,8 @@ export function partitionMessengerUnreadRoomFactsFromParticipants(
       group: group.size,
     },
     rowUnreadByRoomId: rowUnread,
+    domainIdentityKeyByRoomId,
+    peerUserIdByRoomId: {},
   };
 }
 
@@ -124,7 +141,7 @@ export async function loadMessengerUnreadRoomFactsFromParticipants(
 
   const { data: rooms, error: roomErr } = await sb
     .from("community_messenger_rooms")
-    .select("id, chat_domain, deleted_at, last_message")
+    .select("id, chat_domain, deleted_at, last_message, domain_identity_key")
     .in("id", roomIds);
 
   if (roomErr) {
@@ -132,8 +149,36 @@ export async function loadMessengerUnreadRoomFactsFromParticipants(
     return EMPTY;
   }
 
-  return partitionMessengerUnreadRoomFactsFromParticipants(
+  const base = partitionMessengerUnreadRoomFactsFromParticipants(
     (parts ?? []) as PartRow[],
     (rooms ?? []) as RoomRow[]
   );
+
+  // ADAPTER: peer for GD rooms missing domain_identity_key (never invent :room:uuid).
+  const needPeer = base.generalDirectUnreadRoomIds.filter(
+    (id) => !base.domainIdentityKeyByRoomId[id]
+  );
+  if (needPeer.length === 0) return base;
+
+  const { data: peerParts, error: peerErr } = await sb
+    .from("community_messenger_participants")
+    .select("room_id, user_id")
+    .in("room_id", needPeer)
+    .neq("user_id", uid)
+    .is("left_at", null);
+
+  if (peerErr) {
+    console.warn("[loadMessengerUnreadRoomFactsFromParticipants] peers", peerErr.message);
+    return base;
+  }
+
+  const peerUserIdByRoomId: Record<string, string> = {};
+  for (const row of peerParts ?? []) {
+    const roomId = String((row as { room_id?: unknown }).room_id ?? "").trim();
+    const peer = String((row as { user_id?: unknown }).user_id ?? "").trim();
+    if (!roomId || !peer || peerUserIdByRoomId[roomId]) continue;
+    peerUserIdByRoomId[roomId] = peer;
+  }
+
+  return { ...base, peerUserIdByRoomId };
 }

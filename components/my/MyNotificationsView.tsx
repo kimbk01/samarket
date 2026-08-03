@@ -60,16 +60,28 @@ function resolvePendingTradeOfferMeta(item: InboxGroupItem): TradeOfferNotificat
   return meta;
 }
 
-export function MyNotificationsView() {
+export type MyNotificationsViewProps = {
+  /** Gate 3 Step 8 — Notification Center product surface */
+  variant?: "default" | "notification_center";
+  registerMarkAll?: (fn: () => Promise<void>) => void;
+  onOpenDetail?: (notificationId: string) => void;
+};
+
+export function MyNotificationsView({
+  variant = "default",
+  registerMarkAll,
+  onOpenDetail,
+}: MyNotificationsViewProps = {}) {
   const router = useRouter();
   const { language, t } = useI18n();
   const inboxFilterChips = useMemo(
     (): { key: InboxPushKindFilter; label: string }[] => [
-      // Slice 2-2 — Member notification page = A surfaces only (no chat/marketing tabs).
+      // Gate 3 Step 8 — A filters only (no chat).
       { key: "all", label: t("notif_filter_all") },
-      { key: "delivery", label: t("notif_filter_delivery") },
       { key: "trade", label: t("notif_filter_trade") },
-      { key: "notice", label: t("notif_filter_notice") },
+      { key: "delivery", label: t("notif_filter_delivery") },
+      { key: "system", label: t("notif_filter_system") },
+      { key: "marketing", label: t("notif_filter_benefit") },
     ],
     [t]
   );
@@ -229,8 +241,8 @@ export function MyNotificationsView() {
     void load(true, false, true, rows.length);
   }, [hasMore, loadMoreBusy, load, rows.length]);
 
-  const markIdsRead = useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const markIdsRead = useCallback(async (ids: string[]): Promise<boolean> => {
+    if (ids.length === 0) return true;
     const res = await fetch("/api/me/notifications", {
       method: "PATCH",
       credentials: "include",
@@ -242,10 +254,13 @@ export function MyNotificationsView() {
       setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
       broadcastNotificationsUpdated();
       resyncBadgesAfterNotificationEventsRead("notification_opened");
+      return true;
     }
+    return false;
   }, [broadcastNotificationsUpdated]);
 
-  async function markAllRead() {
+  const markAllRead = useCallback(async () => {
+    if (busy) return;
     if (!rows.some((r) => !r.is_read)) return;
     setBusy((prev) => (prev ? prev : true));
     setError((prev) => (prev === null ? prev : null));
@@ -263,13 +278,18 @@ export function MyNotificationsView() {
       }
       invalidateMeNotificationsListDedupedCache();
       broadcastNotificationsUpdated();
+      resyncBadgesAfterNotificationEventsRead("notification_opened");
       await load(true, true, false, 0);
     } catch {
       setError("network_error");
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
-  }
+  }, [broadcastNotificationsUpdated, busy, load, rows]);
+
+  useEffect(() => {
+    registerMarkAll?.(markAllRead);
+  }, [markAllRead, registerMarkAll]);
 
   const requestDeleteGroup = useCallback((item: InboxGroupItem) => {
     setPendingDelete(item);
@@ -298,6 +318,7 @@ export function MyNotificationsView() {
         setError((prev) => (prev === null ? prev : null));
         invalidateMeNotificationsListDedupedCache();
         broadcastNotificationsUpdated();
+        resyncBadgesAfterNotificationEventsRead("notification_opened");
       } catch {
         setError("network_error");
       } finally {
@@ -318,11 +339,26 @@ export function MyNotificationsView() {
   }, [pendingDelete, t]);
 
   const onActivate = (item: InboxGroupItem) => {
-    prewarmInboxNotificationChatHref(router, item.href);
-    void router.push(item.href);
-    if (item.unreadCount > 0) {
-      void markIdsRead(item.ids);
-    }
+    void (async () => {
+      prewarmInboxNotificationChatHref(router, item.href);
+      if (item.unreadCount > 0) {
+        const ok = await markIdsRead(item.ids);
+        if (!ok) return;
+      }
+      const primaryId = item.ids[0] ?? "";
+      const nType = String(item.notification_type ?? "");
+      const isAnnouncement =
+        nType === "admin_notice" || nType === "admin_announcement" || nType.includes("admin_notice");
+      if (variant === "notification_center" && isAnnouncement && primaryId && onOpenDetail) {
+        onOpenDetail(primaryId);
+        return;
+      }
+      try {
+        router.push(item.href);
+      } catch {
+        /* read state already committed */
+      }
+    })();
   };
 
   const onItemWarm = (item: InboxGroupItem) => {
@@ -383,7 +419,7 @@ export function MyNotificationsView() {
           </button>
         ))}
       </div>
-      {rows.length > 0 ? (
+      {variant !== "notification_center" && rows.length > 0 ? (
         <div className="flex justify-end">
           <button
             type="button"
@@ -442,7 +478,11 @@ export function MyNotificationsView() {
         }}
         onDelete={(item) => requestDeleteGroup(item)}
         deleteBusyKey={deleteBusyKey}
-        emptyLabel={t("common_notifications_empty")}
+        emptyLabel={
+          variant === "notification_center"
+            ? `${t("notif_center_empty_title")} ${t("notif_center_empty_body")}`
+            : t("common_notifications_empty")
+        }
       />
       {hasMore ? (
         <div className="flex justify-center pb-2">

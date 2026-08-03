@@ -12,6 +12,7 @@
  * - DO NOT use notification_targets as independent App Icon / Hub origin.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isRoomUuidFallbackIdentityKey } from "@/lib/notifications/badge-authority-rebuild/canonical-conversation-room-identity";
 
 export type TradeStoreOrderUnreadRoomFactsFromParticipants = Readonly<{
   tradeUnreadRoomIds: readonly string[];
@@ -25,6 +26,8 @@ export type TradeStoreOrderUnreadRoomFactsFromParticipants = Readonly<{
   storeOrderBuyerDeliveryUnread: number;
   storeOrderOwnerChatUnread: number;
   rowUnreadByRoomId: Readonly<Record<string, number>>;
+  /** Gate 3 Step 12 — proven domain keys only. */
+  domainIdentityKeyByRoomId: Readonly<Record<string, string>>;
 }>;
 
 const EMPTY: TradeStoreOrderUnreadRoomFactsFromParticipants = {
@@ -36,6 +39,7 @@ const EMPTY: TradeStoreOrderUnreadRoomFactsFromParticipants = {
   storeOrderBuyerDeliveryUnread: 0,
   storeOrderOwnerChatUnread: 0,
   rowUnreadByRoomId: {},
+  domainIdentityKeyByRoomId: {},
 };
 
 type PartRow = {
@@ -54,9 +58,11 @@ type RoomRow = {
 
 function parseOrderId(identityKey: unknown): string | null {
   const k = String(identityKey ?? "").trim();
-  if (!k.startsWith("store_order:")) return null;
+  // Gate 3 Step 12 — never treat store_order:room:{uuid} as order id.
+  if (!k.startsWith("store_order:") || k.startsWith("store_order:room:")) return null;
   const id = k.slice("store_order:".length).split(":")[0]?.trim() ?? "";
-  return id || null;
+  if (!id || id === "room") return null;
+  return id;
 }
 
 /**
@@ -87,6 +93,7 @@ export function partitionTradeStoreOrderUnreadRoomFactsFromParticipants(input: {
   const owner = new Set<string>();
   const ownerByStore: Record<string, number> = {};
   const rowUnread: Record<string, number> = {};
+  const domainIdentityKeyByRoomId: Record<string, string> = {};
 
   for (const p of input.parts) {
     const roomId = String(p.room_id ?? "").trim();
@@ -100,14 +107,18 @@ export function partitionTradeStoreOrderUnreadRoomFactsFromParticipants(input: {
     if (room.last_message !== undefined && !String(room.last_message ?? "").trim()) continue;
 
     const domain = String(room.chat_domain ?? "").trim();
+    const rawIdentity = String(room.domain_identity_key ?? "").trim();
+    const identity =
+      rawIdentity && !isRoomUuidFallbackIdentityKey(rawIdentity) ? rawIdentity : "";
     if (domain === "trade") {
       trade.add(roomId);
       rowUnread[roomId] = unread;
+      if (identity) domainIdentityKeyByRoomId[roomId] = identity;
       continue;
     }
     if (domain !== "store_order") continue;
 
-    const orderId = parseOrderId(room.domain_identity_key);
+    const orderId = parseOrderId(identity || room.domain_identity_key);
     if (!orderId) continue;
     const buyerId = String(input.orderBuyerById[orderId] ?? "").trim();
     const storeId = String(input.orderStoreById[orderId] ?? "").trim();
@@ -116,11 +127,13 @@ export function partitionTradeStoreOrderUnreadRoomFactsFromParticipants(input: {
     if (buyerId && buyerId === uid) {
       customer.add(roomId);
       rowUnread[roomId] = unread;
+      if (identity) domainIdentityKeyByRoomId[roomId] = identity;
       continue;
     }
     if (ownerId && ownerId === uid) {
       owner.add(roomId);
       rowUnread[roomId] = unread;
+      if (identity) domainIdentityKeyByRoomId[roomId] = identity;
       if (storeId) ownerByStore[storeId] = (ownerByStore[storeId] ?? 0) + 1;
     }
     // Inaccessible / wrong attribution → exclude
@@ -139,6 +152,7 @@ export function partitionTradeStoreOrderUnreadRoomFactsFromParticipants(input: {
     storeOrderBuyerDeliveryUnread: customer.size,
     storeOrderOwnerChatUnread: owner.size,
     rowUnreadByRoomId: rowUnread,
+    domainIdentityKeyByRoomId,
   };
 }
 

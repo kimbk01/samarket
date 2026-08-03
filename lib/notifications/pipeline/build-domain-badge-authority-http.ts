@@ -39,6 +39,17 @@ import {
   type UnifiedAppIconProjection,
 } from "@/lib/notifications/chat-notification-attention-projection";
 import { deriveMemberUnreadNotificationCount } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { resolveMemberNotificationAuthorityFromRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority";
+import {
+  projectSurfacesFromConversationAuthority,
+  resolveMemberConversationAuthority,
+  type MemberConversationAuthority,
+} from "@/lib/notifications/badge-authority-rebuild/member-conversation-b-authority";
+import {
+  resolveMemberAppIconAuthority,
+  type MemberAppIconAuthority,
+} from "@/lib/notifications/badge-authority-rebuild/member-app-icon-authority";
+import { conversationRoomsFromParticipantFactsNormalized } from "@/lib/notifications/badge-authority-rebuild/conversation-b-from-participant-facts";
 import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-explain-unread-events";
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
@@ -117,8 +128,16 @@ export type DomainBadgeAuthorityHttpPayload = {
   memberUnreadRoomCount: number;
   /** Slice 2-3 — unresolved missed for B_member. */
   memberUnresolvedMissedCallCount: number;
-  /** Slice 2-3 — A + B_member web/server total. */
+  /** Gate 3 Step 6 — A + Conversation B rooms (canonical; no orphan re-add). */
   memberAppIconWebTotal: number;
+  /**
+   * Gate 3 Step 5 — Conversation Authority B (rooms only).
+   * B = general+group+trade+customer order unread rooms.
+   */
+  memberConversationAuthority: MemberConversationAuthority;
+  memberConversationUnreadRooms: number;
+  /** Gate 3 Step 6 — full App Icon snapshot (components + versions). */
+  memberAppIconAuthority: MemberAppIconAuthority;
   chatMessage: number;
   groupMessage: number;
   tradeMessage: number;
@@ -195,7 +214,10 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   });
   const notificationAttentionTotal = unifiedAttention.notification.total;
   /** Slice 2-2 — Bell digit only (A_member). Slice 2-3 App Icon = A + B_member. */
-  const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(bellExplainRows);
+  const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(
+    bellExplainRows,
+    uid
+  );
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
     domainUnreadRooms,
@@ -214,6 +236,58 @@ export async function buildDomainBadgeAuthorityHttpPayload(
       ...messengerRooms.rowUnreadByRoomId,
       ...tradeStoreRooms.rowUnreadByRoomId,
     },
+  });
+
+  // Gate 3 Step 12 — no *:room:{uuid} invent. Incomplete → quarantine (excluded from B).
+  const conversationNormalized = conversationRoomsFromParticipantFactsNormalized({
+    memberId: uid,
+    generalDirect: messengerRooms.generalDirectUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
+      peerUserId: messengerRooms.peerUserIdByRoomId[roomId],
+    })),
+    group: messengerRooms.groupUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: messengerRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: messengerRooms.domainIdentityKeyByRoomId[roomId],
+      groupId: roomId,
+    })),
+    trade: tradeStoreRooms.tradeUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+      domainIdentityKey: tradeStoreRooms.domainIdentityKeyByRoomId[roomId],
+    })),
+    customerOrder: tradeStoreRooms.customerOrderUnreadRoomIds.map((roomId) => {
+      const key = tradeStoreRooms.domainIdentityKeyByRoomId[roomId];
+      const orderId =
+        key && key.startsWith("store_order:") && !key.startsWith("store_order:room:")
+          ? key.slice("store_order:".length).split(":")[0]?.trim()
+          : undefined;
+      return {
+        roomId,
+        unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+        domainIdentityKey: key,
+        orderId: orderId || undefined,
+      };
+    }),
+    ownerOrder: tradeStoreRooms.ownerOrderUnreadRoomIds.map((roomId) => ({
+      roomId,
+      unreadMessageCount: tradeStoreRooms.rowUnreadByRoomId[roomId] ?? 1,
+    })),
+  });
+  const memberConversationAuthority = resolveMemberConversationAuthority(
+    uid,
+    conversationNormalized.rooms
+  );
+  const conversationSurfaces = projectSurfacesFromConversationAuthority(
+    memberConversationAuthority
+  );
+  const notificationA = resolveMemberNotificationAuthorityFromRows(bellExplainRows, uid);
+  const memberAppIconAuthority = resolveMemberAppIconAuthority({
+    notificationA,
+    conversationB: memberConversationAuthority,
+    revision: projectionVersionMs,
   });
 
   const bell = projection.bell;
@@ -235,7 +309,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     userId: uid,
     authority: "domain_badge",
     bellTotal: projection.bellTotal,
-    appIconTotal: projection.appIconTotal,
+    appIconTotal: memberAppIconAuthority.appIconTotal,
     chatAttention: unifiedAttention.chat.total,
     notificationAttention: notificationAttentionTotal,
     bottomChat: projection.bottomChat,
@@ -253,6 +327,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     p2_trade_so_participant_select: 1,
     p2_orphan_select: 1,
     p3_bell_explain_select: 1,
+    identity_incomplete_count: conversationNormalized.identityIncompleteCount,
+    identity_quarantined: conversationNormalized.quarantined.length,
   });
 
   return {
@@ -261,8 +337,9 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     projectionVersionMs,
     projection: {
       bellTotal: projection.bellTotal,
-      appIconTotal: projection.appIconTotal,
-      bottomChatTotal: projection.bottomChat,
+      /** Gate 3 Step 6 — canonical A + B (not orphan re-add). */
+      appIconTotal: memberAppIconAuthority.appIconTotal,
+      bottomChatTotal: conversationSurfaces.bottomChat,
       domainUnread: { ...domainUnreadRooms },
       orphanMissedCallCount: missed.orphan,
       nonChatNotificationCount: projection.bellNonChatEventCount,
@@ -294,9 +371,12 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     /** Slice 2-3 — top-level orphan Fact for client Apply B_missed. */
     orphanMissedCallCount: missed.orphan,
     unresolvedMissedCallIds: missed.orphanCallIds,
-    memberUnreadRoomCount: projection.memberUnreadRoomCount,
+    memberUnreadRoomCount: memberConversationAuthority.totalUnreadRooms,
     memberUnresolvedMissedCallCount: projection.memberUnresolvedMissedCallCount,
-    memberAppIconWebTotal: projection.memberAppIconWebTotal,
+    memberAppIconWebTotal: memberAppIconAuthority.appIconTotal,
+    memberConversationAuthority,
+    memberConversationUnreadRooms: memberConversationAuthority.totalUnreadRooms,
+    memberAppIconAuthority,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
     /** Slice 2-2 — Header Bell digit = A_member only. */

@@ -191,6 +191,7 @@ describe("Slice 2-3 member communication B projection", () => {
     expect(agg.orphan).toBe(3);
     expect(agg.orphanCallIds).toEqual(["sess-1", "sess-2"]);
 
+    // Gate 3 Step 6 — orphan not re-added to App Icon when A=0 (orphan must be in A).
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 0, group: 0, trade: 0, store_order: 0 },
       orphanMissedCall: 3,
@@ -199,11 +200,11 @@ describe("Slice 2-3 member communication B projection", () => {
       memberUnreadNotificationCount: 0,
     });
     expect(p.memberUnresolvedMissedCallCount).toBe(2);
-    expect(p.appIconTotal).toBe(2);
+    expect(p.memberAppIconWebTotal).toBe(0);
+    expect(p.appIconTotal).toBe(0);
   });
 
-  it("call stub room + orphan missed uses room count + call_id once (no double room)", () => {
-    // Room already in unread set; orphan missed adds B_missed by call_id only.
+  it("call stub room + orphan missed: App Icon = A + rooms (orphan not double-added)", () => {
     const p = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 0, trade: 0, store_order: 0 },
       orphanMissedCall: 1,
@@ -214,10 +215,11 @@ describe("Slice 2-3 member communication B projection", () => {
     });
     expect(p.memberUnreadRoomCount).toBe(1);
     expect(p.memberUnresolvedMissedCallCount).toBe(1);
-    expect(p.appIconTotal).toBe(2);
+    expect(p.memberAppIconWebTotal).toBe(1);
+    expect(p.appIconTotal).toBe(1);
   });
 
-  it("A=2 rooms=3 missed=1 → Member Web total 6; B_store/C/owner_intake do not inflate B", () => {
+  it("A=2 rooms=3 missed=1 → Member Web total 5 (A+B rooms; orphan not re-added)", () => {
     const ok = buildMemberAppIconWebProjection({
       aMemberUnreadNotificationCount: 2,
       generalDirectUnreadRooms: 1,
@@ -227,7 +229,7 @@ describe("Slice 2-3 member communication B projection", () => {
       orphanMissedCallCount: 1,
     });
     expect(ok.ok).toBe(true);
-    if (ok.ok) expect(ok.projection.memberAppIconWebTotal).toBe(6);
+    if (ok.ok) expect(ok.projection.memberAppIconWebTotal).toBe(5);
 
     expect(
       buildMemberAppIconWebProjection({
@@ -261,7 +263,7 @@ describe("Slice 2-3 member communication B projection", () => {
       notificationAttentionTotal: 40,
       memberUnreadNotificationCount: 2,
     });
-    expect(builder.memberAppIconWebTotal).toBe(2 + 3 + 1);
+    expect(builder.memberAppIconWebTotal).toBe(2 + 3);
     expect(builder.bellTotal).toBe(2);
     expect(builder.storeOrderOwnerUnreadRooms).toBe(9);
   });
@@ -278,10 +280,12 @@ describe("Slice 2-3 member communication B projection", () => {
       memberUnreadNotificationCount: baseA,
     });
     expect(chat.bellTotal).toBe(baseA);
-    expect(chat.appIconTotal).toBe(baseA + 5 + 5 + 5 + 2 + 4);
+    // App Icon = A + B rooms (GD+Group+Trade+Customer); orphan not re-added; owner excluded
+    expect(chat.appIconTotal).toBe(baseA + 5 + 5 + 5 + 2);
+    expect(chat.memberAppIconWebTotal).toBe(baseA + 5 + 5 + 5 + 2);
   });
 
-  it("HTTP + Apply facts do not double-count same call_id", () => {
+  it("HTTP + Apply facts: unresolved missed diagnostic only; App Icon = A + rooms", () => {
     const input = projectionInputFromBadgeCountAuthorityJson({
       domainUnreadRooms: {
         general_direct: 0,
@@ -300,7 +304,8 @@ describe("Slice 2-3 member communication B projection", () => {
     expect(input).not.toBeNull();
     const p = buildNotificationBadgeProjection(input!);
     expect(p.memberUnresolvedMissedCallCount).toBe(2);
-    expect(p.appIconTotal).toBe(2);
+    expect(p.memberAppIconWebTotal).toBe(0);
+    expect(p.appIconTotal).toBe(0);
   });
 
   it("Bottom helper = GD + Group only", () => {

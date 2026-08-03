@@ -40,11 +40,20 @@ describe("Slice 2-2 member notification A projection", () => {
         },
       }),
       row({ id: "b1", type: "chat_message", category: "chat", room_id: "r1" }),
-      row({ id: "m1", type: "missed_call", category: "missed_call", dedupe_key: "missed:1" }),
+      // room-bound missed → B only (not A)
+      row({
+        id: "m1",
+        type: "missed_call",
+        category: "missed_call",
+        room_id: "room-miss",
+        dedupe_key: "missed:1",
+      }),
       row({ id: "mk", type: "admin_marketing_banner", category: "admin_marketing_banner" }),
     ];
     const proj = buildMemberNotificationAProjection(rows);
     expect(proj.memberUnreadNotificationCount).toBe(3);
+    expect(proj.eventIds).toHaveLength(3);
+    expect(proj.memberUnreadNotificationCount).toBe(proj.eventIds.length);
     expect(isMemberNotificationAUnread(rows[3]!)).toBe(false);
     expect(isMemberNotificationAUnread(rows[4]!)).toBe(false);
     expect(deriveMemberUnreadNotificationCount(rows)).toBe(3);
@@ -70,7 +79,7 @@ describe("Slice 2-2 member notification A projection", () => {
       memberUnreadNotificationCount: 2,
     });
     expect(p.bellTotal).toBe(2);
-    // missedCall wire = A(2) + B_missed(0); rooms on messenger axis
+    // Gate 3 Step 6 — notification axis = A only; rooms on messenger; no orphan re-add
     expect(p.appIcon.missedCall).toBe(2);
     expect(p.appIconTotal).toBe(1 + 2);
     expect(p.memberAppIconWebTotal).toBe(3);

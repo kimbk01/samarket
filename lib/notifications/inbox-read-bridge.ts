@@ -370,21 +370,52 @@ export async function patchInboxNotificationIdsRead(
     await clearNotificationTargetsForInboxRows(sb, userId, [row]);
   }
 
-  if (legacyIds.length > 0) {
-    const { error } = await legacyNotificationsSelect(sb)
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", legacyIds);
-    if (error) return { ok: false, error: error.message };
-    updated += legacyIds.length;
-    const legacyRows = rows.filter((r) => legacyIds.includes(r.id));
-    await clearNotificationTargetsForInboxRows(sb, userId, legacyRows);
-  }
+  // Gate 3 Step 10 — Canonical-only write. Legacy `notifications` update FORBIDDEN.
+  // Temporary adapter is read-only; backfill before mutating historical rows.
+  void legacyIds;
 
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
 
   return { ok: true, updated };
+}
+
+/**
+ * Gate 3 Step 8 — dismiss Notification Center events (soft deleted_at / inbox_dismissed_at).
+ * Never deletes source trade/order/announcement rows.
+ * Targets only Member A list-eligible events for current user.
+ */
+export async function dismissMemberNotificationCenterEvents(
+  sb: SupabaseClient,
+  userId: string,
+  mode: "all" | "read_only"
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const uid = userId.trim();
+  if (!uid) return { ok: false, error: "unauthorized" };
+
+  const { isMemberNotificationAListItem } = await import(
+    "@/lib/notifications/badge-authority-rebuild/member-notification-a-eligibility"
+  );
+
+  const { data, error } = await sb
+    .from("notification_events")
+    .select("id, type, category, unread, read_at, room_id, dedupe_key, display_payload, muted_snapshot")
+    .eq("user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) return { ok: false, error: error.message };
+
+  const ids: string[] = [];
+  for (const row of data ?? []) {
+    if (!isMemberNotificationAListItem(row)) continue;
+    const unread =
+      row.unread !== false && !(row.read_at != null && String(row.read_at).trim() !== "");
+    if (mode === "read_only" && unread) continue;
+    const id = String(row.id ?? "").trim();
+    if (id) ids.push(id);
+  }
+  if (ids.length === 0) return { ok: true, deleted: 0 };
+  return patchInboxNotificationIdsDelete(sb, uid, ids);
 }
 
 export async function patchInboxNotificationIdsDelete(
@@ -410,15 +441,8 @@ export async function patchInboxNotificationIdsDelete(
     if (ok) deleted += 1;
   }
 
-  if (legacyIds.length > 0) {
-    const { data: deletedRows, error } = await legacyNotificationsSelect(sb)
-      .delete()
-      .eq("user_id", userId)
-      .in("id", legacyIds)
-      .select("id");
-    if (error) return { ok: false, error: error.message };
-    deleted += deletedRows?.length ?? 0;
-  }
+  // Gate 3 Step 10 — Canonical-only soft dismiss. Legacy table hard-delete FORBIDDEN.
+  void legacyIds;
 
   invalidateNotificationUnreadCountCache(userId);
   invalidateNotificationBadgeCache(userId);
@@ -452,20 +476,9 @@ export async function markChatNotificationEventsRead(sb: SupabaseClient, userId:
   return total;
 }
 
-const CHAT_EVENT_CATEGORIES = new Set(["chat_message", "group_message", "chat", "group"]);
-const CHAT_EVENT_TYPES = new Set([
-  "chat_message",
-  "group_message",
-  "mention_message",
-  "pin_message",
-  "trade_message",
-  "store_order_message",
-]);
-
 /**
- * Slice 2-2 — Member Bell mark-all across both A stores.
- * Legacy `notifications` and `notification_events` run independently.
- * legacyUpdated === 0 must NOT skip event mark-all.
+ * Gate 3 Step 4 — Member Bell mark-all (canonical A only).
+ * legacyUpdated is always 0 (Gate 2 dual-write end).
  */
 export type MemberAMarkAllResult = Readonly<{
   legacyUpdated: number;
@@ -483,163 +496,78 @@ export function aggregateMemberAMarkAllUpdated(
   return { legacyUpdated: legacy, eventUpdated: event, updated: legacy + event };
 }
 
-type LegacyMarkScanRow = {
-  id?: unknown;
-  meta?: unknown;
-  notification_type?: string;
-  push_kind?: unknown;
-};
-
 /**
- * Mark-all for Header / My Bell (A_member only).
- * Always attempts notification_events A mark even when legacy unread is empty.
+ * Gate 3 Step 4 — Mark-all for Header / My Bell (canonical A only).
+ * Dual-write to legacy `notifications` is FORBIDDEN.
+ * Mutates exactly canonical A event ids from resolveMemberNotificationAuthoritySet.
  */
 export async function markMemberANotificationsAllRead(
   sb: SupabaseClient,
   userId: string,
   opts?: {
-    /** Test seam — defaults to markNonChatNonOwnerNotificationEventsRead. */
+    /** Test seam — defaults to markCanonicalMemberANotificationEventsRead. */
     markEvents?: (sb: SupabaseClient, userId: string) => Promise<number>;
   }
 ): Promise<MemberAMarkAllResult | { ok: false; error: string }> {
   const uid = userId.trim();
-  let legacyUpdated = 0;
-
-  const markWithPk = await sb
-    .from("notifications")
-    .select("id, meta, notification_type, push_kind")
-    .eq("user_id", uid)
-    .eq("is_read", false)
-    .limit(500);
-  let data = markWithPk.data as LegacyMarkScanRow[] | null;
-  let error = markWithPk.error;
-  if (error && /push_kind|column|schema cache/i.test(String(error.message ?? ""))) {
-    const markFallback = await sb
-      .from("notifications")
-      .select("id, meta, notification_type")
-      .eq("user_id", uid)
-      .eq("is_read", false)
-      .limit(500);
-    data = markFallback.data as LegacyMarkScanRow[] | null;
-    error = markFallback.error;
-  }
-
-  if (error) {
-    // Missing meta column — skip legacy store but still mark notification_events A.
-    const metaMissing =
-      error.message?.includes("meta") && error.message.includes("does not exist");
-    if (!metaMissing) {
-      return { ok: false, error: error.message };
-    }
-  } else {
-    const { isOwnerStoreCommerceNotificationRow } = await import(
-      "@/lib/notifications/owner-store-commerce-notification-meta"
-    );
-    const { isInAppChatMessageNotificationRow } = await import(
-      "@/lib/notifications/inapp-chat-message-notification"
-    );
-    const ids = (data ?? [])
-      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isInAppChatMessageNotificationRow(r))
-      .map((r) => String(r.id ?? "").trim())
-      .filter(Boolean);
-
-    if (ids.length > 0) {
-      const { error: uErr } = await sb
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", uid)
-        .in("id", ids);
-      if (uErr) return { ok: false, error: uErr.message };
-      legacyUpdated = ids.length;
-    }
-  }
-
-  // Independent of legacyUpdated — always run A event mark-all.
-  const markEvents = opts?.markEvents ?? markNonChatNonOwnerNotificationEventsRead;
+  const markEvents = opts?.markEvents ?? markCanonicalMemberANotificationEventsRead;
   const eventUpdated = await markEvents(sb, uid);
   invalidateNotificationUnreadCountCache(uid);
   invalidateNotificationBadgeCache(uid);
-  return aggregateMemberAMarkAllUpdated(legacyUpdated, eventUpdated);
+  return aggregateMemberAMarkAllUpdated(0, eventUpdated);
 }
 
-export async function markNonChatNonOwnerNotificationEventsRead(
+/**
+ * Gate 3 Step 4 — mark exactly canonical A event ids (no legacy, no category blast).
+ */
+export async function markCanonicalMemberANotificationEventsRead(
   sb: SupabaseClient,
   userId: string
 ): Promise<number> {
-  const { data, error } = await sb
-    .from("notification_events")
-    .select("id, category, type, display_payload, room_id")
-    .eq("user_id", userId.trim())
-    .eq("unread", true)
-    .is("read_at", null)
-    .limit(500);
-  if (error || !data?.length) return 0;
-
-  const { mapNotificationEventToInboxRow } = await import("@/lib/notifications/inbox-events-merge");
-  const { isOwnerStoreCommerceNotificationRow } = await import(
-    "@/lib/notifications/owner-store-commerce-notification-meta"
+  const { loadBellExplainUnreadEventRows } = await import(
+    "@/lib/notifications/load-bell-explain-unread-events"
   );
-  const { isInAppChatMessageNotificationRow } = await import(
-    "@/lib/notifications/inapp-chat-message-notification"
+  const { resolveMemberNotificationAuthorityFromRows } = await import(
+    "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority"
+  );
+  const { mapNotificationEventToInboxRow } = await import(
+    "@/lib/notifications/inbox-events-merge"
   );
 
-  const { isMemberNotificationAUnread } = await import(
-    "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection"
-  );
-
-  const rowsToMark = data.filter((row) => {
-    const category = String(row.category ?? "");
-    const type = String(row.type ?? "");
-    if (CHAT_EVENT_CATEGORIES.has(category) || CHAT_EVENT_TYPES.has(type)) return false;
-    if (type === "missed_call" || category === "missed_call") return false;
-    if (type === "admin_marketing_banner" || category === "admin_marketing_banner") return false;
-    const mapped = mapNotificationEventToInboxRow(
-      row as Parameters<typeof mapNotificationEventToInboxRow>[0]
-    );
-    if (isInAppChatMessageNotificationRow(mapped)) return false;
-    if (isOwnerStoreCommerceNotificationRow(mapped)) return false;
-    // Slice 2-2 — mark-all only A_member (unknown / B / C stay unread).
-    return isMemberNotificationAUnread({
-      id: row.id,
-      type,
-      category,
-      unread: true,
-      read_at: null,
-      room_id: (row as { room_id?: string | null }).room_id,
-      display_payload: row.display_payload,
-    });
-  });
-
-  const idsToMark = rowsToMark
-    .map((row) => String(row.id ?? "").trim())
-    .filter(Boolean);
-
-  if (idsToMark.length === 0) {
-    const adminOnly = await markNotificationEventsReadByCategory(sb, userId, "admin_notice");
-    if (adminOnly > 0) invalidateNotificationBadgeCache(userId);
-    return adminOnly;
-  }
+  const uid = userId.trim();
+  const rows = await loadBellExplainUnreadEventRows(sb, uid);
+  const authority = resolveMemberNotificationAuthorityFromRows(rows, uid);
+  const idsToMark = [...authority.eventIds];
+  if (idsToMark.length === 0) return 0;
 
   const now = new Date().toISOString();
   const { data: updated, error: uErr } = await sb
     .from("notification_events")
     .update({ unread: false, read_at: now, opened_at: now })
-    .eq("user_id", userId.trim())
+    .eq("user_id", uid)
     .in("id", idsToMark)
     .select("id");
   if (uErr) return 0;
-  let count = updated?.length ?? 0;
+  const count = updated?.length ?? 0;
 
-  const mappedRows = rowsToMark.map((row) =>
-    mapNotificationEventToInboxRow(row as Parameters<typeof mapNotificationEventToInboxRow>[0])
-  );
-  await clearNotificationTargetsForInboxRows(sb, userId, mappedRows);
+  const idSet = new Set(idsToMark);
+  const mappedRows = rows
+    .filter((row) => idSet.has(String(row.id ?? "").trim()))
+    .map((row) =>
+      mapNotificationEventToInboxRow(row as Parameters<typeof mapNotificationEventToInboxRow>[0])
+    );
+  await clearNotificationTargetsForInboxRows(sb, uid, mappedRows);
 
-  const adminNoticeMarked = await markNotificationEventsReadByCategory(sb, userId, "admin_notice");
-  if (adminNoticeMarked > 0) count += adminNoticeMarked;
-
-  if (count > 0) invalidateNotificationBadgeCache(userId);
+  if (count > 0) invalidateNotificationBadgeCache(uid);
   return count;
+}
+
+/** @deprecated Use markCanonicalMemberANotificationEventsRead — alias for callers. */
+export async function markNonChatNonOwnerNotificationEventsRead(
+  sb: SupabaseClient,
+  userId: string
+): Promise<number> {
+  return markCanonicalMemberANotificationEventsRead(sb, userId);
 }
 
 export async function markOwnerStoreCommerceNotificationEventsRead(
@@ -650,6 +578,75 @@ export async function markOwnerStoreCommerceNotificationEventsRead(
   let total = 0;
   for (const orderId of orderIds) {
     total += await markOrderNotificationEventsRead(sb, userId, orderId);
+  }
+  return total;
+}
+
+/**
+ * Gate 3 Step 10 — Owner commerce mark-all on notification_events only (no legacy table).
+ */
+export async function markAllOwnerStoreCommerceNotificationEventsRead(
+  sb: SupabaseClient,
+  userId: string
+): Promise<number> {
+  const { isOwnerStoreCommerceNotificationRow } = await import(
+    "@/lib/notifications/owner-store-commerce-notification-meta"
+  );
+  const { mapNotificationEventToInboxRow } = await import(
+    "@/lib/notifications/inbox-events-merge"
+  );
+
+  const uid = userId.trim();
+  if (!uid) return 0;
+
+  const { data, error } = await sb
+    .from("notification_events")
+    .select(
+      "id, type, category, title, body, display_payload, unread, read_at, created_at, dedupe_key, room_id"
+    )
+    .eq("user_id", uid)
+    .eq("unread", true)
+    .is("read_at", null)
+    .limit(500);
+  if (error || !data?.length) return 0;
+
+  const orderIds = new Set<string>();
+  const mappedRows: InboxNotificationRow[] = [];
+  for (const row of data) {
+    const mapped = mapNotificationEventToInboxRow(
+      row as NotificationEventInboxSource
+    );
+    if (!isOwnerStoreCommerceNotificationRow(mapped)) continue;
+    mappedRows.push(mapped);
+    const meta = mapped.meta;
+    const oid =
+      meta && typeof meta === "object"
+        ? String((meta as Record<string, unknown>).order_id ?? mapped.ref_id ?? "").trim()
+        : "";
+    if (oid) orderIds.add(oid);
+  }
+
+  let total = 0;
+  if (orderIds.size > 0) {
+    total = await markOwnerStoreCommerceNotificationEventsRead(sb, uid, [...orderIds]);
+  } else if (mappedRows.length > 0) {
+    const now = new Date().toISOString();
+    const ids = mappedRows.map((r) => r.id).filter(Boolean);
+    const { data: updated } = await sb
+      .from("notification_events")
+      .update({ unread: false, read_at: now, opened_at: now })
+      .eq("user_id", uid)
+      .in("id", ids)
+      .select("id");
+    total = updated?.length ?? 0;
+  }
+
+  if (mappedRows.length > 0) {
+    await clearNotificationTargetsForInboxRows(sb, uid, mappedRows);
+  }
+  if (total > 0) {
+    invalidateNotificationUnreadCountCache(uid);
+    invalidateNotificationBadgeCache(uid);
   }
   return total;
 }

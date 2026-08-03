@@ -1,17 +1,17 @@
 /**
- * Slice 2-6 — Native / FCM Member App Icon authority (pure).
+ * Slice 2-6 / Gate 3 Step 6 — Native / FCM Member App Icon authority (pure).
  *
  * Native and FCM must NOT compute badge.
- * They echo MemberAppIconTotal from Web Authority as an absolute value.
+ * They echo Member App Icon Authority `appIconTotal` as an absolute value.
  *
- * MemberAppIconTotal = A_member + B_member
- *   (Bell unread + member unread rooms + unresolved missed)
+ * MemberAppIconTotal = Canonical A + Canonical Conversation B rooms
+ *   (orphan missed ∈ A only — never re-added)
  *
  * FORBIDDEN on Native / FCM wire:
- *   B_store, C_store, Bell-only invent, local +1/-1, increment/decrement
+ *   B_store, C_store, Bell-only invent, local +1/-1, increment/decrement,
+ *   Cap prefs arithmetic, resume invent, A/B recompute
  *
  * DO NOT import Android/iOS/Capacitor runtime here.
- * DO NOT reopen A_member / B_member / B_store / C_store formulas.
  */
 
 export const NATIVE_FCM_MEMBER_APP_ICON_AUTHORITY =
@@ -30,20 +30,26 @@ export const NATIVE_FCM_BADGE_WIRE_FIELDS = [
 ] as const;
 
 export type MemberAppIconNativeFcmSource = {
-  /** Canonical Slice 2-3 Member web total (preferred). */
+  /** Gate 3 Step 6 snapshot total (highest preference). */
+  memberAppIconAuthority?: { appIconTotal?: number | null } | null;
+  /** Canonical Member web total. */
   memberAppIconWebTotal?: number | null;
-  /** Runtime surface / projection alias (must match member when A-path live). */
+  /** Runtime surface / projection alias. */
   appIconTotal?: number | null;
 };
 
 /**
  * Resolve absolute Member App Icon total for Native / FCM.
- * Prefers memberAppIconWebTotal; falls back to appIconTotal when equal-shaped.
- * Never invents from Bell / B_store / C_store.
+ * Prefers memberAppIconAuthority.appIconTotal → memberAppIconWebTotal → appIconTotal.
+ * Never invents from Bell / B_store / C_store / Cap prefs.
  */
 export function resolveMemberAppIconTotalForNativeFcm(
   source: MemberAppIconNativeFcmSource | null | undefined
 ): number {
+  const fromSnap = source?.memberAppIconAuthority?.appIconTotal;
+  if (fromSnap != null && Number.isFinite(Number(fromSnap))) {
+    return floorNonNeg(fromSnap);
+  }
   const web = floorNonNeg(source?.memberAppIconWebTotal);
   const app = floorNonNeg(source?.appIconTotal);
   if (source?.memberAppIconWebTotal != null && Number.isFinite(Number(source.memberAppIconWebTotal))) {

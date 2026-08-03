@@ -11,9 +11,10 @@
  *   bellTotal = A_member (memberUnreadNotificationCount)
  *   Fallback (legacy callers): NotificationAttentionTotal
  *
- * Member App Icon (web/server) — Slice 2-3:
- *   A_member + B_member rooms (GD+Group+Trade+Customer) + unresolved missed
- *   Owner store_order rooms are NEVER in Member App Icon (B_store → Slice 2-4)
+ * Member App Icon (web/server) — Gate 3 Step 6:
+ *   A_member + Conversation B rooms (GD+Group+Trade+Customer)
+ *   Orphan missed ∈ A only (never re-added as B_missed)
+ *   Owner store_order rooms are NEVER in Member App Icon (C / B_store → Step 7)
  *
  * Bottom Chat — general_direct + group unread rooms only.
  */
@@ -281,18 +282,17 @@ export function buildNotificationBadgeProjection(
       ? nonNeg(input.notificationAttentionTotal)
       : orphan;
   /**
-   * Slice 2-3 Member App Icon notification wire:
-   *   when A provided → A_member + B_missed (rooms already on messenger/trade/store axes)
-   *   else legacy → notificationAttentionTotal (Phase B)
+   * Gate 3 Step 6 Member App Icon notification wire:
+   *   when A provided → A_member only (orphan already inside A; rooms on B axes)
+   *   else legacy → notificationAttentionTotal (Phase B diagnostics)
+   * DO NOT add memberUnresolvedMissedCallCount again (double-count ban).
    */
   const aMember =
     input.memberUnreadNotificationCount != null
       ? nonNeg(input.memberUnreadNotificationCount)
       : null;
   const appIconNotificationAxis =
-    aMember != null
-      ? aMember + memberB.memberUnresolvedMissedCallCount
-      : notificationAttentionTotal;
+    aMember != null ? aMember : notificationAttentionTotal;
   const appIcon = resolveDomainAppIconBadgeParts({
     communityMessengerUnread: shell.communityMessengerUnread,
     tradeUnread: shell.tradeUnread,
@@ -300,8 +300,11 @@ export function buildNotificationBadgeProjection(
     notificationAttention: appIconNotificationAxis,
   });
   const appIconTotal = resolveDomainAppIconBadgeCount(appIcon);
+  /** Canonical Member App Icon = A + B_rooms (not rooms+orphan). */
   const memberAppIconWebTotal =
-    aMember != null ? aMember + memberB.bMemberTotal : appIconTotal;
+    aMember != null
+      ? aMember + memberB.memberUnreadRoomCount
+      : appIconTotal;
 
   /** Diagnostic only — NOT product Bell digit. Includes owner rooms. */
   const storeOrderCombinedForDiag =

@@ -5,7 +5,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
@@ -35,16 +34,15 @@ public final class DibayAppIconDeliveryAdapter {
   private DibayAppIconDeliveryAdapter() {}
 
   /**
-   * Echo Capawesome badge SharedPreferences into Delivery Adapter.
-   * Lets launcher delivery work before remote Web JS ships the plugin call.
+   * Gate 3 Step 11 — Cap prefs are NOT App Icon authority.
+   * Versionless {@code capacitor.badge} must never final-publish on resume/cold/warm.
+   * Final paint: Web Domain snapshot → syncNativeBadgeCount → {@link #apply}.
+   * Returns {@code false} (rejected); leaves existing launcher badge unchanged.
    */
-  public static void applyFromCapBadgeCache(Context context) {
-    if (context == null) return;
-    Context app = context.getApplicationContext();
-    // Capawesome Badge.java: SharedPreferences name + key = "capacitor.badge"
-    SharedPreferences prefs = app.getSharedPreferences("capacitor.badge", Context.MODE_PRIVATE);
-    int cached = prefs.getInt("capacitor.badge", 0);
-    apply(app, cached);
+  public static boolean applyFromCapBadgeCache(Context context) {
+    if (context == null) return false;
+    Log.i(TAG, "cap_cache_paint_rejected reason=VERSION_REQUIRED_OR_RESUME_FORBIDDEN");
+    return false;
   }
 
   /** Apply absolute appIconTotal to Android launcher delivery (summary carrier only). */

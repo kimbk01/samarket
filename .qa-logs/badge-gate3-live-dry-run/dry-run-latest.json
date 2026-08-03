@@ -1,0 +1,50 @@
+{
+  "authority": "gate3_live_production_cutover_dry_run_v1",
+  "startedAt": "2026-08-03T00:21:37.938Z",
+  "finishedAt": "2026-08-03T00:21:42.727Z",
+  "apply": false,
+  "supabaseHost": "ckdosyydvgzqwpbwuhon.supabase.co",
+  "counts": {
+    "legacyTotalRows": 6580,
+    "aBackfillEligible": 789,
+    "bExcludedChat": 2660,
+    "cExcludedOwner": 3059,
+    "pushOnlyExcluded": 0,
+    "deletedExcluded": 0,
+    "readRowsPreserved": 2622,
+    "alreadyCanonicalDuplicate": 7,
+    "unknownClassification": 0,
+    "identityContamination": 0,
+    "quarantinedExcluded": 65,
+    "quarantineReasons": {
+      "quarantined_status_empty": 64,
+      "quarantined_report_unresolved": 1
+    },
+    "proposedInserts": 789,
+    "aBackfillEligibleDeltaNote": "includes former unknowns reclassified to A when identity proven",
+    "secondRunInserts": 0,
+    "unresolvedDuplicate": 0,
+    "unsafeBackfillRow": 0,
+    "contentIdentityCollisions": 7,
+    "roomQuarantineMissingKey": 0,
+    "roomQuarantineUuidFallback": 0,
+    "roomUnreadDistinct": 442
+  },
+  "gates": {
+    "unknown": 0,
+    "identityContamination": 0,
+    "unresolvedDuplicate": 0,
+    "unsafeBackfillRow": 0,
+    "secondRunInserts": 0
+  },
+  "libraryCutoverReady": true,
+  "liveCutoverReady": true,
+  "verdict": "LIVE PRODUCTION CUTOVER READY",
+  "lists": {
+    "unknown": [],
+    "identityContamination": [],
+    "unresolvedDuplicates": [],
+    "unsafeBackfillRows": [],
+    "roomQuarantineSample": []
+  }
+}

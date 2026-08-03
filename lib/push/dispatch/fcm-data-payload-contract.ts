@@ -1,4 +1,5 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
+import { applyPushTransportEnvelope } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
 
 export type FcmPushType =
@@ -410,6 +411,24 @@ export function buildFcmDataFields(
     fields.ringtoneUrl = ringtoneUrl;
     fields.ringtone_url = ringtoneUrl;
   }
+
+  // Gate 3 Step 9 — transport envelope (A/B/C identity). badgeCount stays absolute echo.
+  const metaKind = meta ? trimText(meta.kind) : "";
+  applyPushTransportEnvelope(fields, {
+    type,
+    eventType: type,
+    eventId: eventId || null,
+    notificationId: resolveNotificationId(out, tag),
+    path: typeof fields.url === "string" ? fields.url : url,
+    userId: out.user_id,
+    storeId: meta ? trimText(meta.store_id ?? meta.storeId) : "",
+    roomId: meta ? trimText(meta.room_id ?? meta.roomId) : "",
+    metaKind,
+    chatDomain: meta ? trimText(meta.chat_domain ?? meta.chatDomain) : "",
+    dedupeKey: eventId || null,
+    pushOnlyPromotion:
+      out.notification_type === "marketing" || metaKind === "admin_marketing_banner",
+  });
 
   return fields;
 }

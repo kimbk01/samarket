@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import {
   getCachedNotificationUnreadCount,
   getCachedNotificationUnreadCountBySurface,
@@ -9,7 +8,6 @@ import {
   isBadgeSurfaceQueryParam,
   type UnreadCountMode,
 } from "@/lib/notifications/notification-unread-count-cache";
-import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
 import {
   countNotificationTargetsSurfaceServer,
   countNotificationUnreadSegmentedServer,
@@ -35,8 +33,9 @@ import {
   clearChatInboxTargetsAfterMarkAll,
   markAllNotificationEventsRead,
   markChatNotificationEventsRead,
+  dismissMemberNotificationCenterEvents,
+  markAllOwnerStoreCommerceNotificationEventsRead,
   markMemberANotificationsAllRead,
-  markOwnerStoreCommerceNotificationEventsRead,
   patchInboxNotificationIdsDelete,
   patchInboxNotificationIdsRead,
 } from "@/lib/notifications/inbox-read-bridge";
@@ -71,14 +70,16 @@ const INBOX_PUSH_KIND_PARAMS = new Set([
 ]);
 
 /**
- * GET ?unread_count_only=1 → { unread_count }
+ * GET ?unread_count_only=1 → { unread_count } via segmented RPC only (Step 13: no legacy notifications COUNT)
  * GET ?unread_count_only=1&exclude_owner_store_commerce=1 → 소비자·일반 알림만 (매장 오너 전용 매장주문 알림 제외)
  * GET …&exclude_buyer_store_commerce=1 (위와 함께) → 하단 네비용: 구매자 매장주문(배송 단계 등) 미읽음 제외
- * GET ?unread_count_only=1&owner_store_commerce_unread_only=1 → 매장 오너용 매장주문 알림만
+ * GET ?unread_count_only=1&owner_store_commerce_unread_only=1 → 매장 오너용 매장주문 알림만 (snapshot)
  * GET (기본) → 최근 알림 목록 (exclude_owner_store_commerce=1 지원)
  * GET …&limit=40&offset=0&push_kind=trade → 페이지네이션·종류 필터 (push_kind 컬럼 필요; 채팅은 push_kind 또는 notification_type)
- * GET ?unread_count_only=1&badge_surface=bottom_nav_delivery → notification_targets surface count (no legacy fallback)
+ * GET ?unread_count_only=1&badge_surface=bottom_nav_delivery → notification_targets surface count
  * GET ?owner_store_id=UUID → 해당 매장의 오너 매장주문(commerce·meta.kind) 알림만 (최대 200건)
+ *
+ * Product Badge Authority digits: prefer `/api/me/notifications/badge-count` (A+B) — not this segmented path.
  */
 export async function GET(req: NextRequest) {
   const wall0 = perfNowMs();
@@ -448,6 +449,10 @@ export async function GET(req: NextRequest) {
 type PatchBody = {
   /** 해당 id들만 삭제 (본인 알림만, 최대 200건) */
   delete_ids?: string[];
+  /** Gate 3 Step 8 — soft-dismiss all Member A Notification Center events */
+  delete_all_member_a?: boolean;
+  /** Gate 3 Step 8 — soft-dismiss read-only Member A events */
+  delete_read_member_a?: boolean;
   mark_all_read?: boolean;
   /** /my/notifications 목록에 맞춰, 매장 오너 전용 매장주문 알림은 읽음 처리하지 않음 */
   mark_my_notifications_read_excluding_owner_commerce?: boolean;
@@ -481,6 +486,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
+  if (body.delete_all_member_a === true || body.delete_read_member_a === true) {
+    const mode = body.delete_all_member_a === true ? "all" : "read_only";
+    const deleteResult = await dismissMemberNotificationCenterEvents(sb, userId, mode);
+    if (!deleteResult.ok) {
+      return NextResponse.json({ ok: false, error: deleteResult.error }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, deleted: deleteResult.deleted, mode });
+  }
+
   const rawDelete =
     Array.isArray(body.delete_ids) ? body.delete_ids.map((x) => String(x).trim()).filter(Boolean) : [];
   const deleteIds = [...new Set(rawDelete)].slice(0, DELETE_IDS_CAP);
@@ -493,204 +507,45 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.mark_all_read === true) {
-    await markAllNotificationEventsRead(sb, userId);
-    const { error } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .eq("is_read", false);
-
-    if (error) {
-      if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-        return NextResponse.json({ ok: true, updated: 0 });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
+    // Gate 3 Step 10 — Canonical-only (no legacy `notifications` write).
+    const updated = await markAllNotificationEventsRead(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({ ok: true, updated: "all" });
+    return NextResponse.json({ ok: true, updated, legacyUpdated: 0 });
   }
 
   if (body.mark_all_owner_store_commerce_read === true) {
-    const { data, error } = await sb
-      .from("notifications")
-      .select("id, meta, ref_id")
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .limit(500);
-    if (error) {
-      if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-        return NextResponse.json({ ok: true, updated: 0 });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    const ids = (data ?? [])
-      .filter((r) => isOwnerStoreCommerceNotificationRow(r))
-      .map((r) => r.id as string)
-      .filter(Boolean);
-    const storeIds = [
-      ...new Set(
-        (data ?? [])
-          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
-          .map((r) => {
-            const meta = r.meta;
-            if (!meta || typeof meta !== "object") return "";
-            return String((meta as Record<string, unknown>).store_id ?? "").trim();
-          })
-          .filter(Boolean)
-      ),
-    ];
-    if (ids.length === 0) {
-      return NextResponse.json({ ok: true, updated: 0 });
-    }
-    const { error: uErr } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", ids);
-    if (uErr) {
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-    }
-    const orderIds = [
-      ...new Set(
-        (data ?? [])
-          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
-          .map((r) => {
-            const meta = r.meta;
-            if (!meta || typeof meta !== "object") return "";
-            return String((meta as Record<string, unknown>).order_id ?? r.ref_id ?? "").trim();
-          })
-          .filter(Boolean)
-      ),
-    ];
-    try {
-      const { clearNotificationTarget } = await import("@/lib/notifications/notification-targets");
-      for (const orderId of orderIds) {
-        const storeIdForOrder = (data ?? [])
-          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
-          .map((r) => {
-            const meta = r.meta;
-            if (!meta || typeof meta !== "object") return "";
-            const oid = String((meta as Record<string, unknown>).order_id ?? r.ref_id ?? "").trim();
-            if (oid !== orderId) return "";
-            return String((meta as Record<string, unknown>).store_id ?? "").trim();
-          })
-          .find(Boolean);
-        await clearNotificationTarget(sb, {
-          userId,
-          targetType: "owner_order",
-          targetId: orderId,
-          storeId: storeIdForOrder || null,
-        });
-      }
-    } catch {
-      /* badge target clear best-effort */
-    }
-    await markOwnerStoreCommerceNotificationEventsRead(sb, userId, orderIds);
-    invalidateNotificationUnreadCountCache(userId);
-    invalidateNotificationBadgeCache(userId);
-    for (const storeId of storeIds) {
-      invalidateNotificationUnreadCountCache(userId, storeId);
-    }
-    return NextResponse.json({ ok: true, updated: ids.length });
+    // Gate 3 Step 10 — Owner C via notification_events only (no legacy dual-write).
+    const updated = await markAllOwnerStoreCommerceNotificationEventsRead(sb, userId);
+    return NextResponse.json({ ok: true, updated, legacyUpdated: 0 });
   }
 
   if (body.mark_my_notifications_read_excluding_owner_commerce === true) {
-    const { data, error } = await sb
-      .from("notifications")
-      .select("id, meta")
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .limit(500);
-    if (error) {
-      if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-        const { error: uErr } = await sb
-          .from("notifications")
-          .update({ is_read: true })
-          .eq("user_id", userId)
-          .eq("is_read", false);
-        if (uErr) {
-          return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-        }
-        invalidateNotificationUnreadCountCache(userId);
-        return NextResponse.json({ ok: true, updated: "all_meta_missing_assumed_consumer" });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    // Gate 3 Step 10 — Alias to Member A mark-all (canonical only).
+    const result = await markMemberANotificationsAllRead(sb, userId);
+    if ("ok" in result && result.ok === false) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
     }
-    const ids = (data ?? [])
-      .filter((r) => !isOwnerStoreCommerceNotificationRow(r))
-      .map((r) => r.id as string)
-      .filter(Boolean);
-    if (ids.length === 0) {
-      return NextResponse.json({ ok: true, updated: 0 });
-    }
-    const { error: uErr } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", ids);
-    if (uErr) {
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-    }
-    invalidateNotificationUnreadCountCache(userId);
-    return NextResponse.json({ ok: true, updated: ids.length });
+    const okResult = result as {
+      updated: number;
+      legacyUpdated: number;
+      eventUpdated: number;
+    };
+    return NextResponse.json({
+      ok: true,
+      updated: okResult.updated,
+      legacyUpdated: 0,
+      eventUpdated: okResult.eventUpdated,
+    });
   }
 
   if (body.mark_my_chat_notifications_read === true) {
-    type MarkReadScanRow = {
-      id?: unknown;
-      meta?: unknown;
-      notification_type?: string;
-      push_kind?: unknown;
-    };
-
-    const markWithPk = await sb
-      .from("notifications")
-      .select("id, meta, notification_type, push_kind")
-      .eq("user_id", userId)
-      .eq("is_read", false)
-      .limit(500);
-    let data = markWithPk.data as MarkReadScanRow[] | null;
-    let error = markWithPk.error;
-    if (
-      error &&
-      /push_kind|column|schema cache/i.test(String(error.message ?? ""))
-    ) {
-      const markFallback = await sb
-        .from("notifications")
-        .select("id, meta, notification_type")
-        .eq("user_id", userId)
-        .eq("is_read", false)
-        .limit(500);
-      data = markFallback.data as MarkReadScanRow[] | null;
-      error = markFallback.error;
-    }
-    if (error) {
-      if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-        return NextResponse.json({ ok: true, updated: 0 });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-    const ids = (data ?? [])
-      .filter((r) => isInAppChatMessageNotificationRow(r))
-      .map((r) => r.id as string)
-      .filter(Boolean);
-    if (ids.length === 0) {
-      return NextResponse.json({ ok: true, updated: 0 });
-    }
-    const { error: uErr } = await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .in("id", ids);
-    if (uErr) {
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-    }
-    await markChatNotificationEventsRead(sb, userId);
+    // Gate 3 Step 10 — Chat events / targets only (Conversation B path; no legacy table).
+    const updated = await markChatNotificationEventsRead(sb, userId);
     await clearChatInboxTargetsAfterMarkAll(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({ ok: true, updated: ids.length });
+    return NextResponse.json({ ok: true, updated, legacyUpdated: 0 });
   }
 
   if (body.mark_my_notifications_read_excluding_owner_and_chat === true) {

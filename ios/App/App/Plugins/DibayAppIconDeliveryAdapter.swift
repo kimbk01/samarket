@@ -17,10 +17,21 @@ enum DibayAppIconDeliveryAdapter {
   private static let capBadgeStorageKey = "capacitor.badge"
   private static let lastAppliedKey = "dibay.appIconDelivery.lastApplied"
 
-  /// Echo Capawesome badge cache into SpringBoard (cold / resume before remote JS).
-  static func applyFromCapBadgeCache() {
-    let cached = UserDefaults.standard.integer(forKey: capBadgeStorageKey)
-    apply(appIconTotal: cached)
+  /**
+   * Gate 3 Step 11 — Cap prefs are NOT App Icon authority.
+   * Versionless `capacitor.badge` must never final-publish (resume/cold/warm).
+   * Final paint: Web Domain snapshot → syncNativeBadgeCount → apply(appIconTotal:).
+   * OS badge remains as-is until versioned absolute echo arrives.
+   */
+  @discardableResult
+  static func applyFromCapBadgeCache() -> Bool {
+    os_log(
+      "cap_cache_paint_rejected reason=VERSION_REQUIRED_OR_RESUME_FORBIDDEN key=%{public}@",
+      log: log,
+      type: .info,
+      capBadgeStorageKey
+    )
+    return false
   }
 
   /// Apply absolute appIconTotal to iOS App Icon (SpringBoard).

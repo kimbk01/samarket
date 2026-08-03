@@ -1040,7 +1040,7 @@ public class MainActivity extends BridgeActivity {
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
     DibayWebSafeAreaBridge.syncIfPossible(this);
-    // Android Delivery Adapter v1: Cap badge cache → Notification.setNumber / S3 summary.
+    // Gate 3 Step 11 — Cap prefs must not overwrite versioned App Icon on resume.
     DibayAppIconDeliveryAdapter.applyFromCapBadgeCache(this);
   }
 

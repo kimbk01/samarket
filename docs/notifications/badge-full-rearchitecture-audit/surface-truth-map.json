@@ -1,0 +1,112 @@
+{
+  "audit": "badge-full-rearchitecture",
+  "mode": "AUDIT_ONLY",
+  "head": "f438f37e2e07b6c7dcb49faed37c72de0bbfbc8f",
+  "baseline": "1e2a560c102cc3605a2ef29dcf68ccda0bd08a14",
+  "surfaces": [
+    {
+      "surface": "bell_digit",
+      "component": "PhilifeHeaderNotificationInbox",
+      "digitReader": "resolveTier1HeaderBellBadgeTotal",
+      "listReader": null,
+      "api": "/api/me/notifications/badge-count",
+      "projection": "deriveMemberUnreadNotificationCount",
+      "origin": "notification_events",
+      "identity": "user:{userId}",
+      "unit": "attention_keys",
+      "lastMajorCommit": "d6dbb91d4"
+    },
+    {
+      "surface": "bell_popup_messenger",
+      "component": "MessengerNotificationCenterSheet",
+      "digitReader": "importantCount+invites+missed",
+      "listReader": "CommunityMessengerHome.notificationCenterItems",
+      "api": null,
+      "projection": "important_room from chat list",
+      "origin": "messenger_rooms_local",
+      "identity": "room:{roomId}",
+      "unit": "unread_rooms_pinned_or_trade_or_delivery",
+      "lastMajorCommit": "pre-slice_cm"
+    },
+    {
+      "surface": "full_notification_list",
+      "component": "MyNotificationsView",
+      "digitReader": null,
+      "listReader": "fetchMeNotificationsListDeduped+filterMemberNotificationAInboxRows",
+      "api": "/api/me/notifications",
+      "projection": "isMemberNotificationAListItem",
+      "origin": "notification_events",
+      "identity": "user:{userId}",
+      "unit": "event_rows_read_and_unread",
+      "lastMajorCommit": "d6dbb91d4"
+    },
+    {
+      "surface": "bottom_chat",
+      "component": "BottomNav",
+      "digitReader": "resolveMessengerChatTabBadgeCount",
+      "api": "domain badge-count projection",
+      "projection": "bottomChat GD+Group rooms",
+      "origin": "participants",
+      "identity": "user:{userId}",
+      "unit": "unread_rooms",
+      "lastMajorCommit": "06bab8001"
+    },
+    {
+      "surface": "trade_hub",
+      "component": "MessengerPillarSummaryRow:trade",
+      "projection": "tradeHub",
+      "unit": "unread_rooms",
+      "lastMajorCommit": "06bab8001"
+    },
+    {
+      "surface": "customer_order_hub",
+      "component": "MessengerPillarSummaryRow:delivery",
+      "projection": "storeOrderCustomerUnreadRooms",
+      "unit": "unread_rooms",
+      "lastMajorCommit": "06bab8001"
+    },
+    {
+      "surface": "owner_chat_hub_fab",
+      "component": "MainBottomNavFabSector",
+      "api": "owner hub badge",
+      "projection": "countOwnerStoreOrderMessengerUnreadForHubStore",
+      "identity": "store:{storeId}",
+      "unit": "unread_rooms",
+      "lastMajorCommit": "5ee177ca6"
+    },
+    {
+      "surface": "owner_operations_hub_fab",
+      "projection": "resolveCStoreOrderActionCount",
+      "origin": "store_orders+store_inquiries RPC",
+      "identity": "store:{storeId}",
+      "unit": "action_required",
+      "clear": "action_complete",
+      "lastMajorCommit": "aa2d46b09"
+    },
+    {
+      "surface": "member_app_icon_web",
+      "digitReader": "domain-badge-surface-store.appIconTotal",
+      "projection": "memberAppIconWebTotal = A + B_member",
+      "unit": "a_keys + member_rooms + missed",
+      "lastMajorCommit": "06bab8001"
+    },
+    {
+      "surface": "android_launcher_badge",
+      "digitReader": "DibayAppIconDeliveryAdapter.setNumber",
+      "source": "FCM badgeCount + NativeBadgeSync absolute",
+      "lastMajorCommit": "e2cb00ec8"
+    },
+    {
+      "surface": "ios_launcher_badge",
+      "digitReader": "setBadgeCount / applicationIconBadgeNumber",
+      "cache": "capacitor.badge UserDefaults resume re-echo",
+      "lastMajorCommit": "e2cb00ec8"
+    },
+    {
+      "surface": "fcm_badge_payload",
+      "projection": "resolveMemberAppIconTotalForNativeFcm",
+      "behavior": "always_send_absolute_including_zero",
+      "lastMajorCommit": "e2cb00ec8"
+    }
+  ]
+}

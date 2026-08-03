@@ -1,0 +1,62 @@
+{
+  "mode": "EVIDENCE_ONLY",
+  "head": "f438f37e2e07b6c7dcb49faed37c72de0bbfbc8f",
+  "p0RevertApproved": false,
+  "planPass": false,
+  "planStatus": "EVIDENCE_INSUFFICIENT",
+  "commits": [
+    {
+      "sha": "e2cb00ec8",
+      "surfaces": {
+        "bell_digit": "ABSENT",
+        "bell_list": "ABSENT",
+        "popup_important": "ABSENT",
+        "owner_hub": "ABSENT",
+        "member_app_icon_formula": "READS_EXISTING_TOTAL_FOR_FCM",
+        "fcm_badge_wire": "PROVEN",
+        "cap_resume": "ABSENT"
+      },
+      "intersectionWith_d6dbb91d4": [],
+      "nativeBadgeSyncDiff": "comment_only",
+      "asBellFixRevert": "CONTRADICTED"
+    },
+    {
+      "sha": "f438f37e2",
+      "surfaces": {
+        "bell_digit": "ABSENT",
+        "fcm_badge_wire": "TEST_ALIGN"
+      },
+      "asBellFixRevert": "CONTRADICTED"
+    },
+    {
+      "sha": "d6dbb91d4",
+      "surfaces": {
+        "bell_digit": "PROVEN",
+        "bell_list": "PROVEN",
+        "mark_all": "PROVEN",
+        "popup_important": "ABSENT"
+      }
+    },
+    {
+      "sha": "06bab8001",
+      "surfaces": {
+        "member_app_icon_formula": "PROVEN",
+        "bell_digit_ui": "ABSENT"
+      }
+    },
+    {
+      "sha": "5ee177ca6",
+      "surfaces": { "owner_hub_chat": "PROVEN", "bell": "ABSENT" }
+    },
+    {
+      "sha": "aa2d46b09",
+      "surfaces": { "owner_hub_ops": "PROVEN", "bell": "ABSENT" }
+    }
+  ],
+  "preBaseline": {
+    "important_room_commit": "8d2b16ca1",
+    "important_room_before_baseline_1e2a560c1": true,
+    "applyFromCapBadgeCache_commit": "5e7c46f9f",
+    "cap_resume_before_e2cb00ec8": true
+  }
+}

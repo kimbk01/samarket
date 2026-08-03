@@ -1,0 +1,168 @@
+{
+  "audit": "badge-partial-rollback-plan",
+  "mode": "PLAN_ONLY",
+  "planVerdict": "PARTIAL_ROLLBACK_PLAN_PASS",
+  "executed": false,
+  "headBeforeExecution": "f438f37e2e07b6c7dcb49faed37c72de0bbfbc8f",
+  "forbiddenBaselineReset": "1e2a560c102cc3605a2ef29dcf68ccda0bd08a14",
+  "productContractKeep": {
+    "A_member": "persistent_member_notifications",
+    "B_member": "member_unread_rooms_plus_unresolved_missed",
+    "B_store": "owner_chat_unread_rooms_store_scoped",
+    "C_store": "store_action_required",
+    "memberAppIcon": "A_member + B_member",
+    "clearRules": {
+      "A_member": "read_or_delete",
+      "B_member": "room_cursor_or_missed_seen",
+      "B_store": "owner_room_cursor",
+      "C_store": "action_complete"
+    }
+  },
+  "locksRevoked": [
+    "Slice_2_2_Runtime_PASS",
+    "Slice_2_3_Runtime_PASS",
+    "Slice_2_4_Runtime_PASS",
+    "Slice_2_5_Runtime_PASS",
+    "A_B_C_LOCK"
+  ],
+  "p0GitReverts": [
+    {
+      "order": 1,
+      "sha": "f438f37e2",
+      "decision": "REVERT",
+      "reason": "2-6 test/identity align follows e2cb"
+    },
+    {
+      "order": 2,
+      "sha": "e2cb00ec8",
+      "decision": "REVERT",
+      "reason": "FCM always-send and MemberAppIconTotal resolver wire",
+      "doesNotFix": ["bell_digit_vs_list", "popup_important", "cap_resume_stale"]
+    }
+  ],
+  "doNotGitRevert": [
+    {
+      "sha": "d6dbb91d4",
+      "decision": "DELETE_AFTER_REBUILD",
+      "reason": "Full revert restores owner_intake Bell"
+    },
+    {
+      "sha": "1a814053b",
+      "decision": "DELETE_AFTER_REBUILD",
+      "reason": "mark-all dual bridge; replace with AUnreadEventIds"
+    },
+    {
+      "sha": "06bab8001",
+      "decision": "KEEP_DIRECTION",
+      "reason": "B rooms + owner exclusion"
+    },
+    {
+      "sha": "f3dd1bb5d",
+      "decision": "KEEP",
+      "reason": "room read cursor"
+    },
+    {
+      "sha": "5ee177ca6",
+      "decision": "KEEP",
+      "reason": "B_store room unit"
+    },
+    {
+      "sha": "c78dd7a1e",
+      "decision": "KEEP_REVIEW_R5",
+      "reason": "hub cache invalidate"
+    },
+    {
+      "sha": "c673ac444",
+      "decision": "KEEP_REVIEW_R5",
+      "reason": "hub cache hit refresh dual-path"
+    },
+    {
+      "sha": "aa2d46b09",
+      "decision": "KEEP",
+      "reason": "C Action Complete + migration"
+    },
+    {
+      "sha": "ca86a20c1",
+      "decision": "KEEP",
+      "reason": "foundation contracts"
+    }
+  ],
+  "deleteAfterRebuild": [
+    {
+      "symbol": "deriveMemberUnreadNotificationCount",
+      "path": "lib/notifications/badge-authority-rebuild/member-notification-a-projection.ts",
+      "reason": "attention_key_digit_authority"
+    },
+    {
+      "symbol": "filterMemberNotificationAInboxRows",
+      "path": "lib/notifications/badge-authority-rebuild/member-notification-a-projection.ts",
+      "reason": "parallel_event_row_list_authority"
+    },
+    {
+      "symbol": "markMemberANotificationsAllRead_legacy_branch",
+      "path": "lib/notifications/inbox-read-bridge.ts",
+      "reason": "dual_store_mark_all"
+    },
+    {
+      "symbol": "important_room",
+      "path": "components/community-messenger/CommunityMessengerHome.tsx",
+      "reason": "popup_chat_mix_into_bell"
+    },
+    {
+      "symbol": "applyFromCapBadgeCache_on_resume",
+      "path": "ios/App/App/AppDelegate.swift",
+      "reason": "stale_cap_authority_reecho",
+      "also": ["android MainActivity", "DibayAppIconDeliveryAdapter"]
+    },
+    {
+      "symbol": "appIcon_total_without_membership_sets",
+      "path": "lib/notifications/domain-app-icon-badge.ts",
+      "reason": "total_only_transport"
+    }
+  ],
+  "keepSymbols": [
+    "classifyBadgeAuthority",
+    "memberBadgeIdentity",
+    "storeBadgeIdentity",
+    "buildMemberCommunicationBProjection",
+    "assertBStoreExcludedFromMemberSurfaces",
+    "resolveCStoreOrderActionCount",
+    "rejectMaxDualCStoreAuthority",
+    "phase1-authority-contract"
+  ],
+  "migrations": {
+    "KEEP": ["20261016120000_c_store_attention_cancel_pending.sql"],
+    "REVIEW": [
+      "20260520120000_get_owner_hub_store_attention_counts_rpc.sql",
+      "20260525180000_owner_hub_badge_snapshot_rpc.sql",
+      "20261009130000_count_notification_events_badge_taxonomy.sql"
+    ],
+    "BLOCKED": ["drop_cancel_pending", "truncate_notification_events", "force_unread_zero"]
+  },
+  "newSsot": {
+    "A": "AUnreadEventIds(userId)",
+    "surfacesMustShare": [
+      "bell_digit",
+      "bell_popup_A",
+      "full_list_unread",
+      "mark_all",
+      "read_one",
+      "delete_all",
+      "delete_one",
+      "app_icon_A"
+    ],
+    "memberAppIcon": {
+      "formula": "|AUnreadEventIds| + |MemberUnreadRoomIds| + |UnresolvedMissedCallIds|",
+      "excludeAtSetStage": ["B_store", "C_store", "owner_intake", "ads"]
+    },
+    "nativeOrder": [
+      "authenticated_session",
+      "fresh_MemberAppIcon_snapshot",
+      "version_timestamp_validate",
+      "native_absolute_set",
+      "lastApplied_record"
+    ]
+  },
+  "rebuildOrder": ["R0", "P0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10"],
+  "approvalRequiredBefore": "P0_git_revert"
+}

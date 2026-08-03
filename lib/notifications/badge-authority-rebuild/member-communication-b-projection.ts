@@ -1,12 +1,15 @@
 /**
- * Slice 2-3 — Member Communication B projection (pure).
+ * Slice 2-3 / Gate 3 Step 5 — Member Communication B projection (pure).
  *
- * B_member = memberUnreadRoomCount + memberUnresolvedMissedCallCount
- * Member App Icon (web/server) = A_member + B_member
+ * Gate 3 Conversation B (canonical rooms only):
+ *   resolveMemberConversationAuthority → B_general+B_group+B_trade+B_order
+ *
+ * Slice 2-3 App Icon path still uses rooms + unresolved missed until Step 6
+ * (ADAPTER — not Gate 3 Conversation B authority).
  *
  * DO NOT include owner store_order rooms, B_store, or C_store.
- * DO NOT drive Bell (Bell = A_member only — Slice 2-2 LOCK).
- * Native / FCM adapters are Slice 2-6 — do not import from android/ios/push here.
+ * DO NOT drive Bell (Bell = A_member only).
+ * Native / FCM / App Icon wiring — Step 6; do not import android/ios/push here.
  */
 import {
   asUnreadRoomCount,
@@ -21,6 +24,22 @@ import {
   unresolvedMissedCallCountFromCallIds,
   type MemberBRoomBuckets,
 } from "@/lib/notifications/badge-authority-rebuild/phase1-authority-contract";
+import {
+  projectSurfacesFromConversationAuthority,
+  resolveMemberConversationAuthority,
+  type MemberConversationAuthority,
+  type MemberConversationRoomInput,
+} from "@/lib/notifications/badge-authority-rebuild/member-conversation-b-authority";
+
+export {
+  resolveMemberConversationAuthority,
+  projectSurfacesFromConversationAuthority,
+  applyIncomingMessageToConversationRooms,
+  applyReadAckToConversationRooms,
+  assertMissedCallXorWithConversationB,
+  type MemberConversationAuthority,
+  type MemberConversationRoomInput,
+} from "@/lib/notifications/badge-authority-rebuild/member-conversation-b-authority";
 
 export const MEMBER_COMMUNICATION_B_PROJECTION =
   "member_communication_b_projection_v1" as const;
@@ -114,9 +133,9 @@ export function buildMemberCommunicationBProjection(input: {
 }
 
 /**
- * Member App Icon web/server total = A + B_member.
+ * Member App Icon web/server total = A + Conversation B rooms (Gate 3 Step 6).
+ * Orphan missed must already be inside A — not added via B_missed here.
  * Rejects contaminated inputs that try to fold B_store / C_store into the member total.
- * Owner rooms that exist elsewhere must simply be omitted from room fields (not passed here).
  */
 export function buildMemberAppIconWebProjection(input: {
   aMemberUnreadNotificationCount: number;
@@ -158,14 +177,16 @@ export function buildMemberAppIconWebProjection(input: {
       authority: MEMBER_COMMUNICATION_B_PROJECTION,
       aMemberUnreadNotificationCount: a,
       memberUnreadRoomCount: b.memberUnreadRoomCount,
+      /** Diagnostic only — not part of App Icon total (orphan ∈ A). */
       memberUnresolvedMissedCallCount: b.memberUnresolvedMissedCallCount,
-      memberAppIconWebTotal: a + b.bMemberTotal,
+      memberAppIconWebTotal: a + b.memberUnreadRoomCount,
     },
   };
 }
 
 /**
  * Bottom Chat = unread General rooms + unread Group rooms only.
+ * Prefer projectSurfacesFromConversationAuthority(canonical B).
  */
 export function projectMemberBottomChatBadge(input: {
   generalDirectUnreadRooms: number;
@@ -182,6 +203,22 @@ export function projectMemberCustomerOrderHubBadge(
   customerStoreOrderUnreadRooms: number
 ): number {
   return nonNeg(customerStoreOrderUnreadRooms);
+}
+
+/** Surfaces from one canonical B authority (Step 5 contract). */
+export function projectMemberConversationSurfacesFromRooms(
+  memberId: string,
+  rooms: readonly MemberConversationRoomInput[]
+): {
+  authority: MemberConversationAuthority;
+  bottomChat: number;
+  tradeHub: number;
+  orderHub: number;
+  conversationB: number;
+} {
+  const authority = resolveMemberConversationAuthority(memberId, rooms);
+  const surfaces = projectSurfacesFromConversationAuthority(authority);
+  return { authority, ...surfaces };
 }
 
 /**

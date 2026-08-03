@@ -15,6 +15,8 @@ const ALLOW_PRODUCT_IMPORT_OF_A_PROJECTION = new Set([
   "lib/notifications/inbox-read-bridge.ts",
   "components/philife/PhilifeHeaderNotificationInbox.tsx",
   "components/my/MyNotificationsView.tsx",
+  // Gate 3 Step 8/13 — Notification Center detail filters A_member rows only
+  "app/(main)/notifications/[notificationId]/page.tsx",
 ]);
 
 const ALLOW_PRODUCT_IMPORT_OF_B_PROJECTION = new Set([

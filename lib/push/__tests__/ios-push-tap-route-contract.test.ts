@@ -11,7 +11,9 @@ describe("iOS push tap route contract", () => {
     const source = read("components/push/PushRouteListener.tsx");
     expect(source).toContain('PushNotifications.addListener("pushNotificationActionPerformed"');
     expect(source).toContain("resolvePushRouteFromFcmData(data)");
-    expect(source).toContain("postNotificationEventOpenedRead(notificationId.trim())");
+    expect(source).toContain("shouldApplyMemberNotificationReadOnPushTap");
+    expect(source).toContain("maybeMarkMemberAOnPushTap");
+    expect(source).toContain("postNotificationEventOpenedRead");
   });
 
   it("keeps appUrlOpen and native pending route replay for cold-start restores", () => {

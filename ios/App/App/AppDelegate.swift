@@ -37,8 +37,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DibayActiveCallSessionManager.shared.onAppForeground()
         ScreenAwakeBridge.shared.reapplyOnBecomeActive()
         CallV4SurfaceOwnerBridge.flushPending()
-        // iOS Delivery Adapter v1 — re-echo Cap cache → SpringBoard before remote JS.
-        DibayAppIconDeliveryAdapter.applyFromCapBadgeCache()
+        // Gate 3 Step 11 — do NOT re-apply versionless Cap prefs on resume.
+        // Final App Icon = versioned canonical A+B via Web → apply(appIconTotal:).
+        _ = DibayAppIconDeliveryAdapter.applyFromCapBadgeCache()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

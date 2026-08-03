@@ -1,0 +1,47 @@
+{
+  "audit": "badge-full-rearchitecture",
+  "mode": "AUDIT_ONLY",
+  "designVerdict": "DESIGN_VALID_IMPLEMENTATION_REBUILD_REQUIRED",
+  "rollbackVerdict": "PARTIAL_ROLLBACK",
+  "options": [
+    {
+      "id": "A",
+      "name": "NO_ROLLBACK_LOCAL_SOURCE_FILTER_FIX",
+      "selected": false,
+      "reason": "Insufficient for dual-unit popup legacy Cap structure"
+    },
+    {
+      "id": "B",
+      "name": "PARTIAL_IMPLEMENTATION_ROLLBACK",
+      "selected": true,
+      "reason": "Selective wires only; subordinate to A-surface rebuild; not baseline reset",
+      "exampleCandidates": ["e2cb00ec8_fcm_wire"],
+      "doesNotFixAlone": ["bell_digit_vs_empty_list", "popup_important_chat"]
+    },
+    {
+      "id": "C",
+      "name": "SLICE_2_2_TO_2_6_IMPLEMENTATION_ROLLBACK_CONTRACT_KEEP",
+      "selected": false,
+      "reason": "Revives owner_intake Bell and owner rooms in App Icon unless rewrite immediate"
+    },
+    {
+      "id": "D",
+      "name": "FULL_BADGE_REBUILD_ROLLBACK_TO_PRE_IMPLEMENTATION",
+      "selected": false,
+      "reason": "1e2a560c1 is failed baseline not stable"
+    },
+    {
+      "id": "E",
+      "name": "CONTRACT_PLUS_IMPLEMENTATION_FULL_RESTART",
+      "selected": false,
+      "reason": "Design axes match product; restart contract overkill"
+    },
+    {
+      "id": "F",
+      "name": "INSUFFICIENT_EVIDENCE",
+      "selected": false,
+      "reason": "Live App Icon membership dump missing but architecture evidence sufficient"
+    }
+  ],
+  "execution": "await_explicit_user_approval"
+}

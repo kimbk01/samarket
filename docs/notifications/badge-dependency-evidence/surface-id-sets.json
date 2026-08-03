@@ -1,0 +1,59 @@
+{
+  "mode": "EVIDENCE_ONLY",
+  "liveDumpThisTurn": false,
+  "sets": {
+    "DigitKeySet": {
+      "builder": "buildMemberNotificationAProjection.attentionKeys",
+      "countField": "memberUnreadNotificationCount",
+      "idKind": "attention_key",
+      "unreadOnly": true
+    },
+    "DigitEventIds": {
+      "builder": "buildMemberNotificationAProjection.eventIds",
+      "usedForDigitUi": false,
+      "idKind": "notification_events.id"
+    },
+    "ListRowSet": {
+      "builder": "filterMemberNotificationAInboxRows",
+      "api": "/api/me/notifications",
+      "idKind": "notification_events.id",
+      "includesRead": true
+    },
+    "PopupImportantSet": {
+      "builder": "CommunityMessengerHome important_room",
+      "idKind": "important:{roomId}",
+      "source": "chat_rooms_local"
+    },
+    "MarkAllLegacyIds": {
+      "table": "notifications",
+      "builder": "markMemberANotificationsAllRead legacy branch"
+    },
+    "MarkAllEventIds": {
+      "table": "notification_events",
+      "builder": "markNonChatNonOwnerNotificationEventsRead + isMemberNotificationAUnread"
+    }
+  },
+  "pairwise": [
+    {
+      "a": "DigitKeySet",
+      "b": "ListRowSet",
+      "sameIdKind": false,
+      "sameMembership": false,
+      "grade": "PROVEN_UNEQUAL_STRUCTURE"
+    },
+    {
+      "a": "DigitKeySet",
+      "b": "PopupImportantSet",
+      "sameIdKind": false,
+      "sameMembership": false,
+      "grade": "PROVEN_DISJOINT"
+    },
+    {
+      "a": "MarkAllLegacyIds",
+      "b": "MarkAllEventIds",
+      "sameIdKind": false,
+      "grade": "PROVEN_DUAL_STORE"
+    }
+  ],
+  "productSameSetRequirement": "NOT_IMPLEMENTED"
+}

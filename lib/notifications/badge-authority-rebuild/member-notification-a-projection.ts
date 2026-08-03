@@ -1,124 +1,54 @@
 /**
- * Slice 2-2 — Member Notification A projection (pure).
+ * Gate 3 Step 4 — Member Notification A projection.
  *
- * Bell digit SSOT = memberUnreadNotificationCount from A-eligible events.
- * DO NOT feed App Icon ChatAttention / Phase B NotificationAttentionTotal from this module.
- * DO NOT mutate writers.
+ * Bell digit SSOT = canonical A unread event-id count (NOT attention keys).
+ * attentionKeys retained as ADAPTER for non-digit explain tooling only.
  */
-import { isNotificationEventBadgeEligible } from "@/lib/notifications/core/notification-event-repository";
 import { resolveNotificationAttentionKey } from "@/lib/notifications/core/notification-attention-key";
-import { isInboxDismissedNotificationEvent } from "@/lib/notifications/inbox-events-merge";
-import { classifyBadgeAuthority } from "@/lib/notifications/badge-authority-rebuild/badge-event-classifier";
 import {
   isChatMessageNotificationType,
   isOrphanMissedCallEvent,
-  isRoomBoundMissedCallEvent,
 } from "@/lib/notifications/chat-notification-attention-projection";
+import { isOwnerIntakeAttentionKey } from "@/lib/notifications/badge-authority-rebuild/phase1-authority-contract";
+import { resolveMemberNotificationAuthorityFromRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority";
 import {
-  isOwnerIntakeAttentionKey,
-  isOwnerStoreOperationMetaKind,
-} from "@/lib/notifications/badge-authority-rebuild/phase1-authority-contract";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+  isMemberNotificationAListItem,
+  isMemberNotificationAUnread,
+  type MemberNotificationAEventRow,
+} from "@/lib/notifications/badge-authority-rebuild/member-notification-a-eligibility";
+
+export type { MemberNotificationAEventRow };
+export { isMemberNotificationAListItem, isMemberNotificationAUnread };
 
 export const MEMBER_NOTIFICATION_A_PROJECTION =
   "member_notification_a_projection_v1" as const;
 
-export type MemberNotificationAEventRow = Readonly<{
-  id?: string | null;
-  type?: string | null;
-  category?: string | null;
-  unread?: boolean | null;
-  read_at?: string | null;
-  room_id?: string | null;
-  dedupe_key?: string | null;
-  muted_snapshot?: boolean | null;
-  display_payload?: unknown;
-  meta?: unknown;
-}>;
-
 export type MemberNotificationAProjection = Readonly<{
   authority: typeof MEMBER_NOTIFICATION_A_PROJECTION;
-  /** Distinct A attention keys (Bell digit). */
+  /** Canonical A unread event count (= |eventIds|). */
   memberUnreadNotificationCount: number;
+  /**
+   * ADAPTER ONLY — not Bell digit authority.
+   * Kept for explain / migration tooling.
+   */
   attentionKeys: readonly string[];
+  /** Canonical A unread event ids (digit / list unread / mark-all). */
   eventIds: readonly string[];
   excludedReasonByEventId: Readonly<Record<string, string>>;
+  authorityVersion?: string;
+  computedAt?: string;
+  memberKey?: `user:${string}`;
 }>;
 
-function payloadRecord(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-
-function metaKindFromRow(row: MemberNotificationAEventRow): string {
-  const payload = payloadRecord(row.display_payload);
-  const legacyMeta = payloadRecord(payload?.legacyMeta);
-  const top = row.meta && typeof row.meta === "object" ? (row.meta as { kind?: unknown }).kind : null;
-  const k =
-    (typeof top === "string" && top) ||
-    (typeof legacyMeta?.kind === "string" && legacyMeta.kind) ||
-    (typeof payload?.kind === "string" && payload.kind) ||
-    "";
-  return String(k).trim();
-}
-
-function storeIdFromRow(row: MemberNotificationAEventRow): string | null {
-  const payload = payloadRecord(row.display_payload);
-  const legacyMeta = payloadRecord(payload?.legacyMeta);
-  const candidates = [
-    legacyMeta?.store_id,
-    payload?.store_id,
-    payload?.storeId,
-  ];
-  for (const c of candidates) {
-    const s = typeof c === "string" ? c.trim() : "";
-    if (s) return s;
-  }
-  return null;
-}
-
-/**
- * True when this unread event counts toward Member Bell (A only).
- */
-export function isMemberNotificationAUnread(row: MemberNotificationAEventRow): boolean {
-  if (row.unread === false) return false;
-  if (row.read_at != null && String(row.read_at).trim() !== "") return false;
-  if (!isNotificationEventBadgeEligible(row)) return false;
-  if (isInboxDismissedNotificationEvent(row as never)) return false;
-
-  const type = String(row.type ?? "").trim();
-  const category = String(row.category ?? "").trim();
-  if (isChatMessageNotificationType(type)) return false;
-  if (type === "missed_call" || category === "missed_call") return false;
-  if (isOrphanMissedCallEvent(row) || isRoomBoundMissedCallEvent(row)) return false;
-  if (type === "admin_marketing_banner" || type === "admin_test") return false;
-  if (category === "admin_marketing_banner") return false;
-
-  const attentionKey = resolveNotificationAttentionKey(row);
-  if (isOwnerIntakeAttentionKey(attentionKey)) return false;
-
-  const metaKind = metaKindFromRow(row);
-  if (metaKind && isOwnerStoreOperationMetaKind(metaKind)) return false;
-  if (isOwnerStoreCommerceNotificationRow({ meta: { kind: metaKind } })) return false;
-
-  const classified = classifyBadgeAuthority({
-    type,
-    category,
-    kind: type || category,
-    metaKind: metaKind || null,
-    attentionKey,
-    storeId: storeIdFromRow(row),
-    userId: "viewer",
-  });
-
-  return classified.classification === "A_MEMBER_NOTIFICATION";
-}
-
 export function buildMemberNotificationAProjection(
-  rows: readonly MemberNotificationAEventRow[]
+  rows: readonly MemberNotificationAEventRow[],
+  memberId = "viewer"
 ): MemberNotificationAProjection {
+  const canonical = resolveMemberNotificationAuthorityFromRows(rows, memberId);
+  const idSet = new Set(canonical.eventIds);
+
   const attentionKeys: string[] = [];
   const keySeen = new Set<string>();
-  const eventIds: string[] = [];
   const excludedReasonByEventId: Record<string, string> = {};
 
   for (const row of rows) {
@@ -135,8 +65,9 @@ export function buildMemberNotificationAProjection(
       if (id) {
         const type = String(row.type ?? "").trim();
         if (isChatMessageNotificationType(type)) excludedReasonByEventId[id] = "chat";
-        else if (type === "missed_call" || isOrphanMissedCallEvent(row))
-          excludedReasonByEventId[id] = "missed_call";
+        else if (isOrphanMissedCallEvent(row))
+          excludedReasonByEventId[id] = "missed_call_unexpected";
+        else if (type === "missed_call") excludedReasonByEventId[id] = "missed_call_room";
         else if (isOwnerIntakeAttentionKey(resolveNotificationAttentionKey(row)))
           excludedReasonByEventId[id] = "owner_intake";
         else if (type === "admin_marketing_banner")
@@ -145,14 +76,12 @@ export function buildMemberNotificationAProjection(
       }
       continue;
     }
-
-    const key = resolveNotificationAttentionKey(row);
-    if (!key) {
-      if (id) excludedReasonByEventId[id] = "no_attention_key";
+    if (id && !idSet.has(id)) {
+      excludedReasonByEventId[id] = "dedupe_collapsed";
       continue;
     }
-    if (id) eventIds.push(id);
-    if (!keySeen.has(key)) {
+    const key = resolveNotificationAttentionKey(row);
+    if (key && !keySeen.has(key)) {
       keySeen.add(key);
       attentionKeys.push(key);
     }
@@ -160,52 +89,21 @@ export function buildMemberNotificationAProjection(
 
   return {
     authority: MEMBER_NOTIFICATION_A_PROJECTION,
-    memberUnreadNotificationCount: attentionKeys.length,
+    memberUnreadNotificationCount: canonical.unreadCount,
     attentionKeys,
-    eventIds,
+    eventIds: canonical.eventIds,
     excludedReasonByEventId,
+    authorityVersion: canonical.authorityVersion,
+    computedAt: canonical.computedAt,
+    memberKey: canonical.memberKey,
   };
 }
 
 export function deriveMemberUnreadNotificationCount(
-  rows: readonly MemberNotificationAEventRow[]
+  rows: readonly MemberNotificationAEventRow[],
+  memberId = "viewer"
 ): number {
-  return buildMemberNotificationAProjection(rows).memberUnreadNotificationCount;
-}
-
-/**
- * Inbox list predicate — A_member persistent rows (read or unread).
- * Excludes chat / missed / owner_intake / marketing / unknown.
- */
-export function isMemberNotificationAListItem(row: MemberNotificationAEventRow): boolean {
-  if (isInboxDismissedNotificationEvent(row as never)) return false;
-
-  const type = String(row.type ?? "").trim();
-  const category = String(row.category ?? "").trim();
-  if (isChatMessageNotificationType(type)) return false;
-  if (type === "missed_call" || category === "missed_call") return false;
-  if (isOrphanMissedCallEvent(row) || isRoomBoundMissedCallEvent(row)) return false;
-  if (type === "admin_marketing_banner" || type === "admin_test") return false;
-  if (category === "admin_marketing_banner") return false;
-
-  const attentionKey = resolveNotificationAttentionKey(row);
-  if (isOwnerIntakeAttentionKey(attentionKey)) return false;
-
-  const metaKind = metaKindFromRow(row);
-  if (metaKind && isOwnerStoreOperationMetaKind(metaKind)) return false;
-  if (isOwnerStoreCommerceNotificationRow({ meta: { kind: metaKind } })) return false;
-
-  const classified = classifyBadgeAuthority({
-    type,
-    category,
-    kind: type || category,
-    metaKind: metaKind || null,
-    attentionKey,
-    storeId: storeIdFromRow(row),
-    userId: "viewer",
-  });
-
-  return classified.classification === "A_MEMBER_NOTIFICATION";
+  return resolveMemberNotificationAuthorityFromRows(rows, memberId).unreadCount;
 }
 
 /** Map inbox API row → A projection row shape. */
@@ -243,10 +141,51 @@ export function memberNotificationAEventFromInboxRow(row: {
   };
 }
 
+/**
+ * Bell list base filter: A type/recipient policy.
+ * Unread rows must be in canonical A eventIds (digit ≡ unread list ≡ mark-all).
+ * Read A rows kept for UI until Notification Center phase (not part of unread set).
+ */
 export function filterMemberNotificationAInboxRows<T extends Parameters<
   typeof memberNotificationAEventFromInboxRow
->[0]>(rows: readonly T[]): T[] {
-  return rows.filter((row) =>
-    isMemberNotificationAListItem(memberNotificationAEventFromInboxRow(row))
+>[0]>(rows: readonly T[], memberId = "viewer"): T[] {
+  const mapped = rows.map((r) => ({
+    raw: r,
+    row: memberNotificationAEventFromInboxRow(r),
+  }));
+  const authority = resolveMemberNotificationAuthorityFromRows(
+    mapped.map((m) => m.row),
+    memberId
   );
+  const allowUnread = new Set(authority.eventIds);
+  return mapped
+    .filter(({ row }) => {
+      if (!isMemberNotificationAListItem(row)) return false;
+      const id = String(row.id ?? "").trim();
+      const unread =
+        row.unread !== false &&
+        !(row.read_at != null && String(row.read_at).trim() !== "");
+      if (unread) return Boolean(id) && allowUnread.has(id);
+      return true;
+    })
+    .map((m) => m.raw);
+}
+
+/** Unread list rows whose ids are in canonical A set (same as digit / mark-all). */
+export function filterMemberNotificationAUnreadAuthorityRows<T extends Parameters<
+  typeof memberNotificationAEventFromInboxRow
+>[0]>(
+  rows: readonly T[],
+  memberId = "viewer"
+): T[] {
+  const mapped = rows.map((r) => ({
+    raw: r,
+    row: memberNotificationAEventFromInboxRow(r),
+  }));
+  const authority = resolveMemberNotificationAuthorityFromRows(
+    mapped.map((m) => m.row),
+    memberId
+  );
+  const allow = new Set(authority.eventIds);
+  return mapped.filter((m) => allow.has(String(m.row.id ?? "").trim())).map((m) => m.raw);
 }

@@ -21,6 +21,7 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
+import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
@@ -59,7 +60,31 @@ function isCallRoute(path: string): boolean {
 type PushRouteDetail = {
   path?: string;
   notificationId?: string;
+  /** Gate 3 Step 9 transport wire (optional; path heuristics if absent). */
+  recipientScope?: string;
+  pipeline?: string;
+  type?: string;
 };
+
+function maybeMarkMemberAOnPushTap(
+  path: string,
+  notificationId: string | undefined,
+  transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">
+): void {
+  const id = notificationId?.trim();
+  if (!id) return;
+  if (
+    !shouldApplyMemberNotificationReadOnPushTap({
+      path,
+      recipientScope: transport?.recipientScope,
+      pipeline: transport?.pipeline,
+      type: transport?.type,
+    })
+  ) {
+    return;
+  }
+  void postNotificationEventOpenedRead(id);
+}
 
 function readNotificationDedupe(): Map<string, number> {
   if (typeof window === "undefined") return new Map();
@@ -113,7 +138,11 @@ export function PushRouteListener() {
   useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
-    const navigate = (rawPath: string, notificationId?: string) => {
+    const navigate = (
+      rawPath: string,
+      notificationId?: string,
+      transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">
+    ) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
       if (shouldIgnoreNotification(notificationId)) return;
@@ -172,9 +201,7 @@ export function PushRouteListener() {
             router.push(path);
           }
         }
-        if (notificationId?.trim()) {
-          void postNotificationEventOpenedRead(notificationId.trim());
-        }
+        maybeMarkMemberAOnPushTap(path, notificationId, transport);
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
         console.info("[push-route] webview_route_delivered", { path, via: "call_v3_wake" });
@@ -219,9 +246,7 @@ export function PushRouteListener() {
       } else {
         router.push(path);
       }
-      if (notificationId?.trim()) {
-        void postNotificationEventOpenedRead(notificationId.trim());
-      }
+      maybeMarkMemberAOnPushTap(path, notificationId, transport);
       clearPendingPushRoute();
       void clearNativePersistedPendingPushRoute();
       console.info("[push-route] webview_route_delivered", { path });
@@ -251,7 +276,11 @@ export function PushRouteListener() {
         path,
         notificationId: detail.notificationId ?? null,
       });
-      navigate(path, detail.notificationId);
+      navigate(path, detail.notificationId, {
+        recipientScope: detail.recipientScope,
+        pipeline: detail.pipeline,
+        type: detail.type,
+      });
     };
 
     window.addEventListener("dibay:push-route", onPushRoute);
@@ -282,7 +311,11 @@ export function PushRouteListener() {
         const { PushNotifications } = await import("@capacitor/push-notifications");
         const sub = await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
           const data = action.notification?.data as Record<string, string | undefined> | undefined;
-          const notificationId = action.notification?.id?.trim() || undefined;
+          const notificationId =
+            (typeof data?.notificationId === "string" && data.notificationId.trim()) ||
+            (typeof data?.notificationEventId === "string" && data.notificationEventId.trim()) ||
+            action.notification?.id?.trim() ||
+            undefined;
           if (!data) return;
           const path = resolvePushRouteFromFcmData(data);
           if (!path) return;
@@ -291,7 +324,11 @@ export function PushRouteListener() {
             notificationId: notificationId ?? null,
             via: "capacitor_push_action",
           });
-          navigate(path, notificationId);
+          navigate(path, notificationId, {
+            recipientScope: data.recipientScope,
+            pipeline: data.pipeline,
+            type: data.type ?? data.eventType,
+          });
         });
         removePushTap = () => {
           void sub.remove();
