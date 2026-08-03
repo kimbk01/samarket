@@ -25,15 +25,16 @@ function hub(partial: Partial<OwnerHubBadgeBreakdown>): OwnerHubBadgeBreakdown {
 }
 
 describe("store-order badge role surface contract", () => {
-  it("MessengerPillarSummaryRow delivery uses buyer_order axis, not storeOrderChatUnread", () => {
+  it("MessengerPillarSummaryRow delivery uses Domain customer unread rooms, not storeOrderChatUnread", () => {
     const src = read("components/community-messenger/MessengerPillarSummaryRow.tsx");
-    expect(src).toContain("buyerOrderAttention");
     expect(src).toContain("peekDomainStoreOrderUnreadRoomCount");
+    expect(src).toContain("peekDomainTradeUnreadRoomCount");
     expect(src).toContain("/community-messenger/delivery-chats");
-    // delivery unread branch must not read owner FAB field
+    expect(src).not.toContain("hub.storeOrderChatUnread");
     const deliveryUnread = src.slice(src.indexOf("const unread ="));
-    expect(deliveryUnread).toContain("buyerOrderAttention");
+    expect(deliveryUnread).toContain("listUnreadRooms");
     expect(deliveryUnread).not.toContain("hub.storeOrderChatUnread");
+    expect(deliveryUnread).not.toMatch(/buyerOrderAttention/);
   });
 
   it("delivery-chats mounts customer list gate only", () => {
@@ -148,17 +149,22 @@ describe("store-order badge role surface contract", () => {
     expect(p.storeOrderOwnerUnreadRooms).toBe(3);
   });
 
-  it("Customer list unread room count matches buyer_order target presence (unit)", () => {
-    const targets = new Set(["order-a", "order-b", "order-c"]);
-    const rows = ["order-a", "order-b", "order-c", "order-done"].map((orderId) => ({
-      orderId,
-      unreadCount: resolveStoreOrderListUnreadCount({
-        orderId,
-        unreadTargetOrderIds: targets,
-      }),
-    }));
+  it("Customer list unread uses participant message counts (not buyer_order 0|1)", () => {
+    const rows = [
+      { orderId: "order-a", unreadCount: resolveStoreOrderListUnreadCount({ participantUnreadCount: 4 }) },
+      { orderId: "order-b", unreadCount: resolveStoreOrderListUnreadCount({ participantUnreadCount: 1 }) },
+      { orderId: "order-c", unreadCount: resolveStoreOrderListUnreadCount({ participantUnreadCount: 0 }) },
+      {
+        orderId: "order-done",
+        unreadCount: resolveStoreOrderListUnreadCount({
+          participantUnreadCount: 0,
+          unreadTargetOrderIds: new Set(["order-done"]),
+        }),
+      },
+    ];
     const unreadRooms = rows.filter((r) => r.unreadCount > 0).length;
-    expect(unreadRooms).toBe(3);
+    expect(unreadRooms).toBe(2);
+    expect(rows.find((r) => r.orderId === "order-a")?.unreadCount).toBe(4);
     expect(rows.find((r) => r.orderId === "order-done")?.unreadCount).toBe(0);
   });
 

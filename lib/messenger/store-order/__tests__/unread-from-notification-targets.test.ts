@@ -32,103 +32,118 @@ function row(partial: Partial<StoreOrderListItem> & { orderId: string; unreadCou
   };
 }
 
-describe("store-order unread from notification_targets", () => {
-  it("exposes customer/owner target types used by hub-bundle axes", () => {
+describe("store-order customer row unread SSOT = participant count", () => {
+  it("exposes customer/owner target types for push/lifecycle", () => {
     expect(STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE).toBe("buyer_order");
     expect(STORE_ORDER_OWNER_UNREAD_TARGET_TYPE).toBe("owner_order_chat");
   });
 
-  describe("customer axis (buyer_order.target_id === orderId)", () => {
-    it("zeros list unread when order has no buyer_order target (stale participant ignored)", () => {
-      const targets = new Set(["alive-order"]);
-      expect(
-        resolveStoreOrderListUnreadCount({ orderId: "stale-completed", unreadTargetOrderIds: targets })
-      ).toBe(0);
-      expect(
-        resolveStoreOrderListUnreadCount({ orderId: "alive-order", unreadTargetOrderIds: targets })
-      ).toBe(1);
-    });
-
-    it("does not treat room ids as customer order ids", () => {
-      const roomIdAsTarget = new Set(["room-abc"]);
-      expect(
-        resolveStoreOrderListUnreadCount({ orderId: "order-1", unreadTargetOrderIds: roomIdAsTarget })
-      ).toBe(0);
-    });
+  it("customer participant unread=6 regardless of target presence → row=6", () => {
+    expect(
+      resolveStoreOrderListUnreadCount({
+        participantUnreadCount: 6,
+        orderId: "order-a",
+        unreadTargetOrderIds: new Set(),
+      })
+    ).toBe(6);
+    expect(
+      resolveStoreOrderListUnreadCount({
+        participantUnreadCount: 6,
+        orderId: "order-a",
+        unreadTargetOrderIds: new Set(["order-a"]),
+      })
+    ).toBe(6);
   });
 
-  describe("owner axis (owner_order_chat.target_id === roomId)", () => {
-    it("matches by roomId from target_id (primary)", () => {
-      const index = buildStoreOrderOwnerUnreadTargetIndex([
-        {
-          target_id: "room-true",
-          domain_identity_key: "store_order:order-true",
-        },
-      ]);
-      expect(
-        resolveStoreOrderOwnerListUnreadCount({
-          orderId: "order-true",
-          roomId: "room-true",
-          index,
-        })
-      ).toBe(1);
-      expect(
-        resolveStoreOrderOwnerListUnreadCount({
-          orderId: "stale-order",
-          roomId: "room-stale",
-          index,
-        })
-      ).toBe(0);
-    });
-
-    it("matches by orderId parsed from domain_identity_key (secondary)", () => {
-      const index = buildStoreOrderOwnerUnreadTargetIndex([
-        {
-          target_id: "room-x",
-          domain_identity_key: "store_order:order-from-identity",
-        },
-      ]);
-      expect(parseStoreOrderOrderIdFromIdentityKey("store_order:order-from-identity")).toBe(
-        "order-from-identity"
-      );
-      expect(
-        resolveStoreOrderOwnerListUnreadCount({
-          orderId: "order-from-identity",
-          roomId: "different-room-id",
-          index,
-        })
-      ).toBe(1);
-    });
-
-    it("does not treat owner target_id as orderId (customer-only semantics)", () => {
-      const index = buildStoreOrderOwnerUnreadTargetIndex([
-        { target_id: "room-abc", domain_identity_key: "store_order:order-xyz" },
-      ]);
-      // Wrong: using room id string as orderId with customer resolver would also fail;
-      // owner resolver must not mark unread when only orderId equals a room target_id.
-      expect(
-        resolveStoreOrderOwnerListUnreadCount({
-          orderId: "room-abc",
-          roomId: "unrelated-room",
-          index,
-        })
-      ).toBe(0);
-      expect(
-        resolveStoreOrderListUnreadCount({
-          orderId: "room-abc",
-          unreadTargetOrderIds: index.roomIds,
-        })
-      ).toBe(1);
-    });
+  it("customer participant unread=0 with target present → row=0", () => {
+    expect(
+      resolveStoreOrderListUnreadCount({
+        participantUnreadCount: 0,
+        orderId: "order-a",
+        unreadTargetOrderIds: new Set(["order-a"]),
+      })
+    ).toBe(0);
   });
 
-  it("hub unreadRoomCount follows targets-aligned row unread only", () => {
+  it("does not emit 0|1 attention flag as row unread", () => {
+    expect(
+      resolveStoreOrderListUnreadCount({
+        participantUnreadCount: 7,
+        unreadTargetOrderIds: new Set(["x"]),
+      })
+    ).toBe(7);
+    expect(
+      resolveStoreOrderListUnreadCount({
+        orderId: "order-a",
+        unreadTargetOrderIds: new Set(["order-a"]),
+      })
+    ).toBe(0);
+  });
+
+  it("hub unreadRoomCount = count(rows where unread>0)", () => {
     const hub = buildStoreOrderHubViewModel([
-      row({ orderId: "a", unreadCount: 1 }),
-      row({ orderId: "b", unreadCount: 0 }),
-      row({ orderId: "c", unreadCount: 0 }),
+      row({ orderId: "a", unreadCount: 0 }),
+      row({ orderId: "b", unreadCount: 3 }),
+      row({ orderId: "c", unreadCount: 1 }),
+      row({ orderId: "d", unreadCount: 0 }),
     ]);
-    expect(hub.unreadCount).toBe(1);
-    expect(hub.roomCount).toBe(3);
+    expect(hub.unreadCount).toBe(2);
+  });
+});
+
+describe("store-order owner list helpers (Owner surface — target matched)", () => {
+  it("matches by roomId from target_id (primary)", () => {
+    const index = buildStoreOrderOwnerUnreadTargetIndex([
+      {
+        target_id: "room-true",
+        domain_identity_key: "store_order:order-true",
+      },
+    ]);
+    expect(
+      resolveStoreOrderOwnerListUnreadCount({
+        orderId: "order-true",
+        roomId: "room-true",
+        index,
+      })
+    ).toBe(1);
+    expect(
+      resolveStoreOrderOwnerListUnreadCount({
+        orderId: "stale-order",
+        roomId: "room-stale",
+        index,
+      })
+    ).toBe(0);
+  });
+
+  it("matches by orderId parsed from domain_identity_key (secondary)", () => {
+    const index = buildStoreOrderOwnerUnreadTargetIndex([
+      {
+        target_id: "room-x",
+        domain_identity_key: "store_order:order-from-identity",
+      },
+    ]);
+    expect(parseStoreOrderOrderIdFromIdentityKey("store_order:order-from-identity")).toBe(
+      "order-from-identity"
+    );
+    expect(
+      resolveStoreOrderOwnerListUnreadCount({
+        orderId: "order-from-identity",
+        roomId: "different-room-id",
+        index,
+      })
+    ).toBe(1);
+  });
+
+  it("does not treat owner target_id as orderId", () => {
+    const index = buildStoreOrderOwnerUnreadTargetIndex([
+      { target_id: "room-abc", domain_identity_key: "store_order:order-xyz" },
+    ]);
+    expect(
+      resolveStoreOrderOwnerListUnreadCount({
+        orderId: "room-abc",
+        roomId: "unrelated-room",
+        index,
+      })
+    ).toBe(0);
   });
 });

@@ -38,7 +38,6 @@ import type { GroupBootstrapSource } from "@/lib/messenger/group/phase6-bootstra
 import type { TradeBootstrapSource } from "@/lib/messenger/trade/phase6-bootstrap";
 import type { StoreOrderBootstrapSource } from "@/lib/messenger/store-order/phase6-bootstrap";
 import {
-  STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE,
   STORE_ORDER_OWNER_UNREAD_TARGET_TYPE,
   buildStoreOrderOwnerUnreadTargetIndex,
   resolveStoreOrderListUnreadCount,
@@ -575,25 +574,8 @@ export async function fetchTradeLiveBatch(
     })
     .filter((p): p is { room_id: string; unread_count: number | null; room: RoomEmbed } => p != null);
   const roomIds = partRows.map((p) => p.room_id);
-  // Badge SSOT: trade targets (chat_domain_trade axis) — not participants.unread_count.
-  const { data: tradeTargetRows, timing: tUnread } = await timedSelect(
-    "trade_unread_targets",
-    () =>
-      sb
-        .from("notification_targets")
-        .select("domain_identity_key")
-        .eq("user_id", viewerUserId)
-        .eq("target_type", "trade")
-        .eq("is_unread", true)
-        .eq("scope", "consumer")
-        .eq("chat_domain", "trade")
-  );
-  timings.push(tUnread);
-  const tradeUnreadIdentityKeys = new Set(
-    ((tradeTargetRows ?? []) as Array<{ domain_identity_key: string | null }>)
-      .map((r) => String(r.domain_identity_key ?? "").trim())
-      .filter(Boolean)
-  );
+  // Row/hub unread SSOT: community_messenger_participants.unread_count (viewer).
+  // notification_targets are push/lifecycle only — not list digit authority.
 
   const { map: msgMap, timing: t2 } = await loadLatestMessagesByRoomIds(sb, roomIds);
   timings.push(t2);
@@ -673,8 +655,6 @@ export async function fetchTradeLiveBatch(
       productChatId,
       tradeStatusLabel: listing?.statusBadgeLabel ?? null,
       unreadCount: resolveTradeListUnreadCount({
-        domainIdentityKey: key,
-        unreadTargetIdentityKeys: tradeUnreadIdentityKeys,
         participantUnreadCount: p.unread_count,
       }),
       latestMessage: latest
@@ -786,24 +766,27 @@ export async function fetchStoreOrderCustomerLiveBatch(
     }>).map((r) => [r.id, r])
   );
 
-  // Badge SSOT: buyer_order targets (bottom_nav_delivery) — not participants.unread_count.
-  const { data: targetRows, timing: tParts } = await timedSelect(
-    "store_order_unread_targets",
+  // Row/hub unread SSOT: customer participant unread_count (viewer = buyer).
+  // buyer_order targets are push/lifecycle only — not list digit authority.
+  const { data: partUnreadRows, timing: tParts } = await timedSelect(
+    "store_order_customer_participant_unread",
     () =>
       sb
-        .from("notification_targets")
-        .select("target_id")
+        .from("community_messenger_participants")
+        .select("room_id, unread_count")
         .eq("user_id", viewerUserId)
-        .eq("target_type", STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE)
-        .eq("is_unread", true)
-        .eq("chat_domain", "store_order")
+        .in("room_id", roomIds)
   );
   timings.push(tParts);
-  const unreadTargetOrderIds = new Set(
-    ((targetRows ?? []) as Array<{ target_id: string | null }>)
-      .map((r) => String(r.target_id ?? "").trim())
-      .filter(Boolean)
-  );
+  const unreadByRoomId = new Map<string, number>();
+  for (const row of (partUnreadRows ?? []) as Array<{
+    room_id: string;
+    unread_count: number | null;
+  }>) {
+    const rid = String(row.room_id ?? "").trim();
+    if (!rid) continue;
+    unreadByRoomId.set(rid, Math.max(0, Math.floor(Number(row.unread_count) || 0)));
+  }
 
   const { map: msgMap, timing: t2 } = await loadLatestMessagesByRoomIds(sb, roomIds);
   timings.push(t2);
@@ -826,8 +809,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
       storeImageUrl: o.stores.profile_image_url ?? null,
       customerUserId: o.buyer_user_id,
       unreadCount: resolveStoreOrderListUnreadCount({
-        orderId: o.id,
-        unreadTargetOrderIds,
+        participantUnreadCount: unreadByRoomId.get(o.community_messenger_room_id) ?? 0,
       }),
       latestMessage: latest
         ? {

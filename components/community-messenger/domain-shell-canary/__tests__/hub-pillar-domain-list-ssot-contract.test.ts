@@ -14,12 +14,14 @@ describe("hub pillar preview SSOT = Domain list", () => {
     expect(src).toContain("prefetchDomainCommerceListsForHub");
   });
 
-  it("MessengerPillarSummaryRow prefers Domain list peek over bootstrap-only", () => {
+  it("MessengerPillarSummaryRow uses Domain unread room counts (not owner-hub attention)", () => {
     const src = read("components/community-messenger/MessengerPillarSummaryRow.tsx");
     expect(src).toContain("peekDomainTradeHubListPreview");
     expect(src).toContain("peekDomainStoreOrderHubListPreview");
+    expect(src).toContain("peekDomainTradeUnreadRoomCount");
     expect(src).toContain("peekDomainStoreOrderUnreadRoomCount");
-    expect(src).toContain("buyerOrderAttention");
+    expect(src).not.toContain("buyerOrderAttention");
+    expect(src).not.toContain("hub.chatUnread");
     expect(src).toContain('data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}');
   });
 

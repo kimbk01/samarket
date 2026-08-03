@@ -1,30 +1,35 @@
 /**
- * Trade list binary presence = derived `notification_targets` (target_type=trade)
- * matched by domain_identity_key — healed from participant unread Facts.
+ * Trade list / hub row unread SSOT = viewer participant unread message count.
  *
- * App Icon / Trade Hub room counts = `loadTradeStoreOrderUnreadRoomFactsFromParticipants`
- * (participants.unread_count, non-phantom). Targets are projection only.
+ * notification_targets (trade) remain for push / routing / lifecycle only.
+ * DO NOT gate row digits on target presence.
+ * DO NOT use Math.max(1, …) attention padding.
  *
- * NOT target_id for list match: target_id is buildTradeTargetId(postId, sellerId, buyerId)
- * (no `trade:` prefix), while the room's domain_identity_key is
- * `trade:{itemId}:{sellerId}:{counterpartyId}`.
+ * App Icon / badge-count Trade room counts also use participants
+ * (`loadTradeStoreOrderUnreadRoomFactsFromParticipants`).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const TRADE_UNREAD_TARGET_TYPE = "trade" as const;
 
-/** Binary presence from targets; when present keep message magnitude from participant. */
+/**
+ * Trade RowUnread = participant unread message count for current viewer.
+ * Targets are ignored for digit authority.
+ */
 export function resolveTradeListUnreadCount(input: {
-  domainIdentityKey: string;
-  unreadTargetIdentityKeys: ReadonlySet<string>;
   participantUnreadCount?: number | null;
+  /** @deprecated Ignored — targets are not row unread authority. */
+  domainIdentityKey?: string | null;
+  /** @deprecated Ignored — targets are not row unread authority. */
+  unreadTargetIdentityKeys?: ReadonlySet<string>;
 }): number {
-  const key = input.domainIdentityKey.trim();
-  if (!key || !input.unreadTargetIdentityKeys.has(key)) return 0;
-  const n = Math.max(0, Math.floor(Number(input.participantUnreadCount) || 0));
-  return Math.max(1, n);
+  return Math.max(0, Math.floor(Number(input.participantUnreadCount) || 0));
 }
 
+/**
+ * Push / lifecycle helper — NOT list/hub unread SSOT.
+ * Filters unread trade targets by domain_identity_key.
+ */
 export function buildTradeUnreadTargetIdentityKeys(
   rows: ReadonlyArray<{
     domain_identity_key?: string | null;
@@ -44,6 +49,7 @@ export function buildTradeUnreadTargetIdentityKeys(
   return ids;
 }
 
+/** Push / lifecycle loader — NOT list/hub unread SSOT. */
 export async function loadTradeUnreadTargetIdentityKeys(
   sb: SupabaseClient,
   viewerUserId: string
@@ -52,7 +58,7 @@ export async function loadTradeUnreadTargetIdentityKeys(
   if (!uid) return new Set();
   const { data, error } = await sb
     .from("notification_targets")
-    .select("domain_identity_key, target_type, chat_domain, is_unread")
+    .select("domain_identity_key")
     .eq("user_id", uid)
     .eq("target_type", TRADE_UNREAD_TARGET_TYPE)
     .eq("is_unread", true)
@@ -65,9 +71,9 @@ export async function loadTradeUnreadTargetIdentityKeys(
   return buildTradeUnreadTargetIdentityKeys(
     (data ?? []) as Array<{
       domain_identity_key: string | null;
-      target_type: string | null;
-      chat_domain: string | null;
-      is_unread: boolean | null;
+      target_type?: string | null;
+      chat_domain?: string | null;
+      is_unread?: boolean | null;
     }>
   );
 }

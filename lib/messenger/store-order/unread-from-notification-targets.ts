@@ -1,13 +1,19 @@
 /**
- * Store-order list binary presence = derived notification_targets
- * (customer: buyer_order · owner: owner_order_chat).
+ * Customer store-order list/hub row unread SSOT =
+ * viewer (customer) participant unread message count.
  *
- * App Icon / Order Hub room counts = `loadTradeStoreOrderUnreadRoomFactsFromParticipants`
- * (participants.unread_count, role-scoped, non-phantom). Targets are projection only.
- * Terminal orders with real unread messages are included (not auto-excluded).
+ * notification_targets (buyer_order / owner_order_chat) remain for push /
+ * routing / lifecycle only — NOT customer row digit authority.
+ * DO NOT emit 0|1 attention flags as row unread.
+ *
+ * App Icon / Customer Order Hub room counts use participants
+ * (`loadTradeStoreOrderUnreadRoomFactsFromParticipants`).
+ *
+ * Owner list binary helpers below stay target-matched for Owner surface only
+ * (Member surfaces must not use owner participant unread).
  *
  * target_id semantics (do not mix):
- * - buyer_order → order_id
+ * - buyer_order → order_id (push lifecycle)
  * - owner_order_chat → room_id (community_messenger_rooms.id);
  *   also accept store_order:{orderId} from domain_identity_key
  */
@@ -17,14 +23,18 @@ import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 export const STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE = "buyer_order" as const;
 export const STORE_ORDER_OWNER_UNREAD_TARGET_TYPE = "owner_order_chat" as const;
 
-/** Customer list/hub — buyer_order.target_id === orderId. */
+/**
+ * Customer Order RowUnread = customer participant unread message count.
+ * Targets / orderId presence are ignored for digit authority.
+ */
 export function resolveStoreOrderListUnreadCount(input: {
-  orderId: string;
-  unreadTargetOrderIds: ReadonlySet<string>;
+  participantUnreadCount?: number | null;
+  /** @deprecated Ignored — targets are not customer row unread authority. */
+  orderId?: string | null;
+  /** @deprecated Ignored — targets are not customer row unread authority. */
+  unreadTargetOrderIds?: ReadonlySet<string>;
 }): number {
-  const id = input.orderId.trim();
-  if (!id) return 0;
-  return input.unreadTargetOrderIds.has(id) ? 1 : 0;
+  return Math.max(0, Math.floor(Number(input.participantUnreadCount) || 0));
 }
 
 export type StoreOrderOwnerUnreadTargetIndex = Readonly<{

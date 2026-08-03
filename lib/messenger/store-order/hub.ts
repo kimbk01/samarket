@@ -5,8 +5,9 @@
  * Hub is derived only from the same StoreOrderSnapshot.rows (customer|owner surface).
  * DO NOT mix surfaces or re-query raw DB for the hub room.
  *
- * unreadCount on rows must already be targets-aligned (customer: buyer_order;
- * owner: owner_order_chat). DO NOT reintroduce participants.unread_count here.
+ * unreadCount on rows must already be participant unread message counts
+ * (customer surface: viewer participant; owner surface: owner list policy).
+ * DO NOT reintroduce notification_targets as customer row digit authority.
  */
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
 import { assertDomainAllowedOnHomeInboxList } from "@/lib/messenger/contracts/home-surface";
