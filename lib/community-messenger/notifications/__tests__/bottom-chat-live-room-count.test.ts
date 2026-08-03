@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyGeneralDirectListProjection,
+  applyStoreOrderListProjection,
   applyTradeListProjection,
   __resetDomainListProjectionsForTest,
 } from "@/lib/chat-domain/list/domain-list-writers";
@@ -83,7 +84,7 @@ function seedComplete(gd = 0, group = 0, versionMs = 1_000): void {
 }
 
 describe("roomSummaryCountsForBottomChat", () => {
-  it("includes general_direct and group; excludes trade and store_order", () => {
+  it("includes GD, group, trade, and customer order; excludes owner order", () => {
     expect(roomSummaryCountsForBottomChat(room({ id: "a", chatDomain: "general_direct" }))).toBe(
       true
     );
@@ -92,8 +93,20 @@ describe("roomSummaryCountsForBottomChat", () => {
         room({ id: "b", chatDomain: "group", roomType: "private_group" })
       )
     ).toBe(true);
-    expect(roomSummaryCountsForBottomChat(room({ id: "c", chatDomain: "trade" }))).toBe(false);
+    expect(roomSummaryCountsForBottomChat(room({ id: "c", chatDomain: "trade" }))).toBe(true);
     expect(roomSummaryCountsForBottomChat(room({ id: "d", chatDomain: "store_order" }))).toBe(false);
+    expect(
+      roomSummaryCountsForBottomChat({
+        ...room({ id: "dc", chatDomain: "store_order" }),
+        storeOrderRole: "customer",
+      })
+    ).toBe(true);
+    expect(
+      roomSummaryCountsForBottomChat({
+        ...room({ id: "do", chatDomain: "store_order" }),
+        storeOrderRole: "owner",
+      })
+    ).toBe(false);
     expect(
       roomSummaryCountsForBottomChat(
         room({ id: "e", chatDomain: null, messengerDirectKey: "trade_pc:x" })
@@ -157,7 +170,7 @@ describe("messenger-room-unread-authority → Projection Authority", () => {
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
   });
 
-  it("does not count trade room toward Bottom / Authority", () => {
+  it("counts trade room through the same Projection Authority", () => {
     seedComplete(0, 0, 1_000);
     applyTradeListProjection({
       chatDomain: "trade",
@@ -182,8 +195,60 @@ describe("messenger-room-unread-authority → Projection Authority", () => {
       versionMs: 2_000,
       eventIdentity: "t-tr-1",
     });
-    expect(out.authorityApplied).toBe(false);
-    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+    expect(out.authorityApplied).toBe(true);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+  });
+
+  it("counts customer store-order but rejects owner store-order from Member B", () => {
+    seedComplete(0, 0, 1_000);
+    applyStoreOrderListProjection({
+      chatDomain: "store_order",
+      versionMs: 1,
+      items: [
+        {
+          roomId: "so-customer",
+          chatDomain: "store_order",
+          domainIdentity: "store_order:o1",
+          storeOrderRole: "customer",
+          unreadCount: 0,
+          lastMessageAt: null,
+          title: "customer",
+        },
+        {
+          roomId: "so-owner",
+          chatDomain: "store_order",
+          domainIdentity: "store_order:o2",
+          storeOrderRole: "owner",
+          unreadCount: 0,
+          lastMessageAt: null,
+          title: "owner",
+        },
+      ],
+    });
+
+    const customer = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "so-customer",
+      viewerUserId: "u1",
+      unreadCount: 1,
+      prevUnreadHint: 0,
+      versionMs: 2_000,
+      eventIdentity: "t-so-customer",
+      storeOrderRole: "customer",
+    });
+    expect(customer.authorityApplied).toBe(true);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+
+    const owner = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "so-owner",
+      viewerUserId: "u1",
+      unreadCount: 1,
+      prevUnreadHint: 0,
+      versionMs: 2_001,
+      eventIdentity: "t-so-owner",
+      storeOrderRole: "owner",
+    });
+    expect(owner.authorityApplied).toBe(false);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
   });
 
   it("excludes Domain-unknown from Authority but still stores local fact", () => {
@@ -193,6 +258,8 @@ describe("messenger-room-unread-authority → Projection Authority", () => {
       communityMessengerUnread: 5,
       tradeUnread: 0,
       storeOrderOwnerUnreadRooms: 0,
+      buyerOrderAttention: 0,
+      socialChatUnread: 5,
     });
     const out = applyMessengerRoomUnreadFactAndSyncBottom({
       roomId: "unknown-room",

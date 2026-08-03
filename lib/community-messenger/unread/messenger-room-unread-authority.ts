@@ -4,10 +4,11 @@
  * P0-2 LOCK:
  * - DO NOT call applyHubBadgeCmUnreadRoomCountAbsolute / Hub snapshot ±1.
  * - Hub/Bottom CM totals come only from Projection Authority (room fact → Builder).
- * - Trade/store_order room facts may still update list caches; Authority rejects them.
+ * - Member B includes General, Group, Trade, and Customer Store Order.
+ * - Owner Store Order is rejected from Member B.
  */
 
-import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
+import type { ChatDomain, StoreOrderRole } from "@/lib/chat-domain/four-domain-freeze";
 import { getDomainListProjection } from "@/lib/chat-domain/list/domain-list-writers";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
@@ -46,11 +47,17 @@ type RecountRow = {
     "chatDomain" | "roomType" | "messengerDirectKey" | "contextMeta"
   > | null;
   projectionDomain: ChatDomain | null;
+  storeOrderRole: StoreOrderRole | null;
 };
 
 const facts = new Map<string, MessengerRoomUnreadFact>();
 
-const BOTTOM_CHAT_DOMAINS: ReadonlySet<ChatDomain> = new Set(["general_direct", "group"]);
+const BOTTOM_CHAT_DOMAINS: ReadonlySet<ChatDomain> = new Set([
+  "general_direct",
+  "group",
+  "trade",
+  "store_order",
+]);
 
 export function applyMessengerRoomUnreadFact(input: {
   roomId: string;
@@ -122,6 +129,7 @@ function upsertRecountRow(map: Map<string, RecountRow>, row: RecountRow): void {
     lastMessageAt: row.lastMessageAt || prev.lastMessageAt,
     summary: row.summary ?? prev.summary,
     projectionDomain: row.projectionDomain ?? prev.projectionDomain,
+    storeOrderRole: row.storeOrderRole ?? prev.storeOrderRole,
   });
 }
 
@@ -130,7 +138,10 @@ function rowEligibleForBottom(row: RecountRow, viewerUserId: string): boolean {
     return roomSummaryCountsForBottomChat(row.summary);
   }
   if (row.projectionDomain) {
-    return BOTTOM_CHAT_DOMAINS.has(row.projectionDomain);
+    return (
+      BOTTOM_CHAT_DOMAINS.has(row.projectionDomain) &&
+      (row.projectionDomain !== "store_order" || row.storeOrderRole === "customer")
+    );
   }
   const eligible = resolveBottomChatRoomEligible(row.roomId, viewerUserId);
   return eligible === true;
@@ -172,6 +183,18 @@ export function resolveMessengerRoomChatDomain(
   return null;
 }
 
+function resolveStoreOrderRole(roomId: string): StoreOrderRole | null {
+  const rid = normalizeLocalReadGuardRoomId(roomId);
+  if (!rid) return null;
+  const projection = getDomainListProjection("store_order");
+  const item = projection?.items.find(
+    (candidate) => normalizeLocalReadGuardRoomId(candidate.roomId) === rid
+  );
+  return item?.storeOrderRole === "customer" || item?.storeOrderRole === "owner"
+    ? item.storeOrderRole
+    : null;
+}
+
 /**
  * Merge bootstrap + domain projections + room snapshots + live facts, then count
  * GD+group rooms with unread>0. Domain-unknown rooms are excluded from Bottom.
@@ -190,6 +213,7 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
         lastMessageAt: String(room.lastMessageAt ?? ""),
         summary: room,
         projectionDomain: room.chatDomain ?? null,
+        storeOrderRole: null,
       });
     }
   }
@@ -204,6 +228,7 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
         lastMessageAt: String(item.lastMessageAt ?? ""),
         summary: null,
         projectionDomain: d,
+        storeOrderRole: d === "store_order" ? (item.storeOrderRole ?? null) : null,
       });
     }
   }
@@ -221,6 +246,7 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
         lastMessageAt: String(snap.room.lastMessageAt ?? existing?.lastMessageAt ?? ""),
         summary: snap.room,
         projectionDomain: snap.room.chatDomain ?? existing?.projectionDomain ?? null,
+        storeOrderRole: existing?.storeOrderRole ?? null,
       });
     }
   }
@@ -254,6 +280,7 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
       lastMessageAt: fact.lastMessageAt || existing?.lastMessageAt || "",
       summary,
       projectionDomain,
+      storeOrderRole: existing?.storeOrderRole ?? resolveStoreOrderRole(rid),
     });
   }
 
@@ -290,6 +317,8 @@ export function applyMessengerRoomUnreadFactAndSyncBottom(input: {
   /** Optional Authority event identity (defaults to room+version+unread). */
   eventIdentity?: string;
   authoritySource?: CmRoomUnreadFactSource;
+  /** Canonical participant role for store_order; Owner never enters Member B. */
+  storeOrderRole?: StoreOrderRole | null;
 }): {
   unreadCount: number;
   suppressed: boolean;
@@ -332,6 +361,10 @@ export function applyMessengerRoomUnreadFactAndSyncBottom(input: {
   const authorityApplied = commitCmRoomUnreadFactEvent({
     roomId: input.roomId,
     domain,
+    storeOrderRole:
+      domain === "store_order"
+        ? (input.storeOrderRole ?? resolveStoreOrderRole(input.roomId))
+        : null,
     unread: {
       kind: "absolute",
       unreadCount: guarded.unreadCount,

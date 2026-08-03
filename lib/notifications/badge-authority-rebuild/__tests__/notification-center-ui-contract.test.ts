@@ -103,7 +103,7 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(view.includes('"chat"')).toBe(false);
   });
 
-  it("base set uses canonical A — chat/owner/push-only excluded; announcement included", () => {
+  it("base set uses canonical A — chat/owner excluded; announcement and marketing included", () => {
     const inbox = [
       {
         id: "a1",
@@ -134,15 +134,15 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       },
     ];
     const filtered = filterMemberNotificationAInboxRows(inbox);
-    expect(filtered.map((r) => r.id)).toEqual(["a1"]);
+    expect(filtered.map((r) => r.id)).toEqual(["a1", "mk"]);
   });
 
-  it("LOCK: marketing display list is not Member A / Bell digit", () => {
+  it("marketing tab helper stays presentation-only while canonical A owns eligibility", () => {
     const filterSrc = fs.readFileSync(
       path.join(root, "lib/notifications/notification-center-inbox-filter.ts"),
       "utf8"
     );
-    expect(filterSrc.includes("혜택 목록 ≠ Bell digit")).toBe(true);
+    expect(filterSrc.includes("Persistent marketing campaigns are Member A")).toBe(true);
     expect(filterSrc.includes("member-notification-a-projection")).toBe(false);
     expect(filterSrc.includes("filterMarketingInboxDisplayRows")).toBe(true);
   });
@@ -232,6 +232,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       "utf8"
     );
     expect(route.includes("markMemberANotificationsAllRead")).toBe(true);
+    expect(route.includes("mark_all_read")).toBe(true);
+    expect(route).not.toMatch(/mark_all_read[\s\S]{0,200}markAllNotificationEventsRead/);
     expect(route.includes("dismissMemberNotificationCenterEvents")).toBe(true);
     const sync = fs.readFileSync(
       path.join(root, "lib/notifications/tier1-header-inbox-sync.ts"),

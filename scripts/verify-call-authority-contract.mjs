@@ -63,11 +63,16 @@ mustContain(
   "service-uses-duration-authority",
 );
 
-// Missed evidence catch must not bypass notify
+// Room-bound missed is Conversation B only; no parallel notification_event/Bell writer.
 mustContain(
   "lib/community-messenger/service.ts",
-  "missed_notify_skipped_after_error",
-  "missed-no-catch-bypass",
+  "Room-bound missed is the terminal call_stub Conversation B fact",
+  "room-bound-missed-b-only",
+);
+mustNotContain(
+  "lib/community-messenger/service.ts",
+  "notifyMissedCallPipeline",
+  "no-room-bound-missed-bell-writer",
 );
 
 // forceEnd routes through updateCommunityMessengerCallSession
@@ -122,18 +127,8 @@ mustContain(
 );
 mustContain(
   "lib/community-messenger/service.ts",
-  "missed_notify_skipped_policy_superseded",
-  "incoming-policy-busy-not-declined-bell",
-);
-mustContain(
-  "lib/community-messenger/service.ts",
   'clientEndedReason: "incoming_policy_superseded"',
   "incoming-policy-supersede-reason",
-);
-mustContain(
-  "lib/community-messenger/service.ts",
-  "decideMissedCallBellNotify",
-  "missed-bell-authority",
 );
 mustContain(
   "lib/community-messenger/service.ts",
@@ -142,8 +137,13 @@ mustContain(
 );
 mustContain(
   "lib/community-messenger/service.ts",
-  "await notifyMissedCallPipeline",
-  "missed-bell-awaited",
+  "resolveTerminalStubActorUserId",
+  "terminal-stub-actor-authority",
+);
+mustContain(
+  "lib/community-messenger/service.ts",
+  "incrementUnread: true",
+  "terminal-stub-atomic-unread",
 );
 mustNotContain(
   "lib/community-messenger/service.ts",
@@ -171,7 +171,21 @@ mustContain(
 mustContain("docs/dibay-call-authority-lock.md", "Final Authority", "lock-doc");
 mustContain("docs/dibay-call-authority-lock.md", "iOS caller-cancel while ringing", "lock-ios-cancel");
 mustContain("docs/dibay-call-authority-lock.md", "History peer", "lock-history-peer");
-mustContain("docs/dibay-call-authority-lock.md", "await Bell", "lock-await-bell");
+mustContain(
+  "docs/dibay-call-authority-lock.md",
+  "Terminal timeline unread (LOCKED)",
+  "lock-terminal-timeline-unread",
+);
+mustContain(
+  "docs/dibay-call-authority-lock.md",
+  "Room-bound missed is call_stub/B only",
+  "lock-room-bound-missed-b-only",
+);
+mustContain(
+  "docs/dibay-call-authority-lock.md",
+  "first-unread/divider ordering",
+  "lock-terminal-unread-phase4-status",
+);
 
 if (failures.length) {
   console.error("verify:call-authority-contract FAIL");

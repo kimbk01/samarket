@@ -70,8 +70,6 @@ export function buildMemberNotificationAProjection(
         else if (type === "missed_call") excludedReasonByEventId[id] = "missed_call_room";
         else if (isOwnerIntakeAttentionKey(resolveNotificationAttentionKey(row)))
           excludedReasonByEventId[id] = "owner_intake";
-        else if (type === "admin_marketing_banner")
-          excludedReasonByEventId[id] = "marketing_ephemeral";
         else excludedReasonByEventId[id] = "not_a_member";
       }
       continue;

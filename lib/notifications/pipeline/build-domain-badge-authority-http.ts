@@ -1,20 +1,20 @@
 /**
  * Server Domain Badge Authority for GET /api/me/notifications/badge-count.
  *
- * Phase B Formula SSOT (App Icon — unchanged in Slice 2-2):
- *   ChatAttentionTotal = unread room ID sets (GD+Group+Trade+Customer+Owner)
- *   NotificationAttentionTotal = distinct non-chat attention_key
- *   AppIconTotal = Chat + Notification
+ * Final Stabilization Formula SSOT:
+ *   Conversation B = unread room ID sets (GD+Group+Trade+Customer; Owner excluded)
+ *   Notification A = unread eligible member notification events
+ *   MemberAppIconTotal = A + B
  *
  * Slice 2-2 Bell digit:
  *   memberUnreadNotificationCount = A_member only
- *   (owner_intake / chat / missed / marketing excluded)
+ *   (owner_intake / chat / room-bound missed excluded; persistent marketing included)
  *
  * categoryCounts remain inbox filter / diagnostics (may include chat rows).
  *
  * P2-a/b LOCK (IO only):
  * - Messenger / Trade / store_order rooms: community_messenger_participants.unread_count.
- * - Orphan missed: thin SELECT → byRoom for list; orphan keys enter NotificationAttention.
+ * - Orphan missed: thin SELECT → A only; room-bound missed belongs to B.
  * - DO NOT reopen RoomUnread writers from this module.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -35,8 +35,7 @@ import {
   type BellExplainMatrix,
 } from "@/lib/notifications/bell-explain-matrix";
 import {
-  buildUnifiedAppIconProjection,
-  type UnifiedAppIconProjection,
+  buildNotificationAttentionProjection,
 } from "@/lib/notifications/chat-notification-attention-projection";
 import { deriveMemberUnreadNotificationCount } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import { loadOwnerOperationOFacts } from "@/lib/notifications/badge-authority-rebuild/load-owner-operation-o-facts";
@@ -96,11 +95,9 @@ export type DomainBadgeAuthorityHttpPayload = {
   explainMatrix: BadgeExplainMatrix;
   /**
    * Phase 3-1 Bell Explain Matrix — kind parts for diagnostics.
-   * Digit SSOT = unifiedAttention.notification.total (not chat event SUM).
+   * Digit SSOT = canonical Member Notification A (not chat event SUM).
    */
   bellExplainMatrix: BellExplainMatrix;
-  /** Phase B — Chat + Notification + App Icon unified projection. */
-  unifiedAttention: UnifiedAppIconProjection;
   domainAppIcon: {
     messenger: number;
     trade: number;
@@ -111,9 +108,9 @@ export type DomainBadgeAuthorityHttpPayload = {
   storeOrderBuyerDeliveryUnread: number;
   /** Owner order-chat rooms (fab_owner_order_chat / owner_order_chat). */
   storeOrderOwnerChatUnread: number;
-  /** @deprecated Raw eligible event row count (includes chat). Prefer unifiedAttention.notification.total. */
+  /** @deprecated Raw eligible event row count (includes chat). Prefer memberUnreadNotificationCount. */
   unreadApprovedNotificationEvents: number;
-  /** Product Bell digit = NotificationAttentionTotal. */
+  /** Legacy diagnostic attention total; product Bell is memberUnreadNotificationCount. */
   notificationAttentionTotal: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
@@ -171,8 +168,8 @@ function nonChatFromCategoryCounts(c: NotificationBadgeCount): NotificationNonCh
 }
 
 /**
- * Collect Domain Facts → unified Formula → Builder → HTTP payload.
- * Bell digit / App Icon notification axis = NotificationAttentionTotal.
+ * Collect Domain Facts → canonical A/B Formula → Builder → HTTP payload.
+ * Bell digit / App Icon notification axis = Member Notification A.
  * Chat hubs / Bottom = room ID sets only.
  */
 export async function buildDomainBadgeAuthorityHttpPayload(
@@ -207,24 +204,16 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     Math.floor(Number(categoryCounts.total) || 0)
   );
 
-  const unifiedAttention = buildUnifiedAppIconProjection({
-    chat: {
-      generalRoomIds: messengerRooms.generalDirectUnreadRoomIds,
-      groupRoomIds: messengerRooms.groupUnreadRoomIds,
-      tradeRoomIds: tradeStoreRooms.tradeUnreadRoomIds,
-      customerOrderRoomIds: tradeStoreRooms.customerOrderUnreadRoomIds,
-      ownerOrderRoomIds: tradeStoreRooms.ownerOrderUnreadRoomIds,
-    },
-    notificationEvents: bellExplainRows,
-  });
-  const notificationAttentionTotal = unifiedAttention.notification.total;
+  const notificationAttention = buildNotificationAttentionProjection(bellExplainRows);
+  const notificationAttentionTotal = notificationAttention.total;
   /** N = A_member. Bell digit = N only (owner ops → FAB). */
   const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(
     bellExplainRows,
     uid
   );
+  const notificationA = resolveMemberNotificationAuthorityFromRows(bellExplainRows, uid);
   const ownerOperationBellCount = ownerO.ownerOperationBellCount;
-  /** O kept for FAB / diagnostics — Icon∪O undecided (not in App Icon total). */
+  /** O kept for Owner FAB / diagnostics; excluded from Member Bell/App Icon. */
   const ownerOperationCount = ownerO.ownerOperationCount;
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
@@ -292,11 +281,10 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const conversationSurfaces = projectSurfacesFromConversationAuthority(
     memberConversationAuthority
   );
-  const notificationA = resolveMemberNotificationAuthorityFromRows(bellExplainRows, uid);
   const memberAppIconAuthority = resolveMemberAppIconAuthority({
     notificationA,
     conversationB: memberConversationAuthority,
-    /** Icon = Bell + Bottom rooms; O undecided — do not add until product lock. */
+    /** Member Icon = A + B; Owner O is excluded by product contract. */
     ownerOperationCount: 0,
     revision: projectionVersionMs,
   });
@@ -311,8 +299,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     ownerOrderUnreadByStoreId: tradeStoreRooms.ownerOrderUnreadByStoreId,
     orphanMissedCallCount: missed.orphan,
     orphanMissedCallEventIds: missed.orphanEventIds,
-    notificationAttentionTotal,
-    notificationAttentionKeys: unifiedAttention.notification.attentionKeys,
+    notificationAttentionTotal: memberUnreadNotificationCount,
+    notificationAttentionKeys: notificationA.eventIds,
   });
   const bellExplainMatrix = buildBellExplainMatrix(bellExplainRows);
 
@@ -321,7 +309,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     authority: "domain_badge",
     bellTotal: projection.bellTotal,
     appIconTotal: memberAppIconAuthority.appIconTotal,
-    chatAttention: unifiedAttention.chat.total,
+    chatAttention: memberConversationAuthority.totalUnreadRooms,
     notificationAttention: notificationAttentionTotal,
     ownerOperationCount,
     ownerOperationBellCount,
@@ -334,8 +322,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     so_owner_rooms: tradeStoreRooms.ownerOrderUnreadRoomIds.length,
     explain_app_icon: explainMatrix.appIcon.total,
     explain_bell: bellExplainMatrix.total,
-    unified_app_icon: unifiedAttention.appIconTotal,
-    excluded_chat_events: unifiedAttention.notification.excludedChatMessageEventIds.length,
+    canonical_app_icon: memberAppIconAuthority.appIconTotal,
+    excluded_chat_events: notificationAttention.excludedChatMessageEventIds.length,
     p2_messenger_participant_select: 1,
     p2_trade_so_participant_select: 1,
     p2_orphan_select: 1,
@@ -369,7 +357,6 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     },
     explainMatrix,
     bellExplainMatrix,
-    unifiedAttention,
     domainAppIcon: {
       messenger: projection.appIcon.messenger,
       trade: projection.appIcon.trade,

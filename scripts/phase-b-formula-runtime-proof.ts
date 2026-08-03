@@ -1,5 +1,5 @@
 /**
- * Phase B read-only — dump Chat / Notification / Unified App Icon Authority.
+ * Phase B read-only — dump canonical Conversation B / Notification A / App Icon Authority.
  * Uses buildDomainBadgeAuthorityHttpPayload (Formula SSOT). DO NOT heal.
  */
 import { createClient } from "@supabase/supabase-js";
@@ -18,16 +18,17 @@ const sb = createClient(url, key, { auth: { persistSession: false } });
 
 async function main() {
   const p = await buildDomainBadgeAuthorityHttpPayload(sb, VIEWER);
-  const u = p.unifiedAttention;
   const out = {
     generated_at: new Date().toISOString(),
     phase: "B_formula_runtime_proof",
     viewer: VIEWER,
     projection: p.projection,
-    unifiedAttention: u,
-    excludedChatMessageEventIds: u.notification.excludedChatMessageEventIds,
+    memberAppIconAuthority: p.memberAppIconAuthority,
+    memberConversationAuthority: p.memberConversationAuthority,
+    bellExplainMatrix: p.bellExplainMatrix,
+    explainMatrix: p.explainMatrix,
     domainAppIcon: p.domainAppIcon,
-    notificationAttentionTotal: p.notificationAttentionTotal,
+    memberUnreadNotificationCount: p.memberUnreadNotificationCount,
     unreadApprovedNotificationEvents_rawIncludingChat: p.unreadApprovedNotificationEvents,
   };
   mkdirSync(OUT_DIR, { recursive: true });
@@ -37,15 +38,16 @@ async function main() {
     JSON.stringify(
       {
         path,
-        chatTotal: u.chat.total,
-        notificationTotal: u.notification.total,
-        appIconTotal: u.appIconTotal,
+        chatTotal: p.memberConversationUnreadRooms,
+        notificationTotal: p.memberUnreadNotificationCount,
+        appIconTotal: p.memberAppIconAuthority.appIconTotal,
         bellTotal: p.projection.bellTotal,
-        excludedChatEvents: u.notification.excludedChatMessageEventIds.length,
+        excludedFromBell: p.bellExplainMatrix.excludedFromDigit.count,
         identity:
-          u.appIconTotal === u.chat.total + u.notification.total &&
-          p.projection.appIconTotal === u.appIconTotal &&
-          p.projection.bellTotal === u.notification.total,
+          p.memberAppIconAuthority.appIconTotal ===
+            p.memberConversationUnreadRooms + p.memberUnreadNotificationCount &&
+          p.projection.appIconTotal === p.memberAppIconAuthority.appIconTotal &&
+          p.projection.bellTotal === p.memberUnreadNotificationCount,
       },
       null,
       2

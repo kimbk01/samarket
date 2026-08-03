@@ -123,7 +123,7 @@ async function serverSnap() {
   return {
     appIcon: p.projection.appIconTotal,
     bell: p.projection.bellTotal,
-    notif: p.notificationAttentionTotal,
+    notif: p.memberUnreadNotificationCount ?? p.notificationAttentionTotal,
   };
 }
 
@@ -183,10 +183,10 @@ async function probe(page: PageLike, tag: string, note?: string) {
       });
       const j = (await res.json()) as {
         projection?: { appIconTotal?: number };
-        unifiedAttention?: { appIconTotal?: number };
+        memberAppIconAuthority?: { appIconTotal?: number };
       };
       out.apiAppIcon =
-        j.unifiedAttention?.appIconTotal ?? j.projection?.appIconTotal ?? null;
+        j.memberAppIconAuthority?.appIconTotal ?? j.projection?.appIconTotal ?? null;
     } catch (e) {
       out.err = String(e);
     }

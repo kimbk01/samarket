@@ -4,6 +4,7 @@ import {
   formatUnreadBadgeCount,
   resolveFirstUnreadMessageId,
   resolveJumpToLatestFabState,
+  resolveNextUnreadMessageId,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
 
 const msgs = [
@@ -34,6 +35,22 @@ describe("messenger-room-first-unread", () => {
         lastReadMessageId: "b",
       })
     ).toBe("u");
+  });
+
+  it("includes unread call_stub in first/next unread ordering", () => {
+    const rows = [
+      { id: "a", isMine: true },
+      { id: "call", isMine: false, messageType: "call_stub" },
+      { id: "text", isMine: false, messageType: "text" },
+    ];
+    expect(resolveFirstUnreadMessageId({ messages: rows, lastReadMessageId: "a" })).toBe("call");
+    expect(
+      resolveNextUnreadMessageId({
+        messages: rows,
+        lastReadMessageId: "a",
+        afterMessageId: "call",
+      })
+    ).toBe("text");
   });
 
   it("returns null when lastRead missing (no fake)", () => {
@@ -71,20 +88,20 @@ describe("messenger-room-first-unread", () => {
     expect(formatUnreadBadgeCount(100)).toBe("99+");
   });
 
-  it("FAB: entryUnreadCount authority (not viewport-below)", () => {
-    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 0 })).toEqual({
+  it("FAB uses canonical remaining unread below viewport", () => {
+    expect(resolveJumpToLatestFabState({ atLatest: true, remainingUnreadCount: 0 })).toEqual({
       visible: false,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, entryUnreadCount: 0 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, remainingUnreadCount: 0 })).toEqual({
       visible: true,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, entryUnreadCount: 93 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, remainingUnreadCount: 93 })).toEqual({
       visible: true,
       badgeCount: 93,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 3 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: true, remainingUnreadCount: 3 })).toEqual({
       visible: true,
       badgeCount: 3,
     });

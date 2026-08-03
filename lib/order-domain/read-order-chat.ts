@@ -162,9 +162,6 @@ export async function readOrderChat(
   }
 
   const participantUnreadAfter = Math.max(0, Math.floor(Number(payload.unreadCount) || 0));
-  if (participantUnreadAfter !== 0) {
-    return { ok: false, error: "order_chat_read_incomplete", status: 409 };
-  }
 
   invalidateNotificationBadgeCache(userId);
   /**
@@ -184,7 +181,7 @@ export async function readOrderChat(
     orderId: ctx.orderId,
     roomId: ctx.roomId,
     role: ctx.role,
-    participantUnreadAfter: 0,
+    participantUnreadAfter,
     targetUnreadAfter: 0,
     eventUnreadAfter: 0,
     updatedParticipantUnreadCount: 1,

@@ -103,14 +103,42 @@ describe("Phase 2-2 Badge Writer Authority SSOT", () => {
     expect(bridge).not.toContain("publishMissedCallToDomainBadgeSurface");
   });
 
+  it("badge-count emits one App Icon authority and QA does not read legacy unifiedAttention", () => {
+    const http = read("lib/notifications/pipeline/build-domain-badge-authority-http.ts");
+    const route = read("app/api/me/notifications/badge-count/route.ts");
+    expect(http).toContain("memberAppIconAuthority");
+    expect(http).not.toContain("unifiedAttention");
+    expect(http).not.toContain("buildUnifiedAppIconProjection");
+    expect(route).not.toContain("unifiedAttention");
+
+    const qaConsumers = [
+      "scripts/o01-prod-device-runtime.mjs",
+      "scripts/gate3-product-contradiction-stop-capture.ts",
+      "scripts/r05-wave1-product-trace.ts",
+      "scripts/gate3-production-device-runtime-smoke.ts",
+      "scripts/gate3-production-deploy-authority-smoke.ts",
+      "scripts/xiaomi-delivery-stale-echo-timeline.ts",
+      "scripts/phase-b-price-offer-mixed-product-gate.ts",
+      "scripts/phase-b-formula-runtime-proof.ts",
+    ];
+    for (const rel of qaConsumers) {
+      expect(read(rel), rel).not.toContain("unifiedAttention");
+    }
+  });
+
   it("Hub non-optimistic path preserves Domain axes (P1-c — no Trade/Customer/Owner bypass)", () => {
     const hub = read("lib/chats/owner-hub-badge-store.ts");
+    const bridge = read("lib/messenger/contracts/domain-badge-authority-product-bridge.ts");
     expect(hub).toContain("source.kind !== \"optimistic\"");
     expect(hub).toContain("communityMessengerUnread: cm");
     expect(hub).toContain("chatUnread: trade");
     expect(hub).toContain("storeOrderOwnerUnreadRooms: ownerRooms");
     expect(hub).toContain("buyerOrderAttention: buyer");
     expect(hub).toContain("Preserve store-scoped FAB");
+    expect(bridge).toContain("socialChatUnread: projection.socialChatUnread");
+    expect(hub).toContain("socialChatUnread: input.socialChatUnread");
+    expect(hub).not.toContain("communityMessengerUnread + philife");
+    expect(hub).not.toContain("input.buyerOrderAttention != null");
   });
 
   it("NativeBadgeSync reads App Icon surface only (no Bell / no Hub invent)", () => {

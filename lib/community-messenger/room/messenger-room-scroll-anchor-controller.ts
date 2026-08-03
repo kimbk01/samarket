@@ -113,6 +113,23 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
   return String(reason);
 }
 
+function resolveLastVisibleTimelineMessageId(viewport: HTMLElement | null): string | null {
+  if (!viewport) return null;
+  const viewportRect = viewport.getBoundingClientRect();
+  const rows = viewport.querySelectorAll<HTMLElement>(
+    '[data-cm-timeline-message-row][id^="cm-room-msg-"]'
+  );
+  let lastVisible: string | null = null;
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    const overlap = Math.min(viewportRect.bottom, rect.bottom) - Math.max(viewportRect.top, rect.top);
+    if (overlap <= 0) continue;
+    const id = row.id.replace(/^cm-room-msg-/, "").trim();
+    if (id) lastVisible = id;
+  }
+  return lastVisible;
+}
+
 /**
  * Single scroll authority for CM rooms (Telegram/Kakao contract).
  * - Initial anchor: room generation 당 1회, useLayoutEffect (paint 전)
@@ -121,6 +138,7 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
  */
 export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControllerOpts): {
   scrollMessengerToBottom: (request?: { reason?: CmScrollOwnerReason; force?: boolean }) => void;
+  scrollMessengerToMessage: (messageId: string) => boolean;
   updateStickToBottomFromScroll: () => void;
   persistScrollPosition: () => void;
   enqueueScrollAnchor: (request: MessengerRoomScrollAnchorRequest) => void;
@@ -377,6 +395,24 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     [scrollMessengerToBottom]
   );
 
+  const scrollMessengerToMessage = useCallback(
+    (messageId: string): boolean => {
+      const mid = messageId.trim();
+      if (!mid) return false;
+      const index = roomMessages.findIndex((message) => String(message.id ?? "").trim() === mid);
+      if (index < 0) return false;
+      const applied = engine.scrollToIndexExplicit(buildCtx(), index, "center");
+      if (applied) {
+        stickToBottomRef.current = false;
+        useMessengerRoomReaderStateStore
+          .getState()
+          .setScrollPosition(roomId, "reading-history");
+      }
+      return applied;
+    },
+    [buildCtx, engine, roomId, roomMessages, stickToBottomRef]
+  );
+
   const updateStickToBottomFromScroll = useCallback(() => {
     engine.notifyUserScroll(buildCtx());
     stickToBottomRef.current = engine.readStickToBottom();
@@ -388,6 +424,12 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       emitScrollLogs: true,
     });
     persistScrollPosition();
+    useMessengerRoomReaderStateStore
+      .getState()
+      .setLastVisibleMessageId(
+        roomId,
+        resolveLastVisibleTimelineMessageId(messagesViewportRef.current)
+      );
     noteCmScrollAuthorityEvent("scroll_command", {
       roomId,
       source: "user_scroll",
@@ -600,6 +642,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   return {
     scrollMessengerToBottom,
+    scrollMessengerToMessage,
     updateStickToBottomFromScroll,
     persistScrollPosition,
     enqueueScrollAnchor,

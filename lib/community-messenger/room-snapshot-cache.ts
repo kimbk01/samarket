@@ -341,22 +341,49 @@ export function patchRoomSummaryInSnapshotCache(args: {
 }
 
 /**
- * 내 unread 만 반영한다. `readReceipt.lastReadMessageId` 는 **상대** participant 행에서 오므로
- * 내 mark_read 커서로 덮어쓰면 안 됨 — 부트스트랩·Realtime refresh 로만 갱신한다.
+ * Viewer unread + viewer read cursor. Peer `readReceipt` is never written here.
  */
 export function patchRoomReadStateInSnapshotCache(args: {
   roomId: string;
   viewerUserId: string;
   unreadCount: number;
+  /** Viewer participant cursor — monotonic advance only when provided. */
+  viewerLastReadMessageId?: string | null;
 }): void {
   const roomId = args.roomId.trim();
   const viewerUserId = args.viewerUserId.trim();
   if (!roomId || !viewerUserId) return;
-  const update = (snapshot: CommunityMessengerRoomSnapshot) =>
-    ({
+  const nextUnread = Math.max(0, Math.floor(args.unreadCount || 0));
+  const nextCursor =
+    args.viewerLastReadMessageId !== undefined
+      ? String(args.viewerLastReadMessageId ?? "").trim() || null
+      : undefined;
+  const update = (snapshot: CommunityMessengerRoomSnapshot) => {
+    const prevCursor =
+      typeof snapshot.viewerLastReadMessageId === "string"
+        ? snapshot.viewerLastReadMessageId.trim()
+        : "";
+    let viewerLastReadMessageId = snapshot.viewerLastReadMessageId ?? null;
+    if (nextCursor !== undefined) {
+      if (!nextCursor) {
+        viewerLastReadMessageId = null;
+      } else if (!prevCursor) {
+        viewerLastReadMessageId = nextCursor;
+      } else {
+        const msgs = snapshot.messages ?? [];
+        const prevIdx = msgs.findIndex((m) => m.id === prevCursor);
+        const nextIdx = msgs.findIndex((m) => m.id === nextCursor);
+        if (prevIdx < 0 || nextIdx < 0 || nextIdx > prevIdx) {
+          viewerLastReadMessageId = nextCursor;
+        }
+      }
+    }
+    return {
       ...snapshot,
-      room: { ...snapshot.room, unreadCount: Math.max(0, Math.floor(args.unreadCount || 0)) },
-    } satisfies CommunityMessengerRoomSnapshot);
+      room: { ...snapshot.room, unreadCount: nextUnread },
+      viewerLastReadMessageId,
+    } satisfies CommunityMessengerRoomSnapshot;
+  };
   patchEntryMap(entries, roomId, viewerUserId, update);
   patchHotMap(roomId, viewerUserId, update);
 }

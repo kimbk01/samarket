@@ -1,8 +1,12 @@
 # DIBAY Call Authority LOCK
 
-**Status:** AUTHORITY LOCK (2026-07-29)  
+**Status:** AUTHORITY LOCK · TERMINAL UNREAD CONTRACT UPDATED (2026-08-04)
 **Replaces / supersedes for terminal·duration·busy·missed contracts:** ad-hoc patches that conflict with this doc.  
 **Does not blindly reopen:** O2 / O3 / O4 / Track①③④ / Voice UI / Video UI / PiP / Dock — those remain unless a listed P0/P1 root cause required a minimal native change (see § Conflicts).
+
+Messenger terminal unread SSOT:
+`docs/dibay-messenger-final-stabilization-contract.md`. Existing Native call
+establishment LOCKs are unchanged.
 
 SSOT modules:
 
@@ -18,7 +22,7 @@ SSOT modules:
 | Duration | `ended_at − answered_at` via `resolveAuthoritativeCallDurationSeconds` (DB has no `connected_at`; `answered_at` is connectedAt proxy) |
 | Busy | Server `peer_busy` on start + unique live indexes; Android native suppresses 2nd incoming UI **without** `reject`/`declined` |
 | Concurrent ringing (incoming policy) | `missed` + `incoming_policy_superseded` (not `reject`/`declined`); missed Bell skipped for that reason |
-| Missed Bell | Only on transition to `status=missed` + delivery/claim evidence; **await Bell** write before PATCH returns (no fire-and-forget) |
+| Missed notification | Room-bound missed is call_stub/B only. Only a genuinely roomless orphan may create Member A/Bell |
 | History row | One `call_logs` row per `session_id` (unique index); created in finalizeLog |
 | History peer | `caller_user_id=initiator`, `peer_user_id=recipient` via `resolveCanonicalCallLogPeerUserId` — never viewer-relative `mapCallSession.peerUserId` |
 | Android establishment | Native Voice/Video Runtime (O2–O4 unchanged for happy path) |
@@ -55,15 +59,61 @@ SSOT modules:
 
 ## Missed policy (LOCKED)
 
-- `ring_timeout` / `status=missed` → callee missed Bell (evidence required)
-- Evidence = `notification_deliveries` call_ringing sent/nativeAck **or** `incoming_push_claimed_at`
-- Writer must **await Bell** (`notifyMissedCallPipeline`) — serverless freeze must not drop the event
+- `ring_timeout` / `status=missed` with a canonical room → callee unread
+  `community_messenger_messages.call_stub` (Conversation B), not Member A/Bell
+- A genuinely roomless orphan missed call may create Member A/Bell; evidence is
+  `notification_deliveries` call_ringing sent/nativeAck or
+  `incoming_push_claimed_at`
+- An orphan A writer must be awaited; no fire-and-forget
 - `answered_elsewhere` → not missed
 - `callee_busy` / `peer_busy` → not missed
 - connected → not missed
 - `callee_rejected` → not missed
 - `caller_cancelled` → not missed (terminal dismiss push only)
 - `incoming_policy_superseded` → status may be missed but Bell skipped
+
+The session writer no longer invokes `notifyMissedCallPipeline` for room-bound missed
+calls. The terminal `call_stub` atomic append is the only unread fact. A future genuinely
+roomless orphan writer must remain A-only.
+
+## Terminal timeline unread (LOCKED)
+
+The existing `community_messenger_messages.call_stub` remains the sole room timeline
+event. No parallel call unread counter or call-notification total may be added.
+
+```text
+terminal call event
+→ idempotent call_stub per session
+→ atomic participant unread fact
+→ room row / domain hub / Bottom / Member App Icon
+→ normal room read cursor
+→ all conversation surfaces clear
+```
+
+| Terminal result | Timeline | Unread recipient | Member Bell |
+|---|---:|---|---:|
+| caller canceled | yes | non-actor recipient | no |
+| callee rejected | yes | caller | no |
+| missed / timeout (room-bound) | yes | callee | no |
+| busy (room-bound result) | yes | caller | no |
+| connected then ended | yes | participant whose cursor has not passed the terminal row | no |
+| answered elsewhere | yes | participant/device session whose cursor has not passed the terminal row | no |
+
+Rules:
+
+- Writer/actor self-unread is forbidden.
+- Existing room read cursor immediately clears a terminal row already observed in an
+  active room/call session; no permanent end-call attention is invented.
+- `timeline visibility = unread eligibility = first-unread/divider eligibility = room
+  read clear`.
+- `call_stub` must not be excluded from first-unread when it counted as unread.
+- Duplicate or late terminal updates for the same session update the logical row and
+  must not increment unread twice.
+- A late missed/timeout cannot replace rejected/cancelled or produce a second unread.
+
+Direct terminal INSERT uses `incrementUnread: true` with the terminal actor as sender;
+same-session UPDATE does not increment again. `call_stub` now participates in the same
+first-unread/divider ordering; device Runtime evidence remains required.
 
 ## History peer (LOCKED)
 
@@ -98,7 +148,8 @@ caller cancel → status=cancelled + call_canceled VoIP
 → untracked race: terminalSuppressed + endCallKitSessionIfUuidKnown
 → late incoming: reportNewIncomingCall then immediate end (PushKit rule)
 → history: cancelled (not missed)
-→ missed Bell / App Icon: not created
+→ Member Bell: not created
+→ room-bound terminal call_stub: Conversation B until room read
 ```
 
 ## Static verify

@@ -6,12 +6,15 @@ import type { MessengerChatViewPosition } from "./messenger-notification-state-m
 type RoomReaderEntry = {
   scrollPosition: MessengerChatViewPosition;
   pendingNewBelow: number;
+  /** Last canonical timeline row actually intersecting the viewport. UI state only. */
+  lastVisibleMessageId: string | null;
   updatedAt: number;
 };
 
 type State = {
   byRoom: Record<string, RoomReaderEntry>;
   setScrollPosition: (roomId: string, position: MessengerChatViewPosition) => void;
+  setLastVisibleMessageId: (roomId: string, messageId: string | null) => void;
   bumpPendingNewFromOthers: (roomId: string, delta: number) => void;
   clearPendingNew: (roomId: string) => void;
   clearRoom: (roomId: string) => void;
@@ -31,7 +34,33 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
       return {
         byRoom: {
           ...s.byRoom,
-          [id]: { scrollPosition: position, pendingNewBelow: pending, updatedAt: Date.now() },
+          [id]: {
+            ...prev,
+            scrollPosition: position,
+            pendingNewBelow: pending,
+            lastVisibleMessageId: prev?.lastVisibleMessageId ?? null,
+            updatedAt: Date.now(),
+          },
+        },
+      };
+    });
+  },
+  setLastVisibleMessageId: (roomId, messageId) => {
+    const id = roomId.trim();
+    if (!id) return;
+    const nextMessageId = messageId?.trim() || null;
+    set((s) => {
+      const prev = s.byRoom[id];
+      if (prev?.lastVisibleMessageId === nextMessageId) return s;
+      return {
+        byRoom: {
+          ...s.byRoom,
+          [id]: {
+            scrollPosition: prev?.scrollPosition ?? "reading-history",
+            pendingNewBelow: prev?.pendingNewBelow ?? 0,
+            lastVisibleMessageId: nextMessageId,
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -47,6 +76,7 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
           [id]: {
             scrollPosition: "reading-history",
             pendingNewBelow: (prev?.pendingNewBelow ?? 0) + delta,
+            lastVisibleMessageId: prev?.lastVisibleMessageId ?? null,
             updatedAt: Date.now(),
           },
         },

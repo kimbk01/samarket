@@ -20,12 +20,6 @@ function sliceBetween(src: string, startMarker: string, endMarker: string): stri
   return src.slice(start, end);
 }
 
-const immediateOrderBranch = sliceBetween(
-  readEffectSrc,
-  "const orderReadInput = resolveOrderChatReadInput(snap, id, tailId)",
-  "cmReadBadgeLog(\"room_enter_optimistic_zero\""
-);
-
 const scrollOrderBranch = sliceBetween(
   readEffectSrc,
   "const orderReadInput = resolveOrderChatReadInput(snap, id, lastReadMessageId)",
@@ -35,35 +29,21 @@ const scrollOrderBranch = sliceBetween(
 describe("CM room order authority read contract", () => {
   it("keeps OrderDomain success gated on Room Unread Authority mark-read projection", () => {
     expect(readOrderSrc).toContain("dibay_mark_room_read_atomic");
-    expect(readOrderSrc).toContain('error: "order_chat_read_incomplete"');
-    expect(readOrderSrc).toContain("participantUnreadAfter !== 0");
+    expect(readOrderSrc).not.toContain('error: "order_chat_read_incomplete"');
+    expect(readOrderSrc).toContain("participantUnreadAfter");
     expect(readOrderSrc).toContain('p_chat_domain: "store_order"');
     expect(readOrderSrc).not.toContain("markOrderParticipantRead");
   });
 
-  it("routes delivery rooms to OrderDomain for both immediate_open and scroll_ack", () => {
+  it("routes visible-range delivery cursor to OrderDomain scroll_ack only", () => {
     expect(readEffectSrc).toContain("isDeliveryOrderRoomSnapshot");
     expect(readEffectSrc).toContain('fetch("/api/domains/order/read-order-chat"');
-    expect(immediateOrderBranch).toContain("postOrderChatRead(orderReadInput)");
     expect(scrollOrderBranch).toContain("postOrderChatRead(orderReadInput)");
-    expect(immediateOrderBranch).toContain("path: \"immediate_open\"");
     expect(scrollOrderBranch).toContain("path: \"scroll_ack\"");
+    expect(readEffectSrc).not.toContain("runImmediateOpenFlushOnce");
   });
 
-  it("immediate_open: OrderDomain ok only → optimistic 1 · room-read 0 · CM mark_read 0 · resync 0", () => {
-    expect(immediateOrderBranch).toContain("if (json.ok === true)");
-    expect(immediateOrderBranch).toContain("applyOptimisticRoomRead(snap, tailId)");
-    expect(immediateOrderBranch).not.toContain("readRoomNotificationEventsAfterServerRead");
-    expect(immediateOrderBranch).not.toContain("postNotificationRoomRead");
-    expect(immediateOrderBranch).not.toContain("requestMessengerHubBadgeResync");
-    expect(immediateOrderBranch).not.toContain("communityMessengerRoomResourcePath");
-    // success-before: no applyOptimistic outside ok branch
-    const beforeOk = immediateOrderBranch.slice(0, immediateOrderBranch.indexOf("if (json.ok === true)"));
-    expect(beforeOk).not.toContain("applyOptimisticRoomRead");
-    expect((immediateOrderBranch.match(/applyOptimisticRoomRead\(/g) || []).length).toBe(1);
-  });
-
-  it("scroll_ack: OrderDomain ok only → optimistic 1 · room-read 0 · CM mark_read 0 · resync 0", () => {
+  it("scroll_ack: OrderDomain success applies only the visible cursor", () => {
     expect(scrollOrderBranch).toContain("if (json.ok === true)");
     expect(scrollOrderBranch).toContain("applyOptimisticRoomRead(snap, lastReadMessageId)");
     expect(scrollOrderBranch).not.toContain("readRoomNotificationEventsAfterServerRead");
@@ -79,12 +59,11 @@ describe("CM room order authority read contract", () => {
     expect(readEffectSrc).toContain(
       "if (isDeliveryOrderRoomSnapshot(readableSnapshot)) return;"
     );
-    expect(readEffectSrc).toContain("!isDeliveryOrderRoomSnapshot(snap)");
     expect(readEffectSrc).toContain("!isDeliveryOrderRoomSnapshot(snapEarly)");
   });
 
-  it("failure paths keep unread (no extra clear / no Messenger fresh resync) on both branches", () => {
-    for (const branch of [immediateOrderBranch, scrollOrderBranch]) {
+  it("failure path keeps unread without Messenger fresh resync", () => {
+    for (const branch of [scrollOrderBranch]) {
       const failIdx = branch.indexOf("order_read_api_fail");
       expect(failIdx).toBeGreaterThan(-1);
       const afterFirstFail = branch.slice(failIdx);
@@ -104,7 +83,6 @@ describe("CM room order authority read contract", () => {
     expect(refreshFn).toContain('role === "owner"');
     expect(refreshFn).toContain("owner_order_chat");
     expect(refreshFn).toContain("KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH");
-    expect(immediateOrderBranch).toContain("dispatchOrderChatReadRefresh(id, json.role)");
     expect(scrollOrderBranch).toContain("dispatchOrderChatReadRefresh(id, json.role)");
   });
 

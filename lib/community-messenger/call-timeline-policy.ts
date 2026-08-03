@@ -27,6 +27,11 @@
  * - 레거시 dialing 잔존 + terminal 이 함께 있으면 projection merge 로 session 당 1행
  * - VoIP dispatch 는 `dispatchIncomingCallVoipOnCriticalPath` (HTTP `after()` 금지)
  * - Native-only mid-call tip 이 terminal stub/list projection 을 차단하면 안 됨
+ *
+ * ## Terminal unread
+ * - terminal INSERT 는 기존 atomic message append 로 non-actor participant unread 증가
+ * - 같은 sessionId terminal 재처리는 기존 stub UPDATE만 수행(중복 unread 금지)
+ * - room-bound missed 는 call_stub/B only; notification_events/Bell 중복 생성 금지
  */
 
 export const CM_ROOM_TIMELINE_CALL_SSOT = "community_messenger_messages.call_stub" as const;

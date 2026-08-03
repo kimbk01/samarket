@@ -1700,7 +1700,11 @@ export function useMessengerRoomClientPhase1({
     (req?: { reason?: string; force?: boolean }) => void
   >(() => {});
 
-  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
+  const {
+    scrollMessengerToBottom,
+    scrollMessengerToMessage,
+    updateStickToBottomFromScroll,
+  } = useMessengerRoomReaderScrollBottom({
     roomId,
     activeSheet,
     stickToBottomRef,
@@ -1715,7 +1719,7 @@ export function useMessengerRoomClientPhase1({
     loadingOlderMessages,
     timelineInitialLoadComplete,
     unreadCount: snapshot?.room.unreadCount ?? 0,
-    lastReadMessageId: snapshot?.readReceipt?.lastReadMessageId ?? null,
+    lastReadMessageId: snapshot?.viewerLastReadMessageId ?? null,
   });
   scrollMessengerToBottomRef.current = scrollMessengerToBottom;
 
@@ -1791,12 +1795,9 @@ export function useMessengerRoomClientPhase1({
   const scrollToRoomMessage = useCallback(
     (messageId: string) => {
       dismissRoomSheet();
-      window.requestAnimationFrame(() => {
-        const el = document.getElementById(`cm-room-msg-${messageId}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
+      scrollMessengerToMessage(messageId);
     },
-    [dismissRoomSheet]
+    [dismissRoomSheet, scrollMessengerToMessage]
   );
 
   const clearTimelineMessageHighlight = useCallback(() => {

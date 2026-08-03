@@ -234,7 +234,6 @@ import {
   invalidateRoomBootstrapSnapshotCacheForViewer,
 } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
-import { notifyMissedCallPipeline } from "@/lib/notifications/pipeline/notify-missed-call-pipeline";
 import { notifyCommunityMessengerGroupInviteReceived } from "@/lib/notifications/community-messenger-group-inapp-notify";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
@@ -257,7 +256,6 @@ import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messeng
 import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
-import { decideMissedCallBellNotify } from "@/lib/community-messenger/call-authority/call-missed-bell-authority";
 import {
   isTrustedClientEndedReason,
   resolveTerminalEndedReason,
@@ -14509,6 +14507,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       peerLastReadMessageCreatedAt = typeof ca === "string" && ca.trim() ? ca.trim() : null;
     }
   }
+  const viewerLastReadMessageId = meParticipant
+    ? participantLastReadMessageId(meParticipant)
+    : null;
   const readReceipt: CommunityMessengerReadReceipt | null =
     summary.roomType === "direct" && peerParticipant
       ? {
@@ -14877,6 +14878,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     bootstrapInitialMessageLimit: snapshotBootstrapInitialMessageLimit,
     hasMoreOlderMessages: snapshotHasMoreOlderMessages,
     myRole: meRole,
+    viewerLastReadMessageId: viewerLastReadMessageId || null,
     ...(readReceipt ? { readReceipt } : {}),
     ...(peerPresence ? { peerPresence } : {}),
     activeCall,
@@ -17393,6 +17395,8 @@ export async function sendCommunityMessengerVoiceMessage(input: {
 
 export async function createCommunityMessengerCallLog(input: {
   userId: string;
+  /** Actor shown as the terminal timeline sender; call_logs caller remains userId. */
+  stubActorUserId?: string | null;
   roomId?: string | null;
   sessionId?: string | null;
   peerUserId?: string | null;
@@ -17407,6 +17411,7 @@ export async function createCommunityMessengerCallLog(input: {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
   const peerUserId = trimText(input.peerUserId ?? "") || null;
+  const stubActorUserId = trimText(input.stubActorUserId ?? "") || input.userId;
   const startedAt = await resolveCallSessionStartedAtIso({
     sessionId,
     explicitStartedAt: input.startedAt,
@@ -17428,7 +17433,7 @@ export async function createCommunityMessengerCallLog(input: {
     const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
       await appendCommunityMessengerCallStubMessage({
-        userId: input.userId,
+        userId: stubActorUserId,
         roomId,
         sessionId,
         callKind: input.callKind,
@@ -17436,7 +17441,7 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         listActivityAt,
         replaceExisting: input.replaceExistingStub,
-        incrementUnread: !input.replaceExistingStub,
+        incrementUnread: true,
         /**
          * CONTRACT: dialing stub 미발행 이후 direct terminal 도 last_message_at bump 필수.
          * (구: replaceExistingStub 이면 bump false — dial 선 bump 전제, 2026-07-29 회귀)
@@ -17449,7 +17454,7 @@ export async function createCommunityMessengerCallLog(input: {
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
       await appendCommunityMessengerCallStubMessage({
-        userId: input.userId,
+        userId: stubActorUserId,
         roomId,
         sessionId,
         callKind: input.callKind,
@@ -17457,7 +17462,7 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         listActivityAt,
         replaceExisting: input.replaceExistingStub ?? true,
-        incrementUnread: false,
+        incrementUnread: true,
         bumpRoomLastMessageAt: true,
         durationSeconds: input.durationSeconds,
       });
@@ -17479,7 +17484,7 @@ export async function createCommunityMessengerCallLog(input: {
     startedAt,
   });
   await appendCommunityMessengerCallStubMessage({
-    userId: input.userId,
+    userId: stubActorUserId,
     roomId,
     sessionId,
     callKind: input.callKind,
@@ -17487,7 +17492,7 @@ export async function createCommunityMessengerCallLog(input: {
     createdAt: startedAt,
     listActivityAt,
     replaceExisting: input.replaceExistingStub,
-    incrementUnread: !input.replaceExistingStub,
+    incrementUnread: true,
     bumpRoomLastMessageAt: true,
     durationSeconds: input.durationSeconds,
   });
@@ -18321,6 +18326,23 @@ export async function updateCommunityMessengerCallSession(input: {
         : mapped.status === "cancelled"
           ? "cancelled"
           : "missed";
+  const resolveTerminalStubActorUserId = (
+    session: CallSessionRow | DevCallSession,
+    mapped: CommunityMessengerCallSession
+  ): string => {
+    const isDbSession = "initiator_user_id" in session;
+    const initiatorUserId = trimText(
+      isDbSession ? session.initiator_user_id : session.initiatorUserId
+    );
+    const recipientUserId = trimText(
+      isDbSession ? session.recipient_user_id : session.recipientUserId
+    );
+    if (mapped.status === "rejected") return recipientUserId || initiatorUserId;
+    if (mapped.status === "missed" || mapped.status === "cancelled") {
+      return initiatorUserId || recipientUserId;
+    }
+    return trimText(input.userId) || initiatorUserId || recipientUserId;
+  };
   const ensureTerminalCallStub = async (
     session: CallSessionRow | DevCallSession,
     mapped: CommunityMessengerCallSession
@@ -18343,7 +18365,7 @@ export async function updateCommunityMessengerCallSession(input: {
         : trimText(session.endedAt ?? "")) ||
       nowIso();
     await appendCommunityMessengerCallStubMessage({
-      userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
+      userId: resolveTerminalStubActorUserId(session, mapped),
       roomId: "room_id" in session ? session.room_id : session.roomId,
       sessionId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
@@ -18351,7 +18373,7 @@ export async function updateCommunityMessengerCallSession(input: {
       createdAt: stubCreatedAt,
       listActivityAt,
       replaceExisting: mapped.sessionMode === "direct",
-      incrementUnread: false,
+      incrementUnread: true,
       /** INSERT·UPDATE 모두 listActivityAt(terminal) forward-only bump */
       bumpRoomLastMessageAt: true,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
@@ -18383,6 +18405,7 @@ export async function updateCommunityMessengerCallSession(input: {
       undefined;
     await createCommunityMessengerCallLog({
       userId: initiatorUserId,
+      stubActorUserId: resolveTerminalStubActorUserId(session, mapped),
       roomId: "room_id" in session ? session.room_id : session.roomId,
       sessionId,
       peerUserId,
@@ -19097,99 +19120,10 @@ export async function updateCommunityMessengerCallSession(input: {
               : {}),
           },
         });
-        if (
-          next.nextStatus === "missed" &&
-          (updated.session_mode ?? "direct") === "direct"
-        ) {
-          const roomIdM = trimText(updated.room_id ?? "");
-          const initM = trimText(updated.initiator_user_id ?? "");
-          const recipM = trimText(updated.recipient_user_id ?? "");
-          if (roomIdM && initM && recipM) {
-            /**
-             * CONTRACT: await Bell write before returning — fire-and-forget races serverless
-             * freeze and drops notification_events (observed 1/30 QA-05 miss).
-             */
-            try {
-              const endedReasonM = trimText(
-                (updated as { ended_reason?: string | null }).ended_reason ?? ""
-              );
-              const { data: deliveryRows } = await (sb as any)
-                .from("notification_deliveries")
-                .select("status, provider_response")
-                .eq("user_id", recipM)
-                .eq("target_type", "call_session")
-                .eq("target_id", updated.id)
-                .eq("event_type", "call_ringing")
-                .limit(20);
-              let claimedAt =
-                trimText(
-                  (updated as { incoming_push_claimed_at?: string | null }).incoming_push_claimed_at ??
-                    ""
-                ) || null;
-              if (!claimedAt) {
-                const { data: claimRow } = await (sb as any)
-                  .from("community_messenger_call_sessions")
-                  .select("incoming_push_claimed_at")
-                  .eq("id", updated.id)
-                  .maybeSingle();
-                claimedAt =
-                  trimText(
-                    (claimRow as { incoming_push_claimed_at?: string | null } | null)
-                      ?.incoming_push_claimed_at ?? ""
-                  ) || null;
-              }
-              const decision = decideMissedCallBellNotify({
-                sessionMode: updated.session_mode ?? "direct",
-                endedReason: endedReasonM,
-                deliveryRows: (deliveryRows ?? []) as Array<{
-                  status?: string | null;
-                  provider_response?: Record<string, unknown> | null;
-                }>,
-                incomingPushClaimedAt: claimedAt,
-              });
-              if (!decision.notify) {
-                if (decision.skipReason === "incoming_policy_superseded") {
-                  console.info("[DIBAY_CALL] missed_notify_skipped_policy_superseded", {
-                    sessionId: updated.id,
-                    recipientUserId: recipM,
-                  });
-                } else if (decision.skipReason === "no_delivery_evidence") {
-                  console.info("[DIBAY_CALL] missed_skipped_no_delivery_evidence", {
-                    sessionId: updated.id,
-                    recipientUserId: recipM,
-                  });
-                } else {
-                  console.info("[DIBAY_CALL] missed_notify_skipped", {
-                    sessionId: updated.id,
-                    recipientUserId: recipM,
-                    skipReason: decision.skipReason,
-                  });
-                }
-              } else {
-                const profileMap = await fetchProfilesByIds([initM, recipM]);
-                await notifyMissedCallPipeline(sb as SupabaseLike, {
-                  sessionId: updated.id,
-                  roomId: roomIdM,
-                  initiatorUserId: initM,
-                  recipientUserId: recipM,
-                  initiatorDisplayName: profileLabel(profileMap.get(initM), initM),
-                  recipientDisplayName: profileLabel(profileMap.get(recipM), recipM),
-                });
-              }
-            } catch (missedErr) {
-              console.info("[DIBAY_CALL] missed_notify_skipped_after_error", {
-                sessionId: updated.id,
-                recipientUserId: recipM,
-                err:
-                  missedErr instanceof Error
-                    ? missedErr.message
-                    : typeof missedErr === "string"
-                      ? missedErr
-                      : "unknown",
-              });
-            }
-          }
-        }
+        /**
+         * Room-bound missed is the terminal call_stub Conversation B fact.
+         * Do not create a second notification_events/Bell fact for the same session.
+         */
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
             .from("community_messenger_call_logs")

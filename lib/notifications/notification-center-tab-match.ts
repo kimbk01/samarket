@@ -45,6 +45,7 @@ export function matchesNotificationCenterMemberTab(
     return (
       pk === "marketing" ||
       nt === "admin_marketing_banner" ||
+      bell === "admin_marketing" ||
       bell === "admin_marketing_banner" ||
       (bell === "unsupported" && pk === "marketing")
     );

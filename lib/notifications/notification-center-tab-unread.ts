@@ -1,6 +1,6 @@
 /**
  * Notification Center / Bell modal tab unread sums.
- * Member tabs count A (or marketing display) rows; store tab uses Owner O attention.
+ * Member tabs count A rows, including persistent marketing; store uses Owner O.
  */
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
@@ -44,7 +44,7 @@ function isUnreadRow(row: CountableInboxRow): boolean {
  */
 export function buildNotificationCenterTabUnreadCounts(input: {
   memberRows: readonly CountableInboxRow[];
-  /** Marketing display rows (≠ A). Counted only on marketing tab / all when included. */
+  /** Marketing presentation rows for the dedicated marketing tab. */
   marketingRows?: readonly CountableInboxRow[];
   storeAttention?: number | null;
 }): NotificationCenterTabUnreadCounts {

@@ -1,10 +1,10 @@
 /**
- * Room-entry unread snapshot for Telegram-style FAB badge.
+ * Room-entry unread snapshot for initial anchor continuity.
  *
  * CONTRACT:
  * - Capture list `room.unreadCount` once per room entry session (before/despite optimistic list clear).
- * - FAB badge authority = `entryUnreadCount` only (not live unread, not viewport-below).
- * - Clear only when user reaches latest / FAB jump / session leave — not on enter mark_read.
+ * - `entryUnreadCount` is not the FAB/live unread authority.
+ * - Clear when canonical remaining unread reaches zero or the session leaves.
  * - Never share across rooms; never recreate while active.
  */
 

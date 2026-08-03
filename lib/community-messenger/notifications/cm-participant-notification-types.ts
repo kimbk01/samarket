@@ -8,6 +8,7 @@ export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
 export type ParticipantRealtimeRow = {
   room_id?: unknown;
   unread_count?: unknown;
+  store_order_role?: unknown;
 };
 
 export function getParticipantRoomId(row: ParticipantRealtimeRow | null): string {
@@ -17,4 +18,12 @@ export function getParticipantRoomId(row: ParticipantRealtimeRow | null): string
 export function getParticipantUnreadCount(row: ParticipantRealtimeRow | null): number {
   const value = typeof row?.unread_count === "number" ? row.unread_count : Number(row?.unread_count ?? 0);
   return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+export function getParticipantStoreOrderRole(
+  row: ParticipantRealtimeRow | null
+): "customer" | "owner" | null {
+  return row?.store_order_role === "customer" || row?.store_order_role === "owner"
+    ? row.store_order_role
+    : null;
 }

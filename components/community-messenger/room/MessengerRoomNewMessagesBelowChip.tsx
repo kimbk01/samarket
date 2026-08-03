@@ -7,21 +7,19 @@ import {
   formatUnreadBadgeCount,
   resolveJumpToLatestFabState,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
-import {
-  clearMessengerRoomEntryUnread,
-  useMessengerRoomEntryUnreadStore,
-} from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
-
 /**
  * Telegram-style jump-to-latest FAB (bottom-right).
- * Badge authority = entryUnreadCount snapshot (survives list optimistic clear).
- * Tap → existing scrollMessengerToBottom only (no new scroll writer / no smooth).
+ * Unread remains → next canonical unread. No unread → latest.
  */
 export function MessengerRoomNewMessagesBelowChip({
   roomId,
+  remainingUnreadCount,
+  onJumpToUnread,
   onJumpToLatest,
 }: {
   roomId: string;
+  remainingUnreadCount: number;
+  onJumpToUnread: () => void;
   onJumpToLatest: () => void;
 }) {
   const { safeT } = useI18n();
@@ -29,23 +27,16 @@ export function MessengerRoomNewMessagesBelowChip({
   const scrollPosition = useMessengerRoomReaderStateStore((s) =>
     rid ? (s.byRoom[rid]?.scrollPosition ?? null) : null
   );
-  const entryUnreadCount = useMessengerRoomEntryUnreadStore((s) => {
-    if (!rid) return 0;
-    const snap = s.byRoom[rid];
-    if (!snap || snap.cleared) return 0;
-    return snap.entryUnreadCount;
-  });
-
   const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
-  const fab = resolveJumpToLatestFabState({ atLatest, entryUnreadCount });
+  const fab = resolveJumpToLatestFabState({ atLatest, remainingUnreadCount });
 
   if (!messengerRoomShowsNewMessagesBelowChip() || !fab.visible) return null;
 
   const badge = formatUnreadBadgeCount(fab.badgeCount);
   const aria = badge
     ? safeT("cm_ui_jump_latest_unread_aria", {
-        fallbackKo: `최신으로 이동, 읽지 않은 메시지 ${badge}개`,
-        fallbackEn: `Jump to latest, ${badge} unread`,
+        fallbackKo: `다음 읽지 않은 메시지로 이동, ${badge}개 남음`,
+        fallbackEn: `Jump to next unread, ${badge} remaining`,
         vars: { count: badge },
       })
     : safeT("cm_ui_jump_latest_aria", {
@@ -59,12 +50,10 @@ export function MessengerRoomNewMessagesBelowChip({
         type="button"
         data-cm-jump-latest-fab="1"
         data-cm-jump-latest-badge={badge || "0"}
-        data-cm-jump-latest-entry-unread={String(entryUnreadCount)}
+        data-cm-jump-latest-remaining-unread={String(remainingUnreadCount)}
         onClick={() => {
-          onJumpToLatest();
-          if (rid && entryUnreadCount > 0) {
-            clearMessengerRoomEntryUnread(rid, "fab_jump");
-          }
+          if (remainingUnreadCount > 0) onJumpToUnread();
+          else onJumpToLatest();
         }}
         aria-label={aria}
         className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] text-[color:var(--cm-room-text)] shadow-sm active:opacity-90"

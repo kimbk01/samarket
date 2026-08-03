@@ -77,6 +77,7 @@ describe("messenger-chat-tab-badge — Messenger projection input", () => {
       tradeUnread: 9,
       storeOrderOwnerUnreadRooms: 4,
       buyerOrderAttention: 3,
+      socialChatUnread: 2,
     });
     expect(onChange).toHaveBeenCalledTimes(0);
     expect(resolveMessengerChatTabBadgeCount()).toBe(2);
@@ -85,6 +86,8 @@ describe("messenger-chat-tab-badge — Messenger projection input", () => {
       communityMessengerUnread: 3,
       tradeUnread: 9,
       storeOrderOwnerUnreadRooms: 4,
+      buyerOrderAttention: 3,
+      socialChatUnread: 3,
     });
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(resolveMessengerChatTabBadgeCount()).toBe(3);

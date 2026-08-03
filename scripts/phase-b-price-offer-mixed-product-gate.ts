@@ -66,8 +66,7 @@ type MixedSnap = {
   owner: number;
   general: number;
   group: number;
-  attentionKeys: string[];
-  excludedChatEvents: number;
+  notificationEventIds: string[];
   badgeGet: number | null;
 };
 
@@ -110,20 +109,18 @@ const sb: SupabaseClient = createClient(
 async function authoritySnap(badgeGet: number | null = null): Promise<MixedSnap> {
   invalidateNotificationBadgeCache(VIEWER);
   const p = await buildDomainBadgeAuthorityHttpPayload(sb, VIEWER);
-  const u = p.unifiedAttention;
   return {
-    appIcon: p.projection.appIconTotal,
+    appIcon: p.memberAppIconAuthority.appIconTotal,
     bell: p.projection.bellTotal,
-    notification: u.notification.total,
-    chat: u.chat.total,
+    notification: p.memberUnreadNotificationCount,
+    chat: p.memberConversationUnreadRooms,
     bottom: p.projection.bottomChatTotal,
-    trade: u.chat.tradeRoomIds.length,
-    customer: u.chat.customerOrderRoomIds.length,
-    owner: u.chat.ownerOrderRoomIds.length,
-    general: u.chat.generalRoomIds.length,
-    group: u.chat.groupRoomIds.length,
-    attentionKeys: [...u.notification.attentionKeys],
-    excludedChatEvents: u.notification.excludedChatMessageEventIds.length,
+    trade: p.tradeUnreadRoomIds.length,
+    customer: p.storeOrderUnreadRoomIds.customer.length,
+    owner: p.storeOrderUnreadRoomIds.owner.length,
+    general: p.messengerUnreadRoomIds.general_direct.length,
+    group: p.messengerUnreadRoomIds.group.length,
+    notificationEventIds: [...p.memberAppIconAuthority.notificationEventIds],
     badgeGet,
   };
 }
@@ -148,8 +145,8 @@ function assertOfferCreate(before: MixedSnap, after: MixedSnap): string[] {
     err.push(`notification ${before.notification}→${after.notification} want +1`);
   if (after.appIcon !== before.appIcon + 1)
     err.push(`appIcon ${before.appIcon}→${after.appIcon} want +1`);
-  if (after.attentionKeys.length !== before.attentionKeys.length + 1)
-    err.push("attentionKeys length not +1");
+  if (after.notificationEventIds.length !== before.notificationEventIds.length + 1)
+    err.push("notificationEventIds length not +1");
   return err;
 }
 
@@ -160,8 +157,8 @@ function assertOfferDup(afterCreate: MixedSnap, afterDup: MixedSnap): string[] {
   if (afterDup.notification !== afterCreate.notification)
     err.push(`notification drifted on dup`);
   if (afterDup.appIcon !== afterCreate.appIcon) err.push(`appIcon drifted on dup`);
-  if (afterDup.attentionKeys.length !== afterCreate.attentionKeys.length)
-    err.push("attentionKeys grew on dup");
+  if (afterDup.notificationEventIds.length !== afterCreate.notificationEventIds.length)
+    err.push("notificationEventIds grew on dup");
   return err;
 }
 
@@ -237,7 +234,7 @@ async function pickUnreadGeneralRoom(): Promise<{
   peer: string;
 } | null> {
   const p = await buildDomainBadgeAuthorityHttpPayload(sb, VIEWER);
-  const roomId = p.unifiedAttention.chat.generalRoomIds[0];
+  const roomId = p.messengerUnreadRoomIds.general_direct[0];
   if (!roomId) return null;
   const { data: room } = await sb
     .from("community_messenger_rooms")

@@ -54,10 +54,12 @@ export function patchMessengerRoomSnapshotRuntime(input: MessengerRoomSnapshotRu
   }
 }
 
-/** mark_read 낙관 — 스냅샷 캐시 unread 0 (홈 list 는 bus/reducer). */
+/** mark_read 낙관 — viewer unread + viewer read cursor (peer readReceipt untouched). */
 export function patchMessengerRoomReadSnapshotRuntime(input: {
   viewerUserId?: string | null;
   roomId: string;
+  unreadCount?: number;
+  viewerLastReadMessageId?: string | null;
 }): void {
   const rid = normalizeMessengerRealtimeRoomId(input.roomId);
   if (!rid) return;
@@ -66,7 +68,10 @@ export function patchMessengerRoomReadSnapshotRuntime(input: {
   patchRoomReadStateInSnapshotCache({
     roomId: rid,
     viewerUserId: viewer,
-    unreadCount: 0,
+    unreadCount: Math.max(0, Math.floor(Number(input.unreadCount ?? 0) || 0)),
+    ...(input.viewerLastReadMessageId !== undefined
+      ? { viewerLastReadMessageId: input.viewerLastReadMessageId }
+      : {}),
   });
   useMessengerRealtimeStore.setState({ viewerUserId: viewer });
 }

@@ -8,7 +8,7 @@
  *
  * Product kinds (Header Bell / Inbox presentation):
  *   general | group | tradeMessage | customerOrder | ownerOrder |
- *   tradeStatus | orderStatus | missedCall | systemAdmin
+ *   tradeStatus | orderStatus | missedCall | systemAdmin | marketing
  */
 import {
   resolveBellPresentationType,
@@ -30,7 +30,8 @@ export type BellExplainKindId =
   | "tradeStatus"
   | "orderStatus"
   | "missedCall"
-  | "systemAdmin";
+  | "systemAdmin"
+  | "marketing";
 
 export type BellExplainPart = Readonly<{
   count: number;
@@ -49,7 +50,8 @@ export type BellExplainMatrix = Readonly<{
   orderStatus: BellExplainPart;
   missedCall: BellExplainPart;
   systemAdmin: BellExplainPart;
-  /** Events that are unread but excluded from Bell digit (marketing / test / signal). */
+  marketing: BellExplainPart;
+  /** Events that are unread but excluded from Bell digit (test / signal). */
   excludedFromDigit: BellExplainPart;
 }>;
 
@@ -66,7 +68,6 @@ export type BellExplainEventRow = Readonly<{
 }>;
 
 const DIGIT_EXCLUDED_TYPES = new Set([
-  "admin_marketing_banner",
   "admin_test",
   "incoming_call_signal",
   "incoming_call",
@@ -123,6 +124,8 @@ export function bellPresentationToExplainKind(
     case "admin_notice":
     case "system_important":
       return "systemAdmin";
+    case "admin_marketing":
+      return "marketing";
     case "unsupported":
       return "excluded";
     default:
@@ -153,6 +156,7 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
     orderStatus: [],
     missedCall: [],
     systemAdmin: [],
+    marketing: [],
     excluded: [],
   };
 
@@ -206,6 +210,7 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
   const orderStatus = partFromIds(buckets.orderStatus);
   const missedCall = partFromIds(buckets.missedCall);
   const systemAdmin = partFromIds(buckets.systemAdmin);
+  const marketing = partFromIds(buckets.marketing);
 
   const notification = buildNotificationAttentionProjection(rows);
   const excludedIds = uniqIds([
@@ -227,6 +232,7 @@ export function buildBellExplainMatrix(rows: readonly BellExplainEventRow[]): Be
     orderStatus,
     missedCall,
     systemAdmin,
+    marketing,
     excludedFromDigit: partFromIds(excludedIds),
   };
 }
@@ -245,7 +251,8 @@ export function assertBellExplainMatrix(
     matrix.tradeStatus.count +
     matrix.orderStatus.count +
     matrix.missedCall.count +
-    matrix.systemAdmin.count;
+    matrix.systemAdmin.count +
+    matrix.marketing.count;
   if (matrix.total > nonChatEventSum + matrix.excludedFromDigit.count) {
     // soft: total should not exceed eligible non-chat events (+ excluded audit)
   }
@@ -263,6 +270,7 @@ export function assertBellExplainMatrix(
       matrix.orderStatus,
       matrix.missedCall,
       matrix.systemAdmin,
+      matrix.marketing,
     ];
     for (const p of parts) {
       if (p.count !== p.eventIds.length) {
@@ -284,6 +292,7 @@ export function listBellExplainEventIds(matrix: BellExplainMatrix): readonly str
     ...matrix.orderStatus.eventIds,
     ...matrix.missedCall.eventIds,
     ...matrix.systemAdmin.eventIds,
+    ...matrix.marketing.eventIds,
   ]);
 }
 

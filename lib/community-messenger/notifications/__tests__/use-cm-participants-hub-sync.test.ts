@@ -5,6 +5,7 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 
 import {
   getParticipantRoomId,
+  getParticipantStoreOrderRole,
   getParticipantUnreadCount,
 } from "@/lib/community-messenger/notifications/cm-participant-notification-types";
 
@@ -23,6 +24,9 @@ describe("cm-participant-notification-types", () => {
   it("parses room id and unread count", () => {
     expect(getParticipantRoomId({ room_id: "r1", unread_count: 3 })).toBe("r1");
     expect(getParticipantUnreadCount({ room_id: "r1", unread_count: "4" })).toBe(4);
+    expect(getParticipantStoreOrderRole({ store_order_role: "customer" })).toBe("customer");
+    expect(getParticipantStoreOrderRole({ store_order_role: "owner" })).toBe("owner");
+    expect(getParticipantStoreOrderRole({ store_order_role: "legacy" })).toBeNull();
   });
 });
 
@@ -67,6 +71,7 @@ describe("cm-participant-hub-sync increase path", () => {
     );
     expect(src).toContain("applyMessengerRoomUnreadFactAndSyncBottom");
     expect(src).toContain('source: "participant_rt"');
+    expect(src).toContain("storeOrderRole");
     expect(src).toContain("syncSupabaseRealtimeAuthFromSession");
     expect(src).not.toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');

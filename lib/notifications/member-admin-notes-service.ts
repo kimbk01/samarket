@@ -1,11 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
-import {
-  buildMemberAdminNoteNotificationPayload,
-  buildMemberAdminNoteRoute,
-} from "@/lib/notifications/member-admin-notes";
-import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
-import { getSiteOrigin } from "@/lib/env/runtime";
+import { buildMemberAdminNoteNotificationPayload } from "@/lib/notifications/member-admin-notes";
+import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 
 export type NoteThreadRow = {
   id: string;
@@ -43,14 +39,14 @@ async function notifyMemberOfAdminNote(
     adminUserId: string;
   }
 ): Promise<void> {
-  const routeUrl = buildMemberAdminNoteRoute(input.threadId);
   const displayPayload = buildMemberAdminNoteNotificationPayload({
     threadId: input.threadId,
     subject: input.subject,
     bodyPreview: input.body,
   });
   const dedupeKey = `member_admin_note:${input.threadId}:${Date.now()}`;
-  const created = await createNotificationEvent(sb, {
+  /** Canonical A write + push (absolute badge echo via notify-push-dispatcher). */
+  await createAndDispatchNotificationEvent(sb, {
     userId: input.memberUserId,
     type: "admin_notice",
     category: "admin_notice",
@@ -59,39 +55,8 @@ async function notifyMemberOfAdminNote(
     displayPayload,
     dedupeKey,
     actorUserId: input.adminUserId,
+    appState: "background",
   });
-  if (!created.ok) return;
-  const origin = getSiteOrigin();
-  const link = routeUrl.startsWith("/") ? routeUrl : `/${routeUrl}`;
-  const pushPayload = {
-    user_id: input.memberUserId,
-    notification_type: "system",
-    title: input.subject,
-    body: input.body.slice(0, 180),
-    link_url: link,
-    link_url_absolute: origin ? `${origin}${link}` : link,
-    occurred_at: new Date().toISOString(),
-    meta: {
-      kind: "admin_notice",
-      category: "admin_notice",
-      notification_event_id: created.row.id,
-      notification_id: created.row.id,
-      push_kind: "system",
-      eventClass: "admin_system",
-      targetTab: "system",
-      targetNotificationId: created.row.id,
-      display_payload: displayPayload,
-    },
-  };
-  try {
-    await dispatchPushForUser(pushPayload, {
-      target_type: "member_admin_note",
-      target_id: input.threadId,
-      notification_event_id: created.row.id,
-    });
-  } catch {
-    /* push best-effort — event already persisted for Bell */
-  }
 }
 
 export async function listMemberNoteThreads(
@@ -251,6 +216,35 @@ export async function postNoteMessage(
   return { ok: true, message: message as NoteMessageRow };
 }
 
+/**
+ * Clear Member A Bell rows for this note thread (display_payload.noteThreadId /
+ * dedupe prefix). Thread table unread is orthogonal and cleared separately.
+ */
+export async function markMemberAdminNoteNotificationsRead(
+  sb: SupabaseClient,
+  input: { threadId: string; memberUserId: string }
+): Promise<number> {
+  const uid = input.memberUserId.trim();
+  const threadId = input.threadId.trim();
+  if (!uid || !threadId) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .eq("unread", true)
+    .is("read_at", null)
+    .like("dedupe_key", `member_admin_note:${threadId}:%`)
+    .select("id");
+  if (error) {
+    console.warn("[markMemberAdminNoteNotificationsRead]", error.message);
+    return 0;
+  }
+  const count = data?.length ?? 0;
+  if (count > 0) invalidateNotificationBadgeCache(uid);
+  return count;
+}
+
 export async function markMemberNoteThreadRead(
   sb: SupabaseClient,
   input: { threadId: string; memberUserId: string }
@@ -261,6 +255,7 @@ export async function markMemberNoteThreadRead(
     .eq("id", input.threadId)
     .eq("member_user_id", input.memberUserId);
   if (error) return { ok: false, error: error.message };
+  await markMemberAdminNoteNotificationsRead(sb, input);
   return { ok: true };
 }
 

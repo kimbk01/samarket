@@ -25,6 +25,7 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(bellPresentationToExplainKind("customer_order_status")).toBe("orderStatus");
     expect(bellPresentationToExplainKind("owner_order_status")).toBe("orderStatus");
     expect(bellPresentationToExplainKind("admin_notice")).toBe("systemAdmin");
+    expect(bellPresentationToExplainKind("admin_marketing")).toBe("marketing");
     expect(bellPresentationToExplainKind("unsupported")).toBe("excluded");
   });
 
@@ -77,8 +78,8 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
       },
     ]);
 
-    // Phase B digit = trade_status + order_status + orphan missed + admin (4), not chat messages.
-    expect(matrix.total).toBe(4);
+    // A digit = status + orphan missed + admin + persistent marketing, not chat messages.
+    expect(matrix.total).toBe(5);
     expect(matrix.generalMessage.count).toBe(2);
     expect(matrix.groupMessage.count).toBe(1);
     expect(matrix.tradeMessage.count).toBe(1);
@@ -88,10 +89,12 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(matrix.orderStatus.count).toBe(1);
     expect(matrix.missedCall.count).toBe(1);
     expect(matrix.systemAdmin.count).toBe(1);
+    expect(matrix.marketing.count).toBe(1);
     expect(matrix.excludedFromDigit.eventIds).toEqual(
-      expect.arrayContaining(["g1", "g2", "gr1", "t1", "c1", "o1", "x1"])
+      expect.arrayContaining(["g1", "g2", "gr1", "t1", "c1", "o1"])
     );
-    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 4 }).ok).toBe(true);
+    expect(matrix.excludedFromDigit.eventIds).not.toContain("x1");
+    expect(assertBellExplainMatrix(matrix, { expectedBellTotal: 5 }).ok).toBe(true);
     expect(listBellExplainEventIds(matrix).length).toBeGreaterThanOrEqual(4);
   });
 
@@ -103,6 +106,8 @@ describe("Phase 3-1 Bell Explain Matrix", () => {
     expect(src).toContain("bellExplainMatrix");
     expect(src).toContain("buildBellExplainMatrix");
     expect(src).toContain("loadBellExplainUnreadEventRows");
-    expect(src).toContain("buildUnifiedAppIconProjection");
+    expect(src).toContain("buildNotificationAttentionProjection");
+    expect(src).toContain("memberAppIconAuthority");
+    expect(src).not.toContain("buildUnifiedAppIconProjection");
   });
 });

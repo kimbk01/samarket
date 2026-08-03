@@ -437,6 +437,11 @@ export type CommunityMessengerRoomSnapshot = {
    */
   hasMoreOlderMessages?: boolean;
   myRole: "owner" | "admin" | "member";
+  /**
+   * Viewer participant `last_read_message_id` — first-unread / divider / partial read cursor.
+   * Orthogonal to `readReceipt` (peer read ticks on my messages).
+   */
+  viewerLastReadMessageId?: string | null;
   readReceipt?: CommunityMessengerReadReceipt | null;
   peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
   activeCall: CommunityMessengerCallSession | null;

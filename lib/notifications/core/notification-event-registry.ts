@@ -273,7 +273,7 @@ export const NOTIFICATION_EVENT_DEFINITIONS = Object.freeze({
     eventCategory: "admin_marketing_banner",
     productCategory: "marketing",
     domain: "admin",
-    bellPolicy: "exclude",
+    bellPolicy: "include",
     appIconPolicy: "exclude",
     foregroundPolicy: "silent",
     soundEventKey: "admin_notice_received",

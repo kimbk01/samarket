@@ -83,18 +83,21 @@ describe("P3-b2 Auth Epoch Reset contract (static)", () => {
     const src = fs.readFileSync(path.join(ROOT, "lib/auth/client-session-wipe.ts"), "utf8");
     expect(src).toContain("resetNotificationBadgeCountForAuthEpoch");
     expect(src).toContain("resetProjectionAuthorityForAuthEpoch");
+    expect(src).toContain("resetOwnerHubBadgeStoreForAuthEpoch");
     const resetFn = src.match(
       /function resetAuthClientCaches\([\s\S]*?\n\}\n/
     )?.[0];
     expect(resetFn).toBeTruthy();
     const badgeIdx = resetFn!.indexOf("resetNotificationBadgeCountForAuthEpoch");
     const projIdx = resetFn!.indexOf("resetProjectionAuthorityForAuthEpoch");
+    const ownerHubIdx = resetFn!.indexOf("resetOwnerHubBadgeStoreForAuthEpoch");
     const surfacesIdx = resetFn!.indexOf("resetMessengerNotificationSurfacesAfterSignOut");
     const bootIdx = resetFn!.indexOf("invalidateAppBootAll");
     expect(bootIdx).toBeGreaterThanOrEqual(0);
     expect(badgeIdx).toBeGreaterThan(bootIdx);
     expect(projIdx).toBeGreaterThan(badgeIdx);
-    expect(surfacesIdx).toBeGreaterThan(projIdx);
+    expect(ownerHubIdx).toBeGreaterThan(projIdx);
+    expect(surfacesIdx).toBeGreaterThan(ownerHubIdx);
   });
 
   it("production Auth Epoch reset APIs exist", () => {
@@ -106,11 +109,17 @@ describe("P3-b2 Auth Epoch Reset contract (static)", () => {
       path.join(ROOT, "lib/notifications/projection-authority.ts"),
       "utf8"
     );
+    const ownerHub = fs.readFileSync(
+      path.join(ROOT, "lib/chats/owner-hub-badge-store.ts"),
+      "utf8"
+    );
     expect(badge).toContain("export function resetNotificationBadgeCountForAuthEpoch");
     expect(badge).toContain("auth_epoch_stale_discard");
     expect(badge).toContain("authEpochFetchOpen");
     expect(auth).toContain("export function resetProjectionAuthorityForAuthEpoch");
     expect(auth).toContain('reason: "auth_epoch_reset"');
+    expect(ownerHub).toContain("export function resetOwnerHubBadgeStoreForAuthEpoch");
+    expect(ownerHub).toContain("authEpochAtStart !== ownerHubBadgeAuthEpoch");
   });
 });
 

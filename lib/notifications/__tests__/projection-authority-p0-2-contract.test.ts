@@ -173,7 +173,7 @@ describe("P0-2 CM room-fact Authority contract", () => {
     expect(rooms.find((r) => r.roomId === "room-b")?.state).toBe("KNOWN");
   });
 
-  it("UNKNOWN absolute without baseline is rejected; trade domain rejected; complete required", () => {
+  it("requires baseline; accepts Trade; rejects Owner Store Order; complete required", () => {
     expect(
       commitCmRoomUnreadFactEvent({
         roomId: "x",
@@ -207,7 +207,40 @@ describe("P0-2 CM room-fact Authority contract", () => {
         eventIdentity: "trade-reject",
         eventVersion: 1,
       })
+    ).toBe(true);
+    expect(getLastCompleteProjectionInput()?.domainUnreadRooms.trade).toBe(3);
+
+    expect(
+      commitCmRoomUnreadFactEvent({
+        roomId: "so-owner",
+        domain: "store_order",
+        storeOrderRole: "owner",
+        unread: { kind: "absolute", unreadCount: 1, previousUnreadCount: 0 },
+        source: "participant_realtime",
+        eventIdentity: "owner-order-reject",
+        eventVersion: 2,
+      })
     ).toBe(false);
     expect(getProjectionAuthorityCounters().domain_rejected).toBe(1);
+  });
+
+  it("Customer Store Order changes buyer B only and preserves Owner C", () => {
+    seedHttp(0, 0, 300_000);
+    expect(
+      commitCmRoomUnreadFactEvent({
+        roomId: "so-customer",
+        domain: "store_order",
+        storeOrderRole: "customer",
+        unread: { kind: "absolute", unreadCount: 2, previousUnreadCount: 0 },
+        source: "participant_realtime",
+        eventIdentity: "customer-order-up",
+        eventVersion: 1,
+      })
+    ).toBe(true);
+
+    const after = getLastCompleteProjectionInput();
+    expect(after?.storeOrderBuyerDeliveryUnread).toBe(2);
+    expect(after?.storeOrderOwnerChatUnread).toBe(2);
+    expect(after?.domainUnreadRooms.store_order).toBe(4);
   });
 });

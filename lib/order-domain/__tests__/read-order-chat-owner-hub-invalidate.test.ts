@@ -131,15 +131,22 @@ describe("readOrderChat owner Hub route-cache invalidate (Slice 2-4 R2)", () => 
     });
     expect(denied.ok).toBe(false);
     expect(invalidateOwnerHubBadgeCache).not.toHaveBeenCalled();
+  });
 
-    const incomplete = await readOrderChat(makeSb({ role: "owner", unreadAfter: 2 }), {
+  it("partial read (unreadAfter>0) → success + Hub invalidate", async () => {
+    // Final stabilization: visible-range / partial mark-read may leave remaining unread.
+    const partial = await readOrderChat(makeSb({ role: "owner", unreadAfter: 2 }), {
       userId: OWNER,
       orderId: ORDER,
       roomId: ROOM,
       role: "owner",
     });
-    expect(incomplete.ok).toBe(false);
-    expect(invalidateOwnerHubBadgeCache).not.toHaveBeenCalled();
+    expect(partial.ok).toBe(true);
+    if (partial.ok) {
+      expect(partial.participantUnreadAfter).toBe(2);
+    }
+    expect(invalidateOwnerHubBadgeCache).toHaveBeenCalledTimes(1);
+    expect(invalidateOwnerHubBadgeCache).toHaveBeenCalledWith(OWNER);
   });
 
   it("does not patch Hub digits directly (+1/-1 absent)", () => {

@@ -2,7 +2,7 @@
  * Admin campaign inbox helpers — notice / system / marketing.
  *
  * LOCK:
- * - Bell digit: notice + system (admin_notice events) included; marketing excluded.
+ * - Bell digit: persistent notice + system + marketing campaign events are Member A.
  * - UI open-detail: notice + system only (never marketing → detail via this helper).
  * - campaignType in display_payload is SSOT for notice vs system when event.type is shared.
  */
@@ -48,7 +48,7 @@ export function adminCampaignEventClass(campaignType: AdminCampaignType): string
 export function adminCampaignBellPresentation(
   campaignType: AdminCampaignType
 ): BellPresentationType {
-  if (campaignType === "marketing") return "unsupported";
+  if (campaignType === "marketing") return "admin_marketing";
   if (campaignType === "system") return "admin_system";
   return "admin_notice";
 }
@@ -65,6 +65,7 @@ export function resolveAdminCampaignTypeFromInboxHints(
   if (pk === "system") return "system";
 
   const bell = norm(row.bell_presentation_type);
+  if (bell === "admin_marketing") return "marketing";
   if (bell === "admin_notice") return "notice";
   if (bell === "admin_system") return "system";
 

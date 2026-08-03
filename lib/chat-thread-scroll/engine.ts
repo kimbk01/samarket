@@ -117,6 +117,19 @@ export class ChatThreadScrollEngine {
     return this.applyScrollToBottom(ctx, { force: true });
   }
 
+  scrollToIndexExplicit(
+    ctx: ChatThreadScrollViewportContext,
+    index: number,
+    align: "start" | "center" | "end" | "auto" = "center"
+  ): boolean {
+    if (!Number.isInteger(index) || index < 0 || index >= ctx.messageCount) return false;
+    if (!ctx.virtualizer?.scrollToIndex) return false;
+    this.state.stickToBottom = false;
+    ctx.virtualizer.scrollToIndex(index, { align });
+    this.captureGeom(ctx.viewport);
+    return true;
+  }
+
   /** append tail — near bottom 일 때만 follow */
   notifyAppend(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase !== "settled" || this.state.prependInFlight) return false;

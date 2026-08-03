@@ -12,7 +12,7 @@ export type FirstUnreadMessageRow = {
 
 function isUnreadCandidate(row: FirstUnreadMessageRow): boolean {
   if (row.pending) return false;
-  if (row.messageType === "system" || row.messageType === "call_stub") return false;
+  if (row.messageType === "system") return false;
   if (row.isMine) return false;
   return Boolean(row.id?.trim());
 }
@@ -52,12 +52,12 @@ export function countUnreadMessagesBelow(input: {
   if (msgs.length === 0) return 0;
 
   let start = 0;
+  const lastReadIdx = lastRead ? msgs.findIndex((m) => m.id === lastRead) : -1;
   if (after) {
     const afterIdx = msgs.findIndex((m) => m.id === after);
-    start = afterIdx >= 0 ? afterIdx + 1 : 0;
+    start = Math.max(afterIdx, lastReadIdx) + 1;
   } else if (lastRead) {
-    const lrIdx = msgs.findIndex((m) => m.id === lastRead);
-    start = lrIdx >= 0 ? lrIdx + 1 : 0;
+    start = lastReadIdx >= 0 ? lastReadIdx + 1 : 0;
   }
 
   let n = 0;
@@ -65,6 +65,26 @@ export function countUnreadMessagesBelow(input: {
     if (isUnreadCandidate(msgs[i]!)) n += 1;
   }
   return n;
+}
+
+export function resolveNextUnreadMessageId(input: {
+  messages: readonly FirstUnreadMessageRow[];
+  lastReadMessageId: string | null | undefined;
+  afterMessageId: string | null | undefined;
+}): string | null {
+  const after =
+    typeof input.afterMessageId === "string" ? input.afterMessageId.trim() : "";
+  const lastRead =
+    typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
+  const afterIdx = after ? input.messages.findIndex((row) => row.id === after) : -1;
+  const lastReadIdx = lastRead
+    ? input.messages.findIndex((row) => row.id === lastRead)
+    : -1;
+  for (let i = Math.max(afterIdx, lastReadIdx) + 1; i < input.messages.length; i += 1) {
+    const row = input.messages[i]!;
+    if (isUnreadCandidate(row)) return String(row.id).trim();
+  }
+  return null;
 }
 
 export function formatUnreadBadgeCount(count: number): string {
@@ -75,18 +95,15 @@ export function formatUnreadBadgeCount(count: number): string {
 }
 
 /**
- * FAB visibility + badge from entryUnreadCount (list N captured at enter).
- * - entryUnreadCount > 0 → arrow + badge (even if live room.unreadCount already 0)
- * - entryUnreadCount 0 + past scroll → arrow only
- * - entryUnreadCount 0 + at latest → hide
+ * FAB visibility + badge from canonical unread rows remaining below the viewport.
  */
 export function resolveJumpToLatestFabState(input: {
   atLatest: boolean;
-  entryUnreadCount: number;
+  remainingUnreadCount: number;
 }): { visible: boolean; badgeCount: number } {
-  const entry = Math.max(0, Math.floor(Number(input.entryUnreadCount) || 0));
-  if (entry > 0) {
-    return { visible: true, badgeCount: entry };
+  const remaining = Math.max(0, Math.floor(Number(input.remainingUnreadCount) || 0));
+  if (remaining > 0) {
+    return { visible: true, badgeCount: remaining };
   }
   if (input.atLatest) {
     return { visible: false, badgeCount: 0 };

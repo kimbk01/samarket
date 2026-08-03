@@ -22,8 +22,8 @@ export type BadgeCountAuthorityJson = {
     trade?: number;
     storeOrder?: number;
     /**
-     * Phase B wire: NotificationAttentionTotal (not orphan-only).
-     * Prefer `notificationAttentionTotal` when both present.
+     * Legacy wire: notification axis fallback when Member A digit absent.
+     * Prefer `memberUnreadNotificationCount` when both present.
      */
     missedCall?: number;
   };
@@ -53,14 +53,17 @@ export type BadgeCountAuthorityJson = {
 };
 
 /**
- * Phase B App Icon notification axis.
- * Prefer explicit `notificationAttentionTotal` / icon wire.
- * DO NOT use HTTP `total` or projection.bellTotal (Slice 2-2 = A Bell digit).
+ * Notification axis for projection input.
+ * Prefer Member A digit (`memberUnreadNotificationCount`) over legacy
+ * `notificationAttentionTotal` when both are present.
  */
 function resolveNotificationAttentionTotal(
   body: BadgeCountAuthorityJson,
   legacyFallback: number
 ): number {
+  if (body.memberUnreadNotificationCount != null) {
+    return Math.max(0, Math.floor(Number(body.memberUnreadNotificationCount) || 0));
+  }
   if (body.notificationAttentionTotal != null) {
     return Math.max(0, Math.floor(Number(body.notificationAttentionTotal) || 0));
   }

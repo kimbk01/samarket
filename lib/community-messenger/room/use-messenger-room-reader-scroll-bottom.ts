@@ -58,6 +58,7 @@ export function useMessengerRoomReaderScrollBottom({
   lastReadMessageId?: string | null;
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
+  scrollMessengerToMessage: (messageId: string) => boolean;
   updateStickToBottomFromScroll: () => void;
 } {
   void messageEndRef;
@@ -81,6 +82,7 @@ export function useMessengerRoomReaderScrollBottom({
 
   return {
     scrollMessengerToBottom: controller.scrollMessengerToBottom,
+    scrollMessengerToMessage: controller.scrollMessengerToMessage,
     updateStickToBottomFromScroll: controller.updateStickToBottomFromScroll,
   };
 }

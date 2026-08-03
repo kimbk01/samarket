@@ -1,9 +1,12 @@
 # Badge Authority Contract (Gate 2)
 
-**Status:** CONTRACT  
+**Status:** CONTRACT · UPDATED BY FINAL STABILIZATION PHASE 1 (2026-08-04)
 **Gate 1:** `AUTHORITY REBUILD REQUIRED` (approved)  
 **Scope:** Badge / Notification authority layer only · not full-repo reset  
 **Mode:** No implementation in this gate
+
+Current product SSOT: `docs/dibay-messenger-final-stabilization-contract.md`.
+Conflicting historical formulas in older Gate/Product audit documents are `SUPERSEDED`.
 
 ---
 
@@ -67,7 +70,7 @@ owner_intake / store operational events
 owner chat messages
 push-only promotion
 FCM/APNs send attempts
-room-bound missed_call (B only)
+room-bound missed_call (B only through its canonical call_stub)
 ```
 
 ---
@@ -94,12 +97,24 @@ Surfaces:
 | Surface | Value |
 |---------|-------|
 | Row | `roomUnreadMessages(roomId)` |
-| Bottom Chat | `B_general + B_group` |
+| Bottom Chat | `B_general + B_group + B_trade + B_order` |
 | Trade Hub | `B_trade` |
 | Customer Order Hub | `B_order` |
 | App Icon conversation component | `B` |
 
 Parent badges use **room counts**, never Σ messages.
+
+Terminal call outcomes that are visible in a room use the existing
+`community_messenger_messages.call_stub` row and the same participant unread cursor.
+They do not create a second call-specific count:
+
+```text
+room-bound call_stub → B only
+orphan missed_call   → A only
+```
+
+`call_stub` unread eligibility, first-unread eligibility, divider eligibility, and room
+read clear must be identical. A and B double counting is forbidden.
 
 ---
 
@@ -120,6 +135,9 @@ add C to Bell A or Member App Icon
 ```
 
 Surfaces: Owner FAB / Admin Hub / order row / owner chat hub for **active storeId only**.
+
+Owner notification/operation UI is store-scoped product UI, not Member Bell. Historical
+`O_bell` or `App Icon = A+B+O` statements are `SUPERSEDED`.
 
 ---
 

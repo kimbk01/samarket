@@ -177,6 +177,7 @@ describe("App Icon runtime authority (Option A + Phase 3-1 atomic)", () => {
       tradeUnread: 9,
       storeOrderOwnerUnreadRooms: 4,
       buyerOrderAttention: 3,
+      socialChatUnread: 2,
     });
 
     expect(hubOnChange).toHaveBeenCalled();

@@ -198,6 +198,9 @@ type HubBadgeApplySource = { kind: HubBadgeProjectionSourceKind };
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
 
+/** Reject prior-account HTTP completions after logout/account switch. */
+let ownerHubBadgeAuthEpoch = 0;
+
 let lastNetworkFreshCommunityMessengerUnread = 0;
 
 let lastNetworkFreshCommunityMessengerUnreadAt = 0;
@@ -1096,6 +1099,7 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
 
   const hubCacheHit = !force && peekClientHubBadgeResponseCache() != null ? 1 : 0;
+  const authEpochAtStart = ownerHubBadgeAuthEpoch;
   trackOwnerDashboardApiStart("hub_badge", {
     priority: OWNER_DASHBOARD_API_PRIORITY.hub_badge,
     cache_hit: hubCacheHit,
@@ -1139,6 +1143,10 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
       });
 
       const data = res.ok ? await res.json() : null;
+
+      if (authEpochAtStart !== ownerHubBadgeAuthEpoch) {
+        return false;
+      }
 
       samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", {
 
@@ -1211,6 +1219,10 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
       return res.ok;
 
     } catch {
+
+      if (authEpochAtStart !== ownerHubBadgeAuthEpoch) {
+        return false;
+      }
 
       applyFromNetwork(null);
 
@@ -2247,21 +2259,32 @@ export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
 }
 
 
+function resetOwnerHubBadgeIdentityState(): void {
+  snapshot = OWNER_HUB_BADGE_EMPTY;
+  lastNetworkFreshCommunityMessengerUnread = 0;
+  lastNetworkFreshCommunityMessengerUnreadAt = 0;
+  clientHubBadgeResponseCache = null;
+  lastFetchStartedAt = 0;
+  lastFetchCompletedAt = 0;
+  lastPlainFetchCompletedAt = 0;
+  lastEventRefreshAt = 0;
+  lastMessengerParticipantForceRefreshAt = 0;
+  lastMarkReadHubNetworkAt = 0;
+  pendingMarkReadHubDetail = null;
+}
+
+/** Logout/account switch — clear prior identity and reject its late HTTP completion. */
+export function resetOwnerHubBadgeStoreForAuthEpoch(): void {
+  ownerHubBadgeAuthEpoch += 1;
+  resetOwnerHubBadgeIdentityState();
+  emit();
+}
 
 /** @internal vitest — owner hub badge store cm sync contract */
-
 export function __resetOwnerHubBadgeStoreForTest(): void {
-
-  snapshot = OWNER_HUB_BADGE_EMPTY;
-
-  lastNetworkFreshCommunityMessengerUnread = 0;
-
-  lastNetworkFreshCommunityMessengerUnreadAt = 0;
-
-  clientHubBadgeResponseCache = null;
-
+  ownerHubBadgeAuthEpoch = 0;
+  resetOwnerHubBadgeIdentityState();
   __resetHubBadgeProjectionForTest();
-
 }
 
 
@@ -2293,34 +2316,25 @@ export function applyDomainAuthorityHubBadgeOptimistic(input: {
   /** All-stores owner order-chat room count. */
   storeOrderOwnerUnreadRooms: number;
   /** Customer messenger order pillar — buyer_order room count. */
-  buyerOrderAttention?: number;
+  buyerOrderAttention: number;
+  /** Complete Projection value. Publisher must not recompute from cached Philife. */
+  socialChatUnread: number;
 }): void {
-  const communityMessengerUnread = Math.max(0, Math.floor(input.communityMessengerUnread || 0));
-  const tradeUnread = Math.max(0, Math.floor(input.tradeUnread || 0));
-  const storeOrderOwnerUnreadRooms = Math.max(
-    0,
-    Math.floor(input.storeOrderOwnerUnreadRooms || 0)
-  );
   const current = getOwnerHubBadgeSnapshot();
-  const philife = Math.max(0, current.philifeChatUnread || 0);
-  const buyerOrderAttention =
-    input.buyerOrderAttention != null
-      ? Math.max(0, Math.floor(input.buyerOrderAttention || 0))
-      : Math.max(0, Math.floor(current.buyerOrderAttention || 0));
   /** Bottom Chat reads Messenger projection only — same CM number, independent notify. */
-  applyMessengerBottomChatUnread(communityMessengerUnread);
+  applyMessengerBottomChatUnread(input.communityMessengerUnread);
   applyOwnerHubBadgePayload(
     {
       ok: true,
       ...current,
-      communityMessengerUnread,
-      chatUnread: tradeUnread,
+      communityMessengerUnread: input.communityMessengerUnread,
+      chatUnread: input.tradeUnread,
       /** Preserve store-scoped FAB — never replace with global owner aggregate. */
       storeOrderChatUnread: current.storeOrderChatUnread,
-      storeOrderOwnerUnreadRooms,
-      buyerOrderAttention,
-      storesTabAttention: buyerOrderAttention,
-      socialChatUnread: communityMessengerUnread + philife,
+      storeOrderOwnerUnreadRooms: input.storeOrderOwnerUnreadRooms,
+      buyerOrderAttention: input.buyerOrderAttention,
+      storesTabAttention: input.buyerOrderAttention,
+      socialChatUnread: input.socialChatUnread,
     },
     { kind: "optimistic" }
   );

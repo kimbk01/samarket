@@ -56,6 +56,7 @@ import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count
 import { resetNotificationBadgeCountForAuthEpoch } from "@/lib/notifications/notification-badge-count-store";
 import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
 import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
+import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge-store";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -159,13 +160,14 @@ function resetAuthClientCaches(previousUserId?: string | null): void {
    * 1) cancel Boot background arms
    * 2) Badge store epoch bump + discard prior inflight
    * 3) Projection Authority wipe
-   * 4) local surface clear (no network)
+   * 4) Owner Hub epoch bump + local surface clear (no network)
    * 5) remaining auth/boot caches
    */
   invalidateAppBootAll();
   resetNotificationBadgeCountForAuthEpoch();
   resetDomainBadgeSurfaceForAuthEpoch();
   resetProjectionAuthorityForAuthEpoch();
+  resetOwnerHubBadgeStoreForAuthEpoch();
   resetMessengerNotificationSurfacesAfterSignOut();
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();

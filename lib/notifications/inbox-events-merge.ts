@@ -46,6 +46,7 @@ export type BellPresentationType =
   | "admin_notice"
   /** Admin campaign type=system (same event.type admin_notice; presentation only). */
   | "admin_system"
+  | "admin_marketing"
   | "system_important"
   | "unsupported";
 
@@ -219,7 +220,8 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   }
   if (type === "chat_message") return "general_message";
   if (type === "community_activity") return "system_important";
-  if (type === "admin_marketing_banner" || type === "admin_test" || type === "incoming_call_signal") {
+  if (type === "admin_marketing_banner") return "admin_marketing";
+  if (type === "admin_test" || type === "incoming_call_signal") {
     return "unsupported";
   }
 

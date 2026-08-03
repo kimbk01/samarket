@@ -5,7 +5,8 @@
  * - Surfaces are written exclusively through `applyNotificationBadgeProjection`
  *   called from this module.
  * - State machine: EMPTY → WAITING_COMPLETE → COMPLETE → (RT/room fact) → COMPLETE.
- * - CM Hub unread (General+Group) comes from room facts → Builder → Projection only.
+ * - Member Conversation B unread (General+Group+Trade+Customer Order) comes from
+ *   room facts → Builder → Projection only.
  * - DO NOT accept aggregate surface totals (communityMessengerUnread / hubTotal / appIconTotal).
  * - eventIdentity AND room.lastAppliedVersion are both required to stop races.
  *
@@ -43,10 +44,10 @@ export type ProjectionAuthoritySource =
 /** Projection lifecycle — RT / CM room facts are only legal in COMPLETE. */
 export type ProjectionAuthorityState = "EMPTY" | "WAITING_COMPLETE" | "COMPLETE";
 
-/** Per-room fact lifecycle for CM (General/Group) Authority input. */
+/** Per-room fact lifecycle for Member Conversation B Authority input. */
 export type RoomFactState = "UNKNOWN" | "KNOWN" | "READ";
 
-export type CmRoomFactDomain = "general_direct" | "group";
+export type CmRoomFactDomain = ChatDomain;
 
 export type CmRoomUnreadFactSource =
   | "participant_realtime"
@@ -153,7 +154,12 @@ const counters: MutableCounters = {
   event_fact_noop: 0,
 };
 
-const CM_DOMAINS = new Set<CmRoomFactDomain>(["general_direct", "group"]);
+const MEMBER_CONVERSATION_DOMAINS = new Set<CmRoomFactDomain>([
+  "general_direct",
+  "group",
+  "trade",
+  "store_order",
+]);
 const processedEventIdentities = new Set<string>();
 const MAX_EVENT_IDENTITY_CACHE = 2_000;
 const roomFacts = new Map<string, RoomFactRow>();
@@ -490,7 +496,13 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
   });
 
   for (const room of args.rooms.values()) {
-    if (!CM_DOMAINS.has(room.chatDomain as CmRoomFactDomain)) continue;
+    if (
+      room.chatDomain !== "general_direct" &&
+      room.chatDomain !== "group" &&
+      room.chatDomain !== "trade"
+    ) {
+      continue;
+    }
     const roomId = normalizeRoomId(room.roomId);
     if (!roomId) continue;
     const unreadCount = nonNeg(room.unreadCount);
@@ -542,8 +554,9 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
 
 export type CmRoomUnreadFactEvent = Readonly<{
   roomId: string;
-  /** Only General/Group are legal. Trade/Store-order must be rejected. */
+  /** Member Conversation B domain. Owner store-order must be rejected. */
   domain: ChatDomain;
+  storeOrderRole?: "customer" | "owner" | null;
   unread:
     | {
         kind: "absolute";
@@ -580,8 +593,15 @@ export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boole
     return reject("duplicate_event", { eventIdentity, roomId });
   }
 
-  if (event.domain !== "general_direct" && event.domain !== "group") {
+  if (!MEMBER_CONVERSATION_DOMAINS.has(event.domain)) {
     return reject("domain_rejected", { domain: event.domain, roomId });
+  }
+  if (event.domain === "store_order" && event.storeOrderRole !== "customer") {
+    return reject("domain_rejected", {
+      domain: event.domain,
+      storeOrderRole: event.storeOrderRole ?? "unknown",
+      roomId,
+    });
   }
   const domain = event.domain;
 
@@ -684,7 +704,13 @@ export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boole
     nonChatEventAttention: lastCompleteInput.nonChatEventAttention,
     unreadApprovedNotificationEvents: lastCompleteInput.unreadApprovedNotificationEvents,
     bell: lastCompleteInput.bell,
-    storeOrderBuyerDeliveryUnread: lastCompleteInput.storeOrderBuyerDeliveryUnread,
+    storeOrderBuyerDeliveryUnread:
+      domain === "store_order"
+        ? Math.max(
+            0,
+            nonNeg(lastCompleteInput.storeOrderBuyerDeliveryUnread) + domainDelta
+          )
+        : lastCompleteInput.storeOrderBuyerDeliveryUnread,
     storeOrderOwnerChatUnread: lastCompleteInput.storeOrderOwnerChatUnread,
     storeOrderOwnerUnreadByStoreId: lastCompleteInput.storeOrderOwnerUnreadByStoreId,
     philifeChatUnread: lastCompleteInput.philifeChatUnread,

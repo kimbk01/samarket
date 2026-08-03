@@ -2,6 +2,10 @@
 
 모든 채팅 표면(Community 메신저·거래·그룹·주문 CM 위임)은 **`lib/chat-thread-scroll/`** 단일 엔진으로 scroll 을 조작한다.
 
+Unread 제품 계약은 `docs/dibay-messenger-final-stabilization-contract.md`를 따른다.
+아래와 충돌하는 과거 `entryUnreadCount` Authority / always-latest FAB 문구는
+`SUPERSEDED`다.
+
 ## Stick 임계값
 
 - `CHAT_THREAD_STICK_THRESHOLD_PX = 96` — 전 표면 통일
@@ -32,7 +36,24 @@
 3. `useLayoutEffect`에서 paint 전에 적용 — **paint 후 `entry_tail_settle` 금지**
 4. composer height / fingerprint / chrome sync 는 initial anchor 를 **재실행하지 않음**
 5. paint gate: viewport `clientHeight` + rows/virtualizer — **composer height 게이트 금지**
-6. Jump-latest FAB: 우하단 ↓ · **badge = `entryUnreadCount`(진입 스냅샷; live/viewport-below 금지)** · 탭=`scrollMessengerToBottom` · 새 scroll writer 금지
+6. 우하단 ↓: unread가 남으면 **first/next unread**로 이동하고, unread가 없을 때만 latest로 이동한다.
+
+## Unread cursor / Divider / Arrow
+
+- Authority는 서버 participant read cursor와 canonical timeline ordering이다.
+- `entryUnreadCount`는 진입 애니메이션/초기 렌더 보조 상태일 수 있으나 숫자
+  Authority가 아니다.
+- 남은 unread 수는 canonical cursor 이후의 unread-eligible rows와 실제 visible
+  range에서 파생한다.
+- 실제 노출 범위까지만 cursor를 단조 증가시킨다. 단순 scroll event만으로 read
+  commit하지 않는다.
+- 새 메시지가 동시에 도착하면 visible range 밖의 row를 read 처리하지 않는다.
+- Divider는 현재 read boundary 의미를 유지하고, 모두 읽으면 제거한다.
+- 재진입 시 서버 cursor로 first unread와 Divider를 다시 계산한다.
+- unread로 인정된 `call_stub`는 text/image 등과 동일하게 first-unread와 Divider
+  후보에 포함한다.
+- 모든 scroll write는 계속 `lib/chat-thread-scroll/**` 엔진을 경유한다. unread
+  기능을 이유로 별도 `scrollTop` writer를 만들지 않는다.
 
 ## scrollTop 금지
 
@@ -63,3 +84,7 @@
 - **2026-07-28**: Enter = sole policy (latest / first-unread). Persist restore on default re-entry removed. Keyboard/chrome use `correctLayoutPreserve` — stick not re-judged from lastGeom; settle-fail no-write path closed when stick already set. Dock no longer re-syncs stick from viewport. `reentry_hydration_restored` must not mark entry scroll settled.
 - **2026-07-28**: Telegram unread UX — entry anchor = first unread after lastRead; unread divider once; bottom-right ↓ FAB badge = unread remaining below viewport; tap uses existing `scrollMessengerToBottom` only.
 - **2026-07-28**: FAB badge authority → `entryUnreadCount` snapshot (survives list optimistic clear). Clear on latest / FAB tap. Keyboard/shell/engine unchanged.
+- **2026-08-04 Phase 4:** `entryUnreadCount` FAB Authority와 진입 즉시 전체
+  mark-read 제거. 실제 visible row까지만 cursor를 전진하고 remaining unread를
+  canonical ordering에서 파생한다. FAB는 unread가 남으면 next unread, 없으면
+  latest로 이동하며 `call_stub`도 동일 후보에 포함한다.

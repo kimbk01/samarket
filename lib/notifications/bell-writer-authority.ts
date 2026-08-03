@@ -89,8 +89,8 @@ export const BELL_WRITER_TRIGGER_INVENTORY: readonly BellWriterTriggerInventory[
   {
     trigger: "missed_call",
     role: "event_insert_pipeline",
-    path: "notify-missed-call-pipeline → createNotificationEvent",
-    notes: "Same insert SSOT; digit via Projection",
+    path: "room-bound: call_stub Conversation B; orphan-only A via createNotificationEvent",
+    notes: "Room-bound missed must not write Member Bell A; digit via Projection",
   },
   {
     trigger: "system_admin",

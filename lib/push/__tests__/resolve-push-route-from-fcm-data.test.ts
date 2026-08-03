@@ -275,7 +275,7 @@ describe("P0 authority open/read", () => {
     ).toBe(true);
   });
 
-  it("marketing is not Member A unread (Bell digit non-contributor)", () => {
+  it("persistent marketing is Member A unread and contributes to Bell", () => {
     expect(
       isMemberNotificationAUnread({
         id: "m1",
@@ -284,10 +284,10 @@ describe("P0 authority open/read", () => {
         unread: true,
         read_at: null,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("push tap read: notice yes, marketing no, owner_operation no", () => {
+  it("push tap read: notice and marketing yes, owner_operation no", () => {
     expect(
       shouldApplyMemberNotificationReadOnPushTap({
         eventClass: "admin_notice",
@@ -299,7 +299,7 @@ describe("P0 authority open/read", () => {
         eventClass: "admin_marketing",
         path: "/notifications?tab=marketing",
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldApplyMemberNotificationReadOnPushTap({
         eventClass: "owner_operation",

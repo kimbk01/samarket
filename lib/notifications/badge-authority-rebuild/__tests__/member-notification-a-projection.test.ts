@@ -20,7 +20,7 @@ function row(partial: Record<string, unknown>) {
 }
 
 describe("Slice 2-2 member notification A projection", () => {
-  it("includes trade/order status and admin notice; excludes owner_intake/chat/missed/marketing", () => {
+  it("includes status, notice, persistent marketing; excludes owner/chat/room-missed", () => {
     const rows = [
       row({ id: "a1", type: "trade_status", category: "trade_status", dedupe_key: "t1" }),
       row({
@@ -51,12 +51,13 @@ describe("Slice 2-2 member notification A projection", () => {
       row({ id: "mk", type: "admin_marketing_banner", category: "admin_marketing_banner" }),
     ];
     const proj = buildMemberNotificationAProjection(rows);
-    expect(proj.memberUnreadNotificationCount).toBe(3);
-    expect(proj.eventIds).toHaveLength(3);
+    expect(proj.memberUnreadNotificationCount).toBe(4);
+    expect(proj.eventIds).toHaveLength(4);
     expect(proj.memberUnreadNotificationCount).toBe(proj.eventIds.length);
     expect(isMemberNotificationAUnread(rows[3]!)).toBe(false);
     expect(isMemberNotificationAUnread(rows[4]!)).toBe(false);
-    expect(deriveMemberUnreadNotificationCount(rows)).toBe(3);
+    expect(isMemberNotificationAUnread(rows[6]!)).toBe(true);
+    expect(deriveMemberUnreadNotificationCount(rows)).toBe(4);
   });
 
   it("Bell uses A; App Icon uses A + B_member (not Phase B NotificationAttention)", () => {

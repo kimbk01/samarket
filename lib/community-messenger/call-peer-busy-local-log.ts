@@ -31,7 +31,6 @@ export function appendLocalCallChatMessageForPeerBusy(args: {
     initiatorUserId,
     callKind: args.callKind,
     resolvedEvent: "peer_busy",
-    persistToApi: false,
   });
 
   cmCallFlow("peer_busy", {

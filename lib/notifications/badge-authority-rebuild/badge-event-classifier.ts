@@ -78,11 +78,11 @@ const A_KINDS = new Set([
   "admin_notice",
   "system_persistent",
   "notice_persistent",
+  "admin_marketing_banner",
 ]);
 
 const MARKETING = new Set([
   "marketing_ephemeral",
-  "admin_marketing_banner",
   "admin_test",
 ]);
 

@@ -93,6 +93,10 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     members,
     messages,
     readReceipt: next.readReceipt ?? prev.readReceipt,
+    viewerLastReadMessageId:
+      next.viewerLastReadMessageId !== undefined
+        ? next.viewerLastReadMessageId
+        : prev.viewerLastReadMessageId,
     peerPresence: next.peerPresence ?? prev.peerPresence,
     activeCall: Object.prototype.hasOwnProperty.call(next, "activeCall") ? next.activeCall : prev.activeCall,
     hasMoreOlderMessages:

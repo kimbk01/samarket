@@ -77,12 +77,15 @@ import {
   hasCmRoomEntryTimingSession,
   registerCmRoomTimingPendingCleanup,
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
-import { resolveFirstUnreadMessageId } from "@/lib/community-messenger/room/messenger-room-first-unread";
+import {
+  countUnreadMessagesBelow,
+  resolveFirstUnreadMessageId,
+  resolveNextUnreadMessageId,
+} from "@/lib/community-messenger/room/messenger-room-first-unread";
 import {
   captureMessengerRoomEntryUnread,
   clearMessengerRoomEntryUnread,
   clearMessengerRoomEntryUnreadSession,
-  useMessengerRoomEntryUnreadStore,
 } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
@@ -952,7 +955,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
   ]);
 
-  const lastReadMessageId = vm.snapshot.readReceipt?.lastReadMessageId ?? null;
+  const lastReadMessageId = vm.snapshot.viewerLastReadMessageId ?? null;
   const roomUnreadCount = vm.snapshot.room.unreadCount ?? 0;
   const firstUnreadMessageId = useMemo(
     () =>
@@ -981,26 +984,44 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     };
   }, [vm.streamRoomId]);
 
-  const entryUnreadCount = useMessengerRoomEntryUnreadStore((s) => {
+  const dividerFirstUnreadId = firstUnreadMessageId;
+  const lastVisibleMessageId = useMessengerRoomReaderStateStore((s) => {
     const rid = vm.streamRoomId.trim();
-    if (!rid) return 0;
-    const snap = s.byRoom[rid];
-    if (!snap || snap.cleared) return 0;
-    return snap.entryUnreadCount;
+    return rid ? (s.byRoom[rid]?.lastVisibleMessageId ?? null) : null;
   });
-  const entryFirstUnreadId = useMessengerRoomEntryUnreadStore((s) => {
-    const rid = vm.streamRoomId.trim();
-    if (!rid) return null;
-    const snap = s.byRoom[rid];
-    if (!snap || snap.cleared) return null;
-    return snap.firstUnreadMessageId;
-  });
-  const dividerFirstUnreadId = entryFirstUnreadId || firstUnreadMessageId;
+  const remainingUnreadCount = useMemo(
+    () =>
+      countUnreadMessagesBelow({
+        messages: vm.displayRoomMessages,
+        lastReadMessageId,
+        afterMessageId: lastVisibleMessageId,
+      }),
+    [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
+  );
+  const nextUnreadMessageId = useMemo(
+    () =>
+      resolveNextUnreadMessageId({
+        messages: vm.displayRoomMessages,
+        lastReadMessageId,
+        afterMessageId: lastVisibleMessageId,
+      }),
+    [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
+  );
+  const dividerStillUnread = useMemo(() => {
+    if (!dividerFirstUnreadId) return false;
+    const dividerIndex = vm.displayRoomMessages.findIndex(
+      (message) => message.id === dividerFirstUnreadId
+    );
+    const visibleIndex = lastVisibleMessageId
+      ? vm.displayRoomMessages.findIndex((message) => message.id === lastVisibleMessageId)
+      : -1;
+    return dividerIndex >= 0 && visibleIndex < dividerIndex;
+  }, [dividerFirstUnreadId, lastVisibleMessageId, vm.displayRoomMessages]);
 
   const unreadDividerLabel = useMemo(() => {
-    if (entryUnreadCount <= 0 || !dividerFirstUnreadId) return null;
+    if (remainingUnreadCount <= 0 || !dividerStillUnread) return null;
     return vm.t("cm_ui_unread_messages_divider");
-  }, [dividerFirstUnreadId, entryUnreadCount, vm.t]);
+  }, [dividerStillUnread, remainingUnreadCount, vm.t]);
 
   const scrollPosition = useMessengerRoomReaderStateStore((s) => {
     const rid = vm.streamRoomId.trim();
@@ -1011,9 +1032,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /** Reached latest → clear entry FAB/divider session (mark_read already handled elsewhere). */
   useEffect(() => {
     const rid = vm.streamRoomId.trim();
-    if (!rid || !atLatest || entryUnreadCount <= 0) return;
+    if (!rid || !atLatest || remainingUnreadCount > 0) return;
     clearMessengerRoomEntryUnread(rid, "reached_latest");
-  }, [atLatest, entryUnreadCount, vm.streamRoomId]);
+  }, [atLatest, remainingUnreadCount, vm.streamRoomId]);
 
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;
@@ -2117,6 +2138,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       </div>
       <MessengerRoomNewMessagesBelowChip
         roomId={vm.streamRoomId}
+        remainingUnreadCount={remainingUnreadCount}
+        onJumpToUnread={() => {
+          if (nextUnreadMessageId) vm.scrollToRoomMessage(nextUnreadMessageId);
+          else vm.scrollMessengerToBottom();
+        }}
         onJumpToLatest={vm.scrollMessengerToBottom}
       />
       <MessengerImageLightbox

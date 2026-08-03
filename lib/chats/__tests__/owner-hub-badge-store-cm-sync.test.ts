@@ -7,6 +7,7 @@ import {
   __testApplyOwnerHubBadgePayloadForTest,
   applyDomainAuthorityHubBadgeOptimistic,
   getOwnerHubBadgeSnapshot,
+  resetOwnerHubBadgeStoreForAuthEpoch,
 } from "@/lib/chats/owner-hub-badge-store";
 
 function hubPayload(overrides: Partial<OwnerHubBadgeBreakdown> & { communityMessengerUnread?: number }) {
@@ -48,6 +49,7 @@ describe("owner-hub-badge-store P1-c Projection axis lock", () => {
       tradeUnread: 1,
       storeOrderOwnerUnreadRooms: 2,
       buyerOrderAttention: 1,
+      socialChatUnread: 3,
     });
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(3);
 
@@ -61,6 +63,7 @@ describe("owner-hub-badge-store P1-c Projection axis lock", () => {
       tradeUnread: 2,
       storeOrderOwnerUnreadRooms: 4,
       buyerOrderAttention: 1,
+      socialChatUnread: 5,
     });
 
     __testApplyOwnerHubBadgePayloadForTest(
@@ -100,6 +103,8 @@ describe("owner-hub-badge-store P1-c Projection axis lock", () => {
       communityMessengerUnread: 2,
       tradeUnread: 0,
       storeOrderOwnerUnreadRooms: 0,
+      buyerOrderAttention: 0,
+      socialChatUnread: 2,
     });
     for (const kind of ["broadcast", "client_cache", "network_plain"] as const) {
       __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), kind);
@@ -112,13 +117,39 @@ describe("owner-hub-badge-store P1-c Projection axis lock", () => {
       communityMessengerUnread: 1,
       tradeUnread: 0,
       storeOrderOwnerUnreadRooms: 0,
+      buyerOrderAttention: 0,
+      socialChatUnread: 1,
     });
     applyDomainAuthorityHubBadgeOptimistic({
       communityMessengerUnread: 0,
       tradeUnread: 0,
       storeOrderOwnerUnreadRooms: 0,
+      buyerOrderAttention: 0,
+      socialChatUnread: 0,
     });
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+  });
+
+  it("auth epoch reset clears prior identity snapshot", () => {
+    applyDomainAuthorityHubBadgeOptimistic({
+      communityMessengerUnread: 3,
+      tradeUnread: 2,
+      storeOrderOwnerUnreadRooms: 1,
+      buyerOrderAttention: 4,
+      socialChatUnread: 3,
+    });
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(3);
+
+    resetOwnerHubBadgeStoreForAuthEpoch();
+
+    expect(getOwnerHubBadgeSnapshot()).toEqual(
+      expect.objectContaining({
+        communityMessengerUnread: 0,
+        chatUnread: 0,
+        storeOrderOwnerUnreadRooms: 0,
+        buyerOrderAttention: 0,
+      })
+    );
   });
 
   it("P0-2 Absolute writer deleted; P1-c Hub GET Projection write lock present", () => {

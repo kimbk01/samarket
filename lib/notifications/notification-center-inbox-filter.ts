@@ -1,9 +1,8 @@
 /**
  * Notification Center list helpers.
  *
- * LOCK: 혜택 목록 ≠ Bell digit.
- * Marketing display only here — Member A filtering stays in allowlisted call sites
- * (`MyNotificationsView`) so Slice 2-1 isolation is preserved.
+ * Persistent marketing campaigns are Member A; this helper only selects their
+ * dedicated presentation tab.
  */
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { isAdminMarketingInboxItem } from "@/lib/notifications/admin-campaign-inbox";
@@ -32,7 +31,7 @@ export function isNotificationCenterStoreTab(tab: InboxPushKindFilter | "store")
   return tab === "store";
 }
 
-/** Marketing tab rows only (never A eligibility). */
+/** Marketing tab presentation rows; A eligibility remains in the canonical classifier. */
 export function filterMarketingInboxDisplayRows<T extends {
   notification_type?: string | null;
   type?: string | null;

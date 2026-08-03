@@ -15,7 +15,7 @@ import {
   postCommunityMessengerCallStubPreviewBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import { reconcileCallStubMessageBySession } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
+import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 const appliedClientDedupeKeys = new Set<string>();
 
@@ -47,8 +47,6 @@ export type AppendCallChatMessageArgs = {
   callKind: CommunityMessengerCallKind;
   resolvedEvent: CallSessionResolvedEvent;
   durationSeconds?: number;
-  /** peer_busy 등 세션 없는 로컬 전용 이벤트 */
-  persistToApi?: boolean;
 };
 
 /**
@@ -92,7 +90,6 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     durationSeconds: input.durationSeconds,
   });
   const status = mapResolvedEventToCallStatus(resolved);
-  const callStartedAt = typeof input.startedAt === "string" ? input.startedAt.trim() : "";
   const callEndedAt = typeof input.endedAt === "string" ? input.endedAt.trim() : "";
   /** 목록 tip — terminal occurred_at. started_at 만 쓰면 dial 제거 후 stale guard 에 막힘. */
   const tipActivityAt = callEndedAt || new Date().toISOString();
@@ -152,28 +149,10 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     });
   }
 
-  void persistCallStubMessageBestEffort({
-    roomId,
-    sessionId: input.sessionId ?? null,
-    tmpSessionId: input.tmpSessionId ?? null,
-    senderId: ini,
-    callKind: input.callKind,
-    status,
-    replaceExisting: true,
-    callStartedAt: callStartedAt || null,
-    callEndedAt: callEndedAt || tipActivityAt,
-    durationSeconds: input.durationSeconds,
-  }).then((src) => {
-    if (process.env.NODE_ENV !== "production" && src) {
-      console.info("[cm-call-message-append]", {
-        roomId,
-        sessionId: input.sessionId ?? undefined,
-        tmpSessionId: input.tmpSessionId ?? undefined,
-        resolvedEvent: resolved,
-        source: src,
-      });
-    }
-  });
+  /**
+   * DB terminal stub is owned by updateCommunityMessengerCallSession.
+   * This client path only reconciles the already-authoritative row into local UI.
+   */
 
   void input.recipientUserId;
 }
@@ -207,20 +186,6 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
     initiatorUserId,
   });
 
-  if (args.persistToApi) {
-    void persistCallStubMessageBestEffort({
-      roomId,
-      sessionId: args.sessionId ?? null,
-      tmpSessionId: args.tmpSessionId ?? null,
-      senderId: initiatorUserId,
-      callKind: args.callKind,
-      status,
-      replaceExisting: false,
-      callStartedAt: null,
-      durationSeconds: args.durationSeconds,
-    });
-  }
-
   if (process.env.NODE_ENV !== "production") {
     console.info("[cm-call-message-local-only]", {
       roomId,
@@ -230,39 +195,3 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
   }
 }
 
-async function persistCallStubMessageBestEffort(input: {
-  roomId: string;
-  sessionId: string | null;
-  tmpSessionId: string | null;
-  senderId: string;
-  callKind: CommunityMessengerCallKind;
-  status: CommunityMessengerCallStatus;
-  replaceExisting: boolean;
-  callStartedAt: string | null;
-  callEndedAt?: string | null;
-  durationSeconds?: number;
-}): Promise<"db" | null> {
-  try {
-    const res = await fetch("/api/community-messenger/calls/stub-message", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: input.roomId,
-        sessionId: input.sessionId ?? undefined,
-        tmpSessionId: input.tmpSessionId ?? undefined,
-        senderId: input.senderId,
-        callKind: input.callKind,
-        status: input.status,
-        replaceExisting: input.replaceExisting,
-        callStartedAt: input.callStartedAt ?? undefined,
-        callEndedAt: input.callEndedAt ?? undefined,
-        durationSeconds: input.durationSeconds ?? 0,
-      }),
-    });
-    if (res.ok) return "db";
-  } catch {
-    /* ignore */
-  }
-  return null;
-}

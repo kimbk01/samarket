@@ -1,4 +1,11 @@
 /**
+ * ISOLATE (Final Stabilization Phase 6) — legacy list-row bridge only.
+ *
+ * Canonical Trade Hub / App Icon / Bottom Facts use
+ * `loadTradeStoreOrderUnreadRoomFactsFromParticipants` (participant unread only).
+ * This enrich may raise unlinked list-row unread above that Fact; do not add new
+ * product callers. Linked `item_trade` rooms stay CM-participant-only.
+ *
  * 메신저 목록 `unreadCount` 는 기본적으로 CM 참가자 행만 쓰는데,
  * `GET /api/me/store-owner-hub-badge` 의 `chatUnread`(거래 레거시)는
  * `item_trade` 커서 힌트 + (통합방 없을 때) `product_chats` 미읽음을 합산한다.

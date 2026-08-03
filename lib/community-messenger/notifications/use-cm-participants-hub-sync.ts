@@ -24,6 +24,7 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import {
   getParticipantRoomId,
+  getParticipantStoreOrderRole,
   getParticipantUnreadCount,
   type MessageNotificationBridgePlayback,
   type ParticipantRealtimeRow,
@@ -136,6 +137,9 @@ export function useCmParticipantsHubSync(
             const nextRoomId = getParticipantRoomId((payload.new ?? null) as ParticipantRealtimeRow | null);
             const nextUnread = getParticipantUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
             const prevUnread = getParticipantUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
+            const storeOrderRole = getParticipantStoreOrderRole(
+              (payload.new ?? payload.old ?? null) as ParticipantRealtimeRow | null
+            );
             if (!nextRoomId) return;
             const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
             const key = cmReceiveLatencyKey({ roomId: nextRoomId, messageId: null });
@@ -158,6 +162,7 @@ export function useCmParticipantsHubSync(
               versionMs: eventVersion,
               source: "participant_rt",
               authoritySource: "participant_realtime",
+              storeOrderRole,
               eventIdentity: `participant_rt:${nextRoomId}:${prevUnread}->${nextUnread}:${eventVersion}`,
             });
             const bottom_ms =

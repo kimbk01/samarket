@@ -31,6 +31,17 @@ describe("badge authority surface writer contracts (2026-07-31)", () => {
     expect(nextExport === -1 || callIdx < nextExport).toBe(true);
   });
 
+  it("Hub publisher forwards complete Projection axes without cache arithmetic", () => {
+    const bridge = read("lib/messenger/contracts/domain-badge-authority-product-bridge.ts");
+    const hub = read("lib/chats/owner-hub-badge-store.ts");
+    expect(bridge).toContain("buyerOrderAttention: projection.storeOrderCustomerUnreadRooms");
+    expect(bridge).toContain("socialChatUnread: projection.socialChatUnread");
+    expect(hub).toContain("buyerOrderAttention: input.buyerOrderAttention");
+    expect(hub).toContain("socialChatUnread: input.socialChatUnread");
+    expect(hub).not.toContain("communityMessengerUnread + philife");
+    expect(hub).not.toContain("input.buyerOrderAttention != null");
+  });
+
   it("App Icon product path forbids split shell/missedCall publish", () => {
     const bridge = read("lib/messenger/contracts/domain-badge-authority-product-bridge.ts");
     expect(bridge).toContain("publishDomainAppIconCompleteSnapshot");
@@ -56,6 +67,7 @@ describe("badge authority surface writer contracts (2026-07-31)", () => {
   it("logout resets Domain App Icon surface auth epoch", () => {
     const wipe = read("lib/auth/client-session-wipe.ts");
     expect(wipe).toContain("resetDomainBadgeSurfaceForAuthEpoch");
+    expect(wipe).toContain("resetOwnerHubBadgeStoreForAuthEpoch");
   });
 
   it("trade Bell href and FCM trade route share CM room path", () => {

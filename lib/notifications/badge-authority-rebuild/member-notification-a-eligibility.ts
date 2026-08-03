@@ -64,8 +64,7 @@ function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   const type = String(row.type ?? "").trim();
   const category = String(row.category ?? "").trim();
   if (isChatMessageNotificationType(type)) return false;
-  if (type === "admin_marketing_banner" || type === "admin_test") return false;
-  if (category === "admin_marketing_banner") return false;
+  if (type === "admin_test") return false;
 
   // Gate 2 missed: room-bound → B only; orphan → A
   if (isRoomBoundMissedCallEvent(row)) return false;

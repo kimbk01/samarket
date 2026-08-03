@@ -18,7 +18,7 @@ describe("messenger-room-entry-unread-snapshot", () => {
     __resetMessengerRoomEntryUnreadStoreForTest();
   });
 
-  it("captures list unread 3 and keeps FAB authority after live would be 0", () => {
+  it("captures entry count and first-unread anchor after list projection changes", () => {
     captureMessengerRoomEntryUnread({ roomId: "r1", unreadCount: 3, firstUnreadMessageId: "m3" });
     expect(peekMessengerRoomEntryUnreadCount("r1")).toBe(3);
     expect(peekMessengerRoomEntryFirstUnreadId("r1")).toBe("m3");
@@ -40,7 +40,7 @@ describe("messenger-room-entry-unread-snapshot", () => {
     expect(peekMessengerRoomEntryUnreadCount("r1")).toBe(5);
   });
 
-  it("clear zeros FAB authority; other room untouched", () => {
+  it("clear removes entry snapshot count; other room untouched", () => {
     captureMessengerRoomEntryUnread({ roomId: "r1", unreadCount: 3 });
     captureMessengerRoomEntryUnread({ roomId: "r2", unreadCount: 7 });
     clearMessengerRoomEntryUnread("r1", "reached_latest");
@@ -48,16 +48,16 @@ describe("messenger-room-entry-unread-snapshot", () => {
     expect(peekMessengerRoomEntryUnreadCount("r2")).toBe(7);
   });
 
-  it("FAB state uses entryUnreadCount (survives atLatest with entry>0)", () => {
-    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 3 })).toEqual({
+  it("FAB state uses remaining unread, not the entry snapshot", () => {
+    expect(resolveJumpToLatestFabState({ atLatest: true, remainingUnreadCount: 3 })).toEqual({
       visible: true,
       badgeCount: 3,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 0 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: true, remainingUnreadCount: 0 })).toEqual({
       visible: false,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, entryUnreadCount: 0 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, remainingUnreadCount: 0 })).toEqual({
       visible: true,
       badgeCount: 0,
     });

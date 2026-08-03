@@ -244,8 +244,8 @@ export function shouldApplyMemberNotificationReadOnPushTap(input: {
   eventClass?: string | null;
 }): boolean {
   const eventClass = trim(input.eventClass);
-  if (eventClass === "admin_marketing" || eventClass === "owner_operation") return false;
-  if (eventClass === "admin_notice") return true;
+  if (eventClass === "owner_operation") return false;
+  if (eventClass === "admin_notice" || eventClass === "admin_marketing") return true;
 
   const scope = trim(input.recipientScope);
   const pipeline = trim(input.pipeline);

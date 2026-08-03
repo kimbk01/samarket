@@ -27,7 +27,7 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     expect(adminCampaignEventClass("system")).toBe("admin_system");
     expect(adminCampaignBellPresentation("system")).toBe("admin_system");
     expect(adminCampaignBellPresentation("notice")).toBe("admin_notice");
-    expect(adminCampaignBellPresentation("marketing")).toBe("unsupported");
+    expect(adminCampaignBellPresentation("marketing")).toBe("admin_marketing");
   });
 
   it("presentation meta uses distinct push_kind for system vs notice", () => {
@@ -59,7 +59,7 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     expect(system.pushPayload.notification_type).toBe("system");
     expect(system.pushPayload.meta?.eventClass).toBe("admin_system");
     expect(marketing.pushPayload.meta?.push_kind).toBe("marketing");
-    expect(marketing.bellPolicy).toBe("exclude");
+    expect(marketing.bellPolicy).toBe("include");
   });
 
   it("inbox map exposes campaign_type + distinct push_kind / presentation", () => {

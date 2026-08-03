@@ -33,6 +33,8 @@ function applyOwnerHubSurfacesFromProjection(projection: NotificationBadgeProjec
     storeOrderOwnerUnreadRooms: projection.storeOrderOwnerUnreadRooms,
     /** Customer messenger 「주문 채팅」 pillar — buyer_order room count. */
     buyerOrderAttention: projection.storeOrderCustomerUnreadRooms,
+    /** Complete Projection value — Hub publisher must not recompute with cached Philife. */
+    socialChatUnread: projection.socialChatUnread,
   });
 }
 

@@ -31,7 +31,6 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import {
   clearChatInboxTargetsAfterMarkAll,
-  markAllNotificationEventsRead,
   markChatNotificationEventsRead,
   dismissMemberNotificationCenterEvents,
   markAllOwnerStoreCommerceNotificationEventsRead,
@@ -507,11 +506,24 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.mark_all_read === true) {
-    // Gate 3 Step 10 — Canonical-only (no legacy `notifications` write).
-    const updated = await markAllNotificationEventsRead(sb, userId);
+    // Final Stabilization — Member A only; never blast chat/B room events.
+    const result = await markMemberANotificationsAllRead(sb, userId);
+    if ("ok" in result && result.ok === false) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+    }
+    const okResult = result as {
+      updated: number;
+      legacyUpdated: number;
+      eventUpdated: number;
+    };
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
-    return NextResponse.json({ ok: true, updated, legacyUpdated: 0 });
+    return NextResponse.json({
+      ok: true,
+      updated: okResult.updated,
+      legacyUpdated: okResult.legacyUpdated,
+      eventUpdated: okResult.eventUpdated,
+    });
   }
 
   if (body.mark_all_owner_store_commerce_read === true) {

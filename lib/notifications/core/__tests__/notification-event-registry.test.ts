@@ -79,6 +79,7 @@ describe("notification event registry SSOT", () => {
     );
     expect(eventTypeForAdminCampaignType("notice")).toBe("admin_notice");
     expect(eventTypeForAdminCampaignType("system")).toBe("admin_notice");
+    expect(getNotificationEventDefinition("admin_marketing_banner").bellPolicy).toBe("include");
     const adminTest = getNotificationEventDefinition("admin_test");
     expect(adminTest.bellPolicy).toBe("exclude");
     expect(adminTest.appIconPolicy).toBe("exclude");

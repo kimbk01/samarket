@@ -93,6 +93,16 @@ describe("call start: VoIP critical path + no dialing stub (static)", () => {
     expect(route).not.toMatch(/status === "incoming"/);
     expect(route).toContain("in-flight dialing/incoming stub publish blocked");
   });
+
+  it("server terminal writer owns atomic unread and room-bound missed is not Bell A", () => {
+    const service = readRepo("lib/community-messenger/service.ts");
+    const localAppend = readRepo("lib/community-messenger/call-chat-local-append.ts");
+    expect(service).toContain("resolveTerminalStubActorUserId");
+    expect(service).toContain("incrementUnread: true");
+    expect(service).not.toContain("notifyMissedCallPipeline");
+    expect(localAppend).toContain("DB terminal stub is owned by updateCommunityMessengerCallSession");
+    expect(localAppend).not.toContain("persistCallStubMessageBestEffort");
+  });
 });
 
 describe("viewer direction labels", () => {
