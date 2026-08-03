@@ -251,8 +251,8 @@ describe("Slice 2-3 member communication B projection", () => {
         customerStoreOrderUnreadRooms: 0,
         orphanMissedCallCount: 1,
         storeActionRequiredCount: 4,
-      }).ok
-    ).toBe(false);
+      })
+    ).toMatchObject({ ok: true, projection: { memberAppIconWebTotal: 2 + 3 + 4 } });
 
     const builder = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 9 },
@@ -262,9 +262,10 @@ describe("Slice 2-3 member communication B projection", () => {
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
       notificationAttentionTotal: 40,
       memberUnreadNotificationCount: 2,
+      ownerOperationBellCount: 4,
     });
     expect(builder.memberAppIconWebTotal).toBe(2 + 3);
-    expect(builder.bellTotal).toBe(2);
+    expect(builder.bellTotal).toBe(2 + 4);
     expect(builder.storeOrderOwnerUnreadRooms).toBe(9);
   });
 

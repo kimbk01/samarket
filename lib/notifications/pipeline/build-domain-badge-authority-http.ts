@@ -39,6 +39,7 @@ import {
   type UnifiedAppIconProjection,
 } from "@/lib/notifications/chat-notification-attention-projection";
 import { deriveMemberUnreadNotificationCount } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { loadOwnerOperationOFacts } from "@/lib/notifications/badge-authority-rebuild/load-owner-operation-o-facts";
 import { resolveMemberNotificationAuthorityFromRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority";
 import {
   projectSurfacesFromConversationAuthority,
@@ -116,10 +117,13 @@ export type DomainBadgeAuthorityHttpPayload = {
   notificationAttentionTotal: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
-  /** Product Bell digit SSOT (= memberUnreadNotificationCount / A). */
+  /** Product Bell digit = |N ∪ O_bell| (= projection.bellTotal). */
   total: number;
-  /** Slice 2-2 — A_member unread count for Bell. */
+  /** N axis only (A_member) — not the full Bell digit. */
   memberUnreadNotificationCount: number;
+  /** O axis — owner operation count (|O| / O_bell). */
+  ownerOperationCount: number;
+  ownerOperationBellCount: number;
   /** Slice 2-3 — orphan missed Fact (client Apply). */
   orphanMissedCallCount: number;
   /** Slice 2-3 — distinct unresolved missed call/session ids. */
@@ -178,13 +182,14 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
-  const [messengerRooms, tradeStoreRooms, missed, categoryCounts, bellExplainRows] =
+  const [messengerRooms, tradeStoreRooms, missed, categoryCounts, bellExplainRows, ownerO] =
     await Promise.all([
       loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
       loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
       loadOrphanMissedCallFacts(sb, uid),
       countNotificationEventsBadge(sb, uid),
       loadBellExplainUnreadEventRows(sb, uid),
+      loadOwnerOperationOFacts(sb, uid),
     ]);
 
   // Messenger + Trade + Store Order: participants unread (list SSOT). Targets are derived only.
@@ -213,11 +218,13 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     notificationEvents: bellExplainRows,
   });
   const notificationAttentionTotal = unifiedAttention.notification.total;
-  /** Slice 2-2 — Bell digit only (A_member). Slice 2-3 App Icon = A + B_member. */
+  /** N = A_member. Bell digit = |N ∪ O_bell|. */
   const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(
     bellExplainRows,
     uid
   );
+  const ownerOperationBellCount = ownerO.ownerOperationBellCount;
+  const ownerOperationCount = ownerO.ownerOperationCount;
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
     domainUnreadRooms,
@@ -228,6 +235,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     nonChatEventAttention,
     notificationAttentionTotal,
     memberUnreadNotificationCount,
+    ownerOperationBellCount,
     unresolvedMissedCallIds: missed.orphanCallIds,
     unreadApprovedNotificationEvents,
     bell: categoryCounts,
@@ -287,6 +295,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const memberAppIconAuthority = resolveMemberAppIconAuthority({
     notificationA,
     conversationB: memberConversationAuthority,
+    ownerOperationCount,
     revision: projectionVersionMs,
   });
 
@@ -312,6 +321,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     appIconTotal: memberAppIconAuthority.appIconTotal,
     chatAttention: unifiedAttention.chat.total,
     notificationAttention: notificationAttentionTotal,
+    ownerOperationCount,
+    ownerOperationBellCount,
     bottomChat: projection.bottomChat,
     ...domainUnreadRooms,
     messenger_gd_rooms: messengerRooms.generalDirectUnreadRoomIds.length,
@@ -368,6 +379,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     unreadApprovedNotificationEvents,
     notificationAttentionTotal,
     memberUnreadNotificationCount,
+    ownerOperationCount,
+    ownerOperationBellCount,
     /** Slice 2-3 — top-level orphan Fact for client Apply B_missed. */
     orphanMissedCallCount: missed.orphan,
     unresolvedMissedCallIds: missed.orphanCallIds,
@@ -379,7 +392,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     memberAppIconAuthority,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
-    /** Slice 2-2 — Header Bell digit = A_member only. */
+    /** Product Bell digit = |N ∪ O_bell|. */
     total: projection.bellTotal,
     chatMessage: Math.max(0, Math.floor(Number(bell.chatMessage) || 0)),
     groupMessage: Math.max(0, Math.floor(Number(bell.groupMessage) || 0)),

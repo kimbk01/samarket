@@ -70,11 +70,8 @@ function resolveNotificationAttentionTotal(
   return Math.max(0, Math.floor(Number(legacyFallback) || 0));
 }
 
-/** Slice 2-2 Member Bell digit = A_member. */
+/** Product Bell digit = |N ∪ O_bell| — prefer projection.bellTotal / total. */
 function resolveMemberBellDigit(body: BadgeCountAuthorityJson, fallback: number): number {
-  if (body.memberUnreadNotificationCount != null) {
-    return Math.max(0, Math.floor(Number(body.memberUnreadNotificationCount) || 0));
-  }
   const proj = body.projection;
   if (proj && typeof proj === "object") {
     const bellTotal = (proj as { bellTotal?: unknown }).bellTotal;
@@ -82,6 +79,10 @@ function resolveMemberBellDigit(body: BadgeCountAuthorityJson, fallback: number)
   }
   if (body.total != null) {
     return Math.max(0, Math.floor(Number(body.total) || 0));
+  }
+  // N-only fallback (legacy)
+  if (body.memberUnreadNotificationCount != null) {
+    return Math.max(0, Math.floor(Number(body.memberUnreadNotificationCount) || 0));
   }
   return Math.max(0, Math.floor(Number(fallback) || 0));
 }

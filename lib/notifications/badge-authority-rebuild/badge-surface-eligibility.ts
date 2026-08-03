@@ -30,6 +30,10 @@ const C_STORE_SURFACES: ReadonlySet<BadgeSurface> = new Set([
   "OWNER_OPERATION_BADGE",
   "OWNER_DELIVERY_BOTTOM",
   "OWNER_ADMIN_OPERATION",
+  // Product Bible: O_bell + App Icon ∪
+  "MEMBER_BELL",
+  "MEMBER_APP_ICON",
+  "NATIVE_MEMBER_APP_ICON",
 ]);
 
 export function resolveBadgeProjectionEligibility(

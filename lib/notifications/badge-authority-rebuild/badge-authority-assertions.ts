@@ -10,8 +10,6 @@ export type BadgeAssertionFailureReason =
   | "MEMBER_AUTHORITY_REQUIRES_MEMBER_IDENTITY"
   | "STORE_AUTHORITY_REQUIRES_STORE_IDENTITY"
   | "B_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON"
-  | "C_STORE_CANNOT_PROJECT_TO_MEMBER_BELL"
-  | "C_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON"
   | "B_MEMBER_CANNOT_PROJECT_TO_MEMBER_BELL"
   | "A_MEMBER_CANNOT_PROJECT_TO_BOTTOM_CHAT"
   | "UNKNOWN_AUTHORITY_IS_BLOCKED"
@@ -51,15 +49,7 @@ export function assertAuthorityCanProjectToSurface(
   if (authority === "B_STORE_COMMUNICATION" && surface === "NATIVE_MEMBER_APP_ICON") {
     return { ok: false, reason: "B_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON" };
   }
-  if (authority === "C_STORE_OPERATION" && surface === "MEMBER_BELL") {
-    return { ok: false, reason: "C_STORE_CANNOT_PROJECT_TO_MEMBER_BELL" };
-  }
-  if (
-    authority === "C_STORE_OPERATION" &&
-    (surface === "MEMBER_APP_ICON" || surface === "NATIVE_MEMBER_APP_ICON")
-  ) {
-    return { ok: false, reason: "C_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON" };
-  }
+  // C_STORE_OPERATION → MEMBER_BELL / MEMBER_APP_ICON allowed (Bible O_bell + Icon ∪).
   if (authority === "B_MEMBER_COMMUNICATION" && surface === "MEMBER_BELL") {
     return { ok: false, reason: "B_MEMBER_CANNOT_PROJECT_TO_MEMBER_BELL" };
   }

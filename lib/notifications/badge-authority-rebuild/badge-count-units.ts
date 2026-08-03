@@ -63,9 +63,7 @@ export type MemberAppIconInputGuardResult =
   | { ok: true; input: MemberAppIconProjectionInput; memberAppIconTotal: number }
   | {
       ok: false;
-      reason:
-        | "B_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT"
-        | "C_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT";
+      reason: "B_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT";
     };
 
 export function buildMemberAppIconProjectionInput(parts: {
@@ -78,9 +76,7 @@ export function buildMemberAppIconProjectionInput(parts: {
   if (nonNeg(parts.storeUnreadRoomCount) > 0) {
     return { ok: false, reason: "B_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT" };
   }
-  if (nonNeg(parts.storeActionRequiredCount) > 0) {
-    return { ok: false, reason: "C_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT" };
-  }
+  const o = nonNeg(parts.storeActionRequiredCount);
   const input: MemberAppIconProjectionInput = {
     memberUnreadNotificationCount: asUnreadNotificationCount(
       parts.memberUnreadNotificationCount
@@ -96,6 +92,7 @@ export function buildMemberAppIconProjectionInput(parts: {
     memberAppIconTotal:
       input.memberUnreadNotificationCount +
       input.memberUnreadRoomCount +
-      input.memberUnresolvedMissedCallCount,
+      input.memberUnresolvedMissedCallCount +
+      o,
   };
 }

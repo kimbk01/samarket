@@ -302,17 +302,18 @@ export function assertOwnerChatExcludedFromMemberB(input: {
   return { ok: true };
 }
 
-/** Owner C must not change Member App Icon total (App Icon = A+B only). */
+/** Owner O must match App Icon O component (Bible |N∪C∪O|). */
 export function assertOwnerCExcludedFromMemberAppIcon(input: {
   appIcon: MemberAppIconAuthority;
   ownerC: StoreOwnerCAuthority;
 }): { ok: true } | { ok: false; reason: "OWNER_C_INFLATED_APP_ICON" } {
   const expected =
-    input.appIcon.memberNotificationUnread + input.appIcon.memberConversationUnreadRooms;
+    input.appIcon.memberNotificationUnread +
+    input.appIcon.memberConversationUnreadRooms +
+    nonNeg(input.appIcon.ownerOperationCount);
   if (input.appIcon.appIconTotal !== expected) {
     return { ok: false, reason: "OWNER_C_INFLATED_APP_ICON" };
   }
-  // C may be non-zero for the same human; it must not be folded into appIconTotal.
   void input.ownerC;
   return { ok: true };
 }

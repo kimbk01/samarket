@@ -186,7 +186,7 @@ describe("Slice 2-1 classification & identity foundation", () => {
   });
 
   describe("surface eligibility", () => {
-    it("A allows Bell; B_member forbids Bell; B_store/C_store forbid member App Icon/Bell", () => {
+    it("A allows Bell; B_member forbids Bell; C_store allows Bell/App Icon; B_store forbids App Icon", () => {
       expect(assertAuthorityCanProjectToSurface("A_MEMBER_NOTIFICATION", "MEMBER_BELL")).toEqual({
         ok: true,
       });
@@ -196,12 +196,13 @@ describe("Slice 2-1 classification & identity foundation", () => {
       expect(
         assertAuthorityCanProjectToSurface("B_STORE_COMMUNICATION", "MEMBER_APP_ICON")
       ).toEqual({ ok: false, reason: "B_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON" });
+      // Product Bible: O → O_bell + App Icon
       expect(
         assertAuthorityCanProjectToSurface("C_STORE_OPERATION", "MEMBER_APP_ICON")
-      ).toEqual({ ok: false, reason: "C_STORE_CANNOT_PROJECT_TO_MEMBER_APP_ICON" });
+      ).toEqual({ ok: true });
       expect(
         assertAuthorityCanProjectToSurface("C_STORE_OPERATION", "MEMBER_BELL")
-      ).toEqual({ ok: false, reason: "C_STORE_CANNOT_PROJECT_TO_MEMBER_BELL" });
+      ).toEqual({ ok: true });
       expect(
         assertAuthorityCanProjectToSurface("B_MEMBER_COMMUNICATION", "MEMBER_APP_ICON")
       ).toEqual({ ok: true });
@@ -215,7 +216,7 @@ describe("Slice 2-1 classification & identity foundation", () => {
   });
 
   describe("count units", () => {
-    it("separates 20 messages from 1 room; Member App Icon rejects store axes", () => {
+    it("separates 20 messages from 1 room; Member App Icon rejects B_store rooms, allows O", () => {
       expect(asUnreadMessageCount(20)).toBe(20);
       expect(asUnreadRoomCount(1)).toBe(1);
       const ok = buildMemberAppIconProjectionInput({
@@ -239,7 +240,7 @@ describe("Slice 2-1 classification & identity foundation", () => {
           memberUnresolvedMissedCallCount: 0,
           storeActionRequiredCount: 1,
         })
-      ).toEqual({ ok: false, reason: "C_STORE_FORBIDDEN_IN_MEMBER_APP_ICON_INPUT" });
+      ).toMatchObject({ ok: true, memberAppIconTotal: 1 });
     });
   });
 });

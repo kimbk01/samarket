@@ -295,13 +295,14 @@ describe("Slice 2-5 C_store Authority Contract", () => {
   });
 
   describe("surfaces and separation", () => {
-    it("C_store forbids Member Bell / Member App Icon / Owner Chat", () => {
-      expect(assertCStoreSurfaceForbidden("MEMBER_BELL")).toBe(true);
-      expect(assertCStoreSurfaceForbidden("MEMBER_APP_ICON")).toBe(true);
+    it("C_store allows Member Bell / App Icon; forbids Owner Chat / Bottom", () => {
+      // Product Bible: O → O_bell + App Icon ∪
+      expect(assertCStoreSurfaceForbidden("MEMBER_BELL")).toBe(false);
+      expect(assertCStoreSurfaceForbidden("MEMBER_APP_ICON")).toBe(false);
+      expect(assertCStoreSurfaceForbidden("NATIVE_MEMBER_APP_ICON")).toBe(false);
       expect(assertCStoreSurfaceForbidden("OWNER_CHAT_SURFACE")).toBe(true);
-      expect(assertCStoreSurfaceForbidden("NATIVE_MEMBER_APP_ICON")).toBe(true);
-      expect(cStoreAllowsSurface("MEMBER_BELL")).toBe(false);
-      expect(cStoreAllowsSurface("MEMBER_APP_ICON")).toBe(false);
+      expect(cStoreAllowsSurface("MEMBER_BELL")).toBe(true);
+      expect(cStoreAllowsSurface("MEMBER_APP_ICON")).toBe(true);
       expect(cStoreAllowsSurface("OWNER_CHAT_SURFACE")).toBe(false);
       expect(cStoreAllowsSurface("OWNER_OPERATION_BADGE")).toBe(true);
       expect(cStoreAllowsSurface("OWNER_ADMIN_OPERATION")).toBe(true);

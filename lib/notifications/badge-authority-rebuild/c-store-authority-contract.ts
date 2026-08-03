@@ -309,13 +309,12 @@ export function cStoreAllowsSurface(surface: BadgeSurface): boolean {
 }
 
 export const C_STORE_FORBIDDEN_SURFACES: readonly BadgeSurface[] = [
-  "MEMBER_BELL",
-  "MEMBER_APP_ICON",
+  // Product Bible LOCK: O projects to Top Bell (O_bell) + App Icon (|N∪C∪O|).
+  // Still forbidden: conversation bottoms / customer hubs / owner chat rows.
   "BOTTOM_CHAT",
   "CUSTOMER_ORDER_HUB",
   "OWNER_CHAT_SURFACE",
   "OWNER_STORE_ORDER_ROW",
-  "NATIVE_MEMBER_APP_ICON",
   "MEMBER_CHAT_ROW",
 ];
 

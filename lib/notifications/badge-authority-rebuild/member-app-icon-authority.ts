@@ -1,11 +1,12 @@
 /**
- * Gate 3 Step 6 — Member App Icon Authority Projection (canonical).
+ * Member App Icon Authority Projection (canonical).
  *
- * App Icon = Canonical Notification A + Canonical Conversation B
+ * Product Bible: App Icon = |N ∪ C ∪ O|
+ *   N = Canonical Notification A
+ *   C = Canonical Conversation B (member rooms)
+ *   O = Owner Operation (C_store) — same Task ∪1
  * Orphan missed ∈ A only (never re-added).
- * Owner C / B_store never included.
- *
- * DO NOT read UI Bell/Bottom/Hub, Cap cache, FCM badge_count, or attentionKeys.
+ * Owner chat rooms (B_store) still excluded from member conversation B.
  */
 import type { MemberNotificationAAuthority } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority";
 import type { MemberConversationAuthority } from "@/lib/notifications/badge-authority-rebuild/member-conversation-b-authority";
@@ -21,12 +22,14 @@ export type MemberAppIconAuthority = Readonly<{
   tradeUnreadRooms: number;
   orderUnreadRooms: number;
   memberConversationUnreadRooms: number;
+  /** O — owner operation attention (|O|). */
+  ownerOperationCount: number;
   appIconTotal: number;
   notificationAuthorityVersion: string;
   conversationAuthorityVersion: string;
   /**
    * Sortable version: `ai1|{rev}|{contentKey}`
-   * rev = server projection revision (monotonic). contentKey = deterministic A+B fingerprint.
+   * rev = server projection revision (monotonic). contentKey = deterministic A+B+O fingerprint.
    * Wall-clock computedAt is NOT used for ordering.
    */
   authorityVersion: string;
@@ -62,6 +65,7 @@ function contentKeyFromParts(parts: {
   gr: number;
   t: number;
   o: number;
+  op: number;
   eventIds: readonly string[];
   roomKeys: readonly string[];
 }): string {
@@ -74,6 +78,7 @@ function contentKeyFromParts(parts: {
     `gr${parts.gr}`,
     `t${parts.t}`,
     `o${parts.o}`,
+    `op${parts.op}`,
     `e:${events}`,
     `r:${rooms}`,
   ].join("|");
@@ -126,6 +131,8 @@ export function compareMemberAppIconAuthorityVersion(
 export function resolveMemberAppIconAuthority(input: {
   notificationA: MemberNotificationAAuthority;
   conversationB: MemberConversationAuthority;
+  /** O — owner operation count (|O|). Default 0. */
+  ownerOperationCount?: number;
   /** Server projection revision (badge-count projectionVersionMs). */
   revision?: number;
   computedAt?: string;
@@ -145,7 +152,10 @@ export function resolveMemberAppIconAuthority(input: {
   if (memberConversationUnreadRooms !== nonNeg(b.totalUnreadRooms)) {
     throw new Error("APP_ICON_B_TOTAL_MISMATCH");
   }
-  const appIconTotal = memberNotificationUnread + memberConversationUnreadRooms;
+  const ownerOperationCount = nonNeg(input.ownerOperationCount);
+  // |N ∪ C ∪ O| with disjoint namespaces → sum of set sizes
+  const appIconTotal =
+    memberNotificationUnread + memberConversationUnreadRooms + ownerOperationCount;
   const notificationEventIds = [...a.eventIds];
   const conversationDomainIdentityKeys = b.rooms
     .filter((r) => r.unreadMessageCount > 0)
@@ -157,6 +167,7 @@ export function resolveMemberAppIconAuthority(input: {
     gr: groupUnreadRooms,
     t: tradeUnreadRooms,
     o: orderUnreadRooms,
+    op: ownerOperationCount,
     eventIds: notificationEventIds,
     roomKeys: conversationDomainIdentityKeys,
   });
@@ -170,6 +181,7 @@ export function resolveMemberAppIconAuthority(input: {
     tradeUnreadRooms,
     orderUnreadRooms,
     memberConversationUnreadRooms,
+    ownerOperationCount,
     appIconTotal,
     notificationAuthorityVersion: a.authorityVersion,
     conversationAuthorityVersion: b.authorityVersion,
@@ -212,9 +224,10 @@ export function assertAppIconSnapshotComplete(
     nonNeg(snap.tradeUnreadRooms) +
     nonNeg(snap.orderUnreadRooms);
   if (bSum !== nonNeg(snap.memberConversationUnreadRooms)) return false;
+  const op = nonNeg(snap.ownerOperationCount);
   if (
     nonNeg(snap.appIconTotal) !==
-    nonNeg(snap.memberNotificationUnread) + nonNeg(snap.memberConversationUnreadRooms)
+    nonNeg(snap.memberNotificationUnread) + nonNeg(snap.memberConversationUnreadRooms) + op
   ) {
     return false;
   }
@@ -229,8 +242,9 @@ export function publishMemberAppIconAuthority(
   incoming: MemberAppIconAuthority,
   current: MemberAppIconAuthority | null,
   opts?: {
-    /** Contaminated owner C counts — must stay 0 / omitted. */
+    /** Owner chat rooms still forbidden in member Icon. */
     ownerStoreOrderUnreadRooms?: number;
+    /** O count — must match incoming.ownerOperationCount when set. */
     storeActionRequiredCount?: number;
   }
 ): PublishAppIconResult {
@@ -240,7 +254,10 @@ export function publishMemberAppIconAuthority(
   if (nonNeg(opts?.ownerStoreOrderUnreadRooms) > 0) {
     return { ok: false, reason: "OWNER_C_FORBIDDEN" };
   }
-  if (nonNeg(opts?.storeActionRequiredCount) > 0) {
+  if (
+    opts?.storeActionRequiredCount != null &&
+    nonNeg(opts.storeActionRequiredCount) !== nonNeg(incoming.ownerOperationCount)
+  ) {
     return { ok: false, reason: "OWNER_C_FORBIDDEN" };
   }
   if (!current) return { ok: true, action: "applied" };

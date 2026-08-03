@@ -146,20 +146,34 @@ describe("Gate3 Step6 Member App Icon Authority", () => {
     expect(snap.appIconTotal).toBe(1 + 2);
   });
 
-  it("owner C does not affect appIconTotal; publish rejects owner contamination", () => {
+  it("owner chat rooms reject on publish; O matches snap.ownerOperationCount", () => {
     const snap = resolveMemberAppIconAuthority({
       notificationA: aAuth(),
       conversationB: bAuth({ order: 1 }),
       revision: 5,
     });
     expect(snap.appIconTotal).toBe(1 + 1);
+    expect(snap.ownerOperationCount).toBe(0);
     expect(
       publishMemberAppIconAuthority(snap, null, { ownerStoreOrderUnreadRooms: 9 }).ok
     ).toBe(false);
+    // mismatch O vs snap
     expect(
       publishMemberAppIconAuthority(snap, null, { storeActionRequiredCount: 3 }).ok
     ).toBe(false);
     expect(publishMemberAppIconAuthority(snap, null).ok).toBe(true);
+
+    const withO = resolveMemberAppIconAuthority({
+      notificationA: aAuth(),
+      conversationB: bAuth({ order: 1 }),
+      ownerOperationCount: 3,
+      revision: 6,
+    });
+    expect(withO.appIconTotal).toBe(1 + 1 + 3);
+    expect(withO.ownerOperationCount).toBe(3);
+    expect(
+      publishMemberAppIconAuthority(withO, null, { storeActionRequiredCount: 3 }).ok
+    ).toBe(true);
   });
 
   it("orphan missed counted once through A; room-bound once through B; no A∩B", () => {

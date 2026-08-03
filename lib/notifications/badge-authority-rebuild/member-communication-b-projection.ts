@@ -133,9 +133,9 @@ export function buildMemberCommunicationBProjection(input: {
 }
 
 /**
- * Member App Icon web/server total = A + Conversation B rooms (Gate 3 Step 6).
+ * Member App Icon web/server total = |N ∪ C ∪ O| (Bible).
  * Orphan missed must already be inside A — not added via B_missed here.
- * Rejects contaminated inputs that try to fold B_store / C_store into the member total.
+ * Rejects owner chat rooms (B_store) contamination; O (storeActionRequired) is allowed.
  */
 export function buildMemberAppIconWebProjection(input: {
   aMemberUnreadNotificationCount: number;
@@ -147,20 +147,16 @@ export function buildMemberAppIconWebProjection(input: {
   orphanMissedCallCount?: number;
   /** Contaminated — must stay 0 / omitted. */
   ownerStoreOrderUnreadRooms?: number;
+  /** O — owner operation count (allowed). */
   storeActionRequiredCount?: number;
 }):
   | { ok: true; projection: MemberAppIconWebProjection }
   | {
       ok: false;
-      reason:
-        | "OWNER_STORE_ORDER_FORBIDDEN_IN_MEMBER_APP_ICON"
-        | "C_STORE_FORBIDDEN_IN_MEMBER_APP_ICON";
+      reason: "OWNER_STORE_ORDER_FORBIDDEN_IN_MEMBER_APP_ICON";
     } {
   if (nonNeg(input.ownerStoreOrderUnreadRooms) > 0) {
     return { ok: false, reason: "OWNER_STORE_ORDER_FORBIDDEN_IN_MEMBER_APP_ICON" };
-  }
-  if (nonNeg(input.storeActionRequiredCount) > 0) {
-    return { ok: false, reason: "C_STORE_FORBIDDEN_IN_MEMBER_APP_ICON" };
   }
   const b = buildMemberCommunicationBProjection({
     generalDirectUnreadRooms: input.generalDirectUnreadRooms,
@@ -171,6 +167,7 @@ export function buildMemberAppIconWebProjection(input: {
     orphanMissedCallCount: input.orphanMissedCallCount,
   });
   const a = asUnreadNotificationCount(input.aMemberUnreadNotificationCount);
+  const o = nonNeg(input.storeActionRequiredCount);
   return {
     ok: true,
     projection: {
@@ -179,7 +176,7 @@ export function buildMemberAppIconWebProjection(input: {
       memberUnreadRoomCount: b.memberUnreadRoomCount,
       /** Diagnostic only — not part of App Icon total (orphan ∈ A). */
       memberUnresolvedMissedCallCount: b.memberUnresolvedMissedCallCount,
-      memberAppIconWebTotal: a + b.memberUnreadRoomCount,
+      memberAppIconWebTotal: a + b.memberUnreadRoomCount + o,
     },
   };
 }

@@ -84,11 +84,15 @@ export type NotificationBadgeProjectionInput = Readonly<{
    */
   notificationAttentionTotal?: number;
   /**
-   * Slice 2-2 — Member Bell digit = A_member unread only.
-   * Slice 2-3 — also drives Member App Icon = A + B_member when set.
+   * Slice 2-2 — N axis (A_member unread). Bell digit = |N ∪ O_bell| when O provided.
    * When omitted, falls back to `notificationAttentionTotal` (legacy Phase B parity).
    */
   memberUnreadNotificationCount?: number;
+  /**
+   * Product Bible O_bell — owner operation count (|O|).
+   * Top Bell = |N ∪ O_bell|; N/O namespaces disjoint → N + O.
+   */
+  ownerOperationBellCount?: number;
   /**
    * Slice 2-3E — optional call/session ids for unresolved missed dedupe.
    * When omitted, `orphanMissedCall` Fact is used.
@@ -323,13 +327,15 @@ export function buildNotificationBadgeProjection(
         : 0;
   void _unreadApprovedNotificationEvents;
   /**
-   * Slice 2-2 Product Bell digit = A_member unread count.
-   * Slice 2-3 App Icon uses A + B_member (see above) — Bell stays A-only.
+   * Product Bell digit = |N ∪ O_bell|.
+   * N = A_member; O_bell = owner operations (disjoint identity namespace).
    */
-  const bellTotal =
+  const nOnly =
     input.memberUnreadNotificationCount != null
       ? nonNeg(input.memberUnreadNotificationCount)
       : notificationAttentionTotal;
+  const oBell = nonNeg(input.ownerOperationBellCount);
+  const bellTotal = nOnly + oBell;
 
   const bell: NotificationBadgeCount = {
     ...eventBell,
