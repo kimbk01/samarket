@@ -18,8 +18,10 @@ import { NotificationInboxByDateSections } from "@/components/notifications/Noti
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
-import { filterNotificationCenterListRows } from "@/lib/notifications/notification-center-inbox-filter";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { filterMarketingInboxDisplayRows } from "@/lib/notifications/notification-center-inbox-filter";
 import { OwnerBellOperationSummary } from "@/components/notifications/OwnerBellOperationSummary";
+import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
 
 type Row = {
   id: string;
@@ -45,7 +47,10 @@ const NOTIF_CENTER_TABS: InboxPushKindFilter[] = [
   "marketing",
 ];
 
-function parseNotificationsTabParam(raw: string | null): InboxPushKindFilter {
+type CenterTab = InboxPushKindFilter | "store";
+
+function parseNotificationsTabParam(raw: string | null): CenterTab {
+  if (raw === "store") return "store";
   if (raw && (NOTIF_CENTER_TABS as string[]).includes(raw)) {
     return raw as InboxPushKindFilter;
   }
@@ -105,16 +110,22 @@ export function MyNotificationsView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language, t } = useI18n();
+  const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const inboxFilterChips = useMemo(
-    (): { key: InboxPushKindFilter; label: string }[] => [
-      // Gate 3 Step 8 — A filters only (no chat).
-      { key: "all", label: t("notif_filter_all") },
-      { key: "trade", label: t("notif_filter_trade") },
-      { key: "delivery", label: t("notif_filter_delivery") },
-      { key: "system", label: t("notif_filter_system") },
-      { key: "marketing", label: t("notif_filter_benefit") },
-    ],
-    [t]
+    (): { key: CenterTab; label: string }[] => {
+      const base: { key: CenterTab; label: string }[] = [
+        { key: "all", label: t("notif_filter_all") },
+        { key: "trade", label: t("notif_filter_trade") },
+        { key: "delivery", label: t("notif_filter_delivery") },
+        { key: "system", label: t("notif_filter_system") },
+        { key: "marketing", label: t("notif_filter_benefit") },
+      ];
+      if (hasOwnerStore) {
+        base.push({ key: "store", label: t("notif_filter_store") });
+      }
+      return base;
+    },
+    [hasOwnerStore, t]
   );
   const [pollEnabled, setPollEnabled] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -122,14 +133,14 @@ export function MyNotificationsView({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tabFromUrl = parseNotificationsTabParam(searchParams?.get("tab") ?? null);
-  const [filterTab, setFilterTab] = useState<InboxPushKindFilter>(tabFromUrl);
+  const [filterTab, setFilterTab] = useState<CenterTab>(tabFromUrl);
 
   useEffect(() => {
     setFilterTab(tabFromUrl);
   }, [tabFromUrl]);
 
   const selectFilterTab = useCallback(
-    (key: InboxPushKindFilter) => {
+    (key: CenterTab) => {
       setFilterTab(key);
       if (variant !== "notification_center") return;
       const next =
@@ -162,6 +173,16 @@ export function MyNotificationsView({
 
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
+      if (filterTab === "store") {
+        if (!silent && !append) {
+          setLoading(false);
+          setError(null);
+          rowsLengthRef.current = 0;
+          setRows([]);
+          setHasMore(false);
+        }
+        return;
+      }
       if (!silent && !append) {
         setLoading((prev) => (prev ? prev : true));
         setError((prev) => (prev === null ? prev : null));
@@ -205,8 +226,11 @@ export function MyNotificationsView({
           return;
         }
         const batchRaw = (j.notifications ?? []) as Row[];
-        // marketing tab = display-only (≠ A / Bell digit). Other tabs = Member A.
-        const batch = filterNotificationCenterListRows(batchRaw, filterTab) as Row[];
+        // marketing = display-only (≠ A). Other tabs = Member A (allowlisted import site).
+        const batch =
+          filterTab === "marketing"
+            ? (filterMarketingInboxDisplayRows(batchRaw) as Row[])
+            : (filterMemberNotificationAInboxRows(batchRaw) as Row[]);
         setRows((prev) => {
           const next = append ? [...prev, ...batch] : batch;
           rowsLengthRef.current = next.length;
@@ -558,25 +582,45 @@ export function MyNotificationsView({
 
   return (
     <div className="space-y-2">
-      {variant === "notification_center" ? (
-        <OwnerBellOperationSummary showSectionTitle className="mb-3 border-b border-sam-border/50 pb-3" />
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        {inboxFilterChips.map(({ key, label }) => (
+      <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
+        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {inboxFilterChips
+            .filter((c) => c.key !== "store")
+            .map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => selectFilterTab(key)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition-transform active:scale-[0.97] ${
+                  filterTab === key
+                    ? "bg-signature text-white"
+                    : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+        </div>
+        {hasOwnerStore ? (
           <button
-            key={key}
             type="button"
-            onClick={() => selectFilterTab(key)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-transform active:scale-[0.97] ${
-              filterTab === key
-                ? "bg-signature text-white"
-                : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
+            onClick={() => selectFilterTab("store")}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-transform active:scale-[0.97] ${
+              filterTab === "store"
+                ? "bg-sam-danger text-white"
+                : "border border-sam-danger/30 bg-sam-danger/10 text-sam-danger"
             }`}
           >
-            {label}
+            {t("notif_filter_store")}
           </button>
-        ))}
+        ) : null}
       </div>
+      {filterTab === "store" ? (
+        <div className="space-y-3 pt-1">
+          <OwnerBellOperationSummary showSectionTitle showShortcuts />
+        </div>
+      ) : (
+        <>
       {variant === "notification_center" && selectionMode && grouped.length > 0 ? (
         <div
           role="toolbar"
@@ -710,6 +754,8 @@ export function MyNotificationsView({
           </button>
         </div>
       ) : null}
+        </>
+      )}
       <NotificationDeleteConfirmDialog
         open={pendingDelete != null}
         message={pendingDeleteMessage}

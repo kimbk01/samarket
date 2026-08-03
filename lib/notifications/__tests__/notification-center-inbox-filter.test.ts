@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  filterNotificationCenterListRows,
+  filterMarketingInboxDisplayRows,
   isMarketingInboxDisplayRow,
 } from "@/lib/notifications/notification-center-inbox-filter";
+import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 
 describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
   it("marketing rows are display-only identity", () => {
@@ -18,7 +19,7 @@ describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
     ).toBe(false);
   });
 
-  it("marketing tab keeps marketing and drops A-only rows", () => {
+  it("marketing filter keeps marketing and drops notices", () => {
     const rows = [
       { id: "a1", notification_type: "admin_notice", is_read: false, meta: {} },
       {
@@ -28,12 +29,10 @@ describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
         meta: {},
       },
     ];
-    expect(filterNotificationCenterListRows(rows, "marketing").map((r) => r.id)).toEqual([
-      "mk",
-    ]);
+    expect(filterMarketingInboxDisplayRows(rows).map((r) => r.id)).toEqual(["mk"]);
   });
 
-  it("system/all tabs exclude marketing from A list", () => {
+  it("A filter excludes marketing from Bell digit set", () => {
     const rows = [
       { id: "a1", notification_type: "admin_notice", is_read: false, meta: {}, dedupe_key: "n1" },
       {
@@ -44,7 +43,6 @@ describe("notification-center-inbox-filter — 혜택 ≠ Bell digit", () => {
         dedupe_key: "m1",
       },
     ];
-    expect(filterNotificationCenterListRows(rows, "all").map((r) => r.id)).toEqual(["a1"]);
-    expect(filterNotificationCenterListRows(rows, "system").map((r) => r.id)).toEqual(["a1"]);
+    expect(filterMemberNotificationAInboxRows(rows).map((r) => r.id)).toEqual(["a1"]);
   });
 });

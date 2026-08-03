@@ -231,36 +231,6 @@ function SettingsGearIcon() {
  */
 
 
-const BELL_PREVIEW_FILTER_TABS: InboxPushKindFilter[] = [
-  "all",
-  "trade",
-  "delivery",
-  "system",
-  "marketing",
-];
-
-function bellPreviewFilterLabelKey(
-  key: InboxPushKindFilter
-):
-  | "notif_filter_all"
-  | "notif_filter_trade"
-  | "notif_filter_delivery"
-  | "notif_filter_system"
-  | "notif_filter_benefit" {
-  switch (key) {
-    case "trade":
-      return "notif_filter_trade";
-    case "delivery":
-      return "notif_filter_delivery";
-    case "system":
-      return "notif_filter_system";
-    case "marketing":
-      return "notif_filter_benefit";
-    default:
-      return "notif_filter_all";
-  }
-}
-
 export function PhilifeHeaderNotificationInbox({
 
   tone = "default",
@@ -1116,25 +1086,15 @@ export function PhilifeHeaderNotificationInbox({
 
               <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-surface py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
 
-                <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={t("notif_tier1_sheet_title")}>
-                  {BELL_PREVIEW_FILTER_TABS.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      onClick={() => openNotificationsCenter(key)}
-                      className="shrink-0 rounded-full bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg transition-transform hover:bg-sam-muted/20 active:scale-[0.97] active:bg-sam-muted/25"
-                    >
-                      {t(bellPreviewFilterLabelKey(key))}
-                    </button>
-                  ))}
-                </div>
-
                 {showListLoading ? (
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
                 ) : (
                   <>
-                    <OwnerBellOperationSummary onNavigate={closePanel} className="mb-2" />
+                    <OwnerBellOperationSummary
+                      onNavigate={closePanel}
+                      compact
+                      className="mb-2"
+                    />
                     {hasNPreview ? (
                       <InboxGroupCardList
                         items={unreadPreviewItems}
@@ -1145,8 +1105,10 @@ export function PhilifeHeaderNotificationInbox({
                       />
                     ) : null}
                     {!hasNPreview && !hasOPreview ? (
-                      <p className="px-2 py-2 text-[12px] leading-snug text-sam-muted">
-                        {t("notif_tier1_empty")}
+                      <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
+                        {totalUnread > 0
+                          ? t("notif_tier1_empty_with_digit_hint")
+                          : t("notif_tier1_empty")}
                       </p>
                     ) : null}
                   </>

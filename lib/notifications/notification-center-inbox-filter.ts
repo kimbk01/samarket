@@ -1,12 +1,10 @@
 /**
- * Notification Center list filter.
+ * Notification Center list helpers.
  *
- * - Default tabs: Member A only (Bell digit contributors for N).
- * - marketing / 혜택: display-only marketing rows — NEVER Member A / Bell digit.
- *
- * LOCK: 혜택 목록 ≠ Bell digit. Do not route marketing through A eligibility.
+ * LOCK: 혜택 목록 ≠ Bell digit.
+ * Marketing display only here — Member A filtering stays in allowlisted call sites
+ * (`MyNotificationsView`) so Slice 2-1 isolation is preserved.
  */
-import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 
 export function isMarketingInboxDisplayRow(row: {
@@ -19,22 +17,15 @@ export function isMarketingInboxDisplayRow(row: {
   return type === "admin_marketing_banner" || category === "admin_marketing_banner";
 }
 
-/**
- * Rows shown in `/notifications` for the active tab.
- * Marketing tab keeps marketing events; all other tabs use A projection.
- */
-export function filterNotificationCenterListRows<T extends {
+export function isNotificationCenterStoreTab(tab: InboxPushKindFilter | "store"): boolean {
+  return tab === "store";
+}
+
+/** Marketing tab rows only (never A eligibility). */
+export function filterMarketingInboxDisplayRows<T extends {
   notification_type?: string | null;
   type?: string | null;
   category?: string | null;
-  id?: string | null;
-  is_read?: boolean | null;
-  meta?: unknown;
-  room_id?: string | null;
-  dedupe_key?: string | null;
-}>(rows: readonly T[], tab: InboxPushKindFilter): T[] {
-  if (tab === "marketing") {
-    return rows.filter((r) => isMarketingInboxDisplayRow(r));
-  }
-  return filterMemberNotificationAInboxRows(rows) as T[];
+}>(rows: readonly T[]): T[] {
+  return rows.filter((r) => isMarketingInboxDisplayRow(r));
 }

@@ -23,11 +23,11 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("setOpen((v) => !v)")).toBe(true);
     expect(src.includes("openNotificationsCenter")).toBe(true);
     expect(src.includes('"/notifications"')).toBe(true);
-    expect(src.includes("BELL_PREVIEW_FILTER_TABS")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
+    expect(src.includes("compact")).toBe(true);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
   });
@@ -50,10 +50,15 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "app/(main)/notifications/page.tsx"),
       "utf8"
     );
-    // OwnerLite below title in page body (not sticky-above).
-    expect(page.includes("OwnerLiteStoreBar")).toBe(true);
-    expect(page.includes("hasOwnerStore")).toBe(true);
+    // OwnerLite strip removed — store ops via right-side 「매장」 tab.
+    expect(page.includes("OwnerLiteStoreBar")).toBe(false);
     expect(page.includes("notif_center_more_label")).toBe(true);
+    const view = fs.readFileSync(
+      path.join(root, "components/my/MyNotificationsView.tsx"),
+      "utf8"
+    );
+    expect(view.includes('key: "store"')).toBe(true);
+    expect(view.includes("notif_filter_store")).toBe(true);
     const actions = fs.readFileSync(
       path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),
       "utf8"
@@ -88,7 +93,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
-    expect(view.includes("filterNotificationCenterListRows")).toBe(true);
+    expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
+    expect(view.includes("filterMarketingInboxDisplayRows")).toBe(true);
     expect(view.includes("OwnerBellOperationSummary")).toBe(true);
     expect(view.includes('"chat"')).toBe(false);
   });
@@ -133,7 +139,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       "utf8"
     );
     expect(filterSrc.includes("혜택 목록 ≠ Bell digit")).toBe(true);
-    expect(filterSrc.includes('tab === "marketing"')).toBe(true);
+    expect(filterSrc.includes("member-notification-a-projection")).toBe(false);
+    expect(filterSrc.includes("filterMarketingInboxDisplayRows")).toBe(true);
   });
 
   it("all-read targets exactly canonical unread A IDs", () => {
