@@ -15,7 +15,7 @@ import {
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { resolveOwnerLiteStoreShortcuts } from "@/lib/delivery/owner/owner-lite-store-shortcuts";
 
-export function OwnerLiteStoreBar() {
+export function OwnerLiteStoreBar({ embedded = false }: { embedded?: boolean }) {
   const { t } = useI18n();
   const { ownerStore } = useOwnerLiteStore();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
@@ -33,7 +33,10 @@ export function OwnerLiteStoreBar() {
   const secondaryBadge = secondary.badge;
 
   return (
-    <TradePrimaryAppBarShell className="border-t border-sam-surface/40">
+    <TradePrimaryAppBarShell
+      embedded={embedded}
+      className={embedded ? "border-b border-sam-border/60" : "border-t border-sam-surface/40"}
+    >
       {hubBlockedModal}
       <div
         className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${APP_MAIN_HEADER_INNER_CLASS}`}

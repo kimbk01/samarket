@@ -15,13 +15,45 @@ import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority
 const root = process.cwd();
 
 describe("Gate3 Step8 Notification Center UI contract", () => {
-  it("Bell click routes to /notifications", () => {
+  it("Bell click opens inbox modal; see-all goes to /notifications", () => {
     const src = fs.readFileSync(
       path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
       "utf8"
     );
-    expect(src.includes('router.push("/notifications")')).toBe(true);
-    expect(src.includes("setOpen((v) => !v)")).toBe(false);
+    expect(src.includes("setOpen((v) => !v)")).toBe(true);
+    expect(src.includes('href="/notifications"')).toBe(true);
+    expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
+  });
+
+  it("Notification Center excludes write FAB and mounts OwnerLite inside sticky safe-top", () => {
+    const flags = fs.readFileSync(
+      path.join(root, "lib/layout/conditional-app-shell-flags.ts"),
+      "utf8"
+    );
+    expect(flags.includes("isNotificationsCenterPathname")).toBe(true);
+    expect(flags.includes("!isNotificationsCenter")).toBe(true);
+    expect(flags.includes("showOwnerLiteStoreBarInNotificationsSticky")).toBe(true);
+    const sticky = fs.readFileSync(
+      path.join(root, "components/layout/AppStickyHeader.tsx"),
+      "utf8"
+    );
+    expect(sticky.includes("showOwnerLiteInNotificationsSticky")).toBe(true);
+    expect(sticky.includes("OwnerLiteStoreBarLazy")).toBe(true);
+  });
+
+  it("Notification Center page supports selection mode for read/delete", () => {
+    const page = fs.readFileSync(
+      path.join(root, "app/(main)/notifications/page.tsx"),
+      "utf8"
+    );
+    expect(page.includes("selectionMode")).toBe(true);
+    expect(page.includes("notif_center_select")).toBe(true);
+    const list = fs.readFileSync(
+      path.join(root, "components/notifications/InboxGroupCardList.tsx"),
+      "utf8"
+    );
+    expect(list.includes("selectionMode")).toBe(true);
+    expect(list.includes("onToggleSelect")).toBe(true);
   });
 
   it("Notification Center page exists and uses MyNotificationsView A filter", () => {

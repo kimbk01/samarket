@@ -28,10 +28,15 @@ type Props = {
   compact?: boolean;
   /** 비어 있을 때 */
   emptyLabel: string;
+  /** Notification Center — multi-select with radio-style controls */
+  selectionMode?: boolean;
+  selectedKeys?: ReadonlySet<string>;
+  onToggleSelect?: (item: InboxGroupItem) => void;
 };
 
 /**
  * 그룹화된 인앱 알림 — 본문은 클릭 시 `onActivate`, 삭제는 별도 버튼.
+ * `selectionMode` 에서는 원형 선택 컨트롤로 개별 선택(전체 선택·읽음·삭제는 상위 툴바).
  */
 export function InboxGroupCardList({
   items,
@@ -42,6 +47,9 @@ export function InboxGroupCardList({
   deleteBusyKey,
   compact,
   emptyLabel,
+  selectionMode = false,
+  selectedKeys,
+  onToggleSelect,
 }: Props) {
   const { t, language } = useI18n();
   if (items.length === 0) {
@@ -59,9 +67,37 @@ export function InboxGroupCardList({
         const orderMetaLine = isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
         const showBody = item.body && !(isOrderGroup && item.body === item.displayTitle);
         const deleting = deleteBusyKey === item.key;
+        const selected = selectionMode && (selectedKeys?.has(item.key) ?? false);
         return (
           <li key={item.key}>
-            <div className={`flex ${TRADE_HUB_LIST_ITEM_CARD_CLASS}`}>
+            <div
+              className={`flex ${TRADE_HUB_LIST_ITEM_CARD_CLASS} ${
+                selected ? "ring-1 ring-signature/40" : ""
+              }`}
+            >
+              {selectionMode ? (
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={t("notif_center_select_row_aria")}
+                  disabled={deleting}
+                  onClick={() => onToggleSelect?.(item)}
+                  className={`flex shrink-0 items-center justify-center ${railPad} disabled:opacity-50`}
+                >
+                  <span
+                    aria-hidden
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                      selected
+                        ? "border-signature bg-signature text-white"
+                        : "border-sam-border bg-sam-surface"
+                    }`}
+                  >
+                    {selected ? (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                  </span>
+                </button>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
@@ -69,7 +105,13 @@ export function InboxGroupCardList({
                   onTouchStart={() => onItemWarm?.(item)}
                   onPointerEnter={() => onItemWarm?.(item)}
                   onFocus={() => onItemWarm?.(item)}
-                  onClick={() => onActivate(item)}
+                  onClick={() => {
+                    if (selectionMode) {
+                      onToggleSelect?.(item);
+                      return;
+                    }
+                    onActivate(item);
+                  }}
                   className={`min-w-0 w-full text-left transition active:bg-sam-surface-muted disabled:opacity-60 ${pad}`}
                 >
                   <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight text-sam-meta">
@@ -91,6 +133,12 @@ export function InboxGroupCardList({
                         {item.unreadCount > 99 ? "99+" : item.unreadCount}
                       </span>
                     ) : null}
+                    {hasUnread && !isChat ? (
+                      <span
+                        className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-signature"
+                        aria-hidden
+                      />
+                    ) : null}
                   </div>
                   {orderMetaLine ? (
                     <p className="mt-0.5 truncate text-[11px] font-medium leading-snug text-sam-meta">
@@ -106,14 +154,16 @@ export function InboxGroupCardList({
                     </p>
                   ) : null}
                 </button>
-                {renderActions ? <div className="px-3 pb-3">{renderActions(item)}</div> : null}
+                {renderActions && !selectionMode ? (
+                  <div className="px-3 pb-3">{renderActions(item)}</div>
+                ) : null}
               </div>
               <div
                 className={`flex shrink-0 flex-col items-end gap-0.5 bg-transparent ${railPad} ${
-                  onDelete ? "justify-between" : "justify-end"
+                  onDelete && !selectionMode ? "justify-between" : "justify-end"
                 }`}
               >
-                {onDelete ? (
+                {onDelete && !selectionMode ? (
                   <button
                     type="button"
                     disabled={deleting}

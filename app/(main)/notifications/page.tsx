@@ -20,6 +20,7 @@ export default function NotificationsCenterPage() {
   const { t } = useI18n();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<"read_delete" | "all_delete" | null>(null);
   const confirmRef = useRef(confirm);
@@ -77,12 +78,26 @@ export default function NotificationsCenterPage() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void markAllRef.current?.()}
+              onClick={() => setSelectionMode((v) => !v)}
               className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
-              aria-label={t("notif_tier1_mark_read")}
+              aria-pressed={selectionMode}
+              aria-label={
+                selectionMode ? t("notif_center_select_done") : t("notif_center_select")
+              }
             >
-              {t("notif_tier1_mark_read")}
+              {selectionMode ? t("notif_center_select_done") : t("notif_center_select")}
             </button>
+            {!selectionMode ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void markAllRef.current?.()}
+                className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+                aria-label={t("notif_tier1_mark_read")}
+              >
+                {t("notif_tier1_mark_read")}
+              </button>
+            ) : null}
             <div className="relative">
               <button
                 type="button"
@@ -100,6 +115,17 @@ export default function NotificationsCenterPage() {
                   role="menu"
                   className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md"
                 >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setSelectionMode(true);
+                    }}
+                  >
+                    {t("notif_center_select")}
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -145,6 +171,8 @@ export default function NotificationsCenterPage() {
           >
             <MyNotificationsView
               variant="notification_center"
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
               registerMarkAll={(fn) => {
                 markAllRef.current = fn;
               }}

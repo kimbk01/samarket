@@ -65,12 +65,26 @@ export type MyNotificationsViewProps = {
   variant?: "default" | "notification_center";
   registerMarkAll?: (fn: () => Promise<void>) => void;
   onOpenDetail?: (notificationId: string) => void;
+  /** Notification Center — selection mode controlled by page header */
+  selectionMode?: boolean;
+  onSelectionModeChange?: (next: boolean) => void;
+  registerSelectionApi?: (api: {
+    selectAll: () => void;
+    clearSelection: () => void;
+    markSelectedRead: () => Promise<void>;
+    deleteSelected: () => Promise<void>;
+    selectedCount: number;
+    totalCount: number;
+  } | null) => void;
 };
 
 export function MyNotificationsView({
   variant = "default",
   registerMarkAll,
   onOpenDetail,
+  selectionMode = false,
+  onSelectionModeChange,
+  registerSelectionApi,
 }: MyNotificationsViewProps = {}) {
   const router = useRouter();
   const { language, t } = useI18n();
@@ -95,13 +109,23 @@ export function MyNotificationsView({
   const [loadMoreBusy, setLoadMoreBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<InboxGroupItem | null>(null);
+  const [pendingSelectedDelete, setPendingSelectedDelete] = useState(false);
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
   /** 폴링·이벤트 갱신 시 "더 보기"로 쌓인 길이를 유지하기 위한 기준 (setRows와 동기) */
   const rowsLengthRef = useRef(0);
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
+
+  useEffect(() => {
+    if (!selectionMode) setSelectedKeys(new Set());
+  }, [selectionMode]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+  }, [filterTab]);
 
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
@@ -331,6 +355,101 @@ export function MyNotificationsView({
 
   const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
 
+  const toggleSelectItem = useCallback((item: InboxGroupItem) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.key)) next.delete(item.key);
+      else next.add(item.key);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelectedKeys(new Set(grouped.map((g) => g.key)));
+  }, [grouped]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedKeys(new Set());
+  }, []);
+
+  const markSelectedRead = useCallback(async () => {
+    if (busy) return;
+    const ids = grouped.filter((g) => selectedKeys.has(g.key)).flatMap((g) => g.ids);
+    const unreadIds = ids.filter((id) => rows.some((r) => r.id === id && !r.is_read));
+    if (unreadIds.length === 0) return;
+    setBusy(true);
+    try {
+      const ok = await markIdsRead(unreadIds);
+      if (ok) setSelectedKeys(new Set());
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, grouped, markIdsRead, rows, selectedKeys]);
+
+  const deleteSelected = useCallback(async () => {
+    if (busy) return;
+    const ids = grouped.filter((g) => selectedKeys.has(g.key)).flatMap((g) => g.ids);
+    if (ids.length === 0) return;
+    setBusy(true);
+    setDeleteBusyKey("__selection__");
+    try {
+      const res = await fetch("/api/me/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delete_ids: ids }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j?.ok) {
+        setError(typeof j.error === "string" ? j.error : "delete_failed");
+        return;
+      }
+      setRows((prev) => {
+        const next = prev.filter((r) => !ids.includes(r.id));
+        rowsLengthRef.current = next.length;
+        return next;
+      });
+      setSelectedKeys(new Set());
+      setPendingSelectedDelete(false);
+      invalidateMeNotificationsListDedupedCache();
+      broadcastNotificationsUpdated();
+      resyncBadgesAfterNotificationEventsRead("notification_opened");
+    } catch {
+      setError("network_error");
+    } finally {
+      setBusy(false);
+      setDeleteBusyKey(null);
+    }
+  }, [broadcastNotificationsUpdated, busy, grouped, selectedKeys]);
+
+  useEffect(() => {
+    if (!registerSelectionApi) return;
+    if (variant !== "notification_center") {
+      registerSelectionApi(null);
+      return;
+    }
+    registerSelectionApi({
+      selectAll: selectAllVisible,
+      clearSelection,
+      markSelectedRead,
+      deleteSelected: async () => {
+        setPendingSelectedDelete(true);
+      },
+      selectedCount: selectedKeys.size,
+      totalCount: grouped.length,
+    });
+    return () => registerSelectionApi(null);
+  }, [
+    clearSelection,
+    deleteSelected,
+    grouped.length,
+    markSelectedRead,
+    registerSelectionApi,
+    selectAllVisible,
+    selectedKeys.size,
+    variant,
+  ]);
+
   const pendingDeleteMessage = useMemo(() => {
     if (!pendingDelete) return "";
     return pendingDelete.ids.length > 1
@@ -419,6 +538,53 @@ export function MyNotificationsView({
           </button>
         ))}
       </div>
+      {variant === "notification_center" && selectionMode && grouped.length > 0 ? (
+        <div
+          role="toolbar"
+          aria-label={t("notif_center_selection_toolbar")}
+          className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2"
+        >
+          <span className="px-1 text-[12px] font-medium text-sam-muted">
+            {t("notif_center_selected_n", { n: selectedKeys.size })}
+          </span>
+          <button
+            type="button"
+            disabled={busy || grouped.length === 0}
+            onClick={() =>
+              selectedKeys.size === grouped.length ? clearSelection() : selectAllVisible()
+            }
+            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
+          >
+            {selectedKeys.size === grouped.length
+              ? t("notif_center_deselect_all")
+              : t("notif_center_select_all")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || selectedKeys.size === 0}
+            onClick={() => void markSelectedRead()}
+            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
+          >
+            {t("notif_center_mark_selected_read")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || selectedKeys.size === 0}
+            onClick={() => setPendingSelectedDelete(true)}
+            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-red-700 disabled:opacity-50"
+          >
+            {t("notif_center_delete_selected")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !rows.some((r) => !r.is_read)}
+            onClick={() => void markAllRead()}
+            className="rounded-ui-rect bg-sam-surface-muted px-2.5 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
+          >
+            {t("notif_tier1_mark_read")}
+          </button>
+        </div>
+      ) : null}
       {variant !== "notification_center" && rows.length > 0 ? (
         <div className="flex justify-end">
           <button
@@ -444,6 +610,9 @@ export function MyNotificationsView({
         items={grouped}
         onItemWarm={onItemWarm}
         onActivate={(item) => onActivate(item)}
+        selectionMode={variant === "notification_center" && selectionMode}
+        selectedKeys={selectedKeys}
+        onToggleSelect={toggleSelectItem}
         renderActions={(item) => {
           const offerMeta = resolvePendingTradeOfferMeta(item);
           const offerId = offerMeta?.offer_id?.trim() ?? "";
@@ -476,7 +645,11 @@ export function MyNotificationsView({
             </div>
           );
         }}
-        onDelete={(item) => requestDeleteGroup(item)}
+        onDelete={
+          variant === "notification_center" && selectionMode
+            ? undefined
+            : (item) => requestDeleteGroup(item)
+        }
         deleteBusyKey={deleteBusyKey}
         emptyLabel={
           variant === "notification_center"
@@ -506,6 +679,17 @@ export function MyNotificationsView({
         onConfirm={() => {
           const item = pendingDeleteRef.current;
           if (item) void runDeleteGroup(item);
+        }}
+      />
+      <NotificationDeleteConfirmDialog
+        open={pendingSelectedDelete}
+        message={t("notif_center_delete_selected_confirm")}
+        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        confirmLabel={t("common_delete")}
+        busy={busy && deleteBusyKey === "__selection__"}
+        onCancel={() => setPendingSelectedDelete(false)}
+        onConfirm={() => {
+          void deleteSelected();
         }}
       />
     </div>

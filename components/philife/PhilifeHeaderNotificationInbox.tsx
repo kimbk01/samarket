@@ -1150,10 +1150,8 @@ export function PhilifeHeaderNotificationInbox({
         type="button"
 
         onClick={() => {
-          // Gate 3 Step 8 — Bell opens Notification Center (A), not popup authority.
           primeNotificationSoundAudio();
-          setOpen(false);
-          router.push("/notifications");
+          setOpen((v) => !v);
         }}
 
         className={
@@ -1163,11 +1161,11 @@ export function PhilifeHeaderNotificationInbox({
             : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`)
         }
 
-        aria-haspopup={undefined}
+        aria-haspopup="dialog"
 
-        aria-expanded={false}
+        aria-expanded={open || visible}
 
-        aria-controls={undefined}
+        aria-controls={visible ? panelId : undefined}
 
         aria-label={t("common_notifications")}
 

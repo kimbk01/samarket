@@ -32,6 +32,15 @@ export function isTermsPagePathname(pathname: string | null | undefined): boolea
   return p === "/terms" || p.startsWith("/terms/");
 }
 
+/**
+ * Member Notification Center — `/notifications` · `/notifications/[id]`.
+ * DO NOT leave global `+` FAB or external OwnerLite (above safe-top) on this surface.
+ */
+export function isNotificationsCenterPathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  return p === "/notifications" || p.startsWith("/notifications/");
+}
+
 /** `/philife/{uuid}` · `/community/posts/{uuid}` — 동네 게시글 상세(스크롤 숨김·셸 플래그) */
 export function isPhilifeNeighborhoodPostDetailPathname(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]!.trim();
@@ -116,6 +125,11 @@ export type ConditionalAppShellResolvedFlags = {
   isMypageHub: boolean;
   showFloat: boolean;
   showBottomNav: boolean;
+  /**
+   * `/notifications` only — OwnerLite mounts **inside** `AppStickyHeader` (after safe-top),
+   * not above it. External `showOwnerLiteStoreBar` stays false on this path.
+   */
+  showOwnerLiteStoreBarInNotificationsSticky: boolean;
   /** Desktop 좌측 메인 탭 레일 — `showBottomNav` 와 동일 경로 자격(뷰포트는 Shell 클라이언트에서 AND) */
   showMainDesktopSideNavEligible: boolean;
   showOwnerLiteStoreBar: boolean;
@@ -241,10 +255,12 @@ export function resolveConditionalAppShellFlags(
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
   const isMyTab = pathname?.startsWith("/my") ?? false;
   const isMypageHub = pathname?.startsWith("/mypage") ?? false;
+  const isNotificationsCenter = isNotificationsCenterPathname(pathname);
   const showFloat =
     !hideBarAndFloat &&
     !isMyTab &&
     !isMypageHub &&
+    !isNotificationsCenter &&
     !isWritePage &&
     !isChatRoomDetail &&
     !isPostDetail &&
@@ -261,7 +277,7 @@ export function resolveConditionalAppShellFlags(
   /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
   const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
-  const showOwnerLiteStoreBar =
+  const ownerLiteEligibleBase =
     showBottomNav &&
     !hideBarAndFloat &&
     !isMyTab &&
@@ -277,6 +293,13 @@ export function resolveConditionalAppShellFlags(
     !isCommunityApp &&
     !isPersonalProductComposerPage &&
     !isTermsPage;
+  /**
+   * External OwnerLite (above AppStickyHeader) — OFF on Notification Center.
+   * Store-owner chrome on `/notifications` mounts inside sticky (safe-top first).
+   */
+  const showOwnerLiteStoreBar = ownerLiteEligibleBase && !isNotificationsCenter;
+  const showOwnerLiteStoreBarInNotificationsSticky =
+    ownerLiteEligibleBase && isNotificationsCenter;
   const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
     isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =
@@ -365,6 +388,7 @@ export function resolveConditionalAppShellFlags(
     showBottomNav,
     showMainDesktopSideNavEligible: showBottomNav,
     showOwnerLiteStoreBar,
+    showOwnerLiteStoreBarInNotificationsSticky,
     mountGlobalRealtimeChromeOnTradeOrStoreDetail,
     mountGlobalRealtimeChrome,
     mountNotificationSoundPrime,
