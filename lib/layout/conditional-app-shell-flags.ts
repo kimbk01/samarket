@@ -294,9 +294,9 @@ export function resolveConditionalAppShellFlags(
     !isPersonalProductComposerPage &&
     !isTermsPage;
   /**
-   * External OwnerLite — OFF on Notification Center.
-   * Do not mount OwnerLite inside sticky either: title header must stay primary
-   * (store strip above title broke legacy-style chrome).
+   * External OwnerLite — OFF on Notification Center (sticky/above-title).
+   * OwnerLite on `/notifications` mounts **in page body below title** only
+   * (`app/(main)/notifications/page.tsx`) — do not re-enable sticky strip.
    */
   const showOwnerLiteStoreBar = ownerLiteEligibleBase && !isNotificationsCenter;
   const showOwnerLiteStoreBarInNotificationsSticky = false;

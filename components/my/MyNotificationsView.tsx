@@ -18,7 +18,8 @@ import { NotificationInboxByDateSections } from "@/components/notifications/Noti
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
-import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { filterNotificationCenterListRows } from "@/lib/notifications/notification-center-inbox-filter";
+import { OwnerBellOperationSummary } from "@/components/notifications/OwnerBellOperationSummary";
 
 type Row = {
   id: string;
@@ -204,7 +205,8 @@ export function MyNotificationsView({
           return;
         }
         const batchRaw = (j.notifications ?? []) as Row[];
-        const batch = filterMemberNotificationAInboxRows(batchRaw) as Row[];
+        // marketing tab = display-only (≠ A / Bell digit). Other tabs = Member A.
+        const batch = filterNotificationCenterListRows(batchRaw, filterTab) as Row[];
         setRows((prev) => {
           const next = append ? [...prev, ...batch] : batch;
           rowsLengthRef.current = next.length;
@@ -556,14 +558,19 @@ export function MyNotificationsView({
 
   return (
     <div className="space-y-2">
+      {variant === "notification_center" ? (
+        <OwnerBellOperationSummary showSectionTitle className="mb-3 border-b border-sam-border/50 pb-3" />
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {inboxFilterChips.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             onClick={() => selectFilterTab(key)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-              filterTab === key ? "bg-signature text-white" : "bg-sam-surface-muted text-sam-fg"
+            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-transform active:scale-[0.97] ${
+              filterTab === key
+                ? "bg-signature text-white"
+                : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
             }`}
           >
             {label}
@@ -684,9 +691,11 @@ export function MyNotificationsView({
         }
         deleteBusyKey={deleteBusyKey}
         emptyLabel={
-          variant === "notification_center"
-            ? `${t("notif_center_empty_title")} ${t("notif_center_empty_body")}`
-            : t("common_notifications_empty")
+          filterTab === "marketing"
+            ? t("notif_marketing_empty")
+            : variant === "notification_center"
+              ? `${t("notif_center_empty_title")} ${t("notif_center_empty_body")}`
+              : t("common_notifications_empty")
         }
       />
       {hasMore ? (

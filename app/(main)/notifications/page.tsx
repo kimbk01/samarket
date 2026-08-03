@@ -6,19 +6,23 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { OwnerLiteStoreBar } from "@/components/layout/OwnerLiteStoreBar";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
 
 /**
- * Gate 3 Step 8 — Member Notification Center (canonical).
- * Route: /notifications · authority = Member Notification A only.
+ * Notification Center — Bell History Surface.
+ * Member N list + (owner) OwnerLite below title + O_bell store tasks.
+ * Authority digits stay on Projection — this page does not invent Bell total.
  */
 export default function NotificationsCenterPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -74,7 +78,7 @@ export default function NotificationsCenterPage() {
         backHref="/"
         hideCtaStrip
         rightSlot={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 pr-[max(0.25rem,env(safe-area-inset-right))]">
             <button
               type="button"
               disabled={busy}
@@ -101,31 +105,18 @@ export default function NotificationsCenterPage() {
             <div className="relative">
               <button
                 type="button"
-                className="sam-header-action flex h-11 w-11 items-center justify-center text-sam-fg"
+                className="sam-header-action flex min-h-11 min-w-[44px] items-center justify-center px-2 text-[13px] font-medium text-sam-fg"
                 aria-label={t("notif_center_more_menu")}
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen((v) => !v)}
               >
-                <span aria-hidden className="text-lg leading-none">
-                  ⋮
-                </span>
+                {t("notif_center_more_label")}
               </button>
               {menuOpen ? (
                 <div
                   role="menu"
                   className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setSelectionMode(true);
-                    }}
-                  >
-                    {t("notif_center_select")}
-                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -162,6 +153,12 @@ export default function NotificationsCenterPage() {
           </div>
         }
       />
+      {/* OwnerLite: below title, not sticky-above (legacy chrome break). */}
+      {hasOwnerStore ? (
+        <div className="shrink-0 border-b border-sam-border/60 bg-sam-surface pr-[max(0.75rem,env(safe-area-inset-right))]">
+          <OwnerLiteStoreBar embedded slim />
+        </div>
+      ) : null}
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
         <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col px-3 py-4 md:max-w-md lg:max-w-[420px]">
           <section

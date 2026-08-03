@@ -26,6 +26,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("BELL_PREVIEW_FILTER_TABS")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
+    expect(src.includes("OwnerBellOperationSummary")).toBe(true);
+    expect(src.includes("hasOPreview")).toBe(true);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
   });
@@ -44,6 +46,14 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(sticky.includes("showOwnerLiteInNotificationsSticky")).toBe(false);
     expect(sticky.includes("OwnerLiteStoreBarLazy")).toBe(false);
+    const page = fs.readFileSync(
+      path.join(root, "app/(main)/notifications/page.tsx"),
+      "utf8"
+    );
+    // OwnerLite below title in page body (not sticky-above).
+    expect(page.includes("OwnerLiteStoreBar")).toBe(true);
+    expect(page.includes("hasOwnerStore")).toBe(true);
+    expect(page.includes("notif_center_more_label")).toBe(true);
     const actions = fs.readFileSync(
       path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),
       "utf8"
@@ -78,7 +88,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
-    expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
+    expect(view.includes("filterNotificationCenterListRows")).toBe(true);
+    expect(view.includes("OwnerBellOperationSummary")).toBe(true);
     expect(view.includes('"chat"')).toBe(false);
   });
 
@@ -114,6 +125,15 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     ];
     const filtered = filterMemberNotificationAInboxRows(inbox);
     expect(filtered.map((r) => r.id)).toEqual(["a1"]);
+  });
+
+  it("LOCK: marketing display list is not Member A / Bell digit", () => {
+    const filterSrc = fs.readFileSync(
+      path.join(root, "lib/notifications/notification-center-inbox-filter.ts"),
+      "utf8"
+    );
+    expect(filterSrc.includes("혜택 목록 ≠ Bell digit")).toBe(true);
+    expect(filterSrc.includes('tab === "marketing"')).toBe(true);
   });
 
   it("all-read targets exactly canonical unread A IDs", () => {

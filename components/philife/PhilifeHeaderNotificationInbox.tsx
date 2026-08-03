@@ -94,6 +94,12 @@ import {
   getNotificationBadgeCountServerSnapshot,
   subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
+import {
+  hasOwnerBellOperationRows,
+  OwnerBellOperationSummary,
+} from "@/components/notifications/OwnerBellOperationSummary";
+import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 
 export type { Tier1BellBadgeSurface };
 
@@ -382,6 +388,14 @@ export function PhilifeHeaderNotificationInbox({
     [grouped]
   );
 
+  const ownerStore = useOwnerLitePreferredStoreRow();
+  const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
+  const hasOPreview = hasOwnerBellOperationRows({
+    hasOwnerStore: ownerStore != null,
+    orderAttention: ownerHub.orderAttention,
+    inquiryAttention: ownerHub.inquiryAttention,
+  });
+  const hasNPreview = unreadPreviewItems.length > 0;
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
@@ -1050,7 +1064,7 @@ export function PhilifeHeaderNotificationInbox({
 
                   {totalUnread > 0 ? (
 
-                    <span className="rounded-full bg-sam-primary/15 px-2 py-0.5 sam-text-xxs font-semibold leading-none text-sam-primary">
+                    <span className="rounded-full bg-sam-danger px-2 py-0.5 sam-text-xxs font-semibold leading-none text-white">
 
                       {totalUnread}
 
@@ -1109,7 +1123,7 @@ export function PhilifeHeaderNotificationInbox({
                       type="button"
                       role="tab"
                       onClick={() => openNotificationsCenter(key)}
-                      className="shrink-0 rounded-full bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg transition-colors hover:bg-sam-muted/20 active:bg-sam-muted/25"
+                      className="shrink-0 rounded-full bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg transition-transform hover:bg-sam-muted/20 active:scale-[0.97] active:bg-sam-muted/25"
                     >
                       {t(bellPreviewFilterLabelKey(key))}
                     </button>
@@ -1119,13 +1133,23 @@ export function PhilifeHeaderNotificationInbox({
                 {showListLoading ? (
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
                 ) : (
-                  <InboxGroupCardList
-                    items={unreadPreviewItems}
-                    summaryOnly
-                    emptyLabel={t("notif_tier1_empty")}
-                    onItemWarm={onItemWarm}
-                    onActivate={(item) => onActivate(item)}
-                  />
+                  <>
+                    <OwnerBellOperationSummary onNavigate={closePanel} className="mb-2" />
+                    {hasNPreview ? (
+                      <InboxGroupCardList
+                        items={unreadPreviewItems}
+                        summaryOnly
+                        emptyLabel={t("notif_tier1_empty")}
+                        onItemWarm={onItemWarm}
+                        onActivate={(item) => onActivate(item)}
+                      />
+                    ) : null}
+                    {!hasNPreview && !hasOPreview ? (
+                      <p className="px-2 py-2 text-[12px] leading-snug text-sam-muted">
+                        {t("notif_tier1_empty")}
+                      </p>
+                    ) : null}
+                  </>
                 )}
 
               </div>
@@ -1226,7 +1250,7 @@ export function PhilifeHeaderNotificationInbox({
               unreadBadgeClassName ??
               (tone === "onPrimary"
                 ? STORES_HOME_HEADER_NOTIF_BADGE_CLASS
-                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary")
+                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-danger px-0.5 text-[9px] font-bold leading-none text-white")
             }
 
             aria-hidden

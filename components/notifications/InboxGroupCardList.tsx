@@ -185,7 +185,7 @@ export function InboxGroupCardList({
                     ) : null}
                     {!summaryOnly && hasUnread && !isChat ? (
                       <span
-                        className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-signature"
+                        className="inline-flex h-2 w-2 shrink-0 rounded-full bg-sam-danger"
                         aria-hidden
                       />
                     ) : null}

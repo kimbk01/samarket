@@ -15,7 +15,14 @@ import {
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { resolveOwnerLiteStoreShortcuts } from "@/lib/delivery/owner/owner-lite-store-shortcuts";
 
-export function OwnerLiteStoreBar({ embedded = false }: { embedded?: boolean }) {
+export function OwnerLiteStoreBar({
+  embedded = false,
+  slim = false,
+}: {
+  embedded?: boolean;
+  /** Notification Center — shorter strip under title */
+  slim?: boolean;
+}) {
   const { t } = useI18n();
   const { ownerStore } = useOwnerLiteStore();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
@@ -35,11 +42,13 @@ export function OwnerLiteStoreBar({ embedded = false }: { embedded?: boolean }) 
   return (
     <TradePrimaryAppBarShell
       embedded={embedded}
-      className={embedded ? "border-b border-sam-border/60" : "border-t border-sam-surface/40"}
+      className={embedded ? "border-b-0" : "border-t border-sam-surface/40"}
     >
       {hubBlockedModal}
       <div
-        className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
+        className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${APP_MAIN_HEADER_INNER_CLASS} ${
+          slim ? "py-1.5" : "py-2"
+        } pr-[max(0.75rem,env(safe-area-inset-right))]`}
       >
         <div className="min-w-0 flex-1 shrink">
           <p className="truncate sam-text-body-secondary font-semibold text-sam-fg">
