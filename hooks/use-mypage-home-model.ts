@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -24,10 +24,13 @@ import {
   subscribeMypageHomeStore,
   type MypageHomeProjection,
 } from "@/lib/mypage/mypage-home-store";
-import { resolveMypageHomeProfileRow } from "@/lib/mypage/resolve-mypage-home-profile";
+import { resolveMypageHomeProfileResult } from "@/lib/mypage/resolve-mypage-home-profile";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
+
+/** Local user present but profile API failed — do not leave 「확인 중」 forever. */
+export type MypageHomeProfilePhase = "pending" | "ready" | "needs_relogin";
 
 /**
  * Address status for root summary — one address-defaults read max.
@@ -70,6 +73,7 @@ export function useMypageHomeModel(enabled: boolean) {
     getMypageHomeProjection,
     () => null,
   );
+  const [profilePhase, setProfilePhase] = useState<MypageHomeProfilePhase>("pending");
   const refreshGenRef = useRef(0);
   const inflightRef = useRef<Promise<void> | null>(null);
   const seededRef = useRef(false);
@@ -80,6 +84,7 @@ export function useMypageHomeModel(enabled: boolean) {
     if (!viewerId) {
       clearMypageHomeStore();
       clearMypageHomeCaches();
+      setProfilePhase("pending");
       return;
     }
 
@@ -91,19 +96,27 @@ export function useMypageHomeModel(enabled: boolean) {
     const gen = ++refreshGenRef.current;
     const run = (async () => {
       try {
-        const [profile, addressStatus] = await Promise.all([
-          resolveMypageHomeProfileRow(),
+        const [profileResult, addressStatus] = await Promise.all([
+          resolveMypageHomeProfileResult(),
           resolveAddressStatus({ force: opts?.forceAddress === true }),
         ]);
         if (gen !== refreshGenRef.current) return;
         const currentViewer = getCurrentUser()?.id?.trim() ?? "";
         if (!currentViewer || currentViewer !== viewerId) return;
-        if (!profile?.id?.trim()) {
+        if (!profileResult.ok) {
           clearMypageHomeStore();
+          // Local session still claims a user — recover via re-login, not endless checking.
+          setProfilePhase("needs_relogin");
           return;
         }
-        if (profile.id.trim() !== viewerId) return;
+        const profile = profileResult.profile;
+        if (profile.id.trim() !== viewerId) {
+          clearMypageHomeStore();
+          setProfilePhase("needs_relogin");
+          return;
+        }
         setMypageHomeProjection(projectionFromProfile(profile, addressStatus));
+        setProfilePhase("ready");
       } finally {
         if (inflightRef.current) inflightRef.current = null;
       }
@@ -115,6 +128,7 @@ export function useMypageHomeModel(enabled: boolean) {
   useEffect(() => {
     if (!enabled) {
       seededRef.current = false;
+      setProfilePhase("pending");
       return;
     }
     bumpMypageMountGeneration();
@@ -126,7 +140,7 @@ export function useMypageHomeModel(enabled: boolean) {
       seededRef.current = true;
       const mem = getMypageHomeProjection();
       if (mem?.viewerId === viewerId) {
-        /* memory hit — paint already */
+        setProfilePhase("ready");
       } else {
         const lite = peekMypageHomeSessionLite(viewerId);
         if (lite) {
@@ -138,8 +152,10 @@ export function useMypageHomeModel(enabled: boolean) {
             ...projectionFromSessionLite({ ...lite, addressStatus: addr }),
             addressStatus: addr,
           });
+          setProfilePhase("ready");
         } else {
           seedAddressStatusFromCache();
+          setProfilePhase("pending");
         }
       }
     }
@@ -168,6 +184,7 @@ export function useMypageHomeModel(enabled: boolean) {
       seededRef.current = false;
       clearMypageHomeStore();
       clearMypageHomeCaches();
+      setProfilePhase("pending");
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
@@ -190,5 +207,7 @@ export function useMypageHomeModel(enabled: boolean) {
     refresh,
     applyProfilePatch,
     hasSnapshot: Boolean(projection),
+    profilePhase,
+    needsRelogin: profilePhase === "needs_relogin",
   };
 }

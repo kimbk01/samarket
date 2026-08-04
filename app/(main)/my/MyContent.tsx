@@ -65,7 +65,7 @@ export function MyContent() {
     Boolean(sessionUser?.id) || membership.status === "member";
   const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
 
-  const { projection, refresh } = useMypageHomeModel(treatAsMember);
+  const { projection, refresh, needsRelogin } = useMypageHomeModel(treatAsMember);
 
   useEffect(() => {
     if (!pathname) return;
@@ -150,6 +150,7 @@ export function MyContent() {
           <MyPageHomeDashboard
             projection={projection}
             onProfileRefresh={() => void refresh()}
+            needsRelogin={needsRelogin}
           />
         </div>
       </div>

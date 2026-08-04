@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { MypageProfileSummary } from "@/components/mypage/home/MypageProfileSummary";
 import { MypageRequiredInfoSummary } from "@/components/mypage/home/MypageRequiredInfoSummary";
+import { MypageSessionReloginCard } from "@/components/mypage/home/MypageSessionReloginCard";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import {
   MyInfoAccountMenuSection,
@@ -21,9 +22,12 @@ const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 export function MyPageHomeDashboard({
   projection,
   onProfileRefresh,
+  needsRelogin = false,
 }: {
   projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
+  /** Local session present but profile resolve failed — show re-login, not endless checking. */
+  needsRelogin?: boolean;
 }) {
   const { setOnProfileUpdated } = useMypageProfileSheets();
 
@@ -35,8 +39,14 @@ export function MyPageHomeDashboard({
   return (
     <div className={MYPAGE_HOME_BODY_CLASS}>
       <div className="flex min-h-0 min-w-0 flex-col gap-3 sm:gap-4">
-        <MypageProfileSummary projection={projection} />
-        <MypageRequiredInfoSummary projection={projection} />
+        {needsRelogin ? (
+          <MypageSessionReloginCard />
+        ) : (
+          <>
+            <MypageProfileSummary projection={projection} />
+            <MypageRequiredInfoSummary projection={projection} />
+          </>
+        )}
 
         <div className="flex flex-col gap-3 md:hidden">
           <MyInfoStoreMenuSection />
