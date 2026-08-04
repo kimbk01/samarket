@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 /**
  * `npx cap sync ios` only scans node_modules plugins and overwrites packageClassList,
- * dropping App-target CAPBridgedPlugin classes (NativeCallService, VoIP, auth, etc.).
- * Merge required local plugins after every iOS cap sync.
+ * dropping App-target CAPBridgedPlugin classes.
+ *
+ * This file is the **common merge authority** for all App-target plugins
+ * (Call + Auth + Delivery). Domain HARD LOCK docs must not invent a second list.
+ *
+ * @see docs/ios-capacitor-app-target-package-classlist.md
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -11,14 +15,33 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const IOS_CAP_CONFIG = path.join(ROOT, "ios/App/App/capacitor.config.json");
 
-/** App target plugins — must stay in packageClassList for Capacitor bridge dispatch. */
-export const IOS_APP_TARGET_PACKAGE_CLASSES = [
+/** Call outgoing HARD LOCK subset — see docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md */
+export const IOS_CALL_OUTGOING_PACKAGE_CLASSES = [
   "NativeCallServicePlugin",
   "DibayVoipCallPlugin",
   "DibayCallPipPlugin",
+];
+
+/** Auth App-target plugins — Apple/Kakao native + Google/Kakao web OAuth launcher */
+export const IOS_AUTH_PACKAGE_CLASSES = [
   "NativeAppleAuthPlugin",
   "NativeKakaoAuthPlugin",
+  "NativeOAuthLauncherPlugin",
+];
+
+/** Delivery / other App-target plugins */
+export const IOS_DELIVERY_PACKAGE_CLASSES = [
   "DibayAppIconDeliveryPlugin",
+];
+
+/**
+ * Full App-target merge list for post-`cap sync ios` restore.
+ * Domain contracts reference this list; Call HARD LOCK is a subset only.
+ */
+export const IOS_APP_TARGET_PACKAGE_CLASSES = [
+  ...IOS_CALL_OUTGOING_PACKAGE_CLASSES,
+  ...IOS_AUTH_PACKAGE_CLASSES,
+  ...IOS_DELIVERY_PACKAGE_CLASSES,
 ];
 
 function mergePackageClassList(existing, required) {

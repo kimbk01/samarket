@@ -46,7 +46,7 @@ import {
   failAuthLifecycle,
   markAuthLifecycleStage,
 } from "@/lib/auth/oauth/auth-lifecycle-trace";
-import { openNativeOAuthTab } from "@/lib/auth/oauth/open-native-oauth-tab";
+import { openNativeOAuthTab, isNativeOAuthLauncherCancelError } from "@/lib/auth/oauth/open-native-oauth-tab";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
@@ -141,7 +141,14 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "oauth_launcher_unavailable") {
     return t("auth_err_oauth_browser_plugin_unavailable");
   }
-  if (code === "oauth_tab_open_failed" || code === "oauth_custom_tabs_unavailable") {
+  if (code === "oauth_launcher_cancelled") {
+    return t("auth_err_oauth_start_failed");
+  }
+  if (
+    code === "oauth_tab_open_failed"
+    || code === "oauth_custom_tabs_unavailable"
+    || code === "oauth_presentation_unavailable"
+  ) {
     return t("auth_err_oauth_browser_open_failed");
   }
   if (code === "oauth_bridge_not_ready") return t("auth_err_oauth_bridge_not_ready");
@@ -303,8 +310,12 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
   const handleOAuthStartFailure = useCallback(
     async (err: unknown) => {
-      if (isNativeProviderCancelError(err) || isNativeProviderEmailConflictError(err)) {
-        if (isNativeProviderCancelError(err)) {
+      if (
+        isNativeProviderCancelError(err)
+        || isNativeOAuthLauncherCancelError(err)
+        || isNativeProviderEmailConflictError(err)
+      ) {
+        if (isNativeProviderCancelError(err) || isNativeOAuthLauncherCancelError(err)) {
           releaseOAuthFlowOnUserCancel();
           cancelAuthLifecycle({ reason: "user_cancelled" });
         }

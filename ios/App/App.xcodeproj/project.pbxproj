@@ -18,6 +18,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */; };
+		C7OAL0022FED79650016851F /* NativeOAuthLauncherPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OAL0012FED79650016851F /* NativeOAuthLauncherPlugin.swift */; };
 		C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */; };
 		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
 		C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */; };
@@ -82,6 +83,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppleAuthPlugin.swift; sourceTree = "<group>"; };
+		C7OAL0012FED79650016851F /* NativeOAuthLauncherPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOAuthLauncherPlugin.swift; sourceTree = "<group>"; };
 		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayActiveCallSessionManager.swift; sourceTree = "<group>"; };
 		C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallAudioSessionController.swift; sourceTree = "<group>"; };
@@ -199,6 +201,7 @@
 			isa = PBXGroup;
 			children = (
 				C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */,
+				C7OAL0012FED79650016851F /* NativeOAuthLauncherPlugin.swift */,
 				C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */,
 				C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */,
 				C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */,
@@ -364,6 +367,7 @@
 				C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */,
 				C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */,
 				C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */,
+				C7OAL0022FED79650016851F /* NativeOAuthLauncherPlugin.swift in Sources */,
 				C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */,
 				C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */,
 				C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */,

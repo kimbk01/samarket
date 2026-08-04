@@ -130,6 +130,7 @@
     "verify:dibay-duplicate-login-policy": "node scripts/verify-dibay-duplicate-login-policy.mjs",
     "verify:native-oauth-redirect-contract": "node scripts/verify-native-oauth-redirect-contract.mjs",
     "verify:ios-apple-native-contract": "node scripts/verify-ios-apple-native-contract.mjs",
+    "verify:ios-native-oauth-launcher-contract": "node scripts/verify-ios-native-oauth-launcher-contract.mjs",
     "verify:ios-call-package-classlist-contract": "node scripts/verify-ios-call-package-classlist-contract.mjs",
     "verify:ios-input-font-floor": "node scripts/verify-ios-input-font-floor.mjs",
     "verify:responsive-platform-contract": "node scripts/verify-responsive-platform-contract.mjs",

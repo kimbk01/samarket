@@ -80,6 +80,40 @@ describe("openNativeOAuthTab", () => {
     });
   });
 
+  it("accepts iOS as_web_authentication_session open result", async () => {
+    launcherOpen.mockResolvedValueOnce({
+      opened: true,
+      method: "as_web_authentication_session",
+    });
+    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    await expect(openNativeOAuthTab("https://supabase.example/auth")).resolves.toEqual({
+      opened: true,
+      method: "as_web_authentication_session",
+    });
+  });
+
+  it("maps ASWebAuthenticationSession cancel to oauth_launcher_cancelled", async () => {
+    launcherOpen.mockRejectedValueOnce(new Error("oauth_launcher_cancelled"));
+    const { openNativeOAuthTab, isNativeOAuthLauncherCancelError } = await import(
+      "@/lib/auth/oauth/open-native-oauth-tab"
+    );
+    const err = await openNativeOAuthTab("https://supabase.example/auth").catch((e) => e);
+    expect(err).toMatchObject({
+      name: "oauth_launcher_cancelled",
+      devCode: "oauth_launcher_cancelled",
+    });
+    expect(isNativeOAuthLauncherCancelError(err)).toBe(true);
+  });
+
+  it("maps presentation_anchor_missing without folding to launcher_unavailable", async () => {
+    launcherOpen.mockRejectedValueOnce(new Error("presentation_anchor_missing"));
+    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
+      name: "oauth_presentation_unavailable",
+      devCode: "presentation_anchor_missing",
+    });
+  });
+
   it("formats dev error for display", async () => {
     const { formatNativeOAuthDevError } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     const err = Object.assign(new Error("not implemented"), {

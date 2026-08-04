@@ -1,5 +1,5 @@
 ---
-description: HARD LOCK — iOS Cap packageClassList App-target plugins for native outgoing
+description: HARD LOCK — iOS Cap packageClassList Call outgoing plugins only
 alwaysApply: true
 ---
 
@@ -13,23 +13,24 @@ alwaysApply: true
 
 Regression: `95e8100bc`. Restore: `a8cc203ec`.
 
-## Required (always present)
+## Required (Call outgoing only)
 
 - `NativeCallServicePlugin`
 - `DibayVoipCallPlugin`
 - `DibayCallPipPlugin`
-- `NativeAppleAuthPlugin`
-- `NativeKakaoAuthPlugin`
-- `DibayAppIconDeliveryPlugin`
 
-Merge SSOT: `scripts/patch-ios-capacitor-package-class-list.mjs`.
+Merge SSOT (full App-target list including Auth/Delivery): `scripts/patch-ios-capacitor-package-class-list.mjs`.
+Call subset export: `IOS_CALL_OUTGOING_PACKAGE_CLASSES`.
+
+Auth launcher registration is **not** owned by this rule — see `docs/auth-ios-native-oauth-launcher-contract.md`.
 
 ## DO NOT (without explicit user approval)
 
-- Remove the above from `packageClassList`
+- Remove the Call plugins above from `packageClassList`
 - Run bare `npx cap sync ios` and commit without running the patch
 - Change `cap:sync:ios` to omit the patch step
 - “Fix” outgoing by web/Vercel-only redeploy when the plugin is missing from the installed App.app
+- Embed `NativeOAuthLauncherPlugin` / Auth registration into this Call HARD LOCK
 
 ## After every iOS sync
 

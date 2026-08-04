@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /**
- * HARD LOCK gate: iOS App-target packageClassList for native outgoing.
+ * HARD LOCK gate: iOS Call outgoing packageClassList subset only.
+ * Does not own Auth/Delivery plugin registration.
+ *
+ * Full App-target merge list: scripts/patch-ios-capacitor-package-class-list.mjs
  * @see docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md
+ * @see docs/ios-capacitor-app-target-package-classlist.md
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { IOS_APP_TARGET_PACKAGE_CLASSES } from "./patch-ios-capacitor-package-class-list.mjs";
+import { IOS_CALL_OUTGOING_PACKAGE_CLASSES } from "./patch-ios-capacitor-package-class-list.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -24,10 +28,10 @@ try {
   failures.push(`${configPath} must be valid JSON (${err instanceof Error ? err.message : String(err)})`);
 }
 
-for (const cls of IOS_APP_TARGET_PACKAGE_CLASSES) {
+for (const cls of IOS_CALL_OUTGOING_PACKAGE_CLASSES) {
   if (!classList.includes(cls)) {
     failures.push(
-      `${configPath} packageClassList missing ${cls} (run node scripts/patch-ios-capacitor-package-class-list.mjs)`,
+      `${configPath} packageClassList missing Call plugin ${cls} (run node scripts/patch-ios-capacitor-package-class-list.mjs)`,
     );
   }
 }
@@ -56,11 +60,23 @@ if (!fs.existsSync(path.join(ROOT, lockDoc))) {
   if (!doc.includes("HARD LOCK") || !doc.includes("NativeCallServicePlugin")) {
     failures.push(`${lockDoc} must declare HARD LOCK and NativeCallServicePlugin`);
   }
+  if (/^- `NativeOAuthLauncherPlugin`/m.test(doc)) {
+    failures.push(
+      `${lockDoc} must remain Call-outgoing only — NativeOAuthLauncher belongs in auth-ios-native-oauth-launcher-contract`,
+    );
+  }
 }
 
 const rulePath = ".cursor/rules/dibay-call-ios-outgoing-package-classlist-hard-lock.mdc";
 if (!fs.existsSync(path.join(ROOT, rulePath))) {
   failures.push(`missing cursor rule ${rulePath}`);
+} else {
+  const rule = read(rulePath);
+  if (/^- `NativeOAuthLauncherPlugin`/m.test(rule)) {
+    failures.push(
+      `${rulePath} must remain Call-outgoing only — do not embed Auth launcher registration`,
+    );
+  }
 }
 
 if (failures.length > 0) {
@@ -70,4 +86,7 @@ if (failures.length > 0) {
 }
 
 console.log("verify:ios-call-package-classlist-contract PASS");
+console.log(
+  `  Call outgoing required (${IOS_CALL_OUTGOING_PACKAGE_CLASSES.length}): ${IOS_CALL_OUTGOING_PACKAGE_CLASSES.join(", ")}`,
+);
 console.log(`  packageClassList (${classList.length}): ${classList.join(", ")}`);
