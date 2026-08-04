@@ -1,6 +1,11 @@
 "use client";
 
 import { syncClientSessionAfterNativeExchange } from "@/lib/auth/native/sync-client-session-after-native-exchange.client";
+import {
+  authLifecycleExchangeHeaders,
+  bumpAuthLifecycleCounter,
+  markAuthLifecycleStage,
+} from "@/lib/auth/oauth/auth-lifecycle-trace";
 import type { NativeKakaoAuthErrorCode } from "@/lib/auth/native/native-kakao-auth-contract";
 import type { NativeGoogleAuthErrorCode } from "@/lib/auth/native/native-google-auth-contract";
 import type { NativeExchangeResponse } from "@/lib/auth/native/native-provider-contract";
@@ -119,10 +124,16 @@ export async function postNativeProviderExchange(
   if (options?.next?.trim()) {
     payload.next = options.next.trim();
   }
+  bumpAuthLifecycleCounter("nativeExchange");
+  markAuthLifecycleStage("exchange_requested", { http: "POST /api/auth/native/exchange" });
   const res = await fetch("/api/auth/native/exchange", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...authLifecycleExchangeHeaders(),
+    },
     body: JSON.stringify(payload),
   });
   const json = (await res.json().catch(() => null)) as NativeExchangeResponse | null;
@@ -147,6 +158,8 @@ export async function postNativeProviderExchange(
       message: "Native exchange succeeded without session",
     };
   }
+  markAuthLifecycleStage("server_session_established", { httpStatus: res.status, sessionEstablished: true });
+  markAuthLifecycleStage("cookie_handoff_completed", { note: "exchange_2xx_set_cookie_assumed" });
   await syncClientSessionAfterNativeExchange();
   return json;
 }

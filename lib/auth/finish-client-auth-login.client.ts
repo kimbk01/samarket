@@ -22,6 +22,11 @@ import {
 } from "@/lib/auth/safe-next-path";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { markCallMediaOnboardingPendingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
+import {
+  bumpAuthLifecycleCounter,
+  completeAuthLifecycle,
+  markAuthLifecycleStage,
+} from "@/lib/auth/oauth/auth-lifecycle-trace";
 
 type RouterLike = {
   replace: (href: string) => void;
@@ -158,6 +163,7 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   const { redirectTo, pendingToken, next, onCloseModal, router } = input;
 
   if (typeof window === "undefined") return;
+  bumpAuthLifecycleCounter("finishClientAuthLogin");
 
   if (pendingToken?.trim()) {
     await primeClientAuthSessionFromSupabase();
@@ -165,6 +171,8 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
     clearStoredLoginRequiredDetail();
     onCloseModal?.();
     if (consumed) {
+      markAuthLifecycleStage("navigation_committed", { via: "pending_token_consumed" });
+      completeAuthLifecycle("ok", { via: "pending_token" });
       void ensureAppBoot();
       return;
     }
@@ -176,17 +184,38 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   invalidateGuestCachesForFreshLogin();
   clearPostLogoutBfcacheGuard();
 
-  await primeClientAuthSessionFromSupabase();
+  const sessionPresent = await primeClientAuthSessionFromSupabase();
+  markAuthLifecycleStage("client_session_visible", {
+    sessionPresent,
+    via: "finishClientAuthLogin_prime",
+  });
   markCallMediaOnboardingPendingSource("first_login");
 
   const target = resolveImmediateLoginTarget(input);
+  markAuthLifecycleStage("onboarding_resolved", {
+    target,
+    needsTermsAgreement: input.needsTermsAgreement ?? null,
+    signupComplete: input.signupComplete ?? null,
+  });
+  markAuthLifecycleStage("profile_resolved", {
+    note: "profile_prime_scheduled_background",
+  });
 
   if (router && canUseRouterReplace(target)) {
+    bumpAuthLifecycleCounter("navigation");
+    markAuthLifecycleStage("navigation_committed", { target, via: "router.replace" });
+    markAuthLifecycleStage("interaction_ready", { note: "navigation_committed_router" });
+    completeAuthLifecycle("ok", { target, via: "router.replace" });
     router.replace(target);
     schedulePostLoginBackgroundWork({ redirectTo, next, immediateTarget: target, router });
     return;
   }
 
+  bumpAuthLifecycleCounter("navigation");
+  bumpAuthLifecycleCounter("fullDocumentRedirect");
+  markAuthLifecycleStage("navigation_committed", { target, via: "location.replace" });
+  markAuthLifecycleStage("interaction_ready", { note: "navigation_committed_full_redirect" });
+  completeAuthLifecycle("ok", { target, via: "location.replace" });
   schedulePostLoginBackgroundWork({ redirectTo, next, immediateTarget: target, router });
   window.location.replace(target);
 }

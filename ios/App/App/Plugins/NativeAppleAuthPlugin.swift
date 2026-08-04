@@ -57,6 +57,7 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
     controller.delegate = self
     controller.presentationContextProvider = self
     controller.performRequests()
+    logEvent("apple_provider_ui_presented")
   }
 
   @available(iOS 13.0, *)
@@ -84,6 +85,8 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
       call.reject("apple_native_token_missing", "Missing Apple ID credential")
       return
     }
+
+    logEvent("apple_credential_received", "hasToken=\(credential.identityToken != nil) hasCode=\(credential.authorizationCode != nil) hasFullName=\(credential.fullName != nil)")
 
     guard let identityTokenData = credential.identityToken,
       let identityToken = String(data: identityTokenData, encoding: .utf8),

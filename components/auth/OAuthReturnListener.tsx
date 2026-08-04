@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { NATIVE_OAUTH_RETURN_LISTENER_BRIDGE_MS } from "@/lib/auth/oauth/native-oauth-contract";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
+import { bumpAuthLifecycleCounter, markAuthLifecycleStage } from "@/lib/auth/oauth/auth-lifecycle-trace";
 import {
   shouldRegisterCapacitorOAuthReturnListener,
   shouldRetryCapacitorOAuthReturnListenerAttach,
@@ -41,6 +42,12 @@ async function handleAppUrlOpen(url: string, markHandled: (key: string) => boole
     return;
   }
 
+  bumpAuthLifecycleCounter("callbackRoute");
+  markAuthLifecycleStage("provider_credential_received", {
+    via: "app_url_open",
+    hasCode: payload?.hasCode ?? false,
+    hasError: payload?.hasError ?? false,
+  });
   logOAuthNativeEvent("callback_app_url_open", {
     payload,
     nativeUrlLen: url.length,

@@ -40,6 +40,12 @@ import {
   summarizeOAuthStartFailure,
 } from "@/lib/auth/oauth/oauth-start-error.client";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import {
+  beginAuthLifecycleFlow,
+  cancelAuthLifecycle,
+  failAuthLifecycle,
+  markAuthLifecycleStage,
+} from "@/lib/auth/oauth/auth-lifecycle-trace";
 import { openNativeOAuthTab } from "@/lib/auth/oauth/open-native-oauth-tab";
 import {
   ensureCapacitorNativeMarkerOnBoot,
@@ -300,12 +306,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       if (isNativeProviderCancelError(err) || isNativeProviderEmailConflictError(err)) {
         if (isNativeProviderCancelError(err)) {
           releaseOAuthFlowOnUserCancel();
+          cancelAuthLifecycle({ reason: "user_cancelled" });
         }
         clearPending();
         return;
       }
       clearPending();
       const code = resolveNativeProviderLoginErrorCode(err);
+      failAuthLifecycle(code, { summary: summarizeOAuthStartFailure(err) });
       console.error("[oauth] oauth_start_failed", summarizeOAuthStartFailure(err));
       if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
     },
@@ -351,14 +359,19 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       });
 
       const runProviderStart = async () => {
+        beginAuthLifecycleFlow({ provider, flowKind: "oauth_login" });
+        markAuthLifecycleStage("login_button_tapped", { route: typeof window !== "undefined" ? window.location.pathname : null });
+
         if (isNaverProvider(provider)) {
           const flow = tryBeginOAuthFlow(provider);
           if (!flow.ok) {
             clearPending();
+            failAuthLifecycle("oauth_flow_in_flight");
             if (mountedRef.current) setError(mapOAuthErrorToMessage("oauth_flow_in_flight", t));
             return;
           }
           try {
+            markAuthLifecycleStage("provider_launch_requested", { via: "naver_location_assign" });
             window.location.assign(buildNaverOAuthStartPath(next));
           } catch {
             flow.release();
@@ -380,6 +393,13 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         const routingSnapshot = resolveOAuthProviderRoutingSnapshot(provider);
         const { shellPlatform, routing, appleWebOAuthFallbackReason } = routingSnapshot;
 
+        markAuthLifecycleStage("routing_decision_completed", {
+          shellPlatform,
+          action: routing.action,
+          errorCode: "errorCode" in routing ? routing.errorCode ?? null : null,
+          appleWebOAuthFallbackReason: appleWebOAuthFallbackReason ?? null,
+        });
+
         if (provider === "apple") {
           logOAuthNativeEvent("apple_login_routing", {
             provider: "apple",
@@ -399,6 +419,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
         if (routing.action === "native_provider_login") {
           setOauthInlineStatus("opening");
+          markAuthLifecycleStage("provider_launch_requested", { via: "native_provider_login" });
           try {
             const result = await startNativeProviderLogin({ provider, next });
             await completeAuthSuccess(result);
@@ -422,6 +443,10 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
               reason: routing.webOAuthFallbackReason ?? null,
             });
           }
+          failAuthLifecycle(routing.errorCode, {
+            stage: "routing_decision_completed",
+            action: routing.action,
+          });
           if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
           return;
         }
@@ -435,12 +460,16 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
             errorCode: "apple_native_unavailable",
             reason: "shell_not_detected_before_routing",
           });
+          failAuthLifecycle("apple_native_unavailable", {
+            reason: "shell_not_detected_before_routing",
+          });
           if (mountedRef.current) setError(mapOAuthErrorToMessage("apple_native_unavailable", t));
           return;
         }
 
         if (routing.action === "web_oauth_start" && isNativeAppOAuthShell()) {
           try {
+            markAuthLifecycleStage("provider_launch_requested", { via: "capacitor_custom_tab" });
             await runCapacitorCustomTabOAuth(provider, next);
           } catch (err) {
             await handleOAuthStartFailure(err);
@@ -450,6 +479,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
         try {
           setOauthInlineStatus("opening");
+          markAuthLifecycleStage("provider_launch_requested", { via: "web_oauth_start" });
           startOAuthLogin({ provider, next });
         } catch (err) {
           await handleOAuthStartFailure(err);

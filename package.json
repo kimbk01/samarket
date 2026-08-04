@@ -215,6 +215,7 @@
     "cap:open:android": "npx cap open android",
     "cap:sync:ios": "npx cap sync ios && node scripts/patch-ios-capacitor-package-class-list.mjs",
     "cap:open:ios": "npx cap open ios",
+    "generate:app-build-fingerprint": "node scripts/generate-app-build-fingerprint.mjs",
     "generate:dibay-brand": "node scripts/generate-dibay-icons.mjs",
     "cap:assets:android": "npx capacitor-assets generate --android",
     "sql:copy:community-feed-daangn": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260321120000_community_feed_daangn.sql",

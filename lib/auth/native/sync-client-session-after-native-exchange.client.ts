@@ -5,6 +5,10 @@ import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabas
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import {
+  bumpAuthLifecycleCounter,
+  markAuthLifecycleStage,
+} from "@/lib/auth/oauth/auth-lifecycle-trace";
 import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
@@ -19,6 +23,7 @@ export const NATIVE_EXCHANGE_SESSION_READY_MS = 2_000;
  */
 export async function syncClientSessionAfterNativeExchange(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+  bumpAuthLifecycleCounter("clientSessionSync");
 
   clearGuestAuthState();
   clearAuthSessionClientCache();
@@ -39,5 +44,6 @@ export async function syncClientSessionAfterNativeExchange(): Promise<boolean> {
   const primed = await primeClientAuthSessionFromSupabase();
   dispatchTestAuthChanged();
   logOAuthNativeEvent("native_exchange_session_synced", { primed });
+  markAuthLifecycleStage("client_session_visible", { primed, via: "syncClientSessionAfterNativeExchange" });
   return primed;
 }

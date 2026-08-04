@@ -17,6 +17,7 @@ import { ensureAppBoot, invalidateAppBootFlight } from "@/lib/app-boot/run-app-b
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
+import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -33,6 +34,7 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
   const boot = useSyncExternalStore(subscribeAppBoot, getAppBootSnapshot, getAppBootSnapshot);
 
   useEffect(() => {
+    logAppBuildFingerprintOnce("AppBootProvider");
     clearChunkReloadSessionFlag();
     setAppBootShell();
     markBootMetricsReactMounted();

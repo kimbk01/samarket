@@ -12,6 +12,11 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import {
+  authLifecycleExchangeHeaders,
+  bumpAuthLifecycleCounter,
+  markAuthLifecycleStage,
+} from "@/lib/auth/oauth/auth-lifecycle-trace";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
@@ -75,14 +80,21 @@ export async function postNativeAppleExchange(
   if (options?.next?.trim()) {
     payload.next = options.next.trim();
   }
+  bumpAuthLifecycleCounter("nativeExchange");
+  markAuthLifecycleStage("exchange_requested", { provider: "apple", http: "POST /api/auth/native/exchange" });
   const res = await fetch("/api/auth/native/exchange", {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...authLifecycleExchangeHeaders(),
+    },
     body: JSON.stringify(payload),
   });
   const json = (await res.json().catch(() => null)) as NativeAppleExchangeResponse | null;
   if (!json || typeof json !== "object") {
+    markAuthLifecycleStage("exchange_requested", { provider: "apple", httpStatus: res.status, parseOk: false });
     return { ok: false, errorCode: "invalid_response", message: "Invalid native exchange response" };
   }
   if (!json.ok) {
@@ -92,15 +104,36 @@ export async function postNativeAppleExchange(
       message: json.message,
     };
     if (json.conflict) failure.conflict = json.conflict;
+    markAuthLifecycleStage("exchange_requested", {
+      provider: "apple",
+      httpStatus: res.status,
+      errorCode: failure.errorCode,
+      ok: false,
+    });
     return failure;
   }
   if (json.sessionEstablished !== true) {
+    markAuthLifecycleStage("exchange_requested", {
+      provider: "apple",
+      httpStatus: res.status,
+      sessionEstablished: false,
+    });
     return {
       ok: false,
       errorCode: "native_exchange_not_implemented",
       message: "Native exchange succeeded without session",
     };
   }
+  markAuthLifecycleStage("server_session_established", {
+    provider: "apple",
+    httpStatus: res.status,
+    signupComplete: json.signupComplete ?? null,
+    needsTermsAgreement: json.needsTermsAgreement ?? null,
+  });
+  markAuthLifecycleStage("cookie_handoff_completed", {
+    provider: "apple",
+    note: "exchange_2xx_set_cookie_assumed",
+  });
   return json;
 }
 
@@ -153,10 +186,17 @@ export async function startNativeAppleLogin(input?: {
 
   try {
     logOAuthNativeEvent("apple_native_started", { next: input?.next ?? null });
+    markAuthLifecycleStage("provider_ui_presented", { provider: "apple", via: "NativeAppleAuth.signIn" });
     const signInResult = await invokeNativeAppleSignIn();
     logOAuthNativeEvent("apple_native_success", {
       hasIdentityToken: Boolean(signInResult.identityToken),
       hasUserIdentifier: Boolean(signInResult.userIdentifier),
+    });
+    markAuthLifecycleStage("provider_credential_received", {
+      provider: "apple",
+      hasIdentityToken: Boolean(signInResult.identityToken),
+      hasAuthorizationCode: Boolean(signInResult.authorizationCode),
+      hasFullName: Boolean(signInResult.fullName),
     });
 
     const exchangeBody = buildNativeAppleExchangeRequest(signInResult);

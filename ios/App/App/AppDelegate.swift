@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
         VoIPPushRegistry.shared.start()
+        Self.logDibayBuildFingerprint()
         return true
     }
 
@@ -81,6 +82,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ) {
         DibayAppIconDeliveryAdapter.applyFromPushUserInfo(userInfo)
         completionHandler(.noData)
+    }
+
+    private static func logDibayBuildFingerprint() {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let sha = (info["DibayGitSha"] as? String) ?? "missing"
+        let config = (info["DibayBuildConfiguration"] as? String) ?? "missing"
+        let ts = (info["DibayBuildTimestamp"] as? String) ?? "missing"
+        let dirty = (info["DibayGitDirty"] as? String) ?? "missing"
+        let version = (info["CFBundleShortVersionString"] as? String) ?? "?"
+        let build = (info["CFBundleVersion"] as? String) ?? "?"
+        NSLog("[DIBAY_BUILD] native_fingerprint gitSha=%@ config=%@ timestamp=%@ dirty=%@ version=%@ build=%@",
+              sha, config, ts, dirty, version, build)
     }
 
 }
