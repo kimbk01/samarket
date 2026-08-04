@@ -34,10 +34,17 @@ export type ProviderEmailConflictDetail = {
 };
 
 export type ResolveProviderLoginResult =
-  | { status: "existing"; userId: string; identityId: string | null }
+  | { status: "existing"; userId: string; identityId: string | null; via: "user_auth_identities" | "profiles_fallback" }
   | { status: "new" }
   | { status: "email_conflict"; conflict: ProviderEmailConflictDetail }
-  | { status: "provider_user_id_conflict"; message: string };
+  | {
+      status: "provider_user_id_conflict";
+      message: string;
+      conflictReason:
+        | "POLICY_DATA_INCONSISTENT"
+        | "EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED"
+        | "SAME_PROVIDER_SUBJECT_DIFFERENT_USER";
+    };
 
 export type ProviderLinkStartResult =
   | { ok: true; linkToken: string; expiresAt: string }

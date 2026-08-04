@@ -29,20 +29,38 @@ export async function resolveProviderLogin(
   const provider = candidate.provider;
   const providerUserId = candidate.providerUserId.trim();
   if (!providerUserId) {
-    return { status: "provider_user_id_conflict", message: "provider_user_id is required" };
+    return {
+      status: "provider_user_id_conflict",
+      message: "provider_user_id is required",
+      conflictReason: "POLICY_DATA_INCONSISTENT",
+    };
   }
 
   const existing = await findIdentityByProviderUserId(sb, provider, providerUserId);
   if (existing) {
     if (existing.user_id) {
-      return { status: "existing", userId: existing.user_id, identityId: existing.id };
+      return {
+        status: "existing",
+        userId: existing.user_id,
+        identityId: existing.id,
+        via: "user_auth_identities",
+      };
     }
-    return { status: "provider_user_id_conflict", message: "identity row missing user_id" };
+    return {
+      status: "provider_user_id_conflict",
+      message: "identity row missing user_id",
+      conflictReason: "POLICY_DATA_INCONSISTENT",
+    };
   }
 
   const profileFallback = await findProfileByProviderUserId(sb, provider, providerUserId);
   if (profileFallback?.id) {
-    return { status: "existing", userId: profileFallback.id, identityId: null };
+    return {
+      status: "existing",
+      userId: profileFallback.id,
+      identityId: null,
+      via: "profiles_fallback",
+    };
   }
 
   const email = normalizeProviderEmail(candidate.email);
@@ -72,6 +90,7 @@ export async function resolveProviderLogin(
     return {
       status: "provider_user_id_conflict",
       message: "동일 이메일로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.",
+      conflictReason: "POLICY_DATA_INCONSISTENT",
     };
   }
 

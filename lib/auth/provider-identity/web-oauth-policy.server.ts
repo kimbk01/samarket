@@ -6,6 +6,13 @@ import { ensureProviderAuthIdentityRow } from "@/lib/auth/provider-identity/nati
 import { resolveProviderLogin } from "@/lib/auth/provider-identity/resolve-provider-login.server";
 import type { LinkableAuthProvider, ProviderIdentityCandidate } from "@/lib/auth/provider-identity/types";
 import { isLinkableAuthProvider } from "@/lib/auth/provider-identity/provider-display";
+import {
+  hashPrefixForAuthDiag,
+  logWebOAuthProviderPolicyDiag,
+  newWebOAuthCallbackAttemptId,
+  type WebOAuthConflictReason,
+  type WebOAuthPolicyDiag,
+} from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
 
 function pickStr(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -58,11 +65,12 @@ export function buildOAuthUserProviderCandidate(user: User): ProviderIdentityCan
 }
 
 export type WebOAuthProviderPolicyResult =
-  | { ok: true; candidate: ProviderIdentityCandidate | null }
+  | { ok: true; candidate: ProviderIdentityCandidate | null; diag: WebOAuthPolicyDiag }
   | {
       ok: false;
       errorCode: "provider_email_conflict" | "provider_account_conflict";
       message: string;
+      diag: WebOAuthPolicyDiag;
       conflict?: {
         email: string;
         attemptedProvider: LinkableAuthProvider;
@@ -71,23 +79,97 @@ export type WebOAuthProviderPolicyResult =
       };
     };
 
+async function profileExistsForUser(sb: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await sb.from("profiles").select("id").eq("id", userId).maybeSingle();
+  if (error) return false;
+  return Boolean(data?.id);
+}
+
+function baseDiag(input: {
+  callbackAttemptId: string;
+  provider: string | null;
+  candidate: ProviderIdentityCandidate | null;
+  sessionUserId: string;
+}): WebOAuthPolicyDiag {
+  return {
+    callbackAttemptId: input.callbackAttemptId,
+    provider: input.provider,
+    policyResult: "allow",
+    conflictReason: null,
+    incomingProviderSubjectHashPrefix: hashPrefixForAuthDiag(input.candidate?.providerUserId),
+    incomingEmailPresent: Boolean(input.candidate?.email?.trim()),
+    incomingEmailVerified: Boolean(input.candidate?.emailVerified),
+    existingAuthUserFound: false,
+    existingProfileFound: false,
+    existingProviderIdentityFound: false,
+    sameProviderSubjectMatch: false,
+    sameNormalizedEmailMatch: false,
+    conflictingProviderTypes: [],
+    pendingConflictRecordFound: false,
+    orphanAuthUserDetected: false,
+    orphanProfileDetected: false,
+    autoLinkAllowed: false,
+    rejectionBranch: null,
+    sessionUserIdHashPrefix: hashPrefixForAuthDiag(input.sessionUserId),
+    matchedUserIdHashPrefix: null,
+    resolveStatus: null,
+  };
+}
+
+/**
+ * Web OAuth callback identity policy.
+ * Does not auto-merge providers. Logs structured diagnostics without PII.
+ */
 export async function enforceWebOAuthProviderPolicy(
   sb: SupabaseClient,
   user: User,
+  options?: { callbackAttemptId?: string },
 ): Promise<WebOAuthProviderPolicyResult> {
+  const callbackAttemptId = options?.callbackAttemptId ?? newWebOAuthCallbackAttemptId();
   const candidate = buildOAuthUserProviderCandidate(user);
+  const diag = baseDiag({
+    callbackAttemptId,
+    provider: candidate?.provider ?? null,
+    candidate,
+    sessionUserId: user.id,
+  });
+
   if (!candidate) {
-    return { ok: true, candidate: null };
+    diag.resolveStatus = "no_candidate";
+    logWebOAuthProviderPolicyDiag(diag);
+    return { ok: true, candidate: null, diag };
   }
 
+  const sessionHasProfile = await profileExistsForUser(sb, user.id);
+  diag.orphanAuthUserDetected = !sessionHasProfile;
+
   const resolved = await resolveProviderLogin(sb, candidate);
+  diag.resolveStatus = resolved.status;
+
+  if (resolved.status === "new") {
+    logWebOAuthProviderPolicyDiag(diag);
+    return { ok: true, candidate, diag };
+  }
 
   if (resolved.status === "email_conflict") {
     const stashToken = createConflictStashToken(candidate);
+    diag.policyResult = "reject";
+    diag.conflictReason = "SAME_EMAIL_DIFFERENT_PROVIDER";
+    diag.rejectionBranch = "resolve.email_conflict";
+    diag.existingAuthUserFound = true;
+    diag.existingProviderIdentityFound = true;
+    diag.sameNormalizedEmailMatch = true;
+    diag.sameProviderSubjectMatch = false;
+    diag.conflictingProviderTypes = resolved.conflict.existingProviders.map(String);
+    diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(resolved.conflict.existingUserId);
+    diag.pendingConflictRecordFound = Boolean(stashToken);
+    diag.existingProfileFound = await profileExistsForUser(sb, resolved.conflict.existingUserId);
+    logWebOAuthProviderPolicyDiag(diag);
     return {
       ok: false,
       errorCode: "provider_email_conflict",
       message: "보안을 위해 기존 로그인 확인이 필요합니다.",
+      diag,
       conflict: {
         email: resolved.conflict.email,
         attemptedProvider: resolved.conflict.attemptedProvider,
@@ -98,22 +180,49 @@ export async function enforceWebOAuthProviderPolicy(
   }
 
   if (resolved.status === "provider_user_id_conflict") {
+    diag.policyResult = "reject";
+    diag.conflictReason = resolved.conflictReason;
+    diag.rejectionBranch = "resolve.provider_user_id_conflict";
+    logWebOAuthProviderPolicyDiag(diag);
     return {
       ok: false,
       errorCode: "provider_account_conflict",
       message: resolved.message,
+      diag,
     };
   }
 
-  if (resolved.status === "existing" && resolved.userId !== user.id) {
+  // existing identity / profile owner
+  diag.existingAuthUserFound = true;
+  diag.existingProviderIdentityFound = resolved.via === "user_auth_identities";
+  diag.sameProviderSubjectMatch = true;
+  diag.matchedUserIdHashPrefix = hashPrefixForAuthDiag(resolved.userId);
+  diag.existingProfileFound = await profileExistsForUser(sb, resolved.userId);
+  diag.orphanProfileDetected = diag.existingProfileFound && !diag.existingProviderIdentityFound
+    && resolved.via === "profiles_fallback";
+
+  if (resolved.userId !== user.id) {
+    const conflictReason: WebOAuthConflictReason =
+      resolved.via === "user_auth_identities"
+        ? "SAME_PROVIDER_SUBJECT_DIFFERENT_USER"
+        : "EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED";
+    diag.policyResult = "reject";
+    diag.conflictReason = conflictReason;
+    diag.rejectionBranch =
+      resolved.via === "user_auth_identities"
+        ? "existing.user_auth_identities.user_id_mismatch"
+        : "existing.profiles_fallback.user_id_mismatch";
+    logWebOAuthProviderPolicyDiag(diag);
     return {
       ok: false,
       errorCode: "provider_account_conflict",
       message: "이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.",
+      diag,
     };
   }
 
-  return { ok: true, candidate };
+  logWebOAuthProviderPolicyDiag(diag);
+  return { ok: true, candidate, diag };
 }
 
 export async function persistOAuthProviderIdentity(

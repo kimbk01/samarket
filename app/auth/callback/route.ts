@@ -18,6 +18,7 @@ import {
   enforceWebOAuthProviderPolicy,
   persistOAuthProviderIdentity,
 } from "@/lib/auth/provider-identity/web-oauth-policy.server";
+import { newWebOAuthCallbackAttemptId } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
 
 export const dynamic = "force-dynamic";
 
@@ -155,11 +156,20 @@ export async function GET(req: NextRequest) {
         return response;
       }
 
-      const providerPolicy = await enforceWebOAuthProviderPolicy(writeSb, mergedUser);
+      const callbackAttemptId = newWebOAuthCallbackAttemptId();
+      const providerPolicy = await enforceWebOAuthProviderPolicy(writeSb, mergedUser, {
+        callbackAttemptId,
+      });
       if (!providerPolicy.ok) {
+        // Session from exchangeCodeForSession is discarded; auth.users / auth.identities
+        // created by Supabase for this attempt are NOT deleted here (orphan risk — see diagnostics).
         await supabase.auth.signOut();
         loginUrl.searchParams.set("auth_error", providerPolicy.errorCode);
         loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
+        loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);
+        if (providerPolicy.diag.conflictReason) {
+          loginUrl.searchParams.set("auth_conflict_reason", providerPolicy.diag.conflictReason);
+        }
         if (providerPolicy.conflict) {
           loginUrl.searchParams.set("auth_stash", providerPolicy.conflict.stashToken);
           loginUrl.searchParams.set("auth_conflict_email", providerPolicy.conflict.email);

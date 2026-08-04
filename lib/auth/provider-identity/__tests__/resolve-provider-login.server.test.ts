@@ -128,6 +128,7 @@ describe("resolveProviderLogin", () => {
     expect(result.status).toBe("existing");
     if (result.status === "existing") {
       expect(result.userId).toBe("user-1");
+      expect(result.via).toBe("user_auth_identities");
     }
   });
 
