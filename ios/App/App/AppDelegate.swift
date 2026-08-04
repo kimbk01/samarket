@@ -48,19 +48,49 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // KakaoTalk + Kakao account(SDK) oauth — kakao{NATIVE_APP_KEY}://oauth
-        if url.scheme?.hasPrefix("kakao") == true {
-            if AuthController.handleOpenUrl(url: url) {
-                return true
+        // KakaoTalk custom-scheme return: kakao{NATIVE_APP_KEY}://oauth
+        // AuthController.handleOpenUrl is @MainActor — must run on main.
+        if AuthApi.isKakaoTalkLoginUrl(url) {
+            let keys = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+              .queryItems?
+              .map(\.name)
+              .joined(separator: ",") ?? ""
+            var handled = false
+            let run = {
+              handled = AuthController.handleOpenUrl(url: url)
             }
+            if Thread.isMainThread {
+              run()
+            } else {
+              DispatchQueue.main.sync(execute: run)
+            }
+            NSLog(
+              "[DIBAY_Kakao] open_url isKakaoTalkLoginUrl=1 handled=%d scheme=%@ queryKeys=%@",
+              handled,
+              url.scheme ?? "",
+              keys
+            )
+            return handled
+        }
+        if url.scheme?.hasPrefix("kakao") == true {
+            var handled = false
+            let run = { handled = AuthController.handleOpenUrl(url: url) }
+            if Thread.isMainThread { run() } else { DispatchQueue.main.sync(execute: run) }
+            NSLog("[DIBAY_Kakao] open_url kakao_scheme handled=%d", handled)
+            if handled { return true }
         }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+           let url = userActivity.webpageURL,
+           AuthApi.isKakaoTalkLoginUrl(url)
+        {
+            let handled = AuthController.handleOpenUrl(url: url)
+            NSLog("[DIBAY_Kakao] continue_userActivity handled=%d", handled)
+            return handled
+        }
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
