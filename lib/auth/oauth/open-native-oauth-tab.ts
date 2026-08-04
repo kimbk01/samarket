@@ -4,6 +4,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { deliverNativeOAuthReturnUrl } from "@/lib/auth/oauth/native-oauth-return-bridge";
 import {
   getCapacitorNativeDiagnostics,
   isCapacitorBridgeReady,
@@ -15,6 +16,14 @@ export type NativeOAuthLaunchMethod = "custom_tabs" | "as_web_authentication_ses
 export type NativeOAuthLaunchResult = {
   opened: boolean;
   method: NativeOAuthLaunchMethod;
+  /**
+   * iOS ASWebAuthenticationSession only.
+   * Callback URL is delivered to the plugin completion handler and is NOT reliably
+   * re-emitted as Capacitor appUrlOpen — JS must bridge it via deliverNativeOAuthReturnUrl.
+   */
+  callbackUrl?: string;
+  /** True when callbackUrl was handed to the shared return bridge (navigation started). */
+  callbackDelivered?: boolean;
 };
 
 export type NativeOAuthLauncherPlugin = {
@@ -179,6 +188,13 @@ function isValidNativeOAuthLaunchResult(result: NativeOAuthLaunchResult | null |
   return result.method === "custom_tabs" || result.method === "as_web_authentication_session";
 }
 
+function readCallbackUrl(result: NativeOAuthLaunchResult): string | null {
+  const raw = result.callbackUrl?.trim() ?? "";
+  if (!raw) return null;
+  if (!raw.startsWith("dibay://auth/callback")) return null;
+  return raw;
+}
+
 async function ensureCapacitorBridgeReadyForOpen(): Promise<void> {
   if (isCapacitorBridgeReady()) {
     logOAuthNativeEvent("bridge_wait_result", { ready: true, immediate: true });
@@ -221,16 +237,43 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
 
   try {
     const result = await NativeOAuthLauncher.open({ url: trimmed });
-    if (isValidNativeOAuthLaunchResult(result)) {
-      logOAuthNativeEvent("after_open", { method: result.method, opened: result.opened });
-      return result;
+    if (!isValidNativeOAuthLaunchResult(result)) {
+      throw nativeOAuthOpenError(
+        "oauth_tab_open_failed",
+        "unknown_native_error",
+        "NativeOAuthLauncher returned invalid result.",
+      );
     }
 
-    throw nativeOAuthOpenError(
-      "oauth_tab_open_failed",
-      "unknown_native_error",
-      "NativeOAuthLauncher returned invalid result.",
-    );
+    // iOS ASWebAuth: completion owns the callback URL — bridge into OAuthReturn path.
+    if (result.method === "as_web_authentication_session") {
+      const callbackUrl = readCallbackUrl(result);
+      if (!callbackUrl) {
+        throw nativeOAuthOpenError(
+          "oauth_tab_open_failed",
+          "as_web_auth_failed",
+          "ASWebAuthenticationSession completed without dibay callback URL.",
+        );
+      }
+      const delivered = deliverNativeOAuthReturnUrl(callbackUrl, "as_web_auth_completion");
+      logOAuthNativeEvent("after_open", {
+        method: result.method,
+        opened: result.opened,
+        callbackDelivered: delivered.ok,
+        deliverReason: delivered.ok ? "navigated" : delivered.reason,
+      });
+      if (!delivered.ok && delivered.reason !== "duplicate") {
+        throw nativeOAuthOpenError(
+          "oauth_tab_open_failed",
+          "as_web_auth_failed",
+          `Native OAuth return bridge failed: ${delivered.reason}`,
+        );
+      }
+      return { ...result, callbackUrl, callbackDelivered: true };
+    }
+
+    logOAuthNativeEvent("after_open", { method: result.method, opened: result.opened });
+    return result;
   } catch (err) {
     if (err instanceof Error && "devCode" in err) {
       logOAuthNativeEvent("open_throw", { code: err.name, devCode: (err as NativeOAuthOpenError).devCode });

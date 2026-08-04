@@ -341,7 +341,11 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         setOauthInlineStatus("preparing");
         const authorizeUrl = await fetchNativeOAuthAuthorizeUrl(provider, handoffNext);
         setOauthInlineStatus("opening");
-        await openNativeOAuthTab(authorizeUrl);
+        const launch = await openNativeOAuthTab(authorizeUrl);
+        if (launch.callbackDelivered) {
+          // ASWebAuth completion already navigated to /auth/callback — do not sit on awaiting_return.
+          return;
+        }
         try {
           await waitForAppBackground(NATIVE_OAUTH_BACKGROUND_DETECT_MS);
         } catch {

@@ -24,6 +24,7 @@ const openNativeTab = read("lib/auth/oauth/open-native-oauth-tab.ts");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
 const resolveNative = read("lib/auth/oauth/resolve-native-oauth-request.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
+const oauthReturnBridge = read("lib/auth/oauth/native-oauth-return-bridge.ts");
 const layout = read("app/layout.tsx");
 const supabaseStart = read("lib/auth/oauth/supabase-oauth-start.server.ts");
 const capacitorConfig = read("capacitor.config.ts");
@@ -254,16 +255,24 @@ if (startOAuthLogin.includes("/auth/oauth/native-launch")) {
   failures.push("Native OAuth must not use legacy native-launch pages");
 }
 
-if (!oauthReturnListener.includes("callback_app_url_open")) {
-  failures.push("OAuthReturnListener must log oauth callback_app_url_open for Logcat tracing");
+if (!oauthReturnListener.includes("deliverNativeOAuthReturnUrl")) {
+  failures.push("OAuthReturnListener must call deliverNativeOAuthReturnUrl (shared return owner)");
 }
 
 if (!oauthReturnListener.includes("callback_listener_attached")) {
   failures.push("OAuthReturnListener must log callback_listener_attached when appUrlOpen listener is ready");
 }
 
-if (!oauthReturnListener.includes("callback_navigate")) {
-  failures.push("OAuthReturnListener must log callback_navigate before /auth/callback replace");
+if (!oauthReturnBridge.includes("callback_app_url_open")) {
+  failures.push("native-oauth-return-bridge must log oauth callback_app_url_open for Logcat tracing");
+}
+
+if (!oauthReturnBridge.includes("callback_navigate")) {
+  failures.push("native-oauth-return-bridge must log callback_navigate before /auth/callback replace");
+}
+
+if (!oauthReturnBridge.includes("window.location.replace(webCallbackUrl)")) {
+  failures.push("native-oauth-return-bridge must replace to /auth/callback after native return");
 }
 
 if (!read("components/auth/SupabaseAuthSync.tsx").includes('logOAuthNativeEvent("exchange_success"')) {
@@ -280,10 +289,6 @@ if (!nativeLauncherPlugin.includes("oauth_external_launch")) {
 
 if (oauthReturnListener.includes("browserFinished")) {
   failures.push("OAuthReturnListener must not use browserFinished — Custom Tab path uses appUrlOpen only");
-}
-
-if (!oauthReturnListener.includes("window.location.replace(webCallbackUrl)")) {
-  failures.push("components/auth/OAuthReturnListener.tsx must replace to /auth/callback after appUrlOpen");
 }
 
 if (startRoute.includes("legacy_oauth_start_disabled")) {

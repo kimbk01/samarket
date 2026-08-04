@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  logOAuthNativeEvent,
-  parseOAuthNativeCallbackLogPayload,
-} from "@/lib/auth/oauth/oauth-native-callback-log";
+import { logOAuthNativeEvent, parseOAuthNativeCallbackLogPayload } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { NATIVE_OAUTH_RETURN_LISTENER_BRIDGE_MS } from "@/lib/auth/oauth/native-oauth-contract";
-import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
-import { bumpAuthLifecycleCounter, markAuthLifecycleStage } from "@/lib/auth/oauth/auth-lifecycle-trace";
+import { deliverNativeOAuthReturnUrl } from "@/lib/auth/oauth/native-oauth-return-bridge";
 import {
   shouldRegisterCapacitorOAuthReturnListener,
   shouldRetryCapacitorOAuthReturnListenerAttach,
@@ -16,7 +12,6 @@ import {
 
 const OAUTH_RETURN_LISTENER_RETRY_MS = 150;
 const OAUTH_RETURN_LISTENER_MAX_ATTEMPTS = 40;
-const NATIVE_CALLBACK_ORIGIN = "dibay://auth";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -24,70 +19,17 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-export function buildWebOAuthCallbackUrlFromNativeReturn(nativeUrl: string): string | null {
-  try {
-    const url = new URL(nativeUrl);
-    if (url.protocol !== "dibay:" || url.host !== "auth" || !url.pathname.startsWith("/callback")) {
-      return null;
-    }
-    return `/auth/callback${url.search}${url.hash}`;
-  } catch {
-    return null;
-  }
-}
-
-async function handleAppUrlOpen(url: string, markHandled: (key: string) => boolean): Promise<void> {
-  const payload = parseOAuthNativeCallbackLogPayload(url);
-  if (!url.startsWith(NATIVE_CALLBACK_ORIGIN)) {
-    return;
-  }
-
-  bumpAuthLifecycleCounter("callbackRoute");
-  markAuthLifecycleStage("provider_credential_received", {
-    via: "app_url_open",
-    hasCode: payload?.hasCode ?? false,
-    hasError: payload?.hasError ?? false,
-  });
-  logOAuthNativeEvent("callback_app_url_open", {
-    payload,
-    nativeUrlLen: url.length,
-  });
-
-  const webCallbackUrl = buildWebOAuthCallbackUrlFromNativeReturn(url);
-  if (!webCallbackUrl) {
-    logOAuthNativeEvent("callback_ignored", { reason: "invalid_callback_path", payload });
-    return;
-  }
-  if (!markHandled(webCallbackUrl)) {
-    logOAuthNativeEvent("callback_ignored", { reason: "duplicate", webCallbackUrl });
-    return;
-  }
-
-  logOAuthNativeEvent("callback_bridge", {
-    webCallbackUrl,
-    payload,
-  });
-
-  dispatchOAuthPendingClear("app_url_open");
-
-  logOAuthNativeEvent("callback_navigate", { webCallbackUrl });
-  window.location.replace(webCallbackUrl);
-}
+/** @deprecated use buildWebOAuthCallbackUrlFromNativeReturn from native-oauth-return-bridge */
+export { buildWebOAuthCallbackUrlFromNativeReturn } from "@/lib/auth/oauth/native-oauth-return-bridge";
 
 /**
  * Capacitor Android/iOS: OAuth 완료 후 `dibay://auth/callback` → WebView `/auth/callback` 브릿지.
+ * iOS ASWebAuthenticationSession completion is bridged via openNativeOAuthTab (same deliver helper).
  */
 export function OAuthReturnListener() {
   useEffect(() => {
     let removeAppUrlOpen: (() => void) | undefined;
     let cancelled = false;
-    const handledCallbackUrls = new Set<string>();
-
-    const markHandled = (key: string): boolean => {
-      if (handledCallbackUrls.has(key)) return false;
-      handledCallbackUrls.add(key);
-      return true;
-    };
 
     const attachListener = async (): Promise<boolean> => {
       if (!shouldRegisterCapacitorOAuthReturnListener()) {
@@ -109,11 +51,11 @@ export function OAuthReturnListener() {
           urlLen: launch.url.length,
           payload: parseOAuthNativeCallbackLogPayload(launch.url),
         });
-        void handleAppUrlOpen(launch.url, markHandled);
+        deliverNativeOAuthReturnUrl(launch.url, "app_url_open");
       }
 
       const listener = await App.addListener("appUrlOpen", (event) => {
-        void handleAppUrlOpen(event.url, markHandled);
+        deliverNativeOAuthReturnUrl(event.url, "app_url_open");
       });
       logOAuthNativeEvent("callback_listener_attached");
       removeAppUrlOpen = () => {

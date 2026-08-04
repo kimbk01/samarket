@@ -141,12 +141,14 @@ public class NativeOAuthLauncherPlugin: CAPPlugin, CAPBridgedPlugin,
       return
     }
 
-    // Success: resolve only. No web callback routing, Supabase exchange, profile, or navigation.
+    // Success: resolve with callback URL for JS bridge (ASWebAuth does not emit Cap appUrlOpen).
+    // Do NOT navigate / exchange / touch profile here — JS deliverNativeOAuthReturnUrl owns that.
     resolvePending(
       kind: "success",
       result: [
         "opened": true,
         "method": "as_web_authentication_session",
+        "callbackUrl": callbackURL.absoluteString,
       ]
     )
   }

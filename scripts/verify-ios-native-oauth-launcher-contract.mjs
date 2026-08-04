@@ -73,6 +73,9 @@ if (!exists(swiftPath)) {
   if (!swift.includes("oauth_launcher_cancelled")) {
     failures.push("iOS NativeOAuthLauncher must map canceledLogin to oauth_launcher_cancelled");
   }
+  if (!swift.includes("callbackUrl")) {
+    failures.push("iOS NativeOAuthLauncher must resolve callbackUrl for JS return bridge");
+  }
   if (!swift.includes("as_web_authentication_session")) {
     failures.push('iOS NativeOAuthLauncher must resolve method "as_web_authentication_session"');
   }
@@ -95,8 +98,19 @@ if (!exists(swiftPath)) {
       failures.push(`iOS NativeOAuthLauncher must not contain ${banned}`);
     }
   }
-  if (swift.includes("callbackURL.absoluteString") || swift.includes("callbackURL.query")) {
-    failures.push("iOS NativeOAuthLauncher must not log callback URL body/query");
+  if (swift.includes("os_log") && swift.includes("callbackURL.absoluteString")) {
+    // Allow resolve payload; forbid logging the absolute string / query.
+    const logBlocks = swift.split("os_log");
+    for (const block of logBlocks.slice(1)) {
+      const head = block.slice(0, 400);
+      if (head.includes("callbackURL.absoluteString") || head.includes("callbackURL.query")) {
+        failures.push("iOS NativeOAuthLauncher must not log callback URL body/query");
+        break;
+      }
+    }
+  }
+  if (/\blogDiag\([\s\S]{0,200}callbackURL\.(absoluteString|query)/.test(swift)) {
+    failures.push("iOS NativeOAuthLauncher must not log callback URL via logDiag");
   }
 }
 
@@ -118,8 +132,11 @@ if (!openNativeTab.includes("as_web_authentication_session")) {
 if (!openNativeTab.includes("oauth_launcher_cancelled")) {
   failures.push("open-native-oauth-tab.ts must map oauth_launcher_cancelled");
 }
-if (!openNativeTab.includes("isNativeOAuthLauncherCancelError")) {
-  failures.push("open-native-oauth-tab.ts must export isNativeOAuthLauncherCancelError");
+if (!openNativeTab.includes("deliverNativeOAuthReturnUrl")) {
+  failures.push("open-native-oauth-tab.ts must bridge ASWebAuth callbackUrl via deliverNativeOAuthReturnUrl");
+}
+if (!openNativeTab.includes("as_web_auth_completion")) {
+  failures.push("open-native-oauth-tab.ts must deliver ASWebAuth returns with via=as_web_auth_completion");
 }
 
 const useOauth = read("lib/auth/oauth/use-oauth-login.ts");

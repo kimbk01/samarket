@@ -6,6 +6,12 @@ const launcherOpen = vi.fn(async (): Promise<NativeOAuthLaunchResult> => ({
   method: "custom_tabs",
 }));
 
+const deliverNativeOAuthReturnUrl = vi.fn(() => ({
+  ok: true as const,
+  webCallbackUrl: "/auth/callback?code=test",
+  navigated: true as const,
+}));
+
 vi.mock("@/lib/platform/capacitor-native", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/platform/capacitor-native")>();
   return {
@@ -29,6 +35,10 @@ vi.mock("@/lib/platform/capacitor-native", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/auth/oauth/native-oauth-return-bridge", () => ({
+  deliverNativeOAuthReturnUrl,
+}));
+
 vi.mock("@capacitor/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@capacitor/core")>();
   return {
@@ -45,6 +55,12 @@ describe("openNativeOAuthTab", () => {
   afterEach(async () => {
     launcherOpen.mockClear();
     launcherOpen.mockResolvedValue({ opened: true, method: "custom_tabs" });
+    deliverNativeOAuthReturnUrl.mockClear();
+    deliverNativeOAuthReturnUrl.mockReturnValue({
+      ok: true,
+      webCallbackUrl: "/auth/callback?code=test",
+      navigated: true,
+    });
     const capacitorNative = await import("@/lib/platform/capacitor-native");
     vi.mocked(capacitorNative.isCapacitorBridgeReady).mockReturnValue(true);
     vi.mocked(capacitorNative.waitForCapacitorBridgeReady).mockResolvedValue(true);
@@ -56,6 +72,7 @@ describe("openNativeOAuthTab", () => {
     const result = await openNativeOAuthTab("https://supabase.example/auth");
     expect(launcherOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth" });
     expect(result).toEqual({ opened: true, method: "custom_tabs" });
+    expect(deliverNativeOAuthReturnUrl).not.toHaveBeenCalled();
   });
 
   it("throws bridge_not_ready without calling plugin open", async () => {
@@ -80,15 +97,33 @@ describe("openNativeOAuthTab", () => {
     });
   });
 
-  it("accepts iOS as_web_authentication_session open result", async () => {
+  it("bridges iOS ASWebAuth callbackUrl into shared return owner", async () => {
+    launcherOpen.mockResolvedValueOnce({
+      opened: true,
+      method: "as_web_authentication_session",
+      callbackUrl: "dibay://auth/callback?code=test",
+    });
+    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    await expect(openNativeOAuthTab("https://supabase.example/auth")).resolves.toMatchObject({
+      opened: true,
+      method: "as_web_authentication_session",
+      callbackDelivered: true,
+    });
+    expect(deliverNativeOAuthReturnUrl).toHaveBeenCalledWith(
+      "dibay://auth/callback?code=test",
+      "as_web_auth_completion",
+    );
+  });
+
+  it("rejects iOS ASWebAuth success without callbackUrl", async () => {
     launcherOpen.mockResolvedValueOnce({
       opened: true,
       method: "as_web_authentication_session",
     });
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
-    await expect(openNativeOAuthTab("https://supabase.example/auth")).resolves.toEqual({
-      opened: true,
-      method: "as_web_authentication_session",
+    await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
+      name: "oauth_tab_open_failed",
+      devCode: "as_web_auth_failed",
     });
   });
 

@@ -43,17 +43,21 @@ Allowed:
 - Open authorize URL in ASWebAuthenticationSession
 - `callbackURLScheme = dibay`
 - Strong-retain session; single settle per attempt
-- Resolve / reject Promise only
+- Resolve Promise with `callbackUrl` (`dibay://auth/callback…`) on success
 
 Forbidden in launcher completion:
 
-- `/auth/callback` navigation
+- Direct WebView `/auth/callback` navigation from Swift
 - Supabase exchange
 - profile / onboarding
 - router navigation
 - logging authorization code / URL query / tokens / email
 
-Session completion authority remains `OAuthReturnListener` + `/auth/callback`.
+JS after resolve (`openNativeOAuthTab`) must call `deliverNativeOAuthReturnUrl`
+(same owner as `OAuthReturnListener` / `appUrlOpen`). ASWebAuth does **not**
+reliably re-emit Capacitor `appUrlOpen` for the callback URL.
+
+Session completion authority remains the shared return bridge → `/auth/callback`.
 
 ## Verify
 
