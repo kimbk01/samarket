@@ -185,7 +185,7 @@ describe("enforceWebOAuthProviderPolicy", () => {
     expect(result.diag.callbackAttemptId).toBe("woc-test-email");
   });
 
-  it("rejects SAME_PROVIDER_SUBJECT_DIFFERENT_USER when identity owner ≠ session", async () => {
+  it("allows rebind when SSOT identity owner ≠ session (FALSE CONFLICT)", async () => {
     const sb = mockSb({
       identities: [
         {
@@ -202,13 +202,36 @@ describe("enforceWebOAuthProviderPolicy", () => {
     const result = await enforceWebOAuthProviderPolicy(sb, googleOAuthUser(), {
       callbackAttemptId: "woc-test-subject",
     });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rebindToUserId).toBe("user-existing");
+    expect(result.diag.conflictReason).toBe("SAME_PROVIDER_SUBJECT_DIFFERENT_USER");
+    expect(result.diag.rejectionBranch).toBe(
+      "existing.user_auth_identities.user_id_mismatch.rebind",
+    );
+    expect(result.diag.policyResult).toBe("allow");
+    expect(result.diag.autoLinkAllowed).toBe(false);
+  });
+
+  it("still rejects profiles_fallback owner mismatch (no email merge / no weak rebind)", async () => {
+    const sb = mockSb({
+      identities: [],
+      profiles: [
+        {
+          id: "profile-owner",
+          provider: "google",
+          provider_user_id: "google-sub-1",
+        },
+        { id: "session-user-new" },
+      ],
+    });
+    const result = await enforceWebOAuthProviderPolicy(sb, googleOAuthUser(), {
+      callbackAttemptId: "woc-test-profile-fallback",
+    });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errorCode).toBe("provider_account_conflict");
-    expect(result.diag.conflictReason).toBe("SAME_PROVIDER_SUBJECT_DIFFERENT_USER");
-    expect(result.diag.sameProviderSubjectMatch).toBe(true);
-    expect(result.diag.rejectionBranch).toBe("existing.user_auth_identities.user_id_mismatch");
-    expect(result.diag.autoLinkAllowed).toBe(false);
+    expect(result.diag.conflictReason).toBe("EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED");
   });
 
   it("allows when session user already owns the google identity", async () => {

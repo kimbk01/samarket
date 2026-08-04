@@ -19,6 +19,7 @@ import {
   persistOAuthProviderIdentity,
 } from "@/lib/auth/provider-identity/web-oauth-policy.server";
 import { newWebOAuthCallbackAttemptId } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
+import { rebindWebOAuthSessionToOwner } from "@/lib/auth/provider-identity/web-oauth-owner-rebind.server";
 
 export const dynamic = "force-dynamic";
 
@@ -140,29 +141,11 @@ export async function GET(req: NextRequest) {
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
 
-      const withdrawalState = await revokeSessionForWithdrawnMember(
-        supabase,
-        response,
-        user.id,
-        writeSb,
-      );
-      if (withdrawalState === "withdrawn") {
-        loginUrl.searchParams.set("auth_error", "account_withdrawn");
-        loginUrl.searchParams.set(
-          "auth_error_detail",
-          "withdrawn_member_cannot_sign_in",
-        );
-        response = NextResponse.redirect(loginUrl);
-        return response;
-      }
-
       const callbackAttemptId = newWebOAuthCallbackAttemptId();
       const providerPolicy = await enforceWebOAuthProviderPolicy(writeSb, mergedUser, {
         callbackAttemptId,
       });
       if (!providerPolicy.ok) {
-        // Session from exchangeCodeForSession is discarded; auth.users / auth.identities
-        // created by Supabase for this attempt are NOT deleted here (orphan risk — see diagnostics).
         await supabase.auth.signOut();
         loginUrl.searchParams.set("auth_error", providerPolicy.errorCode);
         loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
@@ -186,12 +169,66 @@ export async function GET(req: NextRequest) {
         return response;
       }
 
+      let activeUser = mergedUser;
+      if (providerPolicy.rebindToUserId && providerPolicy.candidate) {
+        const adminSb = serviceSb;
+        if (!adminSb) {
+          await supabase.auth.signOut();
+          loginUrl.searchParams.set("auth_error", "oauth_rebind_failed");
+          loginUrl.searchParams.set("auth_error_detail", "supabase_service_role_missing");
+          loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);
+          response = NextResponse.redirect(loginUrl);
+          return response;
+        }
+        const rebind = await rebindWebOAuthSessionToOwner({
+          adminSb,
+          routeSb: supabase,
+          temporaryUser: mergedUser,
+          ownerUserId: providerPolicy.rebindToUserId,
+          candidate: providerPolicy.candidate,
+          callbackAttemptId,
+        });
+        if (!rebind.ok) {
+          loginUrl.searchParams.set("auth_error", rebind.errorCode);
+          loginUrl.searchParams.set("auth_error_detail", rebind.message.slice(0, 300));
+          loginUrl.searchParams.set("auth_callback_attempt", callbackAttemptId);
+          response = NextResponse.redirect(loginUrl);
+          return response;
+        }
+        const ownerMeta =
+          rebind.ownerUser.user_metadata && typeof rebind.ownerUser.user_metadata === "object"
+            ? { ...(rebind.ownerUser.user_metadata as Record<string, unknown>) }
+            : {};
+        if (nick) ownerMeta.nickname = nick;
+        if (localeCookieRaw) {
+          const explicitLocale = parseExplicitAppLanguage(localeCookieRaw);
+          if (explicitLocale) ownerMeta.preferred_language = explicitLocale;
+        }
+        activeUser = { ...rebind.ownerUser, user_metadata: ownerMeta } as User;
+      }
+
+      const withdrawalState = await revokeSessionForWithdrawnMember(
+        supabase,
+        response,
+        activeUser.id,
+        writeSb,
+      );
+      if (withdrawalState === "withdrawn") {
+        loginUrl.searchParams.set("auth_error", "account_withdrawn");
+        loginUrl.searchParams.set(
+          "auth_error_detail",
+          "withdrawn_member_cannot_sign_in",
+        );
+        response = NextResponse.redirect(loginUrl);
+        return response;
+      }
+
       try {
-        await upsertOAuthProfileFromUser(writeSb, mergedUser, {
+        await upsertOAuthProfileFromUser(writeSb, activeUser, {
           nicknameOverride: nick || null,
         });
         if (providerPolicy.candidate) {
-          await persistOAuthProviderIdentity(writeSb, mergedUser.id, providerPolicy.candidate);
+          await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
         }
       } catch {
         /* 클라이언트 ensure 에 맡김 */
@@ -199,13 +236,13 @@ export async function GET(req: NextRequest) {
 
       let onboardingTarget = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
       try {
-        const status = await getOnboardingStatus(writeSb, user.id);
+        const status = await getOnboardingStatus(writeSb, activeUser.id);
         if (status.signupComplete) {
           try {
-            const outcome = await ensureUserProfile(writeSb, mergedUser);
+            const outcome = await ensureUserProfile(writeSb, activeUser);
             if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
               console.warn("[auth/callback] duplicate profile candidate detected", {
-                userId: mergedUser.id,
+                userId: activeUser.id,
                 candidates: outcome.duplicateCandidates,
               });
             }
@@ -225,9 +262,9 @@ export async function GET(req: NextRequest) {
       response.headers.set("Location", onboardingUrl.toString());
 
       const sessionMeta = buildRequestSessionMeta(req);
-      await syncActiveSessionForUser(user.id, response, {
+      await syncActiveSessionForUser(activeUser.id, response, {
         sessionMeta,
-        loginIdentifier: user.email?.trim().toLowerCase() ?? null,
+        loginIdentifier: activeUser.email?.trim().toLowerCase() ?? null,
         request: req,
       });
     }

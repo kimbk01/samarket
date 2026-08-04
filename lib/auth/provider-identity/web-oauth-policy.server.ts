@@ -10,7 +10,6 @@ import {
   hashPrefixForAuthDiag,
   logWebOAuthProviderPolicyDiag,
   newWebOAuthCallbackAttemptId,
-  type WebOAuthConflictReason,
   type WebOAuthPolicyDiag,
 } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
 
@@ -65,7 +64,13 @@ export function buildOAuthUserProviderCandidate(user: User): ProviderIdentityCan
 }
 
 export type WebOAuthProviderPolicyResult =
-  | { ok: true; candidate: ProviderIdentityCandidate | null; diag: WebOAuthPolicyDiag }
+  | {
+      ok: true;
+      candidate: ProviderIdentityCandidate | null;
+      diag: WebOAuthPolicyDiag;
+      /** Same provider subject already owned in user_auth_identities — rebind session to this user. */
+      rebindToUserId?: string;
+    }
   | {
       ok: false;
       errorCode: "provider_email_conflict" | "provider_account_conflict";
@@ -202,16 +207,24 @@ export async function enforceWebOAuthProviderPolicy(
     && resolved.via === "profiles_fallback";
 
   if (resolved.userId !== user.id) {
-    const conflictReason: WebOAuthConflictReason =
-      resolved.via === "user_auth_identities"
-        ? "SAME_PROVIDER_SUBJECT_DIFFERENT_USER"
-        : "EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED";
+    // SSOT owner wins over Supabase-created parallel session user (FALSE CONFLICT rebind).
+    if (resolved.via === "user_auth_identities") {
+      diag.policyResult = "allow";
+      diag.conflictReason = "SAME_PROVIDER_SUBJECT_DIFFERENT_USER";
+      diag.rejectionBranch = "existing.user_auth_identities.user_id_mismatch.rebind";
+      diag.autoLinkAllowed = false;
+      logWebOAuthProviderPolicyDiag(diag);
+      return {
+        ok: true,
+        candidate,
+        diag,
+        rebindToUserId: resolved.userId,
+      };
+    }
+
     diag.policyResult = "reject";
-    diag.conflictReason = conflictReason;
-    diag.rejectionBranch =
-      resolved.via === "user_auth_identities"
-        ? "existing.user_auth_identities.user_id_mismatch"
-        : "existing.profiles_fallback.user_id_mismatch";
+    diag.conflictReason = "EXISTING_PROVIDER_IDENTITY_ALREADY_LINKED";
+    diag.rejectionBranch = "existing.profiles_fallback.user_id_mismatch";
     logWebOAuthProviderPolicyDiag(diag);
     return {
       ok: false,
