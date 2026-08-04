@@ -17,6 +17,7 @@ import {
   bumpAuthLifecycleCounter,
   markAuthLifecycleStage,
 } from "@/lib/auth/oauth/auth-lifecycle-trace";
+import { syncCommonClientSessionAfterAuth } from "@/lib/auth/completion/sync-common-client-session.client";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
@@ -29,7 +30,12 @@ function mapExchangeErrorToNativeAppleError(
   httpStatus?: number,
 ): NativeAppleAuthError {
   const code = String(exchange.errorCode ?? "").trim();
-  if (code === "native_exchange_not_implemented" || code === "native_provider_not_implemented" || httpStatus === 501) {
+  if (
+    code === "native_exchange_not_implemented"
+    || code === "native_provider_not_implemented"
+    || code === "native_exchange_session_unavailable"
+    || httpStatus === 501
+  ) {
     return new NativeAppleAuthError(
       "apple_native_exchange_not_ready",
       exchange.message ?? "Apple native exchange is not ready",
@@ -134,6 +140,22 @@ export async function postNativeAppleExchange(
     provider: "apple",
     note: "exchange_2xx_set_cookie_assumed",
   });
+
+  // Slice 2-2: same client-session contract as Google/Kakao native exchange.
+  // Navigation stays in finishClientAuthLogin → runCommonAuthClientCompletion (no dual completion).
+  const synced = await syncCommonClientSessionAfterAuth();
+  if (!synced) {
+    markAuthLifecycleStage("client_session_visible", {
+      provider: "apple",
+      primed: false,
+      via: "syncCommonClientSessionAfterAuth",
+    });
+    return {
+      ok: false,
+      errorCode: "native_exchange_session_unavailable",
+      message: "Client session was not established after Apple exchange",
+    };
+  }
   return json;
 }
 
