@@ -53,34 +53,17 @@ async function establishOwnerSession(
   }
 
   const ownerEmail = String(owner.email ?? "").trim();
-  if (ownerEmail) {
-    const { data: linkData, error: linkError } = await adminSb.auth.admin.generateLink({
-      type: "magiclink",
-      email: ownerEmail,
-    });
-    const tokenHash = String(
-      (linkData as { properties?: { hashed_token?: string } } | null)?.properties?.hashed_token ?? "",
-    ).trim();
-    if (!linkError && tokenHash) {
-      const { data: verified, error: verifyError } = await routeSb.auth.verifyOtp({
-        type: "email",
-        token_hash: tokenHash,
-      });
-      if (!verifyError && verified.user?.id === ownerUserId) {
-        return verified.user;
-      }
-    }
-  }
-
-  if (candidate.provider !== "google" || !candidate.providerUserId.trim()) {
-    throw new Error("owner_session_reissue_failed");
-  }
-
-  const password = buildGoogleSupabasePassword(candidate.providerUserId);
   if (!ownerEmail) {
     throw new Error("owner_email_missing");
   }
 
+  // Password session only — magiclink/verifyOtp after exchangeCodeForSession corrupts
+  // chunked auth cookies (Invalid UTF-8) and leaves /api/me/* unusable.
+  if (candidate.provider !== "google" || !candidate.providerUserId.trim()) {
+    throw new Error("owner_session_reissue_unsupported_provider");
+  }
+
+  const password = buildGoogleSupabasePassword(candidate.providerUserId);
   const { error: updateError } = await adminSb.auth.admin.updateUserById(ownerUserId, {
     password,
     email_confirm: true,

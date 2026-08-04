@@ -66,6 +66,16 @@ function kakaoProviderOptions(provider: SupabaseOAuthProvider) {
   return provider === "kakao" ? { queryParams: { scope: KAKAO_SCOPE } } : {};
 }
 
+/**
+ * Google account chooser policy (login start only — this module is `/api/auth/oauth/start`):
+ * - Login button / native launcher → `prompt=select_account` (force chooser)
+ * - Account link / auto-restore do NOT use this start route — do not add prompt there
+ * - Apple / Kakao → unchanged (no select_account)
+ */
+function googleLoginProviderOptions(provider: SupabaseOAuthProvider) {
+  return provider === "google" ? { queryParams: { prompt: "select_account" } } : {};
+}
+
 function createOAuthSupabaseClient(cookieStore: OAuthCookieStore, secureCookies: boolean) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -106,6 +116,7 @@ export async function runSupabaseOAuthStart(input: {
       redirectTo,
       skipBrowserRedirect: true,
       ...kakaoProviderOptions(input.provider),
+      ...googleLoginProviderOptions(input.provider),
     },
   });
 

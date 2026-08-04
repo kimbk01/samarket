@@ -63,6 +63,7 @@ describe("/api/auth/oauth/start", () => {
       options: {
         redirectTo: "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=google&next=%2Fmypage",
         skipBrowserRedirect: true,
+        queryParams: { prompt: "select_account" },
       },
     });
   });

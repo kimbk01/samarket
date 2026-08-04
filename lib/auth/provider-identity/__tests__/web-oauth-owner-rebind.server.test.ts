@@ -23,19 +23,16 @@ describe("rebindWebOAuthSessionToOwner", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  it("issues owner session via magiclink and tombstones parallel user (no delete)", async () => {
+  it("issues owner session via password only (no magiclink) and tombstones pad", async () => {
     const signOut = vi.fn(async () => ({ error: null }));
-    const verifyOtp = vi.fn(async () => ({
-      data: { user: makeUser("owner-1", "owner@example.com"), session: {} },
-      error: null,
-    }));
-    const signInWithPassword = vi.fn();
-    const getUserById = vi.fn(async () => ({
+    const verifyOtp = vi.fn();
+    const generateLink = vi.fn();
+    const signInWithPassword = vi.fn(async () => ({
       data: { user: makeUser("owner-1", "owner@example.com") },
       error: null,
     }));
-    const generateLink = vi.fn(async () => ({
-      data: { properties: { hashed_token: "tok-hash" } },
+    const getUserById = vi.fn(async () => ({
+      data: { user: makeUser("owner-1", "owner@example.com") },
       error: null,
     }));
     const updateUserById = vi.fn(async () => ({ data: { user: null }, error: null }));
@@ -66,38 +63,47 @@ describe("rebindWebOAuthSessionToOwner", () => {
     expect(result.ownerUser.id).toBe("owner-1");
     expect(result.disposeMode).toBe("landing_pad_tombstone");
     expect(signOut).toHaveBeenCalledTimes(1);
-    expect(verifyOtp).toHaveBeenCalledWith({ type: "email", token_hash: "tok-hash" });
-    expect(signInWithPassword).not.toHaveBeenCalled();
-    expect(updateUserById).toHaveBeenCalledTimes(1);
-    const updateArgs = updateUserById.mock.calls[0] as unknown as [string, { email?: string }];
-    expect(String(updateArgs[1]?.email)).toContain("@oauth-landing.dibay.internal");
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      email: "owner@example.com",
+      password: "Gg#test-password!",
+    });
+    expect(updateUserById).toHaveBeenCalled();
+    const passwordUpdate = updateUserById.mock.calls[0] as unknown as [
+      string,
+      { password?: string },
+    ];
+    expect(passwordUpdate[0]).toBe("owner-1");
+    expect(passwordUpdate[1]?.password).toBe("Gg#test-password!");
+    const tombstoneCall = (updateUserById.mock.calls as unknown as Array<[string, { email?: string }]>).find(
+      (call) => String(call[1]?.email ?? "").includes("@oauth-landing.dibay.internal"),
+    );
+    expect(tombstoneCall).toBeTruthy();
   });
 
-  it("falls back to password sign-in when magiclink fails", async () => {
+  it("fails closed when owner has no email", async () => {
     const signOut = vi.fn(async () => ({ error: null }));
-    const verifyOtp = vi.fn(async () => ({
-      data: { user: null, session: null },
-      error: { message: "bad token" },
-    }));
-    const signInWithPassword = vi.fn(async () => ({
-      data: { user: makeUser("owner-1", "owner@example.com") },
-      error: null,
-    }));
     const getUserById = vi.fn(async () => ({
-      data: { user: makeUser("owner-1", "owner@example.com") },
+      data: { user: makeUser("owner-1", "") },
       error: null,
     }));
-    const generateLink = vi.fn(async () => ({
-      data: { properties: { hashed_token: "tok-hash" } },
-      error: null,
-    }));
-    const updateUserById = vi.fn(async () => ({ data: { user: null }, error: null }));
 
     const adminSb = {
-      auth: { admin: { getUserById, generateLink, updateUserById } },
+      auth: {
+        admin: {
+          getUserById,
+          updateUserById: vi.fn(),
+          generateLink: vi.fn(),
+        },
+      },
     } as unknown as import("@supabase/supabase-js").SupabaseClient;
     const routeSb = {
-      auth: { signOut, verifyOtp, signInWithPassword },
+      auth: {
+        signOut,
+        signInWithPassword: vi.fn(),
+        verifyOtp: vi.fn(),
+      },
     } as unknown as import("@supabase/supabase-js").SupabaseClient;
 
     const result = await rebindWebOAuthSessionToOwner({
@@ -113,9 +119,9 @@ describe("rebindWebOAuthSessionToOwner", () => {
       callbackAttemptId: "woc-rebind-2",
     });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(signInWithPassword).toHaveBeenCalledTimes(1);
-    expect(result.ownerUser.id).toBe("owner-1");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorCode).toBe("oauth_rebind_failed");
+    expect(result.message).toContain("owner_email_missing");
   });
 });
