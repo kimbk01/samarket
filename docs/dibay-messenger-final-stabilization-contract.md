@@ -1,8 +1,8 @@
 # DIBAY Messenger Final Stabilization Contract
 
-**Status:** PHASE 1–6 PRODUCT CONTRACT (CODE path)  
+**Status:** PRODUCT PASS / HARD LOCK  
 **Date:** 2026-08-04  
-**Implementation status:** CODE PASS (static gates). NOT DEPLOY / RUNTIME / HARD LOCK  
+**Implementation status:** PRODUCT PASS / HARD LOCK (Production SHA `b8899ee71`)  
 **Supersedes:** conflicting Badge Gate 2, product-audit, scroll, and call-unread formulas listed below.
 
 This document fixes the product boundary for stabilization. It does not introduce a new
@@ -150,6 +150,23 @@ the current HEAD.
 
 ## 8. Gate
 
-This contract is `CODE PASS` after implementation, contract tests, and full static
-gates (lint · tsc · i18n · build · related verify). It becomes `HARD LOCK` only after
-the three-device Runtime/red-team matrix passes against the Production SHA.
+This contract reached `CODE PASS` after implementation, contract tests, and full static
+gates (lint · tsc · i18n · build · related verify).
+
+**HARD LOCK (2026-08-04)** — sealed after Production SHA match plus:
+
+| Gate | Evidence |
+|---|---|
+| DEPLOY | Production alias SHA = `b8899ee71` |
+| RUNTIME | Xiaomi / Samsung CDP + iPhone prefs+server authority |
+| RED-TEAM | `scripts/red-team-serial-orchestrator.mjs` (serial VIEWER lock) |
+| Native cold/resume | `scripts/native-cold-resume-surface-gate.ts` |
+
+Re-verify Native cold/resume (regression):
+
+```bash
+npx tsx --env-file=.env.local scripts/native-cold-resume-surface-gate.ts
+```
+
+Evidence directory: `.qa-logs/native-cold-resume-surface-gate/` (and the sealing run under
+`.qa-logs/messenger-final-stabilization-9897fb328/`).
