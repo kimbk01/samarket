@@ -108,7 +108,7 @@ describe("/api/auth/oauth/start", () => {
     });
   });
 
-  it("adds Kakao scope for native JSON launch", async () => {
+  it("adds Kakao scope and select_account for native JSON launch", async () => {
     signInWithOAuth.mockResolvedValue({
       data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=kakao" },
       error: null,
@@ -124,7 +124,10 @@ describe("/api/auth/oauth/start", () => {
       options: {
         redirectTo: "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=kakao",
         skipBrowserRedirect: true,
-        queryParams: { scope: "profile_nickname profile_image" },
+        queryParams: {
+          scope: "profile_nickname profile_image",
+          prompt: "select_account",
+        },
       },
     });
   });
