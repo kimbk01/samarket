@@ -49,8 +49,11 @@ describe("use-oauth-login Apple routing integration", () => {
     expect(snapshot.shellPlatform).toBe("ios");
     expect(snapshot.routing.action).not.toBe("web_oauth_start");
     expect(
-      shouldBlockAppleWebOAuthSafetyNet(snapshot.shellPlatform, "web_oauth_start"),
+      shouldBlockAppleWebOAuthSafetyNet("apple", snapshot.shellPlatform, "web_oauth_start"),
     ).toBe(true);
+    expect(
+      shouldBlockAppleWebOAuthSafetyNet("google", snapshot.shellPlatform, "web_oauth_start"),
+    ).toBe(false);
   });
 
   it("Android Apple keeps web_oauth_start — no iOS-only unavailable path", () => {

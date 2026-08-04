@@ -33,10 +33,27 @@ describe("oauth-provider-routing.client", () => {
     vi.mocked(isNativeAppleLoginAvailable).mockReturnValue(false);
   });
 
-  it("blocks Apple Web OAuth safety net on iOS shell", () => {
-    expect(shouldBlockAppleWebOAuthSafetyNet("ios", "web_oauth_start")).toBe(true);
-    expect(shouldBlockAppleWebOAuthSafetyNet("android", "web_oauth_start")).toBe(false);
-    expect(shouldBlockAppleWebOAuthSafetyNet("ios", "native_provider_login")).toBe(false);
+  it("blocks Apple Web OAuth safety net on iOS shell only for Apple provider", () => {
+    expect(shouldBlockAppleWebOAuthSafetyNet("apple", "ios", "web_oauth_start")).toBe(true);
+    expect(shouldBlockAppleWebOAuthSafetyNet("google", "ios", "web_oauth_start")).toBe(false);
+    expect(shouldBlockAppleWebOAuthSafetyNet("kakao", "ios", "web_oauth_start")).toBe(false);
+    expect(shouldBlockAppleWebOAuthSafetyNet("apple", "android", "web_oauth_start")).toBe(false);
+    expect(shouldBlockAppleWebOAuthSafetyNet("apple", "ios", "native_provider_login")).toBe(false);
+  });
+
+  it("allows iOS Google web_oauth_start (Custom Tab) — not Apple safety net", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    vi.mocked(resolveOAuthRoutingShellPlatform).mockReturnValue("ios");
+
+    const snapshot = resolveOAuthProviderRoutingSnapshot("google");
+    expect(snapshot.routing.action).toBe("web_oauth_start");
+    expect(
+      shouldBlockAppleWebOAuthSafetyNet(
+        snapshot.provider,
+        snapshot.shellPlatform,
+        snapshot.routing.action,
+      ),
+    ).toBe(false);
   });
 
   it("waits for bridge on Apple when OAuth routing shell resolves to ios", () => {

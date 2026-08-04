@@ -64,10 +64,17 @@ export function resolveOAuthProviderRoutingSnapshot(
   };
 }
 
-/** iOS Apple — web_oauth_start가 routing을 통과한 경우 safety net. */
+/** iOS Apple only — web_oauth_start가 Apple routing을 통과한 경우 safety net.
+ * Google iOS는 의도적으로 web_oauth_start(Custom Tab)이므로 provider 없이 막으면 안 된다.
+ */
 export function shouldBlockAppleWebOAuthSafetyNet(
+  provider: OAuthProvider,
   shellPlatform: DibayAppPlatform | null,
   routingAction: OAuthNativeRoutingDecision["action"],
 ): boolean {
-  return shellPlatform === "ios" && routingAction === "web_oauth_start";
+  return (
+    provider === "apple"
+    && shellPlatform === "ios"
+    && routingAction === "web_oauth_start"
+  );
 }

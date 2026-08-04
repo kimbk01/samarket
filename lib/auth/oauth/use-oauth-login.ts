@@ -451,7 +451,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           return;
         }
 
-        if (shouldBlockAppleWebOAuthSafetyNet(shellPlatform, routing.action)) {
+        if (shouldBlockAppleWebOAuthSafetyNet(provider, shellPlatform, routing.action)) {
           clearPending();
           logOAuthNativeEvent("apple_native_blocked", {
             provider: "apple",
