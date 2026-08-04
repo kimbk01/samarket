@@ -19,7 +19,7 @@ import {
   persistOAuthProviderIdentity,
 } from "@/lib/auth/provider-identity/web-oauth-policy.server";
 import { newWebOAuthCallbackAttemptId } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
-import { rebindWebOAuthSessionToOwner } from "@/lib/auth/provider-identity/web-oauth-owner-rebind.server";
+import { rebindWebOAuthSessionToOwner, wipeSupabaseAuthCookies } from "@/lib/auth/provider-identity/web-oauth-owner-rebind.server";
 
 export const dynamic = "force-dynamic";
 
@@ -187,6 +187,7 @@ export async function GET(req: NextRequest) {
           ownerUserId: providerPolicy.rebindToUserId,
           candidate: providerPolicy.candidate,
           callbackAttemptId,
+          wipeAuthCookies: () => wipeSupabaseAuthCookies(req, response),
         });
         if (!rebind.ok) {
           loginUrl.searchParams.set("auth_error", rebind.errorCode);

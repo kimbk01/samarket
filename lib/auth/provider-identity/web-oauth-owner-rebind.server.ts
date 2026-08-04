@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { NextRequest, NextResponse } from "next/server";
 import { buildGoogleSupabasePassword } from "@/lib/auth/native/google-native-session.server";
 import type { ProviderIdentityCandidate } from "@/lib/auth/provider-identity/types";
 import { hashPrefixForAuthDiag } from "@/lib/auth/provider-identity/web-oauth-policy-diagnostics.server";
@@ -40,6 +41,35 @@ function logRebind(payload: Record<string, unknown>): void {
   console.info("[auth/web-oauth-rebind]", JSON.stringify(payload));
 }
 
+/** Supabase SSR chunked session cookies — stale higher chunks cause Invalid UTF-8. */
+export function isSupabaseAuthCookieName(name: string): boolean {
+  if (name.includes("auth-token") || name.includes("code-verifier")) return true;
+  if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) return true;
+  return false;
+}
+
+/**
+ * Expire every auth cookie on the redirect response (request + already-set response).
+ * Required before replacing exchangeCodeForSession cookies with owner password session.
+ */
+export function wipeSupabaseAuthCookies(req: NextRequest, response: NextResponse): number {
+  const names = new Set<string>();
+  for (const cookie of req.cookies.getAll()) names.add(cookie.name);
+  for (const cookie of response.cookies.getAll()) names.add(cookie.name);
+
+  let wiped = 0;
+  for (const name of names) {
+    if (!isSupabaseAuthCookieName(name)) continue;
+    response.cookies.set(name, "", {
+      path: "/",
+      maxAge: 0,
+      sameSite: "lax",
+    });
+    wiped += 1;
+  }
+  return wiped;
+}
+
 async function establishOwnerSession(
   adminSb: SupabaseClient,
   routeSb: SupabaseClient,
@@ -57,8 +87,6 @@ async function establishOwnerSession(
     throw new Error("owner_email_missing");
   }
 
-  // Password session only — magiclink/verifyOtp after exchangeCodeForSession corrupts
-  // chunked auth cookies (Invalid UTF-8) and leaves /api/me/* unusable.
   if (candidate.provider !== "google" || !candidate.providerUserId.trim()) {
     throw new Error("owner_session_reissue_unsupported_provider");
   }
@@ -105,7 +133,6 @@ async function tombstoneLandingPadUser(
     user_metadata: meta,
   });
   if (error) {
-    // Soft failure: session already on owner; pad may remain with real email.
     logRebind({
       event: "landing_pad_tombstone_failed",
       temporaryUserIdHashPrefix: hashPrefixForAuthDiag(temporaryUser.id),
@@ -124,6 +151,7 @@ async function runWebOAuthOwnerRebind(input: {
   ownerUserId: string;
   candidate: ProviderIdentityCandidate;
   callbackAttemptId: string;
+  wipeAuthCookies: () => number;
 }): Promise<WebOAuthOwnerRebindResult> {
   const temporaryUserId = input.temporaryUser.id;
   const ownerUserId = input.ownerUserId.trim();
@@ -157,7 +185,12 @@ async function runWebOAuthOwnerRebind(input: {
   });
 
   try {
-    await input.routeSb.auth.signOut();
+    // 1) Drop exchange session cookies (all chunks) — leftover .N chunks → Invalid UTF-8.
+    const wipedBefore = input.wipeAuthCookies();
+    await input.routeSb.auth.signOut({ scope: "local" });
+    const wipedAfterSignOut = input.wipeAuthCookies();
+
+    // 2) Write a single clean owner session.
     const ownerUser = await establishOwnerSession(
       input.adminSb,
       input.routeSb,
@@ -179,6 +212,8 @@ async function runWebOAuthOwnerRebind(input: {
       temporaryUserIdHashPrefix: hashPrefixForAuthDiag(temporaryUserId),
       ownerUserIdHashPrefix: hashPrefixForAuthDiag(ownerUserId),
       disposeMode,
+      wipedBefore,
+      wipedAfterSignOut,
     });
 
     return {
@@ -199,7 +234,8 @@ async function runWebOAuthOwnerRebind(input: {
       error: message.slice(0, 160),
     });
     try {
-      await input.routeSb.auth.signOut();
+      input.wipeAuthCookies();
+      await input.routeSb.auth.signOut({ scope: "local" });
     } catch {
       /* ignore */
     }
@@ -226,6 +262,7 @@ export async function rebindWebOAuthSessionToOwner(input: {
   ownerUserId: string;
   candidate: ProviderIdentityCandidate;
   callbackAttemptId: string;
+  wipeAuthCookies: () => number;
 }): Promise<WebOAuthOwnerRebindResult> {
   const key = flightKey(input.candidate.provider, input.candidate.providerUserId);
   const existing = rebindFlights.get(key);

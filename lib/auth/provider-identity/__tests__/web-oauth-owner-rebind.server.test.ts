@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { User } from "@supabase/supabase-js";
-import { rebindWebOAuthSessionToOwner } from "@/lib/auth/provider-identity/web-oauth-owner-rebind.server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  isSupabaseAuthCookieName,
+  rebindWebOAuthSessionToOwner,
+  wipeSupabaseAuthCookies,
+} from "@/lib/auth/provider-identity/web-oauth-owner-rebind.server";
 
 vi.mock("@/lib/auth/native/google-native-session.server", () => ({
   buildGoogleSupabasePassword: () => "Gg#test-password!",
@@ -17,13 +22,30 @@ function makeUser(id: string, email: string): User {
   } as User;
 }
 
+describe("wipeSupabaseAuthCookies", () => {
+  it("expires chunked auth-token cookies", () => {
+    const req = new NextRequest("https://samarket.vercel.app/auth/callback", {
+      headers: {
+        cookie: "sb-x-auth-token.0=aaa; sb-x-auth-token.1=bbb; other=keep",
+      },
+    });
+    const res = NextResponse.redirect("https://samarket.vercel.app/");
+    const wiped = wipeSupabaseAuthCookies(req, res);
+    expect(wiped).toBeGreaterThanOrEqual(2);
+    expect(isSupabaseAuthCookieName("sb-x-auth-token.0")).toBe(true);
+    expect(isSupabaseAuthCookieName("other")).toBe(false);
+    expect(res.cookies.get("sb-x-auth-token.0")?.value).toBe("");
+  });
+});
+
 describe("rebindWebOAuthSessionToOwner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
-  it("issues owner session via password only (no magiclink) and tombstones pad", async () => {
+  it("wipes auth cookies then password-signs owner (no magiclink)", async () => {
+    const wipeAuthCookies = vi.fn(() => 3);
     const signOut = vi.fn(async () => ({ error: null }));
     const verifyOtp = vi.fn();
     const generateLink = vi.fn();
@@ -56,72 +78,18 @@ describe("rebindWebOAuthSessionToOwner", () => {
         emailVerified: true,
       },
       callbackAttemptId: "woc-rebind-1",
+      wipeAuthCookies,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.ownerUser.id).toBe("owner-1");
-    expect(result.disposeMode).toBe("landing_pad_tombstone");
-    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(wipeAuthCookies).toHaveBeenCalled();
+    expect(wipeAuthCookies.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(generateLink).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "owner@example.com",
       password: "Gg#test-password!",
     });
-    expect(updateUserById).toHaveBeenCalled();
-    const passwordUpdate = updateUserById.mock.calls[0] as unknown as [
-      string,
-      { password?: string },
-    ];
-    expect(passwordUpdate[0]).toBe("owner-1");
-    expect(passwordUpdate[1]?.password).toBe("Gg#test-password!");
-    const tombstoneCall = (updateUserById.mock.calls as unknown as Array<[string, { email?: string }]>).find(
-      (call) => String(call[1]?.email ?? "").includes("@oauth-landing.dibay.internal"),
-    );
-    expect(tombstoneCall).toBeTruthy();
-  });
-
-  it("fails closed when owner has no email", async () => {
-    const signOut = vi.fn(async () => ({ error: null }));
-    const getUserById = vi.fn(async () => ({
-      data: { user: makeUser("owner-1", "") },
-      error: null,
-    }));
-
-    const adminSb = {
-      auth: {
-        admin: {
-          getUserById,
-          updateUserById: vi.fn(),
-          generateLink: vi.fn(),
-        },
-      },
-    } as unknown as import("@supabase/supabase-js").SupabaseClient;
-    const routeSb = {
-      auth: {
-        signOut,
-        signInWithPassword: vi.fn(),
-        verifyOtp: vi.fn(),
-      },
-    } as unknown as import("@supabase/supabase-js").SupabaseClient;
-
-    const result = await rebindWebOAuthSessionToOwner({
-      adminSb,
-      routeSb,
-      temporaryUser: makeUser("temp-2", "temp2@gmail.com"),
-      ownerUserId: "owner-1",
-      candidate: {
-        provider: "google",
-        providerUserId: "gid-2",
-        email: null,
-      },
-      callbackAttemptId: "woc-rebind-2",
-    });
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errorCode).toBe("oauth_rebind_failed");
-    expect(result.message).toContain("owner_email_missing");
   });
 });
