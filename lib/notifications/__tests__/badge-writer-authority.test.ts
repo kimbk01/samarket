@@ -171,14 +171,37 @@ describe("Phase 2-2 Badge Writer Authority SSOT", () => {
     });
     // App Icon = GD+Group+Trade+Customer (+A when present); owner rooms excluded.
     // Bottom = GD+Group+Trade+Customer.
+    // domainAppIcon.storeOrder = customer only (2); missedCall legacy field = notification axis (0).
     const match = assertExplainMatchesProjection({
       explainMatrix,
       projection: { appIconTotal: 6, bottomChatTotal: 6 },
-      domainAppIcon: { messenger: 3, trade: 1, storeOrder: 3, missedCall: 0 },
+      domainAppIcon: { messenger: 3, trade: 1, storeOrder: 2, missedCall: 0 },
       storeOrderBuyerDeliveryUnread: 2,
       storeOrderOwnerChatUnread: 1,
       domainUnreadRooms: { trade: 1 },
     });
     expect(match).toEqual({ ok: true, errors: [] });
+  });
+
+  it("Explain assert rejects folding Owner into Member storeOrder", () => {
+    const explainMatrix = buildBadgeExplainMatrix({
+      generalDirectRoomIds: ["a"],
+      groupRoomIds: [],
+      tradeRoomIds: [],
+      customerOrderRoomIds: ["c1"],
+      ownerOrderRoomIds: ["o1"],
+      orphanMissedCallCount: 0,
+    });
+    const match = assertExplainMatchesProjection({
+      explainMatrix,
+      projection: { appIconTotal: 2, bottomChatTotal: 2 },
+      // Wrong: buyer(1)+owner(1) folded into Member storeOrder
+      domainAppIcon: { messenger: 1, trade: 0, storeOrder: 2, missedCall: 0 },
+      storeOrderBuyerDeliveryUnread: 1,
+      storeOrderOwnerChatUnread: 1,
+      domainUnreadRooms: { trade: 0 },
+    });
+    expect(match.ok).toBe(false);
+    expect(match.errors.some((e) => e.includes("storeOrder!=explain.customer"))).toBe(true);
   });
 });

@@ -38,7 +38,7 @@ describe("Phase 2-3 Badge Transition Matrix", () => {
     }
   });
 
-  it("General / Group → AppIcon+1 Bottom+1; Trade/Customer/Owner isolate axes", () => {
+  it("first-unread: Trade/Customer in Bottom; Owner isolated from Member App Icon", () => {
     expect(getTransitionSpec("general_message_first_unread").expectedDelta).toEqual({
       appIcon: 1,
       bottom: 1,
@@ -49,7 +49,7 @@ describe("Phase 2-3 Badge Transition Matrix", () => {
     });
     expect(getTransitionSpec("trade_message_first_unread").expectedDelta).toEqual({
       appIcon: 1,
-      bottom: 0,
+      bottom: 1,
       trade: 1,
       customer: 0,
       owner: 0,
@@ -57,14 +57,14 @@ describe("Phase 2-3 Badge Transition Matrix", () => {
     });
     expect(getTransitionSpec("customer_order_message_first_unread").expectedDelta).toEqual({
       appIcon: 1,
-      bottom: 0,
+      bottom: 1,
       trade: 0,
       customer: 1,
       owner: 0,
       missedCall: 0,
     });
     expect(getTransitionSpec("owner_order_message_first_unread").expectedDelta).toEqual({
-      appIcon: 1,
+      appIcon: 0,
       bottom: 0,
       trade: 0,
       customer: 0,
@@ -95,7 +95,7 @@ describe("Phase 2-3 Badge Transition Matrix", () => {
     });
     expect(expectedMarkReadDelta("trade")).toEqual({
       appIcon: -1,
-      bottom: 0,
+      bottom: -1,
       trade: -1,
       customer: 0,
       owner: 0,
@@ -103,14 +103,14 @@ describe("Phase 2-3 Badge Transition Matrix", () => {
     });
     expect(expectedMarkReadDelta("customer")).toEqual({
       appIcon: -1,
-      bottom: 0,
+      bottom: -1,
       trade: 0,
       customer: -1,
       owner: 0,
       missedCall: 0,
     });
     expect(expectedMarkReadDelta("owner")).toEqual({
-      appIcon: -1,
+      appIcon: 0,
       bottom: 0,
       trade: 0,
       customer: 0,

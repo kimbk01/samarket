@@ -22,6 +22,7 @@ import {
   type BadgeExplainSnap,
   type BadgeSurfaceDelta,
 } from "@/lib/notifications/badge-lifecycle-transition-matrix";
+import { withRedTeamViewerLock } from "./qa/lib/red-team-viewer-lock.mjs";
 
 const OUT = join(process.cwd(), ".qa-logs/badge-ssot-phase2");
 mkdirSync(OUT, { recursive: true });
@@ -214,7 +215,7 @@ async function runFirstUnread(
   return evalDelta(event, pre.snap, post.snap, expected, post.chain.ok);
 }
 
-async function main() {
+async function mainUnlocked() {
   const rooms = await pickRooms();
   const results: CaseResult[] = [];
 
@@ -562,10 +563,22 @@ async function main() {
     );
   }
   console.log(JSON.stringify({ pass: report.pass, summary: report.summary }, null, 2));
-  process.exit(pass ? 0 : 1);
+  return pass;
+}
+
+async function main() {
+  const ok = await withRedTeamViewerLock(
+    {
+      viewerId: VIEWER,
+      owner: "badge-lifecycle-transition-runtime",
+      script: "scripts/badge-lifecycle-transition-runtime.ts",
+    },
+    mainUnlocked
+  );
+  process.exit(ok ? 0 : 1);
 }
 
 main().catch((e) => {
   console.error(e);
-  process.exit(1);
+  process.exit((e as { code?: string })?.code === "RED_TEAM_LOCK_HELD" ? 3 : 1);
 });

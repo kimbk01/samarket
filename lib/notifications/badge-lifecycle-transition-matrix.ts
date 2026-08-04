@@ -71,17 +71,19 @@ export const BADGE_TRANSITION_MATRIX: readonly BadgeTransitionSpec[] = [
   {
     event: "trade_message_first_unread",
     label: "Trade message → room enters unread set",
-    expectedDelta: d({ appIcon: 1, trade: 1 }),
+    // Bottom includes Trade (GD+Group+Trade+Customer).
+    expectedDelta: d({ appIcon: 1, bottom: 1, trade: 1 }),
   },
   {
     event: "customer_order_message_first_unread",
     label: "Customer order message → room enters unread set",
-    expectedDelta: d({ appIcon: 1, customer: 1 }),
+    expectedDelta: d({ appIcon: 1, bottom: 1, customer: 1 }),
   },
   {
     event: "owner_order_message_first_unread",
     label: "Owner order message → room enters unread set",
-    expectedDelta: d({ appIcon: 1, owner: 1 }),
+    // Owner is Owner surface only — not Member App Icon / Bottom.
+    expectedDelta: d({ owner: 1 }),
   },
   {
     event: "additional_message_same_unread_room",
@@ -218,11 +220,16 @@ export function expectedMarkReadDelta(
     case "group":
       return d({ appIcon: -1, bottom: -1 });
     case "trade":
-      return d({ appIcon: -1, trade: -1 });
+      return d({ appIcon: -1, bottom: -1, trade: -1 });
     case "customer":
-      return d({ appIcon: -1, customer: -1 });
+      return d({ appIcon: -1, bottom: -1, customer: -1 });
     case "owner":
-      return d({ appIcon: -1, owner: -1 });
+      // Owner clear does not move Member App Icon / Bottom.
+      return d({ owner: -1 });
+    default: {
+      const _x: never = domain;
+      return _x;
+    }
   }
 }
 

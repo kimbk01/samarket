@@ -224,6 +224,12 @@ export type DomainBadgeExplainProjectionMatchInput = Readonly<{
 /**
  * Explain Matrix == Projection (Authority digits).
  * Surface stores are client-side echoes of the same Apply — Phase 2-2 server/runtime gate.
+ *
+ * Member App Icon axes (approved formula):
+ * - storeOrder = customer/buyer rooms only (Owner excluded from Member domainAppIcon.storeOrder)
+ * - missedCall field (legacy name) = notificationAttention / Member A axis on App Icon
+ *   = explain.appIcon.total − (GD+Group+Trade+Customer), NOT orphan event count alone
+ * Owner rooms stay on explain.owner / expectedOwnerTotal — never folded into Member storeOrder.
  */
 export function assertExplainMatchesProjection(
   input: DomainBadgeExplainProjectionMatchInput
@@ -241,18 +247,30 @@ export function assertExplainMatchesProjection(
 
   const m = input.explainMatrix;
   const messenger = m.appIcon.general.count + m.appIcon.group.count;
-  const store = m.appIcon.customerOrder.count + m.appIcon.ownerOrder.count;
+  /** Member storeOrder axis — customer only; Owner must not be added here. */
+  const storeCustomerOnly = m.appIcon.customerOrder.count;
+  const memberRoomSum =
+    m.appIcon.general.count +
+    m.appIcon.group.count +
+    m.appIcon.trade.count +
+    m.appIcon.customerOrder.count;
+  /** Canonical App Icon notification axis (A / notificationAttention); legacy field name missedCall. */
+  const notificationAxis = Math.max(0, m.appIcon.total - memberRoomSum);
   if (input.domainAppIcon.messenger !== messenger) {
     errors.push(`domainAppIcon.messenger!=explain (${input.domainAppIcon.messenger}!=${messenger})`);
   }
   if (input.domainAppIcon.trade !== m.appIcon.trade.count) {
     errors.push(`domainAppIcon.trade!=explain`);
   }
-  if (input.domainAppIcon.storeOrder !== store) {
-    errors.push(`domainAppIcon.storeOrder!=explain`);
+  if (input.domainAppIcon.storeOrder !== storeCustomerOnly) {
+    errors.push(
+      `domainAppIcon.storeOrder!=explain.customer (${input.domainAppIcon.storeOrder}!=${storeCustomerOnly})`
+    );
   }
-  if (input.domainAppIcon.missedCall !== m.appIcon.missedCall.count) {
-    errors.push(`domainAppIcon.missedCall!=explain`);
+  if (input.domainAppIcon.missedCall !== notificationAxis) {
+    errors.push(
+      `domainAppIcon.missedCall!=explain.notificationAxis (${input.domainAppIcon.missedCall}!=${notificationAxis})`
+    );
   }
   if (m.appIcon.total !== input.projection.appIconTotal) {
     errors.push("explain.appIcon!=projection.appIconTotal");
