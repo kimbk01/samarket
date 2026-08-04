@@ -42,13 +42,13 @@
 	<key>DibayBuildConfiguration</key>
 	<string>debug</string>
 	<key>DibayBuildTimestamp</key>
-	<string>2026-08-04T01:01:44.670Z</string>
+	<string>2026-08-04T01:09:32.603Z</string>
 	<key>DibayGitDirty</key>
 	<string>true</string>
 	<key>DibayGitSha</key>
-	<string>984c6c96656a</string>
+	<string>4f9071f7e0d9</string>
 	<key>DibayGitShaFull</key>
-	<string>984c6c96656ae21d076581a0a8c0070529f83a9c</string>
+	<string>4f9071f7e0d9341ca29744f3648300be56051cac</string>
 	<key>KAKAO_NATIVE_APP_KEY</key>
 	<string>$(KAKAO_NATIVE_APP_KEY)</string>
 	<key>LSApplicationQueriesSchemes</key>
