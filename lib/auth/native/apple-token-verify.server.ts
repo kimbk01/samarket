@@ -31,7 +31,6 @@ export class AppleTokenVerifyError extends Error {
   }
 }
 
-const MAX_TOKEN_AGE_SEC = 10 * 60;
 const MAX_CLOCK_SKEW_SEC = 60;
 
 function readAudClaim(aud: JWTPayload["aud"]): string | null {
@@ -47,6 +46,12 @@ function hashNonceForApple(rawNonce: string): string {
   return createHash("sha256").update(rawNonce).digest("hex");
 }
 
+/**
+ * iat presence + not-in-future only.
+ * Lifetime vs now is jose jwtVerify (exp/nbf + clockTolerance).
+ * DO NOT reintroduce exp−iat maximum-window rejection — Apple SIWA tokens may use
+ * a 24h claim window; that is not a DIBAY security contract (incident 2026-08-04).
+ */
 function assertIatValid(payload: JWTPayload): void {
   const nowSec = Math.floor(Date.now() / 1000);
   const iat = typeof payload.iat === "number" ? payload.iat : null;
@@ -55,10 +60,6 @@ function assertIatValid(payload: JWTPayload): void {
   }
   if (iat > nowSec + MAX_CLOCK_SKEW_SEC) {
     throw new AppleTokenVerifyError("apple_token_verify_failed", "Apple identity token iat is in the future");
-  }
-  const exp = typeof payload.exp === "number" ? payload.exp : null;
-  if (exp != null && exp - iat > MAX_TOKEN_AGE_SEC + MAX_CLOCK_SKEW_SEC) {
-    throw new AppleTokenVerifyError("apple_token_verify_failed", "Apple identity token lifetime is invalid");
   }
 }
 

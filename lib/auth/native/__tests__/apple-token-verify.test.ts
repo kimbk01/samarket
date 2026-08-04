@@ -125,6 +125,13 @@ describe("apple-token-verify.server", () => {
     expect(verified.aud).toBe(TEST_AUD);
   });
 
+  it("accepts Apple identity token with 24h exp−iat claim window (jose exp still valid)", async () => {
+    const token = await signToken({}, { expiresInSec: 86_400 });
+    const verified = await verifyAppleIdentityToken({ identityToken: token });
+    expect(verified.sub).toBe(TEST_SUB);
+    expect(verified.aud).toBe(TEST_AUD);
+  });
+
   it("classifies verify errors for HTTP mapping", () => {
     const malformed = new AppleTokenVerifyError("malformed_token", "bad");
     const invalid = new AppleTokenVerifyError("apple_token_verify_failed", "bad");
