@@ -34,10 +34,10 @@ keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -
 ## iOS
 
 1. Kakao Developers — iOS bundle **`com.dibay.app`**
-2. `Kakao.local.xcconfig.example` → `Kakao.local.xcconfig` (gitignored)
-3. `Info.plist`: `KAKAO_NATIVE_APP_KEY` = `$(KAKAO_NATIVE_APP_KEY)`, URL scheme = **`kakao$(KAKAO_NATIVE_APP_KEY)`**
-4. `AppDelegate` — `AuthController.handleOpenUrl` (카카오톡 + 계정 로그인 oauth)
-5. Xcode SPM: `kakao-ios-sdk` (project.pbxproj)
+2. **제품 경로 (2026-08-04):** iOS Capacitor 카카오는 **Supabase Web OAuth + Custom Tab** (`web_oauth_start`).  
+   Native `loginWithKakaoTalk` 복귀는 실측상 `open_url handled=1` 이후 token callback 미도착 → 사용 중단. Google iOS 와 동일 계열.
+3. Android 만 Native Kakao SDK (`Talk → Account fallback`) 유지.
+4. `Kakao.local.xcconfig` / Info.plist scheme 은 Android·향후 Native 재개용으로 유지 가능.
 
 ## 서버 exchange
 

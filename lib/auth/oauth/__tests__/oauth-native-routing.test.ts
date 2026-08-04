@@ -81,6 +81,7 @@ describe("oauth-native-routing", () => {
       resolveOAuthNativeRoutingDecision({
         provider: "kakao",
         isNativeAppShell: true,
+        shellPlatform: "android",
         isNativeProviderAvailable: () => true,
       }),
     ).toEqual({ action: "native_provider_login" });
@@ -94,11 +95,26 @@ describe("oauth-native-routing", () => {
     ).toEqual({ action: "native_provider_login" });
   });
 
-  it("blocks kakao on native app when SDK unavailable", () => {
+  it("uses web OAuth for kakao on iOS native shell (Talk return broken)", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "kakao",
         isNativeAppShell: true,
+        shellPlatform: "ios",
+        isNativeProviderAvailable: () => true,
+      }),
+    ).toEqual({
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "ios_kakao_web_oauth_by_design",
+    });
+  });
+
+  it("blocks kakao on Android native app when SDK unavailable", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "kakao",
+        isNativeAppShell: true,
+        shellPlatform: "android",
         isNativeProviderAvailable: () => false,
       }),
     ).toEqual({

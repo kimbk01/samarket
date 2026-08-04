@@ -91,6 +91,18 @@ export function resolveOAuthNativeRoutingDecision(input: {
   }
 
   /**
+   * iOS Capacitor — Kakao Native Talk 복귀는 handled=1 이후 token callback 미도착이 실측됨.
+   * Google iOS 와 동일하게 Supabase Web OAuth + Custom Tab 사용 (레거시 Capacitor 경로).
+   * Android Kakao 는 Native SDK 유지.
+   */
+  if (provider === "kakao" && shellPlatform === "ios") {
+    return {
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "ios_kakao_web_oauth_by_design",
+    };
+  }
+
+  /**
    * Android Capacitor — Apple Native SDK 없음. Supabase Web OAuth / Custom Tab 허용.
    */
   if (provider === "apple" && shellPlatform === "android") {
