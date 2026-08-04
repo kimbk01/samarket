@@ -6,6 +6,7 @@
  */
 
 import { invalidateAppBootAll } from "@/components/app/AppBootProvider";
+import { flushAndroidAuthCookies } from "@/lib/auth/android-cookie-durability.client";
 import { clearTradeChatRoomClientCache } from "@/lib/chat/createOrGetChatRoom";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
@@ -214,6 +215,14 @@ async function runWipeClientSessionState(
   reason: ClientSessionWipeReason,
   setPostLogoutGuard: boolean
 ): Promise<void> {
+  /**
+   * Caller order: supabase.auth.signOut (SSR cookie clear via document.cookie)
+   * → wipe. Flush after that clear so CookieManager disk drops auth cookies.
+   * No fixed delay; browser clear is sync into CookieManager memory before wipe.
+   */
+  if (reason === "user_logout" || reason === "account_switched") {
+    await flushAndroidAuthCookies("logout_wipe");
+  }
   if (reason === "user_logout" || reason === "account_switched") {
     await revokeNativeKakaoSessionIfAvailable();
     await revokeNativeGoogleSessionIfAvailable();

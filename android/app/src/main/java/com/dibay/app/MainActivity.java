@@ -22,6 +22,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.graphics.Color;
 import android.os.SystemClock;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -1514,6 +1515,22 @@ public class MainActivity extends BridgeActivity {
       if (path == null || path.isEmpty()) return "";
       if (!path.startsWith("/")) return "";
       return path.trim();
+    }
+
+    /**
+     * Persist WebView CookieManager memory cookies to disk (auth SSR cookies).
+     * Idempotent; does not read or copy cookie/token values.
+     */
+    @JavascriptInterface
+    public boolean flushAuthCookies() {
+      try {
+        CookieManager.getInstance().flush();
+        Log.i(WEBVIEW_LOG_TAG, "flushAuthCookies ok");
+        return true;
+      } catch (Exception e) {
+        Log.w(WEBVIEW_LOG_TAG, "flushAuthCookies failed");
+        return false;
+      }
     }
   }
 

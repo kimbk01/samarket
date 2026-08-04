@@ -1,6 +1,7 @@
 "use client";
 
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { flushAndroidAuthCookies } from "@/lib/auth/android-cookie-durability.client";
 import { primeClientAuthSessionFromSupabase } from "@/lib/auth/auth-session-immediate.client";
 import {
   clearPostLogoutBfcacheGuard,
@@ -91,6 +92,14 @@ export async function runCommonAuthClientCompletion(
     });
   }
 
+  // Android: persist CookieManager memory cookies to disk before navigation.
+  // Old APK without bridge → bridge_unavailable (continue). Flush false → fail completion.
+  const cookieFlush = await flushAndroidAuthCookies("login_completion");
+  if (cookieFlush === "flush_failed") {
+    completeAuthLifecycle("fail", { reason: "android_cookie_flush_failed" });
+    return;
+  }
+
   const target = input.destination.trim();
   if (!target) {
     completeAuthLifecycle("fail", { reason: "empty_destination" });
@@ -101,6 +110,7 @@ export async function runCommonAuthClientCompletion(
   markAuthLifecycleStage("navigation_committed", {
     target,
     via: "runCommonAuthClientCompletion",
+    androidCookieFlush: cookieFlush,
   });
 
   // Slice 2-6: move after Auth Entry 440ms. Interim policy is single-nav.
