@@ -108,7 +108,7 @@ describe("/api/auth/oauth/start", () => {
     });
   });
 
-  it("adds Kakao scope and select_account for native JSON launch", async () => {
+  it("adds Kakao scope and prompt=login for native JSON launch", async () => {
     signInWithOAuth.mockResolvedValue({
       data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=kakao" },
       error: null,
@@ -126,7 +126,7 @@ describe("/api/auth/oauth/start", () => {
         skipBrowserRedirect: true,
         queryParams: {
           scope: "profile_nickname profile_image",
-          prompt: "select_account",
+          prompt: "login",
         },
       },
     });

@@ -63,9 +63,11 @@ export function buildOAuthRedirectTo(
 }
 
 /**
- * Account chooser policy (login start only — this module is `/api/auth/oauth/start`):
- * - Google / Kakao login button → `prompt=select_account` (force chooser / ID pick)
- * - Account link / auto-restore do NOT use this start route — do not add prompt there
+ * Account chooser / re-auth policy (login start only — `/api/auth/oauth/start`):
+ * - Google → `prompt=select_account` (account picker)
+ * - Kakao → `prompt=login` (force Kakao Account ID login screen; select_account
+ *   auto-logs in when a single browser session exists — proven against kauth)
+ * - Account link / auto-restore do NOT use this start route
  * - Apple → unchanged (system sheet owns account UI)
  */
 function oauthLoginProviderOptions(
@@ -78,7 +80,7 @@ function oauthLoginProviderOptions(
     return {
       queryParams: {
         scope: KAKAO_SCOPE,
-        prompt: "select_account",
+        prompt: "login",
       },
     };
   }
