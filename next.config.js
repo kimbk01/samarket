@@ -104,6 +104,20 @@ const nextConfig = {
       { protocol: "http", hostname: "localhost", pathname: "/storage/v1/render/image/public/**" },
     ],
   },
+  /**
+   * App CS Slice1 — legacy support stub must be a real HTTP redirect.
+   * `redirect()` in RSC alone returns 200 + NEXT_REDIRECT digest (CSR bailout),
+   * so Capacitor WebView / CDP stay on /mypage/section/settings/support.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/mypage/section/settings/support",
+        destination: "/mypage/customer-center",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
