@@ -26,9 +26,9 @@ Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may 
 | Asset | Path | Tag | When |
 |-------|------|-----|------|
 | Merge helper | `lib/notifications/member-notices-ssot.ts` | REPLACE예정 | Phase 2 board-only; Phase 7 drop if unused |
-| Settings notices push half | `app/api/me/settings/notices/route.ts` | REPLACE예정 | **Phase 2 authority** |
-| NoticesContent push UX | `components/my/settings/NoticesContent.tsx` | REPLACE예정 | **Phase 2** |
-| member-notices-ssot tests | `lib/notifications/__tests__/member-notices-ssot.test.ts` | REPLACE예정 | Align Phase 2 |
+| Settings notices push half | `app/api/me/settings/notices/route.ts` | REPLACE완료 | Phase 2 authority applied — board-only |
+| NoticesContent push UX | `components/my/settings/NoticesContent.tsx` | REPLACE완료 | Phase 2 — no push merge |
+| member-notices-ssot tests | `lib/notifications/__tests__/member-notices-ssot.test.ts` | REPLACE예정 | Align / drop with helper Phase 7+ LOCK |
 | Broken Admin create/edit hrefs | `AdminAppNoticesPage` links | REPLACE예정 | Phase 2 CRUD |
 | Admin notices shell | `app/admin/app/notices/*`, `AdminAppNoticesPage` | KEEP | Extend Phase 2 |
 | Campaign Engine | `lib/admin/notification-campaigns/*`, `/admin/notifications` | KEEP | |
@@ -128,3 +128,4 @@ See prior sections in git history of this file / `phase-roadmap.md`. Do **not** 
 | 2026-08-05 | Phase 5 Slice 1 — notes→admin_notice → REPLACE진행 (typed Inquiry/Inbox writer; dual-read) |
 | 2026-08-06 | Phase 5 Slice 2 — Campaign notice/system→admin_notice → REPLACE진행 (`notice_published`) |
 | 2026-08-06 | Phase 7 — Settings events stub → REMOVE완료 (user lock: REMOVE/DELETE only) |
+| 2026-08-06 | Phase 7.5 audit — Settings notices push-merge tags → REPLACE완료 (authority already applied) |
