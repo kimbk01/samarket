@@ -137,6 +137,35 @@ if (!googleEnv.includes("AUTH_GOOGLE_NATIVE_WEB_CLIENT_ID")) {
   failures.push("google-auth-env.server.ts must read AUTH_GOOGLE_NATIVE_WEB_CLIENT_ID");
 }
 
+// Slice 7-2 PLAN_G2 — Google Profile Writer: reconcile → enrich(true)×1 → persist → identityRow → hardGate
+{
+  const gs = googleSession;
+  if (gs.includes("enrichMemberProfile: false")) {
+    failures.push("Slice 7-2: google-native-session must not call ensureAuthProfileForLogin(enrich=false)");
+  }
+  const ensureCount = (gs.match(/await ensureAuthProfileForLogin\(/g) || []).length;
+  if (ensureCount !== 1) {
+    failures.push(`Slice 7-2: google-native-session must call ensureAuthProfileForLogin exactly once (got ${ensureCount})`);
+  }
+  const iReconcile = gs.indexOf("await reconcileGoogleNativeProviderProfileConflict(");
+  const iTrue = gs.indexOf("enrichMemberProfile: true");
+  const iPersist = gs.indexOf("await persistGoogleProfileIdentity(");
+  const iIdentityRow = gs.indexOf("await ensureProviderAuthIdentityRow(");
+  const iHard = gs.indexOf("await ensureProfileForUserId(");
+  if (iReconcile < 0 || iTrue < 0 || iPersist < 0 || iIdentityRow < 0 || iHard < 0) {
+    failures.push(
+      "Slice 7-2: google-native-session must retain reconcile→true→persist→identityRow→hardGate writers",
+    );
+  } else if (!(iReconcile < iTrue && iTrue < iPersist && iPersist < iIdentityRow && iIdentityRow < iHard)) {
+    failures.push(
+      "Slice 7-2: google writer order must be reconcile→ensure(true)→persistGoogle→identityRow→ensureProfileForUserId",
+    );
+  }
+  if (!googleStart.includes("completeNativeGoogleSession") || !googleStart.includes("recovered: true")) {
+    failures.push("Slice 7-2: recover must reuse completeNativeGoogleSession (same exchange/session stack)");
+  }
+}
+
 if (failures.length > 0) {
   console.error("verify:google-native-contract FAIL\n");
   for (const f of failures) {

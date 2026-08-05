@@ -319,15 +319,8 @@ export async function establishGoogleNativeSession(
       ? input.verified.email.trim().toLowerCase()
       : null;
 
-  // Slice 6-2: preserve pending → reconcile → ensure order via facade stages.
-  try {
-    await ensureAuthProfileForLogin(ctx.adminSb, syntheticUser, {
-      enrichMemberProfile: false,
-    });
-  } catch {
-    /* 클라 ensure 폴백 */
-  }
-
+  // Slice 7-2 PLAN_G2: reconcile before enrich; single ensureAuthProfileForLogin(true)
+  // absorbs pending + member ensure (no pre-reconcile enrich=false facade).
   await reconcileGoogleNativeProviderProfileConflict(
     ctx.adminSb,
     signedUser.id,
