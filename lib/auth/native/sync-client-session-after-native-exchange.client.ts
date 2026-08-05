@@ -18,8 +18,14 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 export const NATIVE_EXCHANGE_SESSION_READY_MS = 2_000;
 
 /**
- * POST /api/auth/native/exchange 직후 — guest gate 해제·쿠키 세션 동기화·프로필 캐시 priming.
+ * IMPLEMENTATION DETAIL for syncCommonClientSessionAfterAuth (Slice 6-3/6-6).
+ *
+ * guest gate 해제·쿠키 세션 동기화·프로필 캐시 priming.
  * exchange 성공인데 마이페이지 게스트로 남는 레이스(401 → establishGuestAuthState) 방지.
+ *
+ * QUARANTINE (entry): Production Auth entry / Provider start / exchange helpers must NOT
+ * import or call this symbol. Production owner is syncCommonClientSessionAfterAuth.
+ * Tests may import the implementation module directly. Physical delete deferred to Slice 10/11.
  */
 export async function syncClientSessionAfterNativeExchange(): Promise<boolean> {
   if (typeof window === "undefined") return false;

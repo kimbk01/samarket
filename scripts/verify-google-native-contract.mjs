@@ -84,8 +84,15 @@ if (useOAuth.includes("recoverNativeGoogleLoginIfPending")) {
 if (!postExchange.includes("postNativeProviderExchange")) {
   failures.push("post-native-exchange.client.ts must define shared postNativeProviderExchange");
 }
-if (!postExchange.includes("syncClientSessionAfterNativeExchange")) {
-  failures.push("post-native-exchange must sync client session after sessionEstablished exchange");
+// Slice 6-3/6-6: Client Sync is owned by finish → runCommonAuthClientCompletion, not exchange.
+if (/import\s*\{[^}]*syncClientSessionAfterNativeExchange/.test(postExchange)) {
+  failures.push("post-native-exchange must not import syncClientSessionAfterNativeExchange");
+}
+if (/await\s+syncClientSessionAfterNativeExchange\s*\(/.test(postExchange)) {
+  failures.push("post-native-exchange must not call syncClientSessionAfterNativeExchange");
+}
+if (!read("lib/auth/completion/sync-common-client-session.client.ts").includes("syncCommonClientSessionAfterAuth")) {
+  failures.push("syncCommonClientSessionAfterAuth must remain Client Sync Production owner");
 }
 if (!sessionSync.includes("clearGuestAuthState")) {
   failures.push("sync-client-session-after-native-exchange must clear guest auth gate");
