@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { spendUserPoints } from "@/lib/points/user-point-ledger";
 import { finalizeHeldPointsOnTradePostAdActivation } from "@/lib/trade-ads/trade-post-ad-point-flow";
 
 export type ChargeTradeAdPointsResult = { ok: true } | { ok: false; error: string };
@@ -7,6 +8,7 @@ export type ChargeTradeAdPointsResult = { ok: true } | { ok: false; error: strin
  * 거래 상세 광고를 `active`로 전환할 때 포인트 처리.
  * - 신청 시 보류(hold)가 있으면: 추가 차감 없이 확정 원장만 남김.
  * - 보류 없음(레거시): 즉시 차감 + 원장 + hold 행 charged(감사).
+ * 잔액·원장은 user-point-ledger 허브만 사용.
  */
 export async function chargePointsOnTradePostAdActivation(
   sb: SupabaseClient,
@@ -44,37 +46,21 @@ export async function chargePointsOnTradePostAdActivation(
 
   if (cost === 0) return { ok: true };
 
-  const { data: profile, error: pe } = await sb
-    .from("profiles")
-    .select("points")
-    .eq("id", params.advertiserUserId)
-    .maybeSingle();
-
-  if (pe) return { ok: false, error: pe.message };
-  const current = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
-  if (current < cost) {
-    return { ok: false, error: "포인트가 부족합니다." };
-  }
-
-  const balanceAfter = current - cost;
-
-  const { error: ue } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", params.advertiserUserId);
-
-  if (ue) return { ok: false, error: ue.message };
-
-  const relatedId = params.tradePostAdId;
-  const { error: le } = await sb.from("point_ledger").insert({
-    user_id: params.advertiserUserId,
-    entry_type: "ad_charge",
-    amount: -cost,
-    balance_after: balanceAfter,
-    related_type: "trade_post_ad",
-    related_id: relatedId,
+  const spent = await spendUserPoints(sb, {
+    userId: params.advertiserUserId,
+    amount: cost,
+    entryType: "ad_charge",
+    relatedType: "trade_post_ad",
+    relatedId: `charge:${params.tradePostAdId}`,
     description: params.description ?? "거래 상세 광고(보류 없음, 즉시 차감)",
-    actor_type: "system",
+    actorType: "system",
   });
-
-  if (le) return { ok: false, error: le.message };
+  if (!spent.ok) {
+    if (spent.code === "insufficient_balance" || spent.error === "insufficient_balance") {
+      return { ok: false, error: "포인트가 부족합니다." };
+    }
+    return { ok: false, error: spent.error };
+  }
 
   const { error: he } = await sb.from("trade_ad_point_holds").insert({
     user_id: params.advertiserUserId,

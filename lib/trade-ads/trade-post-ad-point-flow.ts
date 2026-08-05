@@ -1,9 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  appendUserPointLedgerAudit,
+  creditUserPoints,
+  spendUserPoints,
+} from "@/lib/points/user-point-ledger";
 
 export type PointFlowResult = { ok: true } | { ok: false; error: string };
 
+function mapHubError(error: string, code?: string): string {
+  if (code === "insufficient_balance" || error === "insufficient_balance") {
+    return "포인트가 부족합니다.";
+  }
+  return error || "point_mutation_failed";
+}
+
 /**
  * 광고 신청 시: 포인트 즉시 보류(잔액에서 차감) + 원장 `ad_hold` + hold 행 `held`.
+ * 잔액·원장은 user-point-ledger 허브만 사용.
  */
 export async function holdPointsForTradePostAdApply(
   sb: SupabaseClient,
@@ -12,32 +25,18 @@ export async function holdPointsForTradePostAdApply(
   const cost = Math.max(0, Math.floor(Number(params.pointCost) || 0));
   if (cost === 0) return { ok: true };
 
-  const { data: profile, error: pe } = await sb
-    .from("profiles")
-    .select("points")
-    .eq("id", params.userId)
-    .maybeSingle();
-  if (pe) return { ok: false, error: pe.message };
-  const current = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
-  if (current < cost) {
-    return { ok: false, error: "포인트가 부족합니다." };
-  }
-  const balanceAfter = current - cost;
-
-  const { error: ue } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", params.userId);
-  if (ue) return { ok: false, error: ue.message };
-
-  const { error: le } = await sb.from("point_ledger").insert({
-    user_id: params.userId,
-    entry_type: "ad_hold",
-    amount: -cost,
-    balance_after: balanceAfter,
-    related_type: "trade_post_ad",
-    related_id: params.tradePostAdId,
+  const spent = await spendUserPoints(sb, {
+    userId: params.userId,
+    amount: cost,
+    entryType: "ad_hold",
+    relatedType: "trade_post_ad",
+    relatedId: `hold:${params.tradePostAdId}`,
     description: "거래 광고 신청 — 포인트 보류",
-    actor_type: "system",
+    actorType: "system",
   });
-  if (le) return { ok: false, error: le.message };
+  if (!spent.ok) {
+    return { ok: false, error: mapHubError(spent.error, spent.code) };
+  }
 
   const { error: he } = await sb.from("trade_ad_point_holds").insert({
     user_id: params.userId,
@@ -72,25 +71,18 @@ export async function releaseHeldPointsForTradePostAd(
     const amt = Math.max(0, Math.floor(Number(h.amount) || 0));
     if (!uid || amt <= 0) continue;
 
-    const { data: profile, error: pe } = await sb.from("profiles").select("points").eq("id", uid).maybeSingle();
-    if (pe) return { ok: false, error: pe.message };
-    const current = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
-    const balanceAfter = current + amt;
-
-    const { error: ue } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", uid);
-    if (ue) return { ok: false, error: ue.message };
-
-    const { error: le } = await sb.from("point_ledger").insert({
-      user_id: uid,
-      entry_type: "ad_hold_release",
+    const credited = await creditUserPoints(sb, {
+      userId: uid,
       amount: amt,
-      balance_after: balanceAfter,
-      related_type: "trade_post_ad",
-      related_id: params.tradePostAdId,
+      entryType: "ad_hold_release",
+      relatedType: "trade_post_ad",
+      relatedId: `release:${h.id}`,
       description: "거래 광고 반려/취소 — 보류 해제",
-      actor_type: "system",
+      actorType: "system",
     });
-    if (le) return { ok: false, error: le.message };
+    if (!credited.ok) {
+      return { ok: false, error: mapHubError(credited.error, credited.code) };
+    }
 
     const { error: upd } = await sb
       .from("trade_ad_point_holds")
@@ -119,14 +111,6 @@ export async function finalizeHeldPointsOnTradePostAdActivation(
   const rows = Array.isArray(holds) ? holds : [];
   if (rows.length === 0) return { ok: true };
 
-  const { data: profile, error: pe } = await sb
-    .from("profiles")
-    .select("points")
-    .eq("id", params.userId)
-    .maybeSingle();
-  if (pe) return { ok: false, error: pe.message };
-  const balanceAfter = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
-
   for (const h of rows as { id: string; amount: number }[]) {
     const { error: upd } = await sb
       .from("trade_ad_point_holds")
@@ -135,17 +119,18 @@ export async function finalizeHeldPointsOnTradePostAdActivation(
     if (upd) return { ok: false, error: upd.message };
   }
 
-  const { error: le } = await sb.from("point_ledger").insert({
-    user_id: params.userId,
-    entry_type: "ad_charge",
-    amount: 0,
-    balance_after: balanceAfter,
-    related_type: "trade_post_ad",
-    related_id: params.tradePostAdId,
+  const audit = await appendUserPointLedgerAudit(sb, {
+    userId: params.userId,
+    entryType: "ad_charge",
+    relatedType: "trade_post_ad",
+    relatedId: `finalize:${params.tradePostAdId}`,
     description: "거래 광고 활성 — 보류 포인트 확정(추가 차감 없음)",
-    actor_type: "system",
+    actorType: "system",
+    amount: 0,
   });
-  if (le) return { ok: false, error: le.message };
+  if (!audit.ok) {
+    return { ok: false, error: mapHubError(audit.error, audit.code) };
+  }
 
   return { ok: true };
 }

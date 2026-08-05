@@ -9,11 +9,16 @@ const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
   spend: "point_ledger_spend",
   refund: "point_ledger_refund",
   admin_adjust: "point_ledger_admin_adjust",
+  admin_credit: "point_ledger_admin_credit",
+  admin_debit: "point_ledger_admin_debit",
   expire: "point_ledger_expire",
   reward: "point_ledger_reward",
   reverse: "point_ledger_reverse",
   ad_purchase: "point_ledger_ad_purchase",
   ad_refund: "point_ledger_ad_refund",
+  ad_hold: "point_ledger_ad_hold",
+  ad_hold_release: "point_ledger_ad_hold_release",
+  ad_charge: "point_ledger_ad_charge",
 };
 
 interface PointLedgerListProps {

@@ -37,11 +37,16 @@ export const ADMIN_POINTS_LEDGER_TYPE_KEYS: Record<PointLedgerEntryType, Message
   spend: "admin_points_ledger_type_spend",
   refund: "admin_points_ledger_type_refund",
   admin_adjust: "admin_points_ledger_type_admin_adjust",
+  admin_credit: "admin_points_ledger_type_admin_credit",
+  admin_debit: "admin_points_ledger_type_admin_debit",
   expire: "admin_points_ledger_type_expire",
   reward: "admin_points_ledger_type_reward",
   reverse: "admin_points_ledger_type_reverse",
   ad_purchase: "admin_points_ledger_type_ad_purchase",
   ad_refund: "admin_points_ledger_type_ad_refund",
+  ad_hold: "admin_points_ledger_type_ad_hold",
+  ad_hold_release: "admin_points_ledger_type_ad_hold_release",
+  ad_charge: "admin_points_ledger_type_ad_charge",
 };
 
 export const ADMIN_POINTS_EXPIRE_CYCLE_KEYS: Record<PointExpireRunCycle, MessageKey> = {

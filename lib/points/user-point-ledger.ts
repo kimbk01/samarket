@@ -279,3 +279,123 @@ export async function expireUserPointEntries(
     ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
   };
 }
+
+export type AdjustUserPointsInput = {
+  userId: string;
+  delta: number;
+  description: string;
+  actorUserId: string;
+  /** Unique per adjust; auto-generated when omitted (admin may adjust many times). */
+  relatedId?: string;
+};
+
+/**
+ * Admin 수동 지급/차감 — credit/spend 허브만 사용. profiles.points 는 hub 가 갱신.
+ * related_id 는 호출마다 고유해야 한다(동일 admin 반복 조정).
+ */
+export async function adjustUserPoints(
+  sb: SupabaseClient,
+  input: AdjustUserPointsInput
+): Promise<PointLedgerMutationResult> {
+  const uid = input.userId.trim();
+  const delta = Math.trunc(Number(input.delta));
+  const description = String(input.description ?? "").trim();
+  const actorUserId = String(input.actorUserId ?? "").trim();
+  if (!uid || !description || !actorUserId || !Number.isFinite(delta) || delta === 0) {
+    return { ok: false, error: "invalid_input" };
+  }
+  const relatedId =
+    String(input.relatedId ?? "").trim() ||
+    `adjust:${actorUserId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+
+  if (delta > 0) {
+    return creditUserPoints(sb, {
+      userId: uid,
+      amount: delta,
+      entryType: "admin_credit",
+      relatedType: "admin_manual",
+      relatedId,
+      description,
+      actorType: "admin",
+    });
+  }
+
+  return spendUserPoints(sb, {
+    userId: uid,
+    amount: Math.abs(delta),
+    entryType: "admin_debit",
+    relatedType: "admin_manual",
+    relatedId,
+    description,
+    actorType: "admin",
+  });
+}
+
+export type AppendUserPointLedgerAuditInput = {
+  userId: string;
+  entryType: PointLedgerEntryType;
+  relatedType: PointLedgerRelatedType;
+  relatedId: string;
+  description: string;
+  actorType: PointLedgerActorType;
+  /** Defaults to 0 — balance unchanged; audit / finalize only. */
+  amount?: number;
+};
+
+/**
+ * 잔액 변경 없이 원장 감사 행만 추가(예: trade-ad 보류 확정 amount=0).
+ * profiles.points 는 갱신하지 않는다.
+ */
+export async function appendUserPointLedgerAudit(
+  sb: SupabaseClient,
+  input: AppendUserPointLedgerAuditInput
+): Promise<PointLedgerMutationResult> {
+  const uid = input.userId.trim();
+  const relatedId = String(input.relatedId ?? "").trim();
+  const amount = Math.trunc(Number(input.amount ?? 0));
+  if (!uid || !relatedId || !Number.isFinite(amount)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const { data: existing } = await sb
+    .from("point_ledger")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("entry_type", input.entryType)
+    .eq("related_type", input.relatedType)
+    .eq("related_id", relatedId)
+    .limit(1);
+  if (Array.isArray(existing) && existing.length > 0) {
+    const balance = await readUserPointBalance(sb, uid);
+    return { ok: true, balanceAfter: balance };
+  }
+
+  const balanceAfter = await readUserPointBalance(sb, uid);
+  const { data: ledgerRow, error: ledgerErr } = await sb
+    .from("point_ledger")
+    .insert({
+      user_id: uid,
+      entry_type: input.entryType,
+      amount,
+      balance_after: balanceAfter,
+      related_type: input.relatedType,
+      related_id: relatedId,
+      description: input.description.slice(0, 500),
+      actor_type: input.actorType,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (ledgerErr) {
+    if (isMissingPointsTable(ledgerErr.message ?? "", "point_ledger")) {
+      return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    return { ok: false, error: ledgerErr.message };
+  }
+
+  return {
+    ok: true,
+    balanceAfter,
+    ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
+  };
+}

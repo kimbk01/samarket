@@ -49,11 +49,16 @@ export const POINT_LEDGER_ENTRY_LABELS: Record<PointLedgerEntryType, string> = {
   spend: pointLedgerEntryLabel("spend"),
   refund: pointLedgerEntryLabel("refund"),
   admin_adjust: pointLedgerEntryLabel("admin_adjust"),
+  admin_credit: pointLedgerEntryLabel("admin_credit"),
+  admin_debit: pointLedgerEntryLabel("admin_debit"),
   expire: pointLedgerEntryLabel("expire"),
   reward: pointLedgerEntryLabel("reward"),
   reverse: pointLedgerEntryLabel("reverse"),
   ad_purchase: pointLedgerEntryLabel("ad_purchase"),
   ad_refund: pointLedgerEntryLabel("ad_refund"),
+  ad_hold: pointLedgerEntryLabel("ad_hold"),
+  ad_hold_release: pointLedgerEntryLabel("ad_hold_release"),
+  ad_charge: pointLedgerEntryLabel("ad_charge"),
 };
 
 /** @deprecated use `pointPromotionOrderStatusLabel(status)` */

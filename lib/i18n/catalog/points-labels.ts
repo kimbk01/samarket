@@ -34,6 +34,10 @@ export const pointsLabelsMessages = {
 
     point_ledger_admin_adjust: "관리자조정",
 
+    point_ledger_admin_credit: "관리자지급",
+
+    point_ledger_admin_debit: "관리자차감",
+
     point_ledger_expire: "만료",
 
     point_ledger_reward: "커뮤니티지급",
@@ -43,6 +47,12 @@ export const pointsLabelsMessages = {
     point_ledger_ad_purchase: "광고구매",
 
     point_ledger_ad_refund: "광고환불",
+
+    point_ledger_ad_hold: "광고보류",
+
+    point_ledger_ad_hold_release: "광고보류해제",
+
+    point_ledger_ad_charge: "광고확정",
 
     point_placement_home_top: "홈 상단",
 
@@ -88,6 +98,10 @@ export const pointsLabelsMessages = {
 
     point_ledger_admin_adjust: "Admin adjustment",
 
+    point_ledger_admin_credit: "Admin credit",
+
+    point_ledger_admin_debit: "Admin debit",
+
     point_ledger_expire: "Expired",
 
     point_ledger_reward: "Community grant",
@@ -97,6 +111,12 @@ export const pointsLabelsMessages = {
     point_ledger_ad_purchase: "Ad purchase",
 
     point_ledger_ad_refund: "Ad refund",
+
+    point_ledger_ad_hold: "Ad hold",
+
+    point_ledger_ad_hold_release: "Ad hold release",
+
+    point_ledger_ad_charge: "Ad charge",
 
     point_placement_home_top: "Home top",
 

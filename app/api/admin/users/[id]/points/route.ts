@@ -10,6 +10,7 @@ import {
   normalizeChargeRequest,
   normalizeLedgerRow,
 } from "@/lib/points/admin-user-points-shared";
+import { adjustUserPoints, readUserPointBalance } from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,38 +100,23 @@ export async function PATCH(
   }
 
   const { sb, actor } = gate;
-  const { data: profile, error: profileErr } = await sb
-    .from("profiles")
-    .select("points, nickname")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profileErr) {
-    return NextResponse.json({ ok: false, error: profileErr.message }, { status: 500 });
-  }
-  if (!profile) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-
-  const current = Math.max(0, Number((profile as { points?: number }).points ?? 0));
-  const nextBalance = Math.max(0, current + delta);
-
-  const { error: ledgerErr } = await sb.from("point_ledger").insert({
-    user_id: userId,
-    entry_type: delta > 0 ? "admin_credit" : "admin_debit",
-    amount: delta,
-    balance_after: nextBalance,
-    related_type: "admin_manual",
-    related_id: actor.userId,
-    description: reason.slice(0, 500),
-    actor_type: "admin",
+  const current = await readUserPointBalance(sb, userId);
+  const adjusted = await adjustUserPoints(sb, {
+    userId,
+    delta,
+    description: reason,
+    actorUserId: actor.userId,
   });
-  if (ledgerErr) {
-    return NextResponse.json({ ok: false, error: ledgerErr.message }, { status: 500 });
-  }
-
-  const { error: updateErr } = await sb.from("profiles").update({ points: nextBalance }).eq("id", userId);
-  if (updateErr) {
-    return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+  if (!adjusted.ok) {
+    const status =
+      adjusted.code === "insufficient_balance"
+        ? 400
+        : adjusted.error === "user_not_found"
+          ? 404
+          : adjusted.error === "invalid_input"
+            ? 400
+            : 500;
+    return NextResponse.json({ ok: false, error: adjusted.error }, { status });
   }
 
   void appendAuditLog(sb, {
@@ -140,8 +126,8 @@ export async function PATCH(
     target_id: userId,
     action: "admin_point_adjust",
     before_json: { balance: current },
-    after_json: { balance: nextBalance, delta, reason },
+    after_json: { balance: adjusted.balanceAfter, delta, reason },
   });
 
-  return NextResponse.json({ ok: true, balance: nextBalance });
+  return NextResponse.json({ ok: true, balance: adjusted.balanceAfter });
 }

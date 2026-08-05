@@ -52,17 +52,23 @@ export type PointLedgerEntryType =
   | "spend"
   | "refund"
   | "admin_adjust"
+  | "admin_credit"
+  | "admin_debit"
   | "expire"
   | "reward"
   | "reverse"
   | "ad_purchase"
-  | "ad_refund";
+  | "ad_refund"
+  | "ad_hold"
+  | "ad_hold_release"
+  | "ad_charge";
 
 export type PointLedgerRelatedType =
   | "point_charge"
   | "promotion_order"
   | "promoted_item"
   | "ad_application"
+  | "trade_post_ad"
   | "admin_manual"
   | "community_reward"
   | "community_reclaim";
