@@ -5,7 +5,6 @@ import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { upsertOAuthProfileFromUser } from "@/lib/auth/oauth-profile-upsert";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
@@ -224,35 +223,27 @@ export async function GET(req: NextRequest) {
         return response;
       }
 
-      try {
-        await upsertOAuthProfileFromUser(writeSb, activeUser, {
-          nicknameOverride: nick || null,
-        });
-        if (providerPolicy.candidate) {
-          await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
-        }
-      } catch {
-        /* 클라이언트 ensure 에 맡김 */
-      }
-
       let onboardingTarget = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
       try {
         const status = await getOnboardingStatus(writeSb, activeUser.id);
-        if (status.signupComplete) {
-          try {
-            const ensured = await ensureAuthProfileForLogin(writeSb, activeUser, {
-              enrichMemberProfile: true,
-            });
-            const outcome = ensured.ensureUserProfileOutcome;
-            if (outcome?.duplicateWarning && process.env.NODE_ENV !== "production") {
-              console.warn("[auth/callback] duplicate profile candidate detected", {
-                userId: activeUser.id,
-                candidates: outcome.duplicateCandidates,
-              });
-            }
-          } catch {
-            /* provider identity 보강 실패는 로그인을 막지 않음 */
+        // Slice 7-3 PLAN_W2: single Canonical facade — incomplete→false, signupComplete→true.
+        try {
+          const ensured = await ensureAuthProfileForLogin(writeSb, activeUser, {
+            nicknameOverride: nick || null,
+            enrichMemberProfile: status.signupComplete === true,
+          });
+          if (providerPolicy.candidate) {
+            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
           }
+          const outcome = ensured.ensureUserProfileOutcome;
+          if (outcome?.duplicateWarning && process.env.NODE_ENV !== "production") {
+            console.warn("[auth/callback] duplicate profile candidate detected", {
+              userId: activeUser.id,
+              candidates: outcome.duplicateCandidates,
+            });
+          }
+        } catch {
+          /* 클라이언트 ensure 에 맡김 */
         }
         const resolved = await resolveCommonAuthDestination(writeSb, {
           userId: activeUser.id,
@@ -261,6 +252,18 @@ export async function GET(req: NextRequest) {
         });
         onboardingTarget = resolved.destination;
       } catch {
+        // Status read failed — still seed pending once (parity with pre-W2 always-upsert).
+        try {
+          await ensureAuthProfileForLogin(writeSb, activeUser, {
+            nicknameOverride: nick || null,
+            enrichMemberProfile: false,
+          });
+          if (providerPolicy.candidate) {
+            await persistOAuthProviderIdentity(writeSb, activeUser.id, providerPolicy.candidate);
+          }
+        } catch {
+          /* 클라이언트 ensure 에 맡김 */
+        }
         /* 상태 조회 실패 시 약관 화면으로 — 메인 직행 금지 */
       }
       const onboardingUrl = new URL(onboardingTarget, req.url);
