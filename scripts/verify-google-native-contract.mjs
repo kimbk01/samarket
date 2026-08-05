@@ -166,6 +166,31 @@ if (!googleEnv.includes("AUTH_GOOGLE_NATIVE_WEB_CLIENT_ID")) {
   }
 }
 
+// Slice 7-5 — Google Profile Hard Gate: after identity row, before destination; null → 500.
+{
+  const gs = googleSession;
+  const iHard = gs.indexOf("await ensureProfileForUserId(");
+  const iDest = gs.indexOf("resolveCommonAuthDestination(");
+  const iFail = gs.indexOf('errorCode: "profile_ensure_failed"', iHard);
+  if (iHard < 0 || iDest < 0 || iFail < 0 || !(iHard < iFail && iFail < iDest)) {
+    failures.push(
+      "Slice 7-5: ensureProfileForUserId Hard Gate must run before destination and hard-fail with profile_ensure_failed",
+    );
+  }
+  const hardSlice = iHard >= 0 && iDest > iHard ? gs.slice(iHard, iDest) : "";
+  if (!hardSlice.includes("status: 500") && !/status:\s*500/.test(hardSlice)) {
+    failures.push("Slice 7-5: Hard Gate null must return status 500");
+  }
+  const hardCount = (gs.match(/await ensureProfileForUserId\(/g) || []).length;
+  if (hardCount !== 1) {
+    failures.push(`Slice 7-5: Google session must call ensureProfileForUserId exactly once (got ${hardCount})`);
+  }
+  const facade = read("lib/auth/completion/ensure-auth-profile-for-login.server.ts");
+  if (facade.includes("ensureProfileForUserId")) {
+    failures.push("Slice 7-5: Canonical facade must not own/call ensureProfileForUserId Hard Gate");
+  }
+}
+
 if (failures.length > 0) {
   console.error("verify:google-native-contract FAIL\n");
   for (const f of failures) {

@@ -364,6 +364,7 @@ export async function establishGoogleNativeSession(
   }
 
   const ensuredProfile = await ensureProfileForUserId(ctx.adminSb, signedUser.id);
+  // Slice 7-5 Hard Gate: null → 500 profile_ensure_failed (blocks destination).
   if (!ensuredProfile?.id) {
     return {
       ok: false,

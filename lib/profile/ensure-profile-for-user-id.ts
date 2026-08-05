@@ -38,6 +38,11 @@ function pickString(value: unknown): string | null {
  * - 아이디 로그인 쿠키는 남는데 public TRUNCATE 등으로 profiles 만 비는 경우 복구
  * - OAuth 첫 로그인 직후에도 service_role 클라이언트로 호출하면 `profiles` 가 항상 보장된다.
  *
+ * Slice 7-5 Google login Hard Gate:
+ * - Canonical/Identity 이후 최종 existence gate (`ensureProfileForUserId`)
+ * - exists → noop return; missing → create-if-missing; final null → caller hard 500
+ * - DO NOT merge into ensureAuthProfileForLogin; DO NOT soften Google null to soft swallow
+ *
  * 이중 안전망:
  *   1) 정책상 정상 컬럼이 모두 들어간 row 로 upsert
  *   2) 1) 이 제약/트리거로 거부되면 → id/email/display_name/nickname/updated_at 만의 최소 row 로 재시도
