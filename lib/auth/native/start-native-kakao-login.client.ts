@@ -41,6 +41,7 @@ function buildNativeKakaoLoginHandoff(
     needsTermsAgreement: exchange.needsTermsAgreement,
     signupComplete: exchange.signupComplete,
     consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+    syncFromNativeExchangeCookies: true,
   };
 }
 

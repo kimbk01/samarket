@@ -56,6 +56,7 @@ function buildNativeGoogleLoginHandoff(
     needsTermsAgreement,
     signupComplete,
     consentComplete: needsTermsAgreement === false,
+    syncFromNativeExchangeCookies: true,
   };
 }
 

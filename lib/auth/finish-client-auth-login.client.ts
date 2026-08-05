@@ -29,6 +29,11 @@ export type FinishClientAuthLoginTermsHandoff = {
   needsTermsAgreement?: boolean | null;
   consentComplete?: boolean | null;
   signupComplete?: boolean | null;
+  /**
+   * Native exchange cookie handoff — Completion owns syncCommonClientSessionAfterAuth (Slice 6-3).
+   * Email / session restore omit or false (prime-only).
+   */
+  syncFromNativeExchangeCookies?: boolean;
 };
 
 export type FinishClientAuthLoginInput = FinishClientAuthLoginTermsHandoff & {
@@ -38,6 +43,16 @@ export type FinishClientAuthLoginInput = FinishClientAuthLoginTermsHandoff & {
   onCloseModal?: () => void;
   router?: RouterLike;
 };
+
+/** Thrown when native client session sync fails — must not navigate as logged-in. */
+export class CommonClientSessionSyncError extends Error {
+  readonly code = "native_exchange_session_unavailable";
+
+  constructor(message?: string) {
+    super(message ?? "Client session was not established after login");
+    this.name = "native_exchange_session_unavailable";
+  }
+}
 
 function requiresTermsAgreementHandoff(input: FinishClientAuthLoginTermsHandoff): boolean {
   if (input.needsTermsAgreement === true) return true;
@@ -102,10 +117,13 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
     note: "profile_prime_scheduled_background",
   });
 
-  await runCommonAuthClientCompletion({
+  const completion = await runCommonAuthClientCompletion({
     destination: target,
     router,
     onCloseModal,
-    syncFromNativeExchangeCookies: false,
+    syncFromNativeExchangeCookies: input.syncFromNativeExchangeCookies === true,
   });
+  if (!completion.ok && completion.reason === "client_session_sync_failed") {
+    throw new CommonClientSessionSyncError();
+  }
 }

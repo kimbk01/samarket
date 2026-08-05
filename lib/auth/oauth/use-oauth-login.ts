@@ -155,6 +155,9 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "oauth_start_timeout") return t("auth_err_auth_timeout");
   if (code === "navigation_failed") return t("auth_err_oauth_launch_navigation_failed");
   if (code === "user_cancelled") return t("auth_err_oauth_start_failed");
+  if (code === "native_exchange_session_unavailable") {
+    return t("auth_err_session_not_persisted");
+  }
   if (code === "apple_native_exchange_not_ready") return t("auth_err_apple_native_not_ready");
   if (code === "apple_native_verify_failed") return t("auth_err_apple_native_verify_failed");
   if (code === "apple_native_account_conflict") return t("auth_err_apple_native_account_conflict");

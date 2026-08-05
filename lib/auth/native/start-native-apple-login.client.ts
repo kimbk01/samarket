@@ -17,7 +17,6 @@ import {
   bumpAuthLifecycleCounter,
   markAuthLifecycleStage,
 } from "@/lib/auth/oauth/auth-lifecycle-trace";
-import { syncCommonClientSessionAfterAuth } from "@/lib/auth/completion/sync-common-client-session.client";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
@@ -141,21 +140,8 @@ export async function postNativeAppleExchange(
     note: "exchange_2xx_set_cookie_assumed",
   });
 
-  // Slice 2-2: same client-session contract as Google/Kakao native exchange.
+  // Slice 6-3 POLICY_A: Client Sync owned by finish → runCommonAuthClientCompletion (not Apple exchange helper).
   // Navigation stays in finishClientAuthLogin → runCommonAuthClientCompletion (no dual completion).
-  const synced = await syncCommonClientSessionAfterAuth();
-  if (!synced) {
-    markAuthLifecycleStage("client_session_visible", {
-      provider: "apple",
-      primed: false,
-      via: "syncCommonClientSessionAfterAuth",
-    });
-    return {
-      ok: false,
-      errorCode: "native_exchange_session_unavailable",
-      message: "Client session was not established after Apple exchange",
-    };
-  }
   return json;
 }
 
@@ -185,6 +171,7 @@ function buildNativeAppleLoginHandoff(
     needsTermsAgreement: exchange.needsTermsAgreement,
     signupComplete: exchange.signupComplete,
     consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+    syncFromNativeExchangeCookies: true,
   };
 }
 

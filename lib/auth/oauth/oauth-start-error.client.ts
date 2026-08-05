@@ -1,9 +1,11 @@
+import { CommonClientSessionSyncError } from "@/lib/auth/finish-client-auth-login.client";
 import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
 import { NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
 import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
 import { NativeProviderLoginError } from "@/lib/auth/native/start-native-provider-login.client";
 
 export function resolveNativeProviderLoginErrorCode(err: unknown): string {
+  if (err instanceof CommonClientSessionSyncError) return err.code;
   if (err instanceof NativeProviderLoginError) return err.code;
   if (err instanceof NativeKakaoAuthError) return err.code;
   if (err instanceof NativeAppleAuthError) return err.code;

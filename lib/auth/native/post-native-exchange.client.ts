@@ -1,6 +1,5 @@
 "use client";
 
-import { syncClientSessionAfterNativeExchange } from "@/lib/auth/native/sync-client-session-after-native-exchange.client";
 import {
   authLifecycleExchangeHeaders,
   bumpAuthLifecycleCounter,
@@ -160,6 +159,6 @@ export async function postNativeProviderExchange(
   }
   markAuthLifecycleStage("server_session_established", { httpStatus: res.status, sessionEstablished: true });
   markAuthLifecycleStage("cookie_handoff_completed", { note: "exchange_2xx_set_cookie_assumed" });
-  await syncClientSessionAfterNativeExchange();
+  // Slice 6-3 POLICY_A: Client Sync owned by finish → runCommonAuthClientCompletion (not exchange helper).
   return json;
 }

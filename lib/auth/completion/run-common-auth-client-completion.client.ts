@@ -26,10 +26,20 @@ type RouterLike = {
 export type RunCommonAuthClientCompletionInput = {
   destination: string;
   router?: RouterLike;
-  /** When true, run syncCommonClientSessionAfterAuth before prime (native exchange). */
+  /**
+   * Native exchange Set-Cookie path — run syncCommonClientSessionAfterAuth once.
+   * Sync failure MUST block navigation (Slice 6-3 POLICY_A).
+   */
   syncFromNativeExchangeCookies?: boolean;
   onCloseModal?: () => void;
 };
+
+export type RunCommonAuthClientCompletionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "client_session_sync_failed" | "android_cookie_flush_failed" | "empty_destination";
+    };
 
 function canUseRouterReplace(target: string): boolean {
   if (typeof window === "undefined") return false;
@@ -67,15 +77,18 @@ function scheduleNonBlockingPostLoginWork(): void {
  * Common Navigation + interim interaction_ready (Slice 2-1).
  *
  * CONTRACT:
- * - navigation exactly once
+ * - navigation exactly once on success
+ * - native syncFromNativeExchangeCookies: syncCommonClientSessionAfterAuth once; failure → navigation 0
  * - no background signup-status re-navigation
  * - interaction_ready once after that navigation (440ms moves this in Slice 2-6)
  * - Badge/device/messenger must not block (ensureAppBoot is fire-and-forget)
  */
 export async function runCommonAuthClientCompletion(
   input: RunCommonAuthClientCompletionInput,
-): Promise<void> {
-  if (typeof window === "undefined") return;
+): Promise<RunCommonAuthClientCompletionResult> {
+  if (typeof window === "undefined") {
+    return { ok: false, reason: "empty_destination" };
+  }
 
   input.onCloseModal?.();
   invalidateGuestCachesForFreshLogin();
@@ -83,7 +96,19 @@ export async function runCommonAuthClientCompletion(
   markCallMediaOnboardingPendingSource("first_login");
 
   if (input.syncFromNativeExchangeCookies) {
-    await syncCommonClientSessionAfterAuth();
+    const synced = await syncCommonClientSessionAfterAuth();
+    if (!synced) {
+      markAuthLifecycleStage("client_session_visible", {
+        primed: false,
+        via: "syncCommonClientSessionAfterAuth",
+      });
+      completeAuthLifecycle("fail", { reason: "client_session_sync_failed" });
+      return { ok: false, reason: "client_session_sync_failed" };
+    }
+    markAuthLifecycleStage("client_session_visible", {
+      primed: true,
+      via: "syncCommonClientSessionAfterAuth",
+    });
   } else {
     const sessionPresent = await primeClientAuthSessionFromSupabase();
     markAuthLifecycleStage("client_session_visible", {
@@ -97,13 +122,13 @@ export async function runCommonAuthClientCompletion(
   const cookieFlush = await flushAndroidAuthCookies("login_completion");
   if (cookieFlush === "flush_failed") {
     completeAuthLifecycle("fail", { reason: "android_cookie_flush_failed" });
-    return;
+    return { ok: false, reason: "android_cookie_flush_failed" };
   }
 
   const target = input.destination.trim();
   if (!target) {
     completeAuthLifecycle("fail", { reason: "empty_destination" });
-    return;
+    return { ok: false, reason: "empty_destination" };
   }
 
   bumpAuthLifecycleCounter("navigation");
@@ -125,9 +150,10 @@ export async function runCommonAuthClientCompletion(
 
   if (input.router && canUseRouterReplace(target)) {
     input.router.replace(target);
-    return;
+    return { ok: true };
   }
 
   bumpAuthLifecycleCounter("fullDocumentRedirect");
   window.location.replace(target);
+  return { ok: true };
 }

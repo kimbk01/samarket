@@ -3,7 +3,6 @@ import { resetOAuthFlowForTests, isOAuthFlowInFlight } from "@/lib/auth/oauth/na
 
 const invokeNativeAppleSignIn = vi.fn();
 const isNativeAppleLoginAvailable = vi.fn();
-const syncCommonClientSessionAfterAuthMock = vi.fn(async () => true);
 
 vi.mock("@/lib/auth/native/native-apple-auth-plugin", () => ({
   invokeNativeAppleSignIn: (...args: unknown[]) => invokeNativeAppleSignIn(...args),
@@ -25,10 +24,6 @@ vi.mock("@/lib/auth/oauth/oauth-native-callback-log", () => ({
   logOAuthNativeEvent: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/completion/sync-common-client-session.client", () => ({
-  syncCommonClientSessionAfterAuth: () => syncCommonClientSessionAfterAuthMock(),
-}));
-
 function mockWindowLocationReplace(replace = vi.fn()) {
   vi.stubGlobal("window", {
     location: { replace, href: "http://localhost/" },
@@ -40,8 +35,6 @@ describe("start-native-apple-login.client", () => {
   beforeEach(() => {
     resetOAuthFlowForTests();
     isNativeAppleLoginAvailable.mockReturnValue(true);
-    syncCommonClientSessionAfterAuthMock.mockReset();
-    syncCommonClientSessionAfterAuthMock.mockResolvedValue(true);
     invokeNativeAppleSignIn.mockResolvedValue({
       provider: "apple",
       identityToken: "jwt-test",
@@ -99,7 +92,7 @@ describe("start-native-apple-login.client", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("returns handoff after successful exchange and common client sync", async () => {
+  it("returns handoff with Completion sync flag after successful exchange (no exchange-owned sync)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -117,9 +110,9 @@ describe("start-native-apple-login.client", () => {
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     const result = await startNativeAppleLogin();
     expect(result.redirectTo).toBe("/signup/terms");
+    expect(result.syncFromNativeExchangeCookies).toBe(true);
     expect(replace).not.toHaveBeenCalled();
     expect(isOAuthFlowInFlight()).toBe(false);
-    expect(syncCommonClientSessionAfterAuthMock).toHaveBeenCalledTimes(1);
 
     const exchangeSuccessCalls = vi
       .mocked(logOAuthNativeEvent)
@@ -127,39 +120,15 @@ describe("start-native-apple-login.client", () => {
     expect(exchangeSuccessCalls).toHaveLength(1);
   });
 
-  it("does not return handoff when client session sync fails after exchange", async () => {
-    syncCommonClientSessionAfterAuthMock.mockResolvedValueOnce(false);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: async () => ({
-          ok: true,
-          provider: "apple",
-          signupComplete: true,
-          redirectTo: "/mypage",
-          sessionEstablished: true,
-        }),
-      }),
-    );
-    const replace = mockWindowLocationReplace();
-    const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
-    await expect(startNativeAppleLogin()).rejects.toMatchObject({
-      code: "apple_native_exchange_not_ready",
-    });
-    expect(syncCommonClientSessionAfterAuthMock).toHaveBeenCalledTimes(1);
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  it("skips common sync on user cancel before exchange", async () => {
+  it("skips exchange on user cancel before exchange", async () => {
     const { NativeAppleAuthError } = await import("@/lib/auth/native/native-apple-auth-plugin");
     invokeNativeAppleSignIn.mockRejectedValue(new NativeAppleAuthError("user_cancelled"));
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     await expect(startNativeAppleLogin()).rejects.toMatchObject({ code: "user_cancelled" });
-    expect(syncCommonClientSessionAfterAuthMock).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("skips common sync on verify failure", async () => {
+  it("skips handoff on verify failure", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -172,7 +141,6 @@ describe("start-native-apple-login.client", () => {
     );
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     await expect(startNativeAppleLogin()).rejects.toMatchObject({ code: "apple_native_verify_failed" });
-    expect(syncCommonClientSessionAfterAuthMock).not.toHaveBeenCalled();
   });
 
   it("logs apple_native_started and apple_native_success once each on happy path start", async () => {
