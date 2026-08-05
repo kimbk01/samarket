@@ -123,6 +123,12 @@ function pushKindFromEvent(event: NotificationEventInboxSource): string | null {
   if (type === "admin_notice") return "notice";
   // Phase 5 Slice 1 — Inquiry/Inbox typed events (same Bell system/notice tab as admin_notice).
   if (type === "inquiry_answered" || type === "inbox_message_received") return "notice";
+  // Phase 5 Slice 2 — Campaign notice/system typed event.
+  if (type === "notice_published") {
+    const campaignType = trimText(payload?.campaignType).toLowerCase();
+    if (campaignType === "system") return "system";
+    return "notice";
+  }
   return "system";
 }
 
@@ -208,6 +214,12 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   // Phase 5 Slice 1 — typed Inquiry/Inbox; Bell presentation stays admin_notice (system tab).
   // Legacy dual-read: admin_notice + previewKind=member_admin_note still handled below.
   if (type === "inquiry_answered" || type === "inbox_message_received") {
+    return "admin_notice";
+  }
+  // Phase 5 Slice 2 — Campaign notice/system; presentation via campaignType (legacy admin_notice dual-read kept).
+  if (type === "notice_published") {
+    const campaignType = trimText(payload?.campaignType).toLowerCase();
+    if (campaignType === "system") return "admin_system";
     return "admin_notice";
   }
   if (type === "admin_notice") {

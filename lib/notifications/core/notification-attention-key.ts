@@ -110,6 +110,7 @@ export function resolveNotificationAttentionKey(input: NotificationAttentionKeyI
   if (
     type === "admin_notice" ||
     type === "admin_marketing_banner" ||
+    type === "notice_published" ||
     type === "inquiry_answered" ||
     type === "inbox_message_received"
   ) {

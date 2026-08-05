@@ -71,8 +71,8 @@ export function resolveAdminCampaignTypeFromInboxHints(
 
   const et = norm(row.event_type);
   if (et === "admin_marketing_banner") return "marketing";
-  if (et === "admin_notice") {
-    // Legacy rows without campaignType — treat as notice (Bell-included).
+  if (et === "admin_notice" || et === "notice_published") {
+    // Legacy / typed rows without campaignType — treat as notice (Bell-included).
     return "notice";
   }
 

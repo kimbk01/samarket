@@ -11,6 +11,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   "community_activity",
   "admin_marketing_banner",
   "admin_notice",
+  /** Phase 5 Slice 2 — Campaign notice/system (was admin_notice). */
+  "notice_published",
   /** Phase 5 Slice 1 — Inquiry admin reply (was admin_notice collision). */
   "inquiry_answered",
   /** Phase 5 Slice 1 — Inbox admin message (was admin_notice collision). */
@@ -32,6 +34,7 @@ export const NOTIFICATION_EVENT_CATEGORIES = [
   "community_activity",
   "admin_marketing_banner",
   "admin_notice",
+  "notice_published",
   "inquiry_answered",
   "inbox_message_received",
   "missed_call",
@@ -58,6 +61,7 @@ export const BADGE_COUNTABLE_CATEGORIES: ReadonlySet<NotificationEventCategory> 
   "delivery_status",
   "community_activity",
   "admin_notice",
+  "notice_published",
   "inquiry_answered",
   "inbox_message_received",
   "missed_call",

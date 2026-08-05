@@ -304,6 +304,24 @@ export const NOTIFICATION_EVENT_DEFINITIONS = Object.freeze({
     dedupeScope: "campaign_recipient",
     allowRichImage: true,
   }),
+  notice_published: define({
+    type: "notice_published",
+    eventCategory: "notice_published",
+    productCategory: "system",
+    domain: "admin",
+    bellPolicy: "include",
+    appIconPolicy: "exclude",
+    foregroundPolicy: "banner_and_sound",
+    soundEventKey: "admin_notice_received",
+    legacyAdminSoundKey: "admin_notice",
+    androidChannelKey: "dibay_admin_notice_v1",
+    iosCategoryKey: null,
+    deepLinkResolverKey: "display_route",
+    preferenceKey: "notice",
+    ttlSeconds: 604_800,
+    dedupeScope: "campaign_recipient",
+    allowRichImage: true,
+  }),
   inquiry_answered: define({
     type: "inquiry_answered",
     eventCategory: "inquiry_answered",
@@ -405,5 +423,7 @@ export function getNotificationEventDefinition(
 export function eventTypeForAdminCampaignType(
   campaignType: "notice" | "marketing" | "system"
 ): NotificationEventType {
-  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
+  // Phase 5 Slice 2 — Campaign notice/system → notice_published (marketing unchanged).
+  if (campaignType === "marketing") return "admin_marketing_banner";
+  return "notice_published";
 }

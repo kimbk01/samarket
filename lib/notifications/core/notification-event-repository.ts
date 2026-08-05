@@ -231,6 +231,7 @@ async function countNotificationEventsBadgeFallback(
     community_activity: 0,
     admin_marketing_banner: 0,
     admin_notice: 0,
+    notice_published: 0,
     inquiry_answered: 0,
     inbox_message_received: 0,
     missed_call: 0,
@@ -254,9 +255,12 @@ async function countNotificationEventsBadgeFallback(
     delivery_status: counts.delivery_status,
     community_activity: counts.community_activity,
     admin_marketing_banner: counts.admin_marketing_banner,
-    // Phase 5 Slice 1 — Inquiry/Inbox typed categories share adminNotice digit bucket.
+    // Phase 5 — Inquiry/Inbox/Campaign typed categories share adminNotice digit bucket.
     admin_notice:
-      counts.admin_notice + counts.inquiry_answered + counts.inbox_message_received,
+      counts.admin_notice +
+      counts.notice_published +
+      counts.inquiry_answered +
+      counts.inbox_message_received,
     missed_call: counts.missed_call,
   });
 }

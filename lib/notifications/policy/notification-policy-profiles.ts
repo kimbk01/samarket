@@ -54,6 +54,11 @@ const POLICY_BY_CATEGORY: Record<NotificationEventCategory, NotificationPolicyPr
     category: "admin_notice",
     lockscreenVisibility: "private",
   },
+  notice_published: {
+    ...DEFAULT_POLICY,
+    category: "notice_published",
+    lockscreenVisibility: "private",
+  },
   inquiry_answered: {
     ...DEFAULT_POLICY,
     category: "inquiry_answered",

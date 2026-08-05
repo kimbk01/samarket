@@ -26,6 +26,7 @@ const EVENT_TYPE_TO_KEY: Partial<Record<NotificationEventType, string>> = {
   community_activity: "community_comment_received",
   admin_marketing_banner: "admin_notice_received",
   admin_notice: "admin_notice_received",
+  notice_published: "admin_notice_received",
   inquiry_answered: "admin_notice_received",
   inbox_message_received: "admin_notice_received",
   missed_call: "call_missed",

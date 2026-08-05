@@ -76,6 +76,7 @@ const A_KINDS = new Set([
   "service_notice",
   "security_alert",
   "admin_notice",
+  "notice_published",
   "inquiry_answered",
   "inbox_message_received",
   "system_persistent",

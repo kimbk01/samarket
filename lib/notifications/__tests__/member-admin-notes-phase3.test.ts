@@ -81,10 +81,33 @@ describe("Phase 5 Slice 1 taxonomy A — Inquiry/Inbox typed events", () => {
     expect(src).not.toMatch(/category:\s*"admin_notice"/);
   });
 
-  it("Campaign eventType mapping still uses admin_notice for notice/system", () => {
-    expect(eventTypeForAdminCampaignType("notice")).toBe("admin_notice");
-    expect(eventTypeForAdminCampaignType("system")).toBe("admin_notice");
+  it("Campaign eventType mapping uses notice_published for notice/system (Phase 5 Slice 2)", () => {
+    expect(eventTypeForAdminCampaignType("notice")).toBe("notice_published");
+    expect(eventTypeForAdminCampaignType("system")).toBe("notice_published");
     expect(eventTypeForAdminCampaignType("marketing")).toBe("admin_marketing_banner");
+  });
+
+  it("notice_published Bell presentation follows campaignType", () => {
+    expect(
+      resolveBellPresentationType({
+        id: "e6",
+        type: "notice_published",
+        category: "notice_published",
+        title: "N",
+        body: "b",
+        display_payload: { campaignType: "notice", previewKind: "admin_campaign" },
+      } as never)
+    ).toBe("admin_notice");
+    expect(
+      resolveBellPresentationType({
+        id: "e7",
+        type: "notice_published",
+        category: "notice_published",
+        title: "S",
+        body: "b",
+        display_payload: { campaignType: "system", previewKind: "admin_campaign" },
+      } as never)
+    ).toBe("admin_system");
   });
 
   it("inquiry_answered deep link + Bell presentation", () => {

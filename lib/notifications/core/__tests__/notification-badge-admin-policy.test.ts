@@ -54,6 +54,13 @@ describe("notification badge admin policy", () => {
     expect(out.total).toBe(3);
   });
 
+  it("folds notice_published into adminNotice (Phase 5 Slice 2)", async () => {
+    const sb = fakeBadgeSb([{ category: "notice_published" }, { category: "notice_published" }]);
+    const out = await countNotificationEventsBadge(sb as never, "u1");
+    expect(out.adminNotice).toBe(2);
+    expect(out.total).toBe(2);
+  });
+
   it("excludes events with explicit badge-disabled, expired, deleted, or mute_badge policy", async () => {
     const sb = fakeBadgeSb([
       { category: "chat_message", display_payload: { badge_enabled: false } },

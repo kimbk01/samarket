@@ -51,7 +51,8 @@ Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may 
 
 | Asset | Tag | Note |
 |-------|-----|------|
-| notes → type `admin_notice` | REPLACE진행 | Phase 5 Slice 1 — writer → `inquiry_answered` / `inbox_message_received`; legacy dual-read; Campaign keeps `admin_notice`; delete = Phase 7 |
+| notes → type `admin_notice` | REPLACE진행 | Phase 5 Slice 1 — writer → `inquiry_answered` / `inbox_message_received`; legacy dual-read; delete = Phase 7 |
+| Campaign notice/system → type `admin_notice` | REPLACE진행 | Phase 5 Slice 2 — writer → `notice_published`; marketing `admin_marketing_banner`; legacy dual-read |
 | Campaign createNotificationEvent + push | KEEP | Engine |
 | `createAndDispatchNotificationEvent` | KEEP | |
 | `notify-push-dispatcher` | KEEP | |
@@ -125,3 +126,4 @@ See prior sections in git history of this file / `phase-roadmap.md`. Do **not** 
 | 2026-08-05 | **COMPLETE** after Phase 1 APPROVED — tags locked for execution |
 | 2026-08-05 | Phase 4 Slice 4 — Store ratio + Member dual-write tags → REPLACE완료 |
 | 2026-08-05 | Phase 5 Slice 1 — notes→admin_notice → REPLACE진행 (typed Inquiry/Inbox writer; dual-read) |
+| 2026-08-06 | Phase 5 Slice 2 — Campaign notice/system→admin_notice → REPLACE진행 (`notice_published`) |

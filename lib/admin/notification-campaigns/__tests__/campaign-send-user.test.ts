@@ -94,7 +94,7 @@ describe("sendCampaignToUser skip reasons", () => {
     recordCampaignDelivery.mockResolvedValue("del-1");
     createNotificationEvent.mockResolvedValue({
       ok: true,
-      row: { id: "evt-1", user_id: "u1", title: "Hello", body: "World", created_at: new Date().toISOString(), category: "admin_notice", type: "admin_notice" },
+      row: { id: "evt-1", user_id: "u1", title: "Hello", body: "World", created_at: new Date().toISOString(), category: "notice_published", type: "notice_published" },
     });
   });
 

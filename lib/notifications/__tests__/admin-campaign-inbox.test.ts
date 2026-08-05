@@ -55,21 +55,25 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     expect(notice.pushPayload.meta?.push_kind).toBe("notice");
     expect(notice.pushPayload.notification_type).toBe("notice");
     expect(notice.pushPayload.meta?.eventClass).toBe("admin_notice");
+    expect(notice.eventType).toBe("notice_published");
+    expect(notice.category).toBe("notice_published");
     expect(system.pushPayload.meta?.push_kind).toBe("system");
     expect(system.pushPayload.notification_type).toBe("system");
     expect(system.pushPayload.meta?.eventClass).toBe("admin_system");
+    expect(system.eventType).toBe("notice_published");
     expect(marketing.pushPayload.meta?.push_kind).toBe("marketing");
     expect(marketing.bellPolicy).toBe("include");
+    expect(marketing.eventType).toBe("admin_marketing_banner");
   });
 
-  it("inbox map exposes campaign_type + distinct push_kind / presentation", () => {
+  it("inbox map exposes campaign_type + distinct push_kind / presentation (legacy + typed)", () => {
     const noticeRow = mapNotificationEventToInboxRow({
       id: "e1",
-      type: "admin_notice",
-      category: "admin_notice",
+      type: "notice_published",
+      category: "notice_published",
       title: "공지",
       body: "본문",
-      display_payload: { campaignType: "notice", routeUrl: "/notifications" },
+      display_payload: { campaignType: "notice", routeUrl: "/notifications", previewKind: "admin_campaign" },
       read_at: null,
       created_at: "2026-08-04T00:00:00.000Z",
       dedupe_key: "d1",
@@ -77,14 +81,26 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     });
     const systemRow = mapNotificationEventToInboxRow({
       id: "e2",
-      type: "admin_notice",
-      category: "admin_notice",
+      type: "notice_published",
+      category: "notice_published",
       title: "시스템",
       body: "업데이트",
-      display_payload: { campaignType: "system", routeUrl: "/notifications" },
+      display_payload: { campaignType: "system", routeUrl: "/notifications", previewKind: "admin_campaign" },
       read_at: null,
       created_at: "2026-08-04T00:00:00.000Z",
       dedupe_key: "d2",
+      room_id: null,
+    });
+    const legacyNoticeRow = mapNotificationEventToInboxRow({
+      id: "e1b",
+      type: "admin_notice",
+      category: "admin_notice",
+      title: "레거시공지",
+      body: "본문",
+      display_payload: { campaignType: "notice", routeUrl: "/notifications", previewKind: "admin_campaign" },
+      read_at: null,
+      created_at: "2026-08-04T00:00:00.000Z",
+      dedupe_key: "d1b",
       room_id: null,
     });
     const marketingRow = mapNotificationEventToInboxRow({
@@ -105,11 +121,12 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     expect(noticeRow.bell_presentation_type).toBe("admin_notice");
     expect(systemRow.push_kind).toBe("system");
     expect(systemRow.bell_presentation_type).toBe("admin_system");
+    expect(legacyNoticeRow.bell_presentation_type).toBe("admin_notice");
     expect(marketingRow.push_kind).toBe("marketing");
     expect(resolveBellPresentationType({
       id: "e2",
-      type: "admin_notice",
-      category: "admin_notice",
+      type: "notice_published",
+      category: "notice_published",
       title: "S",
       body: "",
       display_payload: { campaignType: "system" },
