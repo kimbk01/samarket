@@ -12,6 +12,8 @@ describe("Phase J3 App Icon authority (Android / native)", () => {
     expect(src).toContain("surface.appIconTotal");
     expect(src).toContain("syncNativeBadgeCount(n)");
     expect(src).toContain("clearNativeBadgeCount");
+    expect(src).toContain("resolveNativeBadgeSyncWrite");
+    expect(src).toContain("getProjectionAuthorityState");
     expect(src).not.toMatch(/useNotificationBadgeTotal/);
     expect(src).not.toMatch(/fetchNotificationBadgeCount/);
     expect(src).not.toMatch(/badgeCountSnap\?\.total/);

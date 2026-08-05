@@ -131,7 +131,9 @@ export function publishDomainAppIconCompleteSnapshot(
     missedCall: input.missedCall,
   });
   const nextTotal = resolveDomainAppIconBadgeCount(parts);
+  const firstHydrate = snapshot.generation === 0;
   if (
+    !firstHydrate &&
     parts.messenger === snapshot.messenger &&
     parts.trade === snapshot.trade &&
     parts.storeOrder === snapshot.storeOrder &&

@@ -44,6 +44,20 @@ export type ProjectionAuthoritySource =
 /** Projection lifecycle — RT / CM room facts are only legal in COMPLETE. */
 export type ProjectionAuthorityState = "EMPTY" | "WAITING_COMPLETE" | "COMPLETE";
 
+const projectionStateListeners = new Set<() => void>();
+
+/** Subscribe to EMPTY / WAITING_COMPLETE / COMPLETE transitions (NativeBadgeSync gate). */
+export function subscribeProjectionAuthorityState(onChange: () => void): () => void {
+  projectionStateListeners.add(onChange);
+  return () => {
+    projectionStateListeners.delete(onChange);
+  };
+}
+
+function emitProjectionAuthorityState(): void {
+  for (const l of projectionStateListeners) l();
+}
+
 /** Per-room fact lifecycle for Member Conversation B Authority input. */
 export type RoomFactState = "UNKNOWN" | "KNOWN" | "READ";
 
@@ -270,11 +284,13 @@ export function markProjectionAuthorityWaitingComplete(reason: string): Projecti
   if (state === "EMPTY") {
     state = "WAITING_COMPLETE";
     logNotifyBadge("projection_state", { state, reason });
+    emitProjectionAuthorityState();
   }
   return state;
 }
 
 function clearProjectionAuthorityState(): void {
+  const prev = state;
   state = "EMPTY";
   lastCompleteInput = null;
   lastMetadata = null;
@@ -301,6 +317,7 @@ function clearProjectionAuthorityState(): void {
   counters.event_version_stale = 0;
   counters.event_kind_rejected = 0;
   counters.event_fact_noop = 0;
+  if (prev !== "EMPTY") emitProjectionAuthorityState();
 }
 
 /**
@@ -316,6 +333,7 @@ export function resetProjectionAuthorityForAuthEpoch(): void {
 
 export function resetProjectionAuthorityForTests(): void {
   clearProjectionAuthorityState();
+  projectionStateListeners.clear();
 }
 
 function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>): false {
@@ -370,7 +388,9 @@ function commitApply(
   generation += 1;
   factsVersion = nextFactsVersion;
   lastCompleteInput = input;
+  const prevState = state;
   state = "COMPLETE";
+  if (prevState !== "COMPLETE") emitProjectionAuthorityState();
   lastMetadata = {
     projectionId: nextProjectionId(generation),
     projectionGeneration: generation,
