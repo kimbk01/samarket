@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
@@ -163,17 +165,8 @@ export function MyPageItemScreen(
       return <NoticesContent />;
     }
     if (item === "events") {
-      return (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-body text-sam-fg">{t("mypage_comp_settings_events_body")}</p>
-          <Link
-            href="/mypage/benefits"
-            className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-ui-rect bg-sam-ink px-4 sam-text-body font-medium text-white"
-          >
-            {t("mypage_comp_settings_events_cta")}
-          </Link>
-        </div>
-      );
+      /** Phase 7 REMOVE예정 — Event product ABSENT; legacy stub deep-link → benefits */
+      return <LegacyEventsStubRedirect />;
     }
     if (item === "support") {
       return (
@@ -259,4 +252,13 @@ function MannerTrustEmbed() {
       </div>
     </div>
   );
+}
+
+/** Phase 7 — REMOVE예정 Settings events→benefits stub; keep deep-link safe. */
+function LegacyEventsStubRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/mypage/benefits");
+  }, [router]);
+  return null;
 }

@@ -84,7 +84,7 @@ Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may 
 
 | Asset | Tag | Note |
 |-------|-----|------|
-| Settings `events` → benefits stub | REMOVE예정 | Hide/remove after Event decision; Phase 7 |
+| Settings `events` → benefits stub | REMOVE완료 | Phase 7 — menu/nav stub removed; deep-link → `/mypage/benefits` |
 | FAQ product | ABSENT → KEEP when built | Phase 2 create |
 
 ### G. Docs / tests (cleanup)
@@ -127,3 +127,4 @@ See prior sections in git history of this file / `phase-roadmap.md`. Do **not** 
 | 2026-08-05 | Phase 4 Slice 4 — Store ratio + Member dual-write tags → REPLACE완료 |
 | 2026-08-05 | Phase 5 Slice 1 — notes→admin_notice → REPLACE진행 (typed Inquiry/Inbox writer; dual-read) |
 | 2026-08-06 | Phase 5 Slice 2 — Campaign notice/system→admin_notice → REPLACE진행 (`notice_published`) |
+| 2026-08-06 | Phase 7 — Settings events stub → REMOVE완료 (user lock: REMOVE/DELETE only) |

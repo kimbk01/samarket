@@ -143,7 +143,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("settings", "video-autoplay"),
       navItem("settings", "cache"),
       navItem("settings", "notices"),
-      navItem("settings", "events"),
       navItem("settings", "support"),
       navItem("settings", "terms"),
       navItem("settings", "version"),

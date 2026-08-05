@@ -142,11 +142,6 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "user-round",
   },
   {
-    href: "/mypage/section/settings/events",
-    titleKey: "mypage_comp_menu_support_events_title",
-    icon: "calendar-days",
-  },
-  {
     href: "/mypage/section/settings/terms",
     titleKey: "mypage_comp_menu_support_terms_title",
     icon: "shield",
