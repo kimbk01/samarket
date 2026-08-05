@@ -238,6 +238,7 @@ export async function enforceWebOAuthProviderPolicy(
   return { ok: true, candidate, diag };
 }
 
+/** Slice 7-4 PLAN_I2 Auth Identity Row writer — delegates to ensureProviderAuthIdentityRow. */
 export async function persistOAuthProviderIdentity(
   sb: SupabaseClient,
   userId: string,

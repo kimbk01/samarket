@@ -175,6 +175,7 @@ async function upsertGoogleAuthUser(
   return { userId: created.user.id, isNewUser: true, signInEmail: authEmail };
 }
 
+/** Slice 7-4 PLAN_I2 Identity column writer — verified Google token → provider* (soft). */
 async function persistGoogleProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,

@@ -148,6 +148,8 @@ export async function GET(req: NextRequest) {
     await ensureAuthProfileForLogin(adminSb, signedUser, {
       enrichMemberProfile: true,
     }).catch(() => null);
+    // Slice 7-4 PLAN_I2 Identity column writer (inline) — Naver profile credential → provider*.
+    // Not Canonical; do not fold into ensureAuthProfileForLogin.
     await adminSb
       .from("profiles")
       .update({

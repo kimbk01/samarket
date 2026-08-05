@@ -142,6 +142,7 @@ async function upsertKakaoAuthUser(
   return { userId: created.user.id, isNewUser: true };
 }
 
+/** Slice 7-4 PLAN_I2 Identity column writer — verified Kakao credential → provider* (soft). */
 async function persistKakaoProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,

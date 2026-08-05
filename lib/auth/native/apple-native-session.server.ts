@@ -153,6 +153,7 @@ async function upsertAppleAuthUser(
   return { userId: created.user.id, isNewUser: true };
 }
 
+/** Slice 7-4 PLAN_I2 Identity column writer — verified Apple token → provider* (soft). */
 async function persistAppleProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,

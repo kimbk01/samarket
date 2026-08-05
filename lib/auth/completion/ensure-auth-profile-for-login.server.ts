@@ -27,6 +27,10 @@ export type EnsureAuthProfileForLoginResult = {
  *
  * DO NOT call ensurePendingAuthProfileRow + ensureUserProfile + upsertOAuth
  * separately in the same login completion path — use this once.
+ *
+ * Slice 7-4 PLAN_I2: DO NOT own Identity Writers (persist*ProfileIdentity,
+ * ensureProviderAuthIdentityRow, persistOAuthProviderIdentity, Naver provider* UPDATE).
+ * Verified-token identity projection stays in caller Identity Writers after this facade.
  */
 export async function ensureAuthProfileForLogin(
   sb: SupabaseClient,
