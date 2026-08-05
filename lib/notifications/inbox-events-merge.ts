@@ -314,6 +314,12 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
     return `/notifications/notes/${encodeURIComponent(noteThreadId)}`;
   }
 
+  /** Phase 2 — board notice SSOT detail (Campaign/Bell deep link). */
+  const appNoticeId = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
+  if (appNoticeId) {
+    return `/mypage/notices/${encodeURIComponent(appNoticeId)}`;
+  }
+
   return defaultInboxFallbackHref();
 }
 

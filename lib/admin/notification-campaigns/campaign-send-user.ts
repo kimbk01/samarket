@@ -82,6 +82,10 @@ export async function sendCampaignToUser(
     image_url: campaign.image_url,
     campaignId: campaign.id,
     target_type: campaign.target_type,
+    appNoticeId:
+      typeof campaign.target_payload?.appNoticeId === "string"
+        ? campaign.target_payload.appNoticeId
+        : null,
   });
   const routeUrl = presentation.routeUrl;
   const inAppImageUrl = presentation.inAppImageUrl;
@@ -261,6 +265,10 @@ export async function sendCampaignToUser(
             image_url: campaign.image_url,
             campaignId: campaign.id,
             target_type: campaign.target_type,
+            appNoticeId:
+              typeof campaign.target_payload?.appNoticeId === "string"
+                ? campaign.target_payload.appNoticeId
+                : null,
           },
           {
             userId,

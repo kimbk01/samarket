@@ -1,6 +1,7 @@
 /**
- * Phase 2 — member notices SSOT merge.
- * Board (`app_notices`) + push inbox (`notification_events` admin_notice, non-marketing).
+ * Phase 2 — member notices list helper (legacy).
+ * Settings API no longer merges push inbox; board SSOT only.
+ * KEEP file until Phase 7 REPLACE/REMOVE of unused merge helper.
  */
 export type MemberNoticeListItem = {
   id: string;

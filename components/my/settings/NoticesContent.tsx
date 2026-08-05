@@ -10,12 +10,11 @@ type NoticeItem = {
   title: string;
   body: string;
   createdAt: string;
-  source?: "board" | "push";
-  notificationId?: string | null;
-  campaignType?: "notice" | "system" | null;
-  isRead?: boolean;
+  href?: string;
+  source?: "board";
 };
 
+/** Phase 2 — board SSOT list only (no Bell/push merge). */
 export function NoticesContent() {
   const { t, language } = useI18n();
   const [notices, setNotices] = useState<NoticeItem[]>([]);
@@ -81,38 +80,14 @@ export function NoticesContent() {
   return (
     <ul className="divide-y divide-sam-border-soft">
       {notices.map((n) => {
-        const href =
-          n.source === "push" && n.notificationId
-            ? `/notifications/${encodeURIComponent(n.notificationId)}`
-            : null;
-        const chip =
-          n.campaignType === "system"
-            ? t("notif_surface_system")
-            : t("notif_surface_notice");
-        const inner = (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex shrink-0 rounded-md bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-semibold text-sam-fg">
-                {chip}
-              </span>
-              {n.source === "push" && n.isRead === false ? (
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sam-danger" aria-hidden />
-              ) : null}
-            </div>
-            <p className="mt-1 font-medium text-sam-fg">{n.title}</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-sam-muted">{n.body}</p>
-            <p className="mt-1 text-xs text-sam-meta">{formatDate(n.createdAt)}</p>
-          </>
-        );
+        const href = n.href?.trim() || `/mypage/notices/${encodeURIComponent(n.id)}`;
         return (
           <li key={n.id} className="py-3">
-            {href ? (
-              <Link href={href} className="block rounded-ui-rect transition hover:bg-sam-muted/10">
-                {inner}
-              </Link>
-            ) : (
-              inner
-            )}
+            <Link href={href} className="block rounded-ui-rect transition hover:bg-sam-muted/10">
+              <p className="font-medium text-sam-fg">{n.title}</p>
+              <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-sam-muted">{n.body}</p>
+              <p className="mt-1 text-xs text-sam-meta">{formatDate(n.createdAt)}</p>
+            </Link>
           </li>
         );
       })}

@@ -29,6 +29,8 @@ export type AdminCampaignPresentationInput = {
   image_url?: string | null;
   campaignId?: string | null;
   target_type?: string | null;
+  /** Phase 2 — link Bell tap to Customer Center notice detail. */
+  appNoticeId?: string | null;
 };
 
 export type AdminCampaignNotificationPresentation = {
@@ -105,6 +107,7 @@ export function buildAdminCampaignNotificationPresentation(
   const origin = getSiteOrigin();
   const link = routeUrl.startsWith("/") ? routeUrl : `/${routeUrl}`;
 
+  const appNoticeId = input.appNoticeId?.trim() || null;
   const displayPayload: Record<string, unknown> = {
     routeUrl: link,
     imageUrl: inAppImageUrl,
@@ -114,6 +117,7 @@ export function buildAdminCampaignNotificationPresentation(
     previewKind: "admin_campaign",
     deeplinkUrl: campaign.deeplink_url,
     webUrl: campaign.web_url,
+    ...(appNoticeId ? { appNoticeId } : {}),
   };
 
   const eventClass =

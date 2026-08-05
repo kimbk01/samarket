@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
@@ -31,6 +31,7 @@ function newClientIdempotencyKey(): string {
 export function AdminNotificationCampaignCreatePage() {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [type, setType] = useState<"notice" | "marketing" | "system">("notice");
@@ -44,10 +45,24 @@ export function AdminNotificationCampaignCreatePage() {
   const [regionCode, setRegionCode] = useState("");
   const [selectedIds, setSelectedIds] = useState("");
   const [testUserIds, setTestUserIds] = useState("");
+  const [appNoticeId, setAppNoticeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState<"none" | "normal" | "all">("none");
   const [audience, setAudience] = useState<CampaignAudiencePreview | null>(null);
+
+  useEffect(() => {
+    const qType = searchParams.get("type");
+    if (qType === "notice" || qType === "marketing" || qType === "system") setType(qType);
+    const qTitle = searchParams.get("title");
+    if (qTitle) setTitle(qTitle);
+    const qBody = searchParams.get("body");
+    if (qBody) setBody(qBody);
+    const qDeeplink = searchParams.get("deeplink");
+    if (qDeeplink) setDeeplinkUrl(qDeeplink);
+    const qNotice = searchParams.get("appNoticeId");
+    if (qNotice) setAppNoticeId(qNotice);
+  }, [searchParams]);
 
   const presentation = useMemo(
     () =>
@@ -61,8 +76,9 @@ export function AdminNotificationCampaignCreatePage() {
         push_image_url: pushImageUrl || null,
         in_app_image_url: inAppImageUrl || null,
         target_type: targetType,
+        appNoticeId: appNoticeId || null,
       }),
-    [title, body, type, channel, deeplinkUrl, webUrl, pushImageUrl, inAppImageUrl, targetType]
+    [title, body, type, channel, deeplinkUrl, webUrl, pushImageUrl, inAppImageUrl, targetType, appNoticeId]
   );
 
   const loadAudiencePreview = async () => {
@@ -153,6 +169,7 @@ export function AdminNotificationCampaignCreatePage() {
             mode === "schedule" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
           status: mode === "schedule" ? "scheduled" : "draft",
           target_user_ids,
+          app_notice_id: appNoticeId.trim() || null,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {

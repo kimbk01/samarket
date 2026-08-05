@@ -48,7 +48,11 @@ export interface AppNoticeRow {
   title: string;
   body: string;
   is_active: boolean;
+  /** Optional publish window (Phase 2). */
+  starts_at?: string | null;
+  ends_at?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface AppSupportedCountryRow {

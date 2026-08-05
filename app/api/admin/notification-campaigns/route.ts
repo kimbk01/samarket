@@ -71,6 +71,8 @@ type CreateBody = {
   target_user_ids?: unknown;
   priority?: unknown;
   visibility_policy?: unknown;
+  app_notice_id?: unknown;
+  target_payload?: unknown;
 };
 
 function optionalUrl(v: unknown, max = 2000): string | null {
@@ -156,6 +158,12 @@ export async function POST(req: NextRequest) {
     priority: typeof body.priority === "string" ? body.priority : "normal",
     visibility_policy: typeof body.visibility_policy === "string" ? body.visibility_policy : "default",
     updated_at: new Date().toISOString(),
+    target_payload:
+      typeof body.app_notice_id === "string" && body.app_notice_id.trim()
+        ? { appNoticeId: body.app_notice_id.trim() }
+        : body.target_payload && typeof body.target_payload === "object"
+          ? body.target_payload
+          : null,
   };
 
   const { data: row, error } = await svc.from("admin_notification_campaigns").insert(insertRow).select("id").maybeSingle();
