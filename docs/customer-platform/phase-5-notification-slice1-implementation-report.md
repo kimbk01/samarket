@@ -49,4 +49,4 @@ Next allowed: Phase 5 further slices (e.g. Campaign notice_published) then Phase
 ## PASS/FAIL
 
 **Phase 5 Slice 1 CLOSED.**  
-Phase 5 full Exit Gate: **not yet** (remaining slices pending).
+Phase 5 full Exit Gate: recorded in `phase-5-notification-slice2-implementation-report.md` after Slice 2.
