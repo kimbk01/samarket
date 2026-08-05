@@ -52,7 +52,19 @@ describe("deeplink fallback", () => {
   });
 
   it("falls back to /notifications when empty", () => {
-    expect(resolveCampaignRouteUrl({ deeplink_url: null, web_url: null, target_url: null })).toBe("/notifications");
+    expect(resolveCampaignRouteUrl({ deeplink_url: null, web_url: null, target_url: null })).toBe(
+      "/notifications"
+    );
+  });
+
+  it("extracts pathname from absolute https deeplink", () => {
+    expect(
+      resolveCampaignRouteUrl({
+        deeplink_url: "https://samarket.vercel.app/mypage/notices/abc",
+        web_url: null,
+        target_url: null,
+      })
+    ).toBe("/mypage/notices/abc");
   });
 });
 

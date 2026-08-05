@@ -15,6 +15,7 @@ import type { NotificationEventType } from "@/lib/notifications/core/notificatio
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { getSiteOrigin } from "@/lib/env/runtime";
+import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
 
 export type AdminCampaignPresentationInput = {
   title: string;
@@ -95,7 +96,11 @@ export function buildAdminCampaignNotificationPresentation(
   const eventType = eventTypeForAdminCampaignType(campaign.type);
   const definition = getNotificationEventDefinition(eventType);
   const category = definition.eventCategory;
-  const routeUrl = resolveCampaignRouteUrl(campaign);
+  const appNoticeId = input.appNoticeId?.trim() || null;
+  // Phase 2 — board notice SSOT wins over absolute/external deeplink strings.
+  const routeUrl = appNoticeId
+    ? buildAppNoticeDetailPath(appNoticeId)
+    : resolveCampaignRouteUrl(campaign);
   const pushImageUrl = resolveCampaignPushImageUrl(campaign);
   const inAppImageUrl = resolveCampaignInAppImageUrl(campaign);
   const soundPolicyKey = definition.soundEventKey ?? "system_default";
@@ -106,8 +111,6 @@ export function buildAdminCampaignNotificationPresentation(
   const badgeCount = Math.max(0, Math.floor(Number(opts?.badgeCount) || 0));
   const origin = getSiteOrigin();
   const link = routeUrl.startsWith("/") ? routeUrl : `/${routeUrl}`;
-
-  const appNoticeId = input.appNoticeId?.trim() || null;
   const displayPayload: Record<string, unknown> = {
     routeUrl: link,
     imageUrl: inAppImageUrl,

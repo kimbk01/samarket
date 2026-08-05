@@ -71,20 +71,25 @@ export function campaignNeedsPush(channel: CampaignChannel): boolean {
   return channel === "push_only" || channel === "push_and_in_app" || channel === "test_only";
 }
 
-export function resolveCampaignRouteUrl(campaign: Pick<AdminNotificationCampaignRow, "deeplink_url" | "web_url" | "target_url">): string {
-  const deeplink = campaign.deeplink_url?.trim();
-  if (deeplink) return deeplink.startsWith("/") ? deeplink : `/${deeplink}`;
-  const web = campaign.web_url?.trim();
-  if (web) {
-    try {
-      const u = new URL(web);
-      return u.pathname + u.search + u.hash;
-    } catch {
-      if (web.startsWith("/")) return web;
-    }
+function toInternalCampaignPath(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  if (value.startsWith("/")) return value;
+  try {
+    const u = new URL(value);
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return `/${value}`;
   }
-  const legacy = campaign.target_url?.trim();
-  if (legacy) return legacy.startsWith("/") ? legacy : `/${legacy}`;
+}
+
+export function resolveCampaignRouteUrl(campaign: Pick<AdminNotificationCampaignRow, "deeplink_url" | "web_url" | "target_url">): string {
+  const deeplink = toInternalCampaignPath(campaign.deeplink_url ?? "");
+  if (deeplink) return deeplink;
+  const web = toInternalCampaignPath(campaign.web_url ?? "");
+  if (web) return web;
+  const legacy = toInternalCampaignPath(campaign.target_url ?? "");
+  if (legacy) return legacy;
   return "/notifications";
 }
 

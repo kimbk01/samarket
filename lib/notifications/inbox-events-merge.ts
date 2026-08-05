@@ -249,6 +249,11 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
 
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
+  /** Phase 2 — board notice SSOT before routeUrl (absolute deeplink can poison routeUrl). */
+  const appNoticeIdEarly = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
+  if (appNoticeIdEarly) {
+    return `/mypage/notices/${encodeURIComponent(appNoticeIdEarly)}`;
+  }
   const routeUrl = trimText(payload?.routeUrl);
   if (routeUrl) {
     return resolveSafeNotificationInternalRoute(

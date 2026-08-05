@@ -109,6 +109,21 @@ describe("inbox-events-merge-regression", () => {
     expect(result.eventIds).toEqual(["evt-b", "unknown-c"]);
   });
 
+  it("Phase2 appNoticeId wins over poisoned absolute routeUrl", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        type: "admin_notice",
+        category: "admin_notice",
+        display_payload: {
+          routeUrl: "/https://samarket.vercel.app/mypage/notices/notice-1",
+          appNoticeId: "notice-1",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/mypage/notices/notice-1");
+  });
+
   it("retires friend request href to inbox fallback (Contact SSOT)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
