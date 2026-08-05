@@ -129,6 +129,11 @@ export const myMessages = {
     notif_admin_notes_from_admin: "관리자",
     notif_admin_notes_from_me: "나",
     notif_admin_notes_entry: "관리자 문의 쪽지",
+    admin_member_notes_inbox_create_title: "받은 쪽지 발송 (회원 1명)",
+    admin_member_notes_inbox_create_hint:
+      "세그먼트·대량 발송은 지원하지 않습니다. 회원 UUID 1명만 입력하세요.",
+    admin_member_notes_member_id_ph: "회원 user id (UUID)",
+    admin_member_notes_inbox_send: "쪽지 보내기",
     notif_order_status_accepted: "접수됨",
     notif_order_status_preparing: "준비 중",
     notif_order_status_ready_for_pickup: "픽업 준비",
@@ -544,6 +549,11 @@ export const myMessages = {
     notif_admin_notes_from_admin: "Admin",
     notif_admin_notes_from_me: "You",
     notif_admin_notes_entry: "Message admin",
+    admin_member_notes_inbox_create_title: "Send Inbox (1 member)",
+    admin_member_notes_inbox_create_hint:
+      "Segment/bulk send is not supported. Enter exactly one member UUID.",
+    admin_member_notes_member_id_ph: "Member user id (UUID)",
+    admin_member_notes_inbox_send: "Send Inbox",
     notif_order_status_accepted: "Accepted",
     notif_order_status_preparing: "Preparing",
     notif_order_status_ready_for_pickup: "Ready for pickup",

@@ -127,6 +127,16 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "help-circle",
   },
   {
+    href: "/mypage/inquiries",
+    titleKey: "mypage_comp_menu_support_inquiries_title",
+    icon: "message-square",
+  },
+  {
+    href: "/mypage/inbox",
+    titleKey: "mypage_comp_menu_support_inbox_title",
+    icon: "message-circle",
+  },
+  {
     href: "/mypage/section/settings/notices",
     titleKey: "mypage_comp_menu_support_notices_title",
     icon: "user-round",

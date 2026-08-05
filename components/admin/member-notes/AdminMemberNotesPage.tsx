@@ -10,6 +10,7 @@ type Thread = {
   status: string;
   last_message_at: string;
   admin_unread_count: number;
+  started_by?: string;
 };
 
 type Message = {
@@ -20,7 +21,7 @@ type Message = {
 };
 
 export function AdminMemberNotesPage() {
-  const { t, language } = useI18n();
+  const { t, language, safeT } = useI18n();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,6 +29,9 @@ export function AdminMemberNotesPage() {
   const [reply, setReply] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [createMemberId, setCreateMemberId] = useState("");
+  const [createSubject, setCreateSubject] = useState("");
+  const [createBody, setCreateBody] = useState("");
 
   const loadThreads = useCallback(async () => {
     const res = await fetch("/api/admin/member-notes", { credentials: "include", cache: "no-store" });
@@ -88,10 +92,94 @@ export function AdminMemberNotesPage() {
     }
   };
 
+  const createInbox = async () => {
+    if (busy || !createMemberId.trim() || !createSubject.trim() || !createBody.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/member-notes", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberUserId: createMemberId.trim(),
+          subject: createSubject,
+          body: createBody,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        thread?: Thread;
+        error?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setError(j.error ?? "create_failed");
+        return;
+      }
+      setCreateMemberId("");
+      setCreateSubject("");
+      setCreateBody("");
+      await loadThreads();
+      if (j.thread?.id) await loadThread(j.thread.id);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
       <h1 className="text-lg font-semibold text-sam-fg">{t("notif_admin_notes_title")}</h1>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+        <h2 className="text-[14px] font-semibold text-sam-fg">
+          {safeT("admin_member_notes_inbox_create_title", {
+            fallbackKo: "받은 쪽지 발송 (회원 1명)",
+            fallbackEn: "Send Inbox (1 member)",
+          })}
+        </h2>
+        <p className="mt-1 text-[12px] text-sam-muted">
+          {safeT("admin_member_notes_inbox_create_hint", {
+            fallbackKo: "세그먼트·대량 발송은 지원하지 않습니다. 회원 UUID 1명만 입력하세요.",
+            fallbackEn: "Segment/bulk send is not supported. Enter exactly one member UUID.",
+          })}
+        </p>
+        <input
+          value={createMemberId}
+          onChange={(e) => setCreateMemberId(e.target.value)}
+          placeholder={safeT("admin_member_notes_member_id_ph", {
+            fallbackKo: "회원 user id (UUID)",
+            fallbackEn: "Member user id (UUID)",
+          })}
+          className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+        />
+        <input
+          value={createSubject}
+          onChange={(e) => setCreateSubject(e.target.value)}
+          placeholder={t("notif_admin_notes_subject_ph")}
+          className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+        />
+        <textarea
+          value={createBody}
+          onChange={(e) => setCreateBody(e.target.value)}
+          rows={3}
+          placeholder={t("notif_admin_notes_body_ph")}
+          className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+        />
+        <button
+          type="button"
+          disabled={
+            busy || !createMemberId.trim() || !createSubject.trim() || !createBody.trim()
+          }
+          onClick={() => void createInbox()}
+          className="mt-2 rounded-ui-rect bg-signature px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+        >
+          {safeT("admin_member_notes_inbox_send", {
+            fallbackKo: "쪽지 보내기",
+            fallbackEn: "Send Inbox",
+          })}
+        </button>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-2">
         <ul className="max-h-[70vh] space-y-2 overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-2">
           {threads.length === 0 ? (
@@ -111,6 +199,7 @@ export function AdminMemberNotesPage() {
                       {th.subject}
                     </span>
                     <span className="block truncate text-[11px] text-sam-meta">
+                      {th.started_by === "admin" ? "Inbox" : "Inquiry"} ·{" "}
                       {th.member_user_id.slice(0, 8)} ·{" "}
                       {new Date(th.last_message_at).toLocaleString(
                         language === "ko" ? "ko-KR" : "en-US"

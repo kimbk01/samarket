@@ -254,6 +254,13 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   if (appNoticeIdEarly) {
     return `/mypage/notices/${encodeURIComponent(appNoticeIdEarly)}`;
   }
+  /** Phase 3 — Inquiry/Inbox CS path before routeUrl (legacy /notifications/notes poison). */
+  const noteThreadIdEarly = trimText(payload?.noteThreadId);
+  if (noteThreadIdEarly) {
+    const startedBy = trimText(payload?.startedBy) || "member";
+    const base = startedBy === "admin" ? "/mypage/inbox" : "/mypage/inquiries";
+    return `${base}/${encodeURIComponent(noteThreadIdEarly)}`;
+  }
   const routeUrl = trimText(payload?.routeUrl);
   if (routeUrl) {
     return resolveSafeNotificationInternalRoute(
@@ -314,11 +321,6 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
       )!;
     }
   }
-  const noteThreadId = trimText(payload?.noteThreadId);
-  if (noteThreadId) {
-    return `/notifications/notes/${encodeURIComponent(noteThreadId)}`;
-  }
-
   /** Phase 2 — board notice SSOT detail (Campaign/Bell deep link). */
   const appNoticeId = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
   if (appNoticeId) {

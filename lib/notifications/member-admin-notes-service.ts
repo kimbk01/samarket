@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildMemberAdminNoteNotificationPayload } from "@/lib/notifications/member-admin-notes";
+import {
+  buildMemberAdminNoteNotificationPayload,
+  kindFromStartedBy,
+  startedByFromKind,
+  type MemberAdminNoteKind,
+  type MemberAdminNoteStartedBy,
+} from "@/lib/notifications/member-admin-notes";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 
@@ -13,6 +19,8 @@ export type NoteThreadRow = {
   admin_unread_count: number;
   created_at: string;
   updated_at: string;
+  started_by?: MemberAdminNoteStartedBy | string;
+  member_archived_at?: string | null;
 };
 
 export type NoteMessageRow = {
@@ -29,6 +37,12 @@ function isMissingNotesTable(message: string): boolean {
   return m.includes("member_admin_note") && m.includes("does not exist");
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+}
+
 async function notifyMemberOfAdminNote(
   sb: SupabaseClient,
   input: {
@@ -37,12 +51,14 @@ async function notifyMemberOfAdminNote(
     subject: string;
     body: string;
     adminUserId: string;
+    startedBy?: string | null;
   }
 ): Promise<void> {
   const displayPayload = buildMemberAdminNoteNotificationPayload({
     threadId: input.threadId,
     subject: input.subject,
     bodyPreview: input.body,
+    startedBy: input.startedBy ?? "member",
   });
   const dedupeKey = `member_admin_note:${input.threadId}:${Date.now()}`;
   /** Canonical A write + push (absolute badge echo via notify-push-dispatcher). */
@@ -61,14 +77,20 @@ async function notifyMemberOfAdminNote(
 
 export async function listMemberNoteThreads(
   sb: SupabaseClient,
-  memberUserId: string
+  memberUserId: string,
+  opts?: { kind?: MemberAdminNoteKind }
 ): Promise<{ ok: true; threads: NoteThreadRow[] } | { ok: false; error: string; empty?: boolean }> {
-  const { data, error } = await sb
+  let q = sb
     .from("member_admin_note_threads")
     .select("*")
     .eq("member_user_id", memberUserId)
+    .is("member_archived_at", null)
     .order("last_message_at", { ascending: false })
     .limit(50);
+  if (opts?.kind) {
+    q = q.eq("started_by", startedByFromKind(opts.kind));
+  }
+  const { data, error } = await q;
   if (error) {
     if (isMissingNotesTable(error.message ?? "")) return { ok: true, threads: [] };
     return { ok: false, error: error.message };
@@ -136,6 +158,7 @@ export async function createMemberNoteThread(
       member_user_id: input.memberUserId,
       subject,
       status: "open",
+      started_by: "member",
       last_message_at: now,
       member_unread_count: 0,
       admin_unread_count: 1,
@@ -155,6 +178,80 @@ export async function createMemberNoteThread(
   });
   if (mErr) return { ok: false, error: mErr.message };
   return { ok: true, thread: thread as NoteThreadRow };
+}
+
+/** Admin → exactly one member. Product: Inbox (started_by=admin). */
+export async function createAdminNoteThread(
+  sb: SupabaseClient,
+  input: {
+    memberUserId: string;
+    adminUserId: string;
+    subject: string;
+    body: string;
+  }
+): Promise<{ ok: true; thread: NoteThreadRow } | { ok: false; error: string }> {
+  const memberUserId = input.memberUserId.trim();
+  const subject = input.subject.trim().slice(0, 120);
+  const body = input.body.trim().slice(0, 4000);
+  if (!isUuid(memberUserId) || !subject || !body) return { ok: false, error: "invalid_input" };
+  const now = new Date().toISOString();
+  const { data: thread, error } = await sb
+    .from("member_admin_note_threads")
+    .insert({
+      member_user_id: memberUserId,
+      subject,
+      status: "answered",
+      started_by: "admin",
+      last_message_at: now,
+      member_unread_count: 1,
+      admin_unread_count: 0,
+      updated_at: now,
+    })
+    .select("*")
+    .single();
+  if (error) {
+    if (isMissingNotesTable(error.message ?? "")) return { ok: false, error: "missing_table" };
+    return { ok: false, error: error.message };
+  }
+  const { error: mErr } = await sb.from("member_admin_note_messages").insert({
+    thread_id: thread.id,
+    sender_role: "admin",
+    sender_user_id: input.adminUserId,
+    body,
+  });
+  if (mErr) return { ok: false, error: mErr.message };
+
+  await notifyMemberOfAdminNote(sb, {
+    memberUserId,
+    threadId: thread.id,
+    subject,
+    body,
+    adminUserId: input.adminUserId,
+    startedBy: "admin",
+  });
+
+  return { ok: true, thread: thread as NoteThreadRow };
+}
+
+export async function archiveMemberNoteThread(
+  sb: SupabaseClient,
+  input: { threadId: string; memberUserId: string }
+): Promise<{ ok: true } | { ok: false; error: string; notFound?: boolean }> {
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("member_admin_note_threads")
+    .update({ member_archived_at: now, updated_at: now })
+    .eq("id", input.threadId)
+    .eq("member_user_id", input.memberUserId)
+    .is("member_archived_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    if (isMissingNotesTable(error.message ?? "")) return { ok: false, error: "missing_table", notFound: true };
+    return { ok: false, error: error.message };
+  }
+  if (!data) return { ok: false, error: "not_found", notFound: true };
+  return { ok: true };
 }
 
 export async function postNoteMessage(
@@ -210,6 +307,7 @@ export async function postNoteMessage(
       subject: thread.subject,
       body,
       adminUserId: input.senderUserId,
+      startedBy: thread.started_by ?? "member",
     });
   }
 
@@ -270,3 +368,5 @@ export async function markAdminNoteThreadRead(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+export { kindFromStartedBy };
