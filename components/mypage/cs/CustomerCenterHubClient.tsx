@@ -11,7 +11,10 @@ import {
   CUSTOMER_CENTER_HREF,
   customerCenterChildHref,
 } from "@/lib/mypage/customer-center-paths";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  CUSTOMER_CENTER_LIST_COLUMN_CLASS,
+  CUSTOMER_CENTER_SCROLL_BODY_CLASS,
+} from "@/lib/mypage/customer-center-layout";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_CHEVRON_CLASS,
@@ -137,8 +140,8 @@ export function CustomerCenterHubClient() {
           </Link>
         }
       />
-      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col gap-3 px-3 py-3">
+      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
+        <div className={CUSTOMER_CENTER_LIST_COLUMN_CLASS}>
           <section className={`${MYPAGE_HOME_CARD_CLASS} px-4 py-6 text-center`}>
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F3EE] text-[#00704A]">
               <Headphones className="h-6 w-6" aria-hidden />

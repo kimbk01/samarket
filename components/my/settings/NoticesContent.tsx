@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 
 type NoticeItem = {
   id: string;
@@ -17,6 +19,8 @@ type NoticeItem = {
 /** Phase 2 — board SSOT list only (no Bell/push merge). */
 export function NoticesContent() {
   const { t, language } = useI18n();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +39,7 @@ export function NoticesContent() {
           fetch("/api/me/settings/notices", {
             credentials: "include",
             cache: "no-store",
-          })
+          }),
         );
         const json = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
@@ -80,12 +84,13 @@ export function NoticesContent() {
   return (
     <ul className="divide-y divide-sam-border-soft">
       {notices.map((n) => {
-        const href = n.href?.trim() || `/mypage/notices/${encodeURIComponent(n.id)}`;
+        const base = n.href?.trim() || `/mypage/notices/${encodeURIComponent(n.id)}`;
+        const href = withCustomerCenterFrom(base, from);
         return (
           <li key={n.id} className="py-3">
-            <Link href={href} className="block rounded-ui-rect transition hover:bg-sam-muted/10">
-              <p className="font-medium text-sam-fg">{n.title}</p>
-              <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-sam-muted">{n.body}</p>
+            <Link href={href} className="block min-h-11 rounded-ui-rect transition hover:bg-sam-muted/10">
+              <p className="break-words font-medium text-sam-fg">{n.title}</p>
+              <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-sam-muted">{n.body}</p>
               <p className="mt-1 text-xs text-sam-meta">{formatDate(n.createdAt)}</p>
             </Link>
           </li>

@@ -20,3 +20,17 @@ export function resolveCustomerCenterBackHref(
 ): string {
   return from === "customer-center" ? CUSTOMER_CENTER_HREF : fallback;
 }
+
+/** Keep hub context on child→grandchild links (list→detail, points→charge). */
+export function withCustomerCenterFrom(
+  path: string,
+  from: string | null | undefined,
+): string {
+  if (from !== "customer-center") return path;
+  return customerCenterChildHref(path);
+}
+
+/** Notice detail back → notices list (preserves hub when entered from CS). */
+export function resolveNoticeListBackHref(from: string | null | undefined): string {
+  return withCustomerCenterFrom("/mypage/section/settings/notices", from);
+}

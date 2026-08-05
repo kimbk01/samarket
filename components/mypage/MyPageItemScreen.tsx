@@ -174,9 +174,12 @@ export function MyPageItemScreen(
     }
     if (item === "terms") {
       return (
-        <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body leading-6 text-sam-fg">
-          <p>{t("mypage_comp_settings_terms_p1")}</p>
-          <Link href="/terms" className="sam-text-body font-medium text-sam-fg underline">
+        <div className="mx-auto w-full min-w-0 max-w-[40rem] md:max-w-[48rem] space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-6 sam-text-body leading-relaxed text-sam-fg">
+          <p className="break-words">{t("mypage_comp_settings_terms_p1")}</p>
+          <Link
+            href="/terms"
+            className="inline-flex min-h-11 items-center sam-text-body font-medium text-signature underline"
+          >
             {t("mypage_comp_settings_terms_link")}
           </Link>
         </div>

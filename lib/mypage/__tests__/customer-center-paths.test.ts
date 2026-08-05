@@ -3,6 +3,8 @@ import {
   CUSTOMER_CENTER_HREF,
   customerCenterChildHref,
   resolveCustomerCenterBackHref,
+  withCustomerCenterFrom,
+  resolveNoticeListBackHref,
 } from "@/lib/mypage/customer-center-paths";
 import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import { MYPAGE_HOME_SUPPORT_ITEMS } from "@/lib/mypage/mypage-home-menu-config";
@@ -22,6 +24,16 @@ describe("customer-center paths", () => {
     expect(resolveCustomerCenterBackHref(null)).toBe("/mypage");
     expect(resolveCustomerCenterBackHref("other", "/mypage/section/settings")).toBe(
       "/mypage/section/settings",
+    );
+  });
+
+  it("preserves from on grandchild links", () => {
+    expect(withCustomerCenterFrom("/mypage/points/charge", "customer-center")).toBe(
+      "/mypage/points/charge?from=customer-center",
+    );
+    expect(withCustomerCenterFrom("/mypage/points/charge", null)).toBe("/mypage/points/charge");
+    expect(resolveNoticeListBackHref("customer-center")).toBe(
+      "/mypage/section/settings/notices?from=customer-center",
     );
   });
 

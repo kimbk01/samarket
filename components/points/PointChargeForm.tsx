@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointPlan, PointPaymentMethod } from "@/lib/types/point";
+import { CUSTOMER_CENTER_FORM_COLUMN_CLASS } from "@/lib/mypage/customer-center-layout";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
   onSuccess: () => void;
-  onClose: () => void;
+  onClose?: () => void;
+  /** page = full-screen form (CS Slice 2); sheet = legacy bottom sheet overlay */
+  layout?: "page" | "sheet";
 }
 
-export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormProps) {
+export function PointChargeForm({
+  plans,
+  onSuccess,
+  onClose,
+  layout = "sheet",
+}: PointChargeFormProps) {
   const { t } = useI18n();
   const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
@@ -52,118 +60,140 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
     }
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
+  const body = (
+    <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-10 pt-2` : undefined}>
+      {layout === "sheet" ? (
         <div className="mb-4 flex items-center justify-between">
           <h2 className="sam-text-section-title font-bold text-sam-fg">
             {t("points_ui_charge_modal_title")}
           </h2>
-          <button type="button" onClick={onClose} className="sam-text-body-secondary text-sam-muted">
-            {t("common_close")}
-          </button>
+          {onClose ? (
+            <button type="button" onClick={onClose} className="sam-text-body-secondary text-sam-muted">
+              {t("common_close")}
+            </button>
+          ) : null}
         </div>
+      ) : null}
 
-        <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_select_plan")}</p>
-        <div className="mb-4 space-y-2">
-          {plans.map((plan) => {
-            const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
-            const isSelected = selectedPlanId === plan.id;
-            return (
+      {plans.length === 0 ? (
+        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
+          {t("common_content_unavailable")}
+        </p>
+      ) : (
+        <>
+          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_select_plan")}</p>
+          <div className="mb-4 space-y-2">
+            {plans.map((plan) => {
+              const total = plan.pointAmount + (plan.bonusPointAmount ?? 0);
+              const isSelected = selectedPlanId === plan.id;
+              return (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => setSelectedPlanId(plan.id)}
+                  className={`min-h-11 w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
+                    isSelected ? "border-sky-400 bg-sky-50" : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="sam-text-body font-semibold text-sam-fg">{plan.name}</p>
+                      {plan.description ? (
+                        <p className="mt-0.5 break-words sam-text-helper text-sam-muted">{plan.description}</p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="sam-text-body font-bold text-sky-700">{total.toLocaleString()}P</p>
+                      <p className="sam-text-helper text-sam-muted">₱{plan.paymentAmount.toLocaleString()}</p>
+                      {(plan.bonusPointAmount ?? 0) > 0 && (
+                        <p className="sam-text-xxs text-emerald-600">
+                          {t("points_ui_bonus", { bonus: plan.bonusPointAmount ?? 0 })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_payment_method")}</p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
               <button
-                key={plan.id}
+                key={m}
                 type="button"
-                onClick={() => setSelectedPlanId(plan.id)}
-                className={`w-full rounded-ui-rect border px-4 py-3 text-left transition-colors ${
-                  isSelected ? "border-sky-400 bg-sky-50" : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                onClick={() => setPaymentMethod(m)}
+                className={`min-h-11 min-w-[8rem] flex-1 rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
+                  paymentMethod === m
+                    ? "border-sky-400 bg-sky-50 text-sky-800"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="sam-text-body font-semibold text-sam-fg">{plan.name}</p>
-                    {plan.description ? (
-                      <p className="mt-0.5 sam-text-helper text-sam-muted">{plan.description}</p>
-                    ) : null}
-                  </div>
-                  <div className="text-right">
-                    <p className="sam-text-body font-bold text-sky-700">{total.toLocaleString()}P</p>
-                    <p className="sam-text-helper text-sam-muted">₱{plan.paymentAmount.toLocaleString()}</p>
-                    {(plan.bonusPointAmount ?? 0) > 0 && (
-                      <p className="sam-text-xxs text-emerald-600">
-                        {t("points_ui_bonus", { bonus: plan.bonusPointAmount ?? 0 })}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {methodLabel(m)}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
 
-        <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("points_ui_payment_method")}</p>
-        <div className="mb-4 flex gap-2">
-          {(["manual_confirm", "bank_transfer"] as PointPaymentMethod[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setPaymentMethod(m)}
-              className={`flex-1 rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
-                paymentMethod === m
-                  ? "border-sky-400 bg-sky-50 text-sky-800"
-                  : "border-sam-border bg-sam-surface text-sam-fg"
-              }`}
-            >
-              {methodLabel(m)}
-            </button>
-          ))}
-        </div>
-
-        {paymentMethod === "manual_confirm" && (
-          <div className="mb-4 space-y-2">
-            <div className="rounded-ui-rect bg-amber-50 px-3 py-2.5 sam-text-helper text-amber-800">
-              <p className="font-semibold">{t("points_ui_deposit_guide_title")}</p>
-              <p>{t("points_ui_deposit_guide_body")}</p>
-              <p className="mt-1 font-mono">{t("points_ui_deposit_account")}</p>
+          {paymentMethod === "manual_confirm" && (
+            <div className="mb-4 space-y-2">
+              <div className="rounded-ui-rect bg-amber-50 px-3 py-2.5 sam-text-helper text-amber-800">
+                <p className="font-semibold">{t("points_ui_deposit_guide_title")}</p>
+                <p>{t("points_ui_deposit_guide_body")}</p>
+                <p className="mt-1 break-all font-mono">{t("points_ui_deposit_account")}</p>
+              </div>
+              <input
+                type="text"
+                value={depositorName}
+                onChange={(e) => setDepositorName(e.target.value)}
+                placeholder={t("points_ui_depositor_required")}
+                className="min-h-11 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+              />
+              <input
+                type="text"
+                value={userMemo}
+                onChange={(e) => setUserMemo(e.target.value)}
+                placeholder={t("points_ui_memo_optional")}
+                className="min-h-11 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+              />
             </div>
-            <input
-              type="text"
-              value={depositorName}
-              onChange={(e) => setDepositorName(e.target.value)}
-              placeholder={t("points_ui_depositor_required")}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
-            />
-            <input
-              type="text"
-              value={userMemo}
-              onChange={(e) => setUserMemo(e.target.value)}
-              placeholder={t("points_ui_memo_optional")}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
-            />
-          </div>
-        )}
+          )}
 
-        {selectedPlan && (
-          <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sam-app px-3 py-2.5 sam-text-body-secondary">
-            <span className="text-sam-fg">{t("points_ui_charge_points_label")}</span>
-            <span className="sam-text-body-lg font-bold text-sky-700">{totalPoint.toLocaleString()}P</span>
-          </div>
-        )}
+          {selectedPlan && (
+            <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sam-app px-3 py-2.5 sam-text-body-secondary">
+              <span className="text-sam-fg">{t("points_ui_charge_points_label")}</span>
+              <span className="sam-text-body-lg font-bold text-sky-700">{totalPoint.toLocaleString()}P</span>
+            </div>
+          )}
 
-        {err ? <p className="mb-3 sam-text-helper text-red-600">{err}</p> : null}
+          {err ? <p className="mb-3 sam-text-helper text-red-600">{err}</p> : null}
 
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={submitting || !selectedPlanId}
-          className="w-full rounded-ui-rect bg-sky-600 py-3.5 sam-text-body font-bold text-white shadow-md disabled:opacity-40"
-        >
-          {submitting ? t("common_processing") : t("points_ui_submit_charge")}
-        </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={submitting || !selectedPlanId}
+            className="min-h-11 w-full rounded-ui-rect bg-sky-600 py-3.5 sam-text-body font-bold text-white shadow-md disabled:opacity-40"
+          >
+            {submitting ? t("common_processing") : t("points_ui_submit_charge")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  if (layout === "page") {
+    return body;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+    >
+      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-ui-rect">
+        {body}
       </div>
     </div>
   );

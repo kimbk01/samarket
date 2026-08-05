@@ -21,7 +21,7 @@ const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
-  onCancel?: () => void;
+  onCancel?: (id: string) => void;
 }
 
 const STATUS_CLASS: Record<PointChargeRequest["requestStatus"], string> = {
@@ -39,8 +39,8 @@ export function PointChargeRequestList({
 }: PointChargeRequestListProps) {
   const { t } = useI18n();
 
-  const handleCancel = (_id: string) => {
-    onCancel?.();
+  const handleCancel = (id: string) => {
+    onCancel?.(id);
   };
 
   if (requests.length === 0) {
