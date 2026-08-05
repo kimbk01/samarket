@@ -1,10 +1,18 @@
 /**
  * Auth lifecycle wall-clock + stage trace (instrumentation only).
  * Does not change login control flow. Never logs tokens/cookies/JWT/email.
+ *
+ * Slice 8-2 PLAN_T1 — Observability-only.
+ * Stages such as profile_resolved / navigation_committed are observational labels.
+ * They must not drive session, completion, profile, destination, or navigation.
+ * Trace sink failures must not abort product Auth flows.
+ *
+ * @see lib/auth/state/auth-lifecycle-trace-observability-contract.ts
  */
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { resolveOAuthRoutingShellPlatform } from "@/lib/platform/capacitor-native";
 
+/** Observational stage labels only — not product Auth state authority (PLAN_T1). */
 export type AuthLifecycleStage =
   | "login_button_tapped"
   | "routing_decision_completed"
@@ -20,8 +28,8 @@ export type AuthLifecycleStage =
   | "navigation_committed"
   | "interaction_ready";
 
+/** Product Trace results only — never include QA EXTERNAL_* classifications. */
 export type AuthLifecycleResult = "ok" | "fail" | "cancel" | "in_progress";
-
 type AuthLifecycleCounters = {
   onAuthStateChange: number;
   callbackRoute: number;
@@ -133,6 +141,14 @@ export function bumpAuthLifecycleCounter(key: keyof AuthLifecycleCounters): void
   activeFlow.counters[key] += 1;
 }
 
+function emitAuthLifecycleLog(event: string, detail: Record<string, unknown>): void {
+  try {
+    logOAuthNativeEvent(event, detail);
+  } catch {
+    /* Observability sink failure must not abort product Auth. */
+  }
+}
+
 export function markAuthLifecycleStage(
   stage: AuthLifecycleStage,
   detail: Record<string, unknown> = {},
@@ -141,7 +157,7 @@ export function markAuthLifecycleStage(
   activeFlow.lastStage = stage;
   const elapsedMs = Date.now() - activeFlow.startedAtMs;
   const safe = redactAuthLifecycleDetail(detail);
-  logOAuthNativeEvent("auth_lifecycle", {
+  emitAuthLifecycleLog("auth_lifecycle", {
     authFlowId: activeFlow.authFlowId,
     platform: activeFlow.platform,
     provider: activeFlow.provider,
@@ -165,7 +181,7 @@ export function completeAuthLifecycle(
     activeFlow.errorCode = detail.errorCode;
   }
   const elapsedMs = Date.now() - activeFlow.startedAtMs;
-  logOAuthNativeEvent("auth_lifecycle_complete", {
+  emitAuthLifecycleLog("auth_lifecycle_complete", {
     authFlowId: activeFlow.authFlowId,
     platform: activeFlow.platform,
     provider: activeFlow.provider,

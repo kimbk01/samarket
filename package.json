@@ -138,6 +138,7 @@
     "verify:google-native-contract": "node scripts/verify-google-native-contract.mjs",
     "verify:identity-writer-i2-boundary-contract": "node scripts/verify-identity-writer-i2-boundary-contract.mjs",
     "verify:auth-state-boundary-contract": "node scripts/verify-auth-state-boundary-contract.mjs",
+    "verify:auth-lifecycle-trace-observability-contract": "node scripts/verify-auth-lifecycle-trace-observability-contract.mjs",
     "verify:oauth-inline-login-contract": "node scripts/verify-oauth-inline-login-contract.mjs",
     "verify:auth-provider-linking-contract": "node scripts/verify-auth-provider-linking-contract.mjs",
     "verify:android-device-permissions-contract": "node scripts/verify-android-device-permissions-contract.mjs",
