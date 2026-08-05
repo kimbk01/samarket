@@ -52,6 +52,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-recommendation": "admin_menu_ads_recommendation",
   points: "admin_menu_points",
   "points-charge": "admin_menu_points_charge",
+  "points-plans": "admin_menu_points_plans",
   "points-ledger": "admin_menu_points_ledger",
   "points-policy": "admin_menu_points_policy",
   "points-execute": "admin_menu_points_execute",
@@ -242,6 +243,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         children: [
           { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
+          { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
           { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
           { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
           { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },

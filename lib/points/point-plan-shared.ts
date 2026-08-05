@@ -2,7 +2,17 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { PointPlan } from "@/lib/types/point";
 
 export const POINT_PLAN_ROW_SELECT =
-  "id, name_ko, name_en, description_ko, description_en, payment_amount, point_amount, bonus_amount, currency, is_active, sort_order, created_at, updated_at";
+  "id, name_ko, name_en, description_ko, description_en, payment_amount, point_amount, bonus_amount, currency, is_active, sort_order, rate_version, created_at, updated_at";
+
+/** Fields whose change bumps point_plans.rate_version */
+export const POINT_PLAN_RATE_FIELDS = [
+  "payment_amount",
+  "point_amount",
+  "bonus_amount",
+  "currency",
+] as const;
+
+export type PointPlanRateField = (typeof POINT_PLAN_RATE_FIELDS)[number];
 
 export function isMissingPointPlansTable(message: string): boolean {
   const lowered = message.toLowerCase();
@@ -28,6 +38,23 @@ export function pickPlanDescription(
   return language === "en" ? row.description_en : row.description_ko;
 }
 
+export function totalPointsFromPlanRow(row: {
+  point_amount?: number | null;
+  bonus_amount?: number | null;
+}): number {
+  return Math.max(0, Number(row.point_amount ?? 0)) + Math.max(0, Number(row.bonus_amount ?? 0));
+}
+
+/**
+ * applied_rate snapshot = totalPoints / paymentAmount (0 if payment is 0).
+ */
+export function computeAppliedRate(totalPoints: number, paymentAmount: number): number {
+  const pay = Math.max(0, Number(paymentAmount) || 0);
+  const pts = Math.max(0, Number(totalPoints) || 0);
+  if (pay <= 0) return 0;
+  return pts / pay;
+}
+
 export function normalizePointPlanRow(
   row: Record<string, unknown>,
   language: AppLanguageCode = "ko"
@@ -43,9 +70,12 @@ export function normalizePointPlanRow(
       },
       language
     ),
+    nameKo: String(row.name_ko ?? ""),
+    nameEn: String(row.name_en ?? ""),
     paymentAmount: Math.max(0, Number(row.payment_amount ?? 0)),
     pointAmount,
     bonusPointAmount: bonusAmount,
+    currency: String(row.currency ?? "PHP"),
     isActive: Boolean(row.is_active ?? true),
     description: pickPlanDescription(
       {
@@ -54,12 +84,9 @@ export function normalizePointPlanRow(
       },
       language
     ),
+    descriptionKo: String(row.description_ko ?? ""),
+    descriptionEn: String(row.description_en ?? ""),
+    sortOrder: Number(row.sort_order ?? 0),
+    rateVersion: Math.max(1, Number(row.rate_version ?? 1)),
   };
-}
-
-export function totalPointsFromPlanRow(row: {
-  point_amount?: number | null;
-  bonus_amount?: number | null;
-}): number {
-  return Math.max(0, Number(row.point_amount ?? 0)) + Math.max(0, Number(row.bonus_amount ?? 0));
 }

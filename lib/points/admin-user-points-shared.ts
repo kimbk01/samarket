@@ -49,6 +49,8 @@ export function normalizeChargeRequest(
     paymentMethod: String(row.payment_method ?? "manual_confirm") as PointChargeRequest["paymentMethod"],
     paymentAmount: Number(row.payment_amount ?? 0),
     pointAmount: Number(row.point_amount ?? 0),
+    appliedRate: Number(row.applied_rate ?? 0),
+    rateVersion: Math.max(1, Number(row.rate_version ?? 1)),
     requestStatus: String(row.request_status ?? "pending") as PointChargeRequest["requestStatus"],
     depositorName: String(row.depositor_name ?? ""),
     receiptImageUrl: String(row.receipt_image_url ?? ""),

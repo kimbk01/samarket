@@ -24,6 +24,10 @@ export interface PointChargeRequest {
   paymentMethod: PointPaymentMethod;
   paymentAmount: number;
   pointAmount: number;
+  /** Snapshot: total points / payment at charge create */
+  appliedRate: number;
+  /** Snapshot of point_plans.rate_version at charge create */
+  rateVersion: number;
   requestStatus: PointChargeRequestStatus;
   depositorName: string;
   receiptImageUrl: string;
@@ -40,11 +44,18 @@ export interface PointChargeRequest {
 export interface PointPlan {
   id: string;
   name: string;
+  nameKo?: string;
+  nameEn?: string;
   paymentAmount: number;
   pointAmount: number;
   bonusPointAmount: number;
+  currency?: string;
   isActive: boolean;
   description: string;
+  descriptionKo?: string;
+  descriptionEn?: string;
+  sortOrder?: number;
+  rateVersion: number;
 }
 
 export type PointLedgerEntryType =

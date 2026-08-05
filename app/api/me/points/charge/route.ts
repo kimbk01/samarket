@@ -4,6 +4,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { isMissingPointsTable, normalizeChargeRequest } from "@/lib/points/admin-user-points-shared";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
 import {
+  computeAppliedRate,
   isMissingPointPlansTable,
   normalizePointPlanRow,
   pickPlanDisplayName,
@@ -70,6 +71,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? userId.slice(0, 8));
 
   const pointAmount = totalPointsFromPlanRow(plan as { point_amount?: number; bonus_amount?: number });
+  const paymentAmount = Math.max(0, Number(plan.payment_amount ?? 0));
+  const appliedRate = computeAppliedRate(pointAmount, paymentAmount);
+  const rateVersion = Math.max(1, Number(plan.rate_version ?? 1));
   const planName = pickPlanDisplayName(
     { name_ko: String(plan.name_ko ?? ""), name_en: String(plan.name_en ?? "") },
     "ko"
@@ -84,8 +88,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       plan_id: String(plan.id),
       plan_name: planName,
       payment_method: paymentMethod,
-      payment_amount: Math.max(0, Number(plan.payment_amount ?? 0)),
+      payment_amount: paymentAmount,
       point_amount: pointAmount,
+      applied_rate: appliedRate,
+      rate_version: rateVersion,
       request_status: requestStatus,
       depositor_name: String(depositorName ?? "").slice(0, 120),
       receipt_image_url: "",
