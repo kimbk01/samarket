@@ -7,7 +7,7 @@ import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { upsertOAuthProfileFromUser } from "@/lib/auth/oauth-profile-upsert";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
+import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
@@ -251,11 +251,12 @@ export async function GET(req: NextRequest) {
             /* provider identity 보강 실패는 로그인을 막지 않음 */
           }
         }
-        onboardingTarget = resolvePostLoginRoute({
-          hasSession: true,
-          status,
+        const resolved = await resolveCommonAuthDestination(writeSb, {
+          userId: activeUser.id,
           next: safeNext,
+          status,
         });
+        onboardingTarget = resolved.destination;
       } catch {
         /* 상태 조회 실패 시 약관 화면으로 — 메인 직행 금지 */
       }

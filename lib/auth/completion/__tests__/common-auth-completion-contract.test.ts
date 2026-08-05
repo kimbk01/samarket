@@ -70,6 +70,58 @@ describe("common-auth-completion-contract", () => {
     );
   });
 
+  it("resolveCommonAuthDestination is byte-equivalent to resolvePostLoginRoute for injected status", async () => {
+    const cases: Array<{ label: string; status: OnboardingStatus | null; next: string | null }> = [
+      { label: "terms_required", status: termsRequiredStatus(), next: "/market" },
+      { label: "null_status", status: null, next: "/mypage" },
+      {
+        label: "signup_complete",
+        status: {
+          ...termsRequiredStatus(),
+          consentComplete: true,
+          signupComplete: true,
+          onboardingStatus: "completed",
+          termsAcceptedAt: "2026-01-01T00:00:00.000Z",
+          privacyAcceptedAt: "2026-01-01T00:00:00.000Z",
+          termsVersion: "1",
+          privacyVersion: "1",
+        },
+        next: "/community-messenger",
+      },
+    ];
+    for (const c of cases) {
+      const { destination } = await resolveCommonAuthDestination({} as never, {
+        userId: "u1",
+        next: c.next,
+        status: c.status,
+      });
+      expect(destination, c.label).toBe(
+        resolvePostLoginRoute({
+          hasSession: true,
+          status: c.status,
+          next: c.next,
+        }),
+      );
+    }
+  });
+
+  it("Slice 6-1: production completion edges own destination via resolveCommonAuthDestination", () => {
+    const edges = [
+      "app/auth/callback/route.ts",
+      "app/api/auth/naver/callback/route.ts",
+      "lib/auth/native/google-native-session.server.ts",
+      "lib/auth/native/kakao-native-session.server.ts",
+      "lib/auth/native/apple-native-session.server.ts",
+    ];
+    for (const rel of edges) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src, rel).toMatch(/resolveCommonAuthDestination/);
+      expect(src, rel).not.toMatch(/resolve-post-login-route/);
+      expect(src, rel).not.toMatch(/resolvePostLoginRoute\s*\(/);
+    }
+    expect(COMMON_AUTH_COMPLETION_OWNERS.destination).toBe("resolveCommonAuthDestination");
+  });
+
   it("finishClientAuthLogin must not schedule signup-status re-navigation", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/auth/finish-client-auth-login.client.ts"),

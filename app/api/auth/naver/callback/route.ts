@@ -11,7 +11,7 @@ import {
 } from "@/lib/auth/naver-oauth";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
-import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
+import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
@@ -160,12 +160,12 @@ export async function GET(req: NextRequest) {
     let destination = safeNext ?? POST_LOGIN_PATH;
     try {
       const status = await getOnboardingStatus(adminSb, signedUser.id);
-      destination =
-        resolvePostLoginRoute({
-          hasSession: true,
-          status,
-          next: safeNext,
-        }) ?? destination;
+      const resolved = await resolveCommonAuthDestination(adminSb, {
+        userId: signedUser.id,
+        next: safeNext,
+        status,
+      });
+      destination = resolved.destination || destination;
     } catch {
       /* fallback to safe next path */
     }

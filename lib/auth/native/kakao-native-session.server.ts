@@ -20,7 +20,7 @@ import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
+import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
@@ -308,12 +308,12 @@ export async function establishKakaoNativeSession(
     });
     needsProfileCompletion = gateFlags.needsProfileCompletion;
     needsTermsAgreement = gateFlags.needsTermsAgreement;
-    redirectTo =
-      resolvePostLoginRoute({
-        hasSession: true,
-        status,
-        next: safeNext,
-      }) ?? redirectTo;
+    const resolved = await resolveCommonAuthDestination(ctx.adminSb, {
+      userId: signedUser.id,
+      next: safeNext,
+      status,
+    });
+    redirectTo = resolved.destination || redirectTo;
   } catch {
     /* web callback 와 동일 — 조회 실패 시 약관 화면 (메인·deep link 직행 금지) */
     redirectTo = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
