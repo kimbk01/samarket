@@ -6,19 +6,11 @@ import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-secti
 import { loadMypageServer } from "@/lib/my/load-mypage-server";
 import { MyPageItemRouteClient } from "@/components/mypage/MyPageItemRouteClient";
 
-export default function MypageSectionItemPage({
-  params,
-}: {
-  params: Promise<{ section: string; item: string }>;
-}) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <MypageSectionItemPageBody params={params} />
-    </Suspense>
-  );
-}
-
-async function MypageSectionItemPageBody({
+/**
+ * Legacy hub redirects must run outside Suspense so Next issues a real HTTP redirect
+ * (App CS: settings/support → /mypage/customer-center).
+ */
+export default async function MypageSectionItemPage({
   params,
 }: {
   params: Promise<{ section: string; item: string }>;
@@ -31,6 +23,21 @@ async function MypageSectionItemPageBody({
   if (s === "store" && i === "manage") {
     redirect("/stores/owner/apply");
   }
+
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <MypageSectionItemPageBody section={s} item={i} />
+    </Suspense>
+  );
+}
+
+async function MypageSectionItemPageBody({
+  section: s,
+  item: i,
+}: {
+  section: string;
+  item: string;
+}) {
   const meta = findMypageMobileItem(s, i);
   if (!meta) notFound();
 
