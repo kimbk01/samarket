@@ -1,10 +1,16 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildMemberAdminNoteNotificationPayload,
   buildMemberAdminNoteRoute,
   kindFromStartedBy,
 } from "@/lib/notifications/member-admin-notes";
-import { resolveEventInboxLinkUrl } from "@/lib/notifications/inbox-events-merge";
+import {
+  resolveBellPresentationType,
+  resolveEventInboxLinkUrl,
+} from "@/lib/notifications/inbox-events-merge";
+import { eventTypeForAdminCampaignType } from "@/lib/notifications/core/notification-event-registry";
 
 describe("Phase 3 member-admin-notes paths", () => {
   it("routes Inquiry vs Inbox by started_by", () => {
@@ -24,9 +30,10 @@ describe("Phase 3 member-admin-notes paths", () => {
     expect(p.noteThreadId).toBe("abc");
     expect(p.startedBy).toBe("admin");
     expect(p.routeUrl).toBe("/mypage/inbox/abc");
+    expect(p.previewKind).toBe("member_admin_note");
   });
 
-  it("Bell prefers noteThreadId over poisoned routeUrl", () => {
+  it("Bell prefers noteThreadId over poisoned routeUrl (legacy admin_notice dual-read)", () => {
     const href = resolveEventInboxLinkUrl({
       id: "e1",
       user_id: "u1",
@@ -37,6 +44,7 @@ describe("Phase 3 member-admin-notes paths", () => {
       unread: true,
       created_at: new Date().toISOString(),
       display_payload: {
+        previewKind: "member_admin_note",
         noteThreadId: "n1",
         startedBy: "admin",
         routeUrl: "/https://samarket.vercel.app/notifications/notes/n1",
@@ -45,7 +53,7 @@ describe("Phase 3 member-admin-notes paths", () => {
     expect(href).toBe("/mypage/inbox/n1");
   });
 
-  it("Bell falls back to inquiries when startedBy missing", () => {
+  it("Bell falls back to inquiries when startedBy missing (legacy)", () => {
     const href = resolveEventInboxLinkUrl({
       id: "e2",
       user_id: "u1",
@@ -55,8 +63,80 @@ describe("Phase 3 member-admin-notes paths", () => {
       body: "b",
       unread: true,
       created_at: new Date().toISOString(),
-      display_payload: { noteThreadId: "n2" },
+      display_payload: { noteThreadId: "n2", previewKind: "member_admin_note" },
     } as never);
     expect(href).toBe("/mypage/inquiries/n2");
+  });
+});
+
+describe("Phase 5 Slice 1 taxonomy A — Inquiry/Inbox typed events", () => {
+  it("notes writer source no longer writes type admin_notice", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/notifications/member-admin-notes-service.ts"),
+      "utf8"
+    );
+    expect(src).toMatch(/inquiry_answered/);
+    expect(src).toMatch(/inbox_message_received/);
+    expect(src).not.toMatch(/type:\s*"admin_notice"/);
+    expect(src).not.toMatch(/category:\s*"admin_notice"/);
+  });
+
+  it("Campaign eventType mapping still uses admin_notice for notice/system", () => {
+    expect(eventTypeForAdminCampaignType("notice")).toBe("admin_notice");
+    expect(eventTypeForAdminCampaignType("system")).toBe("admin_notice");
+    expect(eventTypeForAdminCampaignType("marketing")).toBe("admin_marketing_banner");
+  });
+
+  it("inquiry_answered deep link + Bell presentation", () => {
+    const event = {
+      id: "e3",
+      type: "inquiry_answered",
+      category: "inquiry_answered",
+      title: "t",
+      body: "b",
+      display_payload: {
+        previewKind: "member_admin_note",
+        noteThreadId: "inq-1",
+        startedBy: "member",
+        routeUrl: "/mypage/inquiries/inq-1",
+      },
+    };
+    expect(resolveEventInboxLinkUrl(event as never)).toBe("/mypage/inquiries/inq-1");
+    expect(resolveBellPresentationType(event as never)).toBe("admin_notice");
+  });
+
+  it("inbox_message_received deep link + Bell presentation", () => {
+    const event = {
+      id: "e4",
+      type: "inbox_message_received",
+      category: "inbox_message_received",
+      title: "t",
+      body: "b",
+      display_payload: {
+        previewKind: "member_admin_note",
+        noteThreadId: "inb-1",
+        startedBy: "admin",
+        routeUrl: "/mypage/inbox/inb-1",
+      },
+    };
+    expect(resolveEventInboxLinkUrl(event as never)).toBe("/mypage/inbox/inb-1");
+    expect(resolveBellPresentationType(event as never)).toBe("admin_notice");
+  });
+
+  it("legacy admin_notice + member_admin_note still presents as admin_notice", () => {
+    expect(
+      resolveBellPresentationType({
+        id: "e5",
+        type: "admin_notice",
+        category: "admin_notice",
+        title: "t",
+        body: "b",
+        display_payload: {
+          previewKind: "member_admin_note",
+          noteThreadId: "legacy-1",
+          startedBy: "member",
+        },
+      } as never)
+    ).toBe("admin_notice");
   });
 });

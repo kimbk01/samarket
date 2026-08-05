@@ -107,7 +107,12 @@ export function resolveNotificationAttentionKey(input: NotificationAttentionKeyI
     return `order_status:${orderId}:${kind || "generic"}`;
   }
 
-  if (type === "admin_notice" || type === "admin_marketing_banner") {
+  if (
+    type === "admin_notice" ||
+    type === "admin_marketing_banner" ||
+    type === "inquiry_answered" ||
+    type === "inbox_message_received"
+  ) {
     return dedupe || `admin:${type}`;
   }
 

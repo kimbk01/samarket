@@ -54,18 +54,25 @@ async function notifyMemberOfAdminNote(
     startedBy?: string | null;
   }
 ): Promise<void> {
+  const startedBy = input.startedBy ?? "member";
   const displayPayload = buildMemberAdminNoteNotificationPayload({
     threadId: input.threadId,
     subject: input.subject,
     bodyPreview: input.body,
-    startedBy: input.startedBy ?? "member",
+    startedBy,
   });
   const dedupeKey = `member_admin_note:${input.threadId}:${Date.now()}`;
+  /**
+   * Phase 5 Slice 1 taxonomy A:
+   * Inquiry (member-started) → inquiry_answered; Inbox (admin-started) → inbox_message_received.
+   * Campaign continues to write admin_notice (collision removed for notes writer only).
+   */
+  const eventType = startedBy === "admin" ? "inbox_message_received" : "inquiry_answered";
   /** Canonical A write + push (absolute badge echo via notify-push-dispatcher). */
   await createAndDispatchNotificationEvent(sb, {
     userId: input.memberUserId,
-    type: "admin_notice",
-    category: "admin_notice",
+    type: eventType,
+    category: eventType,
     title: input.subject,
     body: input.body.slice(0, 500),
     displayPayload,

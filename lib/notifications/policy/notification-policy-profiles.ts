@@ -54,6 +54,16 @@ const POLICY_BY_CATEGORY: Record<NotificationEventCategory, NotificationPolicyPr
     category: "admin_notice",
     lockscreenVisibility: "private",
   },
+  inquiry_answered: {
+    ...DEFAULT_POLICY,
+    category: "inquiry_answered",
+    lockscreenVisibility: "private",
+  },
+  inbox_message_received: {
+    ...DEFAULT_POLICY,
+    category: "inbox_message_received",
+    lockscreenVisibility: "private",
+  },
   missed_call: { ...DEFAULT_POLICY, category: "missed_call" },
   incoming_call_signal: {
     ...DEFAULT_POLICY,

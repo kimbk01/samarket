@@ -26,6 +26,8 @@ const CATEGORY_TO_EVENT_TYPE: Partial<Record<NotificationEventCategory, Notifica
   community_activity: "community_activity",
   admin_marketing_banner: "admin_marketing_banner",
   admin_notice: "admin_notice",
+  inquiry_answered: "inquiry_answered",
+  inbox_message_received: "inbox_message_received",
   missed_call: "missed_call",
   incoming_call_signal: "incoming_call_signal",
   chat: "chat_message",
