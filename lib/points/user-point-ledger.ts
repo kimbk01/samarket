@@ -1,3 +1,10 @@
+/**
+ * CONTRACT (Phase 4 Slice 2 — Member ledger-only):
+ * - SSOT = point_ledger (SUM(amount))
+ * - profiles.points = projected cache only
+ * - TS may UPDATE profiles.points ONLY via projectUserPointBalanceFromLedger
+ * - DO NOT write profiles.points from spend/credit/expire/adjust/trade-ads directly
+ */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PointLedgerActorType, PointLedgerEntryType, PointLedgerRelatedType } from "@/lib/types/point";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
@@ -39,6 +46,19 @@ export type ExpireUserPointEntriesInput = {
   ledgerEntryIds: Array<{ id: string; amount: number }>;
 };
 
+export type ReconcileUserPointBalanceResult =
+  | {
+      ok: true;
+      repaired: boolean;
+      cacheBefore: number;
+      ledgerSum: number;
+      cacheAfter: number;
+    }
+  | { ok: false; error: string; code?: "table_missing" };
+
+/**
+ * Fast-path cache read. Authority for mutations = sumUserPointLedger.
+ */
 export async function readUserPointBalance(
   sb: SupabaseClient,
   userId: string
@@ -48,6 +68,97 @@ export async function readUserPointBalance(
   const { data, error } = await sb.from("profiles").select("points").eq("id", uid).maybeSingle();
   if (error) return 0;
   return Math.max(0, Number((data as { points?: number } | null)?.points ?? 0));
+}
+
+/** SSOT: SUM(point_ledger.amount) for user. */
+export async function sumUserPointLedger(
+  sb: SupabaseClient,
+  userId: string
+): Promise<{ ok: true; sum: number } | { ok: false; error: string; code?: "table_missing" }> {
+  const uid = userId.trim();
+  if (!uid) return { ok: true, sum: 0 };
+
+  const rpc = await sb.rpc("sum_user_point_ledger", { p_user_id: uid });
+  if (!rpc.error && rpc.data !== null && rpc.data !== undefined) {
+    return { ok: true, sum: Math.trunc(Number(rpc.data) || 0) };
+  }
+
+  // Fallback when RPC not yet deployed (dev) — page through amounts.
+  const { data, error } = await sb.from("point_ledger").select("amount").eq("user_id", uid);
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "point_ledger")) {
+      return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    // Prefer RPC error if both fail
+    if (rpc.error && !isMissingRpc(rpc.error.message ?? "")) {
+      return { ok: false, error: rpc.error.message };
+    }
+    return { ok: false, error: error.message };
+  }
+  const sum = (data ?? []).reduce((acc, row) => acc + Math.trunc(Number((row as { amount?: number }).amount ?? 0)), 0);
+  return { ok: true, sum };
+}
+
+function isMissingRpc(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("could not find the function") ||
+    (m.includes("function") && m.includes("does not exist"))
+  );
+}
+
+/**
+ * ONLY allowed TS writer for profiles.points — projects GREATEST(0, ledger SUM).
+ */
+export async function projectUserPointBalanceFromLedger(
+  sb: SupabaseClient,
+  userId: string
+): Promise<{ ok: true; balance: number } | { ok: false; error: string; code?: "table_missing" }> {
+  const uid = userId.trim();
+  if (!uid) return { ok: false, error: "invalid_input" };
+
+  const rpc = await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: uid });
+  if (!rpc.error && rpc.data !== null && rpc.data !== undefined) {
+    return { ok: true, balance: Math.max(0, Math.trunc(Number(rpc.data) || 0)) };
+  }
+
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return summed;
+  const balance = Math.max(0, summed.sum);
+  const { error } = await sb.from("profiles").update({ points: balance }).eq("id", uid);
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "profiles")) {
+      return { ok: false, error: "table_missing", code: "table_missing" };
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, balance };
+}
+
+/** Detect cache vs ledger mismatch; repair cache from ledger when needed. */
+export async function reconcileUserPointBalance(
+  sb: SupabaseClient,
+  userId: string
+): Promise<ReconcileUserPointBalanceResult> {
+  const uid = userId.trim();
+  if (!uid) return { ok: false, error: "invalid_input" };
+
+  const cacheBefore = await readUserPointBalance(sb, uid);
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return summed;
+  const ledgerSum = summed.sum;
+  if (cacheBefore === Math.max(0, ledgerSum)) {
+    return { ok: true, repaired: false, cacheBefore, ledgerSum, cacheAfter: cacheBefore };
+  }
+  const projected = await projectUserPointBalanceFromLedger(sb, uid);
+  if (!projected.ok) return projected;
+  return {
+    ok: true,
+    repaired: true,
+    cacheBefore,
+    ledgerSum,
+    cacheAfter: projected.balance,
+  };
 }
 
 async function hasLedgerRelatedEntry(
@@ -70,8 +181,19 @@ async function hasLedgerRelatedEntry(
   return Array.isArray(data) && data.length > 0;
 }
 
+async function profileExists(sb: SupabaseClient, userId: string): Promise<boolean | { error: string; code?: "table_missing" }> {
+  const { data, error } = await sb.from("profiles").select("id").eq("id", userId).maybeSingle();
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "profiles")) {
+      return { error: "table_missing", code: "table_missing" };
+    }
+    return { error: error.message };
+  }
+  return !!data;
+}
+
 /**
- * 포인트 차감 — profiles.points 와 point_ledger 를 함께 갱신한다.
+ * 포인트 차감 — ledger SSOT INSERT 후 cache project.
  * related_type + related_id 가 이미 원장에 있으면 중복 차감하지 않는다.
  */
 export async function spendUserPoints(
@@ -86,24 +208,23 @@ export async function spendUserPoints(
   }
 
   if (await hasLedgerRelatedEntry(sb, uid, input.relatedType, relatedId)) {
-    const balance = await readUserPointBalance(sb, uid);
-    return { ok: true, balanceAfter: balance };
-  }
-
-  const { data: profile, error: profileErr } = await sb
-    .from("profiles")
-    .select("points")
-    .eq("id", uid)
-    .maybeSingle();
-  if (profileErr) {
-    if (isMissingPointsTable(profileErr.message ?? "", "profiles")) {
-      return { ok: false, error: "table_missing", code: "table_missing" };
+    const projected = await projectUserPointBalanceFromLedger(sb, uid);
+    if (!projected.ok) {
+      const balance = await readUserPointBalance(sb, uid);
+      return { ok: true, balanceAfter: balance };
     }
-    return { ok: false, error: profileErr.message };
+    return { ok: true, balanceAfter: projected.balance };
   }
-  if (!profile) return { ok: false, error: "user_not_found" };
 
-  const current = Math.max(0, Number((profile as { points?: number }).points ?? 0));
+  const exists = await profileExists(sb, uid);
+  if (typeof exists === "object") {
+    return { ok: false, error: exists.error, code: exists.code };
+  }
+  if (!exists) return { ok: false, error: "user_not_found" };
+
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
+  const current = Math.max(0, summed.sum);
   if (current < cost) {
     return { ok: false, error: "insufficient_balance", code: "insufficient_balance" };
   }
@@ -131,19 +252,17 @@ export async function spendUserPoints(
     return { ok: false, error: ledgerErr.message };
   }
 
-  const { error: updateErr } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", uid);
-  if (updateErr) {
-    return { ok: false, error: updateErr.message };
-  }
+  const projected = await projectUserPointBalanceFromLedger(sb, uid);
+  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
 
   return {
     ok: true,
-    balanceAfter,
+    balanceAfter: projected.balance,
     ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
   };
 }
 
-/** 포인트 지급(환불·보상 등) — profiles.points 와 point_ledger 동시 갱신 */
+/** 포인트 지급 — ledger SSOT INSERT 후 cache project */
 export async function creditUserPoints(
   sb: SupabaseClient,
   input: CreditUserPointsInput
@@ -164,22 +283,23 @@ export async function creditUserPoints(
     .eq("related_id", relatedId)
     .limit(1);
   if (Array.isArray(existingCredit) && existingCredit.length > 0) {
-    const balance = await readUserPointBalance(sb, uid);
-    return { ok: true, balanceAfter: balance };
+    const projected = await projectUserPointBalanceFromLedger(sb, uid);
+    if (!projected.ok) {
+      const balance = await readUserPointBalance(sb, uid);
+      return { ok: true, balanceAfter: balance };
+    }
+    return { ok: true, balanceAfter: projected.balance };
   }
 
-  const { data: profile, error: profileErr } = await sb
-    .from("profiles")
-    .select("points")
-    .eq("id", uid)
-    .maybeSingle();
-  if (profileErr) {
-    return { ok: false, error: profileErr.message };
+  const exists = await profileExists(sb, uid);
+  if (typeof exists === "object") {
+    return { ok: false, error: exists.error, code: exists.code };
   }
-  if (!profile) return { ok: false, error: "user_not_found" };
+  if (!exists) return { ok: false, error: "user_not_found" };
 
-  const current = Math.max(0, Number((profile as { points?: number }).points ?? 0));
-  const balanceAfter = current + amount;
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
+  const balanceAfter = Math.max(0, summed.sum) + amount;
 
   const ledgerInsert: Record<string, unknown> = {
     user_id: uid,
@@ -207,19 +327,17 @@ export async function creditUserPoints(
     return { ok: false, error: ledgerErr.message };
   }
 
-  const { error: updateErr } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", uid);
-  if (updateErr) {
-    return { ok: false, error: updateErr.message };
-  }
+  const projected = await projectUserPointBalanceFromLedger(sb, uid);
+  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
 
   return {
     ok: true,
-    balanceAfter,
+    balanceAfter: projected.balance,
     ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
   };
 }
 
-/** 만료 실행 — 원장 항목 expired_amount 갱신 + expire 차감 원장 */
+/** 만료 실행 — 원장 항목 expired_amount 갱신 + expire 차감 원장 + project */
 export async function expireUserPointEntries(
   sb: SupabaseClient,
   input: ExpireUserPointEntriesInput
@@ -231,7 +349,9 @@ export async function expireUserPointEntries(
     return { ok: false, error: "invalid_input" };
   }
 
-  const balanceBefore = await readUserPointBalance(sb, uid);
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
+  const balanceBefore = Math.max(0, summed.sum);
   const actualDeduct = Math.min(deduct, balanceBefore);
   if (actualDeduct < 1) {
     return { ok: false, error: "insufficient_balance", code: "insufficient_balance" };
@@ -270,12 +390,12 @@ export async function expireUserPointEntries(
     if (markErr) return { ok: false, error: markErr.message };
   }
 
-  const { error: updateErr } = await sb.from("profiles").update({ points: balanceAfter }).eq("id", uid);
-  if (updateErr) return { ok: false, error: updateErr.message };
+  const projected = await projectUserPointBalanceFromLedger(sb, uid);
+  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
 
   return {
     ok: true,
-    balanceAfter,
+    balanceAfter: projected.balance,
     ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
   };
 }
@@ -290,8 +410,7 @@ export type AdjustUserPointsInput = {
 };
 
 /**
- * Admin 수동 지급/차감 — credit/spend 허브만 사용. profiles.points 는 hub 가 갱신.
- * related_id 는 호출마다 고유해야 한다(동일 admin 반복 조정).
+ * Admin 수동 지급/차감 — credit/spend 허브만 사용 (ledger-only + project).
  */
 export async function adjustUserPoints(
   sb: SupabaseClient,
@@ -343,8 +462,7 @@ export type AppendUserPointLedgerAuditInput = {
 };
 
 /**
- * 잔액 변경 없이 원장 감사 행만 추가(예: trade-ad 보류 확정 amount=0).
- * profiles.points 는 갱신하지 않는다.
+ * 원장 감사 행 추가. cache 직접 쓰기 없음 — 필요 시 project(무변화).
  */
 export async function appendUserPointLedgerAudit(
   sb: SupabaseClient,
@@ -370,7 +488,10 @@ export async function appendUserPointLedgerAudit(
     return { ok: true, balanceAfter: balance };
   }
 
-  const balanceAfter = await readUserPointBalance(sb, uid);
+  const summed = await sumUserPointLedger(sb, uid);
+  if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
+  const balanceAfter = Math.max(0, summed.sum) + amount;
+
   const { data: ledgerRow, error: ledgerErr } = await sb
     .from("point_ledger")
     .insert({
@@ -393,9 +514,12 @@ export async function appendUserPointLedgerAudit(
     return { ok: false, error: ledgerErr.message };
   }
 
+  const projected = await projectUserPointBalanceFromLedger(sb, uid);
+  if (!projected.ok) return { ok: false, error: projected.error, code: projected.code };
+
   return {
     ok: true,
-    balanceAfter,
+    balanceAfter: projected.balance,
     ledgerId: ledgerRow ? String((ledgerRow as { id?: string }).id ?? "") : undefined,
   };
 }

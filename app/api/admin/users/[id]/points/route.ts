@@ -10,7 +10,12 @@ import {
   normalizeChargeRequest,
   normalizeLedgerRow,
 } from "@/lib/points/admin-user-points-shared";
-import { adjustUserPoints, readUserPointBalance } from "@/lib/points/user-point-ledger";
+import {
+  adjustUserPoints,
+  readUserPointBalance,
+  reconcileUserPointBalance,
+  sumUserPointLedger,
+} from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +41,8 @@ export async function GET(
     .maybeSingle();
   const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? "");
   const balance = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
+  const summed = await sumUserPointLedger(sb, userId);
+  const ledgerSum = summed.ok ? summed.sum : null;
 
   let ledger: ReturnType<typeof normalizeLedgerRow>[] = [];
   const ledgerRes = await sb
@@ -67,7 +74,15 @@ export async function GET(
     return NextResponse.json({ ok: false, error: chargeRes.error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, balance, ledger, chargeRequests, source: "supabase" });
+  return NextResponse.json({
+    ok: true,
+    balance,
+    ledgerSum,
+    cacheMatchesLedger: ledgerSum === null ? null : balance === Math.max(0, ledgerSum),
+    ledger,
+    chargeRequests,
+    source: "supabase",
+  });
 }
 
 export async function PATCH(
@@ -130,4 +145,53 @@ export async function PATCH(
   });
 
   return NextResponse.json({ ok: true, balance: adjusted.balanceAfter });
+}
+
+/** Soft repair: project profiles.points from ledger SUM when mismatched. */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const gate = await requireAdminPermission("point");
+  if (!gate.ok) return gate.response;
+
+  const { id } = await params;
+  const userId = id?.trim();
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+  }
+
+  let body: { reconcile?: boolean };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  if (body.reconcile !== true) {
+    return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
+  }
+
+  const { sb, actor } = gate;
+  const res = await reconcileUserPointBalance(sb, userId);
+  if (!res.ok) {
+    return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
+  }
+
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: actor.userId,
+    target_type: "user_points",
+    target_id: userId,
+    action: "admin_point_reconcile",
+    before_json: { balance: res.cacheBefore, ledgerSum: res.ledgerSum },
+    after_json: { balance: res.cacheAfter, repaired: res.repaired },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    repaired: res.repaired,
+    cacheBefore: res.cacheBefore,
+    ledgerSum: res.ledgerSum,
+    balance: res.cacheAfter,
+  });
 }
