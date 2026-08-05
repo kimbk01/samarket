@@ -13,14 +13,14 @@ import {
   resolveNativeProviderSessionPrelude,
 } from "@/lib/auth/provider-identity/native-session-bridge.server";
 import type { ProviderEmailConflictDetail } from "@/lib/auth/provider-identity/types";
-import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
+import type { EnsureUserProfileOutcome } from "@/lib/auth/ensure-user-profile";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
@@ -256,18 +256,15 @@ export async function establishKakaoNativeSession(
 
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);
 
+  let profileOutcome: EnsureUserProfileOutcome | null = null;
   try {
-    await ensurePendingAuthProfileRow(ctx.adminSb, syntheticUser, {
-      authProvider: "kakao",
-      nicknameCandidate: input.verified.nickname ?? null,
-      avatarCandidate: input.verified.profileImageUrl ?? null,
-      emailInternal: input.verified.hasEmailFromProfile ? input.verified.email ?? null : null,
+    const ensured = await ensureAuthProfileForLogin(ctx.adminSb, syntheticUser, {
+      enrichMemberProfile: true,
     });
+    profileOutcome = ensured.ensureUserProfileOutcome;
   } catch {
     /* 클라 ensure 폴백 */
   }
-
-  const profileOutcome = await ensureUserProfile(ctx.adminSb, syntheticUser).catch(() => null);
   if (profileOutcome?.duplicateWarning) {
     const conflictByProvider = profileOutcome.duplicateCandidates?.some((id) => id !== signedUser.id);
     if (conflictByProvider) {

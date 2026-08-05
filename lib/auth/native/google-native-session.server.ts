@@ -19,13 +19,13 @@ import {
   reconcileGoogleNativeProviderProfileConflict,
   resolveGoogleNativeSignInEmail,
 } from "@/lib/auth/native/reconcile-google-native-orphan.server";
-import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolveCommonAuthDestination } from "@/lib/auth/completion/resolve-common-auth-destination.server";
+import type { EnsureUserProfileOutcome } from "@/lib/auth/ensure-user-profile";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
@@ -319,12 +319,10 @@ export async function establishGoogleNativeSession(
       ? input.verified.email.trim().toLowerCase()
       : null;
 
+  // Slice 6-2: preserve pending → reconcile → ensure order via facade stages.
   try {
-    await ensurePendingAuthProfileRow(ctx.adminSb, syntheticUser, {
-      authProvider: "google",
-      nicknameCandidate: input.verified.name ?? null,
-      avatarCandidate: input.verified.picture ?? null,
-      emailInternal: verifiedGmail,
+    await ensureAuthProfileForLogin(ctx.adminSb, syntheticUser, {
+      enrichMemberProfile: false,
     });
   } catch {
     /* 클라 ensure 폴백 */
@@ -337,7 +335,15 @@ export async function establishGoogleNativeSession(
     verifiedGmail,
   );
 
-  const profileOutcome = await ensureUserProfile(ctx.adminSb, syntheticUser).catch(() => null);
+  let profileOutcome: EnsureUserProfileOutcome | null = null;
+  try {
+    const ensured = await ensureAuthProfileForLogin(ctx.adminSb, syntheticUser, {
+      enrichMemberProfile: true,
+    });
+    profileOutcome = ensured.ensureUserProfileOutcome;
+  } catch {
+    /* 클라 ensure 폴백 */
+  }
   if (profileOutcome?.duplicateWarning) {
     const conflictByProvider = profileOutcome.duplicateCandidates?.some((id) => id !== signedUser.id);
     if (conflictByProvider) {

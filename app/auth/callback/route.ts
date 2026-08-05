@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
-import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { upsertOAuthProfileFromUser } from "@/lib/auth/oauth-profile-upsert";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -240,8 +240,11 @@ export async function GET(req: NextRequest) {
         const status = await getOnboardingStatus(writeSb, activeUser.id);
         if (status.signupComplete) {
           try {
-            const outcome = await ensureUserProfile(writeSb, activeUser);
-            if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
+            const ensured = await ensureAuthProfileForLogin(writeSb, activeUser, {
+              enrichMemberProfile: true,
+            });
+            const outcome = ensured.ensureUserProfileOutcome;
+            if (outcome?.duplicateWarning && process.env.NODE_ENV !== "production") {
               console.warn("[auth/callback] duplicate profile candidate detected", {
                 userId: activeUser.id,
                 candidates: outcome.duplicateCandidates,

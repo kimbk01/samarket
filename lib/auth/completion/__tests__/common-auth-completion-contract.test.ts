@@ -122,6 +122,48 @@ describe("common-auth-completion-contract", () => {
     expect(COMMON_AUTH_COMPLETION_OWNERS.destination).toBe("resolveCommonAuthDestination");
   });
 
+  it("Slice 6-2: production completion edges use ensureAuthProfileForLogin (no direct pending/ensureUserProfile)", () => {
+    const edges = [
+      "app/auth/callback/route.ts",
+      "app/api/auth/naver/callback/route.ts",
+      "lib/auth/native/google-native-session.server.ts",
+      "lib/auth/native/kakao-native-session.server.ts",
+      "lib/auth/native/apple-native-session.server.ts",
+    ];
+    for (const rel of edges) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src, rel).toMatch(/ensureAuthProfileForLogin/);
+      expect(src, rel).not.toMatch(/ensurePendingAuthProfileRow\s*\(/);
+      // Ban call sites; type-only EnsureUserProfileOutcome import may remain.
+      expect(src, rel).not.toMatch(/(?<![A-Za-z])ensureUserProfile\s*\(/);
+      expect(src, rel).not.toMatch(/member-access/);
+    }
+    expect(COMMON_AUTH_COMPLETION_OWNERS.profile).toBe("ensureAuthProfileForLogin");
+    expect(COMMON_AUTH_COMPLETION_OWNERS.clientSync).toBe("syncCommonClientSessionAfterAuth");
+    // Google residual hard gate (create-if-missing) — not the pending/ensure pair.
+    const googleSrc = readFileSync(
+      join(process.cwd(), "lib/auth/native/google-native-session.server.ts"),
+      "utf8",
+    );
+    expect(googleSrc).toMatch(/ensureProfileForUserId/);
+  });
+
+  it("Slice 6-2: Client Sync / finish / runCommonAuth owners untouched in completion edges", () => {
+    const edges = [
+      "app/auth/callback/route.ts",
+      "app/api/auth/naver/callback/route.ts",
+      "lib/auth/native/google-native-session.server.ts",
+      "lib/auth/native/kakao-native-session.server.ts",
+      "lib/auth/native/apple-native-session.server.ts",
+    ];
+    for (const rel of edges) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src, rel).not.toMatch(/syncCommonClientSessionAfterAuth/);
+      expect(src, rel).not.toMatch(/finishClientAuthLogin/);
+      expect(src, rel).not.toMatch(/runCommonAuthClientCompletion/);
+    }
+  });
+
   it("finishClientAuthLogin must not schedule signup-status re-navigation", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/auth/finish-client-auth-login.client.ts"),

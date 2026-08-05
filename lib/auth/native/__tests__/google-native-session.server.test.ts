@@ -6,8 +6,7 @@ import {
 } from "@/lib/auth/native/google-native-session.server";
 
 const findAuthUserByEmail = vi.fn();
-const ensureUserProfile = vi.fn();
-const ensurePendingAuthProfileRow = vi.fn();
+const ensureAuthProfileForLogin = vi.fn();
 const ensureProfileForUserId = vi.fn();
 const getOnboardingStatus = vi.fn();
 const syncActiveSessionForUser = vi.fn();
@@ -16,12 +15,8 @@ vi.mock("@/lib/auth/naver-oauth", () => ({
   findAuthUserByEmail: (...args: unknown[]) => findAuthUserByEmail(...args),
 }));
 
-vi.mock("@/lib/auth/ensure-user-profile", () => ({
-  ensureUserProfile: (...args: unknown[]) => ensureUserProfile(...args),
-}));
-
-vi.mock("@/lib/auth/member-access", () => ({
-  ensurePendingAuthProfileRow: (...args: unknown[]) => ensurePendingAuthProfileRow(...args),
+vi.mock("@/lib/auth/completion/ensure-auth-profile-for-login.server", () => ({
+  ensureAuthProfileForLogin: (...args: unknown[]) => ensureAuthProfileForLogin(...args),
 }));
 
 vi.mock("@/lib/auth/get-onboarding-status", () => ({
@@ -230,8 +225,14 @@ describe("google-native-session.server", () => {
     vi.clearAllMocks();
     process.env.AUTH_GOOGLE_NATIVE_EXCHANGE_ENABLED = "true";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
-    ensurePendingAuthProfileRow.mockResolvedValue(undefined);
-    ensureUserProfile.mockResolvedValue({ profile: { id: "08224de9-953e-4219-8ead-f30d7201dafb" }, linked: true });
+    ensureAuthProfileForLogin.mockResolvedValue({
+      enriched: true,
+      ensureUserProfileOutcome: {
+        profile: { id: "08224de9-953e-4219-8ead-f30d7201dafb" },
+        linked: true,
+        created: false,
+      },
+    });
     ensureProfileForUserId.mockResolvedValue({ id: "08224de9-953e-4219-8ead-f30d7201dafb" });
     getOnboardingStatus.mockResolvedValue({
       signupComplete: false,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { ensureAuthProfileForLogin } from "@/lib/auth/completion/ensure-auth-profile-for-login.server";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import {
   buildNaverSupabasePassword,
@@ -145,7 +145,9 @@ export async function GET(req: NextRequest) {
       return withdrawnProbe;
     }
 
-    await ensureUserProfile(adminSb, signedUser).catch(() => null);
+    await ensureAuthProfileForLogin(adminSb, signedUser, {
+      enrichMemberProfile: true,
+    }).catch(() => null);
     await adminSb
       .from("profiles")
       .update({
