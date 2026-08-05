@@ -86,6 +86,8 @@ function LoginPageContent() {
         needsTermsAgreement: input.needsTermsAgreement,
         consentComplete: input.consentComplete,
         signupComplete: input.signupComplete,
+        // Slice 6-7: preserve Native Thin Handoff client-sync flag (do not drop).
+        syncFromNativeExchangeCookies: input.syncFromNativeExchangeCookies === true,
         router,
       });
     },
