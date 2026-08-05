@@ -19,7 +19,7 @@ import {
 } from "@/lib/auth/oauth/auth-lifecycle-trace";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
-import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
+import { buildNativeAuthCompletionHandoff, type NativeAuthCompletionHandoff } from "@/lib/auth/completion/build-native-auth-completion-handoff.client";
 import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeAppleExchangeResponse = NativeExchangeResponse;
@@ -140,8 +140,8 @@ export async function postNativeAppleExchange(
     note: "exchange_2xx_set_cookie_assumed",
   });
 
-  // Slice 6-3 POLICY_A: Client Sync owned by finish → runCommonAuthClientCompletion (not Apple exchange helper).
-  // Navigation stays in finishClientAuthLogin → runCommonAuthClientCompletion (no dual completion).
+  // Slice 6-3 POLICY_A: Client Sync owned by Completion (Thin Handoff sync flag).
+  // Navigation stays in Login/OAuth completeAuthSuccess → finish (no dual completion).
   return json;
 }
 
@@ -159,20 +159,16 @@ export function isNativeAppleLoginStartError(code: string): code is NativeAppleA
   );
 }
 
-export type NativeAppleLoginHandoff = FinishClientAuthLoginTermsHandoff & {
-  redirectTo: string | null;
-};
+export type NativeAppleLoginHandoff = NativeAuthCompletionHandoff;
 
 function buildNativeAppleLoginHandoff(
   exchange: Extract<NativeAppleExchangeResponse, { ok: true }>,
 ): NativeAppleLoginHandoff {
-  return {
-    redirectTo: exchange.redirectTo?.trim() ?? null,
+  return buildNativeAuthCompletionHandoff({
+    redirectTo: exchange.redirectTo,
     needsTermsAgreement: exchange.needsTermsAgreement,
     signupComplete: exchange.signupComplete,
-    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
-    syncFromNativeExchangeCookies: true,
-  };
+  });
 }
 
 /**

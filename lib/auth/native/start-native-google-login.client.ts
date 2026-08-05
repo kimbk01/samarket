@@ -19,7 +19,8 @@ import {
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
-import { finishClientAuthLogin, type FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
+import { buildNativeAuthCompletionHandoff, type NativeAuthCompletionHandoff } from "@/lib/auth/completion/build-native-auth-completion-handoff.client";
+import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -41,25 +42,20 @@ async function abortGoogleNativeRecoverPending(reason: string): Promise<void> {
   await revokeNativeGoogleSessionIfAvailable();
 }
 
-export type NativeGoogleLoginHandoff = FinishClientAuthLoginTermsHandoff & {
-  redirectTo: string | null;
-};
+export type NativeGoogleLoginHandoff = NativeAuthCompletionHandoff;
 
 function buildNativeGoogleLoginHandoff(
   exchange: Extract<NativeGoogleExchangeResponse, { ok: true }>,
 ): NativeGoogleLoginHandoff {
-  const needsTermsAgreement =
-    exchange.isNewUser === true ? true : exchange.needsTermsAgreement;
-  const signupComplete = exchange.isNewUser === true ? false : exchange.signupComplete;
-  return {
-    redirectTo: exchange.redirectTo?.trim() ?? null,
-    needsTermsAgreement,
-    signupComplete,
-    consentComplete: needsTermsAgreement === false,
-    syncFromNativeExchangeCookies: true,
-  };
+  return buildNativeAuthCompletionHandoff({
+    redirectTo: exchange.redirectTo,
+    needsTermsAgreement: exchange.needsTermsAgreement,
+    signupComplete: exchange.signupComplete,
+    isNewUser: exchange.isNewUser,
+  });
 }
 
+/** Recover + normal success share Thin Handoff → finishClientAuthLogin (Slice 6-4). */
 async function finishNativeGoogleRecoverNavigation(
   handoff: NativeGoogleLoginHandoff,
   next?: string | null,

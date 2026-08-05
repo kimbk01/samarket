@@ -3,14 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("apple-common-completion-contract", () => {
-  it("Slice 6-3: Apple exchange helper does not own Client Sync", () => {
+  it("Slice 6-3/6-4: Apple exchange helper does not own Client Sync; uses Thin Handoff", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/auth/native/start-native-apple-login.client.ts"),
       "utf8",
     );
     expect(src).not.toMatch(/syncCommonClientSessionAfterAuth/);
     expect(src).not.toMatch(/syncClientSessionAfterNativeExchange/);
-    expect(src).toMatch(/syncFromNativeExchangeCookies:\s*true/);
+    expect(src).toMatch(/buildNativeAuthCompletionHandoff/);
     // Must not dual-call navigation façade from Apple adapter
     expect(src).not.toMatch(/runCommonAuthClientCompletion\(/);
     expect(src).not.toMatch(/await finishClientAuthLogin/);

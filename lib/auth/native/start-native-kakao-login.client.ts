@@ -14,7 +14,7 @@ import {
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
-import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
+import { buildNativeAuthCompletionHandoff, type NativeAuthCompletionHandoff } from "@/lib/auth/completion/build-native-auth-completion-handoff.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeKakaoLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -29,20 +29,16 @@ function throwNativeKakaoExchangeError(exchange: Extract<NativeKakaoExchangeResp
   throw new NativeKakaoAuthError(mapped.code, mapped.message);
 }
 
-export type NativeKakaoLoginHandoff = FinishClientAuthLoginTermsHandoff & {
-  redirectTo: string | null;
-};
+export type NativeKakaoLoginHandoff = NativeAuthCompletionHandoff;
 
 function buildNativeKakaoLoginHandoff(
   exchange: Extract<NativeKakaoExchangeResponse, { ok: true }>,
 ): NativeKakaoLoginHandoff {
-  return {
-    redirectTo: exchange.redirectTo?.trim() ?? null,
+  return buildNativeAuthCompletionHandoff({
+    redirectTo: exchange.redirectTo,
     needsTermsAgreement: exchange.needsTermsAgreement,
     signupComplete: exchange.signupComplete,
-    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
-    syncFromNativeExchangeCookies: true,
-  };
+  });
 }
 
 /**

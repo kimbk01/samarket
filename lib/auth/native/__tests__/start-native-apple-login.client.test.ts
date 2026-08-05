@@ -111,6 +111,7 @@ describe("start-native-apple-login.client", () => {
     const result = await startNativeAppleLogin();
     expect(result.redirectTo).toBe("/signup/terms");
     expect(result.syncFromNativeExchangeCookies).toBe(true);
+    expect(result.consentComplete).toBe(false);
     expect(replace).not.toHaveBeenCalled();
     expect(isOAuthFlowInFlight()).toBe(false);
 

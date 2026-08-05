@@ -23,3 +23,9 @@ export {
   type ResolveCommonAuthDestinationInput,
   type ResolveCommonAuthDestinationResult,
 } from "@/lib/auth/completion/resolve-common-auth-destination.server";
+
+export {
+  buildNativeAuthCompletionHandoff,
+  type NativeAuthCompletionHandoff,
+  type NativeExchangeHandoffSource,
+} from "@/lib/auth/completion/build-native-auth-completion-handoff.client";
