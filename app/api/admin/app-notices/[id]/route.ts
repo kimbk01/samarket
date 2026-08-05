@@ -2,16 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-function isMissingTableError(message: string): boolean {
-  const lowered = message.toLowerCase();
-  return lowered.includes("app_notices") && lowered.includes("does not exist");
-}
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const admin = await requireAdminApiUser();
@@ -33,7 +29,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTableError(error.message ?? "")) {
+    if (isMissingAppNoticesTableError(error.message ?? "")) {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

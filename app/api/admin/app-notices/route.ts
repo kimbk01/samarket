@@ -2,14 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function isMissingTableError(message: string): boolean {
-  const lowered = message.toLowerCase();
-  return lowered.includes("app_notices") && lowered.includes("does not exist");
-}
 
 /** GET /api/admin/app-notices — list all for Admin */
 export async function GET() {
@@ -28,7 +24,7 @@ export async function GET() {
     .limit(200);
 
   if (error) {
-    if (isMissingTableError(error.message ?? "")) {
+    if (isMissingAppNoticesTableError(error.message ?? "")) {
       return NextResponse.json({ ok: true, notices: [], table_missing: true });
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -76,7 +72,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    if (isMissingTableError(error.message ?? "")) {
+    if (isMissingAppNoticesTableError(error.message ?? "")) {
       return NextResponse.json(
         { ok: false, error: "table_missing", hint: "Apply migration 20261018120000_app_notices" },
         { status: 503 }

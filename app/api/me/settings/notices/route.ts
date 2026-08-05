@@ -2,14 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function isMissingTableError(message: string): boolean {
-  const lowered = message.toLowerCase();
-  return lowered.includes("app_notices") && lowered.includes("does not exist");
-}
 
 function isPublishedNow(row: {
   is_active?: boolean;
@@ -49,7 +45,7 @@ export async function GET() {
     .limit(50);
 
   if (boardError) {
-    if (isMissingTableError(boardError.message ?? "")) {
+    if (isMissingAppNoticesTableError(boardError.message ?? "")) {
       return NextResponse.json({ ok: true, notices: [], source: "table_missing" });
     }
     return NextResponse.json(
