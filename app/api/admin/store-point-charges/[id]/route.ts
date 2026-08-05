@@ -9,6 +9,11 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * CONTRACT: approve → approve_store_point_charge_request RPC (credits v_req.point_amount only).
+ * DO NOT recompute ratio / re-read Member point_plans. DO NOT UPDATE stores.point_balance in TS.
+ */
+
 type PatchBody = {
   action?: "approve" | "reject" | "hold";
   admin_memo?: string;

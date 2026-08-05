@@ -5,6 +5,11 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * CONTRACT: Store balance mutate via adjust_store_point_balance RPC only.
+ * DO NOT UPDATE stores.point_balance from TS. DO NOT touch Member profiles.points.
+ */
+
 type PostBody = {
   delta?: number;
   memo?: string;
