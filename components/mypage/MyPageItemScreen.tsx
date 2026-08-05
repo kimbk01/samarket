@@ -169,13 +169,8 @@ export function MyPageItemScreen(
       return <LegacyEventsStubRedirect />;
     }
     if (item === "support") {
-      return (
-        <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body leading-6 text-sam-fg">
-          <p>{t("mypage_comp_settings_support_p1")}</p>
-          <p>{t("mypage_comp_settings_support_p2")}</p>
-          <p className="sam-text-helper text-sam-muted">{t("mypage_comp_settings_support_hint")}</p>
-        </div>
-      );
+      /** Legacy stub deep-link → App Customer Center full-page hub */
+      return <LegacySupportStubRedirect />;
     }
     if (item === "terms") {
       return (
@@ -259,6 +254,14 @@ function LegacyEventsStubRedirect() {
   const router = useRouter();
   useEffect(() => {
     router.replace("/mypage/benefits");
+  }, [router]);
+  return null;
+}
+
+function LegacySupportStubRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/mypage/customer-center");
   }, [router]);
   return null;
 }

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
+import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 type Thread = {
@@ -41,6 +43,8 @@ const KIND_META: Record<
 
 export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) {
   const { t, language, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const backHref = resolveCustomerCenterBackHref(searchParams.get("from"));
   const meta = KIND_META[kind];
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +144,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader title={title} subtitle={subtitle} backHref="/mypage" hideCtaStrip />
+      <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
         <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col gap-4 px-3 py-3">
           {meta.allowCreate ? (

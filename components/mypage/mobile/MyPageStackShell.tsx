@@ -9,10 +9,12 @@ import { dibayMyInfoPerfMark, dibayMyInfoPerfNavClick } from "@/lib/runtime/diba
 export function MyPageStackShell({
   title,
   backHref,
+  preferHistoryBack = true,
   children,
 }: {
   title: string;
   backHref: string;
+  preferHistoryBack?: boolean;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -44,7 +46,7 @@ export function MyPageStackShell({
       <MySubpageHeader
         title={title}
         backHref={backHref}
-        preferHistoryBack
+        preferHistoryBack={preferHistoryBack}
         hideCtaStrip
         showHubQuickActions
       />

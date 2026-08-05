@@ -936,7 +936,7 @@ function AccountSection({
           <ActionRow href="/mypage/settings/notice" label={t("settings_notices")} />
           <ActionRow href="/mypage/benefits" label={t("mypage_hub_benefits")} />
           <ActionRow href="/mypage/recent-viewed" label={t("mypage_hub_recent_viewed")} />
-          <ActionRow label={t("mypage_hub_support")} onClick={() => onOpenSheet("support")} />
+          <ActionRow href="/mypage/customer-center" label={t("mypage_hub_support")} />
           <ActionRow label={t("mypage_hub_terms")} onClick={() => onOpenSheet("terms")} />
         </div>
       </SectionCard>

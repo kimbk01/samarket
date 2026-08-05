@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { MypageProfileSummary } from "@/components/mypage/home/MypageProfileSummary";
+import { MypagePointsAssetSummary } from "@/components/mypage/home/MypagePointsAssetSummary";
 import { MypageRequiredInfoSummary } from "@/components/mypage/home/MypageRequiredInfoSummary";
 import { MypageSessionReloginCard } from "@/components/mypage/home/MypageSessionReloginCard";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
@@ -18,7 +19,7 @@ import { useMypageProfileSheets } from "@/components/mypage/profile-settings/myp
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
-/** /mypage 메인 — 프로필 요약 + 필수 정보 + 정적 메뉴 (편집 form 미마운트) */
+/** /mypage 메인 — 프로필 + 포인트 자산 + 필수 정보 + 정적 메뉴 (시트 CS 금지) */
 export function MyPageHomeDashboard({
   projection,
   onProfileRefresh,
@@ -44,6 +45,7 @@ export function MyPageHomeDashboard({
         ) : (
           <>
             <MypageProfileSummary projection={projection} />
+            <MypagePointsAssetSummary />
             <MypageRequiredInfoSummary projection={projection} />
           </>
         )}

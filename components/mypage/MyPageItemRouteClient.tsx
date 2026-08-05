@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyPageData } from "@/lib/my/types";
@@ -7,6 +8,7 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
@@ -22,9 +24,16 @@ export function MyPageItemRouteClient({
   itemLabelKey: MessageKey;
 }) {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const membership = useClientMembershipState("mypage-item-route");
   const hubEnabled = membership.status === "member";
   const itemLabel = t(itemLabelKey);
+  const defaultBack = buildMypageSectionHref(section);
+  const backHref =
+    item === "notices" || item === "terms"
+      ? resolveCustomerCenterBackHref(searchParams.get("from"), defaultBack)
+      : defaultBack;
+  const preferHistoryBack = backHref !== CUSTOMER_CENTER_HREF;
   const {
     data,
     loading,
@@ -47,7 +56,7 @@ export function MyPageItemRouteClient({
 
   if (membership.status === "checking") {
     return (
-      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+      <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
       </MyPageStackShell>
     );
@@ -63,7 +72,7 @@ export function MyPageItemRouteClient({
 
   if (loading) {
     return (
-      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+      <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
       </MyPageStackShell>
     );
@@ -71,7 +80,7 @@ export function MyPageItemRouteClient({
 
   if (!data?.profile) {
     return (
-      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+      <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
         <div className="py-6 text-center sam-text-body text-sam-muted">
           {t("mypage_comp_profile_load_failed_short")}
         </div>
@@ -82,7 +91,7 @@ export function MyPageItemRouteClient({
   const { profile, mannerScore, isBusinessMember, isAdmin, hasOwnerStore: hs } = data;
 
   return (
-    <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+    <MyPageStackShell title={itemLabel} backHref={backHref} preferHistoryBack={preferHistoryBack}>
       <MyPageItemScreen
         section={section}
         item={item}

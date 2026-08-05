@@ -120,9 +120,18 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
   },
 ];
 
+/**
+ * 고객지원 섹션 — 당근형: 공지 → 고객센터(풀페이지 허브) → 문의 → 쪽지 → 약관.
+ * DO NOT: sheet hub · FAQ/Event 가짜 행 · CS stub `/section/settings/support`.
+ */
 export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
   {
-    href: "/mypage/section/settings/support",
+    href: "/mypage/section/settings/notices",
+    titleKey: "mypage_comp_menu_support_notices_title",
+    icon: "book-open",
+  },
+  {
+    href: "/mypage/customer-center",
     titleKey: "mypage_comp_menu_support_cs_title",
     icon: "help-circle",
   },
@@ -135,11 +144,6 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     href: "/mypage/inbox",
     titleKey: "mypage_comp_menu_support_inbox_title",
     icon: "message-circle",
-  },
-  {
-    href: "/mypage/section/settings/notices",
-    titleKey: "mypage_comp_menu_support_notices_title",
-    icon: "user-round",
   },
   {
     href: "/mypage/section/settings/terms",

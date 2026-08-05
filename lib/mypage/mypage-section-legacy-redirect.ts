@@ -27,6 +27,8 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "messenger:groups": "/community-messenger?section=groups",
   "messenger:friends": "/mypage/section/messenger/friends",
   "messenger:chat-alerts": "/mypage/section/messenger/chat-alerts",
+  /** App CS — stub support → full-page hub */
+  "settings:support": "/mypage/customer-center",
 };
 
 export function resolveMypageSectionLegacyHubRedirect(

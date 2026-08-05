@@ -199,6 +199,12 @@ export const mypageComponentsMessages = {
     mypage_cs_inquiry_new: "새 문의",
     mypage_cs_notes_empty: "내역이 없습니다",
     mypage_cs_archive: "보관",
+    mypage_cs_hub_greeting: "무엇이 궁금하신가요?",
+    mypage_cs_hub_greeting_sub: "문의·쪽지·포인트·공지를 한곳에서 확인하세요.",
+    mypage_cs_hub_history: "이전 대화",
+    mypage_cs_hub_entries_title: "바로가기",
+    mypage_cs_hub_footnote: "각 항목은 기존 화면으로 이동합니다.",
+    mypage_comp_asset_summary_title: "내 자산",
 
     // MypageInfoHubSheet / SidePanel
     mypage_comp_close: "닫기",
@@ -1010,6 +1016,12 @@ export const mypageComponentsMessages = {
     mypage_cs_inquiry_new: "New inquiry",
     mypage_cs_notes_empty: "No messages yet",
     mypage_cs_archive: "Archive",
+    mypage_cs_hub_greeting: "How can we help?",
+    mypage_cs_hub_greeting_sub: "Inquiries, inbox, points, and notices in one place.",
+    mypage_cs_hub_history: "Previous conversations",
+    mypage_cs_hub_entries_title: "Shortcuts",
+    mypage_cs_hub_footnote: "Each item opens the existing screen.",
+    mypage_comp_asset_summary_title: "My assets",
 
     mypage_comp_close: "Close",
     mypage_comp_info_hub_title: "App & service settings",

@@ -1,15 +1,19 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getUpcomingExpiringSummary } from "@/lib/points/point-expire-utils";
 import { PointBalanceCard } from "@/components/points/PointBalanceCard";
 import { PointExpiringCard } from "@/components/points/PointExpiringCard";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
+import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -33,7 +37,17 @@ function PointsLoadingSkeleton() {
 }
 
 export default function MypagePointsPage() {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <MypagePointsPageInner />
+    </Suspense>
+  );
+}
+
+function MypagePointsPageInner() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const backHref = resolveCustomerCenterBackHref(searchParams.get("from"));
   const userId = getCurrentUser()?.id ?? "";
   const [balance, setBalance] = useState(0);
   const [ledgerEntries, setLedgerEntries] = useState<PointLedgerEntry[]>([]);
@@ -99,7 +113,8 @@ export default function MypagePointsPage() {
       <MySubpageHeader
         title={t("common_points")}
         subtitle={t("points_subtitle")}
-        backHref="/mypage"
+        backHref={backHref}
+        preferHistoryBack={false}
         hideCtaStrip
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
