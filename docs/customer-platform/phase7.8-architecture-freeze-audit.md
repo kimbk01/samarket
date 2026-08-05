@@ -1,11 +1,12 @@
 # Phase 7.8 — Architecture Freeze Audit
 
-**Status:** COMPLETE (executed)  
+**Status:** COMPLETE (executed) · CP HARD LOCK after RRR 2026-08-06  
 **Date:** 2026-08-06  
-**Master Plan:** PARTIAL (unchanged — HARD LOCK not declared)  
+**Master Plan:** PARTIAL (unchanged — Master PASS not declared)  
+**CP Architecture / Authority:** HARD LOCK (RRR)  
 **Mode:** Audit docs only · **not** feature code · **not** Cleanup deletion · **not** MERGE/REPLACE execution  
 **Depends on:** Phase 7 CLOSED (`1e4184a58`) · Phase 7.5 CLOSED (`92688ae40`)  
-**Verdict:** **FREEZE COMPLETE** — all sections `FREEZE_PASS` or `ACCEPTED_RISK` · **≠ HARD LOCK**
+**Verdict:** **FREEZE COMPLETE** (2026-08-06) → RRR → **CP HARD LOCK** · Master Plan still **PARTIAL**
 
 **Purpose:** Confirm the final structure can remain stable for **2–3 years** without reopening authority.
 
@@ -152,5 +153,5 @@ Next Phase allowed: YES → Release Readiness Review (RRR)
 
 ## Next
 
-**Release Readiness Review** (`release-readiness-review.md`).  
-HARD LOCK only after RRR **PRODUCT PASS**, with AR-1..3 either cleared by LOCK or reaffirmed on the RRR board.
+**RRR COMPLETE** (`release-readiness-review.md`) — AR-1..3 REAFFIRMED · **CP PRODUCT PASS** · **CP HARD LOCK**.  
+Master Plan remains **PARTIAL** until DEVICE / operator interview / Inbox physical / FX (etc.) evidence closes.
