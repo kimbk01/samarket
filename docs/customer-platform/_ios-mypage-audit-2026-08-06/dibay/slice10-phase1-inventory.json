@@ -1,0 +1,1289 @@
+{
+  "ok": true,
+  "slice": "SLICE 10 PHASE 1 INVENTORY",
+  "deletes": 0,
+  "generatedAt": "2026-08-06T10:12:02.767Z",
+  "productCodeChanged": false,
+  "classifications": {
+    "KEEP": [
+      "logout_multi_entry"
+    ],
+    "MERGE_CANDIDATE": [
+      "MyProfileCard"
+    ],
+    "DEPRECATE_CANDIDATE": [
+      "MyInfoProfileSection",
+      "trade_legacy_routes"
+    ],
+    "DEAD_CANDIDATE": [
+      "MypageInstagramView",
+      "SettingsMainContent",
+      "MyPageConsole",
+      "MyPageContent",
+      "MyInfoProfileCard",
+      "MyInfoProfileHubCard",
+      "MyInfoMiniProfile",
+      "ProfileCard_mypage",
+      "ProfileCard_my"
+    ],
+    "DEAD_PROVEN": []
+  },
+  "candidates": [
+    {
+      "id": "MypageInstagramView",
+      "path": "components/my/mypage/MypageInstagramView.tsx",
+      "note": null,
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "scripts/verify-mypage-authority-contract.mjs"
+        ],
+        "staticImporterCount": 1,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 13,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:135:    id: \"MypageInstagramView\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:136:    path: \"components/my/mypage/MypageInstagramView.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:138:    symbols: [\"MypageInstagramView\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:151:      note: \"App settings now via profile-settings / mypage account menus; only consumed by MypageInstagramView sheet\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:245:      also: [\"ProfileSettingsSheet\", \"ProfileEditForm\", \"MypageInstagramView\", \"LogoutContent\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:355:  if (c.id === \"MypageInstagramView\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:359:    row.whyReferencesAlive = \"Value-imported and rendered only inside MypageInstagramView settings sheet.\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:365:      \"MyProfileCard() unused. AddressDefaultsFlags type still imported from this file by types.ts, load-mypage-hub-extras-server.ts, MypageInstagramView (duplicate of lib/my/address-defaults-types.ts).\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:389:  if (c.id === \"MypageInstagramView\") row.classification = CLASS.DEAD;",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:408:    row.phase2Requires = [\"MypageInstagramView\"];",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:414:  if (c.id === \"MypageInstagramView\") {",
+          "scripts/verify-mypage-authority-contract.mjs:103:const ig = read(\"components/my/mypage/MypageInstagramView.tsx\");",
+          "scripts/verify-mypage-authority-contract.mjs:105:  failures.push(\"MypageInstagramView: href=/mypage/logout forbidden — use modal Danger CTA\");"
+        ],
+        "verifyOrTestOnly": true,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 1,
+        "sampleHits": [
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 103,
+            "text": "const ig = read(\"components/my/mypage/MypageInstagramView.tsx\");"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 105,
+            "text": "failures.push(\"MypageInstagramView: href=/mypage/logout forbidden — use modal Danger CTA\");"
+          }
+        ]
+      },
+      "replacement": {
+        "route": "/mypage",
+        "component": "app/(main)/my/MyContent.tsx → MyPageHomeDashboard",
+        "runtimeEvidence": "Slice 3 UI RUNTIME LOCK + Slice 9 MULTIPLATFORM RUNTIME LOCK (hub)"
+      },
+      "whyReferencesAlive": "No product JSX importer. Alive via scripts/verify-mypage-authority-contract.mjs file read + owns SettingsMainContent/LogoutActionTrigger subtree.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true,
+      "phase2Blockers": [
+        "rewrite scripts/verify-mypage-authority-contract.mjs off this file",
+        "bundle symbol scan still NOT_SCANNED"
+      ]
+    },
+    {
+      "id": "SettingsMainContent",
+      "path": "components/my/settings/SettingsMainContent.tsx",
+      "note": null,
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "components/my/mypage/MypageInstagramView.tsx"
+        ],
+        "staticImporterCount": 1,
+        "valueImportFiles": [
+          "components/my/mypage/MypageInstagramView.tsx"
+        ],
+        "jsxOrValueImporterCount": 1,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 1,
+        "ctaHits": [
+          "components/my/mypage/MypageInstagramView.tsx"
+        ],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 7,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:146:    id: \"SettingsMainContent\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:147:    path: \"components/my/settings/SettingsMainContent.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:149:    symbols: [\"SettingsMainContent\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:357:      \"No product JSX importer. Alive via scripts/verify-mypage-authority-contract.mjs file read + owns SettingsMainContent/LogoutActionTrigger subtree.\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:358:  } else if (c.id === \"SettingsMainContent\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:390:  if (c.id === \"SettingsMainContent\") row.classification = CLASS.DEAD;",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:406:  if (c.id === \"SettingsMainContent\") {"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 1,
+        "sampleHits": [
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 12,
+            "text": "import { SettingsMainContent } from \"@/components/my/settings/SettingsMainContent\";"
+          },
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 567,
+            "text": "{settingsSheet === \"app\" ? <SettingsMainContent className=\"pb-0\" /> : null}"
+          }
+        ]
+      },
+      "replacement": {
+        "note": "App settings now via profile-settings / mypage account menus; only consumed by MypageInstagramView sheet",
+        "runtimeEvidence": "Slice 6 account + Slice 3 hub menus"
+      },
+      "whyReferencesAlive": "Value-imported and rendered only inside MypageInstagramView settings sheet.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true,
+      "phase2Requires": [
+        "MypageInstagramView"
+      ]
+    },
+    {
+      "id": "MyPageConsole",
+      "path": "components/mypage/MyPageConsole.tsx",
+      "note": "Component export unused; MyPageConsoleProps type still used by ItemScreen/tabs",
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "components/mypage/mypage-nav.ts",
+          "components/mypage/types.ts",
+          "components/mypage/tabs/StoreTab.tsx",
+          "components/mypage/tabs/AccountTab.tsx",
+          "components/mypage/MyPageContent.tsx",
+          "components/mypage/MyPageItemScreen.tsx"
+        ],
+        "staticImporterCount": 6,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 4,
+        "typeOnlyFiles": [
+          "components/mypage/tabs/StoreTab.tsx",
+          "components/mypage/tabs/AccountTab.tsx",
+          "components/mypage/MyPageContent.tsx",
+          "components/mypage/MyPageItemScreen.tsx"
+        ],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 11,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:156:    id: \"MyPageConsole\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:157:    path: \"components/mypage/MyPageConsole.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:159:    symbols: [\"MyPageConsole\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:160:    note: \"Component export unused; MyPageConsoleProps type still used by ItemScreen/tabs\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:172:      note: \"Only rendered by MyPageConsole\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:173:      runtimeEvidence: \"same as MyPageConsole\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:360:  } else if (c.id === \"MyPageConsole\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:362:      \"MyPageConsole() has zero value importers. Name lives as MyPageConsoleProps type used by MyPageItemScreen, AccountTab, StoreTab, MyPageContent.\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:370:    row.whyReferencesAlive = \"Only value-imported by MyPageConsole (itself DEAD_CANDIDATE).\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:387:  if (c.id === \"MyPageConsole\") row.classification = CLASS.DEAD;",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:412:    row.phase2Requires = [\"MyPageConsole\"];"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 6,
+        "sampleHits": [
+          {
+            "file": "components/mypage/mypage-nav.ts",
+            "line": 141,
+            "text": "export function resolveMyPageConsoleHeader("
+          },
+          {
+            "file": "components/mypage/types.ts",
+            "line": 19,
+            "text": "export type MyPageConsoleProps = {"
+          },
+          {
+            "file": "components/mypage/tabs/StoreTab.tsx",
+            "line": 9,
+            "text": "import type { MyPageConsoleProps } from \"@/components/mypage/types\";"
+          },
+          {
+            "file": "components/mypage/tabs/StoreTab.tsx",
+            "line": 12,
+            "text": "type Props = Pick<MyPageConsoleProps, \"hasOwnerStore\" | \"ownerHubStoreId\" | \"storeAttentionSummary\">;"
+          },
+          {
+            "file": "components/mypage/tabs/AccountTab.tsx",
+            "line": 7,
+            "text": "import type { MyPageConsoleProps } from \"@/components/mypage/types\";"
+          },
+          {
+            "file": "components/mypage/tabs/AccountTab.tsx",
+            "line": 19,
+            "text": "MyPageConsoleProps,"
+          },
+          {
+            "file": "components/mypage/MyPageContent.tsx",
+            "line": 7,
+            "text": "import type { MyPageConsoleProps, MyPageTabId } from \"./types\";"
+          },
+          {
+            "file": "components/mypage/MyPageContent.tsx",
+            "line": 13,
+            "text": "}: MyPageConsoleProps & {"
+          },
+          {
+            "file": "components/mypage/MyPageItemScreen.tsx",
+            "line": 26,
+            "text": "import type { MyPageConsoleProps } from \"@/components/mypage/types\";"
+          },
+          {
+            "file": "components/mypage/MyPageItemScreen.tsx",
+            "line": 42,
+            "text": "props: MyPageConsoleProps & { section: string; item: string },"
+          }
+        ]
+      },
+      "replacement": {
+        "component": "MyContent + MyPageHomeDashboard / MyPageItemRouteClient",
+        "runtimeEvidence": "Slice 3–5 route matrix"
+      },
+      "whyReferencesAlive": "MyPageConsole() has zero value importers. Name lives as MyPageConsoleProps type used by MyPageItemScreen, AccountTab, StoreTab, MyPageContent.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "MyPageContent",
+      "path": "components/mypage/MyPageContent.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "components/mypage/MyPageConsole.tsx"
+        ],
+        "staticImporterCount": 1,
+        "valueImportFiles": [
+          "components/mypage/MyPageConsole.tsx"
+        ],
+        "jsxOrValueImporterCount": 1,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 1,
+        "ctaHits": [
+          "components/mypage/MyPageConsole.tsx"
+        ],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 7,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:167:    id: \"MyPageContent\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:168:    path: \"components/mypage/MyPageContent.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:170:    symbols: [\"MyPageContent\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:362:      \"MyPageConsole() has zero value importers. Name lives as MyPageConsoleProps type used by MyPageItemScreen, AccountTab, StoreTab, MyPageContent.\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:369:  } else if (c.id === \"MyPageContent\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:388:  if (c.id === \"MyPageContent\") row.classification = CLASS.DEAD;",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:410:  if (c.id === \"MyPageContent\") {"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 1,
+        "sampleHits": [
+          {
+            "file": "components/mypage/MyPageConsole.tsx",
+            "line": 4,
+            "text": "import { MyPageContent } from \"./MyPageContent\";"
+          },
+          {
+            "file": "components/mypage/MyPageConsole.tsx",
+            "line": 24,
+            "text": "<MyPageContent"
+          }
+        ]
+      },
+      "replacement": {
+        "note": "Only rendered by MyPageConsole",
+        "runtimeEvidence": "same as MyPageConsole"
+      },
+      "whyReferencesAlive": "Only value-imported by MyPageConsole (itself DEAD_CANDIDATE).",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true,
+      "phase2Requires": [
+        "MyPageConsole"
+      ]
+    },
+    {
+      "id": "MyInfoProfileCard",
+      "path": "components/mypage/myinfo/MyInfoProfileCard.tsx",
+      "note": null,
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "lib/i18n/catalog/mypage-components.ts"
+        ],
+        "staticImporterCount": 1,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 1,
+        "serverHits": [
+          "lib/i18n/catalog/mypage-components.ts:46:    // MyInfoProfileCard"
+        ],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 5,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:177:    id: \"MyInfoProfileCard\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:178:    path: \"components/mypage/myinfo/MyInfoProfileCard.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:180:    symbols: [\"MyInfoProfileCard\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:366:  } else if (c.id === \"MyInfoProfileCard\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:391:  if (c.id === \"MyInfoProfileCard\") row.classification = CLASS.DEAD;"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 1,
+        "sampleHits": [
+          {
+            "file": "lib/i18n/catalog/mypage-components.ts",
+            "line": 46,
+            "text": "// MyInfoProfileCard"
+          }
+        ]
+      },
+      "replacement": {
+        "component": "MypageProfileSummary (+ MyInfoGuestProfileCard for guest)",
+        "runtimeEvidence": "Slice 3 hub / Slice 9 iOS hub PASS"
+      },
+      "whyReferencesAlive": "No TSX importer of component. Catalog comment + file on disk; superseded by MypageProfileSummary.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "MyInfoProfileHubCard",
+      "path": "components/mypage/myinfo/MyInfoProfileHubCard.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [],
+        "staticImporterCount": 0,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 5,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:187:    id: \"MyInfoProfileHubCard\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:188:    path: \"components/mypage/myinfo/MyInfoProfileHubCard.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:190:    symbols: [\"MyInfoProfileHubCard\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:371:  } else if (c.id === \"MyInfoProfileHubCard\" || c.id === \"MyInfoMiniProfile\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:392:  if (c.id === \"MyInfoProfileHubCard\" || c.id === \"MyInfoMiniProfile\") row.classification = CLASS.DEAD;"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 0,
+        "sampleHits": []
+      },
+      "replacement": {
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "Zero product importers found; superseded by MypageProfileSummary.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "MyInfoMiniProfile",
+      "path": "components/mypage/myinfo/MyInfoMiniProfile.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [],
+        "staticImporterCount": 0,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 5,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:194:    id: \"MyInfoMiniProfile\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:195:    path: \"components/mypage/myinfo/MyInfoMiniProfile.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:197:    symbols: [\"MyInfoMiniProfile\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:371:  } else if (c.id === \"MyInfoProfileHubCard\" || c.id === \"MyInfoMiniProfile\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:392:  if (c.id === \"MyInfoProfileHubCard\" || c.id === \"MyInfoMiniProfile\") row.classification = CLASS.DEAD;"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 0,
+        "sampleHits": []
+      },
+      "replacement": {
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "Zero product importers found; superseded by MypageProfileSummary.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "MyInfoProfileSection",
+      "path": "components/mypage/myinfo/MyInfoProfileSection.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "scripts/verify-mypage-authority-contract.mjs"
+        ],
+        "staticImporterCount": 1,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 7,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:201:    id: \"MyInfoProfileSection\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:202:    path: \"components/mypage/myinfo/MyInfoProfileSection.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:204:    symbols: [\"MyInfoProfileSection\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:373:  } else if (c.id === \"MyInfoProfileSection\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:393:  if (c.id === \"MyInfoProfileSection\") row.classification = CLASS.DEPRECATE;",
+          "scripts/verify-mypage-authority-contract.mjs:45:const myInfo = read(\"components/mypage/myinfo/MyInfoProfileSection.tsx\");",
+          "scripts/verify-mypage-authority-contract.mjs:47:  failures.push(\"MyInfoProfileSection: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");"
+        ],
+        "verifyOrTestOnly": true,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 1,
+        "sampleHits": [
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 45,
+            "text": "const myInfo = read(\"components/mypage/myinfo/MyInfoProfileSection.tsx\");"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 47,
+            "text": "failures.push(\"MyInfoProfileSection: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");"
+          }
+        ]
+      },
+      "replacement": {
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "Alive via scripts/verify-mypage-authority-contract.mjs file read only.",
+      "classification": "DEPRECATE_CANDIDATE",
+      "deletablePhase2": false
+    },
+    {
+      "id": "MyProfileCard",
+      "path": "components/my/MyProfileCard.tsx",
+      "note": "Component unused; AddressDefaultsFlags type still imported from this file (SSOT should be lib/my/address-defaults-types.ts)",
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [
+          "components/mypage/types.ts",
+          "lib/my/load-mypage-hub-extras-server.ts",
+          "components/onboarding/OnboardingAddressClient.tsx",
+          "components/my/mypage/MypageInstagramView.tsx"
+        ],
+        "staticImporterCount": 4,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 3,
+        "typeOnlyFiles": [
+          "components/mypage/types.ts",
+          "lib/my/load-mypage-hub-extras-server.ts",
+          "components/my/mypage/MypageInstagramView.tsx"
+        ],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 1,
+        "serverHits": [
+          "lib/my/load-mypage-hub-extras-server.ts:1:import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+        ],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 7,
+        "testHits": [
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:208:    id: \"MyProfileCard\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:209:    path: \"components/my/MyProfileCard.tsx\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:211:    symbols: [\"MyProfileCard\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:212:    pathNeedle: \"components/my/MyProfileCard\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:363:  } else if (c.id === \"MyProfileCard\") {",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:365:      \"MyProfileCard() unused. AddressDefaultsFlags type still imported from this file by types.ts, load-mypage-hub-extras-server.ts, MypageInstagramView (duplicate of lib/my/address-defaults-types.ts).\";",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:394:  if (c.id === \"MyProfileCard\") row.classification = CLASS.MERGE;"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 4,
+        "sampleHits": [
+          {
+            "file": "components/mypage/types.ts",
+            "line": 1,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          },
+          {
+            "file": "lib/my/load-mypage-hub-extras-server.ts",
+            "line": 1,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          },
+          {
+            "file": "components/onboarding/OnboardingAddressClient.tsx",
+            "line": 53,
+            "text": "// 다음 화면(RegionProvider·MyProfileCard 등)이 새 region/주소를 즉시 보도록 dedupe 캐시 끊기."
+          },
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 15,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          },
+          {
+            "file": "components/mypage/types.ts",
+            "line": 1,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          },
+          {
+            "file": "lib/my/load-mypage-hub-extras-server.ts",
+            "line": 1,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          },
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 15,
+            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
+          }
+        ]
+      },
+      "replacement": {
+        "typeSsot": "lib/my/address-defaults-types.ts",
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "MyProfileCard() unused. AddressDefaultsFlags type still imported from this file by types.ts, load-mypage-hub-extras-server.ts, MypageInstagramView (duplicate of lib/my/address-defaults-types.ts).",
+      "classification": "MERGE_CANDIDATE",
+      "deletablePhase2": false
+    },
+    {
+      "id": "ProfileCard_mypage",
+      "path": "components/mypage/ProfileCard.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [],
+        "staticImporterCount": 0,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 0,
+        "testHits": [],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 0,
+        "sampleHits": []
+      },
+      "replacement": {
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "Zero path/symbol importers outside self file.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "ProfileCard_my",
+      "path": "components/my/ProfileCard.tsx",
+      "note": null,
+      "forbidDeadProven": false,
+      "evidence": {
+        "fileExists": true,
+        "staticImporterFiles": [],
+        "staticImporterCount": 0,
+        "valueImportFiles": [],
+        "jsxOrValueImporterCount": 0,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 0,
+        "ctaHits": [],
+        "serverCallerCount": 0,
+        "serverHits": [],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 0,
+        "testHits": [],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 0,
+        "sampleHits": []
+      },
+      "replacement": {
+        "component": "MypageProfileSummary"
+      },
+      "whyReferencesAlive": "Zero path/symbol importers outside self file.",
+      "classification": "DEAD_CANDIDATE",
+      "deletablePhase2": true
+    },
+    {
+      "id": "logout_multi_entry",
+      "path": null,
+      "note": "Multiple CTA surfaces; canonical Account menu (Slice 3 MOVE)",
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": null,
+        "staticImporterFiles": [
+          "lib/mypage/mypage-authority-contract.ts",
+          "components/mypage/profile-settings/ProfileSettingsSheet.tsx",
+          "components/mypage/myinfo/MyInfoHomeMenuSections.tsx",
+          "components/my/mypage/MypageInstagramView.tsx",
+          "components/my/edit/ProfileEditForm.tsx",
+          "components/my/settings/LogoutContent.tsx",
+          "scripts/verify-mypage-authority-contract.mjs",
+          "scripts/qa/app-icon-case-c-product-logout.mjs"
+        ],
+        "staticImporterCount": 8,
+        "valueImportFiles": [
+          "components/mypage/profile-settings/ProfileSettingsSheet.tsx",
+          "components/mypage/myinfo/MyInfoHomeMenuSections.tsx",
+          "components/my/mypage/MypageInstagramView.tsx",
+          "components/my/edit/ProfileEditForm.tsx"
+        ],
+        "jsxOrValueImporterCount": 4,
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 0,
+        "routeHits": [],
+        "ctaEntryCount": 12,
+        "ctaHits": [
+          "components/mypage/profile-settings/ProfileSettingsSheet.tsx:5:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
+          "components/mypage/profile-settings/ProfileSettingsSheet.tsx:133:        <LogoutActionTrigger variant=\"danger_button\" label={safeT(\"mypage_hub_logout\", {",
+          "components/mypage/myinfo/MyInfoHomeMenuSections.tsx:4:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
+          "components/mypage/myinfo/MyInfoHomeMenuSections.tsx:113:      <LogoutActionTrigger",
+          "components/my/mypage/MypageInstagramView.tsx:13:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
+          "components/my/mypage/MypageInstagramView.tsx:984:            <LogoutActionTrigger variant=\"menu_row\" label={t(\"mypage_hub_logout\")} surface=\"card\" />",
+          "components/my/edit/ProfileEditForm.tsx:52:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
+          "components/my/edit/ProfileEditForm.tsx:621:                <LogoutActionTrigger",
+          "components/my/settings/LogoutContent.tsx:22:type LogoutActionTriggerProps = {",
+          "components/my/settings/LogoutContent.tsx:30:export function LogoutActionTrigger({",
+          "components/my/settings/LogoutContent.tsx:35:}: LogoutActionTriggerProps) {",
+          "components/my/settings/LogoutContent.tsx:160:      <LogoutActionTrigger variant=\"menu_row\" />"
+        ],
+        "serverCallerCount": 1,
+        "serverHits": [
+          "lib/mypage/mypage-authority-contract.ts:23: * Allowed LogoutActionTrigger variants under Slice 2 CTA Authority (Danger)."
+        ],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 15,
+        "testHits": [
+          "scripts/qa/app-icon-case-c-product-logout.mjs:7: *   → LogoutActionTrigger.handleLogout → runAuthLogoutExit → logoutDiBaYAppSession",
+          "scripts/qa/app-icon-case-c-product-logout.mjs:684:      ui: \"LogoutActionTrigger.handleLogout (components/my/settings/LogoutContent.tsx:30)\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:99:  // Rough: JSX usage / LogoutActionTrigger coupling",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:241:    symbols: [\"LogoutActionTrigger\"],",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:244:      canonical: \"MyInfoAccountMenuSection + LogoutActionTrigger\",",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:290:  const cta = c.id === \"logout_multi_entry\" ? ctaHits(\"LogoutActionTrigger\") : [];",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:357:      \"No product JSX importer. Alive via scripts/verify-mypage-authority-contract.mjs file read + owns SettingsMainContent/LogoutActionTrigger subtree.\";",
+          "scripts/verify-mypage-authority-contract.mjs:38:if (/LogoutActionTrigger/.test(profileSummary)) {",
+          "scripts/verify-mypage-authority-contract.mjs:39:  failures.push(\"MypageProfileSummary: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");",
+          "scripts/verify-mypage-authority-contract.mjs:46:if (/LogoutActionTrigger/.test(myInfo)) {",
+          "scripts/verify-mypage-authority-contract.mjs:47:  failures.push(\"MyInfoProfileSection: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");",
+          "scripts/verify-mypage-authority-contract.mjs:51:if (!/LogoutActionTrigger[\\s\\S]*?variant=[\"']menu_row[\"']/.test(accountSection)) {",
+          "scripts/verify-mypage-authority-contract.mjs:86:// 3) /mypage/logout and /my/logout — redirect only, no LogoutActionTrigger confirm",
+          "scripts/verify-mypage-authority-contract.mjs:90:  if (/LogoutActionTrigger/.test(src)) {",
+          "scripts/verify-mypage-authority-contract.mjs:91:    failures.push(`${rel}: must not render LogoutActionTrigger (push confirm ban)`);"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 8,
+        "sampleHits": [
+          {
+            "file": "lib/mypage/mypage-authority-contract.ts",
+            "line": 23,
+            "text": "* Allowed LogoutActionTrigger variants under Slice 2 CTA Authority (Danger)."
+          },
+          {
+            "file": "components/mypage/profile-settings/ProfileSettingsSheet.tsx",
+            "line": 5,
+            "text": "import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";"
+          },
+          {
+            "file": "components/mypage/profile-settings/ProfileSettingsSheet.tsx",
+            "line": 133,
+            "text": "<LogoutActionTrigger variant=\"danger_button\" label={safeT(\"mypage_hub_logout\", {"
+          },
+          {
+            "file": "components/mypage/myinfo/MyInfoHomeMenuSections.tsx",
+            "line": 4,
+            "text": "import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";"
+          },
+          {
+            "file": "components/mypage/myinfo/MyInfoHomeMenuSections.tsx",
+            "line": 113,
+            "text": "<LogoutActionTrigger"
+          },
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 13,
+            "text": "import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";"
+          },
+          {
+            "file": "components/my/mypage/MypageInstagramView.tsx",
+            "line": 984,
+            "text": "<LogoutActionTrigger variant=\"menu_row\" label={t(\"mypage_hub_logout\")} surface=\"card\" />"
+          },
+          {
+            "file": "components/my/edit/ProfileEditForm.tsx",
+            "line": 52,
+            "text": "import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";"
+          },
+          {
+            "file": "components/my/edit/ProfileEditForm.tsx",
+            "line": 621,
+            "text": "<LogoutActionTrigger"
+          },
+          {
+            "file": "components/my/settings/LogoutContent.tsx",
+            "line": 22,
+            "text": "type LogoutActionTriggerProps = {"
+          },
+          {
+            "file": "components/my/settings/LogoutContent.tsx",
+            "line": 30,
+            "text": "export function LogoutActionTrigger({"
+          },
+          {
+            "file": "components/my/settings/LogoutContent.tsx",
+            "line": 35,
+            "text": "}: LogoutActionTriggerProps) {"
+          },
+          {
+            "file": "components/my/settings/LogoutContent.tsx",
+            "line": 160,
+            "text": "<LogoutActionTrigger variant=\"menu_row\" />"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 38,
+            "text": "if (/LogoutActionTrigger/.test(profileSummary)) {"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 39,
+            "text": "failures.push(\"MypageProfileSummary: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 46,
+            "text": "if (/LogoutActionTrigger/.test(myInfo)) {"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 47,
+            "text": "failures.push(\"MyInfoProfileSection: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)\");"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 51,
+            "text": "if (!/LogoutActionTrigger[\\s\\S]*?variant=[\"']menu_row[\"']/.test(accountSection)) {"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 86,
+            "text": "// 3) /mypage/logout and /my/logout — redirect only, no LogoutActionTrigger confirm"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 90,
+            "text": "if (/LogoutActionTrigger/.test(src)) {"
+          },
+          {
+            "file": "scripts/verify-mypage-authority-contract.mjs",
+            "line": 91,
+            "text": "failures.push(`${rel}: must not render LogoutActionTrigger (push confirm ban)`);"
+          },
+          {
+            "file": "scripts/qa/app-icon-case-c-product-logout.mjs",
+            "line": 7,
+            "text": "*   → LogoutActionTrigger.handleLogout → runAuthLogoutExit → logoutDiBaYAppSession"
+          },
+          {
+            "file": "scripts/qa/app-icon-case-c-product-logout.mjs",
+            "line": 684,
+            "text": "ui: \"LogoutActionTrigger.handleLogout (components/my/settings/LogoutContent.tsx:30)\","
+          }
+        ]
+      },
+      "replacement": {
+        "canonical": "MyInfoAccountMenuSection + LogoutActionTrigger",
+        "also": [
+          "ProfileSettingsSheet",
+          "ProfileEditForm",
+          "MypageInstagramView",
+          "LogoutContent"
+        ],
+        "runtimeEvidence": "Slice 3 logout modal PASS; Slice 6 account"
+      },
+      "whyReferencesAlive": "Canonical Account Danger CTA + ProfileSettingsSheet + ProfileEditForm + legacy InstagramView + LogoutContent self-row.",
+      "classification": "KEEP",
+      "deletablePhase2": false
+    },
+    {
+      "id": "trade_legacy_routes",
+      "path": null,
+      "note": "Compat redirect pages + next.config redirects → /mypage/trade/*",
+      "forbidDeadProven": true,
+      "evidence": {
+        "fileExists": null,
+        "staticImporterFiles": [
+          "lib/layout/resolve-main-tier1.ts",
+          "lib/mypage/trade-hub-paths.ts",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts",
+          "lib/layout/mobile-top-tier1-rules.ts",
+          "lib/mypage/trade-history-client.ts",
+          "lib/mypage/buyer-manage-tabs.ts",
+          "lib/layout/conditional-app-shell-flags.ts",
+          "lib/main-menu/trade-bottom-nav-layout.ts",
+          "lib/main-menu/bottom-nav-config.ts",
+          "lib/main-menu/main-bottom-nav-split-layout.ts",
+          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts",
+          "components/mypage/reviews/TradeReviewsManagementView.tsx",
+          "components/mypage/PurchasesView.tsx",
+          "components/mypage/HomePurchaseSalesHubTabs.tsx",
+          "components/mypage/MypagePurchaseSalesHubTabs.tsx",
+          "components/mypage/sales/SalesHistoryCard.tsx",
+          "app/(main)/philife/purchases/[chatId]/page.tsx",
+          "components/my/mypage/MypageInstagramView.tsx",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx",
+          "scripts/qa/slice5-activity-runtime.mjs",
+          "lib/mypage/trade-history-load-server.ts",
+          "lib/mypage/seller-manage-tabs.ts",
+          "app/api/my/sales/route.ts",
+          "app/(main)/philife/sales/page.tsx",
+          "components/mypage/tabs/TradeTab.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/reviews/page.tsx",
+          "app/(main)/mypage/trade/reviews/page.tsx"
+        ],
+        "staticImporterCount": 30,
+        "valueImportFiles": [
+          "components/mypage/sales/SalesHistoryCard.tsx",
+          "app/(main)/philife/purchases/[chatId]/page.tsx",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx",
+          "components/mypage/reviews/TradeReviewsManagementView.tsx",
+          "app/(main)/philife/sales/page.tsx",
+          "components/mypage/tabs/TradeTab.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/reviews/page.tsx",
+          "app/(main)/mypage/trade/reviews/page.tsx"
+        ],
+        "jsxOrValueImporterCount": 11,
+        "typeOnlyImporterCount": 3,
+        "typeOnlyFiles": [
+          "lib/mypage/trade-history-client.ts",
+          "lib/mypage/buyer-manage-tabs.ts",
+          "lib/mypage/seller-manage-tabs.ts"
+        ],
+        "dynamicImporterCount": 0,
+        "dynamicHits": [],
+        "routeEntryCount": 10,
+        "routeHits": [
+          "app/(main)/philife/purchases/[chatId]/page.tsx:4:import { PurchaseDetailView } from \"@/components/mypage/purchases/PurchaseDetailView\";",
+          "app/(main)/philife/purchases/[chatId]/page.tsx:40:        backHref=\"/mypage/purchases\"",
+          "app/(main)/philife/purchases/[chatId]/page.tsx:44:        <PurchaseDetailView chatId={chatId} purchasesListPath=\"/mypage/purchases\" />",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx:6:} from \"@/components/mypage/purchases/PurchaseDetailRouteChrome\";",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx:7:import { PurchaseDetailView } from \"@/components/mypage/purchases/PurchaseDetailView\";",
+          "app/(main)/philife/sales/page.tsx:1:import { SalesHistoryView } from \"@/components/mypage/sales/SalesHistoryView\";",
+          "app/(main)/mypage/trade/sales/page.tsx:4:import { SalesHistoryView } from \"@/components/mypage/sales/SalesHistoryView\";",
+          "app/api/my/sales/route.ts:20:} from \"@/lib/mypage/sales-history-scope\";",
+          "app/(main)/philife/reviews/page.tsx:2:import { MyWrittenReviewsView } from \"@/components/mypage/reviews/MyWrittenReviewsView\";",
+          "app/(main)/mypage/trade/reviews/page.tsx:4:import { TradeReviewsManagementView } from \"@/components/mypage/reviews/TradeReviewsManagementView\";"
+        ],
+        "ctaEntryCount": 11,
+        "ctaHits": [
+          "components/mypage/sales/SalesHistoryCard.tsx",
+          "app/(main)/philife/purchases/[chatId]/page.tsx",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx",
+          "components/mypage/reviews/TradeReviewsManagementView.tsx",
+          "app/(main)/philife/sales/page.tsx",
+          "components/mypage/tabs/TradeTab.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/reviews/page.tsx",
+          "app/(main)/mypage/trade/reviews/page.tsx"
+        ],
+        "serverCallerCount": 31,
+        "serverHits": [
+          "lib/layout/resolve-main-tier1.ts:207:  if (p === \"/mypage/purchases\") {",
+          "lib/layout/resolve-main-tier1.ts:219:  if (p === \"/mypage/purchases\") {",
+          "lib/layout/conditional-app-shell-flags.ts:115:  /** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */",
+          "lib/layout/mobile-top-tier1-rules.ts:16: * - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷",
+          "lib/layout/mobile-top-tier1-rules.ts:28:    startsWithPath(safePath, \"/mypage/purchases\") ||",
+          "lib/main-menu/trade-bottom-nav-layout.ts:51:  if (p === \"/mypage/purchases\" || p.startsWith(\"/mypage/purchases/\")) return true;",
+          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
+          "lib/main-menu/bottom-nav-config.ts:345:/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */",
+          "lib/main-menu/main-bottom-nav-split-layout.ts:73:      p === \"/mypage/purchases\" ||",
+          "lib/main-menu/main-bottom-nav-split-layout.ts:74:      p.startsWith(\"/mypage/purchases/\") ||",
+          "lib/mypage/trade-hub-paths.ts:3: * Legacy `/mypage/purchases|sales` list shells redirect here; detail route KEEP.",
+          "lib/mypage/trade-hub-paths.ts:14:  // Purchase detail still under /mypage/purchases/[id] — treat as trade_shell for list links",
+          "lib/mypage/trade-hub-paths.ts:15:  if (p.startsWith(\"/mypage/purchases/\") && p !== \"/mypage/purchases\") return \"trade_shell\";",
+          "lib/mypage/trade-hub-paths.ts:35:  return `/mypage/purchases/${encodeURIComponent(chatId.trim())}`;",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:19:    const purchases = readFileSync(path.join(root, \"app/(main)/mypage/purchases/page.tsx\"), \"utf8\");",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:51:    expect(src).toContain('source: \"/mypage/purchases\"');",
+          "lib/mypage/trade-history-client.ts:3:import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";",
+          "lib/mypage/buyer-manage-tabs.ts:4:import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";",
+          "lib/layout/resolve-main-tier1.ts:215:  if (p === \"/mypage/sales\" || starts(p, \"/mypage/sales/\")) {",
+          "lib/layout/resolve-main-tier1.ts:227:  if (p === \"/mypage/sales\" || starts(p, \"/mypage/sales/\")) {"
+        ],
+        "adminCallerCount": 0,
+        "adminHits": [],
+        "testDependencyCount": 14,
+        "testHits": [
+          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:19:    const purchases = readFileSync(path.join(root, \"app/(main)/mypage/purchases/page.tsx\"), \"utf8\");",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:51:    expect(src).toContain('source: \"/mypage/purchases\"');",
+          "scripts/qa/slice5-activity-runtime.mjs:121:    purchases: await follow(\"/mypage/purchases\", cookie),",
+          "scripts/qa/slice5-activity-runtime.mjs:171:  await page.goto(`${BASE}/mypage/purchases`, { waitUntil: \"domcontentloaded\", timeout: 45000 });",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:253:    symbols: [\"/mypage/purchases\", \"/mypage/sales\", \"/mypage/reviews\"],",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:20:    const sales = readFileSync(path.join(root, \"app/(main)/mypage/sales/page.tsx\"), \"utf8\");",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:53:    expect(src).toContain('source: \"/mypage/sales\"');",
+          "scripts/qa/slice5-activity-runtime.mjs:122:    sales: await follow(\"/mypage/sales\", cookie),",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:253:    symbols: [\"/mypage/purchases\", \"/mypage/sales\", \"/mypage/reviews\"],",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:21:    const reviews = readFileSync(path.join(root, \"app/(main)/mypage/reviews/page.tsx\"), \"utf8\");",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:54:    expect(src).toContain('source: \"/mypage/reviews\"');",
+          "scripts/qa/slice5-activity-runtime.mjs:123:    reviews: await follow(\"/mypage/reviews\", cookie),",
+          "scripts/qa/slice10-dead-cleanup-inventory.mjs:253:    symbols: [\"/mypage/purchases\", \"/mypage/sales\", \"/mypage/reviews\"],"
+        ],
+        "verifyOrTestOnly": false,
+        "productionBundleSymbol": "NOT_SCANNED",
+        "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
+        "totalReferenceCount": 30,
+        "sampleHits": [
+          {
+            "file": "lib/layout/resolve-main-tier1.ts",
+            "line": 207,
+            "text": "if (p === \"/mypage/purchases\") {"
+          },
+          {
+            "file": "lib/layout/resolve-main-tier1.ts",
+            "line": 219,
+            "text": "if (p === \"/mypage/purchases\") {"
+          },
+          {
+            "file": "lib/mypage/trade-hub-paths.ts",
+            "line": 3,
+            "text": "* Legacy `/mypage/purchases|sales` list shells redirect here; detail route KEEP."
+          },
+          {
+            "file": "lib/mypage/trade-hub-paths.ts",
+            "line": 14,
+            "text": "// Purchase detail still under /mypage/purchases/[id] — treat as trade_shell for list links"
+          },
+          {
+            "file": "lib/mypage/trade-hub-paths.ts",
+            "line": 15,
+            "text": "if (p.startsWith(\"/mypage/purchases/\") && p !== \"/mypage/purchases\") return \"trade_shell\";"
+          },
+          {
+            "file": "lib/mypage/trade-hub-paths.ts",
+            "line": 35,
+            "text": "return `/mypage/purchases/${encodeURIComponent(chatId.trim())}`;"
+          },
+          {
+            "file": "lib/mypage/__tests__/slice5-activity-route-merge.test.ts",
+            "line": 19,
+            "text": "const purchases = readFileSync(path.join(root, \"app/(main)/mypage/purchases/page.tsx\"), \"utf8\");"
+          },
+          {
+            "file": "lib/mypage/__tests__/slice5-activity-route-merge.test.ts",
+            "line": 51,
+            "text": "expect(src).toContain('source: \"/mypage/purchases\"');"
+          },
+          {
+            "file": "lib/layout/mobile-top-tier1-rules.ts",
+            "line": 16,
+            "text": "* - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷"
+          },
+          {
+            "file": "lib/layout/mobile-top-tier1-rules.ts",
+            "line": 28,
+            "text": "startsWithPath(safePath, \"/mypage/purchases\") ||"
+          },
+          {
+            "file": "lib/mypage/trade-history-client.ts",
+            "line": 3,
+            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
+            "file": "lib/mypage/buyer-manage-tabs.ts",
+            "line": 4,
+            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
+            "file": "lib/layout/conditional-app-shell-flags.ts",
+            "line": 115,
+            "text": "/** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */"
+          },
+          {
+            "file": "lib/main-menu/trade-bottom-nav-layout.ts",
+            "line": 51,
+            "text": "if (p === \"/mypage/purchases\" || p.startsWith(\"/mypage/purchases/\")) return true;"
+          },
+          {
+            "file": "lib/main-menu/bottom-nav-config.ts",
+            "line": 345,
+            "text": "/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */"
+          },
+          {
+            "file": "lib/main-menu/main-bottom-nav-split-layout.ts",
+            "line": 73,
+            "text": "p === \"/mypage/purchases\" ||"
+          },
+          {
+            "file": "lib/main-menu/main-bottom-nav-split-layout.ts",
+            "line": 74,
+            "text": "p.startsWith(\"/mypage/purchases/\") ||"
+          },
+          {
+            "file": "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts",
+            "line": 14,
+            "text": "expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);"
+          },
+          {
+            "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
+            "line": 16,
+            "text": "} from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
+            "file": "components/mypage/PurchasesView.tsx",
+            "line": 17,
+            "text": "} from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
+            "file": "components/mypage/HomePurchaseSalesHubTabs.tsx",
+            "line": 18,
+            "text": ": pathname.startsWith(\"/mypage/purchases\");"
+          },
+          {
+            "file": "components/mypage/MypagePurchaseSalesHubTabs.tsx",
+            "line": 13,
+            "text": "* (legacy `/mypage/purchases|sales` list pages redirect)"
+          },
+          {
+            "file": "components/mypage/MypagePurchaseSalesHubTabs.tsx",
+            "line": 24,
+            "text": ": pathname.startsWith(\"/mypage/purchases\");"
+          },
+          {
+            "file": "components/mypage/sales/SalesHistoryCard.tsx",
+            "line": 16,
+            "text": "import { BuyerReviewReadSheet } from \"@/components/mypage/purchases/BuyerReviewReadSheet\";"
+          },
+          {
+            "file": "app/(main)/philife/purchases/[chatId]/page.tsx",
+            "line": 4,
+            "text": "import { PurchaseDetailView } from \"@/components/mypage/purchases/PurchaseDetailView\";"
+          }
+        ]
+      },
+      "replacement": {
+        "canonical": "/mypage/trade, /mypage/trade/sales, /mypage/trade/reviews",
+        "runtimeEvidence": "Slice 5 ACTIVITY LOCK"
+      },
+      "whyReferencesAlive": "Compat redirects in next.config + app/(main)/mypage/{purchases,sales,reviews}/page.tsx → trade hub (Slice 5). External deep links may still hit them.",
+      "classification": "DEPRECATE_CANDIDATE",
+      "deletablePhase2": false
+    }
+  ],
+  "phase2DeleteProposal": [
+    {
+      "id": "MypageInstagramView",
+      "path": "components/my/mypage/MypageInstagramView.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": [
+        "forbidDeadProven_until_verify_script_and_type_imports_rewritten"
+      ]
+    },
+    {
+      "id": "SettingsMainContent",
+      "path": "components/my/settings/SettingsMainContent.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [
+        "MypageInstagramView"
+      ],
+      "blockers": [
+        "forbidDeadProven_until_verify_script_and_type_imports_rewritten"
+      ]
+    },
+    {
+      "id": "MyPageConsole",
+      "path": "components/mypage/MyPageConsole.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": [
+        "forbidDeadProven_until_verify_script_and_type_imports_rewritten"
+      ]
+    },
+    {
+      "id": "MyPageContent",
+      "path": "components/mypage/MyPageContent.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [
+        "MyPageConsole"
+      ],
+      "blockers": []
+    },
+    {
+      "id": "MyInfoProfileCard",
+      "path": "components/mypage/myinfo/MyInfoProfileCard.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": [
+        "forbidDeadProven_until_verify_script_and_type_imports_rewritten"
+      ]
+    },
+    {
+      "id": "MyInfoProfileHubCard",
+      "path": "components/mypage/myinfo/MyInfoProfileHubCard.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": []
+    },
+    {
+      "id": "MyInfoMiniProfile",
+      "path": "components/mypage/myinfo/MyInfoMiniProfile.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": []
+    },
+    {
+      "id": "ProfileCard_mypage",
+      "path": "components/mypage/ProfileCard.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": []
+    },
+    {
+      "id": "ProfileCard_my",
+      "path": "components/my/ProfileCard.tsx",
+      "classification": "DEAD_CANDIDATE",
+      "requires": [],
+      "blockers": []
+    }
+  ],
+  "replacementRuntimeEvidence": {
+    "hub": "SLICE 3 UI RUNTIME LOCK + SLICE 9 MULTIPLATFORM RUNTIME LOCK",
+    "activityTrade": "SLICE 5 ACTIVITY LOCK",
+    "accountLogout": "SLICE 3 logout modal + SLICE 6 ACCOUNT LOCK",
+    "productShaBaseline": "4447038d2"
+  },
+  "notes": [
+    "DEAD_PROVEN never assigned in Phase 1 for named candidates with remaining references.",
+    "production bundle symbol NOT_SCANNED — required before DEAD_PROVEN.",
+    "Phase 2 deletions require separate approval."
+  ]
+}

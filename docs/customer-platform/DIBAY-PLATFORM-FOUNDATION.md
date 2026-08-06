@@ -48,10 +48,12 @@ SLICE 9 PHASE 1 CODE LOCKED
 SLICE 9 PHASE 1 DEPLOYED
 SLICE 9 MULTIPLATFORM RUNTIME PASS
 SLICE 9 MULTIPLATFORM RUNTIME LOCK
+SLICE 10 DEAD CLEANUP AUTHORIZED
+SLICE 10 PHASE 1 INVENTORY PASS
 ```
 
-다음: **Slice 10–12 — NOT AUTHORIZED** (별도 인가).  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE9-RESPONSIVE-STATUS.md`  
+다음: **Slice 10 Phase 2 삭제** — 별도 인가 (inventory 결과 승인 후). Slice 11–12 **NOT AUTHORIZED**.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE10-DEAD-CLEANUP-STATUS.md` · [`slice10-phase1-inventory.json`](./_ios-mypage-audit-2026-08-06/dibay/slice10-phase1-inventory.json)  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
@@ -60,13 +62,13 @@ SLICE 9 MULTIPLATFORM RUNTIME LOCK
 
 ```text
 SLICE 1–9 LOCKED
-SLICE 9 MULTIPLATFORM RUNTIME LOCK
-SLICE 10–12 NOT AUTHORIZED
+SLICE 10 PHASE 1 INVENTORY PASS (deletes=0)
+SLICE 10 DEAD_PROVEN: none
+SLICE 11–12 NOT AUTHORIZED
 ```
 
 **Git / Production (Slice 9 product):** `4447038d25288b4b5148d919c22892b6d5f2dc54`  
-`dpl_9C5bHxXiwRetHXKr7fqV35XjBX7J` · source=`git` · alias `samarket.vercel.app`  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE9-RESPONSIVE-STATUS.md`
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE10-DEAD-CLEANUP-STATUS.md`
 
 ---
 
