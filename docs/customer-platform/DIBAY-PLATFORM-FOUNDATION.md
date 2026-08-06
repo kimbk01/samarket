@@ -53,10 +53,12 @@ SLICE 10 PHASE 1 INVENTORY PASS
 SLICE 10 PHASE 2 BUNDLE A PASS (type SSOT)
 SLICE 10 PHASE 2 BUNDLE B PASS (verify + orphan deletes)
 SLICE 10 PHASE 2 BUNDLE C PASS (InstagramView/Console/MyProfileCard DEAD_PROVEN)
+SLICE 10 DEAD CLEANUP COMPLETE
+SLICE 11 PRODUCT RUNTIME REGRESSION PASS
 ```
 
-다음: **Slice 11** Product Runtime Regression — 별도 인가. Slice 12 **NOT AUTHORIZED**.  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE10-DEAD-CLEANUP-STATUS.md`  
+다음: **Slice 12** PRODUCT PASS / FINAL HARD LOCK — **별도 인가**.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE11-RUNTIME-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
@@ -65,14 +67,15 @@ SLICE 10 PHASE 2 BUNDLE C PASS (InstagramView/Console/MyProfileCard DEAD_PROVEN)
 
 ```text
 SLICE 1–9 LOCKED
-SLICE 10 PHASE 2 BUNDLE A+B+C PASS
-DEAD_PROVEN deletes: Bundle B (6) + Bundle C (5)
-Remaining: logout KEEP · trade_legacy DEPRECATE · MyPageConsoleProps type name (live)
-SLICE 11–12 NOT AUTHORIZED
+SLICE 10 DEAD CLEANUP COMPLETE
+SLICE 11 PRODUCT RUNTIME REGRESSION PASS
+Product SHA: 6a4c414e4 · Deploy: dpl_2vBqxdDzqCEs1Mr5BZ37oC27R86s
+Windows/Tablet/APK/iOS PASS · Slice 4–8 child suites PASS
+SLICE 12 NOT AUTHORIZED
 ```
 
-**Git / Production (Slice 9 product):** `4447038d25288b4b5148d919c22892b6d5f2dc54`  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE10-DEAD-CLEANUP-STATUS.md`
+**Git / Production:** `6a4c414e4ae020e201c850003622f0b2766d81f8`  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE11-RUNTIME-STATUS.md`
 
 ---
 

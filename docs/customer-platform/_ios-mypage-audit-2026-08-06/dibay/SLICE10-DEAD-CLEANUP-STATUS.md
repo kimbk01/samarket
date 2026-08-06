@@ -10,7 +10,9 @@ SLICE 10 PHASE 2 BUNDLE C PASS
   - MyPageConsole + MyPageContent DEAD_PROVEN + deleted
   - MyProfileCard shim DEAD_PROVEN + deleted
   - MyPageConsoleProps remains in types.ts (live)
-SLICE 11–12 NOT AUTHORIZED
+SLICE 10 DEAD CLEANUP COMPLETE
+SLICE 11 PRODUCT RUNTIME REGRESSION PASS
+SLICE 12 NOT AUTHORIZED
 ```
 
 ## Bundle C deletes (DEAD_PROVEN)
@@ -38,4 +40,5 @@ SLICE 11–12 NOT AUTHORIZED
 
 ## Next (NOT AUTHORIZED)
 
-Slice 11 Product Runtime Regression · Slice 12 PRODUCT PASS / HARD LOCK
+Slice 12 PRODUCT PASS / FINAL HARD LOCK  
+(Slice 11 PASS evidence: [`SLICE11-RUNTIME-STATUS.md`](./SLICE11-RUNTIME-STATUS.md))
