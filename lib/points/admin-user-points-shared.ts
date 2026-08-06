@@ -3,6 +3,8 @@ import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
 export function isMissingPointsTable(message: string, table: string): boolean {
   const lowered = message.toLowerCase();
   const tableLower = table.toLowerCase();
+  // Column-level "does not exist" must not be treated as missing table (empty-list false PASS).
+  if (/\bcolumn\b/.test(lowered) && lowered.includes("does not exist")) return false;
   if (!lowered.includes(tableLower)) return false;
   return (
     lowered.includes("does not exist") ||
