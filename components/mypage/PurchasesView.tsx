@@ -24,8 +24,14 @@ import {
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  MypageActivityListEmpty,
+  MypageActivityListLoading,
+} from "@/components/mypage/activity/MypageActivityListState";
 
 export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } = {}) {
+  const { safeT } = useI18n();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<PurchaseHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +40,6 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
   const load = useCallback((opts?: { silent?: boolean; force?: boolean }) => {
     const silent = !!opts?.silent;
     if (!silent) setLoading(true);
-    /** 서버 세션 쿠키 기준 — `getCurrentUser()` 지연으로 첫 페인트가 막히지 않게 */
     fetchTradeHistoryPurchasesBySession({ force: !!opts?.force })
       .then((list) => {
         setItems(list);
@@ -91,43 +96,52 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
   }, [initialTab]);
 
   if (loading) {
-    return (
-      <ul className="space-y-2 py-2" aria-busy="true" aria-live="polite">
-        {[0, 1, 2, 3].map((i) => (
-          <li key={i} className="h-[4.25rem] animate-pulse rounded-ui-rect bg-sam-surface-muted/90" />
-        ))}
-      </ul>
-    );
+    return <MypageActivityListLoading />;
   }
 
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center sam-text-body text-sam-muted">
-        구매·문의한 채팅이 없어요. 상품에서 채팅하기로 문의해 보세요.
-      </p>
+      <MypageActivityListEmpty>
+        {safeT("mypage_activity_purchases_empty", {
+          fallbackKo: "구매·문의한 채팅이 없어요. 상품에서 채팅하기로 문의해 보세요.",
+          fallbackEn: "No purchase chats yet. Message a seller from a product page.",
+        })}
+      </MypageActivityListEmpty>
     );
   }
 
   const emptyTabMsg: Record<BuyerManageTabId, string> = {
-    trading: "진행 중인 구매가 없어요.",
-    completed: "구매완료·후기까지 끝난 내역이 없어요.",
-    cancelled: "취소된 구매가 없어요.",
-    review_wait: "후기를 작성할 수 있는 단계인 거래가 없어요.",
+    trading: safeT("mypage_activity_purchases_empty_trading", {
+      fallbackKo: "진행 중인 구매가 없어요.",
+      fallbackEn: "No purchases in progress.",
+    }),
+    completed: safeT("mypage_activity_purchases_empty_completed", {
+      fallbackKo: "구매완료·후기까지 끝난 내역이 없어요.",
+      fallbackEn: "No completed purchases yet.",
+    }),
+    cancelled: safeT("mypage_activity_purchases_empty_cancelled", {
+      fallbackKo: "취소된 구매가 없어요.",
+      fallbackEn: "No cancelled purchases.",
+    }),
+    review_wait: safeT("mypage_activity_purchases_empty_review_wait", {
+      fallbackKo: "후기를 작성할 수 있는 단계인 거래가 없어요.",
+      fallbackEn: "No purchases waiting for a review.",
+    }),
   };
 
   return (
     <div>
       <div className="mt-2">
-      <TradeManagementTabBar
-        tabs={BUYER_MANAGE_TABS}
-        active={tab}
-        counts={counts}
-        onChange={setTab}
-        tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
-      />
+        <TradeManagementTabBar
+          tabs={BUYER_MANAGE_TABS}
+          active={tab}
+          counts={counts}
+          onChange={setTab}
+          tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
+        />
       </div>
       {filtered.length === 0 ? (
-        <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>
+        <MypageActivityListEmpty>{emptyTabMsg[tab]}</MypageActivityListEmpty>
       ) : (
         <>
           <ul className="space-y-2">

@@ -95,7 +95,7 @@ const TRADE_HUB_RAIL_LINKS: readonly {
   {
     key: "reviews-manage",
     labelKey: "ui_home_rail_reviews_manage",
-    href: "/mypage/reviews",
+    href: "/mypage/trade/reviews",
     fabClass: `${FAB_BASE} bg-purple-600`,
     Icon: StarOutlineIcon,
   },

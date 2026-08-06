@@ -36,10 +36,12 @@ type Props = {
   mode: "sent" | "received";
   title: string;
   emptyLabel: string;
+  /** When true, omit full-page min-height (parent shell provides chrome). */
+  embedded?: boolean;
 };
 
-export function MyOffersView({ mode, title, emptyLabel }: Props) {
-  const { t } = useI18n();
+export function MyOffersView({ mode, title, emptyLabel, embedded = false }: Props) {
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const currency = getAppSettings().defaultCurrency || "PHP";
@@ -77,36 +79,47 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
   }, [mode]);
 
   return (
-    <div className="min-h-screen bg-sam-app px-3 py-4 sm:px-4">
+    <div className={embedded ? "px-0 py-2" : "min-h-screen bg-sam-app px-3 py-4 sm:px-4"}>
       <div className="mx-auto max-w-2xl space-y-3">
         <nav className="flex flex-wrap gap-2">
           <Link
             href="/mypage/offers/sent"
-            className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
+            className={`min-h-[44px] rounded-full px-3 py-1.5 text-[13px] font-semibold inline-flex items-center ${
               pathname === "/mypage/offers" || pathname === "/mypage/offers/sent"
                 ? "bg-sam-primary text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            내가 보낸 가격 제안
+            {safeT("mypage_offers_sent_title", {
+              fallbackKo: "내가 보낸 가격 제안",
+              fallbackEn: "Offers I sent",
+            })}
           </Link>
           <Link
             href="/mypage/offers/received"
-            className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
+            className={`min-h-[44px] rounded-full px-3 py-1.5 text-[13px] font-semibold inline-flex items-center ${
               pathname === "/mypage/offers/received"
                 ? "bg-sam-primary text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            받은 가격 제안
+            {safeT("mypage_offers_received_title", {
+              fallbackKo: "받은 가격 제안",
+              fallbackEn: "Offers received",
+            })}
           </Link>
         </nav>
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h1 className="text-[20px] font-bold text-sam-fg">{title}</h1>
-          <p className="mt-1 text-[12px] text-sam-muted">
-            가격 제안은 채팅과 분리된 요청이며, 수락 시에만 기존 거래 채팅으로 연결됩니다.
-          </p>
-        </div>
+        {!embedded ? (
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <h1 className="text-[20px] font-bold text-sam-fg">{title}</h1>
+            <p className="mt-1 text-[12px] text-sam-muted">
+              {safeT("mypage_offers_hint", {
+                fallbackKo: "가격 제안은 채팅과 분리된 요청이며, 수락 시에만 기존 거래 채팅으로 연결됩니다.",
+                fallbackEn: "Offers are separate from chat and connect only after acceptance.",
+              })}
+            </p>
+          </div>
+        ) : null}
 
         {loading ? <p className="text-[13px] text-sam-muted">{t("common_loading")}</p> : null}
         {error ? <p className="text-[13px] text-sam-danger">{error}</p> : null}

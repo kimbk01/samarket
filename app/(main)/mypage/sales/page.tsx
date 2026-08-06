@@ -1,17 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
-import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
-import { MypagePurchaseSalesHubTabs } from "@/components/mypage/MypagePurchaseSalesHubTabs";
-import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
-
-export default function MypageSalesPage() {
-  return (
-    <MypageSubpageShell
-      titleKey="route_trade_manage_title"
-      subtitleKey="route_trade_manage_sales_subtitle"
-      stickyBelow={<MypagePurchaseSalesHubTabs />}
-    >
-      <SalesHistoryView />
-    </MypageSubpageShell>
-  );
+/** Slice 5: legacy sales shell → trade hub SSOT */
+export default function MypageSalesLegacyRedirectPage() {
+  redirect(MYPAGE_HOME_TRADE_SALES_HREF);
 }

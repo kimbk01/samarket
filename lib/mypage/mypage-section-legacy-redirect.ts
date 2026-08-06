@@ -5,6 +5,7 @@
 import {
   MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
   MYPAGE_HOME_MESSENGER_HREF,
+  MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
   MYPAGE_HOME_TRADE_HUB_HREF,
@@ -15,7 +16,8 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "trade:sales": MYPAGE_HOME_TRADE_SALES_HREF,
   "trade:purchases": MYPAGE_HOME_TRADE_HUB_HREF,
   "trade:favorites": MYPAGE_HOME_TRADE_FAVORITES_HREF,
-  "trade:recent": "/mypage/section/trade/recent",
+  /** Slice 5: section recent → recent-viewed hub (not self) */
+  "trade:recent": MYPAGE_HOME_RECENT_VIEWED_HREF,
   "trade:trade-chat": "/mypage/trade/chat",
   "trade:reviews": "/mypage/trade/reviews",
   "store:orders": MYPAGE_HOME_STORE_ORDERS_HREF,

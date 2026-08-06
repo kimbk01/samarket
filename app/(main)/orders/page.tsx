@@ -49,7 +49,7 @@ async function OrdersPageBody({ searchParams }: { searchParams: Promise<OrdersSe
   }
 
   if (tab === "purchases") {
-    return redirect("/mypage/purchases");
+    return redirect("/mypage/trade");
   }
 
   if (tab === "store") {

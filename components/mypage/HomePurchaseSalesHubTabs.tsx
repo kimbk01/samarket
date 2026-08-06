@@ -1,20 +1,37 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatHubSecondaryTabs } from "@/components/chats/ChatHubSecondaryTabs";
+import {
+  MYPAGE_HOME_TRADE_HUB_HREF,
+  MYPAGE_HOME_TRADE_SALES_HREF,
+} from "@/lib/mypage/mypage-home-hub-links";
 
-/** 구매·판매 내역 (`/mypage/purchases`, `/mypage/sales`, 하위 상세 포함) */
+/** Slice 5: home/legacy purchase-sales tabs → trade hub */
 export function HomePurchaseSalesHubTabs() {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const onPurchases =
-    pathname === "/mypage/purchases" || pathname.startsWith("/mypage/purchases/");
-  const onSales = pathname === "/mypage/sales" || pathname.startsWith("/mypage/sales/");
+    pathname.startsWith("/mypage/trade") && !pathname.startsWith("/mypage/trade/sales")
+      ? true
+      : pathname.startsWith("/mypage/purchases");
+  const onSales =
+    pathname.startsWith("/mypage/trade/sales") || pathname.startsWith("/mypage/sales");
 
   return (
     <ChatHubSecondaryTabs
       items={[
-        { href: "/mypage/purchases", label: "구매 내역", active: onPurchases },
-        { href: "/mypage/sales", label: "판매 내역", active: onSales },
+        {
+          href: MYPAGE_HOME_TRADE_HUB_HREF,
+          label: t("nav_trade_hub_purchases"),
+          active: onPurchases,
+        },
+        {
+          href: MYPAGE_HOME_TRADE_SALES_HREF,
+          label: t("nav_trade_hub_sales"),
+          active: onSales,
+        },
       ]}
     />
   );

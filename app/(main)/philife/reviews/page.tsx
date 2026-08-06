@@ -13,7 +13,7 @@ export default function PhilifeReviewsPage() {
         <p className="sam-text-body leading-relaxed text-sam-muted">
           <strong className="text-sam-fg">{translate(lang, "philife_reviews_intro_1")}</strong>{" "}
           {translate(lang, "philife_reviews_intro_2")}{" "}
-          <Link href="/mypage/purchases" className="font-medium text-signature underline">
+          <Link href="/mypage/trade" className="font-medium text-signature underline">
             {translate(lang, "philife_reviews_shortcut_purchases")}
           </Link>
         </p>
@@ -25,7 +25,7 @@ export default function PhilifeReviewsPage() {
           <ul className="space-y-2">
             <li>
               <Link
-                href="/mypage/purchases"
+                href="/mypage/trade"
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 {translate(lang, "philife_reviews_shortcut_purchases")}
@@ -33,7 +33,7 @@ export default function PhilifeReviewsPage() {
             </li>
             <li>
               <Link
-                href="/mypage/sales"
+                href="/mypage/trade/sales"
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 {translate(lang, "philife_reviews_shortcut_sales")}

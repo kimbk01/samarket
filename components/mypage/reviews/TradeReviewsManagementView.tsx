@@ -69,11 +69,11 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
   const tags = tagLine(t, it.roleType, it.positiveTagKeys, it.negativeTagKeys);
   const detailHref = it.roomId
     ? fromBuyer
-      ? `/mypage/sales`
-      : `/mypage/purchases/${encodeURIComponent(it.roomId)}`
+      ? "/mypage/trade/sales"
+      : tradeHubChatRoomHref(it.roomId, "product_chat")
     : fromBuyer
-      ? "/mypage/sales"
-      : "/mypage/purchases";
+      ? "/mypage/trade/sales"
+      : "/mypage/trade";
 
   return (
     <li className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">

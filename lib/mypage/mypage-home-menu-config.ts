@@ -3,10 +3,12 @@ import type {
   MypageHomeMenuItemConfig,
 } from "@/lib/mypage/mypage-home-menu-types";
 import {
+  MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
   MYPAGE_HOME_TRADE_HUB_HREF,
   MYPAGE_HOME_TRADE_OFFERS_HREF,
+  MYPAGE_HOME_TRADE_REVIEWS_HREF,
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 
@@ -46,12 +48,12 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "receipt-text",
   },
   {
-    href: "/mypage/recent-viewed",
+    href: MYPAGE_HOME_RECENT_VIEWED_HREF,
     titleKey: "mypage_hub_recent_viewed",
     icon: "eye-off",
   },
   {
-    href: "/mypage/trade/reviews",
+    href: MYPAGE_HOME_TRADE_REVIEWS_HREF,
     titleKey: "mypage_comp_nav_sec_trade_reviews_label",
     icon: "message-square",
   },

@@ -24,8 +24,9 @@ SLICE 4 RUNTIME PASS
 SLICE 4 LOCK
 ```
 
-다음: **Slice 5+** 는 별도 인가 후 (**NOT AUTHORIZED**).  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE4-PROFILE-TRUST-STATUS.md`  
+다음: **Slice 5 Activity** AUTHORIZED · IN PROGRESS.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE5-ACTIVITY-STATUS.md`  
+제품 기준점: **`c79b880d2`** (docs-only tip may differ)  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---

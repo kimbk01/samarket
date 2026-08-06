@@ -20,6 +20,12 @@ export const MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF = "/mypage/community-activity" 
 /** 가격 제안 */
 export const MYPAGE_HOME_TRADE_OFFERS_HREF = "/mypage/offers" as const;
 
+/** 최근 본 상품 — Activity KEEP */
+export const MYPAGE_HOME_RECENT_VIEWED_HREF = "/mypage/recent-viewed" as const;
+
+/** 거래 후기 허브 */
+export const MYPAGE_HOME_TRADE_REVIEWS_HREF = "/mypage/trade/reviews" as const;
+
 /** @deprecated section — legacy adapter only */
 export const MYPAGE_SECTION_COMMUNITY_COMMENTS_HREF =
   "/mypage/section/community/comments" as const;

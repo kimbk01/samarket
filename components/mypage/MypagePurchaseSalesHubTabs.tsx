@@ -3,20 +3,41 @@
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatHubSecondaryTabs } from "@/components/chats/ChatHubSecondaryTabs";
+import {
+  MYPAGE_HOME_TRADE_HUB_HREF,
+  MYPAGE_HOME_TRADE_SALES_HREF,
+} from "@/lib/mypage/mypage-home-hub-links";
 
-/** 구매·판매 내역·채팅 trade 하단과 동일한 2탭 (`/mypage/purchases`, `/mypage/sales`, 하위 경로 포함) */
+/**
+ * Slice 5: purchase detail chrome tabs → trade hub SSOT
+ * (legacy `/mypage/purchases|sales` list pages redirect)
+ */
 export function MypagePurchaseSalesHubTabs() {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const onPurchases =
-    pathname === "/mypage/purchases" || pathname.startsWith("/mypage/purchases/");
-  const onSales = pathname === "/mypage/sales" || pathname.startsWith("/mypage/sales/");
+    pathname.startsWith("/mypage/trade") &&
+    !pathname.startsWith("/mypage/trade/sales") &&
+    !pathname.startsWith("/mypage/trade/favorites") &&
+    !pathname.startsWith("/mypage/trade/reviews")
+      ? true
+      : pathname.startsWith("/mypage/purchases");
+  const onSales =
+    pathname.startsWith("/mypage/trade/sales") || pathname.startsWith("/mypage/sales");
 
   return (
     <ChatHubSecondaryTabs
       items={[
-        { href: "/mypage/purchases", label: t("nav_trade_hub_purchases"), active: onPurchases },
-        { href: "/mypage/sales", label: t("nav_trade_hub_sales"), active: onSales },
+        {
+          href: MYPAGE_HOME_TRADE_HUB_HREF,
+          label: t("nav_trade_hub_purchases"),
+          active: onPurchases,
+        },
+        {
+          href: MYPAGE_HOME_TRADE_SALES_HREF,
+          label: t("nav_trade_hub_sales"),
+          active: onSales,
+        },
       ]}
     />
   );

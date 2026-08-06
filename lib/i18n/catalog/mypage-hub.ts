@@ -169,6 +169,14 @@ export const mypageHubMessages = {
     mypage_offers_received_title: "내가 받은 가격 제안",
     mypage_offers_sent_empty: "아직 보낸 가격 제안이 없습니다.",
     mypage_offers_received_empty: "아직 받은 가격 제안이 없습니다.",
+    mypage_offers_hint:
+      "가격 제안은 채팅과 분리된 요청이며, 수락 시에만 기존 거래 채팅으로 연결됩니다.",
+    mypage_activity_purchases_empty:
+      "구매·문의한 채팅이 없어요. 상품에서 채팅하기로 문의해 보세요.",
+    mypage_activity_purchases_empty_trading: "진행 중인 구매가 없어요.",
+    mypage_activity_purchases_empty_completed: "구매완료·후기까지 끝난 내역이 없어요.",
+    mypage_activity_purchases_empty_cancelled: "취소된 구매가 없어요.",
+    mypage_activity_purchases_empty_review_wait: "후기를 작성할 수 있는 단계인 거래가 없어요.",
     mypage_points_charge_stub_notice:
       "충전 신청은 결제·포인트 백엔드가 준비되면 이 화면에서 진행할 수 있습니다. 현재는 샘플 충전 폼을 노출하지 않습니다.",
     mypage_points_charge_title: "포인트 충전 신청",
@@ -367,6 +375,14 @@ export const mypageHubMessages = {
     mypage_offers_received_title: "Offers I received",
     mypage_offers_sent_empty: "You have not sent any price offers yet.",
     mypage_offers_received_empty: "You have not received any price offers yet.",
+    mypage_offers_hint:
+      "Offers are separate from chat and connect to trade chat only after acceptance.",
+    mypage_activity_purchases_empty:
+      "No purchase chats yet. Message a seller from a product page.",
+    mypage_activity_purchases_empty_trading: "No purchases in progress.",
+    mypage_activity_purchases_empty_completed: "No completed purchases yet.",
+    mypage_activity_purchases_empty_cancelled: "No cancelled purchases.",
+    mypage_activity_purchases_empty_review_wait: "No purchases waiting for a review.",
     mypage_points_charge_stub_notice:
       "Top-up will be available here once payment and point backends are ready. The sample form is not shown yet.",
     mypage_points_charge_title: "Top up points",

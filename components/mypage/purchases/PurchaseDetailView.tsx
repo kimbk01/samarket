@@ -29,10 +29,10 @@ type DetailPayload = PurchaseHistoryRow & {
 
 export function PurchaseDetailView({
   chatId,
-  purchasesListPath = "/mypage/purchases",
+  purchasesListPath = "/mypage/trade",
 }: {
   chatId: string;
-  /** 목록으로 링크 (`/mypage/purchases`) */
+  /** 목록으로 링크 (Slice 5: trade hub) */
   purchasesListPath?: string;
 }) {
   const { t } = useI18n();

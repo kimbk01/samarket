@@ -1,32 +1,36 @@
 /**
- * 거래 허브 라우트 — 찜·구매·판매·후기 URL 을 한곳에서 맞춤 (문자열 분산 방지)
+ * Slice 5 — Trade Activity hub paths SSOT.
+ * Legacy `/mypage/purchases|sales` list shells redirect here; detail route KEEP.
  */
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 export const MYPAGE_TRADE_FAVORITES_HREF = "/mypage/trade/favorites" as const;
 
-/** 현재 경로에 맞춰 구매·판매·채팅 상세 링크를 같은 “껍데기”로 유지 */
+/** @deprecated dual-shell removed in Slice 5 — always trade_shell */
 export type TradeHubLinkMode = "trade_shell" | "mypage_legacy";
 
 export function tradeHubModeFromPathname(pathname: string): TradeHubLinkMode {
   const p = pathname?.trim() || "";
   if (p.startsWith("/mypage/trade")) return "trade_shell";
-  return "mypage_legacy";
+  // Purchase detail still under /mypage/purchases/[id] — treat as trade_shell for list links
+  if (p.startsWith("/mypage/purchases/") && p !== "/mypage/purchases") return "trade_shell";
+  return "trade_shell";
 }
 
-export function tradePurchasesPath(mode: TradeHubLinkMode): string {
-  if (mode === "trade_shell") return "/mypage/trade/purchases";
-  return "/mypage/purchases";
+export function tradePurchasesPath(_mode?: TradeHubLinkMode): string {
+  return "/mypage/trade/purchases";
 }
 
-export function tradeSalesPath(mode: TradeHubLinkMode): string {
-  if (mode === "trade_shell") return "/mypage/trade/sales";
-  return "/mypage/sales";
+export function tradeSalesPath(_mode?: TradeHubLinkMode): string {
+  return "/mypage/trade/sales";
 }
 
-/** 구매 흐름 상세(채팅방) — chatId 는 product_chats 기준(목록 API) — `source=product_chat` 로 부트스트랩 힌트 */
-export function tradePurchaseDetailPath(mode: TradeHubLinkMode, chatId: string): string {
+/** 구매 흐름 상세 — trade hub chat room (product_chat bootstrap) */
+export function tradePurchaseDetailPath(_mode: TradeHubLinkMode, chatId: string): string {
   const raw = chatId.trim();
-  if (mode === "trade_shell") return tradeHubChatRoomHref(raw, "product_chat");
-  const id = encodeURIComponent(raw);
-  return `/mypage/purchases/${id}`;
+  return tradeHubChatRoomHref(raw, "product_chat");
+}
+
+/** Legacy purchase detail URL KEEP (deep links / bookmarks) */
+export function tradePurchaseDetailLegacyPath(chatId: string): string {
+  return `/mypage/purchases/${encodeURIComponent(chatId.trim())}`;
 }

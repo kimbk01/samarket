@@ -22,7 +22,7 @@ export function PurchaseDetailRouteChrome({ children }: { children: ReactNode })
       <MySubpageHeader
         title={t("route_purchase_detail_title")}
         subtitle={t("route_purchase_detail_subtitle")}
-        backHref="/mypage/purchases"
+        backHref="/mypage/trade"
         hideCtaStrip
         stickyBelow={<MypagePurchaseSalesHubTabs />}
       />
