@@ -11,6 +11,7 @@ import {
   MyInfoServiceMenuSection,
   MyInfoStoreMenuSection,
   MyInfoSupportMenuSection,
+  MyInfoTradeMenuSection,
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
@@ -19,7 +20,10 @@ import { useMypageProfileSheets } from "@/components/mypage/profile-settings/myp
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
-/** /mypage 메인 — 프로필 + 포인트 자산 + 필수 정보 + 정적 메뉴 (시트 CS 금지) */
+/**
+ * Slice 3 IA order (mobile):
+ * Profile(+manner) → assets → required → trade → store → account(+logout) → service → support
+ */
 export function MyPageHomeDashboard({
   projection,
   onProfileRefresh,
@@ -51,6 +55,7 @@ export function MyPageHomeDashboard({
         )}
 
         <div className="flex flex-col gap-3 md:hidden">
+          <MyInfoTradeMenuSection />
           <MyInfoStoreMenuSection />
           <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
           <MyInfoServiceMenuSection />
@@ -60,12 +65,13 @@ export function MyPageHomeDashboard({
 
         <div className="hidden md:max-[1025px]:grid md:max-[1025px]:grid-cols-2 md:max-[1025px]:gap-4">
           <div className={COLUMN_STACK_CLASS}>
-            <MyInfoSupportMenuSection />
-            <MyInfoServiceMenuSection />
+            <MyInfoTradeMenuSection />
+            <MyInfoStoreMenuSection />
           </div>
           <div className={COLUMN_STACK_CLASS}>
-            <MyInfoStoreMenuSection />
             <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
+            <MyInfoServiceMenuSection />
+            <MyInfoSupportMenuSection />
           </div>
           <div className="md:max-[1025px]:col-span-2">
             <MyPageAdminMenuEntry starbucks />
@@ -74,15 +80,16 @@ export function MyPageHomeDashboard({
 
         <div className="hidden min-[1025px]:grid min-[1025px]:grid-cols-3 min-[1025px]:gap-4">
           <div className={COLUMN_STACK_CLASS}>
-            <MyInfoSupportMenuSection />
-          </div>
-          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoTradeMenuSection />
             <MyInfoStoreMenuSection />
-            <MyPageAdminMenuEntry starbucks />
           </div>
           <div className={COLUMN_STACK_CLASS}>
             <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
+            <MyPageAdminMenuEntry starbucks />
+          </div>
+          <div className={COLUMN_STACK_CLASS}>
             <MyInfoServiceMenuSection />
+            <MyInfoSupportMenuSection />
           </div>
         </div>
       </div>

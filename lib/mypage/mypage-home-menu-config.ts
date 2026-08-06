@@ -2,7 +2,13 @@ import type {
   MypageHomeLinkMenuItem,
   MypageHomeMenuItemConfig,
 } from "@/lib/mypage/mypage-home-menu-types";
-import { MYPAGE_HOME_STORE_ORDERS_HREF } from "@/lib/mypage/mypage-home-hub-links";
+import {
+  MYPAGE_HOME_STORE_ORDERS_HREF,
+  MYPAGE_HOME_TRADE_FAVORITES_HREF,
+  MYPAGE_HOME_TRADE_HUB_HREF,
+  MYPAGE_HOME_TRADE_OFFERS_HREF,
+  MYPAGE_HOME_TRADE_SALES_HREF,
+} from "@/lib/mypage/mypage-home-hub-links";
 
 export type {
   MypageHomeLinkMenuItem,
@@ -13,6 +19,43 @@ export type {
 } from "@/lib/mypage/mypage-home-menu-types";
 
 export { MYPAGE_HOME_QUICK_ITEMS } from "@/lib/mypage/mypage-home-quick-config";
+
+/**
+ * Slice 3 IA — 거래 활동 MERGE onto home (Karrot-style activity block).
+ * KEEP existing routes; no delete.
+ */
+export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
+  {
+    href: MYPAGE_HOME_TRADE_SALES_HREF,
+    titleKey: "mypage_comp_menu_trade_active_title",
+    icon: "package",
+  },
+  {
+    href: MYPAGE_HOME_TRADE_HUB_HREF,
+    titleKey: "mypage_comp_nav_sec_trade_purchases_label",
+    icon: "shopping-bag",
+  },
+  {
+    href: MYPAGE_HOME_TRADE_FAVORITES_HREF,
+    titleKey: "mypage_comp_menu_trade_favorites_title",
+    icon: "heart",
+  },
+  {
+    href: MYPAGE_HOME_TRADE_OFFERS_HREF,
+    titleKey: "mypage_comp_menu_trade_offers_title",
+    icon: "receipt-text",
+  },
+  {
+    href: "/mypage/recent-viewed",
+    titleKey: "mypage_hub_recent_viewed",
+    icon: "eye-off",
+  },
+  {
+    href: "/mypage/trade/reviews",
+    titleKey: "mypage_comp_nav_sec_trade_reviews_label",
+    icon: "message-square",
+  },
+];
 
 export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
   {
@@ -121,8 +164,7 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
 ];
 
 /**
- * 고객지원 섹션 — 당근형: 공지 → 고객센터(풀페이지 허브) → 문의 → 쪽지 → 약관.
- * DO NOT: sheet hub · FAQ/Event 가짜 행 · CS stub `/section/settings/support`.
+ * 고객지원 — 공지 → CS → 문의 → 쪽지 → 약관 → 개인정보.
  */
 export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
   {
@@ -148,6 +190,11 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: "/mypage/section/settings/terms",
     titleKey: "mypage_comp_menu_support_terms_title",
+    icon: "shield",
+  },
+  {
+    href: "/privacy",
+    titleKey: "mypage_comp_settings_privacy_link",
     icon: "shield",
   },
 ];
