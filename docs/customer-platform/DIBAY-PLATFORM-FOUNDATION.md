@@ -37,9 +37,9 @@ AUDIT PASS — IMPLEMENTATION READY
 제품 코드: Architecture LOCK 후 Slice 1부터
 ```
 
-**Git LOCK / `origin/main`:** `3d8f1ca19a23989759a15ddc113e790c587afcba`  
-**Production product deploy:** `2b9346c53` · `dpl_7J33CdbZMoVGqyfUG5p9KkGiEtVi` · `samarket.vercel.app`  
-(`3d8f1ca19` = docs/QA script only; product UI = `2b9346c53`. CLI deploy meta SHA may be null.)  
+**Git LOCK / Production:** `c79b880d2ecf1d052c6279dcc863b69023cebdcf`  
+`dpl_C5mD9QSMy9WerGSAtBCtJHV4jYrF` · alias `samarket.vercel.app`  
+(CLI clean-worktree align deploy; prior product runtime @ `2b9346c53` / `dpl_7J33…`)  
 상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE4-PROFILE-TRUST-STATUS.md`
 
 ---

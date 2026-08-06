@@ -13,28 +13,31 @@ SLICE 5 NOT STARTED / NOT AUTHORIZED
 
 | Item | Value |
 |------|-------|
-| `HEAD` = `origin/main` | `3d8f1ca19a23989759a15ddc113e790c587afcba` |
-| Push range | `fa3e6b4a2..3d8f1ca19` (3 commits only; dirty excluded) |
+| `HEAD` = `origin/main` | `c79b880d2ecf1d052c6279dcc863b69023cebdcf` |
+| Push range (product+LOCK) | `fa3e6b4a2..3d8f1ca19` then docs clarify `c79b880d2` |
+| Dirty tree | **excluded** from all Slice 4 pushes |
 
-### Commits pushed
+### Commits on origin/main (Slice 4)
 
 1. `2471fb0b4` — Slice 2 Authority + 2.5 Design System HOLD  
 2. `2b9346c53` — Slice 4 member trust/profile surface (product)  
-3. `3d8f1ca19` — Slice 4 LOCK docs + runtime script (docs/QA only)
+3. `3d8f1ca19` — Slice 4 LOCK docs + runtime script  
+4. `c79b880d2` — docs: product deploy vs Git LOCK SHA 구분
 
-## Production product baseline (runtime-proven)
+## Production baseline (aligned)
 
-CLI clean-worktree deploys do **not** set `meta.githubCommitSha` (null). Deploy SHA is proven from deploy log + worktree checkout.
+CLI clean-worktree deploys do **not** set `meta.githubCommitSha` (null). Deploy SHA proven from deploy log + worktree checkout.
 
 | Item | Value |
 |------|-------|
-| **Product deploy SHA** | **`2b9346c53`** (not `3d8f1ca19`) |
-| Deployment | `dpl_7J33CdbZMoVGqyfUG5p9KkGiEtVi` |
+| **Production = Git LOCK** | **`c79b880d2`** |
+| Deployment | `dpl_C5mD9QSMy9WerGSAtBCtJHV4jYrF` |
 | Alias | `https://samarket.vercel.app` · Ready |
-| Prior HOLD deploy | `2471fb0b4` → `dpl_3qZZifRt5nnb1gorE4cB1oHjuKLK` |
-| `3d8f1ca19` vs product | Diff = Foundation/SLICE4 status docs + `scripts/qa/slice4-profile-trust-runtime.mjs` only — **no app UI/API change** |
+| Prior product-only deploy | `2b9346c53` · `dpl_7J33CdbZMoVGqyfUG5p9KkGiEtVi` (runtime-proven; superseded by align deploy) |
+| Prior HOLD deploy | `2471fb0b4` · `dpl_3qZZifRt5nnb1gorE4cB1oHjuKLK` |
+| `c79b880d2` vs `2b9346c53` product UI | docs/QA only after `2b9346c53` — **제품 trust UI 동일** |
 
-**판정:** Production 제품 동작 기준 = `2b9346c53` · Git/문서 LOCK 기준 = `3d8f1ca19` · 둘 다 Slice 4 범위 안에서 일치·구분됨.
+**판정:** `origin/main` = Production deploy SHA = **`c79b880d2`** · Slice 5 기준점 고정.
 
 ## Runtime (read-only) — against product deploy
 
