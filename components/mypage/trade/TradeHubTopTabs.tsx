@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { MYPAGE_OVAL_TABS_SCROLL_CLASS, mypageOvalTabClass } from "@/lib/ui/mypage-oval-tabs";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** `/mypage/trade` 인덱스와 `/mypage/trade/purchases` 모두 구매 탭 활성 */
@@ -17,7 +17,7 @@ function isPurchasesHubPath(norm: string): boolean {
 
 function linkActive(
   norm: string,
-  item: { href: string; matchPrefix?: string; pathMatch?: "prefix" | "exact" }
+  item: { href: string; matchPrefix?: string; pathMatch?: "prefix" | "exact" },
 ): boolean {
   const hrefPath = (item.href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
   const prefix = (item.matchPrefix ?? hrefPath).replace(/\/+$/, "") || "/";
@@ -29,7 +29,7 @@ function linkActive(
 }
 
 /**
- * 거래 허브 1단 탭 — `/philife` 주제 탭과 동일: `bg-sam-surface` 스트립 + `APP_MAIN_HEADER_INNER` + `sam-tabs--scroll`.
+ * 거래 허브 1단 탭 — oval pill (구매/판매/찜/후기/채팅).
  */
 export function TradeHubTopTabs() {
   const { t } = useI18n();
@@ -65,16 +65,17 @@ export function TradeHubTopTabs() {
           matchPrefix: "/community-messenger",
         },
       ] as const,
-    [t]
+    [t],
   );
 
   return (
     <nav
       aria-label={t("nav_trade_hub_menu")}
-      className="min-w-0 w-full max-w-full overflow-x-hidden border-b border-sam-border bg-sam-surface"
+      className="min-w-0 w-full max-w-full overflow-x-hidden overflow-y-visible border-b border-sam-border bg-sam-surface"
+      data-mypage-tabs="oval"
     >
-      <div className={APP_MAIN_HEADER_INNER_CLASS}>
-        <div className={`${Sam.tabs.barScroll} flex w-full min-w-0 max-w-full`} role="tablist">
+      <div className={`${APP_MAIN_HEADER_INNER_CLASS} overflow-y-visible`}>
+        <div className={MYPAGE_OVAL_TABS_SCROLL_CLASS} role="tablist">
           {rows.map((row) => {
             const active =
               row.key === "purchases" ? isPurchasesHubPath(norm) : linkActive(norm, row);
@@ -85,9 +86,9 @@ export function TradeHubTopTabs() {
                 prefetch={row.key !== "chat"}
                 role="tab"
                 aria-selected={active}
-                className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
+                className={mypageOvalTabClass(active)}
               >
-                <span className="block min-w-0 max-w-[min(10rem,40vw)] truncate px-0.5">{row.label}</span>
+                <span className="max-w-[min(10rem,40vw)] truncate">{row.label}</span>
               </Link>
             );
           })}

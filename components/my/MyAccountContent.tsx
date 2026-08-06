@@ -6,19 +6,55 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import {
+  MYPAGE_ADDRESSES_HREF,
+  MYPAGE_REQUIRED_DIBAY_ID_HREF,
+} from "@/lib/mypage/mypage-profile-routes";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
-import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import {
+  deriveStoreMemberStatus,
+  hasStoreTermsConsent,
+  type StoreMemberStatus,
+} from "@/lib/auth/store-member-policy";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
+import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
+import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
+import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+function statusBadgeClass(done: boolean): string {
+  return done
+    ? "bg-[rgba(0,130,72,0.12)] text-[#008248]"
+    : "bg-[rgba(245,158,11,0.12)] text-[#b45309]";
+}
+
+function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
+  switch (status) {
+    case "verified_member":
+      return "account_member_status_verified_member";
+    case "sns_member":
+      return "account_member_status_sns_member";
+    case "admin_manual":
+      return "account_member_status_admin_manual";
+    case "admin":
+      return "account_member_status_admin";
+    case "guest":
+    default:
+      return "account_member_status_guest";
+  }
+}
 
 export function MyAccountContent() {
   const { t } = useI18n();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [addressLine, setAddressLine] = useState<string | null>(null);
+  const [addressLoaded, setAddressLoaded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
@@ -30,6 +66,30 @@ export function MyAccountContent() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/address-defaults", { credentials: "include", cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as
+          | { ok?: boolean; defaults?: UserAddressDefaultsDTO }
+          | null;
+        if (cancelled) return;
+        const row = json?.ok ? json.defaults?.master ?? json.defaults?.delivery ?? null : null;
+        const line = row?.fullAddress || row?.formattedAddress || null;
+        setAddressLine(line);
+      } catch {
+        if (!cancelled) setAddressLine(null);
+      } finally {
+        if (!cancelled) setAddressLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile]);
 
   if (loading) {
     return <p className="py-4 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
@@ -55,7 +115,9 @@ export function MyAccountContent() {
             {t("profile_guest_login_cta")}
           </button>
         </div>
-        <Link href="/mypage" className="block text-center sam-text-body text-sam-muted">{t("common_back_to_mypage")}</Link>
+        <Link href="/mypage" className="block text-center sam-text-body text-sam-muted">
+          {t("common_back_to_mypage")}
+        </Link>
       </div>
     );
   }
@@ -65,21 +127,72 @@ export function MyAccountContent() {
 
   const displayNickname = resolveDisplayName(profile) || t("account_nickname");
   const atUsername = formatAtUsername(profile.username ?? null);
+  const publicIdView = evaluatePublicIdProfileView(profile);
+  const dibayIdDisplay =
+    resolvePublicIdAtDisplay(profile)?.trim() ||
+    profile.username?.trim() ||
+    "";
+  const hasDibayId = Boolean(dibayIdDisplay);
   const displayPhone =
     formatProfilePhoneForDisplay({
       phone: profile.phone ?? null,
       phone_country_code: profile.phone_country_code ?? null,
       phone_number: profile.phone_number ?? null,
-    }) || profile.phone?.trim() || t("account_missing_phone");
+    }) ||
+    profile.phone?.trim() ||
+    "";
   const contactVerified = isProfileContactVerified(profile);
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile);
   const profileCompleted = profile.profile_completed === true;
+  const addressDone = Boolean(addressLine?.trim());
+
+  const essentials = [
+    {
+      key: "dibay-id",
+      title: t("account_essentials_id"),
+      desc: hasDibayId
+        ? atUsername || `@${dibayIdDisplay}`
+        : t("account_essentials_id_needed"),
+      done: hasDibayId,
+      badge: hasDibayId ? t("account_essentials_done") : t("account_essentials_needed"),
+      href: hasDibayId && !publicIdView.canChangeOnce ? MYPAGE_PROFILE_EDIT_HREF : MYPAGE_REQUIRED_DIBAY_ID_HREF,
+    },
+    {
+      key: "phone",
+      title: t("profile_verification_phone"),
+      desc: contactVerified
+        ? displayPhone || t("profile_verification_phone_done")
+        : t("account_essentials_phone_needed"),
+      done: contactVerified,
+      badge: contactVerified ? t("profile_verification_done") : t("profile_verification_needed"),
+      href: buildPhoneVerificationHref(),
+    },
+    {
+      key: "address",
+      title: t("profile_verification_address"),
+      desc: addressDone
+        ? addressLine!
+        : addressLoaded
+          ? t("profile_verification_address_needed")
+          : t("common_loading"),
+      done: addressDone,
+      badge: addressDone
+        ? t("profile_verification_address_done")
+        : t("profile_verification_address_needed_short"),
+      href: MYPAGE_ADDRESSES_HREF,
+    },
+  ] as const;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 rounded-[20px] border border-[#d9e5df] bg-white p-4 shadow-sm">
-        <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={64} badge={profileCompleted ? "verified" : "none"} alt="" />
+        <SamarketUserAvatar
+          avatarUrl={profile.avatar_url}
+          sizePx={64}
+          badge={profileCompleted ? "verified" : "none"}
+          alt=""
+        />
         <div className="min-w-0 flex-1">
           <p className="sam-text-section-title font-semibold text-[#1e3932]">{displayNickname}</p>
           {atUsername ? (
@@ -94,56 +207,80 @@ export function MyAccountContent() {
         </div>
       </div>
 
-      <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="sam-text-body font-semibold text-sam-fg">{t("account_info_title")}</h2>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="sam-text-body font-medium text-signature">
+      <section
+        className="rounded-[20px] border border-[#d9e5df] bg-white p-4 shadow-sm"
+        data-testid="account-essentials-block"
+      >
+        <h2 className="sam-text-section-title font-semibold text-[#1e3932]">
+          {t("account_essentials_title")}
+        </h2>
+        <p className="mt-1 sam-text-body-secondary text-[#1e3932]/70">
+          {t("account_essentials_desc")}
+        </p>
+        <div className="mt-3 divide-y divide-[#d9e5df]">
+          {essentials.map((row) => (
+            <Link
+              key={row.key}
+              href={row.href}
+              className="flex w-full items-center justify-between gap-3 py-3 text-left active:opacity-90"
+            >
+              <span className="min-w-0">
+                <span className="block sam-text-body font-semibold text-[#1e3932]">{row.title}</span>
+                <span className="mt-0.5 block truncate sam-text-body-secondary text-[#1e3932]/65">{row.desc}</span>
+              </span>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done)}`}>
+                {row.badge}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="sam-text-section-title font-semibold text-sam-fg">{t("account_info_title")}</h2>
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="sam-text-body font-semibold text-signature">
             {t("account_edit")}
           </Link>
         </div>
-        <dl className="space-y-3 sam-text-body">
-          <div>
-            <dt className="text-sam-muted">{t("account_nickname")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{displayNickname}</dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("my_account_username")}</dt>
-            <dd className="mt-0.5 font-mono text-sam-fg tabular-nums">{atUsername || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("account_email")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{profile.email ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("account_phone")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{displayPhone}</dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("account_realname")}</dt>
-            <dd className="mt-0.5 text-sam-fg">
-              {profile.realname_verified ? t("account_verified") : t("account_unverified")}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("my_account_member_status")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{storeMemberStatus}</dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("account_phone_verification")}</dt>
-            <dd className="mt-0.5 text-sam-fg">
-              {contactVerified
-                ? t("my_phone_status_verified")
-                : phoneVerificationStatus === "pending"
-                  ? t("account_pending")
-                  : t("account_unverified")}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sam-muted">{t("my_account_terms")}</dt>
-            <dd className="mt-0.5 text-sam-fg">
-              {consentDone ? t("my_account_terms_done") : t("my_account_terms_required")}
-            </dd>
-          </div>
+        <dl className="space-y-4">
+          {(
+            [
+              { label: t("account_nickname"), value: displayNickname },
+              { label: t("my_account_username"), value: atUsername || "—", mono: true },
+              { label: t("account_email"), value: profile.email ?? "—" },
+              { label: t("account_phone"), value: displayPhone || t("account_missing_phone") },
+              {
+                label: t("account_realname"),
+                value: profile.realname_verified ? t("account_verified") : t("account_unverified"),
+              },
+              {
+                label: t("my_account_member_status"),
+                value: t(memberStatusMessageKey(storeMemberStatus)),
+              },
+              {
+                label: t("account_phone_verification"),
+                value: contactVerified
+                  ? t("my_phone_status_verified")
+                  : phoneVerificationStatus === "pending"
+                    ? t("account_pending")
+                    : t("account_unverified"),
+              },
+              {
+                label: t("my_account_terms"),
+                value: consentDone ? t("my_account_terms_done") : t("my_account_terms_required"),
+              },
+            ] as const
+          ).map((row) => (
+            <div key={row.label} className="border-b border-sam-border/60 pb-3 last:border-b-0 last:pb-0">
+              <dt className="text-[11px] font-bold uppercase tracking-[0.06em] text-sam-muted">{row.label}</dt>
+              <dd
+                className={`mt-1 sam-text-body font-semibold text-sam-fg ${"mono" in row && row.mono ? "font-mono tabular-nums" : ""}`}
+              >
+                {row.value}
+              </dd>
+            </div>
+          ))}
         </dl>
         {!contactVerified ? (
           <Link

@@ -17,6 +17,13 @@ describe("Slice4 member trust surface parity", () => {
     expect(surface.tier).toBeGreaterThanOrEqual(1);
   });
 
+  it("member display uses authority score with a single % suffix (no twin)", () => {
+    const surface = buildMemberTrustSurface({ trust_score: 68.22 });
+    expect(surface.scoreLabel).toBe("68.22");
+    expect(surface.percentLabel).toBe("68.22%");
+    expect(surface.percentLabel).not.toMatch(/·/);
+  });
+
   it("top battery tier uses DIBAY green HARD LOCK hex", () => {
     expect(MANNER_BATTERY_TIER_COLORS[6]).toBe(DESIGN_SYSTEM_BRAND.primaryHex);
   });

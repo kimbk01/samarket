@@ -96,12 +96,12 @@ export default function MyTrustPage() {
               size="lg"
             />
           </div>
-          {/* Single Member text SSOT = profiles.trust_score (Admin parity). Battery icon is visual only. */}
+          {/* Single Member text SSOT = trust_score + `%` (no twin number). Battery icon is visual only. */}
           <p
             className={`mt-2 sam-text-hero font-bold tabular-nums ${surface.accentClass}`}
             data-testid="mypage-trust-score"
           >
-            {surface.scoreLabel}
+            {surface.percentLabel}
           </p>
           <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted">
             {t("mypage_trust_battery_hint_before")}{" "}

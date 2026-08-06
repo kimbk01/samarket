@@ -12,7 +12,6 @@ import {
   type SellerManageTabId,
 } from "@/lib/mypage/seller-manage-tabs";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
-import { APP_TOP_MENU_ROW1_BASE_RADIUS_4 } from "@/lib/ui/app-top-menu";
 import { SalesHistoryCard, type SalesHistoryRow } from "./SalesHistoryCard";
 import {
   fetchTradeHistorySalesBySession,
@@ -150,7 +149,6 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
         active={tab}
         counts={counts}
         onChange={setTab}
-        tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
       />
       {filtered.length === 0 ? (
         <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>

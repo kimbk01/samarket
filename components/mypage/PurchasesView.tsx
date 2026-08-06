@@ -16,7 +16,6 @@ import {
   type PurchaseHistoryRow,
 } from "@/components/mypage/purchases/PurchaseHistoryCard";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
-import { APP_TOP_MENU_ROW1_BASE_RADIUS_4 } from "@/lib/ui/app-top-menu";
 import {
   fetchTradeHistoryPurchasesBySession,
   invalidateTradeHistoryCache,
@@ -137,7 +136,6 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
           active={tab}
           counts={counts}
           onChange={setTab}
-          tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
         />
       </div>
       {filtered.length === 0 ? (
