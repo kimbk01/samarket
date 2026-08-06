@@ -106,13 +106,18 @@ export async function listMemberNoteThreads(
 }
 
 export async function listAdminNoteThreads(
-  sb: SupabaseClient
+  sb: SupabaseClient,
+  opts?: { kind?: MemberAdminNoteKind }
 ): Promise<{ ok: true; threads: NoteThreadRow[] } | { ok: false; error: string }> {
-  const { data, error } = await sb
+  let q = sb
     .from("member_admin_note_threads")
     .select("*")
     .order("last_message_at", { ascending: false })
     .limit(200);
+  if (opts?.kind) {
+    q = q.eq("started_by", startedByFromKind(opts.kind));
+  }
+  const { data, error } = await q;
   if (error) {
     if (isMissingNotesTable(error.message ?? "")) return { ok: true, threads: [] };
     return { ok: false, error: error.message };

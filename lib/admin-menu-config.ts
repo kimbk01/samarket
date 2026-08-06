@@ -64,7 +64,8 @@ const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>
 );
 
 const ADS_ITEMS = menuChildrenAsConfigItems("ads");
-const POINT_ITEMS = menuChildrenAsConfigItems("points");
+/** Member point ops live under Customer Platform (`cp-points-member`). */
+const POINT_ITEMS = menuChildrenAsConfigItems("cp-points-member");
 const SETTINGS_TOP = requireAdminMenuByKey(adminMenu, "settings");
 const SETTINGS_ITEMS = (SETTINGS_TOP.children ?? []).map(cloneMenuItem);
 const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "manage");
@@ -91,6 +92,7 @@ export const OPS_MENU_GROUPS: OpsMenuGroup[] = OPS_DOMAIN_KEYS.map((key) => {
 
 /** 대시보드 바로가기 — 라벨은 `t(labelKey)` 로 표시 */
 export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
+  { href: "/admin/customer-platform", labelKey: "admin_menu_customer_platform" },
   { href: "/admin/operations", labelKey: "admin_quicklink_ops_hub" },
   { href: "/admin/reports", labelKey: "admin_quicklink_reports_ops" },
   { href: "/admin/products", labelKey: "admin_menu_trade_products" },

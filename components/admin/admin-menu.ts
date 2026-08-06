@@ -1,6 +1,7 @@
 /**
- * 관리자 사이드바 메뉴 데이터 (7개 최상위 도메인 그룹)
- * - 대시보드 / 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정
+ * 관리자 사이드바 메뉴 데이터 (8개 최상위 도메인 그룹)
+ * - 대시보드 / Customer Platform / 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정
+ * - Customer Platform: 기존 원본 화면 재배치(API·DB 복제 금지)
  * - path: 존재하는 app/admin 라우트는 실제 path, 없으면 pendingRoute: true
  * - roles 미지정 시 전체 노출, 지정 시 해당 role만 노출
  */
@@ -29,12 +30,41 @@ export interface AdminMenuItem {
 const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   // 최상위 그룹
   dashboard: "admin_menu_dashboard",
+  "customer-platform": "admin_menu_customer_platform",
   common: "admin_menu_common",
   community: "admin_menu_community",
   trade: "admin_menu_trade",
   delivery: "admin_menu_delivery",
   messenger: "admin_menu_messenger",
   settings: "admin_menu_settings",
+
+  // Customer Platform
+  "cp-dashboard": "admin_menu_cp_dashboard",
+  "cp-action-queue": "admin_menu_cp_action_queue",
+  "cp-monitoring": "admin_menu_cp_monitoring",
+  "cp-content": "admin_menu_cp_content",
+  "cp-notice": "admin_menu_notices",
+  "cp-faq": "admin_menu_cp_faq",
+  "cp-support": "admin_menu_cp_support",
+  "cp-member-inquiry": "admin_menu_cp_member_inquiry",
+  "cp-store-inquiry": "admin_menu_store_inquiries",
+  "cp-member-inbox": "admin_menu_cp_member_inbox",
+  "cp-store-inbox": "admin_menu_platform_inquiries",
+  "cp-points": "admin_menu_points",
+  "cp-points-member": "admin_menu_cp_points_member",
+  "cp-points-deposit": "admin_menu_cp_points_deposit",
+  "cp-deposit-member": "admin_menu_points_charge",
+  "cp-deposit-store": "admin_menu_store_point_charges",
+  "cp-points-rates": "admin_menu_cp_points_rates",
+  "cp-points-ledger": "admin_menu_cp_points_ledgers",
+  "cp-ledger-member": "admin_menu_points_ledger",
+  "cp-ledger-store": "admin_menu_store_point_ledger",
+  "cp-promotion": "admin_menu_cp_promotion",
+  "cp-promotion-paid": "admin_menu_ads_paid",
+  "cp-promotion-benefits": "admin_menu_ads_benefits",
+  "cp-notification-engine": "admin_menu_dibay_notification_campaigns",
+  "cp-analytics": "admin_menu_cp_analytics",
+  "cp-settings": "admin_menu_cp_settings",
 
   // 공통관리
   users: "admin_menu_users",
@@ -200,7 +230,7 @@ function attachAdminMenuTitleKeys(items: AdminMenuItem[]): AdminMenuItem[] {
 }
 
 /**
- * 단일 배열: 대시보드 + 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정 (7그룹)
+ * 단일 배열: 대시보드 + Customer Platform + 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정 (8그룹)
  */
 export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   // ─────────────────────────────────────────────
@@ -214,7 +244,126 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ─────────────────────────────────────────────
-  // 공통관리: 회원 · 게시글 · 광고 · 포인트
+  // Customer Platform — Notice / Support / Points / Engine (기존 원본 path)
+  // ─────────────────────────────────────────────
+  {
+    key: "customer-platform",
+    title: "",
+    path: "/admin/customer-platform",
+    status: "done",
+    children: [
+      {
+        key: "cp-dashboard",
+        title: "",
+        path: "/admin/customer-platform",
+        status: "done",
+        children: [
+          { key: "cp-action-queue", title: "", path: "/admin/customer-platform#action-queue", status: "done" },
+          { key: "cp-monitoring", title: "", path: "/admin/customer-platform#monitoring", status: "done" },
+        ],
+      },
+      {
+        key: "cp-content",
+        title: "",
+        status: "partial",
+        children: [
+          { key: "cp-notice", title: "", path: "/admin/app/notices", status: "done" },
+          { key: "cp-faq", title: "", path: "/admin/customer-platform/faq", pendingRoute: true, status: "todo" },
+        ],
+      },
+      {
+        key: "cp-support",
+        title: "",
+        status: "done",
+        children: [
+          { key: "cp-member-inquiry", title: "", path: "/admin/member-notes?kind=inquiry", status: "done" },
+          { key: "cp-store-inquiry", title: "", path: "/admin/store-inquiries", status: "partial" },
+          { key: "cp-member-inbox", title: "", path: "/admin/member-notes?kind=inbox", status: "done" },
+          { key: "cp-store-inbox", title: "", path: "/admin/platform-inquiries", status: "done" },
+        ],
+      },
+      {
+        key: "cp-points",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "cp-points-member",
+            title: "",
+            status: "done",
+            children: [
+              { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
+              { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
+              { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
+              { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
+              { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
+              { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
+            ],
+          },
+          {
+            key: "store-points-admin",
+            title: "",
+            path: "/admin/store-points",
+            status: "done",
+            children: [
+              { key: "store-point-charges-admin", title: "", path: "/admin/store-point-charges", status: "done" },
+              { key: "store-point-ledger-admin", title: "", path: "/admin/store-point-ledger", status: "done" },
+              { key: "store-point-policies-admin", title: "", path: "/admin/store-point-policies", status: "done" },
+            ],
+          },
+          {
+            key: "cp-points-deposit",
+            title: "",
+            status: "done",
+            children: [
+              { key: "cp-deposit-member", title: "", path: "/admin/point-charges", status: "done" },
+              { key: "cp-deposit-store", title: "", path: "/admin/store-point-charges", status: "done" },
+            ],
+          },
+          { key: "cp-points-rates", title: "", path: "/admin/point-plans", status: "done" },
+          {
+            key: "cp-points-ledger",
+            title: "",
+            status: "done",
+            children: [
+              { key: "cp-ledger-member", title: "", path: "/admin/points/ledger", status: "done" },
+              { key: "cp-ledger-store", title: "", path: "/admin/store-point-ledger", status: "done" },
+            ],
+          },
+        ],
+      },
+      {
+        key: "cp-promotion",
+        title: "",
+        status: "done",
+        children: [
+          { key: "cp-promotion-paid", title: "", path: "/admin/promoted-items", status: "done" },
+          { key: "cp-promotion-benefits", title: "", path: "/admin/member-benefits", status: "done" },
+        ],
+      },
+      {
+        key: "cp-notification-engine",
+        title: "",
+        path: "/admin/notifications",
+        status: "done",
+      },
+      {
+        key: "cp-analytics",
+        title: "",
+        path: "/admin/customer-platform#monitoring",
+        status: "done",
+      },
+      {
+        key: "cp-settings",
+        title: "",
+        path: "/admin/settings/notifications",
+        status: "done",
+      },
+    ],
+  },
+
+  // ─────────────────────────────────────────────
+  // 공통관리: 회원 · 게시글 · 광고 (포인트는 Customer Platform)
   // ─────────────────────────────────────────────
   {
     key: "common",
@@ -238,23 +387,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "ads-recommendation", title: "", path: "/admin/personalized-feed", status: "done" },
         ],
       },
-      {
-        key: "points",
-        title: "",
-        children: [
-          { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
-          { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
-          { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
-          { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
-          { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
-          { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
-        ],
-      },
     ],
   },
 
   // ─────────────────────────────────────────────
-  // 커뮤니티: 게시판 · 피드 · 게시글 · 알림
+  // 커뮤니티: 게시판 · 피드 · 게시글 (공지·Engine은 Customer Platform)
   // ─────────────────────────────────────────────
   {
     key: "community",
@@ -271,8 +408,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "community-comments", title: "", path: "/admin/comments", status: "done" },
       { key: "community-board-categories", title: "", path: "/admin/board-categories", pendingRoute: true, status: "todo" },
       { key: "community-popular", title: "", path: "/admin/popular-posts", pendingRoute: true, status: "todo" },
-      { key: "community-notices", title: "", path: "/admin/app/notices", status: "done" },
-      { key: "dibay-notification-campaigns", title: "", path: "/admin/notifications", status: "done" },
     ],
   },
 
@@ -331,25 +466,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
       { key: "runtime-health", title: "Runtime Health", path: "/admin/runtime-health", status: "done" },
       { key: "delivery-release-gate", title: "Delivery Release Gate", path: "/admin/delivery-release-gate", status: "done" },
-      { key: "store-inquiries-admin", title: "", path: "/admin/store-inquiries", status: "partial" },
-      { key: "platform-inquiries-admin", title: "", path: "/admin/platform-inquiries", status: "done" },
-      { key: "member-notes-admin", title: "", path: "/admin/member-notes", status: "done" },
       { key: "store-reviews-admin", title: "", path: "/admin/store-reviews", status: "partial" },
       { key: "store-reports-admin", title: "", path: "/admin/store-reports", status: "partial" },
       { key: "store-settlements-admin", title: "", path: "/admin/store-settlements", status: "partial" },
       { key: "store-fee-policies-admin", title: "", path: "/admin/store-fee-policies", status: "partial" },
       { key: "store-payment-events-admin", title: "", path: "/admin/store-payment-events", status: "partial" },
       { key: "commerce-settings-admin", title: "", path: "/admin/commerce-settings", status: "partial" },
-      {
-        key: "store-points-admin",
-        title: "",
-        path: "/admin/store-points",
-        children: [
-          { key: "store-point-charges-admin", title: "", path: "/admin/store-point-charges", status: "done" },
-          { key: "store-point-ledger-admin", title: "", path: "/admin/store-point-ledger", status: "done" },
-          { key: "store-point-policies-admin", title: "", path: "/admin/store-point-policies", status: "done" },
-        ],
-      },
       { key: "business-shops", title: "", path: "/admin/business", status: "done" },
       { key: "business-posts", title: "", path: "/admin/promo-posts", pendingRoute: true, status: "todo" },
       { key: "business-coupons", title: "", path: "/admin/coupons", pendingRoute: true, status: "todo" },

@@ -10,13 +10,15 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  const res = await listAdminNoteThreads(sb);
+  const kindRaw = req.nextUrl.searchParams.get("kind")?.trim() ?? "";
+  const kind = kindRaw === "inquiry" || kindRaw === "inbox" ? kindRaw : undefined;
+  const res = await listAdminNoteThreads(sb, kind ? { kind } : undefined);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
   return NextResponse.json({ ok: true, threads: res.threads });
 }
