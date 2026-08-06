@@ -24,12 +24,6 @@ import {
 const BASE = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
 const TARGET_SHA = (process.env.SLICE9_TARGET_SHA || "").trim();
 const PLATFORM = (process.env.SLICE9_RT_PLATFORM || "all").toLowerCase();
-const PASSWORD =
-  process.env.E2E_TEST_PASSWORD ||
-  process.env.QA_MANUAL_PASSWORD ||
-  process.env.BADGE_NATIVE_PASSWORD ||
-  "";
-const LOGIN = process.env.BADGE_NATIVE_LOGIN || process.env.E2E_TEST_USERNAME || "asas55";
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
 const TS = new Date().toISOString().replace(/[:.]/g, "-");
 const OUT = join(process.cwd(), `.qa-logs/customer-platform-slice9-runtime-${TS}`);
@@ -54,6 +48,96 @@ function loadEnv() {
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
     if (!process.env[k]) process.env[k] = v;
   }
+}
+
+function creds() {
+  loadEnv();
+  return {
+    password:
+      process.env.E2E_TEST_PASSWORD ||
+      process.env.QA_MANUAL_PASSWORD ||
+      process.env.BADGE_NATIVE_PASSWORD ||
+      "",
+    login: process.env.BADGE_NATIVE_LOGIN || process.env.E2E_TEST_USERNAME || "asas55",
+  };
+}
+
+/**
+ * Prefer password cookies; else service-role magiclink (same as Slice 8 harness).
+ * Never logs secrets.
+ */
+async function buildSessionCookies(prod) {
+  const { password, login } = creds();
+  if (password) {
+    return buildApkSessionCookies({ login, prod, password, loadEnv });
+  }
+  const { createClient } = await import("@supabase/supabase-js");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const sk = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !anon || !sk) throw new Error("missing_password_and_service_role");
+  const email = login.includes("@") ? login.toLowerCase() : `${login.toLowerCase()}@manual.local`;
+  const sb = createClient(url, anon, { auth: { persistSession: false } });
+  const adminSb = createClient(url, sk, { auth: { persistSession: false } });
+  const { data: link, error: linkErr } = await adminSb.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  let tokenHash = "";
+  try {
+    const u = new URL(String(link?.properties?.action_link || ""));
+    tokenHash = u.searchParams.get("token") || u.searchParams.get("token_hash") || "";
+  } catch {
+    tokenHash = "";
+  }
+  if (linkErr || !tokenHash) throw new Error(`magiclink_failed:${linkErr?.message || "no_token"}`);
+  const { data: verified, error: otpErr } = await sb.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "email",
+  });
+  if (otpErr || !verified.session) throw new Error(`otp_failed:${otpErr?.message || "no_session"}`);
+  const session = verified.session;
+  const ref = url.match(/https:\/\/([^.]+)\./)?.[1] ?? "";
+  const host = new URL(prod).hostname;
+  const cookieSession = {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at,
+    expires_in: session.expires_in,
+    token_type: session.token_type,
+    user: session.user,
+  };
+  const cookies = [
+    {
+      name: `sb-${ref}-auth-token`,
+      value: encodeURIComponent(JSON.stringify(cookieSession)),
+      domain: host,
+      path: "/",
+      expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+      httpOnly: false,
+      secure: prod.startsWith("https"),
+      sameSite: "Lax",
+    },
+  ];
+  const { data: pr } = await adminSb
+    .from("profiles")
+    .select("active_session_id")
+    .eq("id", session.user.id)
+    .maybeSingle();
+  const activeSessionId = String(pr?.active_session_id ?? "").trim();
+  if (activeSessionId) {
+    cookies.push({
+      name: "samarket_active_session_id",
+      value: activeSessionId,
+      domain: host,
+      path: "/",
+      expires: Math.floor(Date.now() / 1000) + 86400 * 30,
+      httpOnly: false,
+      secure: prod.startsWith("https"),
+      sameSite: "Lax",
+    });
+  }
+  return { cookies, userId: session.user.id };
 }
 
 function sleep(ms) {
@@ -117,22 +201,19 @@ async function probeHubLayout(page) {
 
 async function runPlaywrightSurface({ label, viewport, userAgent }) {
   const result = { surface: label, status: "FAIL", checks: {}, fail: [] };
-  if (!PASSWORD) {
-    result.status = "BLOCKED";
-    result.fail.push("missing_password");
-    return result;
-  }
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport, userAgent });
   const page = await context.newPage();
   try {
     loadEnv();
-    const { cookies } = await buildApkSessionCookies({
-      login: LOGIN,
-      prod: BASE,
-      password: PASSWORD,
-      loadEnv,
-    });
+    let cookies;
+    try {
+      ({ cookies } = await buildSessionCookies(BASE));
+    } catch (e) {
+      result.status = "BLOCKED";
+      result.fail.push(`session:${e instanceof Error ? e.message : String(e)}`);
+      return result;
+    }
     await context.addCookies(cookies);
     await page.goto(`${BASE}/mypage`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await sleep(3500);
@@ -141,9 +222,6 @@ async function runPlaywrightSurface({ label, viewport, userAgent }) {
     if (!hub.path.includes("/mypage")) result.fail.push("hub:path");
     if (!hub.hasTrade) result.fail.push("hub:trade_missing");
     if (!hub.hasSupport) result.fail.push("hub:support_missing");
-    if (hub.expectedBand !== label.replace(/-.*$/, "") && !label.startsWith("windows")) {
-      // windows uses desktop band
-    }
     if (label.startsWith("windows") && hub.expectedBand !== "desktop") {
       result.fail.push(`hub:expected_desktop_got_${hub.expectedBand}`);
     }
@@ -193,33 +271,30 @@ function adb(serial, ...args) {
 
 async function runApk() {
   const result = { surface: "apk", status: "NOT_RUN", checks: {}, fail: [], reason: null };
-  const serial = process.env.P4_DEVICE_B || process.env.SLICE9_APK_SERIAL || "";
+  const serial = process.env.P4_DEVICE_B || process.env.SLICE9_APK_SERIAL || "RFCY40PY2CA";
   const devices = adbDevices();
-  if (!serial || !devices.includes(serial)) {
+  if (!devices.includes(serial)) {
     result.status = "NOT_RUN";
-    result.reason = serial ? "adb_serial_not_connected" : "no_apk_serial_env";
-    return result;
-  }
-  if (!PASSWORD) {
-    result.status = "BLOCKED";
-    result.reason = "missing_password";
+    result.reason = "adb_serial_not_connected";
     return result;
   }
   const cdpPort = Number(process.env.SLICE9_CDP_PHONE || 9721);
   const act = `${DIBAY_PKG}/.MainActivity`;
   try {
     loadEnv();
+    let cookies;
+    try {
+      ({ cookies } = await buildSessionCookies(BASE));
+    } catch (e) {
+      result.status = "BLOCKED";
+      result.reason = e instanceof Error ? e.message : String(e);
+      return result;
+    }
     launchApkMainActivity(adb, serial, act);
     await sleep(2500);
     forwardCdp(adb, serial, cdpPort);
     await sleep(800);
     const { browser, page } = await connectWebView(chromium, cdpPort);
-    const { cookies } = await buildApkSessionCookies({
-      login: LOGIN,
-      prod: BASE,
-      password: PASSWORD,
-      loadEnv,
-    });
     try {
       await page.context().addCookies(cookies);
     } catch {

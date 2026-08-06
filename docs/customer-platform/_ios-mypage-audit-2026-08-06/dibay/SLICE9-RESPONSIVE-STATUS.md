@@ -4,10 +4,12 @@
 SLICE 1–8 LOCKED (유지)
 SLICE 9 RESPONSIVE / MULTIPLATFORM AUTHORIZED
 SLICE 9 PHASE 1 APPROVED
+SLICE 9 PHASE 1 CODE LOCKED
+SLICE 9 PHASE 1 DEPLOYED (Git Auto Deploy)
 SLICE 10–12 NOT AUTHORIZED
 ```
 
-## Phase 1 scope (code)
+## Phase 1 deliverables
 
 | Item | Path |
 |------|------|
@@ -24,32 +26,37 @@ SLICE 10–12 NOT AUTHORIZED
 | tablet | 768 … &lt;1025 | 2-col (`md:max-[1025px]`) |
 | desktop | ≥1025 | 3-col (`min-[1025px]`) |
 
-Out of Phase 1 code: `design-tokens` · BottomNav · owner shell · Slice 1–8 product logic · i18n.
+## Deploy
 
-## Gate order
+| Item | Value |
+|------|-------|
+| Product SHA | `4447038d25288b4b5148d919c22892b6d5f2dc54` |
+| Deploy | `dpl_9C5bHxXiwRetHXKr7fqV35XjBX7J` |
+| Source | **git** |
+| Alias | `https://samarket.vercel.app` · Ready |
 
-```text
-Phase 1 구현
-→ unit / tsc / build
-→ isolated commit
-→ git push origin main
-→ Git Auto Deploy
-→ Production SHA prove
-→ Windows + tablet Runtime
-→ APK + iOS (NOT_RUN/BLOCKED if unavailable)
-→ a11y + animation smoke
-→ SLICE 9 MULTIPLATFORM RUNTIME LOCK (only if all surfaces PASS)
-```
+## Runtime matrix (honest)
 
-## Lock rule
-
-**Windows + tablet PASS alone ≠ LOCK.**  
-APK · iOS must PASS (or explicit product waiver) before `SLICE 9 MULTIPLATFORM RUNTIME LOCK`.
+| Surface | Status | Evidence |
+|---------|--------|----------|
+| Windows Chromium 1280 | **PASS** | `…09-52-26-961Z` |
+| Tablet viewport 900 | **PASS** | `…09-52-38-629Z` |
+| APK (Samsung RFCY40PY2CA) | **PASS** | `…09-52-56-731Z` |
+| iOS WebView CDP | **NOT_RUN** | `…09-53-06-570Z` (no ios_webkit_debug_proxy / page) |
+| a11y / animation | smoke recorded on Windows·tablet (non-gating) | |
 
 ## Current verdict
 
 ```text
-SLICE 9 PHASE 1 CODE IN PROGRESS
+SLICE 9 PHASE 1 HARNESS PASS
+SLICE 9 MULTIPLATFORM RUNTIME LOCK — NOT ELIGIBLE
+Reason: iOS NOT_RUN
 ```
 
-Evidence / deploy / runtime: fill after push.
+**Lock rule:** Windows + tablet PASS alone ≠ LOCK. APK PASS + iOS PASS required.
+
+## Next
+
+1. Start `ios_webkit_debug_proxy`, open DiBaY WebView on device
+2. `SLICE9_TARGET_SHA=4447038d2 SLICE9_RT_PLATFORM=ios node --env-file=.env.local scripts/qa/slice9-multiform-runtime.mjs`
+3. If iOS PASS → docs tip `SLICE 9 MULTIPLATFORM RUNTIME LOCK`
