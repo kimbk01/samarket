@@ -55,10 +55,13 @@ SLICE 10 PHASE 2 BUNDLE B PASS (verify + orphan deletes)
 SLICE 10 PHASE 2 BUNDLE C PASS (InstagramView/Console/MyProfileCard DEAD_PROVEN)
 SLICE 10 DEAD CLEANUP COMPLETE
 SLICE 11 PRODUCT RUNTIME REGRESSION PASS
+SLICE 12 PRODUCT PASS
+FINAL HARD LOCK
+DIBAY MY PAGE PRODUCT PASS
 ```
 
-다음: **Slice 12** PRODUCT PASS / FINAL HARD LOCK — **별도 인가**.  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE11-RUNTIME-STATUS.md`  
+다음: **없음** (MyPage × Admin Foundation 프로그램 CLOSED).  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE12-PRODUCT-PASS-STATUS.md` · [`08-HARDLOCK.md`](./08-HARDLOCK.md)  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
@@ -66,16 +69,15 @@ SLICE 11 PRODUCT RUNTIME REGRESSION PASS
 ## 현재 판정
 
 ```text
-SLICE 1–9 LOCKED
-SLICE 10 DEAD CLEANUP COMPLETE
-SLICE 11 PRODUCT RUNTIME REGRESSION PASS
-Product SHA: 6a4c414e4 · Deploy: dpl_2vBqxdDzqCEs1Mr5BZ37oC27R86s
-Windows/Tablet/APK/iOS PASS · Slice 4–8 child suites PASS
-SLICE 12 NOT AUTHORIZED
+DIBAY MY PAGE PRODUCT PASS
+FINAL HARD LOCK
+SLICE 1–11 CLOSED
+Product SHA (runtime): 6a4c414e4ae020e201c850003622f0b2766d81f8
+Deploy: dpl_2vBqxdDzqCEs1Mr5BZ37oC27R86s
+Alias: https://samarket.vercel.app
 ```
 
-**Git / Production:** `6a4c414e4ae020e201c850003622f0b2766d81f8`  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE11-RUNTIME-STATUS.md`
+**상세:** `_ios-mypage-audit-2026-08-06/dibay/SLICE12-PRODUCT-PASS-STATUS.md` · [`08-HARDLOCK.md`](./08-HARDLOCK.md)
 
 ---
 
@@ -146,10 +148,10 @@ LOCK 세션에서 TBD를 확정값으로 채우기 전 Slice 1 구현 금지.
 
 ## 다음 액션 (고정)
 
-1. ~~Production SHA~~ → **PASS** (`20d97f01e8602f72acb98a5947f2e452746af83c`)  
-2. Architecture LOCK → **`ARCHITECTURE-LOCK.md` LOCKED**  
-3. ~~Slice 1 Facts~~ → **FACTS LOCKED**  
-4. ~~Slice 2 Authority~~ → **AUTHORITY LOCKED**  
-5. ~~Slice 2.5 Design+A11y~~ → **HARD LOCK**  
-6. ~~Slice 3 UI hub IA code~~ → **CODE LOCKED** + **DEPLOYED** (`fa3e6b4a2…`)  
-7. ~~Slice 3 Runtime~~ → **PASS / LOCK** (APK·Tablet·Windows·iOS)  
+**프로그램 CLOSED** — `DIBAY MY PAGE PRODUCT PASS` / `FINAL HARD LOCK`  
+(Product SHA `6a4c414e4` · Deploy `dpl_2vBqxdDzqCEs1Mr5BZ37oC27R86s`)
+
+1. ~~Production SHA~~ → **PASS**  
+2. ~~Architecture LOCK~~ → **LOCKED**  
+3. ~~Slice 1–11~~ → **CLOSED** (증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE*-STATUS.md`)  
+4. ~~Slice 12~~ → **PRODUCT PASS / FINAL HARD LOCK** (`08-HARDLOCK.md`)

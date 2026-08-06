@@ -38,7 +38,6 @@ SLICE 12 NOT AUTHORIZED
 - `npm run verify:mypage-authority-contract` PASS
 - Inventory: [`slice10-phase1-inventory.json`](./slice10-phase1-inventory.json)
 
-## Next (NOT AUTHORIZED)
+## Next
 
-Slice 12 PRODUCT PASS / FINAL HARD LOCK  
-(Slice 11 PASS evidence: [`SLICE11-RUNTIME-STATUS.md`](./SLICE11-RUNTIME-STATUS.md))
+**CLOSED** into Slice 12 — [`SLICE12-PRODUCT-PASS-STATUS.md`](./SLICE12-PRODUCT-PASS-STATUS.md)
