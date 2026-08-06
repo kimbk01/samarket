@@ -45,4 +45,12 @@ describe("Slice5 Activity route MERGE", () => {
     expect(src).toContain("MYPAGE_HOME_TRADE_REVIEWS_HREF");
     expect(src).toContain("MYPAGE_HOME_TRADE_HUB_HREF");
   });
+
+  it("next.config HTTP redirects cover legacy activity shells", () => {
+    const src = readFileSync(path.join(root, "next.config.js"), "utf8");
+    expect(src).toContain('source: "/mypage/purchases"');
+    expect(src).toContain('destination: "/mypage/trade"');
+    expect(src).toContain('source: "/mypage/sales"');
+    expect(src).toContain('source: "/mypage/reviews"');
+  });
 });

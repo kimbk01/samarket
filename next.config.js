@@ -116,6 +116,22 @@ const nextConfig = {
         destination: "/mypage/customer-center",
         permanent: false,
       },
+      /** Slice 5 Activity — legacy list shells → trade hub (HTTP 307; RSC-only redirect is 200+CSR) */
+      {
+        source: "/mypage/purchases",
+        destination: "/mypage/trade",
+        permanent: false,
+      },
+      {
+        source: "/mypage/sales",
+        destination: "/mypage/trade/sales",
+        permanent: false,
+      },
+      {
+        source: "/mypage/reviews",
+        destination: "/mypage/trade/reviews",
+        permanent: false,
+      },
     ];
   },
   async headers() {
