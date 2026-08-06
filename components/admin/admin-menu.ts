@@ -44,6 +44,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "cp-monitoring": "admin_menu_cp_monitoring",
   "cp-content": "admin_menu_cp_content",
   "cp-notice": "admin_menu_notices",
+  "cp-legal": "admin_menu_legal",
   "cp-faq": "admin_menu_cp_faq",
   "cp-support": "admin_menu_cp_support",
   "cp-member-inquiry": "admin_menu_cp_member_inquiry",
@@ -268,6 +269,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "partial",
         children: [
           { key: "cp-notice", title: "", path: "/admin/app/notices", status: "done" },
+          { key: "cp-legal", title: "", path: "/admin/app/legal", status: "done" },
           { key: "cp-faq", title: "", path: "/admin/customer-platform/faq", pendingRoute: true, status: "todo" },
         ],
       },

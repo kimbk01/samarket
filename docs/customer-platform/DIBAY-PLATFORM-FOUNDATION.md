@@ -34,10 +34,12 @@ SLICE 7 ADMIN PROJECTION CODE LOCKED
 SLICE 7 DEPLOYED
 SLICE 7 RUNTIME PASS
 SLICE 7 ADMIN PROJECTION LOCK
+SLICE 8 CMS AUTHORIZED — PHASE 1 LEGAL ONLY
+SLICE 8 IN PROGRESS
 ```
 
-다음: **Slice 8 CMS** — 별도 인가 필요.  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE7-ADMIN-STATUS.md`  
+다음: **Slice 8 Legal CMS Phase 1** IN PROGRESS · Business CMS Phase 2 미인가.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE8-CMS-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
@@ -45,14 +47,12 @@ SLICE 7 ADMIN PROJECTION LOCK
 ## 현재 판정
 
 ```text
-SLICE 7 ADMIN PROJECTION LOCK
-제품 코드: Admin Trust History Projection 완료 · Slice 8 미인가
+SLICE 8 IN PROGRESS
+제품 코드: Legal CMS (terms/privacy) 구현 중 · Business Phase 2 미인가
 ```
 
-**Git LOCK / Production:** `a2af91babff338cc3941ed2d85b092f43767bd70`  
-`dpl_FA8rHDduoDmAmyqvu6MshVjc8Y8f` · source=`git` · alias `samarket.vercel.app`  
-(Slice 7 Admin Projection; prior Slice 6 `2676cc333`)  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE7-ADMIN-STATUS.md`
+**Git LOCK / Production (Slice 7 baseline):** `a2af91babff338cc3941ed2d85b092f43767bd70`  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE7-ADMIN-STATUS.md` / `SLICE8-CMS-STATUS.md`
 
 ---
 
