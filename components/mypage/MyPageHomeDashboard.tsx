@@ -17,6 +17,7 @@ import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
+import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
@@ -35,6 +36,7 @@ export function MyPageHomeDashboard({
   needsRelogin?: boolean;
 }) {
   const { setOnProfileUpdated } = useMypageProfileSheets();
+  useMypageHubScrollRestore(true);
 
   useEffect(() => {
     if (!onProfileRefresh) return;
