@@ -8,6 +8,8 @@ import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection"
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import {
   MYPAGE_HOME_ACCOUNT_ITEMS,
+  MYPAGE_HOME_DANGER_ITEMS,
+  MYPAGE_HOME_POLICY_ITEMS,
   MYPAGE_HOME_SERVICE_ITEMS,
   MYPAGE_HOME_STORE_ITEMS,
   MYPAGE_HOME_SUPPORT_ITEMS,
@@ -56,7 +58,7 @@ function renderAccountItem(
   );
 }
 
-/** Slice 3 — 거래 활동 MERGE onto home */
+/** Flow: activity */
 export function MyInfoTradeMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
@@ -75,6 +77,7 @@ export function MyInfoTradeMenuSection({ onItemPress }: { onItemPress?: (href: s
   );
 }
 
+/** Flow: store_order */
 export function MyInfoStoreMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
@@ -94,8 +97,7 @@ export function MyInfoStoreMenuSection({ onItemPress }: { onItemPress?: (href: s
 }
 
 /**
- * Slice 3 MOVE — logout lives under Account (Danger menu_row + modal).
- * Not on profile hub chrome.
+ * Flow: account — logout MOVE to Danger (Legacy IA).
  */
 export function MyInfoAccountMenuSection({
   addressesMenuHref,
@@ -110,18 +112,11 @@ export function MyInfoAccountMenuSection({
       {MYPAGE_HOME_ACCOUNT_ITEMS.map((item, index) =>
         renderAccountItem(item, index, addressesMenuHref, safeT, onItemPress),
       )}
-      <LogoutActionTrigger
-        variant="menu_row"
-        surface="card"
-        label={safeT("mypage_hub_logout", {
-          fallbackKo: "로그아웃",
-          fallbackEn: "Log out",
-        })}
-      />
     </MyInfoMenuSection>
   );
 }
 
+/** Flow: support */
 export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
@@ -140,6 +135,26 @@ export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href:
   );
 }
 
+/** Flow: policy */
+export function MyInfoPolicyMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
+  const { safeT } = useI18n();
+  return (
+    <MyInfoMenuSection title={safeT("mypage_comp_section_policy")}>
+      {MYPAGE_HOME_POLICY_ITEMS.map((item, index) => (
+        <MyInfoMenuItem
+          key={item.href}
+          first={index === 0}
+          href={item.href}
+          title={safeT(item.titleKey)}
+          icon={renderMypageHomeMenuIcon(item.icon)}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+        />
+      ))}
+    </MyInfoMenuSection>
+  );
+}
+
+/** Flow: service */
 export function MyInfoServiceMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
@@ -155,6 +170,36 @@ export function MyInfoServiceMenuSection({ onItemPress }: { onItemPress?: (href:
           onPress={onItemPress ? () => onItemPress(item.href) : undefined}
         />
       ))}
+    </MyInfoMenuSection>
+  );
+}
+
+/**
+ * Flow: danger — leave + logout (menu_row + modal). Hub chrome must not host logout.
+ */
+export function MyInfoDangerMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
+  const { safeT } = useI18n();
+  return (
+    <MyInfoMenuSection title={safeT("mypage_comp_section_danger")}>
+      {MYPAGE_HOME_DANGER_ITEMS.map((item, index) => (
+        <MyInfoMenuItem
+          key={item.href}
+          first={index === 0}
+          href={item.href}
+          title={safeT(item.titleKey)}
+          icon={renderMypageHomeMenuIcon(item.icon)}
+          tone={item.tone ?? "danger"}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+        />
+      ))}
+      <LogoutActionTrigger
+        variant="menu_row"
+        surface="card"
+        label={safeT("mypage_hub_logout", {
+          fallbackKo: "로그아웃",
+          fallbackEn: "Log out",
+        })}
+      />
     </MyInfoMenuSection>
   );
 }

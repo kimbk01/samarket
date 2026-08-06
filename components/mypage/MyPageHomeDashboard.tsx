@@ -8,29 +8,24 @@ import { MypageSessionReloginCard } from "@/components/mypage/home/MypageSession
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import {
   MyInfoAccountMenuSection,
+  MyInfoDangerMenuSection,
+  MyInfoPolicyMenuSection,
   MyInfoServiceMenuSection,
   MyInfoStoreMenuSection,
   MyInfoSupportMenuSection,
   MyInfoTradeMenuSection,
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
-import {
-  MYPAGE_HOME_MENU_DESKTOP_CLASS,
-  MYPAGE_HOME_MENU_MOBILE_CLASS,
-  MYPAGE_HOME_MENU_TABLET_ADMIN_SPAN_CLASS,
-  MYPAGE_HOME_MENU_TABLET_CLASS,
-} from "@/lib/ui/mypage-responsive-breakpoints";
+import { MYPAGE_HOME_MENU_FLOW_CLASS } from "@/lib/ui/mypage-responsive-breakpoints";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
 
-const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
-
 /**
- * Slice 3 IA order (mobile):
- * Profile(+manner) → assets → required → trade → store → account(+logout) → service → support
- * Slice 9 Phase 1: breakpoint classes from mypage-responsive-breakpoints SSOT (767 / 1025).
+ * Legacy IA — single behavior-flow column (all viewports).
+ * identity → activity → store → assets → account → service → support → policy → danger
+ * DO NOT reintroduce multi-column (2/3) menu catalogs.
  */
 export function MyPageHomeDashboard({
   projection,
@@ -51,56 +46,26 @@ export function MyPageHomeDashboard({
   }, [onProfileRefresh, setOnProfileUpdated]);
 
   return (
-    <div className={MYPAGE_HOME_BODY_CLASS}>
-      <div className="flex min-h-0 min-w-0 flex-col gap-3 sm:gap-4">
+    <div className={MYPAGE_HOME_BODY_CLASS} data-mypage-ia="legacy-flow">
+      <div className={MYPAGE_HOME_MENU_FLOW_CLASS}>
         {needsRelogin ? (
           <MypageSessionReloginCard />
         ) : (
           <>
             <MypageProfileSummary projection={projection} />
-            <MypagePointsAssetSummary />
             <MypageRequiredInfoSummary projection={projection} />
           </>
         )}
 
-        <div className={MYPAGE_HOME_MENU_MOBILE_CLASS}>
-          <MyInfoTradeMenuSection />
-          <MyInfoStoreMenuSection />
-          <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
-          <MyInfoServiceMenuSection />
-          <MyInfoSupportMenuSection />
-          <MyPageAdminMenuEntry starbucks />
-        </div>
-
-        <div className={MYPAGE_HOME_MENU_TABLET_CLASS}>
-          <div className={COLUMN_STACK_CLASS}>
-            <MyInfoTradeMenuSection />
-            <MyInfoStoreMenuSection />
-          </div>
-          <div className={COLUMN_STACK_CLASS}>
-            <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
-            <MyInfoServiceMenuSection />
-            <MyInfoSupportMenuSection />
-          </div>
-          <div className={MYPAGE_HOME_MENU_TABLET_ADMIN_SPAN_CLASS}>
-            <MyPageAdminMenuEntry starbucks />
-          </div>
-        </div>
-
-        <div className={MYPAGE_HOME_MENU_DESKTOP_CLASS}>
-          <div className={COLUMN_STACK_CLASS}>
-            <MyInfoTradeMenuSection />
-            <MyInfoStoreMenuSection />
-          </div>
-          <div className={COLUMN_STACK_CLASS}>
-            <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
-            <MyPageAdminMenuEntry starbucks />
-          </div>
-          <div className={COLUMN_STACK_CLASS}>
-            <MyInfoServiceMenuSection />
-            <MyInfoSupportMenuSection />
-          </div>
-        </div>
+        <MyInfoTradeMenuSection />
+        <MyInfoStoreMenuSection />
+        {!needsRelogin ? <MypagePointsAssetSummary /> : null}
+        <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
+        <MyInfoServiceMenuSection />
+        <MyPageAdminMenuEntry starbucks />
+        <MyInfoSupportMenuSection />
+        <MyInfoPolicyMenuSection />
+        <MyInfoDangerMenuSection />
       </div>
     </div>
   );

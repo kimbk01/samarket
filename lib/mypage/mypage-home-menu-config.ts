@@ -79,6 +79,10 @@ export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
   },
 ];
 
+/**
+ * Account — security / address / payment / notifications (no leave/logout).
+ * Leave + logout live in the danger flow group (see DANGER items export below).
+ */
 export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
   {
     href: MYPAGE_HOME_ACCOUNT_HREF,
@@ -111,7 +115,10 @@ export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
     titleKey: "mypage_comp_menu_account_region_title",
     icon: "globe",
   },
-  /** Slice 6: leave MOVE into Account (Danger) */
+];
+
+/** Danger — leave (logout is LogoutActionTrigger in UI, not a link row). */
+export const MYPAGE_HOME_DANGER_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
     titleKey: "settings_leave",
@@ -169,7 +176,7 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
 ];
 
 /**
- * 고객지원 — 공지 → CS → 문의 → 쪽지 → 약관 → 개인정보.
+ * Support — notices → CS → inquiries → inbox (policy split out).
  */
 export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
   {
@@ -192,6 +199,12 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "mypage_comp_menu_support_inbox_title",
     icon: "message-circle",
   },
+];
+
+/**
+ * Policy — terms → privacy → business (scroll foot after support).
+ */
+export const MYPAGE_HOME_POLICY_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: "/mypage/section/settings/terms",
     titleKey: "mypage_comp_menu_support_terms_title",
@@ -208,3 +221,15 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "store",
   },
 ];
+
+/** Flow group ids — menu config / dashboard composer SSOT. */
+export type MyPageFlowGroup =
+  | "identity"
+  | "activity"
+  | "store_order"
+  | "assets"
+  | "account"
+  | "service"
+  | "support"
+  | "policy"
+  | "danger";

@@ -43,35 +43,44 @@ if (!/mypage-profile-manner-row/.test(profileSummary)) {
 }
 
 const accountSection = read("components/mypage/myinfo/MyInfoHomeMenuSections.tsx");
-if (!/LogoutActionTrigger[\s\S]*?variant=["']menu_row["']/.test(accountSection)) {
-  failures.push("MyInfoAccountMenuSection: expected menu_row logout (Danger + modal)");
+if (!/MyInfoDangerMenuSection[\s\S]*?LogoutActionTrigger[\s\S]*?variant=["']menu_row["']/.test(accountSection)) {
+  failures.push("MyInfoDangerMenuSection: expected menu_row logout (Danger + modal)");
 }
 if (!/MyInfoTradeMenuSection/.test(accountSection) || !/MYPAGE_HOME_TRADE_ITEMS/.test(accountSection)) {
   failures.push("MyInfoHomeMenuSections: expected trade MERGE section");
+}
+if (!/MyInfoPolicyMenuSection/.test(accountSection) || !/MYPAGE_HOME_POLICY_ITEMS/.test(accountSection)) {
+  failures.push("MyInfoHomeMenuSections: expected policy flow section");
 }
 
 const dashboard = read("components/mypage/MyPageHomeDashboard.tsx");
 if (!/MyInfoTradeMenuSection/.test(dashboard)) {
   failures.push("MyPageHomeDashboard: trade section missing from hub IA");
 }
-const mobileBlock = dashboard.match(/md:hidden[\s\S]*?MyPageAdminMenuEntry/);
-if (mobileBlock) {
+const dashboardJsx = dashboard.slice(dashboard.indexOf("return ("));
+if (/className=\{?["'`][^"'`]*grid-cols-[23]/.test(dashboardJsx) || /grid grid-cols-[23]/.test(dashboardJsx)) {
+  failures.push("MyPageHomeDashboard: multi-column menu catalog forbidden (Legacy IA)");
+}
+{
   const order = [
     "MyInfoTradeMenuSection",
     "MyInfoStoreMenuSection",
+    "MypagePointsAssetSummary",
     "MyInfoAccountMenuSection",
     "MyInfoServiceMenuSection",
     "MyInfoSupportMenuSection",
+    "MyInfoPolicyMenuSection",
+    "MyInfoDangerMenuSection",
   ];
   let last = -1;
   for (const name of order) {
-    const i = mobileBlock[0].indexOf(name);
+    const i = dashboardJsx.indexOf(name);
     if (i < 0) {
-      failures.push(`MyPageHomeDashboard mobile: missing ${name}`);
+      failures.push(`MyPageHomeDashboard flow: missing ${name}`);
       break;
     }
     if (i < last) {
-      failures.push(`MyPageHomeDashboard mobile: IA order broken around ${name}`);
+      failures.push(`MyPageHomeDashboard flow: IA order broken around ${name}`);
       break;
     }
     last = i;

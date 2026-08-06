@@ -211,7 +211,12 @@ export function MypageRequiredInfoSummary({
             fallbackEn: "Please add your default address.",
           });
 
-  const rows: RequiredInfoRow[] = [
+  /** Complete → hide home card (MOVE to account/sheets). Incomplete → compact CTA only. */
+  if (bundleComplete) {
+    return null;
+  }
+
+  const allRows: RequiredInfoRow[] = [
     {
       id: "dibay-id",
       icon: "user-round",
@@ -283,67 +288,48 @@ export function MypageRequiredInfoSummary({
           ? safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" })
           : undefined,
       onCtaClick: addressStatus === "required" ? () => openSheet("address") : undefined,
-      changeLabel:
-        addressStatus === "complete"
-          ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" })
-          : undefined,
-      onChangeClick: addressStatus === "complete" ? () => openSheet("address") : undefined,
     },
   ];
+
+  /** Compact: pending/unknown only — completed rows stay in account area. */
+  const rows = allRows.filter((row) => row.status !== "complete");
 
   return (
     <section
       className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
       data-testid="mypage-required-info-card"
-      data-state={bundleComplete ? "complete" : knownCount < 3 ? "checking" : "incomplete"}
+      data-state={knownCount < 3 ? "checking" : "incomplete"}
     >
-      {bundleComplete ? (
-        <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-1.5`}>
-          <p className={`${MYPAGE_HOME_SECTION_LABEL_CLASS} text-[#00704A]`} data-testid="mypage-required-info-complete">
-            {safeT("mypage_required_bundle_complete", {
-              fallbackKo: "필수정보 · 완료",
-              fallbackEn: "Required info · Complete",
+      <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
+            {safeT("mypage_required_section_title", {
+              fallbackKo: "필수 정보",
+              fallbackEn: "Required info",
             })}
-          </p>
-          <p className="text-[13px] leading-snug text-[#6F4E37]">
-            {safeT("mypage_required_complete_desc", {
-              fallbackKo: "필수 정보가 모두 등록되었습니다.",
-              fallbackEn: "All required info has been completed.",
-            })}
-          </p>
+          </h2>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
+              completeCount < knownCount || knownCount < 3
+                ? "bg-[#F2F0EB] text-[#6F4E37]"
+                : "bg-[#FDECEC] text-[#C62828]"
+            }`}
+          >
+            {completeCount}/3
+          </span>
         </div>
-      ) : (
-        <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
-          <div className="flex items-center justify-between gap-3">
-            <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-              {safeT("mypage_required_section_title", {
-                fallbackKo: "필수 정보",
-                fallbackEn: "Required info",
+        <p className="text-[13px] leading-snug text-[#6F4E37]">
+          {knownCount < 3
+            ? safeT("mypage_required_checking_desc", {
+                fallbackKo: "필수 정보 상태를 확인하고 있습니다.",
+                fallbackEn: "Checking required info status.",
+              })
+            : safeT("mypage_required_incomplete_desc", {
+                fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
+                fallbackEn: "Complete the required items below to continue using the service.",
               })}
-            </h2>
-            <span
-              className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
-                completeCount < knownCount || knownCount < 3
-                  ? "bg-[#F2F0EB] text-[#6F4E37]"
-                  : "bg-[#FDECEC] text-[#C62828]"
-              }`}
-            >
-              {completeCount}/3
-            </span>
-          </div>
-          <p className="text-[13px] leading-snug text-[#6F4E37]">
-            {knownCount < 3
-              ? safeT("mypage_required_checking_desc", {
-                  fallbackKo: "필수 정보 상태를 확인하고 있습니다.",
-                  fallbackEn: "Checking required info status.",
-                })
-              : safeT("mypage_required_incomplete_desc", {
-                  fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
-                  fallbackEn: "Complete the required items below to continue using the service.",
-                })}
-          </p>
-        </div>
-      )}
+        </p>
+      </div>
 
       <ul className="space-y-2 p-3">
         {rows.map((row) => (

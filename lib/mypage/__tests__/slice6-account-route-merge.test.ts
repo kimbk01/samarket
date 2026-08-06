@@ -26,13 +26,20 @@ describe("Slice6 Account route MERGE", () => {
     );
   });
 
-  it("home Account block includes leave; Service does not", () => {
+  it("home Danger block includes leave; Account/Service do not", () => {
     const src = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
-    const accountIdx = src.indexOf("MYPAGE_HOME_ACCOUNT_ITEMS");
-    const serviceIdx = src.indexOf("MYPAGE_HOME_SERVICE_ITEMS");
-    const accountBlock = src.slice(accountIdx, serviceIdx);
-    const serviceBlock = src.slice(serviceIdx, src.indexOf("MYPAGE_HOME_SUPPORT_ITEMS"));
-    expect(accountBlock).toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
+    const accountIdx = src.indexOf("export const MYPAGE_HOME_ACCOUNT_ITEMS");
+    const dangerIdx = src.indexOf("export const MYPAGE_HOME_DANGER_ITEMS");
+    const serviceIdx = src.indexOf("export const MYPAGE_HOME_SERVICE_ITEMS");
+    const supportIdx = src.indexOf("export const MYPAGE_HOME_SUPPORT_ITEMS");
+    expect(accountIdx).toBeGreaterThan(-1);
+    expect(dangerIdx).toBeGreaterThan(accountIdx);
+    expect(serviceIdx).toBeGreaterThan(dangerIdx);
+    const accountBlock = src.slice(accountIdx, dangerIdx);
+    const dangerBlock = src.slice(dangerIdx, serviceIdx);
+    const serviceBlock = src.slice(serviceIdx, supportIdx);
+    expect(dangerBlock).toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
+    expect(accountBlock).not.toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
     expect(serviceBlock).not.toContain("settings/leave");
   });
 
