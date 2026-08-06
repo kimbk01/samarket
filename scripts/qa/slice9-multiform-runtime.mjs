@@ -315,28 +315,209 @@ async function runApk() {
   return result;
 }
 
+function listIosTargets(port) {
+  const r = spawnSync("curl", ["-sS", `http://127.0.0.1:${port}/json`], {
+    encoding: "utf8",
+    timeout: 3000,
+  });
+  try {
+    return JSON.parse(r.stdout || "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** ios_webkit_debug_proxy has no /json/version — Playwright connectOverCDP fails; use raw CDP WS. */
+function createIosWebkitSession(wsUrl) {
+  // dynamic import avoided — use require-compatible WebSocket from 'ws'
+  return import("ws").then(({ default: WebSocket }) => {
+    const ws = new WebSocket(wsUrl);
+    let pageTargetId = null;
+    let idSeq = 1;
+    const waiters = new Map();
+    const ready = new Promise((res, rej) => {
+      ws.on("open", res);
+      ws.on("error", rej);
+    });
+    ws.on("message", (raw) => {
+      let msg;
+      try {
+        msg = JSON.parse(String(raw));
+      } catch {
+        return;
+      }
+      if (msg.method === "Target.targetCreated") {
+        const t = msg.params?.targetInfo;
+        if (t?.type === "page" || t?.type === "frame") {
+          // Prefer page; fall back to first frame if page never arrives
+          if (t.type === "page" || !pageTargetId) pageTargetId = t.targetId;
+        }
+        return;
+      }
+      if (msg.method === "Target.dispatchMessageFromTarget") {
+        let inner;
+        try {
+          inner = JSON.parse(msg.params?.message || "{}");
+        } catch {
+          return;
+        }
+        if (inner.id != null && waiters.has(inner.id)) {
+          const w = waiters.get(inner.id);
+          waiters.delete(inner.id);
+          clearTimeout(w.timer);
+          if (inner.error) w.reject(new Error(JSON.stringify(inner.error)));
+          else w.resolve(inner.result || {});
+        }
+      }
+    });
+
+    function callDirect(method, params = {}) {
+      return new Promise((resolve, reject) => {
+        const id = idSeq++;
+        const timer = setTimeout(() => {
+          waiters.delete(id);
+          reject(new Error(`timeout:${method}`));
+        }, 20000);
+        waiters.set(id, { resolve, reject, timer });
+        ws.send(JSON.stringify({ id, method, params }));
+      });
+    }
+
+    async function ensureTarget() {
+      await ready;
+      // Modern iOS WebKit may emit Target.targetCreated on connect without Target.* discovery APIs.
+      const start = Date.now();
+      while (!pageTargetId && Date.now() - start < 10000) await sleep(50);
+      if (!pageTargetId) throw new Error("no_page_target");
+    }
+
+    function call(method, params = {}, timeoutMs = 25000) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          if (!pageTargetId) await ensureTarget();
+          const innerId = idSeq++;
+          const outerId = idSeq++;
+          const timer = setTimeout(() => {
+            waiters.delete(innerId);
+            reject(new Error(`timeout:${method}`));
+          }, timeoutMs);
+          waiters.set(innerId, { resolve, reject, timer });
+          ws.send(
+            JSON.stringify({
+              id: outerId,
+              method: "Target.sendMessageToTarget",
+              params: {
+                targetId: pageTargetId,
+                message: JSON.stringify({ id: innerId, method, params }),
+              },
+            }),
+          );
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    async function evalExpr(expression) {
+      const r = await call("Runtime.evaluate", {
+        expression,
+        returnByValue: true,
+        awaitPromise: true,
+      });
+      if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails));
+      return r.result?.value;
+    }
+
+    return { ws, call, evalExpr, ensureTarget, close: () => ws.close() };
+  });
+}
+
 async function runIos() {
   const result = { surface: "ios", status: "NOT_RUN", checks: {}, fail: [], reason: null };
   const port = Number(process.env.IOS_WEBKIT_PORT || 9222);
   try {
-    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 4000 });
-    const context = browser.contexts()[0] ?? (await browser.newContext());
-    const page =
-      context.pages().find((p) => /samarket|dibay|localhost/i.test(p.url())) ?? context.pages()[0];
-    if (!page) {
+    const targets = listIosTargets(port);
+    const hit =
+      targets.find((t) => /samarket|dibay/i.test(String(t.url || ""))) ||
+      targets.find((t) => t.webSocketDebuggerUrl) ||
+      null;
+    if (!hit?.webSocketDebuggerUrl) {
       result.status = "NOT_RUN";
-      result.reason = "ios:no_page";
+      result.reason = targets.length ? "ios:no_samarket_page" : "ios:proxy_no_targets";
       return result;
     }
-    await page.goto(`${BASE}/mypage`, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-    await sleep(3000);
-    const hub = await probeHubLayout(page);
+    result.checks.targetUrl = hit.url;
+
+    const session = await createIosWebkitSession(hit.webSocketDebuggerUrl);
+    await session.ensureTarget();
+
+    await session.evalExpr(`(function(){ location.href = ${JSON.stringify(`${BASE}/mypage`)}; return true; })()`);
+    await sleep(4000);
+
+    const hub = await session.evalExpr(`(() => {
+      const text = document.body?.innerText || "";
+      const w = window.innerWidth;
+      const mobileMax = ${MYPAGE_MOBILE_MAX_PX};
+      const desktopMin = ${MYPAGE_DESKTOP_MIN_PX};
+      let expected = "mobile";
+      if (w > mobileMax && w < desktopMin) expected = "tablet";
+      if (w >= desktopMin) expected = "desktop";
+      return {
+        width: w,
+        expectedBand: expected,
+        path: location.pathname,
+        hasTrade: /판매|구매|거래|Sales|Purchases|Trade/i.test(text),
+        hasSupport: /고객|문의|약관|Support|Terms|Privacy|사업자|Business/i.test(text),
+        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        focusVisibleCssPresent: null,
+      };
+    })()`);
     result.checks.hub = hub;
-    if (!hub.path.includes("/mypage")) result.fail.push("hub:path");
+    if (!hub?.path?.includes("/mypage")) result.fail.push("hub:path");
+    if (!hub?.hasTrade) result.fail.push("hub:trade_missing");
+    if (!hub?.hasSupport) result.fail.push("hub:support_missing");
+    result.checks.responsiveNote = `phone_webview_band=${hub?.expectedBand}`;
+
+    result.checks.accessibility = {
+      focusVisibleCssPresent: hub?.focusVisibleCssPresent,
+      note: "smoke: skip CSSOM on iOS WebKit",
+    };
+    result.checks.animation = {
+      prefersReducedMotionReadable: typeof hub?.reducedMotion === "boolean",
+      note: "smoke: prefers-reduced-motion",
+    };
+
+    await session.evalExpr(
+      `(function(){ location.href = ${JSON.stringify(`${BASE}/mypage/trust`)}; return true; })()`,
+    );
+    await sleep(3000);
+    const trustPath = await session.evalExpr(`location.pathname`);
+    result.checks.trust = { path: trustPath, ok: String(trustPath || "").includes("/mypage/trust") };
+    if (!result.checks.trust.ok) result.fail.push("trust:entry");
+
+    await session.evalExpr(
+      `(function(){ location.href = ${JSON.stringify(`${BASE}/business-info`)}; return true; })()`,
+    );
+    await sleep(3000);
+    const bizPath = await session.evalExpr(`location.pathname`);
+    result.checks.business = { path: bizPath, ok: String(bizPath || "").includes("/business-info") };
+    if (!result.checks.business.ok) result.fail.push("business:entry");
+
+    await session.evalExpr(`(function(){ location.href = ${JSON.stringify(`${BASE}/mypage`)}; return true; })()`);
+    await sleep(2000);
+
+    session.close();
     result.status = result.fail.length === 0 ? "PASS" : "FAIL";
   } catch (e) {
-    result.status = "NOT_RUN";
-    result.reason = e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/ECONNREFUSED|proxy_no|no_samarket|no_page/i.test(msg)) {
+      result.status = "NOT_RUN";
+      result.reason = msg;
+    } else {
+      result.status = "FAIL";
+      result.reason = msg;
+      result.fail.push(`exception:${msg}`);
+    }
   }
   return result;
 }
@@ -384,9 +565,10 @@ async function main() {
   const statuses = Object.fromEntries(
     Object.entries(results).map(([k, v]) => [k, v.status]),
   );
-  const automatedOk =
-    (!results.windows || results.windows.status === "PASS") &&
-    (!results.tablet || results.tablet.status === "PASS");
+  const ran = Object.values(results);
+  const anyHardFail = ran.some((r) => r.status === "FAIL" || r.status === "BLOCKED");
+  const anyPass = ran.some((r) => r.status === "PASS");
+  const automatedOk = anyPass && !anyHardFail;
   const allSurfacesPass = ["windows", "tablet", "apk", "ios"].every(
     (k) => results[k]?.status === "PASS",
   );
@@ -395,9 +577,11 @@ async function main() {
     ok: automatedOk,
     verdict: allSurfacesPass
       ? "SLICE 9 MULTIPLATFORM RUNTIME PASS — LOCK eligible"
-      : automatedOk
-        ? "SLICE 9 PHASE1 HARNESS PASS — LOCK NOT ELIGIBLE (APK/iOS incomplete)"
-        : "SLICE 9 RUNTIME FAIL",
+      : results.ios?.status === "PASS" && PLATFORM === "ios"
+        ? "SLICE 9 iOS RUNTIME PASS — merge prior surfaces for LOCK"
+        : automatedOk
+          ? "SLICE 9 PHASE1 HARNESS PASS — LOCK NOT ELIGIBLE (matrix incomplete)"
+          : "SLICE 9 RUNTIME FAIL",
     lockEligible: allSurfacesPass,
     targetSha: TARGET_SHA || null,
     base: BASE,
