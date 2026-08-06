@@ -3,64 +3,36 @@
 ```text
 SLICE 1–9 LOCKED (유지)
 SLICE 10 DEAD CLEANUP AUTHORIZED
-SLICE 10 PHASE 1 INVENTORY APPROVED
 SLICE 10 PHASE 1 INVENTORY PASS
+SLICE 10 PHASE 2 BUNDLE A AUTHORIZED — type SSOT MERGE
+SLICE 10 PHASE 2 BUNDLE A PASS (AddressDefaultsFlags → lib/my/address-defaults-types)
 SLICE 11–12 NOT AUTHORIZED
 DELETES THIS PHASE: 0
+DEAD_PROVEN: 0
 ```
 
 ## Inventory artifact
 
 - Script: `scripts/qa/slice10-dead-cleanup-inventory.mjs`
-- JSON (linked): [`slice10-phase1-inventory.json`](./slice10-phase1-inventory.json)
-- Run log: `.qa-logs/customer-platform-slice10-inventory-*/`
+- JSON: [`slice10-phase1-inventory.json`](./slice10-phase1-inventory.json)
 
-## Classification counts
+## Phase 2 Bundle A (done)
 
-| Class | IDs |
-|-------|-----|
-| KEEP | `logout_multi_entry` |
-| MERGE_CANDIDATE | `MyProfileCard` (type `AddressDefaultsFlags` still imported from file) |
-| DEPRECATE_CANDIDATE | `MyInfoProfileSection`, `trade_legacy_routes` |
-| DEAD_CANDIDATE | `MypageInstagramView`, `SettingsMainContent`, `MyPageConsole`, `MyPageContent`, `MyInfoProfileCard`, `MyInfoProfileHubCard`, `MyInfoMiniProfile`, `ProfileCard_mypage`, `ProfileCard_my` |
-| DEAD_PROVEN | *(none — Phase 1 forbid for named live-reference candidates; bundle symbol NOT_SCANNED)* |
+| Change | Result |
+|--------|--------|
+| `AddressDefaultsFlags` SSOT | `lib/my/address-defaults-types.ts` only |
+| Callers migrated | `components/mypage/types.ts`, `lib/my/load-mypage-hub-extras-server.ts`, `MypageInstagramView.tsx` |
+| `MyProfileCard.tsx` | re-export deprecated shim; duplicate type removed |
+| Product imports of `@/components/my/MyProfileCard` | **0** (comment-only leftover in onboarding) |
 
-## Why named candidates are not DEAD_PROVEN
+## Next Phase 2 bundles (NOT AUTHORIZED until asked)
 
-| Candidate | Why references still “alive” |
-|-----------|------------------------------|
-| MypageInstagramView | No product JSX importer; `verify-mypage-authority-contract.mjs` reads file; owns Settings/Logout subtree |
-| SettingsMainContent | Rendered only inside `MypageInstagramView` settings sheet |
-| MyPageConsole | Component unused; **`MyPageConsoleProps` type** still used by ItemScreen/tabs |
-| MyInfoProfileCard | No TSX importer; catalog comment + disk file; replaced by `MypageProfileSummary` |
-| MyProfileCard | Component unused; **type imports** of `AddressDefaultsFlags` from this path (SSOT should be `lib/my/address-defaults-types.ts`) |
+1. verify 스크립트 레거시 파일 의존 제거
+2. 가장 단순한 DEAD_CANDIDATE 묶음 (HubCard / MiniProfile / ProfileCard×2)
+3. InstagramView + SettingsMainContent
+4. MyPageConsole + MyPageContent (+ Props rename)
+5. bundle symbol → DEAD_PROVEN → delete → build/runtime
 
-## Replacement Runtime evidence
+## Out of scope still
 
-| Domain | Evidence |
-|--------|----------|
-| Hub | Slice 3 UI RUNTIME LOCK + Slice 9 MULTIPLATFORM RUNTIME LOCK — `MyContent` → `MyPageHomeDashboard` |
-| Trade activity | Slice 5 ACTIVITY LOCK — `/mypage/trade/*` |
-| Logout | Slice 3 modal MOVE + Slice 6 ACCOUNT — `MyInfoAccountMenuSection` |
-
-## Phase 2 delete proposal (NOT AUTHORIZED)
-
-Requires separate approval + verify-script rewrite + type import migrate + bundle scan before any DEAD_PROVEN:
-
-1. `components/my/mypage/MypageInstagramView.tsx` (blocker: verify script)
-2. `components/my/settings/SettingsMainContent.tsx` (requires 1)
-3. `components/mypage/MyPageConsole.tsx` (keep/rename `MyPageConsoleProps` first or with merge)
-4. `components/mypage/MyPageContent.tsx` (requires 3)
-5. `components/mypage/myinfo/MyInfoProfileCard.tsx`
-6. `components/mypage/myinfo/MyInfoProfileHubCard.tsx`
-7. `components/mypage/myinfo/MyInfoMiniProfile.tsx`
-8. `components/mypage/ProfileCard.tsx`
-9. `components/my/ProfileCard.tsx`
-
-**MERGE first (not delete):** `components/my/MyProfileCard.tsx` — migrate `AddressDefaultsFlags` imports → `lib/my/address-defaults-types.ts`.
-
-**Not in Phase 2 delete list:** `trade_legacy_routes` (compat redirects), logout canonical CTAs (KEEP).
-
-## Out of scope
-
-Product code · route · redirect · i18n changes · Slice 11–12
+일괄 삭제 · Slice 11–12 · logout KEEP · trade legacy DEPRECATE 정책
