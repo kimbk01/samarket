@@ -496,23 +496,36 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     </span>
   ) : null;
 
+  const callStubBubble = (
+    <div
+      role="button"
+      aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
+      aria-disabled={stubBusy || undefined}
+      className={`inline-flex min-w-0 max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
+        longPressVisualActive
+          ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+          : ""
+      }`}
+      {...bindMessageInteraction}
+    >
+      {viberInnerBody}
+    </div>
+  );
+
   const callStubEventRow = (
     <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
       <div className="flex min-w-0 max-w-full items-end gap-1.5">
-        <div
-          role="button"
-          aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
-          aria-disabled={stubBusy || undefined}
-          className={`inline-flex min-w-0 max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
-            longPressVisualActive
-              ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
-              : ""
-          }`}
-          {...bindMessageInteraction}
-        >
-          {viberInnerBody}
-        </div>
-        {callStubTimeLabel}
+        {item.isMine ? (
+          <>
+            {callStubTimeLabel}
+            {callStubBubble}
+          </>
+        ) : (
+          <>
+            {callStubBubble}
+            {callStubTimeLabel}
+          </>
+        )}
       </div>
     </div>
   );
