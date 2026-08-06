@@ -7,12 +7,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
-import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
-import {
-  mannerBatteryAccentClass,
-  mannerBatteryTier,
-  mannerRawToPercent,
-} from "@/lib/trust/manner-battery";
+import { buildMemberTrustSurface } from "@/lib/trust/member-trust-surface";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_SECTION_HEADER_CLASS,
@@ -21,6 +16,7 @@ import {
 
 /**
  * Slice 3 IA: profile + manner (trust) on home.
+ * Slice 4: manner row score/tier parity with `/mypage/trust` via `buildMemberTrustSurface`.
  * Logout MOVE → Account section (Slice 2 Danger + modal still applies there).
  */
 export function MypageProfileSummary({
@@ -61,12 +57,10 @@ export function MypageProfileSummary({
       fallbackEn: "Add a short bio",
     });
 
-  const trustScore = resolveTrustScoreAuthority({
+  const trust = buildMemberTrustSurface({
     trust_score: projection.profile?.trust_score,
     manner_score: projection.profile?.manner_score,
   });
-  const mannerPercent = mannerRawToPercent(trustScore);
-  const mannerTier = mannerBatteryTier(mannerPercent);
 
   return (
     <section id="mypage-profile" className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start`}>
@@ -118,8 +112,8 @@ export function MypageProfileSummary({
         className="flex min-h-[44px] w-full items-center gap-3 border-t border-sam-border/80 px-4 py-3 text-left active:bg-sam-app/80"
       >
         <MannerBatteryIcon
-          tier={mannerTier}
-          percent={mannerPercent}
+          tier={trust.tier}
+          percent={trust.percent}
           size="md"
           className="shrink-0"
         />
@@ -130,8 +124,13 @@ export function MypageProfileSummary({
               fallbackEn: "Manner & trust",
             })}
           </span>
-          <span className={`mt-0.5 block text-[13px] tabular-nums ${mannerBatteryAccentClass(mannerTier)}`}>
-            {trustScore.toFixed(trustScore % 1 === 0 ? 0 : 2)}
+          <span
+            className={`mt-0.5 block text-[13px] tabular-nums ${trust.accentClass}`}
+            data-testid="mypage-profile-manner-score"
+          >
+            {trust.scoreLabel}
+            <span className="text-sam-muted"> · </span>
+            {trust.percentLabel}
           </span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />

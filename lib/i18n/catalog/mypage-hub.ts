@@ -164,6 +164,7 @@ export const mypageHubMessages = {
     mypage_trust_battery_hint_after:
       "에 배터리에 반영되는 경우가 많아요. 분쟁 처리 중에는 일시 보류될 수 있습니다.",
     mypage_trust_profile_edit_link: "프로필 수정에서 닉네임·지역 수정",
+    mypage_trust_score_label: "신뢰 점수",
     mypage_offers_sent_title: "내가 보낸 가격 제안",
     mypage_offers_received_title: "내가 받은 가격 제안",
     mypage_offers_sent_empty: "아직 보낸 가격 제안이 없습니다.",
@@ -361,6 +362,7 @@ export const mypageHubMessages = {
     mypage_trust_battery_hint_after:
       ". They may be held temporarily while a dispute is handled.",
     mypage_trust_profile_edit_link: "Edit nickname and region in profile",
+    mypage_trust_score_label: "Trust score",
     mypage_offers_sent_title: "Offers I sent",
     mypage_offers_received_title: "Offers I received",
     mypage_offers_sent_empty: "You have not sent any price offers yet.",

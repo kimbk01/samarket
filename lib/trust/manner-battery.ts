@@ -38,14 +38,17 @@ export function mannerBatteryFilledSegments(tier: MannerBatteryTier): number {
   return tier;
 }
 
-/** 스펙 [6] 색 — 1 빨강 … 6 진한 초록 */
+/**
+ * Spec [6] fill — low tiers = status (not brand); high tiers = DIBAY green HARD LOCK.
+ * DO NOT use Karrot product orange as brand fill.
+ */
 export const MANNER_BATTERY_TIER_COLORS: Record<MannerBatteryTier, string> = {
   1: "#EF4444",
-  2: "#EA580C",
-  3: "#EAB308",
-  4: "#A3E635",
-  5: "#22C55E",
-  6: "#15803D",
+  2: "#DC2626",
+  3: "#CA8A04",
+  4: "#4D7C0F",
+  5: "#166534",
+  6: "#0B421A", // --dibay-green
 };
 
 export function mannerBatteryAccentClass(tier: MannerBatteryTier): string {
@@ -53,14 +56,14 @@ export function mannerBatteryAccentClass(tier: MannerBatteryTier): string {
     case 1:
       return "text-red-500";
     case 2:
-      return "text-orange-600";
+      return "text-red-600";
     case 3:
-      return "text-yellow-500";
+      return "text-yellow-600";
     case 4:
-      return "text-lime-500";
+      return "text-lime-700";
     case 5:
-      return "text-green-600";
+      return "text-sam-primary";
     default:
-      return "text-green-800";
+      return "text-sam-primary";
   }
 }
