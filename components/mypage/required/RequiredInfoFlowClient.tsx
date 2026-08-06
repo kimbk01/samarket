@@ -1,39 +1,33 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSection";
-import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  RequiredInfoActiveStepPanel,
+  type RequiredInfoPhoneSettings,
+} from "@/components/mypage/required/RequiredInfoActiveStepPanel";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { invalidateMandatoryAddressGateClientCache, readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
+import {
+  invalidateMandatoryAddressGateClientCache,
+  readMandatoryAddressGateNeedsBlock,
+} from "@/lib/addresses/mandatory-address-gate-client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import {
-  buildRequiredInfoAddressHref,
   deriveRequiredInfoBundleFromProfile,
   isRequiredInfoBundleComplete,
   resolveFirstIncompleteStep,
   resolveRequiredInfoStepIndex,
   type RequiredInfoStep,
 } from "@/lib/mypage/required-info-flow";
-import {
-  PROFILE_EDIT_PRIMARY_BTN_CLASS,
-} from "@/lib/ui/profile-edit-starbucks-styles";
-
-type PhoneSettings = {
-  enabled: boolean;
-  provider: "supabase" | "semaphore";
-  guideText: string;
-  resendCooldownSeconds: number;
-};
+import { PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 
 export function RequiredInfoFlowClient() {
   const router = useRouter();
@@ -41,7 +35,7 @@ export function RequiredInfoFlowClient() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [hasDefaultAddress, setHasDefaultAddress] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [phoneSettings, setPhoneSettings] = useState<PhoneSettings | null>(null);
+  const [phoneSettings, setPhoneSettings] = useState<RequiredInfoPhoneSettings | null>(null);
 
   const refreshBundle = useCallback(async () => {
     const [p, needsBlock] = await Promise.all([
@@ -74,8 +68,8 @@ export function RequiredInfoFlowClient() {
         setPhoneSettings({
           enabled: s.enabled === true,
           provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
-          guideText: String(s["guide_text"] ?? ""),
-          resendCooldownSeconds: Number(s["resend_cooldown_seconds"] ?? 60),
+          guideText: String(s.guide_text ?? ""),
+          resendCooldownSeconds: Number(s.resend_cooldown_seconds ?? 60),
         });
       } else {
         setPhoneSettings(null);
@@ -111,31 +105,6 @@ export function RequiredInfoFlowClient() {
 
   const activeStep = useMemo(() => resolveFirstIncompleteStep(bundle), [bundle]);
   const bundleComplete = isRequiredInfoBundleComplete(bundle);
-
-  const phoneSnapshot = useMemo(() => {
-    if (!profile) return null;
-    return {
-      phone: profile.phone ?? null,
-      ["phone_country_code"]: profile.phone_country_code ?? null,
-      ["phone_number"]: profile.phone_number ?? null,
-      ["phone_verified"]: profile.phone_verified === true,
-      ["phone_verified_at"]: profile.phone_verified_at ?? null,
-      ["phone_verification_status"]: profile.phone_verification_status ?? null,
-      ["member_status"]: profile.member_status ?? null,
-      role: profile.role ?? null,
-      email: profile.auth_login_email ?? profile.email ?? null,
-      provider: profile.provider ?? profile.auth_provider ?? null,
-      ["auth_provider"]: profile.auth_provider ?? profile.provider ?? null,
-      settings: phoneSettings
-        ? {
-            enabled: phoneSettings.enabled,
-            provider: phoneSettings.provider,
-            ["guide_text"]: phoneSettings.guideText,
-            ["resend_cooldown_seconds"]: phoneSettings.resendCooldownSeconds,
-          }
-        : undefined,
-    };
-  }, [phoneSettings, profile]);
 
   const handleDibayIdConfirmed = useCallback(
     async (confirmedDibayId: string) => {
@@ -235,60 +204,14 @@ export function RequiredInfoFlowClient() {
         </span>
       </div>
 
-      {activeStep === "dibay-id" ? (
-        <div data-testid="required-info-flow-step" data-step="dibay-id">
-          <ProfileDibayIdSection
-            dibay_id={profile.dibay_id ?? null}
-            dibay_id_locked={profile.dibay_id_locked === true}
-            dibay_id_auto_assigned={profile.dibay_id_auto_assigned === true}
-            dibay_id_changed_once={profile.dibay_id_changed_once === true}
-            username={profile.username ?? profile.dibay_id ?? null}
-            username_confirmed={profile.username_confirmed ?? null}
-            onConfirmed={handleDibayIdConfirmed}
-          />
-        </div>
-      ) : null}
-
-      {activeStep === "phone" && phoneSnapshot ? (
-        <div data-testid="required-info-flow-step" data-step="phone">
-          {phoneSettings && !phoneSettings.enabled ? (
-            <p className="sam-text-body text-sam-muted">{t("mypage_comp_phone_verify_disabled")}</p>
-          ) : (
-            <PhoneVerificationBox snapshot={phoneSnapshot} onRefreshProfile={handlePhoneRefresh} />
-          )}
-        </div>
-      ) : null}
-
-      {activeStep === "address" ? (
-        <div
-          className="flex flex-col gap-4"
-          data-testid="required-info-flow-step"
-          data-step="address"
-        >
-          <p className="sam-text-body text-sam-muted">
-            {safeT("mypage_required_flow_address_body", {
-              fallbackKo: "대표 주소를 등록해 주세요",
-              fallbackEn: "Add your default address",
-            })}
-          </p>
-          <Link
-            href={buildRequiredInfoAddressHref()}
-            className={`${PROFILE_EDIT_PRIMARY_BTN_CLASS} inline-flex items-center justify-center`}
-            data-testid="required-info-flow-address-cta"
-          >
-            {safeT("mypage_required_flow_address_cta", {
-              fallbackKo: "주소 등록하기",
-              fallbackEn: "Add address",
-            })}
-          </Link>
-          <p className="sam-text-helper text-sam-muted">
-            {safeT("mypage_required_flow_address_return_hint", {
-              fallbackKo: "주소 등록 후 이 화면으로 돌아오면 다음 단계가 이어집니다.",
-              fallbackEn: "Return here after adding your address to continue.",
-            })}
-          </p>
-        </div>
-      ) : null}
+      <RequiredInfoActiveStepPanel
+        activeStep={activeStep}
+        profile={profile}
+        phoneSettings={phoneSettings}
+        onDibayIdConfirmed={handleDibayIdConfirmed}
+        onPhoneRefresh={handlePhoneRefresh}
+        addressMode="link"
+      />
     </div>
   );
 }

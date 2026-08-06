@@ -53,7 +53,7 @@ export function MyPageHomeDashboard({
         ) : (
           <>
             <MypageProfileSummary projection={projection} />
-            <MypageRequiredInfoSummary projection={projection} />
+            <MypageRequiredInfoSummary projection={projection} onProfileRefresh={onProfileRefresh} />
           </>
         )}
 

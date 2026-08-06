@@ -22,7 +22,7 @@ Feature-catalog cards are **not** IA authority.
 ## 2. Profile / required
 
 - One identity start: avatar · name · DIBAY ID · manner summary · edit entry.  
-- Required incomplete → compact CTA under profile.  
+- Required incomplete → **inline inputs** under manner battery (same as `/mypage/required`: dibay id check · phone OTP · address).  
 - Required complete → **hide** home complete card; edit via account/sheets.  
 - Address: no duplicate home-complete + address-menu twin CTA when complete.
 

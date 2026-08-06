@@ -1,304 +1,200 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
+import {
+  RequiredInfoActiveStepPanel,
+  type RequiredInfoPhoneSettings,
+} from "@/components/mypage/required/RequiredInfoActiveStepPanel";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
-import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
-import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
+import {
+  invalidateMandatoryAddressGateClientCache,
+  readMandatoryAddressGateNeedsBlock,
+} from "@/lib/addresses/mandatory-address-gate-client";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
-import type { RequiredInfoStatus } from "@/lib/mypage/mypage-home-snapshot";
-import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
-import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
-import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import {
+  deriveRequiredInfoBundleFromProfile,
+  isRequiredInfoBundleComplete,
+  resolveFirstIncompleteStep,
+  resolveRequiredInfoStepIndex,
+} from "@/lib/mypage/required-info-flow";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { getMyProfile } from "@/lib/profile/getMyProfile";
+import type { ProfileRow } from "@/lib/profile/types";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_SECTION_HEADER_CLASS,
   MYPAGE_HOME_SECTION_LABEL_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
-type RequiredStepId = "dibay-id" | "phone" | "address";
-
-type RequiredInfoRow = {
-  id: RequiredStepId;
-  icon: MypageHomeMenuIconId;
-  title: string;
-  status: RequiredInfoStatus;
-  badge: string;
-  value: string;
-  ctaLabel?: string;
-  onCtaClick?: () => void;
-  changeLabel?: string;
-  onChangeClick?: () => void;
-};
-
-const PHONE_COUNTRY_CODE_KEY = ["phone", "country", "code"].join("_") as "phone_country_code";
-const PHONE_NUMBER_KEY = ["phone", "number"].join("_") as "phone_number";
-
-function pickTrimmed(input: unknown): string {
-  return typeof input === "string" ? input.trim() : "";
-}
-
-function resolvePhoneDisplay(profile: NonNullable<MypageHomeProjection["profile"]>): string {
-  const formatted = formatProfilePhoneForDisplay({
-    phone: profile.phone ?? null,
-    [PHONE_COUNTRY_CODE_KEY]: profile.phone_country_code ?? null,
-    [PHONE_NUMBER_KEY]: profile.phone_number ?? null,
-  }).trim();
-  if (formatted) return formatted;
-  const phone = pickTrimmed(profile.phone);
-  if (phone) return phone;
-  const countryCode = pickTrimmed(profile.phone_country_code);
-  const phoneNumber = pickTrimmed(profile.phone_number);
-  return [countryCode, phoneNumber].filter(Boolean).join(" ").trim();
-}
-
-function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
-  const isComplete = row.status === "complete";
-  const isRequired = row.status === "required";
-  const isUnknown = row.status === "unknown";
-
-  const shellClass = isRequired
-    ? "border-[#E53935]/45 bg-[#FFF5F5] shadow-[inset_3px_0_0_0_#E53935] cursor-pointer active:opacity-90"
-    : "border-[#D4E9E2] bg-white";
-  const badgeClass = isRequired
-    ? "bg-[#FDECEC] text-[#C62828]"
-    : isUnknown
-      ? "bg-[#F2F0EB] text-[#6F4E37]"
-      : "bg-[#E8F3EE] text-[#00704A]";
-
-  const openSheet = () => {
-    if (isRequired && row.onCtaClick) row.onCtaClick();
-  };
-
-  return (
-    <li
-      className={`rounded-ui-rect border ${shellClass}`}
-      data-required-step={row.id}
-      data-state={row.status}
-      onClick={isRequired ? openSheet : undefined}
-      onKeyDown={
-        isRequired
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openSheet();
-              }
-            }
-          : undefined
-      }
-      role={isRequired ? "button" : undefined}
-      tabIndex={isRequired ? 0 : undefined}
-    >
-      <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={isComplete ? "mt-0.5 text-[#00704A]" : isRequired ? "mt-0.5 text-[#C62828]" : "mt-0.5 text-[#6F4E37]"}>
-          {isComplete ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : renderMypageHomeMenuIcon(row.icon)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={`text-[15px] font-semibold ${isRequired ? "text-[#B71C1C]" : "text-[#1E3932]"}`}>{row.title}</p>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${badgeClass}`}>{row.badge}</span>
-          </div>
-          <p className={`mt-1 truncate text-[13px] leading-snug ${isRequired ? "text-[#C62828]" : "text-[#6F4E37]"}`}>
-            {row.value}
-          </p>
-        </div>
-        {row.onCtaClick && row.ctaLabel && isRequired ? (
-          <span className="shrink-0 rounded-full bg-[#C62828] px-3.5 py-2 text-[13px] font-semibold text-white">
-            {row.ctaLabel}
-          </span>
-        ) : row.onChangeClick && row.changeLabel && isComplete ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              row.onChangeClick?.();
-            }}
-            className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
-          >
-            {row.changeLabel}
-          </button>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-/** 필수 정보 — unknown 에서는 빨간 “등록 필요” 금지 */
+/**
+ * Incomplete required info — inline inputs under manner battery (same methods as `/mypage/required`).
+ * Complete → hide (manage via account / sheets). DO NOT fetch address-defaults here.
+ */
 export function MypageRequiredInfoSummary({
   projection,
+  onProfileRefresh,
 }: {
   projection: MypageHomeProjection | null;
+  onProfileRefresh?: () => void;
 }) {
   const { safeT } = useI18n();
   const { openSheet } = useMypageProfileSheets();
-  /** Projection-only — DO NOT fetch address-defaults here (parent `useMypageHomeModel` owns network). */
-  const addressValueText =
-    resolveRepresentativeFullAddressLineFromSnapshot(peekFreshAddressDefaultsSnapshot())?.trim() ?? "";
+  const [profile, setProfile] = useState<ProfileRow | null>(projection?.profile ?? null);
+  const [hasDefaultAddress, setHasDefaultAddress] = useState(
+    projection?.addressStatus === "complete",
+  );
+  const [phoneSettings, setPhoneSettings] = useState<RequiredInfoPhoneSettings | null>(null);
 
-  const phoneStatus: RequiredInfoStatus = projection?.phoneStatus ?? "unknown";
-  const addressStatus: RequiredInfoStatus = projection?.addressStatus ?? "unknown";
-  const hasDibayId = projection?.hasDibayId === true;
-  const dibayStatus: RequiredInfoStatus = !projection
-    ? "unknown"
-    : hasDibayId
-      ? "complete"
-      : "required";
+  useEffect(() => {
+    setProfile(projection?.profile ?? null);
+    if (projection?.addressStatus === "complete") setHasDefaultAddress(true);
+    if (projection?.addressStatus === "required") setHasDefaultAddress(false);
+  }, [projection]);
 
-  const publicIdView = projection?.profile
-    ? evaluatePublicIdProfileView(projection.profile)
-    : null;
+  const loadPhoneSettings = useCallback(async () => {
+    try {
+      const settingsRes = await runSingleFlight("me:phone-verification:get", () =>
+        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
+      );
+      const j = (await settingsRes.json()) as {
+        ok?: boolean;
+        verification?: {
+          settings?: {
+            enabled?: boolean;
+            provider?: string;
+            guide_text?: string;
+            resend_cooldown_seconds?: number;
+          };
+        };
+      };
+      const s = j?.verification?.settings;
+      if (j?.ok && s) {
+        setPhoneSettings({
+          enabled: s.enabled === true,
+          provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
+          guideText: String(s.guide_text ?? ""),
+          resendCooldownSeconds: Number(s.resend_cooldown_seconds ?? 60),
+        });
+      } else {
+        setPhoneSettings(null);
+      }
+    } catch {
+      setPhoneSettings(null);
+    }
+  }, []);
 
-  const completeCount = [dibayStatus, phoneStatus, addressStatus].filter((s) => s === "complete").length;
-  const knownCount = [dibayStatus, phoneStatus, addressStatus].filter((s) => s !== "unknown").length;
-  const bundleComplete = knownCount === 3 && completeCount === 3;
+  const refreshLocal = useCallback(async () => {
+    invalidateMeProfileDedupedCache();
+    invalidateMandatoryAddressGateClientCache();
+    const [fresh, needsBlock] = await Promise.all([
+      getMyProfile(),
+      readMandatoryAddressGateNeedsBlock(),
+    ]);
+    if (fresh) {
+      setProfile(fresh);
+      setSupabaseProfileCache(profileRowToClientProfile(fresh));
+    }
+    setHasDefaultAddress(!needsBlock);
+    onProfileRefresh?.();
+    return fresh;
+  }, [onProfileRefresh]);
 
-  const checkingLabel = safeT("mypage_required_status_checking", {
-    fallbackKo: "확인 중",
-    fallbackEn: "Checking",
-  });
+  useEffect(() => {
+    if (!projection || projection.phoneStatus === "complete") return;
+    void loadPhoneSettings();
+  }, [loadPhoneSettings, projection]);
 
-  const dibayIdBadge =
-    dibayStatus === "unknown"
-      ? checkingLabel
-      : dibayStatus === "required"
-        ? safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" })
-        : publicIdView?.autoAssigned && publicIdView.canChangeOnce
-          ? safeT("mypage_required_dibay_id_auto_assigned_badge", {
-              fallbackKo: "자동 부여됨",
-              fallbackEn: "Auto-assigned",
-            })
-          : publicIdView?.changeComplete
-            ? safeT("mypage_required_dibay_id_change_complete_badge", {
-                fallbackKo: "변경 완료",
-                fallbackEn: "Change complete",
-              })
-            : safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" });
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      invalidateMandatoryAddressGateClientCache();
+      void refreshLocal();
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [refreshLocal]);
 
-  const dibayIdValue =
-    dibayStatus === "unknown"
-      ? safeT("mypage_required_value_checking", { fallbackKo: "확인 중…", fallbackEn: "Checking…" })
-      : hasDibayId
-        ? projection?.username ??
-          (projection?.profile ? resolvePublicIdAtDisplay(projection.profile) : null) ??
-          ""
-        : safeT("mypage_required_dibay_id_recover_hint", {
-            fallbackKo: "아이디가 없습니다. 복구가 필요합니다.",
-            fallbackEn: "No ID found. Recovery is required.",
-          });
+  const bundle = useMemo(
+    () => deriveRequiredInfoBundleFromProfile(profile, { hasDefaultAddress }),
+    [hasDefaultAddress, profile],
+  );
 
-  const phoneValue =
-    phoneStatus === "unknown"
-      ? safeT("mypage_required_value_checking", { fallbackKo: "확인 중…", fallbackEn: "Checking…" })
-      : phoneStatus === "complete" && projection?.profile
-        ? resolvePhoneDisplay(projection.profile)
-        : safeT("mypage_required_phone_active_hint", {
-            fallbackKo: "전화번호 인증이 필요합니다.",
-            fallbackEn: "Phone verification is required.",
-          });
+  const activeStep = useMemo(() => resolveFirstIncompleteStep(bundle), [bundle]);
+  const bundleComplete = isRequiredInfoBundleComplete(bundle);
 
-  const addressValue =
-    addressStatus === "unknown"
-      ? safeT("mypage_required_value_checking", { fallbackKo: "확인 중…", fallbackEn: "Checking…" })
-      : addressStatus === "complete"
-        ? addressValueText ||
-          safeT("mypage_required_status_address_done", {
-            fallbackKo: "등록 완료",
-            fallbackEn: "Registered",
-          })
-        : safeT("mypage_required_address_active_hint", {
-            fallbackKo: "대표 주소를 등록해 주세요.",
-            fallbackEn: "Please add your default address.",
-          });
+  const handleDibayIdConfirmed = useCallback(
+    async (confirmedDibayId: string) => {
+      if (!confirmedDibayId.trim()) return;
+      await refreshLocal();
+    },
+    [refreshLocal],
+  );
 
-  /** Complete → hide home card (MOVE to account/sheets). Incomplete → compact CTA only. */
+  const handlePhoneRefresh = useCallback(async () => {
+    const fresh = await refreshLocal();
+    await loadPhoneSettings();
+    if (fresh && hasVerifiedPhone(fresh)) return;
+  }, [loadPhoneSettings, refreshLocal]);
+
+  const knownFromProjection =
+    !!projection &&
+    projection.phoneStatus !== "unknown" &&
+    projection.addressStatus !== "unknown";
+
+  /** Complete → hide home card (account / sheets own edits). */
   if (bundleComplete) {
     return null;
   }
 
-  const allRows: RequiredInfoRow[] = [
-    {
-      id: "dibay-id",
-      icon: "user-round",
-      title: safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" }),
-      status: dibayStatus,
-      badge: dibayIdBadge,
-      value: dibayIdValue,
-      ctaLabel:
-        dibayStatus === "required"
-          ? safeT("mypage_required_dibay_id_recover_btn", { fallbackKo: "복구", fallbackEn: "Recover" })
-          : undefined,
-      onCtaClick: dibayStatus === "required" ? () => openSheet("dibay-id") : undefined,
-      changeLabel:
-        dibayStatus === "complete" && publicIdView?.canChangeOnce
-          ? safeT("mypage_required_dibay_id_change_once_action", {
-              fallbackKo: "1회 변경",
-              fallbackEn: "Change once",
-            })
-          : undefined,
-      onChangeClick:
-        dibayStatus === "complete" && publicIdView?.canChangeOnce
-          ? () => openSheet("dibay-id")
-          : undefined,
-    },
-    {
-      id: "phone",
-      icon: "phone",
-      title: safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" }),
-      status: phoneStatus,
-      badge:
-        phoneStatus === "unknown"
-          ? checkingLabel
-          : phoneStatus === "complete"
-            ? safeT("mypage_required_status_phone_done", {
-                fallbackKo: "인증 완료",
-                fallbackEn: "Verified",
-              })
-            : safeT("mypage_required_status_phone_needed", {
-                fallbackKo: "인증 필요",
-                fallbackEn: "Verification needed",
-              }),
-      value: phoneValue,
-      ctaLabel:
-        phoneStatus === "required"
-          ? safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" })
-          : undefined,
-      onCtaClick: phoneStatus === "required" ? () => openSheet("phone") : undefined,
-    },
-    {
-      id: "address",
-      icon: "address-pin",
-      title: safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" }),
-      status: addressStatus,
-      badge:
-        addressStatus === "unknown"
-          ? checkingLabel
-          : addressStatus === "complete"
-            ? safeT("mypage_required_status_address_done", {
-                fallbackKo: "등록 완료",
-                fallbackEn: "Registered",
-              })
-            : safeT("mypage_required_status_address_needed", {
-                fallbackKo: "등록 필요",
-                fallbackEn: "Address needed",
-              }),
-      value: addressValue,
-      ctaLabel:
-        addressStatus === "required"
-          ? safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" })
-          : undefined,
-      onCtaClick: addressStatus === "required" ? () => openSheet("address") : undefined,
-    },
-  ];
+  /** Still resolving projection — no form flash. */
+  if (!projection || !profile || !knownFromProjection) {
+    return (
+      <section
+        className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
+        data-testid="mypage-required-info-card"
+        data-state="checking"
+      >
+        <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
+          <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
+            {safeT("mypage_required_section_title", {
+              fallbackKo: "필수 정보",
+              fallbackEn: "Required info",
+            })}
+          </h2>
+          <p className="text-[13px] leading-snug text-[#6F4E37]">
+            {safeT("mypage_required_checking_desc", {
+              fallbackKo: "필수 정보 상태를 확인하고 있습니다.",
+              fallbackEn: "Checking required info status.",
+            })}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
-  /** Compact: pending/unknown only — completed rows stay in account area. */
-  const rows = allRows.filter((row) => row.status !== "complete");
+  if (!activeStep) {
+    return null;
+  }
+
+  const stepIndex = resolveRequiredInfoStepIndex(activeStep);
+  const stepTitle =
+    activeStep === "dibay-id"
+      ? safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" })
+      : activeStep === "phone"
+        ? safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" })
+        : safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" });
 
   return (
     <section
       className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
       data-testid="mypage-required-info-card"
-      data-state={knownCount < 3 ? "checking" : "incomplete"}
+      data-state="incomplete"
+      data-active-step={activeStep}
     >
       <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
         <div className="flex items-center justify-between gap-3">
@@ -309,33 +205,32 @@ export function MypageRequiredInfoSummary({
             })}
           </h2>
           <span
-            className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
-              completeCount < knownCount || knownCount < 3
-                ? "bg-[#F2F0EB] text-[#6F4E37]"
-                : "bg-[#FDECEC] text-[#C62828]"
-            }`}
+            className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[12px] font-bold text-[#C62828]"
+            data-testid="required-info-flow-progress"
           >
-            {completeCount}/3
+            {stepIndex}/3
           </span>
         </div>
         <p className="text-[13px] leading-snug text-[#6F4E37]">
-          {knownCount < 3
-            ? safeT("mypage_required_checking_desc", {
-                fallbackKo: "필수 정보 상태를 확인하고 있습니다.",
-                fallbackEn: "Checking required info status.",
-              })
-            : safeT("mypage_required_incomplete_desc", {
-                fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
-                fallbackEn: "Complete the required items below to continue using the service.",
-              })}
+          {safeT("mypage_required_incomplete_desc", {
+            fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
+            fallbackEn: "Complete the required items below to continue using the service.",
+          })}
         </p>
+        <p className="text-[14px] font-semibold text-[#1E3932]">{stepTitle}</p>
       </div>
 
-      <ul className="space-y-2 p-3">
-        {rows.map((row) => (
-          <RequiredInfoStatusRow key={row.id} row={row} />
-        ))}
-      </ul>
+      <div className="space-y-3 px-3 pb-4 pt-1">
+        <RequiredInfoActiveStepPanel
+          activeStep={activeStep}
+          profile={profile}
+          phoneSettings={phoneSettings}
+          onDibayIdConfirmed={handleDibayIdConfirmed}
+          onPhoneRefresh={handlePhoneRefresh}
+          addressMode="sheet"
+          onAddressOpen={() => openSheet("address")}
+        />
+      </div>
     </section>
   );
 }
