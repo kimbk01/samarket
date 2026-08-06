@@ -1,6 +1,10 @@
 /**
  * 신뢰 점수(0~100) — 내부 산출·단계 매핑 (UI는 배터리 6단계)
  * 참고: 외부 스펙(이벤트 가중·구간)과 정렬, 운영 판단은 주석에 명시
+ *
+ * CONTRACT (Slice 1 / Architecture LOCK):
+ * Runtime Authority = profiles.trust_score (+ reputation_logs via applyTrustScoreDelta).
+ * Member `temperature` and Admin detail trust_score are projections of the same SSOT.
  */
 
 /** 배터리 시각 칸 수 (단계 수) */

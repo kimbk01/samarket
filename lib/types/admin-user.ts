@@ -127,6 +127,8 @@ export interface AdminUserDetail {
   verified_member_at: string | null;
   created_at: string | null;
   hasProfile: boolean;
+  /** User Facts Trust SSOT — profiles.trust_score (0–100) */
+  trust_score?: number | null;
 }
 
 export interface UserActivitySummary {

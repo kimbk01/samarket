@@ -503,7 +503,7 @@ export async function GET(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
+      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail, trust_score"
     )
     .eq("id", rawId)
     .maybeSingle();
@@ -542,6 +542,7 @@ export async function GET(
       member_status?: string | null;
       verified_member_at?: string | null;
       created_at?: string | null;
+      trust_score?: number | null;
     };
     const fromProfileLines = resolveProfileLocationAddressLines({
       region_code: prof.region_code,
@@ -583,6 +584,10 @@ export async function GET(
       verified_member_at: prof.verified_member_at ?? null,
       created_at: prof.created_at ?? null,
       hasProfile: true,
+      trust_score:
+        prof.trust_score != null && Number.isFinite(Number(prof.trust_score))
+          ? Number(prof.trust_score)
+          : null,
     };
     return NextResponse.json({ ok: true, user });
   }

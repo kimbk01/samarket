@@ -14,27 +14,64 @@ import {
 } from "@/lib/trust/manner-battery";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { resolveMemberTrustDisplayScore } from "@/lib/trust/trust-score-ssot";
 
 export default function MyTrustPage() {
   const { t } = useI18n();
   const [temp, setTemp] = useState<number | null>(() => {
     const u = getHydrationSafeCurrentUser();
-    return u?.temperature ?? null;
+    return resolveMemberTrustDisplayScore({
+      trust_score: u?.trust_score,
+      temperature: u?.temperature,
+    });
   });
 
   useEffect(() => {
-    const sync = () => {
+    const syncFromSession = () => {
       const u = getCurrentUser();
-      setTemp(u?.temperature ?? null);
+      setTemp(
+        resolveMemberTrustDisplayScore({
+          trust_score: u?.trust_score,
+          temperature: u?.temperature,
+        }),
+      );
     };
-    sync();
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, sync);
+    syncFromSession();
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, syncFromSession);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/profile", { credentials: "include" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          profile?: { trust_score?: number | null; temperature?: number | null };
+          trust_score?: number | null;
+          temperature?: number | null;
+        };
+        const row = data.profile ?? data;
+        if (cancelled) return;
+        setTemp(
+          resolveMemberTrustDisplayScore({
+            trust_score: row.trust_score,
+            temperature: row.temperature,
+          }),
+        );
+      } catch {
+        /* session projection already set */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, syncFromSession);
+    };
   }, []);
 
   const mannerPercent = temp != null ? mannerRawToPercent(temp) : null;
   const mannerTier = mannerPercent != null ? mannerBatteryTier(mannerPercent) : null;
   const batteryLabel = getAppSettings().speedDisplayLabel ?? t("mypage_trust_title");
+  // CONTRACT (Slice 1): display from profiles.trust_score via /api/me/profile; temperature is projection only.
 
   return (
     <div className="min-h-screen bg-background">

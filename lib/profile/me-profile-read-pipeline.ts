@@ -12,6 +12,7 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
 
 /** `runMeProfileReadPipeline` 단계별 벽시계(ms) — `[dev-api-perf]` 합산용 + `ensureUserProfile` 세부 */
 export type MeProfilePipelinePerf = EnsureUserProfileMetrics & {
@@ -202,7 +203,10 @@ export async function runMeProfileReadPipeline(args: {
 
 /** POST /api/auth/profile/ensure 과 동일 형태의 `profile` 객체 (하위 호환). */
 export function profileRowToEnsureApiPayload(row: ProfileRow) {
-  const temp = row.trust_score ?? row.manner_score ?? 50;
+  const temp = resolveTrustScoreAuthority({
+    trust_score: row.trust_score,
+    manner_score: row.manner_score,
+  });
   return {
     id: row.id,
     email: row.email ?? "",

@@ -3,11 +3,15 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { resolveDisplayName } from "@/lib/users/user-label";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
+import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
 
 /** `/api/me/profile`·RLS 조회 결과를 앱 `Profile`(헤더·게이트) 형태로 맞춘다. */
 export function profileRowToClientProfile(row: ProfileRow): Profile {
   const nick = resolveDisplayName(row);
-  const temp = row.trust_score ?? row.manner_score ?? 50;
+  const temp = resolveTrustScoreAuthority({
+    trust_score: row.trust_score,
+    manner_score: row.manner_score,
+  });
   return {
     id: row.id,
     email: row.email ?? "",

@@ -80,5 +80,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, appliedDelta: baseDelta });
+  let trustScore = TRUST_SCORE_DEFAULT;
+  try {
+    const { data: prof } = await sbAny
+      .from("profiles")
+      .select("trust_score")
+      .eq("id", targetUserId)
+      .maybeSingle();
+    const ts = (prof as { trust_score?: number } | null)?.trust_score;
+    if (ts != null && Number.isFinite(Number(ts))) trustScore = clampTrustScore(Number(ts));
+  } catch {
+    /* ignore */
+  }
+
+  return NextResponse.json({ ok: true, appliedDelta: baseDelta, trustScore });
 }
