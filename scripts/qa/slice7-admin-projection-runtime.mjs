@@ -88,22 +88,34 @@ async function login(loginId) {
     const adminSb = createClient(url, sk, { auth: { persistSession: false } });
     const { data: pr } = await adminSb
       .from("profiles")
-      .select("id, role, username")
+      .select("id, role, username, active_session_id")
       .eq("id", session.user.id)
       .maybeSingle();
-    write(`login-${loginId}-profile.json`, { id: pr?.id, role: pr?.role, username: pr?.username });
+    write(`login-${loginId}-profile.json`, {
+      id: pr?.id,
+      role: pr?.role,
+      username: pr?.username,
+    });
+    const sid = String(pr?.active_session_id ?? "").trim();
+    if (sid) cookie += `; samarket_active_session_id=${encodeURIComponent(sid)}`;
   }
   return { session, cookie, userId: session.user.id };
 }
 
 async function fetchJson(path, cookie, init = {}) {
-  const res = await fetch(`${BASE}${path}`, {
+  const sep = path.includes("?") ? "&" : "?";
+  const bust = `${path}${sep}_ts=${Date.now()}`;
+  const res = await fetch(`${BASE}${bust}`, {
     ...init,
     headers: {
+      accept: "application/json",
+      cookie,
+      "cache-control": "no-store",
+      pragma: "no-store",
+      ...(init.body ? { "content-type": "application/json" } : {}),
       ...(init.headers || {}),
-      Cookie: cookie,
-      Accept: "application/json",
     },
+    cache: "no-store",
     redirect: "manual",
   });
   const text = await res.text();
@@ -133,11 +145,13 @@ async function main() {
   const member = await login(MEMBER_LOGIN);
   if (member.userId !== MEMBER_ID) die("member_id_mismatch", { got: member.userId });
 
-  // Member profile SSOT
   const memberProf = await fetchJson("/api/me/profile?fresh=1", member.cookie);
   write("member-profile.json", memberProf);
-  if (memberProf.status !== 200 || !memberProf.json?.ok) die("member_profile_failed", memberProf);
-  const memberTrust = Number(memberProf.json?.profile?.trust_score ?? memberProf.json?.trust_score);
+  if (memberProf.status !== 200) die("member_profile_failed", memberProf);
+  const memberTrust = Number(
+    memberProf.json?.profile?.trust_score ?? memberProf.json?.trust_score,
+  );
+  if (!Number.isFinite(memberTrust)) die("member_trust_missing", memberProf);
 
   // Admin trust projection
   const trustGet = await fetchJson(`/api/admin/users/${MEMBER_ID}/trust`, admin.cookie);
