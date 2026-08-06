@@ -210,7 +210,7 @@ const CANDIDATES = [
     forbidDeadProven: true,
     symbols: ["MyProfileCard"],
     pathNeedle: "components/my/MyProfileCard",
-    note: "Component unused; AddressDefaultsFlags type still imported from this file (SSOT should be lib/my/address-defaults-types.ts)",
+    note: "Bundle A moved AddressDefaultsFlags SSOT; Bundle C deletes unused component+shim after 0 product imports",
     replacement: {
       typeSsot: "lib/my/address-defaults-types.ts",
       component: "MypageProfileSummary",
@@ -354,20 +354,20 @@ function analyze(c) {
   // why alive
   if (c.id === "MypageInstagramView") {
     row.whyReferencesAlive =
-      "No product JSX importer. Alive via scripts/verify-mypage-authority-contract.mjs file read + owns SettingsMainContent/LogoutActionTrigger subtree.";
+      "No product JSX importer after Bundle B verify rewrite; only coupled to SettingsMainContent (orphan island).";
   } else if (c.id === "SettingsMainContent") {
-    row.whyReferencesAlive = "Value-imported and rendered only inside MypageInstagramView settings sheet.";
+    row.whyReferencesAlive = "Value-imported only inside MypageInstagramView (orphan island).";
   } else if (c.id === "MyPageConsole") {
     row.whyReferencesAlive =
-      "MyPageConsole() has zero value importers. Name lives as MyPageConsoleProps type used by MyPageItemScreen, AccountTab, StoreTab, MyPageContent.";
+      "MyPageConsole() zero value importers. MyPageConsoleProps type lives in types.ts (ItemScreen/tabs) — not this file.";
   } else if (c.id === "MyProfileCard") {
     row.whyReferencesAlive =
-      "MyProfileCard() unused. AddressDefaultsFlags type still imported from this file by types.ts, load-mypage-hub-extras-server.ts, MypageInstagramView (duplicate of lib/my/address-defaults-types.ts).";
+      "MyProfileCard() and deprecated AddressDefaultsFlags re-export unused; callers use lib/my/address-defaults-types.ts.";
   } else if (c.id === "MyInfoProfileCard") {
     row.whyReferencesAlive =
       "No TSX importer of component. Catalog comment + file on disk; superseded by MypageProfileSummary.";
   } else if (c.id === "MyPageContent") {
-    row.whyReferencesAlive = "Only value-imported by MyPageConsole (itself DEAD_CANDIDATE).";
+    row.whyReferencesAlive = "Only value-imported by MyPageConsole (orphan island).";
   } else if (c.id === "MyInfoProfileHubCard" || c.id === "MyInfoMiniProfile") {
     row.whyReferencesAlive = "Zero product importers found; superseded by MypageProfileSummary.";
   } else if (c.id === "MyInfoProfileSection") {
@@ -376,7 +376,7 @@ function analyze(c) {
     row.whyReferencesAlive = "Zero path/symbol importers outside self file.";
   } else if (c.id === "logout_multi_entry") {
     row.whyReferencesAlive =
-      "Canonical Account Danger CTA + ProfileSettingsSheet + ProfileEditForm + legacy InstagramView + LogoutContent self-row.";
+      "Canonical Account Danger CTA + ProfileSettingsSheet + ProfileEditForm + LogoutContent (legacy InstagramView removed Bundle C).";
   } else if (c.id === "trade_legacy_routes") {
     row.whyReferencesAlive =
       "Compat redirects in next.config + app/(main)/mypage/{purchases,sales,reviews}/page.tsx → trade hub (Slice 5). External deep links may still hit them.";
@@ -413,14 +413,14 @@ function analyze(c) {
   }
   if (c.id === "MypageInstagramView") {
     row.deletablePhase2 = true;
-    row.phase2Blockers = ["SettingsMainContent still couples; optional shim on MyProfileCard unrelated"];
+    row.phase2Requires = ["SettingsMainContent"];
   }
 
   if (c.path && row.evidence.fileExists === false) {
     row.classification = CLASS.PROVEN;
     row.deletablePhase2 = false;
     row.deleted = true;
-    row.whyReferencesAlive = "File deleted (Slice 10 Phase 2 Bundle B).";
+    row.whyReferencesAlive = "File deleted (Slice 10 Phase 2 DEAD_PROVEN).";
     row.evidence.productionBundleSymbol = "ABSENT_POST_DELETE";
     row.evidence.bundleSymbol = "ABSENT";
   }

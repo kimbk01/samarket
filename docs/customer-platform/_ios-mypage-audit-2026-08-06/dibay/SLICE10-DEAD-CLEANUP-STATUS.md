@@ -5,31 +5,31 @@ SLICE 1–9 LOCKED (유지)
 SLICE 10 PHASE 1 INVENTORY PASS
 SLICE 10 PHASE 2 BUNDLE A PASS (type SSOT)
 SLICE 10 PHASE 2 BUNDLE B PASS
-  - verify legacy file-read removed
-  - simplest orphans DEAD_PROVEN + deleted
+SLICE 10 PHASE 2 BUNDLE C PASS
+  - InstagramView + SettingsMainContent DEAD_PROVEN + deleted
+  - MyPageConsole + MyPageContent DEAD_PROVEN + deleted
+  - MyProfileCard shim DEAD_PROVEN + deleted
+  - MyPageConsoleProps remains in types.ts (live)
 SLICE 11–12 NOT AUTHORIZED
 ```
 
-## Bundle B deletes (DEAD_PROVEN)
+## Bundle C deletes (DEAD_PROVEN)
 
 | File | Evidence |
 |------|----------|
-| `MyInfoProfileSection.tsx` | verify read removed; static importer 0; bundle 0 |
-| `MyInfoProfileHubCard.tsx` | static 0; bundle 0 |
-| `MyInfoMiniProfile.tsx` | static 0; bundle 0 |
-| `MyInfoProfileCard.tsx` | static 0; catalog comment renamed (was false bundle hit) |
-| `components/mypage/ProfileCard.tsx` | path importer 0 |
-| `components/my/ProfileCard.tsx` | path importer 0 |
+| `MypageInstagramView.tsx` | product value-import 0; verify no longer file-reads; hub = `MyContent`→`MyPageHomeDashboard` |
+| `SettingsMainContent.tsx` | only importer was InstagramView; app settings routes do not import it |
+| `MyPageConsole.tsx` | component value-import 0; `MyPageConsoleProps` is in `types.ts` only |
+| `MyPageContent.tsx` | only importer was MyPageConsole |
+| `MyProfileCard.tsx` | component + deprecated re-export unused; AddressDefaultsFlags SSOT = `lib/my/address-defaults-types.ts` |
 
-## Bundle B non-deletes (still open)
+## Still open (not deleted)
 
 | Item | Status |
 |------|--------|
-| `MypageInstagramView` + `SettingsMainContent` | DEAD_CANDIDATE (coupled) |
-| `MyPageConsole` + `MyPageContent` | DEAD_CANDIDATE (`MyPageConsoleProps` still live) |
-| `MyProfileCard` shim | MERGE leftover re-export |
 | `logout_multi_entry` | KEEP |
 | `trade_legacy_routes` | DEPRECATE_CANDIDATE |
+| `MyPageConsoleProps` (type name in `types.ts`) | LIVE — rename out of Bundle C scope |
 
 ## Gates
 
@@ -38,4 +38,4 @@ SLICE 11–12 NOT AUTHORIZED
 
 ## Next (NOT AUTHORIZED)
 
-InstagramView+Settings · Console Props rename · MyProfileCard shim remove · Slice 11–12
+Slice 11 Product Runtime Regression · Slice 12 PRODUCT PASS / HARD LOCK
