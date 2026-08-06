@@ -14,7 +14,6 @@ import { LeaveContent } from "@/components/my/settings/LeaveContent";
 import { NoticesContent } from "@/components/my/settings/NoticesContent";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
-import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
@@ -26,9 +25,18 @@ import { StoreTab } from "@/components/mypage/tabs/StoreTab";
 import { TradeTab } from "@/components/mypage/tabs/TradeTab";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { MYPAGE_DOMAIN_ROOT_PATH } from "@/lib/mypage/mypage-authority-contract";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { mannerBatteryAccentClass, mannerBatteryTier, mannerRawToPercent } from "@/lib/trust/manner-battery";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+
+function LogoutItemRedirectToHub() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(MYPAGE_DOMAIN_ROOT_PATH);
+  }, [router]);
+  return null;
+}
 
 export function MyPageItemScreen(
   props: MyPageConsoleProps & { section: string; item: string },
@@ -189,12 +197,8 @@ export function MyPageItemScreen(
       return <VersionContent />;
     }
     if (item === "logout") {
-      return (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="mb-3 sam-text-helper text-sam-muted">{t("mypage_comp_logout_hint")}</p>
-          <LogoutActionTrigger autoOpen />
-        </div>
-      );
+      // Slice 2 Authority: push confirm surface forbidden — send to hub.
+      return <LogoutItemRedirectToHub />;
     }
     if (item === "leave") {
       return <LeaveContent />;

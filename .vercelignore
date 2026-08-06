@@ -9,3 +9,7 @@ dist/apk/**/*.apk
 
 # Local QA scripts output (large logs)
 docs/perf/**/*.log
+.qa-logs/
+docs/customer-platform/_ios-mypage-audit-2026-08-06/
+docs/customer-platform/_ios-cs-captures/
+tmp-a1-evidence/

@@ -36,7 +36,9 @@ export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHre
   return true;
 }
 
-/** 하단·다이얼 공통 — 이미 **동일 경로+쿼리**면 스크롤만. 하위 경로→허브 루트는 이동. */
+/** 하단·다이얼 공통 — 이미 **동일 경로+쿼리**면 스크롤만. 하위 경로→허브 루트는 이동.
+ * Slice 2 Authority: `/mypage` 더블탭 My → scroll_only (`isMypageDomainHubPath` + 본 함수).
+ */
 export function shouldMainBottomNavRouteScrollOnly(
   pathname: string | null,
   currentSearchNoQuestion: string,

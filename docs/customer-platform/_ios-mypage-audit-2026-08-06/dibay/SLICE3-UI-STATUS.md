@@ -5,56 +5,46 @@ SLICE 1 FACTS LOCKED
 SLICE 2 AUTHORITY LOCKED
 SLICE 2.5 DESIGN SYSTEM HARD LOCKED
 SLICE 3 UI CODE LOCKED
-SLICE 3 DEPLOY / RUNTIME NOT YET
+SLICE 3 DEPLOYED
+APK PASS
+Tablet PASS
+Windows PASS
+iOS PASS
+CTA PASS
+Logout Authority PASS
+Scroll/Back PASS
+Existing Feature Entry PASS
+SLICE 3 UI RUNTIME PASS
+SLICE 3 UI RUNTIME LOCK
 ```
 
-## ProfileSettingsSheet logout (Authority check)
+## Deploy countermeasure
 
-| Check | Result |
-|-------|--------|
-| Writer | same `LogoutActionTrigger` |
-| Confirm | same `LogoutConfirmModal` (Danger modal) |
-| Variant | `danger_button` (allowed Danger) |
-| Separate writer / confirm | **No** — Slice 2 Authority OK |
+Dirty worktree → ~3.4GB Vercel upload fail.  
+**Fix:** `bash scripts/deploy-prod-clean-worktree.sh`  
+`dpl_7XS5rZL1QGJeCrEhqZjBtck7BBvq` → `samarket.vercel.app` Ready  
+Content base: `fa3e6b4a2` (scroll restore included)
 
-Hub Account uses `menu_row` → same trigger + same modal.
+## Runtime evidence
 
-## KEEP / MOVE / MERGE / ADD
+| Gate | Evidence |
+|------|----------|
+| APK | `.qa-logs/customer-platform-slice3-runtime-2026-08-06T06-32-55-709Z/` |
+| Tablet | `.qa-logs/customer-platform-slice3-runtime-2026-08-06T06-35-27-086Z/` |
+| Windows | `.qa-logs/slice3-runtime-windows.json` |
+| iOS | `.qa-logs/customer-platform-slice3-ios-2026-08-06T06-47-41-800Z/SUMMARY.json` · script `scripts/qa/slice3-ios-webkit-hub-runtime.mjs` |
 
-| Action | Item | Evidence |
-|--------|------|----------|
-| KEEP | Points, required, store, account rows, service, support | hub sections retained |
-| MOVE | Logout off profile → Account | `MyInfoAccountMenuSection` `menu_row` + modal |
-| MERGE | Trade activity onto home | `MYPAGE_HOME_TRADE_ITEMS` + `MyInfoTradeMenuSection` |
-| ADD | Manner/trust on profile | `mypage-profile-manner-row` → `/mypage/trust` |
-| ADD | Privacy in support | `/privacy` in `MYPAGE_HOME_SUPPORT_ITEMS` |
+Password: env/manual only — **not** in code, commits, status docs, or SUMMARY.
 
-## Hub order (mobile)
+## iOS checklist (PASS)
 
-Profile(+manner) → assets → required → **trade** → store → **account(+logout)** → service → support
+- `/mypage` · section order · profile/manner/trade/account/support
+- logout `menu_row` → Danger modal (cancel)
+- account entry → back · scroll restore
+- My double-tap → top
+- trade · privacy entry
 
-## Code files (this slice)
+## Next
 
-| Path | Role |
-|------|------|
-| `lib/mypage/mypage-home-menu-config.ts` | Trade + privacy items |
-| `components/mypage/home/MypageProfileSummary.tsx` | Manner row; logout removed |
-| `components/mypage/myinfo/MyInfoHomeMenuSections.tsx` | Trade section; account logout |
-| `components/mypage/MyPageHomeDashboard.tsx` | IA reorder |
-| `components/mypage/myinfo/MyInfoProfileSection.tsx` | Logout removed (legacy surface) |
-
-## Explicitly not in this Runtime gate yet
-
-- Production deploy / SHA match
-- APK · iOS · Windows · Tablet home IA Runtime
-- CTA · modal · scroll · existing entry verification
-- Auth / Messenger / Call / Badge (unchanged by design)
-
-## Next (fixed)
-
-1. Isolated commit (Slice 3 hub only)
-2. `origin/main` push
-3. Production deploy
-4. SHA match
-5. Multi-runtime home IA
-6. → **SLICE 3 UI RUNTIME LOCK**
+Slice 4+ **forbidden** until explicit authorization.  
+Slice 2/2.5 dirty HOLD remains uncommitted (untouched).

@@ -10,6 +10,7 @@ import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettin
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
 import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
@@ -979,7 +980,9 @@ function AccountSection({
           <ActionRow href="/mypage/settings/hidden-users" label={t("settings_hidden_users")} />
           <ActionRow href="/mypage/settings/blocked-users" label={t("settings_blocked_users")} />
           <ActionRow href="/mypage/settings/leave" label={t("mypage_hub_leave")} />
-          <ActionRow href="/mypage/logout" label={t("mypage_hub_logout")} />
+          <div className="px-0">
+            <LogoutActionTrigger variant="menu_row" label={t("mypage_hub_logout")} surface="card" />
+          </div>
         </div>
       </SectionCard>
 

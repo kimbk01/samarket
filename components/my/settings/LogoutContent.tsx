@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * Slice 2 Authority (CTA):
+ * - Logout confirm = modal (`LogoutConfirmModal`) only — never push-page confirm.
+ * - Allowed Danger variants: `danger_button` | `menu_row` (see `MYPAGE_LOGOUT_DANGER_VARIANTS`).
+ * - Forbidden on profile hub chrome: `text_link` | Primary styling.
+ * - Slice 3 MOVE: primary hub logout is Account menu (`menu_row`), not profile chrome.
+ */
+
 import { useState } from "react";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
 import {
@@ -9,9 +17,11 @@ import {
 import { logoutDiBaYAllDevices } from "@/lib/auth/logout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
+import type { MypageLogoutDangerVariant } from "@/lib/mypage/mypage-authority-contract";
 
 type LogoutActionTriggerProps = {
-  variant?: "danger_button" | "menu_row" | "outlined_button" | "text_link";
+  /** Prefer Danger kinds on Member surfaces. Profile hub: `danger_button` | `menu_row` only. */
+  variant?: MypageLogoutDangerVariant | "outlined_button" | "text_link";
   surface?: "card" | "grouped";
   label?: string;
   autoOpen?: boolean;

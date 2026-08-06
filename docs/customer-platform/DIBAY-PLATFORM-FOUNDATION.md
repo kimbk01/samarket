@@ -15,11 +15,14 @@ SLICE 1 FACTS LOCKED
 SLICE 2 AUTHORITY LOCKED
 SLICE 2.5 DESIGN SYSTEM HARD LOCKED
 SLICE 3 UI CODE LOCKED
-SLICE 3 DEPLOY / RUNTIME NOT YET
+SLICE 3 DEPLOYED
+SLICE 3 UI RUNTIME PASS
+SLICE 3 UI RUNTIME LOCK
 ```
 
-다음: Slice 3 배포 → SHA → 실기 Runtime → **SLICE 3 UI RUNTIME LOCK**.  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE3-UI-STATUS.md`
+다음: **Slice 4+** 는 별도 인가 후.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE3-UI-STATUS.md`  
+(비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
 
@@ -30,11 +33,10 @@ AUDIT PASS — IMPLEMENTATION READY
 제품 코드: Architecture LOCK 후 Slice 1부터
 ```
 
-Production SHA = HEAD = origin/main =  
-`20d97f01e8602f72acb98a5947f2e452746af83c`  
-증거: Vercel API v13 `meta.githubCommitSha` / `gitSource.sha`  
-(`dpl_F4GoxQPSUAC2aKY2fMZ3nU1aMLov` · alias `samarket.vercel.app`)  
-상세: `_ios-mypage-audit-2026-08-06/dibay/PROD-SHA-STATUS.txt`
+Production SHA / deploy = HEAD worktree `fa3e6b4a2167ea00517ffb20bc6ea07c0222924d`  
+`dpl_7XS5rZL1QGJeCrEhqZjBtck7BBvq` · alias `samarket.vercel.app`  
+(CLI clean-worktree; GitHub meta SHA may be null)  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE3-UI-STATUS.md`
 
 ---
 
@@ -110,5 +112,5 @@ LOCK 세션에서 TBD를 확정값으로 채우기 전 Slice 1 구현 금지.
 3. ~~Slice 1 Facts~~ → **FACTS LOCKED**  
 4. ~~Slice 2 Authority~~ → **AUTHORITY LOCKED**  
 5. ~~Slice 2.5 Design+A11y~~ → **HARD LOCK**  
-6. ~~Slice 3 UI hub IA code~~ → **CODE LOCKED** (`SLICE3-UI-STATUS.md`)  
-7. Slice 3 deploy / Runtime → **NOT YET**  
+6. ~~Slice 3 UI hub IA code~~ → **CODE LOCKED** + **DEPLOYED** (`fa3e6b4a2…`)  
+7. ~~Slice 3 Runtime~~ → **PASS / LOCK** (APK·Tablet·Windows·iOS)  

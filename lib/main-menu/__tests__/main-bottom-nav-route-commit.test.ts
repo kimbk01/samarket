@@ -52,6 +52,14 @@ describe("shouldMainBottomNavRouteScrollOnly", () => {
     ).toBe(true);
   });
 
+  it("Slice2 Authority: /mypage hub double-tap → scroll_only", () => {
+    expect(shouldMainBottomNavRouteScrollOnly("/mypage", "", "/mypage")).toBe(true);
+  });
+
+  it("Slice2 Authority: /mypage/settings → /mypage is navigation not scroll_only", () => {
+    expect(shouldMainBottomNavRouteScrollOnly("/mypage/settings", "", "/mypage")).toBe(false);
+  });
+
   it("동일 path·query 다름 — 이동", () => {
     expect(
       shouldMainBottomNavRouteScrollOnly(

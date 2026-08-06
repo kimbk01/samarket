@@ -78,6 +78,8 @@
     "verify:canonical-owner-routes": "node scripts/verify-canonical-owner-routes.cjs",
     "verify:mypage-legacy-render-ban": "node scripts/verify-mypage-legacy-render-ban.cjs",
     "verify:mypage-root-network-contract": "node scripts/verify-mypage-root-network-contract.cjs",
+    "verify:mypage-authority-contract": "node scripts/verify-mypage-authority-contract.mjs",
+    "verify:design-system-hard-lock": "node scripts/verify-design-system-hard-lock.mjs",
     "verify:delivery-customer-owner-boundary": "node scripts/verify-delivery-customer-owner-boundary.cjs",
     "verify:delivery-cache-namespace": "node scripts/verify-delivery-cache-namespace.cjs",
     "verify:delivery-notification-scope": "node scripts/verify-delivery-notification-scope.cjs",
