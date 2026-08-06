@@ -26,11 +26,11 @@ SLICE 5 ACTIVITY CODE LOCKED
 SLICE 5 DEPLOYED
 SLICE 5 RUNTIME PASS
 SLICE 5 ACTIVITY LOCK
+SLICE 6 ACCOUNT IN PROGRESS
 ```
 
-다음: **Slice 6+** 는 별도 인가 후.  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE5-ACTIVITY-STATUS.md`  
-제품/Git: **`251f945b8`** · `dpl_4a9tKg2NbDfzp7YLKF7VhQw5SdJc`  
+다음: **Slice 6 Account** AUTHORIZED · IN PROGRESS.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE6-ACCOUNT-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---

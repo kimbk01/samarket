@@ -153,7 +153,7 @@ export function SettingsTab({ section }: { section: string }) {
               {" · "}
               <Link href="/privacy" className="text-signature underline">{t("mypage_comp_settings_privacy_link")}</Link>
               {" · "}
-              <Link href="/account/delete-request" className="text-signature underline">{t("mypage_comp_settings_delete_account_link")}</Link>
+              <Link href="/mypage/section/settings/leave" className="text-signature underline">{t("mypage_comp_settings_delete_account_link")}</Link>
             </p>
           </div>
         </SettingsBlock>

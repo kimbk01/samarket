@@ -132,6 +132,32 @@ const nextConfig = {
         destination: "/mypage/trade/reviews",
         permanent: false,
       },
+      /** Slice 6 Account — address / leave parallel shells */
+      {
+        source: "/mypage/section/settings/address",
+        destination: "/mypage/addresses",
+        permanent: false,
+      },
+      {
+        source: "/mypage/section/store/address",
+        destination: "/mypage/addresses",
+        permanent: false,
+      },
+      {
+        source: "/mypage/section/account/account-info",
+        destination: "/mypage/account",
+        permanent: false,
+      },
+      {
+        source: "/mypage/section/account/profile",
+        destination: "/mypage/account",
+        permanent: false,
+      },
+      {
+        source: "/account/delete-request",
+        destination: "/mypage/section/settings/leave",
+        permanent: false,
+      },
     ];
   },
   async headers() {

@@ -3,6 +3,8 @@ import type {
   MypageHomeMenuItemConfig,
 } from "@/lib/mypage/mypage-home-menu-types";
 import {
+  MYPAGE_HOME_ACCOUNT_HREF,
+  MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
   MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
@@ -79,7 +81,7 @@ export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
 
 export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
   {
-    href: "/mypage/account",
+    href: MYPAGE_HOME_ACCOUNT_HREF,
     titleKey: "mypage_settings_account",
     icon: "user-round",
   },
@@ -108,6 +110,13 @@ export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
     href: "/mypage/section/settings/country",
     titleKey: "mypage_comp_menu_account_region_title",
     icon: "globe",
+  },
+  /** Slice 6: leave MOVE into Account (Danger) */
+  {
+    href: MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
+    titleKey: "settings_leave",
+    icon: "hand",
+    tone: "danger",
   },
 ];
 
@@ -156,12 +165,6 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
     href: "/mypage/section/settings/version",
     titleKey: "settings_version",
     icon: "info",
-  },
-  {
-    href: "/mypage/section/settings/leave",
-    titleKey: "settings_leave",
-    icon: "hand",
-    tone: "danger",
   },
 ];
 

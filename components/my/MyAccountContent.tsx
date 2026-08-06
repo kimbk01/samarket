@@ -55,7 +55,7 @@ export function MyAccountContent() {
             {t("profile_guest_login_cta")}
           </button>
         </div>
-        <Link href="/my" className="block text-center sam-text-body text-sam-muted">{t("common_back_to_mypage")}</Link>
+        <Link href="/mypage" className="block text-center sam-text-body text-sam-muted">{t("common_back_to_mypage")}</Link>
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function MyAccountContent() {
         </dl>
         {!contactVerified ? (
           <Link
-            href="/my/account/phone-verification"
+            href="/mypage/required/phone"
             className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center sam-text-body font-semibold text-signature"
           >
             {t("account_phone_cta")}
