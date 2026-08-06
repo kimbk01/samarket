@@ -130,6 +130,18 @@ describe("orders hub store review shell", () => {
   });
 });
 
+describe("platform legal public surfaces", () => {
+  it.each(["/terms", "/privacy", "/business-info"])(
+    "%s hides OwnerLite strip and global write FAB",
+    (path) => {
+      const f = resolveConditionalAppShellFlags(path, false);
+      expect(f.showFloat).toBe(false);
+      expect(f.showOwnerLiteStoreBar).toBe(false);
+      expect(f.showMainBottomNavFabSector).toBe(false);
+    },
+  );
+});
+
 describe("desktop side nav eligibility", () => {
   it("/mypage hub enables desktop side nav eligibility with bottom nav", () => {
     const f = resolveConditionalAppShellFlags("/mypage", false);

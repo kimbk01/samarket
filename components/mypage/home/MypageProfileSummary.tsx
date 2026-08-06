@@ -128,9 +128,8 @@ export function MypageProfileSummary({
             className={`mt-0.5 block text-[13px] tabular-nums ${trust.accentClass}`}
             data-testid="mypage-profile-manner-score"
           >
+            {/* Single SSOT text — score only; battery icon carries visual fill (no second % number). */}
             {trust.scoreLabel}
-            <span className="text-sam-muted"> · </span>
-            {trust.percentLabel}
           </span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />

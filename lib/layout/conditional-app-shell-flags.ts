@@ -33,6 +33,19 @@ export function isTermsPagePathname(pathname: string | null | undefined): boolea
 }
 
 /**
+ * 공개 법적·사업자 문서 표면 — `/terms` · `/privacy` · `/business-info`.
+ * DO NOT leave global `+` FAB (`FloatingAddButton`) or external OwnerLite (store name strip)
+ * on these surfaces (APK/iOS overlap with safe-top / bottom nav).
+ */
+export function isPlatformLegalPublicPathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  if (isTermsPagePathname(p)) return true;
+  if (p === "/privacy" || p.startsWith("/privacy/")) return true;
+  if (p === "/business-info" || p.startsWith("/business-info/")) return true;
+  return false;
+}
+
+/**
  * Member Notification Center — `/notifications` · `/notifications/[id]`.
  * DO NOT leave global `+` FAB or external OwnerLite (above safe-top) on this surface.
  */
@@ -226,7 +239,7 @@ export function resolveConditionalAppShellFlags(
       ? storeCartViewportLockedShellClass
       : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
-  const isTermsPage = isTermsPagePathname(pathname);
+  const isLegalPublicPage = isPlatformLegalPublicPathname(pathname);
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
   const isCommunityApp =
@@ -273,7 +286,7 @@ export function resolveConditionalAppShellFlags(
     !isOrdersHub &&
     !isTradeFloatingSurface &&
     !isTradeMeetSpotPickRoute &&
-    !isTermsPage;
+    !isLegalPublicPage;
   /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
   const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
@@ -292,7 +305,7 @@ export function resolveConditionalAppShellFlags(
     !isCommunityMessengerSurface &&
     !isCommunityApp &&
     !isPersonalProductComposerPage &&
-    !isTermsPage;
+    !isLegalPublicPage;
   /**
    * External OwnerLite — OFF on Notification Center (sticky/above-title).
    * OwnerLite on `/notifications` mounts **in page body below title** only

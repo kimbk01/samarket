@@ -2,6 +2,8 @@
  * Slice 4 — Member trust/profile display surface (home manner row ↔ `/mypage/trust`).
  * Authority: `profiles.trust_score` via `resolveMemberTrustDisplayScore` (Slice 1 SSOT).
  * DO NOT: invent a second score; show session temperature alone when DB trust exists.
+ * DO NOT: render both scoreLabel and percentLabel as twin numbers in Member UI —
+ * one text SSOT (`scoreLabel`) + MannerBatteryIcon visual fill only.
  */
 
 import {

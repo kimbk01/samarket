@@ -23,7 +23,7 @@ function surfaceFromSession(): MemberTrustSurface {
 }
 
 export default function MyTrustPage() {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const [surface, setSurface] = useState<MemberTrustSurface>(() => surfaceFromSession());
   const authorityFromApiRef = useRef(false);
 
@@ -96,21 +96,12 @@ export default function MyTrustPage() {
               size="lg"
             />
           </div>
+          {/* Single Member text SSOT = profiles.trust_score (Admin parity). Battery icon is visual only. */}
           <p
             className={`mt-2 sam-text-hero font-bold tabular-nums ${surface.accentClass}`}
-            data-testid="mypage-trust-percent"
-          >
-            {surface.percentLabel}
-          </p>
-          <p
-            className="mt-1 text-[15px] font-semibold tabular-nums text-sam-fg"
             data-testid="mypage-trust-score"
           >
-            {safeT("mypage_trust_score_label", {
-              fallbackKo: "신뢰 점수",
-              fallbackEn: "Trust score",
-            })}{" "}
-            <span className={surface.accentClass}>{surface.scoreLabel}</span>
+            {surface.scoreLabel}
           </p>
           <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted">
             {t("mypage_trust_battery_hint_before")}{" "}
