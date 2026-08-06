@@ -202,4 +202,9 @@ export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "mypage_comp_settings_privacy_link",
     icon: "shield",
   },
+  {
+    href: "/business-info",
+    titleKey: "mypage_comp_menu_support_business_title",
+    icon: "store",
+  },
 ];

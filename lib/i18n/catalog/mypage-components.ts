@@ -745,6 +745,9 @@ export const mypageComponentsMessages = {
     mypage_comp_settings_terms_p2: "정확한 프로필, 지역, 연락처 정보는 거래와 주문 신뢰도에 직접 연결됩니다.",
     mypage_comp_settings_terms_anchor: "이용약관",
     mypage_comp_settings_privacy_link: "개인정보처리방침",
+    mypage_comp_menu_support_business_title: "사업자 정보",
+    business_info_page_title: "사업자 정보",
+    business_info_empty: "등록된 사업자 정보가 없습니다.",
     mypage_comp_settings_delete_account_link: "계정 삭제 요청",
 
     mypage_comp_account_logout_hint: "로그아웃을 누르면 확인 팝업에서 바로 종료됩니다.",
@@ -1554,6 +1557,9 @@ export const mypageComponentsMessages = {
     mypage_comp_settings_terms_p2: "Accurate profile, region, and contact info directly affect trust in trades and orders.",
     mypage_comp_settings_terms_anchor: "Terms of service",
     mypage_comp_settings_privacy_link: "Privacy policy",
+    mypage_comp_menu_support_business_title: "Business information",
+    business_info_page_title: "Business information",
+    business_info_empty: "Business information is not available yet.",
     mypage_comp_settings_delete_account_link: "Request account deletion",
 
     mypage_comp_account_logout_hint: "Tap log out to end your session after confirming.",
