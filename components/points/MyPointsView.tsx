@@ -42,20 +42,27 @@ export function MyPointsView() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pointsRes, plansRes] = await Promise.all([
+      const [pointsRes, plansPayload] = await Promise.all([
         runSingleFlight("me:points:get", () => fetch("/api/me/points", { cache: "no-store" })),
-        runSingleFlight("me:point-plans:get", () => fetch("/api/me/point-plans", { cache: "no-store" })),
+        // Shared parsed payload — never share a one-shot Response body across joiners.
+        runSingleFlight("me:point-plans:get", async () => {
+          const res = await fetch("/api/me/point-plans", { cache: "no-store" });
+          const body = (await res.json().catch(() => ({}))) as {
+            plans?: PointPlan[];
+            error?: string;
+          };
+          return { ok: res.ok, plans: body.plans, error: body.error };
+        }),
       ]);
       const j = (await pointsRes.clone().json()) as {
         balance?: number;
         ledger?: PointLedgerEntry[];
         chargeRequests?: PointChargeRequest[];
       };
-      const plansJson = (await plansRes.json()) as { plans?: PointPlan[] };
       setBalance(j.balance ?? 0);
       setLedger(j.ledger ?? []);
       setCharges(j.chargeRequests ?? []);
-      setPlans(plansJson.plans ?? []);
+      setPlans(Array.isArray(plansPayload.plans) ? plansPayload.plans : []);
     } finally {
       setLoading(false);
     }

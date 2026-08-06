@@ -39,16 +39,28 @@ function MyPointsChargePageInner() {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await runSingleFlight("me:point-plans:get", () =>
-        fetch("/api/me/point-plans", { credentials: "include", cache: "no-store" }),
-      );
-      const j = (await res.json().catch(() => ({}))) as { plans?: PointPlan[]; error?: string };
-      if (!res.ok) {
+      // Parse inside the flight so concurrent joiners share JSON, not a one-shot Response body.
+      const j = await runSingleFlight("me:point-plans:get", async () => {
+        const res = await fetch("/api/me/point-plans", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          plans?: PointPlan[];
+          error?: string;
+        };
+        return { ok: res.ok, ...body };
+      });
+      if (!j.ok) {
         setLoadError(j.error ?? t("points_ui_request_failed"));
         setPlans([]);
         return;
       }
-      setPlans(Array.isArray(j.plans) ? j.plans : []);
+      const next = Array.isArray(j.plans) ? j.plans : [];
+      setPlans(next);
+      if (next.length === 0) {
+        setLoadError(t("points_ui_request_failed"));
+      }
     } catch {
       setLoadError(t("points_ui_request_failed"));
       setPlans([]);
