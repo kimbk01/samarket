@@ -2,43 +2,52 @@
 
 ```text
 SLICE 4 LOCK 유지
-PRODUCTION ALIGNED @ c79b880d2
-PRODUCT BASELINE = c79b880d2
-origin/main tip may include docs-only after align
-SLICE 5 ACTIVITY AUTHORIZED
-SLICE 5 CODE IN PROGRESS
+PRODUCT BASELINE (pre-Slice5) = c79b880d2
+SLICE 5 ACTIVITY CODE LOCKED
+SLICE 5 DEPLOYED
+SLICE 5 RUNTIME PASS
+SLICE 5 ACTIVITY LOCK
 ```
 
-## Scope
-
-Activity only: 거래·구매·판매·관심·후기·작성글 등 KEEP/MOVE/MERGE.  
-기능 삭제 금지. Runtime PASS 전 dead file 삭제 금지.  
-Out: Auth · Messenger · Call · Badge · CMS · Slice 1–4 LOCK churn.
-
-## Audit — KEEP / MOVE / MERGE
-
-| Surface | Canonical | Action | Notes |
-|---------|-----------|--------|-------|
-| Home trade block | `MYPAGE_HOME_TRADE_ITEMS` | KEEP | Slice 3 MERGE 유지 |
-| Trade hub | `/mypage/trade/*` | KEEP SSOT | |
-| Purchases | `/mypage/trade` | KEEP | MERGE `/mypage/purchases` → redirect |
-| Sales | `/mypage/trade/sales` | KEEP | MERGE `/mypage/sales` → redirect |
-| Favorites | `/mypage/trade/favorites` | KEEP | `/my/favorites` already redirects |
-| Reviews (mgmt) | `/mypage/trade/reviews` | KEEP | MERGE `/mypage/reviews` → redirect |
-| Recent | `/mypage/recent-viewed` | KEEP | MERGE section `trade:recent` → same |
-| Offers | `/mypage/offers*` | KEEP | Chrome unify only |
-| Products | `/mypage/products` | MERGE → sales hub redirect | Dual seller UI |
-| Community posts/activity | hub paths | KEEP | QUICK; not trade MERGE |
-| Trade chat | `/mypage/trade/chat*` | KEEP | Messenger boundary — no change |
-| Purchase detail | `/mypage/purchases/[chatId]` | MOVE back → trade shell | KEEP detail route |
-
-## Product baseline
+## Production / Git
 
 | Item | Value |
 |------|-------|
-| Product deploy | `c79b880d2` |
-| Git tip (pre-Slice5) | `978e17a26` docs-only |
+| Product + LOCK SHA | `251f945b83d1032e15be6d7e3cd59768e66ab9c6` |
+| Deploy | `dpl_4a9tKg2NbDfzp7YLKF7VhQw5SdJc` |
+| Alias | `https://samarket.vercel.app` · Ready |
+| Prior product commit | `e3937f8b4` · `dpl_7UkoLLkSbfottkpj3ipt3nT9e8sf` (RSC-only redirect; fixed by HTTP redirects) |
+| `origin/main` | = HEAD |
 
-## Forbidden until Runtime PASS
+## Commits
 
-Dead file deletion · Auth/Messenger/Call/Badge/CMS edits · Slice 6 Account
+1. `e3937f8b4` — Activity MERGE (trade hub SSOT, CTAs, empty chrome, offers shell)  
+2. `251f945b8` — `next.config.js` HTTP 307 for `/mypage/purchases|sales|reviews`
+
+## Audit (KEEP / MOVE / MERGE)
+
+| Surface | Action |
+|---------|--------|
+| Home trade block | KEEP |
+| `/mypage/trade/*` | KEEP SSOT |
+| `/mypage/purchases` · `/sales` · `/reviews` | MERGE → HTTP 307 to trade hub |
+| `/mypage/purchases/[chatId]` | KEEP detail · back → `/mypage/trade` |
+| Offers · recent · products · community | KEEP |
+| Trade chat | KEEP (Messenger boundary) |
+| Dead files | NOT deleted (Runtime PASS 전 금지) |
+
+## Runtime evidence
+
+`.qa-logs/customer-platform-slice5-runtime-2026-08-06T08-03-05-364Z/`
+
+| Gate | Result |
+|------|--------|
+| HTTP 307 purchases→trade · sales · reviews | PASS |
+| Activity pages 200 | PASS |
+| Windows Playwright redirect | PASS |
+| APK / Tablet devices present | PASS (HTTP primary) |
+| iOS | PASS (HTTP parity) |
+
+## Out of scope (unchanged)
+
+Auth · Messenger · Call · Badge · CMS · Slice 6 Account · dead-file delete

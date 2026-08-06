@@ -22,11 +22,15 @@ SLICE 4 PROFILE/TRUST CODE LOCKED
 SLICE 4 DEPLOYED
 SLICE 4 RUNTIME PASS
 SLICE 4 LOCK
+SLICE 5 ACTIVITY CODE LOCKED
+SLICE 5 DEPLOYED
+SLICE 5 RUNTIME PASS
+SLICE 5 ACTIVITY LOCK
 ```
 
-다음: **Slice 5 Activity** AUTHORIZED · IN PROGRESS.  
+다음: **Slice 6+** 는 별도 인가 후.  
 증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE5-ACTIVITY-STATUS.md`  
-제품 기준점: **`c79b880d2`** (docs-only tip may differ)  
+제품/Git: **`251f945b8`** · `dpl_4a9tKg2NbDfzp7YLKF7VhQw5SdJc`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
@@ -38,10 +42,10 @@ AUDIT PASS — IMPLEMENTATION READY
 제품 코드: Architecture LOCK 후 Slice 1부터
 ```
 
-**Git LOCK / Production:** `c79b880d2ecf1d052c6279dcc863b69023cebdcf`  
-`dpl_C5mD9QSMy9WerGSAtBCtJHV4jYrF` · alias `samarket.vercel.app`  
-(CLI clean-worktree align deploy; prior product runtime @ `2b9346c53` / `dpl_7J33…`)  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE4-PROFILE-TRUST-STATUS.md`
+**Git LOCK / Production:** `251f945b83d1032e15be6d7e3cd59768e66ab9c6`  
+`dpl_4a9tKg2NbDfzp7YLKF7VhQw5SdJc` · alias `samarket.vercel.app`  
+(Slice 5 Activity; pre-Slice5 product baseline was `c79b880d2`)  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE5-ACTIVITY-STATUS.md`
 
 ---
 

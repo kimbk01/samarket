@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const BASE = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
-const TARGET_SHA = "e3937f8b454c1ac3349a2b26c56fdeb2d9521f02";
+const TARGET_SHA = "251f945b83d1032e15be6d7e3cd59768e66ab9c6";
 const PASSWORD = process.env.E2E_TEST_PASSWORD || process.env.QA_MANUAL_PASSWORD || "";
 const MEMBER_LOGIN = process.env.BADGE_NATIVE_LOGIN || process.env.E2E_TEST_USERNAME || "asas55";
 const MEMBER_ID = process.env.SLICE5_MEMBER_ID || "35dd245c-d398-4ea3-93a0-c0eda37cc777";
