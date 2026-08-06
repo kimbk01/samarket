@@ -34,12 +34,16 @@ describe("Phase J3 App Icon authority (Android / native)", () => {
     expect(src).not.toContain("fetchNotificationBadgeCount");
   });
 
-  it("syncNativeBadgeCount call sites are NativeBadgeSync + logout clear only", () => {
+  it("syncNativeBadgeCount call sites are NativeBadgeSync + logout durable clear", () => {
     const sync = read("lib/push/native/sync-native-badge-count.ts");
     expect(sync).toContain("Badge.set");
+    expect(sync).toContain("blocked_pending_logout_clear");
     const native = read("components/push/NativeBadgeSync.tsx");
+    const flow = read("lib/auth/explicit-logout-flow.ts");
     const wipe = read("lib/auth/client-session-wipe.ts");
     expect(native).toContain("syncNativeBadgeCount");
-    expect(wipe).toContain("clearNativeBadgeCount");
+    expect(native).toContain("recoverPendingLogoutBadgeClearTransaction");
+    expect(flow).toContain("beginLogoutBadgeClearTransaction");
+    expect(wipe).not.toContain("clearNativeBadgeCount");
   });
 });

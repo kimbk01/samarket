@@ -120,7 +120,7 @@ export const BADGE_SURFACE_WRITER_INVENTORY: readonly BadgeSurfaceWriterInventor
     poll: "NativeBadgeSync subscribe",
     secondaryEmitter: "syncNativeBadgeCount → Capawesome Badge.set (echo only)",
     legacyWriter: null,
-    fallbackWriter: "clearNativeBadgeCount on logout (authority wipe → 0)",
+    fallbackWriter: "logout badge clear durable tx (begin pending → execute/recover → Badge.get 0)",
     commitEntry: "applyNotificationBadgeProjection → surface store → NativeBadgeSync",
   },
   {

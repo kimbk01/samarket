@@ -53,7 +53,6 @@ import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-kakao-auth-plugin";
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
 import { disconnectNativeDevicesOnAccountSwitch } from "@/lib/push/disconnect-native-devices-for-logout-client";
-import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 import { resetNotificationBadgeCountForAuthEpoch } from "@/lib/notifications/notification-badge-count-store";
 import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
 import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
@@ -230,9 +229,11 @@ async function runWipeClientSessionState(
   if (reason === "account_switched") {
     await disconnectNativeDevicesOnAccountSwitch().catch(() => undefined);
   }
-  if (reason === "user_logout" || reason === "account_switched") {
-    void clearNativeBadgeCount();
-  }
+  /**
+   * Native Badge clear is NOT owned here.
+   * Durable await gate: `runExplicitLogoutFlow` (and corrupt-session force clear).
+   * Defensive post-reload: NativeBadgeSync clear_logout on terminal_guest.
+   */
   const previousUserId = getBoundAuthUserId();
   await teardownCommunityMessengerCallOnAuthExit(
     reason === "account_switched" ? "account_switch" : "logout"

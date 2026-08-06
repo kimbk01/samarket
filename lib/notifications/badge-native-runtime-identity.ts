@@ -101,8 +101,8 @@ export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
   {
     surface: "logout_clear",
     sourceOfTruth: "appIconTotal",
-    evidencePath: "lib/auth/client-session-wipe.ts",
-    mustContain: ["clearNativeBadgeCount"],
+    evidencePath: "lib/auth/explicit-logout-flow.ts",
+    mustContain: ["awaitLogoutNativeBadgeDurableClear", "beginLogoutBadgeClearTransaction"],
   },
 ] as const;
 

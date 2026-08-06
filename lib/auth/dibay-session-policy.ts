@@ -25,11 +25,13 @@ export const DIBAY_TERMINAL_SESSION_INVALIDATION_REASONS = new Set([
   "account_deleted",
 ]);
 
-/** 로그아웃·wipe 후에도 유지하는 localStorage key (기기·언어) */
+/** 로그아웃·wipe 후에도 유지하는 localStorage key (기기·언어·logout badge tx) */
 export const DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS = new Set<string>([
   APP_LANGUAGE_STORAGE_KEY,
   APP_LANGUAGE_DEVICE_SEEDED_KEY,
   DIBAY_CLIENT_INSTANCE_ID_KEY,
+  /** Logout Native Badge durable clear intent — survives wipe + location.replace */
+  "dibay:logout_badge_clear_tx",
 ]);
 
 export const DIBAY_STORAGE_USER_PREFIX = "dibay:";

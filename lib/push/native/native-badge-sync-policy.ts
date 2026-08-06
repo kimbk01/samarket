@@ -5,11 +5,13 @@
  * - Store initial appIconTotal=0 is not authoritative zero.
  * - Cap resume cache is never final authority (Gate3 Step11).
  * - Explicit terminal_guest (logout) may clear immediately.
+ * - Pending logout badge clear transaction recovers before hold (ROOT FIX).
  */
 import type { DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import type { ProjectionAuthorityState } from "@/lib/notifications/projection-authority";
 
 export type NativeBadgeSyncWriteDecision =
+  | { kind: "recover_logout_clear"; reason: "pending_logout_clear_tx" }
   | { kind: "hold"; reason: "boot_incomplete" | "session_transient" }
   | { kind: "clear_logout"; reason: "terminal_guest" }
   | { kind: "echo_authority"; reason: "complete_snapshot" };
@@ -17,7 +19,12 @@ export type NativeBadgeSyncWriteDecision =
 export function resolveNativeBadgeSyncWrite(input: {
   sessionPhase: DibaySessionPhase;
   projectionState: ProjectionAuthorityState;
+  /** Durable logout clear pending — priority over loading/recovering hold. */
+  hasPendingLogoutBadgeClear?: boolean;
 }): NativeBadgeSyncWriteDecision {
+  if (input.hasPendingLogoutBadgeClear) {
+    return { kind: "recover_logout_clear", reason: "pending_logout_clear_tx" };
+  }
   if (input.sessionPhase === "terminal_guest") {
     return { kind: "clear_logout", reason: "terminal_guest" };
   }

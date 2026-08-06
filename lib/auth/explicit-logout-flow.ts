@@ -1,7 +1,12 @@
 "use client";
 
 /**
- * 명시 로그아웃 단일 플로우 — deactivate → server logout → local signOut → wipe → terminal_guest.
+ * 명시 로그아웃 단일 플로우 —
+ * deactivate → server logout → local signOut → wipe → terminal_guest
+ * → begin durable badge clear tx → execute (await/timeout) → return → navigate.
+ *
+ * Native Badge ROOT FIX: timeout/reject keeps pending durable intent for boot recovery.
+ * @see lib/push/native/logout-badge-clear-transaction.ts
  * @see docs/dibay-session-policy.md
  */
 
@@ -17,13 +22,22 @@ import { markSessionTerminalGuestFromClient } from "@/lib/auth/dibay-session-man
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { getDomainBadgeSurfaceAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { disconnectNativeDevicesForLogout } from "@/lib/push/disconnect-native-devices-for-logout-client";
 import { disconnectWebPushSubscriptionsForLogout } from "@/lib/push/disconnect-web-push-for-logout-client";
-import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
+import {
+  beginLogoutBadgeClearTransaction,
+  executeLogoutBadgeClearTransaction,
+  markLogoutBadgeClearFailure,
+  markLogoutBadgeClearTimeout,
+  type ExecuteLogoutBadgeClearResult,
+} from "@/lib/push/native/logout-badge-clear-transaction";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const SUPABASE_SIGNOUT_TIMEOUT_MS = 5_000;
 const SERVER_LOGOUT_TIMEOUT_MS = 5_000;
+/** Bound wait for first execute attempt — timeout keeps pending for boot recovery. */
+const NATIVE_BADGE_CLEAR_TIMEOUT_MS = 5_000;
 
 export type ExplicitLogoutScope = "current_device" | "all_devices";
 
@@ -102,6 +116,119 @@ async function reportServerLogout(
   }
 }
 
+export type LogoutNativeBadgeDurableClearResult = {
+  timedOut: boolean;
+  storageFailed: boolean;
+  completed: boolean;
+  pendingKept: boolean;
+  execute: ExecuteLogoutBadgeClearResult | null;
+  transactionId: string | null;
+};
+
+/**
+ * Durable Native Badge clear owner for Logout.
+ * - begin pending intent (survives navigate/reload)
+ * - execute once with timeout
+ * - timeout/reject → pending kept for boot recovery (NOT success)
+ */
+export async function awaitLogoutNativeBadgeDurableClear(input: {
+  reason: string;
+  previousViewerId: string | null;
+}): Promise<LogoutNativeBadgeDurableClearResult> {
+  const reason = input.reason;
+  logExplicitLogoutAudit("native_badge_clear_start", {
+    reason,
+    previousViewerId: input.previousViewerId,
+    authEpoch: getDomainBadgeSurfaceAuthEpoch(),
+  });
+
+  const begun = beginLogoutBadgeClearTransaction({
+    previousViewerId: input.previousViewerId,
+    reason,
+    authEpoch: getDomainBadgeSurfaceAuthEpoch(),
+  });
+  if (!begun.ok) {
+    logExplicitLogoutAudit("native_badge_clear_failed", {
+      reason,
+      error: "storage_failed",
+      detail: begun.error,
+    });
+    return {
+      timedOut: false,
+      storageFailed: true,
+      completed: false,
+      pendingKept: false,
+      execute: null,
+      transactionId: null,
+    };
+  }
+
+  const transactionId = begun.tx.transactionId;
+  const startedAt = Date.now();
+  const settled = await raceWithTimeout(
+    executeLogoutBadgeClearTransaction(transactionId),
+    NATIVE_BADGE_CLEAR_TIMEOUT_MS,
+  );
+
+  if (settled === null) {
+    markLogoutBadgeClearTimeout(transactionId, "execute_timeout");
+    logExplicitLogoutAudit("native_badge_clear_timed_out", {
+      reason,
+      transactionId,
+      timeoutMs: NATIVE_BADGE_CLEAR_TIMEOUT_MS,
+      elapsedMs: Date.now() - startedAt,
+      pendingKept: true,
+    });
+    return {
+      timedOut: true,
+      storageFailed: false,
+      completed: false,
+      pendingKept: true,
+      execute: null,
+      transactionId,
+    };
+  }
+
+  if (settled.outcome === "completed" || settled.outcome === "web_no_native_badge") {
+    logExplicitLogoutAudit("native_badge_clear_done", {
+      reason,
+      transactionId,
+      outcome: settled.outcome,
+      badgeGet: settled.badgeGet,
+      native_clear_completed_at: Date.now(),
+      elapsedMs: Date.now() - startedAt,
+    });
+    return {
+      timedOut: false,
+      storageFailed: false,
+      completed: true,
+      pendingKept: false,
+      execute: settled,
+      transactionId,
+    };
+  }
+
+  if (settled.outcome === "pending_retry") {
+    markLogoutBadgeClearFailure(transactionId, settled.error ?? "pending_retry");
+  }
+  logExplicitLogoutAudit("native_badge_clear_failed", {
+    reason,
+    transactionId,
+    outcome: settled.outcome,
+    error: settled.error,
+    pendingKept: settled.outcome === "pending_retry",
+    elapsedMs: Date.now() - startedAt,
+  });
+  return {
+    timedOut: false,
+    storageFailed: false,
+    completed: false,
+    pendingKept: settled.outcome === "pending_retry",
+    execute: settled,
+    transactionId,
+  };
+}
+
 export type ExplicitLogoutFlowResult = {
   localSignOutOk: boolean;
   serverWarning: string | null;
@@ -120,7 +247,6 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
   });
 
   void disconnectWebPushSubscriptionsForLogout();
-  void clearNativeBadgeCount();
 
   logExplicitLogoutAudit("logout_device_deactivate_start", { device_id: deviceId });
   try {
@@ -144,6 +270,8 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
   const localSignOutOk =
     scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
 
+  const previousViewerId = getBoundAuthUserId() ?? userId;
+
   markExplicitLogoutWipeDone();
   logExplicitLogoutAudit("client_session_wipe_after_logout", { scope });
   await wipeClientSessionState("user_logout");
@@ -152,6 +280,12 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
   markSessionTerminalGuestFromClient(`explicit_logout:${scope}`);
   applyImmediateLogoutClientState();
   logExplicitLogoutAudit("terminal_guest_after_explicit_logout", { scope });
+
+  // Durable clear transaction — pending survives navigate if execute times out / fails.
+  await awaitLogoutNativeBadgeDurableClear({
+    reason: `explicit_logout:${scope}`,
+    previousViewerId,
+  });
 
   return { localSignOutOk, serverWarning };
 }

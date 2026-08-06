@@ -37,6 +37,28 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     return { attempted: false, supported: null, applied: false };
   }
   const value = clampBadgeCount(count);
+  if (value > 0) {
+    const { hasPendingLogoutBadgeClearTransaction } = await import(
+      "@/lib/push/native/logout-badge-clear-transaction"
+    );
+    if (hasPendingLogoutBadgeClearTransaction()) {
+      logBadgeFdProbe("NativeBadgeSync.blocked_pending_logout_clear", {
+        count: value,
+        attempted: false,
+      });
+      console.log("[dibay-delivery-trace]", {
+        step: "syncNativeBadgeCount.blocked_pending_logout_clear",
+        count: value,
+        t: Date.now(),
+      });
+      return {
+        attempted: false,
+        supported: null,
+        applied: false,
+        error: "blocked_pending_logout_clear",
+      };
+    }
+  }
   const t0 = Date.now();
   logBadgeFdProbe("NativeBadgeSync.input", { count: value, attempted: true });
   console.log("[dibay-delivery-trace]", {
@@ -133,6 +155,94 @@ export async function syncNativeBadgeCount(count: number): Promise<{
   }
 }
 
-export async function clearNativeBadgeCount(): Promise<void> {
-  await syncNativeBadgeCount(0);
+export type ClearNativeBadgeOptions = {
+  /** Audit / probe reason — logout durable clear uses explicit_logout / corrupt_session_clear. */
+  reason?: string;
+};
+
+export type ClearNativeBadgeResult = {
+  attempted: boolean;
+  supported: boolean | null;
+  applied: boolean;
+  error?: string;
+  reason: string;
+  startedAt: number;
+  completedAt: number;
+};
+
+/**
+ * Absolute App Icon clear (0). Logout durable gate awaits this before navigate.
+ * Web / non-native: attempted=false (valid fallback — nothing to clear).
+ */
+export async function clearNativeBadgeCount(
+  options?: ClearNativeBadgeOptions
+): Promise<ClearNativeBadgeResult> {
+  const reason = String(options?.reason ?? "unspecified").trim() || "unspecified";
+  const startedAt = Date.now();
+  logBadgeFdProbe("clearNativeBadgeCount.start", { reason, t: startedAt });
+  console.log("[dibay-delivery-trace]", {
+    step: "clearNativeBadgeCount.start",
+    reason,
+    t: startedAt,
+  });
+  try {
+    const result = await syncNativeBadgeCount(0);
+    const completedAt = Date.now();
+    if (result.attempted && !result.applied) {
+      console.warn("[native-badge] clear_not_applied", {
+        reason,
+        error: result.error ?? null,
+      });
+    }
+    logBadgeFdProbe("clearNativeBadgeCount.done", {
+      reason,
+      attempted: result.attempted,
+      applied: result.applied,
+      error: result.error ?? null,
+      elapsedMs: completedAt - startedAt,
+    });
+    console.log("[dibay-delivery-trace]", {
+      step: "clearNativeBadgeCount.done",
+      reason,
+      attempted: result.attempted,
+      applied: result.applied,
+      error: result.error ?? null,
+      native_clear_completed_at: completedAt,
+      t: completedAt,
+    });
+    return {
+      attempted: result.attempted,
+      supported: result.supported,
+      applied: result.applied,
+      error: result.error,
+      reason,
+      startedAt,
+      completedAt,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const completedAt = Date.now();
+    logBadgeFdProbe("clearNativeBadgeCount.failed", {
+      reason,
+      error: message,
+      elapsedMs: completedAt - startedAt,
+    });
+    console.warn("[native-badge] clear_threw", { reason, error: message });
+    console.log("[dibay-delivery-trace]", {
+      step: "clearNativeBadgeCount.failed",
+      reason,
+      error: message,
+      native_clear_completed_at: completedAt,
+      t: completedAt,
+    });
+    return {
+      attempted: true,
+      supported: null,
+      applied: false,
+      error: message,
+      reason,
+      startedAt,
+      completedAt,
+    };
+  }
 }

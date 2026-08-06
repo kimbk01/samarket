@@ -62,6 +62,11 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
   establishGuestAuthState("corrupt_session_clear");
   markSessionTerminalGuestFromClient("corrupt_session_clear");
   applyImmediateLogoutClientState();
+  const { awaitLogoutNativeBadgeDurableClear } = await import("@/lib/auth/explicit-logout-flow");
+  await awaitLogoutNativeBadgeDurableClear({
+    reason: "corrupt_session_clear",
+    previousViewerId: null,
+  });
   return { ok: true, serverWarning: null };
 }
 

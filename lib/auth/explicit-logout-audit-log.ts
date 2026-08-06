@@ -10,7 +10,11 @@ export type ExplicitLogoutAuditMarker =
   | "auth_logout_server_start"
   | "auth_logout_server_done"
   | "client_session_wipe_after_logout"
-  | "terminal_guest_after_explicit_logout";
+  | "terminal_guest_after_explicit_logout"
+  | "native_badge_clear_start"
+  | "native_badge_clear_done"
+  | "native_badge_clear_failed"
+  | "native_badge_clear_timed_out";
 
 export function logExplicitLogoutAudit(
   marker: ExplicitLogoutAuditMarker,
