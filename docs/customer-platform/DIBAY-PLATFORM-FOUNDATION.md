@@ -26,10 +26,13 @@ SLICE 5 ACTIVITY CODE LOCKED
 SLICE 5 DEPLOYED
 SLICE 5 RUNTIME PASS
 SLICE 5 ACTIVITY LOCK
-SLICE 6 ACCOUNT IN PROGRESS
+SLICE 6 ACCOUNT CODE LOCKED
+SLICE 6 DEPLOYED
+SLICE 6 RUNTIME PASS
+SLICE 6 ACCOUNT LOCK
 ```
 
-다음: **Slice 6 Account** AUTHORIZED · IN PROGRESS.  
+다음: **Slice 7 Admin Projection** — 별도 인가 필요.  
 증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE6-ACCOUNT-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
@@ -38,14 +41,14 @@ SLICE 6 ACCOUNT IN PROGRESS
 ## 현재 판정
 
 ```text
-AUDIT PASS — IMPLEMENTATION READY
-제품 코드: Architecture LOCK 후 Slice 1부터
+SLICE 6 ACCOUNT LOCK
+제품 코드: Account IA MERGE 완료 · Slice 7 미인가
 ```
 
-**Git LOCK / Production:** `251f945b83d1032e15be6d7e3cd59768e66ab9c6`  
-`dpl_4a9tKg2NbDfzp7YLKF7VhQw5SdJc` · alias `samarket.vercel.app`  
-(Slice 5 Activity; pre-Slice5 product baseline was `c79b880d2`)  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE5-ACTIVITY-STATUS.md`
+**Git LOCK / Production:** `2676cc333dc302050b975f24f1e89a09046eebc5`  
+`dpl_2QFu22roSW9uBDgVNHfh8fPzp45h` · alias `samarket.vercel.app`  
+(Slice 6 Account; prior product Slice 5 `251f945b8`)  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE6-ACCOUNT-STATUS.md`
 
 ---
 
