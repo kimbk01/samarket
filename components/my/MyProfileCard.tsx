@@ -12,13 +12,10 @@ import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 
-export type AddressDefaultsFlags = {
-  master: boolean;
-  life: boolean;
-  trade: boolean;
-  delivery: boolean;
-} | null;
+/** @deprecated Import from `@/lib/my/address-defaults-types` (Slice 10 Phase 2 SSOT). */
+export type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 
 function getMemberTypeLabel(profile: ProfileRow): string {
   if (profile.role === "admin" || profile.role === "super_admin") return "관리자";

@@ -1,4 +1,4 @@
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import { summarizeLifeDefaultAppLocation } from "@/lib/addresses/life-default-location-summary";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";

@@ -1,4 +1,4 @@
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import type { ProfileRow } from "@/lib/profile/types";
 

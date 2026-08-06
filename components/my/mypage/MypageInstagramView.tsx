@@ -12,7 +12,7 @@ import { PersonalizationContent } from "@/components/my/settings/Personalization
 import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { MyPageSectionRow, MyServiceRow } from "@/lib/my/types";

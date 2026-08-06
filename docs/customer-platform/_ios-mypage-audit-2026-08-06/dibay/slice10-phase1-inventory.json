@@ -2,7 +2,7 @@
   "ok": true,
   "slice": "SLICE 10 PHASE 1 INVENTORY",
   "deletes": 0,
-  "generatedAt": "2026-08-06T10:12:02.767Z",
+  "generatedAt": "2026-08-06T10:16:35.404Z",
   "productCodeChanged": false,
   "classifications": {
     "KEEP": [
@@ -558,30 +558,21 @@
       "evidence": {
         "fileExists": true,
         "staticImporterFiles": [
-          "components/mypage/types.ts",
-          "lib/my/load-mypage-hub-extras-server.ts",
-          "components/onboarding/OnboardingAddressClient.tsx",
-          "components/my/mypage/MypageInstagramView.tsx"
+          "components/onboarding/OnboardingAddressClient.tsx"
         ],
-        "staticImporterCount": 4,
+        "staticImporterCount": 1,
         "valueImportFiles": [],
         "jsxOrValueImporterCount": 0,
-        "typeOnlyImporterCount": 3,
-        "typeOnlyFiles": [
-          "components/mypage/types.ts",
-          "lib/my/load-mypage-hub-extras-server.ts",
-          "components/my/mypage/MypageInstagramView.tsx"
-        ],
+        "typeOnlyImporterCount": 0,
+        "typeOnlyFiles": [],
         "dynamicImporterCount": 0,
         "dynamicHits": [],
         "routeEntryCount": 0,
         "routeHits": [],
         "ctaEntryCount": 0,
         "ctaHits": [],
-        "serverCallerCount": 1,
-        "serverHits": [
-          "lib/my/load-mypage-hub-extras-server.ts:1:import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-        ],
+        "serverCallerCount": 0,
+        "serverHits": [],
         "adminCallerCount": 0,
         "adminHits": [],
         "testDependencyCount": 7,
@@ -597,42 +588,12 @@
         "verifyOrTestOnly": false,
         "productionBundleSymbol": "NOT_SCANNED",
         "bundleSymbol": "ABSENT_OR_NOT_SCANNED",
-        "totalReferenceCount": 4,
+        "totalReferenceCount": 1,
         "sampleHits": [
-          {
-            "file": "components/mypage/types.ts",
-            "line": 1,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-          },
-          {
-            "file": "lib/my/load-mypage-hub-extras-server.ts",
-            "line": 1,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-          },
           {
             "file": "components/onboarding/OnboardingAddressClient.tsx",
             "line": 53,
             "text": "// 다음 화면(RegionProvider·MyProfileCard 등)이 새 region/주소를 즉시 보도록 dedupe 캐시 끊기."
-          },
-          {
-            "file": "components/my/mypage/MypageInstagramView.tsx",
-            "line": 15,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-          },
-          {
-            "file": "components/mypage/types.ts",
-            "line": 1,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-          },
-          {
-            "file": "lib/my/load-mypage-hub-extras-server.ts",
-            "line": 1,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
-          },
-          {
-            "file": "components/my/mypage/MypageInstagramView.tsx",
-            "line": 15,
-            "text": "import type { AddressDefaultsFlags } from \"@/components/my/MyProfileCard\";"
           }
         ]
       },
@@ -759,12 +720,12 @@
           "components/mypage/myinfo/MyInfoHomeMenuSections.tsx:113:      <LogoutActionTrigger",
           "components/my/mypage/MypageInstagramView.tsx:13:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
           "components/my/mypage/MypageInstagramView.tsx:984:            <LogoutActionTrigger variant=\"menu_row\" label={t(\"mypage_hub_logout\")} surface=\"card\" />",
-          "components/my/edit/ProfileEditForm.tsx:52:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
-          "components/my/edit/ProfileEditForm.tsx:621:                <LogoutActionTrigger",
           "components/my/settings/LogoutContent.tsx:22:type LogoutActionTriggerProps = {",
           "components/my/settings/LogoutContent.tsx:30:export function LogoutActionTrigger({",
           "components/my/settings/LogoutContent.tsx:35:}: LogoutActionTriggerProps) {",
-          "components/my/settings/LogoutContent.tsx:160:      <LogoutActionTrigger variant=\"menu_row\" />"
+          "components/my/settings/LogoutContent.tsx:160:      <LogoutActionTrigger variant=\"menu_row\" />",
+          "components/my/edit/ProfileEditForm.tsx:52:import { LogoutActionTrigger } from \"@/components/my/settings/LogoutContent\";",
+          "components/my/edit/ProfileEditForm.tsx:621:                <LogoutActionTrigger"
         ],
         "serverCallerCount": 1,
         "serverHits": [
@@ -935,55 +896,55 @@
         "fileExists": null,
         "staticImporterFiles": [
           "lib/layout/resolve-main-tier1.ts",
-          "lib/mypage/trade-hub-paths.ts",
-          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts",
           "lib/layout/mobile-top-tier1-rules.ts",
-          "lib/mypage/trade-history-client.ts",
-          "lib/mypage/buyer-manage-tabs.ts",
           "lib/layout/conditional-app-shell-flags.ts",
           "lib/main-menu/trade-bottom-nav-layout.ts",
+          "lib/mypage/trade-hub-paths.ts",
+          "lib/mypage/__tests__/slice5-activity-route-merge.test.ts",
           "lib/main-menu/bottom-nav-config.ts",
           "lib/main-menu/main-bottom-nav-split-layout.ts",
+          "lib/mypage/buyer-manage-tabs.ts",
+          "lib/mypage/trade-history-client.ts",
           "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts",
+          "app/(main)/philife/purchases/[chatId]/page.tsx",
           "components/mypage/reviews/TradeReviewsManagementView.tsx",
           "components/mypage/PurchasesView.tsx",
+          "app/(main)/mypage/purchases/[chatId]/page.tsx",
           "components/mypage/HomePurchaseSalesHubTabs.tsx",
           "components/mypage/MypagePurchaseSalesHubTabs.tsx",
           "components/mypage/sales/SalesHistoryCard.tsx",
-          "app/(main)/philife/purchases/[chatId]/page.tsx",
           "components/my/mypage/MypageInstagramView.tsx",
-          "app/(main)/mypage/purchases/[chatId]/page.tsx",
           "scripts/qa/slice5-activity-runtime.mjs",
           "lib/mypage/trade-history-load-server.ts",
           "lib/mypage/seller-manage-tabs.ts",
           "app/api/my/sales/route.ts",
-          "app/(main)/philife/sales/page.tsx",
           "components/mypage/tabs/TradeTab.tsx",
-          "components/trade/TradeHistoryStackPanel.tsx",
-          "app/(main)/mypage/trade/sales/page.tsx",
           "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/sales/page.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
           "app/(main)/philife/reviews/page.tsx",
           "app/(main)/mypage/trade/reviews/page.tsx"
         ],
         "staticImporterCount": 30,
         "valueImportFiles": [
-          "components/mypage/sales/SalesHistoryCard.tsx",
           "app/(main)/philife/purchases/[chatId]/page.tsx",
           "app/(main)/mypage/purchases/[chatId]/page.tsx",
+          "components/mypage/sales/SalesHistoryCard.tsx",
           "components/mypage/reviews/TradeReviewsManagementView.tsx",
-          "app/(main)/philife/sales/page.tsx",
           "components/mypage/tabs/TradeTab.tsx",
-          "components/trade/TradeHistoryStackPanel.tsx",
-          "app/(main)/mypage/trade/sales/page.tsx",
           "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/sales/page.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
           "app/(main)/philife/reviews/page.tsx",
           "app/(main)/mypage/trade/reviews/page.tsx"
         ],
         "jsxOrValueImporterCount": 11,
         "typeOnlyImporterCount": 3,
         "typeOnlyFiles": [
-          "lib/mypage/trade-history-client.ts",
           "lib/mypage/buyer-manage-tabs.ts",
+          "lib/mypage/trade-history-client.ts",
           "lib/mypage/seller-manage-tabs.ts"
         ],
         "dynamicImporterCount": 0,
@@ -1003,15 +964,15 @@
         ],
         "ctaEntryCount": 11,
         "ctaHits": [
-          "components/mypage/sales/SalesHistoryCard.tsx",
           "app/(main)/philife/purchases/[chatId]/page.tsx",
           "app/(main)/mypage/purchases/[chatId]/page.tsx",
+          "components/mypage/sales/SalesHistoryCard.tsx",
           "components/mypage/reviews/TradeReviewsManagementView.tsx",
-          "app/(main)/philife/sales/page.tsx",
           "components/mypage/tabs/TradeTab.tsx",
-          "components/trade/TradeHistoryStackPanel.tsx",
-          "app/(main)/mypage/trade/sales/page.tsx",
           "components/home/HomeTradeHistorySheetContent.tsx",
+          "app/(main)/philife/sales/page.tsx",
+          "app/(main)/mypage/trade/sales/page.tsx",
+          "components/trade/TradeHistoryStackPanel.tsx",
           "app/(main)/philife/reviews/page.tsx",
           "app/(main)/mypage/trade/reviews/page.tsx"
         ],
@@ -1023,28 +984,28 @@
           "lib/layout/mobile-top-tier1-rules.ts:16: * - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷",
           "lib/layout/mobile-top-tier1-rules.ts:28:    startsWithPath(safePath, \"/mypage/purchases\") ||",
           "lib/main-menu/trade-bottom-nav-layout.ts:51:  if (p === \"/mypage/purchases\" || p.startsWith(\"/mypage/purchases/\")) return true;",
-          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
-          "lib/main-menu/bottom-nav-config.ts:345:/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */",
-          "lib/main-menu/main-bottom-nav-split-layout.ts:73:      p === \"/mypage/purchases\" ||",
-          "lib/main-menu/main-bottom-nav-split-layout.ts:74:      p.startsWith(\"/mypage/purchases/\") ||",
           "lib/mypage/trade-hub-paths.ts:3: * Legacy `/mypage/purchases|sales` list shells redirect here; detail route KEEP.",
           "lib/mypage/trade-hub-paths.ts:14:  // Purchase detail still under /mypage/purchases/[id] — treat as trade_shell for list links",
           "lib/mypage/trade-hub-paths.ts:15:  if (p.startsWith(\"/mypage/purchases/\") && p !== \"/mypage/purchases\") return \"trade_shell\";",
           "lib/mypage/trade-hub-paths.ts:35:  return `/mypage/purchases/${encodeURIComponent(chatId.trim())}`;",
           "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:19:    const purchases = readFileSync(path.join(root, \"app/(main)/mypage/purchases/page.tsx\"), \"utf8\");",
           "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:51:    expect(src).toContain('source: \"/mypage/purchases\"');",
-          "lib/mypage/trade-history-client.ts:3:import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";",
           "lib/mypage/buyer-manage-tabs.ts:4:import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";",
-          "lib/layout/resolve-main-tier1.ts:215:  if (p === \"/mypage/sales\" || starts(p, \"/mypage/sales/\")) {",
-          "lib/layout/resolve-main-tier1.ts:227:  if (p === \"/mypage/sales\" || starts(p, \"/mypage/sales/\")) {"
+          "lib/mypage/trade-history-client.ts:3:import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";",
+          "lib/main-menu/bottom-nav-config.ts:345:/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */",
+          "lib/main-menu/main-bottom-nav-split-layout.ts:73:      p === \"/mypage/purchases\" ||",
+          "lib/main-menu/main-bottom-nav-split-layout.ts:74:      p.startsWith(\"/mypage/purchases/\") ||",
+          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
+          "lib/main-menu/trade-bottom-nav-layout.ts:52:  if (p === \"/mypage/sales\" || p.startsWith(\"/mypage/sales/\")) return true;",
+          "lib/main-menu/main-bottom-nav-split-layout.ts:75:      p === \"/mypage/sales\" ||"
         ],
         "adminCallerCount": 0,
         "adminHits": [],
         "testDependencyCount": 14,
         "testHits": [
-          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
           "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:19:    const purchases = readFileSync(path.join(root, \"app/(main)/mypage/purchases/page.tsx\"), \"utf8\");",
           "lib/mypage/__tests__/slice5-activity-route-merge.test.ts:51:    expect(src).toContain('source: \"/mypage/purchases\"');",
+          "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts:14:    expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);",
           "scripts/qa/slice5-activity-runtime.mjs:121:    purchases: await follow(\"/mypage/purchases\", cookie),",
           "scripts/qa/slice5-activity-runtime.mjs:171:  await page.goto(`${BASE}/mypage/purchases`, { waitUntil: \"domcontentloaded\", timeout: 45000 });",
           "scripts/qa/slice10-dead-cleanup-inventory.mjs:253:    symbols: [\"/mypage/purchases\", \"/mypage/sales\", \"/mypage/reviews\"],",
@@ -1071,6 +1032,26 @@
             "file": "lib/layout/resolve-main-tier1.ts",
             "line": 219,
             "text": "if (p === \"/mypage/purchases\") {"
+          },
+          {
+            "file": "lib/layout/mobile-top-tier1-rules.ts",
+            "line": 16,
+            "text": "* - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷"
+          },
+          {
+            "file": "lib/layout/mobile-top-tier1-rules.ts",
+            "line": 28,
+            "text": "startsWithPath(safePath, \"/mypage/purchases\") ||"
+          },
+          {
+            "file": "lib/layout/conditional-app-shell-flags.ts",
+            "line": 115,
+            "text": "/** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */"
+          },
+          {
+            "file": "lib/main-menu/trade-bottom-nav-layout.ts",
+            "line": 51,
+            "text": "if (p === \"/mypage/purchases\" || p.startsWith(\"/mypage/purchases/\")) return true;"
           },
           {
             "file": "lib/mypage/trade-hub-paths.ts",
@@ -1103,36 +1084,6 @@
             "text": "expect(src).toContain('source: \"/mypage/purchases\"');"
           },
           {
-            "file": "lib/layout/mobile-top-tier1-rules.ts",
-            "line": 16,
-            "text": "* - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷"
-          },
-          {
-            "file": "lib/layout/mobile-top-tier1-rules.ts",
-            "line": 28,
-            "text": "startsWithPath(safePath, \"/mypage/purchases\") ||"
-          },
-          {
-            "file": "lib/mypage/trade-history-client.ts",
-            "line": 3,
-            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
-          },
-          {
-            "file": "lib/mypage/buyer-manage-tabs.ts",
-            "line": 4,
-            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
-          },
-          {
-            "file": "lib/layout/conditional-app-shell-flags.ts",
-            "line": 115,
-            "text": "/** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */"
-          },
-          {
-            "file": "lib/main-menu/trade-bottom-nav-layout.ts",
-            "line": 51,
-            "text": "if (p === \"/mypage/purchases\" || p.startsWith(\"/mypage/purchases/\")) return true;"
-          },
-          {
             "file": "lib/main-menu/bottom-nav-config.ts",
             "line": 345,
             "text": "/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */"
@@ -1148,9 +1099,34 @@
             "text": "p.startsWith(\"/mypage/purchases/\") ||"
           },
           {
+            "file": "lib/mypage/buyer-manage-tabs.ts",
+            "line": 4,
+            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
+            "file": "lib/mypage/trade-history-client.ts",
+            "line": 3,
+            "text": "import type { PurchaseHistoryRow } from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
+          },
+          {
             "file": "lib/chats/__tests__/trade-chat-rooms-warm-policy.test.ts",
             "line": 14,
             "text": "expect(shouldPreloadTradeChatRoomsOnClient(\"/mypage/purchases\")).toBe(true);"
+          },
+          {
+            "file": "app/(main)/philife/purchases/[chatId]/page.tsx",
+            "line": 4,
+            "text": "import { PurchaseDetailView } from \"@/components/mypage/purchases/PurchaseDetailView\";"
+          },
+          {
+            "file": "app/(main)/philife/purchases/[chatId]/page.tsx",
+            "line": 40,
+            "text": "backHref=\"/mypage/purchases\""
+          },
+          {
+            "file": "app/(main)/philife/purchases/[chatId]/page.tsx",
+            "line": 44,
+            "text": "<PurchaseDetailView chatId={chatId} purchasesListPath=\"/mypage/purchases\" />"
           },
           {
             "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
@@ -1163,28 +1139,13 @@
             "text": "} from \"@/components/mypage/purchases/PurchaseHistoryCard\";"
           },
           {
-            "file": "components/mypage/HomePurchaseSalesHubTabs.tsx",
-            "line": 18,
-            "text": ": pathname.startsWith(\"/mypage/purchases\");"
+            "file": "app/(main)/mypage/purchases/[chatId]/page.tsx",
+            "line": 6,
+            "text": "} from \"@/components/mypage/purchases/PurchaseDetailRouteChrome\";"
           },
           {
-            "file": "components/mypage/MypagePurchaseSalesHubTabs.tsx",
-            "line": 13,
-            "text": "* (legacy `/mypage/purchases|sales` list pages redirect)"
-          },
-          {
-            "file": "components/mypage/MypagePurchaseSalesHubTabs.tsx",
-            "line": 24,
-            "text": ": pathname.startsWith(\"/mypage/purchases\");"
-          },
-          {
-            "file": "components/mypage/sales/SalesHistoryCard.tsx",
-            "line": 16,
-            "text": "import { BuyerReviewReadSheet } from \"@/components/mypage/purchases/BuyerReviewReadSheet\";"
-          },
-          {
-            "file": "app/(main)/philife/purchases/[chatId]/page.tsx",
-            "line": 4,
+            "file": "app/(main)/mypage/purchases/[chatId]/page.tsx",
+            "line": 7,
             "text": "import { PurchaseDetailView } from \"@/components/mypage/purchases/PurchaseDetailView\";"
           }
         ]
