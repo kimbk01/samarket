@@ -14,6 +14,12 @@ import {
   MyInfoTradeMenuSection,
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import {
+  MYPAGE_HOME_MENU_DESKTOP_CLASS,
+  MYPAGE_HOME_MENU_MOBILE_CLASS,
+  MYPAGE_HOME_MENU_TABLET_ADMIN_SPAN_CLASS,
+  MYPAGE_HOME_MENU_TABLET_CLASS,
+} from "@/lib/ui/mypage-responsive-breakpoints";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
@@ -24,6 +30,7 @@ const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 /**
  * Slice 3 IA order (mobile):
  * Profile(+manner) → assets → required → trade → store → account(+logout) → service → support
+ * Slice 9 Phase 1: breakpoint classes from mypage-responsive-breakpoints SSOT (767 / 1025).
  */
 export function MyPageHomeDashboard({
   projection,
@@ -56,7 +63,7 @@ export function MyPageHomeDashboard({
           </>
         )}
 
-        <div className="flex flex-col gap-3 md:hidden">
+        <div className={MYPAGE_HOME_MENU_MOBILE_CLASS}>
           <MyInfoTradeMenuSection />
           <MyInfoStoreMenuSection />
           <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
@@ -65,7 +72,7 @@ export function MyPageHomeDashboard({
           <MyPageAdminMenuEntry starbucks />
         </div>
 
-        <div className="hidden md:max-[1025px]:grid md:max-[1025px]:grid-cols-2 md:max-[1025px]:gap-4">
+        <div className={MYPAGE_HOME_MENU_TABLET_CLASS}>
           <div className={COLUMN_STACK_CLASS}>
             <MyInfoTradeMenuSection />
             <MyInfoStoreMenuSection />
@@ -75,12 +82,12 @@ export function MyPageHomeDashboard({
             <MyInfoServiceMenuSection />
             <MyInfoSupportMenuSection />
           </div>
-          <div className="md:max-[1025px]:col-span-2">
+          <div className={MYPAGE_HOME_MENU_TABLET_ADMIN_SPAN_CLASS}>
             <MyPageAdminMenuEntry starbucks />
           </div>
         </div>
 
-        <div className="hidden min-[1025px]:grid min-[1025px]:grid-cols-3 min-[1025px]:gap-4">
+        <div className={MYPAGE_HOME_MENU_DESKTOP_CLASS}>
           <div className={COLUMN_STACK_CLASS}>
             <MyInfoTradeMenuSection />
             <MyInfoStoreMenuSection />

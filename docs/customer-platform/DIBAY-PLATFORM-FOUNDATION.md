@@ -42,24 +42,28 @@ SLICE 8 BUSINESS CMS PHASE 2 CODE LOCKED
 SLICE 8 BUSINESS CMS PHASE 2 DEPLOYED
 SLICE 8 BUSINESS CMS PHASE 2 RUNTIME PASS
 SLICE 8 BUSINESS CMS PHASE 2 LOCK
+SLICE 9 RESPONSIVE / MULTIPLATFORM AUTHORIZED
+SLICE 9 PHASE 1 APPROVED
 ```
 
-다음: **별도 인가 후** FAQ / banners / popups 등 (Business·Legal LOCK 유지).  
-증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE8-CMS-STATUS.md`  
-(비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
+다음: **Slice 9 Phase 1** — breakpoint SSOT + Runtime harness → Deploy → multiplatform Runtime.  
+증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE9-RESPONSIVE-STATUS.md`  
+Slice 10–12 **NOT AUTHORIZED**. (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
 ---
 
 ## 현재 판정
 
 ```text
+SLICE 1–8 LOCKED
 SLICE 8 LEGAL CMS PHASE 1 LOCK
 SLICE 8 BUSINESS CMS PHASE 2 LOCK
+SLICE 9 PHASE 1 CODE IN PROGRESS
+SLICE 10–12 NOT AUTHORIZED
 ```
 
-**Git / Production (Phase 2):** `170c92900f5758fdf15d61c132293ea846cea83c`  
-`dpl_93zyXzJPDTTZ11jhLCS88jboQUYa` · source=`git` · alias `samarket.vercel.app`  
-상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE8-CMS-STATUS.md`
+**Git / Production (Slice 8 tip):** `170c92900` product · LOCK tip `4dbdea85a` · `dpl_93zyXzJPDTTZ11jhLCS88jboQUYa`  
+상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE9-RESPONSIVE-STATUS.md`
 
 ---
 
