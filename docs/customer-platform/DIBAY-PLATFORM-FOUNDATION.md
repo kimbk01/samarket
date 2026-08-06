@@ -51,9 +51,10 @@ SLICE 9 MULTIPLATFORM RUNTIME LOCK
 SLICE 10 DEAD CLEANUP AUTHORIZED
 SLICE 10 PHASE 1 INVENTORY PASS
 SLICE 10 PHASE 2 BUNDLE A PASS (type SSOT)
+SLICE 10 PHASE 2 BUNDLE B PASS (verify + orphan deletes)
 ```
 
-다음: **Slice 10 Phase 2** — verify 의존 제거 · 단순 DEAD 묶음 (별도 인가). Slice 11–12 **NOT AUTHORIZED**.  
+다음: **Slice 10** InstagramView/Console 묶음 · MyProfileCard shim — 별도 인가. Slice 11–12 **NOT AUTHORIZED**.  
 증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE10-DEAD-CLEANUP-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
@@ -63,9 +64,9 @@ SLICE 10 PHASE 2 BUNDLE A PASS (type SSOT)
 
 ```text
 SLICE 1–9 LOCKED
-SLICE 10 PHASE 1 INVENTORY PASS
-SLICE 10 PHASE 2 BUNDLE A PASS (AddressDefaultsFlags SSOT)
-DEAD_PROVEN: 0 · deletes: 0
+SLICE 10 PHASE 2 BUNDLE A+B PASS
+DEAD_PROVEN deletes: 6 orphan profile cards/sections
+Remaining DEAD_CANDIDATE: InstagramView · SettingsMainContent · MyPageConsole/Content · MyProfileCard shim
 SLICE 11–12 NOT AUTHORIZED
 ```
 

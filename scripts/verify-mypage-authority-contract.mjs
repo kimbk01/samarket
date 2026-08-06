@@ -42,11 +42,6 @@ if (!/mypage-profile-manner-row/.test(profileSummary)) {
   failures.push("MypageProfileSummary: expected manner/trust row (Slice 3 ADD)");
 }
 
-const myInfo = read("components/mypage/myinfo/MyInfoProfileSection.tsx");
-if (/LogoutActionTrigger/.test(myInfo)) {
-  failures.push("MyInfoProfileSection: LogoutActionTrigger forbidden (Slice 3 MOVE → Account)");
-}
-
 const accountSection = read("components/mypage/myinfo/MyInfoHomeMenuSections.tsx");
 if (!/LogoutActionTrigger[\s\S]*?variant=["']menu_row["']/.test(accountSection)) {
   failures.push("MyInfoAccountMenuSection: expected menu_row logout (Danger + modal)");
@@ -99,10 +94,13 @@ if (/\blogout\b/.test(registry) && /id:\s*["']logout["']/.test(registry)) {
   failures.push("mypage-mobile-nav-registry: logout must not be a browse push item");
 }
 
-// 5) Instagram legacy href to /mypage/logout
-const ig = read("components/my/mypage/MypageInstagramView.tsx");
-if (/href=["']\/mypage\/logout["']/.test(ig)) {
-  failures.push("MypageInstagramView: href=/mypage/logout forbidden — use modal Danger CTA");
+// 5) Live hub must not deep-link logout confirm (legacy MypageInstagramView file-read removed — Slice 10)
+if (
+  /href=["']\/mypage\/logout["']/.test(accountSection) ||
+  /href=["']\/mypage\/logout["']/.test(dashboard) ||
+  /href=["']\/mypage\/logout["']/.test(profileSummary)
+) {
+  failures.push("hub: href=/mypage/logout forbidden — use modal Danger CTA");
 }
 
 // 6) Docs motion table filled

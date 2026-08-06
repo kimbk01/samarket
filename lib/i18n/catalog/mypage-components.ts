@@ -43,7 +43,7 @@ export const mypageComponentsMessages = {
     // MyInfoHeader
     mypage_comp_myinfo_header_title_default: "내정보",
 
-    // MyInfoProfileCard
+    // Profile image / address chips (hub summary)
     mypage_comp_profile_image_aria: "프로필 이미지",
     mypage_comp_address_manage_aria: "주소 관리로 이동",
     mypage_comp_address_change_aria: "대표 주소 변경",

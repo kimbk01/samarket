@@ -2,37 +2,40 @@
 
 ```text
 SLICE 1–9 LOCKED (유지)
-SLICE 10 DEAD CLEANUP AUTHORIZED
 SLICE 10 PHASE 1 INVENTORY PASS
-SLICE 10 PHASE 2 BUNDLE A AUTHORIZED — type SSOT MERGE
-SLICE 10 PHASE 2 BUNDLE A PASS (AddressDefaultsFlags → lib/my/address-defaults-types)
+SLICE 10 PHASE 2 BUNDLE A PASS (type SSOT)
+SLICE 10 PHASE 2 BUNDLE B PASS
+  - verify legacy file-read removed
+  - simplest orphans DEAD_PROVEN + deleted
 SLICE 11–12 NOT AUTHORIZED
-DELETES THIS PHASE: 0
-DEAD_PROVEN: 0
 ```
 
-## Inventory artifact
+## Bundle B deletes (DEAD_PROVEN)
 
-- Script: `scripts/qa/slice10-dead-cleanup-inventory.mjs`
-- JSON: [`slice10-phase1-inventory.json`](./slice10-phase1-inventory.json)
+| File | Evidence |
+|------|----------|
+| `MyInfoProfileSection.tsx` | verify read removed; static importer 0; bundle 0 |
+| `MyInfoProfileHubCard.tsx` | static 0; bundle 0 |
+| `MyInfoMiniProfile.tsx` | static 0; bundle 0 |
+| `MyInfoProfileCard.tsx` | static 0; catalog comment renamed (was false bundle hit) |
+| `components/mypage/ProfileCard.tsx` | path importer 0 |
+| `components/my/ProfileCard.tsx` | path importer 0 |
 
-## Phase 2 Bundle A (done)
+## Bundle B non-deletes (still open)
 
-| Change | Result |
-|--------|--------|
-| `AddressDefaultsFlags` SSOT | `lib/my/address-defaults-types.ts` only |
-| Callers migrated | `components/mypage/types.ts`, `lib/my/load-mypage-hub-extras-server.ts`, `MypageInstagramView.tsx` |
-| `MyProfileCard.tsx` | re-export deprecated shim; duplicate type removed |
-| Product imports of `@/components/my/MyProfileCard` | **0** (comment-only leftover in onboarding) |
+| Item | Status |
+|------|--------|
+| `MypageInstagramView` + `SettingsMainContent` | DEAD_CANDIDATE (coupled) |
+| `MyPageConsole` + `MyPageContent` | DEAD_CANDIDATE (`MyPageConsoleProps` still live) |
+| `MyProfileCard` shim | MERGE leftover re-export |
+| `logout_multi_entry` | KEEP |
+| `trade_legacy_routes` | DEPRECATE_CANDIDATE |
 
-## Next Phase 2 bundles (NOT AUTHORIZED until asked)
+## Gates
 
-1. verify 스크립트 레거시 파일 의존 제거
-2. 가장 단순한 DEAD_CANDIDATE 묶음 (HubCard / MiniProfile / ProfileCard×2)
-3. InstagramView + SettingsMainContent
-4. MyPageConsole + MyPageContent (+ Props rename)
-5. bundle symbol → DEAD_PROVEN → delete → build/runtime
+- `npm run verify:mypage-authority-contract` PASS
+- Inventory: [`slice10-phase1-inventory.json`](./slice10-phase1-inventory.json)
 
-## Out of scope still
+## Next (NOT AUTHORIZED)
 
-일괄 삭제 · Slice 11–12 · logout KEEP · trade legacy DEPRECATE 정책
+InstagramView+Settings · Console Props rename · MyProfileCard shim remove · Slice 11–12

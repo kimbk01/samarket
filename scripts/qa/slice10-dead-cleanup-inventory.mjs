@@ -413,10 +413,16 @@ function analyze(c) {
   }
   if (c.id === "MypageInstagramView") {
     row.deletablePhase2 = true;
-    row.phase2Blockers = [
-      "rewrite scripts/verify-mypage-authority-contract.mjs off this file",
-      "bundle symbol scan still NOT_SCANNED",
-    ];
+    row.phase2Blockers = ["SettingsMainContent still couples; optional shim on MyProfileCard unrelated"];
+  }
+
+  if (c.path && row.evidence.fileExists === false) {
+    row.classification = CLASS.PROVEN;
+    row.deletablePhase2 = false;
+    row.deleted = true;
+    row.whyReferencesAlive = "File deleted (Slice 10 Phase 2 Bundle B).";
+    row.evidence.productionBundleSymbol = "ABSENT_POST_DELETE";
+    row.evidence.bundleSymbol = "ABSENT";
   }
 
   return row;
@@ -427,15 +433,13 @@ function main() {
   const candidates = CANDIDATES.map(analyze);
 
   const phase2DeleteProposal = candidates
-    .filter((c) => c.deletablePhase2)
+    .filter((c) => c.deletablePhase2 && c.evidence.fileExists !== false)
     .map((c) => ({
       id: c.id,
       path: c.path,
       classification: c.classification,
       requires: c.phase2Requires || [],
-      blockers: c.forbidDeadProven
-        ? ["forbidDeadProven_until_verify_script_and_type_imports_rewritten"]
-        : [],
+      blockers: c.phase2Blockers || (c.forbidDeadProven ? ["review remaining coupling before delete"] : []),
     }));
 
   const summary = {
