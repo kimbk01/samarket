@@ -38,11 +38,13 @@ SLICE 8 LEGAL CMS PHASE 1 CODE LOCKED
 SLICE 8 DEPLOYED
 SLICE 8 RUNTIME PASS
 SLICE 8 LEGAL CMS PHASE 1 LOCK
-SLICE 8 BUSINESS CMS PHASE 2 AUTHORIZED
-SLICE 8 BUSINESS CMS PHASE 2 CODE IN PROGRESS
+SLICE 8 BUSINESS CMS PHASE 2 CODE LOCKED
+SLICE 8 BUSINESS CMS PHASE 2 DEPLOYED
+SLICE 8 BUSINESS CMS PHASE 2 RUNTIME PASS
+SLICE 8 BUSINESS CMS PHASE 2 LOCK
 ```
 
-다음: **Slice 8 Business CMS Phase 2** — commit → Git Auto Deploy → Runtime → LOCK.  
+다음: **별도 인가 후** FAQ / banners / popups 등 (Business·Legal LOCK 유지).  
 증거: `_ios-mypage-audit-2026-08-06/dibay/SLICE8-CMS-STATUS.md`  
 (비밀번호는 env/수동만 · 문서·커밋·로그 미기록)
 
@@ -51,12 +53,12 @@ SLICE 8 BUSINESS CMS PHASE 2 CODE IN PROGRESS
 ## 현재 판정
 
 ```text
-SLICE 8 LEGAL CMS PHASE 1 LOCK (유지)
-SLICE 8 BUSINESS CMS PHASE 2 AUTHORIZED · CODE IN PROGRESS
+SLICE 8 LEGAL CMS PHASE 1 LOCK
+SLICE 8 BUSINESS CMS PHASE 2 LOCK
 ```
 
-**Git LOCK / Production (Phase 1):** `bbc23787f2269f44e4f3472c7e997098fe4e5f31`  
-`dpl_fm6RtnqvwVXSJizRr2G9uL39MSrW` · source=`git` · alias `samarket.vercel.app`  
+**Git / Production (Phase 2):** `170c92900f5758fdf15d61c132293ea846cea83c`  
+`dpl_93zyXzJPDTTZ11jhLCS88jboQUYa` · source=`git` · alias `samarket.vercel.app`  
 상세: `_ios-mypage-audit-2026-08-06/dibay/SLICE8-CMS-STATUS.md`
 
 ---
