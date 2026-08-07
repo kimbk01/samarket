@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 
 export const OWN_STORE_ORDER_BLOCK_MESSAGE_KEY = "store_err_own_store_block";
 
@@ -21,7 +21,12 @@ async function loadViewerAdminFlag(sb: SupabaseClient, viewerUserId: string): Pr
     .eq("id", viewerUserId)
     .maybeSingle();
   if (error) return false;
-  return isPrivilegedAdminRole((data as { role?: string | null } | null)?.role ?? null);
+  const profileRole = (data as { role?: string | null } | null)?.role ?? null;
+  try {
+    return await hasActiveAdminMembershipOrLegacyRole(sb, viewerUserId, profileRole);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -29,6 +34,8 @@ async function loadViewerAdminFlag(sb: SupabaseClient, viewerUserId: string): Pr
  * - normal users can order stores they do not own
  * - store owners cannot order their own store
  * - platform admins may pass through for test mode
+ * Admin authority = CURRENT dual-read (membership OR legacy privileged role).
+ * Store ownership = stores.owner_user_id only (never inferred from profiles.role).
  */
 export async function resolveStoreOrderability(
   sb: SupabaseClient,

@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminAuthority, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
@@ -118,6 +119,7 @@ export function isAdminProvisionedFormalMemberSignals(input: {
  */
 export function bypassesPhilippinePhoneVerificationGate(input: {
   role?: string | null;
+  privilegedAdmin?: boolean;
   phone_verified: boolean;
   phone_verified_at?: string | null;
   auth_provider?: string | null;
@@ -126,6 +128,7 @@ export function bypassesPhilippinePhoneVerificationGate(input: {
 }): boolean {
   return hasPhilippinePhoneVerification({
     role: input.role,
+    privilegedAdmin: input.privilegedAdmin,
     phone_verified: input.phone_verified,
     phone_verified_at: input.phone_verified_at ?? null,
     provider: input.provider ?? input.auth_provider ?? null,
@@ -583,9 +586,10 @@ export async function loadMemberAccessState(
     fallbackId: userId,
   });
   const role = normalizeMemberRole(pickTrimmed(profile?.role) ?? "user");
+  const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, userId, role).catch(() => false);
   const memberType =
     pickTrimmed(profile?.member_type) ??
-    (isPrivilegedAdminRole(role) ? "admin" : "normal");
+    (privilegedAdmin || isPrivilegedAdminRole(role) ? "admin" : "normal");
   const status = normalizeMemberStatus(pickTrimmed(profile?.status));
   const phoneCountryCode = pickTrimmed((profile as { phone_country_code?: string | null } | null)?.phone_country_code) ?? "+63";
   const phoneNumber = pickTrimmed((profile as { phone_number?: string | null } | null)?.phone_number);
@@ -598,7 +602,7 @@ export async function loadMemberAccessState(
   const phoneVerified = profile?.phone_verified === true || Boolean(phoneVerifiedAt);
   const authLoginEmail = pickTrimmed((profile as { auth_login_email?: string | null } | null)?.auth_login_email);
   const memberStatus = pickTrimmed((profile as { member_status?: string | null } | null)?.member_status);
-  const isAdmin = (profile as { is_admin?: boolean | null } | null)?.is_admin === true;
+  const isAdmin = privilegedAdmin;
   const phoneVerificationStatus =
     pickTrimmed(profile?.phone_verification_status) ??
     (phoneVerified ? "verified" : phone ? "pending" : "unverified");
@@ -613,6 +617,7 @@ export async function loadMemberAccessState(
   const privacyVersion = pickTrimmed((profile as { privacy_version?: string | null } | null)?.privacy_version);
   const storeMemberStatus = deriveStoreMemberStatus({
     role,
+    privilegedAdmin,
     status,
     member_status: memberStatus,
     phone_verified: phoneVerified,
@@ -659,7 +664,14 @@ export async function loadMemberAccessState(
 
 export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | undefined): boolean {
   if (!state) return false;
-  if (isPrivilegedAdminRole(state.role)) return true;
+  if (
+    isPrivilegedAdminAuthority({
+      role: state.role,
+      privilegedAdmin: state.isAdmin === true ? true : undefined,
+    })
+  ) {
+    return true;
+  }
   if (isVerifiedMember({ phone_verified: state.phoneVerified, member_status: state.memberStatus ?? null })) {
     return true;
   }
@@ -672,6 +684,7 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
   }
   return hasPhilippinePhoneVerification({
     role: state.role,
+    privilegedAdmin: state.isAdmin === true ? true : undefined,
     phone_verified: state.phoneVerified,
     phone_verified_at: state.phoneVerifiedAt ?? null,
     provider: state.provider ?? state.authProvider ?? null,

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { runMeProfileReadPipeline } from "@/lib/profile/me-profile-read-pipeline";
@@ -17,8 +17,17 @@ import { deriveProfileCompletionState } from "@/lib/profile/profile-completion-s
 
 const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
 
-function isAdminProfileRole(role: string | null | undefined): boolean {
-  return isPrivilegedAdminRole(role);
+async function resolveMypageIsAdmin(
+  userId: string,
+  profileRole: string | null | undefined
+): Promise<boolean> {
+  const sb = tryCreateSupabaseServiceClient() ?? tryGetSupabaseForStores();
+  if (!sb) return false;
+  try {
+    return await hasActiveAdminMembershipOrLegacyRole(sb, userId, profileRole);
+  } catch {
+    return false;
+  }
 }
 
 /** 프로필·CMS·매장 보유 + `loadMypageHubExtrasServer` 용 라우트 user id */
@@ -106,7 +115,7 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
   const isBusinessMember = hasOwnerStore;
-  const isAdmin = isAdminProfileRole(profile?.role ?? null);
+  const isAdmin = await resolveMypageIsAdmin(userId, profile?.role ?? null);
 
   return {
     profile,

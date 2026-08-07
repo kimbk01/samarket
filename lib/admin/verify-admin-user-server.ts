@@ -2,11 +2,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 
 /**
- * trade-flow 등 관리자 API 공통 — `profiles.role` 기준.
- *
- * 운영에서는 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 서비스 롤로 조회해 RLS·정책 차이로 인한
- * 오판·403 과다를 막고, `isRouteAdmin()` 과 동일한 DB 신뢰 경로를 쓴다.
- * 서비스 키가 없는 로컬 등에서만 anon 폴백.
+ * DEAD / NO LIVE CALLER (2026-08-07 privilege-reader alignment).
+ * trade-flow routes import `getServiceOrAnonClient` only — not this verifier.
+ * Formula remains transitional `profiles.role` only; do not revive without
+ * aligning to `hasActiveAdminMembershipOrLegacyRole`. Cleanup is a later step.
  */
 export async function verifyAdminUserId(
   url: string,
@@ -20,7 +19,7 @@ export async function verifyAdminUserId(
   return isPrivilegedAdminRole(role);
 }
 
-/** 관리자 API용 — DB 역할만 신뢰한다. */
+/** DEAD / NO LIVE CALLER — see `verifyAdminUserId`. */
 export async function verifyAdminAccess(
   url: string,
   anonKey: string,

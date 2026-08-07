@@ -4,7 +4,7 @@ import {
   hasPhilippinePhoneVerification,
   hasStoreTermsConsent,
 } from "@/lib/auth/store-member-policy";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import {
   deriveDibaySignupStatus,
   isDibayIdComplete,
@@ -140,19 +140,27 @@ export async function getOnboardingStatus(
     (profile?.display_name && profile.display_name.length > 0) ||
       (profile?.nickname && profile.nickname.length > 0)
   );
-  const isPrivilegedAdmin = isPrivilegedAdminRole(profile?.role ?? null);
-  const phoneVerified = hasPhilippinePhoneVerification({
-    role: profile?.role ?? null,
-    phone_verified: profile?.phone_verified ?? false,
-    phone_verified_at: profile?.phone_verified_at ?? null,
-    provider: profile?.provider ?? profile?.auth_provider ?? null,
-    auth_provider: profile?.auth_provider ?? null,
-    email: profile?.email ?? null,
-  });
+  const isPrivilegedAdmin = profileExists
+    ? await hasActiveAdminMembershipOrLegacyRole(sb, userId, profile?.role ?? null).catch(() => false)
+    : false;
+  const phoneVerified =
+    isPrivilegedAdmin ||
+    hasPhilippinePhoneVerification({
+      role: profile?.role ?? null,
+      privilegedAdmin: isPrivilegedAdmin,
+      phone_verified: profile?.phone_verified ?? false,
+      phone_verified_at: profile?.phone_verified_at ?? null,
+      provider: profile?.provider ?? profile?.auth_provider ?? null,
+      auth_provider: profile?.auth_provider ?? null,
+      email: profile?.email ?? null,
+    });
 
   const addressComplete = addressSettled.status === "fulfilled" ? addressSettled.value : false;
 
-  const signup = deriveDibaySignupStatus(profile ?? undefined, { hasSession: profileExists });
+  const signup = deriveDibaySignupStatus(profile ?? undefined, {
+    hasSession: profileExists,
+    privilegedAdmin: isPrivilegedAdmin,
+  });
 
   return {
     profileExists,

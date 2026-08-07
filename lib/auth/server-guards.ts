@@ -10,7 +10,7 @@ import {
   createActiveSessionId,
   clearActiveSessionCookie,
 } from "@/lib/auth/active-session";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminAuthority, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
@@ -29,7 +29,6 @@ import {
   setAuthLightSessionSnapshot,
 } from "@/lib/auth/auth-light-session-snapshot-cache";
 import {
-  invalidateUserSessionRegistry,
   syncUserSessionRegistry,
   validateUserSessionRegistryCached,
   ensureUserSessionRegistryRow,
@@ -241,10 +240,21 @@ export async function validateActiveSessionLight(
   return { ok: true, breakdown };
 }
 
-function profilePassesPhoneVerificationGate(profile: ProfileRow): boolean {
-  if (isPrivilegedAdminRole(profile.role)) return true;
+function profilePassesPhoneVerificationGate(
+  profile: ProfileRow,
+  privilegedAdmin?: boolean
+): boolean {
+  if (
+    isPrivilegedAdminAuthority({
+      role: profile.role,
+      privilegedAdmin,
+    })
+  ) {
+    return true;
+  }
   return hasPhilippinePhoneVerification({
     role: profile.role,
+    privilegedAdmin,
     phone_verified: profile.phone_verified === true,
     phone_verified_at: profile.phone_verified_at ?? null,
     provider: profile.provider ?? profile.auth_provider,
@@ -253,18 +263,36 @@ function profilePassesPhoneVerificationGate(profile: ProfileRow): boolean {
   });
 }
 
+async function resolvePrivilegedAdminForUser(
+  userId: string,
+  profileRole: string | null | undefined
+): Promise<boolean> {
+  if (isPrivilegedAdminRole(profileRole)) return true;
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) return false;
+  try {
+    return await hasActiveAdminMembershipOrLegacyRole(sb, userId, profileRole);
+  } catch {
+    return false;
+  }
+}
+
 export async function requirePhoneVerified(
   userId: string
 ): Promise<{ ok: true; profile: ProfileRow } | { ok: false; response: NextResponse; profile?: ProfileRow | null }> {
   const cached = peekPhoneVerifiedPositiveProfile(userId);
-  if (cached && profilePassesPhoneVerificationGate(cached)) {
-    return { ok: true, profile: cached };
+  if (cached) {
+    const privilegedCached = await resolvePrivilegedAdminForUser(userId, cached.role);
+    if (profilePassesPhoneVerificationGate(cached, privilegedCached)) {
+      return { ok: true, profile: cached };
+    }
   }
   const profile = await getCurrentProfile(userId);
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
-  if (profilePassesPhoneVerificationGate(profile)) {
+  const privilegedAdmin = await resolvePrivilegedAdminForUser(userId, profile.role);
+  if (profilePassesPhoneVerificationGate(profile, privilegedAdmin)) {
     rememberPhoneVerifiedPositiveProfile(userId, profile);
     return { ok: true, profile };
   }

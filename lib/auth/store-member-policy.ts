@@ -1,4 +1,4 @@
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 
 export const STORE_TERMS_VERSION = "2026-04-store-review";
 export const STORE_PRIVACY_VERSION = "2026-04-store-review";
@@ -14,6 +14,8 @@ export type StoreMemberStatus =
 
 type ProfileLike = {
   role?: string | null;
+  /** Server-resolved CURRENT dual-read; when set, drives admin exemption/label */
+  privilegedAdmin?: boolean;
   status?: string | null;
   phone_verified?: boolean | null;
   phone_verified_at?: string | null;
@@ -82,16 +84,23 @@ export function isAdminManualProvider(input: Pick<ProfileLike, "provider" | "aut
 }
 
 export function hasPhilippinePhoneVerification(
-  profile: Pick<ProfileLike, "phone_verified" | "phone_verified_at" | "provider" | "auth_provider" | "email" | "role">
+  profile: Pick<
+    ProfileLike,
+    "phone_verified" | "phone_verified_at" | "provider" | "auth_provider" | "email" | "role" | "privilegedAdmin"
+  >
 ): boolean {
-  if (isPrivilegedAdminRole(profile.role)) return true;
+  if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
+    return true;
+  }
   if (profile.phone_verified === true || Boolean(profile.phone_verified_at)) return true;
   return isAdminManualProvider(profile);
 }
 
 export function deriveStoreMemberStatus(profile: ProfileLike | null | undefined): StoreMemberStatus {
   if (!profile || isDeletedStoreMember(profile)) return "guest";
-  if (isPrivilegedAdminRole(profile.role)) return "admin";
+  if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
+    return "admin";
+  }
   const memberStatus = String(profile.member_status ?? "").trim().toLowerCase();
   if (memberStatus === "active") return "verified_member";
   if (memberStatus === "pending") return "sns_member";

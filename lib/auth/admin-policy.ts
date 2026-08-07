@@ -26,8 +26,28 @@ export function isPrivilegedAdminRole(role: string | null | undefined): boolean 
   return r === "admin" || r === "super_admin";
 }
 
+/**
+ * Sync product-gate exemption facts.
+ * Prefer `privilegedAdmin` already resolved by CURRENT dual-read
+ * (`hasActiveAdminMembershipOrLegacyRole`). When unset, fall back to transitional
+ * `profiles.role` only — never invent client-side membership queries here.
+ */
+export type PrivilegedAdminAuthorityFacts = {
+  role?: string | null;
+  privilegedAdmin?: boolean;
+};
+
+export function isPrivilegedAdminAuthority(facts: PrivilegedAdminAuthorityFacts): boolean {
+  if (typeof facts.privilegedAdmin === "boolean") return facts.privilegedAdmin;
+  return isPrivilegedAdminRole(facts.role);
+}
+
 export function isAdminUser(
-  user: { role?: string | null } | null
+  user: { role?: string | null; is_admin?: boolean | null } | null
 ): boolean {
-  return isPrivilegedAdminRole(user?.role);
+  if (!user) return false;
+  return isPrivilegedAdminAuthority({
+    role: user.role,
+    privilegedAdmin: user.is_admin === true ? true : undefined,
+  });
 }

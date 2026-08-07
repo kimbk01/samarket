@@ -6,7 +6,7 @@ import {
   sanitizeNextPath,
   withNextSearchParam,
 } from "@/lib/auth/safe-next-path";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
 
 export {
@@ -91,7 +91,7 @@ export function isDibayProfileComplete(profile: DibaySignupProfileInput | null |
 
 export function deriveDibaySignupStatus(
   profile: DibaySignupProfileInput | null | undefined,
-  opts?: { hasSession?: boolean }
+  opts?: { hasSession?: boolean; privilegedAdmin?: boolean }
 ): DibaySignupStatus {
   const hasSession = opts?.hasSession !== false;
   if (!hasSession || !profile?.id) {
@@ -106,7 +106,12 @@ export function deriveDibaySignupStatus(
     };
   }
 
-  if (isPrivilegedAdminRole(profile.role ?? null)) {
+  if (
+    isPrivilegedAdminAuthority({
+      role: profile.role ?? null,
+      privilegedAdmin: opts?.privilegedAdmin,
+    })
+  ) {
     return {
       phase: "completed",
       consentComplete: true,
