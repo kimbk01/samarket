@@ -30,12 +30,27 @@ export const MESSENGER_MONITORING_LABEL_DOMAIN = {
   store_order: "store_order",
 } as const satisfies Record<string, MessengerDomain>;
 
-/** 각 도메인의 소유 코드 경로(에이전트/리뷰 시 교차 import 금지 판단용) */
+/**
+ * 각 도메인의 소유 코드 경로(에이전트/리뷰 시 교차 import 금지 판단용).
+ *
+ * trade: LIVE 목록·방은 community-messenger; 진입·surface는 lib/chats;
+ * listing/policy·ledger bridge는 lib/trade; HTTP는 app/api/chat + app/api/trade.
+ * STRUCTURAL AUTHORITY LOCK PASS (2026-08-07) — docs/trade-community-structural-authority-lock.md
+ * (Bridge 제거·Phase3 승격은 LOCK 범위 밖)
+ */
 export const MESSENGER_DOMAIN_OWNERSHIP: Record<
   MessengerDomain,
   readonly string[]
 > = {
-  trade: ["lib/chats", "lib/chats/server", "app/api/chat"],
+  trade: [
+    "lib/chats",
+    "lib/chats/server",
+    "lib/trade",
+    "lib/community-messenger",
+    "app/api/chat",
+    "app/api/trade",
+    "app/(main)/community-messenger",
+  ],
   philife: ["lib/chats", "app/(main)/philife"],
   store: ["lib/chats", "lib/chats/server"],
   community: ["lib/community-messenger", "app/api/community-messenger"],

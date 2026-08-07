@@ -40,8 +40,9 @@
 
 ### 판매자 전용 — 거래 진행
 
-- **`POST /api/chat/rooms/[roomId]/trade-status`** — 판매자만, `chat_rooms.trade_status` + 글 `posts.status` 동기화
+- **`POST /api/posts/[postId]/seller-listing-state`** — 판매자 공개 단계(L1 구현 대상)·`posts` + 필요 시 `chat_rooms.trade_status` 미러
 - **`POST /api/trade/product-chat/[roomId]/seller-complete`** — 판매자만 거래완료 처리
+- **`POST /api/chat/rooms/[roomId]/trade-status`** — 레거시/보조(listing SSOT 아님 · 수렴·강등 대상). 신규 클라 사용 금지.
 
 ### 구매자 전용 — 확인·후기·이슈
 

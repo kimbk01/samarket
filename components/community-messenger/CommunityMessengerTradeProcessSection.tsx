@@ -51,6 +51,10 @@ type Props = {
 };
 
 /**
+ * STRUCTURAL AUTHORITY LOCK PASS (2026-08-07): Process UI = S1 이 섹션.
+ * docs/trade-community-structural-authority-lock.md
+ * ChatDetailView TradeFlowBanner 경로는 Bridge — Exit 조건 충족 전 제거 금지.
+ *
  * 메신저 1:1 방에서 중고 거래(product_chats) — 기존 거래 채팅과 동일 TradeFlowBanner·상품 카드.
  */
 export function CommunityMessengerTradeProcessSection({

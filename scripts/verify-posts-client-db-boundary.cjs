@@ -9,10 +9,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 
-/** @deprecated 레거시 — 신규 import 금지 */
+/** @deprecated 레거시 — 신규 import 금지 (파일 삭제됨 · 이름 잔존 시 skip) */
 const DEPRECATED_CLIENT_POSTS_FILES = new Set([
-  "lib/posts/updatePostStatus.ts",
-  "lib/chat/updateProductStatusWithNotify.ts",
   "lib/posts/searchPosts.ts",
 ]);
 

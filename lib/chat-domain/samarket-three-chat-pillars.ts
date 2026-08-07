@@ -17,9 +17,17 @@ export const SAMARKET_CHAT_PILLARS = {
     id: "trade" as const satisfies SamarketChatPillarId,
     labelKo: "거래 채팅",
     descriptionKo:
-      "중고·마켓 상품 문의 등. `lib/chats` 거래 세그먼트, 목록·방·후기 진입 모두 메신저(`?section=chats&kind=trade`, `/community-messenger/rooms/…`, `?review=1`).",
+      "중고·마켓 상품 문의 등. 목록=`/community-messenger/trade-chats`, 방=`/community-messenger/rooms/…`, compose·후기 진입은 `lib/chats` trade surface. listing SSOT=`posts.seller_listing_state`(`lib/products`/`lib/trade`).",
     messengerDomainKey: "trade" as const,
-    codePaths: ["lib/chats", "lib/chats/server", "app/api/chat"] as const,
+    codePaths: [
+      "lib/chats",
+      "lib/chats/server",
+      "lib/trade",
+      "lib/community-messenger",
+      "app/api/chat",
+      "app/api/trade",
+      "app/(main)/community-messenger",
+    ] as const,
   },
   messenger: {
     id: "community" as const satisfies SamarketChatPillarId,

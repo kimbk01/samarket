@@ -153,6 +153,7 @@ async function runCycle(page, cycleIndex) {
   const row = { cycle: cycleIndex + 1, checksheet: {} };
 
   // §1 list → detail (prefetch 4s)
+  // waitUntil load는 App Router soft nav에서 안 끝나 timeout 남 → commit/domcontentloaded 사용
   await page.goto(`${baseUrl}/market`, { waitUntil: "domcontentloaded", timeout: 90_000 });
   if (cycleIndex === 0) await page.waitForTimeout(2000);
   await dismissPermissionGuides(page);
@@ -160,26 +161,33 @@ async function runCycle(page, cycleIndex) {
   await postLink.waitFor({ state: "visible", timeout: 45_000 });
   await page.waitForTimeout(4000);
   const tapAt = Date.now();
-  await postLink.click();
-  await page.waitForURL(/\/post\//, { timeout: 45_000 });
+  // soft nav는 click 중에 URL이 바뀌므로 waitForURL을 click과 병렬로 건다 (이후 등록 시 이미 끝난 nav를 놓침)
+  await Promise.all([
+    page.waitForURL(/\/post\//, { timeout: 45_000, waitUntil: "commit" }),
+    postLink.click(),
+  ]);
   row.checksheet.list_to_detail = await waitPostH2(page, tapAt);
 
   // §4 reentry — back → same post
   await page.goBack({ waitUntil: "domcontentloaded", timeout: 45_000 });
   await postLink.waitFor({ state: "visible", timeout: 45_000 });
   const reAt = Date.now();
-  await postLink.click();
-  await page.waitForURL(/\/post\//, { timeout: 45_000 });
+  await Promise.all([
+    page.waitForURL(/\/post\//, { timeout: 45_000, waitUntil: "commit" }),
+    postLink.click(),
+  ]);
   row.checksheet.detail_reentry = await waitPostH2(page, reAt);
 
   // §2 chat open
   const chatBtn = page.getByRole("button", { name: /채팅하기|채팅 이어가기|Chat/i }).first();
   if (await chatBtn.isVisible({ timeout: 10_000 }).catch(() => false)) {
     const chatAt = Date.now();
-    await chatBtn.click();
-    await Promise.race([
-      page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 60_000 }),
-      page.waitForURL(/\/mypage\/trade\/chat\/compose/, { timeout: 60_000 }),
+    await Promise.all([
+      Promise.race([
+        page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 60_000, waitUntil: "commit" }),
+        page.waitForURL(/\/mypage\/trade\/chat\/compose/, { timeout: 60_000, waitUntil: "commit" }),
+      ]),
+      chatBtn.click(),
     ]);
     await page.locator("textarea").first().waitFor({ state: "visible", timeout: 60_000 }).catch(() => undefined);
     await page.waitForTimeout(800);
@@ -191,15 +199,33 @@ async function runCycle(page, cycleIndex) {
     };
   }
 
-  // §5 tab — /market bottom nav from room/chat or post
+  // §5 tab — /market bottom nav from philife (cross-domain Confirm 가능)
   await page.goto(`${baseUrl}/philife`, { waitUntil: "domcontentloaded", timeout: 90_000 });
   await page.waitForTimeout(1200);
-  const marketTab = page.getByRole("link", { name: /거래|Trade/i }).first();
-  const tabAt = Date.now();
+  // role name /거래|Trade/ 는 모호할 수 있음 → 하단 nav href 고정 (tab id = home)
+  const marketTab = page.locator('nav[aria-label="Main navigation"] a[href="/market"]');
+  await marketTab.waitFor({ state: "visible", timeout: 45_000 });
   await marketTab.click();
-  await page.waitForURL(/\/market/, { timeout: 45_000 });
+  const dialog = page.getByRole("dialog");
+  const hasConfirm = await dialog.isVisible({ timeout: 1500 }).catch(() => false);
+  let confirmed = false;
+  const tabAt = Date.now();
+  if (hasConfirm) {
+    const confirmBtn = dialog.getByRole("button", {
+      name: /Confirm switch|확인|Confirm/i,
+    });
+    await confirmBtn.waitFor({ state: "visible", timeout: 4000 });
+    confirmed = true;
+    await Promise.all([
+      page.waitForURL(/\/market\/?(\?|$)/, { timeout: 45_000, waitUntil: "commit" }),
+      confirmBtn.click(),
+    ]);
+  } else {
+    await page.waitForURL(/\/market\/?(\?|$)/, { timeout: 45_000, waitUntil: "commit" });
+  }
   await page.locator('a[href^="/post/"]').first().waitFor({ state: "visible", timeout: 45_000 });
   row.checksheet.tab_to_market_list_ms = Date.now() - tabAt;
+  row.checksheet.tab_domain_confirm_used = confirmed;
 
   // §3 scroll sample — wheel on market list
   const scrollStart = Date.now();

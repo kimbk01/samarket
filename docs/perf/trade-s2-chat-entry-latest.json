@@ -1,0 +1,99 @@
+{
+  "measured_at": "2026-08-07T11:22:07.811Z",
+  "base_url": "http://localhost:3000",
+  "mode": "prod-like S2-only",
+  "post_id": "362b8855-9871-47d8-a2c0-bf774ee10423",
+  "post_path": "/post/362b8855-9871-47d8-a2c0-bf774ee10423",
+  "cycles": 3,
+  "warm_discard": "cycle 1",
+  "summary": {
+    "click_to_textarea_wall_warm": {
+      "count": 2,
+      "min": 1075,
+      "max": 1135,
+      "avg": 1105,
+      "p95": 1135
+    },
+    "nav_commit_warm": {
+      "count": 2,
+      "min": 278,
+      "max": 338,
+      "avg": 308,
+      "p95": 338
+    },
+    "trade_chat_open_total_warm": {
+      "count": 2,
+      "min": 0,
+      "max": 0,
+      "avg": 0,
+      "p95": 0
+    },
+    "chat_click_to_room_ready_warm": {
+      "count": 2,
+      "min": 598,
+      "max": 648,
+      "avg": 623,
+      "p95": 648
+    }
+  },
+  "cycles_detail": [
+    {
+      "cycle": 1,
+      "cta_label": "Continue chat",
+      "nav_commit_ms": 57,
+      "nav_url": "http://localhost:3000/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d?source=chat_room",
+      "click_to_textarea_wall_ms": 962,
+      "trade_chat_open_total_ms": 0,
+      "chat_click_to_room_ready_ms": 486,
+      "api_after_click": [
+        "GET /api/community-messenger/bootstrap?tier=critical",
+        "GET /api/community-messenger/bootstrap?lite=1",
+        "GET /api/community-messenger/calls/ice-servers",
+        "POST /api/community-messenger/presence",
+        "GET /api/chat/room/d2414313-1b01-4173-8f21-4430ffde9c40",
+        "GET /api/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d/messages?after=edc05e69-af92-4cbb-b5ff-85ca8dd488a9&limit=80"
+      ],
+      "runtime_path": "cm_room"
+    },
+    {
+      "cycle": 2,
+      "cta_label": "Continue chat",
+      "nav_commit_ms": 338,
+      "nav_url": "http://localhost:3000/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d?source=chat_room",
+      "click_to_textarea_wall_ms": 1135,
+      "trade_chat_open_total_ms": 0,
+      "chat_click_to_room_ready_ms": 648,
+      "api_after_click": [
+        "GET /api/community-messenger/calls/ice-servers",
+        "POST /api/community-messenger/presence",
+        "GET /api/chat/room/d2414313-1b01-4173-8f21-4430ffde9c40",
+        "GET /api/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d/messages?after=edc05e69-af92-4cbb-b5ff-85ca8dd488a9&limit=80"
+      ],
+      "runtime_path": "cm_room"
+    },
+    {
+      "cycle": 3,
+      "cta_label": "Continue chat",
+      "nav_commit_ms": 278,
+      "nav_url": "http://localhost:3000/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d?source=chat_room",
+      "click_to_textarea_wall_ms": 1075,
+      "trade_chat_open_total_ms": 0,
+      "chat_click_to_room_ready_ms": 598,
+      "api_after_click": [
+        "GET /api/community-messenger/calls/ice-servers",
+        "POST /api/community-messenger/presence",
+        "GET /api/chat/room/d2414313-1b01-4173-8f21-4430ffde9c40",
+        "GET /api/community-messenger/rooms/641a8d4c-edb1-4a08-8af0-635df7059f6d/messages?after=edc05e69-af92-4cbb-b5ff-85ca8dd488a9&limit=80"
+      ],
+      "runtime_path": "cm_room"
+    }
+  ],
+  "errors": [],
+  "baseline_2026_06_10": {
+    "click_to_textarea_wall_note": "TRADE-AUDIT-4 warm textarea p95 ~3305; TRADE-AUDIT-3 warm 1137; room_ready 629-726"
+  },
+  "contract_notes": [
+    "openCreateTradeChat 비대기 → compose replace",
+    "existing room may continue to CM room / chats"
+  ]
+}

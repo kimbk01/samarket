@@ -2,6 +2,10 @@
  * 판매자 공개 거래 단계 — DB posts.seller_listing_state 단일 소스
  * (목록·채팅 상단·어드민 동일 라벨)
  * 구매자/판매자 채팅 플로우 문서: `docs/trade-chat-buyer-seller-process.md`
+ *
+ * STRUCTURAL AUTHORITY LOCK PASS (2026-08-07): Listing = L1 이 모듈/컬럼.
+ * docs/trade-community-structural-authority-lock.md
+ * 타 writer는 L1 mapping으로 수렴; Bridge 제거는 LOCK 범위 밖.
  */
 
 import {

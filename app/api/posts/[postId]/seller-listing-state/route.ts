@@ -27,6 +27,7 @@ import {
 } from "@/lib/trade/insert-seller-listing-change-system-messages";
 import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 import { publishTradePostListingUpdateFromServer } from "@/lib/trade/trade-post-listing-broadcast-server";
+import { postStatusForSellerListingState } from "@/lib/trade/posts-listing-write-fields";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
@@ -213,12 +214,7 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  const postStatus =
-    nextState === "completed"
-      ? "sold"
-      : nextState === "reserved"
-        ? "reserved"
-        : "active";
+  const postStatus = postStatusForSellerListingState(nextListing);
 
   const prevRow = post as Record<string, unknown>;
   const prevSeller = String(prevRow.seller_listing_state ?? "inquiry").trim().toLowerCase();

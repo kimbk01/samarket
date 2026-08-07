@@ -16,6 +16,9 @@ function appendTradeHubRoomSourceQuery(
  * - **목록**: 메신저 `messengerListHref`.
  * - **방 상세·후기(`?review=1`)**: 전부 `TRADE_CHAT_MESSENGER_ROOM_BASE/[roomId]` — 레거시 `/chats` 거래 UI는 사용하지 않음.
  * - **compose**: `composePath` (거래 허브 하위).
+ *
+ * STRUCTURAL AUTHORITY LOCK PASS (2026-08-07): Conversation runtime·Trade list = C3/T1 이 SSOT.
+ * docs/trade-community-structural-authority-lock.md — Bridge 제거는 별도 단계.
  */
 
 /**

@@ -6,10 +6,20 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/chat/rooms/:roomId/trade-status — 거래 상태 변경 (세션)
  * Body: { tradeStatus: string }
+ *
+ * Bridge / secondary: listing SSOT is L1 (`seller-listing-state`).
+ * When syncing posts, always write seller_listing_state + status together
+ * via `buildPostsPatchFromSellerListingState` (no status-only desync).
+ * Exit: `TRADE_BRIDGE_EXIT_CONDITIONS.TRADE_STATUS_ROOM_API` — do not remove yet.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import {
+  L1_SELLER_LISTING_STATES,
+  postStatusForSellerListingState,
+} from "@/lib/trade/posts-listing-write-fields";
 
 const ALLOWED: string[] = [
   "inquiry",
@@ -190,8 +200,12 @@ export async function POST(
     /* ignore */
   }
 
-  // 판매중·문의중·예약중·판매완료 시 posts.status 동기화 — 구매자 채팅·목록과 맞춤
-  if (r.item_id && ["inquiry", "negotiating", "reserved", "completed"].includes(tradeStatus)) {
+  // L1: listing states → posts에 seller_listing_state+status 동시 반영 (status-only 금지).
+  // reserved_buyer_id는 이 API가 기존에 건드리지 않았음 → 유지 (CANONICAL seller-listing-state만 예약자 관리).
+  if (
+    r.item_id &&
+    (L1_SELLER_LISTING_STATES as readonly string[]).includes(tradeStatus)
+  ) {
     const { data: postRow } = await sbAny
       .from(POSTS_TABLE_READ)
       .select("id, user_id")
@@ -200,13 +214,14 @@ export async function POST(
     const post = postRow as { user_id?: string } | null;
     const ownerId = post?.user_id ?? "";
     if (post && ownerId === r.seller_id) {
-      const postStatus =
-        tradeStatus === "completed" ? "sold"
-        : tradeStatus === "reserved" ? "reserved"
-        : "active"; // inquiry(판매중), negotiating(문의중) -> active
+      const listing = tradeStatus as SellerListingState;
       await sbAny
         .from(POSTS_TABLE_WRITE)
-        .update({ status: postStatus, updated_at: now })
+        .update({
+          status: postStatusForSellerListingState(listing),
+          seller_listing_state: listing,
+          updated_at: now,
+        })
         .eq("id", r.item_id);
     }
   }

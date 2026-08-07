@@ -1,6 +1,9 @@
 /**
  * ISOLATE (Final Stabilization Phase 6) — legacy list-row bridge only.
  *
+ * Phase 2: Unread 구현 대상 = U1 (participants). 본 모듈은 Authority가 아니라 Bridge(U2).
+ * Exit 후 제거 후보 — Runtime 검증·링크 완료 전 삭제 금지. 신규 product caller 금지.
+ *
  * Canonical Trade Hub / App Icon / Bottom Facts use
  * `loadTradeStoreOrderUnreadRoomFactsFromParticipants` (participant unread only).
  * This enrich may raise unlinked list-row unread above that Fact; do not add new
