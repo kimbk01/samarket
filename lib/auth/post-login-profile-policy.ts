@@ -37,9 +37,9 @@ export type PhoneVerificationGateInput = {
   phone_verified_at?: string | null;
   phone_verification_method?: string | null;
   role?: string | null;
-  /** Server-resolved CURRENT dual-read */
+  /** Server-resolved membership-only Admin fact (client snapshot) */
   privilegedAdmin?: boolean;
-  /** Client Profile affirmative mirror (dual-write / server snapshot) */
+  /** Legacy dual-write mirror — not Application/Client Admin allow */
   is_admin?: boolean | null;
   provider?: string | null;
   auth_provider?: string | null;
@@ -49,12 +49,9 @@ export type PhoneVerificationGateInput = {
 /** SSOT — 클라·서버 profile gate 동일 판정 (OTP·admin 승인·legacy manual_admin) */
 export function hasVerifiedPhone(profile: PhoneVerificationGateInput | null | undefined): boolean {
   if (!profile) return false;
+  // Canonical only — never promote profiles.is_admin mirror to Admin exemption
   const privilegedAdmin =
-    typeof profile.privilegedAdmin === "boolean"
-      ? profile.privilegedAdmin
-      : profile.is_admin === true
-        ? true
-        : undefined;
+    typeof profile.privilegedAdmin === "boolean" ? profile.privilegedAdmin : undefined;
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin })) {
     return true;
   }

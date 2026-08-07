@@ -19,6 +19,11 @@ export interface Profile {
   onboarding_completed_at?: string | null;
   profile_completed?: boolean;
   role?: string;
+  /**
+   * Canonical Admin fact from server (`/api/me/profile` pipeline).
+   * Membership-only — never invent from `role` / `is_admin` on the client.
+   */
+  privilegedAdmin?: boolean;
   status?: string;
   member_type?: string;
   phone?: string | null;

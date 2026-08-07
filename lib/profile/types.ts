@@ -53,6 +53,12 @@ export interface ProfileRow {
   status: string;
   member_status?: string | null;
   role: string;
+  /**
+   * Server-resolved Application Admin authority (active admin_memberships ONLY).
+   * Not a DB column — attached by me-profile pipeline for client snapshots.
+   * DO NOT treat `is_admin` / `role` as this fact.
+   */
+  privilegedAdmin?: boolean;
   is_admin?: boolean;
   /** normal | premium | business 등 (관리자 회원관리와 동일) */
   member_type: string;

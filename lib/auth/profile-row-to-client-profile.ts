@@ -43,6 +43,7 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     auth_provider: row.auth_provider,
     member_status: row.member_status ?? null,
     is_admin: row.is_admin,
+    privilegedAdmin: row.privilegedAdmin === true,
     terms_accepted_at: row.terms_accepted_at ?? null,
     terms_version: row.terms_version ?? null,
     privacy_accepted_at: row.privacy_accepted_at ?? null,

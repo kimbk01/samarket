@@ -8,10 +8,20 @@ import type { ProfileRow } from "@/lib/profile/types";
 import type { Profile } from "@/lib/types/profile";
 
 function bypassFromProfileRow(
-  p: Pick<ProfileRow, "role" | "phone_verified" | "phone_verified_at" | "provider" | "auth_provider" | "email">
+  p: Pick<
+    ProfileRow,
+    | "role"
+    | "phone_verified"
+    | "phone_verified_at"
+    | "provider"
+    | "auth_provider"
+    | "email"
+    | "privilegedAdmin"
+  >
 ): boolean {
   return bypassesPhilippinePhoneVerificationGate({
     role: p.role,
+    privilegedAdmin: p.privilegedAdmin === true,
     phone_verified: p.phone_verified === true,
     phone_verified_at: p.phone_verified_at ?? null,
     provider: p.provider ?? p.auth_provider,
@@ -23,6 +33,7 @@ function bypassFromProfileRow(
 function bypassFromClientProfile(p: Profile): boolean {
   return bypassesPhilippinePhoneVerificationGate({
     role: p.role,
+    privilegedAdmin: p.privilegedAdmin === true,
     phone_verified: p.phone_verified === true,
     phone_verified_at: p.phone_verified_at ?? null,
     provider: p.provider ?? p.auth_provider,

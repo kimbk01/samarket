@@ -13,6 +13,7 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { resolveTrustScoreAuthority } from "@/lib/trust/trust-score-ssot";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 
 /** `runMeProfileReadPipeline` 단계별 벽시계(ms) — `[dev-api-perf]` 합산용 + `ensureUserProfile` 세부 */
 export type MeProfilePipelinePerf = EnsureUserProfileMetrics & {
@@ -197,6 +198,13 @@ export async function runMeProfileReadPipeline(args: {
         profile;
     }
   }
+  if (profile) {
+    const authSb = serviceSb ?? writeSb;
+    const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(authSb, authUserId).catch(
+      () => false
+    );
+    profile = { ...profile, privilegedAdmin };
+  }
   finalizePerf(profile);
   return profile;
 }
@@ -226,6 +234,7 @@ export function profileRowToEnsureApiPayload(row: ProfileRow) {
     phone_verification_status: row.phone_verification_status,
     provider: row.provider ?? row.auth_provider ?? null,
     auth_provider: row.auth_provider,
+    privilegedAdmin: row.privilegedAdmin === true,
     temperature: typeof temp === "number" && Number.isFinite(temp) ? temp : 50,
     terms_accepted_at: row.terms_accepted_at ?? null,
     terms_version: row.terms_version ?? null,

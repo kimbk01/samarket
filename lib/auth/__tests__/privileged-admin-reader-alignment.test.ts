@@ -224,7 +224,7 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
         })
       ).toBe(c.expectExempt ? "admin" : "sns_member");
 
-      // messenger client: no role/is_admin admin exemption (server enforces membership)
+      // messenger client: server-derived privilegedAdmin only
       expect(
         clientProfilePassesPhoneVerification({
           id: "u1",
@@ -235,8 +235,9 @@ describe("privileged admin reader alignment — shared CURRENT dual-read matrix"
           role: c.profileRole ?? undefined,
           phone_verified: false,
           is_admin: privilegedAdmin ? true : false,
+          privilegedAdmin,
         })
-      ).toBe(false);
+      ).toBe(c.expectExempt);
 
       // store orderability — owner blocked unless privileged admin
       const orderability = await resolveStoreOrderability(sb, "u1", "u1");
@@ -318,12 +319,12 @@ describe("aligned readers source contract", () => {
     }
   });
 
-  it("messenger client does not query membership tables and does not trust is_admin", () => {
+  it("messenger client uses privilegedAdmin snapshot and does not query membership", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/auth/assert-phone-verified-for-messenger-action-client.ts"),
       "utf8"
     );
-    expect(src).toMatch(/privilegedAdmin:\s*false/);
+    expect(src).toMatch(/privilegedAdmin/);
     expect(src).not.toMatch(/is_admin\s*===\s*true/);
     expect(src).not.toMatch(/from\("admin_memberships"\)/);
     expect(src).not.toMatch(/process\.env\.NEXT_PUBLIC_ADMIN_ROLE/);
