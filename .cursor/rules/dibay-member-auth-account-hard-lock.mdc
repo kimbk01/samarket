@@ -1,0 +1,43 @@
+# DIBAY MEMBER / AUTH ACCOUNT HARD LOCK (LOCKED)
+
+**Status:** A–F PASS · §13.2 **ACKNOWLEDGED** · §14 **HARD LOCK DECLARED** (2026-08-07) · P2 LOCKED.  
+**Authority Track: CLOSED.**  
+Docs: account contract · phase-c · phase-d · phase-e-close · phase-f · phase-g-gate-review · **phase-g-ops-acknowledgment (§13.2 + §14)**  
+Does **not** replace Auth Session HARD LOCK (`docs/auth-hard-lock.md`).
+
+## Phase gate
+
+| Phase | Status |
+|---|---|
+| A–D | ✅ CLOSED |
+| E | ✅ CLOSED |
+| F | ✅ PASS |
+| G Gate Review | ✅ COMPLETE |
+| §13.2 Ops ACK | ✅ ACKNOWLEDGED |
+| MEMBER/AUTH HARD LOCK | ✅ **DECLARED** 2026-08-07 |
+| H+ / Legacy Cleanup | ❌ separate track — after HARD LOCK only |
+
+## Locked SSOT
+
+```text
+Person   = auth.users.id ≡ profiles.id
+Store    = stores.owner_user_id
+Admin    = active admin_memberships ONLY
+Client   = membership-derived privilegedAdmin
+```
+
+## DO NOT (without new explicit Phase)
+
+- Reintroduce Admin via `profiles.role` / `is_admin` / alias / `test_users` / `NEXT_PUBLIC_*`
+- Delete `test_users` before Phase H
+- Reopen Auth Session HARD LOCK
+- Start Phase H / Legacy Cleanup as “Authority” work
+- Fake Suspend membership PASS
+
+## Accepted gaps (travel with lock)
+
+```text
+Admin membership suspend writer = NOT IMPLEMENTED
+Last-SA product reject = cannot_disable_super_admin
+Stale profile privilege mirrors may physically remain (non-authority)
+```
