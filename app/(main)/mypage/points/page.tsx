@@ -142,8 +142,8 @@ function MypagePointsPageInner() {
           {loadError ? (
             <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
               {safeT("common_content_unavailable", {
-                fallbackKo: "포인트 정보를 불러오지 못했습니다.",
-                fallbackEn: "Could not load points.",
+                fallbackKo: "D-Point 정보를 불러오지 못했습니다.",
+                fallbackEn: "Could not load D-Point information.",
               })}
             </div>
           ) : null}

@@ -64,7 +64,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "정산 내역",
 
-    biz_nav_store_points: "매장 포인트",
+    biz_nav_store_points: "Business Credit",
 
     biz_nav_store_points_desc: "충전·계좌 문의·잔액",
 
@@ -91,7 +91,7 @@ export const businessAdminNavMessages = {
     biz_title_orders: "주문 관리",
     biz_title_inquiries: "채팅 · 문의",
     biz_title_settlements: "정산",
-    biz_title_points: "매장 포인트",
+    biz_title_points: "Business Credit",
     biz_title_menu_categories: "메뉴 카테고리",
     biz_title_product_new: "상품 등록",
     biz_title_product_edit: "상품 수정",
@@ -173,7 +173,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "Settlements",
 
-    biz_nav_store_points: "Store points",
+    biz_nav_store_points: "Business Credit",
 
     biz_nav_store_points_desc: "Top-up, account inquiry, balance",
 
@@ -200,7 +200,7 @@ export const businessAdminNavMessages = {
     biz_title_orders: "Orders",
     biz_title_inquiries: "Chat & inquiries",
     biz_title_settlements: "Settlements",
-    biz_title_points: "Store points",
+    biz_title_points: "Business Credit",
     biz_title_menu_categories: "Menu categories",
     biz_title_product_new: "Add product",
     biz_title_product_edit: "Edit product",

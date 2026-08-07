@@ -49,6 +49,11 @@ export function StoreTab({
   }
 
   if (section === "payment") {
+    const businessCreditHref = ownerHubStoreId?.trim()
+      ? `/stores/owner/points?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+      : hasOwnerStore
+        ? "/stores/owner/points"
+        : "/stores/owner/apply";
     return (
       <TabShell
         title={safeT("mypage_comp_nav_sec_store_payment_label")}
@@ -56,8 +61,22 @@ export function StoreTab({
       >
         <MyPageQuickActions
           items={[
-            { label: t("mypage_comp_points_card_title"), href: "/mypage/points", caption: t("mypage_comp_trade_nav_points_ledger") },
-            { label: t("mypage_comp_nav_sec_store_orders_label"), href: "/mypage/section/store/orders", caption: t("mypage_comp_nav_sec_store_orders_desc") },
+            {
+              label: hasOwnerStore
+                ? t("biz_nav_store_points")
+                : t("mypage_comp_store_owner_cta_apply"),
+              href: businessCreditHref,
+              caption: hasOwnerStore
+                ? t("biz_nav_store_points_desc")
+                : t("mypage_comp_store_owner_intro"),
+            },
+            {
+              label: hasOwnerStore ? t("mypage_comp_store_owner_hub") : t("mypage_comp_nav_sec_store_orders_label"),
+              href: hasOwnerStore ? businessHref : "/mypage/section/store/orders",
+              caption: hasOwnerStore
+                ? storeAttentionSummary ?? t("mypage_comp_nav_sec_store_manage_desc")
+                : t("mypage_comp_nav_sec_store_orders_desc"),
+            },
           ]}
         />
       </TabShell>

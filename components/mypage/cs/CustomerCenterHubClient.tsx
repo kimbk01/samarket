@@ -100,8 +100,8 @@ export function CustomerCenterHubClient() {
     {
       href: customerCenterChildHref("/mypage/points"),
       titleKey: "mypage_comp_stat_points",
-      titleKo: "포인트",
-      titleEn: "Points",
+      titleKo: "D-Point",
+      titleEn: "D-Point",
       icon: <Coins className="h-5 w-5" aria-hidden />,
       accessory: pointsAccessory,
     },
@@ -149,8 +149,8 @@ export function CustomerCenterHubClient() {
             <p className="mt-3 text-[17px] font-semibold leading-snug text-[#1E3932]">{greeting}</p>
             <p className="mt-1 sam-text-helper text-[#6F4E37]">
               {safeT("mypage_cs_hub_greeting_sub", {
-                fallbackKo: "문의·쪽지·포인트·공지를 한곳에서 확인하세요.",
-                fallbackEn: "Inquiries, inbox, points, and notices in one place.",
+                fallbackKo: "문의·쪽지·D-Point·공지를 한곳에서 확인하세요.",
+                fallbackEn: "Inquiries, inbox, D-Point, and notices in one place.",
               })}
             </p>
           </section>

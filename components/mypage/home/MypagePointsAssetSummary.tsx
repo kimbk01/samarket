@@ -17,7 +17,7 @@ import {
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
 /**
- * Logged-in /mypage — Member Point SSOT asset strip (no Store Point, no fake metrics).
+ * Logged-in /mypage — Member D-Point SSOT asset strip (no Business Credit balance, no fake metrics).
  */
 export function MypagePointsAssetSummary() {
   const { safeT, language } = useI18n();
@@ -42,8 +42,8 @@ export function MypagePointsAssetSummary() {
         </span>
         <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
           {safeT("mypage_comp_stat_points", {
-            fallbackKo: "포인트",
-            fallbackEn: "Points",
+            fallbackKo: "D-Point",
+            fallbackEn: "D-Point",
           })}
         </span>
         <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{value}</span>
