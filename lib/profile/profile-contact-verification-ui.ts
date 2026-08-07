@@ -6,6 +6,7 @@ export function isProfileContactVerified(
   profile: Pick<
     ProfileRow,
     | "role"
+    | "privilegedAdmin"
     | "phone_verified"
     | "phone_verified_at"
     | "provider"
@@ -16,6 +17,7 @@ export function isProfileContactVerified(
 ): boolean {
   return hasPhilippinePhoneVerification({
     role: profile.role ?? null,
+    privilegedAdmin: profile.privilegedAdmin === true,
     phone_verified: profile.phone_verified === true,
     phone_verified_at: profile.phone_verified_at ?? null,
     provider: profile.provider ?? profile.auth_provider ?? null,

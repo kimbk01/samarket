@@ -17,7 +17,8 @@ describe("profile-contact-verification-ui", () => {
   it("isProfileContactVerified treats privileged admin as verified without phone", () => {
     expect(
       isProfileContactVerified({
-        role: "admin",
+        role: "user",
+        privilegedAdmin: true,
         phone_verified: false,
         phone_verified_at: null,
         provider: "google",
@@ -26,6 +27,21 @@ describe("profile-contact-verification-ui", () => {
         auth_login_email: "admin@example.com",
       })
     ).toBe(true);
+  });
+
+  it("isProfileContactVerified does not treat legacy role-only admin as verified", () => {
+    expect(
+      isProfileContactVerified({
+        role: "admin",
+        privilegedAdmin: false,
+        phone_verified: false,
+        phone_verified_at: null,
+        provider: "google",
+        auth_provider: "google",
+        email: "admin@example.com",
+        auth_login_email: "admin@example.com",
+      })
+    ).toBe(false);
   });
 
   it("isProfileContactVerified requires phone for regular members", () => {
