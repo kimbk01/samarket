@@ -15,7 +15,7 @@ export function MyAdsApplyPageClient() {
   const { t } = useI18n();
   const router = useRouter();
   const { balance, loading: balanceLoading } = useUserPointBalance();
-  const { productOptions, shopOptions, loading: targetsLoading, unauthorized } =
+  const { productOptions, loading: targetsLoading, unauthorized } =
     usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,7 +75,6 @@ export function MyAdsApplyPageClient() {
             balance={balance}
             balanceLoading={balanceLoading}
             productOptions={productOptions}
-            shopOptions={shopOptions}
             onSubmit={(v) => void handleSubmit(v)}
             submitLabel={busy ? t("common_loading") : t("ads_apply_submit")}
           />

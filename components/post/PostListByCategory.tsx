@@ -36,6 +36,9 @@ import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFoo
 import { awaitTradeListLoadMoreMinDelay } from "@/lib/trade/trade-list-load-more-delay";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
+import { Fragment } from "react";
+import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -569,7 +572,7 @@ export function PostListByCategory({
     <>
       {tradePullRefreshRegister}
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
-        {posts.map((post) =>
+        {posts.map((post, index) =>
           notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">
               <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
@@ -579,15 +582,24 @@ export function PostListByCategory({
               <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
             </li>
           ) : (
-            <li key={post.id} className="min-w-0">
-              <PostCard
-                post={post}
-                skinKey={skinKey}
-                isFavorite={favoriteMap[post.id]}
-                onFavoriteChange={handleFavoriteChange}
-                onMenuAction={handleMenuAction}
-              />
-            </li>
+            <Fragment key={post.id}>
+              <li className="min-w-0">
+                <PostCard
+                  post={post}
+                  skinKey={skinKey}
+                  isFavorite={favoriteMap[post.id]}
+                  onFavoriteChange={handleFavoriteChange}
+                  onMenuAction={handleMenuAction}
+                />
+              </li>
+              {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+                <FeedAdBannerCarousel
+                  domain="trade"
+                  placement="TRADE_CATEGORY"
+                  categoryId={categoryId}
+                />
+              ) : null}
+            </Fragment>
           )
         )}
       </ul>

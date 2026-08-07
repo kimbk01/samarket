@@ -16,6 +16,7 @@ const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
   home_middle: "point_placement_home_middle",
   search_top: "point_placement_search_top",
   shop_featured: "point_placement_shop_featured",
+  feed_boost: "point_placement_feed_boost",
 };
 
 interface PointPromotionOrderListProps {

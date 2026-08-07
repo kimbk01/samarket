@@ -48,6 +48,9 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { Fragment } from "react";
+import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -487,16 +490,21 @@ export function HomeProductList({
               <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
             </li>
           ) : (
-            <li key={post.id} className="min-w-0">
-              <PostCard
-                post={post}
-                isFirstCard={index === 0}
-                priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
-                isFavorite={favoriteMap[post.id]}
-                onFavoriteChange={handleFavoriteChange}
-                onMenuAction={handleMenuAction}
-              />
-            </li>
+            <Fragment key={post.id}>
+              <li className="min-w-0">
+                <PostCard
+                  post={post}
+                  isFirstCard={index === 0}
+                  priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                  isFavorite={favoriteMap[post.id]}
+                  onFavoriteChange={handleFavoriteChange}
+                  onMenuAction={handleMenuAction}
+                />
+              </li>
+              {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+                <FeedAdBannerCarousel domain="trade" placement="TRADE_HOME" />
+              ) : null}
+            </Fragment>
           )
         )}
       </ul>

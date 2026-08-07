@@ -75,6 +75,7 @@ export const POINT_PROMOTION_PLACEMENT_LABELS: Record<PointPromotionPlacement, s
   home_middle: pointPromotionPlacementLabel("home_middle"),
   search_top: pointPromotionPlacementLabel("search_top"),
   shop_featured: pointPromotionPlacementLabel("shop_featured"),
+  feed_boost: pointPromotionPlacementLabel("feed_boost"),
 };
 
 export interface AdminPointChargeFilters {

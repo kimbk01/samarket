@@ -40,6 +40,9 @@ import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
+import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
+import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
+import { Fragment } from "react";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
@@ -1678,9 +1681,28 @@ export function CommunityFeed({
           <>
             <ul ref={listRootRef} className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
               {postsForList.map((p, index) => (
-                <li key={p.id} className="list-none">
-                  <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
-                </li>
+                <Fragment key={p.id}>
+                  <li className="list-none">
+                    <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
+                  </li>
+                  {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+                    <FeedAdBannerCarousel
+                      domain="community"
+                      // COMMUNITY_HOME = /philife entry (URL에 category 없음·전체/추천 탭).
+                      // boot이 첫 topic chip을 state에만 넣어도 HOME — ?category= 명시 시에만 TOPIC.
+                      placement={
+                        isAllTabView || !categoryParam.trim()
+                          ? "COMMUNITY_HOME"
+                          : "COMMUNITY_TOPIC"
+                      }
+                      topicSlug={
+                        isAllTabView || !categoryParam.trim()
+                          ? undefined
+                          : category.trim() || undefined
+                      }
+                    />
+                  ) : null}
+                </Fragment>
               ))}
             </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />

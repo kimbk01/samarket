@@ -111,7 +111,9 @@ export type PointPromotionPlacement =
   | "home_top"
   | "home_middle"
   | "search_top"
-  | "shop_featured";
+  | "shop_featured"
+  /** Internal policy token — not a user-facing CTA */
+  | "feed_boost";
 
 export type PointPromotionOrderStatus =
   | "pending"
@@ -133,6 +135,10 @@ export interface PointPromotionOrder {
   startAt: string;
   endAt: string;
   createdAt: string;
+  /** Member promotion product SSOT id */
+  productId?: string;
+  domain?: string;
+  idempotencyKey?: string;
 }
 
 export type PointActionLogType =

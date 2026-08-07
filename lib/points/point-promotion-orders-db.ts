@@ -9,13 +9,16 @@ export function mapPointPromotionOrderRow(row: Record<string, unknown>): PointPr
     targetType: (String(row.target_type ?? "product") as PointPromotionOrder["targetType"]),
     targetId: String(row.target_id ?? ""),
     targetTitle: String(row.target_title ?? ""),
-    placement: (String(row.placement ?? "home_top") as PointPromotionOrder["placement"]),
+    placement: (String(row.placement ?? "feed_boost") as PointPromotionOrder["placement"]),
     durationDays: Number(row.duration_days ?? 0),
     pointCost: Number(row.point_cost ?? 0),
     orderStatus: (String(row.order_status ?? "active") as PointPromotionOrder["orderStatus"]),
     startAt: String(row.start_at ?? ""),
     endAt: String(row.end_at ?? ""),
     createdAt: String(row.created_at ?? ""),
+    productId: row.product_id != null ? String(row.product_id) : undefined,
+    domain: row.domain != null ? String(row.domain) : undefined,
+    idempotencyKey: row.idempotency_key != null ? String(row.idempotency_key) : undefined,
   };
 }
 

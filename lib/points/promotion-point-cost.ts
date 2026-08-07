@@ -1,17 +1,19 @@
 import type { PointPromotionPlacement } from "@/lib/types/point";
+import { getMemberPromotionProduct } from "@/lib/points/promotion-products";
 
-/** placement + durationDays → pointCost (프로모션 주문 API와 동일 산식) */
-const POINT_COST: Record<string, number> = {
-  home_top_7: 500,
-  home_top_14: 900,
-  home_middle_7: 300,
-  search_top_7: 400,
-  shop_featured_7: 600,
-};
-
+/**
+ * @deprecated Prefer `getMemberPromotionProduct(productId).pointCost`.
+ * Kept for legacy callers — maps placement×days onto new product prices.
+ */
 export function getPointCostForPromotion(
   placement: PointPromotionPlacement,
   durationDays: number
 ): number {
-  return POINT_COST[`${placement}_${durationDays}`] ?? durationDays * 50;
+  const days = Math.max(1, Math.floor(Number(durationDays) || 7));
+  const product =
+    getMemberPromotionProduct(days >= 14 ? "trade_promote_14" : "trade_promote_7") ??
+    getMemberPromotionProduct("trade_promote_7");
+  if (product) return product.pointCost;
+  void placement;
+  return days * 50;
 }

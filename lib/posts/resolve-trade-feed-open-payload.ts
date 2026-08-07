@@ -9,6 +9,7 @@ import { fetchTradeFeedPage, type TradeFeedPageSort } from "@/lib/posts/fetch-tr
 import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-server-cache";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
+import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
 
 export type TradeFeedOpenRequestOptions = {
   page: number;
@@ -83,6 +84,14 @@ export async function resolveTradeFeedOpenPayload(
       await enrichPostsAuthorNicknamesFromProfiles(serviceSb as any, result.posts as PostWithMeta[]);
     }
   }
+
+  const promoSb = (serviceSb ?? readSb) as any;
+  const projected = await applyTradeHomePromotionProjection(promoSb, {
+    pageIndex: Math.max(0, opts.page - 1),
+    posts: result.posts as PostWithMeta[],
+    tradeCategoryIds: categoryIds,
+  });
+  result = { posts: projected.posts, hasMore: result.hasMore };
 
   let favoriteMap: Record<string, boolean> = {};
   const viewer = viewerUserId?.trim();

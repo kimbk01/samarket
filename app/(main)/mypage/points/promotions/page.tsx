@@ -35,7 +35,6 @@ export default function MyPointsPromotionsPage() {
   const { balance, loading: balanceLoading, refresh: refreshBalance } = useUserPointBalance();
   const {
     productOptions,
-    shopOptions,
     loading: targetsLoading,
     unauthorized,
   } = usePromotionOrderTargets();
@@ -74,7 +73,12 @@ export default function MyPointsPromotionsPage() {
     try {
       const res = await fetch("/api/me/points/promotion-orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(values.idempotencyKey
+            ? { "Idempotency-Key": values.idempotencyKey }
+            : {}),
+        },
         credentials: "include",
         body: JSON.stringify(values),
       });
@@ -125,7 +129,6 @@ export default function MyPointsPromotionsPage() {
               balance={balance}
               balanceLoading={balanceLoading}
               productOptions={productOptions}
-              shopOptions={shopOptions}
               onSubmit={(v) => void handleSubmit(v)}
               submitLabel={busy ? t("common_loading") : undefined}
             />

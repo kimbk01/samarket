@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { fetchAllPostAdsForAdminFromDb } from "@/lib/ads/post-ads-supabase";
-import { mapPostAdRowToPromotedItem } from "@/lib/ads/post-ad-application-adapter";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { listPointPromotionOrders } from "@/lib/points/point-promotion-orders-db";
+import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/promoted-items
- * 관리자: 노출 중·예정 유료 광고 (`post_ads` active/approved)
+ * Admin: Member D-Point Promotion entitlements (`point_promotion_orders`).
+ * NOT post_ads / NOT feed banner campaigns.
  */
 export async function GET(): Promise<NextResponse> {
   const admin = await requireAdminApiUser();
@@ -17,24 +18,57 @@ export async function GET(): Promise<NextResponse> {
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
-    return NextResponse.json({ ok: true, items: [], meta: { source: "unavailable" as const } });
+    return NextResponse.json({
+      ok: true,
+      items: [],
+      meta: { source: "unavailable" as const, authority: "point_promotion_orders" },
+    });
   }
 
-  const db = await fetchAllPostAdsForAdminFromDb(svc);
-  if (!db.ok) {
-    if (db.reason === "missing_table") {
-      return NextResponse.json({ ok: true, items: [], meta: { source: "missing_table" as const } });
+  try {
+    const orders = await listPointPromotionOrders(svc, 300);
+    const now = Date.now();
+    const items = orders
+      .filter((o) => o.targetType === "product")
+      .map((o) => {
+        const start = Date.parse(o.startAt);
+        const end = Date.parse(o.endAt);
+        let status: "scheduled" | "active" | "expired" | "paused" = "expired";
+        if (o.orderStatus === "cancelled") status = "paused";
+        else if (Number.isFinite(start) && start > now) status = "scheduled";
+        else if (o.orderStatus === "active" && Number.isFinite(end) && end >= now) status = "active";
+        else if (o.orderStatus === "expired" || (Number.isFinite(end) && end < now)) status = "expired";
+        else if (o.orderStatus === "active") status = "active";
+        return {
+          id: o.id,
+          targetId: o.targetId,
+          targetTitle: o.targetTitle || o.targetId,
+          placement: o.placement === "feed_boost" ? "home_top" : o.placement,
+          status,
+          startAt: o.startAt,
+          endAt: o.endAt,
+          pointCost: o.pointCost,
+          productId: o.productId ?? null,
+          domain: o.domain ?? "trade",
+          userId: o.userId,
+          authority: "point_promotion_orders" as const,
+        };
+      });
+
+    return NextResponse.json({
+      ok: true,
+      items,
+      meta: { source: "supabase" as const, authority: "point_promotion_orders" },
+    });
+  } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err);
+    if (isMissingPointsTable(msg, "point_promotion_orders")) {
+      return NextResponse.json({
+        ok: true,
+        items: [],
+        meta: { source: "missing_table" as const, authority: "point_promotion_orders" },
+      });
     }
-    return NextResponse.json({ ok: false, error: db.message ?? "db_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
-
-  const items = db.rows
-    .map((row) => mapPostAdRowToPromotedItem(row))
-    .filter((item): item is NonNullable<typeof item> => item !== null);
-
-  return NextResponse.json({
-    ok: true,
-    items,
-    meta: { source: "supabase" as const },
-  });
 }

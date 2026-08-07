@@ -23,6 +23,7 @@ import {
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
+import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
@@ -206,12 +207,18 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
       }
 
       await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
-      homePostsServerCache.set(cacheKey, {
+      const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
+      const projected = await applyTradeHomePromotionProjection(promoSb, {
+        pageIndex: page,
         posts: pack.posts,
+        tradeCategoryIds,
+      });
+      homePostsServerCache.set(cacheKey, {
+        posts: projected.posts,
         hasMore: pack.hasMore,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: pack.posts, hasMore: pack.hasMore };
+      return { posts: projected.posts, hasMore: pack.hasMore };
     });
 
     if (!loaded) {
@@ -395,12 +402,19 @@ export async function resolveHomePostsGetData(
       await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
       if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
 
-      homePostsServerCache.set(cacheKey, {
+      const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
+      const projected = await applyTradeHomePromotionProjection(promoSb, {
+        pageIndex: page,
         posts: pack.posts,
+        tradeCategoryIds,
+      });
+
+      homePostsServerCache.set(cacheKey, {
+        posts: projected.posts,
         hasMore: pack.hasMore,
         expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
       });
-      return { posts: pack.posts, hasMore: pack.hasMore };
+      return { posts: projected.posts, hasMore: pack.hasMore };
     });
 
     if (!loaded) {

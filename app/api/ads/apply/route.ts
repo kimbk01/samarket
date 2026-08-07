@@ -6,6 +6,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { creditUserPoints, readUserPointBalance, spendUserPoints } from "@/lib/points/user-point-ledger";
 import { applyPostAdInDb } from "@/lib/ads/post-ads-supabase";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
+import { isPostAdsAdTypeOpenForNewApply } from "@/lib/ads/post-ads-authority";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
     return NextResponse.json({ ok: false, error: "ad_product_not_found" }, { status: 400 });
   }
   const product = productRes.product;
+  if (!isPostAdsAdTypeOpenForNewApply(product.adType)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "ad_type_quarantined",
+        hint: "mid_insert_replaced_by_admin_feed_ads",
+      },
+      { status: 410 }
+    );
+  }
 
   const adId = randomUUID();
   let pointsPreDeducted = false;

@@ -77,7 +77,7 @@ import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-s
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
-import { TradePostAdApplySheet } from "@/components/post/TradePostAdApplySheet";
+import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OfferButton } from "@/components/offers/OfferButton";
 import { OfferModal } from "@/components/offers/OfferModal";
@@ -929,7 +929,7 @@ export function PostDetailView({
   );
   const [detailMoreOpen, setDetailMoreOpen] = useState(false);
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
-  const [tradeAdSheetOpen, setTradeAdSheetOpen] = useState(false);
+  const [promoteSheetOpen, setPromoteSheetOpen] = useState(false);
   const [sellerSheetBusy, setSellerSheetBusy] = useState(false);
   const [offerModalOpen, setOfferModalOpen] = useState(false);
   const [sellerOffersModalOpen, setSellerOffersModalOpen] = useState(false);
@@ -1868,10 +1868,11 @@ export function PostDetailView({
           {chatError}
         </p>
       ) : null}
-      <TradePostAdApplySheet
+      <MemberPostPromoteSheet
         postId={post.id}
-        open={tradeAdSheetOpen}
-        onClose={() => setTradeAdSheetOpen(false)}
+        postTitle={post.title ?? ""}
+        open={promoteSheetOpen}
+        onClose={() => setPromoteSheetOpen(false)}
       />
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}
@@ -2113,7 +2114,7 @@ export function PostDetailView({
           showSellerOfferList={showSellerOfferList}
           canApplyTradeAd={canApplyTradeAd}
           onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
-          onTradeAdOpen={() => setTradeAdSheetOpen(true)}
+          onTradeAdOpen={() => setPromoteSheetOpen(true)}
         />
         {postDetailSharedOverlays}
       </div>
@@ -2410,7 +2411,7 @@ export function PostDetailView({
         showSellerOfferList={showSellerOfferList}
         canApplyTradeAd={canApplyTradeAd}
         onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
-        onTradeAdOpen={() => setTradeAdSheetOpen(true)}
+        onTradeAdOpen={() => setPromoteSheetOpen(true)}
       />
       {postDetailSharedOverlays}
     </div>
