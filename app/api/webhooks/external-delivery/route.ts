@@ -165,6 +165,8 @@ export async function POST(req: NextRequest) {
   const applied = await applyStoreOrderStatusTransition(sb, {
     orderId,
     nextStatus: mapped.target,
+    actor: "SYSTEM",
+    systemPurpose: "external_delivery",
     audit: {
       actor_type: "system",
       actor_id: null,

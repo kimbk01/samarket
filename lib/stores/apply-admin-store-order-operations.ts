@@ -1,23 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
-import {
-  notifyBuyerStoreRefundApproved,
-  notifyBuyerStoreOrderOwnerStatus,
-  notifyStoreOwnerRefundRequested,
-} from "@/lib/notifications/notify-store-commerce";
-import {
-  buildStoreOrderEventDedupeKey,
-  createStoreOrderEvent,
-  mapOrderStatusToEventType,
-} from "@/lib/stores/store-order-events";
-import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
-import { applyAdminStoreOrderRefund } from "@/lib/stores/apply-admin-store-order-refund";
-import {
-  canBuyerRequestStoreRefund,
-  shouldRestoreStockOnCancel,
-} from "@/lib/stores/order-status-transitions";
-import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
+import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
+import { ADMIN_CANCEL_REQUEST_RESTORE_STATUSES } from "@/lib/stores/order-status-transitions";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -39,7 +23,7 @@ async function loadOwnerUserId(sb: SupabaseClient, storeId: string): Promise<str
 }
 
 /**
- * 관리자 강제 취소 — 상태 머신 우회, 재고·정산은 기존 규칙과 정합.
+ * 관리자 강제 취소 — ADMIN actor via applyStoreOrderStatusTransition (no raw order_status write).
  */
 export async function adminForceCancelStoreOrder(
   sb: SupabaseClient,
@@ -51,9 +35,7 @@ export async function adminForceCancelStoreOrder(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select(
-      "id, store_id, buyer_user_id, order_no, order_status, payment_status, fulfillment_type"
-    )
+    .select("id, store_id, order_status")
     .eq("id", oid)
     .maybeSingle();
 
@@ -66,122 +48,29 @@ export async function adminForceCancelStoreOrder(
   if (os === "refunded") return { ok: false, error: "cannot_force_cancel_refunded", httpStatus: 409 };
   if (os === "completed") return { ok: false, error: "cannot_force_cancel_completed", httpStatus: 409 };
 
-  const ownerId = await loadOwnerUserId(sb, sid);
-
-  if (shouldRestoreStockOnCancel(os)) {
-    const { data: lines, error: iErr } = await sb
-      .from("store_order_items")
-      .select("product_id, qty")
-      .eq("order_id", oid);
-    if (iErr) {
-      console.error("[adminForceCancelStoreOrder] items", iErr);
-      return { ok: false, error: iErr.message, httpStatus: 500 };
-    }
-    await restoreStockForOrderLines(
-      sb,
-      (lines ?? []).map((r) => ({
-        product_id: r.product_id as string,
-        qty: r.qty as number,
-      }))
-    );
-  }
-
-  const patch: Record<string, unknown> = {
-    order_status: "cancelled",
-    payment_status: "cancelled",
-    auto_complete_at: null,
-  };
-
-  let uErr = (await sb.from("store_orders").update(patch).eq("id", oid)).error;
-  if (uErr?.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
-    uErr = (
-      await sb
-        .from("store_orders")
-        .update({ order_status: "cancelled", payment_status: "cancelled" })
-        .eq("id", oid)
-    ).error;
-  }
-  if (uErr) {
-    console.error("[adminForceCancelStoreOrder]", uErr);
-    return { ok: false, error: uErr.message, httpStatus: 500 };
-  }
-
-  await cancelScheduledSettlementForOrder(sb, oid);
-
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: audit.adminUserId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.admin_force_cancel",
-    before_json: {
-      order_status: os,
-      payment_status: order.payment_status as string,
-      store_id: sid,
-      bypass_transition: true,
-    },
-    after_json: { order_status: "cancelled", payment_status: "cancelled", store_id: sid },
-    ip: audit.ip ?? null,
-    user_agent: audit.user_agent ?? null,
-  });
-
-  const cancelEt = mapOrderStatusToEventType("cancelled");
-  const cancelEv = await createStoreOrderEvent(sb, {
+  const applied = await applyStoreOrderStatusTransition(sb, {
     orderId: oid,
-    storeId: sid,
-    actorUserId: audit.adminUserId,
-    actorRole: "admin",
-    eventType: cancelEt,
-    fromStatus: os,
-    toStatus: "cancelled",
-    dedupeKey: buildStoreOrderEventDedupeKey({
-      orderId: oid,
-      eventType: cancelEt,
-      toStatus: "cancelled",
-      actorUserId: audit.adminUserId,
-    }),
-    metadata: { source: "admin_force_cancel" },
+    nextStatus: "cancelled",
+    actor: "ADMIN",
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_force_cancel",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
   });
-  if (cancelEv.ok) {
-    if (cancelEv.inserted) {
-      void notifyBuyerStoreOrderOwnerStatus(sb, {
-        buyerUserId: order.buyer_user_id as string,
-        orderId: oid,
-        orderNo: String(order.order_no ?? ""),
-        storeId: sid,
-        nextStatus: "cancelled",
-        estimatedPrepMinutes: null,
-        storeOrderEventId: cancelEv.row.id,
-      });
-    }
-  } else {
-    void notifyBuyerStoreOrderOwnerStatus(sb, {
-      buyerUserId: order.buyer_user_id as string,
-      orderId: oid,
-      orderNo: String(order.order_no ?? ""),
-      storeId: sid,
-      nextStatus: "cancelled",
-      estimatedPrepMinutes: null,
-    });
+  if (!applied.ok) {
+    return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
   }
 
-  try {
-    await appendStoreOrderMessengerStatusTransition(
-      sb as import("@supabase/supabase-js").SupabaseClient<any>,
-      oid,
-      os,
-      "cancelled"
-    );
-  } catch {
-    /* ignore */
-  }
-
+  const ownerId = await loadOwnerUserId(sb, sid);
   invalidateCaches(sb, sid, ownerId);
   return { ok: true };
 }
 
 /**
- * 관리자가 환불 요청 상태로 설정 (구매자 요청과 동일 원장 반영).
+ * 관리자가 환불 요청 상태로 설정.
  */
 export async function adminSetRefundRequestedStoreOrder(
   sb: SupabaseClient,
@@ -193,94 +82,37 @@ export async function adminSetRefundRequestedStoreOrder(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, buyer_user_id, order_no, order_status, payment_status")
+    .select("id, store_id, order_status")
     .eq("id", oid)
     .maybeSingle();
 
   if (oErr || !order) return { ok: false, error: "order_not_found", httpStatus: 404 };
 
   const os = order.order_status as string;
-  const ps = order.payment_status as string;
   const sid = order.store_id as string;
 
   if (os === "refund_requested") return { ok: true };
   if (os === "refunded") return { ok: false, error: "already_refunded", httpStatus: 409 };
-  if (!canBuyerRequestStoreRefund(os, ps)) {
-    return { ok: false, error: "cannot_set_refund_requested_for_status", httpStatus: 400 };
-  }
 
-  const patch: Record<string, unknown> = {
-    order_status: "refund_requested",
-    auto_complete_at: null,
-  };
-
-  let uErr = (await sb.from("store_orders").update(patch).eq("id", oid)).error;
-  if (uErr?.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
-    uErr = (await sb.from("store_orders").update({ order_status: "refund_requested" }).eq("id", oid)).error;
-  }
-  if (uErr) {
-    console.error("[adminSetRefundRequestedStoreOrder]", uErr);
-    return { ok: false, error: uErr.message, httpStatus: 500 };
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: "refund_requested",
+    actor: "ADMIN",
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_set_refund_requested",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
+  });
+  if (!applied.ok) {
+    const err =
+      applied.error === "invalid_transition" ? "cannot_set_refund_requested_for_status" : applied.error;
+    return { ok: false, error: err, httpStatus: applied.httpStatus };
   }
 
   const ownerId = await loadOwnerUserId(sb, sid);
-
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: audit.adminUserId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.admin_set_refund_requested",
-    before_json: { order_status: os, payment_status: ps, store_id: sid, bypass_transition: true },
-    after_json: { order_status: "refund_requested", store_id: sid },
-    ip: audit.ip ?? null,
-    user_agent: audit.user_agent ?? null,
-  });
-
-  const refundReqEv = await createStoreOrderEvent(sb, {
-    orderId: oid,
-    storeId: sid,
-    actorUserId: audit.adminUserId,
-    actorRole: "admin",
-    eventType: "refund_requested",
-    fromStatus: os,
-    toStatus: "refund_requested",
-    dedupeKey: buildStoreOrderEventDedupeKey({
-      orderId: oid,
-      eventType: "refund_requested",
-      toStatus: "refund_requested",
-      actorUserId: audit.adminUserId,
-    }),
-    metadata: { source: "admin_set_refund_requested" },
-  });
-  if (refundReqEv.ok) {
-    if (refundReqEv.inserted) {
-      void notifyStoreOwnerRefundRequested(sb, {
-        storeId: sid,
-        orderId: oid,
-        orderNo: String(order.order_no ?? ""),
-        storeOrderEventId: refundReqEv.row.id,
-      });
-    }
-  } else {
-    void notifyStoreOwnerRefundRequested(sb, {
-      storeId: sid,
-      orderId: oid,
-      orderNo: String(order.order_no ?? ""),
-    });
-  }
-
-  try {
-    await appendStoreOrderMessengerStatusTransition(
-      sb as import("@supabase/supabase-js").SupabaseClient<any>,
-      oid,
-      os,
-      "refund_requested"
-    );
-  } catch {
-    /* ignore */
-  }
-
   invalidateCaches(sb, sid, ownerId);
   return { ok: true };
 }
@@ -324,17 +156,7 @@ export async function adminApproveStoreOrderCancelRequest(
     })
     .eq("id", reqRow.id as string);
 
-  void createStoreOrderEvent(sb, {
-    orderId: oid,
-    storeId: order.store_id as string,
-    actorUserId: audit.adminUserId,
-    actorRole: "admin",
-    eventType: "cancel_approved",
-    fromStatus: order.order_status as string,
-    toStatus: "cancelled",
-    metadata: { source: "admin_cancel_request_approve" },
-  });
-
+  // cancel_approved event emitted inside apply (cancel_requested → cancelled)
   return { ok: true };
 }
 
@@ -366,6 +188,36 @@ export async function adminRejectStoreOrderCancelRequest(
   if (!reqRow?.id) return { ok: false, error: "cancel_request_not_found", httpStatus: 404 };
 
   const reason = rejectedReason.trim().slice(0, 500) || "Rejected by admin";
+  const previousStatus =
+    typeof (reqRow as { previous_order_status?: unknown }).previous_order_status === "string" &&
+    (reqRow as { previous_order_status?: string }).previous_order_status?.trim()
+      ? (reqRow as { previous_order_status: string }).previous_order_status.trim()
+      : "preparing";
+
+  if (!ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(previousStatus)) {
+    return { ok: false, error: "invalid_previous_order_status", httpStatus: 400 };
+  }
+
+  // Recovery Chain: apply first — ledger update only after CAS success
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: previousStatus,
+    actor: "ADMIN",
+    restoreToStatus: previousStatus,
+    eventMessage: reason,
+    eventMetadata: { source: "admin_cancel_request_reject", rejected_reason: reason },
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_reject_cancel_request",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
+  });
+  if (!applied.ok) {
+    return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
+  }
+
   const { error: uReqErr } = await sb
     .from("store_order_cancel_requests")
     .update({
@@ -376,43 +228,6 @@ export async function adminRejectStoreOrderCancelRequest(
     })
     .eq("id", reqRow.id as string);
   if (uReqErr) return { ok: false, error: uReqErr.message, httpStatus: 500 };
-
-  const previousStatus =
-    typeof (reqRow as { previous_order_status?: unknown }).previous_order_status === "string" &&
-    (reqRow as { previous_order_status?: string }).previous_order_status?.trim()
-      ? (reqRow as { previous_order_status: string }).previous_order_status.trim()
-      : "preparing";
-
-  const { error: uOrderErr } = await sb
-    .from("store_orders")
-    .update({ order_status: previousStatus, needs_admin_attention: false })
-    .eq("id", oid)
-    .eq("order_status", "cancel_requested");
-  if (uOrderErr) return { ok: false, error: uOrderErr.message, httpStatus: 500 };
-
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: audit.adminUserId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.admin_reject_cancel_request",
-    before_json: { order_status: order.order_status as string },
-    after_json: { rejected_reason: reason },
-    ip: audit.ip ?? null,
-    user_agent: audit.user_agent ?? null,
-  });
-
-  void createStoreOrderEvent(sb, {
-    orderId: oid,
-    storeId: order.store_id as string,
-    actorUserId: audit.adminUserId,
-    actorRole: "admin",
-    eventType: "cancel_rejected",
-    fromStatus: order.order_status as string,
-    toStatus: previousStatus,
-    message: reason,
-    metadata: { source: "admin_cancel_request_reject", rejected_reason: reason },
-  });
 
   const ownerId = await loadOwnerUserId(sb, order.store_id as string);
   invalidateCaches(sb, order.store_id as string, ownerId);
@@ -427,7 +242,7 @@ export type AdminStoreOrderMetaPatch = {
   needs_admin_attention?: boolean;
 };
 
-/** 관리자 플래그·메모만 수선 */
+/** 관리자 플래그·메모만 수선 — order_status 비변경 */
 export async function adminPatchStoreOrderMeta(
   sb: SupabaseClient,
   orderId: string,
@@ -497,84 +312,48 @@ export async function adminPatchStoreOrderMeta(
   return { ok: true };
 }
 
-/** 환불 완료 — 기존 서비스 + 감사 로그 보강 */
+/** 환불 완료 — apply ADMIN → refunded */
 export async function adminCompleteRefundStoreOrder(
   sb: SupabaseClient,
   orderId: string,
   audit: AdminOrderOpsAudit
 ): Promise<{ ok: true; already?: boolean } | { ok: false; error: string; httpStatus: number }> {
   const oid = orderId.trim();
-  const res = await applyAdminStoreOrderRefund(sb, oid);
-  if (!res.ok) return res;
+  if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
 
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: audit.adminUserId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.admin_complete_refund",
-    before_json: {},
-    after_json: { via: "applyAdminStoreOrderRefund" },
-    ip: audit.ip ?? null,
-    user_agent: audit.user_agent ?? null,
-  });
+  const { data: order, error: oErr } = await sb
+    .from("store_orders")
+    .select("id, store_id, order_status, payment_status")
+    .eq("id", oid)
+    .maybeSingle();
+  if (oErr || !order) return { ok: false, error: "order_not_found", httpStatus: 404 };
 
-  if (!res.already) {
-    const { data: ordRow } = await sb
-      .from("store_orders")
-      .select("store_id, buyer_user_id, order_no")
-      .eq("id", oid)
-      .maybeSingle();
-    if (ordRow) {
-      const sid = String((ordRow as { store_id?: string }).store_id ?? "").trim();
-      const buyerUid = String((ordRow as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
-      if (sid) {
-        const refundOkEv = await createStoreOrderEvent(sb, {
-          orderId: oid,
-          storeId: sid,
-          actorUserId: audit.adminUserId,
-          actorRole: "admin",
-          eventType: "refund_approved",
-          fromStatus: "refund_requested",
-          toStatus: "refunded",
-          dedupeKey: buildStoreOrderEventDedupeKey({
-            orderId: oid,
-            eventType: "refund_approved",
-            toStatus: "refunded",
-            actorUserId: audit.adminUserId,
-          }),
-          metadata: { source: "admin_complete_refund" },
-        });
-        if (buyerUid) {
-          if (refundOkEv.ok) {
-            if (refundOkEv.inserted) {
-              void notifyBuyerStoreRefundApproved(sb, {
-                buyerUserId: buyerUid,
-                orderId: oid,
-                orderNo: String((ordRow as { order_no?: string }).order_no ?? ""),
-                storeId: sid,
-                storeOrderEventId: refundOkEv.row.id,
-              });
-            }
-          } else {
-            void notifyBuyerStoreRefundApproved(sb, {
-              buyerUserId: buyerUid,
-              orderId: oid,
-              orderNo: String((ordRow as { order_no?: string }).order_no ?? ""),
-              storeId: sid,
-            });
-          }
-        }
-      }
-    }
+  if (order.order_status === "refunded" && order.payment_status === "refunded") {
+    return { ok: true, already: true };
   }
 
-  const { data: row } = await sb.from("store_orders").select("store_id").eq("id", oid).maybeSingle();
-  const sid = (row as { store_id?: string } | null)?.store_id;
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: "refunded",
+    actor: "ADMIN",
+    audit: {
+      actor_type: "admin",
+      actor_id: audit.adminUserId,
+      action: "store_order.admin_complete_refund",
+      ip: audit.ip ?? null,
+      user_agent: audit.user_agent ?? null,
+    },
+  });
+  if (!applied.ok) {
+    const err = applied.error === "invalid_transition" ? "refund_not_requested" : applied.error;
+    return { ok: false, error: err, httpStatus: applied.httpStatus };
+  }
+
+  const sid = String(order.store_id ?? "").trim();
   if (sid) {
     const ownerId = await loadOwnerUserId(sb, sid);
     invalidateCaches(sb, sid, ownerId);
   }
 
-  return { ok: true, already: res.already };
+  return { ok: true, already: applied.idempotent };
 }

@@ -4,19 +4,32 @@ import {
   appendStoreOrderMessengerStatusTransition,
   syncStoreOrderMessengerRoomContextMeta,
 } from "@/lib/community-messenger/store-order-chat-service";
-import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
+import {
+  notifyBuyerStoreOrderOwnerStatus,
+  notifyBuyerStoreRefundApproved,
+  notifyStoreOwnerBuyerCancelled,
+  notifyStoreOwnerRefundRequested,
+} from "@/lib/notifications/notify-store-commerce";
 import { markOrderNotificationsRead } from "@/lib/notifications/pipeline/notify-read-service";
-import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
+import {
+  createStoreOrderEvent,
+  createStoreOrderStatusEvent,
+  type StoreOrderActorRole,
+} from "@/lib/stores/store-order-events";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
+import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
 import {
-  allowedOrderTransitions,
+  ADMIN_CANCEL_REQUEST_RESTORE_STATUSES,
+  allowedOrderTransitionsForActor,
   isDeliveryFulfillment,
   isValidOrderStatus,
   shouldRestoreStockOnCancel,
+  type StoreOrderStatusActor,
+  type StoreOrderSystemPurpose,
 } from "@/lib/stores/order-status-transitions";
 import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
@@ -24,31 +37,62 @@ import { chargeStorePointsOnOrderAccept } from "@/lib/stores/charge-store-order-
 import { notifyStoreOwnerPointDeducted, notifyStoreOwnerPointBlocked } from "@/lib/notifications/notify-store-points";
 
 export type ApplyOrderStatusResult =
-  | { ok: true; order_status: string; previous: string }
+  | { ok: true; order_status: string; previous: string; idempotent?: boolean }
   | { ok: false; error: string; httpStatus: number };
 
+export type ApplyStoreOrderStatusTransitionOpts = {
+  orderId: string;
+  nextStatus: string;
+  /** Default OWNER (owner PATCH / backward compat) */
+  actor?: StoreOrderStatusActor;
+  /** pending→accepted 전용 — 분 단위, 서버에서 estimated_ready_at·accepted_at 계산 */
+  ownerAcceptPrepMinutes?: number | null;
+  /** ADMIN cancel_requested → previous_order_status */
+  restoreToStatus?: string | null;
+  /** SYSTEM cron: require auto_complete_at <= now */
+  requireAutoCompleteDue?: boolean;
+  /** SYSTEM external-delivery webhook uses OWNER graph; payment_failure cancels pending */
+  systemPurpose?: StoreOrderSystemPurpose;
+  /** Optional note for domain events (e.g. cancel_rejected reason) */
+  eventMessage?: string | null;
+  eventMetadata?: Record<string, unknown>;
+  audit: {
+    actor_type: "user" | "system" | "admin";
+    actor_id: string | null;
+    action: string;
+    ip?: string | null;
+    user_agent?: string | null;
+  };
+};
+
+function resolveActorRole(
+  actor: StoreOrderStatusActor,
+  auditType: "user" | "system" | "admin"
+): StoreOrderActorRole {
+  if (actor === "CUSTOMER") return "buyer";
+  if (actor === "ADMIN" || auditType === "admin") return "admin";
+  if (actor === "SYSTEM" || auditType === "system") return "system";
+  return "owner";
+}
+
+function isAutoCompleteDue(autoCompleteAt: unknown): boolean {
+  if (autoCompleteAt == null) return false;
+  const t = Date.parse(String(autoCompleteAt));
+  if (!Number.isFinite(t)) return false;
+  return t <= Date.now();
+}
+
 /**
- * store_orders.order_status 전이 (오너 PATCH·시스템 웹훅 공통).
- * 허용 전이·재고·auto_complete_at·알림·채팅·감사로그까지 PATCH와 동일.
+ * store_orders.order_status 단일 runtime writer (create insert 제외).
+ * Actor-scoped transitions · CAS · canonical side-effects.
  */
 export async function applyStoreOrderStatusTransition(
   sb: SupabaseClient,
-  opts: {
-    orderId: string;
-    nextStatus: string;
-    /** pending→accepted 전용 — 분 단위, 서버에서 estimated_ready_at·accepted_at 계산 */
-    ownerAcceptPrepMinutes?: number | null;
-    audit: {
-      actor_type: "user" | "system";
-      actor_id: string | null;
-      action: string;
-      ip?: string | null;
-      user_agent?: string | null;
-    };
-  }
+  opts: ApplyStoreOrderStatusTransitionOpts
 ): Promise<ApplyOrderStatusResult> {
   const oid = opts.orderId.trim();
   const nextStatus = opts.nextStatus.trim();
+  const actor: StoreOrderStatusActor = opts.actor ?? "OWNER";
 
   if (!oid || !nextStatus || !isValidOrderStatus(nextStatus)) {
     return { ok: false, error: "invalid_order_status", httpStatus: 400 };
@@ -72,15 +116,25 @@ export async function applyStoreOrderStatusTransition(
   const sid = order.store_id as string;
 
   if (current === nextStatus) {
-    return { ok: true, order_status: current, previous: current };
+    return { ok: true, order_status: current, previous: current, idempotent: true };
   }
 
-  const allowed = allowedOrderTransitions(current, fulfillment);
+  const systemPurpose: StoreOrderSystemPurpose =
+    opts.systemPurpose ?? (opts.requireAutoCompleteDue ? "auto_complete" : "external_delivery");
+  const autoCompleteDue =
+    opts.requireAutoCompleteDue === true ? isAutoCompleteDue(order.auto_complete_at) : undefined;
+
+  const allowed = allowedOrderTransitionsForActor(actor, current, fulfillment, {
+    paymentStatus,
+    restoreToStatus: opts.restoreToStatus ?? null,
+    autoCompleteDue,
+    systemPurpose: actor === "SYSTEM" ? systemPurpose : undefined,
+  });
   if (!allowed.includes(nextStatus)) {
     return { ok: false, error: "invalid_transition", httpStatus: 400 };
   }
 
-  if (current === "pending" && nextStatus === "accepted") {
+  if (actor === "OWNER" && current === "pending" && nextStatus === "accepted") {
     const raw = opts.ownerAcceptPrepMinutes;
     const mins = raw == null ? NaN : Math.floor(Number(raw));
     if (!Number.isFinite(mins) || mins < 1 || mins > 180) {
@@ -133,24 +187,6 @@ export async function applyStoreOrderStatusTransition(
     }
   }
 
-  if (nextStatus === "cancelled" && shouldRestoreStockOnCancel(current)) {
-    const { data: lines, error: iErr } = await sb
-      .from("store_order_items")
-      .select("product_id, qty")
-      .eq("order_id", oid);
-    if (iErr) {
-      console.error("[applyStoreOrderStatusTransition] items", iErr);
-      return { ok: false, error: iErr.message, httpStatus: 500 };
-    }
-    await restoreStockForOrderLines(
-      sb,
-      (lines ?? []).map((r) => ({
-        product_id: r.product_id as string,
-        qty: r.qty as number,
-      }))
-    );
-  }
-
   const updatePayload: Record<string, unknown> = { order_status: nextStatus };
   const deliveryLike = isDeliveryFulfillment(fulfillment);
 
@@ -162,7 +198,34 @@ export async function applyStoreOrderStatusTransition(
     updatePayload.estimated_ready_at = new Date(serverNow + mins * 60_000).toISOString();
   }
 
-  if (nextStatus === "completed" || nextStatus === "cancelled") {
+  if (nextStatus === "cancelled") {
+    // Recovery Chain: all cancel actors converge payment terminal here.
+    // payment_failure keeps `failed` (set below) instead of `cancelled`.
+    if (actor === "SYSTEM" && systemPurpose === "payment_failure") {
+      updatePayload.payment_status = "failed";
+    } else {
+      updatePayload.payment_status = "cancelled";
+    }
+  }
+
+  if (nextStatus === "refunded") {
+    const nowIso = new Date().toISOString();
+    updatePayload.payment_status = "refunded";
+    updatePayload.auto_complete_at = null;
+    updatePayload.refund_approved_at = nowIso;
+    updatePayload.refunded_at = nowIso;
+  }
+
+  if (nextStatus === "cancel_requested") {
+    updatePayload.auto_complete_at = null;
+    updatePayload.needs_admin_attention = true;
+  }
+
+  if (current === "cancel_requested" && nextStatus !== "cancelled" && nextStatus !== "cancel_requested") {
+    updatePayload.needs_admin_attention = false;
+  }
+
+  if (nextStatus === "completed" || nextStatus === "cancelled" || nextStatus === "refund_requested") {
     updatePayload.auto_complete_at = null;
   } else if (nextStatus === "ready_for_pickup" && !deliveryLike) {
     if (order.auto_complete_at == null) {
@@ -174,40 +237,116 @@ export async function applyStoreOrderStatusTransition(
       const commerce = await loadCommerceSettings(sb);
       updatePayload.auto_complete_at = computeAutoCompleteAtIso(commerce.autoCompleteDays);
     }
-  } else if (order.auto_complete_at != null) {
+  } else if (order.auto_complete_at != null && nextStatus !== "cancel_requested") {
     updatePayload.auto_complete_at = null;
   }
 
-  let uErr = (await sb.from("store_orders").update(updatePayload).eq("id", oid)).error;
+  const runCasUpdate = async (payload: Record<string, unknown>) => {
+    const { data: updated, error } = await sb
+      .from("store_orders")
+      .update(payload)
+      .eq("id", oid)
+      .eq("order_status", current)
+      .select("id")
+      .maybeSingle();
+    return { updated, error };
+  };
+
+  let { updated, error: uErr } = await runCasUpdate(updatePayload);
 
   if (uErr) {
     const missingEtaCol =
       /estimated_prep_minutes|estimated_ready_at|accepted_at/i.test(String(uErr.message)) &&
       /does not exist/i.test(String(uErr.message));
-    if (missingEtaCol) {
+    const missingRefundCol =
+      /refund_approved_at|refunded_at/i.test(String(uErr.message)) &&
+      /does not exist/i.test(String(uErr.message));
+    const missingAdminCol =
+      /needs_admin_attention/i.test(String(uErr.message)) && /does not exist/i.test(String(uErr.message));
+    if (missingEtaCol || missingRefundCol || missingAdminCol) {
       const fallbackPayload = { ...updatePayload };
-      delete fallbackPayload.estimated_prep_minutes;
-      delete fallbackPayload.estimated_ready_at;
-      delete fallbackPayload.accepted_at;
-      const retry = await sb.from("store_orders").update(fallbackPayload).eq("id", oid);
-      uErr = retry.error;
+      if (missingEtaCol) {
+        delete fallbackPayload.estimated_prep_minutes;
+        delete fallbackPayload.estimated_ready_at;
+        delete fallbackPayload.accepted_at;
+      }
+      if (missingRefundCol) {
+        delete fallbackPayload.refund_approved_at;
+        delete fallbackPayload.refunded_at;
+      }
+      if (missingAdminCol) {
+        delete fallbackPayload.needs_admin_attention;
+      }
+      ({ updated, error: uErr } = await runCasUpdate(fallbackPayload));
     }
   }
 
   if (uErr) {
     if (uErr.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
-      const { error: fallbackErr } = await sb
-        .from("store_orders")
-        .update({ order_status: nextStatus })
-        .eq("id", oid);
-      if (fallbackErr) {
-        console.error("[applyStoreOrderStatusTransition]", fallbackErr);
-        return { ok: false, error: fallbackErr.message, httpStatus: 500 };
+      const slim: Record<string, unknown> = { order_status: nextStatus };
+      if (updatePayload.payment_status) slim.payment_status = updatePayload.payment_status;
+      ({ updated, error: uErr } = await runCasUpdate(slim));
+      if (uErr) {
+        console.error("[applyStoreOrderStatusTransition]", uErr);
+        return { ok: false, error: uErr.message, httpStatus: 500 };
       }
     } else {
       console.error("[applyStoreOrderStatusTransition]", uErr);
       return { ok: false, error: uErr.message, httpStatus: 500 };
     }
+  }
+
+  if (!updated) {
+    return { ok: false, error: "transition_conflict", httpStatus: 409 };
+  }
+
+  /** Side-effects only after successful CAS — avoid duplicate stock/settlement on conflict */
+  if (nextStatus === "cancelled" && shouldRestoreStockOnCancel(current)) {
+    const { data: lines, error: iErr } = await sb
+      .from("store_order_items")
+      .select("product_id, qty")
+      .eq("order_id", oid);
+    if (iErr) {
+      console.error("[applyStoreOrderStatusTransition] items", iErr);
+    } else {
+      await restoreStockForOrderLines(
+        sb,
+        (lines ?? []).map((r) => ({
+          product_id: r.product_id as string,
+          qty: r.qty as number,
+        }))
+      );
+    }
+  }
+
+  if (nextStatus === "refunded") {
+    const { data: lines, error: iErr } = await sb
+      .from("store_order_items")
+      .select("product_id, qty")
+      .eq("order_id", oid);
+    if (!iErr) {
+      await restoreStockForOrderLines(
+        sb,
+        (lines ?? []).map((r) => ({
+          product_id: r.product_id as string,
+          qty: r.qty as number,
+        }))
+      );
+    }
+    const { error: payErr } = await sb
+      .from("store_payments")
+      .update({ status: "refunded" })
+      .eq("order_id", oid)
+      .eq("status", "succeeded");
+    if (payErr && !payErr.message?.includes("does not exist")) {
+      console.error("[applyStoreOrderStatusTransition] store_payments", payErr);
+    }
+    await cancelScheduledSettlementForOrder(sb, oid);
+    await adjustStoreSettlementOnRefund(sb, {
+      orderId: oid,
+      refundAmount: undefined,
+      note: "admin_refund_completed",
+    });
   }
 
   if (nextStatus === "cancelled") {
@@ -231,7 +370,9 @@ export async function applyStoreOrderStatusTransition(
       .maybeSingle();
     const ownerUid = String(storeRow?.owner_user_id ?? "").trim();
     const actorUid =
-      opts.audit.actor_type === "user" ? String(opts.audit.actor_id ?? "").trim() : "";
+      opts.audit.actor_type === "user" || opts.audit.actor_type === "admin"
+        ? String(opts.audit.actor_id ?? "").trim()
+        : "";
     const viewers = new Set<string>();
     if (ownerUid) viewers.add(ownerUid);
     if (actorUid) viewers.add(actorUid);
@@ -250,10 +391,12 @@ export async function applyStoreOrderStatusTransition(
       order_status: current,
       payment_status: paymentStatus,
       store_id: sid,
+      actor,
     },
     after_json: {
       order_status: nextStatus,
       store_id: sid,
+      ...(updatePayload.payment_status ? { payment_status: updatePayload.payment_status } : {}),
       ...(current === "pending" && nextStatus === "accepted"
         ? {
             estimated_prep_minutes: updatePayload.estimated_prep_minutes,
@@ -266,41 +409,126 @@ export async function applyStoreOrderStatusTransition(
     user_agent: opts.audit.user_agent ?? null,
   });
 
+  const actorRole = resolveActorRole(actor, opts.audit.actor_type);
   const statusEv = await createStoreOrderStatusEvent(sb, {
     orderId: oid,
     storeId: sid,
     fromStatus: current,
     toStatus: nextStatus,
+    actorRole,
     audit: {
       actor_type: opts.audit.actor_type,
       actor_id: opts.audit.actor_id,
     },
+    metadata: {
+      apply_actor: actor,
+      ...(opts.eventMetadata ?? {}),
+    },
+    message: opts.eventMessage ?? null,
   });
 
-  if (statusEv.ok) {
-    if (statusEv.inserted) {
-      void notifyBuyerStoreOrderOwnerStatus(sb, {
-        buyerUserId: order.buyer_user_id as string,
-        orderId: oid,
-        orderNo: String(order.order_no ?? ""),
-        storeId: sid,
-        nextStatus,
-        storeOrderEventId: statusEv.row.id,
-      });
-    }
-  } else {
-    /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id+status 기반)로 1회만 */
-    void notifyBuyerStoreOrderOwnerStatus(sb, {
-      buyerUserId: order.buyer_user_id as string,
+  // Recovery Chain domain events (formerly duplicated in admin cancel-request wrappers)
+  if (current === "cancel_requested" && nextStatus === "cancelled") {
+    void createStoreOrderEvent(sb, {
       orderId: oid,
-      orderNo: String(order.order_no ?? ""),
       storeId: sid,
-      nextStatus,
+      actorUserId:
+        opts.audit.actor_type === "admin" || opts.audit.actor_type === "user"
+          ? opts.audit.actor_id
+          : null,
+      actorRole,
+      eventType: "cancel_approved",
+      fromStatus: current,
+      toStatus: nextStatus,
+      dedupeKey: `${oid}:cancel_approved`,
+      metadata: {
+        source: "apply_store_order_status_transition",
+        ...(opts.eventMetadata ?? {}),
+      },
+    });
+  } else if (
+    current === "cancel_requested" &&
+    ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(nextStatus)
+  ) {
+    void createStoreOrderEvent(sb, {
+      orderId: oid,
+      storeId: sid,
+      actorUserId:
+        opts.audit.actor_type === "admin" || opts.audit.actor_type === "user"
+          ? opts.audit.actor_id
+          : null,
+      actorRole,
+      eventType: "cancel_rejected",
+      fromStatus: current,
+      toStatus: nextStatus,
+      message: opts.eventMessage ?? null,
+      dedupeKey: `${oid}:cancel_rejected:${nextStatus}`,
+      metadata: {
+        source: "apply_store_order_status_transition",
+        ...(opts.eventMetadata ?? {}),
+      },
     });
   }
 
-  // 채팅 system 메시지 삽입 — 실패해도 주문 상태 전이는 성공으로 처리하되 오류를 기록한다.
-  // DO NOT: catch { /* ignore */ } — 무음 실패 시 구매자 채팅에 상태 줄이 영구 누락된다.
+  const buyerId = String(order.buyer_user_id ?? "").trim();
+  const orderNo = String(order.order_no ?? "");
+
+  if (nextStatus === "cancelled" && actor === "CUSTOMER") {
+    const cancelNotify = { storeId: sid, orderId: oid, orderNo };
+    if (statusEv.ok && statusEv.inserted) {
+      void notifyStoreOwnerBuyerCancelled(sb, { ...cancelNotify, storeOrderEventId: statusEv.row.id });
+    } else if (!statusEv.ok) {
+      void notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
+    }
+  } else if (nextStatus === "refund_requested") {
+    const refundNotify = { storeId: sid, orderId: oid, orderNo };
+    if (statusEv.ok && statusEv.inserted) {
+      void notifyStoreOwnerRefundRequested(sb, { ...refundNotify, storeOrderEventId: statusEv.row.id });
+    } else if (!statusEv.ok) {
+      void notifyStoreOwnerRefundRequested(sb, refundNotify);
+    }
+  } else if (nextStatus === "refunded") {
+    if (buyerId) {
+      if (statusEv.ok && statusEv.inserted) {
+        void notifyBuyerStoreRefundApproved(sb, {
+          buyerUserId: buyerId,
+          orderId: oid,
+          orderNo,
+          storeId: sid,
+          storeOrderEventId: statusEv.row.id,
+        });
+      } else if (!statusEv.ok) {
+        void notifyBuyerStoreRefundApproved(sb, {
+          buyerUserId: buyerId,
+          orderId: oid,
+          orderNo,
+          storeId: sid,
+        });
+      }
+    }
+  } else if (buyerId) {
+    if (statusEv.ok) {
+      if (statusEv.inserted) {
+        void notifyBuyerStoreOrderOwnerStatus(sb, {
+          buyerUserId: buyerId,
+          orderId: oid,
+          orderNo,
+          storeId: sid,
+          nextStatus,
+          storeOrderEventId: statusEv.row.id,
+        });
+      }
+    } else {
+      void notifyBuyerStoreOrderOwnerStatus(sb, {
+        buyerUserId: buyerId,
+        orderId: oid,
+        orderNo,
+        storeId: sid,
+        nextStatus,
+      });
+    }
+  }
+
   try {
     await appendStoreOrderMessengerStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
@@ -317,8 +545,6 @@ export async function applyStoreOrderStatusTransition(
     });
   }
 
-  // 방 summary(contextMeta)의 stepLabel·headline을 현재 주문 상태로 동기화한다.
-  // DO NOT: 이 호출을 제거하면 chrome 1줄 상태 표시가 최초 생성 시점에 영구 고정된다.
   try {
     await syncStoreOrderMessengerRoomContextMeta(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
@@ -331,15 +557,8 @@ export async function applyStoreOrderStatusTransition(
     });
   }
 
-  invalidateStoreOrderDetailSnapshot(
-    oid,
-    String(order.buyer_user_id ?? "").trim() || undefined,
-    `status_${nextStatus}`
-  );
-  invalidateBuyerStoreOrdersListSnapshot(
-    String(order.buyer_user_id ?? "").trim() || undefined,
-    `status_${nextStatus}`
-  );
+  invalidateStoreOrderDetailSnapshot(oid, buyerId || undefined, `status_${nextStatus}`);
+  invalidateBuyerStoreOrdersListSnapshot(buyerId || undefined, `status_${nextStatus}`);
 
   return { ok: true, order_status: nextStatus, previous: current };
 }

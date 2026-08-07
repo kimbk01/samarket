@@ -3,18 +3,9 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
-import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
-import {
-  notifyStoreOwnerBuyerCancelled,
-  notifyStoreOwnerRefundRequested,
-} from "@/lib/notifications/notify-store-commerce";
-import {
-  buildStoreOrderEventDedupeKey,
-  createStoreOrderEvent,
-} from "@/lib/stores/store-order-events";
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
+import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import {
@@ -211,89 +202,22 @@ export async function PATCH(
       reason = reason.slice(0, REFUND_REASON_MAX);
     }
 
-    const patch: Record<string, unknown> = {
-      order_status: "refund_requested",
-      auto_complete_at: null,
-    };
-    let { error: uErr } = await sb.from("store_orders").update(patch).eq("id", oid).eq("buyer_user_id", buyerId);
-
-    if (uErr?.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
-      const { error: fb } = await sb
-        .from("store_orders")
-        .update({ order_status: "refund_requested" })
-        .eq("id", oid)
-        .eq("buyer_user_id", buyerId);
-      uErr = fb ?? null;
-    }
-
-    if (uErr) {
-      console.error("[PATCH store-order request_refund]", uErr);
-      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-    }
-
-    void appendAuditLog(sb, {
-      actor_type: "user",
-      actor_id: buyerId,
-      target_type: "store_order",
-      target_id: oid,
-      action: "store_order.buyer_refund_request",
-      before_json: {
-        order_status: order.order_status,
-        payment_status: order.payment_status,
+    const applied = await applyStoreOrderStatusTransition(sb, {
+      orderId: oid,
+      nextStatus: "refund_requested",
+      actor: "CUSTOMER",
+      audit: {
+        actor_type: "user",
+        actor_id: buyerId,
+        action: "store_order.buyer_refund_request",
+        ip: rm.ip,
+        user_agent: rm.userAgent,
       },
-      after_json: { order_status: "refund_requested", reason: reason || undefined },
-      ip: rm.ip,
-      user_agent: rm.userAgent,
     });
-
-    const refundEv = await createStoreOrderEvent(sb, {
-      orderId: oid,
-      storeId: order.store_id as string,
-      actorUserId: buyerId,
-      actorRole: "buyer",
-      eventType: "refund_requested",
-      fromStatus: order.order_status as string,
-      toStatus: "refund_requested",
-      dedupeKey: buildStoreOrderEventDedupeKey({
-        orderId: oid,
-        eventType: "refund_requested",
-        toStatus: "refund_requested",
-        actorUserId: buyerId,
-      }),
-      metadata: { reason: reason || undefined },
-    });
-    const refundNotify = {
-      storeId: order.store_id as string,
-      orderId: oid,
-      orderNo: String(order.order_no ?? ""),
-    };
-    if (refundEv.ok) {
-      if (refundEv.inserted) {
-        void notifyStoreOwnerRefundRequested(sb, { ...refundNotify, storeOrderEventId: refundEv.row.id });
-      }
-    } else {
-      void notifyStoreOwnerRefundRequested(sb, refundNotify);
+    if (!applied.ok) {
+      return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
     }
-
-    try {
-      const { data: stRow } = await sb
-        .from("stores")
-        .select("owner_user_id")
-        .eq("id", order.store_id as string)
-        .maybeSingle();
-      const ownerId = (stRow as { owner_user_id?: string } | null)?.owner_user_id;
-      await appendStoreOrderMessengerStatusTransition(
-        sb as import("@supabase/supabase-js").SupabaseClient<any>,
-        oid,
-        order.order_status as string,
-        "refund_requested"
-      );
-    } catch {
-      /* ignore */
-    }
-
-    invalidateStoreOrderDetailSnapshot(oid, buyerId, "refund_requested");
-    invalidateBuyerStoreOrdersListSnapshot(buyerId, "refund_requested");
+    void reason;
     return NextResponse.json({ ok: true, order_status: "refund_requested" });
   }
 
@@ -309,107 +233,38 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "cannot_cancel_after_accepted" }, { status: 400 });
   }
 
-  const { data: lines, error: iErr } = await sb
-    .from("store_order_items")
-    .select("product_id, qty")
-    .eq("order_id", oid);
-
-  if (iErr) {
-    console.error("[PATCH store-order cancel] items", iErr);
-    return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
-  }
-
-  await restoreStockForOrderLines(
-    sb,
-    (lines ?? []).map((r) => ({
-      product_id: r.product_id as string,
-      qty: r.qty as number,
-    }))
-  );
-
-  const { error: uErr } = await sb
-    .from("store_orders")
-    .update({
-      order_status: "cancelled",
-      payment_status: "cancelled",
-    })
-    .eq("id", oid)
-    .eq("buyer_user_id", buyerId);
-
-  if (uErr) {
-    console.error("[PATCH store-order cancel]", uErr);
-    return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-  }
-
-  void appendAuditLog(sb, {
-    actor_type: "user",
-    actor_id: buyerId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.buyer_cancel",
-    before_json: {
-      order_status: order.order_status,
-      payment_status: order.payment_status,
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: "cancelled",
+    actor: "CUSTOMER",
+    audit: {
+      actor_type: "user",
+      actor_id: buyerId,
+      action: "store_order.buyer_cancel",
+      ip: rm.ip,
+      user_agent: rm.userAgent,
     },
-    after_json: { order_status: "cancelled", payment_status: "cancelled" },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
   });
-
-  const cancelEv = await createStoreOrderEvent(sb, {
-    orderId: oid,
-    storeId: order.store_id as string,
-    actorUserId: buyerId,
-    actorRole: "buyer",
-    eventType: "order_cancelled",
-    fromStatus: order.order_status as string,
-    toStatus: "cancelled",
-    dedupeKey: buildStoreOrderEventDedupeKey({
-      orderId: oid,
-      eventType: "order_cancelled",
-      toStatus: "cancelled",
-      actorUserId: buyerId,
-    }),
-    metadata: { payment_status: "cancelled" },
-  });
-  const cancelNotify = {
-    storeId: order.store_id as string,
-    orderId: oid,
-    orderNo: String(order.order_no ?? ""),
-  };
-  if (cancelEv.ok) {
-    if (cancelEv.inserted) {
-      void notifyStoreOwnerBuyerCancelled(sb, { ...cancelNotify, storeOrderEventId: cancelEv.row.id });
-    }
-  } else {
-    void notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
+  if (!applied.ok) {
+    return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
   }
 
   let cancelOwnerId: string | null = null;
-  try {
-    const { data: stRow2 } = await sb
-      .from("stores")
-      .select("owner_user_id")
-      .eq("id", order.store_id as string)
-      .maybeSingle();
-    const ownerId2 = (stRow2 as { owner_user_id?: string } | null)?.owner_user_id;
-    cancelOwnerId = ownerId2 ? String(ownerId2) : null;
-    await appendStoreOrderMessengerStatusTransition(
-      sb as import("@supabase/supabase-js").SupabaseClient<any>,
-      oid,
-      order.order_status as string,
-      "cancelled"
-    );
-  } catch {
-    /* ignore */
-  }
+  const { data: stRow2 } = await sb
+    .from("stores")
+    .select("owner_user_id")
+    .eq("id", order.store_id as string)
+    .maybeSingle();
+  cancelOwnerId = stRow2?.owner_user_id ? String(stRow2.owner_user_id) : null;
 
   invalidateStoreOrderCountsCache(order.store_id as string, cancelOwnerId ?? undefined);
   if (cancelOwnerId) invalidateOwnerHubBadgeCache(cancelOwnerId);
 
-  invalidateStoreOrderDetailSnapshot(oid, buyerId, "cancelled");
-  invalidateBuyerStoreOrdersListSnapshot(buyerId, "cancelled");
-  return NextResponse.json({ ok: true, order_status: "cancelled", payment_status: "cancelled" });
+  return NextResponse.json({
+    ok: true,
+    order_status: "cancelled",
+    payment_status: "cancelled",
+  });
 }
 
 /**

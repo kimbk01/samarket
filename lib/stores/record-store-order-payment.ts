@@ -6,6 +6,7 @@ import {
   notifyStoreOwnerPaymentCompleted,
 } from "@/lib/notifications/notify-store-commerce";
 import { ensureStoreSettlementForPaidOrder } from "@/lib/stores/ensure-store-settlement";
+import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import {
   buildStoreOrderPaymentEventDedupeKey,
   createStoreOrderEvent,
@@ -251,7 +252,9 @@ export type RecordFailedResult =
   | { ok: false; error: string; httpStatus: number };
 
 /**
- * 결제 실패: 주문만 failed (원장은 성공 시 1건만 두는 전제 — 실패는 주문 상태로만 표시)
+ * 결제 실패 Recovery Chain:
+ * pending 주문이면 apply(SYSTEM payment_failure → cancelled)로 stock/settlement/event 수렴.
+ * payment_status=failed 는 apply 가 설정. 별도 stock restore 경로 금지.
  */
 export async function recordStoreOrderPaymentFailed(
   sb: SupabaseClient,
@@ -273,21 +276,42 @@ export async function recordStoreOrderPaymentFailed(
   if (order.order_status === "cancelled") {
     return { ok: false, error: "order_cancelled", httpStatus: 400 };
   }
-  if (order.payment_status !== "pending") {
+  if (order.payment_status === "failed" && order.order_status === "cancelled") {
+    return { ok: true, payment_status: "failed" };
+  }
+  if (order.payment_status !== "pending" && order.order_status !== "pending") {
     return { ok: true, payment_status: "failed" };
   }
 
-  const { error: uErr } = await sb
-    .from("store_orders")
-    .update({ payment_status: "failed" })
-    .eq("id", oid)
-    .eq("payment_status", "pending");
+  const sid = order.store_id as string;
 
-  if (uErr) {
-    return { ok: false, error: uErr.message, httpStatus: 500 };
+  if (order.order_status === "pending") {
+    const applied = await applyStoreOrderStatusTransition(sb, {
+      orderId: oid,
+      nextStatus: "cancelled",
+      actor: "SYSTEM",
+      systemPurpose: "payment_failure",
+      eventMetadata: { source: "record_store_order_payment_failed" },
+      audit: {
+        actor_type: "system",
+        actor_id: null,
+        action: "store_order.payment_failed_cancel",
+      },
+    });
+    if (!applied.ok) {
+      return { ok: false, error: applied.error, httpStatus: applied.httpStatus };
+    }
+  } else if (order.payment_status === "pending") {
+    const { error: uErr } = await sb
+      .from("store_orders")
+      .update({ payment_status: "failed" })
+      .eq("id", oid)
+      .eq("payment_status", "pending");
+    if (uErr) {
+      return { ok: false, error: uErr.message, httpStatus: 500 };
+    }
   }
 
-  const sid = order.store_id as string;
   const failEv = await createStoreOrderEvent(sb, {
     orderId: oid,
     storeId: sid,

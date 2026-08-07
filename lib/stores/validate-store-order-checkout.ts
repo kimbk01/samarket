@@ -58,6 +58,8 @@ type StoreRow = {
   delivery_available?: boolean | null;
 };
 
+export type ValidateStoreOrderCheckoutStoreRow = StoreRow;
+
 export type StoreOrderCheckoutProductRow = {
   id: string;
   store_id: string;

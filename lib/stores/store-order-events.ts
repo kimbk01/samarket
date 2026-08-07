@@ -127,8 +127,10 @@ export function mapOrderStatusToEventType(status: string): StoreOrderEventType {
   }
 }
 
-function inferActorRoleFromAudit(actorType: "user" | "system"): StoreOrderActorRole {
-  return actorType === "system" ? "system" : "owner";
+function inferActorRoleFromAudit(actorType: "user" | "system" | "admin"): StoreOrderActorRole {
+  if (actorType === "system") return "system";
+  if (actorType === "admin") return "admin";
+  return "owner";
 }
 
 export type CreateStoreOrderStatusEventInput = {
@@ -136,8 +138,8 @@ export type CreateStoreOrderStatusEventInput = {
   storeId: string;
   fromStatus: string;
   toStatus: string;
-  audit: { actor_type: "user" | "system"; actor_id: string | null };
-  /** 미지정 시 user→owner, system→system */
+  audit: { actor_type: "user" | "system" | "admin"; actor_id: string | null };
+  /** 미지정 시 user→owner, system→system, admin→admin */
   actorRole?: StoreOrderActorRole;
   message?: string | null;
   metadata?: Record<string, unknown>;
@@ -152,7 +154,8 @@ export async function createStoreOrderStatusEvent(
 ): Promise<{ ok: true; row: StoreOrderEventRow; inserted: boolean } | { ok: false; error: string }> {
   const actorRole = input.actorRole ?? inferActorRoleFromAudit(input.audit.actor_type);
   const actorUserId =
-    input.audit.actor_type === "user" && input.audit.actor_id?.trim()
+    (input.audit.actor_type === "user" || input.audit.actor_type === "admin") &&
+    input.audit.actor_id?.trim()
       ? input.audit.actor_id.trim()
       : null;
   const eventType = mapOrderStatusToEventType(input.toStatus);

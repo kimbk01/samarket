@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { applyAdminStoreOrderRefund } from "@/lib/stores/apply-admin-store-order-refund";
+import { adminCompleteRefundStoreOrder } from "@/lib/stores/apply-admin-store-order-operations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +24,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const result = await applyAdminStoreOrderRefund(sb, oid);
+  const result = await adminCompleteRefundStoreOrder(sb, oid, {
+    adminUserId: admin.userId,
+  });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
   }

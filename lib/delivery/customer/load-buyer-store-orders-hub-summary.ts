@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sumBuyerStoreOrderMessengerUnread } from "@/lib/community-messenger/store-order-chat-service";
+import { sumBuyerStoreOrderMessengerUnreadFromRoomIds } from "@/lib/community-messenger/store-order-chat-service";
 import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
 
 const BUYER_HUB_ACTIVE_STATUSES = new Set([
@@ -32,9 +32,10 @@ export async function loadBuyerStoreOrdersHubSummary(
   const uid = buyerId.trim();
   if (!uid) return { ok: false, error: "buyer_required" };
 
+  // Phase B D3: one orders pass includes room ids — unread does not re-scan store_orders
   const { data: ordersRaw, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, order_status, created_at")
+    .select("id, store_id, order_status, created_at, community_messenger_room_id")
     .eq("buyer_user_id", uid)
     .order("created_at", { ascending: false });
 
@@ -83,17 +84,20 @@ export async function loadBuyerStoreOrdersHubSummary(
   const visible = rawList.filter((o) => !hidden.has(String(o.id ?? "").trim()));
 
   let activeOrders = 0;
+  const roomIds: string[] = [];
   for (const o of visible) {
     const norm = normalizeStoreOrderStatusForBuyer(o.order_status);
     const status = norm || String(o.order_status ?? "").trim() || "pending";
     if (BUYER_HUB_ACTIVE_STATUSES.has(status)) activeOrders += 1;
+    const rid = String((o as { community_messenger_room_id?: string | null }).community_messenger_room_id ?? "").trim();
+    if (rid) roomIds.push(rid);
   }
 
   const totalOrders = visible.length;
   const first = visible[0];
   const recentStoreId = first ? String(first.store_id ?? "").trim() : "";
 
-  const unreadP = sumBuyerStoreOrderMessengerUnread(sb as SupabaseClient<any>, uid, hidden);
+  const unreadP = sumBuyerStoreOrderMessengerUnreadFromRoomIds(sb as SupabaseClient<any>, uid, roomIds);
 
   let unreadChats: number;
   let storeName = "";

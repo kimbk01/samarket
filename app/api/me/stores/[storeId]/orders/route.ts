@@ -7,10 +7,9 @@ import {
   getCachedStoreIfOwner,
   peekOwnerStoreOwnershipCacheHit,
 } from "@/lib/stores/owner-store-ownership-cache";
-import { fetchOwnerStoreOrderCounts } from "@/lib/stores/fetch-owner-store-order-counts";
+import { fetchOwnerStoreOrderCountsWithMeta } from "@/lib/stores/fetch-owner-store-order-counts";
 import {
   getCachedStoreOrderCounts,
-  type StoreOrderCountsPayload,
 } from "@/lib/stores/store-order-counts-cache";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 import { logOwnerOrdersListPerf } from "@/lib/delivery/owner/owner-orders-list-perf";
@@ -161,21 +160,27 @@ export async function GET(
 
   const db0 = perfNowMs();
 
-  const countPromise = getCachedStoreOrderCounts(id, async (): Promise<StoreOrderCountsPayload> => {
-    const counts = await fetchOwnerStoreOrderCounts(sb, id);
-    return { ok: true as const, ...counts };
-  }).then((r) => r.payload);
-
-  const storeAddrPromise = sb
-    .from("stores")
-    .select("region, city, district, address_line1, address_line2")
-    .eq("id", id)
-    .maybeSingle();
-
   if (metaOnly) {
-    const [countsPayload, storeAddrRes] = await Promise.all([countPromise, storeAddrPromise]);
+    const [countsResult, storeAddrRes] = await Promise.all([
+      getCachedStoreOrderCounts(id, async () => {
+        const fetched = await fetchOwnerStoreOrderCountsWithMeta(sb, id, userId);
+        if ("gate" in fetched) {
+          throw new Error(fetched.gate.error || "order_counts_unavailable");
+        }
+        return {
+          payload: { ok: true as const, ...fetched.snapshot },
+          via: fetched.via,
+        };
+      }),
+      sb
+        .from("stores")
+        .select("region, city, district, address_line1, address_line2")
+        .eq("id", id)
+        .maybeSingle(),
+    ]);
     db_ms = Math.round(perfNowMs() - db0);
     count_ms = db_ms;
+    const countsPayload = countsResult.payload;
 
     const meta = {
       owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
@@ -204,9 +209,13 @@ export async function GET(
   }
 
   const listFresh = url.searchParams.get("fresh") === "1";
-  const snapPromise = tryLoadOwnerStoreOrdersListFromSnapshot(sb as never, id, userId, {
+  // Phase B D1: list path uses OOL1 snapshot meta only — no parallel counts/ops RPC or store addr
+  const snap = await tryLoadOwnerStoreOrdersListFromSnapshot(sb as never, id, userId, {
     forceRpc: listFresh,
   });
+
+  db_ms = Math.round(perfNowMs() - db0);
+  count_ms = 0;
 
   let orders: import("@/lib/business/owner-store-order-list-row-bridge").OwnerStoreOrderListRow[] = [];
   let snapshotVia: string | undefined;
@@ -215,15 +224,6 @@ export async function GET(
   const buyer_label_cache_hit = 0;
   let db_round_trips = 0;
   let list_snapshot_hit: 0 | 1 = 0;
-
-  const [snap, countsPayload, storeAddrRes] = await Promise.all([
-    snapPromise,
-    countPromise,
-    storeAddrPromise,
-  ]);
-
-  db_ms = Math.round(perfNowMs() - db0);
-  count_ms = db_ms;
 
   if (snap) {
     orders = snap.orders;
@@ -246,16 +246,12 @@ export async function GET(
     );
   }
 
-  const store_pickup_address_lines = snap
-    ? pickupLinesFromSnapshot(snap.storePickupAddress)
-    : pickupLinesFromStoreRow(storeAddrRes.data as Record<string, unknown> | null);
-
   const meta = {
     owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
-    refund_requested_count: snap?.statusCounts.refund_requested_count ?? countsPayload.refund_requested_count,
-    pending_accept_count: snap?.statusCounts.pending_accept_count ?? countsPayload.pending_accept_count,
-    pending_delivery_count: snap?.statusCounts.pending_delivery_count ?? countsPayload.pending_delivery_count,
-    store_pickup_address_lines,
+    refund_requested_count: snap.statusCounts.refund_requested_count,
+    pending_accept_count: snap.statusCounts.pending_accept_count,
+    pending_delivery_count: snap.statusCounts.pending_delivery_count,
+    store_pickup_address_lines: pickupLinesFromSnapshot(snap.storePickupAddress),
   };
 
   const body = { ok: true as const, meta, orders };

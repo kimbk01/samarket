@@ -75,6 +75,8 @@ export function invalidateOwnerStoreOrdersListCache(
     orderId?: string;
     reason?: string;
     afterMutationSuccess?: boolean;
+    /** Default true. Mutation coalesce sets false and schedules refresh once. */
+    scheduleSnapshotRefresh?: boolean;
   }
 ): void {
   if (!storeId?.trim()) {
@@ -97,7 +99,9 @@ export function invalidateOwnerStoreOrdersListCache(
   const hadClientCache = cached?.storeId === sid;
   if (hadClientCache) cached = null;
   const removed = invalidateOwnerStoreOrdersListServerCache(sid, ownerUserId);
-  scheduleOwnerStoreOrdersListSnapshotRefresh(sid, ownerUserId ?? null);
+  if (logOpts?.scheduleSnapshotRefresh !== false) {
+    scheduleOwnerStoreOrdersListSnapshotRefresh(sid, ownerUserId ?? null);
+  }
   if (logOpts) {
     logOwnerOrdersListCacheInvalidate({
       route: logOpts.route ?? "unknown",

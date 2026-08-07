@@ -15,7 +15,29 @@ export const STORE_ORDER_STATUS_LIST = [
 
 export type StoreOrderStatus = (typeof STORE_ORDER_STATUS_LIST)[number];
 
+/** Phase 6A — order_status writer actor (PAYMENT is outside this machine) */
+export type StoreOrderStatusActor = "CUSTOMER" | "OWNER" | "ADMIN" | "SYSTEM";
+
+/** SYSTEM: cron auto-complete · external-delivery · payment_failure recovery */
+export type StoreOrderSystemPurpose = "auto_complete" | "external_delivery" | "payment_failure";
+
 const VALID = new Set<string>(STORE_ORDER_STATUS_LIST);
+
+/** Owner mid-flow cancel request (→ cancel_requested) */
+export const OWNER_CANCEL_REQUEST_FROM = new Set([
+  "preparing",
+  "ready_for_pickup",
+  "delivering",
+  "arrived",
+]);
+
+/** Admin reject cancel_requested may only restore to these */
+export const ADMIN_CANCEL_REQUEST_RESTORE_STATUSES = new Set([
+  "preparing",
+  "ready_for_pickup",
+  "delivering",
+  "arrived",
+]);
 
 /** 동네배달·택배 — 픽업과 다른 전이(배송중 이후) */
 export function isDeliveryFulfillment(fulfillment: string): boolean {
@@ -53,10 +75,96 @@ export function allowedOrderTransitions(current: string, fulfillment: string): s
   }
 }
 
+export type AllowedTransitionsForActorOpts = {
+  paymentStatus?: string;
+  /** ADMIN: cancel_requested → previous */
+  restoreToStatus?: string | null;
+  /** SYSTEM auto_complete: auto_complete_at <= now */
+  autoCompleteDue?: boolean;
+  systemPurpose?: StoreOrderSystemPurpose;
+};
+
+/**
+ * Actor-scoped order_status edges (Phase 6A).
+ * OWNER graph remains `allowedOrderTransitions` + cancel_requested from mid-flow.
+ * SYSTEM delivering→completed removed (legacy cron only; not in OWNER apply auto_complete setters).
+ */
+export function allowedOrderTransitionsForActor(
+  actor: StoreOrderStatusActor,
+  current: string,
+  fulfillment: string,
+  opts?: AllowedTransitionsForActorOpts
+): string[] {
+  switch (actor) {
+    case "OWNER": {
+      const base = allowedOrderTransitions(current, fulfillment);
+      if (OWNER_CANCEL_REQUEST_FROM.has(current) && !base.includes("cancel_requested")) {
+        return [...base, "cancel_requested"];
+      }
+      return base;
+    }
+    case "CUSTOMER": {
+      if (current === "pending") return ["cancelled"];
+      if (canBuyerRequestStoreRefund(current, opts?.paymentStatus ?? "paid")) {
+        return ["refund_requested"];
+      }
+      return [];
+    }
+    case "ADMIN": {
+      if (current === "refund_requested") return ["refunded"];
+      if (current === "cancel_requested") {
+        const out = ["cancelled"];
+        const restore = String(opts?.restoreToStatus ?? "").trim();
+        if (restore && ADMIN_CANCEL_REQUEST_RESTORE_STATUSES.has(restore)) {
+          out.push(restore);
+        }
+        return out;
+      }
+      if (current === "completed" || current === "refunded" || current === "cancelled") {
+        return [];
+      }
+      const out: string[] = ["cancelled"];
+      if (canBuyerRequestStoreRefund(current, opts?.paymentStatus ?? "paid")) {
+        out.push("refund_requested");
+      }
+      return out;
+    }
+    case "SYSTEM": {
+      if (opts?.systemPurpose === "payment_failure") {
+        // Recovery Chain: unpaid pending order → cancel (+ stock restore in apply)
+        return current === "pending" ? ["cancelled"] : [];
+      }
+      if (opts?.systemPurpose === "external_delivery") {
+        return allowedOrderTransitions(current, fulfillment);
+      }
+      if (!opts?.autoCompleteDue) return [];
+      if (current === "ready_for_pickup" && !isDeliveryFulfillment(fulfillment)) {
+        return ["completed"];
+      }
+      if (current === "arrived" && isDeliveryFulfillment(fulfillment)) {
+        return ["completed"];
+      }
+      return [];
+    }
+    default:
+      return [];
+  }
+}
+
+/**
+ * Cancel terminal → restore stock when inventory was reserved at create.
+ * Includes `cancel_requested` so Admin approve (cancel_requested→cancelled) uses the same Recovery Chain.
+ */
 export function shouldRestoreStockOnCancel(prevStatus: string): boolean {
-  return ["pending", "accepted", "preparing", "ready_for_pickup", "delivering", "arrived"].includes(
-    prevStatus
-  );
+  return [
+    "pending",
+    "accepted",
+    "preparing",
+    "ready_for_pickup",
+    "delivering",
+    "arrived",
+    "cancel_requested",
+  ].includes(prevStatus);
 }
 
 /** 레거시: 시스템 결제 게이트 없음 — 항상 허용 목록 그대로 반환 */

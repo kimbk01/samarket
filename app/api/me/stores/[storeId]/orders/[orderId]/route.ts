@@ -10,10 +10,8 @@ import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
-import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
+import { invalidateOwnerDeliverySurfacesAfterMutation } from "@/lib/delivery/owner/invalidate-owner-delivery-surfaces-after-mutation";
 import {
   jsonPayloadKb,
   logStoreOrderDetailPerf,
@@ -151,12 +149,10 @@ export async function GET(
         ? 1
         : 0;
     const order_chat_ready = room_id_exists === 1;
-    const review = await loadOwnerOrderReviewDetail(
-      sbAny,
-      oid,
-      String(order.order_status ?? ""),
-      snapshotGate.review_status
-    );
+    const review =
+      snapshotGate.review_status === "completed" && snapshotGate.review
+        ? snapshotGate.review
+        : null;
     const body = {
       ok: true as const,
       meta: {
@@ -375,6 +371,7 @@ export async function PATCH(
   const applied = await applyStoreOrderStatusTransition(sb, {
     orderId: oid,
     nextStatus,
+    actor: "OWNER",
     ownerAcceptPrepMinutes:
       nextStatus === "accepted" ? body.estimated_prep_minutes ?? null : null,
     audit: {
@@ -392,21 +389,22 @@ export async function PATCH(
         ? 404
         : applied.error === "invalid_order_status" ||
             applied.error === "invalid_transition" ||
-            applied.error === "prep_minutes_required"
-          ? 400
+            applied.error === "prep_minutes_required" ||
+            applied.error === "transition_conflict"
+          ? applied.error === "transition_conflict"
+            ? 409
+            : 400
           : applied.httpStatus;
     return NextResponse.json({ ok: false, error: applied.error }, { status: st });
   }
 
-  invalidateStoreOrderCountsCache(sid, userId);
   invalidateOwnerHubBadgeCache(userId);
-  invalidateOwnerStoreOrdersListCache(sid, userId, {
+  invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {
     route: "PATCH /api/me/stores/[storeId]/orders/[orderId]",
     orderId: oid,
     reason: "order_status_mutation",
     afterMutationSuccess: true,
   });
-  await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
 
   return NextResponse.json({ ok: true, order_status: applied.order_status });
 }

@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import {
-  appendStoreOrderMessengerStatusTransition,
-  syncStoreOrderMessengerRoomContextMeta,
-} from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
-import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
-import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
-import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
+import { invalidateOwnerDeliverySurfacesAfterMutation } from "@/lib/delivery/owner/invalidate-owner-delivery-surfaces-after-mutation";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
-import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { resolveStoreOrderCancelPolicy } from "@/lib/stores/store-order-cancel-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -96,6 +86,7 @@ export async function POST(
     const applied = await applyStoreOrderStatusTransition(sb, {
       orderId: oid,
       nextStatus: "cancelled",
+      actor: "OWNER",
       audit: {
         actor_type: "user",
         actor_id: userId,
@@ -121,16 +112,31 @@ export async function POST(
       refund_status: "not_applicable",
     });
 
-    invalidateStoreOrderCountsCache(sid, userId);
     invalidateOwnerHubBadgeCache(userId);
-    invalidateOwnerStoreOrdersListCache(sid, userId, {
+    invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {
       route: "POST /api/me/stores/[storeId]/orders/[orderId]/cancel-request",
       orderId: oid,
       reason: "owner_direct_cancel",
       afterMutationSuccess: true,
     });
-    await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
     return NextResponse.json({ ok: true, order_status: "cancelled", mode: "direct_cancel" });
+  }
+
+  // Recovery Chain: apply first, then cancel_request ledger (no orphan pending on apply fail)
+  const applied = await applyStoreOrderStatusTransition(sb, {
+    orderId: oid,
+    nextStatus: "cancel_requested",
+    actor: "OWNER",
+    audit: {
+      actor_type: "user",
+      actor_id: userId,
+      action: "store_order.owner_cancel_request",
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    },
+  });
+  if (!applied.ok) {
+    return NextResponse.json({ ok: false, error: applied.error }, { status: applied.httpStatus });
   }
 
   const { error: reqErr } = await sb.from("store_order_cancel_requests").insert({
@@ -147,63 +153,18 @@ export async function POST(
     const duplicate = String(reqErr.code ?? "") === "23505";
     if (!duplicate) {
       console.error("[owner cancel-request] insert", reqErr);
+      // Status already cancel_requested — surface ledger failure without rolling status back
       return NextResponse.json({ ok: false, error: reqErr.message }, { status: 500 });
     }
   }
 
-  const previous = String(order.order_status ?? "");
-  const { error: uErr } = await sb
-    .from("store_orders")
-    .update({ order_status: "cancel_requested", auto_complete_at: null, needs_admin_attention: true })
-    .eq("id", oid)
-    .eq("store_id", sid);
-  if (uErr) {
-    console.error("[owner cancel-request] update", uErr);
-    return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
-  }
-
-  void appendAuditLog(sb, {
-    actor_type: "user",
-    actor_id: userId,
-    target_type: "store_order",
-    target_id: oid,
-    action: "store_order.owner_cancel_request",
-    before_json: { order_status: previous, payment_status: order.payment_status, store_id: sid },
-    after_json: { order_status: "cancel_requested", reason, detail_reason: detailReason || undefined },
-    ip: rm.ip,
-    user_agent: rm.userAgent,
-  });
-
-  void createStoreOrderEvent(sb, {
-    orderId: oid,
-    storeId: sid,
-    actorUserId: userId,
-    actorRole: "owner",
-    eventType: "cancel_requested",
-    fromStatus: previous,
-    toStatus: "cancel_requested",
-    message: reason,
-    metadata: { reason, detail_reason: detailReason || undefined, source: "owner_cancel_request" },
-  });
-
-  try {
-    await appendStoreOrderMessengerStatusTransition(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid, previous, "cancel_requested");
-    await syncStoreOrderMessengerRoomContextMeta(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
-  } catch (err) {
-    console.error("[owner cancel-request] messenger sync failed", { orderId: oid, error: err });
-  }
-
-  invalidateStoreOrderDetailSnapshot(oid, String(order.buyer_user_id ?? "").trim() || undefined, "cancel_requested");
-  invalidateBuyerStoreOrdersListSnapshot(String(order.buyer_user_id ?? "").trim() || undefined, "cancel_requested");
-  invalidateStoreOrderCountsCache(sid, userId);
   invalidateOwnerHubBadgeCache(userId);
-  invalidateOwnerStoreOrdersListCache(sid, userId, {
+  invalidateOwnerDeliverySurfacesAfterMutation(sid, userId, {
     route: "POST /api/me/stores/[storeId]/orders/[orderId]/cancel-request",
     orderId: oid,
     reason: "owner_cancel_request",
     afterMutationSuccess: true,
   });
-  await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
 
   return NextResponse.json({ ok: true, order_status: "cancel_requested", mode: "request_cancel" });
 }

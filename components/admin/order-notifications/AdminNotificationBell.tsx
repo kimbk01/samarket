@@ -5,13 +5,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, samTier1HeaderIconBadge } from "@/lib/ui/tier1-header-icon";
 import { Tier1HeaderBellGlyph } from "@/lib/ui/tier1-header-glyphs";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
-import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-
-/** @deprecated OwnerNotificationBell — Tier1NotificationAnchor 사용 */
-export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId: string }) {
-  void slug;
-  return <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={storeId} />;
-}
 
 /**
  * 어드민 전용 알림 벨 — Tier1 글리프·뱃지 스타일 통일, /admin/reports 이동.

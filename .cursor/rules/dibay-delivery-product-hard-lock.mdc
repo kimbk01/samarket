@@ -1,0 +1,43 @@
+---
+description: HARD LOCK — DIBAY Delivery product authority / atomicity / recovery
+alwaysApply: true
+---
+
+# DIBAY Delivery Product HARD LOCK
+
+**HARD LOCK (2026-08-07).** Full doc: `docs/dibay-delivery-product-hard-lock.md`.
+
+## Baseline
+
+- **DELIVERY PRODUCT PASS** — architecture / authority / atomicity / recovery / cleanup
+- Runtime matrix (DB/RPC/apply): **16/16 PASS**
+- **NOT claimed:** Browser Realtime UI · HTTP cookie session E2E · Cron HTTP route itself
+- UI Frozen under this LOCK unless reopen
+
+## DO NOT (without reopen — doc §4)
+
+- Raw `store_orders.order_status` UPDATE outside create insert + `applyStoreOrderStatusTransition`
+- App-layer create stock/item loops + compensate delete/restore
+- Parallel Recovery Chain (stock/events) outside apply for cancel/refund/payment-failure
+- Hollow or delete `verify:store-order-status-writer-authority` / `create-atomicity` / `recovery-integrity` / `structure-optimization` / `repo-cleanup`
+- Revive deleted slug-era Owner order clients / `owner-order-remote` as product paths
+- Call residual NOT_RUN surfaces “PASS” without new evidence
+
+## Authority (summary)
+
+| Concern | Owner |
+|---|---|
+| Status write | create → pending · else `applyStoreOrderStatusTransition` |
+| Order create | `create_store_order_atomic` |
+| Recovery | apply CAS + stock/settlement/events/notify/chat/audit |
+| Checkout rules | `validateStoreOrderCheckout` + TX revalidation |
+| Owner list | OOL1 / live OwnerStoreOrdersView path |
+| Owner detail review | snapshot RPC embeds `review` |
+
+## Gate
+
+```bash
+npm run verify:delivery-product-hard-lock
+```
+
+Optional: `npx tsx scripts/runtime-delivery-phase-d-matrix.ts`

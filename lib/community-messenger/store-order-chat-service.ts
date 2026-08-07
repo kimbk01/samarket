@@ -833,13 +833,28 @@ export async function sumBuyerStoreOrderMessengerUnread(
   const roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
     .map((row) => trimText(row.community_messenger_room_id))
     .filter(Boolean);
-  if (!roomIds.length) return 0;
+  return sumBuyerStoreOrderMessengerUnreadFromRoomIds(sb, uid, roomIds);
+}
+
+/** Hub summary path — room ids already known from orders pass (no second store_orders scan). */
+export async function sumBuyerStoreOrderMessengerUnreadFromRoomIds(
+  sb: SupabaseClient<any>,
+  buyerUserId: string,
+  roomIds: string[]
+): Promise<number> {
+  const uid = buyerUserId.trim();
+  if (!uid) return 0;
+  const ids = [...new Set(roomIds.map((id) => trimText(id)).filter(Boolean))];
+  if (!ids.length) return 0;
   const { data: parts } = await sb
     .from("community_messenger_participants")
     .select("unread_count")
     .eq("user_id", uid)
-    .in("room_id", roomIds);
-  return (parts ?? []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)), 0);
+    .in("room_id", ids);
+  return (parts ?? []).reduce(
+    (sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)),
+    0
+  );
 }
 
 function applyStoreOrderUnreadMemoryHitTiming(

@@ -25,7 +25,6 @@ import {
 } from "@/lib/stores/payment-methods-config";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
-import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import {
   ensureStoreOrderMessengerRoom,
 } from "@/lib/community-messenger/store-order-chat-service";
@@ -37,15 +36,13 @@ import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/
 import {
   tryLoadBuyerStoreOrdersListFromSnapshot,
 } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot";
-import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
-import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
-import { logStoreOrderStockRestoreFailure } from "@/lib/stores/log-store-order-stock-restore-failure";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { translate } from "@/lib/i18n/messages";
+import { createStoreOrderAtomic } from "@/lib/stores/create-store-order-atomic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,49 +55,6 @@ function buyerOrdersListSnapshotHeaders(snapshotVia?: string): Record<string, st
     "x-samarket-buyer-orders-list-query-wave-2-ms": "0",
     "x-samarket-buyer-orders-list-rpc-removed": "1",
   };
-}
-
-function isStoreOrderStatusCheckViolation(message: string | undefined): boolean {
-  if (!message) return false;
-  const m = message.toLowerCase();
-  return (
-    m.includes("order_status_check") ||
-    (m.includes("violates check constraint") && m.includes("order_status"))
-  );
-}
-
-async function restoreDecrementedStock(
-  sb: SupabaseClient,
-  rollback: { id: string; delta: number }[],
-  orderId?: string | null
-) {
-  for (let i = 0; i < rollback.length; i++) {
-    const r = rollback[i]!;
-    const { data: cur } = await sb
-      .from("store_products")
-      .select("stock_qty, product_status")
-      .eq("id", r.id)
-      .maybeSingle();
-    if (cur) {
-      const n = (cur.stock_qty as number) + r.delta;
-      const { error: restoreErr } = await sb
-        .from("store_products")
-        .update({
-          stock_qty: n,
-          product_status: n > 0 && cur.product_status === "sold_out" ? "active" : cur.product_status,
-        })
-        .eq("id", r.id);
-      if (restoreErr) {
-        await logStoreOrderStockRestoreFailure(sb, {
-          orderId,
-          productId: r.id,
-          delta: r.delta,
-          message: restoreErr.message,
-          rollbackRemaining: rollback.slice(i),
-        });
-      }
-    }
-  }
 }
 
 function makeOrderNo() {
@@ -206,18 +160,13 @@ type PostBody = {
   fulfillment_type?: string;
   buyer_note?: string;
   buyer_phone?: string;
-  /** 고객 선택 결제 수단: cod | gcash | bank_transfer | other | card_on_delivery */
   payment_method?: string;
-  /** 배달·택배 수령지 한 줄 */
   delivery_address_summary?: string;
   delivery_address_detail?: string;
-  /** 지역 키(향후 배달 권역 기준) */
   delivery_region?: string;
   delivery_city?: string;
-  /** `user_addresses.id` — ETA 스냅샷·라우팅용(본인 주소만) */
   delivery_user_address_id?: string;
   delivery_note?: string;
-  /** 멱등 키 — 재전송·더블클릭 시 동일 주문 반환 */
   client_order_key?: string;
 };
 
@@ -231,8 +180,8 @@ type DeliveryAddressOrderSnapshot = {
 };
 
 /**
- * 주문 생성 — 앱 내 결제 없음. payment_status=paid 는 주문 금액 확정(정산·크론 호환)용입니다.
- * - 재고 차감 후 주문 저장; 주문 실패 시 재고 복구 시도
+ * 주문 생성 — Phase 5 atomic RPC.
+ * payment_status=paid 는 주문 금액 확정 메타(정산·크론 호환).
  */
 export async function POST(req: NextRequest) {
   const buyerId = await getRouteUserId();
@@ -297,12 +246,37 @@ export async function POST(req: NextRequest) {
     orderLines.push(row);
   }
 
+  // Phase B D6: single store read — pass into validate (no second select)
+  const { data: store, error: sErr } = await sb
+    .from("stores")
+    .select(
+      "id, owner_user_id, approval_status, is_visible, store_name, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available, lat, lng"
+    )
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
+    return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
+  }
+
   const validated = await validateStoreOrderCheckout({
     sb,
     buyerId,
     storeId,
     fulfillment,
     items: orderLines,
+    store: {
+      id: String(store.id),
+      owner_user_id: String(store.owner_user_id ?? ""),
+      approval_status: String(store.approval_status ?? ""),
+      is_visible: !!store.is_visible,
+      is_open: (store.is_open as boolean | null) ?? null,
+      point_commerce_blocked: (store as { point_commerce_blocked?: boolean | null })
+        .point_commerce_blocked,
+      business_hours_json: store.business_hours_json,
+      pickup_available: store.pickup_available as boolean | null | undefined,
+      delivery_available: store.delivery_available as boolean | null | undefined,
+    },
   });
   if (!validated.ok) {
     return NextResponse.json(
@@ -315,19 +289,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { lines, paymentTotal, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
-
-  const { data: store, error: sErr } = await sb
-    .from("stores")
-    .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, is_open, business_hours_json, pickup_available, delivery_available, lat, lng"
-    )
-    .eq("id", storeId)
-    .maybeSingle();
-
-  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
-    return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
-  }
+  const { lines, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
 
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =
@@ -356,51 +318,16 @@ export async function POST(req: NextRequest) {
       ? payCfgAtOrder.payMethodOtherText.trim() || translate(buyerLang, "store_pay_label_other")
       : null;
 
-  const stockRollback: { id: string; delta: number }[] = [];
-  const soldOutFromOrder: { productId: string; productTitle: string }[] = [];
-
-  for (const line of lines) {
-    const p = productsById[line.product_id];
-    if (!p) {
-      return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
-    }
-    const trackStock = p.track_inventory === true;
-    if (!trackStock) continue;
-    const prev = Number(p.stock_qty);
-    const next = prev - line.qty;
-    const { error: uErr } = await sb
-      .from("store_products")
-      .update({ stock_qty: next, product_status: next <= 0 ? "sold_out" : p.product_status })
-      .eq("id", line.product_id)
-      .eq("stock_qty", prev);
-
-    if (uErr) {
-      await restoreDecrementedStock(sb, stockRollback);
-      return NextResponse.json({ ok: false, error: "stock_update_failed" }, { status: 409 });
-    }
-    stockRollback.push({ id: line.product_id, delta: line.qty });
-    if (trackStock && next <= 0) {
-      soldOutFromOrder.push({
-        productId: line.product_id,
-        productTitle: line.title.trim() || String(p.title ?? "").trim(),
-      });
-    }
-  }
-
   const orderNo = makeOrderNo();
   const buyer_note = String(body.buyer_note ?? "").trim() || null;
 
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
-  /** 주문자 배달·배송지(매장 주소와 별도). 픽업이면 비워도 됨 — 픽업 장소는 `stores` 주소로 안내 */
   const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
   const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
   const delivery_region_raw = String(body.delivery_region ?? "").trim();
   const delivery_city_raw = String(body.delivery_city ?? "").trim();
 
-  // 주문 주소 저장 규격 고정 (PH):
-  // - 지역(delivery_region/city)은 운영/권역 키
-  // - summary=주소1(도로/번지), detail=세부주소(호수/층/랜드마크)
   const normDeliveryAddr = normalizeStoreAddressPh({
     region: delivery_region_raw || null,
     city: delivery_city_raw || null,
@@ -461,119 +388,91 @@ export async function POST(req: NextRequest) {
     business_hours_json: store.business_hours_json,
   });
 
-  const insertOrderPayload: Record<string, unknown> = {
-    order_no: orderNo,
-    buyer_user_id: buyerId,
-    store_id: storeId,
-    total_amount: Math.round(paymentGrandTotal),
-    discount_amount: 0,
-    payment_amount: Math.round(paymentGrandTotal),
-    delivery_fee_amount: Math.round(deliveryFeeAmount),
-    delivery_courier_label: deliveryCourierLabel,
-    payment_status: "paid",
-    order_status: "pending",
-    fulfillment_type: fulfillment,
-    buyer_note,
-    buyer_phone: buyer_phone_norm,
-    buyer_payment_method: paymentMethodRaw,
-    buyer_payment_method_detail,
-    delivery_address_summary,
-    delivery_address_detail,
-    delivery_region,
-    delivery_city,
-    delivery_place_id: deliveryAddressSnapshot?.place_id ?? null,
-    delivery_formatted_address: deliveryAddressSnapshot?.formatted_address ?? delivery_address_summary,
-    delivery_detail_address: deliveryAddressSnapshot?.detail_address ?? delivery_address_detail,
-    delivery_note: String(body.delivery_note ?? deliveryAddressSnapshot?.delivery_note ?? "").trim() || null,
-    delivery_latitude: deliveryAddressSnapshot?.latitude ?? null,
-    delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
-    ...etaSnapshot,
-  };
-  if (normalizedClientKey) {
-    insertOrderPayload.client_order_key = normalizedClientKey;
-  }
-  if (deliveryUserAddressId) {
-    insertOrderPayload.delivery_user_address_id = deliveryUserAddressId;
-  }
+  const atomic = await createStoreOrderAtomic(sb, {
+    buyerUserId: buyerId,
+    storeId,
+    clientOrderKey: normalizedClientKey,
+    order: {
+      order_no: orderNo,
+      total_amount: Math.round(paymentGrandTotal),
+      discount_amount: 0,
+      payment_amount: Math.round(paymentGrandTotal),
+      delivery_fee_amount: Math.round(deliveryFeeAmount),
+      delivery_courier_label: deliveryCourierLabel,
+      payment_status: "paid",
+      fulfillment_type: fulfillment,
+      buyer_note,
+      buyer_phone: buyer_phone_norm,
+      buyer_payment_method: paymentMethodRaw,
+      buyer_payment_method_detail,
+      delivery_address_summary,
+      delivery_address_detail,
+      delivery_region,
+      delivery_city,
+      delivery_place_id: deliveryAddressSnapshot?.place_id ?? null,
+      delivery_formatted_address:
+        deliveryAddressSnapshot?.formatted_address ?? delivery_address_summary,
+      delivery_detail_address:
+        deliveryAddressSnapshot?.detail_address ?? delivery_address_detail,
+      delivery_note:
+        String(body.delivery_note ?? deliveryAddressSnapshot?.delivery_note ?? "").trim() || null,
+      delivery_latitude: deliveryAddressSnapshot?.latitude ?? null,
+      delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
+      delivery_user_address_id: deliveryUserAddressId,
+      ...etaSnapshot,
+    },
+    lines: lines.map((line) => ({
+      ...line,
+      expected_options_json: productsById[line.product_id]?.options_json ?? null,
+    })),
+  });
 
-  const { data: orderRow, error: oErr } = await sb
-    .from("store_orders")
-    .insert(insertOrderPayload as never)
-    .select("id")
-    .maybeSingle();
-
-  if (oErr || !orderRow) {
-    await restoreDecrementedStock(sb, stockRollback, null);
-    const pgCode = (oErr as { code?: string } | null)?.code;
-    if (normalizedClientKey && pgCode === "23505") {
-      const recovered = await fetchExistingBuyerOrderByClientKey(sb, buyerId, normalizedClientKey);
-      if (recovered) {
-        return NextResponse.json({
-          ok: true,
-          order: recovered,
-          idempotent: true,
-        });
-      }
-      return NextResponse.json({ ok: false, error: "order_idempotency_conflict" }, { status: 409 });
+  if (!atomic.ok) {
+    if (atomic.error === "create_store_order_atomic_missing") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "create_store_order_atomic_missing",
+          hint: "Apply migration 20261022120000_create_store_order_atomic.sql",
+        },
+        { status: 503 }
+      );
     }
-    console.error("[POST store-orders]", oErr);
-    const raw = oErr?.message ?? "order_insert_failed";
-    if (isStoreOrderStatusCheckViolation(raw)) {
+    if (atomic.error.includes("order_status") || atomic.error.includes("check constraint")) {
       return NextResponse.json(
         {
           ok: false,
           error: "order_status_schema_mismatch",
           allowed_order_status: [...STORE_ORDER_STATUS_LIST],
-          detail: raw,
+          detail: atomic.error,
         },
         { status: 500 }
       );
     }
-    return NextResponse.json({ ok: false, error: raw }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: atomic.error },
+      { status: atomic.httpStatus }
+    );
   }
 
-  const orderId = orderRow.id as string;
+  const orderId = atomic.order.id;
+  const resolvedOrderNo = atomic.order.order_no || orderNo;
+  const paymentAmount = atomic.order.payment_amount;
+
+  if (atomic.idempotent) {
+    return NextResponse.json({
+      ok: true,
+      order: {
+        id: orderId,
+        order_no: resolvedOrderNo,
+        payment_amount: paymentAmount,
+      },
+      idempotent: true,
+    });
+  }
+
   if (deliveryUserAddressId) {
     await markUserAddressUsed(sb, buyerId, deliveryUserAddressId);
-  }
-
-  for (const line of lines) {
-    const { data: itemRow, error: iErr } = await sb
-      .from("store_order_items")
-      .insert({
-        order_id: orderId,
-        product_id: line.product_id,
-        product_title_snapshot: line.title,
-        price_snapshot: Math.round(line.unit),
-        qty: line.qty,
-        subtotal: Math.round(line.subtotal),
-        options_snapshot_json: line.options_snapshot,
-        base_price_snapshot: Math.round(line.base_unit_after_discount),
-        options_unit_delta_snapshot: Math.round(line.unit_options_delta),
-      })
-      .select("id")
-      .maybeSingle();
-    if (iErr || !itemRow?.id) {
-      await sb.from("store_orders").delete().eq("id", orderId);
-      await restoreDecrementedStock(sb, stockRollback, orderId);
-      void appendAuditLog(sb, {
-        actor_type: "user",
-        actor_id: buyerId,
-        target_type: "store_order",
-        target_id: orderId,
-        action: "store_order.item_insert_failed",
-        after_json: {
-          product_id: line.product_id,
-          error: iErr?.message ?? "order_item_insert_failed",
-        },
-      });
-      console.error("[POST store-orders items]", iErr);
-      return NextResponse.json(
-        { ok: false, error: iErr?.message ?? "order_item_insert_failed" },
-        { status: 500 }
-      );
-    }
-    await persistStoreOrderItemOptions(sb, itemRow.id as string, line.options_snapshot);
   }
 
   const rm = getAuditRequestMeta(req);
@@ -585,42 +484,29 @@ export async function POST(req: NextRequest) {
     action: "store_order.create",
     after_json: {
       store_id: storeId,
-      order_no: orderNo,
-      payment_amount: Math.round(paymentGrandTotal),
+      order_no: resolvedOrderNo,
+      payment_amount: Math.round(paymentAmount),
       delivery_fee_amount: Math.round(deliveryFeeAmount),
       line_count: lines.length,
       fulfillment_type: fulfillment,
+      atomic: true,
     },
     ip: rm.ip,
     user_agent: rm.userAgent,
   });
 
-  const createdEv = await createStoreOrderEvent(sb, {
-    orderId,
-    storeId,
-    actorUserId: buyerId,
-    actorRole: "buyer",
-    eventType: "order_created",
-    fromStatus: null,
-    toStatus: "pending",
-    dedupeKey: `${orderId}:order_created`,
-    metadata: {
-      order_no: orderNo,
-      payment_amount: Math.round(paymentGrandTotal),
-      line_count: lines.length,
-      fulfillment_type: fulfillment,
-    },
-  });
-
-  const ownerUserId = String(store.owner_user_id ?? "").trim();
+  const ownerUserId =
+    String(atomic.ownerUserId ?? store.owner_user_id ?? "").trim() ||
+    String(store.owner_user_id ?? "").trim();
+  const storeName = atomic.storeName ?? (store.store_name as string) ?? undefined;
   const ownerLang = ownerUserId ? await loadNotificationUserLanguage(sb, ownerUserId) : buyerLang;
   const notifyOwnerPayload = {
     storeId,
     orderId,
-    orderNo,
-    paymentAmount: Math.round(paymentGrandTotal),
+    orderNo: resolvedOrderNo,
+    paymentAmount: Math.round(paymentAmount),
     lineCount: lines.length,
-    storeName: (store.store_name as string) ?? undefined,
+    storeName,
     paymentLabel: formatBuyerPaymentDisplay(
       paymentMethodRaw,
       buyer_payment_method_detail,
@@ -628,30 +514,28 @@ export async function POST(req: NextRequest) {
     ),
     buyerNote: buyer_note,
   };
-  const ownerNotifyTasks: Promise<void>[] = [];
-  if (createdEv.ok) {
-    if (createdEv.inserted) {
-      ownerNotifyTasks.push(
-        notifyStoreOwnerNewOrder(sb, { ...notifyOwnerPayload, storeOrderEventId: createdEv.row.id })
-      );
-    }
-  } else {
-    /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id 기반)로 1회만 */
-    ownerNotifyTasks.push(notifyStoreOwnerNewOrder(sb, notifyOwnerPayload));
-  }
 
-  if (ownerUserId && soldOutFromOrder.length) {
-    const storeNameForSoldOut = (store.store_name as string) ?? undefined;
-    for (const sold of soldOutFromOrder) {
+  const ownerNotifyTasks: Promise<void>[] = [];
+  ownerNotifyTasks.push(
+    notifyStoreOwnerNewOrder(sb, {
+      ...notifyOwnerPayload,
+      ...(atomic.orderCreatedEventId
+        ? { storeOrderEventId: atomic.orderCreatedEventId }
+        : {}),
+    })
+  );
+
+  if (ownerUserId && atomic.soldOutProducts.length) {
+    for (const sold of atomic.soldOutProducts) {
       ownerNotifyTasks.push(
         notifyStoreOwnerProductSoldOutFromOrder(sb, {
           storeId,
           orderId,
-          orderNo,
+          orderNo: resolvedOrderNo,
           productId: sold.productId,
           productTitle: sold.productTitle,
           ownerUserId,
-          storeName: storeNameForSoldOut,
+          storeName,
         })
       );
     }
@@ -662,7 +546,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, { orderId, userId: buyerId });
+    const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, {
+      orderId,
+      userId: buyerId,
+    });
     if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
   } catch (e) {
     console.error("[POST store-orders] ensure order chat", e);
@@ -680,15 +567,14 @@ export async function POST(req: NextRequest) {
     void sb.from("test_users").update(profilePatch as never).eq("id", buyerId);
   }
 
-  const ownerUid = String((store as { owner_user_id?: string }).owner_user_id ?? "").trim();
-  invalidateStoreOrderCountsCache(storeId, ownerUid || undefined);
-  if (ownerUid) invalidateOwnerHubBadgeCache(ownerUid);
+  invalidateStoreOrderCountsCache(storeId, ownerUserId || undefined);
+  if (ownerUserId) invalidateOwnerHubBadgeCache(ownerUserId);
   invalidateStoreOrderDetailSnapshot(orderId, buyerId, "order_created");
   invalidateBuyerStoreOrdersListSnapshot(buyerId, "order_created");
 
   return NextResponse.json({
     ok: true,
-    order: { id: orderId, order_no: orderNo, payment_amount: paymentGrandTotal },
+    order: { id: orderId, order_no: resolvedOrderNo, payment_amount: paymentAmount },
     idempotent: false,
   });
 }

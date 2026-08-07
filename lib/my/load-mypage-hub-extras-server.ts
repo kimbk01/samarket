@@ -115,7 +115,7 @@ export async function loadMypageHubExtrasServer(
           try {
             const { payload } = await getCachedStoreOrderCounts(hubId, async () => {
               const counts = await fetchOwnerStoreOrderCounts(sbStores, hubId);
-              return { ok: true as const, ...counts };
+              return { payload: { ok: true as const, ...counts }, via: "rpc" };
             });
             const refund = Math.max(0, Math.floor(Number(payload.refund_requested_count) || 0));
             const pending = Math.max(0, Math.floor(Number(payload.pending_accept_count) || 0));
