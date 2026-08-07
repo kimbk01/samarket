@@ -1,0 +1,1797 @@
+{
+  "generatedAt": "2026-08-07T03:30:34.222Z",
+  "headNote": "Slice 1 audit ledger — classification aligned to A1: orphan=/admin/operations only; ops-runbooks/start=internal_detail",
+  "pageCount": 197,
+  "apiCount": 244,
+  "menuPathCount": 143,
+  "componentNonTestCount": 551,
+  "byType": {
+    "internal_detail": 36,
+    "workspace_root": 11,
+    "canonical": 127,
+    "redirect_only": 16,
+    "orphan_candidate": 1,
+    "reexport_compat": 6
+  },
+  "orphans": [
+    "/admin/operations"
+  ],
+  "menuMissing": [
+    "/admin/customer-platform/faq"
+  ],
+  "menuMissingAcceptedPending": [
+    "/admin/customer-platform/faq"
+  ],
+  "enriched": [
+    {
+      "route": "/admin/ad-applications/[id]",
+      "file": "app/admin/ad-applications/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/ad-applications",
+      "file": "app/admin/ad-applications/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/ad-products",
+      "file": "app/admin/ad-products/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/business/[id]/edit",
+      "file": "app/admin/app/business/[id]/edit/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/business/create",
+      "file": "app/admin/app/business/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/business",
+      "file": "app/admin/app/business/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/countries",
+      "file": "app/admin/app/countries/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/languages",
+      "file": "app/admin/app/languages/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/legal/[id]/edit",
+      "file": "app/admin/app/legal/[id]/edit/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/legal/create",
+      "file": "app/admin/app/legal/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/legal",
+      "file": "app/admin/app/legal/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/meta",
+      "file": "app/admin/app/meta/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/app/notices/[id]/edit",
+      "file": "app/admin/app/notices/[id]/edit/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/notices/create",
+      "file": "app/admin/app/notices/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/app/notices",
+      "file": "app/admin/app/notices/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/audit-logs/[id]",
+      "file": "app/admin/audit-logs/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/audit-logs",
+      "file": "app/admin/audit-logs/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/automation",
+      "file": "app/admin/automation/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/backup/[id]",
+      "file": "app/admin/backup/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/backup",
+      "file": "app/admin/backup/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/banners/[id]/edit",
+      "file": "app/admin/banners/[id]/edit/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/banners/[id]",
+      "file": "app/admin/banners/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/banners/create",
+      "file": "app/admin/banners/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/banners",
+      "file": "app/admin/banners/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/behavior-events",
+      "file": "app/admin/behavior-events/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/boards",
+      "file": "app/admin/boards/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/business/[id]",
+      "file": "app/admin/business/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/business",
+      "file": "app/admin/business/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/categories",
+      "file": "app/admin/categories/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/[id]",
+      "file": "app/admin/chats/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/chats/business",
+      "file": "app/admin/chats/business/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/community",
+      "file": "app/admin/chats/community/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/group",
+      "file": "app/admin/chats/group/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/messenger/[id]",
+      "file": "app/admin/chats/messenger/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/chats/messenger",
+      "file": "app/admin/chats/messenger/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/messenger-performance",
+      "file": "app/admin/chats/messenger-performance/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats",
+      "file": "app/admin/chats/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/chats/reported",
+      "file": "app/admin/chats/reported/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/trade",
+      "file": "app/admin/chats/trade/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/chats/trade-complete",
+      "file": "app/admin/chats/trade-complete/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/comments",
+      "file": "app/admin/comments/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/commerce-settings",
+      "file": "app/admin/commerce-settings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community/meetings",
+      "file": "app/admin/community/meetings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community",
+      "file": "app/admin/community/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/community/posts",
+      "file": "app/admin/community/posts/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community/reports",
+      "file": "app/admin/community/reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community/sections",
+      "file": "app/admin/community/sections/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community/settings",
+      "file": "app/admin/community/settings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/community/topics",
+      "file": "app/admin/community/topics/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/customer-platform",
+      "file": "app/admin/customer-platform/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/delivery/bottom-nav",
+      "file": "app/admin/delivery/bottom-nav/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-alerts",
+      "file": "app/admin/delivery-alerts/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/delivery-auto-actions",
+      "file": "app/admin/delivery-auto-actions/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/delivery-distance",
+      "file": "app/admin/delivery-distance/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/delivery-operations",
+      "file": "app/admin/delivery-operations/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/delivery-orders/[orderId]/chat",
+      "file": "app/admin/delivery-orders/[orderId]/chat/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/[orderId]",
+      "file": "app/admin/delivery-orders/[orderId]/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/by-buyer/[buyerUserId]",
+      "file": "app/admin/delivery-orders/by-buyer/[buyerUserId]/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/by-store/[storeId]",
+      "file": "app/admin/delivery-orders/by-store/[storeId]/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/cancellations",
+      "file": "app/admin/delivery-orders/cancellations/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/logs",
+      "file": "app/admin/delivery-orders/logs/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders",
+      "file": "app/admin/delivery-orders/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/refunds",
+      "file": "app/admin/delivery-orders/refunds/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/reports",
+      "file": "app/admin/delivery-orders/reports/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-orders/settlements",
+      "file": "app/admin/delivery-orders/settlements/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/delivery-release-gate",
+      "file": "app/admin/delivery-release-gate/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/delivery-riders",
+      "file": "app/admin/delivery-riders/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/dev-sprints",
+      "file": "app/admin/dev-sprints/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/docs/board",
+      "file": "app/admin/docs/board/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/docs/chat",
+      "file": "app/admin/docs/chat/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/dr/[id]",
+      "file": "app/admin/dr/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/dr",
+      "file": "app/admin/dr/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/exposure-policies",
+      "file": "app/admin/exposure-policies/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/favorites",
+      "file": "app/admin/favorites/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/feed-emergency",
+      "file": "app/admin/feed-emergency/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/home-feed",
+      "file": "app/admin/home-feed/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/launch-readiness",
+      "file": "app/admin/launch-readiness/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/launch-week",
+      "file": "app/admin/launch-week/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/member-benefits/[id]",
+      "file": "app/admin/member-benefits/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/member-benefits",
+      "file": "app/admin/member-benefits/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/member-notes",
+      "file": "app/admin/member-notes/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/memo",
+      "file": "app/admin/memo/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/menus/main-bottom-nav",
+      "file": "app/admin/menus/main-bottom-nav/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/menus",
+      "file": "app/admin/menus/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/menus/trade",
+      "file": "app/admin/menus/trade/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/my/banners",
+      "file": "app/admin/my/banners/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/my/sections",
+      "file": "app/admin/my/sections/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/my/services",
+      "file": "app/admin/my/services/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/notifications/[campaignId]",
+      "file": "app/admin/notifications/[campaignId]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/notifications/create",
+      "file": "app/admin/notifications/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/notifications",
+      "file": "app/admin/notifications/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/operations",
+      "file": "app/admin/operations/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "orphan_candidate"
+    },
+    {
+      "route": "/admin/ops-benchmarks",
+      "file": "app/admin/ops-benchmarks/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-board",
+      "file": "app/admin/ops-board/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/ops-console",
+      "file": "app/admin/ops-console/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-docs/[id]/edit",
+      "file": "app/admin/ops-docs/[id]/edit/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/ops-docs/[id]",
+      "file": "app/admin/ops-docs/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/ops-docs/create",
+      "file": "app/admin/ops-docs/create/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/ops-docs",
+      "file": "app/admin/ops-docs/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-knowledge",
+      "file": "app/admin/ops-knowledge/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-knowledge-graph",
+      "file": "app/admin/ops-knowledge-graph/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-learning",
+      "file": "app/admin/ops-learning/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-maturity",
+      "file": "app/admin/ops-maturity/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-routines",
+      "file": "app/admin/ops-routines/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-runbooks/[id]",
+      "file": "app/admin/ops-runbooks/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/ops-runbooks",
+      "file": "app/admin/ops-runbooks/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/ops-runbooks/start",
+      "file": "app/admin/ops-runbooks/start/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/order-chats",
+      "file": "app/admin/order-chats/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/order-notifications",
+      "file": "app/admin/order-notifications/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/order-notifications/settings",
+      "file": "app/admin/order-notifications/settings/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin",
+      "file": "app/admin/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/performance",
+      "file": "app/admin/performance/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/personalized-feed",
+      "file": "app/admin/personalized-feed/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/philife/meeting-events",
+      "file": "app/admin/philife/meeting-events/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/philife/meeting-reports",
+      "file": "app/admin/philife/meeting-reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/philife/meetings",
+      "file": "app/admin/philife/meetings/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/philife",
+      "file": "app/admin/philife/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/philife/reports",
+      "file": "app/admin/philife/reports/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/philife/sections",
+      "file": "app/admin/philife/sections/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/philife/settings",
+      "file": "app/admin/philife/settings/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/philife/topics",
+      "file": "app/admin/philife/topics/page.tsx",
+      "redirect": false,
+      "reexport": true,
+      "type": "reexport_compat"
+    },
+    {
+      "route": "/admin/platform-inquiries",
+      "file": "app/admin/platform-inquiries/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/point-charges/[id]",
+      "file": "app/admin/point-charges/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/point-charges",
+      "file": "app/admin/point-charges/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/point-executions/[id]",
+      "file": "app/admin/point-executions/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/point-executions",
+      "file": "app/admin/point-executions/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/point-plans",
+      "file": "app/admin/point-plans/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/point-policies",
+      "file": "app/admin/point-policies/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/points/expire",
+      "file": "app/admin/points/expire/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/points/ledger",
+      "file": "app/admin/points/ledger/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/post-ads",
+      "file": "app/admin/post-ads/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/posts",
+      "file": "app/admin/posts/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/posts-management",
+      "file": "app/admin/posts-management/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/product-backlog",
+      "file": "app/admin/product-backlog/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/production-migration",
+      "file": "app/admin/production-migration/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/products/[id]",
+      "file": "app/admin/products/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/products",
+      "file": "app/admin/products/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/promoted-items",
+      "file": "app/admin/promoted-items/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/push-devices",
+      "file": "app/admin/push-devices/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/qa-board",
+      "file": "app/admin/qa-board/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-analytics",
+      "file": "app/admin/recommendation-analytics/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-automation",
+      "file": "app/admin/recommendation-automation/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-deployments",
+      "file": "app/admin/recommendation-deployments/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-experiments",
+      "file": "app/admin/recommendation-experiments/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-monitoring",
+      "file": "app/admin/recommendation-monitoring/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/recommendation-reports/[id]",
+      "file": "app/admin/recommendation-reports/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/recommendation-reports",
+      "file": "app/admin/recommendation-reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/release-archive/[id]",
+      "file": "app/admin/release-archive/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/release-archive",
+      "file": "app/admin/release-archive/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/release-notes/[id]",
+      "file": "app/admin/release-notes/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/release-notes",
+      "file": "app/admin/release-notes/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/reports/[id]",
+      "file": "app/admin/reports/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/reports/log",
+      "file": "app/admin/reports/log/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/reports",
+      "file": "app/admin/reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/reviews/[id]",
+      "file": "app/admin/reviews/[id]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/reviews",
+      "file": "app/admin/reviews/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/runtime-health",
+      "file": "app/admin/runtime-health/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/security",
+      "file": "app/admin/security/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/settings/auth",
+      "file": "app/admin/settings/auth/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/settings/notifications",
+      "file": "app/admin/settings/notifications/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/settings",
+      "file": "app/admin/settings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/settings/startup-config",
+      "file": "app/admin/settings/startup-config/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-fee-policies",
+      "file": "app/admin/store-fee-policies/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-inquiries",
+      "file": "app/admin/store-inquiries/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-orders",
+      "file": "app/admin/store-orders/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-payment-events",
+      "file": "app/admin/store-payment-events/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-point-charges",
+      "file": "app/admin/store-point-charges/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-point-ledger",
+      "file": "app/admin/store-point-ledger/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-point-policies",
+      "file": "app/admin/store-point-policies/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-points",
+      "file": "app/admin/store-points/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-products",
+      "file": "app/admin/store-products/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-reports",
+      "file": "app/admin/store-reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-reviews",
+      "file": "app/admin/store-reviews/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/store-settlements",
+      "file": "app/admin/store-settlements/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/application-settings",
+      "file": "app/admin/stores/application-settings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/bottom-nav",
+      "file": "app/admin/stores/bottom-nav/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders/[orderId]/chat",
+      "file": "app/admin/stores/orders/[orderId]/chat/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/stores/orders/[orderId]",
+      "file": "app/admin/stores/orders/[orderId]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/stores/orders/by-buyer/[buyerUserId]",
+      "file": "app/admin/stores/orders/by-buyer/[buyerUserId]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/stores/orders/by-store/[storeId]",
+      "file": "app/admin/stores/orders/by-store/[storeId]/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "internal_detail"
+    },
+    {
+      "route": "/admin/stores/orders/cancellations",
+      "file": "app/admin/stores/orders/cancellations/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders/logs",
+      "file": "app/admin/stores/orders/logs/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders",
+      "file": "app/admin/stores/orders/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders/refunds",
+      "file": "app/admin/stores/orders/refunds/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders/reports",
+      "file": "app/admin/stores/orders/reports/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores/orders/settlements",
+      "file": "app/admin/stores/orders/settlements/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/stores",
+      "file": "app/admin/stores/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/system",
+      "file": "app/admin/system/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/trade/feed-topics",
+      "file": "app/admin/trade/feed-topics/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/trade",
+      "file": "app/admin/trade/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    },
+    {
+      "route": "/admin/trade/settings",
+      "file": "app/admin/trade/settings/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/trade-ad-policies",
+      "file": "app/admin/trade-ad-policies/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/trade-flow",
+      "file": "app/admin/trade-flow/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/trade-post-ads",
+      "file": "app/admin/trade-post-ads/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/usage",
+      "file": "app/admin/usage/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "canonical"
+    },
+    {
+      "route": "/admin/users/[id]",
+      "file": "app/admin/users/[id]/page.tsx",
+      "redirect": true,
+      "reexport": false,
+      "type": "redirect_only"
+    },
+    {
+      "route": "/admin/users",
+      "file": "app/admin/users/page.tsx",
+      "redirect": false,
+      "reexport": false,
+      "type": "workspace_root"
+    }
+  ],
+  "apiRoutes": [
+    "/api/admin/access-check",
+    "/api/admin/ad-applications/[id]",
+    "/api/admin/ad-applications",
+    "/api/admin/ad-products/[id]",
+    "/api/admin/ad-products",
+    "/api/admin/admin-bell",
+    "/api/admin/ads/[adId]",
+    "/api/admin/ads",
+    "/api/admin/app-business-info/[id]",
+    "/api/admin/app-business-info",
+    "/api/admin/app-legal-documents/[id]",
+    "/api/admin/app-legal-documents",
+    "/api/admin/app-notices/[id]",
+    "/api/admin/app-notices",
+    "/api/admin/app-settings",
+    "/api/admin/audit-logs/[id]",
+    "/api/admin/audit-logs",
+    "/api/admin/auth-providers",
+    "/api/admin/auth-settings",
+    "/api/admin/automation",
+    "/api/admin/backup",
+    "/api/admin/banners/[id]",
+    "/api/admin/banners",
+    "/api/admin/boards",
+    "/api/admin/categories/[categoryId]/post-count",
+    "/api/admin/chat/block-history",
+    "/api/admin/chat/notifications",
+    "/api/admin/chat/reports/[id]/action",
+    "/api/admin/chat/reports",
+    "/api/admin/chat/rooms/[id]/action",
+    "/api/admin/chat/rooms/[id]/memo",
+    "/api/admin/chat/rooms/[id]/messages/bulk-hide",
+    "/api/admin/chat/rooms/[id]/messages/bulk-unhide",
+    "/api/admin/chat/rooms/[id]",
+    "/api/admin/chat/rooms/bulk-delete",
+    "/api/admin/chat/rooms",
+    "/api/admin/chats",
+    "/api/admin/commerce-settings",
+    "/api/admin/community/engine/meetings/[meetingId]/chat-summary",
+    "/api/admin/community/engine/meetings/[meetingId]/meeting-chat-rooms/[mcrId]",
+    "/api/admin/community/engine/meetings/[meetingId]",
+    "/api/admin/community/engine/meetings",
+    "/api/admin/community/engine/posts/[postId]",
+    "/api/admin/community/engine/posts/bulk-delete",
+    "/api/admin/community/engine/posts",
+    "/api/admin/community/philife-neighborhood-section",
+    "/api/admin/community/sections/[id]",
+    "/api/admin/community/sections",
+    "/api/admin/community/settings",
+    "/api/admin/community/topics/[id]",
+    "/api/admin/community/topics",
+    "/api/admin/community-messenger/calls/[sessionId]/action",
+    "/api/admin/community-messenger/friend-requests/[id]",
+    "/api/admin/community-messenger/monitoring/summary",
+    "/api/admin/community-messenger/overview",
+    "/api/admin/community-messenger/reports/[id]/action",
+    "/api/admin/community-messenger/rooms/[id]/action",
+    "/api/admin/community-messenger/rooms/[id]/ghost",
+    "/api/admin/community-messenger/rooms/[id]/messages/[messageId]",
+    "/api/admin/community-messenger/rooms/[id]",
+    "/api/admin/community-messenger-home-cutover-gate",
+    "/api/admin/community-reports/[id]",
+    "/api/admin/community-reports",
+    "/api/admin/customer-platform/overview",
+    "/api/admin/delivery/bottom-nav",
+    "/api/admin/delivery/settings",
+    "/api/admin/delivery-auto-actions/[actionId]/approve",
+    "/api/admin/delivery-auto-actions/[actionId]/reject",
+    "/api/admin/delivery-auto-actions/[actionId]/retry",
+    "/api/admin/delivery-auto-actions",
+    "/api/admin/delivery-auto-actions/settings",
+    "/api/admin/delivery-operation-alerts/events/[eventId]/logs",
+    "/api/admin/delivery-operation-alerts/events/[eventId]",
+    "/api/admin/delivery-operation-alerts/operators",
+    "/api/admin/delivery-operation-alerts",
+    "/api/admin/delivery-operation-alerts/rules/[ruleId]",
+    "/api/admin/delivery-operation-alerts/sync",
+    "/api/admin/delivery-operations/recovery",
+    "/api/admin/delivery-release-gate",
+    "/api/admin/delivery-riders/[riderId]",
+    "/api/admin/delivery-riders",
+    "/api/admin/dev-sprints",
+    "/api/admin/dr",
+    "/api/admin/exposure-policies/[id]",
+    "/api/admin/exposure-policies",
+    "/api/admin/exposure-policies/simulate",
+    "/api/admin/favorite-audit",
+    "/api/admin/feed-emergency",
+    "/api/admin/home-feed-policies/candidates",
+    "/api/admin/home-feed-policies",
+    "/api/admin/launch-readiness",
+    "/api/admin/launch-week",
+    "/api/admin/main-bottom-nav/prune-orphan-market",
+    "/api/admin/main-bottom-nav",
+    "/api/admin/me",
+    "/api/admin/meeting-events",
+    "/api/admin/member-benefits/[id]",
+    "/api/admin/member-benefits",
+    "/api/admin/member-notes/[threadId]",
+    "/api/admin/member-notes",
+    "/api/admin/messenger-call-sounds",
+    "/api/admin/messenger-call-sounds/upload",
+    "/api/admin/notification-campaigns/[campaignId]",
+    "/api/admin/notification-campaigns/[campaignId]/send",
+    "/api/admin/notification-campaigns/[campaignId]/test-send",
+    "/api/admin/notification-campaigns/audience-preview",
+    "/api/admin/notification-campaigns",
+    "/api/admin/notification-campaigns/upload-image",
+    "/api/admin/notification-settings",
+    "/api/admin/notification-settings/upload-sound",
+    "/api/admin/notification-sound-ssot/preview-resolver",
+    "/api/admin/notification-sound-ssot",
+    "/api/admin/notification-sound-ssot/upload",
+    "/api/admin/ops-benchmarks",
+    "/api/admin/ops-board",
+    "/api/admin/ops-console/summary",
+    "/api/admin/ops-docs",
+    "/api/admin/ops-knowledge",
+    "/api/admin/ops-knowledge-graph",
+    "/api/admin/ops-learning",
+    "/api/admin/ops-maturity",
+    "/api/admin/ops-routines",
+    "/api/admin/ops-runbooks",
+    "/api/admin/ops-trade-policy",
+    "/api/admin/order-match-chat-alert-sound",
+    "/api/admin/performance-ops",
+    "/api/admin/personalized-feed-policies",
+    "/api/admin/philife/engine/meetings/[meetingId]/chat-summary",
+    "/api/admin/philife/engine/meetings/[meetingId]/meeting-chat-rooms/[mcrId]",
+    "/api/admin/philife/engine/meetings/[meetingId]",
+    "/api/admin/philife/engine/meetings",
+    "/api/admin/philife/engine/posts/[postId]",
+    "/api/admin/philife/engine/posts",
+    "/api/admin/philife/meeting-reports/[reportId]",
+    "/api/admin/philife/sections/[id]",
+    "/api/admin/philife/sections",
+    "/api/admin/philife/settings",
+    "/api/admin/philife/topics/[id]",
+    "/api/admin/philife/topics",
+    "/api/admin/philife-reports/[id]",
+    "/api/admin/philife-reports",
+    "/api/admin/platform-inquiries/[id]",
+    "/api/admin/platform-inquiries",
+    "/api/admin/point-charges/[id]",
+    "/api/admin/point-charges",
+    "/api/admin/point-executions/[id]",
+    "/api/admin/point-executions/reclaim/[id]",
+    "/api/admin/point-executions/reward",
+    "/api/admin/point-executions",
+    "/api/admin/point-expire/policy/[id]",
+    "/api/admin/point-expire",
+    "/api/admin/point-expire/run",
+    "/api/admin/point-expire/simulate",
+    "/api/admin/point-plans/[id]",
+    "/api/admin/point-plans",
+    "/api/admin/point-policies/board/[id]/active",
+    "/api/admin/point-policies/board",
+    "/api/admin/point-policies/event",
+    "/api/admin/point-policies/logs",
+    "/api/admin/point-policies/probability",
+    "/api/admin/point-policies/simulate",
+    "/api/admin/points/ledger",
+    "/api/admin/posts/[postId]/trade-override",
+    "/api/admin/posts/bulk-delete",
+    "/api/admin/posts-management",
+    "/api/admin/product-backlog",
+    "/api/admin/production-migration",
+    "/api/admin/promoted-items",
+    "/api/admin/push/devices",
+    "/api/admin/push/test",
+    "/api/admin/qa-board",
+    "/api/admin/recommendation-analytics",
+    "/api/admin/recommendation-experiments",
+    "/api/admin/recommendation-ops",
+    "/api/admin/recommendation-runtime",
+    "/api/admin/release-archive",
+    "/api/admin/runtime-health",
+    "/api/admin/security-ops",
+    "/api/admin/service-categories",
+    "/api/admin/settings/auth-phone",
+    "/api/admin/staff/[id]",
+    "/api/admin/staff",
+    "/api/admin/startup-config",
+    "/api/admin/startup-config/upload-image",
+    "/api/admin/stats/dashboard",
+    "/api/admin/stats/delivery-operations",
+    "/api/admin/stats/summary",
+    "/api/admin/store-delivery-alert-sound",
+    "/api/admin/store-fee-policies/[id]",
+    "/api/admin/store-fee-policies",
+    "/api/admin/store-inquiries",
+    "/api/admin/store-orders/[orderId]/approve-refund",
+    "/api/admin/store-orders/[orderId]/cancel-request",
+    "/api/admin/store-orders/[orderId]/delivery",
+    "/api/admin/store-orders/[orderId]/mark-paid",
+    "/api/admin/store-orders/[orderId]",
+    "/api/admin/store-orders/bulk-delete",
+    "/api/admin/store-orders/export",
+    "/api/admin/store-orders",
+    "/api/admin/store-payment-events",
+    "/api/admin/store-point-charges/[id]",
+    "/api/admin/store-point-charges",
+    "/api/admin/store-point-ledger",
+    "/api/admin/store-point-policies",
+    "/api/admin/store-points/[storeId]/adjust",
+    "/api/admin/store-points",
+    "/api/admin/store-points/summary",
+    "/api/admin/store-products/[productId]",
+    "/api/admin/store-products",
+    "/api/admin/store-reports/[reportId]",
+    "/api/admin/store-reports",
+    "/api/admin/store-reviews/[reviewId]",
+    "/api/admin/store-reviews",
+    "/api/admin/store-settlements/[settlementId]",
+    "/api/admin/store-settlements",
+    "/api/admin/stores/[id]",
+    "/api/admin/stores/bottom-nav",
+    "/api/admin/stores",
+    "/api/admin/stores/taxonomy",
+    "/api/admin/stores/taxonomy/upload-image",
+    "/api/admin/system-ops",
+    "/api/admin/trade/settings",
+    "/api/admin/trade-ad-point-holds",
+    "/api/admin/trade-ad-products/[id]",
+    "/api/admin/trade-ad-products",
+    "/api/admin/trade-completion",
+    "/api/admin/trade-flow/confirm-buyer",
+    "/api/admin/trade-flow/revert",
+    "/api/admin/trade-flow",
+    "/api/admin/trade-post-ads/[id]",
+    "/api/admin/trade-post-ads",
+    "/api/admin/transaction-reviews/[id]/action",
+    "/api/admin/transaction-reviews",
+    "/api/admin/trust-score",
+    "/api/admin/usage-ops",
+    "/api/admin/users/[id]/delete",
+    "/api/admin/users/[id]/moderation",
+    "/api/admin/users/[id]/phone-verification",
+    "/api/admin/users/[id]/points",
+    "/api/admin/users/[id]",
+    "/api/admin/users/[id]/trust",
+    "/api/admin/users/cleanup",
+    "/api/admin/users/create",
+    "/api/admin/users"
+  ],
+  "menuPaths": [
+    "/admin",
+    "/admin/customer-platform",
+    "/admin/customer-platform#action-queue",
+    "/admin/customer-platform#monitoring",
+    "/admin/member-notes?kind=inquiry",
+    "/admin/member-notes?kind=inbox",
+    "/admin/store-inquiries",
+    "/admin/platform-inquiries",
+    "/admin/point-charges",
+    "/admin/points/ledger",
+    "/admin/point-plans",
+    "/admin/point-policies",
+    "/admin/point-executions",
+    "/admin/points/expire",
+    "/admin/store-point-charges",
+    "/admin/store-point-ledger",
+    "/admin/store-point-policies",
+    "/admin/store-points",
+    "/admin/app/notices",
+    "/admin/customer-platform/faq",
+    "/admin/app/legal",
+    "/admin/app/business",
+    "/admin/notifications",
+    "/admin/users",
+    "/admin/push-devices",
+    "/admin/reports",
+    "/admin/reports/log",
+    "/admin/reviews",
+    "/admin/community/reports",
+    "/admin/store-reports",
+    "/admin/store-reviews",
+    "/admin/chats/reported",
+    "/admin/philife/meeting-reports",
+    "/admin/recommendation-reports",
+    "/admin/trade",
+    "/admin/products",
+    "/admin/posts-management",
+    "/admin/posts-management?tab=jobs",
+    "/admin/trade/settings",
+    "/admin/trade-post-ads",
+    "/admin/trade-ad-policies",
+    "/admin/menus/trade",
+    "/admin/trade/feed-topics",
+    "/admin/favorites",
+    "/admin/trade-flow",
+    "/admin/chats/trade-complete",
+    "/admin/community",
+    "/admin/boards",
+    "/admin/community/sections",
+    "/admin/community/topics",
+    "/admin/community/settings",
+    "/admin/community/meetings",
+    "/admin/philife/meeting-events",
+    "/admin/community/posts",
+    "/admin/comments",
+    "/admin/stores",
+    "/admin/stores/application-settings",
+    "/admin/stores/bottom-nav",
+    "/admin/store-products",
+    "/admin/stores/orders",
+    "/admin/store-orders",
+    "/admin/stores/orders/cancellations",
+    "/admin/stores/orders/refunds",
+    "/admin/stores/orders/settlements",
+    "/admin/stores/orders/reports",
+    "/admin/stores/orders/logs",
+    "/admin/order-chats",
+    "/admin/ops-console",
+    "/admin/delivery-operations",
+    "/admin/delivery-riders",
+    "/admin/delivery-alerts",
+    "/admin/order-notifications",
+    "/admin/delivery-auto-actions",
+    "/admin/delivery-distance",
+    "/admin/runtime-health",
+    "/admin/delivery-release-gate",
+    "/admin/store-settlements",
+    "/admin/store-fee-policies",
+    "/admin/store-payment-events",
+    "/admin/commerce-settings",
+    "/admin/business",
+    "/admin/chats",
+    "/admin/chats/trade",
+    "/admin/chats/messenger",
+    "/admin/chats/messenger-performance",
+    "/admin/chats/group",
+    "/admin/chats/community",
+    "/admin/chats/business",
+    "/admin/ad-applications",
+    "/admin/ad-products",
+    "/admin/post-ads",
+    "/admin/promoted-items",
+    "/admin/member-benefits",
+    "/admin/exposure-policies",
+    "/admin/home-feed",
+    "/admin/personalized-feed",
+    "/admin/banners",
+    "/admin/recommendation-experiments",
+    "/admin/recommendation-analytics",
+    "/admin/recommendation-monitoring",
+    "/admin/recommendation-deployments",
+    "/admin/recommendation-automation",
+    "/admin/settings",
+    "/admin/settings/startup-config",
+    "/admin/settings/auth",
+    "/admin/settings/notifications",
+    "/admin/menus/main-bottom-nav",
+    "/admin/categories",
+    "/admin/app/countries",
+    "/admin/app/languages",
+    "/admin/app/meta",
+    "/admin/my/banners",
+    "/admin/my/sections",
+    "/admin/my/services",
+    "/admin/ops-board",
+    "/admin/ops-docs",
+    "/admin/ops-runbooks",
+    "/admin/ops-knowledge",
+    "/admin/ops-knowledge-graph",
+    "/admin/ops-learning",
+    "/admin/ops-maturity",
+    "/admin/ops-benchmarks",
+    "/admin/qa-board",
+    "/admin/feed-emergency",
+    "/admin/ops-routines",
+    "/admin/product-backlog",
+    "/admin/dev-sprints",
+    "/admin/release-notes",
+    "/admin/release-archive",
+    "/admin/production-migration",
+    "/admin/backup",
+    "/admin/dr",
+    "/admin/security",
+    "/admin/performance",
+    "/admin/usage",
+    "/admin/automation",
+    "/admin/system",
+    "/admin/audit-logs",
+    "/admin/launch-readiness",
+    "/admin/launch-week",
+    "/admin/docs/board",
+    "/admin/docs/chat",
+    "/admin/memo"
+  ]
+}
