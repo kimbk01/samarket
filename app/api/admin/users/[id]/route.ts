@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
 import {
@@ -23,7 +24,7 @@ import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
-import type { AdminUserDetail, MemberType } from "@/lib/types/admin-user";
+import type { AdminUserDetail } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
   profilePhoneStorageFieldsFromDb09,
@@ -35,6 +36,11 @@ import {
 } from "@/lib/profile/admin-phone-verification-sync";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
+import {
+  applyUsersPatchPrivilegeChange,
+  parseUsersPatchMemberType,
+  type UsersPatchMemberTypeInput,
+} from "@/lib/admin/users-patch-privilege";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,29 +86,6 @@ async function isDibayIdTaken(sb: SupabaseClient, userId: string, dibayId: strin
 async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {
   const { data: p } = await sb.from("profiles").select("role").eq("id", actorId).maybeSingle();
   return isSuperAdminRole((p as { role?: string } | null)?.role);
-}
-
-function memberTypeToProfileAndTestRole(memberType: MemberType): {
-  profile: Record<string, unknown>;
-  testRole: string;
-} {
-  switch (memberType) {
-    case "normal":
-      return {
-        profile: { role: "user", is_admin: false, member_type: "normal", is_special_member: false },
-        testRole: "member",
-      };
-    case "premium":
-      return {
-        profile: { role: "user", is_admin: false, member_type: "premium", is_special_member: true },
-        testRole: "special",
-      };
-    case "admin":
-      return {
-        profile: { role: "admin", is_admin: true, member_type: "admin", is_special_member: false },
-        testRole: "admin",
-      };
-  }
 }
 
 type TestUserForEnsure = {
@@ -188,7 +171,7 @@ async function ensureAuthUserFromTestRow(sb: SupabaseClient, userId: string, tu:
 /**
  * profiles 없음 → (필요 시 test_users로 동일 UUID Auth 생성) → profiles upsert
  */
-async function ensureProfileRow(
+async function _ensureProfileRow(
   sb: SupabaseClient,
   userId: string
 ): Promise<
@@ -665,9 +648,10 @@ export async function GET(
 }
 
 /**
- * 회원 구분(memberType)·전화 인증 상태 — profiles 반영 (+ test_users.role 동기화)
+ * 회원 구분(memberType)·전화 인증 상태 — profiles 반영
+ * Admin privilege (memberType admin|super_admin|demote) → admin_memberships writer first
  * PATCH /api/admin/users/:id
- * body: { memberType?: 'normal'|'premium'|'admin', phoneVerificationStatus?: ... }
+ * body: { memberType?: 'normal'|'premium'|'admin'|'super_admin', phoneVerificationStatus?: ... }
  */
 export async function PATCH(
   req: NextRequest,
@@ -718,24 +702,13 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
-  if (hasMember && String(memberTypeRaw).trim().toLowerCase() === "admin") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "use_staff_api_for_admin_promotion",
-        message: "관리자 승격은 Staff API를 사용해 주세요.",
-      },
-      { status: 403 }
-    );
-  }
-
-  let parsedMemberType: MemberType | null = null;
+  let requestedMemberType: UsersPatchMemberTypeInput | null = null;
   if (hasMember) {
-    const m = String(memberTypeRaw).trim().toLowerCase();
-    if (m !== "normal" && m !== "premium" && m !== "admin") {
+    const parsed = parseUsersPatchMemberType(memberTypeRaw);
+    if (parsed && typeof parsed === "object" && "error" in parsed) {
       return NextResponse.json({ ok: false, error: "invalid_member_type" }, { status: 400 });
     }
-    parsedMemberType = m as MemberType;
+    requestedMemberType = parsed;
   }
 
   let phoneStatus: (typeof PHONE_VERIFICATION_STATUSES)[number] | null = null;
@@ -808,55 +781,39 @@ export async function PATCH(
   }
   const profile = initialProfile;
 
-  const targetRole = normalizeAdminRole((profile as { role?: string }).role);
   const actorIsMaster = actor.isSuperAdmin || (await loadActorIsMaster(sb, actor.userId));
+  const profileRoleRaw = (profile as { role?: string }).role ?? null;
 
-  if (targetRole === "super_admin" && !actorIsMaster) {
-    return NextResponse.json(
-      { ok: false, error: "forbidden_master_target" },
-      { status: 403 }
-    );
+  // Non-master cannot target super_admin accounts (existing Users PATCH policy)
+  const targetEffective =
+    (await resolveEffectiveAdminRole(sb, userId, profileRoleRaw).catch(() => null)) ??
+    normalizeAdminRole(profileRoleRaw);
+  if (isSuperAdminRole(targetEffective) && !actorIsMaster) {
+    return NextResponse.json({ ok: false, error: "forbidden_master_target" }, { status: 403 });
   }
 
-  if (targetRole === "super_admin" && parsedMemberType !== null && parsedMemberType !== "admin") {
+  const privilegeResult = await applyUsersPatchPrivilegeChange(sb, {
+    userId,
+    actorUserId: actor.userId,
+    actorIsMaster,
+    requestedMemberType,
+    currentProfileRole: profileRoleRaw,
+  });
+  if (!privilegeResult.ok) {
     return NextResponse.json(
-      { ok: false, error: "forbidden_demote_master", message: "최고 관리자 계정의 구분을 일반·특별로 내릴 수 없습니다." },
-      { status: 400 }
+      {
+        ok: false,
+        error: privilegeResult.error,
+        ...(privilegeResult.message ? { message: privilegeResult.message } : {}),
+      },
+      { status: privilegeResult.status }
     );
   }
 
   if (
-    parsedMemberType === "admin" &&
-    targetRole !== "admin" &&
-    targetRole !== "super_admin" &&
-    !actorIsMaster
-  ) {
-    return NextResponse.json(
-      { ok: false, error: "forbidden_promote_admin", message: "관리자 구분으로 수정은 최고 관리자만 할 수 있습니다." },
-      { status: 403 }
-    );
-  }
-
-  if (
-    targetRole === "admin" &&
-    parsedMemberType !== null &&
-    parsedMemberType !== "admin" &&
-    !actorIsMaster
-  ) {
-    return NextResponse.json(
-      { ok: false, error: "forbidden_demote_admin", message: "관리자 구분을 내리는 것은 최고 관리자만 할 수 있습니다." },
-      { status: 403 }
-    );
-  }
-
-  /** 목록에서는 super_admin도 구분=관리자로 보임 — DB role=super_admin 유지( admin으로 덮어쓰지 않음 ) */
-  let memberTypeToApply: MemberType | null = parsedMemberType;
-  if (parsedMemberType === "admin" && targetRole === "super_admin") {
-    memberTypeToApply = null;
-  }
-
-  if (
-    memberTypeToApply === null &&
+    privilegeResult.memberTypePatch === null &&
+    privilegeResult.privilegeHandled === false &&
+    !hasMember &&
     phoneStatus === null &&
     nextNickname === null &&
     nextDibayId === undefined &&
@@ -866,6 +823,21 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
+  // Privilege-only request that was a no-op (e.g. SA + memberType=admin) with no other fields
+  if (
+    privilegeResult.memberTypePatch === null &&
+    phoneStatus === null &&
+    nextNickname === null &&
+    nextDibayId === undefined &&
+    nextPhonePatch === null &&
+    nextEmail === undefined &&
+    privilegeResult.privilegeHandled &&
+    requestedMemberType === "admin"
+  ) {
+    // SA kept — treat as success no-op when only memberType=admin sent
+    return NextResponse.json({ ok: true });
+  }
+
   if (nextDibayId) {
     if (await isDibayIdTaken(sb, userId, nextDibayId)) {
       return NextResponse.json({ ok: false, error: "dibay_id_taken" }, { status: 409 });
@@ -873,8 +845,8 @@ export async function PATCH(
   }
 
   const patch: Record<string, unknown> = {};
-  if (memberTypeToApply !== null) {
-    Object.assign(patch, memberTypeToProfileAndTestRole(memberTypeToApply).profile);
+  if (privilegeResult.memberTypePatch) {
+    Object.assign(patch, privilegeResult.memberTypePatch);
   }
   if (phoneStatus !== null) {
     if (phoneStatus === "verified") {
@@ -900,6 +872,11 @@ export async function PATCH(
   if (nextEmail !== undefined) {
     patch.email = nextEmail;
     patch.auth_login_email = nextEmail;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    // Grant/revoke already applied via membership helper with dual-write
+    return NextResponse.json({ ok: true });
   }
 
   const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
