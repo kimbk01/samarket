@@ -359,15 +359,25 @@
  * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).
  */
 [data-admin] {
-  --app-bg: var(--dibay-cream);
-  --app-surface: var(--dibay-card);
-  --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
-  --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
-  --app-border: var(--dibay-border);
-  --app-border-strong: color-mix(in srgb, var(--dibay-brown) 26%, var(--dibay-card));
-  --app-text: var(--dibay-brown);
-  --app-text-2: var(--dibay-muted);
-  --app-text-3: color-mix(in srgb, var(--dibay-muted) 78%, var(--dibay-card));
+  --app-bg: var(--admin-console-bg, #f4f6f9);
+  --app-surface: var(--admin-console-surface, #ffffff);
+  --app-subtle-bg: var(--admin-console-hover, #eef1f6);
+  --app-subtle-bg-2: #e8edf4;
+  --app-border: var(--admin-console-border, #d0d7e2);
+  --app-border-strong: #98a2b3;
+  --app-text: var(--admin-console-fg, #1f2937);
+  --app-text-2: var(--admin-console-muted, #667085);
+  --app-text-3: #98a2b3;
+
+  --admin-console-bg: #f4f6f9;
+  --admin-console-surface: #ffffff;
+  --admin-console-border: #d0d7e2;
+  --admin-console-fg: #1f2937;
+  --admin-console-muted: #667085;
+  --admin-console-accent: #1d4ed8;
+  --admin-console-active-bg: color-mix(in srgb, #1d4ed8 12%, #ffffff);
+  --admin-console-hover: #eef1f6;
+  --admin-sidebar-width: 16rem;
 
   --sam-text-primary: var(--app-text);
   --sam-text-secondary: var(--app-text-2);

@@ -12,7 +12,7 @@ export function AdminTableBottomHorizontalScroll(props: {
   bottomScrollRef: RefObject<HTMLDivElement | null>;
   onScroll: UIEventHandler<HTMLDivElement>;
   ariaLabel: string;
-  /** 사이드바 펼침 시 본문 열과 맞춤 (AdminSidebar `w-56`) */
+  /** 사이드바 펼침 시 본문 열과 맞춤 (`--admin-sidebar-width`) */
   insetForAdminSidebar?: boolean;
 }) {
   const { show, tableScrollWidth, bottomScrollRef, onScroll, ariaLabel, insetForAdminSidebar } = props;
@@ -22,7 +22,7 @@ export function AdminTableBottomHorizontalScroll(props: {
     <div
       className={[
         "pointer-events-auto fixed bottom-0 right-0 z-40 border-t border-[#d0d7e2] bg-white/95 shadow-[0_-6px_16px_rgba(16,24,40,0.12)] backdrop-blur-sm",
-        insetForAdminSidebar ? "left-56" : "left-0",
+        insetForAdminSidebar ? "left-[var(--admin-sidebar-width,16rem)]" : "left-0",
       ].join(" ")}
     >
       <div
