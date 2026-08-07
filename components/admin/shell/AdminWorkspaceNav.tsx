@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminWorkspaceDescriptor } from "@/lib/admin/admin-workspace-routing";
 
@@ -19,6 +19,13 @@ export function AdminWorkspaceNav({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const overflow = useMemo(() => workspaces.length > 8, [workspaces.length]);
+
+  useEffect(() => {
+    const root = scrollerRef.current;
+    if (!root) return;
+    const active = root.querySelector<HTMLElement>('[aria-selected="true"]');
+    active?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [activeId, workspaces.length]);
 
   return (
     <div className="admin-workspace-nav relative flex min-w-0 flex-1 items-center gap-1">
@@ -38,7 +45,7 @@ export function AdminWorkspaceNav({
               role="tab"
               aria-selected={active}
               className={[
-                "admin-workspace-nav__tab shrink-0 whitespace-nowrap rounded-sm px-2.5 py-1.5 text-xs font-semibold tracking-wide transition-colors",
+                "admin-workspace-nav__tab shrink-0 whitespace-nowrap rounded-sm px-3 py-2 text-[13px] font-semibold leading-5 tracking-wide transition-colors min-h-9 inline-flex items-center",
                 active
                   ? "admin-workspace-nav__tab--active"
                   : "admin-workspace-nav__tab--idle",

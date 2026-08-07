@@ -35,8 +35,9 @@ export function AdminSidebarGroup({
 
   const toggleOpen = () => setOpen((o) => !o);
 
+  /** Section header: open cue only — never leaf-active chrome. */
   const titleRowClass = `admin-sidebar__group-title mb-2 flex w-full items-center gap-1 rounded-ui-rect px-3 py-2 ${
-    childActive ? "admin-sidebar__group-active" : "admin-sidebar__group-inactive"
+    childActive ? "admin-sidebar__group-open" : "admin-sidebar__group-inactive"
   }`;
 
   return (

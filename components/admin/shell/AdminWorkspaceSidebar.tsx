@@ -39,7 +39,7 @@ export function AdminWorkspaceSidebar({
   }, [homeOnly, sections, workspace.item.path]);
 
   const asideClass = [
-    "admin-sidebar admin-workspace-sidebar sticky top-0 z-30 flex h-[100dvh] max-h-[100dvh] shrink-0 flex-col border-r",
+    "admin-sidebar admin-workspace-sidebar flex h-full min-h-0 max-h-full shrink-0 flex-col border-r",
     compact ? "admin-workspace-sidebar--compact" : "admin-workspace-sidebar--expanded",
     isDrawerOpen ? "admin-sidebar--open" : "",
   ]

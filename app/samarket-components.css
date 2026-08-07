@@ -1170,8 +1170,7 @@
   }
 
   [data-admin] .admin-sidebar__brand,
-  [data-admin] .admin-sidebar__item-active,
-  [data-admin] .admin-sidebar__group-active {
+  [data-admin] .admin-sidebar__item-active {
     color: var(--dibay-gold);
   }
 
@@ -1184,8 +1183,15 @@
     letter-spacing: 0.06em;
   }
 
-  [data-admin] .admin-sidebar__item-active,
-  [data-admin] .admin-sidebar__group-active {
+  /* Section/group with active descendant — open cue only, never leaf chrome */
+  [data-admin] .admin-sidebar__group-open {
+    color: color-mix(in srgb, var(--dibay-card) 92%, transparent);
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+  }
+
+  [data-admin] .admin-sidebar__item-active {
     background: color-mix(in srgb, var(--dibay-gold) 22%, transparent);
     /* inset left border: padding 변경 없이 gold 지시자 표시 */
     box-shadow: inset 3px 0 0 var(--dibay-gold);
@@ -1202,6 +1208,7 @@
 
   [data-admin] .admin-sidebar__item-inactive:hover,
   [data-admin] .admin-sidebar__group-inactive:hover,
+  [data-admin] .admin-sidebar__group-open:hover,
   [data-admin] .admin-sidebar__toggle:hover {
     background: color-mix(in srgb, var(--dibay-card) 12%, transparent);
     color: var(--dibay-card);
@@ -1216,21 +1223,28 @@
   }
 }
 
-/* 모바일(<768) 어드민 사이드바 — fixed overlay drawer. ≥768은 문서 플로우 고정. */
+/* 모바일(<768) 어드민 사이드바 — fixed overlay drawer below header. ≥768은 문서 플로우. */
 @media (max-width: 767px) {
   [data-admin] .admin-sidebar {
     position: fixed;
-    inset-block: 0;
+    top: var(--admin-shell-header-height, 3.5rem);
+    bottom: 0;
     left: 0;
     z-index: 50;
     transform: translateX(-100%);
     transition: transform 200ms ease;
     width: 16rem;
+    max-height: none;
+    height: auto;
   }
 
   [data-admin] .admin-sidebar--open {
     transform: translateX(0);
   }
+}
+
+[data-admin] .admin-platform-shell {
+  --admin-shell-header-height: 3.5rem;
 }
 
 [data-admin] .admin-workspace-sidebar--expanded {
@@ -1251,10 +1265,12 @@
   background: var(--admin-console-active-bg);
   color: var(--admin-console-accent);
   box-shadow: inset 0 -2px 0 var(--admin-console-accent);
+  font-weight: 700;
 }
 
 [data-admin] .admin-workspace-nav__tab--idle {
   color: var(--admin-console-muted);
+  font-weight: 600;
 }
 
 [data-admin] .admin-workspace-nav__tab--idle:hover {

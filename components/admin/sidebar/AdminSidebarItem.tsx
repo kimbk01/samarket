@@ -6,29 +6,20 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
-import { isLeafMenuActive } from "./admin-sidebar-active-path";
+import {
+  hasActiveDescendantInMenu,
+  isLeafMenuActive,
+  menuPathMatchScore,
+} from "./admin-sidebar-active-path";
 
 const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
 const USER_POINT_CHARGES_MENU_KEY = "points-charge";
 
-function isPathActive(
-  path: string | undefined,
-  currentPath: string,
-  matchPaths?: string[]
-): boolean {
-  const candidates = [path, ...(matchPaths ?? [])].filter(Boolean) as string[];
-  return candidates.some((p) => {
-    const normalizedPath = p.split("#")[0]?.split("?")[0] ?? p;
-    return currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
-  });
-}
-
-function hasActiveChild(item: AdminMenuItem, currentPath: string): boolean {
-  if (!item.children?.length) return false;
-  return item.children.some(
-    (c) =>
-      isPathActive(c.path, currentPath, c.matchPaths) || hasActiveChild(c, currentPath)
-  );
+function itemOrChildMatches(item: AdminMenuItem, currentPath: string): boolean {
+  if (item.path && menuPathMatchScore(currentPath, item.path) >= 0) return true;
+  if (item.matchPaths?.some((p) => menuPathMatchScore(currentPath, p) >= 0)) return true;
+  if (item.children?.length) return hasActiveDescendantInMenu(item.children, currentPath);
+  return false;
 }
 
 export function AdminSidebarItem({
@@ -59,21 +50,25 @@ export function AdminSidebarItem({
         ? userChargePendingCount
         : 0;
 
-  const isActive = isPathActive(item.path, currentPath, item.matchPaths);
-  const childActive = hasActiveChild(item, currentPath);
-  const [open, setOpen] = useState(isActive || childActive);
+  const childActive = hasChildren
+    ? hasActiveDescendantInMenu(item.children ?? [], currentPath)
+    : false;
+  const selfMatches = itemOrChildMatches(
+    { ...item, children: undefined },
+    currentPath
+  );
+  const [open, setOpen] = useState(childActive || selfMatches);
 
   useEffect(() => {
-    if (isActive || childActive) setOpen(true);
-  }, [childActive, isActive]);
+    if (childActive || selfMatches) setOpen(true);
+  }, [childActive, selfMatches]);
 
   const pending = item.pendingRoute === true;
   const status = getMenuStatus(item);
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
-  const baseLinkClass = `block rounded-ui-rect py-2 pr-3 sam-text-body whitespace-nowrap ${padding}`;
-  /** Admin sidebar는 dark green surface 안에서 gold active / white inactive를 고정한다. */
+  const baseLinkClass = `block rounded-sm py-2 pr-3 text-[13px] leading-5 whitespace-nowrap ${padding}`;
   const activeClass = "admin-sidebar__item-active font-semibold";
   const inactiveClass = pending
     ? "admin-sidebar__item-inactive font-medium opacity-70"
@@ -82,29 +77,29 @@ export function AdminSidebarItem({
   const leafIsActive =
     pathsScope && pathsScope.length > 0 && item.path
       ? isLeafMenuActive(item.path, currentPath, pathsScope, item.matchPaths)
-      : isPathActive(item.path, currentPath, item.matchPaths);
+      : Boolean(item.path && menuPathMatchScore(currentPath, item.path) >= 0 && !hasChildren);
 
   const linkClass = `${baseLinkClass} ${leafIsActive ? activeClass : inactiveClass}`;
 
-  const groupLabelClass = `flex-1 sam-text-body whitespace-nowrap min-w-0 text-left ${
-    isActive || childActive
-      ? "admin-sidebar__group-active font-bold"
+  /** Section/group: open indicator only — never leaf-active chrome. */
+  const groupLabelClass = `flex-1 text-[12px] leading-4 tracking-wide whitespace-nowrap min-w-0 text-left ${
+    childActive
+      ? "admin-sidebar__group-open font-semibold"
       : pending
         ? "admin-sidebar__group-inactive font-medium opacity-70"
         : "admin-sidebar__group-inactive font-medium"
   }`;
 
-  const groupRowClass =
-    isActive || childActive
-      ? "admin-sidebar__group-active"
-      : "admin-sidebar__group-inactive";
+  const groupRowClass = childActive
+    ? "admin-sidebar__group-open"
+    : "admin-sidebar__group-inactive";
 
   const toggleOpen = () => setOpen((o) => !o);
 
   if (hasChildren) {
     return (
       <div className="py-0.5">
-        <div className={`flex items-center rounded-ui-rect pl-3 pr-2 py-2 ${groupRowClass}`}>
+        <div className={`flex items-center rounded-sm pl-3 pr-2 py-1.5 ${groupRowClass}`}>
           {item.path ? (
             <Link
               href={item.path}
@@ -129,7 +124,7 @@ export function AdminSidebarItem({
           <button
             type="button"
             onClick={toggleOpen}
-            className="admin-sidebar__toggle shrink-0 rounded p-1 sam-text-body font-semibold"
+            className="admin-sidebar__toggle shrink-0 rounded p-1 text-[12px] font-semibold"
             aria-expanded={open}
             aria-label={open ? t("common_close_submenu") : t("common_open_submenu")}
           >
@@ -164,7 +159,6 @@ export function AdminSidebarItem({
       </span>
     ) : null;
 
-  /** pendingRoute — Next Link prefetch 가 미구현 path 로 _rsc 404 를 유발하므로 네비게이션 금지 */
   if (pending) {
     return (
       <div className="py-0.5">
@@ -186,6 +180,7 @@ export function AdminSidebarItem({
         href={item.path}
         prefetch={false}
         className={`${linkClass} flex items-center justify-between gap-2`}
+        data-admin-sidebar-leaf={leafIsActive ? "active" : "idle"}
         onClick={() => {
           onNavigate?.(item.path!);
           onClose?.();

@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminShellToolbar } from "@/components/admin/AdminShellToolbar";
 import { AdminTestSwitcher } from "@/components/admin/AdminTestSwitcher";
@@ -71,9 +79,26 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
   const { adminMe, adminMeLoading, effectiveNavPath, setPendingNavPath } = useAdminShell();
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   useIsomorphicLayoutEffect(() => {
     setSidebarExpanded(readSidebarExpanded());
+  }, []);
+
+  useIsomorphicLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const sync = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h > 0) {
+        el.style.setProperty("--admin-shell-header-height", `${h}px`);
+        document.documentElement.style.setProperty("--admin-shell-header-height", `${h}px`);
+      }
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const menuRole = useMemo(
@@ -127,8 +152,11 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
           } as React.CSSProperties
         }
       >
-        <header className="admin-platform-shell__header sticky top-0 z-40 flex min-w-0 shrink-0 flex-col border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)]">
-          <div className="flex min-w-0 items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
+        <header
+          ref={headerRef}
+          className="admin-platform-shell__header sticky top-0 z-40 flex min-w-0 shrink-0 flex-col border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)]"
+        >
+          <div className="flex min-h-14 min-w-0 items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
             <button
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)] md:hidden"
@@ -141,7 +169,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             <Link
               href="/admin"
               prefetch={false}
-              className="shrink-0 text-sm font-bold tracking-wide text-[var(--admin-console-fg)]"
+              className="shrink-0 text-[15px] font-bold leading-5 tracking-wide text-[var(--admin-console-fg)]"
               onClick={() => setPendingNavPath("/admin")}
             >
               {t("admin_brand")}
@@ -182,34 +210,22 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             />
           ) : null}
 
+          {/* Single sidebar instance — CSS handles desktop flow vs mobile drawer (avoids double active DOM). */}
           <div
             className={[
-              "admin-platform-shell__sidebar-slot shrink-0",
+              "admin-platform-shell__sidebar-slot flex h-full min-h-0 shrink-0",
               sidebarExpanded ? "" : "max-md:hidden",
-              "max-md:contents",
             ].join(" ")}
           >
-            {/* ≥768: in-flow; <768: drawer via CSS */}
-            <div className="hidden h-full md:flex">
-              <AdminWorkspaceSidebar
-                workspace={activeWorkspace}
-                currentPath={effectiveNavPath}
-                compact={!sidebarExpanded}
-                onNavigate={setPendingNavPath}
-                roleLabel={roleLabel}
-              />
-            </div>
-            <div className="md:hidden">
-              <AdminWorkspaceSidebar
-                workspace={activeWorkspace}
-                currentPath={effectiveNavPath}
-                compact={false}
-                isDrawerOpen={drawerOpen}
-                onClose={closeDrawer}
-                onNavigate={setPendingNavPath}
-                roleLabel={roleLabel}
-              />
-            </div>
+            <AdminWorkspaceSidebar
+              workspace={activeWorkspace}
+              currentPath={effectiveNavPath}
+              compact={!sidebarExpanded}
+              isDrawerOpen={drawerOpen}
+              onClose={closeDrawer}
+              onNavigate={setPendingNavPath}
+              roleLabel={roleLabel}
+            />
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -229,8 +245,16 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
 /** Platform Admin console shell v2 — layout.tsx entry via AdminShell. */
 export function AdminPlatformShell({ children }: { children: React.ReactNode }) {
   return (
-    <AdminShellProvider>
-      <AdminPlatformShellInner>{children}</AdminPlatformShellInner>
-    </AdminShellProvider>
+    <Suspense
+      fallback={
+        <div className="flex h-[100dvh] items-center justify-center bg-[var(--admin-console-bg)] text-sm text-[var(--admin-console-muted)]">
+          …
+        </div>
+      }
+    >
+      <AdminShellProvider>
+        <AdminPlatformShellInner>{children}</AdminPlatformShellInner>
+      </AdminShellProvider>
+    </Suspense>
   );
 }

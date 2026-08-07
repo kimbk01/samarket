@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   fetchAdminMeSnapshot,
   peekAdminMeSnapshot,
@@ -44,12 +44,23 @@ export function useAdminShell(): AdminShellContextValue {
 
 export function AdminShellProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString() ?? "";
+  const [hash, setHash] = useState("");
+  const locationPath = `${search ? `${pathname}?${search}` : pathname}${hash}`;
   const [adminMe, setAdminMe] = useState<AdminMeSnapshot | null>(() => peekAdminMeSnapshot());
   const [adminMeLoading, setAdminMeLoading] = useState(!peekAdminMeSnapshot());
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const routeEnterStartedRef = useRef(performance.now());
   const menuSwitchStartedRef = useRef(performance.now());
-  const prevPathRef = useRef(pathname);
+  const prevPathRef = useRef(locationPath);
+
+  useEffect(() => {
+    const syncHash = () => setHash(typeof window !== "undefined" ? window.location.hash : "");
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [pathname, search]);
 
   const refreshAdminMe = useCallback(async () => {
     setAdminMeLoading(true);
@@ -85,25 +96,39 @@ export function AdminShellProvider({ children }: { children: ReactNode }) {
     routeEnterStartedRef.current = now;
 
     const prev = prevPathRef.current;
-    if (prev !== pathname) {
-      logAdminMenuSwitch(prev, pathname, menuSwitchStartedRef.current);
+    if (prev !== locationPath) {
+      logAdminMenuSwitch(prev, locationPath, menuSwitchStartedRef.current);
       menuSwitchStartedRef.current = now;
-      prevPathRef.current = pathname;
+      prevPathRef.current = locationPath;
     }
 
     if (pendingNavPath) {
-      const normalizedPending = pendingNavPath.split("?")[0] ?? pendingNavPath;
-      const normalizedPath = pathname.split("?")[0] ?? pathname;
+      if (pendingNavPath === locationPath) {
+        setPendingNavPath(null);
+        return;
+      }
+      const pendingParts = pendingNavPath.split("#");
+      const pendingBeforeHash = pendingParts[0] ?? pendingNavPath;
+      const pendingHash = pendingParts.length > 1 ? `#${pendingParts.slice(1).join("#")}` : "";
+      const pendingPathname = pendingBeforeHash.split("?")[0] ?? pendingBeforeHash;
+      const pendingHasQuery = pendingBeforeHash.includes("?");
+      const pendingHasHash = pendingHash.length > 0;
+      if (pendingHasHash) {
+        if (pathname === pendingPathname && hash === pendingHash) {
+          setPendingNavPath(null);
+        }
+        return;
+      }
       if (
-        normalizedPath === normalizedPending ||
-        normalizedPath.startsWith(`${normalizedPending}/`)
+        !pendingHasQuery &&
+        (pathname === pendingPathname || pathname.startsWith(`${pendingPathname}/`))
       ) {
         setPendingNavPath(null);
       }
     }
-  }, [pathname, pendingNavPath]);
+  }, [pathname, locationPath, pendingNavPath, hash]);
 
-  const effectiveNavPath = pendingNavPath ?? pathname;
+  const effectiveNavPath = pendingNavPath ?? locationPath;
 
   const setPendingNavPathWithPerf = useCallback((path: string | null) => {
     if (path) menuSwitchStartedRef.current = performance.now();
