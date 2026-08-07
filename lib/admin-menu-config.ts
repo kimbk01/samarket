@@ -5,6 +5,7 @@
  */
 
 import { adminMenu, type AdminMenuItem as SidebarAdminMenuItem } from "@/components/admin/admin-menu";
+import { projectDashboardQuickLinks } from "@/lib/admin/dashboard-quick-links";
 import {
   findAdminMenuByKey,
   requireAdminMenuByKey,
@@ -106,27 +107,19 @@ export const OPS_MENU_GROUPS: OpsMenuGroup[] = OPS_DOMAIN_KEYS.map((key) => {
 });
 
 /**
- * HOME 퀵링크 — workspace 진입만 (기능 전체 재나열·operations 허브 금지).
- * SSOT leaf path를 사용한다.
+ * HOME 퀵링크 — `adminMenu` SSOT projection (Slice 2A).
+ * href/label/roles are not redefined here; see `lib/admin/dashboard-quick-links.ts`.
  */
-export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
-  { href: "/admin/customer-platform", labelKey: "admin_menu_customer_platform" },
-  { href: "/admin/users", labelKey: "admin_menu_members" },
-  { href: "/admin/reports", labelKey: "admin_menu_moderation" },
-  { href: "/admin/trade", labelKey: "admin_menu_trade" },
-  { href: "/admin/community", labelKey: "admin_menu_community" },
-  { href: "/admin/stores/orders", labelKey: "admin_menu_delivery" },
-  { href: "/admin/chats", labelKey: "admin_menu_messenger" },
-  { href: "/admin/ad-applications", labelKey: "admin_menu_growth" },
-  { href: "/admin/settings", labelKey: "admin_menu_app_config" },
-];
+const MASTER_DASHBOARD_LINKS = projectDashboardQuickLinks("master");
 
-export const MANAGE_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
-  { href: "/admin/ops-board", labelKey: "admin_menu_manage_ops_board" },
-  { href: "/admin/ops-docs", labelKey: "admin_menu_manage_docs" },
-  { href: "/admin/ops-knowledge", labelKey: "admin_menu_manage_kb" },
-  { href: "/admin/ops-maturity", labelKey: "admin_menu_manage_maturity" },
-];
+export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] =
+  MASTER_DASHBOARD_LINKS.ops.map((l) => ({ href: l.href, labelKey: l.labelKey }));
+
+export const MANAGE_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] =
+  MASTER_DASHBOARD_LINKS.manage.map((l) => ({ href: l.href, labelKey: l.labelKey }));
+
+export const DEV_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] =
+  MASTER_DASHBOARD_LINKS.dev.map((l) => ({ href: l.href, labelKey: l.labelKey }));
 
 const DASHBOARD_TOP = requireAdminMenuByKey(adminMenu, "dashboard");
 

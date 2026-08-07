@@ -8,7 +8,7 @@
 |-----------|----------|------|----------------|-------------|----------|
 | `components/admin/settings/_quarantine/AdminMessengerCallSoundsSection.deprecated.tsx` | Explicit quarantine; 0 imports | Low | QUARANTINED_PENDING_EVIDENCE | Sound SSOT settings | Keep |
 | `components/admin/AdminSidebar.tsx` | 0 import sites; live shell uses `AdminWorkspaceSidebar` | Med | DEPRECATE | `components/admin/shell/AdminWorkspaceSidebar.tsx` | Classify before delete (Slice 2B) |
-| `components/admin/dashboard/AdminQuickLinks.tsx` | 0 imports; parallel hardcoded map | Low | DEPRECATE | `DashboardQuickLinksBySection` | |
+| `components/admin/dashboard/AdminQuickLinks.tsx` | 0 imports; parallel hardcoded map | Low | DEPRECATE | `DashboardQuickLinksBySection` ← `dashboard-quick-links` SSOT projection (Slice 2A) | Delete still STOP |
 | `components/admin/users/AdminUserDetailPage.tsx` | 0 imports; `[id]` redirects to `?detail=` | Med | QUARANTINED_PENDING_EVIDENCE | detail modal | |
 | `components/admin/ads/AdminAdApplicationListPage.tsx` | 0 imports | Med | QUARANTINED_PENDING_EVIDENCE | `AdminPostAdManagePage` | |
 | `components/admin/audit/AdminAuditLogListPage.tsx` | 0 imports | Med | QUARANTINED_PENDING_EVIDENCE | `AdminAuditLogsPage` | |

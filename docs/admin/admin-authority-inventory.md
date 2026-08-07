@@ -69,7 +69,7 @@ Detail: `docs/admin/admin-route-classification.md`.
 | Legacy `AdminShell` export | re-exports `AdminPlatformShell` | adapter OK |
 | Legacy `AdminSidebar.tsx` | 0 import sites; divergent loading-role fallback | **DEPRECATE** candidate |
 | `AdminQuickLinks.tsx` | 0 imports; parallel hardcoded map | **DEPRECATE** candidate |
-| Dashboard / hub hardcoded hrefs | `DEV_LINKS` in `DashboardQuickLinksBySection.tsx`; TradeHub; OpsHub; DeliveryOrdersDashboardClient; CP dashboard; UrgentBlock | **SSOT CONFLICT (OPEN)** — first break |
+| Dashboard / hub hardcoded hrefs | Dashboard quick links: **CLOSED** (Slice 2A → menu SSOT). Remaining hub maps: TradeHub; OpsHub; DeliveryOrdersDashboardClient; CP dashboard; UrgentBlock | **PARTIAL** — DEV_LINKS closed; other hubs out of Slice 2A |
 | Owner Admin | `BusinessAdminShell` under `/stores/owner/**` | **ISOLATED** |
 
 Dead candidates: `docs/admin/admin-dead-code-register.md` (`DELETE_PROVEN` = **0**).
@@ -96,10 +96,10 @@ Dead candidates: `docs/admin/admin-dead-code-register.md` (`DELETE_PROVEN` = **0
 | 11 workspaces single tree | **PASS** |
 | One canonical path → one menu leaf | **PASS** |
 | Redirect-only not in menu leaves | **PASS** |
-| `admin-menu-config.ts` | Adapter + curated quick-link lists |
-| `DEV_LINKS` + hub hardcoded maps | **FAIL / OPEN** — first break |
+| `admin-menu-config.ts` | Adapter — quick links projected via `lib/admin/dashboard-quick-links.ts` (Slice 2A) |
+| Dashboard quick links / former `DEV_LINKS` | **PASS / CLOSED** — derived from menu SSOT |
 | Shell breadcrumb | **PASS** (`resolveAdminBreadcrumb`) |
-| Dual `filterMenuByRole` / role enums | **OPEN** |
+| Dual `filterMenuByRole` / role enums | **OPEN** (UI `manager` ↔ menu `admin` mapping remains; same filter authority) |
 
 ### B2 Route SSOT
 
@@ -123,7 +123,7 @@ Dead candidates: `docs/admin/admin-dead-code-register.md` (`DELETE_PROVEN` = **0
 
 ## 6. First breaks (do not hide)
 
-1. **Dashboard `DEV_LINKS`** — menu SSOT 밖 하드코딩 navigation  
+1. ~~**Dashboard `DEV_LINKS`**~~ — **CLOSED** (Slice 2A: `lib/admin/dashboard-quick-links.ts`)
 2. **FAQ** — `pendingRoute` only — IA **ACCEPTED** pending  
 3. **`mark-paid` `admin_console_stub`** — production writer stub **OPEN**  
 4. **Runtime integration** — code chain 8 domains mapped; full runtime chain **0**
@@ -144,6 +144,8 @@ ADMIN ↔ APP INTEGRATION FINAL: PARTIAL
 
 ```text
 SLICE 1 (inventory): AUDIT DOCUMENTATION CLOSED
-DELETE / QUARANTINE MOVE: NOT STARTED
+SLICE 2A (DEV_LINKS → menu SSOT): CLOSED
+ADMIN MENU SSOT: PASS (workspace/sidebar + dashboard quick links)
+DELETE / QUARANTINE MOVE: NOT STARTED (STOP — DELETE_PROVEN=0)
 PLATFORM ADMIN PRODUCT: OPEN
 ```
