@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { CAMPAIGN_CHANNELS } from "@/lib/admin/notification-campaigns/campaign-types";
+import { resolveCampaignTargetPayload } from "@/lib/admin/notification-campaigns/resolve-campaign-target-payload";
 import { ensureCampaignTargetsForSelectedUsers } from "@/lib/admin/notification-campaigns/run-campaign-send-batch";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -138,6 +139,15 @@ export async function POST(req: NextRequest) {
   const initialStatus =
     typeof body.status === "string" && body.status === "scheduled" && scheduled_at ? "scheduled" : "draft";
 
+  const resolvedPayload = resolveCampaignTargetPayload({
+    app_notice_id: body.app_notice_id,
+    target_payload: body.target_payload,
+    targetPayloadKeyPresent: Object.prototype.hasOwnProperty.call(body, "target_payload"),
+  });
+  if (!resolvedPayload.ok) {
+    return NextResponse.json({ ok: false, error: resolvedPayload.error }, { status: 400 });
+  }
+
   const insertRow = {
     title,
     body: content,
@@ -158,12 +168,8 @@ export async function POST(req: NextRequest) {
     priority: typeof body.priority === "string" ? body.priority : "normal",
     visibility_policy: typeof body.visibility_policy === "string" ? body.visibility_policy : "default",
     updated_at: new Date().toISOString(),
-    target_payload:
-      typeof body.app_notice_id === "string" && body.app_notice_id.trim()
-        ? { appNoticeId: body.app_notice_id.trim() }
-        : body.target_payload && typeof body.target_payload === "object"
-          ? body.target_payload
-          : null,
+    /** Match DB DEFAULT '{}'::jsonb — never insert null (overrides default → 500). */
+    target_payload: resolvedPayload.target_payload,
   };
 
   const { data: row, error } = await svc.from("admin_notification_campaigns").insert(insertRow).select("id").maybeSingle();
