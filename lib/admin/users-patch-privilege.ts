@@ -1,7 +1,7 @@
 /**
  * Users PATCH privilege writer — Admin relationship changes MUST go through
  * admin_memberships helpers (same semantics as Staff Grant/Revoke).
- * Never create privileged profiles.role without active membership via this path.
+ * Never write privileged profiles.role / is_admin via this path.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,7 +15,7 @@ import {
   isSuperAdminRole,
   replaceStaffPermissions,
 } from "@/lib/admin/admin-user-server";
-import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 
 export type UsersPatchMemberTypeInput = "normal" | "premium" | "admin" | "super_admin";
 
@@ -31,7 +31,7 @@ export type UsersPatchPrivilegeResult =
 
 /**
  * Apply admin privilege grant/revoke for Users PATCH `memberType`.
- * Order: membership authority mutation → legacy profile mirror (inside helpers).
+ * Order: membership authority mutation only (no legacy profile privilege mirror).
  */
 export async function applyUsersPatchPrivilegeChange(
   sb: SupabaseClient,
@@ -43,14 +43,13 @@ export async function applyUsersPatchPrivilegeChange(
     currentProfileRole: string | null | undefined;
   }
 ): Promise<UsersPatchPrivilegeResult> {
+  void input.currentProfileRole;
   const requested = input.requestedMemberType;
   if (!requested) {
     return { ok: true, privilegeHandled: false, memberTypePatch: null };
   }
 
-  const effectiveRole =
-    (await resolveEffectiveAdminRole(sb, input.userId, input.currentProfileRole).catch(() => null)) ??
-    normalizeAdminRole(input.currentProfileRole);
+  const effectiveRole = await resolveEffectiveAdminRole(sb, input.userId).catch(() => null);
   const isPriv = isPrivilegedAdminRole(effectiveRole);
   const isSA = isSuperAdminRole(effectiveRole);
 
@@ -129,7 +128,7 @@ export async function applyUsersPatchPrivilegeChange(
         return { ok: false, error: revoked.error, status: 400 };
       }
     }
-    // revoke already set role=user, is_admin=false, member_type=normal
+    // Revoke does not rewrite profiles.role / is_admin. Member classification only:
     if (requested === "premium") {
       return {
         ok: true,
@@ -137,7 +136,11 @@ export async function applyUsersPatchPrivilegeChange(
         memberTypePatch: { member_type: "premium", is_special_member: true },
       };
     }
-    return { ok: true, privilegeHandled: true, memberTypePatch: null };
+    return {
+      ok: true,
+      privilegeHandled: true,
+      memberTypePatch: { member_type: "normal", is_special_member: false },
+    };
   }
 
   // Non-admin Person — member classification only; never invent privileged role

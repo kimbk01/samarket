@@ -77,7 +77,6 @@ export async function PATCH(
     if (body.role === "master") {
       return NextResponse.json({ ok: false, error: "cannot_promote_to_super_admin" }, { status: 400 });
     }
-    patch.admin_tier = uiRoleToAdminTier(body.role);
     await upsertActiveAdminMembership(sb, {
       userId: staffId,
       role: "admin",
@@ -164,10 +163,6 @@ export async function DELETE(
   await sb
     .from("profiles")
     .update({
-      role: "user",
-      is_admin: false,
-      member_type: "normal",
-      admin_tier: null,
       status: "deleted",
       deleted_at: now,
     })

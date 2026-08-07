@@ -192,7 +192,7 @@ describe("users PATCH privilege writer alignment", () => {
     vi.clearAllMocks();
   });
 
-  it("A. member → admin: membership + profile mirror + effective YES", async () => {
+  it("A. member → admin: membership only + effective YES (no profile privilege mirror)", async () => {
     const sb = createStatefulSb({
       profile: { role: "user", is_admin: false },
       membership: null,
@@ -207,17 +207,19 @@ describe("users PATCH privilege writer alignment", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.privilegeHandled).toBe(true);
+    expect(result.memberTypePatch).toBeNull();
     const st = sb._state();
     expect(st.membership?.status).toBe("active");
     expect(st.membership?.role).toBe("admin");
-    expect(st.profile.role).toBe("admin");
-    expect(st.profile.is_admin).toBe(true);
+    expect(st.profileUpdates).toHaveLength(0);
+    expect(st.profile.role).toBe("user");
+    expect(st.profile.is_admin).toBe(false);
     expect(await hasActiveAdminMembershipOrLegacyRole(sb as never, "u1", st.profile.role)).toBe(
       true
     );
   });
 
-  it("B. member → super_admin: membership super_admin + mirror", async () => {
+  it("B. member → super_admin: membership super_admin only (no profile privilege mirror)", async () => {
     const sb = createStatefulSb({
       profile: { role: "user" },
       membership: null,
@@ -233,11 +235,12 @@ describe("users PATCH privilege writer alignment", () => {
     expect(result.ok).toBe(true);
     const st = sb._state();
     expect(st.membership?.role).toBe("super_admin");
-    expect(st.profile.role).toBe("super_admin");
+    expect(st.profileUpdates).toHaveLength(0);
+    expect(st.profile.role).toBe("user");
     expect(await resolveEffectiveAdminRole(sb as never, "u1", st.profile.role)).toBe("super_admin");
   });
 
-  it("C. admin → member: revoke membership + mirror user", async () => {
+  it("C. admin → member: revoke membership only; stale profile mirror may remain", async () => {
     const sb = createStatefulSb({
       profile: { role: "admin", is_admin: true },
       membership: {
@@ -256,10 +259,17 @@ describe("users PATCH privilege writer alignment", () => {
       currentProfileRole: "admin",
     });
     expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.memberTypePatch).toEqual({
+      member_type: "normal",
+      is_special_member: false,
+    });
     const st = sb._state();
     expect(st.membership?.status).toBe("revoked");
-    expect(st.profile.role).toBe("user");
-    expect(st.profile.is_admin).toBe(false);
+    // Privilege writers no longer reset role/is_admin — stale mirror is non-authority
+    expect(st.profileUpdates).toHaveLength(0);
+    expect(st.profile.role).toBe("admin");
+    expect(st.profile.is_admin).toBe(true);
     expect(await hasActiveAdminMembershipOrLegacyRole(sb as never, "u1", st.profile.role)).toBe(
       false
     );

@@ -3,7 +3,7 @@
  * Contract: docs/dibay-member-auth-phase-d-structure-design.md §1
  *
  * Application authority (readers): active admin_memberships ONLY.
- * Writers still dual-write profiles.role / is_admin until the dual-write cutover.
+ * Admin privilege writers: membership mutation ONLY — no profiles.role / is_admin mirror.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -93,13 +93,7 @@ export async function countActiveSuperAdmins(sb: SupabaseClient): Promise<number
     .eq("status", "active")
     .eq("role", "super_admin");
   if (error) {
-    if (isMissingMembershipTable(error.message)) {
-      const { count: legacyCount } = await sb
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .in("role", ["super_admin", "master"]);
-      return legacyCount ?? 0;
-    }
+    if (isMissingMembershipTable(error.message)) return 0;
     throw new Error(error.message);
   }
   return count ?? 0;
@@ -114,8 +108,8 @@ export type UpsertAdminMembershipInput = {
 };
 
 /**
- * Ensure exactly one active membership for user (revoke prior active rows of other ids).
- * Also keeps profiles.role / admin_tier / is_admin in sync (transitional dual-write).
+ * Ensure exactly one active membership for user.
+ * Does NOT write profiles.role / is_admin / member_type / admin_tier (dual-write cutover).
  */
 export async function upsertActiveAdminMembership(
   sb: SupabaseClient,
@@ -145,10 +139,9 @@ export async function upsertActiveAdminMembership(
       .eq("id", existing.id);
     if (upErr) {
       if (isMissingMembershipTable(upErr.message)) {
-        // Table not migrated yet — profiles-only transitional path
-      } else {
-        return { ok: false, error: upErr.message };
+        return { ok: false, error: "admin_memberships_missing" };
       }
+      return { ok: false, error: upErr.message };
     }
   } else {
     const { data: inserted, error: insErr } = await sb
@@ -167,28 +160,19 @@ export async function upsertActiveAdminMembership(
       .select("id")
       .maybeSingle();
     if (insErr) {
-      if (!isMissingMembershipTable(insErr.message)) {
-        return { ok: false, error: insErr.message };
+      if (isMissingMembershipTable(insErr.message)) {
+        return { ok: false, error: "admin_memberships_missing" };
       }
-    } else if (!inserted?.id) {
-      /* profiles sync below still runs */
+      return { ok: false, error: insErr.message };
+    }
+    if (!inserted?.id) {
+      return { ok: false, error: "membership_insert_failed" };
     }
   }
 
-  const profileRole = input.role === "super_admin" ? "super_admin" : "admin";
-  const { error: profileErr } = await sb
-    .from("profiles")
-    .update({
-      role: profileRole,
-      is_admin: true,
-      member_type: "admin",
-      admin_tier: input.role === "super_admin" ? null : tier,
-    })
-    .eq("id", userId);
-  if (profileErr) return { ok: false, error: profileErr.message };
-
   const again = await loadActiveAdminMembership(sb, userId).catch(() => null);
-  return { ok: true, membershipId: again?.id ?? userId };
+  if (!again?.id) return { ok: false, error: "membership_missing_after_upsert" };
+  return { ok: true, membershipId: again.id };
 }
 
 export type RevokeAdminMembershipInput = {
@@ -199,7 +183,7 @@ export type RevokeAdminMembershipInput = {
 
 /**
  * Revoke active membership. Refuses if target is the last active SUPER_ADMIN.
- * Dual-write: sets profiles.role back to user.
+ * Does NOT reset profiles.role / is_admin (stale mirror may remain; not authority).
  */
 export async function revokeActiveAdminMembership(
   sb: SupabaseClient,
@@ -209,58 +193,35 @@ export async function revokeActiveAdminMembership(
   if (!userId) return { ok: false, error: "user_id_required" };
 
   const membership = await loadActiveAdminMembership(sb, userId).catch(() => null);
-  const profileRoleFallback = membership
-    ? null
-    : ((await sb.from("profiles").select("role").eq("id", userId).maybeSingle()).data as { role?: string } | null)
-        ?.role ?? null;
+  if (!membership) return { ok: false, error: "not_admin" };
 
-  const effectiveRole = membership?.role ?? (isPrivilegedAdminRole(profileRoleFallback) ? normalizeAdminRole(profileRoleFallback) : null);
-  if (!effectiveRole) return { ok: false, error: "not_admin" };
-
+  const effectiveRole = normalizeAdminRole(membership.role);
   if (isSuperAdminRole(effectiveRole)) {
-    const n = await countActiveSuperAdmins(sb);
-    // If only legacy profiles and no membership table rows, count via profiles
-    let superCount = n;
-    if (superCount === 0 && isSuperAdminRole(profileRoleFallback)) {
-      const { count } = await sb
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .in("role", ["super_admin", "master"]);
-      superCount = count ?? 0;
-    }
+    const superCount = await countActiveSuperAdmins(sb);
     if (superCount <= 1) {
       return { ok: false, error: "last_super_admin" };
     }
   }
 
   const now = new Date().toISOString();
-  if (membership) {
-    const { error } = await sb
-      .from("admin_memberships")
-      .update({
-        status: "revoked",
-        revoked_at: now,
-        revoked_by: input.revokedBy,
-        revoke_reason: String(input.reason ?? "revoked").slice(0, 500),
-        updated_at: now,
-      })
-      .eq("id", membership.id);
-    if (error && !isMissingMembershipTable(error.message)) {
-      return { ok: false, error: error.message };
+  const { error } = await sb
+    .from("admin_memberships")
+    .update({
+      status: "revoked",
+      revoked_at: now,
+      revoked_by: input.revokedBy,
+      revoke_reason: String(input.reason ?? "revoked").slice(0, 500),
+      updated_at: now,
+    })
+    .eq("id", membership.id);
+  if (error) {
+    if (isMissingMembershipTable(error.message)) {
+      return { ok: false, error: "admin_memberships_missing" };
     }
+    return { ok: false, error: error.message };
   }
 
   await sb.from("admin_staff_permissions").delete().eq("user_id", userId);
-  const { error: profileErr } = await sb
-    .from("profiles")
-    .update({
-      role: "user",
-      is_admin: false,
-      member_type: "normal",
-      admin_tier: null,
-    })
-    .eq("id", userId);
-  if (profileErr) return { ok: false, error: profileErr.message };
   return { ok: true };
 }
 

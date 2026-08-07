@@ -7,8 +7,9 @@
 -- Authority:
 --   aaaa string = login alias only (NOT privilege)
 --   UUID        = Person identity
---   admin_memberships (active, super_admin) = Admin relation TARGET
---   profiles.role = transitional compatibility mirror
+--   admin_memberships (active, super_admin) = Admin relation SSOT
+--   profiles.role / is_admin = NOT privilege (bootstrap leaves non-privileged defaults)
+--   test_users.role = legacy QA display debt (not Admin authority)
 --
 -- 먼저 Auth 사용자가 없으면:
 --   `npm run e2e:ensure-aaaa-manual-auth`
@@ -52,11 +53,11 @@ BEGIN
     'aaaa',
     '메인관리자',
     '메인관리자',
-    'super_admin',
-    'admin',
+    'user',
+    'normal',
     'admin_manual',
     'admin_manual',
-    true,
+    false,
     true,
     'verified',
     'verified_user',
@@ -69,18 +70,16 @@ BEGIN
     username = EXCLUDED.username,
     nickname = EXCLUDED.nickname,
     display_name = EXCLUDED.display_name,
-    role = EXCLUDED.role,
-    member_type = EXCLUDED.member_type,
+    -- Do not (re)write privileged role/is_admin mirror — Admin SSOT is admin_memberships
     auth_provider = EXCLUDED.auth_provider,
     provider = EXCLUDED.provider,
-    is_admin = EXCLUDED.is_admin,
     phone_verified = EXCLUDED.phone_verified,
     phone_verification_status = EXCLUDED.phone_verification_status,
     status = EXCLUDED.status,
     member_status = EXCLUDED.member_status,
     updated_at = now();
 
-  -- CURRENT Admin relation: same UUID → active super_admin membership
+  -- Admin relation SSOT: same UUID → active super_admin membership
   IF to_regclass('public.admin_memberships') IS NOT NULL THEN
     UPDATE public.admin_memberships
     SET
@@ -126,6 +125,7 @@ BEGIN
     END IF;
   END IF;
 
+  -- Legacy QA display row — not Admin authority (POST-HARD-LOCK debt)
   INSERT INTO public.test_users (id, username, password, role, display_name)
   VALUES (uid, 'aaaa', '1234', 'master', '메인관리자')
   ON CONFLICT (id) DO UPDATE SET
