@@ -275,7 +275,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
               disabled={loading}
               pendingOAuthProvider={pendingOAuthProvider}
               emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
-              showEmailEntry={passwordEnabled}
+              showEmailEntry={passwordEnabled && !showEmailLogin}
               onEmailLoginClick={() => setShowEmailLogin(true)}
               onSelectProvider={(provider) => void handleOAuthLogin(provider)}
             />
@@ -284,18 +284,23 @@ export function AuthModal({ open, detail, onClose }: Props) {
               <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
             ) : null}
             {passwordEnabled && showEmailLogin ? (
-              <PasswordLoginForm
-                identifier={identifier}
-                password={password}
-                error={displayError}
-                disabled={loading || pendingOAuthProvider != null}
-                loading={loading}
-                loadingText={passwordLoginStatus}
-                className="mt-4 space-y-4"
-                onIdentifierChange={setIdentifier}
-                onPasswordChange={setPassword}
-                onSubmit={handleEmailSubmit}
-              />
+              <div data-auth-surface="internal" data-testid="auth-internal-login-panel">
+                <p className="mt-1 sam-text-body-secondary text-center text-[#667085]">
+                  {t("auth_login_internal_hint")}
+                </p>
+                <PasswordLoginForm
+                  identifier={identifier}
+                  password={password}
+                  error={displayError}
+                  disabled={loading || pendingOAuthProvider != null}
+                  loading={loading}
+                  loadingText={passwordLoginStatus}
+                  className="mt-2 space-y-4"
+                  onIdentifierChange={setIdentifier}
+                  onPasswordChange={setPassword}
+                  onSubmit={handleEmailSubmit}
+                />
+              </div>
             ) : null}
           </div>
         </div>

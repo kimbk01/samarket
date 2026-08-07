@@ -132,16 +132,19 @@ export function LoginProviderButtons({
     [onSelectProvider, pendingOAuthProvider],
   );
 
-  const showDivider = primary.length > 0 && (secondary.length > 0 || showEmailEntry);
+  const showSecondaryOAuth = secondary.length > 0;
+  const showOtherAccountDivider = primary.length > 0 && showSecondaryOAuth;
+  const showInternalDivider = showEmailEntry && (primary.length > 0 || showSecondaryOAuth);
   const redirectingLabel = t("auth_oauth_signing_in_label");
   const oauthInFlight = pendingOAuthProvider != null;
+  const internalEntryLabel = t("auth_login_internal_entry");
 
   if (visibleProviders.length === 0 && !showEmailEntry) {
     return emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null;
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-auth-customer-surface="social-primary">
       {primary.length > 0 ? (
         <div className="space-y-2.5">
           {primary.map((row) => {
@@ -161,7 +164,7 @@ export function LoginProviderButtons({
         </div>
       ) : null}
 
-      {showDivider ? (
+      {showOtherAccountDivider ? (
         <div className="flex items-center gap-3 sam-text-helper text-sam-meta">
           <div className="h-px flex-1 bg-sam-border-soft" />
           <span className="whitespace-nowrap">{t("auth_login_divider_other_account")}</span>
@@ -169,7 +172,7 @@ export function LoginProviderButtons({
         </div>
       ) : null}
 
-      {secondary.length > 0 || showEmailEntry ? (
+      {showSecondaryOAuth ? (
         <div className="flex items-center justify-center gap-4">
           {secondary.map((row) => {
             const isPending = pendingOAuthProvider === row.provider;
@@ -196,18 +199,29 @@ export function LoginProviderButtons({
               </button>
             );
           })}
-          {showEmailEntry ? (
-            <button
-              type="button"
-              disabled={disabled || oauthInFlight}
-              onClick={onEmailLoginClick}
-              aria-label={t("auth_login_email_dev_aria")}
-              className={`${OAUTH_LOGIN_SECONDARY_CIRCLE_BASE} bg-[#9aa0a6]`}
-            >
-              <OAuthLoginProviderIcon provider="email" size="secondary" />
-            </button>
-          ) : null}
         </div>
+      ) : null}
+
+      {showInternalDivider ? (
+        <div className="flex items-center gap-3 sam-text-helper text-sam-meta">
+          <div className="h-px flex-1 bg-sam-border-soft" />
+          <span className="whitespace-nowrap">{t("auth_login_divider_id_password")}</span>
+          <div className="h-px flex-1 bg-sam-border-soft" />
+        </div>
+      ) : null}
+
+      {showEmailEntry ? (
+        <button
+          type="button"
+          data-auth-surface="internal"
+          data-testid="auth-internal-login-entry"
+          disabled={disabled || oauthInFlight}
+          onClick={onEmailLoginClick}
+          aria-label={t("auth_login_email_dev_aria")}
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-center text-[13px] font-medium text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg disabled:opacity-50"
+        >
+          {internalEntryLabel}
+        </button>
       ) : null}
     </div>
   );

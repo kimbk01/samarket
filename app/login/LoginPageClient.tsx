@@ -71,6 +71,10 @@ function LoginPageContent() {
     () => searchParams?.get("reason")?.trim() ?? "",
     [searchParams]
   );
+  const openInternalLogin = useMemo(() => {
+    const raw = (searchParams?.get("internal") ?? searchParams?.get("ops") ?? "").trim().toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
+  }, [searchParams]);
   const blockedFromLogoutLandingRef = useRef(loginReason === "logout");
   const postLoginDestination =
     sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
@@ -108,6 +112,12 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+
+  useEffect(() => {
+    if (openInternalLogin) {
+      setShowEmailLogin(true);
+    }
+  }, [openInternalLogin]);
 
   const showLoginError = (message: string) => {
     setError((prev) => (prev === message ? prev : message));
@@ -478,7 +488,7 @@ function LoginPageContent() {
             emptyText={
               providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
             }
-            showEmailEntry={passwordEnabled}
+            showEmailEntry={passwordEnabled && !showEmailLogin}
             onEmailLoginClick={() => setShowEmailLogin(true)}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
@@ -493,18 +503,23 @@ function LoginPageContent() {
           </p>
         ) : null}
         {passwordEnabled && showEmailLogin ? (
-          <PasswordLoginForm
-            identifier={identifier}
-            password={password}
-            error={displayError}
-            loading={loading}
-            loadingText={passwordLoginStatus}
-            disabled={loading || pendingOAuthProvider != null}
-            className="mt-4 space-y-4"
-            onIdentifierChange={setIdentifier}
-            onPasswordChange={setPassword}
-            onSubmit={handleEmailSubmit}
-          />
+          <div className="mt-4" data-auth-surface="internal" data-testid="auth-internal-login-panel">
+            <p className="sam-text-body-secondary text-[#667085]">
+              {t("auth_login_internal_hint")}
+            </p>
+            <PasswordLoginForm
+              identifier={identifier}
+              password={password}
+              error={displayError}
+              loading={loading}
+              loadingText={passwordLoginStatus}
+              disabled={loading || pendingOAuthProvider != null}
+              className="mt-2 space-y-4"
+              onIdentifierChange={setIdentifier}
+              onPasswordChange={setPassword}
+              onSubmit={handleEmailSubmit}
+            />
+          </div>
         ) : displayError ? (
           <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
         ) : null}

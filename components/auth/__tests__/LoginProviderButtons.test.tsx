@@ -9,6 +9,9 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
       if (key === "auth_oauth_signing_in_label") return "Signing in…";
       if (key === "auth_provider_continue_google") return "Continue with Google";
       if (key === "auth_provider_continue_kakao") return "Continue with Kakao";
+      if (key === "auth_login_divider_id_password") return "Or internal / operations login";
+      if (key === "auth_login_internal_entry") return "Internal / operations login";
+      if (key === "auth_login_email_dev_aria") return "Internal / operations account sign-in";
       return key;
     },
   }),
@@ -60,5 +63,18 @@ describe("LoginProviderButtons pending OAuth UI", () => {
     );
     expect(html).toContain("Continue with Google");
     expect(html).not.toContain("Signing in…");
+  });
+
+  it("internal entry is a labeled secondary CTA when showEmailEntry", () => {
+    const html = renderToStaticMarkup(
+      <LoginProviderButtons
+        providers={[googleProvider]}
+        showEmailEntry
+        onEmailLoginClick={() => undefined}
+        onSelectProvider={() => undefined}
+      />,
+    );
+    expect(html).toContain('data-testid="auth-internal-login-entry"');
+    expect(html).toContain('data-auth-surface="internal"');
   });
 });

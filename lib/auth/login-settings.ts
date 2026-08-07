@@ -19,12 +19,13 @@ export type AuthLoginSetting = {
 };
 
 export const DEFAULT_AUTH_LOGIN_SETTINGS: AuthLoginSetting[] = [
-  { id: "password", provider: "password", label: "아이디 로그인", enabled: true, sort_order: 1 },
-  { id: "google", provider: "google", label: "Google", enabled: true, sort_order: 2 },
-  { id: "kakao", provider: "kakao", label: "Kakao", enabled: true, sort_order: 3 },
-  { id: "naver", provider: "naver", label: "Naver", enabled: true, sort_order: 4 },
-  { id: "apple", provider: "apple", label: "Apple", enabled: true, sort_order: 5 },
-  { id: "facebook", provider: "facebook", label: "Facebook", enabled: false, sort_order: 6 },
+  { id: "google", provider: "google", label: "Google", enabled: true, sort_order: 1 },
+  { id: "kakao", provider: "kakao", label: "Kakao", enabled: true, sort_order: 2 },
+  { id: "naver", provider: "naver", label: "Naver", enabled: true, sort_order: 3 },
+  { id: "apple", provider: "apple", label: "Apple", enabled: true, sort_order: 4 },
+  { id: "facebook", provider: "facebook", label: "Facebook", enabled: false, sort_order: 5 },
+  // Secondary surface — Internal/Ops/QA only (not customer primary signup)
+  { id: "password", provider: "password", label: "내부/운영 로그인", enabled: true, sort_order: 99 },
 ];
 
 export class AuthLoginSettingsLoadError extends Error {

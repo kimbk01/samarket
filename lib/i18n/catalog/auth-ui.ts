@@ -1,8 +1,11 @@
 export const authUiMessages = {
   ko: {
     auth_login_title: "dibaY 로그인",
-    auth_login_subtitle: "관리자 설정에 따라 로그인 방식이 표시됩니다.",
-    auth_login_divider_id_password: "또는 아이디/비밀번호",
+    auth_login_subtitle: "일반 회원은 소셜 계정으로 로그인하세요.",
+    auth_login_divider_id_password: "또는 내부/운영 로그인",
+    auth_login_internal_entry: "내부/운영 로그인",
+    auth_login_internal_hint:
+      "일반 회원은 위 소셜 로그인을 이용하세요. 아래는 내부·운영·QA 계정용입니다.",
     auth_no_login_methods: "현재 사용 가능한 로그인 방식이 없습니다. 관리자에게 문의해 주세요.",
     auth_sns_providers_loading: "SNS 로그인 설정을 불러오는 중…",
     auth_sns_providers_none: "현재 사용 가능한 SNS 로그인이 없습니다.",
@@ -22,7 +25,7 @@ export const authUiMessages = {
     auth_oauth_launch_back: "돌아가기",
     auth_provider_continue: "{provider}로 계속하기",
     auth_login_divider_other_account: "다른 계정으로 계속하기",
-    auth_login_email_dev_aria: "이메일 로그인 (관리자·개발)",
+    auth_login_email_dev_aria: "내부·운영 계정 로그인",
     auth_provider_continue_kakao: "카카오톡으로 계속하기",
     auth_provider_continue_naver: "네이버로 계속하기",
     auth_provider_continue_apple: "Apple로 계속하기",
@@ -231,8 +234,11 @@ export const authUiMessages = {
   },
   en: {
     auth_login_title: "Sign in to dibaY",
-    auth_login_subtitle: "Available sign-in methods depend on admin settings.",
-    auth_login_divider_id_password: "Or ID / password",
+    auth_login_subtitle: "Members should sign in with a social account.",
+    auth_login_divider_id_password: "Or internal / operations login",
+    auth_login_internal_entry: "Internal / operations login",
+    auth_login_internal_hint:
+      "Members should use social sign-in above. The form below is for internal, operations, and QA accounts only.",
     auth_no_login_methods: "No sign-in methods are available. Please contact an administrator.",
     auth_sns_providers_loading: "Loading social sign-in settings…",
     auth_sns_providers_none: "No social sign-in is available right now.",
@@ -252,7 +258,7 @@ export const authUiMessages = {
     auth_oauth_launch_back: "Go back",
     auth_provider_continue: "Continue with {provider}",
     auth_login_divider_other_account: "Continue with another account",
-    auth_login_email_dev_aria: "Email sign-in (admin/dev)",
+    auth_login_email_dev_aria: "Internal / operations account sign-in",
     auth_provider_continue_kakao: "Continue with KakaoTalk",
     auth_provider_continue_naver: "Continue with Naver",
     auth_provider_continue_apple: "Continue with Apple",
