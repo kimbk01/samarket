@@ -246,7 +246,6 @@ describe("admin privilege dual-write cutover", () => {
     expect(sql).toContain("'super_admin'");
     expect(sql).toMatch(/'user'/);
     expect(sql).toMatch(/false,/);
-    // profiles ON CONFLICT must not rewrite privilege columns (test_users may still mirror role)
     const profilesConflict = sql.slice(
       sql.indexOf("INSERT INTO public.profiles"),
       sql.indexOf("IF to_regclass('public.admin_memberships')")
@@ -254,5 +253,21 @@ describe("admin privilege dual-write cutover", () => {
     expect(profilesConflict).not.toMatch(/role = EXCLUDED\.role/);
     expect(profilesConflict).not.toMatch(/is_admin = EXCLUDED\.is_admin/);
     expect(profilesConflict).not.toMatch(/member_type = EXCLUDED\.member_type/);
+  });
+
+  it("source: ensure-e2e-aaaa does not privilege-mirror profiles", () => {
+    const src = readFileSync(
+      join(process.cwd(), "scripts/ensure-e2e-aaaa-manual-auth.mjs"),
+      "utf8"
+    );
+    const profilePayload = src.slice(
+      src.indexOf("const profilePayload"),
+      src.indexOf("from(\"profiles\").upsert")
+    );
+    expect(profilePayload).toMatch(/role:\s*"user"/);
+    expect(profilePayload).toMatch(/is_admin:\s*false/);
+    expect(profilePayload).not.toMatch(/is_admin:\s*true/);
+    expect(profilePayload).not.toMatch(/member_type:\s*"admin"/);
+    expect(src).toContain("admin_memberships");
   });
 });

@@ -1,8 +1,9 @@
 /**
  * 로컬 E2E: `aaaa` → `aaaa@manual.local` (resolve-password-login-identifier) 와 Supabase Auth 정합.
  * - auth.users: 이메일 aaaa@manual.local, 비밀번호 1234 (없으면 생성, 있으면 비밀번호·email_confirm 갱신)
- * - profiles: 동일 id에 username `aaaa` (다른 id가 `aaaa` 를 쓰면 임시 username 으로 비움)
- * - test_users: 동일 id upsert (있을 때만)
+ * - profiles: 동일 id에 username `aaaa` (non-privileged role/is_admin — Admin SSOT is membership)
+ * - admin_memberships: active super_admin for the same UUID
+ * - test_users: legacy QA display row (not Admin authority)
  *
  * 필요: .env.local 의 NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY
  * 실행: node scripts/ensure-e2e-aaaa-manual-auth.mjs
@@ -139,6 +140,7 @@ async function main() {
   }
 
   const nowIso = new Date().toISOString();
+  // Profile = Person row only (non-privileged). Admin authority = admin_memberships.
   const profilePayload = {
     id: uid,
     email: EMAIL,
@@ -146,11 +148,11 @@ async function main() {
     username: LOGIN_ID,
     nickname: "메인관리자",
     display_name: "메인관리자",
-    role: "super_admin",
-    member_type: "admin",
+    role: "user",
+    member_type: "normal",
     auth_provider: "admin_manual",
     provider: "admin_manual",
-    is_admin: true,
+    is_admin: false,
     phone_verified: true,
     phone_verification_status: "verified",
     status: "verified_user",
@@ -160,6 +162,46 @@ async function main() {
 
   const { error: profErr } = await sb.from("profiles").upsert(profilePayload, { onConflict: "id" });
   if (profErr) throw new Error(`profiles upsert: ${profErr.message}`);
+
+  let membershipNote = "admin_memberships skipped";
+  const { data: activeMembership } = await sb
+    .from("admin_memberships")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("status", "active")
+    .maybeSingle();
+  if (activeMembership?.id) {
+    const { error: memUpErr } = await sb
+      .from("admin_memberships")
+      .update({
+        role: "super_admin",
+        admin_tier: null,
+        bootstrap_seed: true,
+        revoked_at: null,
+        revoked_by: null,
+        revoke_reason: null,
+        updated_at: nowIso,
+      })
+      .eq("id", activeMembership.id);
+    membershipNote = memUpErr
+      ? `admin_memberships update failed: ${memUpErr.message}`
+      : "admin_memberships updated super_admin";
+  } else {
+    const { error: memInsErr } = await sb.from("admin_memberships").insert({
+      user_id: uid,
+      role: "super_admin",
+      status: "active",
+      admin_tier: null,
+      granted_at: nowIso,
+      granted_by: null,
+      bootstrap_seed: true,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+    membershipNote = memInsErr
+      ? `admin_memberships insert failed: ${memInsErr.message}`
+      : "admin_memberships inserted super_admin";
+  }
 
   const { error: tuUpsertErr } = await sb.from("test_users").upsert(
     {
@@ -171,7 +213,7 @@ async function main() {
     },
     { onConflict: "id" }
   );
-  const testUsersNote = tuUpsertErr ? `test_users skipped: ${tuUpsertErr.message}` : "test_users upserted";
+  const testUsersNote = tuUpsertErr ? `test_users skipped: ${tuUpsertErr.message}` : "test_users upserted (legacy QA debt)";
 
   const { data: profCheck } = await sb.from("profiles").select("id, email, username, auth_login_email").eq("id", uid).maybeSingle();
   const { data: authCheck } = await sb.auth.admin.getUserById(uid);
@@ -188,6 +230,7 @@ async function main() {
         authPasswordSkippedValid: passwordSkippedAlreadyValid,
         profilesRow: profCheck,
         usernameConflictsRenamed: renamed,
+        membership: membershipNote,
         testUsers: testUsersNote,
       },
       null,
