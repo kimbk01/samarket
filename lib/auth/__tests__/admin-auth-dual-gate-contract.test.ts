@@ -48,7 +48,7 @@ describe("admin-policy role normalization", () => {
   });
 });
 
-describe("isRouteAdmin ↔ requireAdmin CURRENT dual-read", () => {
+describe("isRouteAdmin ↔ requireAdmin membership-only", () => {
   beforeEach(() => {
     getRouteUserIdMock.mockReset();
     validateActiveSessionMock.mockReset();
@@ -57,13 +57,13 @@ describe("isRouteAdmin ↔ requireAdmin CURRENT dual-read", () => {
     membershipOrLegacyMock.mockClear();
   });
 
-  it("source: isRouteAdmin uses CURRENT helper — no secondary stores client", () => {
+  it("source: isRouteAdmin uses membership helper — no secondary stores client", () => {
     const src = readFileSync(resolve(process.cwd(), "lib/auth/is-route-admin.ts"), "utf8");
     expect(src).not.toMatch(/from ["']@\/lib\/stores\/try-supabase-stores["']/);
     expect(src).not.toMatch(/from ["']@\/lib\/chat\/supabase-server["']/);
     expect(src).toMatch(/validateActiveSession/);
     expect(src).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
-    expect(src).toMatch(/isPrivilegedAdminRole/);
+    expect(src).not.toMatch(/isPrivilegedAdminRole/);
   });
 
   it("source: requireAdminApiUser chains requireAuth → validateActiveSession → requireAdmin", () => {
@@ -73,13 +73,14 @@ describe("isRouteAdmin ↔ requireAdmin CURRENT dual-read", () => {
     expect(src).toMatch(/requireAdmin/);
   });
 
-  it("source: requireAdmin uses CURRENT dual-read helper", () => {
+  it("source: requireAdmin uses membership-only helper", () => {
     const src = readFileSync(resolve(process.cwd(), "lib/auth/server-guards.ts"), "utf8");
     const idx = src.indexOf("export async function requireAdmin");
     expect(idx).toBeGreaterThan(-1);
     const snippet = src.slice(idx, idx + 800);
     expect(snippet).toMatch(/getCurrentProfile/);
     expect(snippet).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    expect(snippet).not.toMatch(/isPrivilegedAdminRole\(profile\.role\)/);
   });
 
   it("unauthenticated → false", async () => {
@@ -98,7 +99,7 @@ describe("isRouteAdmin ↔ requireAdmin CURRENT dual-read", () => {
     await expect(isRouteAdmin()).resolves.toBe(false);
   });
 
-  it("membership-only admin → true (CURRENT)", async () => {
+  it("membership-only admin → true", async () => {
     getRouteUserIdMock.mockResolvedValue("user-2");
     validateActiveSessionMock.mockResolvedValue({
       ok: true,
@@ -110,19 +111,22 @@ describe("isRouteAdmin ↔ requireAdmin CURRENT dual-read", () => {
     expect(membershipOrLegacyMock).toHaveBeenCalled();
   });
 
-  it("super_admin / master mapping → true (deterministic)", async () => {
+  it("legacy privileged profile alone → false without membership", async () => {
     getRouteUserIdMock.mockResolvedValue("admin-1");
     validateActiveSessionMock.mockResolvedValue({
       ok: true,
       profile: { id: "admin-1", role: "super_admin" } as never,
     });
-    await expect(isRouteAdmin()).resolves.toBe(true);
+    tryCreateSbMock.mockReturnValue({} as never);
+    membershipOrLegacyMock.mockResolvedValue(false);
+    await expect(isRouteAdmin()).resolves.toBe(false);
 
     validateActiveSessionMock.mockResolvedValue({
       ok: true,
       profile: { id: "admin-1", role: "master" } as never,
     });
-    await expect(isRouteAdmin()).resolves.toBe(true);
+    membershipOrLegacyMock.mockResolvedValue(false);
+    await expect(isRouteAdmin()).resolves.toBe(false);
   });
 
   it("invalid session → false", async () => {

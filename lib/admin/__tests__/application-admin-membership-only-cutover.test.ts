@@ -7,7 +7,7 @@ import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 type Case = {
   name: string;
   profileRole: string | null;
-  membership: { role: "admin" | "super_admin"; status: "active" | "revoked" } | null;
+  membership: { role: "admin" | "super_admin"; status: "active" | "revoked" | "suspended" } | null;
   expectAllow: boolean;
 };
 
@@ -80,78 +80,91 @@ function mockSb(opts: {
 
 const MATRIX: Case[] = [
   {
-    name: "A legacy super_admin, no membership → DENY",
-    profileRole: "super_admin",
-    membership: null,
-    expectAllow: false,
-  },
-  {
-    name: "B membership-only admin",
+    name: "A membership-only admin",
     profileRole: "user",
     membership: { role: "admin", status: "active" },
     expectAllow: true,
   },
   {
-    name: "C membership-only super_admin",
+    name: "B membership-only super_admin",
     profileRole: "user",
     membership: { role: "super_admin", status: "active" },
     expectAllow: true,
   },
   {
-    name: "D revoked membership, non-privileged role",
-    profileRole: "user",
-    membership: { role: "admin", status: "revoked" },
+    name: "C legacy-role-only admin",
+    profileRole: "admin",
+    membership: null,
     expectAllow: false,
   },
   {
-    name: "E store-owner-like profile (user role only)",
+    name: "D legacy-role-only super_admin",
+    profileRole: "super_admin",
+    membership: null,
+    expectAllow: false,
+  },
+  {
+    name: "E inactive membership + privileged profile",
+    profileRole: "admin",
+    membership: { role: "admin", status: "suspended" },
+    expectAllow: false,
+  },
+  {
+    name: "F store owner only",
     profileRole: "user",
     membership: null,
     expectAllow: false,
   },
   {
-    name: "F normal member",
+    name: "G normal member",
     profileRole: "user",
     membership: null,
     expectAllow: false,
   },
 ];
 
-describe("ADMIN AUTHORITY — Application membership-only (post App fallback cutover)", () => {
-  it.each(MATRIX)("$name → allow=$expectAllow (skew=0 across readers)", async (c) => {
+describe("APPLICATION ADMIN AUTHORITY — membership-only matrix", () => {
+  it.each(MATRIX)("$name → allow=$expectAllow (App/DB skew=0)", async (c) => {
     const sb = mockSb({ profileRole: c.profileRole, membership: c.membership });
     const effective = await resolveEffectiveAdminRole(sb, "u1", c.profileRole);
     const allow = isPrivilegedAdminRole(effective);
-
     expect(allow).toBe(c.expectAllow);
 
     const effectiveDb = await resolveEffectiveAdminRole(sb, "u1");
     expect(isPrivilegedAdminRole(effectiveDb)).toBe(c.expectAllow);
   });
 
-  it("source: isRouteAdmin / platform-admin-db / staff list share membership helper", () => {
-    const route = readFileSync(join(process.cwd(), "lib/auth/is-route-admin.ts"), "utf8");
-    const platform = readFileSync(join(process.cwd(), "lib/admin/platform-admin-db.ts"), "utf8");
-    const staff = readFileSync(join(process.cwd(), "app/api/admin/staff/route.ts"), "utf8");
-    const guards = readFileSync(join(process.cwd(), "lib/auth/server-guards.ts"), "utf8");
-
-    expect(route).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
-    expect(platform).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
-    expect(guards).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
-    expect(staff).toMatch(/admin_memberships/);
-    expect(staff).toMatch(/status.*active|eq\("status", "active"\)/);
-    expect(route).not.toMatch(/tryGetSupabaseForStores|try-supabase-stores/);
+  it("source: resolveEffectiveAdminRole has no profiles.role fallback", () => {
+    const src = readFileSync(join(process.cwd(), "lib/admin/admin-membership.ts"), "utf8");
+    const start = src.indexOf("export async function resolveEffectiveAdminRole");
+    const end = src.indexOf("export async function hasActiveAdminMembershipOrLegacyRole");
+    const body = src.slice(start, end);
+    expect(body).toMatch(/loadActiveAdminMembership/);
+    expect(body).not.toMatch(/from\("profiles"\)/);
+    expect(body).not.toMatch(/isPrivilegedAdminRole\(profileRole\)/);
   });
 
-  it("source: bootstrap upserts membership for resolved UUID — alias is not authority", () => {
-    const sql = readFileSync(
-      join(process.cwd(), "supabase/scripts/bootstrap-aaaa-master-admin.sql"),
-      "utf8"
+  it("source: requireAdmin / isRouteAdmin / requireAdminApiActor membership-only", () => {
+    const guards = readFileSync(join(process.cwd(), "lib/auth/server-guards.ts"), "utf8");
+    const route = readFileSync(join(process.cwd(), "lib/auth/is-route-admin.ts"), "utf8");
+    const actor = readFileSync(join(process.cwd(), "lib/admin/require-admin-permission.ts"), "utf8");
+    const requireAdmin = guards.slice(
+      guards.indexOf("export async function requireAdmin"),
+      guards.indexOf("export async function requireAdmin") + 900
     );
-    expect(sql).toMatch(/admin_memberships/);
-    expect(sql).toMatch(/bootstrap_seed/);
-    expect(sql).toMatch(/super_admin/);
-    expect(sql).toMatch(/aaaa@manual\.local/);
-    expect(sql).not.toMatch(/username\s*=\s*'aaaa'\s*.*admin|IF\s+.*aaaa.*THEN.*super_admin/i);
+    expect(requireAdmin).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    expect(requireAdmin).not.toMatch(/isPrivilegedAdminRole\(profile\.role\)/);
+    expect(route).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    expect(route).not.toMatch(/isPrivilegedAdminRole/);
+    expect(actor).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
+    expect(actor).not.toMatch(/isPrivilegedAdminRole\(profile\.role\)/);
+  });
+
+  it("source: staff GET is membership-only (no privileged role union)", () => {
+    const staff = readFileSync(join(process.cwd(), "app/api/admin/staff/route.ts"), "utf8");
+    const getStart = staff.indexOf("export async function GET");
+    const getBody = staff.slice(getStart, staff.indexOf("export async function POST"));
+    expect(getBody).toMatch(/admin_memberships/);
+    expect(getBody).not.toMatch(/\.in\("role",\s*\["admin", "super_admin", "master"\]\)/);
   });
 });

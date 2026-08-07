@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getCurrentProfile } from "@/lib/auth/server-guards";
-import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import {
   hasActiveAdminMembershipOrLegacyRole,
   loadActiveAdminMembership,
@@ -53,10 +53,8 @@ export async function requireAdminApiActor(): Promise<
     };
   }
 
-  // PHASE E dual-read: profiles.role OR active admin_memberships
-  const privileged =
-    isPrivilegedAdminRole(profile.role) ||
-    (await hasActiveAdminMembershipOrLegacyRole(sb, admin.userId, profile.role).catch(() => false));
+  // Application authority: active admin_memberships ONLY
+  const privileged = await hasActiveAdminMembershipOrLegacyRole(sb, admin.userId).catch(() => false);
   if (!privileged) {
     return {
       ok: false,
@@ -65,9 +63,13 @@ export async function requireAdminApiActor(): Promise<
   }
 
   const membership = await loadActiveAdminMembership(sb, admin.userId).catch(() => null);
-  const effectiveRole =
-    (await resolveEffectiveAdminRole(sb, admin.userId, profile.role).catch(() => null)) ??
-    normalizeAdminRole(profile.role);
+  const effectiveRole = await resolveEffectiveAdminRole(sb, admin.userId).catch(() => null);
+  if (!effectiveRole || !isPrivilegedAdminRole(effectiveRole)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: "admin_only" }, { status: 403 }),
+    };
+  }
   const isSuperAdmin = isSuperAdminRole(effectiveRole);
   const adminTier =
     membership?.admin_tier ?? (profile as { admin_tier?: string | null }).admin_tier ?? null;

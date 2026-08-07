@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { isPrivilegedAdminAuthority, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
@@ -586,10 +586,10 @@ export async function loadMemberAccessState(
     fallbackId: userId,
   });
   const role = normalizeMemberRole(pickTrimmed(profile?.role) ?? "user");
-  const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, userId, role).catch(() => false);
+  const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, userId).catch(() => false);
   const memberType =
     pickTrimmed(profile?.member_type) ??
-    (privilegedAdmin || isPrivilegedAdminRole(role) ? "admin" : "normal");
+    (privilegedAdmin ? "admin" : "normal");
   const status = normalizeMemberStatus(pickTrimmed(profile?.status));
   const phoneCountryCode = pickTrimmed((profile as { phone_country_code?: string | null } | null)?.phone_country_code) ?? "+63";
   const phoneNumber = pickTrimmed((profile as { phone_number?: string | null } | null)?.phone_number);

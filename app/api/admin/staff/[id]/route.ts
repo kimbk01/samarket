@@ -14,7 +14,7 @@ import {
 } from "@/lib/admin/admin-membership";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
-import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,10 +58,9 @@ export async function PATCH(
   }
 
   const profileRoleRaw = (profile as { role?: string }).role ?? null;
-  const effectiveRole =
-    (await resolveEffectiveAdminRole(sb, staffId, profileRoleRaw).catch(() => null)) ??
-    normalizeAdminRole(profileRoleRaw);
-  if (!isPrivilegedAdminRole(effectiveRole)) {
+  void profileRoleRaw;
+  const effectiveRole = await resolveEffectiveAdminRole(sb, staffId).catch(() => null);
+  if (!effectiveRole || !isPrivilegedAdminRole(effectiveRole)) {
     return NextResponse.json({ ok: false, error: "not_staff" }, { status: 400 });
   }
   if (isSuperAdminRole(effectiveRole) && body.role && body.role !== "master") {
@@ -147,9 +146,7 @@ export async function DELETE(
   if (!profile) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  const deleteEffective =
-    (await resolveEffectiveAdminRole(sb, staffId, (profile as { role?: string }).role).catch(() => null)) ??
-    normalizeAdminRole((profile as { role?: string }).role);
+  const deleteEffective = await resolveEffectiveAdminRole(sb, staffId).catch(() => null);
   if (isSuperAdminRole(deleteEffective)) {
     return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
   }

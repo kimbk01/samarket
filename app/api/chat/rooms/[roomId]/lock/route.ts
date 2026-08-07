@@ -3,7 +3,7 @@
  * Body: { adminId?, reason? } — 관리자 권한 필요
  */
 import { NextRequest, NextResponse } from "next/server";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -32,13 +32,8 @@ export async function POST(
   }
 
   const sbAny = sb;
-  const { data: profile } = await sbAny
-    .from("profiles")
-    .select("role")
-    .eq("id", adminId)
-    .maybeSingle();
-  const role = (profile as { role?: string } | null)?.role;
-  if (!isPrivilegedAdminRole(role)) {
+  const isAdmin = await hasActiveAdminMembershipOrLegacyRole(sbAny as never, adminId).catch(() => false);
+  if (!isAdmin) {
     return NextResponse.json({ ok: false, error: "관리자만 잠금할 수 있습니다." }, { status: 403 });
   }
 

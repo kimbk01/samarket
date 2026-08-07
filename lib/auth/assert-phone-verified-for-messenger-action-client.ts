@@ -1,6 +1,5 @@
 "use client";
 
-import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
@@ -8,18 +7,14 @@ import type { Profile } from "@/lib/types/profile";
 
 /**
  * Client phone gate — no new membership query.
- * Admin exemption trusts server Profile snapshot:
- * - transitional privileged `role`, or
- * - `is_admin === true` affirmative from server (dual-write / CURRENT privilege mirror).
- * Does not use NEXT_PUBLIC_ADMIN_ROLE / localStorage / username / email.
+ * Application cutover: do NOT treat profiles.role / is_admin mirror as Admin exemption.
+ * Server routes enforce membership-only exemption; client denies-by-default for admin bypass.
  */
 export function clientProfilePassesPhoneVerification(user: Profile | null | undefined): boolean {
   if (!user?.id) return false;
-  const privilegedAdmin = user.is_admin === true ? true : undefined;
-  if (isPrivilegedAdminAuthority({ role: user.role, privilegedAdmin })) return true;
   return hasPhilippinePhoneVerification({
     role: user.role,
-    privilegedAdmin,
+    privilegedAdmin: false,
     phone_verified: user.phone_verified === true,
     phone_verified_at: user.phone_verified_at ?? null,
     provider: user.provider ?? user.auth_provider,

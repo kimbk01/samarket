@@ -2,8 +2,8 @@
  * Admin Membership SSOT helpers — PHASE E.1
  * Contract: docs/dibay-member-auth-phase-d-structure-design.md §1
  *
- * Dual-read window: active membership OR transitional profiles.role.
- * Writers must upsert membership when granting/revoking admin (and keep profiles.role in sync until cutover).
+ * Application authority (readers): active admin_memberships ONLY.
+ * Writers still dual-write profiles.role / is_admin until the dual-write cutover.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -54,32 +54,37 @@ export async function loadActiveAdminMembership(
   return (data as AdminMembershipRow | null) ?? null;
 }
 
-/** Dual-read: membership first, else transitional profiles.role */
+/**
+ * Application effective admin role = active membership role only.
+ * `profileRole` is ignored (kept for call-site compatibility; not an authority fallback).
+ */
 export async function resolveEffectiveAdminRole(
   sb: SupabaseClient,
   userId: string,
   profileRole?: string | null
 ): Promise<string | null> {
+  void profileRole;
   const membership = await loadActiveAdminMembership(sb, userId).catch(() => null);
-  if (membership) {
-    return normalizeAdminRole(membership.role);
-  }
-  if (profileRole !== undefined) {
-    return isPrivilegedAdminRole(profileRole) ? normalizeAdminRole(profileRole) : null;
-  }
-  const { data } = await sb.from("profiles").select("role").eq("id", userId).maybeSingle();
-  const role = (data as { role?: string } | null)?.role ?? null;
-  return isPrivilegedAdminRole(role) ? normalizeAdminRole(role) : null;
+  if (!membership) return null;
+  return normalizeAdminRole(membership.role);
 }
 
+/**
+ * Application Admin allow/deny — membership-only.
+ * Name retained to avoid a wide rename; legacy profiles.role is not consulted.
+ */
 export async function hasActiveAdminMembershipOrLegacyRole(
   sb: SupabaseClient,
   userId: string,
   profileRole?: string | null
 ): Promise<boolean> {
-  const effective = await resolveEffectiveAdminRole(sb, userId, profileRole);
+  void profileRole;
+  const effective = await resolveEffectiveAdminRole(sb, userId);
   return isPrivilegedAdminRole(effective);
 }
+
+/** Explicit alias — same membership-only formula. */
+export const hasActiveAdminMembership = hasActiveAdminMembershipOrLegacyRole;
 
 export async function countActiveSuperAdmins(sb: SupabaseClient): Promise<number> {
   const { count, error } = await sb

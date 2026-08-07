@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
@@ -784,10 +784,8 @@ export async function PATCH(
   const actorIsMaster = actor.isSuperAdmin || (await loadActorIsMaster(sb, actor.userId));
   const profileRoleRaw = (profile as { role?: string }).role ?? null;
 
-  // Non-master cannot target super_admin accounts (existing Users PATCH policy)
-  const targetEffective =
-    (await resolveEffectiveAdminRole(sb, userId, profileRoleRaw).catch(() => null)) ??
-    normalizeAdminRole(profileRoleRaw);
+  // Non-master cannot target super_admin memberships (Users PATCH policy)
+  const targetEffective = await resolveEffectiveAdminRole(sb, userId).catch(() => null);
   if (isSuperAdminRole(targetEffective) && !actorIsMaster) {
     return NextResponse.json({ ok: false, error: "forbidden_master_target" }, { status: 403 });
   }

@@ -80,7 +80,7 @@ export async function GET() {
 
   const { sb } = gate;
 
-  // CURRENT: active memberships ∪ transitional privileged profiles.role
+  // CURRENT: active admin_memberships only (legacy privileged profiles.role alone is not Staff)
   let memberships: MembershipLite[] = [];
   const { data: membershipData, error: membershipErr } = await sb
     .from("admin_memberships")
@@ -98,33 +98,17 @@ export async function GET() {
   );
   const membershipUserIds = [...membershipByUser.keys()];
 
-  const { data: roleRows, error: roleErr } = await sb
-    .from("profiles")
-    .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
-    .in("role", ["admin", "super_admin", "master"])
-    .order("created_at", { ascending: false });
-  if (roleErr) {
-    return NextResponse.json({ ok: false, error: roleErr.message }, { status: 500 });
-  }
-
   const byId = new Map<string, StaffRow>();
-  for (const row of (roleRows ?? []) as StaffRow[]) {
-    byId.set(row.id, row);
-  }
-
   if (membershipUserIds.length > 0) {
-    const missingIds = membershipUserIds.filter((id) => !byId.has(id));
-    if (missingIds.length > 0) {
-      const { data: membershipProfiles, error: mpErr } = await sb
-        .from("profiles")
-        .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
-        .in("id", missingIds);
-      if (mpErr) {
-        return NextResponse.json({ ok: false, error: mpErr.message }, { status: 500 });
-      }
-      for (const row of (membershipProfiles ?? []) as StaffRow[]) {
-        byId.set(row.id, row);
-      }
+    const { data: membershipProfiles, error: mpErr } = await sb
+      .from("profiles")
+      .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
+      .in("id", membershipUserIds);
+    if (mpErr) {
+      return NextResponse.json({ ok: false, error: mpErr.message }, { status: 500 });
+    }
+    for (const row of (membershipProfiles ?? []) as StaffRow[]) {
+      byId.set(row.id, row);
     }
   }
 
@@ -135,8 +119,8 @@ export async function GET() {
   const adminIds = rows
     .filter((row) => {
       const m = membershipByUser.get(row.id);
-      const effective = m?.role ?? row.role;
-      return normalizeAdminRole(effective) !== "super_admin";
+      const effective = m?.role;
+      return effective && normalizeAdminRole(effective) !== "super_admin";
     })
     .map((row) => row.id);
   const permMap = await loadStaffPermissionsMap(sb, adminIds).catch(
@@ -144,7 +128,7 @@ export async function GET() {
   );
   const staff = rows.map((row) => {
     const m = membershipByUser.get(row.id);
-    const effectiveRole = m?.role ?? row.role;
+    const effectiveRole = m?.role ?? null;
     const adminTier = m?.admin_tier ?? null;
     const uiRole = adminTierToUiRole(adminTier, effectiveRole);
     const perms =

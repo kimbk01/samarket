@@ -1,4 +1,4 @@
-/** 관리자 정책은 공개 env·클라이언트 저장값이 아니라 서버의 Admin Membership(과도기: profiles.role) 기준으로만 판단한다. */
+/** 관리자 정책은 공개 env·클라이언트 저장값이 아니라 서버의 Admin Membership 기준으로만 판단한다. */
 
 /** 관리자 라우트는 모든 환경에서 서버 검증을 강제한다. */
 export function isAdminRequireAuthEnabled(): boolean {
@@ -21,6 +21,7 @@ export function normalizeAdminRole(role: string | null | undefined): string {
   return normalized;
 }
 
+/** Role token classifier only — not Application allow/deny by itself. */
 export function isPrivilegedAdminRole(role: string | null | undefined): boolean {
   const r = normalizeAdminRole(role);
   return r === "admin" || r === "super_admin";
@@ -28,9 +29,9 @@ export function isPrivilegedAdminRole(role: string | null | undefined): boolean 
 
 /**
  * Sync product-gate exemption facts.
- * Prefer `privilegedAdmin` already resolved by CURRENT dual-read
- * (`hasActiveAdminMembershipOrLegacyRole`). When unset, fall back to transitional
- * `profiles.role` only — never invent client-side membership queries here.
+ * `privilegedAdmin` must already be resolved from active admin_memberships
+ * (via `hasActiveAdminMembershipOrLegacyRole` / server snapshot).
+ * DO NOT fall back to profiles.role or invent client-side membership queries.
  */
 export type PrivilegedAdminAuthorityFacts = {
   role?: string | null;
@@ -39,15 +40,24 @@ export type PrivilegedAdminAuthorityFacts = {
 
 export function isPrivilegedAdminAuthority(facts: PrivilegedAdminAuthorityFacts): boolean {
   if (typeof facts.privilegedAdmin === "boolean") return facts.privilegedAdmin;
-  return isPrivilegedAdminRole(facts.role);
+  // No profiles.role fallback — unset privilegedAdmin means not admin for authorization.
+  void facts.role;
+  return false;
 }
 
+/**
+ * Client/UI helper — does not treat profiles.role or is_admin mirror as allow.
+ * Pass `privilegedAdmin` from a server-derived membership fact when available.
+ */
 export function isAdminUser(
-  user: { role?: string | null; is_admin?: boolean | null } | null
+  user: { role?: string | null; is_admin?: boolean | null; privilegedAdmin?: boolean | null } | null
 ): boolean {
   if (!user) return false;
-  return isPrivilegedAdminAuthority({
-    role: user.role,
-    privilegedAdmin: user.is_admin === true ? true : undefined,
-  });
+  if (typeof user.privilegedAdmin === "boolean") {
+    return user.privilegedAdmin;
+  }
+  // Dual-write mirror (is_admin / role) is not Application authority.
+  void user.role;
+  void user.is_admin;
+  return false;
 }

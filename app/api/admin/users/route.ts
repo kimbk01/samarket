@@ -74,14 +74,10 @@ function resolveAdminAccountCategory(
   row: Pick<ProfileRow, "role" | "member_type">,
   opts?: { storeCount?: number; hasAdminMembership?: boolean },
 ): AdminAccountCategory {
-  const role = normalizeRoleToken(row.role);
-  if (
-    opts?.hasAdminMembership === true ||
-    role === "admin" ||
-    role === "master" ||
-    role === "super_admin" ||
-    role === "staff"
-  ) {
+  // Admin relationship = active admin_memberships only (profiles.role is presentation/history)
+  void row.role;
+  void row.member_type;
+  if (opts?.hasAdminMembership === true) {
     return "admin";
   }
   // Store ownership SSOT = stores.owner_user_id (PHASE C/D) — never invent via profiles.role
