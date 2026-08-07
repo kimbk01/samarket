@@ -8,11 +8,14 @@ import {
   replaceStaffPermissions,
   uiRoleToAdminTier,
 } from "@/lib/admin/admin-user-server";
-import { upsertActiveAdminMembership } from "@/lib/admin/admin-membership";
+import {
+  hasActiveAdminMembershipOrLegacyRole,
+  upsertActiveAdminMembership,
+} from "@/lib/admin/admin-membership";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
-import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,9 +32,22 @@ type StaffRow = {
   created_at: string | null;
 };
 
+type MembershipLite = {
+  user_id: string;
+  role: string;
+  admin_tier: string | null;
+};
+
+function isMissingMembershipTable(message: string | undefined): boolean {
+  const m = String(message ?? "").toLowerCase();
+  return m.includes("admin_memberships") && (m.includes("does not exist") || m.includes("schema cache"));
+}
+
 function mapStaffRow(
   row: StaffRow,
-  permissions: AdminPermissionKey[]
+  permissions: AdminPermissionKey[],
+  effectiveRole: string | null,
+  adminTier: string | null
 ): {
   id: string;
   loginId: string;
@@ -46,7 +62,7 @@ function mapStaffRow(
     String(row.email ?? "").split("@")[0] ||
     row.id;
   const displayName = String(row.nickname ?? row.display_name ?? loginId);
-  const uiRole = adminTierToUiRole(null, row.role);
+  const uiRole = adminTierToUiRole(adminTier, effectiveRole);
   return {
     id: row.id,
     loginId,
@@ -63,32 +79,81 @@ export async function GET() {
   if (!gate.ok) return gate.response;
 
   const { sb } = gate;
-  const { data, error } = await sb
+
+  // CURRENT: active memberships ∪ transitional privileged profiles.role
+  let memberships: MembershipLite[] = [];
+  const { data: membershipData, error: membershipErr } = await sb
+    .from("admin_memberships")
+    .select("user_id, role, admin_tier")
+    .eq("status", "active");
+  if (membershipErr) {
+    if (!isMissingMembershipTable(membershipErr.message)) {
+      return NextResponse.json({ ok: false, error: membershipErr.message }, { status: 500 });
+    }
+  } else {
+    memberships = (membershipData ?? []) as MembershipLite[];
+  }
+  const membershipByUser = new Map(
+    memberships.map((m) => [String(m.user_id), m] as const)
+  );
+  const membershipUserIds = [...membershipByUser.keys()];
+
+  const { data: roleRows, error: roleErr } = await sb
     .from("profiles")
     .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
-    .in("role", ["admin", "super_admin"])
+    .in("role", ["admin", "super_admin", "master"])
     .order("created_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (roleErr) {
+    return NextResponse.json({ ok: false, error: roleErr.message }, { status: 500 });
   }
 
-  const rows = (data ?? []) as StaffRow[];
+  const byId = new Map<string, StaffRow>();
+  for (const row of (roleRows ?? []) as StaffRow[]) {
+    byId.set(row.id, row);
+  }
+
+  if (membershipUserIds.length > 0) {
+    const missingIds = membershipUserIds.filter((id) => !byId.has(id));
+    if (missingIds.length > 0) {
+      const { data: membershipProfiles, error: mpErr } = await sb
+        .from("profiles")
+        .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
+        .in("id", missingIds);
+      if (mpErr) {
+        return NextResponse.json({ ok: false, error: mpErr.message }, { status: 500 });
+      }
+      for (const row of (membershipProfiles ?? []) as StaffRow[]) {
+        byId.set(row.id, row);
+      }
+    }
+  }
+
+  const rows = [...byId.values()].sort((a, b) =>
+    String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+  );
+
   const adminIds = rows
-    .filter((row) => normalizeAdminRole(row.role) !== "super_admin")
+    .filter((row) => {
+      const m = membershipByUser.get(row.id);
+      const effective = m?.role ?? row.role;
+      return normalizeAdminRole(effective) !== "super_admin";
+    })
     .map((row) => row.id);
   const permMap = await loadStaffPermissionsMap(sb, adminIds).catch(
     () => new Map<string, AdminPermissionKey[]>()
   );
   const staff = rows.map((row) => {
-    const uiRole = adminTierToUiRole(null, row.role);
+    const m = membershipByUser.get(row.id);
+    const effectiveRole = m?.role ?? row.role;
+    const adminTier = m?.admin_tier ?? null;
+    const uiRole = adminTierToUiRole(adminTier, effectiveRole);
     const perms =
-      normalizeAdminRole(row.role) === "super_admin"
+      normalizeAdminRole(effectiveRole) === "super_admin"
         ? defaultPermissionsForUiRole("master")
         : permMap.get(row.id)?.length
           ? (permMap.get(row.id) as AdminPermissionKey[])
           : defaultPermissionsForUiRole(uiRole);
-    return mapStaffRow(row, perms);
+    return mapStaffRow(row, perms, effectiveRole, adminTier);
   });
 
   return NextResponse.json({ ok: true, staff });
@@ -124,7 +189,12 @@ export async function POST(req: NextRequest) {
     if (!profile) {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
-    if (isPrivilegedAdminRole((profile as { role?: string }).role)) {
+    const alreadyAdmin = await hasActiveAdminMembershipOrLegacyRole(
+      sb,
+      existingUserId,
+      (profile as { role?: string }).role
+    ).catch(() => false);
+    if (alreadyAdmin) {
       return NextResponse.json({ ok: false, error: "already_admin" }, { status: 400 });
     }
 

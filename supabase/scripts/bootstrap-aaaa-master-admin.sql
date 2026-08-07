@@ -1,14 +1,21 @@
--- 메인 테스트 관리자: 로그인(/login) 아이디 aaaa / 1234 + 관리자 권한
+-- Bootstrap Master (procedure): ensure first Super Admin for the resolved UUID.
 --
 -- 런타임: 아이디 `aaaa` → `aaaa@manual.local` (`lib/auth/manual-member-email.ts` + resolve-identifier).
 -- 이 스크립트는 **이미 존재하는** `auth.users` 행(이메일 `aaaa@manual.local`)의 `id`를 찾아
--- `profiles` / `test_users` 만 맞춥니다. UUID를 손으로 붙여넣을 필요가 없습니다.
+-- `profiles` / `admin_memberships` / `test_users` 를 맞춥니다.
+--
+-- Authority:
+--   aaaa string = login alias only (NOT privilege)
+--   UUID        = Person identity
+--   admin_memberships (active, super_admin) = Admin relation TARGET
+--   profiles.role = transitional compatibility mirror
 --
 -- 먼저 Auth 사용자가 없으면:
 --   `npm run e2e:ensure-aaaa-manual-auth`
 --   또는 Dashboard → Authentication → Users 에서 `aaaa@manual.local` 생성
 --
 -- 실행: Supabase SQL Editor 에서 전체 실행
+-- Idempotent: 반복 실행해도 active membership 중복 생성 없음 · 다른 UUID 권한 변경 없음
 
 DO $$
 DECLARE
@@ -72,6 +79,52 @@ BEGIN
     status = EXCLUDED.status,
     member_status = EXCLUDED.member_status,
     updated_at = now();
+
+  -- CURRENT Admin relation: same UUID → active super_admin membership
+  IF to_regclass('public.admin_memberships') IS NOT NULL THEN
+    UPDATE public.admin_memberships
+    SET
+      role = 'super_admin',
+      status = 'active',
+      admin_tier = NULL,
+      bootstrap_seed = true,
+      revoked_at = NULL,
+      revoked_by = NULL,
+      revoke_reason = NULL,
+      updated_at = timezone('utc', now())
+    WHERE user_id = uid
+      AND status = 'active';
+
+    IF NOT FOUND THEN
+      INSERT INTO public.admin_memberships (
+        user_id,
+        role,
+        status,
+        admin_tier,
+        granted_at,
+        granted_by,
+        bootstrap_seed,
+        created_at,
+        updated_at
+      )
+      SELECT
+        uid,
+        'super_admin',
+        'active',
+        NULL,
+        timezone('utc', now()),
+        NULL,
+        true,
+        timezone('utc', now()),
+        timezone('utc', now())
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.admin_memberships m
+        WHERE m.user_id = uid
+          AND m.status = 'active'
+      );
+    END IF;
+  END IF;
 
   INSERT INTO public.test_users (id, username, password, role, display_name)
   VALUES (uid, 'aaaa', '1234', 'master', '메인관리자')

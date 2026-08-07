@@ -7,10 +7,14 @@ import {
   replaceStaffPermissions,
   uiRoleToAdminTier,
 } from "@/lib/admin/admin-user-server";
-import { revokeActiveAdminMembership, upsertActiveAdminMembership } from "@/lib/admin/admin-membership";
+import {
+  resolveEffectiveAdminRole,
+  revokeActiveAdminMembership,
+  upsertActiveAdminMembership,
+} from "@/lib/admin/admin-membership";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
-import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,11 +57,14 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const profileRole = normalizeAdminRole((profile as { role?: string }).role);
-  if (!isSuperAdminRole(profileRole) && profileRole !== "admin") {
+  const profileRoleRaw = (profile as { role?: string }).role ?? null;
+  const effectiveRole =
+    (await resolveEffectiveAdminRole(sb, staffId, profileRoleRaw).catch(() => null)) ??
+    normalizeAdminRole(profileRoleRaw);
+  if (!isPrivilegedAdminRole(effectiveRole)) {
     return NextResponse.json({ ok: false, error: "not_staff" }, { status: 400 });
   }
-  if (isSuperAdminRole(profileRole) && body.role && body.role !== "master") {
+  if (isSuperAdminRole(effectiveRole) && body.role && body.role !== "master") {
     return NextResponse.json({ ok: false, error: "cannot_demote_super_admin" }, { status: 400 });
   }
 
@@ -67,7 +74,7 @@ export async function PATCH(
     patch.nickname = name;
     patch.display_name = name;
   }
-  if (body.role && !isSuperAdminRole(profileRole)) {
+  if (body.role && !isSuperAdminRole(effectiveRole)) {
     if (body.role === "master") {
       return NextResponse.json({ ok: false, error: "cannot_promote_to_super_admin" }, { status: 400 });
     }
@@ -102,7 +109,7 @@ export async function PATCH(
     }
   }
 
-  if (body.permissions && !isSuperAdminRole(profileRole)) {
+  if (body.permissions && !isSuperAdminRole(effectiveRole)) {
     await replaceStaffPermissions(sb, staffId, body.permissions, actor.userId);
   }
 
@@ -115,7 +122,7 @@ export async function PATCH(
     after_json: { ...patch, permissions: body.permissions },
   });
 
-  const permissions = isSuperAdminRole(profileRole)
+  const permissions = isSuperAdminRole(effectiveRole)
     ? []
     : body.permissions ?? (await loadStaffPermissionKeys(sb, staffId));
 
@@ -140,7 +147,10 @@ export async function DELETE(
   if (!profile) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  if (isSuperAdminRole((profile as { role?: string }).role)) {
+  const deleteEffective =
+    (await resolveEffectiveAdminRole(sb, staffId, (profile as { role?: string }).role).catch(() => null)) ??
+    normalizeAdminRole((profile as { role?: string }).role);
+  if (isSuperAdminRole(deleteEffective)) {
     return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
   }
 

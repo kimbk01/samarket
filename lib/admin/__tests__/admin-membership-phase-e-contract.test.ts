@@ -25,8 +25,10 @@ describe("PHASE E admin membership contract", () => {
   it("staff writers call upsertActiveAdminMembership", () => {
     const staff = readFileSync(join(process.cwd(), "app/api/admin/staff/route.ts"), "utf8");
     expect(staff).toContain("upsertActiveAdminMembership");
+    expect(staff).toContain("admin_memberships");
     const staffId = readFileSync(join(process.cwd(), "app/api/admin/staff/[id]/route.ts"), "utf8");
     expect(staffId).toContain("revokeActiveAdminMembership");
+    expect(staffId).toContain("resolveEffectiveAdminRole");
   });
 
   it("person directory joins stores for store_manager category", () => {
