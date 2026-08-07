@@ -11,7 +11,7 @@ describe("PHASE E admin membership contract", () => {
     expect(isPrivilegedAdminRole("operator")).toBe(false);
   });
 
-  it("migration defines admin_memberships + dual-read is_platform_admin", () => {
+  it("E.1 migration defines admin_memberships + historical dual-read is_platform_admin", () => {
     const sql = readFileSync(
       join(process.cwd(), "supabase/migrations/20261020120000_admin_memberships.sql"),
       "utf8"
@@ -20,6 +20,15 @@ describe("PHASE E admin membership contract", () => {
     expect(sql).toContain("admin_memberships_one_active_per_user_idx");
     expect(sql).toContain("FROM public.admin_memberships m");
     expect(sql).toContain("p.role IN ('admin', 'super_admin')");
+  });
+
+  it("cutover migration removes profiles.role OR from is_platform_admin", () => {
+    const sql = readFileSync(
+      join(process.cwd(), "supabase/migrations/20261021120000_is_platform_admin_membership_only.sql"),
+      "utf8"
+    );
+    expect(sql).toContain("FROM public.admin_memberships m");
+    expect(sql).not.toContain("FROM public.profiles p");
   });
 
   it("staff writers call upsertActiveAdminMembership", () => {
