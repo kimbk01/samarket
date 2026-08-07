@@ -7,18 +7,18 @@ import {
 } from "@/lib/admin/find-admin-menu-item";
 
 describe("find-admin-menu-item", () => {
-  it("finds nested ads under common", () => {
+  it("finds nested growth ads by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    expect(ads?.key).toBe("ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
+    expect(ads?.children?.some((c) => c.key === "ads-applications")).toBe(true);
   });
 
-  it("finds nested manage under settings", () => {
+  it("finds manage under platform-ops", () => {
     const manage = findAdminMenuByKey(adminMenu, "manage");
-    expect(manage?.key).toBe("manage");
+    expect(manage?.roles).toEqual(["admin", "master"]);
   });
 
-  it("returns undefined for removed top-level operations key", () => {
+  it("returns undefined for removed operations workspace key", () => {
     expect(findAdminMenuByKey(adminMenu, "operations")).toBeUndefined();
   });
 
@@ -35,10 +35,13 @@ describe("find-admin-menu-item", () => {
 });
 
 describe("admin-menu-config module load", () => {
-  it("imports without throwing on removed operations key", async () => {
+  it("loads adapter sections from SSOT without inventing a second tree", async () => {
     const mod = await import("@/lib/admin-menu-config");
     expect(mod.ADMIN_MENU_SECTIONS).toHaveLength(7);
     expect(mod.OPS_QUICK_LINKS_PRIORITY.length).toBeGreaterThan(0);
+    expect(mod.OPS_QUICK_LINKS_PRIORITY.some((l) => l.href === "/admin/operations")).toBe(
+      false
+    );
     expect(mod.OPS_MENU_GROUPS.length).toBeGreaterThan(0);
   });
 });

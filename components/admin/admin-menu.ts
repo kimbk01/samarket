@@ -1,9 +1,12 @@
 /**
- * 관리자 사이드바 메뉴 데이터 (8개 최상위 도메인 그룹)
- * - 대시보드 / Customer Platform / 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정
- * - Customer Platform: 기존 원본 화면 재배치(API·DB 복제 금지)
- * - path: 존재하는 app/admin 라우트는 실제 path, 없으면 pendingRoute: true
- * - roles 미지정 시 전체 노출, 지정 시 해당 role만 노출
+ * 플랫폼 Admin 메뉴 SSOT (11 workspace)
+ * LOCK: docs/admin/platform-admin-ia-lock.md
+ *
+ * Invariants:
+ * - path(쿼리·hash 포함) 하나당 visible leaf 하나
+ * - redirect-only route는 leaf 금지
+ * - section header는 path 없음 (parent === first-child URL 금지)
+ * - pendingRoute: 페이지 없는 항목은 FAQ만 허용(기존 CP 계약)
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -17,7 +20,10 @@ export interface AdminMenuItem {
   key: string;
   title: string;
   titleKey?: MessageKey;
+  /** canonical path — leaf만. section header는 생략 */
   path?: string;
+  /** active 판정용 추가 path (별도 메뉴 노드 아님) */
+  matchPaths?: string[];
   icon?: string;
   roles?: AdminMenuRole[];
   children?: AdminMenuItem[];
@@ -28,163 +34,161 @@ export interface AdminMenuItem {
 }
 
 const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
-  // 최상위 그룹
-  dashboard: "admin_menu_dashboard",
+  // Workspaces
+  dashboard: "admin_menu_home",
+  home: "admin_menu_home",
   "customer-platform": "admin_menu_customer_platform",
-  common: "admin_menu_common",
+  members: "admin_menu_members",
+  moderation: "admin_menu_moderation",
   community: "admin_menu_community",
   trade: "admin_menu_trade",
   delivery: "admin_menu_delivery",
   messenger: "admin_menu_messenger",
-  settings: "admin_menu_settings",
+  growth: "admin_menu_growth",
+  "app-config": "admin_menu_app_config",
+  "platform-ops": "admin_menu_platform_ops",
 
-  // Customer Platform
+  // CP
   "cp-dashboard": "admin_menu_cp_dashboard",
   "cp-action-queue": "admin_menu_cp_action_queue",
   "cp-monitoring": "admin_menu_cp_monitoring",
-  "cp-content": "admin_menu_cp_content",
-  "cp-notice": "admin_menu_notices",
-  "cp-legal": "admin_menu_legal",
-  "cp-business": "admin_menu_business",
-  "cp-faq": "admin_menu_cp_faq",
   "cp-support": "admin_menu_cp_support",
   "cp-member-inquiry": "admin_menu_cp_member_inquiry",
-  "cp-store-inquiry": "admin_menu_store_inquiries",
   "cp-member-inbox": "admin_menu_cp_member_inbox",
+  "cp-store-inquiry": "admin_menu_store_inquiries",
   "cp-store-inbox": "admin_menu_platform_inquiries",
-  "cp-points": "admin_menu_points",
-  "cp-points-member": "admin_menu_cp_points_member",
-  "cp-points-deposit": "admin_menu_cp_points_deposit",
-  "cp-deposit-member": "admin_menu_points_charge",
-  "cp-deposit-store": "admin_menu_store_point_charges",
-  "cp-points-rates": "admin_menu_cp_points_rates",
-  "cp-points-ledger": "admin_menu_cp_points_ledgers",
-  "cp-ledger-member": "admin_menu_points_ledger",
-  "cp-ledger-store": "admin_menu_store_point_ledger",
-  "cp-promotion": "admin_menu_cp_promotion",
-  "cp-promotion-paid": "admin_menu_ads_paid",
-  "cp-promotion-benefits": "admin_menu_ads_benefits",
+  "cp-member-assets": "admin_menu_cp_points_member",
+  "cp-store-assets": "admin_menu_store_points",
+  "cp-content": "admin_menu_cp_content",
+  "cp-notice": "admin_menu_notices",
+  "cp-faq": "admin_menu_cp_faq",
+  "cp-legal": "admin_menu_legal",
+  "cp-business": "admin_menu_business",
   "cp-notification-engine": "admin_menu_dibay_notification_campaigns",
-  "cp-analytics": "admin_menu_cp_analytics",
-  "cp-settings": "admin_menu_cp_settings",
-
-  // 공통관리
-  users: "admin_menu_users",
-  "posts-management": "admin_menu_posts_management",
-  "jobs-management": "admin_menu_jobs_management",
-  regions: "admin_menu_regions",
-  "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
-  ads: "admin_menu_ads",
-  "ads-applications": "admin_menu_ads_applications",
-  "ads-post-ads": "admin_menu_ads_posts",
-  "ads-paid": "admin_menu_ads_paid",
-  "ads-benefits": "admin_menu_ads_benefits",
-  "ads-policy": "admin_menu_ads_policy",
-  "ads-home-feed": "admin_menu_ads_home_feed",
-  "ads-recommendation": "admin_menu_ads_recommendation",
-  points: "admin_menu_points",
   "points-charge": "admin_menu_points_charge",
   "points-plans": "admin_menu_points_plans",
   "points-ledger": "admin_menu_points_ledger",
   "points-policy": "admin_menu_points_policy",
   "points-execute": "admin_menu_points_execute",
   "points-expire": "admin_menu_points_expire",
+  "store-points-admin": "admin_menu_store_points",
+  "store-point-charges-admin": "admin_menu_store_point_charges",
+  "store-point-ledger-admin": "admin_menu_store_point_ledger",
+  "store-point-policies-admin": "admin_menu_store_point_policies",
 
-  // 커뮤니티
-  "community-boards": "admin_menu_boards",
-  "community-sections": "admin_menu_feed_sections",
-  "community-topics": "admin_menu_feed_topics",
-  "community-feed-settings": "admin_menu_feed_settings",
+  // Members
+  users: "admin_menu_users",
+  "push-devices": "admin_menu_push_devices",
+
+  // Moderation
+  "reports-posts": "admin_menu_reports_all",
+  "reports-logs": "admin_menu_reports_logs",
+  "reviews-trade": "admin_menu_trade_reviews",
   "community-feed-reports": "admin_menu_feed_reports",
-  "community-meeting-events": "admin_menu_meeting_logs",
-  "community-posts": "admin_menu_posts",
-  "community-comments": "admin_menu_comments",
-  "community-board-categories": "admin_menu_board_categories",
-  "community-popular": "admin_menu_popular_posts",
-  "community-notices": "admin_menu_notices",
-  "dibay-notification-campaigns": "admin_menu_dibay_notification_campaigns",
+  "store-reports-admin": "admin_menu_store_reports",
+  "store-reviews-admin": "admin_menu_store_reviews",
+  "chat-reported": "admin_menu_chat_reported",
+  "philife-meeting-reports": "admin_menu_meeting_reports",
+  "manage-reports": "admin_menu_manage_reports",
 
-  // 거래
+  // Trade
   "trade-hub": "admin_menu_trade_hub",
   "trade-products": "admin_menu_trade_products",
+  "posts-management": "admin_menu_posts_management",
+  "jobs-management": "admin_menu_jobs_management",
   "trade-settings": "admin_menu_trade_settings",
   "trade-post-ads": "admin_menu_trade_post_ads",
   "trade-ad-policies": "admin_menu_trade_ad_policies",
   "menu-trade": "admin_menu_menu_trade",
   "trade-feed-topics": "admin_menu_trade_topics",
-  "trade-offers": "admin_menu_trade_offers",
   "trade-likes": "admin_menu_trade_likes",
-  "trade-status": "admin_menu_trade_status",
+  "chat-trade-flow": "admin_menu_chat_flow",
+  "chat-trade-complete": "admin_menu_chat_trade_complete",
 
-  // 배달
-  "delivery-bottom-nav": "admin_menu_delivery",
-  "store-application-settings": "admin_menu_store_application_settings",
+  // Community
+  "community-hub": "admin_menu_community",
+  "community-boards": "admin_menu_boards",
+  "community-sections": "admin_menu_feed_sections",
+  "community-topics": "admin_menu_feed_topics",
+  "community-feed-settings": "admin_menu_feed_settings",
+  "community-meeting-events": "admin_menu_meeting_logs",
+  "community-meetings": "admin_menu_meetings",
+  "community-posts": "admin_menu_posts",
+  "community-comments": "admin_menu_comments",
+
+  // Delivery
   "stores-commerce": "admin_menu_store_review_queue",
+  "store-application-settings": "admin_menu_store_application_settings",
+  "delivery-bottom-nav": "admin_menu_delivery_bottom_nav",
   "store-products-admin": "admin_menu_store_products",
-  "store-orders-admin": "admin_menu_store_orders",
-  "delivery-orders-console": "admin_menu_delivery_ops",
+  "delivery-orders": "admin_menu_delivery_ops",
   "delivery-orders-list": "admin_menu_delivery_order_list",
+  "delivery-orders-action-queue": "admin_menu_store_orders",
   "delivery-orders-cancel": "admin_menu_delivery_cancel",
   "delivery-orders-refund": "admin_menu_delivery_refund",
   "delivery-orders-settlement": "admin_menu_delivery_settlement",
   "delivery-orders-reports": "admin_menu_delivery_reports",
   "delivery-orders-logs": "admin_menu_delivery_logs",
+  "delivery-order-chats": "admin_menu_order_chats",
   "delivery-ops-console": "admin_menu_delivery_ops_console",
   "delivery-operations-stats": "admin_menu_delivery_operations_stats",
   "delivery-riders-ops": "admin_menu_delivery_riders_ops",
   "delivery-operation-alerts": "admin_menu_delivery_operation_alerts",
+  "delivery-order-notifications": "admin_menu_order_notifications",
   "delivery-auto-actions": "admin_menu_delivery_auto_actions",
   "delivery-distance": "admin_menu_delivery_distance",
   "runtime-health": "admin_menu_runtime_health",
   "delivery-release-gate": "admin_menu_delivery_release_gate",
-  "store-inquiries-admin": "admin_menu_store_inquiries",
-  "platform-inquiries-admin": "admin_menu_platform_inquiries",
-  "member-notes-admin": "notif_admin_notes_title",
-  "store-points-admin": "admin_menu_store_points",
-  "store-point-charges-admin": "admin_menu_store_point_charges",
-  "store-point-ledger-admin": "admin_menu_store_point_ledger",
-  "store-point-policies-admin": "admin_menu_store_point_policies",
-  "store-reviews-admin": "admin_menu_store_reviews",
-  "store-reports-admin": "admin_menu_store_reports",
   "store-settlements-admin": "admin_menu_store_settlements",
   "store-fee-policies-admin": "admin_menu_store_fee_policies_admin",
   "store-payment-events-admin": "admin_menu_store_payment_events",
   "commerce-settings-admin": "admin_menu_commerce_settings",
   "business-shops": "admin_menu_business_management",
-  "business-posts": "admin_menu_business_posts",
-  "business-coupons": "admin_menu_business_coupons",
-  "business-exposure": "admin_menu_business_exposure",
 
-  // 메신저
+  // Messenger
   "chat-all": "admin_menu_chat_all",
-  "chat-trade-flow": "admin_menu_chat_flow",
   "chat-trade": "admin_menu_chat_trade",
   "chat-messenger": "admin_menu_chat_messenger",
   "chat-messenger-perf": "admin_menu_chat_messenger_performance",
-  "chat-reported": "admin_menu_chat_reported",
-  reviews: "admin_menu_reviews",
-  "reviews-trade": "admin_menu_trade_reviews",
-  "reviews-business": "admin_menu_business_reviews",
-  "reviews-reported": "admin_menu_review_reports",
-  reports: "admin_menu_reports",
-  "reports-posts": "admin_menu_reports_all",
-  "reports-comments": "admin_menu_reports_comments",
-  "reports-chat": "admin_menu_reports_chat",
-  "reports-users": "admin_menu_reports_users",
-  "reports-logs": "admin_menu_reports_logs",
+  "chat-group": "admin_menu_chat_group",
+  "chat-community": "admin_menu_chat_community",
+  "chat-business": "admin_menu_chat_business",
 
-  // 설정
-  "settings-services": "admin_menu_settings_services",
-  "settings-boards": "admin_menu_settings_boards",
+  // Growth
+  ads: "admin_menu_ads",
+  "ads-applications": "admin_menu_ads_applications",
+  "ads-products": "admin_menu_ads_products",
+  "ads-post-ads": "admin_menu_ads_posts",
+  "ads-paid": "admin_menu_ads_paid",
+  "ads-benefits": "admin_menu_ads_benefits",
+  "ads-policy": "admin_menu_ads_policy",
+  "ads-home-feed": "admin_menu_ads_home_feed",
+  "ads-recommendation": "admin_menu_ads_recommendation",
+  "ads-banners": "admin_menu_ads_banners",
+  "growth-rec": "admin_menu_growth_recommendation",
+  "manage-ab": "admin_menu_manage_ab",
+  "rec-analytics": "admin_menu_rec_analytics",
+  "rec-monitoring": "admin_menu_rec_monitoring",
+  "rec-deployments": "admin_menu_rec_deployments",
+  "rec-automation": "admin_menu_rec_automation",
+
+  // App Config
   "settings-general": "admin_menu_settings_general",
   "settings-startup-config": "admin_menu_settings_startup_config",
   "settings-auth": "admin_menu_settings_auth",
-  "settings-permissions": "admin_menu_settings_permissions",
   "settings-notifications": "admin_menu_settings_notifications",
+  "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
+  "app-categories": "admin_menu_categories",
+  "app-countries": "admin_menu_app_countries",
+  "app-languages": "admin_menu_app_languages",
+  "app-meta": "admin_menu_app_meta",
+  "my-banners": "admin_menu_my_banners",
+  "my-sections": "admin_menu_my_sections",
+  "my-services": "admin_menu_my_services",
+
+  // Platform Ops
   manage: "admin_menu_manage",
   "manage-experiments": "admin_menu_manage_experiments",
-  "manage-ab": "admin_menu_manage_ab",
-  "manage-reports": "admin_menu_manage_reports",
   "manage-ops-board": "admin_menu_manage_ops_board",
   "manage-knowledge": "admin_menu_manage_knowledge",
   "manage-docs": "admin_menu_manage_docs",
@@ -214,6 +218,11 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "system-automation": "admin_menu_dev_automation",
   "system-status": "admin_menu_dev_system_status",
   "system-audit": "admin_menu_dev_audit",
+  "ops-launch-readiness": "admin_menu_launch_readiness",
+  "ops-launch-week": "admin_menu_launch_week",
+  "ops-docs-board": "admin_menu_docs_board",
+  "ops-docs-chat": "admin_menu_docs_chat",
+  "ops-memo": "admin_menu_memo",
 };
 
 function resolveAdminMenuTitleKey(itemKey: string): MessageKey | undefined {
@@ -232,12 +241,11 @@ function attachAdminMenuTitleKeys(items: AdminMenuItem[]): AdminMenuItem[] {
 }
 
 /**
- * 단일 배열: 대시보드 + Customer Platform + 공통관리 / 커뮤니티 / 거래 / 배달 / 메신저 / 설정 (8그룹)
+ * 11 workspace SSOT
+ * HOME / CP / MEMBERS / MODERATION / TRADE / COMMUNITY / DELIVERY / MESSENGER / GROWTH / APP CONFIG / PLATFORM OPS
  */
 export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
-  // ─────────────────────────────────────────────
-  // 대시보드
-  // ─────────────────────────────────────────────
+  // ── HOME ───────────────────────────────────────
   {
     key: "dashboard",
     title: "",
@@ -245,23 +253,82 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     status: "done",
   },
 
-  // ─────────────────────────────────────────────
-  // Customer Platform — Notice / Support / Points / Engine (기존 원본 path)
-  // ─────────────────────────────────────────────
+  // ── CUSTOMER PLATFORM ──────────────────────────
   {
     key: "customer-platform",
     title: "",
-    path: "/admin/customer-platform",
-    status: "done",
     children: [
+      { key: "cp-dashboard", title: "", path: "/admin/customer-platform", status: "done" },
       {
-        key: "cp-dashboard",
+        key: "cp-action-queue",
         title: "",
-        path: "/admin/customer-platform",
+        path: "/admin/customer-platform#action-queue",
+        status: "done",
+      },
+      {
+        key: "cp-monitoring",
+        title: "",
+        path: "/admin/customer-platform#monitoring",
+        status: "done",
+      },
+      {
+        key: "cp-support",
+        title: "",
         status: "done",
         children: [
-          { key: "cp-action-queue", title: "", path: "/admin/customer-platform#action-queue", status: "done" },
-          { key: "cp-monitoring", title: "", path: "/admin/customer-platform#monitoring", status: "done" },
+          {
+            key: "cp-member-inquiry",
+            title: "",
+            path: "/admin/member-notes?kind=inquiry",
+            status: "done",
+          },
+          {
+            key: "cp-member-inbox",
+            title: "",
+            path: "/admin/member-notes?kind=inbox",
+            status: "done",
+          },
+          { key: "cp-store-inquiry", title: "", path: "/admin/store-inquiries", status: "partial" },
+          { key: "cp-store-inbox", title: "", path: "/admin/platform-inquiries", status: "done" },
+        ],
+      },
+      {
+        key: "cp-member-assets",
+        title: "",
+        status: "done",
+        children: [
+          { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
+          { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
+          { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
+          { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
+          { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
+          { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
+        ],
+      },
+      {
+        key: "cp-store-assets",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-point-charges-admin",
+            title: "",
+            path: "/admin/store-point-charges",
+            status: "done",
+          },
+          {
+            key: "store-point-ledger-admin",
+            title: "",
+            path: "/admin/store-point-ledger",
+            status: "done",
+          },
+          {
+            key: "store-point-policies-admin",
+            title: "",
+            path: "/admin/store-point-policies",
+            status: "done",
+          },
+          { key: "store-points-admin", title: "", path: "/admin/store-points", status: "done" },
         ],
       },
       {
@@ -270,79 +337,15 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "partial",
         children: [
           { key: "cp-notice", title: "", path: "/admin/app/notices", status: "done" },
+          {
+            key: "cp-faq",
+            title: "",
+            path: "/admin/customer-platform/faq",
+            pendingRoute: true,
+            status: "todo",
+          },
           { key: "cp-legal", title: "", path: "/admin/app/legal", status: "done" },
           { key: "cp-business", title: "", path: "/admin/app/business", status: "done" },
-          { key: "cp-faq", title: "", path: "/admin/customer-platform/faq", pendingRoute: true, status: "todo" },
-        ],
-      },
-      {
-        key: "cp-support",
-        title: "",
-        status: "done",
-        children: [
-          { key: "cp-member-inquiry", title: "", path: "/admin/member-notes?kind=inquiry", status: "done" },
-          { key: "cp-store-inquiry", title: "", path: "/admin/store-inquiries", status: "partial" },
-          { key: "cp-member-inbox", title: "", path: "/admin/member-notes?kind=inbox", status: "done" },
-          { key: "cp-store-inbox", title: "", path: "/admin/platform-inquiries", status: "done" },
-        ],
-      },
-      {
-        key: "cp-points",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "cp-points-member",
-            title: "",
-            status: "done",
-            children: [
-              { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
-              { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
-              { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
-              { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
-              { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
-              { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
-            ],
-          },
-          {
-            key: "store-points-admin",
-            title: "",
-            path: "/admin/store-points",
-            status: "done",
-            children: [
-              { key: "store-point-charges-admin", title: "", path: "/admin/store-point-charges", status: "done" },
-              { key: "store-point-ledger-admin", title: "", path: "/admin/store-point-ledger", status: "done" },
-              { key: "store-point-policies-admin", title: "", path: "/admin/store-point-policies", status: "done" },
-            ],
-          },
-          {
-            key: "cp-points-deposit",
-            title: "",
-            status: "done",
-            children: [
-              { key: "cp-deposit-member", title: "", path: "/admin/point-charges", status: "done" },
-              { key: "cp-deposit-store", title: "", path: "/admin/store-point-charges", status: "done" },
-            ],
-          },
-          { key: "cp-points-rates", title: "", path: "/admin/point-plans", status: "done" },
-          {
-            key: "cp-points-ledger",
-            title: "",
-            status: "done",
-            children: [
-              { key: "cp-ledger-member", title: "", path: "/admin/points/ledger", status: "done" },
-              { key: "cp-ledger-store", title: "", path: "/admin/store-point-ledger", status: "done" },
-            ],
-          },
-        ],
-      },
-      {
-        key: "cp-promotion",
-        title: "",
-        status: "done",
-        children: [
-          { key: "cp-promotion-paid", title: "", path: "/admin/promoted-items", status: "done" },
-          { key: "cp-promotion-benefits", title: "", path: "/admin/member-benefits", status: "done" },
         ],
       },
       {
@@ -351,224 +354,428 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/notifications",
         status: "done",
       },
-      {
-        key: "cp-analytics",
-        title: "",
-        path: "/admin/customer-platform#monitoring",
-        status: "done",
-      },
-      {
-        key: "cp-settings",
-        title: "",
-        path: "/admin/settings/notifications",
-        status: "done",
-      },
     ],
   },
 
-  // ─────────────────────────────────────────────
-  // 공통관리: 회원 · 게시글 · 광고 (포인트는 Customer Platform)
-  // ─────────────────────────────────────────────
+  // ── MEMBERS ────────────────────────────────────
   {
-    key: "common",
+    key: "members",
     title: "",
     children: [
       { key: "users", title: "", path: "/admin/users", status: "done" },
-      { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
-      { key: "jobs-management", title: "", path: "/admin/posts-management?tab=jobs", status: "done" },
-      { key: "regions", title: "", path: "/admin/regions", pendingRoute: true, status: "todo" },
-      { key: "menu-main-bottom-nav", title: "", path: "/admin/menus/main-bottom-nav", status: "done" },
+      { key: "push-devices", title: "", path: "/admin/push-devices", status: "done" },
+    ],
+  },
+
+  // ── MODERATION ─────────────────────────────────
+  {
+    key: "moderation",
+    title: "",
+    children: [
+      { key: "reports-posts", title: "", path: "/admin/reports", status: "done" },
+      { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
+      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
       {
-        key: "ads",
+        key: "community-feed-reports",
         title: "",
-        children: [
-          { key: "ads-applications", title: "", path: "/admin/ad-applications", status: "done" },
-          { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "done" },
-          { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
-          { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
-          { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "done" },
-          { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "done" },
-          { key: "ads-recommendation", title: "", path: "/admin/personalized-feed", status: "done" },
-        ],
+        path: "/admin/community/reports",
+        matchPaths: ["/admin/philife/reports"],
+        status: "done",
+      },
+      { key: "store-reports-admin", title: "", path: "/admin/store-reports", status: "partial" },
+      { key: "store-reviews-admin", title: "", path: "/admin/store-reviews", status: "partial" },
+      { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
+      {
+        key: "philife-meeting-reports",
+        title: "",
+        path: "/admin/philife/meeting-reports",
+        status: "done",
+      },
+      {
+        key: "manage-reports",
+        title: "",
+        path: "/admin/recommendation-reports",
+        status: "done",
       },
     ],
   },
 
-  // ─────────────────────────────────────────────
-  // 커뮤니티: 게시판 · 피드 · 게시글 (공지·Engine은 Customer Platform)
-  // ─────────────────────────────────────────────
-  {
-    key: "community",
-    title: "",
-    path: "/admin/community/posts",
-    children: [
-      { key: "community-boards", title: "", path: "/admin/boards", status: "done" },
-      { key: "community-sections", title: "", path: "/admin/philife/sections", status: "done" },
-      { key: "community-topics", title: "", path: "/admin/philife/topics", status: "done" },
-      { key: "community-feed-settings", title: "", path: "/admin/philife/settings", status: "done" },
-      { key: "community-feed-reports", title: "", path: "/admin/philife/reports", status: "done" },
-      { key: "community-meeting-events", title: "", path: "/admin/philife/meeting-events", status: "done" },
-      { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
-      { key: "community-comments", title: "", path: "/admin/comments", status: "done" },
-      { key: "community-board-categories", title: "", path: "/admin/board-categories", pendingRoute: true, status: "todo" },
-      { key: "community-popular", title: "", path: "/admin/popular-posts", pendingRoute: true, status: "todo" },
-    ],
-  },
-
-  // ─────────────────────────────────────────────
-  // 거래: 중고 · 상품 · 광고 · 설정
-  // ─────────────────────────────────────────────
+  // ── TRADE ──────────────────────────────────────
   {
     key: "trade",
     title: "",
-    path: "/admin/trade",
     children: [
       { key: "trade-hub", title: "", path: "/admin/trade", status: "done" },
       { key: "trade-products", title: "", path: "/admin/products", status: "partial" },
+      { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
+      {
+        key: "jobs-management",
+        title: "",
+        path: "/admin/posts-management?tab=jobs",
+        status: "done",
+      },
       { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
       { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
       { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
       { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
       { key: "trade-feed-topics", title: "", path: "/admin/trade/feed-topics", status: "done" },
-      { key: "trade-offers", title: "", path: "/admin/price-offers", pendingRoute: true, status: "todo" },
       { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
-      { key: "trade-status", title: "", path: "/admin/trade-status", pendingRoute: true, status: "todo" },
+      { key: "chat-trade-flow", title: "", path: "/admin/trade-flow", status: "done" },
+      {
+        key: "chat-trade-complete",
+        title: "",
+        path: "/admin/chats/trade-complete",
+        status: "done",
+      },
     ],
   },
 
-  // ─────────────────────────────────────────────
-  // 배달: 매장 · 주문 · 배달운영 · 포인트 · 정산
-  // ─────────────────────────────────────────────
+  // ── COMMUNITY ──────────────────────────────────
+  {
+    key: "community",
+    title: "",
+    children: [
+      {
+        key: "community-hub",
+        title: "",
+        path: "/admin/community",
+        matchPaths: ["/admin/philife"],
+        status: "done",
+      },
+      { key: "community-boards", title: "", path: "/admin/boards", status: "done" },
+      {
+        key: "community-sections",
+        title: "",
+        path: "/admin/community/sections",
+        matchPaths: ["/admin/philife/sections"],
+        status: "done",
+      },
+      {
+        key: "community-topics",
+        title: "",
+        path: "/admin/community/topics",
+        matchPaths: ["/admin/philife/topics"],
+        status: "done",
+      },
+      {
+        key: "community-feed-settings",
+        title: "",
+        path: "/admin/community/settings",
+        matchPaths: ["/admin/philife/settings"],
+        status: "done",
+      },
+      {
+        key: "community-meetings",
+        title: "",
+        path: "/admin/community/meetings",
+        matchPaths: ["/admin/philife/meetings"],
+        status: "done",
+      },
+      {
+        key: "community-meeting-events",
+        title: "",
+        path: "/admin/philife/meeting-events",
+        status: "done",
+      },
+      { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
+      { key: "community-comments", title: "", path: "/admin/comments", status: "done" },
+    ],
+  },
+
+  // ── DELIVERY ───────────────────────────────────
   {
     key: "delivery",
     title: "",
-    path: "/admin/stores",
     children: [
       { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
-      { key: "store-application-settings", title: "", path: "/admin/stores/application-settings", status: "done" },
-      { key: "delivery-bottom-nav", title: "", path: "/admin/stores/bottom-nav", status: "done" },
-      { key: "store-products-admin", title: "", path: "/admin/store-products", status: "partial" },
-      { key: "store-orders-admin", title: "", path: "/admin/store-orders", status: "partial" },
       {
-        key: "delivery-orders-console",
+        key: "store-application-settings",
         title: "",
-        path: "/admin/stores/orders",
+        path: "/admin/stores/application-settings",
+        status: "done",
+      },
+      {
+        key: "delivery-bottom-nav",
+        title: "",
+        path: "/admin/stores/bottom-nav",
+        matchPaths: ["/admin/delivery/bottom-nav"],
+        status: "done",
+      },
+      { key: "store-products-admin", title: "", path: "/admin/store-products", status: "partial" },
+      {
+        key: "delivery-orders",
+        title: "",
+        status: "done",
         children: [
-          { key: "delivery-orders-list", title: "", path: "/admin/stores/orders", status: "done" },
-          { key: "delivery-orders-cancel", title: "", path: "/admin/stores/orders/cancellations", status: "done" },
-          { key: "delivery-orders-refund", title: "", path: "/admin/stores/orders/refunds", status: "done" },
-          { key: "delivery-orders-settlement", title: "", path: "/admin/stores/orders/settlements", status: "done" },
-          { key: "delivery-orders-reports", title: "", path: "/admin/stores/orders/reports", status: "done" },
-          { key: "delivery-orders-logs", title: "", path: "/admin/stores/orders/logs", status: "done" },
+          {
+            key: "delivery-orders-list",
+            title: "",
+            path: "/admin/stores/orders",
+            matchPaths: ["/admin/delivery-orders"],
+            status: "done",
+          },
+          {
+            key: "delivery-orders-action-queue",
+            title: "",
+            path: "/admin/store-orders",
+            status: "partial",
+          },
+          {
+            key: "delivery-orders-cancel",
+            title: "",
+            path: "/admin/stores/orders/cancellations",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-refund",
+            title: "",
+            path: "/admin/stores/orders/refunds",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-settlement",
+            title: "",
+            path: "/admin/stores/orders/settlements",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-reports",
+            title: "",
+            path: "/admin/stores/orders/reports",
+            status: "done",
+          },
+          {
+            key: "delivery-orders-logs",
+            title: "",
+            path: "/admin/stores/orders/logs",
+            status: "done",
+          },
+          { key: "delivery-order-chats", title: "", path: "/admin/order-chats", status: "done" },
         ],
       },
-      { key: "delivery-ops-console", title: "Ops Console", path: "/admin/ops-console", status: "done" },
-      { key: "delivery-operations-stats", title: "", path: "/admin/delivery-operations", status: "done" },
+      { key: "delivery-ops-console", title: "", path: "/admin/ops-console", status: "done" },
+      {
+        key: "delivery-operations-stats",
+        title: "",
+        path: "/admin/delivery-operations",
+        status: "done",
+      },
       { key: "delivery-riders-ops", title: "", path: "/admin/delivery-riders", status: "done" },
-      { key: "delivery-operation-alerts", title: "", path: "/admin/delivery-alerts", status: "done" },
-      { key: "delivery-auto-actions", title: "", path: "/admin/delivery-auto-actions", status: "done" },
+      {
+        key: "delivery-operation-alerts",
+        title: "",
+        path: "/admin/delivery-alerts",
+        status: "done",
+      },
+      {
+        key: "delivery-order-notifications",
+        title: "",
+        path: "/admin/order-notifications",
+        status: "done",
+      },
+      {
+        key: "delivery-auto-actions",
+        title: "",
+        path: "/admin/delivery-auto-actions",
+        status: "done",
+      },
       { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
-      { key: "runtime-health", title: "Runtime Health", path: "/admin/runtime-health", status: "done" },
-      { key: "delivery-release-gate", title: "Delivery Release Gate", path: "/admin/delivery-release-gate", status: "done" },
-      { key: "store-reviews-admin", title: "", path: "/admin/store-reviews", status: "partial" },
-      { key: "store-reports-admin", title: "", path: "/admin/store-reports", status: "partial" },
-      { key: "store-settlements-admin", title: "", path: "/admin/store-settlements", status: "partial" },
-      { key: "store-fee-policies-admin", title: "", path: "/admin/store-fee-policies", status: "partial" },
-      { key: "store-payment-events-admin", title: "", path: "/admin/store-payment-events", status: "partial" },
-      { key: "commerce-settings-admin", title: "", path: "/admin/commerce-settings", status: "partial" },
+      { key: "runtime-health", title: "", path: "/admin/runtime-health", status: "done" },
+      {
+        key: "delivery-release-gate",
+        title: "",
+        path: "/admin/delivery-release-gate",
+        status: "done",
+      },
+      {
+        key: "store-settlements-admin",
+        title: "",
+        path: "/admin/store-settlements",
+        status: "partial",
+      },
+      {
+        key: "store-fee-policies-admin",
+        title: "",
+        path: "/admin/store-fee-policies",
+        status: "partial",
+      },
+      {
+        key: "store-payment-events-admin",
+        title: "",
+        path: "/admin/store-payment-events",
+        status: "partial",
+      },
+      {
+        key: "commerce-settings-admin",
+        title: "",
+        path: "/admin/commerce-settings",
+        status: "partial",
+      },
       { key: "business-shops", title: "", path: "/admin/business", status: "done" },
-      { key: "business-posts", title: "", path: "/admin/promo-posts", pendingRoute: true, status: "todo" },
-      { key: "business-coupons", title: "", path: "/admin/coupons", pendingRoute: true, status: "todo" },
-      { key: "business-exposure", title: "", path: "/admin/business-exposure", pendingRoute: true, status: "todo" },
     ],
   },
 
-  // ─────────────────────────────────────────────
-  // 메신저: 채팅 · 리뷰 · 신고
-  // ─────────────────────────────────────────────
+  // ── MESSENGER ──────────────────────────────────
   {
     key: "messenger",
     title: "",
-    path: "/admin/chats",
     children: [
       { key: "chat-all", title: "", path: "/admin/chats", status: "done" },
-      { key: "chat-trade-flow", title: "", path: "/admin/trade-flow", status: "done" },
       { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
       { key: "chat-messenger", title: "", path: "/admin/chats/messenger", status: "done" },
-      { key: "chat-messenger-perf", title: "", path: "/admin/chats/messenger-performance", status: "done" },
-      { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
       {
-        key: "reviews",
+        key: "chat-messenger-perf",
         title: "",
-        path: "/admin/reviews",
+        path: "/admin/chats/messenger-performance",
+        status: "done",
+      },
+      { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
+      { key: "chat-community", title: "", path: "/admin/chats/community", status: "done" },
+      { key: "chat-business", title: "", path: "/admin/chats/business", status: "done" },
+    ],
+  },
+
+  // ── GROWTH ─────────────────────────────────────
+  {
+    key: "growth",
+    title: "",
+    children: [
+      {
+        key: "ads",
+        title: "",
+        status: "done",
         children: [
-          { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
-          { key: "reviews-business", title: "", path: "/admin/reviews/business", pendingRoute: true, status: "todo" },
-          { key: "reviews-reported", title: "", path: "/admin/reviews/reported", pendingRoute: true, status: "todo" },
+          { key: "ads-applications", title: "", path: "/admin/ad-applications", status: "done" },
+          { key: "ads-products", title: "", path: "/admin/ad-products", status: "done" },
+          { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "done" },
+          { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
+          { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
+          { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "done" },
+          { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "done" },
+          {
+            key: "ads-recommendation",
+            title: "",
+            path: "/admin/personalized-feed",
+            status: "done",
+          },
+          { key: "ads-banners", title: "", path: "/admin/banners", status: "done" },
         ],
       },
       {
-        key: "reports",
+        key: "growth-rec",
         title: "",
-        path: "/admin/reports",
+        status: "done",
         children: [
-          { key: "reports-posts", title: "", path: "/admin/reports", status: "done" },
-          { key: "reports-comments", title: "", path: "/admin/reports/comments", pendingRoute: true, status: "todo" },
-          { key: "reports-chat", title: "", path: "/admin/reports/chats", pendingRoute: true, status: "todo" },
-          { key: "reports-users", title: "", path: "/admin/reports/sanctions", pendingRoute: true, status: "todo" },
-          { key: "reports-logs", title: "", path: "/admin/reports/log", pendingRoute: true, status: "todo" },
+          {
+            key: "manage-ab",
+            title: "",
+            path: "/admin/recommendation-experiments",
+            status: "done",
+          },
+          {
+            key: "rec-analytics",
+            title: "",
+            path: "/admin/recommendation-analytics",
+            status: "done",
+          },
+          {
+            key: "rec-monitoring",
+            title: "",
+            path: "/admin/recommendation-monitoring",
+            status: "done",
+          },
+          {
+            key: "rec-deployments",
+            title: "",
+            path: "/admin/recommendation-deployments",
+            status: "done",
+          },
+          {
+            key: "rec-automation",
+            title: "",
+            path: "/admin/recommendation-automation",
+            status: "done",
+          },
         ],
       },
     ],
   },
 
-  // ─────────────────────────────────────────────
-  // 설정: 일반설정 · 관리보고 · 개발시스템
-  // ─────────────────────────────────────────────
+  // ── APP CONFIG ─────────────────────────────────
   {
-    key: "settings",
+    key: "app-config",
     title: "",
     children: [
-      { key: "settings-services", title: "", path: "/admin/services", pendingRoute: true, status: "todo" },
       { key: "settings-general", title: "", path: "/admin/settings", status: "done" },
-      { key: "settings-startup-config", title: "", path: "/admin/settings/startup-config", status: "done" },
+      {
+        key: "settings-startup-config",
+        title: "",
+        path: "/admin/settings/startup-config",
+        status: "done",
+      },
       { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
-      { key: "settings-permissions", title: "", path: "/admin/permissions", pendingRoute: true, status: "todo" },
-      { key: "settings-notifications", title: "", path: "/admin/settings/notifications", status: "done" },
+      {
+        key: "settings-notifications",
+        title: "",
+        path: "/admin/settings/notifications",
+        status: "done",
+      },
+      {
+        key: "menu-main-bottom-nav",
+        title: "",
+        path: "/admin/menus/main-bottom-nav",
+        status: "done",
+      },
+      { key: "app-categories", title: "", path: "/admin/categories", status: "done" },
+      { key: "app-countries", title: "", path: "/admin/app/countries", status: "done" },
+      { key: "app-languages", title: "", path: "/admin/app/languages", status: "done" },
+      { key: "app-meta", title: "", path: "/admin/app/meta", status: "done" },
+      { key: "my-banners", title: "", path: "/admin/my/banners", status: "done" },
+      { key: "my-sections", title: "", path: "/admin/my/sections", status: "done" },
+      { key: "my-services", title: "", path: "/admin/my/services", status: "done" },
+    ],
+  },
+
+  // ── PLATFORM OPS ───────────────────────────────
+  {
+    key: "platform-ops",
+    title: "",
+    children: [
       {
         key: "manage",
         title: "",
         roles: ["admin", "master"],
         children: [
-          {
-            key: "manage-experiments",
-            title: "",
-            path: "/admin/recommendation-experiments",
-            children: [
-              { key: "manage-ab", title: "", path: "/admin/recommendation-experiments", status: "done" },
-              { key: "manage-reports", title: "", path: "/admin/recommendation-reports", status: "done" },
-              { key: "manage-ops-board", title: "", path: "/admin/ops-board", status: "done" },
-            ],
-          },
+          { key: "manage-ops-board", title: "", path: "/admin/ops-board", status: "done" },
           {
             key: "manage-knowledge",
             title: "",
-            path: "/admin/ops-docs",
+            status: "done",
             children: [
               { key: "manage-docs", title: "", path: "/admin/ops-docs", status: "done" },
               { key: "manage-runbooks", title: "", path: "/admin/ops-runbooks", status: "done" },
               { key: "manage-kb", title: "", path: "/admin/ops-knowledge", status: "done" },
-              { key: "manage-kg", title: "", path: "/admin/ops-knowledge-graph", status: "done" },
+              {
+                key: "manage-kg",
+                title: "",
+                path: "/admin/ops-knowledge-graph",
+                status: "done",
+              },
             ],
           },
           {
             key: "manage-eval",
             title: "",
-            path: "/admin/ops-maturity",
+            status: "done",
             children: [
               { key: "manage-learning", title: "", path: "/admin/ops-learning", status: "done" },
               { key: "manage-maturity", title: "", path: "/admin/ops-maturity", status: "done" },
-              { key: "manage-benchmarks", title: "", path: "/admin/ops-benchmarks", status: "done" },
+              {
+                key: "manage-benchmarks",
+                title: "",
+                path: "/admin/ops-benchmarks",
+                status: "done",
+              },
             ],
           },
         ],
@@ -586,33 +793,85 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "system-release",
             title: "",
-            path: "/admin/release-notes",
+            status: "done",
             children: [
-              { key: "system-release-notes", title: "", path: "/admin/release-notes", status: "done" },
-              { key: "system-release-archive", title: "", path: "/admin/release-archive", status: "done" },
-              { key: "system-release-migration", title: "", path: "/admin/production-migration", status: "done" },
+              {
+                key: "system-release-notes",
+                title: "",
+                path: "/admin/release-notes",
+                status: "done",
+              },
+              {
+                key: "system-release-archive",
+                title: "",
+                path: "/admin/release-archive",
+                status: "done",
+              },
+              {
+                key: "system-release-migration",
+                title: "",
+                path: "/admin/production-migration",
+                status: "done",
+              },
             ],
           },
           {
             key: "system-manage",
             title: "",
-            path: "/admin/system",
+            status: "done",
             children: [
               { key: "system-backup", title: "", path: "/admin/backup", status: "done" },
               { key: "system-dr", title: "", path: "/admin/dr", status: "done" },
               { key: "system-security", title: "", path: "/admin/security", status: "done" },
-              { key: "system-performance", title: "", path: "/admin/performance", status: "done" },
+              {
+                key: "system-performance",
+                title: "",
+                path: "/admin/performance",
+                status: "done",
+              },
               { key: "system-usage", title: "", path: "/admin/usage", status: "done" },
-              { key: "system-automation", title: "", path: "/admin/automation", status: "done" },
+              {
+                key: "system-automation",
+                title: "",
+                path: "/admin/automation",
+                status: "done",
+              },
               { key: "system-status", title: "", path: "/admin/system", status: "done" },
             ],
           },
           { key: "system-audit", title: "", path: "/admin/audit-logs", status: "done" },
+          {
+            key: "ops-launch-readiness",
+            title: "",
+            path: "/admin/launch-readiness",
+            status: "done",
+          },
+          { key: "ops-launch-week", title: "", path: "/admin/launch-week", status: "done" },
+          { key: "ops-docs-board", title: "", path: "/admin/docs/board", status: "done" },
+          { key: "ops-docs-chat", title: "", path: "/admin/docs/chat", status: "done" },
+          { key: "ops-memo", title: "", path: "/admin/memo", status: "done" },
         ],
       },
     ],
   },
 ]);
+
+/** path가 있는 모든 노드(클릭 가능한 메뉴 엔트리)를 DFS로 수집 */
+export function collectAdminMenuPathEntries(
+  items: AdminMenuItem[] = adminMenu
+): { key: string; path: string; pendingRoute?: true }[] {
+  const out: { key: string; path: string; pendingRoute?: true }[] = [];
+  function walk(nodes: AdminMenuItem[]) {
+    for (const node of nodes) {
+      if (node.path) {
+        out.push({ key: node.key, path: node.path, pendingRoute: node.pendingRoute });
+      }
+      if (node.children?.length) walk(node.children);
+    }
+  }
+  walk(items);
+  return out;
+}
 
 /**
  * role 기준 메뉴 필터링. 항목/자식의 roles 미지정 시 전체 노출, 지정 시 해당 role만 노출.

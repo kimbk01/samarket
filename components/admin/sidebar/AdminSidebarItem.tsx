@@ -11,16 +11,23 @@ import { isLeafMenuActive } from "./admin-sidebar-active-path";
 const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
 const USER_POINT_CHARGES_MENU_KEY = "points-charge";
 
-function isPathActive(path: string | undefined, currentPath: string): boolean {
-  if (!path) return false;
-  const normalizedPath = path.split("?")[0] ?? path;
-  return currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
+function isPathActive(
+  path: string | undefined,
+  currentPath: string,
+  matchPaths?: string[]
+): boolean {
+  const candidates = [path, ...(matchPaths ?? [])].filter(Boolean) as string[];
+  return candidates.some((p) => {
+    const normalizedPath = p.split("#")[0]?.split("?")[0] ?? p;
+    return currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
+  });
 }
 
 function hasActiveChild(item: AdminMenuItem, currentPath: string): boolean {
   if (!item.children?.length) return false;
   return item.children.some(
-    (c) => isPathActive(c.path, currentPath) || hasActiveChild(c, currentPath)
+    (c) =>
+      isPathActive(c.path, currentPath, c.matchPaths) || hasActiveChild(c, currentPath)
   );
 }
 
@@ -52,7 +59,7 @@ export function AdminSidebarItem({
         ? userChargePendingCount
         : 0;
 
-  const isActive = isPathActive(item.path, currentPath);
+  const isActive = isPathActive(item.path, currentPath, item.matchPaths);
   const childActive = hasActiveChild(item, currentPath);
   const [open, setOpen] = useState(isActive || childActive);
 
@@ -74,8 +81,8 @@ export function AdminSidebarItem({
 
   const leafIsActive =
     pathsScope && pathsScope.length > 0 && item.path
-      ? isLeafMenuActive(item.path, currentPath, pathsScope)
-      : isPathActive(item.path, currentPath);
+      ? isLeafMenuActive(item.path, currentPath, pathsScope, item.matchPaths)
+      : isPathActive(item.path, currentPath, item.matchPaths);
 
   const linkClass = `${baseLinkClass} ${leafIsActive ? activeClass : inactiveClass}`;
 

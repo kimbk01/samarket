@@ -1,3 +1,9 @@
+/**
+ * Compatibility adapter over `components/admin/admin-menu.ts` (SSOT).
+ * DO NOT invent a second menu tree here — derive from adminMenu only.
+ * LOCK: docs/admin/platform-admin-ia-lock.md
+ */
+
 import { adminMenu, type AdminMenuItem as SidebarAdminMenuItem } from "@/components/admin/admin-menu";
 import {
   findAdminMenuByKey,
@@ -56,18 +62,27 @@ function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string
   return out;
 }
 
-/** 운영 도메인 — 구 `operations` 최상위 대신 4그룹 하위 메뉴 */
-const OPS_DOMAIN_KEYS = ["community", "trade", "delivery", "messenger"] as const;
+/** Ops workspaces — 구 community/trade/delivery/messenger + moderation */
+const OPS_DOMAIN_KEYS = [
+  "customer-platform",
+  "members",
+  "moderation",
+  "trade",
+  "community",
+  "delivery",
+  "messenger",
+  "growth",
+] as const;
 
 const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>
   menuChildrenAsConfigItems(key)
 );
 
 const ADS_ITEMS = menuChildrenAsConfigItems("ads");
-/** Member point ops live under Customer Platform (`cp-points-member`). */
-const POINT_ITEMS = menuChildrenAsConfigItems("cp-points-member");
-const SETTINGS_TOP = requireAdminMenuByKey(adminMenu, "settings");
-const SETTINGS_ITEMS = (SETTINGS_TOP.children ?? []).map(cloneMenuItem);
+/** Member point ops live under Customer Platform (`cp-member-assets`). */
+const POINT_ITEMS = menuChildrenAsConfigItems("cp-member-assets");
+const APP_CONFIG_TOP = requireAdminMenuByKey(adminMenu, "app-config");
+const SETTINGS_ITEMS = (APP_CONFIG_TOP.children ?? []).map(cloneMenuItem);
 const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "manage");
 const SYSTEM_TOP = requireAdminMenuByKey(adminMenu, "system");
 
@@ -90,24 +105,24 @@ export const OPS_MENU_GROUPS: OpsMenuGroup[] = OPS_DOMAIN_KEYS.map((key) => {
   };
 });
 
-/** 대시보드 바로가기 — 라벨은 `t(labelKey)` 로 표시 */
+/**
+ * HOME 퀵링크 — workspace 진입만 (기능 전체 재나열·operations 허브 금지).
+ * SSOT leaf path를 사용한다.
+ */
 export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
   { href: "/admin/customer-platform", labelKey: "admin_menu_customer_platform" },
-  { href: "/admin/operations", labelKey: "admin_quicklink_ops_hub" },
-  { href: "/admin/reports", labelKey: "admin_quicklink_reports_ops" },
-  { href: "/admin/products", labelKey: "admin_menu_trade_products" },
-  { href: "/admin/users", labelKey: "admin_menu_users" },
-  { href: "/admin/boards", labelKey: "admin_menu_boards" },
-  { href: "/admin/point-charges", labelKey: "admin_menu_points_charge" },
-  { href: "/admin/chats", labelKey: "admin_menu_chat" },
-  { href: "/admin/ad-applications", labelKey: "admin_menu_ads_applications" },
-  { href: "/admin/settings", labelKey: "admin_menu_settings_general" },
+  { href: "/admin/users", labelKey: "admin_menu_members" },
+  { href: "/admin/reports", labelKey: "admin_menu_moderation" },
+  { href: "/admin/trade", labelKey: "admin_menu_trade" },
+  { href: "/admin/community", labelKey: "admin_menu_community" },
+  { href: "/admin/stores/orders", labelKey: "admin_menu_delivery" },
+  { href: "/admin/chats", labelKey: "admin_menu_messenger" },
+  { href: "/admin/ad-applications", labelKey: "admin_menu_growth" },
+  { href: "/admin/settings", labelKey: "admin_menu_app_config" },
 ];
 
 export const MANAGE_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
   { href: "/admin/ops-board", labelKey: "admin_menu_manage_ops_board" },
-  { href: "/admin/recommendation-reports", labelKey: "admin_menu_manage_reports" },
-  { href: "/admin/recommendation-experiments", labelKey: "admin_menu_manage_ab" },
   { href: "/admin/ops-docs", labelKey: "admin_menu_manage_docs" },
   { href: "/admin/ops-knowledge", labelKey: "admin_menu_manage_kb" },
   { href: "/admin/ops-maturity", labelKey: "admin_menu_manage_maturity" },
@@ -120,7 +135,7 @@ export const ADMIN_MENU_SECTIONS: AdminMenuSection[] = [
   { id: "ops", label: "ops", requiredRole: "operator", items: OPS_ITEMS },
   { id: "ads", label: "ads", requiredRole: "operator", items: ADS_ITEMS },
   { id: "point", label: "points", requiredRole: "operator", items: POINT_ITEMS },
-  { id: "settings", label: SETTINGS_TOP.title, requiredRole: "operator", items: SETTINGS_ITEMS },
+  { id: "settings", label: APP_CONFIG_TOP.title, requiredRole: "operator", items: SETTINGS_ITEMS },
   { id: "manage", label: MANAGE_TOP.key, requiredRole: "manager", items: MANAGE_ITEMS },
   { id: "dev", label: SYSTEM_TOP.key, requiredRole: "master", items: DEV_ITEMS },
 ];
