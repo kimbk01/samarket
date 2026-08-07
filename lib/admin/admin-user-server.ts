@@ -33,6 +33,18 @@ export async function loadProfileRole(
   return (data as { role?: string } | null)?.role ?? null;
 }
 
+/** Optional table — treat PostgREST missing / schema-cache miss as empty permissions. */
+function isMissingAdminStaffPermissionsTable(message: string | undefined): boolean {
+  const m = String(message ?? "").toLowerCase();
+  if (!m.includes("admin_staff_permissions")) return false;
+  return (
+    m.includes("does not exist") ||
+    m.includes("could not find the table") ||
+    m.includes("could not find table") ||
+    m.includes("schema cache")
+  );
+}
+
 export async function loadStaffPermissionKeys(
   sb: SupabaseClient,
   userId: string
@@ -42,7 +54,7 @@ export async function loadStaffPermissionKeys(
     .select("permission_key")
     .eq("user_id", userId);
   if (error) {
-    if (error.message?.includes("admin_staff_permissions") && error.message.includes("does not exist")) {
+    if (isMissingAdminStaffPermissionsTable(error.message)) {
       return [];
     }
     throw new Error(error.message);
@@ -78,7 +90,7 @@ export async function loadStaffPermissionsMap(
     .select("user_id, permission_key")
     .in("user_id", userIds);
   if (error) {
-    if (error.message?.includes("admin_staff_permissions") && error.message.includes("does not exist")) {
+    if (isMissingAdminStaffPermissionsTable(error.message)) {
       return out;
     }
     throw new Error(error.message);

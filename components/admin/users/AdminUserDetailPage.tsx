@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminMemberDetail, type AdminUserDetailPayload } from "@/components/admin/users/AdminTestUserDetail";
+import {
+  AdminMemberDetail,
+  type AdminPersonMembershipRow,
+  type AdminPersonStoreRow,
+  type AdminUserDetailPayload,
+} from "@/components/admin/users/AdminTestUserDetail";
 import { ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -12,7 +17,13 @@ interface AdminUserDetailPageProps {
 
 type DetailLoadState =
   | { kind: "loading" }
-  | { kind: "user"; user: AdminUserDetailPayload }
+  | {
+      kind: "user";
+      user: AdminUserDetailPayload;
+      stores: AdminPersonStoreRow[];
+      adminMembership: AdminPersonMembershipRow | null;
+      activityStatus: "not_implemented" | "ok";
+    }
   | { kind: "error"; messageKey: MessageKey };
 
 function detailErrorKeyForStatus(status: number): MessageKey {
@@ -38,9 +49,22 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
         });
         if (cancelled) return;
         if (res.ok) {
-          const data = (await res.json()) as { ok?: boolean; user?: AdminUserDetailPayload };
+          const data = (await res.json()) as {
+            ok?: boolean;
+            user?: AdminUserDetailPayload;
+            stores?: AdminPersonStoreRow[];
+            adminMembership?: AdminPersonMembershipRow | null;
+            activity?: { status?: string };
+          };
           if (data.ok && data.user) {
-            setState({ kind: "user", user: data.user });
+            setState({
+              kind: "user",
+              user: data.user,
+              stores: Array.isArray(data.stores) ? data.stores : [],
+              adminMembership: data.adminMembership ?? null,
+              activityStatus:
+                data.activity?.status === "ok" ? "ok" : "not_implemented",
+            });
             return;
           }
           setState({ kind: "error", messageKey: "admin_users_error_fetch_failed" });
@@ -74,5 +98,12 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
     );
   }
 
-  return <AdminMemberDetail user={state.user} />;
+  return (
+    <AdminMemberDetail
+      user={state.user}
+      stores={state.stores}
+      adminMembership={state.adminMembership}
+      activityStatus={state.activityStatus}
+    />
+  );
 }

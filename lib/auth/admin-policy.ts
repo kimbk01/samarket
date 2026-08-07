@@ -1,4 +1,4 @@
-/** 관리자 정책은 공개 env·클라이언트 저장값이 아니라 서버의 `profiles.role` 기준으로만 판단한다. */
+/** 관리자 정책은 공개 env·클라이언트 저장값이 아니라 서버의 Admin Membership(과도기: profiles.role) 기준으로만 판단한다. */
 
 /** 관리자 라우트는 모든 환경에서 서버 검증을 강제한다. */
 export function isAdminRequireAuthEnabled(): boolean {

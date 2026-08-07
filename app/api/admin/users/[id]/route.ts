@@ -589,7 +589,27 @@ export async function GET(
           ? Number(prof.trust_score)
           : null,
     };
-    return NextResponse.json({ ok: true, user });
+
+    const { data: storeRows } = await supabase
+      .from("stores")
+      .select("id, store_name, slug, approval_status, is_visible, created_at")
+      .eq("owner_user_id", rawId)
+      .order("created_at", { ascending: false });
+
+    const { data: membershipRow } = await supabase
+      .from("admin_memberships")
+      .select("id, role, status, admin_tier, granted_at, bootstrap_seed")
+      .eq("user_id", rawId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    return NextResponse.json({
+      ok: true,
+      user,
+      stores: Array.isArray(storeRows) ? storeRows : [],
+      adminMembership: membershipRow ?? null,
+      activity: { status: "not_implemented" },
+    });
   }
 
   const { data: testUser, error: testUserError } = await supabase

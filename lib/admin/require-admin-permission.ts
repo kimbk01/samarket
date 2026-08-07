@@ -4,6 +4,11 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getCurrentProfile } from "@/lib/auth/server-guards";
 import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import {
+  hasActiveAdminMembershipOrLegacyRole,
+  loadActiveAdminMembership,
+  resolveEffectiveAdminRole,
+} from "@/lib/admin/admin-membership";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
@@ -33,7 +38,7 @@ export async function requireAdminApiActor(): Promise<
   if (!admin.ok) return admin;
 
   const profile = await getCurrentProfile(admin.userId);
-  if (!profile || !isPrivilegedAdminRole(profile.role)) {
+  if (!profile) {
     return {
       ok: false,
       response: NextResponse.json({ ok: false, error: "admin_only" }, { status: 403 }),
@@ -48,13 +53,28 @@ export async function requireAdminApiActor(): Promise<
     };
   }
 
-  const role = normalizeAdminRole(profile.role);
-  const isSuperAdmin = isSuperAdminRole(profile.role);
-  const adminTier = (profile as { admin_tier?: string | null }).admin_tier ?? null;
+  // PHASE E dual-read: profiles.role OR active admin_memberships
+  const privileged =
+    isPrivilegedAdminRole(profile.role) ||
+    (await hasActiveAdminMembershipOrLegacyRole(sb, admin.userId, profile.role).catch(() => false));
+  if (!privileged) {
+    return {
+      ok: false,
+      response: NextResponse.json({ ok: false, error: "admin_only" }, { status: 403 }),
+    };
+  }
+
+  const membership = await loadActiveAdminMembership(sb, admin.userId).catch(() => null);
+  const effectiveRole =
+    (await resolveEffectiveAdminRole(sb, admin.userId, profile.role).catch(() => null)) ??
+    normalizeAdminRole(profile.role);
+  const isSuperAdmin = isSuperAdminRole(effectiveRole);
+  const adminTier =
+    membership?.admin_tier ?? (profile as { admin_tier?: string | null }).admin_tier ?? null;
   const permissions = await loadEffectiveStaffPermissions(
     sb,
     admin.userId,
-    profile.role,
+    effectiveRole,
     adminTier
   ).catch(() => [] as AdminPermissionKey[]);
 
@@ -63,7 +83,7 @@ export async function requireAdminApiActor(): Promise<
     actor: {
       userId: admin.userId,
       profile,
-      role,
+      role: effectiveRole,
       permissions,
       isSuperAdmin,
     },

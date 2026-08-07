@@ -3,12 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminMemberDetail, type AdminUserDetailPayload } from "./AdminTestUserDetail";
+import {
+  AdminMemberDetail,
+  type AdminPersonMembershipRow,
+  type AdminPersonStoreRow,
+  type AdminUserDetailPayload,
+} from "./AdminTestUserDetail";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type DetailLoadState =
   | { kind: "loading" }
-  | { kind: "user"; user: AdminUserDetailPayload }
+  | {
+      kind: "user";
+      user: AdminUserDetailPayload;
+      stores: AdminPersonStoreRow[];
+      adminMembership: AdminPersonMembershipRow | null;
+      activityStatus: "not_implemented" | "ok";
+    }
   | { kind: "error"; messageKey: MessageKey };
 
 interface AdminUserDetailModalProps {
@@ -43,10 +54,22 @@ export function AdminUserDetailModal({ userId, onClose, onUpdated, onSendMessage
       });
       if (signal?.aborted || !mountedRef.current) return;
       if (res.ok) {
-        const data = (await res.json()) as { ok?: boolean; user?: AdminUserDetailPayload };
+        const data = (await res.json()) as {
+          ok?: boolean;
+          user?: AdminUserDetailPayload;
+          stores?: AdminPersonStoreRow[];
+          adminMembership?: AdminPersonMembershipRow | null;
+          activity?: { status?: string };
+        };
         if (signal?.aborted || !mountedRef.current) return;
         if (data.ok && data.user) {
-          setState({ kind: "user", user: data.user });
+          setState({
+            kind: "user",
+            user: data.user,
+            stores: Array.isArray(data.stores) ? data.stores : [],
+            adminMembership: data.adminMembership ?? null,
+            activityStatus: data.activity?.status === "ok" ? "ok" : "not_implemented",
+          });
           return;
         }
         setState({ kind: "error", messageKey: "admin_users_error_fetch_failed" });
@@ -138,6 +161,9 @@ export function AdminUserDetailModal({ userId, onClose, onUpdated, onSendMessage
           ) : (
             <AdminMemberDetail
               user={state.user}
+              stores={state.stores}
+              adminMembership={state.adminMembership}
+              activityStatus={state.activityStatus}
               presentation="modal"
               onUpdated={handleUpdated}
               onSendMessage={onSendMessage}

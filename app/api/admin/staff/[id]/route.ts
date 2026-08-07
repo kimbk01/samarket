@@ -7,6 +7,7 @@ import {
   replaceStaffPermissions,
   uiRoleToAdminTier,
 } from "@/lib/admin/admin-user-server";
+import { revokeActiveAdminMembership, upsertActiveAdminMembership } from "@/lib/admin/admin-membership";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
@@ -71,8 +72,22 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "cannot_promote_to_super_admin" }, { status: 400 });
     }
     patch.admin_tier = uiRoleToAdminTier(body.role);
+    await upsertActiveAdminMembership(sb, {
+      userId: staffId,
+      role: "admin",
+      adminTier: uiRoleToAdminTier(body.role),
+      grantedBy: actor.userId,
+    });
   }
   if (body.disabled === true) {
+    const revoked = await revokeActiveAdminMembership(sb, {
+      userId: staffId,
+      revokedBy: actor.userId,
+      reason: "staff_disabled",
+    });
+    if (!revoked.ok && revoked.error !== "not_admin") {
+      return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
+    }
     patch.status = "deleted";
     patch.deleted_at = new Date().toISOString();
   } else if (body.disabled === false) {
@@ -129,6 +144,15 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
   }
 
+  const revoked = await revokeActiveAdminMembership(sb, {
+    userId: staffId,
+    revokedBy: actor.userId,
+    reason: "staff_deleted",
+  });
+  if (!revoked.ok && revoked.error === "last_super_admin") {
+    return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
+  }
+
   const now = new Date().toISOString();
   await sb
     .from("profiles")
@@ -141,7 +165,6 @@ export async function DELETE(
       deleted_at: now,
     })
     .eq("id", staffId);
-  await sb.from("admin_staff_permissions").delete().eq("user_id", staffId);
 
   void appendAuditLog(sb, {
     actor_type: "admin",
@@ -149,6 +172,7 @@ export async function DELETE(
     target_type: "staff",
     target_id: staffId,
     action: "disable_staff",
+    after_json: { membership_revoked: revoked.ok },
   });
 
   return NextResponse.json({ ok: true });

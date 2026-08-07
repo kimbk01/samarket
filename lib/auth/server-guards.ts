@@ -11,6 +11,8 @@ import {
   clearActiveSessionCookie,
 } from "@/lib/auth/active-session";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import {
   hasPhilippinePhoneVerification,
@@ -38,7 +40,6 @@ import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import type { ProfileRow } from "@/lib/profile/types";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import {
@@ -284,10 +285,21 @@ export async function requireAdmin(
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
-  if (!isPrivilegedAdminRole(profile.role)) {
-    return { ok: false, response: jsonError("관리자만 가능합니다.", 403), profile };
+  // PHASE E dual-read: transitional profiles.role OR admin_memberships.active
+  if (isPrivilegedAdminRole(profile.role)) {
+    return { ok: true, profile };
   }
-  return { ok: true, profile };
+  const sb = tryCreateSupabaseServiceClient();
+  if (sb) {
+    try {
+      if (await hasActiveAdminMembershipOrLegacyRole(sb, userId, profile.role)) {
+        return { ok: true, profile };
+      }
+    } catch {
+      /* deny */
+    }
+  }
+  return { ok: false, response: jsonError("관리자만 가능합니다.", 403), profile };
 }
 
 /** GET `/api/me/profile` 동일 세션·기기 시 profiles · registry 갱신 최소 간격(초). `last_login_at` 경과 기준. */

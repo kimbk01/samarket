@@ -49,9 +49,16 @@ export interface AdminUser {
   memberType: MemberType;
   /** profiles.role 원본 — master 판별·서버 검증용 */
   profileRole?: string;
-  /** Legacy Lite 목록 분류 — profiles.role/member_type 기준 */
+  /** Legacy Lite 목록 분류 — admin: membership/role · store_manager: stores.owner · else member */
   accountCategory?: AdminAccountCategory;
   roleCategory?: AdminAccountCategory;
+  /** PHASE E Person Directory — from stores.owner_user_id (not profiles.role) */
+  storeRelation?: {
+    count: number;
+    hasApproved: boolean;
+  };
+  /** PHASE E — active admin_memberships or transitional privileged role */
+  hasAdminMembership?: boolean;
   /** Legacy Lite 상태 분류 — 목록 표시·필터용 */
   statusCategory?: AdminUserStatusCategory;
   /**

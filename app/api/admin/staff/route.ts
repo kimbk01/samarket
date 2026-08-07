@@ -8,6 +8,7 @@ import {
   replaceStaffPermissions,
   uiRoleToAdminTier,
 } from "@/lib/admin/admin-user-server";
+import { upsertActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import type { AdminRole } from "@/lib/admin-menu-config";
@@ -137,15 +138,12 @@ export async function POST(req: NextRequest) {
         ? body.permissions
         : defaultPermissionsForUiRole(uiRole);
 
-    await sb
-      .from("profiles")
-      .update({
-        role: "admin",
-        is_admin: true,
-        member_type: "admin",
-        admin_tier: uiRoleToAdminTier(uiRole),
-      })
-      .eq("id", existingUserId);
+    await upsertActiveAdminMembership(sb, {
+      userId: existingUserId,
+      role: "admin",
+      adminTier: uiRoleToAdminTier(uiRole),
+      grantedBy: actor.userId,
+    });
     await replaceStaffPermissions(sb, existingUserId, permissions, actor.userId);
 
     void appendAuditLog(sb, {
@@ -154,7 +152,7 @@ export async function POST(req: NextRequest) {
       target_type: "staff",
       target_id: existingUserId,
       action: "promote_to_admin",
-      after_json: { role: uiRole, permissions },
+      after_json: { role: uiRole, permissions, membership: true },
     });
 
     return NextResponse.json({ ok: true, id: existingUserId });
@@ -210,6 +208,13 @@ export async function POST(req: NextRequest) {
     manual_account_type: "admin",
   });
 
+  await upsertActiveAdminMembership(sb, {
+    userId,
+    role: "admin",
+    adminTier: uiRoleToAdminTier(uiRole),
+    grantedBy: actor.userId,
+  });
+
   await replaceStaffPermissions(sb, userId, permissions, actor.userId);
 
   void appendAuditLog(sb, {
@@ -218,7 +223,7 @@ export async function POST(req: NextRequest) {
     target_type: "staff",
     target_id: userId,
     action: "create_admin",
-    after_json: { loginId, role: uiRole, permissions },
+    after_json: { loginId, role: uiRole, permissions, membership: true },
   });
 
   return NextResponse.json({ ok: true, id: userId });

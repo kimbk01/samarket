@@ -63,6 +63,24 @@ export type AdminUserDetailPayload = {
   trust_score?: number | null;
 };
 
+export type AdminPersonStoreRow = {
+  id: string;
+  store_name?: string | null;
+  slug?: string | null;
+  approval_status?: string | null;
+  is_visible?: boolean | null;
+  created_at?: string | null;
+};
+
+export type AdminPersonMembershipRow = {
+  id: string;
+  role: string;
+  status: string;
+  admin_tier?: string | null;
+  granted_at?: string | null;
+  bootstrap_seed?: boolean | null;
+};
+
 const PROVIDER_LABEL_KEYS: Record<AdminAuthProvider, MessageKey> = {
   google: "admin_user_provider_google",
   kakao: "admin_user_provider_kakao",
@@ -226,12 +244,18 @@ function ActionButton({
 
 export function AdminMemberDetail({
   user,
+  stores = [],
+  adminMembership = null,
+  activityStatus = "not_implemented",
   presentation = "page",
   onUpdated,
   onSendMessage,
   onDeleted,
 }: {
   user: AdminUserDetailPayload;
+  stores?: AdminPersonStoreRow[];
+  adminMembership?: AdminPersonMembershipRow | null;
+  activityStatus?: "not_implemented" | "ok";
   presentation?: "page" | "modal";
   onUpdated?: () => void;
   onSendMessage?: (userId: string) => void;
@@ -512,35 +536,71 @@ export function AdminMemberDetail({
           onUpdated={onUpdated}
         />
 
+        <DetailCard title={t("admin_users_lite_card_store_relation")}>
+          {stores.length === 0 ? (
+            <p className="text-sm text-[#667085]">{t("admin_users_lite_store_relation_empty")}</p>
+          ) : (
+            <ul className="space-y-3">
+              {stores.map((store) => (
+                <li key={store.id} className="border-b border-[#f2f4f7] pb-3 last:border-b-0 last:pb-0">
+                  <p className="text-sm font-semibold text-[#101828]">
+                    {store.store_name?.trim() || store.slug?.trim() || store.id}
+                  </p>
+                  <p className="mt-1 text-xs text-[#667085]">
+                    {store.approval_status ?? emptyDash}
+                    {store.slug ? ` · /${store.slug}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailCard>
+
+        <DetailCard title={t("admin_users_lite_card_admin_membership")}>
+          {adminMembership ? (
+            <>
+              <FieldRow label={t("admin_users_lite_col_role")} value={adminMembership.role} />
+              <FieldRow
+                label={t("admin_users_lite_col_status")}
+                value={adminMembership.status}
+              />
+              <FieldRow
+                label={t("admin_users_lite_membership_granted_at")}
+                value={
+                  adminMembership.granted_at
+                    ? formatAdminLiteDateTime(adminMembership.granted_at, dateLocale, emptyDash)
+                    : emptyDash
+                }
+              />
+            </>
+          ) : (
+            <p className="text-sm text-[#667085]">{t("admin_users_lite_admin_membership_empty")}</p>
+          )}
+        </DetailCard>
+
         <DetailCard title={t("admin_users_lite_card_activity")}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_total_orders")}</p>
-              <p className="mt-1 text-2xl font-bold text-[#101828]">0</p>
+          {activityStatus === "not_implemented" ? (
+            <p className="text-sm text-[#667085]">{t("admin_users_lite_activity_not_implemented")}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_total_orders")}</p>
+                <p className="mt-1 text-2xl font-bold text-[#101828]">0</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_points")}</p>
+                <p className="mt-1 text-2xl font-bold text-[#101828]">
+                  {pointsBalance === null ? emptyDash : pointsBalance.toLocaleString(dateLocale)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_total_payment")}</p>
-              <p className="mt-1 text-2xl font-bold text-[#101828]">0</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_points")}</p>
-              <p className="mt-1 text-2xl font-bold text-[#101828]">
-                {pointsBalance === null ? emptyDash : pointsBalance.toLocaleString(dateLocale)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_last_order_date")}</p>
-              <p className="mt-1 text-sm font-semibold text-[#101828]">{emptyDash}</p>
-            </div>
+          )}
+          <div className="mt-4 border-t border-[#f2f4f7] pt-4">
+            <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_points")}</p>
+            <p className="mt-1 text-2xl font-bold text-[#101828]">
+              {pointsBalance === null ? emptyDash : pointsBalance.toLocaleString(dateLocale)}
+            </p>
           </div>
-          <button
-            type="button"
-            disabled
-            title={t("admin_users_lite_action_todo")}
-            className="mt-4 w-full rounded-lg border border-[#d0d5dd] bg-white px-4 py-2.5 text-sm font-semibold text-[#2563eb] disabled:opacity-60"
-          >
-            {t("admin_users_lite_view_orders")}
-          </button>
         </DetailCard>
 
         {!isReadOnly ? (

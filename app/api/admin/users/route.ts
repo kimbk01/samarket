@@ -70,32 +70,32 @@ function normalizeRoleToken(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function resolveAdminAccountCategory(row: Pick<ProfileRow, "role" | "member_type">): AdminAccountCategory {
+function resolveAdminAccountCategory(
+  row: Pick<ProfileRow, "role" | "member_type">,
+  opts?: { storeCount?: number; hasAdminMembership?: boolean },
+): AdminAccountCategory {
   const role = normalizeRoleToken(row.role);
-  const memberType = normalizeRoleToken(row.member_type);
-  if (role === "admin" || role === "master" || role === "super_admin" || role === "staff") {
+  if (
+    opts?.hasAdminMembership === true ||
+    role === "admin" ||
+    role === "master" ||
+    role === "super_admin" ||
+    role === "staff"
+  ) {
     return "admin";
   }
-  if (
-    role === "owner" ||
-    role === "store_owner" ||
-    role === "merchant" ||
-    role === "store_admin" ||
-    role === "business_owner" ||
-    memberType === "owner" ||
-    memberType === "store_owner" ||
-    memberType === "merchant" ||
-    memberType === "store_admin" ||
-    memberType === "business_owner"
-  ) {
+  // Store ownership SSOT = stores.owner_user_id (PHASE C/D) — never invent via profiles.role
+  if ((opts?.storeCount ?? 0) > 0) {
     return "store_manager";
   }
   return "member";
 }
 
-function resolveMemberType(row: Pick<ProfileRow, "role" | "member_type">): MemberType {
-  const category = resolveAdminAccountCategory(row);
-  if (category === "admin") return "admin";
+function resolveMemberType(
+  row: Pick<ProfileRow, "role" | "member_type">,
+  accountCategory: AdminAccountCategory,
+): MemberType {
+  if (accountCategory === "admin") return "admin";
   const memberType = normalizeRoleToken(row.member_type);
   return memberType === "premium" || memberType === "special" ? "premium" : "normal";
 }
@@ -152,8 +152,11 @@ function parseStatusCategoryFilter(raw: string | null): AdminUserStatusCategory 
 function mapProfileRowToAdminUser(input: {
   row: ProfileRow;
   warnedUserIds: Set<string>;
+  storeCount: number;
+  hasApprovedStore: boolean;
+  hasAdminMembership: boolean;
 }): AdminUserListItem {
-  const { row: r, warnedUserIds } = input;
+  const { row: r, warnedUserIds, storeCount, hasApprovedStore, hasAdminMembership } = input;
   const authProvider = resolveAdminAuthProvider({
     profile: r,
     isManualTestUser: profileIsManualMember(r),
@@ -162,9 +165,12 @@ function mapProfileRowToAdminUser(input: {
     profile: r,
     provider: authProvider,
   });
-  const accountCategory = resolveAdminAccountCategory(r);
+  const accountCategory = resolveAdminAccountCategory(r, {
+    storeCount,
+    hasAdminMembership,
+  });
   const statusCategory = resolveAdminStatusCategory(r);
-  const memberType = resolveMemberType(r);
+  const memberType = resolveMemberType(r, accountCategory);
   const dibayId = r.dibay_id?.trim() || null;
   const username = r.username?.trim() || null;
   const nickname =
@@ -221,11 +227,13 @@ function mapProfileRowToAdminUser(input: {
     accountCategory,
     roleCategory: accountCategory,
     statusCategory,
+    storeRelation: { count: storeCount, hasApproved: hasApprovedStore },
+    hasAdminMembership,
   };
 }
 
 function fallbackAdminUserFromProfileRow(row: ProfileRow): AdminUserListItem {
-  const accountCategory = resolveAdminAccountCategory(row);
+  const accountCategory = resolveAdminAccountCategory(row, {});
   return {
     id: row.id,
     loginIdentifier: row.id,
@@ -246,6 +254,8 @@ function fallbackAdminUserFromProfileRow(row: ProfileRow): AdminUserListItem {
     accountCategory,
     roleCategory: accountCategory,
     statusCategory: resolveAdminStatusCategory(row),
+    storeRelation: { count: 0, hasApproved: false },
+    hasAdminMembership: false,
   };
 }
 
@@ -345,12 +355,54 @@ export async function GET(req: NextRequest) {
     const profileIds = profileRows.map((row) => row.id).filter(Boolean);
     const warnedUserIds = await loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>());
 
+    const storeAgg = new Map<string, { count: number; hasApproved: boolean }>();
+    const adminMemberIds = new Set<string>();
+    if (profileIds.length > 0) {
+      const { data: storeRows, error: storeErr } = await supabase
+        .from("stores")
+        .select("owner_user_id, approval_status")
+        .in("owner_user_id", profileIds);
+      if (!storeErr && Array.isArray(storeRows)) {
+        for (const s of storeRows) {
+          const oid = String((s as { owner_user_id?: string }).owner_user_id ?? "").trim();
+          if (!oid) continue;
+          const prev = storeAgg.get(oid) ?? { count: 0, hasApproved: false };
+          prev.count += 1;
+          if (String((s as { approval_status?: string }).approval_status ?? "") === "approved") {
+            prev.hasApproved = true;
+          }
+          storeAgg.set(oid, prev);
+        }
+      }
+      const { data: membershipRows, error: memErr } = await supabase
+        .from("admin_memberships")
+        .select("user_id")
+        .in("user_id", profileIds)
+        .eq("status", "active");
+      if (!memErr && Array.isArray(membershipRows)) {
+        for (const m of membershipRows) {
+          const uid = String((m as { user_id?: string }).user_id ?? "").trim();
+          if (uid) adminMemberIds.add(uid);
+        }
+      }
+    }
+
     const list: AdminUserListItem[] = profileRows
       .map((r) => {
         try {
+          const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false };
+          const roleTok = String(r.role ?? "").trim().toLowerCase();
+          const hasAdminMembership =
+            adminMemberIds.has(r.id) ||
+            roleTok === "admin" ||
+            roleTok === "super_admin" ||
+            roleTok === "master";
           return mapProfileRowToAdminUser({
             row: r,
             warnedUserIds,
+            storeCount: store.count,
+            hasApprovedStore: store.hasApproved,
+            hasAdminMembership,
           });
         } catch {
           return fallbackAdminUserFromProfileRow(r);
@@ -404,7 +456,7 @@ export async function GET(req: NextRequest) {
         search,
         roleFilter,
         statusFilter,
-        source: "profiles",
+        source: "profiles_stores_admin_membership",
         totalAuthUsers: 0,
         totalRows: dedupedUsers.length,
         withProfile: dedupedUsers.filter((u) => u.hasProfile === true).length,
