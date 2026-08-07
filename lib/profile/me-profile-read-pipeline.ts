@@ -48,11 +48,28 @@ export function createEmptyMeProfilePipelinePerf(): MeProfilePipelinePerf {
 }
 
 /**
+ * Canonical Client Admin fact — active admin_memberships ONLY.
+ * Shared by every successful pipeline return (serviceSb and RLS-only).
+ */
+async function attachCanonicalPrivilegedAdmin(
+  profile: ProfileRow | null,
+  sb: SupabaseClient,
+  authUserId: string
+): Promise<ProfileRow | null> {
+  if (!profile) return null;
+  const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(sb, authUserId).catch(
+    () => false
+  );
+  return { ...profile, privilegedAdmin };
+}
+
+/**
  * 내 프로필 조회 단일 서버 파이프라인.
  *
  * - `serviceSb` 가 있으면 **선 fetch** 후 `ensureUserProfile` 에 읽은 행을 넘겨
  *   정상 기존 사용자는 `ensureAuthProfileRow` heavy 경로를 생략한다.
  * - `serviceSb` 가 없으면(RLS-only) 기존처럼 **ensure 선행** 후 fetch 한다.
+ * - 모든 성공 반환 전에 membership-derived `privilegedAdmin` 을 attach 한다.
  */
 export async function runMeProfileReadPipeline(args: {
   authUserId: string;
@@ -131,6 +148,7 @@ export async function runMeProfileReadPipeline(args: {
       await ensureAutoDibayIdAssigned(serviceSb, authUserId).catch(() => null);
       profile = (await fetchProfileRowSafe(serviceSb, authUserId, m, selectMode)) ?? profile;
     }
+    profile = await attachCanonicalPrivilegedAdmin(profile, serviceSb, authUserId);
     finalizePerf(profile);
     return profile;
   }
@@ -189,7 +207,7 @@ export async function runMeProfileReadPipeline(args: {
     }
   }
   if (profile) {
-    const assignSb = serviceSb ?? tryCreateSupabaseServiceClient();
+    const assignSb = tryCreateSupabaseServiceClient();
     if (assignSb && !profile.dibay_id?.trim()) {
       await ensureAutoDibayIdAssigned(assignSb, authUserId).catch(() => null);
       profile =
@@ -198,13 +216,7 @@ export async function runMeProfileReadPipeline(args: {
         profile;
     }
   }
-  if (profile) {
-    const authSb = serviceSb ?? writeSb;
-    const privilegedAdmin = await hasActiveAdminMembershipOrLegacyRole(authSb, authUserId).catch(
-      () => false
-    );
-    profile = { ...profile, privilegedAdmin };
-  }
+  profile = await attachCanonicalPrivilegedAdmin(profile, writeSb, authUserId);
   finalizePerf(profile);
   return profile;
 }
