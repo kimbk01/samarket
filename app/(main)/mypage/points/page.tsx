@@ -6,12 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { getUpcomingExpiringSummary } from "@/lib/points/point-expire-utils";
 import { PointBalanceCard } from "@/components/points/PointBalanceCard";
-import { PointExpiringCard } from "@/components/points/PointExpiringCard";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
+import {
+  PointFinancialDetailSheet,
+  PointFinancialHistoryList,
+} from "@/components/points/PointFinancialHistoryList";
+import type { PointChargeRequest } from "@/lib/types/point";
+import type {
+  PointFinancialFilter,
+  PointFinancialHistoryItem,
+  PointFinancialSummary,
+} from "@/lib/points/point-financial-history";
 import {
   resolveCustomerCenterBackHref,
   withCustomerCenterFrom,
@@ -23,24 +29,7 @@ import {
 } from "@/lib/mypage/customer-center-layout";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-function PointsBackendNotice() {
-  const { t } = useI18n();
-  return (
-    <div className="rounded-ui-rect border border-emerald-100 bg-emerald-50 px-4 py-3 sam-text-body-secondary text-emerald-900">
-      {t("points_backend_notice")}
-    </div>
-  );
-}
-
-function PointsLoadingSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="h-20 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-20 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
-      <div className="h-40 rounded-ui-rect bg-sam-surface shadow-sm ring-1 ring-black/[0.06]" />
-    </div>
-  );
-}
+type Tab = PointFinancialFilter;
 
 export default function MypagePointsPage() {
   return (
@@ -55,54 +44,90 @@ function MypagePointsPageInner() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const backHref = resolveCustomerCenterBackHref(from);
-  const userId = getCurrentUser()?.id ?? "";
-  const [balance, setBalance] = useState(0);
-  const [ledgerEntries, setLedgerEntries] = useState<PointLedgerEntry[]>([]);
-  const [requests, setRequests] = useState<PointChargeRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<string | null>(null);
+  const initialTab = (searchParams.get("tab") as Tab | null) ?? "all";
+  const showCharges = searchParams.get("view") === "charges";
 
-  const reload = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await runSingleFlight("me:points:get", () =>
-        fetch("/api/me/points", {
-          credentials: "include",
-          cache: "no-store",
-        }),
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        balance?: unknown;
-        ledger?: PointLedgerEntry[];
-        chargeRequests?: PointChargeRequest[];
-        error?: string;
-      };
-      if (!res.ok || !json?.ok) {
-        setLoadError(json?.error ?? "points_load_failed");
-        setBalance(0);
-        setLedgerEntries([]);
-        setRequests([]);
-        return;
+  const [balance, setBalance] = useState(0);
+  const [summary, setSummary] = useState<PointFinancialSummary | null>(null);
+  const [items, setItems] = useState<PointFinancialHistoryItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [tab, setTab] = useState<Tab>(
+    initialTab === "credit" || initialTab === "debit" ? initialTab : "all"
+  );
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requests, setRequests] = useState<PointChargeRequest[]>([]);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
+
+  const load = useCallback(
+    async (opts?: { append?: boolean; cursor?: string | null }) => {
+      const append = Boolean(opts?.append);
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const qs = new URLSearchParams({
+          filter: tab,
+          limit: "30",
+        });
+        if (opts?.cursor) qs.set("cursor", opts.cursor);
+        const res = await runSingleFlight(`me:points:fin:${tab}:${opts?.cursor ?? "0"}`, () =>
+          fetch(`/api/me/points?${qs.toString()}`, {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          balance?: number;
+          summary?: PointFinancialSummary;
+          history?: {
+            items?: PointFinancialHistoryItem[];
+            hasMore?: boolean;
+            nextCursor?: string | null;
+          };
+          chargeRequests?: PointChargeRequest[];
+          error?: string;
+        };
+        if (!res.ok || !json?.ok) {
+          setLoadError(json?.error ?? "points_load_failed");
+          if (!append) {
+            setBalance(0);
+            setItems([]);
+            setRequests([]);
+          }
+          return;
+        }
+        setLoadError(null);
+        setBalance(Math.max(0, Number(json.balance ?? 0)));
+        setSummary(json.summary ?? null);
+        const pageItems = Array.isArray(json.history?.items) ? json.history!.items! : [];
+        setItems((prev) => (append ? [...prev, ...pageItems] : pageItems));
+        setHasMore(Boolean(json.history?.hasMore));
+        setNextCursor(json.history?.nextCursor ?? null);
+        if (!append) {
+          setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
+        }
+      } catch {
+        setLoadError("points_load_failed");
+        if (!append) {
+          setBalance(0);
+          setItems([]);
+          setRequests([]);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-      setLoadError(null);
-      setBalance(Math.max(0, Number(json.balance ?? 0)));
-      setLedgerEntries(Array.isArray(json.ledger) ? json.ledger : []);
-      setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
-    } catch {
-      setLoadError("points_load_failed");
-      setBalance(0);
-      setLedgerEntries([]);
-      setRequests([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [tab]
+  );
 
   useEffect(() => {
-    void reload();
-  }, [reload, userId]);
+    void load();
+  }, [load]);
 
   const cancelCharge = async (id: string) => {
     if (cancelling) return;
@@ -113,32 +138,52 @@ function MypagePointsPageInner() {
         credentials: "include",
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (res.ok && j.ok) await reload();
+      if (res.ok && j.ok) await load();
     } finally {
       setCancelling(null);
     }
   };
 
-  const expiringSummary = useMemo(
-    () => ({
-      userId,
-      ...getUpcomingExpiringSummary(userId, ledgerEntries),
-    }),
-    [userId, ledgerEntries]
+  const tabs = useMemo(
+    () =>
+      [
+        {
+          id: "all" as const,
+          label: safeT("point_fin_tab_all", { fallbackKo: "전체", fallbackEn: "All" }),
+        },
+        {
+          id: "credit" as const,
+          label: safeT("point_fin_tab_credit", { fallbackKo: "충전/지급", fallbackEn: "Credits" }),
+        },
+        {
+          id: "debit" as const,
+          label: safeT("point_fin_tab_debit", { fallbackKo: "사용/차감", fallbackEn: "Debits" }),
+        },
+      ] as const,
+    [safeT]
   );
+
+  const pendingCharges = requests.filter(
+    (c) =>
+      c.requestStatus === "pending" ||
+      c.requestStatus === "waiting_confirm" ||
+      c.requestStatus === "on_hold"
+  ).length;
 
   return (
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
       <MySubpageHeader
         title={t("common_points")}
-        subtitle={t("points_subtitle")}
+        subtitle={safeT("point_fin_home_subtitle", {
+          fallbackKo: "잔액과 사용 내역을 확인합니다.",
+          fallbackEn: "Check your balance and usage history.",
+        })}
         backHref={backHref}
         preferHistoryBack={false}
         hideCtaStrip
       />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-6`}>
-          <PointsBackendNotice />
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-5`}>
           {loadError ? (
             <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
               {safeT("common_content_unavailable", {
@@ -147,47 +192,84 @@ function MypagePointsPageInner() {
               })}
             </div>
           ) : null}
-          {loading ? (
-            <PointsLoadingSkeleton />
-          ) : (
-            <>
-              <PointBalanceCard balance={balance} />
-              <PointExpiringCard summary={expiringSummary} />
-            </>
-          )}
+
+          <PointBalanceCard balance={balance} />
+
           <div className="flex flex-wrap gap-2">
             <Link
               href={withCustomerCenterFrom("/mypage/points/charge", from)}
               className="min-h-11 rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
             >
-              {t("points_charge")}
-            </Link>
-            <Link
-              href={withCustomerCenterFrom("/mypage/points/ledger", from)}
-              className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
-            >
-              {t("points_ledger")}
+              {safeT("point_fin_cta_charge", { fallbackKo: "충전하기", fallbackEn: "Top up" })}
             </Link>
             <Link
               href={withCustomerCenterFrom("/mypage/points/promotions", from)}
               className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
             >
-              {t("points_promotion")}
+              {safeT("point_fin_cta_promotions", {
+                fallbackKo: "홍보 권리",
+                fallbackEn: "Promotions",
+              })}
             </Link>
             <Link
-              href={withCustomerCenterFrom("/mypage/points/expiring", from)}
+              href={withCustomerCenterFrom("/mypage/points?view=charges", from)}
               className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
             >
-              {t("points_expiring")}
+              {safeT("point_fin_cta_charge_requests", {
+                fallbackKo: pendingCharges > 0 ? `충전 신청 (${pendingCharges})` : "충전 신청",
+                fallbackEn:
+                  pendingCharges > 0 ? `Top-up requests (${pendingCharges})` : "Top-up requests",
+              })}
             </Link>
           </div>
-          <div>
-            <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("points_charge_history")}</h2>
-            {loading ? (
-              <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-                {t("common_loading")}
+
+          {summary ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+                <p className="sam-text-helper text-sam-muted">
+                  {safeT("point_fin_sum_credit", { fallbackKo: "총 충전/지급", fallbackEn: "Total in" })}
+                </p>
+                <p className="sam-text-body font-semibold text-emerald-700">
+                  +{summary.totalCredit.toLocaleString()}P
+                </p>
               </div>
-            ) : (
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+                <p className="sam-text-helper text-sam-muted">
+                  {safeT("point_fin_sum_debit", { fallbackKo: "총 사용/차감", fallbackEn: "Total out" })}
+                </p>
+                <p className="sam-text-body font-semibold text-red-600">
+                  -{summary.totalDebit.toLocaleString()}P
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {showCharges ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="sam-text-body font-semibold text-sam-fg">
+                  {safeT("point_fin_charges_title", {
+                    fallbackKo: "충전 신청 현황",
+                    fallbackEn: "Top-up requests",
+                  })}
+                </h2>
+                <Link
+                  href={withCustomerCenterFrom("/mypage/points", from)}
+                  className="sam-text-helper text-signature underline"
+                >
+                  {safeT("point_fin_back_history", {
+                    fallbackKo: "사용 내역으로",
+                    fallbackEn: "Back to history",
+                  })}
+                </Link>
+              </div>
+              <p className="mb-3 sam-text-helper text-sam-muted">
+                {safeT("point_fin_charges_hint", {
+                  fallbackKo: "입금 신청 상태입니다. 실제 D-Point 지급은 승인 후 내역에 표시됩니다.",
+                  fallbackEn:
+                    "These are deposit requests. D-Point credits appear in history after approval.",
+                })}
+              </p>
               <PointChargeRequestList
                 requests={requests}
                 onCancel={(id) => {
@@ -195,10 +277,49 @@ function MypagePointsPageInner() {
                   void cancelCharge(id);
                 }}
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-0 border-b border-sam-border">
+                {tabs.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    className={`flex-1 py-3 sam-text-body-secondary font-semibold transition-colors ${
+                      tab === id
+                        ? "border-b-2 border-signature text-sam-fg"
+                        : "text-sam-muted hover:text-sam-fg"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <PointFinancialHistoryList
+                items={items}
+                loading={loading}
+                onSelect={setSelected}
+              />
+
+              {hasMore ? (
+                <button
+                  type="button"
+                  disabled={loadingMore}
+                  onClick={() => void load({ append: true, cursor: nextCursor })}
+                  className="min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50"
+                >
+                  {loadingMore
+                    ? t("common_loading")
+                    : safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
+      <PointFinancialDetailSheet item={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

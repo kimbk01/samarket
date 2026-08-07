@@ -18,6 +18,7 @@ import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import { EditMemberForm } from "./EditMemberForm";
 import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
 import { AdminUserTrustSection } from "./AdminUserTrustSection";
+import { AdminUserPointsSection } from "./AdminUserPointsSection";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
   ADMIN_USERS_LITE_CARD,
@@ -602,6 +603,10 @@ export function AdminMemberDetail({
             </p>
           </div>
         </DetailCard>
+
+        <div className="mt-4">
+          <AdminUserPointsSection userId={user.id} />
+        </div>
 
         {!isReadOnly ? (
           <DetailCard title={t("admin_users_lite_detail_actions")}>

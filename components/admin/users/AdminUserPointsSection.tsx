@@ -2,89 +2,131 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { PointLedgerEntry, PointChargeRequest } from "@/lib/types/point";
-import { PointChargeBadge } from "@/components/points/PointChargeBadge";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { useRouter } from "next/navigation";
-import type { MessageKey } from "@/lib/i18n/messages";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import { PointChargeBadge } from "@/components/points/PointChargeBadge";
+import type { PointChargeRequest } from "@/lib/types/point";
+import type {
+  PointFinancialFilter,
+  PointFinancialHistoryItem,
+  PointFinancialSummary,
+} from "@/lib/points/point-financial-history";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 interface AdminUserPointsSectionProps {
   userId: string;
 }
 
-const LEDGER_TYPE_KEYS: Record<string, MessageKey> = {
-  charge: "admin_users_points_ledger_charge",
-  spend: "admin_users_points_ledger_spend",
-  refund: "admin_users_points_ledger_refund",
-  admin_adjust: "admin_users_points_ledger_admin_adjust",
-  expire: "admin_users_points_ledger_expire",
-  reward: "admin_users_points_ledger_reward",
-  reverse: "admin_users_points_ledger_reverse",
-  ad_purchase: "admin_users_points_ledger_ad_purchase",
-  ad_refund: "admin_users_points_ledger_ad_refund",
-};
-
 function dateLocaleTag(language: AppLanguageCode): string {
   return language === "en" ? "en-US" : "ko-KR";
 }
 
-export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) {
-  const { t, language } = useI18n();
-  const dateLocale = dateLocaleTag(language);
-  const router = useRouter();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [ledger, setLedger] = useState<PointLedgerEntry[]>([]);
-  const [charges, setCharges] = useState<PointChargeRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState("");
-  const [tab, setTab] = useState<"ledger" | "charges">("charges");
+function formatSigned(signed: number): string {
+  const abs = Math.abs(signed).toLocaleString();
+  return signed < 0 ? `-${abs} P` : `+${abs} P`;
+}
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/users/${userId}/points`);
-      const j = (await res.json()) as {
-        balance?: number;
-        ledger?: PointLedgerEntry[];
-        chargeRequests?: PointChargeRequest[];
-      };
-      setBalance(j.balance ?? 0);
-      setLedger(j.ledger ?? []);
-      setCharges(j.chargeRequests ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) {
+  const { t, language, safeT } = useI18n();
+  const dateLocale = dateLocaleTag(language);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [summary, setSummary] = useState<PointFinancialSummary | null>(null);
+  const [items, setItems] = useState<PointFinancialHistoryItem[]>([]);
+  const [charges, setCharges] = useState<PointChargeRequest[]>([]);
+  const [filter, setFilter] = useState<PointFinancialFilter>("all");
+  const [surface, setSurface] = useState<"history" | "charges">("history");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [adjustDelta, setAdjustDelta] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
+
+  const load = useCallback(
+    async (opts?: { append?: boolean; cursor?: string | null }) => {
+      const append = Boolean(opts?.append);
+      if (!append) setLoading(true);
+      setErr("");
+      try {
+        const qs = new URLSearchParams({ filter, limit: "40" });
+        if (opts?.cursor) qs.set("cursor", opts.cursor);
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/points?${qs}`, {
+          credentials: "include",
+        });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          balance?: number;
+          summary?: PointFinancialSummary;
+          history?: {
+            items?: PointFinancialHistoryItem[];
+            hasMore?: boolean;
+            nextCursor?: string | null;
+          };
+          chargeRequests?: PointChargeRequest[];
+        };
+        if (!res.ok || j.ok === false) {
+          setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
+          if (!append) {
+            setItems([]);
+            setCharges([]);
+          }
+          return;
+        }
+        setBalance(j.balance ?? 0);
+        setSummary(j.summary ?? null);
+        const page = Array.isArray(j.history?.items) ? j.history!.items! : [];
+        setItems((prev) => (append ? [...prev, ...page] : page));
+        setHasMore(Boolean(j.history?.hasMore));
+        setNextCursor(j.history?.nextCursor ?? null);
+        if (!append) setCharges(Array.isArray(j.chargeRequests) ? j.chargeRequests : []);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userId, filter, t]
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const doAction = async (reqId: string, action: "approve" | "reject" | "hold") => {
-    setBusy(reqId);
+  const submitAdjust = async (sign: 1 | -1) => {
+    const amount = Math.trunc(Math.abs(Number(adjustDelta)));
+    const reason = adjustReason.trim();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErr(safeT("point_fin_admin_amount_required", { fallbackKo: "금액을 입력하세요.", fallbackEn: "Enter an amount." }));
+      return;
+    }
+    if (!reason) {
+      setErr(safeT("point_fin_admin_reason_required", { fallbackKo: "사유를 입력하세요.", fallbackEn: "Enter a reason." }));
+      return;
+    }
+    setBusy(true);
     setErr("");
     try {
-      const res = await fetch(`/api/admin/point-charges/${reqId}`, {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/points`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ delta: sign * amount, reason }),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
+      const j = (await res.json()) as { ok?: boolean; error?: string; balance?: number };
       if (!res.ok || !j.ok) {
         setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
         return;
       }
-      void load();
-      router.refresh();
+      setAdjustDelta("");
+      setAdjustReason("");
+      await load();
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  if (loading) {
+  if (loading && items.length === 0) {
     return (
       <AdminCard titleKey="admin_users_points_title">
         <p className="sam-text-body-secondary text-sam-meta">{t("admin_dashboard_loading")}</p>
@@ -92,158 +134,273 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
     );
   }
 
-  const pendingCount = charges.filter(
-    (c) => c.requestStatus === "pending" || c.requestStatus === "waiting_confirm" || c.requestStatus === "on_hold"
-  ).length;
-
   return (
     <AdminCard titleKey="admin_users_points_manage_title">
-      <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-4 py-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-ui-rect bg-sky-50 px-4 py-3">
         <div>
           <p className="sam-text-helper text-sky-700">{t("admin_users_points_balance")}</p>
           <p className="sam-text-hero font-bold text-sky-800">{(balance ?? 0).toLocaleString()}P</p>
+          {summary ? (
+            <p className="mt-1 sam-text-helper text-sky-800/80">
+              +{summary.totalCredit.toLocaleString()}P / -{summary.totalDebit.toLocaleString()}P
+              {summary.lastOccurredAt
+                ? ` · ${new Date(summary.lastOccurredAt).toLocaleString(dateLocale)}`
+                : ""}
+            </p>
+          ) : null}
         </div>
-        {pendingCount > 0 && (
-          <span className="rounded-full bg-amber-500 px-2.5 py-1 sam-text-helper font-bold text-white">
-            {t("admin_users_points_pending", { count: pendingCount })}
-          </span>
-        )}
+      </div>
+
+      <div className="mb-4 grid gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sm:grid-cols-[1fr_1fr_auto_auto]">
+        <input
+          type="number"
+          min={1}
+          inputMode="numeric"
+          value={adjustDelta}
+          onChange={(e) => setAdjustDelta(e.target.value)}
+          placeholder={safeT("point_fin_admin_amount_ph", { fallbackKo: "금액", fallbackEn: "Amount" })}
+          className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+        />
+        <input
+          type="text"
+          value={adjustReason}
+          onChange={(e) => setAdjustReason(e.target.value)}
+          placeholder={safeT("point_fin_admin_reason_ph", { fallbackKo: "사유 (필수)", fallbackEn: "Reason (required)" })}
+          className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void submitAdjust(1)}
+          className="rounded-ui-rect bg-emerald-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
+        >
+          {safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void submitAdjust(-1)}
+          className="rounded-ui-rect bg-red-600 px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
+        >
+          {safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })}
+        </button>
       </div>
 
       {err ? <p className="mb-2 sam-text-helper text-red-600">{err}</p> : null}
 
       <div className="mb-3 flex gap-1 rounded-ui-rect bg-sam-surface-muted p-1">
-        {(["charges", "ledger"] as const).map((tabKey) => (
+        {(["history", "charges"] as const).map((key) => (
           <button
-            key={tabKey}
+            key={key}
             type="button"
-            onClick={() => setTab(tabKey)}
-            className={`flex-1 rounded-ui-rect py-1.5 sam-text-helper font-semibold transition-colors ${
-              tab === tabKey ? "bg-sam-surface text-sam-fg shadow-sm" : "text-sam-muted"
+            onClick={() => setSurface(key)}
+            className={`flex-1 rounded-ui-rect py-1.5 sam-text-helper font-semibold ${
+              surface === key ? "bg-sam-surface text-sam-fg shadow-sm" : "text-sam-muted"
             }`}
           >
-            {tabKey === "charges"
-              ? t("admin_users_points_tab_charges", { count: charges.length })
-              : t("admin_users_points_tab_ledger", { count: ledger.length })}
+            {key === "history"
+              ? safeT("point_fin_tab_all", { fallbackKo: "회계 내역", fallbackEn: "Ledger" })
+              : t("admin_users_points_tab_charges", { count: charges.length })}
           </button>
         ))}
       </div>
 
-      {tab === "charges" && (
-        <div>
+      {surface === "history" ? (
+        <>
+          <div className="mb-3 flex gap-1">
+            {([
+              ["all", "전체"],
+              ["credit", "충전/지급"],
+              ["debit", "사용/차감"],
+            ] as const).map(([id, ko]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFilter(id)}
+                className={`rounded-full px-3 py-1 sam-text-helper font-semibold ${
+                  filter === id ? "bg-signature text-white" : "bg-sam-surface-muted text-sam-muted"
+                }`}
+              >
+                {id === "all"
+                  ? safeT("point_fin_tab_all", { fallbackKo: ko, fallbackEn: "All" })
+                  : id === "credit"
+                    ? safeT("point_fin_tab_credit", { fallbackKo: ko, fallbackEn: "Credits" })
+                    : safeT("point_fin_tab_debit", { fallbackKo: ko, fallbackEn: "Debits" })}
+              </button>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
+            <table className="w-full min-w-[640px] border-collapse sam-text-body">
+              <thead>
+                <tr className="border-b border-sam-border bg-sam-app">
+                  <th className="px-3 py-2 text-left font-medium">일시</th>
+                  <th className="px-3 py-2 text-left font-medium">구분</th>
+                  <th className="px-3 py-2 text-left font-medium">사용처/내용</th>
+                  <th className="px-3 py-2 text-right font-medium">증감</th>
+                  <th className="px-3 py-2 text-right font-medium">잔액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const title =
+                    language === "en" ? item.fallbackTitleEn : item.fallbackTitleKo;
+                  const usage = item.promotion
+                    ? `${item.promotion.targetTitle} · ${
+                        language === "en"
+                          ? item.promotion.productLabelEn
+                          : item.promotion.productLabelKo
+                      }`
+                    : item.subtitle || item.description;
+                  return (
+                    <tr
+                      key={item.ledgerId}
+                      className="cursor-pointer border-b border-sam-border-soft hover:bg-sam-app"
+                      onClick={() => setSelected(item)}
+                    >
+                      <td className="whitespace-nowrap px-3 py-2 sam-text-helper text-sam-muted">
+                        {new Date(item.occurredAt).toLocaleString(dateLocale)}
+                      </td>
+                      <td className="px-3 py-2">{title}</td>
+                      <td className="max-w-[280px] truncate px-3 py-2 text-sam-muted">{usage}</td>
+                      <td
+                        className={`px-3 py-2 text-right font-semibold ${
+                          item.direction === "credit" ? "text-emerald-700" : "text-red-600"
+                        }`}
+                      >
+                        {formatSigned(item.signedAmount)}
+                      </td>
+                      <td className="px-3 py-2 text-right">{item.balanceAfter.toLocaleString()}P</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {items.length === 0 ? (
+              <p className="py-8 text-center sam-text-helper text-sam-meta">
+                {t("admin_users_points_ledger_empty")}
+              </p>
+            ) : null}
+          </div>
+          {hasMore ? (
+            <button
+              type="button"
+              className="mt-2 w-full rounded-ui-rect border border-sam-border py-2 sam-text-helper"
+              onClick={() => void load({ append: true, cursor: nextCursor })}
+            >
+              {safeT("point_fin_load_more", { fallbackKo: "더 보기", fallbackEn: "Load more" })}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <div className="space-y-2">
           {charges.length === 0 ? (
-            <p className="py-4 text-center sam-text-helper text-sam-meta">{t("admin_users_points_charges_empty")}</p>
+            <p className="py-4 text-center sam-text-helper text-sam-meta">
+              {t("admin_users_points_charges_empty")}
+            </p>
           ) : (
-            <div className="space-y-2">
-              {charges.map((c) => {
-                const canAct =
-                  c.requestStatus === "pending" ||
-                  c.requestStatus === "waiting_confirm" ||
-                  c.requestStatus === "on_hold";
-                return (
-                  <div
-                    key={c.id}
-                    className={`rounded-ui-rect border px-3 py-3 ${
-                      c.requestStatus === "waiting_confirm"
-                        ? "border-amber-200 bg-amber-50"
-                        : "border-sam-border-soft bg-sam-app"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="sam-text-body-secondary font-semibold text-sam-fg">{c.planName}</p>
-                        <p className="sam-text-helper text-sky-700 font-bold">+{c.pointAmount.toLocaleString()}P</p>
-                        <p className="sam-text-xxs text-sam-muted">
-                          ₱{c.paymentAmount.toLocaleString()} ·{" "}
-                          {c.paymentMethod === "manual_confirm"
-                            ? t("admin_users_points_payment_manual")
-                            : t("admin_users_points_payment_transfer")}
-                          {c.depositorName ? ` · ${c.depositorName}` : ""}
-                        </p>
-                        <p className="sam-text-xxs text-sam-meta">
-                          {new Date(c.requestedAt).toLocaleString(dateLocale)}
-                        </p>
-                        {c.adminMemo && (
-                          <p className="mt-1 sam-text-xxs text-amber-700">{t("admin_users_memo_prefix")} {c.adminMemo}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <PointChargeBadge status={c.requestStatus} />
-                        {canAct && (
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              disabled={busy === c.id}
-                              onClick={() => void doAction(c.id, "approve")}
-                              className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
-                            >
-                              {t("admin_ads_action_approve")}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy === c.id}
-                              onClick={() => void doAction(c.id, "reject")}
-                              className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
-                            >
-                              {t("admin_ads_action_reject")}
-                            </button>
-                            {c.requestStatus !== "on_hold" && (
-                              <button
-                                type="button"
-                                disabled={busy === c.id}
-                                onClick={() => void doAction(c.id, "hold")}
-                                className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
-                              >
-                                {t("admin_users_points_action_hold")}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            charges.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-start justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3"
+              >
+                <div>
+                  <p className="sam-text-body-secondary font-semibold">{c.planName}</p>
+                  <p className="sam-text-helper text-sky-700 font-bold">
+                    +{c.pointAmount.toLocaleString()}P
+                  </p>
+                  <p className="sam-text-xxs text-sam-meta">
+                    {new Date(c.requestedAt).toLocaleString(dateLocale)}
+                  </p>
+                </div>
+                <PointChargeBadge status={c.requestStatus} />
+              </div>
+            ))
           )}
         </div>
       )}
 
-      {tab === "ledger" && (
-        <div>
-          {ledger.length === 0 ? (
-            <p className="py-4 text-center sam-text-helper text-sam-meta">{t("admin_users_points_ledger_empty")}</p>
-          ) : (
-            <div className="divide-y divide-sam-border-soft">
-              {ledger.map((l) => (
-                <div key={l.id} className="flex items-center justify-between py-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`shrink-0 rounded-full px-1.5 py-0.5 sam-text-xxs font-semibold ${
-                          l.amount >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {t(LEDGER_TYPE_KEYS[l.entryType] ?? "admin_users_points_ledger_charge")}
-                      </span>
-                      <p className="truncate sam-text-helper text-sam-fg">{l.description}</p>
-                    </div>
-                    <p className="sam-text-xxs text-sam-meta">
-                      {new Date(l.createdAt).toLocaleString(dateLocale)}
-                    </p>
+      {selected ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
+          <div className="relative max-h-[80vh] w-full max-w-lg overflow-auto rounded-ui-rect bg-sam-surface p-4 shadow-xl">
+            <h3 className="sam-text-body-lg font-semibold">
+              {language === "en" ? selected.fallbackTitleEn : selected.fallbackTitleKo}
+            </h3>
+            <p
+              className={`mt-1 sam-text-page-title font-bold ${
+                selected.direction === "credit" ? "text-emerald-700" : "text-red-600"
+              }`}
+            >
+              {formatSigned(selected.signedAmount)}
+            </p>
+            <dl className="mt-3 space-y-2 sam-text-body-secondary">
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">Ledger</dt>
+                <dd className="break-all text-right font-mono sam-text-helper">{selected.ledgerId}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">Type</dt>
+                <dd>
+                  {selected.entryType} / {selected.relatedType}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">Time</dt>
+                <dd>{new Date(selected.occurredAt).toLocaleString(dateLocale)}</dd>
+              </div>
+              {selected.promotion ? (
+                <>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sam-muted">Post</dt>
+                    <dd className="text-right">{selected.promotion.targetTitle}</dd>
                   </div>
-                  <div className="ml-2 shrink-0 text-right">
-                    <p className={`sam-text-body-secondary font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                      {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
-                    </p>
-                    <p className="sam-text-xxs text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sam-muted">Product</dt>
+                    <dd>
+                      {language === "en"
+                        ? selected.promotion.productLabelEn
+                        : selected.promotion.productLabelKo}
+                    </dd>
                   </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sam-muted">Period</dt>
+                    <dd className="text-right">
+                      {new Date(selected.promotion.startAt).toLocaleString(dateLocale)} ~{" "}
+                      {new Date(selected.promotion.endAt).toLocaleString(dateLocale)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sam-muted">Order</dt>
+                    <dd className="break-all font-mono sam-text-helper">{selected.promotion.orderId}</dd>
+                  </div>
+                </>
+              ) : null}
+              {selected.deposit ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">Deposit</dt>
+                  <dd className="text-right">
+                    {selected.deposit.planName} · {selected.deposit.requestStatus}
+                  </dd>
                 </div>
-              ))}
-            </div>
-          )}
+              ) : null}
+              {selected.adjustment?.reason ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">Reason</dt>
+                  <dd className="text-right">{selected.adjustment.reason}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-ui-rect border border-sam-border py-2"
+              onClick={() => setSelected(null)}
+            >
+              {t("common_confirm")}
+            </button>
+          </div>
         </div>
-      )}
+      ) : null}
     </AdminCard>
   );
 }

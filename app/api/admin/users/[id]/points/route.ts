@@ -3,25 +3,34 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   POINT_CHARGE_REQUEST_ROW_SELECT,
-  POINT_LEDGER_ROW_SELECT,
 } from "@/lib/points/point-query-select";
 import {
   isMissingPointsTable,
   normalizeChargeRequest,
-  normalizeLedgerRow,
 } from "@/lib/points/admin-user-points-shared";
+import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
+import {
+  loadPointFinancialHistory,
+  loadPointFinancialSummary,
+  serializePointFinancialPage,
+} from "@/lib/points/project-point-financial-history";
 import {
   adjustUserPoints,
   readUserPointBalance,
   reconcileUserPointBalance,
-  sumUserPointLedger,
 } from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function parseFilter(raw: string | null): PointFinancialFilter {
+  const v = (raw ?? "all").trim().toLowerCase();
+  if (v === "credit" || v === "debit") return v;
+  return "all";
+}
+
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const gate = await requireAdminPermission("point");
@@ -40,23 +49,35 @@ export async function GET(
     .eq("id", userId)
     .maybeSingle();
   const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? "");
-  const balance = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
-  const summed = await sumUserPointLedger(sb, userId);
-  const ledgerSum = summed.ok ? summed.sum : null;
 
-  let ledger: ReturnType<typeof normalizeLedgerRow>[] = [];
-  const ledgerRes = await sb
-    .from("point_ledger")
-    .select(POINT_LEDGER_ROW_SELECT)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (!ledgerRes.error) {
-    ledger = (ledgerRes.data ?? []).map((row) =>
-      normalizeLedgerRow(row as Record<string, unknown>, userId, userNickname)
-    );
-  } else if (!isMissingPointsTable(ledgerRes.error.message ?? "", "point_ledger")) {
-    return NextResponse.json({ ok: false, error: ledgerRes.error.message }, { status: 500 });
+  const filter = parseFilter(req.nextUrl.searchParams.get("filter"));
+  const limit = Number(req.nextUrl.searchParams.get("limit") ?? 40);
+  const cursor = req.nextUrl.searchParams.get("cursor");
+  const dateFrom = req.nextUrl.searchParams.get("dateFrom");
+  const dateTo = req.nextUrl.searchParams.get("dateTo");
+
+  const summary = await loadPointFinancialSummary(sb, userId);
+  const historyRes = await loadPointFinancialHistory(sb, {
+    userId,
+    filter,
+    limit,
+    cursor,
+    dateFrom,
+    dateTo,
+  });
+  if (!historyRes.ok) {
+    if (historyRes.code === "table_missing") {
+      return NextResponse.json({
+        ok: true,
+        balance: summary.balance,
+        summary,
+        history: { items: [], hasMore: false, nextCursor: null },
+        ledger: [],
+        chargeRequests: [],
+        source: "missing_table",
+      });
+    }
+    return NextResponse.json({ ok: false, error: historyRes.error }, { status: 500 });
   }
 
   let chargeRequests: ReturnType<typeof normalizeChargeRequest>[] = [];
@@ -74,12 +95,28 @@ export async function GET(
     return NextResponse.json({ ok: false, error: chargeRes.error.message }, { status: 500 });
   }
 
+  const history = serializePointFinancialPage(historyRes.page);
+
   return NextResponse.json({
     ok: true,
-    balance,
-    ledgerSum,
-    cacheMatchesLedger: ledgerSum === null ? null : balance === Math.max(0, ledgerSum),
-    ledger,
+    balance: summary.balance,
+    ledgerSum: summary.ledgerSum,
+    cacheMatchesLedger: summary.cacheMatchesLedger,
+    summary,
+    history,
+    ledger: history.items.map((item) => ({
+      id: item.ledgerId,
+      userId,
+      userNickname,
+      entryType: item.entryType,
+      amount: item.signedAmount,
+      balanceAfter: item.balanceAfter,
+      relatedType: item.relatedType,
+      relatedId: item.relatedId,
+      description: item.description,
+      createdAt: item.occurredAt,
+      actorType: item.actorType,
+    })),
     chargeRequests,
     source: "supabase",
   });

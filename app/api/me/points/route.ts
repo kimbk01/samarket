@@ -1,35 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
+import type { PointChargeRequest } from "@/lib/types/point";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
+import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
+import type { PointFinancialFilter } from "@/lib/points/point-financial-history";
 import {
-  POINT_CHARGE_REQUEST_ROW_SELECT,
-  POINT_LEDGER_ROW_SELECT,
-} from "@/lib/points/point-query-select";
+  loadPointFinancialHistory,
+  loadPointFinancialSummary,
+  serializePointFinancialPage,
+} from "@/lib/points/project-point-financial-history";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function normalizeLedgerRow(row: Record<string, unknown>, userId: string, userNickname: string): PointLedgerEntry {
-  return {
-    id: String(row.id ?? ""),
-    userId,
-    userNickname,
-    entryType: (String(row.entry_type ?? "admin_adjust") as PointLedgerEntry["entryType"]),
-    amount: Number(row.amount ?? 0),
-    balanceAfter: Number(row.balance_after ?? 0),
-    relatedType: (String(row.related_type ?? "admin_manual") as PointLedgerEntry["relatedType"]),
-    relatedId: String(row.related_id ?? ""),
-    description: String(row.description ?? ""),
-    createdAt: String(row.created_at ?? new Date().toISOString()),
-    actorType: (String(row.actor_type ?? "system") as PointLedgerEntry["actorType"]),
-    earnedAt: row.earned_at ? String(row.earned_at) : undefined,
-    expiresAt: row.expires_at ? String(row.expires_at) : undefined,
-    expiredAmount: row.expired_amount == null ? undefined : Number(row.expired_amount),
-    isExpired: row.expires_at ? new Date(String(row.expires_at)).getTime() < Date.now() : undefined,
-  };
-}
 
 function normalizeChargeRequest(row: Record<string, unknown>, userId: string, userNickname: string): PointChargeRequest {
   return {
@@ -57,11 +40,18 @@ function normalizeChargeRequest(row: Record<string, unknown>, userId: string, us
   };
 }
 
+function parseFilter(raw: string | null): PointFinancialFilter {
+  const v = (raw ?? "all").trim().toLowerCase();
+  if (v === "credit" || v === "debit") return v;
+  return "all";
+}
+
 /**
  * GET /api/me/points
- * 로그인 사용자의 포인트 잔액·원장·충전 신청 내역을 반환한다.
+ * Balance + Financial History Projection (ledger SSOT) + optional charge-request list.
+ * Query: filter=all|credit|debit&limit=&cursor=
  */
-export async function GET(_req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
@@ -71,11 +61,25 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       ok: true,
       balance: 0,
+      summary: {
+        balance: 0,
+        ledgerSum: 0,
+        cacheMatchesLedger: true,
+        totalCredit: 0,
+        totalDebit: 0,
+        lastOccurredAt: null,
+      },
+      history: { items: [], hasMore: false, nextCursor: null },
       ledger: [],
       chargeRequests: [],
       source: "defaults",
     });
   }
+
+  const { searchParams } = req.nextUrl;
+  const filter = parseFilter(searchParams.get("filter"));
+  const limit = Number(searchParams.get("limit") ?? 30);
+  const cursor = searchParams.get("cursor");
 
   const { data: profile } = await sb
     .from("profiles")
@@ -83,21 +87,27 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     .eq("id", userId)
     .maybeSingle();
   const userNickname = String(profile?.nickname ?? "");
-  const balance = Math.max(0, Number(profile?.points ?? 0));
 
-  let ledger: PointLedgerEntry[] = [];
-  const ledgerRes = await sb
-    .from("point_ledger")
-    .select(POINT_LEDGER_ROW_SELECT)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (!ledgerRes.error) {
-    ledger = (ledgerRes.data ?? []).map((row) =>
-      normalizeLedgerRow(row as Record<string, unknown>, userId, userNickname)
-    );
-  } else if (!isMissingPointsTable(ledgerRes.error.message ?? "", "point_ledger")) {
-    return NextResponse.json({ ok: false, error: ledgerRes.error.message }, { status: 500 });
+  const summary = await loadPointFinancialSummary(sb, userId);
+  const historyRes = await loadPointFinancialHistory(sb, {
+    userId,
+    filter,
+    limit,
+    cursor,
+  });
+  if (!historyRes.ok) {
+    if (historyRes.code === "table_missing") {
+      return NextResponse.json({
+        ok: true,
+        balance: summary.balance,
+        summary,
+        history: { items: [], hasMore: false, nextCursor: null },
+        ledger: [],
+        chargeRequests: [],
+        source: "missing_table",
+      });
+    }
+    return NextResponse.json({ ok: false, error: historyRes.error }, { status: 500 });
   }
 
   let chargeRequests: PointChargeRequest[] = [];
@@ -115,10 +125,27 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: chargeRes.error.message }, { status: 500 });
   }
 
+  const history = serializePointFinancialPage(historyRes.page);
+
   return NextResponse.json({
     ok: true,
-    balance,
-    ledger,
+    balance: summary.balance,
+    summary,
+    history,
+    /** @deprecated use history.items — kept for older clients during cutover */
+    ledger: history.items.map((item) => ({
+      id: item.ledgerId,
+      userId,
+      userNickname,
+      entryType: item.entryType,
+      amount: item.signedAmount,
+      balanceAfter: item.balanceAfter,
+      relatedType: item.relatedType,
+      relatedId: item.relatedId,
+      description: item.description,
+      createdAt: item.occurredAt,
+      actorType: item.actorType,
+    })),
     chargeRequests,
     source: "supabase",
   });

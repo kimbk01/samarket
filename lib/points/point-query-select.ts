@@ -1,6 +1,7 @@
 /** point_ledger — `/api/me/points` normalizeLedgerRow 와 정합 */
 export const POINT_LEDGER_ROW_SELECT =
   "id, user_id, entry_type, amount, balance_after, related_type, related_id, description, created_at, actor_type, earned_at, expires_at, expired_amount";
+/** Financial history list — same columns; kept as alias for call sites. */
 
 /** point_charge_requests — normalizeChargeRequest 와 정합 */
 export const POINT_CHARGE_REQUEST_ROW_SELECT =

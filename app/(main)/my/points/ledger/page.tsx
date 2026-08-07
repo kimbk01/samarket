@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Legacy `/my/points/ledger` — canonical `/mypage/points/ledger`. */
+/** Legacy `/my/points/ledger` → D-Point Asset Home. */
 export default function LegacyMyRedirectPage() {
-  redirect("/mypage/points/ledger");
+  redirect("/mypage/points");
 }
