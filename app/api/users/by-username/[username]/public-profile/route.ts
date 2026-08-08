@@ -53,6 +53,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
   }
 
   if (!profErr && prof && typeof (prof as { id?: string }).id === "string") {
+    const profileId = (prof as { id: string }).id;
+    try {
+      const { data: snap } = await sbAny
+        .from("member_trust_snapshots")
+        .select("manner_battery_percent")
+        .eq("member_id", profileId)
+        .maybeSingle();
+      const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
+      if (pct != null && Number.isFinite(Number(pct))) {
+        (prof as Record<string, unknown>).trust_score = Number(pct);
+      }
+    } catch {
+      /* snapshot table may not exist yet */
+    }
     const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>);
     if (profile.id) {
       let tradeLocationLine: string | null = null;

@@ -96,32 +96,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { data: revLogs } = await sbAny
-    .from("reputation_logs")
-    .select("id, user_id, delta")
-    .eq("source_type", "review")
-    .eq("source_id", roomId);
-
-  for (const log of revLogs ?? []) {
-    const lid = log as { user_id: string; delta: number };
-    const uid = lid.user_id;
-    const delta = Number(lid.delta);
-    if (!uid || Number.isNaN(delta)) continue;
-    try {
-      const { data: prof } = await sbAny
-        .from("profiles")
-        .select("manner_temperature")
-        .eq("id", uid)
-        .maybeSingle();
-      const cur = Number((prof as { manner_temperature?: number } | null)?.manner_temperature ?? 36.5);
-      const next = Math.min(99, Math.max(0, Math.round((cur - delta) * 10) / 10));
-      await sbAny.from("profiles").update({ manner_temperature: next }).eq("id", uid);
-    } catch {
-      /* profiles 없으면 무시 */
+  // Manner Battery SSOT: reverse canonical trust_events for this room (no DELETE / no manner_temperature mutate).
+  try {
+    const { reverseTrustEvent, recomputeMemberTrustSnapshot } = await import(
+      "@/lib/trust/trust-event-ledger"
+    );
+    const { data: teRows } = await sbAny
+      .from("trust_events")
+      .select("id, member_id")
+      .eq("source_id", roomId)
+      .eq("status", "confirmed");
+    const memberIds = new Set<string>();
+    for (const row of teRows ?? []) {
+      const r = row as { id: string; member_id: string };
+      await reverseTrustEvent(sbAny, r.id, "admin_trade_flow_revert");
+      if (r.member_id) memberIds.add(r.member_id);
     }
+    // Also reverse review-sourced events linked via transaction_reviews for this room
+    const { data: revs } = await sbAny.from("transaction_reviews").select("id, reviewee_id").eq("room_id", roomId);
+    for (const rev of revs ?? []) {
+      const reviewId = (rev as { id: string }).id;
+      const { data: reviewEvents } = await sbAny
+        .from("trust_events")
+        .select("id, member_id")
+        .eq("source_type", "transaction_review")
+        .eq("source_id", reviewId)
+        .eq("status", "confirmed");
+      for (const ev of reviewEvents ?? []) {
+        const e = ev as { id: string; member_id: string };
+        await reverseTrustEvent(sbAny, e.id, "admin_trade_flow_revert_review");
+        if (e.member_id) memberIds.add(e.member_id);
+      }
+    }
+    for (const mid of memberIds) {
+      await recomputeMemberTrustSnapshot(sbAny, mid);
+    }
+  } catch {
+    /* trust_events unavailable — do not fall back to manner_temperature mutation */
   }
 
-  await sbAny.from("reputation_logs").delete().eq("source_type", "review").eq("source_id", roomId);
   await sbAny.from("transaction_reviews").delete().eq("room_id", roomId);
 
   if (pMeta?.status === "sold" && pMeta.sold_buyer_id === buyerId) {

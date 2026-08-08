@@ -1,0 +1,36 @@
+# DIBAY Manner Battery HARD LOCK
+
+**HARD LOCK (2026-08-08).** Full doc: `docs/member-trust/dibay-manner-battery-ssot.md`.
+
+## Baseline
+
+- **MANNER BATTERY PRODUCT PASS** — ledger / policy / calculator / snapshot / writer / reader
+- Production: working members snapshot coverage **74/74**, policy **`manner_trade_v1`**
+- Domains: Trade ACTIVE · Community INACTIVE (architecture ready) · Delivery INACTIVE (architecture ready)
+
+## DO NOT (without reopen)
+
+- Invent domain weights (no 50/25/25) or activate Community/Delivery scoring without verified trust events
+- Score `report_created` / pending report / `dispute_hold`
+- Score store rating, order volume, community post/like volume as member Manner
+- Restore `applyTrustScoreDelta` / absolute `newScore` overwrite / reputation_logs score writers
+- Replace ledger+policy+as_of calculator with mutable `current_score + delta`
+- Drop legacy DB columns in an unrelated change without explicit reopen
+
+## Authority
+
+| Concern | Owner |
+|---|---|
+| History | `trust_events` |
+| Policy | `manner_trade_v1` |
+| Calculator | `lib/trust/manner-battery-calculator.ts` |
+| Projection | `member_trust_snapshots` |
+| Writer | `recordTrustEvent` / `reverseTrustEvent` |
+| Reader | `member_trust_snapshots` (bridge `profiles.trust_score` DROP_LATER) |
+
+## Gate
+
+```bash
+npx vitest run lib/trust/__tests__/manner-battery-ssot.test.ts
+npm run manner-battery:recompute
+```

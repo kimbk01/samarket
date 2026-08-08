@@ -1,9 +1,8 @@
 /**
- * Slice 4 — Member trust/profile display surface (home manner row ↔ `/mypage/trust`).
- * Authority: `profiles.trust_score` via `resolveMemberTrustDisplayScore` (Slice 1 SSOT).
- * DO NOT: invent a second score; show session temperature alone when DB trust exists.
- * DO NOT: render twin numbers (e.g. `68.22 · 68%`) in Member UI —
- * one text SSOT (`formatMemberTrustDisplayWithPercent` → `68.22%`) + MannerBatteryIcon visual fill only.
+ * Member trust/profile display surface (home manner row ↔ `/mypage/trust`).
+ * Authority: Manner Battery % via `resolveMemberTrustDisplayScore`
+ * (prefer `manner_battery_percent` / snapshot bridge `trust_score`).
+ * DO NOT: invent a second score; twin numbers in Member UI.
  */
 
 import {
@@ -15,6 +14,7 @@ import {
 import { resolveMemberTrustDisplayScore } from "@/lib/trust/trust-score-ssot";
 
 export type MemberTrustSurfaceInput = {
+  manner_battery_percent?: number | null;
   trust_score?: number | null;
   manner_score?: number | null;
   temperature?: number | null;
@@ -43,7 +43,12 @@ export function formatMemberTrustDisplayWithPercent(score: number): string {
 }
 
 export function buildMemberTrustSurface(input: MemberTrustSurfaceInput): MemberTrustSurface {
-  const score = resolveMemberTrustDisplayScore(input);
+  const score =
+    input.manner_battery_percent != null && Number.isFinite(Number(input.manner_battery_percent))
+      ? resolveMemberTrustDisplayScore({
+          trust_score: Number(input.manner_battery_percent),
+        })
+      : resolveMemberTrustDisplayScore(input);
   const percent = mannerRawToPercent(score);
   const tier = mannerBatteryTier(percent);
   return {

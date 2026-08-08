@@ -6,6 +6,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { runMeProfileReadPipeline } from "@/lib/profile/me-profile-read-pipeline";
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { readMemberMannerBattery } from "@/lib/trust/member-trust-read";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { MyPageData } from "./types";
 import { defaultMypageCmsPack, loadMypageCmsPack } from "@/lib/my/load-mypage-cms-pack";
@@ -111,9 +112,20 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
 
   const uid = profile?.id ?? userId;
   const trustSummary = uid ? getTrustSummary(uid) : null;
-  const mannerScore = profile
+  let mannerScore = profile
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
+  if (uid) {
+    try {
+      const sbRead = tryCreateSupabaseServiceClient() ?? tryGetSupabaseForStores();
+      if (sbRead) {
+        const snap = await readMemberMannerBattery(sbRead as never, uid);
+        mannerScore = snap.manner_battery_percent;
+      }
+    } catch {
+      /* keep bridge resolveProfileTrustScore */
+    }
+  }
   const isBusinessMember = hasOwnerStore;
   const isAdmin = await resolveMypageIsAdmin(userId, profile?.role ?? null);
 

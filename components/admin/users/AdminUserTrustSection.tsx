@@ -2,7 +2,8 @@
 
 /**
  * Slice 7 — Admin Trust Projection (score + history + adjust) in one section.
- * Writer: POST /api/admin/trust-score → applyTrustScoreDelta only.
+ * Writer: POST /api/admin/trust-score → recordTrustEvent(manual_adjustment) only.
+ * Absolute newScore overwrite forbidden.
  * History SSOT: GET /api/admin/users/:id/trust → reputation_logs.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -102,29 +103,39 @@ export function AdminUserTrustSection({
     const current = trustScore ?? 50;
     const raw = window.prompt(
       safeT("admin_users_trust_adjust_prompt", {
-        fallbackKo: `신뢰 점수(0–100). 현재 ${current}`,
-        fallbackEn: `Trust score (0–100). Current ${current}`,
+        fallbackKo: `조정 delta (예: +2 / -1). 현재 점수 ${current} — absolute overwrite 금지`,
+        fallbackEn: `Adjustment delta (e.g. +2 / -1). Current ${current} — absolute overwrite forbidden`,
       }),
-      String(current),
+      "0",
     );
     if (raw == null) return;
-    const next = Number(raw);
-    if (!Number.isFinite(next)) {
+    const delta = Number(raw);
+    if (!Number.isFinite(delta) || delta === 0) {
       window.alert(
         safeT("admin_users_trust_adjust_invalid", {
-          fallbackKo: "유효한 숫자를 입력해 주세요.",
-          fallbackEn: "Enter a valid number.",
+          fallbackKo: "0이 아닌 유효한 delta를 입력해 주세요.",
+          fallbackEn: "Enter a non-zero valid delta.",
         }),
       );
       return;
     }
-    const reason =
-      window.prompt(
-        safeT("admin_users_trust_adjust_reason", {
-          fallbackKo: "조정 사유 (선택)",
-          fallbackEn: "Reason (optional)",
+    const reason = window.prompt(
+      safeT("admin_users_trust_adjust_reason", {
+        fallbackKo: "조정 사유 (필수)",
+        fallbackEn: "Reason (required)",
+      }),
+      "",
+    );
+    if (reason == null) return;
+    if (!reason.trim()) {
+      window.alert(
+        safeT("admin_users_trust_adjust_invalid", {
+          fallbackKo: "사유가 필요합니다.",
+          fallbackEn: "Reason is required.",
         }),
-      ) ?? "";
+      );
+      return;
+    }
     setTrustBusy(true);
     try {
       const res = await fetch("/api/admin/trust-score", {
@@ -133,8 +144,8 @@ export function AdminUserTrustSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetUserId: userId,
-          newScore: next,
-          reason: reason.trim() || "admin_adjust",
+          delta,
+          reason: reason.trim(),
         }),
       });
       const data = (await res.json()) as {

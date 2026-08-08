@@ -1,13 +1,15 @@
 /**
- * POST /api/admin/trust-score — 신뢰 점수 강제 조정 (서비스 롤 + 관리자 세션)
- * Body: { targetUserId, newScore?: number, delta?: number, reason?: string }
+ * POST /api/admin/trust-score — manual_adjustment trust event (ops provenance).
+ * Absolute profiles.trust_score overwrite is FORBIDDEN.
+ * Body: { targetUserId, delta: number, reason: string }
+ * Optional newScore is rejected.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
-import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
-import { clampTrustScore, TRUST_SCORE_DEFAULT } from "@/lib/trust/trust-score-core";
+import { recordTrustEvent, recomputeMemberTrustSnapshot } from "@/lib/trust/trust-event-ledger";
+import { buildManualAdjustmentIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
+import { randomUUID } from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,64 +36,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "targetUserId 필요" }, { status: 400 });
   }
 
+  if (body.newScore != null) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "absolute newScore overwrite is forbidden — use delta with reason (manual_adjustment)",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (body.delta == null || !Number.isFinite(Number(body.delta))) {
+    return NextResponse.json({ ok: false, error: "delta 필요" }, { status: 400 });
+  }
+  const adjustment = Math.round(Number(body.delta) * 100) / 100;
+  if (adjustment === 0) {
+    return NextResponse.json({ ok: true, message: "변경 없음", appliedDelta: 0 });
+  }
+
+  const reason =
+    typeof body.reason === "string" && body.reason.trim()
+      ? body.reason.trim().slice(0, 500)
+      : "";
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: "reason 필요" }, { status: 400 });
+  }
+
   const sb = getTradeServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "서비스 롤 설정 필요" }, { status: 500 });
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  let baseDelta = 0;
-  if (body.newScore != null && Number.isFinite(Number(body.newScore))) {
-    const target = clampTrustScore(Number(body.newScore));
-    let current = TRUST_SCORE_DEFAULT;
-    try {
-      const { data: prof } = await sbAny.from("profiles").select("trust_score").eq("id", targetUserId).maybeSingle();
-      const ts = (prof as { trust_score?: number } | null)?.trust_score;
-      if (ts != null && Number.isFinite(Number(ts))) current = clampTrustScore(Number(ts));
-    } catch {
-      /* ignore */
-    }
-    baseDelta = Math.round((target - current) * 100) / 100;
-  } else if (body.delta != null && Number.isFinite(Number(body.delta))) {
-    baseDelta = Math.round(Number(body.delta) * 100) / 100;
-  } else {
-    return NextResponse.json({ ok: false, error: "newScore 또는 delta 필요" }, { status: 400 });
+  const adjustmentId = randomUUID();
+
+  const result = await recordTrustEvent(sbAny, {
+    memberId: targetUserId,
+    domain: "platform",
+    eventType: "manual_adjustment",
+    sourceType: "admin_manual_adjustment",
+    sourceId: adjustmentId,
+    idempotencyKey: buildManualAdjustmentIdempotencyKey(adjustmentId, targetUserId),
+    direction: "ops",
+    severity: "none",
+    metadata: {
+      adjustment,
+      reason,
+      operator_id: adminUserId,
+      adjustment_id: adjustmentId,
+    },
+  });
+
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
 
-  if (baseDelta === 0) {
-    return NextResponse.json({ ok: true, message: "변경 없음", appliedDelta: 0 });
-  }
-
-  try {
-    await applyTrustScoreDelta(sbAny, {
-      userId: targetUserId,
-      sourceType: "admin_adjust",
-      sourceId: null,
-      baseDelta,
-      recentPositiveBoost: false,
-      skipDailyCap: true,
-      reason: typeof body.reason === "string" ? body.reason.slice(0, 500) : "admin_adjust",
-      metadata: { admin_user_id: adminUserId },
-    });
-  } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: (e as Error)?.message ?? "반영 실패" },
-      { status: 500 }
-    );
-  }
-
-  let trustScore = TRUST_SCORE_DEFAULT;
-  try {
-    const { data: prof } = await sbAny
-      .from("profiles")
-      .select("trust_score")
-      .eq("id", targetUserId)
-      .maybeSingle();
-    const ts = (prof as { trust_score?: number } | null)?.trust_score;
-    if (ts != null && Number.isFinite(Number(ts))) trustScore = clampTrustScore(Number(ts));
-  } catch {
-    /* ignore */
-  }
-
-  return NextResponse.json({ ok: true, appliedDelta: baseDelta, trustScore });
+  const calc = await recomputeMemberTrustSnapshot(sbAny, targetUserId);
+  return NextResponse.json({
+    ok: true,
+    appliedDelta: adjustment,
+    trustScore: calc.manner_battery_percent,
+    policyVersion: calc.policy_version,
+    adjustmentId,
+  });
 }

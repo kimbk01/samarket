@@ -41,9 +41,24 @@ export async function getMyPageData(): Promise<MyPageData> {
 
   const uid = profile?.id ?? userId ?? "";
   const trustSummary = uid ? getTrustSummary(uid) : null;
-  const mannerScore = profile
+  let mannerScore = profile
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
+  if (supabase && uid) {
+    try {
+      const { data: snap } = await supabase
+        .from("member_trust_snapshots")
+        .select("manner_battery_percent")
+        .eq("member_id", uid)
+        .maybeSingle();
+      const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
+      if (pct != null && Number.isFinite(Number(pct))) {
+        mannerScore = Number(pct);
+      }
+    } catch {
+      /* keep bridge */
+    }
+  }
   const isBusinessMember = hasOwnerStore;
   const isAdmin = isAdminUser(user);
 

@@ -261,7 +261,9 @@
     "verify:no-client-only-main-header": "node scripts/verify-no-client-only-main-header.cjs",
     "verify:single-surface-snapshot-boot": "node scripts/verify-single-surface-snapshot-boot.cjs",
     "verify:no-cold-warm-renderer-split": "node scripts/verify-no-cold-warm-renderer-split.cjs",
-    "verify:no-cache-network-full-replace": "node scripts/verify-no-cache-network-full-replace.cjs"
+    "verify:no-cache-network-full-replace": "node scripts/verify-no-cache-network-full-replace.cjs",
+    "manner-battery:recompute": "npx tsx scripts/manner-battery-recompute-snapshots.ts",
+    "manner-battery:apply": "node scripts/apply-manner-battery-ssot-migrations.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

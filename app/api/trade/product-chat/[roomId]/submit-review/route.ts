@@ -8,8 +8,8 @@ import {
   filterValidTagKeys,
   sanitizeReviewComment,
 } from "@/lib/trade/trade-review-tags";
-import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
-import { reviewTrustBaseDelta } from "@/lib/trust/trust-score-core";
+import { recordTrustEvent } from "@/lib/trust/trust-event-ledger";
+import { buildTradeReviewIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
 import type { PublicReviewType, ReviewRoleType } from "@/lib/types/daangn";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
@@ -128,20 +128,24 @@ export async function POST(
   const comment = sanitizeReviewComment(body.comment);
   const anon = !!body.isAnonymousNegative || publicType === "bad";
 
-  const { error: insErr } = await sbAny.from("transaction_reviews").insert({
-    product_id: pc.post_id,
-    room_id: resolved.productChatId,
-    reviewer_id: userId,
-    reviewee_id: revieweeId,
-    role_type: roleType,
-    public_review_type: publicType,
-    private_manner_score: null,
-    private_tags: [],
-    is_anonymous_negative: anon,
-    positive_tag_keys: pos,
-    negative_tag_keys: neg,
-    review_comment: comment || null,
-  });
+  const { data: insertedReview, error: insErr } = await sbAny
+    .from("transaction_reviews")
+    .insert({
+      product_id: pc.post_id,
+      room_id: resolved.productChatId,
+      reviewer_id: userId,
+      reviewee_id: revieweeId,
+      role_type: roleType,
+      public_review_type: publicType,
+      private_manner_score: null,
+      private_tags: [],
+      is_anonymous_negative: anon,
+      positive_tag_keys: pos,
+      negative_tag_keys: neg,
+      review_comment: comment || null,
+    })
+    .select("id")
+    .maybeSingle();
 
   if (insErr) {
     const code = (insErr as { code?: string }).code;
@@ -154,25 +158,39 @@ export async function POST(
     );
   }
 
-  const baseDelta = reviewTrustBaseDelta(publicType, pos.length);
-  try {
-    await applyTrustScoreDelta(sbAny, {
-      userId: revieweeId,
-      sourceType: "review",
-      sourceId: resolved.productChatId,
-      baseDelta,
-      recentPositiveBoost: true,
-      reason: `review:${roleType}:${publicType}`,
-      metadata: {
-        room_id: resolved.productChatId,
-        reviewer_id: userId,
-        positive: pos,
-        negative: neg,
-        public_review_type: publicType,
-      },
-    });
-  } catch {
-    /* trust_score / reputation_logs 미적용 DB */
+  const reviewId = (insertedReview as { id?: string } | null)?.id;
+  if (reviewId) {
+    const eventType =
+      publicType === "good"
+        ? "trade_review_good"
+        : publicType === "bad"
+          ? "trade_review_bad"
+          : "trade_review_normal";
+    const direction =
+      publicType === "good" ? "positive" : publicType === "bad" ? "negative" : "neutral";
+    try {
+      await recordTrustEvent(sbAny, {
+        memberId: revieweeId,
+        domain: "trade",
+        eventType,
+        sourceType: "transaction_review",
+        sourceId: reviewId,
+        idempotencyKey: buildTradeReviewIdempotencyKey(reviewId, revieweeId),
+        direction,
+        severity: publicType === "bad" ? "low" : "none",
+        counterpartyId: userId,
+        metadata: {
+          room_id: resolved.productChatId,
+          reviewer_id: userId,
+          positive: pos,
+          negative: neg,
+          public_review_type: publicType,
+          role_type: roleType,
+        },
+      });
+    } catch {
+      /* trust_events unavailable */
+    }
   }
 
   /* 구매자 후기 1건으로 거래 후기 단계 완료 (판매자 후기 없음) */

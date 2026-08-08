@@ -138,18 +138,16 @@ export function BatteryPolicyReferencePanel() {
             })}
           </li>
           <li>
-            {t("admin_settings_battery_ref_s4_li2", {
-              cap: TRUST_POLICY_CHEATSHEET.dailyPositiveCap,
-            })}
+            {`policy ${TRUST_POLICY_CHEATSHEET.policyVersion} · window ${TRUST_POLICY_CHEATSHEET.windowDays}d · no daily positive cap`}
           </li>
         </ul>
         <div className="mt-3 overflow-x-auto rounded border border-sam-border-soft bg-sam-app/80 p-2 sam-text-xxs text-sam-fg">
           <table className="w-full min-w-[280px] border-collapse text-left">
             <tbody>
-              {(Object.entries(deltas) as [keyof typeof deltas, number][]).map(([k, v]) => (
+              {(Object.entries(deltas) as [string, string][]).map(([k, v]) => (
                 <tr key={k} className="border-b border-sam-border-soft last:border-0">
                   <td className="py-1 pr-2 font-mono text-sam-muted">{k}</td>
-                  <td className="py-1 tabular-nums">{v > 0 ? `+${v}` : v}</td>
+                  <td className="py-1 tabular-nums">{v}</td>
                 </tr>
               ))}
             </tbody>

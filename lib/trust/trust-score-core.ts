@@ -1,10 +1,8 @@
 /**
- * 신뢰 점수(0~100) — 내부 산출·단계 매핑 (UI는 배터리 6단계)
- * 참고: 외부 스펙(이벤트 가중·구간)과 정렬, 운영 판단은 주석에 명시
+ * 신뢰 점수(0~100) — UI battery mapping helpers.
  *
- * CONTRACT (Slice 1 / Architecture LOCK):
- * Runtime Authority = profiles.trust_score (+ reputation_logs via applyTrustScoreDelta).
- * Member `temperature` and Admin detail trust_score are projections of the same SSOT.
+ * @deprecated TRUST_EVENT_DELTAS / recentPositiveBoost / reviewTrustBaseDelta
+ * are NOT Manner Battery SSOT. Authority: manner-battery-policy-v1 + calculator + trust_events.
  */
 
 /** 배터리 시각 칸 수 (단계 수) */
@@ -14,13 +12,13 @@ export const TRUST_SCORE_DEFAULT = 50;
 export const TRUST_SCORE_MIN = 0;
 export const TRUST_SCORE_MAX = 100;
 
-/** 일일 가산 상한 (조작·급등 완화) */
+/** @deprecated Legacy magic — do not use for scoring */
 export const TRUST_DAILY_POSITIVE_CAP = 5;
 
-/** 최근 30일 이벤트: 가산에만 1.5배 (감산은 그대로 — 과도한 추가 하락 방지) */
+/** @deprecated Legacy magic — do not use for scoring */
 export const TRUST_RECENT_POSITIVE_MULTIPLIER = 1.5;
 
-/** 스펙 [2] 기본 이벤트 델타 */
+/** @deprecated Legacy magic — do not use for scoring */
 export const TRUST_EVENT_DELTAS = {
   trade_complete: 2,
   manner_positive: 0.5,
@@ -34,7 +32,6 @@ export type TrustEventKind = keyof typeof TRUST_EVENT_DELTAS;
 
 export type TrustBatteryLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
-/** 스펙 [5] 점수 → 배터리 단계 */
 export function trustScoreToBatteryLevel(score: number): TrustBatteryLevel {
   const s = clampTrustScore(score);
   if (s <= 19) return 1;
@@ -51,11 +48,11 @@ export function clampTrustScore(n: number): number {
   return Math.min(TRUST_SCORE_MAX, Math.max(TRUST_SCORE_MIN, r));
 }
 
-/** UI에 표시하는 정수 % (배터리 채움·라벨용) */
 export function trustScoreToUiPercent(score: number): number {
   return Math.round(clampTrustScore(score));
 }
 
+/** @deprecated */
 export function computeWeightedDelta(baseDelta: number, applyRecentPositiveBoost: boolean): number {
   if (baseDelta === 0) return 0;
   if (applyRecentPositiveBoost && baseDelta > 0) {
@@ -64,7 +61,7 @@ export function computeWeightedDelta(baseDelta: number, applyRecentPositiveBoost
   return Math.round(baseDelta * 100) / 100;
 }
 
-/** 오늘(UTC) 이미 반영된 가산 합에 맞춰 실제 가산치 상한 */
+/** @deprecated */
 export function capPositiveDeltaByDailyLimit(
   proposedPositiveDelta: number,
   alreadyPositiveToday: number,
@@ -75,7 +72,7 @@ export function capPositiveDeltaByDailyLimit(
   return Math.min(proposedPositiveDelta, room);
 }
 
-/** 후기 1건에 대한 신뢰 점수 가산/감산 (스펙 manner_positive + 후기 톤) */
+/** @deprecated */
 export function reviewTrustBaseDelta(
   publicType: "good" | "normal" | "bad",
   positiveTagCount: number
@@ -98,7 +95,6 @@ export const TRUST_TIER_RANGE_LABELS_KO: { level: TrustBatteryLevel; label: stri
   { level: 6, label: "90 ~ 100 (최고)" },
 ];
 
-/** 레거시 manner_temperature(소수 °C) → trust % 환산용 (trust_score 컬럼 없을 때) */
 export const KASAMA_LEGACY_TEMP_NEUTRAL = 36.5;
 export const KASAMA_NEUTRAL_BATTERY_PERCENT = 50;
 export const KASAMA_LEGACY_TEMP_INPUT_MAX = 55;

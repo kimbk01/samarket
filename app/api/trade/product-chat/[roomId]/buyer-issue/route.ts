@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
-import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
-import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
@@ -61,21 +59,7 @@ export async function POST(
     })
     .eq("id", resolved.productChatId);
 
-  for (const uid of [pc.seller_id, pc.buyer_id]) {
-    try {
-      await sbAny.from("reputation_logs").insert({
-        user_id: uid,
-        source_type: "dispute_hold",
-        source_id: resolved.productChatId,
-        delta: 0,
-        status: "held",
-        reason: "trade_dispute_buyer_report",
-        metadata: { room_id: resolved.productChatId, post_id: pc.post_id },
-      });
-    } catch {
-      /* ignore */
-    }
-  }
+  /* Manner Battery SSOT: dispute/report is moderation process only — no reputation_logs score side-channel. */
 
   try {
     await sbAny.from("reports").insert({
@@ -97,7 +81,7 @@ export async function POST(
       user_id: pc.seller_id,
       notification_type: "report",
       title: "거래 관련 문의가 접수되었어요",
-      body: "운영팀 검토 전까지 온도 반영이 보류될 수 있어요.",
+      body: "운영팀에서 내용을 검토할 예정이에요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
       domain: "trade_chat",
       ref_id: resolved.productChatId,
@@ -115,19 +99,7 @@ export async function POST(
     /* ignore */
   }
 
-  try {
-    await applyTrustScoreDelta(sbAny, {
-      userId: pc.seller_id,
-      sourceType: "report",
-      sourceId: resolved.productChatId,
-      baseDelta: TRUST_EVENT_DELTAS.report,
-      recentPositiveBoost: false,
-      reason: "buyer_issue_trade_dispute",
-      metadata: { room_id: resolved.productChatId, reporter_id: userId },
-    });
-  } catch {
-    /* trust_score 미적용 DB */
-  }
+  /* Manner Battery SSOT: REPORT_CREATED is NOT score-eligible — no trust_events / no -5. */
 
   return NextResponse.json({ ok: true, tradeFlowStatus: "dispute" });
 }

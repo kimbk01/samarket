@@ -46,13 +46,13 @@ describe("Slice7 admin trust history projection", () => {
     expect(normalizeAdminTrustHistoryRow(rows[1]!, "user-a")).toBeNull();
   });
 
-  it("GET trust route is admin-gated read-only (no trust_score overwrite)", () => {
+  it("GET trust route is admin-gated read-only (snapshot + trust_events)", () => {
     const src = readFileSync(path.join(root, "app/api/admin/users/[id]/trust/route.ts"), "utf8");
     expect(src).toContain("requireAdminPermission");
     expect(src).toContain('"users"');
-    expect(src).toContain("reputation_logs");
+    expect(src).toContain("member_trust_snapshots");
+    expect(src).toContain("trust_events");
     expect(src).toContain("ADMIN_TRUST_HISTORY_LIMIT");
-    expect(src).toContain("order(\"created_at\"");
     expect(src).not.toContain("applyTrustScoreDelta");
     expect(src).not.toMatch(/\.update\(\s*\{\s*trust_score/);
     expect(src).not.toContain("export async function POST");
@@ -71,13 +71,15 @@ describe("Slice7 admin trust history projection", () => {
     expect(detail).toContain("AdminUserTrustSection");
     expect(detail).not.toContain("handleAdjustTrust");
     expect(section).toContain('fetch("/api/admin/trust-score"');
+    expect(section).toContain("delta");
     expect(section).toContain("/trust");
     expect(section).toContain("admin_users_trust_history");
   });
 
-  it("POST trust-score writer authority remains applyTrustScoreDelta only", () => {
+  it("POST trust-score writer authority is recordTrustEvent(manual_adjustment)", () => {
     const src = readFileSync(path.join(root, "app/api/admin/trust-score/route.ts"), "utf8");
-    expect(src).toContain("applyTrustScoreDelta");
-    expect(src).not.toMatch(/\.from\(["']profiles["']\)\.update\(\s*\{\s*trust_score/);
+    expect(src).toContain("recordTrustEvent");
+    expect(src).toContain("manual_adjustment");
+    expect(src).not.toContain("applyTrustScoreDelta");
   });
 });

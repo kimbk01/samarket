@@ -63,6 +63,28 @@ export async function fetchPartnerDisplayFieldsMap(
     });
   }
 
+  try {
+    const { data: snaps } = await sbAny
+      .from("member_trust_snapshots")
+      .select("member_id, manner_battery_percent")
+      .in("member_id", ids);
+    for (const s of snaps ?? []) {
+      const row = s as { member_id?: string; manner_battery_percent?: number };
+      const id = String(row.member_id ?? "");
+      if (!id || row.manner_battery_percent == null) continue;
+      const prev = map.get(id);
+      if (!prev) continue;
+      map.set(id, {
+        ...prev,
+        partnerTrustScore: resolveProfileTrustScore({
+          trust_score: Number(row.manner_battery_percent),
+        }),
+      });
+    }
+  } catch {
+    /* snapshot table may not exist yet */
+  }
+
   const missing = ids.filter((id) => !foundProfile.has(id));
   if (missing.length) {
     const { data: testUsers } = await sbAny.from("test_users").select("id, display_name, username").in("id", missing);

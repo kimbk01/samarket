@@ -217,6 +217,22 @@ export async function runMeProfileReadPipeline(args: {
     }
   }
   profile = await attachCanonicalPrivilegedAdmin(profile, writeSb, authUserId);
+  if (profile?.id) {
+    try {
+      const snapSb = tryCreateSupabaseServiceClient() ?? writeSb;
+      const { data: snap } = await snapSb
+        .from("member_trust_snapshots")
+        .select("manner_battery_percent")
+        .eq("member_id", profile.id)
+        .maybeSingle();
+      const pct = (snap as { manner_battery_percent?: number } | null)?.manner_battery_percent;
+      if (pct != null && Number.isFinite(Number(pct))) {
+        profile = { ...profile, trust_score: Number(pct) };
+      }
+    } catch {
+      /* snapshot unavailable — keep bridge trust_score */
+    }
+  }
   finalizePerf(profile);
   return profile;
 }

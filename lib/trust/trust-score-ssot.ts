@@ -1,7 +1,6 @@
 /**
- * Slice 1 — Trust SSOT helpers (User Facts)
- * Runtime Authority = profiles.trust_score
- * Member temperature / Admin detail are projections only.
+ * Display helpers for Manner Battery %.
+ * Read authority = member_trust_snapshots; profiles.trust_score is bridge only.
  */
 
 import { TRUST_SCORE_DEFAULT, clampTrustScore } from "@/lib/trust/trust-score-core";

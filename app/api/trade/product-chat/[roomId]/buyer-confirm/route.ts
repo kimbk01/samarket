@@ -5,8 +5,8 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
-import { applyTrustScoreDeltaToMany } from "@/lib/trust/trust-score-apply";
-import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
+import { recordTrustEvent } from "@/lib/trust/trust-event-ledger";
+import { buildTradeCompletedIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
@@ -103,17 +103,30 @@ export async function POST(
   }
 
   if (applyTradeTrust) {
-    try {
-      await applyTrustScoreDeltaToMany(sbAny, [pc.seller_id, pc.buyer_id], {
-        baseDelta: TRUST_EVENT_DELTAS.trade_complete,
-        sourceType: "trade_complete",
-        sourceId: resolved.productChatId,
-        recentPositiveBoost: true,
-        reason: "buyer_confirmed_trade_complete",
-        metadata: { room_id: resolved.productChatId, post_id: pc.post_id },
-      });
-    } catch {
-      /* trust_score 미적용 DB */
+    const occurredAt = now;
+    for (const memberId of [pc.seller_id, pc.buyer_id]) {
+      const counterpartyId = memberId === pc.seller_id ? pc.buyer_id : pc.seller_id;
+      try {
+        await recordTrustEvent(sbAny, {
+          memberId,
+          domain: "trade",
+          eventType: "trade_completed",
+          sourceType: "product_chat",
+          sourceId: resolved.productChatId,
+          idempotencyKey: buildTradeCompletedIdempotencyKey(resolved.productChatId, memberId),
+          direction: "positive",
+          severity: "none",
+          counterpartyId,
+          occurredAt,
+          metadata: {
+            room_id: resolved.productChatId,
+            post_id: pc.post_id,
+            reason: "buyer_confirmed_trade_complete",
+          },
+        });
+      } catch {
+        /* trust_events unavailable */
+      }
     }
   }
 
