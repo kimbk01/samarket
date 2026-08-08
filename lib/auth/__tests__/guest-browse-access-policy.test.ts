@@ -66,10 +66,10 @@ describe("guest-browse-access-policy", () => {
     }
   });
 
-  it("excludes community/philife my and write from public browse", () => {
-    expect(isGuestPublicBrowsePath("/community/my")).toBe(false);
-    expect(isGuestPublicBrowsePath("/community/write")).toBe(false);
-    expect(isGuestPublicBrowsePath("/philife/my")).toBe(false);
-    expect(isGuestPublicBrowsePath("/philife/write")).toBe(false);
+  it("allows auth-flow legal and account deletion public paths", () => {
+    for (const path of ["/privacy", "/terms", "/account/delete", "/account/delete-request", "/login"]) {
+      expect(shouldAllowUnauthenticatedHtmlRequest(path), path).toBe(true);
+      expect(shouldBlockUnauthenticatedHtmlRequest(path), path).toBe(false);
+    }
   });
 });
