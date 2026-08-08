@@ -8,35 +8,49 @@
  *   Trade phone row ≈ 120–123px (thumb ≈ 96)
  *   Community phone row ≈ 136px (thumb ≈ 72)
  * Total OUTER height (media + label + optional headline + pad) must stay in that family.
+ *
+ * LOCK (width): Runtime media uses fixed height tokens + `w-full` — never `aspect-*` paired
+ * with max-height (CSS aspect+max-h shrinks used width on tablet/Windows). Upload hint
+ * aspect stays 3:1 for Admin/member creatives only.
  */
 
 export type FeedAdHostDensity = "trade" | "community";
 
 /**
- * Soft creative frame (W:H). Runtime height is dominated by density max-h caps
- * so total outer row can match host list rhythm.
- * 3/1 ≈ wide strip; Admin upload hint follows this (not legacy 12:5).
+ * Soft creative frame (W:H) — upload / Admin preview hint only.
+ * Runtime display height is density height tokens (not aspect-driven).
  */
 export const FEED_AD_MEDIA_ASPECT_W = 3;
 export const FEED_AD_MEDIA_ASPECT_H = 1;
 export const FEED_AD_MEDIA_ASPECT_RATIO = `${FEED_AD_MEDIA_ASPECT_W} / ${FEED_AD_MEDIA_ASPECT_H}`;
 
-/** Tailwind aspect utility matching FEED_AD_MEDIA_ASPECT_RATIO */
+/** Tailwind aspect utility for upload/preview surfaces (not consumer media class). */
 export const FEED_AD_MEDIA_ASPECT_CLASS = "aspect-[3/1]";
 
+/** Auto-advance interval (multi-slide). Right→left, loops. */
+export const FEED_AD_SLIDE_INTERVAL_MS = 4000;
+/** CSS transform duration for slide move. */
+export const FEED_AD_SLIDE_TRANSITION_MS = 400;
+
 /**
- * Media max-height by host density (DOM-matched to host thumb / row family).
- * Trade thumb ≈ 96 → media ≤ 88–96. Community host taller text row → slightly taller strip.
+ * Media height by host density (DOM-matched to host thumb / row family).
+ * Trade thumb ≈ 96 → media 88–96. Community host taller text row → slightly taller strip.
+ * Fixed `h-*` (not max-h + aspect) so width stays 100% of host on all breakpoints.
  */
-export function feedAdMediaMaxHClass(density: FeedAdHostDensity): string {
+export function feedAdMediaHeightClass(density: FeedAdHostDensity): string {
   if (density === "community") {
-    return "max-h-[96px] sm:max-h-[100px] md:max-h-[104px]";
+    return "h-[96px] sm:h-[100px] md:h-[104px]";
   }
-  return "max-h-[88px] sm:max-h-[92px] md:max-h-[96px]";
+  return "h-[88px] sm:h-[92px] md:h-[96px]";
 }
 
-/** @deprecated Prefer feedAdMediaMaxHClass(density). Trade token kept for grep/migration. */
-export const FEED_AD_MEDIA_MAX_H_CLASS = feedAdMediaMaxHClass("trade");
+/** @deprecated Prefer feedAdMediaHeightClass(density). */
+export function feedAdMediaMaxHClass(density: FeedAdHostDensity): string {
+  return feedAdMediaHeightClass(density);
+}
+
+/** @deprecated Prefer feedAdMediaHeightClass("trade"). */
+export const FEED_AD_MEDIA_MAX_H_CLASS = feedAdMediaHeightClass("trade");
 
 /** Recommended upload hint (Admin / member apply). */
 export const FEED_AD_RECOMMENDED_UPLOAD = {
@@ -82,17 +96,26 @@ export function feedAdHeadlineClass(_density: FeedAdHostDensity): string {
   return "mt-0.5 line-clamp-1 sam-text-helper text-sam-muted";
 }
 
+/**
+ * Consumer / preview media surface: full host width + density height + cover.
+ * DO NOT add aspect-* here — that regresses tablet/Windows width shrink.
+ */
 export function feedAdMediaClass(density: FeedAdHostDensity): string {
-  return `${FEED_AD_MEDIA_ASPECT_CLASS} ${feedAdMediaMaxHClass(density)} w-full object-cover`;
+  return `block w-full min-w-0 ${feedAdMediaHeightClass(density)} object-cover`;
 }
 
-/** Uncapped aspect height (docs); runtime also applies density max-h. */
+/** Viewport clip for the slide track (same height tokens as media). */
+export function feedAdMediaViewportClass(density: FeedAdHostDensity): string {
+  return `relative w-full min-w-0 overflow-hidden rounded-ui-rect ${feedAdMediaHeightClass(density)}`;
+}
+
+/** Uncapped aspect estimate (upload docs); runtime uses density height tokens. */
 export function estimateFeedAdMediaHeightPx(contentWidthPx: number): number {
   const w = Math.max(1, contentWidthPx);
   return Math.round((w * FEED_AD_MEDIA_ASPECT_H) / FEED_AD_MEDIA_ASPECT_W);
 }
 
-/** Effective media height after density max-h (md trade = 96, community = 104). */
+/** Effective media height after density cap (md trade = 96, community = 104). */
 export function estimateFeedAdMediaHeightCappedPx(
   contentWidthPx: number,
   maxHPx = 96
@@ -100,7 +123,10 @@ export function estimateFeedAdMediaHeightCappedPx(
   return Math.min(estimateFeedAdMediaHeightPx(contentWidthPx), maxHPx);
 }
 
-export function feedAdMediaMaxHPx(density: FeedAdHostDensity, breakpoint: "phone" | "sm" | "md" = "phone"): number {
+export function feedAdMediaMaxHPx(
+  density: FeedAdHostDensity,
+  breakpoint: "phone" | "sm" | "md" = "phone"
+): number {
   if (density === "community") {
     if (breakpoint === "md") return 104;
     if (breakpoint === "sm") return 100;
