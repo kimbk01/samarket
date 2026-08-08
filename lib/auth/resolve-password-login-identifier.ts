@@ -1,3 +1,4 @@
+import { hasActiveAdminMembership } from "@/lib/admin/admin-membership";
 import {
   buildManualMemberAuthEmail,
   resolveManualMemberSignInEmail,
@@ -30,6 +31,7 @@ function isSocialOnlyProvider(provider: string): boolean {
 }
 
 type ProfileLoginLookupRow = {
+  id?: string | null;
   username?: string | null;
   email?: string | null;
   auth_login_email?: string | null;
@@ -76,7 +78,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
   }
   const baseQuery = sb
     .from("profiles")
-    .select("username, email, auth_login_email, provider, auth_provider");
+    .select("id, username, email, auth_login_email, provider, auth_provider");
   const fetchByUsername = async () => {
     return await baseQuery
       .ilike("username", normalized)
@@ -157,12 +159,23 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
   }
   const provider = normalizeProvider(row?.provider || row?.auth_provider);
   if (isSocialOnlyProvider(provider)) {
-    return {
-      ok: false,
-      status: 400,
-      error: "이 계정은 SNS 전용 계정입니다. 아래 SNS 로그인 버튼으로 로그인해 주세요.",
-      code: "password_login_blocked_for_social_account",
-    };
+    /**
+     * CONTRACT: 일반 SNS 회원은 password login 차단.
+     * 예외: active admin_memberships 가 있는 내부/운영 계정(예: Kakao 가입 후
+     * Super Admin succession 으로 password 가 부여된 계정)은 Auth email 로
+     * password login 을 허용한다. provider 문자열만으로 관리자 권한을 주지 않는다.
+     */
+    const userId = String(row?.id ?? "").trim();
+    const allowAdminPasswordLogin =
+      userId.length > 0 && (await hasActiveAdminMembership(sb, userId).catch(() => false));
+    if (!allowAdminPasswordLogin) {
+      return {
+        ok: false,
+        status: 400,
+        error: "이 계정은 SNS 전용 계정입니다. 아래 SNS 로그인 버튼으로 로그인해 주세요.",
+        code: "password_login_blocked_for_social_account",
+      };
+    }
   }
   const resolvedFromRow = pickResolvedIdentifier(row, directEmailFallback);
   if (resolvedFromRow) return { ok: true, identifier: resolvedFromRow };

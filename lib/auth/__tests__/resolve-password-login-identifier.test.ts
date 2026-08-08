@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockTryCreateSupabaseServiceClient = vi.fn();
+const mockHasActiveAdminMembership = vi.fn();
 
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: () => mockTryCreateSupabaseServiceClient(),
+}));
+
+vi.mock("@/lib/admin/admin-membership", () => ({
+  hasActiveAdminMembership: (...args: unknown[]) => mockHasActiveAdminMembership(...args),
 }));
 
 import { resolvePasswordLoginIdentifier } from "@/lib/auth/resolve-password-login-identifier";
@@ -30,6 +35,8 @@ function makeServiceClient(
 describe("resolvePasswordLoginIdentifier", () => {
   beforeEach(() => {
     mockTryCreateSupabaseServiceClient.mockReset();
+    mockHasActiveAdminMembership.mockReset();
+    mockHasActiveAdminMembership.mockResolvedValue(false);
   });
 
   it("returns direct email when service client is unavailable", async () => {
@@ -105,5 +112,67 @@ describe("resolvePasswordLoginIdentifier", () => {
       expect(res.code).toBe("login_identifier_not_found");
       expect(res.status).toBe(404);
     }
+  });
+
+  it("blocks password login for social-only members without admin membership", async () => {
+    mockTryCreateSupabaseServiceClient.mockReturnValue(
+      makeServiceClient(async (column) => {
+        if (column === "username") {
+          return {
+            error: null,
+            data: [
+              {
+                id: "member-social-1",
+                username: "snsuser",
+                auth_login_email: "sns.user@kakao.native.dibay.internal",
+                provider: "kakao",
+                auth_provider: "kakao",
+              },
+            ],
+          };
+        }
+        return { error: null, data: [] };
+      })
+    );
+    mockHasActiveAdminMembership.mockResolvedValue(false);
+    const res = await resolvePasswordLoginIdentifier("snsuser");
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe("password_login_blocked_for_social_account");
+      expect(res.status).toBe(400);
+    }
+    expect(mockHasActiveAdminMembership).toHaveBeenCalledWith(expect.anything(), "member-social-1");
+  });
+
+  it("allows password login for social provider when active admin membership exists", async () => {
+    mockTryCreateSupabaseServiceClient.mockReturnValue(
+      makeServiceClient(async (column) => {
+        if (column === "username") {
+          return {
+            error: null,
+            data: [
+              {
+                id: "e6e35c51-39a5-41d0-a95a-8294ed0b3da5",
+                username: "bbk1122",
+                auth_login_email: "kakao.user@kakao.native.dibay.internal",
+                provider: "kakao",
+                auth_provider: "kakao",
+              },
+            ],
+          };
+        }
+        return { error: null, data: [] };
+      })
+    );
+    mockHasActiveAdminMembership.mockResolvedValue(true);
+    const res = await resolvePasswordLoginIdentifier("Bbk1122");
+    expect(res).toEqual({
+      ok: true,
+      identifier: "kakao.user@kakao.native.dibay.internal",
+    });
+    expect(mockHasActiveAdminMembership).toHaveBeenCalledWith(
+      expect.anything(),
+      "e6e35c51-39a5-41d0-a95a-8294ed0b3da5"
+    );
   });
 });
