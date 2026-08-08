@@ -2,7 +2,21 @@
 
 import { LegalDocumentPageClient } from "@/components/legal/LegalDocumentPageClient";
 
-export function TermsPageClient() {
+export type TermsInitialDoc = {
+  title: string;
+  body: string;
+  version: string | null;
+  source: "cms" | "fallback";
+};
+
+type Props = {
+  initialByLocale?: {
+    ko: TermsInitialDoc;
+    en: TermsInitialDoc;
+  };
+};
+
+export function TermsPageClient({ initialByLocale }: Props) {
   return (
     <LegalDocumentPageClient
       kind="terms"
@@ -13,6 +27,7 @@ export function TermsPageClient() {
         "ui_finish_terms_p3",
         "ui_finish_terms_p4",
       ]}
+      initialByLocale={initialByLocale}
     />
   );
 }

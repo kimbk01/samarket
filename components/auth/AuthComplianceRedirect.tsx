@@ -10,15 +10,11 @@ import {
 } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
-import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
-import type { ProfileRow } from "@/lib/profile/types";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { isStoresHomeLcpPath } from "@/lib/stores/stores-home-lcp-policy";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
-/** 부트·세션당 consent 서버 재확인 1회 — pathname 변경마다 GET /api/me/profile 방지 */
+/** 부트·세션당 consent 서버 재확인 1회 — pathname 변경마다 GET 방지 */
 let storeConsentResolvedThisSession = false;
 
 function shouldSkip(pathname: string): boolean {
@@ -29,9 +25,10 @@ function shouldSkip(pathname: string): boolean {
     pathname.startsWith("/signup/") ||
     pathname.startsWith("/auth/consent") ||
     pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/onboarding/") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
-    pathname.startsWith("/account/delete-request")
+    pathname.startsWith("/account/delete")
   );
 }
 
@@ -62,34 +59,35 @@ export function AuthComplianceRedirect() {
     checkInFlightRef.current = (async () => {
       const boot = peekAppBootProfile();
       if (!boot?.id) return;
-      if (hasStoreTermsConsent(boot)) {
-        storeConsentResolvedThisSession = true;
-        return;
-      }
-      const cached = getCurrentUser();
-      if (cached && hasStoreTermsConsent(cached)) {
-        if (boot.id === cached.id) {
+      try {
+        const res = await fetch("/api/me/legal-consent", { credentials: "include", cache: "no-store" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          consent?: {
+            complete?: boolean;
+            termsAcceptedAt?: string | null;
+            termsVersion?: string | null;
+            privacyAcceptedAt?: string | null;
+            privacyVersion?: string | null;
+          };
+        };
+        if (res.ok && json.ok && json.consent?.complete) {
           mergeAppBootProfileFull({
             ...boot,
-            terms_accepted_at: cached.terms_accepted_at ?? boot.terms_accepted_at,
-            terms_version: cached.terms_version ?? boot.terms_version,
-            privacy_accepted_at: cached.privacy_accepted_at ?? boot.privacy_accepted_at,
-            privacy_version: cached.privacy_version ?? boot.privacy_version,
+            terms_accepted_at: json.consent.termsAcceptedAt ?? boot.terms_accepted_at,
+            terms_version: json.consent.termsVersion ?? boot.terms_version,
+            privacy_accepted_at: json.consent.privacyAcceptedAt ?? boot.privacy_accepted_at,
+            privacy_version: json.consent.privacyVersion ?? boot.privacy_version,
           });
+          storeConsentResolvedThisSession = true;
+          return;
         }
-        storeConsentResolvedThisSession = true;
-        return;
-      }
-      try {
-        const { status, json } = await fetchMeProfileDeduped("auth_compliance_consent_check");
-        const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
-        if (status === 200 && raw?.ok && raw.profile?.id && hasStoreTermsConsent(raw.profile)) {
-          mergeAppBootProfileFull(raw.profile);
+        if (res.status === 401) {
           storeConsentResolvedThisSession = true;
           return;
         }
       } catch {
-        /* ignore */
+        /* fall through to redirect when session exists but check failed open */
       }
 
       const next = window.location.pathname + window.location.search;

@@ -37,7 +37,7 @@ describe("DIBAY privacy policy content (Play)", () => {
     expect(DIBAY_PRIVACY_POLICY_CONTENT.ko.body).toContain("처리하는 개인정보 항목");
     expect(DIBAY_PRIVACY_POLICY_CONTENT.ko.body).toContain("회원탈퇴");
     expect(DIBAY_PRIVACY_POLICY_CONTENT.en.body).toContain("Account deletion");
-    expect(DIBAY_PRIVACY_POLICY_VERSION).toMatch(/^2026-08-08/);
+    expect(DIBAY_PRIVACY_POLICY_VERSION).toMatch(/^2026-04/);
   });
 
   it("privacy page wires CMS loader + content module; UI links stay on /privacy", () => {
@@ -45,11 +45,14 @@ describe("DIBAY privacy policy content (Play)", () => {
     const client = readFileSync(path.join(root, "app/(main)/privacy/PrivacyPageClient.tsx"), "utf8");
     const menu = readFileSync(path.join(root, "lib/mypage/mypage-home-menu-config.ts"), "utf8");
     const consent = readFileSync(path.join(root, "components/auth/AuthConsentForm.tsx"), "utf8");
+    const content = readFileSync(path.join(root, "lib/legal/dibay-privacy-policy-content.ts"), "utf8");
     expect(page).toContain("loadPublishedAppLegalDocument");
     expect(page).toContain("getDibayPrivacyPolicyFallback");
     expect(client).toContain('kind="privacy"');
     expect(client).toContain("staticFallbackByLocale");
     expect(menu).toContain('href: "/privacy"');
     expect(consent).toContain('href="/privacy"');
+    expect(content).toContain("FALLBACK");
+    expect(content).toContain("NOT a consent writer");
   });
 });

@@ -10,6 +10,7 @@ function isAuthEntryPath(pathname: string): boolean {
   if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
   if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
   if (pathname === "/account/delete-request" || pathname.startsWith("/account/delete-request/")) return true;
+  if (pathname === "/account/delete" || pathname.startsWith("/account/delete/")) return true;
   return false;
 }
 

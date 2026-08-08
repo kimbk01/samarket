@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/dibay-signup-status";
 import { shouldBlockUnauthenticatedHtmlRequest } from "@/lib/auth/guest-browse-access-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 
 const SIGNUP_GATE_PROFILE_SELECT =
   "id, dibay_id, dibay_id_locked, username, username_confirmed, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, onboarding_completed_at, onboarding_status, role";
@@ -34,7 +35,8 @@ export async function resolveProxySignupGateRedirect(
     .maybeSingle();
   if (error || !data) return null;
 
-  const signup = deriveDibaySignupStatus(data, { hasSession: true });
+  const required = await resolveRequiredConsentVersions();
+  const signup = deriveDibaySignupStatus(data, { hasSession: true, requiredConsent: required });
   if (isDibaySignupComplete(signup)) return null;
 
   const redirectPath = resolveDibaySignupRoute(signup, sanitizeNextPath(pathname));

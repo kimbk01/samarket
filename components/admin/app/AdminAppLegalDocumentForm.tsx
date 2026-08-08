@@ -169,6 +169,14 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           value={version}
           onChange={(e) => setVersion(e.target.value)}
         />
+        <p className="text-xs text-sam-meta">
+          {safeT("admin_app_legal_version_reconsent_hint", {
+            fallbackKo:
+              "새 version 문자열로 게시하면 회원 필수 재동의 게이트가 해당 버전으로 바뀝니다. 같은 version으로 본문만 수정하면 재동의는 발생하지 않습니다.",
+            fallbackEn:
+              "Publishing a new version string updates the required member re-consent gate. Editing the body under the same version does not force re-consent.",
+          })}
+        </p>
       </label>
 
       <label className="block space-y-1">

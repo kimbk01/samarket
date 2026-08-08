@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
-import { hasStoreTermsConsent, STORE_PRIVACY_VERSION, STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
+import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -16,15 +17,29 @@ export async function GET() {
   const routeSb = await createSupabaseRouteHandlerClient();
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   if (!readSb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
-  const profile = await fetchProfileRowSafe(readSb, auth.userId);
+  const [profile, required] = await Promise.all([
+    fetchProfileRowSafe(readSb, auth.userId),
+    resolveRequiredConsentVersions(),
+  ]);
+  const complete = hasStoreTermsConsent(
+    {
+      terms_accepted_at: profile?.terms_accepted_at ?? null,
+      terms_version: profile?.terms_version ?? null,
+      privacy_accepted_at: profile?.privacy_accepted_at ?? null,
+      privacy_version: profile?.privacy_version ?? null,
+    },
+    required,
+  );
   return jsonOk({
     consent: {
       termsAcceptedAt: profile?.terms_accepted_at ?? null,
       termsVersion: profile?.terms_version ?? null,
       privacyAcceptedAt: profile?.privacy_accepted_at ?? null,
       privacyVersion: profile?.privacy_version ?? null,
-      requiredTermsVersion: STORE_TERMS_VERSION,
-      requiredPrivacyVersion: STORE_PRIVACY_VERSION,
+      requiredTermsVersion: required.termsVersion,
+      requiredPrivacyVersion: required.privacyVersion,
+      requiredSource: required.source,
+      complete,
     },
   });
 }
@@ -50,15 +65,19 @@ export async function PATCH(req: NextRequest) {
     return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }
   const sb = tryCreateSupabaseServiceClient() ?? routeSb;
+  const required = await resolveRequiredConsentVersions();
 
   const existing = await fetchProfileRowSafe(sb, auth.userId);
   if (
-    hasStoreTermsConsent({
-      terms_accepted_at: existing?.terms_accepted_at ?? null,
-      terms_version: existing?.terms_version ?? null,
-      privacy_accepted_at: existing?.privacy_accepted_at ?? null,
-      privacy_version: existing?.privacy_version ?? null,
-    })
+    hasStoreTermsConsent(
+      {
+        terms_accepted_at: existing?.terms_accepted_at ?? null,
+        terms_version: existing?.terms_version ?? null,
+        privacy_accepted_at: existing?.privacy_accepted_at ?? null,
+        privacy_version: existing?.privacy_version ?? null,
+      },
+      required,
+    )
   ) {
     return jsonOk({
       ok: true,
@@ -68,6 +87,9 @@ export async function PATCH(req: NextRequest) {
         termsVersion: existing?.terms_version ?? null,
         privacyAcceptedAt: existing?.privacy_accepted_at ?? null,
         privacyVersion: existing?.privacy_version ?? null,
+        requiredTermsVersion: required.termsVersion,
+        requiredPrivacyVersion: required.privacyVersion,
+        complete: true,
       },
     });
   }
@@ -83,9 +105,9 @@ export async function PATCH(req: NextRequest) {
     .from("profiles")
     .update({
       terms_accepted_at: now,
-      terms_version: STORE_TERMS_VERSION,
+      terms_version: required.termsVersion,
       privacy_accepted_at: now,
-      privacy_version: STORE_PRIVACY_VERSION,
+      privacy_version: required.privacyVersion,
       onboarding_status: "oauth_authenticated",
       updated_at: now,
     })
@@ -101,9 +123,12 @@ export async function PATCH(req: NextRequest) {
   return jsonOk({
     consent: {
       termsAcceptedAt: now,
-      termsVersion: STORE_TERMS_VERSION,
+      termsVersion: required.termsVersion,
       privacyAcceptedAt: now,
-      privacyVersion: STORE_PRIVACY_VERSION,
+      privacyVersion: required.privacyVersion,
+      requiredTermsVersion: required.termsVersion,
+      requiredPrivacyVersion: required.privacyVersion,
+      complete: true,
     },
   });
 }

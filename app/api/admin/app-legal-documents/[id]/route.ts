@@ -119,6 +119,13 @@ export async function PATCH(
     .select(APP_LEGAL_DOCUMENT_SELECT)
     .maybeSingle();
 
+  if (!error && data) {
+    const { clearRequiredConsentVersionsCache } = await import(
+      "@/lib/legal/resolve-required-consent-versions"
+    );
+    clearRequiredConsentVersionsCache();
+  }
+
   if (error) {
     if (isMissingAppLegalDocumentsTableError(error.message ?? "")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });

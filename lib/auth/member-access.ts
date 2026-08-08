@@ -17,6 +17,7 @@ import {
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
@@ -274,12 +275,16 @@ export async function ensurePendingAuthProfileRow(
       seed
     );
     if (row.onboarding_completed_at == null && row.dibay_id_locked !== true) {
-      const consent = hasStoreTermsConsent({
-        terms_accepted_at: pickTrimmed(row.terms_accepted_at as string),
-        terms_version: pickTrimmed(row.terms_version as string),
-        privacy_accepted_at: pickTrimmed(row.privacy_accepted_at as string),
-        privacy_version: pickTrimmed(row.privacy_version as string),
-      });
+      const required = await resolveRequiredConsentVersions();
+      const consent = hasStoreTermsConsent(
+        {
+          terms_accepted_at: pickTrimmed(row.terms_accepted_at as string),
+          terms_version: pickTrimmed(row.terms_version as string),
+          privacy_accepted_at: pickTrimmed(row.privacy_accepted_at as string),
+          privacy_version: pickTrimmed(row.privacy_version as string),
+        },
+        required,
+      );
       patch.onboarding_status = consent ? "oauth_authenticated" : "terms_required";
     }
     if (Object.keys(patch).length > 0) {
@@ -626,12 +631,15 @@ export async function loadMemberAccessState(
     auth_provider: authProvider,
     email,
   });
-  const hasRequiredConsent = hasStoreTermsConsent({
-    terms_accepted_at: termsAcceptedAt,
-    terms_version: termsVersion,
-    privacy_accepted_at: privacyAcceptedAt,
-    privacy_version: privacyVersion,
-  });
+  const hasRequiredConsent = hasStoreTermsConsent(
+    {
+      terms_accepted_at: termsAcceptedAt,
+      terms_version: termsVersion,
+      privacy_accepted_at: privacyAcceptedAt,
+      privacy_version: privacyVersion,
+    },
+    await resolveRequiredConsentVersions(),
+  );
 
   return {
     userId,

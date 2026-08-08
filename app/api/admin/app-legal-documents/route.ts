@@ -105,6 +105,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  const { clearRequiredConsentVersionsCache } = await import(
+    "@/lib/legal/resolve-required-consent-versions"
+  );
+  clearRequiredConsentVersionsCache();
+
   return NextResponse.json({
     ok: true,
     document: normalizeAppLegalDocumentRow(data as Record<string, unknown>),

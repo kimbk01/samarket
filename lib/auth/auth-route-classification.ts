@@ -33,6 +33,7 @@ export function isAuthEntryPath(pathname: string): boolean {
   }
   if (p === "/terms" || p.startsWith("/terms/")) return true;
   if (p === "/privacy" || p.startsWith("/privacy/")) return true;
+  if (p === "/account/delete" || p.startsWith("/account/delete")) return true;
   return false;
 }
 

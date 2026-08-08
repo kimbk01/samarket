@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -29,9 +30,17 @@ export default async function AuthOnboardingDibayIdPage({
   }
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   if (readSb) {
-    const profile = await fetchProfileRowSafe(readSb, user.id);
-    if (!hasStoreTermsConsent(profile)) {
-      redirect(resolveDibaySignupRoute(deriveDibaySignupStatus(profile ?? undefined, { hasSession: true }), next));
+    const [profile, required] = await Promise.all([
+      fetchProfileRowSafe(readSb, user.id),
+      resolveRequiredConsentVersions(),
+    ]);
+    if (!hasStoreTermsConsent(profile, required)) {
+      redirect(
+        resolveDibaySignupRoute(
+          deriveDibaySignupStatus(profile ?? undefined, { hasSession: true, requiredConsent: required }),
+          next,
+        ),
+      );
     }
   }
   const qs = new URLSearchParams({ required: "dibay_id", next });

@@ -1,11 +1,16 @@
 /**
- * DIBAY Privacy Policy — product copy for public /privacy + CMS publish source.
- * CONTRACT: Only describe processing evidenced in app/DB/native code.
+ * DIBAY Privacy Policy — FALLBACK + CMS publish seed ONLY.
+ * CONTRACT:
+ * - Production TEXT SSOT = published `app_legal_documents` (kind=privacy).
+ * - This module is NOT a consent writer and NOT Production text authority when CMS exists.
+ * - Consent gate versions follow CMS published ko `version` via resolveRequiredConsentVersions.
+ * - Only describe processing evidenced in app/DB/native code.
  * DO NOT invent company legal entity fields, retention day counts, or processors.
  */
 
-export const DIBAY_PRIVACY_POLICY_VERSION = "2026-08-08-play";
-export const DIBAY_PRIVACY_POLICY_EFFECTIVE_ISO = "2026-08-08T00:00:00.000Z";
+/** Align with STORE_* / consent-binding CMS version after realign (body may still be full policy). */
+export const DIBAY_PRIVACY_POLICY_VERSION = "2026-04-store-review";
+export const DIBAY_PRIVACY_POLICY_EFFECTIVE_ISO = "2026-04-01T00:00:00.000Z";
 
 export type DibayPrivacyPolicyLocaleBody = {
   title: string;

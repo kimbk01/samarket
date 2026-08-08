@@ -56,17 +56,30 @@ export function normalizeStoreAuthProvider(provider: string | null | undefined):
   return normalized;
 }
 
+export type RequiredStoreConsentVersions = {
+  termsVersion: string;
+  privacyVersion: string;
+};
+
+/**
+ * Consent complete when accepted_at set and versions match required.
+ * required defaults to STORE_* (CMS unavailable / sync callers).
+ * Prefer resolveRequiredConsentVersions() on server and pass CMS versions.
+ */
 export function hasStoreTermsConsent(
   profile: Pick<
     ProfileLike,
     "terms_accepted_at" | "terms_version" | "privacy_accepted_at" | "privacy_version"
-  > | null | undefined
+  > | null | undefined,
+  required?: RequiredStoreConsentVersions | null,
 ): boolean {
+  const termsVersion = required?.termsVersion ?? STORE_TERMS_VERSION;
+  const privacyVersion = required?.privacyVersion ?? STORE_PRIVACY_VERSION;
   return (
     Boolean(profile?.terms_accepted_at) &&
     Boolean(profile?.privacy_accepted_at) &&
-    profile?.terms_version === STORE_TERMS_VERSION &&
-    profile?.privacy_version === STORE_PRIVACY_VERSION
+    profile?.terms_version === termsVersion &&
+    profile?.privacy_version === privacyVersion
   );
 }
 

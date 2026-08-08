@@ -1,6 +1,9 @@
 /**
  * Slice 8 Phase 1 — Legal CMS helpers (terms + privacy).
- * Writer = Admin CMS APIs. Reader = public GET. Consent writer stays on STORE_*_VERSION.
+ * Writer = Admin CMS APIs. Reader = public GET /privacy|/terms.
+ * Consent required versions resolve from published ko CMS `version`
+ * (see resolve-required-consent-versions); STORE_* is fallback only.
+ * New CMS version string publish ⇒ member re-consent; same-version body edit does not.
  */
 
 export const APP_LEGAL_KINDS = ["terms", "privacy"] as const;

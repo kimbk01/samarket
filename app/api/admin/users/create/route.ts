@@ -8,10 +8,7 @@ import {
   type AdminCreateMemberAddressInput,
 } from "@/lib/admin-users/admin-create-member-address";
 import { createUserAddress } from "@/lib/addresses/user-address-service";
-import {
-  STORE_PRIVACY_VERSION,
-  STORE_TERMS_VERSION,
-} from "@/lib/auth/store-member-policy";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   buildProfileRegionNameForStorage,
@@ -242,6 +239,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const requiredConsent = await resolveRequiredConsentVersions();
+
   const profileRow: Record<string, unknown> = {
     id,
     email,
@@ -279,8 +278,8 @@ export async function POST(req: NextRequest) {
     full_address,
     terms_accepted_at: nowIso,
     privacy_accepted_at: nowIso,
-    terms_version: STORE_TERMS_VERSION,
-    privacy_version: STORE_PRIVACY_VERSION,
+    terms_version: requiredConsent.termsVersion,
+    privacy_version: requiredConsent.privacyVersion,
   };
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {

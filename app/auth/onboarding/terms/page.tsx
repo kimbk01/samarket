@@ -1,6 +1,7 @@
 import { AuthConsentForm } from "@/components/auth/AuthConsentForm";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { resolveDibaySignupRoute, deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -28,9 +29,15 @@ export default async function AuthOnboardingTermsPage({
   }
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   if (readSb) {
-    const profile = await fetchProfileRowSafe(readSb, user.id);
-    if (hasStoreTermsConsent(profile)) {
-      const signup = deriveDibaySignupStatus(profile ?? undefined, { hasSession: true });
+    const [profile, required] = await Promise.all([
+      fetchProfileRowSafe(readSb, user.id),
+      resolveRequiredConsentVersions(),
+    ]);
+    if (hasStoreTermsConsent(profile, required)) {
+      const signup = deriveDibaySignupStatus(profile ?? undefined, {
+        hasSession: true,
+        requiredConsent: required,
+      });
       if (signup.signupComplete) {
         redirect(next);
       }

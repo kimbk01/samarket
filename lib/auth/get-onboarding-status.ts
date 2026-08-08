@@ -11,6 +11,7 @@ import {
   isDibayProfileComplete,
 } from "@/lib/auth/dibay-signup-status";
 import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
+import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
@@ -128,12 +129,16 @@ export async function getOnboardingStatus(
   ]);
   const profile = profileSettled.status === "fulfilled" ? profileSettled.value : null;
   const profileExists = profile?.id !== null && profile?.id !== undefined;
-  const consentComplete = hasStoreTermsConsent({
-    terms_accepted_at: profile?.terms_accepted_at ?? null,
-    terms_version: profile?.terms_version ?? null,
-    privacy_accepted_at: profile?.privacy_accepted_at ?? null,
-    privacy_version: profile?.privacy_version ?? null,
-  });
+  const required = await resolveRequiredConsentVersions();
+  const consentComplete = hasStoreTermsConsent(
+    {
+      terms_accepted_at: profile?.terms_accepted_at ?? null,
+      terms_version: profile?.terms_version ?? null,
+      privacy_accepted_at: profile?.privacy_accepted_at ?? null,
+      privacy_version: profile?.privacy_version ?? null,
+    },
+    required,
+  );
   const dibayIdComplete = isDibayIdComplete(profile ?? undefined);
   const usernameComplete = dibayIdComplete;
   const nicknameComplete = Boolean(
@@ -160,6 +165,7 @@ export async function getOnboardingStatus(
   const signup = deriveDibaySignupStatus(profile ?? undefined, {
     hasSession: profileExists,
     privilegedAdmin: isPrivilegedAdmin,
+    requiredConsent: required,
   });
 
   return {

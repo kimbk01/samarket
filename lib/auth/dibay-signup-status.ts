@@ -91,7 +91,11 @@ export function isDibayProfileComplete(profile: DibaySignupProfileInput | null |
 
 export function deriveDibaySignupStatus(
   profile: DibaySignupProfileInput | null | undefined,
-  opts?: { hasSession?: boolean; privilegedAdmin?: boolean }
+  opts?: {
+    hasSession?: boolean;
+    privilegedAdmin?: boolean;
+    requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
+  }
 ): DibaySignupStatus {
   const hasSession = opts?.hasSession !== false;
   if (!hasSession || !profile?.id) {
@@ -123,12 +127,15 @@ export function deriveDibaySignupStatus(
     };
   }
 
-  const consentComplete = hasStoreTermsConsent({
-    terms_accepted_at: profile.terms_accepted_at ?? null,
-    terms_version: profile.terms_version ?? null,
-    privacy_accepted_at: profile.privacy_accepted_at ?? null,
-    privacy_version: profile.privacy_version ?? null,
-  });
+  const consentComplete = hasStoreTermsConsent(
+    {
+      terms_accepted_at: profile.terms_accepted_at ?? null,
+      terms_version: profile.terms_version ?? null,
+      privacy_accepted_at: profile.privacy_accepted_at ?? null,
+      privacy_version: profile.privacy_version ?? null,
+    },
+    opts?.requiredConsent ?? null,
+  );
   const dibayIdComplete = isDibayIdComplete(profile);
   const profileComplete = isDibayProfileComplete(profile);
   const legacyCompleted = Boolean(profile.onboarding_completed_at);
@@ -197,7 +204,9 @@ export function isDibaySignupGateExcludedPath(pathname: string): boolean {
     p.startsWith("/onboarding/username/") ||
     p.startsWith("/terms") ||
     p.startsWith("/privacy") ||
-    p.startsWith("/account/delete-request")
+    p.startsWith("/account/delete-request") ||
+    p === "/account/delete" ||
+    p.startsWith("/account/delete/")
   );
 }
 

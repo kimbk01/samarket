@@ -51,16 +51,17 @@ describe("Slice8 Legal CMS Phase 1", () => {
     expect(admin).toContain("app_legal_documents");
   });
 
-  it("terms/privacy pages read CMS with i18n fallback; consent writer untouched", () => {
+  it("terms/privacy pages read CMS with i18n fallback; consent resolves CMS versions", () => {
     const terms = readFileSync(path.join(root, "app/(main)/terms/TermsPageClient.tsx"), "utf8");
     const privacy = readFileSync(path.join(root, "app/(main)/privacy/PrivacyPageClient.tsx"), "utf8");
     const privacyPage = readFileSync(path.join(root, "app/(main)/privacy/page.tsx"), "utf8");
+    const termsPage = readFileSync(path.join(root, "app/(main)/terms/page.tsx"), "utf8");
     const consent = readFileSync(path.join(root, "app/api/me/legal-consent/route.ts"), "utf8");
     expect(terms).toContain("LegalDocumentPageClient");
     expect(privacy).toContain('kind="privacy"');
     expect(privacyPage).toContain("loadPublishedAppLegalDocument");
-    expect(consent).toContain("STORE_TERMS_VERSION");
-    expect(consent).toContain("STORE_PRIVACY_VERSION");
+    expect(termsPage).toContain("loadPublishedAppLegalDocument");
+    expect(consent).toContain("resolveRequiredConsentVersions");
     expect(consent).not.toContain("app_legal_documents");
   });
 
