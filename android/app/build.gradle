@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// Play upload signing — secrets from local-only android/key.properties (gitignored) or env.
+// DO NOT put store/key passwords in this file.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.dibay.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -63,8 +71,39 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def storeFilePath = (
+                System.getenv("DIBAY_PLAY_STORE_FILE")
+                ?: keystoreProperties["storeFile"]
+                ?: ""
+            ).toString().trim()
+            def storePasswordValue = (
+                System.getenv("DIBAY_PLAY_STORE_PASSWORD")
+                ?: keystoreProperties["storePassword"]
+                ?: ""
+            ).toString()
+            def keyAliasValue = (
+                System.getenv("DIBAY_PLAY_KEY_ALIAS")
+                ?: keystoreProperties["keyAlias"]
+                ?: ""
+            ).toString().trim()
+            def keyPasswordValue = (
+                System.getenv("DIBAY_PLAY_KEY_PASSWORD")
+                ?: keystoreProperties["keyPassword"]
+                ?: ""
+            ).toString()
+            if (storeFilePath && storePasswordValue && keyAliasValue && keyPasswordValue) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
