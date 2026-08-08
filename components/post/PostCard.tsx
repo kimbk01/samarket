@@ -68,7 +68,7 @@ export const PostCard = memo(function PostCard({
   priorityThumb = false,
   footer,
 }: PostCardProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
@@ -105,6 +105,7 @@ export const PostCard = memo(function PostCard({
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
       ? (post.meta as Record<string, unknown>)
       : undefined;
+  const isPromotedContent = metaRecord?.promotion_projection === "promoted_content";
   const locationLine = resolveTradePostListingLocationLine(metaRecord, post.region, post.city);
   const timeLabel =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
@@ -223,11 +224,19 @@ export const PostCard = memo(function PostCard({
               />
             ) : null}
               <div className="mt-0 flex min-w-0 flex-col gap-0.5">
-              {locationLine || timeLabel ? (
+              {locationLine || timeLabel || isPromotedContent ? (
                 <p
                   className="min-w-0 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
                   title={[locationLine ?? "", timeLabel].filter(Boolean).join(" · ")}
                 >
+                  {isPromotedContent ? (
+                    <span className="mr-1 inline-block rounded bg-sam-app px-1 py-0.5 text-[11px] font-medium text-sam-muted">
+                      {safeT("trade_promo_badge", {
+                        fallbackKo: "홍보",
+                        fallbackEn: "Promoted",
+                      })}
+                    </span>
+                  ) : null}
                   {[locationLine, timeLabel].filter(Boolean).join(" · ")}
                 </p>
               ) : null}

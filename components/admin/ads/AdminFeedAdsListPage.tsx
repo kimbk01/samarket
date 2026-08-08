@@ -3,15 +3,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
+import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import { feedAdPlacementHumanLabel } from "@/lib/ads/feed-ad-placement";
 
 /**
  * Admin Feed Advertisement list — Campaign authority (no D-Point/Business Credit debit).
  */
 export function AdminFeedAdsListPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [campaigns, setCampaigns] = useState<FeedAdCampaignView[]>([]);
   const [loading, setLoading] = useState(true);
+  const lang = language === "en" ? "en" : "ko";
+
+  const placementLabel = (c: FeedAdCampaignView) => {
+    const base = feedAdPlacementHumanLabel(c.placement as FeedAdPlacement, lang);
+    if (c.placement === "TRADE_CATEGORY" && c.targetCategoryId) {
+      return `${base}`;
+    }
+    if (c.placement === "COMMUNITY_TOPIC" && c.targetTopicSlug) {
+      return `${base} · ${c.targetTopicSlug}`;
+    }
+    return base;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,9 +105,17 @@ export function AdminFeedAdsListPage() {
                 <tr key={c.id} className="border-b border-sam-border-soft">
                   <td className="px-3 py-2 font-medium">{c.name || c.id}</td>
                   <td className="px-3 py-2">
-                    {c.domain}/{c.placement}
-                    {c.targetCategoryId ? ` · ${c.targetCategoryId}` : ""}
-                    {c.targetTopicSlug ? ` · ${c.targetTopicSlug}` : ""}
+                    {c.source === "MEMBER_REQUESTED"
+                      ? safeT("admin_feed_ads_source_member", {
+                          fallbackKo: "회원 신청",
+                          fallbackEn: "Member request",
+                        })
+                      : safeT("admin_feed_ads_source_admin", {
+                          fallbackKo: "관리자 직접",
+                          fallbackEn: "Admin direct",
+                        })}
+                    {" · "}
+                    {placementLabel(c)}
                   </td>
                   <td className="px-3 py-2">{c.status}</td>
                   <td className="px-3 py-2">{c.slides.length}/3</td>

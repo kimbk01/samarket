@@ -73,6 +73,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       destination_type: body.destinationType ?? "internal_page",
       destination_id: body.destinationId ?? "",
       destination_url: body.destinationUrl ?? "",
+      source: "ADMIN_DIRECT",
       created_by: admin.userId,
     })
     .select("*")

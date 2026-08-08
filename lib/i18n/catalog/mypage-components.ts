@@ -31,7 +31,7 @@ export const mypageComponentsMessages = {
     mypage_comp_section_my_business: "나의 비즈니스",
     mypage_comp_business_store_apply: "매장 등록 신청",
     mypage_comp_business_store_manage: "매장 관리 (승인 후)",
-    mypage_comp_business_ads: "광고",
+    mypage_comp_business_ads: "내 홍보 / 광고",
 
     // MyInterestSection
     mypage_comp_section_my_interest: "나의 관심",
@@ -867,7 +867,7 @@ export const mypageComponentsMessages = {
     mypage_comp_section_my_business: "My business",
     mypage_comp_business_store_apply: "Apply to register a store",
     mypage_comp_business_store_manage: "Manage store (after approval)",
-    mypage_comp_business_ads: "Ads",
+    mypage_comp_business_ads: "Promotions / ads",
 
     mypage_comp_section_my_interest: "My interests",
     mypage_comp_interest_favorites: "Wishlist",

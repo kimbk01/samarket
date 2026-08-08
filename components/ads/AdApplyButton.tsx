@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AdProductSelector } from "./AdProductSelector";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface AdApplyButtonProps {
   postId: string;
@@ -13,6 +14,9 @@ interface AdApplyButtonProps {
   hasActiveAd?: boolean;
 }
 
+/**
+ * Community member TOP FIXED apply (post_ads) — NOT Admin Feed Advertisement, NOT Trade「더 알리기」.
+ */
 export function AdApplyButton({
   postId,
   postTitle,
@@ -20,6 +24,7 @@ export function AdApplyButton({
   hasActiveAd = false,
 }: AdApplyButtonProps) {
   const me = getCurrentUser();
+  const { safeT } = useI18n();
   const [open, setOpen] = useState(false);
   const [successAdId, setSuccessAdId] = useState<string | null>(null);
 
@@ -30,7 +35,10 @@ export function AdApplyButton({
   if (successAdId) {
     return (
       <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2.5 sam-text-body-secondary text-emerald-800">
-        광고 신청이 완료되었습니다. 관리자 승인 후 노출됩니다.
+        {safeT("community_top_fix_apply_done", {
+          fallbackKo: "상단 고정 신청이 완료되었습니다. 관리자 승인 후 노출됩니다.",
+          fallbackEn: "Top-pin request submitted. It appears after admin approval.",
+        })}
       </div>
     );
   }
@@ -38,7 +46,10 @@ export function AdApplyButton({
   if (hasActiveAd) {
     return (
       <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 sam-text-body-secondary text-amber-800">
-        이 게시글은 현재 광고 중입니다.
+        {safeT("community_top_fix_active", {
+          fallbackKo: "이 글은 현재 상단 고정 중입니다.",
+          fallbackEn: "This post is currently pinned at the top.",
+        })}
       </div>
     );
   }
@@ -50,7 +61,10 @@ export function AdApplyButton({
         onClick={() => setOpen(true)}
         className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 sam-text-body-secondary font-semibold text-amber-800 hover:bg-amber-100"
       >
-        📢 이 글 광고 신청하기
+        {safeT("community_top_fix_cta", {
+          fallbackKo: "게시물 홍보하기",
+          fallbackEn: "Promote this post",
+        })}
       </button>
 
       {open && (

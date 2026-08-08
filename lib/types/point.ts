@@ -80,6 +80,7 @@ export type PointLedgerRelatedType =
   | "promoted_item"
   | "ad_application"
   | "trade_post_ad"
+  | "feed_ad_request"
   | "admin_manual"
   | "community_reward"
   | "community_reclaim";
@@ -105,7 +106,7 @@ export interface PointLedgerEntry {
   expiredAmount?: number;
 }
 
-export type PointPromotionTargetType = "product" | "shop";
+export type PointPromotionTargetType = "product" | "shop" | "community_post";
 
 export type PointPromotionPlacement =
   | "home_top"
@@ -113,12 +114,16 @@ export type PointPromotionPlacement =
   | "search_top"
   | "shop_featured"
   /** Internal policy token — not a user-facing CTA */
-  | "feed_boost";
+  | "feed_boost"
+  | "community_top_pin";
 
 export type PointPromotionOrderStatus =
   | "pending"
+  | "pending_review"
   | "active"
   | "expired"
+  | "ended"
+  | "rejected"
   | "cancelled";
 
 export interface PointPromotionOrder {

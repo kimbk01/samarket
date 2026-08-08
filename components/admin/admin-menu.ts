@@ -157,10 +157,11 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   // Growth
   ads: "admin_menu_ads",
   "ads-applications": "admin_menu_ads_applications",
-  "ads-products": "admin_menu_ads_products",
-  "ads-post-ads": "admin_menu_ads_posts",
   "ads-paid": "admin_menu_ads_paid",
   "ads-feed": "admin_menu_ads_feed",
+  "ads-legacy": "admin_menu_ads_legacy",
+  "ads-products": "admin_menu_ads_products",
+  "ads-post-ads": "admin_menu_ads_posts",
   "ads-benefits": "admin_menu_ads_benefits",
   "ads-policy": "admin_menu_ads_policy",
   "ads-home-feed": "admin_menu_ads_home_feed",
@@ -642,25 +643,34 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     title: "",
     children: [
       {
+        // CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md §5
+        // Primary leaves only — discoverability. Legacy under ads-legacy.
         key: "ads",
         title: "",
         status: "done",
         children: [
           { key: "ads-applications", title: "", path: "/admin/ad-applications", status: "done" },
-          { key: "ads-products", title: "", path: "/admin/ad-products", status: "done" },
-          { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "done" },
           { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
           { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
-          { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
-          { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "done" },
-          { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "done" },
           {
-            key: "ads-recommendation",
+            key: "ads-legacy",
             title: "",
-            path: "/admin/personalized-feed",
             status: "done",
+            children: [
+              { key: "ads-products", title: "", path: "/admin/ad-products", status: "done" },
+              { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "done" },
+              { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
+              { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "done" },
+              { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "done" },
+              {
+                key: "ads-recommendation",
+                title: "",
+                path: "/admin/personalized-feed",
+                status: "done",
+              },
+              { key: "ads-banners", title: "", path: "/admin/banners", status: "done" },
+            ],
           },
-          { key: "ads-banners", title: "", path: "/admin/banners", status: "done" },
         ],
       },
       {

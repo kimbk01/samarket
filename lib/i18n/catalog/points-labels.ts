@@ -20,6 +20,10 @@ export const pointsLabelsMessages = {
 
     point_status_expired: "만료",
 
+    point_status_pending_review: "심사 중",
+
+    point_status_ended: "종료",
+
     point_pay_bank_transfer: "계좌이체",
 
     point_pay_gcash: "GCash",
@@ -63,6 +67,8 @@ export const pointsLabelsMessages = {
     point_placement_shop_featured: "상점 추천",
     point_placement_feed_boost: "피드 홍보",
 
+    point_placement_community_top_pin: "커뮤니티 상단",
+
     point_filter_all: "전체",
 
   },
@@ -84,6 +90,10 @@ export const pointsLabelsMessages = {
     point_status_active: "Active",
 
     point_status_expired: "Expired",
+
+    point_status_pending_review: "In review",
+
+    point_status_ended: "Ended",
 
     point_pay_bank_transfer: "Bank transfer",
 
@@ -127,6 +137,8 @@ export const pointsLabelsMessages = {
 
     point_placement_shop_featured: "Store featured",
     point_placement_feed_boost: "Feed boost",
+
+    point_placement_community_top_pin: "Community top",
 
     point_filter_all: "All",
 

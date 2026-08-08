@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import {
+  FEED_AD_MEDIA_ASPECT_CLASS,
+  FEED_AD_RECOMMENDED_UPLOAD,
+} from "@/lib/ads/feed-ad-geometry";
+import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 
 type SlideDraft = {
   imageUrl: string;
@@ -296,7 +301,27 @@ export function AdminFeedAdCreatePage() {
                 })}
           </button>
         </div>
-        <p className="sam-text-helper text-sam-muted">placement: {placement}</p>
+        <p className="sam-text-helper text-sam-muted">
+          {domain === "trade"
+            ? surfaceMode === "home"
+              ? safeT("admin_feed_ads_hint_trade_home", {
+                  fallbackKo: "거래 홈 피드 — 게시글 사이에 노출됩니다.",
+                  fallbackEn: "Trade home feed — shown between listings.",
+                })
+              : safeT("admin_feed_ads_hint_trade_cat", {
+                  fallbackKo: "거래 카테고리 피드 — 선택한 카테고리 게시글 사이에 노출됩니다.",
+                  fallbackEn: "Trade category feed — shown between listings in that category.",
+                })
+            : surfaceMode === "home"
+              ? safeT("admin_feed_ads_hint_community_home", {
+                  fallbackKo: "커뮤니티 홈 피드 — 글 사이에 노출됩니다.",
+                  fallbackEn: "Community home feed — shown between posts.",
+                })
+              : safeT("admin_feed_ads_hint_community_topic", {
+                  fallbackKo: "커뮤니티 주제 피드 — 선택한 주제의 글 사이에 노출됩니다.",
+                  fallbackEn: "Community topic feed — shown between posts in that topic.",
+                })}
+        </p>
       </section>
 
       {/* 4 Target SSOT */}
@@ -368,6 +393,12 @@ export function AdminFeedAdCreatePage() {
             fallbackEn: "5. Images (1–3)",
           })}
         </h2>
+        <p className="sam-text-helper text-sam-muted">
+          {safeT("admin_feed_ads_image_ratio_hint", {
+            fallbackKo: `권장 비율 ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (예: ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). 피드에서는 같은 비율로 잘려 보입니다.`,
+            fallbackEn: `Recommended ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (e.g. ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). Feed crops to the same ratio.`,
+          })}
+        </p>
         <div className="grid gap-3 md:grid-cols-3">
           {slides.map((s, i) => (
             <div key={i} className="rounded-ui-rect border border-sam-border-soft p-3">
@@ -377,10 +408,12 @@ export function AdminFeedAdCreatePage() {
                 <img
                   src={s.previewUrl || s.imageUrl}
                   alt={s.altText || `slide ${i + 1}`}
-                  className="mb-2 aspect-[16/9] w-full rounded-ui-rect object-cover"
+                  className={`mb-2 ${FEED_AD_MEDIA_ASPECT_CLASS} w-full rounded-ui-rect object-cover`}
                 />
               ) : (
-                <div className="mb-2 flex aspect-[16/9] items-center justify-center rounded-ui-rect bg-sam-app text-sam-muted">
+                <div
+                  className={`mb-2 flex ${FEED_AD_MEDIA_ASPECT_CLASS} items-center justify-center rounded-ui-rect bg-sam-app text-sam-muted`}
+                >
                   {uploading === i ? t("common_loading") : "—"}
                 </div>
               )}
@@ -505,34 +538,69 @@ export function AdminFeedAdCreatePage() {
         </label>
       </section>
 
-      {/* 8 Preview */}
+      {/* 8 Preview — same FeedAd frame geometry as consumer */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_preview", { fallbackKo: "8. 미리보기", fallbackEn: "8. Preview" })}
+          {safeT("admin_feed_ads_sec_preview", {
+            fallbackKo: "8. 실제 피드에서 이렇게 보여요",
+            fallbackEn: "8. How it looks in the feed",
+          })}
         </h2>
         <p className="sam-text-helper text-sam-muted">
-          {domain} · {placement}
-          {placement === "TRADE_CATEGORY" && targetCategoryId
-            ? ` · ${labelCat(tradeCategories.find((c) => c.id === targetCategoryId) ?? { id: "", name: targetCategoryId, nameEn: null, slug: "" })}`
-            : ""}
-          {placement === "COMMUNITY_TOPIC" && targetTopicSlug
-            ? ` · ${labelTopic(communityTopics.find((x) => x.slug === targetTopicSlug) ?? { id: "", slug: targetTopicSlug, name: targetTopicSlug, nameEn: null })}`
-            : ""}
-          {" · "}
-          {filledSlides}/3 slides
+          {domain === "trade"
+            ? surfaceMode === "home"
+              ? safeT("admin_feed_ads_trade_home", { fallbackKo: "거래 홈", fallbackEn: "Trade home" })
+              : `${safeT("admin_feed_ads_trade_cat", { fallbackKo: "거래 카테고리", fallbackEn: "Trade category" })}${
+                  targetCategoryId
+                    ? ` · ${labelCat(tradeCategories.find((c) => c.id === targetCategoryId) ?? { id: "", name: targetCategoryId, nameEn: null, slug: "" })}`
+                    : ""
+                }`
+            : surfaceMode === "home"
+              ? safeT("admin_feed_ads_community_home", {
+                  fallbackKo: "커뮤니티 홈",
+                  fallbackEn: "Community home",
+                })
+              : `${safeT("admin_feed_ads_community_topic", { fallbackKo: "커뮤니티 주제", fallbackEn: "Community topic" })}${
+                  targetTopicSlug
+                    ? ` · ${labelTopic(communityTopics.find((x) => x.slug === targetTopicSlug) ?? { id: "", slug: targetTopicSlug, name: targetTopicSlug, nameEn: null })}`
+                    : ""
+                }`}
+          {` · ${filledSlides}/3`}
         </p>
-        <div className="flex gap-2 overflow-x-auto">
-          {slides
-            .filter((s) => s.imageUrl || s.previewUrl)
-            .map((s, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={s.previewUrl || s.imageUrl}
-                alt={s.altText}
-                className="h-24 w-40 shrink-0 rounded-ui-rect object-cover"
+        <div className="mx-auto w-full max-w-md space-y-2 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-2">
+          <div className="h-10 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
+            {safeT("admin_feed_ads_preview_row", {
+              fallbackKo: "게시글 행 (예시)",
+              fallbackEn: "Listing row (sample)",
+            })}
+          </div>
+          {(() => {
+            const first = slides.find((s) => s.imageUrl || s.previewUrl);
+            if (!first) {
+              return (
+                <p className="py-4 text-center sam-text-helper text-sam-muted">
+                  {safeT("admin_feed_ads_preview_empty", {
+                    fallbackKo: "이미지를 올리면 피드 크기로 미리보기됩니다.",
+                    fallbackEn: "Upload an image to preview at feed size.",
+                  })}
+                </p>
+              );
+            }
+            return (
+              <FeedAdFramePreview
+                density={domain === "community" ? "community" : "trade"}
+                imageUrl={first.previewUrl || first.imageUrl}
+                headline={first.headline}
+                alt={first.altText}
               />
-            ))}
+            );
+          })()}
+          <div className="h-10 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
+            {safeT("admin_feed_ads_preview_row", {
+              fallbackKo: "게시글 행 (예시)",
+              fallbackEn: "Listing row (sample)",
+            })}
+          </div>
         </div>
       </section>
 

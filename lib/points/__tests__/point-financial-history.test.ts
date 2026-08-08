@@ -22,10 +22,12 @@ describe("point-financial-history normalize", () => {
     expect(normalizePointFinancialCategory("ad_refund", "ad_application")).toBe("REFUND");
   });
 
-  it("does not collapse ad_purchase into PROMOTION", () => {
-    expect(normalizePointFinancialCategory("ad_purchase", "trade_post_ad")).toBe(
-      "ADVERTISEMENT_USAGE"
+  it("maps ad_hold to POINT_HOLD not FEED_BANNER", () => {
+    expect(normalizePointFinancialCategory("ad_hold", "feed_ad_request")).toBe("POINT_HOLD");
+    expect(normalizePointFinancialCategory("ad_hold_release", "feed_ad_request")).toBe(
+      "POINT_HOLD"
     );
+    expect(normalizePointFinancialCategory("ad_purchase", "feed_ad_request")).toBe("FEED_BANNER");
   });
 
   it("direction from signed amount", () => {

@@ -46,8 +46,11 @@ const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
 
 const PROMO_ORDER_KEYS: Record<PointPromotionOrderStatus, MessageKey> = {
   pending: "point_status_pending",
+  pending_review: "point_status_pending_review",
   active: "point_status_active",
   expired: "point_status_expired",
+  ended: "point_status_ended",
+  rejected: "revenue_hub_status_rejected",
   cancelled: "point_status_cancelled",
 };
 
@@ -57,6 +60,7 @@ const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
   search_top: "point_placement_search_top",
   shop_featured: "point_placement_shop_featured",
   feed_boost: "point_placement_feed_boost",
+  community_top_pin: "point_placement_community_top_pin",
 };
 
 export function pointChargeStatusLabel(status: PointChargeRequestStatus): string {

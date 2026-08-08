@@ -64,8 +64,11 @@ export const POINT_LEDGER_ENTRY_LABELS: Record<PointLedgerEntryType, string> = {
 /** @deprecated use `pointPromotionOrderStatusLabel(status)` */
 export const POINT_PROMOTION_ORDER_STATUS_LABELS: Record<PointPromotionOrderStatus, string> = {
   pending: pointPromotionOrderStatusLabel("pending"),
+  pending_review: pointPromotionOrderStatusLabel("pending_review"),
   active: pointPromotionOrderStatusLabel("active"),
   expired: pointPromotionOrderStatusLabel("expired"),
+  ended: pointPromotionOrderStatusLabel("ended"),
+  rejected: pointPromotionOrderStatusLabel("rejected"),
   cancelled: pointPromotionOrderStatusLabel("cancelled"),
 };
 
@@ -76,6 +79,7 @@ export const POINT_PROMOTION_PLACEMENT_LABELS: Record<PointPromotionPlacement, s
   search_top: pointPromotionPlacementLabel("search_top"),
   shop_featured: pointPromotionPlacementLabel("shop_featured"),
   feed_boost: pointPromotionPlacementLabel("feed_boost"),
+  community_top_pin: pointPromotionPlacementLabel("community_top_pin"),
 };
 
 export interface AdminPointChargeFilters {

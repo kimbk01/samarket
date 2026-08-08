@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Coins, Wallet } from "lucide-react";
+import { ChevronRight, Coins, Megaphone, Wallet } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import {
@@ -18,6 +18,7 @@ import {
 
 /**
  * Logged-in /mypage — Member D-Point SSOT asset strip (no Business Credit balance, no fake metrics).
+ * Includes Revenue Hub entry: 「내 홍보 / 광고」 (/mypage/ads).
  */
 export function MypagePointsAssetSummary() {
   const { safeT, language } = useI18n();
@@ -47,6 +48,22 @@ export function MypagePointsAssetSummary() {
           })}
         </span>
         <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{value}</span>
+        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+      </Link>
+      <Link
+        href="/mypage/ads"
+        className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
+        data-testid="mypage-revenue-hub-entry"
+      >
+        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
+          <Megaphone className="h-5 w-5" aria-hidden />
+        </span>
+        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
+          {safeT("mypage_comp_business_ads", {
+            fallbackKo: "내 홍보 / 광고",
+            fallbackEn: "Promotions / ads",
+          })}
+        </span>
         <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
       </Link>
       <Link href="/mypage/points/charge" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>

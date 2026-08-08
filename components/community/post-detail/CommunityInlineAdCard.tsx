@@ -37,7 +37,7 @@ async function loadCommunityInlineAd(): Promise<AdFeedPost | null> {
 }
 
 export function CommunityInlineAdCard() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [ad, setAd] = useState<AdFeedPost | null>(null);
   const [tried, setTried] = useState(false);
 
@@ -89,7 +89,12 @@ export function CommunityInlineAdCard() {
               <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[var(--cm-text-muted)]">
                 <span className="text-[var(--cm-text)]">{ad.advertiserName}</span>
                 <span className="mx-1">·</span>
-                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">{t("community_ad_badge")}</span>
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
+                  {safeT("community_top_fix_badge", {
+                    fallbackKo: "상단 고정",
+                    fallbackEn: "Pinned",
+                  })}
+                </span>
               </p>
               <p className="mt-1.5 flex items-center gap-1 text-[12px] font-normal text-[var(--cm-text-muted)]">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />

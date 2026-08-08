@@ -16,6 +16,7 @@ type CatalogItem = {
   id: MemberPromotionProductId;
   durationDays: number;
   pointCost: number;
+  requiresAdminApproval?: boolean;
   fallbackTitleKo: string;
   fallbackTitleEn: string;
   fallbackDescKo: string;
@@ -28,6 +29,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onPurchased?: () => void;
+  /** trade (default) | community — catalog + CTA copy */
+  domain?: "trade" | "community";
 };
 
 export function MemberPostPromoteSheet({
@@ -36,27 +39,35 @@ export function MemberPostPromoteSheet({
   open,
   onClose,
   onPurchased,
+  domain = "trade",
 }: Props) {
   const { t, language, safeT } = useI18n();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
-  const [productId, setProductId] = useState<MemberPromotionProductId>("trade_promote_7");
+  const [productId, setProductId] = useState<MemberPromotionProductId>(
+    domain === "community" ? "community_promote_3" : "trade_promote_7"
+  );
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [successEndAt, setSuccessEndAt] = useState("");
+  const [pendingReview, setPendingReview] = useState(false);
   const [activeEndAt, setActiveEndAt] = useState<string | null>(null);
+  const [pendingExisting, setPendingExisting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr("");
     try {
-      const [promoRes, balRes] = await runSingleFlight(`member-promote:${postId}`, () =>
+      const [promoRes, balRes] = await runSingleFlight(`member-promote:${domain}:${postId}`, () =>
         Promise.all([
-          fetch(`/api/me/points/promotion-orders?catalog=1&targetId=${encodeURIComponent(postId)}`, {
-            cache: "no-store",
-            credentials: "include",
-          }),
+          fetch(
+            `/api/me/points/promotion-orders?catalog=1&domain=${encodeURIComponent(domain)}&targetId=${encodeURIComponent(postId)}`,
+            {
+              cache: "no-store",
+              credentials: "include",
+            }
+          ),
           fetch("/api/me/points", { cache: "no-store", credentials: "include" }),
         ])
       );
@@ -73,8 +84,15 @@ export function MemberPostPromoteSheet({
       if (items[0]?.id) setProductId(items[0].id);
       const bal = Number(balJ.balance ?? balJ.points);
       setBalance(Number.isFinite(bal) ? bal : null);
+      const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
-      setActiveEndAt(activeEnd);
+      if (st === "pending_review" || st === "pending") {
+        setPendingExisting(true);
+        setActiveEndAt(activeEnd);
+      } else {
+        setPendingExisting(false);
+        setActiveEndAt(st === "active" ? activeEnd : null);
+      }
     } catch {
       setErr(
         safeT("promo_sheet_load_failed", {
@@ -85,11 +103,12 @@ export function MemberPostPromoteSheet({
     } finally {
       setLoading(false);
     }
-  }, [postId, safeT]);
+  }, [postId, domain, safeT]);
 
   useEffect(() => {
     if (!open) return;
     setSuccessEndAt("");
+    setPendingReview(false);
     void load();
   }, [open, load]);
 
@@ -114,7 +133,7 @@ export function MemberPostPromoteSheet({
           "Idempotency-Key": idem,
         },
         body: JSON.stringify({
-          targetType: "product",
+          targetType: domain === "community" ? "community_post" : "product",
           targetId: postId,
           targetTitle: postTitle,
           productId: selected.id,
@@ -127,6 +146,8 @@ export function MemberPostPromoteSheet({
         code?: string;
         endAt?: string;
         balanceAfter?: number;
+        pendingReview?: boolean;
+        status?: string;
       };
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
@@ -139,8 +160,8 @@ export function MemberPostPromoteSheet({
         } else if (j.error === "already_active_promotion") {
           setErr(
             safeT("points_ui_promotion_conflict", {
-              fallbackKo: "이미 홍보 중인 게시물입니다.",
-              fallbackEn: "This post is already being promoted.",
+              fallbackKo: "이미 홍보 중이거나 심사 중인 게시물입니다.",
+              fallbackEn: "This post already has an active or pending promotion.",
             })
           );
         } else {
@@ -154,6 +175,7 @@ export function MemberPostPromoteSheet({
         return;
       }
       if (typeof j.balanceAfter === "number") setBalance(j.balanceAfter);
+      setPendingReview(j.pendingReview === true || j.status === "pending_review");
       setSuccessEndAt(j.endAt ?? "");
       onPurchased?.();
     } catch {
@@ -171,6 +193,16 @@ export function MemberPostPromoteSheet({
   if (!open) return null;
 
   const langEn = language === "en";
+  const sheetTitle =
+    domain === "community"
+      ? safeT("promo_sheet_title_community", {
+          fallbackKo: "게시물 홍보하기",
+          fallbackEn: "Promote this post",
+        })
+      : safeT("promo_sheet_title", {
+          fallbackKo: "게시물 더 알리기",
+          fallbackEn: "Promote this post",
+        });
 
   return (
     <div className="fixed inset-0 z-[46] flex items-end justify-center">
@@ -182,27 +214,32 @@ export function MemberPostPromoteSheet({
       />
       <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl">
         <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-1 px-1 sam-text-body-lg font-semibold text-sam-fg">
-          {safeT("promo_sheet_title", {
-            fallbackKo: "게시물 더 알리기",
-            fallbackEn: "Promote this post",
-          })}
-        </h2>
+        <h2 className="mb-1 px-1 sam-text-body-lg font-semibold text-sam-fg">{sheetTitle}</h2>
         <p className="mb-3 line-clamp-2 px-1 sam-text-body-secondary text-sam-muted">{postTitle}</p>
 
         {successEndAt ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {safeT("promo_sheet_success", {
-                fallbackKo: "홍보가 시작되었습니다.",
-                fallbackEn: "Promotion started.",
-              })}
+              {pendingReview
+                ? safeT("promo_sheet_pending_success", {
+                    fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
+                    fallbackEn: "Promotion request submitted. It goes live after admin approval.",
+                  })
+                : safeT("promo_sheet_success", {
+                    fallbackKo: "홍보가 시작되었습니다.",
+                    fallbackEn: "Promotion started.",
+                  })}
             </p>
             <p className="mt-1 sam-text-body-secondary text-sam-muted">
-              {safeT("promo_sheet_ends_at", {
-                fallbackKo: "종료일",
-                fallbackEn: "Ends",
-              })}
+              {pendingReview
+                ? safeT("promo_sheet_pending_period", {
+                    fallbackKo: "승인 시 적용 기간",
+                    fallbackEn: "Period after approval",
+                  })
+                : safeT("promo_sheet_ends_at", {
+                    fallbackKo: "종료일",
+                    fallbackEn: "Ends",
+                  })}
               {": "}
               {new Date(successEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
             </p>
@@ -226,26 +263,33 @@ export function MemberPostPromoteSheet({
           </div>
         ) : loading ? (
           <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
-        ) : activeEndAt ? (
+        ) : activeEndAt || pendingExisting ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {safeT("promo_sheet_already_active", {
-                fallbackKo: "홍보 중",
-                fallbackEn: "Promotion active",
-              })}
+              {pendingExisting
+                ? safeT("promo_sheet_pending_existing", {
+                    fallbackKo: "심사 중",
+                    fallbackEn: "Under review",
+                  })
+                : safeT("promo_sheet_already_active", {
+                    fallbackKo: "홍보 중",
+                    fallbackEn: "Promotion active",
+                  })}
             </p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
-              {safeT("promo_sheet_ends_at", {
-                fallbackKo: "종료",
-                fallbackEn: "Ends",
-              })}
-              {": "}
-              {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
-            </p>
+            {activeEndAt ? (
+              <p className="mt-1 sam-text-body-secondary text-sam-muted">
+                {safeT("promo_sheet_ends_at", {
+                  fallbackKo: "종료",
+                  fallbackEn: "Ends",
+                })}
+                {": "}
+                {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+              </p>
+            ) : null}
             <p className="mt-2 sam-text-helper text-sam-muted">
               {safeT("promo_sheet_no_stack", {
-                fallbackKo: "활성 홍보가 끝나면 다시 구매할 수 있습니다.",
-                fallbackEn: "You can purchase again after this promotion ends.",
+                fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
+                fallbackEn: "You can apply again after the current promotion ends or is decided.",
               })}
             </p>
             <button
@@ -285,6 +329,63 @@ export function MemberPostPromoteSheet({
                 );
               })}
             </div>
+
+            <ul className="mt-3 space-y-1 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 sam-text-helper text-sam-muted">
+              <li>
+                {safeT("promo_sheet_surfaces_intro", {
+                  fallbackKo: "적용 위치",
+                  fallbackEn: "Where it appears",
+                })}
+              </li>
+              {domain === "community" ? (
+                <>
+                  <li>
+                    ·{" "}
+                    {safeT("promo_sheet_surface_community_home", {
+                      fallbackKo: "커뮤니티 홈 피드 상단",
+                      fallbackEn: "Community home feed top",
+                    })}
+                  </li>
+                  <li>
+                    ·{" "}
+                    {safeT("promo_sheet_surface_community_topic", {
+                      fallbackKo: "이 게시물 주제(토픽) 피드 상단",
+                      fallbackEn: "This post's topic feed top",
+                    })}
+                  </li>
+                  <li className="pt-1 text-sam-meta">
+                    {safeT("promo_sheet_community_approval_note", {
+                      fallbackKo: "관리자 승인 후 노출됩니다. 거절 시 보류 포인트가 반환됩니다.",
+                      fallbackEn:
+                        "Goes live after admin approval. Rejected requests release the hold.",
+                    })}
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li>
+                    ·{" "}
+                    {safeT("promo_sheet_surface_trade_home", {
+                      fallbackKo: "거래 홈 목록",
+                      fallbackEn: "Trade home list",
+                    })}
+                  </li>
+                  <li>
+                    ·{" "}
+                    {safeT("promo_sheet_surface_trade_category", {
+                      fallbackKo: "이 게시물의 카테고리 목록",
+                      fallbackEn: "This post's category list",
+                    })}
+                  </li>
+                  <li className="pt-1 text-sam-meta">
+                    {safeT("promo_sheet_not_top_pin", {
+                      fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
+                      fallbackEn: "Different from Community top-pin and Feed ads.",
+                    })}
+                  </li>
+                </>
+              )}
+            </ul>
 
             <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app p-3">
               <p className="sam-text-body-secondary text-sam-muted">
@@ -339,8 +440,8 @@ export function MemberPostPromoteSheet({
                 {busy
                   ? t("common_loading")
                   : safeT("promo_sheet_cta", {
-                      fallbackKo: `${cost.toLocaleString()} D-Point로 홍보하기`,
-                      fallbackEn: `Promote with ${cost.toLocaleString()} D-Point`,
+                      fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
+                      fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
                     })}
               </button>
             </div>

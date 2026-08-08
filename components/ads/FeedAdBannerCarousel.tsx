@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
+import {
+  feedAdBodyClass,
+  feedAdChromeBarClass,
+  feedAdFrameClass,
+  feedAdHeadlineClass,
+  feedAdListItemClass,
+  feedAdMediaClass,
+  type FeedAdHostDensity,
+} from "@/lib/ads/feed-ad-geometry";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 function resolveHref(c: FeedAdCampaignView): string {
@@ -21,7 +30,9 @@ function resolveHref(c: FeedAdCampaignView): string {
 }
 
 /**
- * In-feed 3-slide banner. Renders nothing when no campaign / no images.
+ * In-feed Advertisement sector (1 slot · up to 3 creatives).
+ * Empty campaign → null (no reserved height / blank shell).
+ * Geometry SSOT: `lib/ads/feed-ad-geometry.ts` — not a hero banner.
  */
 export function FeedAdBannerCarousel({
   domain,
@@ -37,6 +48,7 @@ export function FeedAdBannerCarousel({
   const { t, safeT } = useI18n();
   const [campaign, setCampaign] = useState<FeedAdCampaignView | null>(null);
   const [slide, setSlide] = useState(0);
+  const density: FeedAdHostDensity = domain === "community" ? "community" : "trade";
 
   useEffect(() => {
     let cancelled = false;
@@ -74,14 +86,14 @@ export function FeedAdBannerCarousel({
   const external = href.startsWith("http");
 
   return (
-    <li className="list-none px-2 py-2">
-      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-        <div className="flex items-center justify-between px-3 pt-2">
+    <li className={feedAdListItemClass(density)} data-feed-ad-slot="" data-feed-ad-density={density}>
+      <div className={feedAdFrameClass(density)}>
+        <div className={feedAdChromeBarClass(density)}>
           <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
             {safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
           </span>
           {slides.length > 1 ? (
-            <div className="flex gap-1">
+            <div className="flex gap-1" aria-hidden={false}>
               {slides.map((_, i) => (
                 <button
                   key={i}
@@ -98,7 +110,7 @@ export function FeedAdBannerCarousel({
           href={href === "#" ? "/" : href}
           target={external ? "_blank" : undefined}
           rel={external ? "noopener noreferrer" : undefined}
-          className="block p-3"
+          className={feedAdBodyClass(density)}
           onClick={(e) => {
             if (href === "#") e.preventDefault();
           }}
@@ -107,34 +119,50 @@ export function FeedAdBannerCarousel({
             src={current.imageUrl}
             size={720}
             roundedClassName="rounded-ui-rect"
-            className="aspect-[16/9] w-full object-cover"
+            className={feedAdMediaClass(density)}
             alt={current.altText || campaign.name || t("ui_home_feed_ad_label")}
           />
-          {current.headline ? (
-            <p className="mt-2 line-clamp-2 sam-text-body font-semibold text-sam-fg">
-              {current.headline}
-            </p>
+          {current.headline?.trim() ? (
+            <p className={feedAdHeadlineClass(density)}>{current.headline.trim()}</p>
           ) : null}
         </Link>
-        {slides.length > 1 ? (
-          <div className="flex justify-between px-3 pb-3">
-            <button
-              type="button"
-              className="sam-text-helper text-sam-muted"
-              onClick={() => setSlide((s) => (s - 1 + slides.length) % slides.length)}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              className="sam-text-helper text-sam-muted"
-              onClick={() => setSlide((s) => (s + 1) % slides.length)}
-            >
-              ›
-            </button>
-          </div>
-        ) : null}
       </div>
     </li>
+  );
+}
+
+/** Admin / docs Preview — same frame + media ratio as consumer (no fetch). */
+export function FeedAdFramePreview({
+  density,
+  imageUrl,
+  headline,
+  alt,
+}: {
+  density: FeedAdHostDensity;
+  imageUrl: string;
+  headline?: string;
+  alt?: string;
+}) {
+  const { safeT } = useI18n();
+  if (!imageUrl.trim()) return null;
+  return (
+    <div className={feedAdFrameClass(density)} data-feed-ad-preview="" data-feed-ad-density={density}>
+      <div className={feedAdChromeBarClass(density)}>
+        <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
+          {safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
+        </span>
+      </div>
+      <div className={feedAdBodyClass(density)}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- admin local/blob preview */}
+        <img
+          src={imageUrl}
+          alt={alt || ""}
+          className={`${feedAdMediaClass(density)} rounded-ui-rect`}
+        />
+        {headline?.trim() ? (
+          <p className={feedAdHeadlineClass(density)}>{headline.trim()}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   philifePostViewUrl,
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
-import { AdApplyButton } from "@/components/ads/AdApplyButton";
+import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import { usePhilifePostComments } from "@/hooks/use-philife-post-comments";
 import {
   recordRouteEntryFetchNetworkFromResources,
@@ -122,6 +122,7 @@ export function CommunityDetail({
   const [reportErr, setReportErr] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
   const [actionToast, setActionToast] = useState<string | null>(null);
+  const [promoteOpen, setPromoteOpen] = useState(false);
   const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -532,8 +533,29 @@ export function CommunityDetail({
 
           {me?.id && me.id === post.author_id && (
             <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
-              <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">{t("community_my_post_ads")}</p>
-              <AdApplyButton postId={post.id} postTitle={post.title} boardKey="plife" />
+              <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">
+                {safeT("community_my_post_ads", {
+                  fallbackKo: "게시물 홍보",
+                  fallbackEn: "Promote post",
+                })}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPromoteOpen(true)}
+                className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 sam-text-body-secondary font-semibold text-amber-800 hover:bg-amber-100"
+              >
+                {safeT("community_top_pin_cta", {
+                  fallbackKo: "게시물 홍보하기",
+                  fallbackEn: "Promote this post",
+                })}
+              </button>
+              <MemberPostPromoteSheet
+                domain="community"
+                postId={post.id}
+                postTitle={post.title}
+                open={promoteOpen}
+                onClose={() => setPromoteOpen(false)}
+              />
             </div>
           )}
           {deleteErr ? <p className="mt-2 text-[12px] text-[var(--cm-danger)]">{deleteErr}</p> : null}

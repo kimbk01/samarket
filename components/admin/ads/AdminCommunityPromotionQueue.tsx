@@ -1,0 +1,169 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
+type OrderRow = {
+  id: string;
+  userId: string;
+  userNickname: string;
+  targetId: string;
+  targetTitle: string;
+  pointCost: number;
+  durationDays: number;
+  orderStatus: string;
+  productId?: string;
+  endAt: string;
+  createdAt: string;
+  reviewReason?: string | null;
+};
+
+/**
+ * Community Paid Exposure approval queue (point_promotion_orders).
+ * Mounted on /admin/ad-applications — semantic: 「게시물 홍보 신청」.
+ */
+export function AdminCommunityPromotionQueue() {
+  const { safeT, language } = useI18n();
+  const en = language === "en";
+  const [rows, setRows] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("pending_review");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs = filter ? `?status=${encodeURIComponent(filter)}` : "";
+      const res = await fetch(`/api/admin/community-promotion-orders${qs}`, {
+        cache: "no-store",
+      });
+      const j = (await res.json()) as { ok?: boolean; orders?: OrderRow[]; error?: string };
+      setRows(Array.isArray(j.orders) ? j.orders : []);
+      setErr(j.error ?? "");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const act = async (id: string, action: "approve" | "reject") => {
+    let reason = "";
+    if (action === "reject") {
+      reason =
+        window.prompt(
+          safeT("admin_comm_promo_reject_prompt", {
+            fallbackKo: "거절 사유 (필수)",
+            fallbackEn: "Reject reason (required)",
+          }),
+          ""
+        ) ?? "";
+      if (!reason.trim()) return;
+    }
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/community-promotion-orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setErr(j.error ?? "failed");
+        return;
+      }
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section className="mb-8 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="sam-text-body font-semibold text-sam-fg">
+            {safeT("admin_comm_promo_title", {
+              fallbackKo: "게시물 홍보 신청",
+              fallbackEn: "Post promotion requests",
+            })}
+          </h2>
+          <p className="sam-text-helper text-sam-muted">
+            {safeT("admin_comm_promo_hint", {
+              fallbackKo: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
+              fallbackEn: "Community post boost — HOLD capture / release",
+            })}
+          </p>
+        </div>
+        <select
+          className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 sam-text-helper"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="pending_review">{en ? "Pending" : "심사 중"}</option>
+          <option value="active">{en ? "Active" : "노출 중"}</option>
+          <option value="rejected">{en ? "Rejected" : "거절"}</option>
+          <option value="">{en ? "All" : "전체"}</option>
+        </select>
+      </div>
+
+      {err ? <p className="sam-text-helper text-red-600">{err}</p> : null}
+      {loading ? (
+        <p className="py-6 text-center sam-text-helper text-sam-muted">…</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center sam-text-helper text-sam-muted">
+          {safeT("admin_comm_promo_empty", {
+            fallbackKo: "해당 상태의 신청이 없습니다.",
+            fallbackEn: "No requests in this status.",
+          })}
+        </p>
+      ) : (
+        <ul className="divide-y divide-sam-border-soft">
+          {rows.map((row) => {
+            const busy = busyId === row.id;
+            const canAct = row.orderStatus === "pending_review";
+            return (
+              <li key={row.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="sam-text-body font-medium text-sam-fg truncate">
+                    {row.targetTitle || row.targetId}
+                  </p>
+                  <p className="sam-text-helper text-sam-muted">
+                    {row.userNickname || row.userId.slice(0, 8)} · {row.pointCost.toLocaleString()}P ·{" "}
+                    {row.durationDays}d · {row.productId ?? "—"} · {row.orderStatus}
+                  </p>
+                  {row.reviewReason ? (
+                    <p className="sam-text-helper text-sam-muted">reason: {row.reviewReason}</p>
+                  ) : null}
+                </div>
+                {canAct ? (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void act(row.id, "approve")}
+                      className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
+                    >
+                      {en ? "Approve" : "승인"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void act(row.id, "reject")}
+                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
+                    >
+                      {en ? "Reject" : "거절"}
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}

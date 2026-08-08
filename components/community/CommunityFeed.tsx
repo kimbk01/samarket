@@ -1047,8 +1047,11 @@ export function CommunityFeed({
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      runSingleFlight("community-inline-ad-card:active-plife", () =>
-        fetch("/api/ads/active?boardKey=plife", { credentials: "include" })
+      runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}`, () =>
+        fetch(
+          `/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}`,
+          { credentials: "include" }
+        )
       )
         .then((r) => r.clone().json())
         .then((j: { ads?: AdFeedPost[] }) => {
@@ -1079,7 +1082,7 @@ export function CommunityFeed({
       cancelled = true;
       cancelScheduled?.();
     };
-  }, []);
+  }, [category]);
 
   useEffect(() => {
     const el = sentinelRef.current;

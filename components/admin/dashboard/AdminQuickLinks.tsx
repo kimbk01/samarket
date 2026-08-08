@@ -14,6 +14,7 @@ const LINKS: { href: string; labelKey: MessageKey }[] = [
   { href: "/admin/business", labelKey: "admin_menu_business_management" },
   { href: "/admin/ad-applications", labelKey: "admin_menu_ads_applications" },
   { href: "/admin/promoted-items", labelKey: "admin_menu_ads_paid" },
+  { href: "/admin/feed-ads", labelKey: "admin_menu_ads_feed" },
   { href: "/admin/point-charges", labelKey: "admin_menu_points_charge" },
   { href: "/admin/points/ledger", labelKey: "admin_menu_points_ledger" },
   { href: "/admin/point-policies", labelKey: "admin_menu_points_policy" },

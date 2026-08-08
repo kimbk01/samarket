@@ -241,6 +241,67 @@ function enrichItem(
   return item;
 }
 
+/** After CAPTURE, the original hold debit becomes confirmed FEED_BANNER usage. */
+function applyFeedAdHoldCaptureProjection(
+  item: PointFinancialHistoryItem,
+  holdStatusByRequestId: Map<string, string>
+): PointFinancialHistoryItem | null {
+  const et = item.entryType.trim().toLowerCase();
+  const rt = item.relatedType.trim().toLowerCase();
+  if (rt !== "feed_ad_request") return item;
+
+  // Capture audit is amount=0 — hide duplicate; hold row carries the usage amount.
+  if (et === "ad_purchase" && item.relatedId.startsWith("capture:")) {
+    return null;
+  }
+
+  if (et === "ad_hold") {
+    const reqId = item.relatedId.replace(/^hold:/, "").trim();
+    const st = (holdStatusByRequestId.get(reqId) ?? "").toLowerCase();
+    if (st === "captured") {
+      const titles = pointFinancialCategoryTitle("FEED_BANNER");
+      return {
+        ...item,
+        category: "FEED_BANNER",
+        titleKey: titles.titleKey,
+        fallbackTitleKo: titles.fallbackTitleKo,
+        fallbackTitleEn: titles.fallbackTitleEn,
+        status: "captured",
+      };
+    }
+    if (st === "released") {
+      return {
+        ...item,
+        status: "released",
+        subtitle: item.subtitle || "보류 해제됨",
+      };
+    }
+    return { ...item, status: st || "held" };
+  }
+
+  return item;
+}
+
+async function loadFeedAdHoldStatusMap(
+  sb: SupabaseClient,
+  requestIds: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const ids = [...new Set(requestIds.map((x) => x.trim()).filter(Boolean))];
+  if (!ids.length) return map;
+  const { data, error } = await sb
+    .from("feed_ad_point_holds")
+    .select("request_id, status")
+    .in("request_id", ids);
+  if (error) return map;
+  for (const row of data ?? []) {
+    const r = row as { request_id?: string; status?: string };
+    const id = String(r.request_id ?? "");
+    if (id) map.set(id, String(r.status ?? ""));
+  }
+  return map;
+}
+
 export type LoadPointFinancialHistoryInput = {
   userId?: string;
   filter?: PointFinancialFilter;
@@ -308,8 +369,19 @@ export async function loadPointFinancialHistory(
     .map((o) => o.targetId);
   const posts = await loadPostTitleMap(sb, postIds);
 
+  const feedRequestIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "feed_ad_request")
+    .map((r) => {
+      const rid = String(r.related_id ?? "");
+      return rid.replace(/^(hold:|release:|capture:)/, "").trim();
+    })
+    .filter(Boolean);
+  const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
+
   const items = pageRows
     .map((row) => enrichItem(asLedgerItemBase(row), promotions, charges, posts))
+    .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
+    .filter((item): item is PointFinancialHistoryItem => item != null)
     .filter((item) => matchesPointFinancialFilter(item, filter));
 
   const last = pageRows[pageRows.length - 1];

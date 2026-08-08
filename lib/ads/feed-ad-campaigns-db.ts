@@ -43,6 +43,11 @@ function mapCampaign(
     destinationType: String(row.destination_type ?? "internal_page") as FeedAdDestinationType,
     destinationId: String(row.destination_id ?? ""),
     destinationUrl: String(row.destination_url ?? ""),
+    source:
+      String(row.source ?? "ADMIN_DIRECT") === "MEMBER_REQUESTED"
+        ? "MEMBER_REQUESTED"
+        : "ADMIN_DIRECT",
+    requestId: row.request_id != null ? String(row.request_id) : null,
     slides: slides
       .filter((s) => s.imageUrl.trim().length > 0)
       .sort((a, b) => a.sortOrder - b.sortOrder)

@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminKpiCards } from "@/components/admin/dashboard/AdminKpiCards";
 import { DashboardUrgentBlock } from "@/components/admin/dashboard/DashboardUrgentBlock";
 import { DashboardQuickLinksBySection } from "@/components/admin/dashboard/DashboardQuickLinksBySection";
+import { AdminRevenueOpsStrip } from "@/components/admin/dashboard/AdminRevenueOpsStrip";
 import { AdminStatusSummaryPanels } from "@/components/admin/dashboard/AdminStatusSummaryPanels";
 import { AdminRecentActivityPanels } from "@/components/admin/dashboard/AdminRecentActivityPanels";
 import { AdminTrendChart } from "@/components/admin/dashboard/AdminTrendChart";
@@ -105,6 +106,7 @@ export function AdminDashboardPage({
         </h2>
         <AdminKpiCards stats={payload.stats} loading={loading} />
       </section>
+      <AdminRevenueOpsStrip />
       <DashboardUrgentBlock />
       <section>
         <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">

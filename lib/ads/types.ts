@@ -151,7 +151,7 @@ export interface ActiveAdsResponse {
   ads: AdFeedPost[];
   /** 조회 출처 — 클라이언트는 무시 가능 */
   meta?: {
-    source: "supabase" | "memory" | "empty";
+    source: "supabase" | "memory" | "empty" | "point_promotion_orders";
     hint?: string;
   };
 }

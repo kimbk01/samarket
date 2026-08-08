@@ -69,6 +69,9 @@ export type FeedAdCampaignView = {
   destinationType: FeedAdDestinationType;
   destinationId: string;
   destinationUrl: string;
+  /** ADMIN_DIRECT | MEMBER_REQUESTED */
+  source?: "ADMIN_DIRECT" | "MEMBER_REQUESTED";
+  requestId?: string | null;
   slides: FeedAdCreativeSlide[];
 };
 
@@ -119,4 +122,24 @@ export function selectCampaignForPlacement(
   // Deterministic rotation by day bucket (no starvation forever on priority-only)
   const bucket = Math.floor(Date.now() / 86_400_000);
   return eligible[bucket % eligible.length] ?? eligible[0] ?? null;
+}
+
+/** Admin/consumer-facing placement label — never expose TRADE_HOME raw codes as primary UI. */
+export function feedAdPlacementHumanLabel(
+  placement: FeedAdPlacement,
+  lang: "ko" | "en" = "ko"
+): string {
+  const ko: Record<FeedAdPlacement, string> = {
+    TRADE_HOME: "거래 홈 피드",
+    TRADE_CATEGORY: "거래 카테고리 피드",
+    COMMUNITY_HOME: "커뮤니티 홈 피드",
+    COMMUNITY_TOPIC: "커뮤니티 주제 피드",
+  };
+  const en: Record<FeedAdPlacement, string> = {
+    TRADE_HOME: "Trade home feed",
+    TRADE_CATEGORY: "Trade category feed",
+    COMMUNITY_HOME: "Community home feed",
+    COMMUNITY_TOPIC: "Community topic feed",
+  };
+  return (lang === "en" ? en : ko)[placement];
 }

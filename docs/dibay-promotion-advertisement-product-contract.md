@@ -1,8 +1,12 @@
 # DIBAY Promotion / Advertisement — Phase E Product Contract
 
+> **SUPERSEDED for product surface (2026-08-08).**
+> Master: [`docs/dibay-paid-exposure-feed-ad-master-contract.md`](./dibay-paid-exposure-feed-ad-master-contract.md)
+> Feed Ad is **not** Admin-free-CMS-only. Member Feed Ad Request + HOLD/CAPTURE is in force.
+
 | Field | Value |
 |-------|--------|
-| Status | **LOCKED** (2026-08-07) |
+| Status | **SUPERSEDED** (ledger KEEP; surface → master contract) |
 | Mode | Red-team reconstruction |
 | Asset boundary | **AST-001 D-Point ≠ AST-002 Business Credit** (unchanged) |
 
@@ -74,9 +78,10 @@ Target: Trade category SSOT / Community topic SSOT (no admin copy lists).
 | Table | Decision |
 |-------|----------|
 | `point_promotion_orders` | KEEP → Member Trade Promotion entitlement SSOT |
-| `post_ads` / `ad_products` **top_fixed** | KEEP — Philife **member paid content pin** (distinct from Admin Feed Ads) |
+| `post_ads` / `ad_products` **top_fixed** | KEEP — Philife **member paid top pin** (CTA 「상단에 올리기」; D-Point via legacy apply; **not** Feed「광고」) |
 | `post_ads` **mid_insert** | **QUARANTINE** — mid-slot purpose owned by `feed_ad_campaigns`; no new apply (API 410) |
 | `trade_post_ads` | KEEP as Trade **detail** placement (not list feed boost) |
+| Feed Ad geometry | SSOT `lib/ads/feed-ad-geometry.ts` — **12:5** strip in host list sector (not 16:9 hero) |
 | `my_page_banners` | KEEP mypage CMS — Feed Ads는 **새** campaign tables |
 | notification campaigns | OUT OF SCOPE |
 | `TradePostAdApplySheet` | **REMOVED** (0 importers; Trade list promotion uses `MemberPostPromoteSheet`) |

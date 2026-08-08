@@ -22,6 +22,9 @@ export type PointFinancialCategory =
   | "ADMIN_DEBIT"
   | "EXPIRATION"
   | "ADVERTISEMENT_USAGE"
+  | "FEED_BANNER"
+  /** Hold reservation — not confirmed usage until CAPTURE */
+  | "POINT_HOLD"
   | "OTHER";
 
 export type PointFinancialFilter = "all" | "credit" | "debit";
@@ -131,13 +134,17 @@ export function normalizePointFinancialCategory(
   }
   if (et === "expire") return "EXPIRATION";
   if (rt === "promotion_order" || rt === "promoted_item") return "PROMOTION";
+  // Hold / release = reservation semantics — not confirmed FEED_BANNER usage.
+  if (et === "ad_hold" || et === "ad_hold_release") return "POINT_HOLD";
   if (
     et.startsWith("ad_") ||
     rt === "ad_application" ||
     rt === "trade_post_ad"
   ) {
+    if (rt === "feed_ad_request") return "FEED_BANNER";
     return "ADVERTISEMENT_USAGE";
   }
+  if (rt === "feed_ad_request") return "FEED_BANNER";
   if (et === "spend" && rt === "promotion_order") return "PROMOTION";
   if (et === "spend") return "OTHER";
   return "OTHER";
@@ -194,8 +201,20 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
     case "ADVERTISEMENT_USAGE":
       return {
         titleKey: "point_fin_cat_ad",
-        fallbackTitleKo: "광고 사용",
-        fallbackTitleEn: "Ad usage",
+        fallbackTitleKo: "상단 고정",
+        fallbackTitleEn: "Top pin",
+      };
+    case "FEED_BANNER":
+      return {
+        titleKey: "point_fin_cat_feed_banner",
+        fallbackTitleKo: "피드 광고",
+        fallbackTitleEn: "Feed advertisement",
+      };
+    case "POINT_HOLD":
+      return {
+        titleKey: "point_fin_cat_point_hold",
+        fallbackTitleKo: "포인트 보류",
+        fallbackTitleEn: "Point hold",
       };
     default:
       return {

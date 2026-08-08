@@ -22,7 +22,7 @@ export function AdProductSelector({
   onClose,
   onSuccess,
 }: AdProductSelectorProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [products, setProducts] = useState<AdProduct[]>([]);
   const [selected, setSelected] = useState<AdProduct | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<AdPaymentMethod>("points");
@@ -73,8 +73,10 @@ export function AdProductSelector({
           j.error === "insufficient_points"
             ? `포인트가 ${j.pointShortfall?.toLocaleString() ?? ""}P 부족합니다.`
             : j.error === "already_has_active_ad"
-              ? "이미 진행 중인 광고가 있습니다."
-              : j.error ?? "신청 실패"
+              ? "이미 상단 고정이 진행 중입니다."
+              : j.error === "ad_type_quarantined"
+                ? "이 상품은 더 이상 신청할 수 없습니다."
+                : j.error ?? "신청 실패"
         );
         return;
       }
@@ -95,7 +97,12 @@ export function AdProductSelector({
       <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
         {/* 헤더 */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="sam-text-section-title font-bold text-sam-fg">{t("ui_ad_apply_title")}</h2>
+          <h2 className="sam-text-section-title font-bold text-sam-fg">
+            {safeT("community_top_fix_apply_title", {
+              fallbackKo: "상단에 올리기",
+              fallbackEn: "Pin to top",
+            })}
+          </h2>
           <button
             type="button"
             onClick={onClose}
