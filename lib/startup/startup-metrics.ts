@@ -227,6 +227,9 @@ export function tryDismissNativeSplash(reason: string): void {
   splashDismissAttempted = true;
   setMetric("splashDismissReason", reason);
   markAppReady(reason);
+  // Unblock deferred cold-start network even when auth_shell_fallback skipped markBootMetricsShellReady.
+  shellReadyMarked = true;
+  flushShellReadyWaiters();
 
   if (typeof window === "undefined") return;
 
@@ -316,6 +319,18 @@ export function markBootMetricsReactMounted(): void {
 }
 
 let shellReadyMarked = false;
+const shellReadyWaiters: Array<() => void> = [];
+
+function flushShellReadyWaiters(): void {
+  const waiters = shellReadyWaiters.splice(0, shellReadyWaiters.length);
+  for (const run of waiters) {
+    try {
+      run();
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 /**
  * Main App Shell mounted — splash hide (Local First Startup).
@@ -328,6 +343,32 @@ export function markBootMetricsShellReady(): void {
   setMetric("shellReady", t);
   setMetric("homeVisible", t);
   tryDismissNativeSplash("shellReady");
+  flushShellReadyWaiters();
+}
+
+/** True after ConditionalAppShell (or auth splash fallback) marked ready. */
+export function isAppShellReady(): boolean {
+  return shellReadyMarked;
+}
+
+/**
+ * Run after shellReady so cold-start feed/network does not race splash hydrate.
+ * If shell is already ready, runs on next macrotask.
+ */
+export function whenAppShellReady(run: () => void): () => void {
+  if (typeof window === "undefined") {
+    run();
+    return () => undefined;
+  }
+  if (shellReadyMarked) {
+    const t = window.setTimeout(run, 0);
+    return () => window.clearTimeout(t);
+  }
+  shellReadyWaiters.push(run);
+  return () => {
+    const i = shellReadyWaiters.indexOf(run);
+    if (i >= 0) shellReadyWaiters.splice(i, 1);
+  };
 }
 
 /** @deprecated use markBootMetricsShellReady — kept for import stability */

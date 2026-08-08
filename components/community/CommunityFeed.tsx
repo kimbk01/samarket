@@ -38,6 +38,7 @@ import { PhilifePullRefreshRegister } from "@/components/philife/PhilifePullRefr
 import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+import { whenAppShellReady } from "@/lib/startup/startup-metrics";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
@@ -956,9 +957,12 @@ export function CommunityFeed({
         );
       }
       setLoading(false);
-      /** Cache/RSC first paint 후 background patch — first paint 차단 금지 */
-      void fetchPage(0, false, session, false);
+      /** Cache/RSC first paint 후 — shellReady 이전 네트워크는 splash hydrate 와 경합하므로 지연 */
+      const cancelNetwork = whenAppShellReady(() => {
+        void fetchPage(0, false, session, false);
+      });
       return () => {
+        cancelNetwork();
         feedAbortRef.current?.abort();
       };
     }
@@ -994,9 +998,12 @@ export function CommunityFeed({
     }
 
     const hasRenderableRows = !!snapMeta?.posts?.length || postsRef.current.length > 0;
-    /** hasRenderableRows 면 loading UI 없이 background sync only */
-    void fetchPage(0, false, session, !hasRenderableRows);
+    /** hasRenderableRows 면 loading UI 없이 background sync — shellReady 이후 */
+    const cancelNetwork = whenAppShellReady(() => {
+      void fetchPage(0, false, session, !hasRenderableRows);
+    });
     return () => {
+      cancelNetwork();
       feedAbortRef.current?.abort();
     };
     /**

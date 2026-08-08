@@ -5,7 +5,13 @@ import {
   cancelAppBootBackgroundHydration,
 } from "@/lib/app-boot/schedule-app-boot-background";
 import { invalidateAppBootProfileCache } from "@/lib/app-boot/fetch-app-boot-profile";
-import { resetAppBootStore, subscribeAppBoot, getAppBootSnapshot, setAppBootShell } from "@/lib/app-boot/app-boot-store";
+import {
+  markAppBootAuthUpgradePending,
+  resetAppBootStore,
+  subscribeAppBoot,
+  getAppBootSnapshot,
+  setAppBootShell,
+} from "@/lib/app-boot/app-boot-store";
 import type { AppBootState } from "@/lib/app-boot/app-boot-types";
 import type { ProfileRow } from "@/lib/profile/types";
 import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-journal";
@@ -28,6 +34,20 @@ export function invalidateAppBootAll(): void {
   clearAuthSessionClientCache();
   resetAppBootStore();
   cancelAppBootBackgroundHydration();
+}
+
+/**
+ * Fresh login only — guest/anonymous boot → authenticated refresh.
+ * DO NOT use logout wipe (`invalidateAppBootAll`): that resets to idle and
+ * forces a full second cold-boot critical path on every login.
+ */
+export function invalidateAppBootForAuthUpgrade(): void {
+  cancelAppBootBackgroundHydration();
+  invalidateAppBootFlight();
+  invalidateAppBootProfileCache();
+  invalidateMeProfileDedupedCache();
+  clearAuthSessionClientCache();
+  markAppBootAuthUpgradePending();
 }
 
 export function AppBootProvider({ children }: { children: ReactNode }) {

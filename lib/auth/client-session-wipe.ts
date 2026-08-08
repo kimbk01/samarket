@@ -5,7 +5,10 @@
  * 제품 코드는 이 모듈의 `wipeClientSessionState` 만 호출한다.
  */
 
-import { invalidateAppBootAll } from "@/components/app/AppBootProvider";
+import {
+  invalidateAppBootAll,
+  invalidateAppBootForAuthUpgrade,
+} from "@/components/app/AppBootProvider";
 import { flushAndroidAuthCookies } from "@/lib/auth/android-cookie-durability.client";
 import { clearTradeChatRoomClientCache } from "@/lib/chat/createOrGetChatRoom";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
@@ -198,14 +201,16 @@ export function shouldSkipSignedOutEventWipe(): boolean {
   return Date.now() - explicitLogoutWipeAt < EXPLICIT_LOGOUT_WIPE_SKIP_MS;
 }
 
-/** fresh login 직후 — guest/anonymous boot 캐시만 정리 (프로필 캐시는 primeClientAuthSessionFromSupabase 가 설정) */
+/**
+ * fresh login 직후 — guest/anonymous boot 만 auth-upgrade invalidation.
+ * CONTRACT: logout wipe(`invalidateAppBootAll`) 금지. prime 가 세션 프로필을 심고
+ * ensureAppBoot 가 authenticated lite 로 이어서 맞춘다.
+ */
 export function invalidateGuestCachesForFreshLogin(): void {
   if (typeof window === "undefined") return;
   clearGuestAuthState();
-  invalidateAppBootAll();
-  invalidateMeProfileDedupedCache();
+  invalidateAppBootForAuthUpgrade();
   invalidateClientMembershipResolveFlight();
-  clearAuthSessionClientCache();
   resetSignupGateSessionFlags();
   dispatchTestAuthChanged();
 }

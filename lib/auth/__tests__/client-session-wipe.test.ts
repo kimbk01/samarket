@@ -6,6 +6,7 @@ import {
 
 vi.mock("@/components/app/AppBootProvider", () => ({
   invalidateAppBootAll: vi.fn(),
+  invalidateAppBootForAuthUpgrade: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -133,6 +134,18 @@ describe("wipeClientSessionState storage allowlist", () => {
 
     expect(vi.mocked(invalidateAppBootAll)).toHaveBeenCalled();
     expect(local.getItem("kasama_store_commerce_cart_v1")).toBe("{}");
+  });
+
+  it("invalidateGuestCachesForFreshLogin uses auth-upgrade not full boot wipe", async () => {
+    const { invalidateGuestCachesForFreshLogin } = await import("@/lib/auth/client-session-wipe");
+    const { invalidateAppBootAll, invalidateAppBootForAuthUpgrade } = await import(
+      "@/components/app/AppBootProvider"
+    );
+
+    invalidateGuestCachesForFreshLogin();
+
+    expect(vi.mocked(invalidateAppBootForAuthUpgrade)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(invalidateAppBootAll)).not.toHaveBeenCalled();
   });
 
   it("clears ephemeral keys on account_switched same as user_logout", async () => {

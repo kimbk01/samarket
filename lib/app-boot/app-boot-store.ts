@@ -50,6 +50,21 @@ export function resetAppBootStore(): void {
   emit();
 }
 
+/**
+ * Guest/anonymous → authenticated upgrade.
+ * Clears anonymous "ready" so ensureAppBoot re-runs, without full idle wipe
+ * (full wipe forces a second cold boot wave on every login).
+ */
+export function markAppBootAuthUpgradePending(): void {
+  state = {
+    status: "hydrating",
+    profile: null,
+    bootedAt: null,
+    error: null,
+  };
+  emit();
+}
+
 export function setAppBootShell(): void {
   if (state.status === "ready" || state.status === "anonymous" || state.status === "hydrating") return;
   state = { ...INITIAL, status: "shell" };

@@ -9,15 +9,12 @@ import {
 } from "@/lib/auth/client-session-wipe";
 import { syncCommonClientSessionAfterAuth } from "@/lib/auth/completion/sync-common-client-session.client";
 import { INTERACTION_READY_POLICY } from "@/lib/auth/completion/types";
-import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import {
   bumpAuthLifecycleCounter,
   completeAuthLifecycle,
   markAuthLifecycleStage,
 } from "@/lib/auth/oauth/auth-lifecycle-trace";
 import { markCallMediaOnboardingPendingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
-import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 type RouterLike = {
   replace: (href: string) => void;
@@ -51,25 +48,12 @@ function canUseRouterReplace(target: string): boolean {
   }
 }
 
-/** Non-blocking profile cache warm — must not navigate. */
+/**
+ * Non-blocking post-nav warm — must not duplicate full profile fetch.
+ * SSOT: ensureAppBoot lite (+ destination page resolve). Completion must not
+ * race a second full `/api/me/profile` against boot/mypage.
+ */
 function scheduleNonBlockingPostLoginWork(): void {
-  void (async () => {
-    try {
-      const { status, json } = await fetchMeProfileDeduped();
-      const payload = json as { ok?: boolean; profile?: Record<string, unknown> | null } | null;
-      if (
-        status >= 200
-        && status < 300
-        && payload?.ok
-        && payload.profile
-        && typeof payload.profile.id === "string"
-      ) {
-        setSupabaseProfileCache(profileRowToClientProfile(payload.profile as never));
-      }
-    } catch {
-      /* non-blocking */
-    }
-  })();
   void ensureAppBoot();
 }
 

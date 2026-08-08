@@ -92,7 +92,7 @@ describe("finishClientAuthLogin", () => {
     expect(replace).toHaveBeenCalledTimes(1);
     await Promise.resolve();
     await Promise.resolve();
-    expect(fetchMeProfileDeduped).toHaveBeenCalled();
+    expect(fetchMeProfileDeduped).not.toHaveBeenCalled();
     expect(ensureAppBoot).toHaveBeenCalledTimes(1);
   });
 
@@ -157,20 +157,9 @@ describe("finishClientAuthLogin", () => {
     expect(replace).toHaveBeenCalledWith("/philife");
   });
 
-  it("navigates after session prime only — profile runs in background without signup-status re-nav", async () => {
+  it("navigates after session prime only — boot warms in background without signup-status re-nav", async () => {
     consumePendingAuthAction.mockResolvedValueOnce(false);
-    let replaceCalled = false;
-    const replace = vi.fn(() => {
-      replaceCalled = true;
-    });
-
-    fetchMeProfileDeduped.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          expect(replaceCalled).toBe(true);
-          resolve({ status: 200, json: { ok: true, profile: { id: "user-1" } } });
-        }),
-    );
+    const replace = vi.fn();
 
     const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
 
@@ -187,7 +176,7 @@ describe("finishClientAuthLogin", () => {
     expect(replace).toHaveBeenCalledTimes(1);
     await Promise.resolve();
     await Promise.resolve();
-    expect(fetchMeProfileDeduped).toHaveBeenCalled();
+    expect(fetchMeProfileDeduped).not.toHaveBeenCalled();
     expect(ensureAppBoot).toHaveBeenCalled();
   });
 

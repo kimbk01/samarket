@@ -9,6 +9,8 @@ import {
   markBootMetricsShellReady,
   markBootMetricsReactMounted,
   getDibayBootMetrics,
+  whenAppShellReady,
+  isAppShellReady,
 } from "@/lib/startup/startup-metrics";
 
 describe("startup metrics App Ready", () => {
@@ -19,6 +21,23 @@ describe("startup metrics App Ready", () => {
     expect(m.reactMounted).not.toBeNull();
     expect(m.shellReady).not.toBeNull();
     expect(getAppReadySnapshot()).toBe(true);
+    expect(isAppShellReady()).toBe(true);
+  });
+
+  it("whenAppShellReady runs after shellReady", async () => {
+    const order: string[] = [];
+    const cancel = whenAppShellReady(() => {
+      order.push("run");
+    });
+    if (!isAppShellReady()) {
+      expect(order).toEqual([]);
+      markBootMetricsShellReady();
+      expect(order).toEqual(["run"]);
+    } else {
+      await new Promise((r) => setTimeout(r, 0));
+      expect(order).toEqual(["run"]);
+    }
+    cancel();
   });
 });
 
