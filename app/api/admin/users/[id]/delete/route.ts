@@ -12,7 +12,7 @@ import {
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
-import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export async function POST(
 
   const { data: targetProfile, error: profileErr } = await sb
     .from("profiles")
-    .select("id, role, status, deleted_at, nickname")
+    .select("id, status, deleted_at, nickname")
     .eq("id", userId)
     .maybeSingle();
   if (profileErr) {
@@ -63,12 +63,15 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const targetRole = normalizeAdminRole((targetProfile as { role?: string }).role);
-  if (isSuperAdminRole(targetRole)) {
+  const targetMembership = await loadActiveAdminMembership(sb, userId).catch(() => null);
+  if (isSuperAdminRole(targetMembership?.role)) {
     return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
   }
-  if (targetRole === "admin" && !actor.isSuperAdmin) {
-    return NextResponse.json({ ok: false, error: "forbidden_admin_target" }, { status: 403 });
+  if (targetMembership?.role === "admin") {
+    return NextResponse.json(
+      { ok: false, error: "use_staff_api_for_admin_revoke" },
+      { status: 409 }
+    );
   }
 
   const nickname = String((targetProfile as { nickname?: string }).nickname ?? "").trim();

@@ -24,11 +24,11 @@ function toMenuRole(role: AdminRole): AdminMenuRole {
 
 function resolveSidebarMenuRole(
   uiRole: AdminRole | undefined,
-  adminMeLoading: boolean
-): AdminMenuRole {
+  _adminMeLoading: boolean
+): AdminMenuRole | null {
   if (uiRole) return toMenuRole(uiRole);
-  if (adminMeLoading) return "operator";
-  return toMenuRole(getAdminRole());
+  const snapshotRole = getAdminRole();
+  return snapshotRole ? toMenuRole(snapshotRole) : null;
 }
 
 export function AdminSidebar({
@@ -50,7 +50,7 @@ export function AdminSidebar({
     () => resolveSidebarMenuRole(adminMe?.uiRole, adminMeLoading),
     [adminMe?.uiRole, adminMeLoading]
   );
-  const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
+  const menu = useMemo(() => (role ? filterMenuByRole(adminMenu, role) : []), [role]);
 
   const asideClass = [
     "admin-sidebar sticky top-0 z-30 flex h-[100dvh] max-h-[100dvh] w-56 min-w-[14rem] shrink-0 flex-col border-r",

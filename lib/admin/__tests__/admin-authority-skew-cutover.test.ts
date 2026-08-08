@@ -143,7 +143,7 @@ describe("ADMIN AUTHORITY — Application membership-only (post App fallback cut
     expect(route).not.toMatch(/tryGetSupabaseForStores|try-supabase-stores/);
   });
 
-  it("source: bootstrap upserts membership for resolved UUID — alias is not authority", () => {
+  it("source: bootstrap upserts membership for known Auth UUID — alias/password are not authority", () => {
     const sql = readFileSync(
       join(process.cwd(), "supabase/scripts/bootstrap-aaaa-master-admin.sql"),
       "utf8"
@@ -151,7 +151,12 @@ describe("ADMIN AUTHORITY — Application membership-only (post App fallback cut
     expect(sql).toMatch(/admin_memberships/);
     expect(sql).toMatch(/bootstrap_seed/);
     expect(sql).toMatch(/super_admin/);
-    expect(sql).toMatch(/aaaa@manual\.local/);
+    expect(sql).toContain("11111111-1111-1111-1111-111111111111");
+    expect(sql).toMatch(/auth\.users/);
+    expect(sql).not.toMatch(/aaaa@manual\.local/);
+    expect(sql).not.toMatch(/test_users/);
+    expect(sql).not.toMatch(/password|bcrypt|crypt\s*\(/i);
+    expect(sql).not.toMatch(/profiles\.role|UPDATE\s+public\.profiles/i);
     expect(sql).not.toMatch(/username\s*=\s*'aaaa'\s*.*admin|IF\s+.*aaaa.*THEN.*super_admin/i);
   });
 });

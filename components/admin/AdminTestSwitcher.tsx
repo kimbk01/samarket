@@ -10,9 +10,8 @@ import {
 } from "@/lib/admin-permission";
 
 /**
- * 수동 관리자 테스트용: 로그인할 관리자(아이디)를 선택하면
- * getAdminRole() / getCurrentAdminStaff() 가 해당 관리자 기준으로 동작합니다.
- * NEXT_PUBLIC_ADMIN_TEST_SWITCHER=true 또는 개발 시 노출 권장.
+ * 개발용 관리자 디렉터리 표시.
+ * 선택값은 UI 메모일 뿐이며 역할·권한은 항상 `/api/admin/me` snapshot을 따른다.
  */
 export function AdminTestSwitcher() {
   const { t } = useI18n();

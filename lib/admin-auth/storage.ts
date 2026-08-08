@@ -13,10 +13,7 @@ export function getCurrentAdminLoginId(): string | null {
       ? trimmed
       : null;
   }
-  const v = process.env.NEXT_PUBLIC_ADMIN_LOGIN;
-  return v && typeof v === "string" && v.length <= LOGIN_ID_MAX_LENGTH
-    ? v.trim()
-    : null;
+  return null;
 }
 
 export function setAdminTestLoginAndReload(loginId: string | null): void {

@@ -237,22 +237,16 @@ describe("admin privilege dual-write cutover", () => {
     expect(staffId).not.toMatch(/admin_tier:\s*null/);
   });
 
-  it("source: bootstrap authority is membership; no privileged profile ON CONFLICT rewrite", () => {
+  it("source: production bootstrap assigns membership only and contains no credential", () => {
     const sql = readFileSync(
       join(process.cwd(), "supabase/scripts/bootstrap-aaaa-master-admin.sql"),
       "utf8"
     );
     expect(sql).toContain("admin_memberships");
     expect(sql).toContain("'super_admin'");
-    expect(sql).toMatch(/'user'/);
-    expect(sql).toMatch(/false,/);
-    const profilesConflict = sql.slice(
-      sql.indexOf("INSERT INTO public.profiles"),
-      sql.indexOf("IF to_regclass('public.admin_memberships')")
-    );
-    expect(profilesConflict).not.toMatch(/role = EXCLUDED\.role/);
-    expect(profilesConflict).not.toMatch(/is_admin = EXCLUDED\.is_admin/);
-    expect(profilesConflict).not.toMatch(/member_type = EXCLUDED\.member_type/);
+    expect(sql).not.toMatch(/INSERT INTO public\.profiles/);
+    expect(sql).not.toMatch(/test_users/);
+    expect(sql).not.toMatch(/password/i);
   });
 
   it("source: ensure-e2e-aaaa does not privilege-mirror profiles", () => {

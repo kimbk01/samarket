@@ -28,6 +28,7 @@ interface AdminUserTableProps {
   onViewDetail: (user: AdminUser) => void;
   onEditMember: (user: AdminUser) => void;
   onSendMessage: (user: AdminUser) => void;
+  category: "member" | "store_manager";
   onHorizontalScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
@@ -70,11 +71,13 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   onViewDetail,
   onEditMember,
   onSendMessage,
+  category,
 }: {
   user: AdminUser;
   onViewDetail: (user: AdminUser) => void;
   onEditMember: (user: AdminUser) => void;
   onSendMessage: (user: AdminUser) => void;
+  category: "member" | "store_manager";
 }) {
   const { t, language } = useI18n();
   const emptyCell = t("admin_users_empty_placeholder");
@@ -88,6 +91,33 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   const handleSendMessage = useCallback(() => onSendMessage(user), [onSendMessage, user]);
   const initial = (user.displayName ?? user.nickname ?? "?").trim().slice(0, 1).toUpperCase() || "?";
   const rowClass = roleRowClass(role);
+  const stores = user.storeRelation?.stores ?? [];
+
+  if (category === "store_manager") {
+    return (
+      <tr className={`border-b border-[#eaecf0] transition ${rowClass}`}>
+        <td className="whitespace-nowrap px-4 py-3.5 font-semibold text-[#101828]">{publicId || emptyCell}</td>
+        <td className="px-4 py-3.5 text-[#344054]">{user.displayName ?? user.nickname ?? emptyCell}</td>
+        <td className="px-4 py-3.5 text-[#475467]">{user.loginIdentifier || user.email || emptyCell}</td>
+        <td className="px-4 py-3.5 text-[#344054]">{stores.map((store) => store.name || emptyCell).join(", ") || emptyCell}</td>
+        <td className="px-4 py-3.5 font-mono text-xs text-[#667085]">{stores.map((store) => store.id).join(", ") || emptyCell}</td>
+        <td className="px-4 py-3.5 text-[#475467]">{stores.map((store) => store.approvalStatus || "unknown").join(", ") || emptyCell}</td>
+        <td className="whitespace-nowrap px-4 py-3.5">
+          <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}>
+            {t(STATUS_LABEL_KEYS[status])}
+          </span>
+        </td>
+        <td className="whitespace-nowrap px-4 py-3.5 text-sm tabular-nums text-[#475467]">
+          {formatAdminLiteDate(user.joinedAt, dateLocale, emptyCell)}
+        </td>
+        <td className="whitespace-nowrap px-4 py-3.5">
+          <button type="button" className={ADMIN_USERS_LITE_TABLE_ACTION} onClick={handleViewDetail}>
+            {t("admin_users_action_detail")}
+          </button>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <tr className={`border-b border-[#eaecf0] transition ${rowClass}`}>
@@ -164,6 +194,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
     onViewDetail,
     onEditMember,
     onSendMessage,
+    category,
     onHorizontalScroll,
   },
   ref,
@@ -178,13 +209,29 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
       <table className="min-w-[1080px] w-full border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-[#eaecf0] bg-[#f9fafb] text-left text-xs font-semibold text-[#475467]">
-            <th className="px-4 py-3">{t("admin_users_lite_col_member")}</th>
-            <th className="px-4 py-3">{t("admin_users_col_email")}</th>
-            <th className="px-4 py-3">{t("admin_users_col_provider")}</th>
-            <th className="px-4 py-3">{t("admin_users_lite_col_role")}</th>
-            <th className="px-4 py-3">{t("admin_users_lite_col_status")}</th>
-            <th className="px-4 py-3">{t("admin_users_col_joined")}</th>
-            <th className="px-4 py-3">{t("admin_users_col_actions")}</th>
+            {category === "store_manager" ? (
+              <>
+                <th className="px-4 py-3">{t("admin_users_store_col_member_id")}</th>
+                <th className="px-4 py-3">{t("admin_users_store_col_nickname")}</th>
+                <th className="px-4 py-3">{t("admin_users_store_col_login_identifier")}</th>
+                <th className="px-4 py-3">{t("admin_users_store_col_store_name")}</th>
+                <th className="px-4 py-3">{t("admin_users_store_col_store_id")}</th>
+                <th className="px-4 py-3">{t("admin_users_store_col_store_status")}</th>
+                <th className="px-4 py-3">{t("admin_users_lite_col_status")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_joined")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_actions")}</th>
+              </>
+            ) : (
+              <>
+                <th className="px-4 py-3">{t("admin_users_lite_col_member")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_email")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_provider")}</th>
+                <th className="px-4 py-3">{t("admin_users_lite_col_role")}</th>
+                <th className="px-4 py-3">{t("admin_users_lite_col_status")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_joined")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_actions")}</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -195,6 +242,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
               onViewDetail={onViewDetail}
               onEditMember={onEditMember}
               onSendMessage={onSendMessage}
+              category={category}
             />
           ))}
         </tbody>

@@ -47,12 +47,10 @@ function toMenuRole(role: AdminRole): AdminMenuRole {
 function resolveMenuRole(
   uiRole: AdminRole | undefined,
   _adminMeLoading: boolean
-): AdminMenuRole {
+): AdminMenuRole | null {
   if (uiRole) return toMenuRole(uiRole);
-  // While /api/admin/me is in flight, do NOT assume operator — that role filter
-  // drops platform-ops (roles: admin|master only) and flashes 10 workspace tabs.
-  // getAdminRole() falls back to master when no snapshot (lib/admin-auth/role.ts).
-  return toMenuRole(getAdminRole());
+  const snapshotRole = getAdminRole();
+  return snapshotRole ? toMenuRole(snapshotRole) : null;
 }
 
 function IconHamburger() {
@@ -105,11 +103,12 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
     () => resolveMenuRole(adminMe?.uiRole, adminMeLoading),
     [adminMe?.uiRole, adminMeLoading]
   );
+  const resolvedMenuRole = menuRole ?? "operator";
 
-  const workspaces = useMemo(() => listAdminWorkspaces(menuRole), [menuRole]);
+  const workspaces = useMemo(() => listAdminWorkspaces(resolvedMenuRole), [resolvedMenuRole]);
   const activeWorkspace = useMemo(
-    () => resolveActiveWorkspace(effectiveNavPath, menuRole),
-    [effectiveNavPath, menuRole]
+    () => resolveActiveWorkspace(effectiveNavPath, resolvedMenuRole),
+    [effectiveNavPath, resolvedMenuRole]
   );
   const crumbs = useMemo(
     () => resolveAdminBreadcrumb(effectiveNavPath, activeWorkspace),
@@ -139,6 +138,10 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             : "admin_role_operator"
       )
     : undefined;
+
+  if (!menuRole) {
+    return <div className="min-h-screen bg-sam-app" aria-busy="true" />;
+  }
 
   return (
     <AdminStorePointPendingProvider>

@@ -44,7 +44,9 @@ function Card({
 
 export function DashboardQuickLinksBySection() {
   const { t } = useI18n();
-  const menuRole = adminUiRoleToMenuRole(getAdminRole());
+  const role = getAdminRole();
+  if (!role) return null;
+  const menuRole = adminUiRoleToMenuRole(role);
   const sections = projectDashboardQuickLinks(menuRole);
 
   return (

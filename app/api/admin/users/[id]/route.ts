@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
-import { isSuperAdminRole, userHasRecentWarn } from "@/lib/admin/admin-user-server";
+import { userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
 import {
   resolveAdminAuthProvider,
@@ -81,11 +80,6 @@ async function isDibayIdTaken(sb: SupabaseClient, userId: string, dibayId: strin
     .limit(1);
   if (error) return false;
   return Array.isArray(data) && data.length > 0;
-}
-
-async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {
-  const { data: p } = await sb.from("profiles").select("role").eq("id", actorId).maybeSingle();
-  return isSuperAdminRole((p as { role?: string } | null)?.role);
 }
 
 type TestUserForEnsure = {
@@ -649,9 +643,9 @@ export async function GET(
 
 /**
  * 회원 구분(memberType)·전화 인증 상태 — profiles 반영
- * Admin privilege (memberType admin|super_admin|demote) → admin_memberships writer first
+ * Admin authority is never changed here; use the dedicated Staff API.
  * PATCH /api/admin/users/:id
- * body: { memberType?: 'normal'|'premium'|'admin'|'super_admin', phoneVerificationStatus?: ... }
+ * body: { memberType?: 'normal'|'premium', phoneVerificationStatus?: ... }
  */
 export async function PATCH(
   req: NextRequest,
@@ -765,11 +759,11 @@ export async function PATCH(
     }
   }
 
-  const { sb, actor } = gate;
+  const { sb } = gate;
 
   const { data: initialProfile, error: profileError } = await sb
     .from("profiles")
-    .select("id, role")
+    .select("id")
     .eq("id", userId)
     .maybeSingle();
 
@@ -779,23 +773,10 @@ export async function PATCH(
   if (!initialProfile) {
     return NextResponse.json({ ok: false, error: "profile_required" }, { status: 403 });
   }
-  const profile = initialProfile;
-
-  const actorIsMaster = actor.isSuperAdmin || (await loadActorIsMaster(sb, actor.userId));
-  const profileRoleRaw = (profile as { role?: string }).role ?? null;
-
-  // Non-master cannot target super_admin memberships (Users PATCH policy)
-  const targetEffective = await resolveEffectiveAdminRole(sb, userId).catch(() => null);
-  if (isSuperAdminRole(targetEffective) && !actorIsMaster) {
-    return NextResponse.json({ ok: false, error: "forbidden_master_target" }, { status: 403 });
-  }
 
   const privilegeResult = await applyUsersPatchPrivilegeChange(sb, {
     userId,
-    actorUserId: actor.userId,
-    actorIsMaster,
     requestedMemberType,
-    currentProfileRole: profileRoleRaw,
   });
   if (!privilegeResult.ok) {
     return NextResponse.json(
@@ -819,21 +800,6 @@ export async function PATCH(
     nextEmail === undefined
   ) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
-  }
-
-  // Privilege-only request that was a no-op (e.g. SA + memberType=admin) with no other fields
-  if (
-    privilegeResult.memberTypePatch === null &&
-    phoneStatus === null &&
-    nextNickname === null &&
-    nextDibayId === undefined &&
-    nextPhonePatch === null &&
-    nextEmail === undefined &&
-    privilegeResult.privilegeHandled &&
-    requestedMemberType === "admin"
-  ) {
-    // SA kept — treat as success no-op when only memberType=admin sent
-    return NextResponse.json({ ok: true });
   }
 
   if (nextDibayId) {

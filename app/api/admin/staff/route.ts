@@ -36,6 +36,9 @@ type MembershipLite = {
   user_id: string;
   role: string;
   admin_tier: string | null;
+  status: string;
+  granted_by: string | null;
+  created_at: string | null;
 };
 
 function isMissingMembershipTable(message: string | undefined): boolean {
@@ -47,14 +50,19 @@ function mapStaffRow(
   row: StaffRow,
   permissions: AdminPermissionKey[],
   effectiveRole: string | null,
-  adminTier: string | null
+  membership: MembershipLite,
+  lastLoginAt: string | null
 ): {
   id: string;
   loginId: string;
   displayName: string;
   role: AdminRole;
   permissions: AdminPermissionKey[];
+  adminTier: string | null;
+  status: string;
   createdAt: string;
+  createdBy?: string;
+  lastLoginAt?: string;
   disabled: boolean;
 } {
   const loginId =
@@ -62,14 +70,18 @@ function mapStaffRow(
     String(row.email ?? "").split("@")[0] ||
     row.id;
   const displayName = String(row.nickname ?? row.display_name ?? loginId);
-  const uiRole = adminTierToUiRole(adminTier, effectiveRole);
+  const uiRole = adminTierToUiRole(membership.admin_tier, effectiveRole);
   return {
     id: row.id,
     loginId,
     displayName,
     role: uiRole,
     permissions,
-    createdAt: row.created_at ?? new Date().toISOString(),
+    adminTier: membership.admin_tier,
+    status: membership.status,
+    createdAt: membership.created_at ?? row.created_at ?? new Date().toISOString(),
+    createdBy: membership.granted_by ?? undefined,
+    lastLoginAt: lastLoginAt ?? undefined,
     disabled: Boolean(row.deleted_at) || String(row.status ?? "") === "deleted",
   };
 }
@@ -84,7 +96,7 @@ export async function GET() {
   let memberships: MembershipLite[] = [];
   const { data: membershipData, error: membershipErr } = await sb
     .from("admin_memberships")
-    .select("user_id, role, admin_tier")
+    .select("user_id, role, admin_tier, status, granted_by, created_at")
     .eq("status", "active");
   if (membershipErr) {
     if (!isMissingMembershipTable(membershipErr.message)) {
@@ -126,6 +138,13 @@ export async function GET() {
   const permMap = await loadStaffPermissionsMap(sb, adminIds).catch(
     () => new Map<string, AdminPermissionKey[]>()
   );
+  const lastLoginByUser = new Map<string, string | null>();
+  await Promise.all(
+    rows.map(async (row) => {
+      const { data } = await sb.auth.admin.getUserById(row.id);
+      lastLoginByUser.set(row.id, data.user?.last_sign_in_at ?? null);
+    })
+  );
   const staff = rows.map((row) => {
     const m = membershipByUser.get(row.id);
     const effectiveRole = m?.role ?? null;
@@ -137,7 +156,7 @@ export async function GET() {
         : permMap.get(row.id)?.length
           ? (permMap.get(row.id) as AdminPermissionKey[])
           : defaultPermissionsForUiRole(uiRole);
-    return mapStaffRow(row, perms, effectiveRole, adminTier);
+    return mapStaffRow(row, perms, effectiveRole, m as MembershipLite, lastLoginByUser.get(row.id) ?? null);
   });
 
   return NextResponse.json({ ok: true, staff });

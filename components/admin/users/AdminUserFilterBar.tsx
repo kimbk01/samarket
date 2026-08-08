@@ -13,6 +13,7 @@ interface AdminUserFilterBarProps {
   onSearchSubmit: () => void;
   roleFilter: AdminAccountCategory | "";
   onRoleFilterChange: (value: AdminAccountCategory | "") => void;
+  hideRoleFilter?: boolean;
   statusFilter: AdminUserStatusCategory | "";
   onStatusFilterChange: (value: AdminUserStatusCategory | "") => void;
 }
@@ -23,6 +24,7 @@ export function AdminUserFilterBar({
   onSearchSubmit,
   roleFilter,
   onRoleFilterChange,
+  hideRoleFilter = false,
   statusFilter,
   onStatusFilterChange,
 }: AdminUserFilterBarProps) {
@@ -43,16 +45,18 @@ export function AdminUserFilterBar({
         onChange={(e) => onSearchDraftChange(e.target.value)}
         className="min-w-0 flex-1 rounded-lg border border-[#d0d5dd] bg-white px-3 py-2.5 text-sm text-[#101828] outline-none placeholder:text-[#98a2b3] focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
       />
-      <select
-        value={roleFilter}
-        onChange={(e) => onRoleFilterChange(e.target.value as AdminAccountCategory | "")}
-        className="w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2.5 text-sm font-medium text-[#344054] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 lg:w-[160px]"
-      >
-        <option value="">{t("admin_users_lite_role_all")}</option>
-        <option value="member">{t("admin_users_lite_role_member")}</option>
-        <option value="store_manager">{t("admin_users_lite_role_store_manager")}</option>
-        <option value="admin">{t("admin_users_lite_role_admin")}</option>
-      </select>
+      {!hideRoleFilter ? (
+        <select
+          value={roleFilter}
+          onChange={(e) => onRoleFilterChange(e.target.value as AdminAccountCategory | "")}
+          className="w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-2.5 text-sm font-medium text-[#344054] outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 lg:w-[160px]"
+        >
+          <option value="">{t("admin_users_lite_role_all")}</option>
+          <option value="member">{t("admin_users_lite_role_member")}</option>
+          <option value="store_manager">{t("admin_users_lite_role_store_manager")}</option>
+          <option value="admin">{t("admin_users_lite_role_admin")}</option>
+        </select>
+      ) : null}
       <select
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value as AdminUserStatusCategory | "")}

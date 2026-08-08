@@ -36,10 +36,15 @@ export interface AdminStaff {
   displayName: string;
   /** 역할: master만 관리자 생성 가능 */
   role: AdminRole;
+  /** admin_memberships.admin_tier */
+  adminTier?: string | null;
   /** 세부 권한 (비어 있으면 역할 기본 권한 사용) */
   permissions: AdminPermissionKey[];
+  /** admin_memberships.status */
+  status?: string;
   createdAt: string;
   createdBy?: string;
+  lastLoginAt?: string;
   /** 비활성화 시 로그인 불가 */
   disabled?: boolean;
 }

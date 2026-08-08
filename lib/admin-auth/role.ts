@@ -1,12 +1,11 @@
 /**
  * 어드민 역할 해석 (메뉴/권한용)
- * - 스토리지/env 로그인 ID → 역할(operator|manager|master)
+ * - Server membership snapshot only; client env/storage is not authority.
  */
 
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminStaff } from "@/lib/types/admin-staff";
 import { peekAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
-import { getCurrentAdminLoginId } from "./storage";
 
 const ROLE_ORDER: AdminRole[] = ["operator", "manager", "master"];
 
@@ -18,13 +17,10 @@ function roleLevel(role: AdminRole): number {
 /**
  * 현재 관리자 역할 (메뉴 노출 기준)
  */
-export function getAdminRole(): AdminRole {
+export function getAdminRole(): AdminRole | null {
   const apiMe = peekAdminMeSnapshot();
   if (apiMe?.uiRole) return apiMe.uiRole;
-
-  const v = process.env.NEXT_PUBLIC_ADMIN_ROLE;
-  if (v === "operator" || v === "manager" || v === "master") return v;
-  return "master";
+  return null;
 }
 
 /**

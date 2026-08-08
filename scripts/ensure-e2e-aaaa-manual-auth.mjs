@@ -1,9 +1,6 @@
 /**
- * 로컬 E2E: `aaaa` → `aaaa@manual.local` (resolve-password-login-identifier) 와 Supabase Auth 정합.
- * - auth.users: 이메일 aaaa@manual.local, 비밀번호 1234 (없으면 생성, 있으면 비밀번호·email_confirm 갱신)
- * - profiles: 동일 id에 username `aaaa` (non-privileged role/is_admin — Admin SSOT is membership)
- * - admin_memberships: active super_admin for the same UUID
- * - test_users: legacy QA display row (not Admin authority)
+ * Explicit local E2E Super Admin fixture.
+ * Production bootstrap is `supabase/scripts/bootstrap-aaaa-master-admin.sql` and never handles credentials.
  *
  * 필요: .env.local 의 NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY
  * 실행: node scripts/ensure-e2e-aaaa-manual-auth.mjs
@@ -11,10 +8,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
-
-const EMAIL = "aaaa@manual.local";
-const PASSWORD = "1234";
-const LOGIN_ID = "aaaa";
 
 function loadEnvLocal() {
   const p = resolve(process.cwd(), ".env.local");
@@ -50,6 +43,15 @@ async function findUserByEmail(sb, email) {
 
 async function main() {
   const env = loadEnvLocal();
+  const EMAIL = String(process.env.E2E_ADMIN_EMAIL ?? env.E2E_ADMIN_EMAIL ?? "").trim();
+  const PASSWORD = String(process.env.E2E_ADMIN_PASSWORD ?? env.E2E_ADMIN_PASSWORD ?? "");
+  const LOGIN_ID = String(process.env.E2E_ADMIN_LOGIN_ID ?? env.E2E_ADMIN_LOGIN_ID ?? "").trim();
+  if (!EMAIL || !PASSWORD || !LOGIN_ID) {
+    throw new Error("E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD / E2E_ADMIN_LOGIN_ID are required");
+  }
+  if (String(process.env.ALLOW_E2E_SUPER_ADMIN_FIXTURE ?? "") !== "1") {
+    throw new Error("Set ALLOW_E2E_SUPER_ADMIN_FIXTURE=1 for this explicit E2E-only fixture");
+  }
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error(".env.local: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required");
@@ -103,7 +105,7 @@ async function main() {
         const msg = String(error?.message ?? "no user");
         const hint =
           /at least \d+ characters/i.test(msg) ?
-            " Dashboard에서 Auth 최소 비밀번호 길이를 4로 낮춘 뒤 재실행하거나, Supabase SQL Editor에서 auth.users.encrypted_password 를 crypt('1234', gen_salt('bf')) 로 설정한 뒤 재실행하세요(이 스크립트는 그때 signIn 성공으로 갱신을 건너뜁니다)."
+            " Configure a compliant E2E password in E2E_ADMIN_PASSWORD and rerun."
           : "";
         throw new Error(`updateUserById: ${msg}.${hint}`);
       }
@@ -128,15 +130,6 @@ async function main() {
     const { error: upErr } = await sb.from("profiles").update({ username: newName, updated_at: new Date().toISOString() }).eq("id", rid);
     if (upErr) throw new Error(`profiles conflict rename ${rid}: ${upErr.message}`);
     renamed.push({ fromId: rid, newUsername: newName, previousEmail: row.email });
-  }
-
-  const { data: conflictTest } = await sb.from("test_users").select("id, username").ilike("username", LOGIN_ID).neq("id", uid);
-  for (const row of conflictTest ?? []) {
-    const suffix = String(row.id).replace(/-/g, "").slice(0, 8);
-    const newName = `${LOGIN_ID}_tu_${suffix}`;
-    const { error: tuErr } = await sb.from("test_users").update({ username: newName }).eq("id", row.id);
-    if (tuErr) throw new Error(`test_users conflict rename: ${tuErr.message}`);
-    renamed.push({ testUserId: row.id, newUsername: newName });
   }
 
   const nowIso = new Date().toISOString();
@@ -203,18 +196,6 @@ async function main() {
       : "admin_memberships inserted super_admin";
   }
 
-  const { error: tuUpsertErr } = await sb.from("test_users").upsert(
-    {
-      id: uid,
-      username: LOGIN_ID,
-      password: PASSWORD,
-      role: "master",
-      display_name: "메인관리자",
-    },
-    { onConflict: "id" }
-  );
-  const testUsersNote = tuUpsertErr ? `test_users skipped: ${tuUpsertErr.message}` : "test_users upserted (legacy QA debt)";
-
   const { data: profCheck } = await sb.from("profiles").select("id, email, username, auth_login_email").eq("id", uid).maybeSingle();
   const { data: authCheck } = await sb.auth.admin.getUserById(uid);
 
@@ -231,7 +212,6 @@ async function main() {
         profilesRow: profCheck,
         usernameConflictsRenamed: renamed,
         membership: membershipNote,
-        testUsers: testUsersNote,
       },
       null,
       2

@@ -150,9 +150,16 @@ function mapProfileRowToAdminUser(input: {
   warnedUserIds: Set<string>;
   storeCount: number;
   hasApprovedStore: boolean;
+  stores: Array<{
+    id: string;
+    name: string;
+    approvalStatus: string | null;
+    isVisible: boolean | null;
+    connectedAt: string | null;
+  }>;
   hasAdminMembership: boolean;
 }): AdminUserListItem {
-  const { row: r, warnedUserIds, storeCount, hasApprovedStore, hasAdminMembership } = input;
+  const { row: r, warnedUserIds, storeCount, hasApprovedStore, stores, hasAdminMembership } = input;
   const authProvider = resolveAdminAuthProvider({
     profile: r,
     isManualTestUser: profileIsManualMember(r),
@@ -223,35 +230,8 @@ function mapProfileRowToAdminUser(input: {
     accountCategory,
     roleCategory: accountCategory,
     statusCategory,
-    storeRelation: { count: storeCount, hasApproved: hasApprovedStore },
+    storeRelation: { count: storeCount, hasApproved: hasApprovedStore, stores },
     hasAdminMembership,
-  };
-}
-
-function fallbackAdminUserFromProfileRow(row: ProfileRow): AdminUserListItem {
-  const accountCategory = resolveAdminAccountCategory(row, {});
-  return {
-    id: row.id,
-    loginIdentifier: row.id,
-    nickname: row.nickname?.trim() || row.display_name?.trim() || row.id,
-    username: row.username?.trim() || null,
-    authProvider: "unknown",
-    providerLabel: adminAuthProviderLabel("unknown"),
-    memberType: "normal",
-    hasProfile: true,
-    moderationStatus: "normal",
-    phoneVerified: false,
-    productCount: 0,
-    soldCount: 0,
-    reviewCount: 0,
-    reportCount: 0,
-    chatCount: 0,
-    joinedAt: row.created_at ?? new Date().toISOString(),
-    accountCategory,
-    roleCategory: accountCategory,
-    statusCategory: resolveAdminStatusCategory(row),
-    storeRelation: { count: 0, hasApproved: false },
-    hasAdminMembership: false,
   };
 }
 
@@ -351,22 +331,49 @@ export async function GET(req: NextRequest) {
     const profileIds = profileRows.map((row) => row.id).filter(Boolean);
     const warnedUserIds = await loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>());
 
-    const storeAgg = new Map<string, { count: number; hasApproved: boolean }>();
+    const storeAgg = new Map<
+      string,
+      {
+        count: number;
+        hasApproved: boolean;
+        stores: Array<{
+          id: string;
+          name: string;
+          approvalStatus: string | null;
+          isVisible: boolean | null;
+          connectedAt: string | null;
+        }>;
+      }
+    >();
     const adminMemberIds = new Set<string>();
     if (profileIds.length > 0) {
       const { data: storeRows, error: storeErr } = await supabase
         .from("stores")
-        .select("owner_user_id, approval_status")
+        .select("id, owner_user_id, store_name, approval_status, is_visible, created_at")
         .in("owner_user_id", profileIds);
       if (!storeErr && Array.isArray(storeRows)) {
         for (const s of storeRows) {
           const oid = String((s as { owner_user_id?: string }).owner_user_id ?? "").trim();
           if (!oid) continue;
-          const prev = storeAgg.get(oid) ?? { count: 0, hasApproved: false };
+          const store = s as {
+            id?: string;
+            store_name?: string | null;
+            approval_status?: string | null;
+            is_visible?: boolean | null;
+            created_at?: string | null;
+          };
+          const prev = storeAgg.get(oid) ?? { count: 0, hasApproved: false, stores: [] };
           prev.count += 1;
-          if (String((s as { approval_status?: string }).approval_status ?? "") === "approved") {
+          if (String(store.approval_status ?? "") === "approved") {
             prev.hasApproved = true;
           }
+          prev.stores.push({
+            id: String(store.id ?? ""),
+            name: String(store.store_name ?? "").trim(),
+            approvalStatus: store.approval_status ?? null,
+            isVisible: store.is_visible ?? null,
+            connectedAt: store.created_at ?? null,
+          });
           storeAgg.set(oid, prev);
         }
       }
@@ -385,24 +392,16 @@ export async function GET(req: NextRequest) {
 
     const list: AdminUserListItem[] = profileRows
       .map((r) => {
-        try {
-          const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false };
-          const roleTok = String(r.role ?? "").trim().toLowerCase();
-          const hasAdminMembership =
-            adminMemberIds.has(r.id) ||
-            roleTok === "admin" ||
-            roleTok === "super_admin" ||
-            roleTok === "master";
-          return mapProfileRowToAdminUser({
-            row: r,
-            warnedUserIds,
-            storeCount: store.count,
-            hasApprovedStore: store.hasApproved,
-            hasAdminMembership,
-          });
-        } catch {
-          return fallbackAdminUserFromProfileRow(r);
-        }
+        const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false, stores: [] };
+        const hasAdminMembership = adminMemberIds.has(r.id);
+        return mapProfileRowToAdminUser({
+          row: r,
+          warnedUserIds,
+          storeCount: store.count,
+          hasApprovedStore: store.hasApproved,
+          stores: store.stores,
+          hasAdminMembership,
+        });
       })
       .filter((u) => (roleFilter ? u.accountCategory === roleFilter : true))
       .filter((u) => (statusFilter ? u.statusCategory === statusFilter : true));

@@ -37,7 +37,7 @@ import { AdminUserDetailModal } from "./AdminUserDetailModal";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 
-type Tab = "members" | "staff";
+type Tab = "general" | "store" | "admin";
 
 type AdminUsersListResult = {
   users: AdminUser[];
@@ -58,10 +58,10 @@ export function AdminUserListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const detailFromUrl = searchParams.get("detail");
-  const [tab, setTab] = useState<Tab>("members");
+  const [tab, setTab] = useState<Tab>("general");
   const [searchDraft, setSearchDraft] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("");
+  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("member");
   const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">("");
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
@@ -155,7 +155,7 @@ export function AdminUserListPage() {
     refreshing: membersRefreshing,
   } = useAdminQuery<AdminUsersListResult>({
     queryKey: membersQueryKey,
-    enabled: tab === "members",
+    enabled: tab !== "admin",
     ttlMs: ADMIN_QUERY_TTL_MS,
     revalidateOnMount: true,
     fetcher: async () => {
@@ -221,7 +221,7 @@ export function AdminUserListPage() {
     error: staffErrorCode,
   } = useAdminQuery<AdminStaff[]>({
     queryKey: `admin:staff:list:${staffKey}`,
-    enabled: tab === "staff",
+    enabled: tab === "admin",
     ttlMs: ADMIN_QUERY_TTL_MS,
     fetcher: async () => {
       try {
@@ -285,10 +285,21 @@ export function AdminUserListPage() {
   }, [membersFromApi, users.length]);
 
   const isMaster = isSuperAdmin;
+  const handleTabChange = useCallback((next: Tab) => {
+    setTab(next);
+    setRoleFilter(next === "general" ? "member" : next === "store" ? "store_manager" : "");
+    setMembersPage(1);
+  }, []);
+  const tabTitleKey: MessageKey =
+    tab === "general"
+      ? "admin_users_tab_general"
+      : tab === "store"
+        ? "admin_users_tab_store"
+        : "admin_users_tab_admin";
 
   const showMembersTable =
-    tab === "members" && !membersError && !membersListPending && users.length > 0;
-  const showStaffTable = tab === "staff" && staffList.length > 0;
+    tab !== "admin" && !membersError && !membersListPending && users.length > 0;
+  const showStaffTable = tab === "admin" && staffList.length > 0;
   const showTableScrollChrome = showMembersTable || showStaffTable;
 
   const onTableHorizontalScroll = useCallback(() => {
@@ -406,51 +417,53 @@ export function AdminUserListPage() {
     <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
       <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
         <span>{t("admin_users_lite_breadcrumb_members")}</span>
-        {tab === "members" ? (
-          <>
-            <span className="mx-1.5 text-[#98a2b3]">›</span>
-            <span className="text-[#344054]">{t("admin_users_lite_list_title")}</span>
-          </>
-        ) : (
-          <>
-            <span className="mx-1.5 text-[#98a2b3]">›</span>
-            <span className="text-[#344054]">{t("admin_users_tab_staff")}</span>
-          </>
-        )}
+        <span className="mx-1.5 text-[#98a2b3]">›</span>
+        <span className="text-[#344054]">{t(tabTitleKey)}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#101828]">
-            {tab === "members" ? t("admin_users_lite_list_title") : t("admin_users_tab_staff")}
+            {t(tabTitleKey)}
           </h1>
           <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
             <button
               type="button"
-              onClick={() => setTab("members")}
+              onClick={() => handleTabChange("general")}
               className={
-                tab === "members"
+                tab === "general"
                   ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
                   : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
               }
             >
-              {t("admin_users_tab_members")}
+              {t("admin_users_tab_general")}
             </button>
             <button
               type="button"
-              onClick={() => setTab("staff")}
+              onClick={() => handleTabChange("store")}
               className={
-                tab === "staff"
+                tab === "store"
                   ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
                   : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
               }
             >
-              {t("admin_users_tab_staff")}
+              {t("admin_users_tab_store")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange("admin")}
+              className={
+                tab === "admin"
+                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
+                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
+              }
+            >
+              {t("admin_users_tab_admin")}
             </button>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tab === "members" && (
+          {tab === "general" && (
             <>
               <button
                 type="button"
@@ -471,7 +484,7 @@ export function AdminUserListPage() {
               )}
             </>
           )}
-          {tab === "staff" && isMaster && (
+          {tab === "admin" && isMaster && (
             <button
               type="button"
               onClick={() => setShowCreateAdmin(true)}
@@ -483,7 +496,7 @@ export function AdminUserListPage() {
         </div>
       </div>
 
-      {tab === "members" && (
+      {tab !== "admin" && (
         <>
           <AdminUserListSummaryCards summary={memberSummary} />
           <AdminUserFilterBar
@@ -492,6 +505,7 @@ export function AdminUserListPage() {
             onSearchSubmit={applySearch}
             roleFilter={roleFilter}
             onRoleFilterChange={handleRoleFilterChange}
+            hideRoleFilter
             statusFilter={statusFilter}
             onStatusFilterChange={handleStatusFilterChange}
           />
@@ -527,13 +541,14 @@ export function AdminUserListPage() {
               onViewDetail={handleViewDetail}
               onEditMember={handleEditMember}
               onSendMessage={handleSendMessage}
+              category={tab === "store" ? "store_manager" : "member"}
               onHorizontalScroll={onTableHorizontalScroll}
             />
           )}
         </>
       )}
 
-      {tab === "staff" && (
+      {tab === "admin" && (
         <>
           {staffError ? (
             <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">

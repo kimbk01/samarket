@@ -56,8 +56,15 @@ export interface AdminUser {
   storeRelation?: {
     count: number;
     hasApproved: boolean;
+    stores?: Array<{
+      id: string;
+      name: string;
+      approvalStatus: string | null;
+      isVisible: boolean | null;
+      connectedAt: string | null;
+    }>;
   };
-  /** PHASE E — active admin_memberships or transitional privileged role */
+  /** Active admin_memberships only. */
   hasAdminMembership?: boolean;
   /** Legacy Lite 상태 분류 — 목록 표시·필터용 */
   statusCategory?: AdminUserStatusCategory;

@@ -41,7 +41,7 @@ export function canAccessPermission(key: AdminPermissionKey): boolean {
   }
 
   const staff = getCurrentAdminStaff();
-  if (!staff) return true;
+  if (!staff) return false;
   if (staff.permissions.includes(key)) return true;
   if (key === "users_edit_membership" && staff.permissions.includes("users")) {
     return true;
