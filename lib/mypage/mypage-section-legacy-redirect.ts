@@ -4,7 +4,6 @@
  */
 import {
   MYPAGE_HOME_ACCOUNT_HREF,
-  MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
   MYPAGE_HOME_ADDRESSES_HREF,
   MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
   MYPAGE_HOME_MESSENGER_HREF,
@@ -40,8 +39,12 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "messenger:chat-alerts": "/mypage/section/messenger/chat-alerts",
   /** App CS — stub support → full-page hub */
   "settings:support": "/mypage/customer-center",
-  /** Slice 6: leave canonical (also linked from Account) */
-  "settings:leave": MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
+  /**
+   * DO NOT map settings:leave → MYPAGE_HOME_ACCOUNT_LEAVE_HREF.
+   * That href IS /mypage/section/settings/leave (canonical SSOT). A self-redirect
+   * emits NEXT_REDIRECT to the same URL and trips App Router React #310
+   * (hooks after mpaNavigation throw). Leave renders via MyPageItemScreen.
+   */
 };
 
 export function resolveMypageSectionLegacyHubRedirect(

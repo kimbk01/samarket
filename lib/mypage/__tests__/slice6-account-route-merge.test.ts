@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import {
   MYPAGE_HOME_ACCOUNT_HREF,
-  MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
   MYPAGE_HOME_ADDRESSES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 
@@ -21,9 +20,8 @@ describe("Slice6 Account route MERGE", () => {
     expect(resolveMypageSectionLegacyHubRedirect("account", "account-info")).toBe(
       MYPAGE_HOME_ACCOUNT_HREF,
     );
-    expect(resolveMypageSectionLegacyHubRedirect("settings", "leave")).toBe(
-      MYPAGE_HOME_ACCOUNT_LEAVE_HREF,
-    );
+    /** leave is the canonical section route — must not self-redirect (React #310). */
+    expect(resolveMypageSectionLegacyHubRedirect("settings", "leave")).toBeNull();
   });
 
   it("home Danger block includes leave; Account/Service do not", () => {
