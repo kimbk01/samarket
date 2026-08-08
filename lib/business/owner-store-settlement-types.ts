@@ -1,17 +1,30 @@
-/** `GET /api/me/store-settlements` 행 — 오너 UI·요약 공용 */
+/** `GET /api/me/store-settlements` 행 — 오너 UI·요약 공용 (서버 financial fact) */
 export type OwnerStoreSettlementRow = {
   id: string;
   store_id: string;
   store_name: string;
   order_id: string;
   order_no: string;
+  order_status?: string | null;
+  payment_status?: string | null;
+  ordered_at?: string | null;
+  completed_at?: string | null;
   gross_amount: number;
+  discount_amount?: number;
+  point_amount?: number;
+  payment_amount?: number;
+  delivery_fee_amount?: number;
   fee_amount: number;
   settlement_amount: number;
+  platform_fee_percent?: number;
   platform_fee_amount?: number;
   fixed_fee_amount?: number;
   delivery_income_amount?: number;
   refund_amount?: number;
+  commission_reversal_amount?: number;
+  platform_commission_revenue?: number;
+  commission_base_amount?: number;
+  commission_policy_scope?: string | null;
   net_settlement_amount?: number;
   settlement_status: string;
   settlement_due_date: string;
@@ -22,6 +35,7 @@ export type OwnerStoreSettlementRow = {
   payout_confirmed_at?: string | null;
   payout_note?: string | null;
   created_at: string;
+  applied_fee_policy_snapshot?: Record<string, unknown> | null;
 };
 
 export type OwnerStoreSettlementsMeta = {
@@ -29,6 +43,28 @@ export type OwnerStoreSettlementsMeta = {
   refund_requested_count?: number;
   pending_delivery_count?: number;
   settlement_fee_percent?: number;
+  settlement_fee_scope?: string;
+  settlement_fee_policy_name?: string;
   settlement_delay_days?: number;
   store_name?: string;
+  period_field?: string;
+  truncated?: boolean;
+  current_policy_note?: string;
+};
+
+export type OwnerStoreSettlementsServerSummary = {
+  order_count: number;
+  gross: number;
+  discount: number;
+  point: number;
+  refund: number;
+  commission_base: number;
+  commission_gross: number;
+  commission_reversal: number;
+  platform_commission_revenue: number;
+  net_settlement: number;
+  pending_net: number;
+  paid_net: number;
+  cancelled_count: number;
+  refunded_ledger_count: number;
 };

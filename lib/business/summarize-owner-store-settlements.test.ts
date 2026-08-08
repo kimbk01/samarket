@@ -24,11 +24,38 @@ function row(partial: Partial<OwnerStoreSettlementRow> & Pick<OwnerStoreSettleme
 describe("summarizeOwnerStoreSettlements", () => {
   it("splits pending and paid net", () => {
     const s = summarizeOwnerStoreSettlements([
-      row({ settlement_status: "scheduled", net_settlement_amount: 500 }),
-      row({ settlement_status: "paid", net_settlement_amount: 300 }),
+      row({
+        settlement_status: "scheduled",
+        net_settlement_amount: 500,
+        platform_fee_amount: 50,
+        platform_commission_revenue: 50,
+      }),
+      row({
+        settlement_status: "paid",
+        net_settlement_amount: 300,
+        platform_fee_amount: 30,
+        platform_commission_revenue: 30,
+      }),
     ]);
     expect(s.pendingNet).toBe(500);
     expect(s.paidNet).toBe(300);
     expect(s.count).toBe(2);
+    expect(s.platformCommissionRevenue).toBe(80);
+  });
+
+  it("uses recognized platform revenue after reversal", () => {
+    const s = summarizeOwnerStoreSettlements([
+      row({
+        settlement_status: "cancelled",
+        gross_amount: 1000,
+        platform_fee_amount: 65,
+        commission_reversal_amount: 65,
+        platform_commission_revenue: 0,
+        refund_amount: 1000,
+        net_settlement_amount: 0,
+      }),
+    ]);
+    expect(s.platformFee).toBe(0);
+    expect(s.refund).toBe(1000);
   });
 });

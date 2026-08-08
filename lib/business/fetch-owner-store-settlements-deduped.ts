@@ -5,13 +5,33 @@ export type OwnerStoreSettlementsFetchResult = {
   json: unknown;
 };
 
+export type OwnerStoreSettlementsQuery = {
+  storeId?: string | null;
+  from?: string | null;
+  to?: string | null;
+  orderNo?: string | null;
+  settlementStatus?: string | null;
+};
+
 /** `GET /api/me/store-settlements` — storeId 있으면 해당 매장만 */
 export function fetchOwnerStoreSettlementsDeduped(
-  storeId?: string | null
+  storeIdOrQuery?: string | null | OwnerStoreSettlementsQuery
 ): Promise<OwnerStoreSettlementsFetchResult> {
-  const sid = (storeId ?? "").trim();
-  const qs = sid ? `?storeId=${encodeURIComponent(sid)}` : "";
-  const key = sid ? `me:store-settlements:${sid}` : "me:store-settlements:all";
+  const q: OwnerStoreSettlementsQuery =
+    typeof storeIdOrQuery === "string" || storeIdOrQuery == null
+      ? { storeId: storeIdOrQuery }
+      : storeIdOrQuery;
+
+  const params = new URLSearchParams();
+  const sid = (q.storeId ?? "").trim();
+  if (sid) params.set("storeId", sid);
+  if (q.from?.trim()) params.set("from", q.from.trim());
+  if (q.to?.trim()) params.set("to", q.to.trim());
+  if (q.orderNo?.trim()) params.set("order_no", q.orderNo.trim());
+  if (q.settlementStatus?.trim()) params.set("settlement_status", q.settlementStatus.trim());
+
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const key = `me:store-settlements:${params.toString() || "all"}`;
   return runSingleFlight(key, async () => {
     const res = await fetch(`/api/me/store-settlements${qs}`, {
       credentials: "include",

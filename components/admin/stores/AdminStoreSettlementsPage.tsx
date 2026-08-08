@@ -12,6 +12,9 @@ type Row = {
   store_name: string;
   order_id: string;
   order_no: string;
+  buyer_user_id?: string | null;
+  buyer_display?: string | null;
+  order_status?: string | null;
   order_completed_at?: string | null;
   gross_amount: number;
   fee_amount: number;
@@ -21,6 +24,9 @@ type Row = {
   fixed_fee_amount?: number;
   delivery_income_amount?: number;
   refund_amount?: number;
+  commission_reversal_amount?: number;
+  platform_commission_revenue?: number;
+  commission_base_amount?: number;
   net_settlement_amount?: number;
   settlement_status: string;
   settlement_due_date: string;
@@ -31,6 +37,16 @@ type Row = {
   payout_note?: string | null;
   payout_confirmed_at?: string | null;
   created_at: string;
+};
+
+type ServerSummary = {
+  order_count: number;
+  gross: number;
+  refund: number;
+  platform_commission_revenue: number;
+  pending_net: number;
+  paid_net: number;
+  commission_reversal: number;
 };
 
 type StoreOpt = { id: string; store_name?: string | null };
@@ -71,6 +87,7 @@ function netAmount(r: Row): number {
 }
 
 function platformFeeSum(r: Row): number {
+  if (r.platform_commission_revenue != null) return Number(r.platform_commission_revenue) || 0;
   return (Number(r.platform_fee_amount ?? 0) || 0) + (Number(r.fixed_fee_amount ?? 0) || 0);
 }
 
@@ -86,6 +103,7 @@ function allowedModes(row: Row): Record<OpsMode, boolean> {
 export function AdminStoreSettlementsPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
+  const [summary, setSummary] = useState<ServerSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -95,6 +113,7 @@ export function AdminStoreSettlementsPage() {
   const [filterStoreId, setFilterStoreId] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
+  const [filterOrderNo, setFilterOrderNo] = useState("");
   const [filterSettlementStatus, setFilterSettlementStatus] = useState("");
   const [filterPayoutStatus, setFilterPayoutStatus] = useState("");
   const [filterHeldOnly, setFilterHeldOnly] = useState(false);
@@ -219,6 +238,7 @@ export function AdminStoreSettlementsPage() {
     if (filterStoreId.trim()) qs.set("store_id", filterStoreId.trim());
     if (filterFrom.trim()) qs.set("from", filterFrom.trim());
     if (filterTo.trim()) qs.set("to", filterTo.trim());
+    if (filterOrderNo.trim()) qs.set("order_no", filterOrderNo.trim());
     if (filterSettlementStatus.trim()) qs.set("settlement_status", filterSettlementStatus.trim());
     else if (filterPayoutStatus.trim()) qs.set("payout_status", filterPayoutStatus.trim());
     if (filterHeldOnly) qs.set("held_only", "1");
@@ -230,6 +250,7 @@ export function AdminStoreSettlementsPage() {
     filterStoreId,
     filterFrom,
     filterTo,
+    filterOrderNo,
     filterSettlementStatus,
     filterPayoutStatus,
     filterHeldOnly,
@@ -247,17 +268,21 @@ export function AdminStoreSettlementsPage() {
       if (res.status === 403) {
         setError("forbidden");
         setRows([]);
+        setSummary(null);
         return;
       }
       if (!json?.ok) {
         setError(json?.error === "table_missing" ? "table_missing" : json?.error ?? "load_failed");
         setRows([]);
+        setSummary(null);
         return;
       }
       setRows(json.settlements ?? []);
+      setSummary((json.summary as ServerSummary) ?? null);
     } catch {
       setError("network_error");
       setRows([]);
+      setSummary(null);
     } finally {
       setLoading(false);
     }
@@ -275,6 +300,7 @@ export function AdminStoreSettlementsPage() {
     setFilterStoreId("");
     setFilterFrom("");
     setFilterTo("");
+    setFilterOrderNo("");
     setFilterSettlementStatus("");
     setFilterPayoutStatus("");
     setFilterHeldOnly(false);
@@ -428,6 +454,15 @@ export function AdminStoreSettlementsPage() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_filter_order_no")}</span>
+            <input
+              className="min-w-[160px] rounded border border-sam-border px-2 py-1 text-sm"
+              value={filterOrderNo}
+              onChange={(e) => setFilterOrderNo(e.target.value)}
+              placeholder={t("admin_stores_settlements_filter_order_no")}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
             <span className="sam-text-xxs text-sam-muted">settlement_status</span>
             <select
               className="rounded border border-sam-border px-2 py-1 text-sm"
@@ -488,6 +523,35 @@ export function AdminStoreSettlementsPage() {
 
       {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
 
+      {summary ? (
+        <div className="grid gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_orders")}</p>
+            <p className="font-semibold tabular-nums">{summary.order_count}</p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_gross")}</p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.gross)}</p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_refund")}</p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.refund)}</p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_platform_fee")}</p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.platform_commission_revenue)}</p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_pending")}</p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.pending_net)}</p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_paid")}</p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.paid_net)}</p>
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
@@ -499,6 +563,7 @@ export function AdminStoreSettlementsPage() {
               <tr>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_id")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_order_id")}</th>
+                <th className="px-2 py-2">{t("admin_stores_settlements_th_customer")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_vendor")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_gross")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_platform_fee")}</th>
@@ -525,6 +590,9 @@ export function AdminStoreSettlementsPage() {
                     </td>
                     <td className="px-2 py-2 font-mono sam-text-xxs text-sam-muted" title={r.order_id}>
                       {r.order_no || `${r.order_id.slice(0, 10)}…`}
+                    </td>
+                    <td className="px-2 py-2 sam-text-xxs text-sam-muted" title={r.buyer_user_id ?? ""}>
+                      {r.buyer_display || (r.buyer_user_id ? r.buyer_user_id.slice(0, 8) : "—")}
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap items-center gap-2">

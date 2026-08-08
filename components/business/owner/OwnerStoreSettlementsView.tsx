@@ -18,10 +18,13 @@ import {
 import type {
   OwnerStoreSettlementRow,
   OwnerStoreSettlementsMeta,
+  OwnerStoreSettlementsServerSummary,
 } from "@/lib/business/owner-store-settlement-types";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import { summarizeOwnerStoreSettlements } from "@/lib/business/summarize-owner-store-settlements";
+import {
+  mapFinancialSummaryToOwner,
+} from "@/lib/business/summarize-owner-store-settlements";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -83,6 +86,22 @@ function SettlementRowCard({
           delivery: formatMoneyPhp(Number(row.delivery_income_amount ?? 0) || 0),
         })}
       </p>
+      <p className="mt-0.5 sam-text-xxs text-sam-meta">
+        {t("store_owner_settlement_rate_line", {
+          rate: String(Number(row.platform_fee_percent ?? 0) || 0),
+          base: formatMoneyPhp(Number(row.commission_base_amount ?? row.gross_amount) || 0),
+          revenue: formatMoneyPhp(Number(row.platform_commission_revenue ?? 0) || 0),
+          reversal: formatMoneyPhp(Number(row.commission_reversal_amount ?? 0) || 0),
+        })}
+      </p>
+      {row.order_status ? (
+        <p className="mt-0.5 sam-text-xxs text-sam-muted">
+          {t("store_owner_settlement_order_status_line", {
+            status: row.order_status,
+            paid: formatMoneyPhp(Number(row.payment_amount ?? row.gross_amount) || 0),
+          })}
+        </p>
+      ) : null}
       {row.hold_reason ? (
         <p className="mt-2 rounded-ui-rect bg-amber-50 px-2 py-1.5 sam-text-xxs text-amber-950">
           {t("store_owner_settlement_hold", { reason: row.hold_reason })}
@@ -118,16 +137,21 @@ export function OwnerStoreSettlementsView() {
 
   const [rows, setRows] = useState<OwnerStoreSettlementRow[]>([]);
   const [meta, setMeta] = useState<OwnerStoreSettlementsMeta>({});
+  const [serverSummary, setServerSummary] = useState<OwnerStoreSettlementsServerSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<OwnerStoreSettlementStatusFilter>("all");
+  const [fromDay, setFromDay] = useState("");
+  const [toDay, setToDay] = useState("");
+  const [orderNoQuery, setOrderNoQuery] = useState("");
 
-  const filteredRows = useMemo(() => {
-    if (statusFilter === "all") return rows;
-    return rows.filter((r) => r.settlement_status === statusFilter);
-  }, [rows, statusFilter]);
+  const filteredRows = rows;
 
-  const summary = useMemo(() => summarizeOwnerStoreSettlements(filteredRows), [filteredRows]);
+  /** Authority: server summary only — client page reduce is not financial SSOT. */
+  const summary = useMemo(() => {
+    if (!serverSummary) return null;
+    return mapFinancialSummaryToOwner(serverSummary);
+  }, [serverSummary]);
 
   const resolveErrorMessage = useCallback(
     (code: string) => {
@@ -145,27 +169,37 @@ export function OwnerStoreSettlementsView() {
     if (!storeId) {
       setLoading(false);
       setRows([]);
+      setServerSummary(null);
       setError(null);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const { status, json } = await fetchOwnerStoreSettlementsDeduped(storeId);
+      const { status, json } = await fetchOwnerStoreSettlementsDeduped({
+        storeId,
+        from: fromDay || null,
+        to: toDay || null,
+        orderNo: orderNoQuery || null,
+        settlementStatus: statusFilter === "all" ? null : statusFilter,
+      });
       const body = json as {
         ok?: boolean;
         error?: string;
         settlements?: OwnerStoreSettlementRow[];
         meta?: OwnerStoreSettlementsMeta;
+        summary?: OwnerStoreSettlementsServerSummary | null;
       };
       if (status === 401) {
         setError("login_required");
         setRows([]);
+        setServerSummary(null);
         return;
       }
       if (status === 403) {
         setError("forbidden");
         setRows([]);
+        setServerSummary(null);
         return;
       }
       if (!body?.ok) {
@@ -177,17 +211,20 @@ export function OwnerStoreSettlementsView() {
               : "load_failed"
         );
         setRows([]);
+        setServerSummary(null);
         return;
       }
       setRows(body.settlements ?? []);
       setMeta(body.meta ?? {});
+      setServerSummary(body.summary ?? null);
     } catch {
       setError("network_error");
       setRows([]);
+      setServerSummary(null);
     } finally {
       setLoading(false);
     }
-  }, [storeId]);
+  }, [fromDay, orderNoQuery, statusFilter, storeId, toDay]);
 
   useEffect(() => {
     void load();
@@ -226,9 +263,48 @@ export function OwnerStoreSettlementsView() {
                 })}
               </li>
             ) : null}
+            {meta.settlement_fee_scope ? (
+              <li>
+                {t("store_owner_settlement_fee_source", {
+                  source: t(
+                    (
+                      {
+                        store: "store_owner_settlement_fee_source_store",
+                        topic: "store_owner_settlement_fee_source_topic",
+                        category: "store_owner_settlement_fee_source_category",
+                        default: "store_owner_settlement_fee_source_default",
+                        missing_policy: "store_owner_settlement_fee_source_default",
+                        commerce_settings: "store_owner_settlement_fee_source_commerce_settings",
+                      } as Record<string, MessageKey>
+                    )[String(meta.settlement_fee_scope)] ??
+                      "store_owner_settlement_fee_source_default"
+                  ),
+                })}
+              </li>
+            ) : null}
           </ul>
         ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            type="date"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
+            value={fromDay}
+            onChange={(e) => setFromDay(e.target.value)}
+            aria-label={t("store_owner_settlement_filter_from")}
+          />
+          <input
+            type="date"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
+            value={toDay}
+            onChange={(e) => setToDay(e.target.value)}
+            aria-label={t("store_owner_settlement_filter_to")}
+          />
+          <input
+            className="min-w-[10rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-helper"
+            value={orderNoQuery}
+            onChange={(e) => setOrderNoQuery(e.target.value)}
+            placeholder={t("store_owner_settlement_filter_order_no")}
+          />
           <button
             type="button"
             onClick={() => void load()}
@@ -244,6 +320,7 @@ export function OwnerStoreSettlementsView() {
             {t("store_owner_settlement_manage_orders")}
           </Link>
         </div>
+        <p className="mt-2 sam-text-xxs text-sam-muted">{t("store_owner_settlement_period_hint")}</p>
       </OwnerStoreAdminDashSection>
 
       {error ? (
@@ -261,6 +338,8 @@ export function OwnerStoreSettlementsView() {
       ) : (
         <>
           <OwnerStoreAdminDashSection title={t("store_owner_settlement_summary_title")}>
+            {summary ? (
+              <>
             <p className="sam-text-xxs text-sam-muted">
               {meta.store_name ? `${meta.store_name} · ` : ""}
               {t("store_owner_settlement_summary_count", {
@@ -293,6 +372,10 @@ export function OwnerStoreSettlementsView() {
               />
             </div>
             <p className="mt-2 sam-text-xxs text-sam-muted">{t("store_owner_settlement_summary_basis")}</p>
+              </>
+            ) : (
+              <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_loading")}</p>
+            )}
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection title={t("store_owner_settlement_filter_title")}>

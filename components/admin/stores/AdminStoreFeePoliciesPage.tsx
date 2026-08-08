@@ -10,6 +10,7 @@ type Row = {
   policy_name: string;
   store_id: string | null;
   category_id: string | null;
+  topic_id?: string | null;
   fee_percent: number;
   fixed_fee: number;
   delivery_fee_mode: string;
@@ -28,6 +29,13 @@ type Row = {
 
 type StoreRow = { id: string; store_name?: string | null; slug?: string | null };
 type CategoryRow = { id: string; name: string; slug: string; is_active: boolean };
+type TopicRow = {
+  id: string;
+  name: string;
+  slug: string;
+  store_category_id: string;
+  is_active: boolean;
+};
 
 function fmtMoney(n: number) {
   const v = Math.round(Number(n) || 0);
@@ -42,6 +50,7 @@ function fmtPercent(n: number) {
 
 function scopeLabelKey(r: Row): MessageKey {
   if (r.store_id) return "admin_stores_fee_scope_store";
+  if (r.topic_id) return "admin_stores_fee_scope_topic";
   if (r.category_id) return "admin_stores_fee_scope_category";
   return "admin_stores_fee_scope_default";
 }
@@ -71,6 +80,10 @@ function feePolicyErrorKey(code: string | undefined): MessageKey | null {
       return "admin_stores_fee_err_not_archived";
     case "network_error":
       return "common_network_error";
+    case "topic_column_missing":
+      return "admin_stores_fee_err_topic_column";
+    case "topic_not_found":
+      return "admin_stores_fee_err_topic_not_found";
     case "table_missing":
       return "admin_stores_fee_err_table_missing";
     case "forbidden":
@@ -104,6 +117,7 @@ function targetScopeDescription(
   r: Row,
   stores: StoreRow[],
   categories: CategoryRow[],
+  topics: TopicRow[],
   t: (key: MessageKey, params?: Record<string, string | number>) => string
 ): string {
   if (r.store_id) {
@@ -111,12 +125,26 @@ function targetScopeDescription(
     const tail = s
       ? `${String(s.store_name ?? t("common_store"))}${s.slug ? ` /${s.slug}` : ""}`
       : r.store_id;
+    if (r.topic_id) {
+      const tp = topics.find((x) => x.id === r.topic_id);
+      const tt = tp ? `${tp.name} (${tp.slug})` : r.topic_id;
+      return t("admin_stores_fee_scope_store_topic_pivot", { tail, topic: tt });
+    }
     if (r.category_id) {
       const c = categories.find((x) => x.id === r.category_id);
       const ct = c ? `${c.name} (${c.slug})` : r.category_id;
       return t("admin_stores_fee_scope_store_pivot", { tail, category: ct });
     }
     return t("admin_stores_fee_scope_store_label", { tail });
+  }
+  if (r.topic_id) {
+    const tp = topics.find((x) => x.id === r.topic_id);
+    const c = categories.find((x) => x.id === (tp?.store_category_id ?? r.category_id ?? ""));
+    const primary = c ? `${c.name}` : "";
+    const secondary = tp ? `${tp.name} (${tp.slug})` : r.topic_id;
+    return t("admin_stores_fee_scope_topic_label", {
+      name: primary ? `${primary} > ${secondary}` : secondary,
+    });
   }
   if (r.category_id) {
     const c = categories.find((x) => x.id === r.category_id);
@@ -169,14 +197,15 @@ export function AdminStoreFeePoliciesPage() {
 
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [topics, setTopics] = useState<TopicRow[]>([]);
   const [refLoading, setRefLoading] = useState(false);
 
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [policyType, setPolicyType] = useState<"default" | "category" | "store">("default");
+  const [policyType, setPolicyType] = useState<"default" | "category" | "topic" | "store">("default");
   const [name, setName] = useState("");
-  const [feePercent, setFeePercent] = useState("12");
+  const [feePercent, setFeePercent] = useState("");
   const [fixedFee, setFixedFee] = useState("0");
   const [deliveryMode, setDeliveryMode] = useState<"none" | "percent">("none");
   const [deliveryPercent, setDeliveryPercent] = useState("0");
@@ -190,6 +219,8 @@ export function AdminStoreFeePoliciesPage() {
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [categoryQuery, setCategoryQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [topicQuery, setTopicQuery] = useState("");
+  const [selectedTopicId, setSelectedTopicId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -222,7 +253,11 @@ export function AdminStoreFeePoliciesPage() {
         fetch("/api/admin/stores/taxonomy", { credentials: "include" }),
       ]);
       const sJson = (await sRes.json().catch(() => ({}))) as { ok?: boolean; stores?: any[] };
-      const tJson = (await tRes.json().catch(() => ({}))) as { ok?: boolean; categories?: any[] };
+      const tJson = (await tRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        categories?: any[];
+        topics?: any[];
+      };
       setStores(
         Array.isArray(sJson.stores)
           ? sJson.stores.map((r) => ({
@@ -242,6 +277,17 @@ export function AdminStoreFeePoliciesPage() {
             }))
           : []
       );
+      setTopics(
+        Array.isArray(tJson.topics)
+          ? tJson.topics.map((tp) => ({
+              id: String(tp.id),
+              name: String(tp.name ?? ""),
+              slug: String(tp.slug ?? ""),
+              store_category_id: String(tp.store_category_id ?? ""),
+              is_active: Boolean(tp.is_active),
+            }))
+          : []
+      );
     } catch {
       // optional
     } finally {
@@ -258,7 +304,9 @@ export function AdminStoreFeePoliciesPage() {
   }, [loadRefs]);
 
   const effectiveDefaults = useMemo(() => {
-    const base = rows.find((r) => r.is_active && !r.is_archived && !r.store_id && !r.category_id);
+    const base = rows.find(
+      (r) => r.is_active && !r.is_archived && !r.store_id && !r.category_id && !r.topic_id
+    );
     return base ?? null;
   }, [rows]);
 
@@ -267,7 +315,7 @@ export function AdminStoreFeePoliciesPage() {
     setEditingId(null);
     setPolicyType("default");
     setName("");
-    setFeePercent("12");
+    setFeePercent(effectiveDefaults != null ? String(effectiveDefaults.fee_percent) : "");
     setFixedFee("0");
     setDeliveryMode("none");
     setDeliveryPercent("0");
@@ -280,12 +328,16 @@ export function AdminStoreFeePoliciesPage() {
     setSelectedStoreId("");
     setCategoryQuery("");
     setSelectedCategoryId("");
-  }, []);
+    setTopicQuery("");
+    setSelectedTopicId("");
+  }, [effectiveDefaults]);
 
   const startEdit = useCallback((r: Row) => {
     setMode("edit");
     setEditingId(r.id);
-    setPolicyType(r.store_id ? "store" : r.category_id ? "category" : "default");
+    setPolicyType(
+      r.store_id ? "store" : r.topic_id ? "topic" : r.category_id ? "category" : "default"
+    );
     setName(r.policy_name ?? "");
     setFeePercent(String(r.fee_percent ?? 0));
     setFixedFee(String(r.fixed_fee ?? 0));
@@ -298,6 +350,7 @@ export function AdminStoreFeePoliciesPage() {
     setMemo(typeof r.memo === "string" ? r.memo : "");
     setSelectedStoreId(r.store_id ?? "");
     setSelectedCategoryId(r.category_id ?? "");
+    setSelectedTopicId(r.topic_id ?? "");
   }, []);
 
   const storeOptions = useMemo(() => {
@@ -321,9 +374,23 @@ export function AdminStoreFeePoliciesPage() {
       .slice(0, 25);
   }, [categories, categoryQuery]);
 
+  const topicOptions = useMemo(() => {
+    const q = topicQuery.trim().toLowerCase();
+    const parent = selectedCategoryId.trim();
+    const base = parent ? topics.filter((tp) => tp.store_category_id === parent) : topics;
+    if (!q) return base.slice(0, 40);
+    return base
+      .filter(
+        (tp) =>
+          tp.name.toLowerCase().includes(q) || tp.slug.toLowerCase().includes(q) || tp.id.includes(q)
+      )
+      .slice(0, 40);
+  }, [selectedCategoryId, topicQuery, topics]);
+
   const submit = useCallback(async () => {
     const n = name.trim();
     if (!n) return;
+    if (!Number.isFinite(Number(feePercent))) return;
     setBusy(true);
     setError(null);
 
@@ -343,12 +410,19 @@ export function AdminStoreFeePoliciesPage() {
     if (policyType === "default") {
       body.store_id = null;
       body.category_id = null;
+      body.topic_id = null;
     } else if (policyType === "category") {
       body.store_id = null;
+      body.category_id = selectedCategoryId || null;
+      body.topic_id = null;
+    } else if (policyType === "topic") {
+      body.store_id = null;
+      body.topic_id = selectedTopicId || null;
       body.category_id = selectedCategoryId || null;
     } else {
       body.store_id = selectedStoreId || null;
       body.category_id = selectedCategoryId || null;
+      body.topic_id = selectedTopicId || null;
     }
 
     try {
@@ -379,7 +453,6 @@ export function AdminStoreFeePoliciesPage() {
       setBusy(false);
     }
   }, [
-    categoryOptions,
     deliveryMode,
     deliveryPercent,
     editingId,
@@ -396,6 +469,7 @@ export function AdminStoreFeePoliciesPage() {
     resetFormForCreate,
     selectedCategoryId,
     selectedStoreId,
+    selectedTopicId,
     startsAt,
   ]);
 
@@ -530,6 +604,7 @@ export function AdminStoreFeePoliciesPage() {
           >
             <option value="default">{t("admin_stores_fee_scope_default")}</option>
             <option value="category">{t("admin_stores_fee_scope_category")}</option>
+            <option value="topic">{t("admin_stores_fee_scope_topic")}</option>
             <option value="store">{t("admin_stores_fee_scope_store")}</option>
           </select>
           <label className="flex items-center gap-2 text-sm text-sam-fg">
@@ -599,8 +674,11 @@ export function AdminStoreFeePoliciesPage() {
             disabled={
               busy ||
               !name.trim() ||
+              feePercent.trim() === "" ||
+              !Number.isFinite(Number(feePercent)) ||
               (policyType === "store" && !selectedStoreId) ||
-              (policyType === "category" && !selectedCategoryId)
+              (policyType === "category" && !selectedCategoryId) ||
+              (policyType === "topic" && !selectedTopicId)
             }
             onClick={() => void submit()}
             className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
@@ -700,6 +778,58 @@ export function AdminStoreFeePoliciesPage() {
           </div>
         ) : null}
 
+        {policyType === "topic" ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div>
+              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_category_primary")}</p>
+              <input
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+                placeholder={t("admin_stores_fee_search_category")}
+                value={categoryQuery}
+                onChange={(e) => setCategoryQuery(e.target.value)}
+              />
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  setSelectedCategoryId(e.target.value);
+                  setSelectedTopicId("");
+                }}
+                disabled={refLoading}
+              >
+                <option value="">{t("admin_stores_fee_pick_optional")}</option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_topic")}</p>
+              <input
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+                placeholder={t("admin_stores_fee_search_topic")}
+                value={topicQuery}
+                onChange={(e) => setTopicQuery(e.target.value)}
+              />
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+                value={selectedTopicId}
+                onChange={(e) => setSelectedTopicId(e.target.value)}
+                disabled={refLoading}
+              >
+                <option value="">{t("admin_stores_fee_pick_optional")}</option>
+                {topicOptions.map((tp) => (
+                  <option key={tp.id} value={tp.id}>
+                    {tp.name} ({tp.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-3">
           <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_memo_label")}</p>
           <textarea
@@ -765,7 +895,7 @@ export function AdminStoreFeePoliciesPage() {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-sam-muted">
-                    {targetScopeDescription(r, stores, categories, t)}
+                    {targetScopeDescription(r, stores, categories, topics, t)}
                   </td>
                   <td className="px-3 py-2">
                     {fmtPercent(r.fee_percent)} + {fmtMoney(r.fixed_fee)}
@@ -891,7 +1021,7 @@ export function AdminStoreFeePoliciesPage() {
               </div>
               <div>
                 <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-                <dd>{targetScopeDescription(archiveModalRow, stores, categories, t)}</dd>
+                <dd>{targetScopeDescription(archiveModalRow, stores, categories, topics, t)}</dd>
               </div>
               <div>
                 <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
@@ -965,7 +1095,7 @@ export function AdminStoreFeePoliciesPage() {
               </div>
               <div>
                 <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-                <dd>{targetScopeDescription(restoreModalRow, stores, categories, t)}</dd>
+                <dd>{targetScopeDescription(restoreModalRow, stores, categories, topics, t)}</dd>
               </div>
               <div>
                 <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
