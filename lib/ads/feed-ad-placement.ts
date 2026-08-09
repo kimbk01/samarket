@@ -11,6 +11,7 @@
  * runtime measurement proves a change. 6–10 is a candidate idea, not a requirement.
  */
 
+import { isProductionReachableFeedAdCreativeUrl } from "@/lib/ads/feed-ad-creative-url";
 import { isPhilifeNeighborhoodSortSlotSlug } from "@/lib/neighborhood/philife-topic-slug-rules";
 
 export type FeedAdDomain = "trade" | "community";
@@ -124,7 +125,12 @@ export function selectCampaignForPlacement(
     if (c.domain !== input.domain) return false;
     if (c.placement !== input.placement) return false;
     if (!isFeedAdCampaignEligibleNow(c, nowMs)) return false;
-    if (c.slides.filter((s) => s.imageUrl.trim()).length === 0) return false;
+    // Empty or Production-invalid creatives (localhost / QA sample / non-https) → not eligible
+    if (
+      c.slides.filter((s) => isProductionReachableFeedAdCreativeUrl(s.imageUrl)).length === 0
+    ) {
+      return false;
+    }
     if (input.placement === "TRADE_CATEGORY") {
       const want = (input.categoryId ?? "").trim();
       if (!want) return false;

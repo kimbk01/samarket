@@ -1,6 +1,8 @@
 /**
- * Static Feed Banner sample assets — QA/guide only.
+ * Static Feed Banner sample assets — QA/guide / Member preview only.
  * DO NOT auto-seed into production campaigns.
+ * DO NOT persist these paths as feed_ad_creatives.image_url or request creatives.
+ * Enforced by `isProductionReachableFeedAdCreativeUrl` (approve + eligibility).
  */
 export const FEED_AD_SAMPLE_ASSET = {
   community: {

@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
+import {
+  feedAdCreativeUrlRejectReason,
+  isProductionReachableFeedAdCreativeUrl,
+} from "@/lib/ads/feed-ad-creative-url";
+import { listEligibleFeedAdCampaigns } from "@/lib/ads/feed-ad-campaigns-db";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
+import {
+  isFeedAdCampaignEligibleNow,
+  selectCampaignForPlacement,
+  type FeedAdDomain,
+  type FeedAdPlacement,
+} from "@/lib/ads/feed-ad-placement";
 import { releaseHeldPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -92,6 +103,31 @@ export async function GET(
     .eq("request_id", requestId)
     .order("created_at", { ascending: false });
 
+  const domain = (String(row.domain ?? "") === "community" ? "community" : "trade") as FeedAdDomain;
+  const placement = String(row.placement ?? "") as FeedAdPlacement;
+  const primaryUrl = creatives[0]?.imageUrl ?? "";
+  let placementWinnerId: string | null = null;
+  try {
+    const eligible = await listEligibleFeedAdCampaigns(sb, domain);
+    const winner = selectCampaignForPlacement(eligible, {
+      domain,
+      placement,
+      categoryId: row.target_category_id != null ? String(row.target_category_id) : null,
+      topicSlug: row.target_topic_slug != null ? String(row.target_topic_slug) : null,
+    });
+    placementWinnerId = winner?.id ?? null;
+  } catch {
+    placementWinnerId = null;
+  }
+
+  const campaignEligible = campaign
+    ? isFeedAdCampaignEligibleNow({
+        status: String(campaign.status ?? "") as "active",
+        startAt: campaign.start_at != null ? String(campaign.start_at) : null,
+        endAt: campaign.end_at != null ? String(campaign.end_at) : null,
+      })
+    : false;
+
   return NextResponse.json({
     ok: true,
     request: {
@@ -135,6 +171,20 @@ export async function GET(
         createdAt: String(hr.created_at ?? ""),
       };
     }),
+    /** Delivery diagnose only — not AdminFormSheet redesign. */
+    deliveryDiagnose: {
+      campaignEligibleNow: campaignEligible,
+      creativeUrlReachable: primaryUrl
+        ? isProductionReachableFeedAdCreativeUrl(primaryUrl)
+        : false,
+      creativeUrlRejectReason: primaryUrl
+        ? feedAdCreativeUrlRejectReason(primaryUrl)
+        : "creative_url_empty",
+      placementWinnerCampaignId: placementWinnerId,
+      isCurrentPlacementWinner: Boolean(
+        campaignId && placementWinnerId && campaignId === placementWinnerId
+      ),
+    },
   });
 }
 
@@ -302,6 +352,15 @@ export async function PATCH(
     const imageUrl = String(body.imageUrl ?? "").trim();
     if (!imageUrl || imageUrl.startsWith("blob:")) {
       return NextResponse.json({ ok: false, error: "persisted_url_required" }, { status: 400 });
+    }
+    if (!isProductionReachableFeedAdCreativeUrl(imageUrl)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: feedAdCreativeUrlRejectReason(imageUrl) ?? "creative_url_invalid",
+        },
+        { status: 400 }
+      );
     }
     const sortOrder = Math.max(1, Math.floor(Number(body.sortOrder) || 1));
 

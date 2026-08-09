@@ -317,6 +317,21 @@ describe("approveFeedAdRequest financial invariants", () => {
     expect(state.requests[0]?.campaign_id).toBe(state.campaigns[0]?.id);
   });
 
+  it("invalid localhost creative → no claim · no CAPTURE · no active campaign", async () => {
+    const { sb, state } = makeDb();
+    seedPending(state);
+    state.requestCreatives[0]!.image_url = "http://127.0.0.1:3010/images/feed-ad-samples/x.svg";
+    const res = await approveFeedAdRequest(sb, { requestId, adminUserId: adminId });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error).toMatch(/creative_url/);
+    }
+    expect(state.holds[0]?.status).toBe("held");
+    expect(state.campaigns.length).toBe(0);
+    expect(state.requests[0]?.status).toBe("pending_review");
+    expect(state.requests[0]?.reviewed_by).toBeNull();
+  });
+
   it("F6: double approve → second not_pending · single campaign", async () => {
     const { sb, state } = makeDb();
     seedPending(state);

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isProductionReachableFeedAdCreativeUrl } from "@/lib/ads/feed-ad-creative-url";
 import type {
   FeedAdCampaignView,
   FeedAdCreativeSlide,
@@ -134,9 +135,18 @@ export async function listEligibleFeedAdCampaigns(
     byCampaign.set(cid, list);
   }
 
-  return campaigns.map((c) => {
-    const row = c as Record<string, unknown>;
-    const id = String(row.id ?? "");
-    return mapCampaign(row, byCampaign.get(id) ?? []);
-  });
+  // Defense-in-depth: drop Production-invalid creatives (localhost / QA sample / non-https).
+  return campaigns
+    .map((c) => {
+      const row = c as Record<string, unknown>;
+      const id = String(row.id ?? "");
+      const mapped = mapCampaign(row, byCampaign.get(id) ?? []);
+      return {
+        ...mapped,
+        slides: mapped.slides.filter((s) =>
+          isProductionReachableFeedAdCreativeUrl(s.imageUrl)
+        ),
+      };
+    })
+    .filter((c) => c.slides.length > 0);
 }

@@ -47,6 +47,13 @@ type DetailPayload = {
     source: string;
   } | null;
   holds: { id: string; amount: number; status: string; createdAt: string }[];
+  deliveryDiagnose?: {
+    campaignEligibleNow: boolean;
+    creativeUrlReachable: boolean;
+    creativeUrlRejectReason: string | null;
+    placementWinnerCampaignId: string | null;
+    isCurrentPlacementWinner: boolean;
+  };
 };
 
 export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
@@ -290,6 +297,33 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
               : en
                 ? "Not eligible now"
                 : "현재 미노출"}
+          </p>
+        ) : null}
+        {data.deliveryDiagnose ? (
+          <p
+            className="sam-text-helper text-sam-muted"
+            data-testid="admin-feed-req-delivery-diagnose"
+          >
+            {en ? "Delivery" : "Delivery"}
+            {": "}
+            {en ? "creative reachable" : "이미지 reachable"}=
+            {data.deliveryDiagnose.creativeUrlReachable ? "yes" : "no"}
+            {data.deliveryDiagnose.creativeUrlRejectReason
+              ? ` (${data.deliveryDiagnose.creativeUrlRejectReason})`
+              : ""}
+            {" · "}
+            {en ? "placement winner" : "placement 승자"}=
+            {data.deliveryDiagnose.placementWinnerCampaignId
+              ? `${data.deliveryDiagnose.placementWinnerCampaignId.slice(0, 8)}…`
+              : "none"}
+            {" · "}
+            {data.deliveryDiagnose.isCurrentPlacementWinner
+              ? en
+                ? "this campaign is today’s winner"
+                : "이 캠페인이 오늘 승자"
+              : en
+                ? "not today’s winner (day-bucket OK)"
+                : "오늘 승자 아님(day-bucket 정상 가능)"}
           </p>
         ) : null}
         {r.reviewReason ? (

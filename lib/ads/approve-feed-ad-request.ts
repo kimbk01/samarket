@@ -10,6 +10,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  feedAdCreativeUrlRejectReason,
+  isProductionReachableFeedAdCreativeUrl,
+} from "@/lib/ads/feed-ad-creative-url";
+import {
   captureHeldPointsForFeedAdRequest,
   compensateFeedAdPointHold,
   releaseHeldPointsForFeedAdRequest,
@@ -101,6 +105,18 @@ export async function approveFeedAdRequest(
   );
   if (slides.length < 1) {
     return { ok: false, error: "creatives_missing", httpStatus: 400 };
+  }
+
+  // Delivery authority: reject before claim/CAPTURE — no false success, no unpaid active.
+  for (const c of slides) {
+    const imageUrl = String((c as { image_url?: string }).image_url ?? "");
+    if (!isProductionReachableFeedAdCreativeUrl(imageUrl)) {
+      return {
+        ok: false,
+        error: feedAdCreativeUrlRejectReason(imageUrl) ?? "creative_url_invalid",
+        httpStatus: 400,
+      };
+    }
   }
 
   const now = new Date();

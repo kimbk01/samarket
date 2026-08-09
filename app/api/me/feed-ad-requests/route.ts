@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
+import {
+  feedAdCreativeUrlRejectReason,
+  isProductionReachableFeedAdCreativeUrl,
+} from "@/lib/ads/feed-ad-creative-url";
 import { projectFeedAdMemberPresentation } from "@/lib/ads/feed-ad-member-presentation";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
@@ -346,6 +350,17 @@ export async function POST(req: NextRequest) {
   }
   if (creativesRaw.length > 1) {
     return NextResponse.json({ ok: false, error: "creatives_max_one" }, { status: 400 });
+  }
+  for (const c of creativesRaw) {
+    if (!isProductionReachableFeedAdCreativeUrl(c.imageUrl)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: feedAdCreativeUrlRejectReason(c.imageUrl) ?? "creative_url_invalid",
+        },
+        { status: 400 }
+      );
+    }
   }
   const creatives = creativesRaw.slice(0, 1);
 
