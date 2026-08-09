@@ -63,7 +63,7 @@ body[data-owner-compact-shell] {
   z-index: 56;
   box-sizing: border-box;
   width: 100%;
-  max-width: 100vw;
+  max-width: 100%;
   border-bottom: 1px solid #dde5e0;
   background-color: #fff;
   padding-top: var(--owner-shell-safe-top, var(--safe-top));
@@ -154,7 +154,7 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   padding: 0;
   border: 0;
   width: 100%;
-  max-width: 100vw;
+  max-width: 100%;
   min-height: 100dvh;
   min-height: 100svh;
   background: rgb(0 0 0 / 0.45);

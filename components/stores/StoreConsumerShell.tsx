@@ -15,7 +15,6 @@ import {
 } from "@/lib/stores/store-consumer-route";
 import { StoreDetailSlideShell } from "@/components/stores/detail/StoreDetailSlideShell";
 import { StoreSlugStickyBar } from "@/components/stores/StoreSlugStickyBar";
-import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
 /**
  * 소비자용 `/stores/[slug]/*` — 오너(/owner/) 제외.
@@ -57,7 +56,7 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
 
   return (
     <>
-      <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
+      <div className="relative w-full min-w-0 max-w-full shrink-0">
         <StoreSlugStickyBar slug={slug} />
       </div>
       {children}

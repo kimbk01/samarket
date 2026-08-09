@@ -606,13 +606,19 @@
     background: var(--delivery-bg-soft);
   }
 
-  /** 장바구니 하단 — 배민식 한 줄(금액 + CTA), 보조 문구 1줄만 */
+  /**
+   * 장바구니 하단 좌측 정보 컬럼 (결제금액·힌트).
+   * 우측 CTA 는 `storeCommerceActionSideCtaClass` — 이 블록에 row flex 금지
+   * (라벨|금액|힌트가 가로로 붙으면 좁은 기기에서 뷰포트 overflow).
+   */
   .delivery-cart-checkout-bar {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
     width: 100%;
     min-width: 0;
-    align-items: center;
-    gap: 12px;
+    gap: 0;
   }
 
   .delivery-cart-checkout-bar__label {
@@ -625,6 +631,7 @@
 
   .delivery-cart-checkout-bar__price {
     margin: 0;
+    min-width: 0;
     font-size: var(--delivery-fs-price);
     font-weight: 800;
     line-height: var(--delivery-lh-price);
@@ -634,6 +641,11 @@
 
   .delivery-cart-checkout-bar__hint {
     margin: 2px 0 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--delivery-fs-meta);
     font-weight: 600;
     line-height: var(--delivery-lh-caption);
@@ -652,15 +664,17 @@
     color: var(--delivery-primary);
   }
 
+  /** @deprecated TSX 는 `storeCommerceActionSideCtaClass` — 레거시 테마 키만 유지 */
   .delivery-cart-checkout-bar__btn {
     display: inline-flex;
     height: var(--delivery-cart-checkout-btn-h);
     min-height: var(--delivery-cart-checkout-btn-h);
     max-width: 58%;
-    min-width: 9.25rem;
-    flex-shrink: 0;
+    min-width: 0;
+    flex-shrink: 1;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
     border-radius: var(--delivery-radius);
     border: 0;
     padding-inline: 16px;

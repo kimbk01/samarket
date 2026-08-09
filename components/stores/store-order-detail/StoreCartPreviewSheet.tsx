@@ -14,8 +14,9 @@ import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import {
   STORE_COMMERCE_ACTION_CAPTION_CLASS,
   STORE_COMMERCE_ACTION_PRICE_HERO_CLASS,
-  storeCommerceActionBtnClass,
+  STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS,
   storeCommerceActionRowClass,
+  storeCommerceActionSideCtaClass,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
 
@@ -120,13 +121,15 @@ export function StoreCartPreviewSheet({
               </div>
               <Link
                 href={cartHref}
-                className={`max-w-[58%] min-w-[9rem] ${storeCommerceActionBtnClass(!hasLines)}`}
+                className={storeCommerceActionSideCtaClass(!hasLines)}
                 aria-disabled={!hasLines}
                 onClick={(e) => {
                   if (!hasLines) e.preventDefault();
                 }}
               >
-                {t("store_cart_view")}
+                <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+                  {t("store_cart_view")}
+                </span>
               </Link>
             </div>
           </div>

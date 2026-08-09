@@ -28,5 +28,12 @@ describe("store order review layout contract", () => {
     const flags = readRepo("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("isStoreOrderReviewPage");
     expect(flags).toContain("isMainColumnViewportLocked");
+
+    const ordersReview = readRepo("app/(main)/orders/store/[orderId]/review/page.tsx");
+    expect(ordersReview).toContain("inlineChrome");
+    expect(ordersReview).toContain("MySubpageHeader");
+
+    const mypageReview = readRepo("app/(main)/mypage/store-orders/[orderId]/review/page.tsx");
+    expect(mypageReview).toContain("inlineChrome");
   });
 });

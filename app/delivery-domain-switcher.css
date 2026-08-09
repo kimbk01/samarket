@@ -110,7 +110,8 @@
   left: 50%;
   bottom: 0;
   z-index: 0;
-  width: min(100vw, calc(var(--dial-radius, 96px) * 2 + 5.5rem));
+  /* parent fixed dial host owns viewport width — do not use 100vw */
+  width: min(100%, calc(var(--dial-radius, 96px) * 2 + 5.5rem));
   height: calc(var(--dial-radius, 96px) + 4.5rem);
   transform: translateX(-50%);
   touch-action: none;

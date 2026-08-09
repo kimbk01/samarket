@@ -2,8 +2,13 @@
 
 import type { ReactNode } from "react";
 import { DetailHeader } from "@/components/layout/sector-header";
-import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-locked-subpage-chrome";
 
+/**
+ * 배달 잠금·로컬 크롬 서브페이지 상단 — safe-top OWNER (AppStickyHeader 없음).
+ * DO NOT: 컬럼용 뷰포트 bleed(`100dvw` + `ml-[calc(50%-50dvw)]`)
+ * DO NOT: 페이지 루트에 추가 `pt-[var(--safe-top)]` (이 헤더가 SSOT)
+ */
 export function DeliverySubpageHeader({
   title,
   onBack,
@@ -19,7 +24,7 @@ export function DeliverySubpageHeader({
   trailing?: ReactNode;
 }) {
   return (
-    <header className={`delivery-ui ${APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}`}>
+    <header className={`delivery-ui ${DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS}`}>
       <DetailHeader
         embedded
         title={title}

@@ -13,8 +13,9 @@ import {
   STORE_COMMERCE_ACTION_HINT_OK_CLASS,
   STORE_COMMERCE_ACTION_PRICE_HERO_CLASS,
   STORE_COMMERCE_ACTION_SECONDARY_TEXT_CLASS,
-  storeCommerceActionBtnClass,
+  STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS,
   storeCommerceActionRowClass,
+  storeCommerceActionSideCtaClass,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { getCommerceCartSnapshotBus } from "@/lib/stores/store-commerce-cart-snapshot-bus";
@@ -142,7 +143,7 @@ export function StoreDetailBottomStrip({
           <Link
             href={cartHref}
             onClick={onCheckoutNavigate}
-            className={`sam-i18n-btn-label max-w-[58%] min-w-[9.75rem] ${storeCommerceActionBtnClass(false)}`}
+            className={storeCommerceActionSideCtaClass(false)}
             aria-label={t("store_go_checkout_aria")}
           >
             {cartQtyTotal > 0 ? (
@@ -150,7 +151,9 @@ export function StoreDetailBottomStrip({
                 {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
               </span>
             ) : null}
-            <span className="truncate">{t("store_bottom_checkout_btn")}</span>
+            <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+              {t("store_bottom_checkout_btn")}
+            </span>
           </Link>
         ) : (
           <button

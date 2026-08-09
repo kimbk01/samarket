@@ -73,7 +73,7 @@ export const STORE_COMMERCE_ACTION_ERROR_CLASS =
   "px-4 pt-2 text-center text-[12px] font-medium text-[color:var(--delivery-danger)]";
 
 const STORE_COMMERCE_ACTION_BTN_BASE = [
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--delivery-radius)] border-0 px-4 text-[15px] font-bold leading-none shadow-none transition-[background-color,transform] duration-150 [appearance:none]",
+  "inline-flex items-center justify-center gap-2 rounded-[var(--delivery-radius)] border-0 px-4 text-[15px] font-bold leading-none shadow-none transition-[background-color,transform] duration-150 [appearance:none]",
   STORE_COMMERCE_ACTION_BTN_H_CLASS,
   STORE_ORDER_TOUCH_BTN,
 ].join(" ");
@@ -90,9 +90,30 @@ export const STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS = [
   "cursor-not-allowed bg-[color:var(--delivery-btn-disabled)] text-white active:scale-100",
 ].join(" ");
 
+/** 아이콘·뱃지 동반 CTA 등 — 폭 고정, 줄이지 않음 */
 export function storeCommerceActionBtnClass(disabled: boolean, extra = ""): string {
-  return `${disabled ? STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS : STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS} ${extra}`.trim();
+  return `${disabled ? STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS : STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS} shrink-0 ${extra}`.trim();
 }
+
+/**
+ * 액션 행 우측 텍스트 CTA (카트 주문·상품 담기·미리보기).
+ * 좌측 `min-w-0` 정보와 한 줄을 나누고, 긴 i18n 은 버튼 안에서 truncate.
+ *
+ * DO NOT: `shrink-0` + `min-w-[9rem+]` + `whitespace-nowrap` 조합
+ * (좁은 기기에서 뷰포트 가로 overflow 재발).
+ */
+export function storeCommerceActionSideCtaClass(disabled: boolean, extra = ""): string {
+  return [
+    disabled ? STORE_COMMERCE_ACTION_BTN_DISABLED_CLASS : STORE_COMMERCE_ACTION_BTN_ACTIVE_CLASS,
+    "min-w-0 max-w-[58%] shrink overflow-hidden",
+    extra,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** 사이드 CTA 라벨 — 버튼 자식에 필수 */
+export const STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS = "min-w-0 truncate";
 
 /** 배민 장바구니 보기 버튼 안 검은 수량 뱃지 */
 export const STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS =

@@ -35,6 +35,9 @@ export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[var(--safe-top)]";
 export const STORE_DETAIL_MENU_STICKY_TOP_CLASS =
   "top-[calc(var(--safe-top)+104px)]";
 
-/** 2nd-depth subheader (product title, min order, zone title, report page, etc.) */
+/**
+ * Store info/report local page header — `/stores/[slug]/*` suppresses global Tier1.
+ * Owns safe-top (sticky top-0 + padding). DO NOT: `top: safe-top+54` (assumes AppStickyHeader).
+ */
 export const STORE_DETAIL_SUBHEADER_STICKY =
-  "sticky z-[34] border-b border-gray-100 bg-white top-[calc(var(--safe-top)+54px)]";
+  "sticky top-0 z-[34] w-full min-w-0 max-w-full border-b border-gray-100 bg-white pt-[var(--safe-top)]";

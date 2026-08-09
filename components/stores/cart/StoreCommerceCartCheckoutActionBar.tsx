@@ -5,8 +5,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import {
-  storeCommerceActionBtnClass,
+  STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS,
   storeCommerceActionRowClass,
+  storeCommerceActionSideCtaClass,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -77,7 +78,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
           <div className={storeCommerceActionRowClass("cart-checkout")}>
             <div className={`${DeliveryTheme.cartCheckoutBar.root} min-w-0 flex-1`}>
               <p className={DeliveryTheme.cartCheckoutBar.label}>{t("store_payment_due")}</p>
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
                 <p className={DeliveryTheme.cartCheckoutBar.price}>{formatMoneyPhp(displayGrand)}</p>
                 {showStrike ? (
                   <p className="text-[14px] font-medium tabular-nums text-[color:var(--delivery-text-muted)] line-through">
@@ -105,12 +106,11 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
               type="button"
               disabled={ctaDisabled}
               onClick={onSubmit}
-              className={storeCommerceActionBtnClass(
-                ctaDisabled,
-                "max-w-[58%] min-w-[9.25rem] shrink-0 whitespace-nowrap"
-              )}
+              className={storeCommerceActionSideCtaClass(ctaDisabled)}
             >
-              {busy ? processingLabel : t("store_submit_store_delivery")}
+              <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+                {busy ? processingLabel : t("store_submit_store_delivery")}
+              </span>
             </button>
           </div>
         </StoreCommerceBottomActionShell>

@@ -114,6 +114,7 @@
     "verify:phone-otp-contract": "node scripts/verify-phone-otp-contract.mjs",
     "verify:owner-products-perf": "node scripts/verify-owner-products-perf.mjs",
     "verify:store-cart-sheet-contract": "node scripts/verify-store-cart-sheet-contract.cjs",
+    "verify:delivery-viewport-authority": "node scripts/verify-delivery-viewport-authority.cjs",
     "verify:store-payment-cod-label-contract": "node scripts/verify-store-payment-cod-label-contract.cjs",
     "verify:store-cart-hooks-contract": "node scripts/verify-store-cart-hooks-contract.cjs",
     "verify:store-auto-hours-contract": "node scripts/verify-store-auto-hours-contract.cjs",

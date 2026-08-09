@@ -182,7 +182,7 @@ export function StoreOwnerBannerCarousel({
           return (
             <div
               key={b.id}
-              className="w-[min(100%,100vw-2rem)] shrink-0 snap-center px-1 sm:w-[min(100%,28rem)]"
+              className="w-[min(100%,calc(100%-2rem))] shrink-0 snap-center px-1 sm:w-[min(100%,28rem)]"
             >
               {href ? (
                 <Link href={href} className="block min-w-0">

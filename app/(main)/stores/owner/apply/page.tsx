@@ -193,7 +193,7 @@ export default function BusinessApplyRoute() {
   };
 
   return (
-    <div className="delivery-ui min-w-0 max-w-[100vw] overflow-x-hidden bg-[color:var(--delivery-bg-main)]">
+    <div className="delivery-ui min-w-0 w-full max-w-full bg-[color:var(--delivery-bg-main)]">
       <StoresOwnerApplyHeaderChrome />
       <div
         className={`mx-auto max-w-[42rem] px-[var(--delivery-page-x)] pb-0 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}

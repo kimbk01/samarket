@@ -8,9 +8,9 @@ import {
   APP_MAIN_GUTTER_X_CLASS,
 } from "@/lib/ui/app-content-layout";
 
-/** 전체 플로우 루트 — 노치·가로 스크롤 방지 */
+/** 전체 플로우 루트 — 부모 폭 권위 (`100dvw` 금지 — 기기 가로 overflow) */
 export const ADDR_FLOW_MIN_VIEWPORT =
-  "flex min-h-0 min-h-[100dvh] w-full min-w-0 max-w-[100dvw] flex-1 flex-col overflow-x-clip bg-sam-app";
+  "flex min-h-0 min-h-[100dvh] w-full min-w-0 max-w-full flex-1 flex-col overflow-x-clip bg-sam-app";
 
 /** 주소 설정·지도 하단 패널과 동일한 읽기 폭(모바일~가로 태블릿) */
 export const ADDR_CONTENT_COLUMN = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;

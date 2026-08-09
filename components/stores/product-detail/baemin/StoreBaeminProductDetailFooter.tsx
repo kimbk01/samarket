@@ -7,8 +7,9 @@ import {
   STORE_COMMERCE_ACTION_HINT_AMBER_CLASS,
   STORE_COMMERCE_ACTION_PRIMARY_TEXT_CLASS,
   STORE_COMMERCE_ACTION_SECONDARY_TEXT_CLASS,
-  storeCommerceActionBtnClass,
+  STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS,
   storeCommerceActionRowClass,
+  storeCommerceActionSideCtaClass,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -107,10 +108,12 @@ export function StoreBaeminProductDetailFooter({
             }
             onAdd();
           }}
-          className={`max-w-[58%] min-w-[9.75rem] ${storeCommerceActionBtnClass(ctaDisabled)}`}
+          className={storeCommerceActionSideCtaClass(ctaDisabled)}
           aria-label={t("store_add_to_cart_amount_aria", { amount: totalLabel })}
         >
-          {busy ? t("common_processing") : t("store_add_to_cart_with_amount", { amount: totalLabel })}
+          <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+            {busy ? t("common_processing") : t("store_add_to_cart_with_amount", { amount: totalLabel })}
+          </span>
         </button>
       </div>
     </StoreCommerceBottomActionShell>

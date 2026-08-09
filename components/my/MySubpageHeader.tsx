@@ -10,6 +10,7 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
+import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-locked-subpage-chrome";
 import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
 
 export type MySubpageHeaderProps = {
@@ -147,10 +148,12 @@ export function MySubpageHeader({
 
     if (inlineChrome) {
       return (
-        <header
-          className={`z-30 w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${APP_TIER1_HEADER_BAR_CLASS}`}
-        >
-          {detailHeader}
+        <header className={DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS}>
+          {/**
+           * Safe-top stays on the outer header. DO NOT put `sector-header-shell` on the
+           * same node — shell resets padding and cancels `pt-[var(--safe-top)]`.
+           */}
+          <div className={APP_TIER1_HEADER_BAR_CLASS}>{detailHeader}</div>
         </header>
       );
     }

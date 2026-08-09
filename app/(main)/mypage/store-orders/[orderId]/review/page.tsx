@@ -10,6 +10,8 @@ export default function MypageStoreOrderReviewPage() {
   return (
     <div className={STORE_ORDER_REVIEW_PAGE_ROOT_CLASS}>
       <MySubpageHeader
+        inlineChrome
+        registerMainTier1={false}
         title={t("route_store_order_review_title")}
         subtitle={t("route_store_order_review_subtitle")}
         backHref="/mypage/store-orders"
