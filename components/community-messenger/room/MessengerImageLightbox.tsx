@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackIcon } from "@/components/navigation/AppBackButton";
 
+/**
+ * Messenger message image expand viewer.
+ *
+ * CONTRACT:
+ * - Portal to `document.body` so `position:fixed` is NOT trapped by `.messenger-page`
+ *   (`transform` / `contain: layout paint` containing block).
+ * - Image height is bounded by the lightbox flex body (`max-h-full`), never viewport-vh units
+ *   (layout vh can exceed remaining chrome + visualViewport on native WebView).
+ * - Root clips overflow; no document-width spill from expand.
+ * DO NOT: mount under room timeline without portal; DO NOT size img with viewport-vh units.
+ */
 export function MessengerImageLightbox(props: {
   open: boolean;
   urls: string[];
@@ -14,8 +26,13 @@ export function MessengerImageLightbox(props: {
 }) {
   const { t } = useI18n();
   const { open, urls, originals, index, onClose, onChangeIndex } = props;
-  if (!open || urls.length === 0) return null;
-  const safeIndex = Math.max(0, Math.min(urls.length - 1, index));
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const safeIndex = Math.max(0, Math.min(Math.max(urls.length - 1, 0), index));
   const src = urls[safeIndex] ?? "";
   const orig = originals[safeIndex] ?? src;
 
@@ -30,14 +47,31 @@ export function MessengerImageLightbox(props: {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, onChangeIndex, safeIndex]);
 
-  return (
+  // Lock page scroll while open (body portal layer owns the gesture surface).
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+    };
+  }, [open]);
+
+  if (!open || urls.length === 0 || !mounted) return null;
+
+  const node = (
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/92"
+      className="fixed inset-0 z-[200] flex flex-col overflow-hidden overscroll-none bg-black/92 pt-[var(--safe-top)] pb-[var(--safe-bottom)]"
       role="dialog"
       aria-modal="true"
       aria-label={t("cm_ui_image_zoom_view")}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 pb-[max(0.5rem,var(--safe-bottom))]">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
         <button
           type="button"
           onClick={onClose}
@@ -57,7 +91,7 @@ export function MessengerImageLightbox(props: {
           {t("cm_ui_original")}
         </a>
       </div>
-      <div className="relative min-h-0 flex-1 touch-pan-y">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {urls.length > 1 ? (
           <>
             <button
@@ -80,13 +114,28 @@ export function MessengerImageLightbox(props: {
             </button>
           </>
         ) : null}
-        <div className="flex h-full w-full items-center justify-center p-2" onClick={onClose} role="presentation">
-          <div className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()} role="presentation">
+        <div
+          className="flex h-full w-full min-h-0 min-w-0 items-center justify-center overflow-hidden p-2"
+          onClick={onClose}
+          role="presentation"
+        >
+          <div
+            className="flex max-h-full max-w-full min-h-0 min-w-0 items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+            role="presentation"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" className="max-h-[min(88dvh,920px)] max-w-full object-contain" />
+            <img
+              src={src}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              draggable={false}
+            />
           </div>
         </div>
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }
