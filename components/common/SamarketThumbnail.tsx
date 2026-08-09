@@ -37,11 +37,6 @@ export type SamarketThumbnailProps = {
   onImageError?: () => void;
   /** First feed LCP thumb boot metrics only — not a render gate. */
   bootMetricTrack?: boolean;
-  /**
-   * Default `cover` (thumbnail contract). Ads creative surfaces may pass `contain`
-   * without changing the global default.
-   */
-  objectFit?: "cover" | "contain";
 };
 
 /**
@@ -65,7 +60,6 @@ export function SamarketThumbnail({
   onImageLoad,
   onImageError,
   bootMetricTrack = false,
-  objectFit = "cover",
 }: SamarketThumbnailProps) {
   const resolvedSrc = useMemo(() => {
     const raw = src?.trim() || "";
@@ -142,13 +136,11 @@ export function SamarketThumbnail({
           loading={priority ? "eager" : loading}
           decoding="async"
           fetchPriority={priority ? "high" : "auto"}
-          className={`pointer-events-none absolute inset-0 block !h-full !w-full max-w-none select-none object-center ${
-            objectFit === "contain" ? "object-contain" : "object-cover"
-          } ${imageClassName}`}
+          className={`pointer-events-none absolute inset-0 block !h-full !w-full max-w-none select-none object-cover object-center ${imageClassName}`}
           style={{
             width: "100%",
             height: "100%",
-            objectFit,
+            objectFit: "cover",
             objectPosition: "center center",
           }}
           onLoad={(ev) => handleImageLoad(ev.currentTarget)}

@@ -291,7 +291,6 @@ function FeedAdBannerCarouselView({
                       fill
                       roundedClassName="rounded-ui-rect"
                       className="!h-full !w-full bg-sam-app"
-                      objectFit="cover"
                       alt={s.altText || campaign.name || altFallback}
                     />
                   </Link>
