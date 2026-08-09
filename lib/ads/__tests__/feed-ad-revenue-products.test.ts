@@ -8,12 +8,31 @@ import {
   listActiveMemberPromotionProducts,
 } from "@/lib/points/promotion-products";
 
-describe("feed banner products reuse proven prices", () => {
+/** DB seed rows from migration 20261024120000 — must stay in lockstep with CODE SSOT. */
+const FEED_AD_PRODUCTS_DB_SEED = [
+  { id: "feed_banner_trade_3", domain: "trade", duration_days: 3, point_cost: 8000 },
+  { id: "feed_banner_trade_7", domain: "trade", duration_days: 7, point_cost: 15000 },
+  { id: "feed_banner_community_3", domain: "community", duration_days: 3, point_cost: 10000 },
+  { id: "feed_banner_community_7", domain: "community", duration_days: 7, point_cost: 20000 },
+] as const;
+
+describe("feed banner products — CODE AUTHORITY SSOT", () => {
   it("matches trade list_top / premium and plife top_fixed seeds", () => {
     expect(getFeedAdProduct("feed_banner_trade_3")?.pointCost).toBe(8000);
     expect(getFeedAdProduct("feed_banner_trade_7")?.pointCost).toBe(15000);
     expect(getFeedAdProduct("feed_banner_community_3")?.pointCost).toBe(10000);
     expect(getFeedAdProduct("feed_banner_community_7")?.pointCost).toBe(20000);
+  });
+
+  it("code catalog matches DB seed migration (no dual price drift)", () => {
+    for (const seed of FEED_AD_PRODUCTS_DB_SEED) {
+      const p = getFeedAdProduct(seed.id);
+      expect(p, seed.id).toBeTruthy();
+      expect(p!.domain).toBe(seed.domain);
+      expect(p!.durationDays).toBe(seed.duration_days);
+      expect(p!.pointCost).toBe(seed.point_cost);
+    }
+    expect(listActiveFeedAdProducts()).toHaveLength(FEED_AD_PRODUCTS_DB_SEED.length);
   });
 
   it("filters by domain", () => {

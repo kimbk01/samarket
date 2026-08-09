@@ -42,7 +42,9 @@ import { whenAppShellReady } from "@/lib/startup/startup-metrics";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
-import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
+import {
+  shouldInjectFeedAdAfterContentIndex,
+} from "@/lib/ads/feed-ad-placement";
 import { Fragment } from "react";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -1695,7 +1697,11 @@ export function CommunityFeed({
                   <li className="list-none">
                     <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
                   </li>
-                  {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+                  {shouldInjectFeedAdAfterContentIndex(
+                    index,
+                    postsForList.length,
+                    true
+                  ) ? (
                     <FeedAdBannerCarousel
                       domain="community"
                       // COMMUNITY_HOME = /philife entry (URL에 category 없음·전체/추천 탭).

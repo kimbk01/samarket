@@ -1,6 +1,11 @@
 /**
- * Feed banner D-Point product SSOT (code mirror of feed_ad_products seed).
- * Prices reused from existing trade list_top/premium and plife top_fixed — no invented prices.
+ * Feed banner D-Point product + period SSOT — CODE AUTHORITY (PHASE 1 LOCK).
+ *
+ * Runtime Member/Admin catalog MUST read this module only.
+ * DB table `feed_ad_products` is deploy seed + FK target for request.product_id —
+ * NOT a second price writer. No Admin product CMS yet → do not cut over to DB reads.
+ * Seed values must stay aligned with migration 20261024120000 (asserted in tests).
+ *
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md §2
  */
 

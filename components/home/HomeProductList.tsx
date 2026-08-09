@@ -50,7 +50,7 @@ import {
 } from "@/lib/ui/network-policy";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
-import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
+import { shouldInjectFeedAdAfterContentIndex } from "@/lib/ads/feed-ad-placement";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -501,7 +501,7 @@ export function HomeProductList({
                   onMenuAction={handleMenuAction}
                 />
               </li>
-              {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+              {shouldInjectFeedAdAfterContentIndex(index, visiblePosts.length, true) ? (
                 <FeedAdBannerCarousel domain="trade" placement="TRADE_HOME" />
               ) : null}
             </Fragment>

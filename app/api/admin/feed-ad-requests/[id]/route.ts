@@ -1,20 +1,149 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import {
-  captureHeldPointsForFeedAdRequest,
-  releaseHeldPointsForFeedAdRequest,
-} from "@/lib/ads/feed-ad-request-point-flow";
+import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
+import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
+import { releaseHeldPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type CreativeOut = {
+  id: string;
+  sortOrder: number;
+  imageUrl: string;
+  altText: string;
+  headline: string;
+};
+
+function mapCreative(row: Record<string, unknown>): CreativeOut {
+  return {
+    id: String(row.id ?? ""),
+    sortOrder: Number(row.sort_order ?? 1),
+    imageUrl: String(row.image_url ?? ""),
+    altText: String(row.alt_text ?? ""),
+    headline: String(row.headline ?? ""),
+  };
+}
+
+/**
+ * GET /api/admin/feed-ad-requests/[id]
+ * Detail: request + request creatives (pending) or campaign creatives (active) — single authority.
+ */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
+  const { id } = await params;
+  const requestId = id.trim();
+  if (!requestId) {
+    return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+  }
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+
+  const { data: reqRow, error } = await sb
+    .from("feed_ad_requests")
+    .select("*")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (error || !reqRow) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const row = reqRow as Record<string, unknown>;
+  const status = String(row.status ?? "");
+  const campaignId = row.campaign_id != null ? String(row.campaign_id) : null;
+
+  let creativeAuthority: "request" | "campaign" = "request";
+  let creatives: CreativeOut[] = [];
+  let campaign: Record<string, unknown> | null = null;
+
+  if (campaignId && (status === "active" || status === "approved")) {
+    creativeAuthority = "campaign";
+    const [{ data: camp }, { data: campCreatives }] = await Promise.all([
+      sb.from("feed_ad_campaigns").select("*").eq("id", campaignId).maybeSingle(),
+      sb
+        .from("feed_ad_creatives")
+        .select("*")
+        .eq("campaign_id", campaignId)
+        .order("sort_order", { ascending: true }),
+    ]);
+    campaign = (camp as Record<string, unknown>) ?? null;
+    creatives = (campCreatives ?? []).map((c) => mapCreative(c as Record<string, unknown>));
+  } else {
+    const { data: reqCreatives } = await sb
+      .from("feed_ad_request_creatives")
+      .select("*")
+      .eq("request_id", requestId)
+      .order("sort_order", { ascending: true });
+    creatives = (reqCreatives ?? []).map((c) => mapCreative(c as Record<string, unknown>));
+  }
+
+  const { data: holds } = await sb
+    .from("feed_ad_point_holds")
+    .select("id, amount, status, created_at")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false });
+
+  return NextResponse.json({
+    ok: true,
+    request: {
+      id: String(row.id ?? ""),
+      userId: String(row.user_id ?? ""),
+      status,
+      domain: String(row.domain ?? ""),
+      placement: String(row.placement ?? ""),
+      productId: String(row.product_id ?? ""),
+      pointCost: Number(row.point_cost ?? 0),
+      durationDays: Number(row.duration_days ?? 0),
+      targetCategoryId: row.target_category_id != null ? String(row.target_category_id) : null,
+      targetTopicSlug: row.target_topic_slug != null ? String(row.target_topic_slug) : null,
+      destinationType: String(row.destination_type ?? ""),
+      destinationId: String(row.destination_id ?? ""),
+      destinationUrl: String(row.destination_url ?? ""),
+      reviewReason: row.review_reason != null ? String(row.review_reason) : null,
+      campaignId,
+      reviewedBy: row.reviewed_by != null ? String(row.reviewed_by) : null,
+      reviewedAt: row.reviewed_at != null ? String(row.reviewed_at) : null,
+      createdAt: String(row.created_at ?? ""),
+      source: "MEMBER_REQUEST",
+    },
+    creativeAuthority,
+    creatives,
+    campaign: campaign
+      ? {
+          id: String(campaign.id ?? ""),
+          status: String(campaign.status ?? ""),
+          startAt: campaign.start_at != null ? String(campaign.start_at) : null,
+          endAt: campaign.end_at != null ? String(campaign.end_at) : null,
+          source: String(campaign.source ?? ""),
+        }
+      : null,
+    holds: (holds ?? []).map((h) => {
+      const hr = h as Record<string, unknown>;
+      return {
+        id: String(hr.id ?? ""),
+        amount: Number(hr.amount ?? 0),
+        status: String(hr.status ?? ""),
+        createdAt: String(hr.created_at ?? ""),
+      };
+    }),
+  });
+}
+
 /**
  * PATCH /api/admin/feed-ad-requests/[id]
- * body: { action: "approve" | "reject", reason?: string }
- *
- * Approve: validate → CAPTURE → create MEMBER_REQUESTED campaign + creatives → link.
- * Reject: reason required → RELEASE → status rejected · campaign 0.
+ * actions:
+ *   approve | reject — PHASE 1 writers
+ *   update — pending only: destination / durationDays (same request)
+ *   replace_creative — same request creatives OR same campaign creatives
  */
 export async function PATCH(
   req: NextRequest,
@@ -29,7 +158,18 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
   }
 
-  let body: { action?: string; reason?: string };
+  let body: {
+    action?: string;
+    reason?: string;
+    destinationType?: string;
+    destinationId?: string;
+    destinationUrl?: string;
+    durationDays?: number;
+    sortOrder?: number;
+    imageUrl?: string;
+    altText?: string;
+    headline?: string;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -42,148 +182,222 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: reqRow, error: fetchErr } = await sb
-    .from("feed_ad_requests")
-    .select("*")
-    .eq("id", requestId)
-    .maybeSingle();
-
-  if (fetchErr || !reqRow) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  }
-
-  const row = reqRow as Record<string, unknown>;
-  if (String(row.status) !== "pending_review") {
-    return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
-  }
-
-  const userId = String(row.user_id ?? "");
-  const pointCost = Number(row.point_cost ?? 0);
-  const durationDays = Number(row.duration_days ?? 7);
-  const now = new Date();
-  const end = new Date(now.getTime() + durationDays * 86_400_000);
-
   if (action === "reject") {
     const reason = String(body.reason ?? "").trim();
     if (!reason) {
       return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
     }
+
+    const { data: reqRow, error: fetchErr } = await sb
+      .from("feed_ad_requests")
+      .select("id, status")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (fetchErr || !reqRow) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    if (String((reqRow as { status?: string }).status) !== "pending_review") {
+      return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
+    }
+
     const released = await releaseHeldPointsForFeedAdRequest(sb, { requestId });
     if (!released.ok) {
       return NextResponse.json({ ok: false, error: released.error }, { status: 500 });
     }
-    const { error: upd } = await sb
+    const now = new Date().toISOString();
+    const { data: rejected, error: upd } = await sb
       .from("feed_ad_requests")
       .update({
         status: "rejected",
         review_reason: reason.slice(0, 500),
         reviewed_by: admin.userId,
-        reviewed_at: now.toISOString(),
-        updated_at: now.toISOString(),
+        reviewed_at: now,
+        updated_at: now,
       })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .eq("status", "pending_review")
+      .select("id")
+      .maybeSingle();
     if (upd) {
       return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+    }
+    if (!rejected?.id) {
+      return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
     }
     return NextResponse.json({ ok: true, status: "rejected" });
   }
 
-  if (action !== "approve") {
-    return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+  if (action === "approve") {
+    const result = await approveFeedAdRequest(sb, {
+      requestId,
+      adminUserId: admin.userId,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.httpStatus ?? 500 }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      status: result.status,
+      campaignId: result.campaignId,
+    });
   }
 
-  const { data: creatives, error: crErr } = await sb
-    .from("feed_ad_request_creatives")
-    .select("*")
-    .eq("request_id", requestId)
-    .order("sort_order", { ascending: true });
-  if (crErr) {
-    return NextResponse.json({ ok: false, error: crErr.message }, { status: 500 });
-  }
-  const slides = (creatives ?? []).filter(
-    (c) => String((c as { image_url?: string }).image_url ?? "").trim().length > 0
-  );
-  if (slides.length < 1) {
-    return NextResponse.json({ ok: false, error: "creatives_missing" }, { status: 400 });
-  }
+  if (action === "update") {
+    const { data: reqRow, error: fetchErr } = await sb
+      .from("feed_ad_requests")
+      .select("*")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (fetchErr || !reqRow) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    if (String((reqRow as { status?: string }).status) !== "pending_review") {
+      return NextResponse.json({ ok: false, error: "not_pending" }, { status: 409 });
+    }
 
-  const captured = await captureHeldPointsForFeedAdRequest(sb, {
-    requestId,
-    userId,
-    pointCost,
-  });
-  if (!captured.ok) {
-    return NextResponse.json({ ok: false, error: captured.error }, { status: 500 });
-  }
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const hasDest =
+      body.destinationType != null || body.destinationId != null || body.destinationUrl != null;
+    if (hasDest) {
+      const dest = normalizeFeedAdDestination({
+        destinationType: String(
+          body.destinationType ?? (reqRow as { destination_type?: string }).destination_type ?? "none"
+        ),
+        destinationId:
+          body.destinationId ?? String((reqRow as { destination_id?: string }).destination_id ?? ""),
+        destinationUrl:
+          body.destinationUrl ?? String((reqRow as { destination_url?: string }).destination_url ?? ""),
+      });
+      if (!dest.ok) {
+        return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+      }
+      patch.destination_type = dest.value.destinationType;
+      patch.destination_id = dest.value.destinationId;
+      patch.destination_url = dest.value.destinationUrl;
+    }
 
-  const { data: campaign, error: campErr } = await sb
-    .from("feed_ad_campaigns")
-    .insert({
-      name: `Member · ${String(row.product_id ?? "")}`,
-      domain: String(row.domain),
-      placement: String(row.placement),
-      target_category_id: row.target_category_id,
-      target_topic_slug: row.target_topic_slug,
-      status: "active",
-      priority: 50,
-      start_at: now.toISOString(),
-      end_at: end.toISOString(),
-      destination_type: String(row.destination_type ?? "internal_page"),
-      destination_id: String(row.destination_id ?? ""),
-      destination_url: String(row.destination_url ?? ""),
-      source: "MEMBER_REQUESTED",
-      request_id: requestId,
-      created_by: admin.userId,
-    })
-    .select("id")
-    .maybeSingle();
+    if (body.durationDays != null) {
+      const days = Math.floor(Number(body.durationDays));
+      if (!Number.isFinite(days) || days < 1 || days > 90) {
+        return NextResponse.json({ ok: false, error: "invalid_duration" }, { status: 400 });
+      }
+      patch.duration_days = days;
+    }
 
-  if (campErr || !campaign?.id) {
-    // Campaign failed after capture — release funds so member is not charged without ad.
-    await releaseHeldPointsForFeedAdRequest(sb, { requestId }).catch(() => null);
-    return NextResponse.json(
-      { ok: false, error: campErr?.message ?? "campaign_create_failed" },
-      { status: 500 }
-    );
+    const { error: upd } = await sb
+      .from("feed_ad_requests")
+      .update(patch)
+      .eq("id", requestId)
+      .eq("status", "pending_review");
+    if (upd) {
+      return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, status: "pending_review" });
   }
 
-  const campaignId = String(campaign.id);
-  const { error: slideErr } = await sb.from("feed_ad_creatives").insert(
-    slides.map((c, i) => {
-      const cr = c as Record<string, unknown>;
-      return {
+  if (action === "replace_creative") {
+    const imageUrl = String(body.imageUrl ?? "").trim();
+    if (!imageUrl || imageUrl.startsWith("blob:")) {
+      return NextResponse.json({ ok: false, error: "persisted_url_required" }, { status: 400 });
+    }
+    const sortOrder = Math.max(1, Math.floor(Number(body.sortOrder) || 1));
+
+    const { data: reqRow, error: fetchErr } = await sb
+      .from("feed_ad_requests")
+      .select("id, status, campaign_id")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (fetchErr || !reqRow) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+
+    const status = String((reqRow as { status?: string }).status ?? "");
+    const campaignId =
+      (reqRow as { campaign_id?: string | null }).campaign_id != null
+        ? String((reqRow as { campaign_id?: string }).campaign_id)
+        : null;
+
+    const creativePatchRequest = {
+      image_url: imageUrl,
+      alt_text: String(body.altText ?? "").trim(),
+      headline: String(body.headline ?? "").trim(),
+    };
+    const creativePatchCampaign = {
+      ...creativePatchRequest,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (status === "pending_review" || !campaignId) {
+      const { data: existing } = await sb
+        .from("feed_ad_request_creatives")
+        .select("id")
+        .eq("request_id", requestId)
+        .eq("sort_order", sortOrder)
+        .maybeSingle();
+      if (existing?.id) {
+        const { error: upd } = await sb
+          .from("feed_ad_request_creatives")
+          .update(creativePatchRequest)
+          .eq("id", String(existing.id));
+        if (upd) {
+          return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+        }
+      } else {
+        const { error: ins } = await sb.from("feed_ad_request_creatives").insert({
+          request_id: requestId,
+          sort_order: sortOrder,
+          ...creativePatchRequest,
+        });
+        if (ins) {
+          return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
+        }
+      }
+      return NextResponse.json({
+        ok: true,
+        creativeAuthority: "request",
+        imageUrl,
+        sortOrder,
+      });
+    }
+
+    // Same campaign — never ADMIN_DIRECT bypass
+    const { data: existing } = await sb
+      .from("feed_ad_creatives")
+      .select("id")
+      .eq("campaign_id", campaignId)
+      .eq("sort_order", sortOrder)
+      .maybeSingle();
+    if (existing?.id) {
+      const { error: upd } = await sb
+        .from("feed_ad_creatives")
+        .update(creativePatchCampaign)
+        .eq("id", String(existing.id));
+      if (upd) {
+        return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+      }
+    } else {
+      const { error: ins } = await sb.from("feed_ad_creatives").insert({
         campaign_id: campaignId,
-        sort_order: i + 1,
-        image_url: String(cr.image_url ?? ""),
-        alt_text: String(cr.alt_text ?? ""),
-        headline: String(cr.headline ?? ""),
-        is_active: true,
-      };
-    })
-  );
-
-  if (slideErr) {
-    await sb.from("feed_ad_campaigns").delete().eq("id", campaignId);
-    await releaseHeldPointsForFeedAdRequest(sb, { requestId }).catch(() => null);
-    return NextResponse.json({ ok: false, error: slideErr.message }, { status: 500 });
+        sort_order: sortOrder,
+        image_url: imageUrl,
+        alt_text: creativePatchRequest.alt_text,
+        headline: creativePatchRequest.headline,
+      });
+      if (ins) {
+        return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
+      }
+    }
+    return NextResponse.json({
+      ok: true,
+      creativeAuthority: "campaign",
+      campaignId,
+      imageUrl,
+      sortOrder,
+    });
   }
 
-  const { error: updReq } = await sb
-    .from("feed_ad_requests")
-    .update({
-      status: "active",
-      campaign_id: campaignId,
-      start_at: now.toISOString(),
-      end_at: end.toISOString(),
-      reviewed_by: admin.userId,
-      reviewed_at: now.toISOString(),
-      updated_at: now.toISOString(),
-    })
-    .eq("id", requestId);
-
-  if (updReq) {
-    return NextResponse.json({ ok: false, error: updReq.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, status: "active", campaignId });
+  return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
 }

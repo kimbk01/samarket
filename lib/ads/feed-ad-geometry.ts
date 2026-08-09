@@ -1,17 +1,22 @@
 /**
- * In-feed Advertisement geometry SSOT.
- * CONTRACT: Outer AD row follows host feed row rhythm (Trade ≠ Community density).
- * Width/inset stay host-aligned. Media is a compact landscape strip — NOT a hero banner.
- * DO NOT: hardcode aspect-/h-/py-/pb-[…] only inside carousel; change this module instead.
+ * In-feed Advertisement geometry SSOT (PHASE 3 LOCK — OPTION B).
+ *
+ * One Master Creative → runtime crop/cover per host density.
+ * Placement variants (OPTION A) rejected unless measured crop loss proves need.
+ *
+ * CONTRACT chain (same module):
+ *   PLACEMENT density → CREATIVE SPEC → Member/Admin uploader hint
+ *   → Member/Admin preview (FeedAdFramePreview) → Runtime (FeedAdBannerCarousel)
+ *
+ * DO NOT invent preview-only hardcoded dimensions.
+ * DO NOT force runtime to CSS aspect-3/1 (tablet/Windows width shrink regression).
  *
  * Measured host baselines (2026-08-08 DOM):
  *   Trade phone row ≈ 120–123px (thumb ≈ 96)
  *   Community phone row ≈ 136px (thumb ≈ 72)
- * Total OUTER height (media + label + optional headline + pad) must stay in that family.
  *
- * LOCK (width): Runtime media uses fixed height tokens + `w-full` — never `aspect-*` paired
- * with max-height (CSS aspect+max-h shrinks used width on tablet/Windows). Upload hint
- * aspect stays 3:1 for Admin/member creatives only.
+ * LOCK (width): Runtime media = fixed height tokens + `w-full` + object-cover.
+ * Upload hint aspect stays 3:1 for source creatives only.
  */
 
 export type FeedAdHostDensity = "trade" | "community";
@@ -58,7 +63,21 @@ export const FEED_AD_RECOMMENDED_UPLOAD = {
   minWidthPx: 1200,
   minHeightPx: 400,
   objectFit: "cover" as const,
+  maxFileBytes: 5 * 1024 * 1024,
 };
+
+/** Single creative-spec authority for uploader + preview docs. */
+export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
+  return {
+    ...FEED_AD_RECOMMENDED_UPLOAD,
+    density,
+    aspectClass: FEED_AD_MEDIA_ASPECT_CLASS,
+    mediaClass: feedAdMediaClass(density),
+    frameClass: feedAdFrameClass(density),
+    phoneMediaHeightPx: feedAdMediaMaxHPx(density, "phone"),
+    mdMediaHeightPx: feedAdMediaMaxHPx(density, "md"),
+  };
+}
 
 /** Outer list-item shell — align with host `<li>` (no extra horizontal inset beyond card pad). */
 export function feedAdListItemClass(density: FeedAdHostDensity): string {

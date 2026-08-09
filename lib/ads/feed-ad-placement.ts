@@ -1,7 +1,16 @@
 /**
  * Feed Advertisement placement SSOT.
  * Slot N is server policy — never hardcode index % N in UI.
+ *
+ * PHASE 3 LOCK — SLOT vs CAMPAIGN SELECTION are separate authorities:
+ *   SLOT = where the ad row appears (FEED_AD_SLOT_AFTER_CONTENT_COUNT)
+ *   SELECTION = which campaign fills that slot (selectCampaignForPlacement day-bucket)
+ * DO NOT merge them. DO NOT randomize slot index.
+ *
+ * Cadence KEEP (PHASE 3): N=4 remains until Community/Trade phone+tablet
+ * runtime measurement proves a change. 6–10 is a candidate idea, not a requirement.
  */
+
 export type FeedAdDomain = "trade" | "community";
 
 export type FeedAdPlacement =
@@ -30,6 +39,7 @@ export const FEED_AD_SLOT_AFTER_CONTENT_COUNT = 4;
 /**
  * LOCK: slot index is counted on projected feed content rows (NORMAL + PROMOTED_CONTENT).
  * Do not invent blank rows when contentLength < N; do not inject when no campaign.
+ * Client insertion only — never count the ad in DB pagination.
  */
 export function shouldInjectFeedAdAfterContentIndex(
   contentIndex: number,
@@ -75,6 +85,11 @@ export type FeedAdCampaignView = {
   slides: FeedAdCreativeSlide[];
 };
 
+/**
+ * RESOLVER-ONLY time eligibility (PHASE 3).
+ * Eligible iff status=active AND (no start or start<=now) AND (no end or end>now).
+ * No cron writer required: expired active rows simply fail this check.
+ */
 export function isFeedAdCampaignEligibleNow(
   c: Pick<FeedAdCampaignView, "status" | "startAt" | "endAt">,
   nowMs = Date.now()
@@ -86,7 +101,8 @@ export function isFeedAdCampaignEligibleNow(
   }
   if (c.endAt) {
     const t = Date.parse(c.endAt);
-    if (Number.isFinite(t) && t < nowMs) return false;
+    // ends_at > now required — equal or past ⇒ not eligible
+    if (Number.isFinite(t) && t <= nowMs) return false;
   }
   return true;
 }
@@ -98,12 +114,14 @@ export function selectCampaignForPlacement(
     placement: FeedAdPlacement;
     categoryId?: string | null;
     topicSlug?: string | null;
+    nowMs?: number;
   }
 ): FeedAdCampaignView | null {
+  const nowMs = input.nowMs ?? Date.now();
   const eligible = campaigns.filter((c) => {
     if (c.domain !== input.domain) return false;
     if (c.placement !== input.placement) return false;
-    if (!isFeedAdCampaignEligibleNow(c)) return false;
+    if (!isFeedAdCampaignEligibleNow(c, nowMs)) return false;
     if (c.slides.filter((s) => s.imageUrl.trim()).length === 0) return false;
     if (input.placement === "TRADE_CATEGORY") {
       const want = (input.categoryId ?? "").trim();
@@ -120,7 +138,7 @@ export function selectCampaignForPlacement(
   if (eligible.length === 0) return null;
   eligible.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
   // Deterministic rotation by day bucket (no starvation forever on priority-only)
-  const bucket = Math.floor(Date.now() / 86_400_000);
+  const bucket = Math.floor(nowMs / 86_400_000);
   return eligible[bucket % eligible.length] ?? eligible[0] ?? null;
 }
 

@@ -120,7 +120,8 @@ export async function captureHeldPointsForFeedAdRequest(
     const { error: upd } = await sb
       .from("feed_ad_point_holds")
       .update({ status: "captured", updated_at: new Date().toISOString() })
-      .eq("id", h.id);
+      .eq("id", h.id)
+      .eq("status", "held");
     if (upd) return { ok: false, error: upd.message };
   }
 
@@ -136,6 +137,62 @@ export async function captureHeldPointsForFeedAdRequest(
   }).catch(() => {
     /* audit best-effort */
   });
+
+  return { ok: true };
+}
+
+/**
+ * PHASE 1 compensation: credit back held OR captured holds after failed activation.
+ * DO NOT use for normal reject (use releaseHeldPointsForFeedAdRequest — held only).
+ * Makes CAPTURED + NO VALID AD recoverable.
+ */
+export async function compensateFeedAdPointHold(
+  sb: SupabaseClient,
+  params: { requestId: string }
+): Promise<PointFlowResult> {
+  const { data: holds, error: he } = await sb
+    .from("feed_ad_point_holds")
+    .select("id, user_id, amount, status")
+    .eq("request_id", params.requestId)
+    .in("status", ["held", "captured"]);
+
+  if (he) return { ok: false, error: he.message };
+  const rows = Array.isArray(holds) ? holds : [];
+  if (rows.length === 0) return { ok: true };
+
+  for (const h of rows as {
+    id: string;
+    user_id: string;
+    amount: number;
+    status: string;
+  }[]) {
+    const uid = String(h.user_id ?? "");
+    const amt = Math.max(0, Math.floor(Number(h.amount) || 0));
+    if (!uid || amt <= 0) continue;
+
+    const credited = await creditUserPoints(sb, {
+      userId: uid,
+      amount: amt,
+      entryType: "ad_hold_release",
+      relatedType: "feed_ad_request",
+      relatedId: `compensate:${h.id}`,
+      description:
+        h.status === "captured"
+          ? "피드 광고 승인 실패 보상 — 확정 포인트 환급"
+          : "피드 광고 승인 실패 보상 — 보류 해제",
+      actorType: "system",
+    });
+    if (!credited.ok) {
+      return { ok: false, error: mapHubError(credited.error, credited.code) };
+    }
+
+    const { error: upd } = await sb
+      .from("feed_ad_point_holds")
+      .update({ status: "released", updated_at: new Date().toISOString() })
+      .eq("id", h.id)
+      .in("status", ["held", "captured"]);
+    if (upd) return { ok: false, error: upd.message };
+  }
 
   return { ok: true };
 }

@@ -38,7 +38,7 @@ import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPu
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
-import { FEED_AD_SLOT_AFTER_CONTENT_COUNT } from "@/lib/ads/feed-ad-placement";
+import { shouldInjectFeedAdAfterContentIndex } from "@/lib/ads/feed-ad-placement";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -592,7 +592,7 @@ export function PostListByCategory({
                   onMenuAction={handleMenuAction}
                 />
               </li>
-              {index === FEED_AD_SLOT_AFTER_CONTENT_COUNT - 1 ? (
+              {shouldInjectFeedAdAfterContentIndex(index, posts.length, true) ? (
                 <FeedAdBannerCarousel
                   domain="trade"
                   placement="TRADE_CATEGORY"

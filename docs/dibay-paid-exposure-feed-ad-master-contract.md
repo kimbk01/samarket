@@ -32,7 +32,9 @@ Community approval reason: moderation of paid pin content (legacy `pending_revie
 
 ## 2. Product B — Member Feed Ad Request
 
-**Flow:** apply → **HOLD** → Admin approve → **CAPTURE** + `feed_ad_campaigns` (`source=MEMBER_REQUESTED`) → Feed · reject/cancel → **RELEASE** · campaign 0.
+**Flow:** apply → **HOLD** → Admin approve → **draft campaign+creatives** → **CAPTURE** → **activate** (`source=MEMBER_REQUESTED`) → Feed · reject/cancel → **RELEASE** · campaign 0.
+
+**PHASE 1 financial LOCK (2026-08-09):** Never CAPTURE before persist. Never leave ACTIVE without capture. On activation failure after CAPTURE → compensate credit + remove draft. Price/period runtime SSOT = **CODE** `lib/ads/feed-ad-products.ts` (DB seed mirror only).
 
 **Tables (additive):**
 

@@ -104,7 +104,8 @@ export async function listEligibleFeedAdCampaigns(
     .eq("domain", domain)
     .eq("status", "active")
     .or(`start_at.is.null,start_at.lte.${nowIso}`)
-    .or(`end_at.is.null,end_at.gte.${nowIso}`)
+    // ends_at > now (resolver contract) — equal instant is not eligible
+    .or(`end_at.is.null,end_at.gt.${nowIso}`)
     .order("priority", { ascending: true })
     .limit(50);
 
