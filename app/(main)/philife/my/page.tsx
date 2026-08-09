@@ -24,10 +24,17 @@ async function PhilifeMyPageBody() {
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+      {/**
+       * GV-008: Tier1/`AppStickyHeader` suppressed on `/philife/my`.
+       * Safe-top owns on this local AppTopHeader outer sticky (className), not on
+       * shared `TradePrimaryAppBarShell` (OwnerLite SAFE_A must stay duplicate-free).
+       * Bleed width on the sticky wrapper stays default.
+       */}
       <AppTopHeader
         title={translate(lang, "philife_my_title")}
         backButtonProps={{ backHref: "/philife" }}
         shellVariant="flat"
+        className="box-border bg-[color:var(--sector-header-bg)] pt-[var(--safe-top)]"
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
         <div className="flex min-w-0 flex-col gap-3 pt-2">

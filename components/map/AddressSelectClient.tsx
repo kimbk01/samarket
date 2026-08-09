@@ -351,10 +351,25 @@ export function AddressSelectClient() {
 
   return (
     <div className={ADDR_FLOW_MIN_VIEWPORT}>
+      {/**
+       * GV-002: `/address/select` mounts neither AppStickyHeader nor RegionBar
+       * (chatDetail + regionBarInLayout). Without `inlineChrome`, MySubpageHeader
+       * registers Tier1 extras and returns null → OWNER=NONE. Reuse Type B locked
+       * subpage contract (same as `/mypage/addresses`).
+       */}
       {step === "settings" ? (
-        <MySubpageHeader title={t("addr_ui_settings_title")} backHref="/mypage" hideCtaStrip showHubQuickActions={false} />
+        <MySubpageHeader
+          inlineChrome
+          registerMainTier1={false}
+          title={t("addr_ui_settings_title")}
+          backHref="/mypage"
+          hideCtaStrip
+          showHubQuickActions={false}
+        />
       ) : (
         <MySubpageHeader
+          inlineChrome
+          registerMainTier1={false}
           title={t("addr_ui_pick_location_title")}
           backHref="/mypage"
           hideCtaStrip
