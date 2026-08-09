@@ -277,11 +277,39 @@ export function PhilifeNeighborhoodWriteForm({
     }
     let cancelled = false;
     setAdProductsLoading(true);
-    void fetch(`/api/ads/products?boardKey=plife`)
+    void fetch(`/api/me/points/promotion-orders?catalog=1&domain=community`, {
+      credentials: "include",
+      cache: "no-store",
+    })
       .then((r) => r.json())
-      .then((j: { products?: AdProduct[] }) => {
-        if (!cancelled) setAdProducts(j.products ?? []);
-      })
+      .then(
+        (j: {
+          catalog?: {
+            id: string;
+            durationDays: number;
+            pointCost: number;
+            fallbackTitleKo?: string;
+            fallbackTitleEn?: string;
+          }[];
+        }) => {
+          if (cancelled) return;
+          const mapped: AdProduct[] = (j.catalog ?? []).map((c) => ({
+            id: c.id,
+            name: c.fallbackTitleKo || c.id,
+            description: "",
+            boardKey: "plife",
+            adType: "top_fixed",
+            durationDays: c.durationDays,
+            pointCost: c.pointCost,
+            priorityDefault: 0,
+            isActive: true,
+            createdAt: "",
+            updatedAt: "",
+          }));
+          setAdProducts(mapped);
+          setAdPaymentMethod("points");
+        }
+      )
       .catch(() => {
         if (!cancelled) setAdProducts([]);
       })
@@ -613,15 +641,9 @@ export function PhilifeNeighborhoodWriteForm({
         setErr(t("philife_write_err_ad_product"));
         return;
       }
-      if (adPaymentMethod === "points") {
-        const short = Math.max(0, selectedAdProduct.pointCost - pointBalance);
-        if (short > 0) {
-          setErr(t("philife_write_err_points_short", { amount: short.toLocaleString() }));
-          return;
-        }
-      }
-      if (adPaymentMethod === "bank_transfer" && !adDepositorName.trim()) {
-        setErr(t("philife_write_err_depositor"));
+      const short = Math.max(0, selectedAdProduct.pointCost - pointBalance);
+      if (short > 0) {
+        setErr(t("philife_write_err_points_short", { amount: short.toLocaleString() }));
         return;
       }
     }
@@ -715,6 +737,47 @@ export function PhilifeNeighborhoodWriteForm({
       }
       const authorId = getCurrentUser()?.id?.trim();
       if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
+
+      let promoFailed = false;
+      if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
+        try {
+          const idem =
+            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `promo-${Date.now()}`;
+          const applyRes = await fetch("/api/me/points/promotion-orders", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": idem,
+            },
+            body: JSON.stringify({
+              targetType: "community_post",
+              targetId: j.id,
+              targetTitle: title.trim() || undefined,
+              productId: selectedAdProduct.id,
+              idempotencyKey: idem,
+            }),
+          });
+          const aj = (await applyRes.json()) as { ok?: boolean; error?: string };
+          if (!applyRes.ok || !aj.ok) {
+            promoFailed = true;
+            console.warn("[philife/write] promotion-orders failed", aj?.error ?? applyRes.status);
+          }
+        } catch (e) {
+          promoFailed = true;
+          console.warn("[philife/write] promotion-orders", e);
+        }
+      }
+
+      if (promoFailed) {
+        window.alert(
+          t("philife_write_promo_failed") ||
+            "게시물은 등록됐지만 상위 노출 결제에 실패했습니다. 글 상세에서 다시 홍보해 주세요."
+        );
+      }
+
       /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
       if (onSheetExitBeforeNavigate) {
         await onSheetExitBeforeNavigate();
@@ -726,29 +789,6 @@ export function PhilifeNeighborhoodWriteForm({
         router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
       } else {
         router.replace(philifeAppPaths.post(j.id));
-      }
-      if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
-        void (async () => {
-          try {
-            const applyRes = await fetch("/api/ads/apply", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                postId: j.id,
-                adProductId: selectedAdProduct.id,
-                paymentMethod: adPaymentMethod,
-                depositorName: adPaymentMethod === "bank_transfer" ? adDepositorName.trim() : undefined,
-                memo: adMemo.trim() || undefined,
-              }),
-            });
-            const aj = (await applyRes.json()) as { ok?: boolean; error?: string };
-            if (!applyRes.ok || !aj.ok) {
-              console.warn("[philife/write] ads/apply failed", aj?.error ?? applyRes.status);
-            }
-          } catch(e) {
-            console.warn("[philife/write] ads/apply", e);
-          }
-        })();
       }
       } catch {
         setErr(t("philife_write_err_network_occurred"));
@@ -1168,6 +1208,9 @@ export function PhilifeNeighborhoodWriteForm({
               </label>
               {promoteAdEnabled ? (
                 <div className="mt-3 space-y-3 border-t border-sam-warning/20 pt-3">
+                  <p className="text-[12px] leading-snug text-[#65676B]">
+                    {t("philife_write_promo_immediate_hint")}
+                  </p>
                   <div className="flex items-center justify-between rounded-md border border-[#ccd0d5] bg-[#f0f2f5] px-3 py-2 text-[14px]">
                     <span className="font-medium text-[#050505]">{t("philife_write_my_points")}</span>
                     <span className="font-bold text-[#050505]">
@@ -1183,15 +1226,23 @@ export function PhilifeNeighborhoodWriteForm({
                       {adProducts.map((p) => {
                         const isSelected = selectedAdProduct?.id === p.id;
                         const lacking = Math.max(0, p.pointCost - pointBalance);
+                        const disabled = lacking > 0;
                         return (
                           <button
                             key={p.id}
                             type="button"
-                            onClick={() => setSelectedAdProduct(p)}
+                            disabled={disabled}
+                            onClick={() => {
+                              if (disabled) return;
+                              setSelectedAdProduct(p);
+                              setAdPaymentMethod("points");
+                            }}
                             className={`w-full rounded-sam-md border px-3 py-2.5 text-left transition-colors ${
-                              isSelected
-                                ? "border-sam-warning/40 bg-sam-warning-soft"
-                                : "border-sam-border bg-sam-surface hover:bg-sam-surface-muted"
+                              disabled
+                                ? "cursor-not-allowed border-sam-border/60 bg-sam-surface-muted opacity-60"
+                                : isSelected
+                                  ? "border-sam-warning/40 bg-sam-warning-soft"
+                                  : "border-sam-border bg-sam-surface hover:bg-sam-surface-muted"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -1226,51 +1277,12 @@ export function PhilifeNeighborhoodWriteForm({
                       })}
                     </div>
                   )}
-                  {selectedAdProduct ? (
-                    <div className="space-y-2">
-                      <p className="text-[13px] font-semibold text-sam-muted">{t("philife_write_payment_method")}</p>
-                      <div className="flex gap-2">
-                        {(["points", "bank_transfer"] as AdPaymentMethod[]).map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setAdPaymentMethod(m)}
-                            className={`flex-1 rounded-sam-md border py-2 text-[14px] font-semibold ${
-                              adPaymentMethod === m
-                                ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
-                                : "border-sam-border bg-sam-surface text-sam-fg"
-                            }`}
-                          >
-                            {m === "points" ? t("philife_write_payment_points") : t("philife_write_payment_bank")}
-                          </button>
-                        ))}
-                      </div>
-                      {adPaymentMethod === "points" && adShortfall > 0 ? (
-                        <p className="text-[13px] text-sam-danger">
-                          {t("philife_write_points_short_full", {
-                            amount: adShortfall.toLocaleString(pointsLocale),
-                          })}
-                        </p>
-                      ) : null}
-                      {adPaymentMethod === "bank_transfer" ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={adDepositorName}
-                            onChange={(e) => setAdDepositorName(e.target.value)}
-                            placeholder={t("philife_write_depositor_placeholder")}
-                            className={PHILIFE_WRITE_FB_CONTROL}
-                          />
-                          <input
-                            type="text"
-                            value={adMemo}
-                            onChange={(e) => setAdMemo(e.target.value)}
-                            placeholder={t("philife_write_memo_placeholder")}
-                            className={PHILIFE_WRITE_FB_CONTROL}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
+                  {selectedAdProduct && adShortfall > 0 ? (
+                    <p className="text-[13px] text-sam-danger">
+                      {t("philife_write_points_short_full", {
+                        amount: adShortfall.toLocaleString(pointsLocale),
+                      })}
+                    </p>
                   ) : null}
                 </div>
               ) : null}

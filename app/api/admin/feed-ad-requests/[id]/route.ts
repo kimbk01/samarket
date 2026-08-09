@@ -7,6 +7,8 @@ import {
 } from "@/lib/ads/feed-ad-creative-url";
 import { listEligibleFeedAdCampaigns } from "@/lib/ads/feed-ad-campaigns-db";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
+import { endFeedAdCampaign } from "@/lib/ads/end-feed-ad-campaign";
+import { projectFeedAdOpsTimeline } from "@/lib/ads/feed-ad-ops-presentation";
 import {
   isFeedAdCampaignEligibleNow,
   selectCampaignForPlacement,
@@ -76,7 +78,10 @@ export async function GET(
   let creatives: CreativeOut[] = [];
   let campaign: Record<string, unknown> | null = null;
 
-  if (campaignId && (status === "active" || status === "approved")) {
+  if (
+    campaignId &&
+    (status === "active" || status === "approved" || status === "ended")
+  ) {
     creativeAuthority = "campaign";
     const [{ data: camp }, { data: campCreatives }] = await Promise.all([
       sb.from("feed_ad_campaigns").select("*").eq("id", campaignId).maybeSingle(),
@@ -89,6 +94,14 @@ export async function GET(
     campaign = (camp as Record<string, unknown>) ?? null;
     creatives = (campCreatives ?? []).map((c) => mapCreative(c as Record<string, unknown>));
   } else {
+    if (campaignId) {
+      const { data: camp } = await sb
+        .from("feed_ad_campaigns")
+        .select("*")
+        .eq("id", campaignId)
+        .maybeSingle();
+      campaign = (camp as Record<string, unknown>) ?? null;
+    }
     const { data: reqCreatives } = await sb
       .from("feed_ad_request_creatives")
       .select("*")
@@ -96,6 +109,14 @@ export async function GET(
       .order("sort_order", { ascending: true });
     creatives = (reqCreatives ?? []).map((c) => mapCreative(c as Record<string, unknown>));
   }
+
+  const userId = String(row.user_id ?? "");
+  const { data: profile } = userId
+    ? await sb.from("profiles").select("nickname").eq("id", userId).maybeSingle()
+    : { data: null };
+  const memberLabel =
+    String((profile as { nickname?: string | null } | null)?.nickname ?? "").trim() ||
+    (userId ? `${userId.slice(0, 8)}…` : "—");
 
   const { data: holds } = await sb
     .from("feed_ad_point_holds")
@@ -132,7 +153,8 @@ export async function GET(
     ok: true,
     request: {
       id: String(row.id ?? ""),
-      userId: String(row.user_id ?? ""),
+      userId,
+      memberLabel,
       status,
       domain: String(row.domain ?? ""),
       placement: String(row.placement ?? ""),
@@ -185,15 +207,39 @@ export async function GET(
         campaignId && placementWinnerId && campaignId === placementWinnerId
       ),
     },
+    timeline: projectFeedAdOpsTimeline({
+      request: {
+        createdAt: String(row.created_at ?? ""),
+        status,
+        reviewReason: row.review_reason != null ? String(row.review_reason) : null,
+        reviewedAt: row.reviewed_at != null ? String(row.reviewed_at) : null,
+      },
+      campaign: campaign
+        ? {
+            status: String(campaign.status ?? ""),
+            startAt: campaign.start_at != null ? String(campaign.start_at) : null,
+            endAt: campaign.end_at != null ? String(campaign.end_at) : null,
+          }
+        : null,
+      holds: (holds ?? []).map((h) => {
+        const hr = h as Record<string, unknown>;
+        return {
+          amount: Number(hr.amount ?? 0),
+          status: String(hr.status ?? ""),
+          createdAt: String(hr.created_at ?? ""),
+        };
+      }),
+    }),
   });
 }
 
 /**
  * PATCH /api/admin/feed-ad-requests/[id]
  * actions:
- *   approve | reject — PHASE 1 writers
+ *   approve | reject | end — PHASE 1 / ops writers
  *   update — pending only: destination / durationDays (same request)
  *   replace_creative — same request creatives OR same campaign creatives
+ *   end — no auto refund (ADMIN_END_REFUND_POLICY_REQUIRED)
  */
 export async function PATCH(
   req: NextRequest,
@@ -211,6 +257,7 @@ export async function PATCH(
   let body: {
     action?: string;
     reason?: string;
+    campaignId?: string;
     destinationType?: string;
     destinationId?: string;
     destinationUrl?: string;
@@ -292,6 +339,30 @@ export async function PATCH(
       ok: true,
       status: result.status,
       campaignId: result.campaignId,
+    });
+  }
+
+  if (action === "end") {
+    // ADMIN_END_REFUND_POLICY_REQUIRED — no auto refund (CAPTURE already settled).
+    const result = await endFeedAdCampaign(sb, {
+      adminUserId: admin.userId,
+      requestId,
+      campaignId: body.campaignId != null ? String(body.campaignId) : null,
+      reason: body.reason != null ? String(body.reason) : "admin_ended",
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.httpStatus }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      status: result.status,
+      campaignId: result.campaignId,
+      requestId: result.requestId,
+      refund: false,
+      refundPolicy: "ADMIN_END_REFUND_POLICY_REQUIRED",
     });
   }
 

@@ -434,6 +434,9 @@ export const adminMessages = {
     admin_feed_req_hint: "상세에서 Creative·Destination 확인 후 승인/거절합니다.",
     admin_feed_req_reject: "거절",
     admin_feed_req_reject_prompt: "거절 사유 (필수)",
+    admin_feed_req_end: "광고 종료",
+    admin_feed_req_end_confirm:
+      "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 D-Point는 자동 환불되지 않습니다.",
     admin_feed_req_table_missing: "feed_ad_requests 마이그레이션이 필요합니다.",
     admin_feed_req_title: "피드 광고 신청",
     admin_feed_req_detail: "상세",
@@ -2516,6 +2519,9 @@ export const adminMessages = {
     admin_feed_req_hint: "Review Creative and Destination on the detail page, then approve or reject.",
     admin_feed_req_reject: "Reject",
     admin_feed_req_reject_prompt: "Reject reason (required)",
+    admin_feed_req_end: "End ad",
+    admin_feed_req_end_confirm:
+      "End this ad? It leaves the feed immediately. Captured D-Points are not auto-refunded.",
     admin_feed_req_table_missing: "feed_ad_requests migration required.",
     admin_feed_req_title: "Feed ad requests",
     admin_feed_req_detail: "Detail",

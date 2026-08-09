@@ -13,6 +13,7 @@ import {
   formatFeedAdWindowLabel,
   type FeedAdMemberDisplayStatus,
 } from "@/lib/ads/feed-ad-member-presentation";
+import { feedAdOpsStatusLabel } from "@/lib/ads/feed-ad-ops-presentation";
 import { isFeedAdDisplayStatusBlockingNewCreate } from "@/lib/ads/feed-ad-member-limit";
 import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
@@ -166,40 +167,8 @@ export default function MyAdsPageClient() {
     }
   };
 
-  const statusLabel = (displayOrRaw: string) => {
-    const s = displayOrRaw.trim().toLowerCase();
-    if (s === "pending_review" || s === "held" || s === "pending") {
-      return safeT("revenue_hub_status_pending", {
-        fallbackKo: "심사중",
-        fallbackEn: "In review",
-      });
-    }
-    if (s === "scheduled") {
-      return safeT("revenue_hub_status_scheduled", {
-        fallbackKo: "예정",
-        fallbackEn: "Scheduled",
-      });
-    }
-    if (s === "active" || s === "approved" || s === "captured") {
-      return safeT("revenue_hub_status_active", {
-        fallbackKo: "광고중",
-        fallbackEn: "Running",
-      });
-    }
-    if (s === "rejected") {
-      return safeT("revenue_hub_status_rejected", {
-        fallbackKo: "반려",
-        fallbackEn: "Rejected",
-      });
-    }
-    if (s === "expired" || s === "ended" || s === "cancelled") {
-      return safeT("revenue_hub_status_ended", {
-        fallbackKo: "종료",
-        fallbackEn: "Ended",
-      });
-    }
-    return displayOrRaw;
-  };
+  const statusLabel = (displayOrRaw: string) =>
+    feedAdOpsStatusLabel(displayOrRaw, language === "en" ? "en" : "ko");
 
   const openRenew = async (row: FeedRequestRow) => {
     setActionErr("");
@@ -439,6 +408,45 @@ export default function MyAdsPageClient() {
                                 {statusLabel(display)}
                               </span>
                             </div>
+                            <p className="mt-0.5 sam-text-helper text-sam-muted">
+                              {r.placement === "COMMUNITY_HOME"
+                                ? safeT("revenue_hub_feed_surface_hint", {
+                                    fallbackKo: "게재: 커뮤니티 피드 중간 광고",
+                                    fallbackEn: "Surface: Community mid-feed ad",
+                                  })
+                                : r.placement === "COMMUNITY_TOPIC"
+                                  ? safeT("revenue_hub_feed_surface_hint", {
+                                      fallbackKo: "게재: 해당 주제 피드 중간 광고",
+                                      fallbackEn: "Surface: Topic mid-feed ad",
+                                    })
+                                  : r.placement === "TRADE_HOME"
+                                    ? safeT("revenue_hub_feed_surface_hint", {
+                                        fallbackKo: "게재: 거래 홈 피드 중간 광고",
+                                        fallbackEn: "Surface: Trade home mid-feed ad",
+                                      })
+                                    : safeT("revenue_hub_feed_surface_hint", {
+                                        fallbackKo: "게재: 거래 카테고리 피드 중간 광고",
+                                        fallbackEn: "Surface: Trade category mid-feed ad",
+                                      })}
+                            </p>
+                            {(display === "active" || display === "scheduled") && (
+                              <a
+                                href={
+                                  r.placement === "COMMUNITY_TOPIC" && r.targetTopicSlug
+                                    ? `/philife?category=${encodeURIComponent(r.targetTopicSlug)}`
+                                    : r.domain === "trade"
+                                      ? "/market"
+                                      : "/philife"
+                                }
+                                className="mt-1 inline-block sam-text-helper font-medium text-sam-primary underline"
+                                data-testid="revenue-hub-feed-ad-surface-link"
+                              >
+                                {safeT("revenue_hub_feed_surface_cta", {
+                                  fallbackKo: "게재 위치 보기",
+                                  fallbackEn: "View placement",
+                                })}
+                              </a>
+                            )}
                             <p className="mt-0.5 sam-text-helper text-sam-muted">
                               {safeT("revenue_hub_applied_at", {
                                 fallbackKo: "신청일",

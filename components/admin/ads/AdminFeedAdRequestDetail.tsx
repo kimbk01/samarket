@@ -1,12 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { feedAdPlacementHumanLabel, isFeedAdCampaignEligibleNow, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
+import {
+  feedAdOpsStatusLabel,
+  projectFeedAdOpsProductStatus,
+  type FeedAdOpsTimelineEvent,
+} from "@/lib/ads/feed-ad-ops-presentation";
+import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { feedAdStandardPixelLabel } from "@/lib/ads/feed-ad-geometry";
 
 type DetailCreative = {
@@ -21,6 +25,7 @@ type DetailPayload = {
   request: {
     id: string;
     userId: string;
+    memberLabel?: string;
     status: string;
     domain: string;
     placement: string;
@@ -54,20 +59,55 @@ type DetailPayload = {
     placementWinnerCampaignId: string | null;
     isCurrentPlacementWinner: boolean;
   };
+  timeline?: FeedAdOpsTimelineEvent[];
 };
 
-export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
+function destinationSummary(
+  r: DetailPayload["request"],
+  en: boolean
+): { label: string; host?: string } {
+  const t = String(r.destinationType || "none").toLowerCase();
+  if (t === "none" || !t) {
+    return { label: en ? "No link" : "연결 없음" };
+  }
+  if (t === "external_url") {
+    try {
+      const host = new URL(r.destinationUrl).hostname;
+      return { label: en ? "External link" : "외부 링크", host };
+    } catch {
+      return { label: en ? "External link" : "외부 링크" };
+    }
+  }
+  if (t === "community_post") {
+    return { label: en ? "My post" : "내 게시물" };
+  }
+  if (t === "trade_listing") {
+    return { label: en ? "Trade listing" : "거래 상품" };
+  }
+  if (t === "store") {
+    return { label: en ? "Store" : "매장" };
+  }
+  return { label: en ? "Internal link" : "내부 연결" };
+}
+
+export function AdminFeedAdRequestDetail({
+  requestId,
+  onClose,
+  onChanged,
+}: {
+  requestId: string;
+  /** When set, render as AdminFormSheet (queue). Page route may omit and use router.back. */
+  onClose?: () => void;
+  onChanged?: () => void;
+}) {
   const { t, safeT, language } = useI18n();
   const en = language === "en";
   const router = useRouter();
+  const close = onClose ?? (() => router.push("/admin/ad-applications"));
   const [data, setData] = useState<DetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [destType, setDestType] = useState("internal_page");
-  const [destUrl, setDestUrl] = useState("");
-  const [destId, setDestId] = useState("");
-  const [durationDays, setDurationDays] = useState(7);
   const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
@@ -85,10 +125,6 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
         return;
       }
       setData(j as DetailPayload);
-      setDestType(j.request.destinationType || "internal_page");
-      setDestUrl(j.request.destinationUrl || "");
-      setDestId(j.request.destinationId || "");
-      setDurationDays(j.request.durationDays || 7);
     } finally {
       setLoading(false);
     }
@@ -98,39 +134,39 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
     void load();
   }, [load]);
 
-  const act = async (action: "approve" | "reject") => {
+  const productStatus = useMemo(() => {
+    if (!data) return "pending_review" as const;
+    return projectFeedAdOpsProductStatus({
+      requestStatus: data.request.status,
+      startAt: data.campaign?.startAt ?? null,
+      endAt: data.campaign?.endAt ?? null,
+    });
+  }, [data]);
+
+  const act = async (action: "approve" | "reject" | "end") => {
     let reason = "";
     if (action === "reject") {
       reason =
         window.prompt(
           safeT("admin_feed_req_reject_prompt", {
             fallbackKo: "거절 사유 (필수)",
-            fallbackEn: "Reject reason (required)",
-          }),
-          ""
-        ) ?? "";
-      if (!reason.trim()) return;
+            fallbackEn: "Rejection reason (required)",
+          })
+        )?.trim() ?? "";
+      if (!reason) return;
     }
-    setBusy(true);
-    setErr("");
-    try {
-      const res = await fetch(`/api/admin/feed-ad-requests/${requestId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? "failed");
-        return;
-      }
-      await load();
-    } finally {
-      setBusy(false);
+    if (action === "end") {
+      const ok = window.confirm(
+        safeT("admin_feed_req_end_confirm", {
+          fallbackKo:
+            "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 D-Point는 자동 환불되지 않습니다.",
+          fallbackEn:
+            "End this ad? It leaves the feed immediately. Captured D-Points are not auto-refunded.",
+        })
+      );
+      if (!ok) return;
+      reason = "admin_ended";
     }
-  };
-
-  const saveFields = async () => {
     setBusy(true);
     setErr("");
     try {
@@ -138,19 +174,18 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "update",
-          destinationType: destType,
-          destinationUrl: destUrl,
-          destinationId: destId,
-          durationDays,
+          action,
+          reason: reason || undefined,
+          campaignId: data?.campaign?.id ?? data?.request.campaignId ?? undefined,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "update_failed");
+        setErr(j.error ?? "action_failed");
         return;
       }
       await load();
+      onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -163,23 +198,15 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
       const fd = new FormData();
       fd.set("file", file);
       const up = await fetch("/api/admin/feed-ads/upload", { method: "POST", body: fd });
-      const uj = (await up.json().catch(() => ({}))) as {
-        ok?: boolean;
-        url?: string;
-        error?: string;
-      };
-      if (!up.ok || !uj.ok || !uj.url) {
+      const uj = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+      if (!up.ok || !uj.url) {
         setErr(uj.error ?? "upload_failed");
         return;
       }
       const res = await fetch(`/api/admin/feed-ad-requests/${requestId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "replace_creative",
-          sortOrder,
-          imageUrl: uj.url,
-        }),
+        body: JSON.stringify({ action: "replace_creative", imageUrl: uj.url, sortOrder }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
@@ -187,260 +214,65 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
         return;
       }
       await load();
+      onChanged?.();
     } finally {
       setUploading(false);
     }
   };
 
+  const title = safeT("admin_feed_req_detail_title", {
+    fallbackKo: "피드 광고 신청 상세",
+    fallbackEn: "Feed ad request detail",
+  });
+
   if (loading) {
     return (
-      <div className="p-6">
-        <AdminPageHeader titleKey="admin_menu_ads_applications" backHref="/admin/ad-applications" />
+      <AdminFormSheet title={title} onClose={close}>
         <p className="text-sam-muted">{t("common_loading")}</p>
-      </div>
+      </AdminFormSheet>
     );
   }
 
   if (!data) {
     return (
-      <div className="p-6 space-y-3">
-        <AdminPageHeader titleKey="admin_menu_ads_applications" backHref="/admin/ad-applications" />
+      <AdminFormSheet title={title} onClose={close}>
         <p className="text-sam-warning">{err || "not_found"}</p>
-        <Link href="/admin/ad-applications" className="text-sam-primary underline">
-          Back
-        </Link>
-      </div>
+      </AdminFormSheet>
     );
   }
 
   const r = data.request;
   const pending = r.status === "pending_review";
+  const canEnd =
+    productStatus === "active" ||
+    productStatus === "scheduled" ||
+    String(data.campaign?.status ?? "").toLowerCase() === "active" ||
+    String(data.campaign?.status ?? "").toLowerCase() === "scheduled";
   const primary = data.creatives[0];
+  const dest = destinationSummary(r, en);
+  const statusLabel = feedAdOpsStatusLabel(productStatus, en ? "en" : "ko");
+  const placementLabel = feedAdPlacementHumanLabel(r.placement as FeedAdPlacement, en ? "en" : "ko");
   const pixelLabel = feedAdStandardPixelLabel();
+  const openHref = (() => {
+    const dt = String(r.destinationType || "").toLowerCase();
+    if (dt === "external_url" && /^https?:\/\//i.test(r.destinationUrl)) {
+      return r.destinationUrl;
+    }
+    if (dt === "community_post" && r.destinationId) {
+      return `/philife/post/${encodeURIComponent(r.destinationId)}`;
+    }
+    if (dt === "trade_listing" && r.destinationId) {
+      return `/post/${encodeURIComponent(r.destinationId)}`;
+    }
+    if (r.destinationUrl.startsWith("/")) return r.destinationUrl;
+    return null;
+  })();
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
-      <AdminPageHeader titleKey="admin_menu_ads_applications" backHref="/admin/ad-applications" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="sam-text-title font-semibold text-sam-fg">
-          {safeT("admin_feed_req_detail_title", {
-            fallbackKo: "피드 광고 신청 상세",
-            fallbackEn: "Feed ad request detail",
-          })}
-        </h1>
-        <button
-          type="button"
-          className="sam-text-helper text-sam-primary underline"
-          onClick={() => void load()}
-        >
-          {en ? "Refresh" : "새로고침"}
-        </button>
-      </div>
 
-      {err ? <p className="sam-text-helper text-sam-warning">{err}</p> : null}
-
-      <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">
-          Request · {r.id}
-          {r.campaignId ? ` · Campaign · ${r.campaignId}` : ""}
-        </p>
-        <p className="sam-text-body font-medium">
-          {feedAdPlacementHumanLabel(r.placement as FeedAdPlacement, en ? "en" : "ko")}
-          {" · "}
-          {r.durationDays}
-          {en ? "d" : "일"} · {r.pointCost.toLocaleString()}P · {r.status}
-        </p>
-        <p className="sam-text-helper text-sam-muted" data-testid="admin-feed-req-target">
-          Domain {r.domain}
-          {r.targetTopicSlug ? ` · topic ${r.targetTopicSlug}` : ""}
-          {r.targetCategoryId ? ` · category ${r.targetCategoryId}` : ""}
-          {" · dest "}
-          {r.destinationType || "none"}
-          {r.destinationId ? ` · ${r.destinationId}` : ""}
-          {r.destinationUrl ? ` · ${r.destinationUrl}` : ""}
-        </p>
-        <p className="sam-text-helper text-sam-muted">
-          Member {r.userId.slice(0, 8)}… · {r.source} · {new Date(r.createdAt).toLocaleString()}
-        </p>
-        <p className="sam-text-helper text-sam-muted">
-          Billing:{" "}
-          {data.holds[0]
-            ? `${data.holds[0].status} (${data.holds[0].amount}P)`
-            : en
-              ? "none"
-              : "없음"}
-          {" · Creative authority: "}
-          {data.creativeAuthority}
-        </p>
-        {data.campaign ? (
-          <p
-            className="sam-text-helper text-sam-muted"
-            data-testid="admin-feed-req-eligibility"
-          >
-            Campaign {data.campaign.status}
-            {data.campaign.startAt
-              ? ` · ${new Date(data.campaign.startAt).toLocaleString()} → ${
-                  data.campaign.endAt
-                    ? new Date(data.campaign.endAt).toLocaleString()
-                    : "—"
-                }`
-              : ""}
-            {" · "}
-            {isFeedAdCampaignEligibleNow({
-              status: data.campaign.status as "active",
-              startAt: data.campaign.startAt,
-              endAt: data.campaign.endAt,
-            })
-              ? en
-                ? "Eligible now"
-                : "현재 노출 가능"
-              : en
-                ? "Not eligible now"
-                : "현재 미노출"}
-          </p>
-        ) : null}
-        {data.deliveryDiagnose ? (
-          <p
-            className="sam-text-helper text-sam-muted"
-            data-testid="admin-feed-req-delivery-diagnose"
-          >
-            {en ? "Delivery" : "Delivery"}
-            {": "}
-            {en ? "creative reachable" : "이미지 reachable"}=
-            {data.deliveryDiagnose.creativeUrlReachable ? "yes" : "no"}
-            {data.deliveryDiagnose.creativeUrlRejectReason
-              ? ` (${data.deliveryDiagnose.creativeUrlRejectReason})`
-              : ""}
-            {" · "}
-            {en ? "placement winner" : "placement 승자"}=
-            {data.deliveryDiagnose.placementWinnerCampaignId
-              ? `${data.deliveryDiagnose.placementWinnerCampaignId.slice(0, 8)}…`
-              : "none"}
-            {" · "}
-            {data.deliveryDiagnose.isCurrentPlacementWinner
-              ? en
-                ? "this campaign is today’s winner"
-                : "이 캠페인이 오늘 승자"
-              : en
-                ? "not today’s winner (day-bucket OK)"
-                : "오늘 승자 아님(day-bucket 정상 가능)"}
-          </p>
-        ) : null}
-        {r.reviewReason ? (
-          <p className="sam-text-helper text-sam-warning">{r.reviewReason}</p>
-        ) : null}
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="sam-text-body font-semibold">
-          {safeT("admin_feed_req_creative", {
-            fallbackKo: "Creative (저장된 이미지)",
-            fallbackEn: "Persisted creative",
-          })}
-        </h2>
-        <p className="sam-text-helper text-sam-muted" data-testid="admin-feed-req-pixel">
-          {safeT("admin_feed_req_pixel", {
-            fallbackKo: `표준 배너 크기: ${pixelLabel}`,
-            fallbackEn: `Standard banner size: ${pixelLabel}`,
-          })}
-          {" · JPG · PNG · WebP · "}
-          {en ? "max 2MB" : "최대 2MB"}
-        </p>
-        {primary?.imageUrl ? (
-          <FeedAdFramePreview
-            density={r.domain === "community" ? "community" : "trade"}
-            imageUrl={primary.imageUrl}
-            headline={primary.headline}
-            alt={primary.altText}
-          />
-        ) : (
-          <p className="sam-text-helper text-sam-muted">No creative</p>
-        )}
-        <p className="break-all sam-text-helper text-sam-muted" data-testid="admin-feed-req-persisted-url">
-          {primary?.imageUrl || "—"}
-        </p>
-        {data.creatives.map((c) => (
-          <div key={c.id || c.sortOrder} className="flex flex-wrap items-center gap-2">
-            <span className="sam-text-helper">#{c.sortOrder}</span>
-            <label className="cursor-pointer rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper">
-              {uploading
-                ? t("common_loading")
-                : safeT("admin_feed_req_replace_image", {
-                    fallbackKo: "PC에서 이미지 불러오기",
-                    fallbackEn: "Load image from PC",
-                  })}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                disabled={uploading || busy}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void replaceImage(f, c.sortOrder);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
-        ))}
-      </section>
-
+  const footer = (
+    <div className="flex flex-wrap gap-2">
       {pending ? (
-        <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="sam-text-body font-semibold">
-            {safeT("admin_feed_req_edit", {
-              fallbackKo: "Destination / 기간 (승인 전)",
-              fallbackEn: "Destination / period (pending)",
-            })}
-          </h2>
-          <select
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-            value={destType}
-            onChange={(e) => setDestType(e.target.value)}
-          >
-            <option value="none">{en ? "None" : "연결 없음"}</option>
-            <option value="internal_page">{en ? "Internal page" : "내부 경로"}</option>
-            <option value="external_url">{en ? "External URL" : "외부 URL"}</option>
-            <option value="trade_listing">{en ? "Trade listing" : "거래 글"}</option>
-            <option value="community_post">{en ? "Community post" : "커뮤니티 글"}</option>
-            <option value="store">{en ? "Store" : "매장"}</option>
-          </select>
-          <input
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-            value={destUrl}
-            onChange={(e) => setDestUrl(e.target.value)}
-            placeholder={destType === "external_url" ? "https://…" : "/path"}
-          />
-          <input
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-            value={destId}
-            onChange={(e) => setDestId(e.target.value)}
-            placeholder="destination id (listing/post/store)"
-          />
-          <label className="block sam-text-helper text-sam-muted">
-            {en ? "Duration days" : "기간(일)"}
-            <input
-              type="number"
-              min={1}
-              max={90}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2"
-              value={durationDays}
-              onChange={(e) => setDurationDays(Number(e.target.value) || 1)}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body disabled:opacity-50"
-            onClick={() => void saveFields()}
-          >
-            {safeT("common_save", { fallbackKo: "저장", fallbackEn: "Save" })}
-          </button>
-        </section>
-      ) : null}
-
-      {pending ? (
-        <div className="flex gap-2">
+        <>
           <button
             type="button"
             data-testid="admin-feed-req-detail-approve"
@@ -457,18 +289,170 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
             className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
             onClick={() => void act("reject")}
           >
-            {safeT("admin_feed_req_reject", { fallbackKo: "거절", fallbackEn: "Reject" })}
+            {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
           </button>
-        </div>
+        </>
       ) : null}
-
+      {canEnd && !pending ? (
+        <button
+          type="button"
+          data-testid="admin-feed-req-detail-end"
+          disabled={busy}
+          className="rounded-ui-rect border border-sam-danger px-4 py-2 text-sam-danger disabled:opacity-50"
+          onClick={() => void act("end")}
+        >
+          {safeT("admin_feed_req_end", { fallbackKo: "광고 종료", fallbackEn: "End ad" })}
+        </button>
+      ) : null}
       <button
         type="button"
-        className="sam-text-helper text-sam-muted underline"
-        onClick={() => router.push("/admin/ad-applications")}
+        className="rounded-ui-rect border border-sam-border px-4 py-2"
+        onClick={close}
       >
-        {en ? "Back to queue" : "큐로 돌아가기"}
+        {en ? "Close" : "닫기"}
       </button>
     </div>
+  );
+
+  return (
+    <AdminFormSheet
+      title={title}
+      subtitle={`${statusLabel} · ${r.domain === "trade" ? "Trade" : "Community"} · ${placementLabel}`}
+      onClose={close}
+      footer={footer}
+    >
+      {err ? <p className="mb-3 sam-text-helper text-sam-warning">{err}</p> : null}
+
+      <section className="mb-4 space-y-1 rounded-ui-rect border border-sam-border bg-sam-app p-3">
+        <p className="sam-text-body font-semibold text-sam-fg">
+          <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-helper">
+            {statusLabel}
+          </span>
+          {" · "}
+          {r.durationDays}
+          {en ? "d" : "일"} · {r.pointCost.toLocaleString()}P
+        </p>
+        <p className="sam-text-helper text-sam-muted">
+          {en ? "Member" : "회원"} · {r.memberLabel || `${r.userId.slice(0, 8)}…`}
+        </p>
+        {r.targetTopicSlug ? (
+          <p className="sam-text-helper text-sam-muted">
+            Topic · {r.targetTopicSlug}
+          </p>
+        ) : null}
+        {r.targetCategoryId ? (
+          <p className="sam-text-helper text-sam-muted">
+            Category · {r.targetCategoryId.slice(0, 8)}…
+          </p>
+        ) : null}
+        {data.deliveryDiagnose ? (
+          <p className="sam-text-helper text-sam-muted" data-testid="admin-feed-req-delivery-diagnose">
+            Delivery · reachable=
+            {data.deliveryDiagnose.creativeUrlReachable ? "yes" : "no"}
+            {" · "}
+            {data.deliveryDiagnose.isCurrentPlacementWinner
+              ? en
+                ? "today’s winner"
+                : "오늘 승자"
+              : en
+                ? "not today’s winner"
+                : "오늘 승자 아님"}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="mb-4 space-y-2">
+        <h3 className="sam-text-body font-semibold">
+          {safeT("admin_feed_req_creative", {
+            fallbackKo: "Creative",
+            fallbackEn: "Creative",
+          })}
+        </h3>
+        <p className="sam-text-helper text-sam-muted">
+          {safeT("admin_feed_req_pixel", {
+            fallbackKo: `표준 배너 크기: ${pixelLabel}`,
+            fallbackEn: `Standard banner size: ${pixelLabel}`,
+          })}
+        </p>
+        {primary?.imageUrl ? (
+          <FeedAdFramePreview
+            density={r.domain === "community" ? "community" : "trade"}
+            imageUrl={primary.imageUrl}
+            headline={primary.headline}
+            alt={primary.altText}
+          />
+        ) : (
+          <p className="sam-text-helper text-sam-muted">No creative</p>
+        )}
+        {pending
+          ? data.creatives.map((c) => (
+              <label
+                key={c.id || c.sortOrder}
+                className="inline-flex cursor-pointer rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper"
+              >
+                {uploading
+                  ? t("common_loading")
+                  : safeT("admin_feed_req_replace_image", {
+                      fallbackKo: "PC에서 이미지 불러오기",
+                      fallbackEn: "Load image from PC",
+                    })}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading || busy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void replaceImage(f, c.sortOrder);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            ))
+          : null}
+      </section>
+
+      <section className="mb-4 space-y-1">
+        <h3 className="sam-text-body font-semibold">
+          {en ? "Destination" : "연결"}
+        </h3>
+        <p className="sam-text-helper text-sam-fg">
+          {dest.label}
+          {dest.host ? ` · ${dest.host}` : ""}
+        </p>
+        {openHref ? (
+          <a
+            href={openHref}
+            target="_blank"
+            rel="noreferrer"
+            className="sam-text-helper text-sam-primary underline"
+          >
+            {en ? "Open link" : "연결 확인"}
+          </a>
+        ) : null}
+        {r.reviewReason && productStatus === "rejected" ? (
+          <p className="sam-text-helper text-sam-warning">
+            {en ? "Reason" : "사유"}: {r.reviewReason}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="sam-text-body font-semibold">
+          {en ? "History" : "이력"}
+        </h3>
+        <ul className="space-y-1">
+          {(data.timeline ?? []).map((ev) => (
+            <li key={ev.id} className="sam-text-helper text-sam-muted">
+              {new Date(ev.at).toLocaleString()} · {en ? ev.labelEn : ev.labelKo}
+              {ev.detail ? ` · ${ev.detail}` : ""}
+            </li>
+          ))}
+          {(data.timeline ?? []).length === 0 ? (
+            <li className="sam-text-helper text-sam-muted">—</li>
+          ) : null}
+        </ul>
+      </section>
+    </AdminFormSheet>
   );
 }
