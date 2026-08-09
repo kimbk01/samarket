@@ -1140,7 +1140,11 @@ export function PhilifeNeighborhoodWriteForm({
             </>
           )}
 
-          {category !== "meetup" && writeTopicOptions.length > 0 ? (
+          {/*
+            Write-form top promote UI HIDDEN.
+            A2 top exposure SSOT = post detail「게시물 홍보하기」(MemberPostPromoteSheet).
+          */}
+          {false && category !== "meetup" && writeTopicOptions.length > 0 ? (
             <section className={PHILIFE_WRITE_FB_SECTION} aria-label={t("philife_write_ad_section_aria")}>
               <label className="flex cursor-pointer items-start gap-3">
                 <input

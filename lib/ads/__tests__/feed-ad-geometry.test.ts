@@ -58,8 +58,15 @@ describe("feed ad geometry SSOT — card-rhythm fixed height + cover", () => {
       path.join(process.cwd(), "components/ads/FeedAdBannerCarousel.tsx"),
       "utf8"
     );
-    expect(carousel).toMatch(/objectFit\s*=\s*["']cover["']/);
+    const thumb = fs.readFileSync(
+      path.join(process.cwd(), "components/common/SamarketThumbnail.tsx"),
+      "utf8"
+    );
+    // Cover is forced inside SamarketThumbnail (thumbnail-contract); do not reopen contain prop.
     expect(carousel).toContain("SamarketThumbnail");
+    expect(carousel).not.toMatch(/object-contain/);
+    expect(thumb).toContain('objectFit: "cover"');
+    expect(thumb).not.toMatch(/object-contain/);
   });
 
   it("media height stays list-card sized across widths (no width÷3 hero)", () => {
