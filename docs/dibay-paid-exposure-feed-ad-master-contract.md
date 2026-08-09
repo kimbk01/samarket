@@ -1,7 +1,8 @@
 # DIBAY D-Point Paid Exposure / Member Feed Ad Request
 
 **MASTER IMPLEMENTATION CONTRACT**
-Status: **IN FORCE** (2026-08-08) — replaces prior “Feed Ad = Admin free CMS only” product surface lock.
+Status: **IN FORCE** (2026-08-08) — replaces prior “Feed Ad = Admin free CMS only” product surface lock.  
+**Product B (Feed Banner):** **CLOSED / PASS** (2026-08-09) — HARD LOCK `docs/dibay-feed-banner-product-hard-lock.md` · commit `e04be170d` · prod `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB`.  
 Ledger KEEP: D-Point Ledger SSOT · Financial Surface · Business Credit separation.
 
 ## 0. Two revenue axes (+ admin ops)
