@@ -13,6 +13,7 @@ import {
   formatFeedAdWindowLabel,
   type FeedAdMemberDisplayStatus,
 } from "@/lib/ads/feed-ad-member-presentation";
+import { isFeedAdDisplayStatusBlockingNewCreate } from "@/lib/ads/feed-ad-member-limit";
 import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 
@@ -47,6 +48,7 @@ export default function MyAdsPageClient() {
   const [ads, setAds] = useState<AdminPostAdRow[]>([]);
   const [meta, setMeta] = useState<MePostAdsMeta | null>(null);
   const [feedRequests, setFeedRequests] = useState<FeedRequestRow[]>([]);
+  const [canCreateBanner, setCanCreateBanner] = useState(true);
   const [loading, setLoading] = useState(true);
   const [authHint, setAuthHint] = useState<string | null>(null);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
@@ -81,6 +83,8 @@ export default function MyAdsPageClient() {
           const body = (await res.json().catch(() => ({}))) as {
             ok?: boolean;
             requests?: FeedRequestRow[];
+            canCreateBanner?: boolean;
+            currentBanner?: { requestId?: string; displayStatus?: string } | null;
           };
           return { status: res.status, body };
         }).catch(() => null),
@@ -91,6 +95,7 @@ export default function MyAdsPageClient() {
         setAds([]);
         setMeta(null);
         setFeedRequests([]);
+        setCanCreateBanner(true);
         return;
       }
       if (postPack.body.ok && Array.isArray(postPack.body.ads)) {
@@ -102,13 +107,23 @@ export default function MyAdsPageClient() {
       }
       if (feedPack && feedPack.status === 200 && Array.isArray(feedPack.body.requests)) {
         setFeedRequests(feedPack.body.requests);
+        if (typeof feedPack.body.canCreateBanner === "boolean") {
+          setCanCreateBanner(feedPack.body.canCreateBanner);
+        } else {
+          const blocked = feedPack.body.requests.some((r) =>
+            isFeedAdDisplayStatusBlockingNewCreate(r.displayStatus ?? r.status)
+          );
+          setCanCreateBanner(!blocked);
+        }
       } else {
         setFeedRequests([]);
+        setCanCreateBanner(true);
       }
     } catch {
       setAds([]);
       setMeta(null);
       setFeedRequests([]);
+      setCanCreateBanner(true);
     } finally {
       setLoading(false);
     }
@@ -270,7 +285,6 @@ export default function MyAdsPageClient() {
           fallbackEn: "Manage post exposure and feed banner ads.",
         })}
         backHref="/mypage"
-        section="store"
       />
       <div className="mx-auto max-w-lg px-4 py-4 space-y-4">
         {authHint ? (
@@ -329,18 +343,32 @@ export default function MyAdsPageClient() {
                 "Show an image ad between posts. D-Point is held until admin approval.",
             })}
           </p>
-          <Link
-            href="/mypage/ads/feed-request"
-            className="mt-3 block w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2.5 text-center sam-text-body font-semibold text-amber-900"
-          >
-            {safeT("revenue_hub_banner_cta", {
-              fallbackKo: "광고 만들기",
-              fallbackEn: "Create an ad",
-            })}
-          </Link>
+          {canCreateBanner ? (
+            <Link
+              href="/mypage/ads/feed-request"
+              className="mt-3 block w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2.5 text-center sam-text-body font-semibold text-amber-900"
+              data-testid="revenue-hub-banner-create"
+            >
+              {safeT("revenue_hub_banner_cta", {
+                fallbackKo: "광고 만들기",
+                fallbackEn: "Create an ad",
+              })}
+            </Link>
+          ) : (
+            <a
+              href="#feed-ad-status"
+              className="mt-3 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-4 py-2.5 text-center sam-text-body font-semibold text-sam-fg"
+              data-testid="revenue-hub-banner-manage"
+            >
+              {safeT("revenue_hub_banner_manage_cta", {
+                fallbackKo: "현재 광고 관리",
+                fallbackEn: "Manage current ad",
+              })}
+            </a>
+          )}
         </section>
 
-        <section className="space-y-2">
+        <section id="feed-ad-status" className="space-y-2">
           <h2 className="sam-text-body font-semibold text-sam-fg">
             {safeT("revenue_hub_status_title", {
               fallbackKo: "배너 광고 현황",
@@ -464,7 +492,8 @@ export default function MyAdsPageClient() {
                                   })}
                             </button>
                           ) : null}
-                          {r.status === "rejected" ? (
+                          {(r.status === "rejected" || display === "ended" || display === "cancelled") &&
+                          canCreateBanner ? (
                             <Link
                               href="/mypage/ads/feed-request"
                               className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper"

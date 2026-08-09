@@ -28,11 +28,19 @@ export async function GET() {
         user_charges: 0,
         reports: 0,
         alerts: 0,
+        feed_ad_requests: 0,
       },
     });
   }
 
-  const [storeChargesRes, userChargesRes, reportsRes, storeReportsRes, alertsRes] = await Promise.all([
+  const [
+    storeChargesRes,
+    userChargesRes,
+    reportsRes,
+    storeReportsRes,
+    alertsRes,
+    feedAdRes,
+  ] = await Promise.all([
     sb
       .from("store_point_charge_requests")
       .select("id", { count: "exact", head: true })
@@ -57,6 +65,11 @@ export async function GET() {
       .from("delivery_operation_alert_events")
       .select("id", { count: "exact", head: true })
       .in("event_status", ["open", "acknowledged"]),
+
+    sb
+      .from("feed_ad_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending_review"),
   ]);
 
   const storeCharges = storeChargesRes.error ? 0 : storeChargesRes.count ?? 0;
@@ -66,8 +79,12 @@ export async function GET() {
       : userChargesRes.count ?? 0;
   const reports = (reportsRes.count ?? 0) + (storeReportsRes.count ?? 0);
   const alerts = alertsRes.count ?? 0;
+  const feedAdRequests =
+    feedAdRes.error && /feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")
+      ? 0
+      : feedAdRes.count ?? 0;
   const charges = storeCharges + userCharges;
-  const total = charges + reports + alerts;
+  const total = charges + reports + alerts + feedAdRequests;
 
   return NextResponse.json({
     ok: true,
@@ -78,6 +95,7 @@ export async function GET() {
       user_charges: userCharges,
       reports,
       alerts,
+      feed_ad_requests: feedAdRequests,
     },
   });
 }

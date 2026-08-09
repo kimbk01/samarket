@@ -44,10 +44,10 @@ function resolveHref(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): string
 /**
  * In-feed Advertisement sector (1 slot · up to 3 creatives).
  * Empty campaign → null (no reserved height / blank shell).
- * Geometry SSOT: `lib/ads/feed-ad-geometry.ts` — not a hero banner.
+ * Geometry SSOT: `lib/ads/feed-ad-geometry.ts` — card-rhythm fixed height + cover.
  *
- * Multi-slide: auto-advance right→left (index++) with seamless loop.
- * Width: host-aligned via fill + density height tokens (no fixed size={720}).
+ * Multi-slide: Admin Direct may have >1; Member Product B is 1 creative.
+ * Width: host-aligned; height matches list thumbs (not unbounded 3:1 hero).
  */
 export function FeedAdBannerCarousel({
   domain,
@@ -290,7 +290,8 @@ function FeedAdBannerCarouselView({
                       src={s.imageUrl}
                       fill
                       roundedClassName="rounded-ui-rect"
-                      className="!h-full !w-full"
+                      className="!h-full !w-full bg-sam-app"
+                      objectFit="cover"
                       alt={s.altText || campaign.name || altFallback}
                     />
                   </Link>

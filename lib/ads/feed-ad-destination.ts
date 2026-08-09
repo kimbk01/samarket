@@ -39,7 +39,7 @@ export function feedAdMemberViewHref(input: {
   }
   if (p === "COMMUNITY_HOME") return "/philife";
   if (p === "COMMUNITY_TOPIC") {
-    const slug = (input.targetTopicSlug ?? "").trim();
+    const slug = (input.targetTopicSlug ?? "").trim().toLowerCase();
     return slug ? `/philife?category=${encodeURIComponent(slug)}` : "/philife";
   }
   return "/market";

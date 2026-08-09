@@ -159,6 +159,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-applications": "admin_menu_ads_applications",
   "ads-paid": "admin_menu_ads_paid",
   "ads-feed": "admin_menu_ads_feed",
+  "ads-feed-products": "admin_menu_ads_feed_products",
   "ads-legacy": "admin_menu_ads_legacy",
   "ads-products": "admin_menu_ads_products",
   "ads-post-ads": "admin_menu_ads_posts",
@@ -652,6 +653,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "ads-applications", title: "", path: "/admin/ad-applications", status: "done" },
           { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
           { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+          {
+            key: "ads-feed-products",
+            title: "",
+            path: "/admin/feed-ad-products",
+            status: "done",
+          },
           {
             key: "ads-legacy",
             title: "",

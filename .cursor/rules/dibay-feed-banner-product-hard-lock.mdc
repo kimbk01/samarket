@@ -12,7 +12,7 @@ alwaysApply: true
 - **FEED BANNER PRODUCT PASS** — FINAL E2E A–F · `FINAL FIRST BREAK: NONE`
 - Commit: `e04be170d` · Prod: `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB` · Alias: `https://samarket.vercel.app`
 - Evidence: `.qa-logs/feed-banner-final-e2e-20260809/REPORT.json`
-- **NOT claimed:** Legacy cleanup · Analytics · Notification · stale Playwright UI e2e · Native Cap
+- **NOT claimed:** Legacy cleanup · Analytics · Native Cap
 
 ## KEEP (without reopen — doc §1)
 
@@ -20,16 +20,19 @@ alwaysApply: true
 |---|---|
 | Slot | N=4 |
 | Rotation | day-bucket |
-| Geometry | OPTION B |
+| Geometry | **REOPENED Operating UX** — source 1200×400; runtime fixed list-thumb height + object-cover (Community 72→88 / Trade 100) |
 | Eligibility | resolver-only (`active` + start≤now + end>now) |
 | Financial | HOLD/CAPTURE/RELEASE/RENEW |
+| Price/period | **REOPENED** — DB `feed_ad_products` SSOT (Admin writer); request snapshot |
 | Native | ZERO CHANGE |
 
 ## DO NOT (without reopen — doc §3)
 
 - Reopen Phase 1/2 financial writers for “cleanup”
-- Change slot N / day-bucket / OPTION B geometry
-- Mix Legacy cleanup / Analytics / Notification into banner product work
+- Change slot N / day-bucket
+- Revert creative to unbounded aspect-3:1 + object-contain hero strip
+- Dual CODE+DB runtime prices
+- Mix Legacy cleanup / Analytics into banner product work
 - Touch Native Cap / Auth / Push / Badge for Feed Banner
 - Merge Post promotion (A) or Admin Direct (C) into member Feed Banner (B)
 - Call residual deferred tracks “PASS” without new evidence
@@ -42,5 +45,6 @@ alwaysApply: true
 | Approve CAPTURE | `approve-feed-ad-request.ts` |
 | Reject/cancel RELEASE | approve reject · `cancel-feed-ad-request.ts` |
 | Renew | `renew-feed-ad-campaign.ts` |
-| Price/period | `lib/ads/feed-ad-products.ts` (CODE) |
+| Price/period | `feed_ad_products` DB + `lib/ads/feed-ad-products.ts` readers |
 | Feed inject | `shouldInjectFeedAdAfterContentIndex` (N=4) |
+| Admin ops badge | `/api/admin/admin-bell` `feed_ad_requests` pending_review COUNT |

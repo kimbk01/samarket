@@ -6,8 +6,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
-  FEED_AD_MEDIA_ASPECT_CLASS,
   FEED_AD_RECOMMENDED_UPLOAD,
+  feedAdMediaClass,
+  feedAdMediaHeightClass,
 } from "@/lib/ads/feed-ad-geometry";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 
@@ -395,8 +396,8 @@ export function AdminFeedAdCreatePage() {
         </h2>
         <p className="sam-text-helper text-sam-muted">
           {safeT("admin_feed_ads_image_ratio_hint", {
-            fallbackKo: `권장 비율 ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (예: ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). 피드에서는 같은 비율로 잘려 보입니다.`,
-            fallbackEn: `Recommended ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (e.g. ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). Feed crops to the same ratio.`,
+            fallbackKo: `권장 비율 ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (예: ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). 피드에서는 리스트 카드 높이로 맞춰 보입니다.`,
+            fallbackEn: `Recommended ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (e.g. ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). Feed uses list-card height.`,
           })}
         </p>
         <div className="grid gap-3 md:grid-cols-3">
@@ -408,11 +409,11 @@ export function AdminFeedAdCreatePage() {
                 <img
                   src={s.previewUrl || s.imageUrl}
                   alt={s.altText || `slide ${i + 1}`}
-                  className={`mb-2 ${FEED_AD_MEDIA_ASPECT_CLASS} w-full rounded-ui-rect object-cover`}
+                  className={`mb-2 ${feedAdMediaClass(domain === "community" ? "community" : "trade")} rounded-ui-rect`}
                 />
               ) : (
                 <div
-                  className={`mb-2 flex ${FEED_AD_MEDIA_ASPECT_CLASS} items-center justify-center rounded-ui-rect bg-sam-app text-sam-muted`}
+                  className={`mb-2 flex ${feedAdMediaHeightClass(domain === "community" ? "community" : "trade")} w-full items-center justify-center rounded-ui-rect bg-sam-app text-sam-muted`}
                 >
                   {uploading === i ? t("common_loading") : "—"}
                 </div>

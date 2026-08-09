@@ -18,7 +18,6 @@ import {
 import {
   feedAdMediaClass,
   getFeedAdCreativeSpec,
-  FEED_AD_MEDIA_ASPECT_CLASS,
 } from "@/lib/ads/feed-ad-geometry";
 import { renewFeedAdCampaign } from "@/lib/ads/renew-feed-ad-campaign";
 import { creditUserPoints, spendUserPoints } from "@/lib/points/user-point-ledger";
@@ -73,7 +72,31 @@ function makeRenewDb(state: {
   requests: Row[];
   ledger: Row[];
   failCampaignUpdate?: boolean;
+  products?: Row[];
 }) {
+  const products: Row[] = state.products ?? [
+    {
+      id: "feed_banner_trade_7",
+      domain: "trade",
+      duration_days: 7,
+      point_cost: 15000,
+      title_ko: "거래 7일",
+      title_en: "Trade 7d",
+      sort_order: 20,
+      is_active: true,
+    },
+    {
+      id: "feed_banner_trade_3",
+      domain: "trade",
+      duration_days: 3,
+      point_cost: 8000,
+      title_ko: "거래 3일",
+      title_en: "Trade 3d",
+      sort_order: 10,
+      is_active: true,
+    },
+  ];
+
   function matchEq(row: Row, filters: { col: string; val: unknown }[]) {
     return filters.every((f) => String(row[f.col]) === String(f.val));
   }
@@ -107,6 +130,10 @@ function makeRenewDb(state: {
         return api;
       },
       maybeSingle: async () => {
+        if (table === "feed_ad_products") {
+          const row = products.find((r) => matchEq(r, filters)) ?? null;
+          return { data: row, error: null };
+        }
         if (table === "feed_ad_campaigns") {
           if (mode === "update" && payload) {
             if (state.failCampaignUpdate) return { data: null, error: { message: "upd_fail" } };
@@ -244,13 +271,16 @@ describe("PHASE 3 slot + rotation (D5–D8)", () => {
     expect(picked?.id).toBeTruthy();
   });
 
-  it("D7 preview geometry tokens match runtime media class", () => {
+  it("D7 preview geometry tokens match runtime media class (card-rhythm)", () => {
     const trade = getFeedAdCreativeSpec("trade");
     const community = getFeedAdCreativeSpec("community");
     expect(trade.mediaClass).toBe(feedAdMediaClass("trade"));
     expect(community.mediaClass).toBe(feedAdMediaClass("community"));
-    expect(trade.aspectClass).toBe(FEED_AD_MEDIA_ASPECT_CLASS);
     expect(trade.objectFit).toBe("cover");
+    expect(trade.mediaClass).toContain("object-cover");
+    expect(trade.mediaClass).toContain("h-[100px]");
+    expect(trade.mediaClass).not.toContain("aspect-[3/1]");
+    expect(community.mediaClass).toContain("h-[72px]");
   });
 
   it("D8 pagination: single slot index only (no every-N)", () => {

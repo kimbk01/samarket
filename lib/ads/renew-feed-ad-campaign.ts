@@ -76,7 +76,7 @@ export async function renewFeedAdCampaign(
     return { ok: false, error: "re_review_required", httpStatus: 409 };
   }
 
-  const product = getFeedAdProduct(params.productId);
+  const product = await getFeedAdProduct(sb, params.productId);
   if (!product) {
     return { ok: false, error: "product_not_found", httpStatus: 400 };
   }

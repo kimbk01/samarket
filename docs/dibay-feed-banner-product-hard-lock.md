@@ -55,9 +55,9 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 |---|---|
 | Slot | **N=4 KEEP** — `FEED_AD_SLOT_AFTER_CONTENT_COUNT` / `shouldInjectFeedAdAfterContentIndex` |
 | Rotation | **day-bucket KEEP** — `selectCampaignForPlacement` |
-| Geometry | **OPTION B KEEP** — one master creative; runtime density height + cover (`lib/ads/feed-ad-geometry.ts`) |
+| Geometry | **REOPENED 2026-08-09 (Card-rhythm correction)** — source 1200×400; runtime **fixed list-thumb height + object-cover** (Community 72→88 / Trade 100). Former unbounded aspect 3:1 + contain (hero strip) superseded. |
+| Price/period | **REOPENED 2026-08-09** — runtime SSOT = DB `feed_ad_products` (Admin writer). CODE seed = deploy reference only. Request still snapshots `duration_days`/`point_cost`. |
 | Eligibility | Resolver-only; no cron status writer to flip expired campaigns |
-| Price / period | CODE SSOT `lib/ads/feed-ad-products.ts` |
 | Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend (not second hold) |
 | Native | **ZERO CHANGE** |
 
@@ -73,12 +73,13 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 
 | Concern | Owner (final) | Forbidden without reopen |
 |---|---|---|
-| Member create + HOLD | `POST /api/me/feed-ad-requests` + point-hold writers | Capture-before-persist; inventing prices outside CODE catalog |
+| Member create + HOLD | `POST /api/me/feed-ad-requests` + point-hold writers | Capture-before-persist; inventing prices outside `feed_ad_products` |
 | Approve CAPTURE + campaign activate | `lib/ads/approve-feed-ad-request.ts` | Leaving ACTIVE without capture; skipping compensate on post-capture failure |
 | Reject / cancel RELEASE | approve reject path · `cancel-feed-ad-request.ts` | Double-release / silent skip of hold row |
 | Renewal | `lib/ads/renew-feed-ad-campaign.ts` + `POST .../renew` | Treating renew as new request without re-review when creative/destination change |
+| Price / period | DB `feed_ad_products` via Admin PATCH + `lib/ads/feed-ad-products.ts` readers | Dual CODE+DB runtime prices; rewriting past request snapshots |
 | Eligibility read | placement/campaigns-db resolver (`end_at > now`) | Cron that rewrites campaign status solely for expiry |
-| Feed injection | Community / Trade list slot helpers (N=4) | Changing slot interval / geometry option / carousel multi-master without reopen |
+| Feed injection | Community / Trade list slot helpers (N=4) | Changing slot interval / inventing second creative viewport without reopen |
 | Admin creative replace | Admin detail PATCH path | Queue-only approve without persisted creative review |
 
 ### Required migration (runtime)
@@ -90,8 +91,10 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 ## 3. DO NOT (without explicit reopen)
 
 - Reopen Phase 1/2 financial writers “for cleanup”
-- Change slot N, day-bucket rotation, or Geometry OPTION B
-- Mix Legacy cleanup / Analytics / Notification into this product commit stream
+- Change slot N or day-bucket rotation
+- Revert card-rhythm fixed-height + cover back to unbounded aspect-3:1 + contain hero strip without measured reopen
+- Dual price authority (CODE constants + DB) for runtime catalog
+- Mix Legacy cleanup / Analytics into this product commit stream
 - Touch Native Cap / Auth / Push / Badge as part of Feed Banner
 - Claim Playwright UI e2e PASS from the stale member banner UI spec
 - Hollow product PASS by deleting FINAL evidence references

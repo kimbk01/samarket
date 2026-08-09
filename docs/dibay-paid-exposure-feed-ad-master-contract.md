@@ -21,15 +21,15 @@ Ledger KEEP: D-Point Ledger SSOT · Financial Surface · Business Credit separat
 |--------|------------|-----:|----------:|----------|------|
 | trade | `trade_promote_7` | 7 | 500 | none (active) | TRADE_HOME + category · page0 ≤3 |
 | trade | `trade_promote_14` | 14 | 900 | none | same |
-| community | `community_promote_3` | 3 | **10000** | pending → Admin | Community feed TOP (pin) |
-| community | `community_promote_7` | 7 | **20000** | pending → Admin | same |
+| community | `community_promote_3` | 3 | **10000** | **none (active)** — A2 immediate | Community feed TOP (pin) |
+| community | `community_promote_7` | 7 | **20000** | **none (active)** — A2 immediate | same |
 
 Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade price copy).
 
-**CTA copy:** 「게시물 홍보」 / 「게시물 더 알리기」 · badge 「홍보」
-**DO NOT:** call Feed Ad 「광고」; guarantee #1 pin; dual long-term writers (`post_ads` spend/refund vs promotion).
+**CTA copy:** 「게시물 홍보」 / 「피드 상단 노출」 · badge 「홍보」
+**DO NOT:** call Feed Ad 「광고」; guarantee #1 pin; dual-long-term writers (`post_ads` spend/refund vs promotion); reopen `post_ads` `top_fixed` NEW writes.
 
-Community approval reason: moderation of paid pin content (legacy `pending_review`) — **KEEP approval**, replace spend→refund with **hold→capture|release** when migrating apply path.
+**Community A2 (2026-08-09):** Write-form / promote purchase → `applyCommunityPaidExposureImmediate` → ledger spend + `order_status=active` → `/api/ads/active`. **No admin approve on new purchases.** Legacy `pending_review` + HOLD path remains only for in-flight rows / `requiresAdminApproval` products.
 
 ## 2. Product B — Member Feed Ad Request
 

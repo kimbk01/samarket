@@ -12,7 +12,10 @@ import {
 } from "@/lib/points/point-promotion-orders-db";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 import type { PointPromotionTargetType } from "@/lib/types/point";
-import { applyCommunityPaidExposurePending } from "@/lib/promotion/apply-community-paid-exposure";
+import {
+  applyCommunityPaidExposureImmediate,
+  applyCommunityPaidExposurePending,
+} from "@/lib/promotion/apply-community-paid-exposure";
 import { readUserPointBalance } from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
@@ -165,15 +168,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userNickname = body.userNickname?.trim() || String(profile?.nickname ?? "");
   const targetTitle = body.targetTitle?.trim() ?? "";
 
-  if (product.domain === "community" && product.requiresAdminApproval) {
-    const applied = await applyCommunityPaidExposurePending(sb, {
-      userId: auth.userId,
-      postId: targetId,
-      productId: product.id,
-      targetTitle,
-      userNickname,
-      idempotencyKey,
-    });
+  if (product.domain === "community") {
+    const applied = product.requiresAdminApproval
+      ? await applyCommunityPaidExposurePending(sb, {
+          userId: auth.userId,
+          postId: targetId,
+          productId: product.id,
+          targetTitle,
+          userNickname,
+          idempotencyKey,
+        })
+      : await applyCommunityPaidExposureImmediate(sb, {
+          userId: auth.userId,
+          postId: targetId,
+          productId: product.id,
+          targetTitle,
+          userNickname,
+          idempotencyKey,
+        });
     if (!applied.ok) {
       const status =
         applied.error === "insufficient_balance"
@@ -184,7 +196,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               ? 403
               : applied.error === "target_not_found"
                 ? 404
-                : 400;
+                : applied.error === "target_unavailable"
+                  ? 400
+                  : 400;
       return NextResponse.json(
         { ok: false, error: applied.error, code: applied.error },
         { status }
@@ -199,14 +213,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? mapPointPromotionOrderRow(orderRow as Record<string, unknown>)
       : null;
     const balanceAfter = await readUserPointBalance(sb, auth.userId);
+    const pendingReview = applied.status === "pending_review";
     return NextResponse.json({
       ok: true,
       order,
       balanceAfter,
-      pendingReview: true,
+      pendingReview,
       productId: product.id,
       pointCost: product.pointCost,
       endAt: applied.endAt,
+      startAt: applied.startAt,
       status: applied.status,
     });
   }

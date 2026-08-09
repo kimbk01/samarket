@@ -1,8 +1,9 @@
 /**
- * Community Paid Exposure apply (pending + HOLD).
+ * Community Paid Exposure — point_promotion_orders authority.
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
- * Entitlement: point_promotion_orders. Money: promotion_point_holds.
- * DO NOT insert post_ads.
+ * NEW member purchase (A2): immediate spend + active (no admin).
+ * Legacy pending+HOLD path kept only for requiresAdminApproval products / in-flight orders.
+ * DO NOT insert post_ads. DO NOT use Trade RPC (posts table) for community.
  */
 
 import { randomUUID } from "node:crypto";
@@ -12,6 +13,7 @@ import {
   getMemberPromotionProduct,
   type MemberPromotionProduct,
 } from "@/lib/points/promotion-products";
+import { creditUserPoints, spendUserPoints } from "@/lib/points/user-point-ledger";
 import {
   captureHeldPointsForPromotionOrder,
   holdPointsForPromotionOrder,
@@ -22,13 +24,40 @@ export type ApplyCommunityPromotionResult =
   | {
       ok: true;
       orderId: string;
-      status: "pending_review";
+      status: "pending_review" | "active";
       endAt: string;
       pointCost: number;
       productId: string;
       holdId?: string;
+      startAt?: string;
     }
   | { ok: false; error: string };
+
+async function resolveOwnedCommunityPost(
+  sb: SupabaseClient,
+  postId: string,
+  userId: string
+): Promise<{ ok: true; canonicalId: string; title: string } | { ok: false; error: string }> {
+  const canonicalId = await resolveCanonicalCommunityPostIdForAds(sb, postId, userId);
+  if (!canonicalId) return { ok: false, error: "target_not_found" };
+
+  const { data: post } = await sb
+    .from("community_posts")
+    .select("id, title, user_id, status")
+    .eq("id", canonicalId)
+    .maybeSingle();
+  if (!post?.id) return { ok: false, error: "target_not_found" };
+  if (String(post.user_id) !== userId) return { ok: false, error: "forbidden" };
+  const st = String((post as { status?: string }).status ?? "").toLowerCase();
+  if (st && st !== "active" && st !== "published") {
+    return { ok: false, error: "target_unavailable" };
+  }
+  return {
+    ok: true,
+    canonicalId,
+    title: String((post as { title?: string }).title ?? ""),
+  };
+}
 
 export async function applyCommunityPaidExposurePending(
   sb: SupabaseClient,
@@ -66,25 +95,13 @@ export async function applyCommunityPaidExposurePending(
     };
   }
 
-  const canonicalId = await resolveCanonicalCommunityPostIdForAds(
-    sb,
-    input.postId,
-    input.userId
-  );
-  if (!canonicalId) return { ok: false, error: "target_not_found" };
-
-  const { data: post } = await sb
-    .from("community_posts")
-    .select("id, title, user_id, status")
-    .eq("id", canonicalId)
-    .maybeSingle();
-  if (!post?.id) return { ok: false, error: "target_not_found" };
-  if (String(post.user_id) !== input.userId) return { ok: false, error: "forbidden" };
+  const owned = await resolveOwnedCommunityPost(sb, input.postId, input.userId);
+  if (!owned.ok) return owned;
 
   const { data: conflict } = await sb
     .from("point_promotion_orders")
     .select("id")
-    .eq("target_id", canonicalId)
+    .eq("target_id", owned.canonicalId)
     .eq("domain", "community")
     .in("order_status", ["pending_review", "active"])
     .limit(1);
@@ -95,15 +112,14 @@ export async function applyCommunityPaidExposurePending(
   const orderId = randomUUID();
   const now = new Date();
   const end = new Date(now.getTime() + product.durationDays * 86_400_000);
-  const title =
-    input.targetTitle?.trim() || String((post as { title?: string }).title ?? "");
+  const title = input.targetTitle?.trim() || owned.title;
 
   const { error: insErr } = await sb.from("point_promotion_orders").insert({
     id: orderId,
     user_id: input.userId,
     user_nickname: (input.userNickname ?? "").slice(0, 120),
     target_type: "community_post",
-    target_id: canonicalId,
+    target_id: owned.canonicalId,
     target_title: title.slice(0, 500),
     placement: product.placementPolicy,
     duration_days: product.durationDays,
@@ -138,6 +154,128 @@ export async function applyCommunityPaidExposurePending(
     pointCost: product.pointCost,
     productId: product.id,
     holdId: hold.holdId,
+  };
+}
+
+/**
+ * A2 — Community top exposure: immediate D-Point spend + active entitlement.
+ * No HOLD, no admin approve/reject on this path.
+ */
+export async function applyCommunityPaidExposureImmediate(
+  sb: SupabaseClient,
+  input: {
+    userId: string;
+    postId: string;
+    productId: string;
+    targetTitle?: string;
+    userNickname?: string;
+    idempotencyKey: string;
+  }
+): Promise<ApplyCommunityPromotionResult> {
+  const product = getMemberPromotionProduct(input.productId);
+  if (!product || product.domain !== "community" || product.requiresAdminApproval) {
+    return { ok: false, error: "invalid_product" };
+  }
+
+  const key = input.idempotencyKey.trim();
+  if (!key) return { ok: false, error: "invalid_input" };
+
+  const { data: existingKey } = await sb
+    .from("point_promotion_orders")
+    .select("id, order_status, start_at, end_at, point_cost, product_id")
+    .eq("user_id", input.userId)
+    .eq("idempotency_key", key)
+    .maybeSingle();
+  if (existingKey?.id) {
+    return {
+      ok: true,
+      orderId: String(existingKey.id),
+      status: String(existingKey.order_status) === "active" ? "active" : "pending_review",
+      startAt: String(existingKey.start_at ?? ""),
+      endAt: String(existingKey.end_at ?? ""),
+      pointCost: Number(existingKey.point_cost ?? product.pointCost),
+      productId: String(existingKey.product_id ?? product.id),
+    };
+  }
+
+  const owned = await resolveOwnedCommunityPost(sb, input.postId, input.userId);
+  if (!owned.ok) return owned;
+
+  const { data: conflict } = await sb
+    .from("point_promotion_orders")
+    .select("id")
+    .eq("target_id", owned.canonicalId)
+    .eq("domain", "community")
+    .in("order_status", ["pending_review", "active"])
+    .limit(1);
+  if ((conflict ?? []).length > 0) {
+    return { ok: false, error: "already_active_promotion" };
+  }
+
+  const orderId = randomUUID();
+  const now = new Date();
+  const end = new Date(now.getTime() + product.durationDays * 86_400_000);
+  const title = input.targetTitle?.trim() || owned.title;
+  const startAt = now.toISOString();
+  const endAt = end.toISOString();
+
+  const spent = await spendUserPoints(sb, {
+    userId: input.userId,
+    amount: product.pointCost,
+    entryType: "spend",
+    relatedType: "promotion_order",
+    relatedId: orderId,
+    description: `커뮤니티 게시물 상위 노출 (${product.durationDays}일)`,
+    actorType: "user",
+  });
+  if (!spent.ok) {
+    return {
+      ok: false,
+      error:
+        spent.code === "insufficient_balance" || spent.error === "insufficient_balance"
+          ? "insufficient_balance"
+          : spent.error || "point_mutation_failed",
+    };
+  }
+
+  const { error: insErr } = await sb.from("point_promotion_orders").insert({
+    id: orderId,
+    user_id: input.userId,
+    user_nickname: (input.userNickname ?? "").slice(0, 120),
+    target_type: "community_post",
+    target_id: owned.canonicalId,
+    target_title: title.slice(0, 500),
+    placement: product.placementPolicy,
+    duration_days: product.durationDays,
+    point_cost: product.pointCost,
+    order_status: "active",
+    start_at: startAt,
+    end_at: endAt,
+    product_id: product.id,
+    domain: "community",
+    idempotency_key: key,
+  });
+  if (insErr) {
+    await creditUserPoints(sb, {
+      userId: input.userId,
+      amount: product.pointCost,
+      entryType: "refund",
+      relatedType: "promotion_order",
+      relatedId: `compensate:${orderId}`,
+      description: "커뮤니티 상위 노출 신청 실패 환불",
+      actorType: "system",
+    });
+    return { ok: false, error: insErr.message || "insert_failed" };
+  }
+
+  return {
+    ok: true,
+    orderId,
+    status: "active",
+    startAt,
+    endAt,
+    pointCost: product.pointCost,
+    productId: product.id,
   };
 }
 

@@ -1714,7 +1714,8 @@ export function CommunityFeed({
                       topicSlug={
                         isAllTabView || !categoryParam.trim()
                           ? undefined
-                          : category.trim() || undefined
+                          : // SSOT = URL ?category=<slug> (same authority as campaign.target_topic_slug)
+                            categoryParamNorm || undefined
                       }
                     />
                   ) : null}

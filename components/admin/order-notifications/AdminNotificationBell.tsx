@@ -7,17 +7,33 @@ import { Tier1HeaderBellGlyph } from "@/lib/ui/tier1-header-glyphs";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 
 /**
- * 어드민 전용 알림 벨 — Tier1 글리프·뱃지 스타일 통일, /admin/reports 이동.
+ * Admin ops bell — badge SSOT = pending-action COUNTs from /api/admin/admin-bell.
+ * Deep-link prefers Feed Banner queue when pending_review > 0.
  */
 export function AdminNotificationBell() {
   const { t } = useI18n();
-  const { adminBellCount: count } = useAdminStorePointPendingCount();
+  const {
+    adminBellCount: count,
+    feedAdPendingCount,
+    pendingCount,
+    userChargePendingCount,
+  } = useAdminStorePointPendingCount();
+
+  const href =
+    feedAdPendingCount > 0
+      ? "/admin/ad-applications"
+      : pendingCount > 0
+        ? "/admin/store-point-charges"
+        : userChargePendingCount > 0
+          ? "/admin/point-charges"
+          : "/admin/reports";
 
   return (
     <Link
-      href="/admin/reports"
+      href={href}
       className={`relative ${SAM_TIER1_HEADER_ACTION_BTN_CLASS}`}
       aria-label={t("admin_order_notif_bell")}
+      data-testid="admin-ops-bell"
     >
       <Tier1HeaderBellGlyph />
       {count > 0 ? (

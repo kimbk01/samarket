@@ -4,7 +4,15 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import { projectFeedAdMemberPresentation } from "@/lib/ads/feed-ad-member-presentation";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import {
+  isFeedAdCommunityTopicTargetAllowed,
+  normalizeFeedAdTopicSlug,
+} from "@/lib/ads/feed-ad-placement";
 import { getFeedAdProduct, listActiveFeedAdProducts } from "@/lib/ads/feed-ad-products";
+import {
+  FEED_AD_POTENTIALLY_OPEN_REQUEST_STATUSES,
+  findCurrentFeedAdBanner,
+} from "@/lib/ads/feed-ad-member-limit";
 import { holdPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -67,12 +75,13 @@ export async function GET(req: NextRequest) {
   }
 
   const domain = (req.nextUrl.searchParams.get("domain") || "").trim() as FeedAdDomain | "";
-  const catalog = listActiveFeedAdProducts(domain || undefined);
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: true, requests: [], catalog });
+    return NextResponse.json({ ok: true, requests: [], catalog: [] });
   }
+
+  const catalog = await listActiveFeedAdProducts(sb, domain || undefined);
 
   const { data, error } = await sb
     .from("feed_ad_requests")
@@ -146,20 +155,33 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const mapped = rows.map((r) => {
+    const id = String(r.id ?? "");
+    const cid = r.campaign_id != null ? String(r.campaign_id) : "";
+    const camp = cid ? campById.get(cid) : undefined;
+    return mapRequestRow(r, {
+      creatives: byReq.get(id) ?? [],
+      startAt: camp?.startAt ?? null,
+      endAt: camp?.endAt ?? null,
+      holdStatus: holdByReq.get(id) ?? null,
+    });
+  });
+
+  const currentBanner = findCurrentFeedAdBanner(
+    mapped.map((r) => ({
+      id: r.id,
+      status: r.status,
+      startAt: r.startAt,
+      endAt: r.endAt,
+    }))
+  );
+
   return NextResponse.json({
     ok: true,
-    requests: rows.map((r) => {
-      const id = String(r.id ?? "");
-      const cid = r.campaign_id != null ? String(r.campaign_id) : "";
-      const camp = cid ? campById.get(cid) : undefined;
-      return mapRequestRow(r, {
-        creatives: byReq.get(id) ?? [],
-        startAt: camp?.startAt ?? null,
-        endAt: camp?.endAt ?? null,
-        holdStatus: holdByReq.get(id) ?? null,
-      });
-    }),
+    requests: mapped,
     catalog,
+    currentBanner,
+    canCreateBanner: currentBanner == null,
   });
 }
 
@@ -200,7 +222,7 @@ export async function POST(req: NextRequest) {
     .trim()
     .slice(0, 128);
 
-  const product = getFeedAdProduct(String(body.productId ?? ""));
+  const product = await getFeedAdProduct(sb, String(body.productId ?? ""));
   if (!product) {
     return NextResponse.json({ ok: false, error: "product_not_found" }, { status: 400 });
   }
@@ -220,6 +242,63 @@ export async function POST(req: NextRequest) {
         status: String((existing as { status?: string }).status ?? "pending_review"),
         idempotentReplay: true,
       });
+    }
+  }
+
+  // ONE MEMBER = ONE CURRENT BANNER — block second open lifecycle before creatives/HOLD.
+  {
+    const { data: openRows } = await sb
+      .from("feed_ad_requests")
+      .select("id, status, campaign_id, start_at, end_at")
+      .eq("user_id", auth.userId)
+      .in("status", [...FEED_AD_POTENTIALLY_OPEN_REQUEST_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    const openList = (openRows ?? []) as Record<string, unknown>[];
+    const campaignIds = openList
+      .map((r) => (r.campaign_id != null ? String(r.campaign_id) : ""))
+      .filter(Boolean);
+    const campWindows = new Map<string, { startAt: string | null; endAt: string | null }>();
+    if (campaignIds.length) {
+      const { data: camps } = await sb
+        .from("feed_ad_campaigns")
+        .select("id, start_at, end_at")
+        .in("id", campaignIds);
+      for (const c of camps ?? []) {
+        const row = c as Record<string, unknown>;
+        campWindows.set(String(row.id ?? ""), {
+          startAt: row.start_at != null ? String(row.start_at) : null,
+          endAt: row.end_at != null ? String(row.end_at) : null,
+        });
+      }
+    }
+
+    const current = findCurrentFeedAdBanner(
+      openList.map((r) => {
+        const cid = r.campaign_id != null ? String(r.campaign_id) : "";
+        const camp = cid ? campWindows.get(cid) : undefined;
+        return {
+          id: String(r.id ?? ""),
+          status: String(r.status ?? ""),
+          startAt:
+            camp?.startAt ??
+            (r.start_at != null ? String(r.start_at) : null),
+          endAt:
+            camp?.endAt ?? (r.end_at != null ? String(r.end_at) : null),
+        };
+      })
+    );
+    if (current) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "current_banner_exists",
+          requestId: current.requestId,
+          displayStatus: current.displayStatus,
+        },
+        { status: 409 }
+      );
     }
   }
 
@@ -245,18 +324,30 @@ export async function POST(req: NextRequest) {
   if (placement === "COMMUNITY_TOPIC" && !String(body.targetTopicSlug ?? "").trim()) {
     return NextResponse.json({ ok: false, error: "topic_required" }, { status: 400 });
   }
+  const topicSlugNorm =
+    placement === "COMMUNITY_TOPIC"
+      ? normalizeFeedAdTopicSlug(String(body.targetTopicSlug ?? ""))
+      : "";
+  if (placement === "COMMUNITY_TOPIC" && !isFeedAdCommunityTopicTargetAllowed(topicSlugNorm)) {
+    return NextResponse.json({ ok: false, error: "topic_not_targetable" }, { status: 400 });
+  }
 
-  const creatives = (Array.isArray(body.creatives) ? body.creatives : [])
+  // Member Product B contract: 1 request = 1 primary creative.
+  // DB may still allow multi-creative for Admin Direct — do not drop schema.
+  const creativesRaw = (Array.isArray(body.creatives) ? body.creatives : [])
     .map((c) => ({
       imageUrl: String(c.imageUrl ?? "").trim(),
       altText: String(c.altText ?? "").trim(),
       headline: String(c.headline ?? "").trim(),
     }))
-    .filter((c) => c.imageUrl.length > 0)
-    .slice(0, 3);
-  if (creatives.length < 1) {
+    .filter((c) => c.imageUrl.length > 0);
+  if (creativesRaw.length < 1) {
     return NextResponse.json({ ok: false, error: "creatives_required" }, { status: 400 });
   }
+  if (creativesRaw.length > 1) {
+    return NextResponse.json({ ok: false, error: "creatives_max_one" }, { status: 400 });
+  }
+  const creatives = creativesRaw.slice(0, 1);
 
   const dest = normalizeFeedAdDestination({
     destinationType: String(body.destinationType ?? "none"),
@@ -277,8 +368,7 @@ export async function POST(req: NextRequest) {
     placement,
     target_category_id:
       placement === "TRADE_CATEGORY" ? String(body.targetCategoryId ?? "").trim() : null,
-    target_topic_slug:
-      placement === "COMMUNITY_TOPIC" ? String(body.targetTopicSlug ?? "").trim() : null,
+    target_topic_slug: placement === "COMMUNITY_TOPIC" ? topicSlugNorm : null,
     destination_type: dest.value.destinationType,
     destination_id: dest.value.destinationId,
     destination_url: dest.value.destinationUrl,

@@ -14,6 +14,7 @@ import {
   compensateFeedAdPointHold,
   releaseHeldPointsForFeedAdRequest,
 } from "@/lib/ads/feed-ad-request-point-flow";
+import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
 
 export type ApproveFeedAdRequestResult =
   | { ok: true; status: "active"; campaignId: string }
@@ -140,7 +141,9 @@ export async function approveFeedAdRequest(
         domain: String(row.domain),
         placement: String(row.placement),
         target_category_id: row.target_category_id,
-        target_topic_slug: row.target_topic_slug,
+        target_topic_slug: row.target_topic_slug
+          ? normalizeFeedAdTopicSlug(String(row.target_topic_slug))
+          : null,
         status: "draft",
         priority: 50,
         start_at: now.toISOString(),

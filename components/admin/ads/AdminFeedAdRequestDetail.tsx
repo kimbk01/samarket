@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { feedAdPlacementHumanLabel, isFeedAdCampaignEligibleNow, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import { feedAdStandardPixelLabel } from "@/lib/ads/feed-ad-geometry";
 
 type DetailCreative = {
   id: string;
@@ -26,6 +27,8 @@ type DetailPayload = {
     productId: string;
     pointCost: number;
     durationDays: number;
+    targetCategoryId?: string | null;
+    targetTopicSlug?: string | null;
     destinationType: string;
     destinationId: string;
     destinationUrl: string;
@@ -206,6 +209,7 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
   const r = data.request;
   const pending = r.status === "pending_review";
   const primary = data.creatives[0];
+  const pixelLabel = feedAdStandardPixelLabel();
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6">
@@ -238,6 +242,15 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
           {" · "}
           {r.durationDays}
           {en ? "d" : "일"} · {r.pointCost.toLocaleString()}P · {r.status}
+        </p>
+        <p className="sam-text-helper text-sam-muted" data-testid="admin-feed-req-target">
+          Domain {r.domain}
+          {r.targetTopicSlug ? ` · topic ${r.targetTopicSlug}` : ""}
+          {r.targetCategoryId ? ` · category ${r.targetCategoryId}` : ""}
+          {" · dest "}
+          {r.destinationType || "none"}
+          {r.destinationId ? ` · ${r.destinationId}` : ""}
+          {r.destinationUrl ? ` · ${r.destinationUrl}` : ""}
         </p>
         <p className="sam-text-helper text-sam-muted">
           Member {r.userId.slice(0, 8)}… · {r.source} · {new Date(r.createdAt).toLocaleString()}
@@ -291,6 +304,14 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
             fallbackEn: "Persisted creative",
           })}
         </h2>
+        <p className="sam-text-helper text-sam-muted" data-testid="admin-feed-req-pixel">
+          {safeT("admin_feed_req_pixel", {
+            fallbackKo: `표준 배너 크기: ${pixelLabel}`,
+            fallbackEn: `Standard banner size: ${pixelLabel}`,
+          })}
+          {" · JPG · PNG · WebP · "}
+          {en ? "max 2MB" : "최대 2MB"}
+        </p>
         {primary?.imageUrl ? (
           <FeedAdFramePreview
             density={r.domain === "community" ? "community" : "trade"}
@@ -311,8 +332,8 @@ export function AdminFeedAdRequestDetail({ requestId }: { requestId: string }) {
               {uploading
                 ? t("common_loading")
                 : safeT("admin_feed_req_replace_image", {
-                    fallbackKo: "이미지 교체",
-                    fallbackEn: "Replace image",
+                    fallbackKo: "PC에서 이미지 불러오기",
+                    fallbackEn: "Load image from PC",
                   })}
               <input
                 type="file"

@@ -54,7 +54,6 @@ export function MyAdsApplyPageClient() {
         title={t("mypage_ads_apply_title")}
         subtitle={t("mypage_ads_apply_subtitle")}
         backHref="/mypage/ads"
-        section="store"
         hideCtaStrip
       />
       <div className="mx-auto max-w-lg px-4 py-4">

@@ -3,6 +3,10 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
 import type { FeedAdDomain, FeedAdPlacement, FeedAdDestinationType } from "@/lib/ads/feed-ad-placement";
+import {
+  isFeedAdCommunityTopicTargetAllowed,
+  normalizeFeedAdTopicSlug,
+} from "@/lib/ads/feed-ad-placement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +62,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const placement = (body.placement ??
     (domain === "trade" ? "TRADE_HOME" : "COMMUNITY_HOME")) as FeedAdPlacement;
 
+  if (
+    placement === "COMMUNITY_TOPIC" &&
+    !isFeedAdCommunityTopicTargetAllowed(String(body.targetTopicSlug ?? ""))
+  ) {
+    return NextResponse.json({ ok: false, error: "topic_not_targetable" }, { status: 400 });
+  }
+
+  const topicSlugNorm =
+    placement === "COMMUNITY_TOPIC"
+      ? normalizeFeedAdTopicSlug(String(body.targetTopicSlug ?? ""))
+      : null;
+
   const { data: camp, error } = await sb
     .from("feed_ad_campaigns")
     .insert({
@@ -65,7 +81,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       domain,
       placement,
       target_category_id: body.targetCategoryId?.trim() || null,
-      target_topic_slug: body.targetTopicSlug?.trim() || null,
+      target_topic_slug: topicSlugNorm,
       status: body.status === "active" ? "active" : "draft",
       priority: Number(body.priority ?? 100),
       start_at: body.startAt || null,

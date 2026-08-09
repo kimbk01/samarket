@@ -1,72 +1,86 @@
 /**
- * In-feed Advertisement geometry SSOT (PHASE 3 LOCK — OPTION B).
+ * In-feed Advertisement geometry SSOT — CARD-RHYTHM (2026-08-09 correction).
  *
- * One Master Creative → runtime crop/cover per host density.
- * Placement variants (OPTION A) rejected unless measured crop loss proves need.
+ * AD CARD SIZE ≠ SOURCE PIXEL SIZE.
  *
- * CONTRACT chain (same module):
- *   PLACEMENT density → CREATIVE SPEC → Member/Admin uploader hint
- *   → Member/Admin preview (FeedAdFramePreview) → Runtime (FeedAdBannerCarousel)
+ * SOURCE ASSET (upload): 1200 × 400 px (3:1 landscape master).
+ * RUNTIME VIEWPORT: fixed height matching list-card thumbs — NOT full-width
+ * unbounded aspect-[3/1] (that became a hero strip on tablet/desktop).
  *
- * DO NOT invent preview-only hardcoded dimensions.
- * DO NOT force runtime to CSS aspect-3/1 (tablet/Windows width shrink regression).
+ * Reference (code / list SSOT — live DOM failed while /philife errored):
+ *   Community ListThumb: 72 → sm 80 → md 88 (square)
+ *   Trade ProductCard:   100 × 100
  *
- * Measured host baselines (2026-08-08 DOM):
- *   Trade phone row ≈ 120–123px (thumb ≈ 96)
- *   Community phone row ≈ 136px (thumb ≈ 72)
+ * DO NOT restore responsive aspect-[3/1] + object-contain as the feed card.
+ * DO NOT grow media height with content width.
  *
- * LOCK (width): Runtime media = fixed height tokens + `w-full` + object-cover.
- * Upload hint aspect stays 3:1 for source creatives only.
+ * CONTRACT chain:
+ *   CREATIVE SPEC (1200×400) → Member/Admin uploader
+ *   → FeedAdFramePreview → FeedAdBannerCarousel (Community + Trade)
  */
 
 export type FeedAdHostDensity = "trade" | "community";
 
-/**
- * Soft creative frame (W:H) — upload / Admin preview hint only.
- * Runtime display height is density height tokens (not aspect-driven).
- */
+/** Source / upload aspect (not runtime CSS aspect-ratio). */
 export const FEED_AD_MEDIA_ASPECT_W = 3;
 export const FEED_AD_MEDIA_ASPECT_H = 1;
 export const FEED_AD_MEDIA_ASPECT_RATIO = `${FEED_AD_MEDIA_ASPECT_W} / ${FEED_AD_MEDIA_ASPECT_H}`;
 
-/** Tailwind aspect utility for upload/preview surfaces (not consumer media class). */
+/**
+ * @deprecated Runtime no longer uses CSS aspect-[3/1]. Kept for upload/source docs.
+ * Prefer feedAdMediaHeightClass.
+ */
 export const FEED_AD_MEDIA_ASPECT_CLASS = "aspect-[3/1]";
 
-/** Auto-advance interval (multi-slide). Right→left, loops. */
+/** Auto-advance interval (Admin multi-slide only). Right→left, loops. */
 export const FEED_AD_SLIDE_INTERVAL_MS = 4000;
 /** CSS transform duration for slide move. */
 export const FEED_AD_SLIDE_TRANSITION_MS = 400;
 
-/**
- * Media height by host density (DOM-matched to host thumb / row family).
- * Trade thumb ≈ 96 → media 88–96. Community host taller text row → slightly taller strip.
- * Fixed `h-*` (not max-h + aspect) so width stays 100% of host on all breakpoints.
- */
-export function feedAdMediaHeightClass(density: FeedAdHostDensity): string {
-  if (density === "community") {
-    return "h-[96px] sm:h-[100px] md:h-[104px]";
-  }
-  return "h-[88px] sm:h-[92px] md:h-[96px]";
-}
+export const FEED_AD_STANDARD_UPLOAD_WIDTH_PX = 1200;
+export const FEED_AD_STANDARD_UPLOAD_HEIGHT_PX = 400;
+export const FEED_AD_UPLOAD_MAX_FILE_BYTES = 2 * 1024 * 1024;
 
-/** @deprecated Prefer feedAdMediaHeightClass(density). */
-export function feedAdMediaMaxHClass(density: FeedAdHostDensity): string {
-  return feedAdMediaHeightClass(density);
-}
-
-/** @deprecated Prefer feedAdMediaHeightClass("trade"). */
-export const FEED_AD_MEDIA_MAX_H_CLASS = feedAdMediaHeightClass("trade");
+/** Runtime media heights — align with Community ListThumb / Trade ProductCard. */
+export const FEED_AD_RUNTIME_MEDIA_HEIGHT_PX = {
+  community: { phone: 72, sm: 80, md: 88 },
+  trade: { phone: 100, sm: 100, md: 100 },
+} as const;
 
 /** Recommended upload hint (Admin / member apply). */
 export const FEED_AD_RECOMMENDED_UPLOAD = {
   aspectLabel: "3:1",
-  minWidthPx: 1200,
-  minHeightPx: 400,
+  standardWidthPx: FEED_AD_STANDARD_UPLOAD_WIDTH_PX,
+  standardHeightPx: FEED_AD_STANDARD_UPLOAD_HEIGHT_PX,
+  minWidthPx: FEED_AD_STANDARD_UPLOAD_WIDTH_PX,
+  minHeightPx: FEED_AD_STANDARD_UPLOAD_HEIGHT_PX,
+  /** Feed card uses cover inside fixed-height viewport (list rhythm). */
   objectFit: "cover" as const,
-  maxFileBytes: 5 * 1024 * 1024,
+  maxFileBytes: FEED_AD_UPLOAD_MAX_FILE_BYTES,
+  /** Wide viewports may crop left/right of 3:1 master — intentional for density. */
+  safeCrop: "edges" as const,
 };
 
-/** Single creative-spec authority for uploader + preview docs. */
+export function feedAdStandardPixelLabel(): string {
+  return `${FEED_AD_STANDARD_UPLOAD_WIDTH_PX} × ${FEED_AD_STANDARD_UPLOAD_HEIGHT_PX} px`;
+}
+
+/** Fixed media height classes — matches list thumb rhythm. */
+export function feedAdMediaHeightClass(density: FeedAdHostDensity): string {
+  if (density === "community") {
+    return "h-[72px] sm:h-20 md:h-[88px]";
+  }
+  return "h-[100px]";
+}
+
+/** @deprecated Alias of feedAdMediaHeightClass. */
+export function feedAdMediaMaxHClass(density: FeedAdHostDensity): string {
+  return feedAdMediaHeightClass(density);
+}
+
+/** @deprecated Use FEED_AD_RUNTIME_MEDIA_HEIGHT_PX. */
+export const FEED_AD_MEDIA_MAX_H_CLASS = "";
+
 export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
   return {
     ...FEED_AD_RECOMMENDED_UPLOAD,
@@ -74,22 +88,16 @@ export function getFeedAdCreativeSpec(density: FeedAdHostDensity) {
     aspectClass: FEED_AD_MEDIA_ASPECT_CLASS,
     mediaClass: feedAdMediaClass(density),
     frameClass: feedAdFrameClass(density),
-    phoneMediaHeightPx: feedAdMediaMaxHPx(density, "phone"),
-    mdMediaHeightPx: feedAdMediaMaxHPx(density, "md"),
+    viewportClass: feedAdMediaViewportClass(density),
+    heightClass: feedAdMediaHeightClass(density),
+    pixelLabel: feedAdStandardPixelLabel(),
   };
 }
 
-/** Outer list-item shell — align with host `<li>` (no extra horizontal inset beyond card pad). */
 export function feedAdListItemClass(density: FeedAdHostDensity): string {
-  // Trade host gap ≈ 4px; Community list gap ≈ 16px — keep light vertical rhythm only.
   return density === "community" ? "list-none min-w-0 py-0" : "list-none min-w-0 py-0";
 }
 
-/**
- * Frame chrome.
- * Community host cards use bordered rounded surfaces — keep that language.
- * Trade host rows are flat — avoid boxed “section” card; label carries ad identity.
- */
 export function feedAdFrameClass(density: FeedAdHostDensity): string {
   if (density === "community") {
     return "overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface";
@@ -97,61 +105,56 @@ export function feedAdFrameClass(density: FeedAdHostDensity): string {
   return "overflow-hidden rounded-ui-rect bg-sam-surface";
 }
 
-/** Compact label + pager row (not a tall header bar). */
 export function feedAdChromeBarClass(_density: FeedAdHostDensity): string {
   void _density;
   return "flex items-center justify-between gap-2 px-3 py-1";
 }
 
-/** Media / headline body padding — keep tight so chrome does not inflate outer H. */
 export function feedAdBodyClass(_density: FeedAdHostDensity): string {
   void _density;
   return "block px-3 pb-1.5";
 }
 
-/** Optional headline — metadata size; 0 height when absent. */
 export function feedAdHeadlineClass(_density: FeedAdHostDensity): string {
   void _density;
   return "mt-0.5 line-clamp-1 sam-text-helper text-sam-muted";
 }
 
 /**
- * Consumer / preview media surface: full host width + density height + cover.
- * DO NOT add aspect-* here — that regresses tablet/Windows width shrink.
+ * Creative media — full list width, fixed list-thumb height, cover (no giant contain letterbox).
  */
 export function feedAdMediaClass(density: FeedAdHostDensity): string {
-  return `block w-full min-w-0 ${feedAdMediaHeightClass(density)} object-cover`;
+  return `block w-full min-w-0 ${feedAdMediaHeightClass(density)} object-cover bg-sam-app`;
 }
 
-/** Viewport clip for the slide track (same height tokens as media). */
+/** Viewport clip for the slide track — same fixed height as media. */
 export function feedAdMediaViewportClass(density: FeedAdHostDensity): string {
   return `relative w-full min-w-0 overflow-hidden rounded-ui-rect ${feedAdMediaHeightClass(density)}`;
 }
 
-/** Uncapped aspect estimate (upload docs); runtime uses density height tokens. */
-export function estimateFeedAdMediaHeightPx(contentWidthPx: number): number {
-  const w = Math.max(1, contentWidthPx);
-  return Math.round((w * FEED_AD_MEDIA_ASPECT_H) / FEED_AD_MEDIA_ASPECT_W);
+/** Runtime media height (not width÷3). */
+export function estimateFeedAdMediaHeightPx(
+  _contentWidthPx: number,
+  density: FeedAdHostDensity = "trade",
+  breakpoint: "phone" | "sm" | "md" = "phone"
+): number {
+  void _contentWidthPx;
+  return FEED_AD_RUNTIME_MEDIA_HEIGHT_PX[density][breakpoint];
 }
 
-/** Effective media height after density cap (md trade = 96, community = 104). */
+/** @deprecated Caps removed — identity with estimateFeedAdMediaHeightPx. */
 export function estimateFeedAdMediaHeightCappedPx(
   contentWidthPx: number,
-  maxHPx = 96
+  _maxHPx?: number,
+  density: FeedAdHostDensity = "trade"
 ): number {
-  return Math.min(estimateFeedAdMediaHeightPx(contentWidthPx), maxHPx);
+  void _maxHPx;
+  return estimateFeedAdMediaHeightPx(contentWidthPx, density);
 }
 
 export function feedAdMediaMaxHPx(
   density: FeedAdHostDensity,
   breakpoint: "phone" | "sm" | "md" = "phone"
 ): number {
-  if (density === "community") {
-    if (breakpoint === "md") return 104;
-    if (breakpoint === "sm") return 100;
-    return 96;
-  }
-  if (breakpoint === "md") return 96;
-  if (breakpoint === "sm") return 92;
-  return 88;
+  return FEED_AD_RUNTIME_MEDIA_HEIGHT_PX[density][breakpoint];
 }

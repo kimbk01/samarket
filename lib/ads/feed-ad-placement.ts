@@ -11,6 +11,8 @@
  * runtime measurement proves a change. 6–10 is a candidate idea, not a requirement.
  */
 
+import { isPhilifeNeighborhoodSortSlotSlug } from "@/lib/neighborhood/philife-topic-slug-rules";
+
 export type FeedAdDomain = "trade" | "community";
 
 export type FeedAdPlacement =
@@ -129,9 +131,9 @@ export function selectCampaignForPlacement(
       return (c.targetCategoryId ?? "").trim() === want;
     }
     if (input.placement === "COMMUNITY_TOPIC") {
-      const want = (input.topicSlug ?? "").trim();
+      const want = normalizeFeedAdTopicSlug(input.topicSlug ?? "");
       if (!want) return false;
-      return (c.targetTopicSlug ?? "").trim() === want;
+      return normalizeFeedAdTopicSlug(c.targetTopicSlug ?? "") === want;
     }
     return true;
   });
@@ -160,4 +162,29 @@ export function feedAdPlacementHumanLabel(
     COMMUNITY_TOPIC: "Community topic feed",
   };
   return (lang === "en" ? en : ko)[placement];
+}
+
+/**
+ * COMMUNITY_TOPIC authority SSOT = Philife topic **slug** (string).
+ *
+ * Single chain (no id dual authority, no ID↔slug conversion):
+ *   picker `<option value={slug}>`
+ *   → POST body `targetTopicSlug`
+ *   → `feed_ad_requests.target_topic_slug`
+ *   → approve → `feed_ad_campaigns.target_topic_slug`
+ *   → `/api/feed-ads/active?topicSlug=`
+ *   → `selectCampaignForPlacement` match on `campaign.targetTopicSlug`
+ *   → CommunityFeed `?category=<slug>` → `FeedAdBannerCarousel topicSlug`
+ *
+ * DO NOT add `target_topic_id` / dual slug+id writers.
+ * DO NOT treat recommended/recommend/popular as topic targets (HOME/`?sort=` remap).
+ */
+export function normalizeFeedAdTopicSlug(slug: string): string {
+  return String(slug ?? "").trim().toLowerCase();
+}
+
+export function isFeedAdCommunityTopicTargetAllowed(slug: string): boolean {
+  const s = normalizeFeedAdTopicSlug(slug);
+  if (!s) return false;
+  return !isPhilifeNeighborhoodSortSlotSlug(s);
 }

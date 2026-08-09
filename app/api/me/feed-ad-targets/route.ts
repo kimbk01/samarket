@@ -4,6 +4,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { queryTradeHomeRootCategories } from "@/lib/categories/trade-home-root-query";
 import { loadPhilifeDefaultSectionTopics } from "@/lib/neighborhood/philife-neighborhood-topics";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
+import { isFeedAdCommunityTopicTargetAllowed } from "@/lib/ads/feed-ad-placement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,6 @@ export async function GET() {
         name: t.name,
         nameEn: t.name_en ?? null,
       }))
-      .filter((t) => Boolean(t.slug)),
+      .filter((t) => isFeedAdCommunityTopicTargetAllowed(String(t.slug ?? ""))),
   });
 }

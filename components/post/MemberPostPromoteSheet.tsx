@@ -354,10 +354,9 @@ export function MemberPostPromoteSheet({
                     })}
                   </li>
                   <li className="pt-1 text-sam-meta">
-                    {safeT("promo_sheet_community_approval_note", {
-                      fallbackKo: "관리자 승인 후 노출됩니다. 거절 시 보류 포인트가 반환됩니다.",
-                      fallbackEn:
-                        "Goes live after admin approval. Rejected requests release the hold.",
+                    {safeT("promo_sheet_community_immediate_note", {
+                      fallbackKo: "D-Point 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
+                      fallbackEn: "Goes live at the top of the feed immediately with D-Point. No admin approval.",
                     })}
                   </li>
                 </>
