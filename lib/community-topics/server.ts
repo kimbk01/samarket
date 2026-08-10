@@ -25,37 +25,6 @@ export type CommunityTopicAdminRow = {
   feed_list_skin: ReturnType<typeof normalizeCommunityFeedListSkin>;
 };
 
-/** @deprecated 피드는 community_feed/queries 의 listTopicsForSectionSlug 사용 */
-export type CommunityTopicRow = {
-  id: string;
-  scope: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  sort_order: number;
-  is_active: boolean;
-};
-
-const LEGACY_SELECT = "id, scope, name, slug, icon, sort_order, is_active";
-
-export async function listCommunityTopicsByScope(
-  scope: "local" | "group" | "common"
-): Promise<CommunityTopicRow[]> {
-  try {
-    const sb = getSupabaseServer();
-    const { data, error } = await sb
-      .from("community_topics_legacy")
-      .select(LEGACY_SELECT)
-      .eq("scope", scope)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-    if (error || !data?.length) return [];
-    return data as CommunityTopicRow[];
-  } catch {
-    return [];
-  }
-}
-
 const ADMIN_TOPICS_SELECT_WITH_SKIN =
   "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
 const ADMIN_TOPICS_SELECT_NO_SKIN =
@@ -119,31 +88,5 @@ export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAd
     });
   } catch {
     return [];
-  }
-}
-
-export async function isValidLocalTopicId(topicId: string): Promise<boolean> {
-  const id = topicId?.trim();
-  if (!id) return false;
-  try {
-    const sb = getSupabaseServer();
-    const { data, error } = await sb
-      .from("community_topics")
-      .select("id")
-      .eq("id", id)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!error && (data as { id?: string } | null)?.id) return true;
-
-    const { data: leg } = await sb
-      .from("community_topics_legacy")
-      .select("id")
-      .eq("id", id)
-      .eq("scope", "local")
-      .eq("is_active", true)
-      .maybeSingle();
-    return !!(leg as { id?: string } | null)?.id;
-  } catch {
-    return false;
   }
 }

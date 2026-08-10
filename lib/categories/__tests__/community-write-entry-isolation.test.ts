@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   getCanonicalCommunityWriteHref,
@@ -44,7 +44,8 @@ describe("legacy community create entry isolation", () => {
 
   it("WriteSheetFlowInner no longer mounts legacy CommunityWriteForm", () => {
     const src = readFileSync(join(root, "components/write/WriteSheetFlowInner.tsx"), "utf8");
-    expect(src).not.toContain('from "@/components/write/community/CommunityWriteForm"');
+    const legacyFormImport = ["@", "/components/write/community/CommunityWriteForm"].join("");
+    expect(src).not.toContain(`from "${legacyFormImport}"`);
     expect(src).toContain("getCanonicalCommunityWriteHref");
     expect(src).toContain('fromList.type === "community"');
     expect(src).toContain('c.type === "community"');
@@ -53,7 +54,8 @@ describe("legacy community create entry isolation", () => {
 
   it("write/[categoryId] redirects community away from legacy form", () => {
     const src = readFileSync(join(root, "app/(main)/write/[categoryId]/page.tsx"), "utf8");
-    expect(src).not.toContain('from "@/components/write/community/CommunityWriteForm"');
+    const legacyFormImport = ["@", "/components/write/community/CommunityWriteForm"].join("");
+    expect(src).not.toContain(`from "${legacyFormImport}"`);
     expect(src).toContain("getCanonicalCommunityWriteHref");
     expect(src).toContain('c.type === "community"');
     expect(src).toContain("router.replace(getCanonicalCommunityWriteHref())");
@@ -72,9 +74,7 @@ describe("legacy community create entry isolation", () => {
     expect(src).toContain("mirrorLegacyCommunityPostToSsot");
   });
 
-  it("legacy CommunityWriteForm file remains (cleanup gate later)", () => {
-    const src = readFileSync(join(root, "components/write/community/CommunityWriteForm.tsx"), "utf8");
-    expect(src).toContain('type: "community"');
-    expect(src).toContain("createPost");
+  it("legacy CommunityWriteForm file is removed (DEAD_PROVEN cleanup)", () => {
+    expect(existsSync(join(root, "components/write/community/CommunityWriteForm.tsx"))).toBe(false);
   });
 });
