@@ -270,6 +270,8 @@ export function resolveFormEffectiveViewportTopPx(args?: {
  * Bottom occluded → scroll down by occlusion only.
  * Top clipped → scroll up by clip only.
  * Already visible → NO SCROLL.
+ * Tall control (height > usable band, e.g. multiline textarea in landscape+IME):
+ * prioritize bottom/caret region — allow top clip (CASE D).
  * Never uses scrollIntoView(center).
  */
 export function ensureFormFocusVisibleInScrollRoot(args: {
@@ -291,8 +293,21 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
   }
 
   const rect = args.focused.getBoundingClientRect();
+  const usable = bottomLimit - topLimit;
+  const tallerThanBand = rect.height > usable + 1;
   let delta = 0;
-  if (rect.bottom > bottomLimit) {
+
+  if (tallerThanBand) {
+    // CASE D — keep caret/end region in band; do not fight top clip.
+    const caretFloor = topLimit + Math.min(48, Math.max(24, Math.floor(usable * 0.35)));
+    if (rect.bottom > bottomLimit) {
+      delta = Math.ceil(rect.bottom - bottomLimit);
+    } else if (rect.bottom < caretFloor) {
+      delta = Math.floor(rect.bottom - caretFloor);
+    } else {
+      return 0;
+    }
+  } else if (rect.bottom > bottomLimit) {
     delta = Math.ceil(rect.bottom - bottomLimit);
   } else if (rect.top < topLimit) {
     delta = Math.floor(rect.top - topLimit);

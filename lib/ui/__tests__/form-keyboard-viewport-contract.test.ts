@@ -180,8 +180,34 @@ describe("form-keyboard-viewport-contract", () => {
       effectiveViewportBottom: 280,
       focusedHeightPx: 40,
     });
-    // Without relax: 180 → usable 100. With focus need ~56–96, top must drop.
     expect(top).toBeLessThan(180);
     expect(280 - top).toBeGreaterThanOrEqual(120);
+  });
+
+  it("CASE D tall textarea: prioritize bottom/caret, allow top clip", () => {
+    const focused = {
+      getBoundingClientRect: () => ({
+        bottom: 400,
+        top: 100,
+        height: 300,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as HTMLElement;
+    const scrollRoot = { scrollTop: 0 } as HTMLElement;
+    const delta = ensureFormFocusVisibleInScrollRoot({
+      focused,
+      scrollRoot,
+      effectiveViewportBottom: 280,
+      effectiveViewportTop: 160,
+      focusGapPx: 8,
+    });
+    // bottomLimit=272 → scroll so bottom enters band
+    expect(delta).toBe(128);
+    expect(scrollRoot.scrollTop).toBe(128);
   });
 });

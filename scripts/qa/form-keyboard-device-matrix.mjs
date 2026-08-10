@@ -336,17 +336,35 @@ function verdictFromGeo(geo, meta) {
     return { result: "NOT_PROVEN", reason: "keyboard_not_open" };
   }
   const fails = [];
-  if (geo.bottomOccluded === true) fails.push("bottom_occlusion");
-  if (geo.topClipped === true) fails.push("top_clipping");
+  const bandTop = geo.effectiveViewportTop ?? 0;
+  const bandBottom = geo.effectiveViewportBottom ?? 0;
+  const usable = bandBottom - bandTop;
+  const fTop = geo.focusedTop;
+  const fBottom = geo.focusedBottom;
+  const fHeight =
+    typeof fTop === "number" && typeof fBottom === "number" ? fBottom - fTop : 0;
+  const tallCaseD = geo.focusedTag === "TEXTAREA" && fHeight > usable + 1 && usable > 0;
+
+  if (tallCaseD) {
+    // CASE D — require visible intersection + bottom in band; allow top clip.
+    const visible = Math.min(fBottom, bandBottom) - Math.max(fTop, bandTop);
+    if (visible < Math.min(48, Math.max(24, usable - 16))) fails.push("caret_not_visible");
+    if (typeof fBottom === "number" && fBottom - FOCUS_GAP_PX > bandBottom) {
+      fails.push("bottom_occlusion");
+    }
+  } else {
+    if (geo.bottomOccluded === true) fails.push("bottom_occlusion");
+    if (geo.topClipped === true) fails.push("top_clipping");
+    if (geo.focusedTop != null && geo.focusedTop + FOCUS_GAP_PX < geo.effectiveViewportTop) {
+      fails.push("focus_above_band");
+    }
+    if (geo.focusedBottom != null && geo.focusedBottom - FOCUS_GAP_PX > geo.effectiveViewportBottom) {
+      fails.push("focus_below_band");
+    }
+  }
   if (typeof geo.blankGap === "number" && geo.blankGap > BLANK_MAX_PX) fails.push("blank_gap");
   if (geo.ctaReachable === false) fails.push("cta_unreachable");
   if (geo.layoutAligned && geo.effectiveBottomInset >= 120) fails.push("double_compensation");
-  if (geo.focusedTop != null && geo.focusedTop + FOCUS_GAP_PX < geo.effectiveViewportTop) {
-    fails.push("focus_above_band");
-  }
-  if (geo.focusedBottom != null && geo.focusedBottom - FOCUS_GAP_PX > geo.effectiveViewportBottom) {
-    fails.push("focus_below_band");
-  }
   if (fails.length) return { result: "FAIL", fails, reason: fails.join(",") };
   return { result: "PASS", fails: [] };
 }
