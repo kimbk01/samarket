@@ -226,17 +226,19 @@ async function assertOneRowNav(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 
 test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) => {
-  test.setTimeout(420_000);
+  // APP A–H + ADMIN A–F serial wall; 420s was cutting at APP_H before Admin.
+  test.setTimeout(900_000);
   const origin = playwrightOriginFromEnv();
   const results: CaseResult[] = [];
   await assertPlaywrightOriginReachable(request);
   await ensureSession(page, origin);
   fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
-  // Harness hygiene: prior runs may leave community_hub_state_v1 (e.g. sort=latest) and pollute APP_A default.
+  // Harness hygiene: prior runs may leave community_hub_state_v1 / topic-options order cache.
   await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
   await page.evaluate(() => {
     try {
       sessionStorage.removeItem("community_hub_state_v1");
+      localStorage.removeItem("philife_neighborhood_topic_options_v1");
     } catch {
       /* ignore */
     }
@@ -952,30 +954,78 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     }
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1800);
+
+    const optsRes = await page.request.get(`${origin}/api/philife/neighborhood-topic-options`, {
+      headers: { "Cache-Control": "no-cache" },
+    });
+    const optsJson = (await optsRes.json()) as {
+      ok?: boolean;
+      feedChips?: Array<{ slug?: string; name?: string; is_feed_sort?: boolean }>;
+    };
+    const apiTopicLabels = (optsJson.feedChips ?? [])
+      .filter((c) => {
+        const s = String(c.slug ?? "")
+          .trim()
+          .toLowerCase();
+        if (!s || c.is_feed_sort) return false;
+        if (s === "popular" || s === "recommended" || s === "recommend" || s === "meetup") return false;
+        if (s === "home" || s === "local" || s === "latest") return false;
+        return true;
+      })
+      .map((c) => String(c.name ?? c.slug ?? "").trim())
+      .filter(Boolean);
+
     const tabs = communityNavTablist(page).getByRole("tab");
     const labels: string[] = [];
     for (let i = 0; i < (await tabs.count()); i += 1) {
       labels.push((await tabs.nth(i).innerText()).trim());
     }
     const homeIdx = labels.findIndex((l) => /^(홈|Home)/i.test(l));
-    const qaIdx = labels.findIndex((l) => labelEqualsInsensitive(l, qaName2));
-    // After Home, QA should be early due to sort_order -100
-    if (qaIdx < 0 || homeIdx < 0 || qaIdx !== homeIdx + 1) {
-      // soft: at least among topics, first content topic after home should be QA if -100 wins
+    const localIdx = labels.findIndex((l) => /^(동네|Local)/i.test(l));
+    const popularIdx = labels.findIndex((l) => /^(인기|Popular)/i.test(l));
+    if (homeIdx < 0 || localIdx < 0 || popularIdx < 0 || localIdx <= homeIdx) {
       failFirstBreak({
         case: "ADMIN_C",
-        expected: `${qaName2} immediately after Home (sort_order=-100)`,
+        expected: "Home … Local Popular one-row nav",
         actual: `labels=${labels.join(" | ")}`,
-        firstBreak: "App nav order != Admin sort_order",
-        rootAuthority: "community_topics.sort_order",
-        file: "lib/neighborhood/philife-neighborhood-topics.ts",
-        why: "App must use Admin order without frontend re-sort",
-        scopeOfFix: "topic order projection — after approval",
+        firstBreak: "nav chrome missing after order patch",
+        rootAuthority: "composeCommunityNavItems",
+        file: "lib/community/community-nav.ts",
+        why: "Need Home/topics/Local/Popular frame to compare topic order",
+        scopeOfFix: "nav chrome — after approval",
       });
     }
-    results.push({ case: "ADMIN_C", pass: true, notes: labels.join(">") });
-    writeEvidence("ADMIN_C.json", { labels, createdTopicId });
+    const appTopicLabels = labels.slice(homeIdx + 1, localIdx);
+    const apiNorm = apiTopicLabels.map((x) => x.toLowerCase());
+    const appNorm = appTopicLabels.map((x) => x.toLowerCase());
+    if (apiNorm.length === 0 || apiNorm.join("|") !== appNorm.join("|")) {
+      failFirstBreak({
+        case: "ADMIN_C",
+        expected: `App topic order == topic-options API order (${apiTopicLabels.join(" > ")})`,
+        actual: `api=${apiTopicLabels.join(" > ")} app=${appTopicLabels.join(" > ")} full=${labels.join(" | ")}`,
+        firstBreak: "App nav topic order != topic-options API order",
+        rootAuthority: "community_topics.sort_order → topic-options → chips",
+        file: "lib/philife/fetch-neighborhood-topic-options-client.ts",
+        why: "SSOT is API chip array order after Admin PATCH, not Home+1 index assumption",
+        scopeOfFix: "topic-options client cache — after approval",
+      });
+    }
+    const qaIdx = appTopicLabels.findIndex((l) => labelEqualsInsensitive(l, qaName2));
+    if (qaIdx < 0) {
+      failFirstBreak({
+        case: "ADMIN_C",
+        expected: `${qaName2} present in App topic tabs`,
+        actual: `appTopics=${appTopicLabels.join(" > ")}`,
+        firstBreak: "patched topic missing from App nav",
+        rootAuthority: "topic-options feedChips",
+        file: "lib/philife/fetch-neighborhood-topic-options-client.ts",
+        why: "Order match requires topic still visible",
+        scopeOfFix: "visibility/order — after approval",
+      });
+    }
+    results.push({ case: "ADMIN_C", pass: true, notes: appTopicLabels.join(">") });
+    writeEvidence("ADMIN_C.json", { labels, apiTopicLabels, appTopicLabels, createdTopicId });
   }
 
   // ADMIN D deactivate / reactivate

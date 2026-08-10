@@ -7,7 +7,7 @@ import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighbor
 export type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
 const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT = "philife:neighborhood-topic-options";
-/** 메모리 TTL — 네트워크 재요청 간격 (persistent 와 별개) */
+/** 메모리 TTL — peek/warm 보조. fetch 본문은 이 TTL로 network 를 막지 않는다. */
 const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_TTL_MS = 20_000;
 const PERSISTENT_TOPIC_OPTIONS_KEY = "philife_neighborhood_topic_options_v1";
 
@@ -63,21 +63,17 @@ function hydrateMemoryFromPersistent(): void {
 const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_WRITE_FLIGHT = "philife:neighborhood-topic-options:write-fresh";
 
 /**
- * 피드·글쓰기가 동시에 마운트돼도 `/api/philife/neighborhood-topic-options` 는 한 갈래로 합침.
+ * Community feed topic-options — **stale-while-revalidate**.
+ *
+ * CONTRACT:
+ * - peek/hydrate may show persistent cache immediately (performance assist).
+ * - This fetch MUST hit the network and must NOT return persistent/memory as final authority.
+ * - Admin `sort_order` / rename / active·visible changes rely on this refresh.
+ * - Concurrent callers share one in-flight request (single-flight only).
  */
 export function fetchPhilifeNeighborhoodTopicOptions(): Promise<PhilifeNeighborhoodTopicOptionsJson> {
-  hydrateMemoryFromPersistent();
-  const now = Date.now();
-  if (topicOptionsCache && topicOptionsCache.expiresAt > now) {
-    return Promise.resolve(topicOptionsCache.value);
-  }
   return runSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT, async () => {
-    const hit = topicOptionsCache;
-    if (hit && hit.expiresAt > Date.now()) {
-      return hit.value;
-    }
-    /** 서버 `Cache-Control` 준수 — 탭 왕복·글쓰기 ↔ 피드 시 중복 요청 감소 */
-    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "default" });
+    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
     const json = (await res.json()) as PhilifeNeighborhoodTopicOptionsJson;
     if (isTopicOptionsPayloadUsable(json)) {
       topicOptionsCache = {
@@ -91,7 +87,7 @@ export function fetchPhilifeNeighborhoodTopicOptions(): Promise<PhilifeNeighborh
 }
 
 /**
- * `/philife/write` 전용 — 20s 클라·브라우저 캐시에 묶이지 않고 **항상** 최신 주제 목록.
+ * `/philife/write` 전용 — 20s 메모리·브라우저 캐시에 묶이지 않고 **항상** 최신 주제 목록.
  * (어드민에서 토픽을 추가·저장한 직후 셀렉트가 비는 현상 방지)
  */
 export function fetchPhilifeNeighborhoodTopicOptionsForWrite(): Promise<PhilifeNeighborhoodTopicOptionsJson> {
@@ -103,13 +99,13 @@ export function fetchPhilifeNeighborhoodTopicOptionsForWrite(): Promise<PhilifeN
 
 /**
  * 피드 진입 전 idle 구간에서 topic options를 선요청한다.
- * 실패는 무시하고, 이미 TTL 캐시가 있으면 네트워크를 열지 않는다.
+ * 실패는 무시. 최종 authority 는 항상 network (위 fetch 계약).
  */
 export function warmPhilifeNeighborhoodTopicOptions(): void {
   void fetchPhilifeNeighborhoodTopicOptions().catch(() => {});
 }
 
-/** PTR·강제 새로고침 — 20s 클라 TTL·진행 중 single-flight 제거 (persistent 는 유지) */
+/** PTR·강제 새로고침 — 메모리 TTL·진행 중 single-flight 제거 (persistent 는 유지; 다음 fetch 가 덮어씀) */
 export function invalidatePhilifeNeighborhoodTopicOptionsCache(): void {
   topicOptionsCache = null;
   forgetSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT);
@@ -117,7 +113,7 @@ export function invalidatePhilifeNeighborhoodTopicOptionsCache(): void {
 
 /**
  * 동기 peek — 메모리 TTL 또는 persistent localStorage.
- * Cold Boot 첫 paint 칩용 (네트워크 대기 금지).
+ * Cold Boot 첫 paint 칩용 (네트워크 대기 금지). **최종 authority 아님** — mount fetch 가 재검증.
  */
 export function peekPhilifeNeighborhoodTopicOptionsFromCache(): PhilifeNeighborhoodTopicOptionsJson | null {
   hydrateMemoryFromPersistent();
@@ -125,7 +121,7 @@ export function peekPhilifeNeighborhoodTopicOptionsFromCache(): PhilifeNeighborh
   return readPersistentTopicOptions();
 }
 
-/** RSC·프리패치가 채운 시드를 클라 TTL 캐시에 반영(API 응답과 동일 단일 출처). */
+/** RSC·프리패치가 채운 시드를 클라 캐시에 반영(API 응답과 동일 단일 출처). */
 export function seedPhilifeNeighborhoodTopicOptionsCache(
   json: PhilifeNeighborhoodTopicOptionsJson
 ): void {
