@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
@@ -48,7 +50,6 @@ import {
   PHILIFE_WRITE_FB_SECTION,
   PHILIFE_WRITE_FORM_ROOT_CLASS,
   PHILIFE_WRITE_SCROLL_BODY_CLASS,
-  PHILIFE_WRITE_SELECT_CLASS,
 } from "@/lib/ui/philife-write-fb-ui";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
@@ -174,6 +175,13 @@ export function PhilifeNeighborhoodWriteForm({
   const imageUrlsCountRef = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
+  /** Native select 는 Android에서 라디오 UI가 되므로 iOS/APK/Windows 공통 커스텀 드롭다운 */
+  const [topicMenuOpen, setTopicMenuOpen] = useState(false);
+  const [topicMenuPos, setTopicMenuPos] = useState<{ top: number; left: number; width: number } | null>(
+    null
+  );
+  const topicMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const topicMenuListRef = useRef<HTMLUListElement>(null);
 
   /** 서버 기본 모임 피드 주제 slug — UI 비노출 */
   const MEETUP_TOPIC_SLUG = "meetup";
@@ -266,6 +274,80 @@ export function PhilifeNeighborhoodWriteForm({
       cancelled = true;
     };
   }, [initialCategory, t]);
+
+  const updateTopicMenuPos = useCallback(() => {
+    const el = topicMenuButtonRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setTopicMenuPos({
+      top: rect.bottom + 6,
+      left: rect.left,
+      width: Math.max(rect.width, 160),
+    });
+  }, []);
+
+  /**
+   * 카테고리 선택 SSOT (iOS / APK / Windows 동일):
+   * 1) 폼 category 갱신
+   * 2) 시트면 피드 URL `?category=` 동기화 → 상단 주제 탭 aria-selected/스타일 즉시 반영
+   * 3) 풀페이지 write면 write URL 의 category 쿼리 동기화
+   */
+  const applyWriteCategory = useCallback(
+    (slug: string) => {
+      const next = slug.trim().toLowerCase();
+      if (!next || next === "meetup") return;
+      setCategory(next);
+      setTopicMenuOpen(false);
+
+      if (suppressWriteScreenTier1) {
+        const base =
+          typeof window !== "undefined" ? window.location.search : "";
+        const target = buildCommunityFeedHref(pathname, {
+          selection: { kind: "topic", topicSlug: next, allSort: "latest" },
+          base,
+        });
+        void router.replace(target, { scroll: false });
+        return;
+      }
+
+      const pathNoQuery = pathname.split("?")[0] ?? pathname;
+      if (pathNoQuery === philifeAppPaths.write || pathNoQuery.endsWith("/write")) {
+        const sp = new URLSearchParams(
+          typeof window !== "undefined" ? window.location.search : ""
+        );
+        sp.set("category", next);
+        const qs = sp.toString();
+        void router.replace(qs ? `${pathNoQuery}?${qs}` : pathNoQuery, { scroll: false });
+      }
+    },
+    [pathname, router, suppressWriteScreenTier1]
+  );
+
+  useEffect(() => {
+    if (!topicMenuOpen) return;
+    updateTopicMenuPos();
+    const close = () => setTopicMenuOpen(false);
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (topicMenuButtonRef.current?.contains(target) || topicMenuListRef.current?.contains(target)) {
+        return;
+      }
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [topicMenuOpen, updateTopicMenuPos]);
 
   useEffect(() => {
     if (category === "meetup") {
@@ -1129,18 +1211,96 @@ export function PhilifeNeighborhoodWriteForm({
                   </div>
                 ) : (
                   <>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className={PHILIFE_WRITE_SELECT_CLASS}
-                      aria-label={t("philife_write_topic_select_aria")}
-                    >
-                      {writeTopicOptions.map((o) => (
-                        <option key={o.slug} value={o.slug} title={o.slug}>
-                          {philifeWriteTopicOptionLabel(t, o, language)}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const selectedOpt =
+                        writeTopicOptions.find((o) => o.slug === category) ?? writeTopicOptions[0]!;
+                      const selectedLabel = philifeWriteTopicOptionLabel(t, selectedOpt, language);
+                      return (
+                        <div className="relative mt-2">
+                          <button
+                            type="button"
+                            ref={topicMenuButtonRef}
+                            aria-haspopup="listbox"
+                            aria-expanded={topicMenuOpen}
+                            aria-label={t("philife_write_topic_select_aria")}
+                            onClick={() => {
+                              if (topicMenuOpen) {
+                                setTopicMenuOpen(false);
+                                return;
+                              }
+                              updateTopicMenuPos();
+                              setTopicMenuOpen(true);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                updateTopicMenuPos();
+                                setTopicMenuOpen(true);
+                              }
+                            }}
+                            className={`${PHILIFE_WRITE_FB_CONTROL} inline-flex w-full items-center justify-between gap-2 text-left`}
+                          >
+                            <span className="min-w-0 flex-1 truncate font-semibold text-[#050505]">
+                              {selectedLabel}
+                            </span>
+                            {topicMenuOpen ? (
+                              <ChevronUp
+                                className="h-4 w-4 shrink-0 text-sam-muted"
+                                strokeWidth={2.4}
+                                aria-hidden
+                              />
+                            ) : (
+                              <ChevronDown
+                                className="h-4 w-4 shrink-0 text-sam-muted"
+                                strokeWidth={2.4}
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                          {topicMenuOpen && topicMenuPos && typeof document !== "undefined"
+                            ? createPortal(
+                                <ul
+                                  ref={topicMenuListRef}
+                                  role="listbox"
+                                  aria-label={t("philife_write_category_label")}
+                                  className="max-h-[min(60vh,20rem)] overflow-y-auto rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+                                  style={{
+                                    position: "fixed",
+                                    top: topicMenuPos.top,
+                                    left: topicMenuPos.left,
+                                    width: topicMenuPos.width,
+                                    zIndex: 220,
+                                  }}
+                                >
+                                  {writeTopicOptions.map((o) => {
+                                    const selected = category === o.slug;
+                                    const label = philifeWriteTopicOptionLabel(t, o, language);
+                                    return (
+                                      <li key={o.slug} role="none">
+                                        <button
+                                          type="button"
+                                          role="option"
+                                          aria-selected={selected}
+                                          title={o.slug}
+                                          onClick={() => applyWriteCategory(o.slug)}
+                                          className={
+                                            selected
+                                              ? "block w-full px-3 py-2.5 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
+                                              : "block w-full px-3 py-2.5 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                                          }
+                                        >
+                                          {label}
+                                        </button>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>,
+                                document.body
+                              )
+                            : null}
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </section>
