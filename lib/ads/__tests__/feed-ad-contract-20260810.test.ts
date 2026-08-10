@@ -73,6 +73,14 @@ describe("Community surface SSOT", () => {
     expect(back.surfaceKey).not.toBe(topic.surfaceKey);
   });
 
+  it("ALL (Latest|Popular) does not inherit COMMUNITY_HOME", () => {
+    expect(resolveCommunityFeedSurface("", "all")).toMatchObject({
+      placement: null,
+      surfaceKey: "community:all",
+    });
+    expect(resolveCommunityFeedSurface("", "all").placement).not.toBe("COMMUNITY_HOME");
+  });
+
   it("LOCAL and POPULAR do not inherit COMMUNITY_HOME (no sold placement)", () => {
     expect(resolveCommunityFeedSurface("", "local")).toMatchObject({
       placement: null,
