@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
@@ -31,7 +33,8 @@ export function ProfileEditBottomSaveBar({
         <button
           type="button"
           onClick={onCancel}
-          className="flex flex-1 items-center justify-center rounded-ui-rect border border-[#00704A]/25 bg-white py-3 text-[15px] font-semibold text-[#1E3932] active:bg-[#E8F3EE]"
+          onPointerDown={(e) => triggerInteractionFeedback("light", e)}
+          className={`flex flex-1 items-center justify-center rounded-ui-rect border border-[#00704A]/25 bg-white py-3 text-[15px] font-semibold text-[#1E3932] ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {t("common_cancel")}
         </button>
@@ -39,7 +42,10 @@ export function ProfileEditBottomSaveBar({
           type="submit"
           form={formId}
           disabled={saving}
-          className={`${PROFILE_EDIT_PRIMARY_BTN_CLASS} flex-[1.2] py-3 text-[15px]`}
+          onPointerDown={(e) => {
+            if (!saving) triggerInteractionFeedback("light", e);
+          }}
+          className={`${PROFILE_EDIT_PRIMARY_BTN_CLASS} flex-[1.2] py-3 text-[15px] ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {saving ? t("profile_edit_saving") : t("common_save")}
         </button>

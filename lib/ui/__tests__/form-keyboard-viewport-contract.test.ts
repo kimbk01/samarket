@@ -98,7 +98,7 @@ describe("form-keyboard-viewport-contract", () => {
     expect(snap.effectiveViewportBottom).toBe(640);
   });
 
-  it("focus visibility scrolls only when occluded", () => {
+  it("focus visibility scrolls only when bottom-occluded", () => {
     const focused = {
       getBoundingClientRect: () => ({ bottom: 500, top: 460, height: 40, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) }),
     } as HTMLElement;
@@ -108,6 +108,7 @@ describe("form-keyboard-viewport-contract", () => {
         focused,
         scrollRoot,
         effectiveViewportBottom: 600,
+        effectiveViewportTop: 0,
         focusGapPx: 8,
       })
     ).toBe(0);
@@ -118,9 +119,38 @@ describe("form-keyboard-viewport-contract", () => {
         focused,
         scrollRoot,
         effectiveViewportBottom: 480,
+        effectiveViewportTop: 0,
         focusGapPx: 8,
       })
     ).toBe(28);
     expect(scrollRoot.scrollTop).toBe(28);
+  });
+
+  it("focus visibility corrects top clipping without jumping to center", () => {
+    const focused = {
+      getBoundingClientRect: () => ({
+        bottom: 120,
+        top: 40,
+        height: 80,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as HTMLElement;
+    const scrollRoot = { scrollTop: 200 } as HTMLElement;
+    const delta = ensureFormFocusVisibleInScrollRoot({
+      focused,
+      scrollRoot,
+      effectiveViewportBottom: 700,
+      effectiveViewportTop: 100,
+      focusGapPx: 8,
+    });
+    expect(delta).toBeLessThan(0);
+    expect(scrollRoot.scrollTop).toBe(200 + delta);
+    // topLimit = 100 + 8 → delta = floor(40 - 108) = -68
+    expect(Math.abs(delta)).toBe(68);
   });
 });

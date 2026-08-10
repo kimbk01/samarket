@@ -16,6 +16,10 @@ export const FORM_KEYBOARD_NAVIGATION_GAP_PX = 48;
 export const FORM_FOCUS_GAP_PX = 8;
 export const FORM_VIEWPORT_MIN_PX = 240;
 
+/** Shared pressed visual — CSS :active only; respects prefers-reduced-motion via motion-reduce. */
+export const FORM_INTERACTIVE_PRESS_CLASS =
+  "touch-manipulation transition-[transform,filter,opacity] duration-100 active:scale-[0.985] active:brightness-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100";
+
 export type FormKeyboardViewportSnapshot = {
   keyboardOpen: boolean;
   visualViewportHeight: number;
@@ -191,22 +195,52 @@ export function buildFormKeyboardViewportSnapshot(
 }
 
 /**
- * Minimal scroll so focused control sits above effective viewport bottom.
- * No-op when already visible. Never uses scrollIntoView(center).
+ * Visible band top in layout Y — visualViewport.offsetTop, optionally raised to sticky chrome bottom.
+ * Do not invent page-specific px offsets.
+ */
+export function resolveFormEffectiveViewportTopPx(args?: {
+  stickyChromeEl?: HTMLElement | null;
+}): number {
+  const frame = resolveFormVisualViewportFrame();
+  let topPx = frame.offsetTopPx;
+  const chrome = args?.stickyChromeEl;
+  if (chrome) {
+    const bottom = Math.round(chrome.getBoundingClientRect().bottom);
+    if (Number.isFinite(bottom)) topPx = Math.max(topPx, bottom);
+  }
+  return Math.max(0, topPx);
+}
+
+/**
+ * Minimal scroll so focused control stays in the visible band.
+ * Bottom occluded → scroll down by occlusion only.
+ * Top clipped → scroll up by clip only.
+ * Already visible → NO SCROLL.
+ * Never uses scrollIntoView(center).
  */
 export function ensureFormFocusVisibleInScrollRoot(args: {
   focused: HTMLElement;
   scrollRoot: HTMLElement | null;
   effectiveViewportBottom: number;
+  /** Defaults to visualViewport.offsetTop (0 on most Android resize). */
+  effectiveViewportTop?: number;
   focusGapPx?: number;
 }): number {
   const gap = args.focusGapPx ?? FORM_FOCUS_GAP_PX;
-  const limit = args.effectiveViewportBottom - gap;
-  const rect = args.focused.getBoundingClientRect();
-  if (rect.bottom <= limit) return 0;
+  const topLimit = (args.effectiveViewportTop ?? 0) + gap;
+  const bottomLimit = args.effectiveViewportBottom - gap;
+  if (!(bottomLimit > topLimit)) return 0;
 
-  const delta = Math.ceil(rect.bottom - limit);
-  if (delta <= 0) return 0;
+  const rect = args.focused.getBoundingClientRect();
+  let delta = 0;
+  if (rect.bottom > bottomLimit) {
+    delta = Math.ceil(rect.bottom - bottomLimit);
+  } else if (rect.top < topLimit) {
+    delta = Math.floor(rect.top - topLimit);
+  } else {
+    return 0;
+  }
+  if (delta === 0) return 0;
 
   const root = args.scrollRoot;
   if (root && typeof root.scrollTop === "number") {

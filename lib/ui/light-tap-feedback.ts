@@ -1,8 +1,20 @@
 /**
- * 모바일 탭 체감 — 짧은 진동 + 가벼운 클릭음(터치·coarse 기기만).
+ * DIBAY interaction feedback SSOT — visual press stays in CSS (:active / FORM_INTERACTIVE_PRESS_CLASS).
+ * Haptic/audio: coarse-pointer only; desktop/Web physical keyboard → no-op.
+ *
+ * Levels (do not fire on every text focus / keystroke):
+ * - light: CTA tap, chip/select, toggle, send
+ * - medium: destructive / hard commit confirm
+ * - success | warning | error: semantic outcome (optional; skip if toast already enough)
+ *
+ * @see lib/ui/form-keyboard-viewport-contract.ts FORM_INTERACTIVE_PRESS_CLASS
  */
 
 let tapAudioCtx: AudioContext | null = null;
+
+export type InteractionFeedbackKind = "light" | "medium" | "success" | "warning" | "error";
+
+type TapFeedbackEvent = { pointerType?: string };
 
 function isCoarsePointerDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -39,26 +51,59 @@ function playLightTapClickSound(): void {
   }
 }
 
-type TapFeedbackEvent = { pointerType?: string };
-
-export function triggerLightTapFeedback(ev?: TapFeedbackEvent): void {
+function vibratePattern(pattern: number | number[]): void {
+  if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
   try {
-    if (ev?.pointerType && ev.pointerType !== "touch") return;
-    triggerMobileSelectionFeedback();
+    navigator.vibrate(pattern);
   } catch {
     /* noop */
   }
 }
 
-/** 다이얼·확정 선택 — coarse/터치 기기에서만 진동+클릭음 */
-export function triggerMobileSelectionFeedback(): void {
+/**
+ * Platform-adaptive interaction feedback. Consumers must not import Capacitor/OS APIs.
+ * Fine-pointer / desktop → no-op. Coarse/touch → short vibrate (+ light click for light/medium).
+ */
+export function triggerInteractionFeedback(
+  kind: InteractionFeedbackKind,
+  ev?: TapFeedbackEvent
+): void {
   try {
+    if (ev?.pointerType && ev.pointerType !== "touch") return;
     if (!isCoarsePointerDevice()) return;
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(10);
+
+    switch (kind) {
+      case "light":
+        vibratePattern(10);
+        playLightTapClickSound();
+        break;
+      case "medium":
+        vibratePattern(18);
+        playLightTapClickSound();
+        break;
+      case "success":
+        vibratePattern([8, 40, 12]);
+        break;
+      case "warning":
+        vibratePattern([12, 30, 12]);
+        break;
+      case "error":
+        vibratePattern([20, 40, 20]);
+        break;
+      default:
+        break;
     }
-    playLightTapClickSound();
   } catch {
     /* noop */
   }
+}
+
+/** @deprecated Prefer `triggerInteractionFeedback("light", ev)` */
+export function triggerLightTapFeedback(ev?: TapFeedbackEvent): void {
+  triggerInteractionFeedback("light", ev);
+}
+
+/** @deprecated Prefer `triggerInteractionFeedback("light")` — selection / dial confirm */
+export function triggerMobileSelectionFeedback(): void {
+  triggerInteractionFeedback("light");
 }

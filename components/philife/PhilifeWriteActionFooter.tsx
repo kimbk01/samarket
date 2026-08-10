@@ -2,6 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 export const PHILIFE_WRITE_FORM_ID = "philife-neighborhood-write-form";
@@ -50,7 +52,10 @@ export function PhilifeWriteActionFooter({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="min-h-[44px] shrink-0 rounded-ui-rect border border-[#ccd0d5] bg-white px-4 py-2.5 sam-text-body font-medium text-[#050505] disabled:opacity-50"
+          onPointerDown={(e) => {
+            if (!busy) triggerInteractionFeedback("light", e);
+          }}
+          className={`min-h-[44px] shrink-0 rounded-ui-rect border border-[#ccd0d5] bg-white px-4 py-2.5 sam-text-body font-medium text-[#050505] disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {t("philife_write_sheet_cancel")}
         </button>
@@ -58,7 +63,10 @@ export function PhilifeWriteActionFooter({
           type="submit"
           form={PHILIFE_WRITE_FORM_ID}
           disabled={busy || submitDisabled}
-          className="min-h-[44px] flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
+          onPointerDown={(e) => {
+            if (!(busy || submitDisabled)) triggerInteractionFeedback("light", e);
+          }}
+          className={`min-h-[44px] flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {busy ? t("philife_write_submitting") : t("philife_write_submit")}
         </button>

@@ -2,6 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 interface SubmitButtonProps {
@@ -28,6 +30,7 @@ export function SubmitButton({
   const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
   const resolvedLabel = label ?? t("trade_write_submit_default");
   const resolvedSubmittingLabel = submittingLabel ?? t("trade_write_submitting_default");
+  const submitLocked = disabled || submitting;
 
   return (
     <div
@@ -41,15 +44,19 @@ export function SubmitButton({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted"
+            onPointerDown={(e) => triggerInteractionFeedback("light", e)}
+            className={`rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted ${FORM_INTERACTIVE_PRESS_CLASS}`}
           >
             {t("common_cancel")}
           </button>
         ) : null}
         <button
           type="submit"
-          disabled={disabled || submitting}
-          className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
+          disabled={submitLocked}
+          onPointerDown={(e) => {
+            if (!submitLocked) triggerInteractionFeedback("light", e);
+          }}
+          className={`flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {submitting ? resolvedSubmittingLabel : resolvedLabel}
         </button>

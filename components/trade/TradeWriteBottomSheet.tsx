@@ -167,11 +167,15 @@ export function TradeWriteBottomSheet() {
     >
       <div
         ref={panelRef}
+        data-form-keyboard-surface="1"
         className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-sam-app pt-[var(--safe-top)] text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
           panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
         }`}
       >
-        <div className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11">
+        <div
+          data-form-keyboard-sticky-chrome="1"
+          className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11"
+        >
           <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{t("ui_write_trade_sheet_title")}</h2>
           <button
             type="button"

@@ -14,6 +14,8 @@ import {
 } from "@/lib/mypage/customer-center-layout";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
 type Message = {
   id: string;
@@ -154,7 +156,10 @@ export function MemberCsNoteThreadClient({ kind }: { kind: MemberAdminNoteKind }
               type="button"
               disabled={busy || !body.trim()}
               onClick={() => void send()}
-              className="mt-2 min-h-11 w-full rounded-ui-rect bg-signature px-3 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
+              onPointerDown={(e) => {
+                if (!(busy || !body.trim())) triggerInteractionFeedback("light", e);
+              }}
+              className={`mt-2 min-h-11 w-full rounded-ui-rect bg-signature px-3 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
             >
               {t("notif_admin_notes_send")}
             </button>

@@ -74,4 +74,22 @@ describe("form-keyboard-ssot consumer contract", () => {
     expect(src).toContain("effectiveBottomInset");
     expect(src).not.toMatch(/env\(safe-area-inset-bottom\)/);
   });
+
+  it("Form CTAs use press class + interaction feedback (not focus haptic)", () => {
+    const philife = read("components/philife/PhilifeWriteActionFooter.tsx");
+    const trade = read("components/write/shared/SubmitButton.tsx");
+    const profile = read("components/my/edit/ui/ProfileEditBottomSaveBar.tsx");
+    for (const src of [philife, trade, profile]) {
+      expect(src).toContain("FORM_INTERACTIVE_PRESS_CLASS");
+      expect(src).toContain("triggerInteractionFeedback");
+      expect(src).toContain('"light"');
+    }
+  });
+
+  it("focus contract exports top+bottom band helpers", () => {
+    const src = read("lib/ui/form-keyboard-viewport-contract.ts");
+    expect(src).toContain("resolveFormEffectiveViewportTopPx");
+    expect(src).toContain("effectiveViewportTop");
+    expect(src).toContain("FORM_INTERACTIVE_PRESS_CLASS");
+  });
 });
