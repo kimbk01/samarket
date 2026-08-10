@@ -45,6 +45,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.community_posts_set_summary_from_content()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN

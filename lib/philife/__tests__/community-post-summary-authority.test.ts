@@ -32,6 +32,7 @@ describe("community post summary authority", () => {
     );
     expect(sql).toContain("community_posts_summary_from_content");
     expect(sql).toContain("BEFORE INSERT OR UPDATE OF content");
+    expect(sql).toContain("SECURITY DEFINER");
     expect(sql).toContain("UPDATE public.community_posts");
     expect(sql).toContain("/storage/v1/object/public/post-images/");
   });
