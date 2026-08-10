@@ -17,6 +17,9 @@ import {
   extractImageUrlsFromInterleavedContent,
   hasInterleavedMarkdownImageSyntax,
   interleavedMarkdownFromPastedHtml,
+  isPlainClipboardMostlyImageUrls,
+  stripKnownImageUrlsFromText,
+  stripMarkdownImageSyntaxForFeedPreview,
   workItemsFromInterleavedMd,
 } from "@/lib/philife/interleaved-body-markdown";
 import {
@@ -375,9 +378,10 @@ export function PhilifeNeighborhoodWriteForm({
 
     if (imageFiles.length > 0) {
       e.preventDefault();
-      const plainClip = cd.getData("text/plain");
-      if (plainClip) {
-        insertPlainAtSelection(plainClip);
+      const plainClip = cd.getData("text/plain") || "";
+      /** 파일 붙여넣기: 이미지 URL만 있는 plain 은 본문에 넣지 않음(리스트 URL 노출 방지) */
+      if (plainClip.trim() && !isPlainClipboardMostlyImageUrls(plainClip)) {
+        insertPlainAtSelection(stripMarkdownImageSyntaxForFeedPreview(plainClip));
       }
       setUploading(true);
       setErr("");
@@ -402,12 +406,15 @@ export function PhilifeNeighborhoodWriteForm({
     const plain0 = cd.getData("text/plain") || "";
     const html = cd.getData("text/html") || "";
     const richMd = html.trim() ? interleavedMarkdownFromPastedHtml(html, plain0) : null;
-    const useInterleaved = Boolean(richMd && richMd.includes("!["));
-    let work = useInterleaved && richMd
-      ? workItemsFromInterleavedMd(richMd)
-      : html.trim()
-        ? extractOrderedPastedImageSources(html, plain0)
-        : [];
+    const workFromMd = richMd ? workItemsFromInterleavedMd(richMd) : [];
+    const workFromHtml = html.trim() ? extractOrderedPastedImageSources(html, plain0) : [];
+    const useInterleaved = Boolean(richMd && workFromMd.length > 0);
+    let work =
+      useInterleaved && workFromMd.length > 0
+        ? workFromMd
+        : workFromHtml.length > 0
+          ? workFromHtml
+          : [];
     const pageRef = firstLikelyArticlePageUrl(plain0) ?? undefined;
 
     if (work.length === 0 && !pageRef) {
@@ -421,7 +428,17 @@ export function PhilifeNeighborhoodWriteForm({
     const value = el.value;
     const before = value.slice(0, sa);
     const after = value.slice(sb);
-    const middle = useInterleaved && richMd ? richMd : plain0;
+    /**
+     * 이미지가 있으면 교차 마크다운 우선.
+     * plain 폴백 시에도 단독 이미지 URL 은 본문에서 제거(썸네일 주소 텍스트 노출 방지).
+     */
+    let middle =
+      useInterleaved && richMd
+        ? richMd
+        : stripMarkdownImageSyntaxForFeedPreview(plain0 || "");
+    if (!middle.trim() && useInterleaved && richMd) {
+      middle = richMd;
+    }
     setContent(before + middle + after);
     pendingContentCaretRef.current = sa + middle.length;
     setUploading(true);
@@ -501,47 +518,30 @@ export function PhilifeNeighborhoodWriteForm({
       const cap = Math.max(0, 10 - imageUrlsCountRef.current);
       const out: string[] = [];
       let i = 0;
-      let placedPrimary = false;
 
       while (i < work.length && out.length < cap) {
         const item = work[i]!;
-        if (!placedPrimary) {
-          if (item.kind === "data") {
-            const r = await tryRehostDataUrl(item.value);
-            if (r.kind === "hosted") {
-              out.push(r.url);
-              urlPairs.push({ from: item.value, to: r.url });
-              placedPrimary = true;
-            } else if (r.kind === "err" && r.message) {
-              setErr(r.message);
-            }
-            i += 1;
-            continue;
-          }
-          const raw = normalizeHttpUrlString(item.value);
-          if (embeddable(raw)) {
-            const rh = await tryRehostFromHttp(raw);
-            if (rh.kind === "hosted") {
-              out.push(rh.url);
-              urlPairs.push({ from: raw, to: rh.url });
-              placedPrimary = true;
-            } else if (rh.kind === "error" && raw) {
-              out.push(raw);
-              urlPairs.push({ from: raw, to: raw });
-              placedPrimary = true;
-            }
-          }
-          i += 1;
-          continue;
-        }
         if (item.kind === "data") {
+          const r = await tryRehostDataUrl(item.value);
+          if (r.kind === "hosted") {
+            out.push(r.url);
+            urlPairs.push({ from: item.value, to: r.url });
+          } else if (r.kind === "err" && r.message) {
+            setErr(r.message);
+          }
           i += 1;
           continue;
         }
-        const ex = normalizeHttpUrlString(item.value);
-        if (embeddable(ex) && out.length < cap) {
-          out.push(ex);
-          urlPairs.push({ from: ex, to: ex });
+        const raw = normalizeHttpUrlString(item.value);
+        if (embeddable(raw)) {
+          const rh = await tryRehostFromHttp(raw);
+          if (rh.kind === "hosted") {
+            out.push(rh.url);
+            urlPairs.push({ from: raw, to: rh.url });
+          } else if (rh.kind === "error" && rh.message) {
+            /** 외부 URL 을 images/본문에 그대로 넣지 않음 — 불안정·URL 텍스트 노출 방지 */
+            setErr(rh.message);
+          }
         }
         i += 1;
       }
@@ -556,13 +556,9 @@ export function PhilifeNeighborhoodWriteForm({
         const j2 = (await res2.json()) as { ok?: boolean; imageUrl?: string; error?: string };
         if (j2.ok && j2.imageUrl) {
           const rh = await tryRehostFromHttp(j2.imageUrl);
-          const n = normalizeHttpUrlString(j2.imageUrl);
           if (rh.kind === "hosted") {
             out.push(rh.url);
-            urlPairs.push({ from: n, to: rh.url });
-          } else if (embeddable(j2.imageUrl)) {
-            out.push(n);
-            urlPairs.push({ from: n, to: n });
+            urlPairs.push({ from: normalizeHttpUrlString(j2.imageUrl), to: rh.url });
           } else {
             setErr(t("philife_write_err_thumb_upload"));
           }
@@ -572,12 +568,28 @@ export function PhilifeNeighborhoodWriteForm({
       }
       if (out.length) {
         setImageUrls((prev) => [...out, ...prev].slice(0, 10));
-        if (useInterleaved && richMd && urlPairs.length) {
-          const newMid = applyInterleavedImageUrlReplacements(middle, urlPairs);
-          if (newMid !== middle) {
-            setContent(before + newMid + after);
-            pendingContentCaretRef.current = sa + newMid.length;
-          }
+        let newMid: string;
+        if (useInterleaved && richMd) {
+          /** 교차 본문: ![](hosted) 유지, 원본 data/외부 URL 잔여만 제거 */
+          newMid = applyInterleavedImageUrlReplacements(middle, urlPairs);
+          newMid = stripKnownImageUrlsFromText(
+            newMid,
+            urlPairs.map((p) => p.from).filter((from) => !out.includes(from))
+          );
+        } else {
+          /** plain 경로: 썸네일은 imageUrls — 본문에 이미지 주소 텍스트 남기지 않음 */
+          const leakSources = [
+            ...out,
+            ...urlPairs.map((p) => p.from),
+            ...urlPairs.map((p) => p.to),
+          ];
+          newMid = stripMarkdownImageSyntaxForFeedPreview(
+            stripKnownImageUrlsFromText(middle, leakSources)
+          );
+        }
+        if (newMid !== middle) {
+          setContent(before + newMid + after);
+          pendingContentCaretRef.current = sa + newMid.length;
         }
       } else if (!pageRef) {
         setErr(t("philife_write_err_paste_align"));

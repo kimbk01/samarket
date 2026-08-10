@@ -61,6 +61,7 @@ import {
   buildCommunityFeedHref,
   communityNavToFeedQuery,
   composeCommunityNavItems,
+  communityNavSelectionKey,
   defaultCommunityNavSelection,
   isSameCommunityNavSelection,
   parseCommunityNavFromSearchParams,
@@ -226,9 +227,9 @@ function resolveActiveNavIndex(items: CommunityNavComposeItem[], sel: CommunityN
 }
 
 /**
- * `scrollLeft === 0`일 때 뷰 안에 **완전히** 들어오는 마지막 탭 인덱스까지 = **홈 범위**(최신순~질문있어요 등).
- * - 그 범위의 탭을 고르면 **`scrollLeft = 0`** 으로 복귀(앞으로 밀렸던 줄이 원위치).
- * - 그보다 오른쪽 탭만: 오른쪽 잘림 → 한 단계 전진 + peel; 왼쪽 잘림 → 대칭 후퇴 대신 **선택 탭이 왼쪽에 오도록** `scrollLeft`만 맞춤.
+ * `scrollLeft === 0`일 때 뷰 안에 **완전히** 들어오는 마지막 탭 인덱스까지 = **홈 범위**.
+ * - Latest|Popular(`activeIndex < 0`) 또는 그 범위의 탭을 고르면 **`scrollLeft = 0`** 원점 복귀.
+ * - 그보다 오른쪽 탭만: 오른쪽 잘림 → 한 단계 전진 + peel; 왼쪽 잘림 → 선택 탭이 왼쪽에 오도록 `scrollLeft`만 맞춤.
  */
 function scrollPhilifeTopicTabStrip(
   root: HTMLElement,
@@ -1453,16 +1454,25 @@ export function CommunityFeed({
     setAllSortMenuPos({ top: rect.bottom + 6, left: rect.left });
   }, []);
 
+  const resetTopicTabStripToOrigin = useCallback(() => {
+    const root = topicTablistRef.current;
+    if (!root) return;
+    if (root.scrollLeft === 0) return;
+    root.scrollTo({ left: 0, behavior: "auto" });
+  }, []);
+
   const applyAllSort = useCallback(
     (next: CommunityAllSort) => {
       lastAllSortRef.current = next;
+      resetTopicTabStripToOrigin();
       applyNavSelection({ kind: "all", topicSlug: "", allSort: next });
       setAllSortOpen(false);
     },
-    [applyNavSelection]
+    [applyNavSelection, resetTopicTabStripToOrigin]
   );
 
   const onAllSortChipClick = useCallback(() => {
+    resetTopicTabStripToOrigin();
     if (!allSortOn) {
       applyNavSelection({
         kind: "all",
@@ -1476,7 +1486,7 @@ export function CommunityFeed({
     }
     updateAllSortMenuPos();
     setAllSortOpen(true);
-  }, [allSortOn, allSortOpen, applyNavSelection, updateAllSortMenuPos]);
+  }, [allSortOn, allSortOpen, applyNavSelection, resetTopicTabStripToOrigin, updateAllSortMenuPos]);
 
   useEffect(() => {
     if (!allSortOpen) return;
@@ -1542,6 +1552,11 @@ export function CommunityFeed({
         if (topicTabScrollGenRef.current !== myGen) return;
         const root = topicTablistRef.current;
         if (!root) return;
+        /** Latest|Popular (all) → topic strip origin; no selected topic tab in strip */
+        if (activeTopicTabIndex < 0) {
+          if (root.scrollLeft !== 0) root.scrollTo({ left: 0, behavior: "auto" });
+          return;
+        }
         const sel = root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
         if (!sel) return;
         scrollPhilifeTopicTabStrip(root, sel, activeTopicTabIndex, 6);
@@ -1553,7 +1568,29 @@ export function CommunityFeed({
       topicTabScrollGenRef.current += 1;
       for (const id of toCancel) cancelAnimationFrame(id);
     };
-  }, [chipsLoadDone, activeTopicTabIndex]);
+  }, [chipsLoadDone, activeTopicTabIndex, navSelection.kind, navSelection.allSort]);
+
+  /**
+   * 주제·동네 탭 선택 시 본문 패널 우→좌 440ms 진입.
+   * 최초 마운트·최신순|인기순(all) 전환에는 재생하지 않음.
+   */
+  const prevTopicPanelNavKeyRef = useRef<string | null>(null);
+  const [topicPanelEnterId, setTopicPanelEnterId] = useState(0);
+  useLayoutEffect(() => {
+    const key = communityNavSelectionKey(navSelection);
+    const isTopicStrip = navSelection.kind === "topic" || navSelection.kind === "local";
+    if (!isTopicStrip) {
+      prevTopicPanelNavKeyRef.current = key;
+      return;
+    }
+    if (prevTopicPanelNavKeyRef.current === null) {
+      prevTopicPanelNavKeyRef.current = key;
+      return;
+    }
+    if (prevTopicPanelNavKeyRef.current === key) return;
+    prevTopicPanelNavKeyRef.current = key;
+    setTopicPanelEnterId((n) => n + 1);
+  }, [navSelection.kind, navSelection.topicSlug]);
 
   const swipeToNextTab = useCallback(() => {
     if (!navItems.length) return;
@@ -1896,8 +1933,16 @@ export function CommunityFeed({
         }
       />
 
-      <div className="relative min-w-0">
+      <div className="relative min-w-0 overflow-x-hidden">
         <div ref={setFeedSwipeable} className="will-change-transform touch-pan-y min-w-0">
+        <div
+          key={topicPanelEnterId > 0 ? `topic-panel-${topicPanelEnterId}` : "topic-panel-boot"}
+          className={
+            topicPanelEnterId > 0
+              ? "community-topic-panel-slide-in relative min-w-0"
+              : "relative min-w-0"
+          }
+        >
         {loading && postsForList.length > 0 ? (
           <div
             className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-sam-primary/60"
@@ -1976,6 +2021,7 @@ export function CommunityFeed({
             ) : null}
           </>
         )}
+        </div>
         </div>
       </div>
     </div>

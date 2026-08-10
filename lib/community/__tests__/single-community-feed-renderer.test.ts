@@ -18,7 +18,7 @@ describe("single community feed renderer (attachment 2)", () => {
     const classes = read("lib/community/community-ui-classes.ts");
     expect(classes).toContain("rounded-[var(--cm-radius-card)]");
     const tokens = read("lib/community/community-design-tokens.css");
-    expect(tokens).toContain("--cm-radius-card: 22px");
+    expect(tokens).toContain("--cm-radius-card: 9px");
     expect(tokens).toContain("[data-community-ui]");
   });
 

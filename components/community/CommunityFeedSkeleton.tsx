@@ -25,7 +25,7 @@ export function CommunityFeedSkeleton({ rows = 6 }: { rows?: number }) {
   const { t } = useI18n();
 
   return (
-    <div className="space-y-4 px-4 pt-3 pb-3" aria-busy aria-label={t("community_feed_loading_aria")}>
+    <div className="space-y-2 px-4 pt-2 pb-3" aria-busy aria-label={t("community_feed_loading_aria")}>
       {Array.from({ length: rows }, (_, i) => (
         <SkeletonRow key={i} />
       ))}

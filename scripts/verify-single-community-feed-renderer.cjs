@@ -57,7 +57,7 @@ if (!classes.includes("rounded-[var(--cm-radius-card)]")) {
 }
 
 const tokens = read("lib/community/community-design-tokens.css");
-if (!tokens.includes("[data-community-ui]") || !tokens.includes("--cm-radius-card: 22px")) {
+if (!tokens.includes("[data-community-ui]") || !tokens.includes("--cm-radius-card: 9px")) {
   fail("community-design-tokens must define --cm-radius-card under [data-community-ui]");
 }
 
@@ -94,11 +94,6 @@ if (/\bPhilifeFeedClientEntry\b/.test(tabEnter) || /\bfunction\s+InstantMainTabE
 }
 if (tabEnter.includes("MainTabSurfaceKeepAlive") || fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
   fail("MainTabSurfaceKeepAlive removed — Community surface is route CommunityHomeSurface only");
-}
-
-const writeForm = read("components/write/community/CommunityWriteForm.tsx");
-if (writeForm.includes("data-community-ui") && !writeForm.includes("CommunityUiScope")) {
-  /* write form may keep local scope — OK */
 }
 
 if (failed) process.exit(1);

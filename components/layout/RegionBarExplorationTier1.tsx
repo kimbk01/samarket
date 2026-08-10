@@ -6,6 +6,7 @@ import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeader
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
+/** Community tier1: compose + address + bell only (no header messenger). Trade keeps messenger. */
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
@@ -42,7 +43,6 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
             {isCommunityHome ?
               <>
                 <PhilifeHeaderComposeButton />
-                <PhilifeHeaderMessengerButton />
                 <PhilifeHeaderAddressMenuButton />
                 <Tier1NotificationAnchor surface="bottom_nav_community" />
               </>

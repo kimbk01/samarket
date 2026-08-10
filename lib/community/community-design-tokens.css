@@ -13,7 +13,7 @@
   --cm-text-secondary: #666666;
   --cm-text-muted: #8a8a8a;
   --cm-danger: #d32f2f;
-  --cm-radius-card: 22px;
+  --cm-radius-card: 9px;
   --cm-radius-input: 24px;
   --cm-radius-cta: 20px;
   --cm-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -46,4 +46,25 @@
 [data-community-ui] .cm-page {
   background-color: var(--cm-page-bg);
   min-height: 100vh;
+}
+
+/** 주제·동네 탭 선택 — 우→좌 440ms 밀어 들어오기 */
+@keyframes community-topic-panel-slide-in {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+[data-community-ui] .community-topic-panel-slide-in {
+  animation: community-topic-panel-slide-in 440ms cubic-bezier(0.25, 0.72, 0.2, 1) both;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-community-ui] .community-topic-panel-slide-in {
+    animation: none;
+  }
 }

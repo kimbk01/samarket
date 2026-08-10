@@ -9,12 +9,13 @@ import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import {
-  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  SAM_TIER1_HEADER_ICON_HIT_CLASS,
+  samTier1HeaderIconMicro,
 } from "@/lib/ui/tier1-header-icon";
 
 /**
- * `/philife` 1단 헤더 — 페이스북형 **둥근 사각형 +** 글쓰기(기존 하단 FAB 대체).
+ * `/philife` 1단 헤더 — 사각 연필(스타벅스 그린 배경) 글쓰기 CTA.
  */
 export function PhilifeHeaderComposeButton() {
   return (
@@ -24,16 +25,26 @@ export function PhilifeHeaderComposeButton() {
   );
 }
 
+/** 스타벅스 그린 사각 히트 — 커뮤니티 스코프 `--cm-primary` / 전역 폴백 `#006241` */
+const COMPOSE_BTN_CLASS = [
+  SAM_TIER1_HEADER_ICON_HIT_CLASS,
+  "inline-flex shrink-0 items-center justify-center rounded-[9px]",
+  "bg-[var(--cm-primary,#006241)] text-white",
+  "hover:bg-[var(--cm-primary-hover,#00754a)]",
+  "disabled:opacity-50",
+  samTier1HeaderIconMicro,
+].join(" ");
+
 function PhilifeHeaderComposeButtonFallback() {
   const { t } = useI18n();
   return (
     <button
       type="button"
-      className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+      className={COMPOSE_BTN_CLASS}
       aria-label={t("tier1_community_write")}
       disabled
     >
-      <PlusInSquareIcon />
+      <SquarePencilIcon />
     </button>
   );
 }
@@ -55,7 +66,7 @@ function PhilifeHeaderComposeButtonInner() {
       <Link
         href={href}
         prefetch={false}
-        className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+        className={COMPOSE_BTN_CLASS}
         aria-label={aria}
         onClick={(e) => {
           if (!guardBeforeNavigate()) {
@@ -72,7 +83,7 @@ function PhilifeHeaderComposeButtonInner() {
           );
         }}
       >
-        <PlusInSquareIcon />
+        <SquarePencilIcon />
       </Link>
     );
   }
@@ -84,27 +95,28 @@ function PhilifeHeaderComposeButtonInner() {
         if (!guardBeforeNavigate()) return;
         openWriteSheet(category);
       }}
-      className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+      className={COMPOSE_BTN_CLASS}
       aria-label={aria}
     >
-      <PlusInSquareIcon />
+      <SquarePencilIcon />
     </button>
   );
 }
 
-function PlusInSquareIcon() {
+function SquarePencilIcon() {
   return (
     <svg
       className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2.2}
+      strokeWidth={2.1}
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden
     >
-      <rect x="3" y="3" width="18" height="18" rx="4" ry="4" strokeWidth={2} />
-      <path d="M12 8v8M8 12h8" />
+      <path d="M12.5 5.5l6 6L9 21H3v-6L12.5 5.5z" />
+      <path d="M10.5 7.5l6 6" />
     </svg>
   );
 }

@@ -74,9 +74,9 @@ export const PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE = PHILIFE_TOPIC_TAB_PILL_ACTIVE;
 /** 피드 글 목록 바깥 래퍼 — 카드 간격 (`<ul>` 용) */
 export const PHILIFE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1 [&>li]:list-none`;
 
-/** 커뮤니티 전용 — 둥근 카드 간 넓은 간격 */
+/** 커뮤니티 전용 — 카드 간 간격(축소) · radius 는 `--cm-radius-card`(9px) */
 export const COMMUNITY_FEED_LIST_WRAP_CLASS =
-  "m-0 list-none space-y-4 p-0 px-4 pt-2 pb-4 [&>li]:list-none";
+  "m-0 list-none space-y-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none";
 
 /**
  * 거래 피드 `<ul>` — 좌우 인셋은 philife 와 동일, 하단은 탭 clearance(셸 `pb-0` 와 쌍).

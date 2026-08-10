@@ -3,15 +3,50 @@ import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 const IMG_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
 /**
- * 피드 목록 등: 본문의 `![…](https…)` 를 미리보기에서 제거(URL이 텍스트로 노출되지 않게).
- * 인터리브/일반 본문 공용.
+ * 본문/요약에 남은 **단독 이미지 URL** (확장자·post-images 스토리지).
+ * 붙여넣기 실패·plain 경로에서 마크다운 없이 URL이 남는 경우 리스트 노출 방지.
+ */
+const BARE_IMAGE_URL_RE =
+  /https?:\/\/[^\s<>"'`)\]]+?\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s<>"'`)\]]*)?/gi;
+const POST_IMAGES_STORAGE_URL_RE =
+  /https?:\/\/[^\s<>"'`)\]]+?\/storage\/v1\/object\/public\/post-images\/[^\s<>"'`)\]]+/gi;
+
+/**
+ * 피드 목록 등: 본문의 `![…](https…)` 및 단독 이미지/스토리지 URL을 미리보기에서 제거.
+ * (URL이 텍스트로 노출되지 않게)
  */
 export function stripMarkdownImageSyntaxForFeedPreview(s: string): string {
   if (!s) return "";
   let t = s.replace(IMG_RE, " ");
+  t = t.replace(POST_IMAGES_STORAGE_URL_RE, " ");
+  t = t.replace(BARE_IMAGE_URL_RE, " ");
   t = t.replace(/\s+/g, " ").trim();
   return t;
 }
+
+/** 알려진 이미지 URL(호스팅 결과 등)을 본문 텍스트에서 제거 */
+export function stripKnownImageUrlsFromText(text: string, urls: string[]): string {
+  if (!text) return "";
+  let s = text;
+  const ordered = [...urls]
+    .map((u) => (u ?? "").trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  for (const u of ordered) {
+    if (!s.includes(u)) continue;
+    s = s.split(u).join(" ");
+  }
+  return s.replace(/\s+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** plain 클립보드가 이미지 URL만인지 (파일 붙여넣기 시 본문에 넣지 않음) */
+export function isPlainClipboardMostlyImageUrls(plain: string): boolean {
+  const t = (plain ?? "").trim();
+  if (!t) return true;
+  const without = stripMarkdownImageSyntaxForFeedPreview(t);
+  return without.length === 0;
+}
+
 const BLANK = /(spacer|1x1|blank\.gif|pixel|favicon|clear\.gif)/i;
 
 const LAZY = [
@@ -26,10 +61,14 @@ function pickImageUrlFromImgEl(img: HTMLImageElement): string {
     }
   }
   const s = img.getAttribute("src");
-  if (s && s.trim() && !BLANK.test(s) && !/^data:image\/(gif|png|jpeg|webp|svg)/i.test(s)) {
-    return s.trim();
+  if (!s || !s.trim() || BLANK.test(s)) return "";
+  const raw = s.trim();
+  /** 클립보드 HTML 의 data: 이미지도 교차 본문에 포함(이후 rehost) */
+  if (/^data:image\/(jpeg|jpg|png|webp|gif)/i.test(raw)) {
+    return raw;
   }
-  return "";
+  if (/^data:/i.test(raw)) return "";
+  return raw;
 }
 
 /**
@@ -151,12 +190,16 @@ export function interleavedMarkdownFromPastedHtml(html: string, plainFallback: s
         return;
       }
     }
-    if (n instanceof HTMLImageElement) {
+    if (n.nodeType === Node.ELEMENT_NODE && (n as Element).tagName === "IMG") {
       flushT();
-      let u = pickImageUrlFromImgEl(n);
+      let u = pickImageUrlFromImgEl(n as HTMLImageElement);
       if (u) {
         if (u.startsWith("//")) u = `https:${u}`;
-        if (u.startsWith("https:") || u.startsWith("http:")) {
+        if (
+          u.startsWith("https:") ||
+          u.startsWith("http:") ||
+          /^data:image\/(jpeg|jpg|png|webp|gif)/i.test(u)
+        ) {
           blocks.push({ t: "img", url: u });
         }
       }
