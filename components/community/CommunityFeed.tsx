@@ -43,8 +43,12 @@ import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import {
-  shouldInjectFeedAdAfterContentIndex,
-} from "@/lib/ads/feed-ad-placement";
+  feedAdSlotSeed,
+  planFeedAdSlots,
+  shouldInjectFeedAdAtContentIndex,
+} from "@/lib/ads/feed-ad-slot-policy";
+import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
+import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
 import { Fragment } from "react";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -501,6 +505,54 @@ export function CommunityFeed({
   }, [pathname, router, searchQueryString, categoryParamNorm]);
 
   const isAllTabView = !category.trim() || isPhilifeRecommendSortCategory(category);
+
+  /**
+   * Feed Banner + chip/URL must share this surface (not URL-only).
+   * `category` state is the feed authority after boot/URL sync.
+   */
+  const feedAdSurface = useMemo(
+    () => resolveCommunityFeedSurface(category),
+    [category]
+  );
+  const feedAdSessionId = useMemo(
+    () => getOrCreateFeedAdSessionId(feedAdSurface.surfaceKey),
+    [feedAdSurface.surfaceKey]
+  );
+  const feedAdPlan = useMemo(
+    () =>
+      planFeedAdSlots(
+        posts.length,
+        feedAdSlotSeed({
+          surfaceKey: feedAdSurface.surfaceKey,
+          feedSessionId: feedAdSessionId,
+        })
+      ),
+    [posts.length, feedAdSurface.surfaceKey, feedAdSessionId]
+  );
+
+  /** Surface SSOT: topic feed without ?category= → write slug into URL (no HOME/TOPIC split). */
+  useEffect(() => {
+    if (!topicAuthorityReady) return;
+    if (feedAdSurface.placement !== "COMMUNITY_TOPIC") return;
+    const want = feedAdSurface.topicSlug ?? "";
+    if (!want) return;
+    if (categoryParamNorm === want) return;
+    const sp = new URLSearchParams(searchQueryString);
+    sp.set("category", want);
+    sp.delete("sort");
+    const next = sp.toString();
+    const target = next ? `${pathname}?${next}` : pathname;
+    void router.replace(target, { scroll: false });
+  }, [
+    topicAuthorityReady,
+    feedAdSurface.placement,
+    feedAdSurface.topicSlug,
+    categoryParamNorm,
+    searchQueryString,
+    pathname,
+    router,
+  ]);
+
   const latestSortHref = (() => {
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("sort", "latest");
@@ -1697,26 +1749,14 @@ export function CommunityFeed({
                   <li className="list-none">
                     <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
                   </li>
-                  {shouldInjectFeedAdAfterContentIndex(
-                    index,
-                    postsForList.length,
-                    true
-                  ) ? (
+                  {shouldInjectFeedAdAtContentIndex(index, feedAdPlan) ? (
                     <FeedAdBannerCarousel
                       domain="community"
-                      // COMMUNITY_HOME = /philife entry (URL에 category 없음·전체/추천 탭).
-                      // boot이 첫 topic chip을 state에만 넣어도 HOME — ?category= 명시 시에만 TOPIC.
-                      placement={
-                        isAllTabView || !categoryParam.trim()
-                          ? "COMMUNITY_HOME"
-                          : "COMMUNITY_TOPIC"
-                      }
-                      topicSlug={
-                        isAllTabView || !categoryParam.trim()
-                          ? undefined
-                          : // SSOT = URL ?category=<slug> (same authority as campaign.target_topic_slug)
-                            categoryParamNorm || undefined
-                      }
+                      placement={feedAdSurface.placement}
+                      topicSlug={feedAdSurface.topicSlug}
+                      surfaceKey={feedAdSurface.surfaceKey}
+                      feedSessionId={feedAdSessionId}
+                      slotOrdinal={feedAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
                     />
                   ) : null}
                 </Fragment>

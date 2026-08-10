@@ -336,20 +336,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "topic_not_targetable" }, { status: 400 });
   }
 
-  // Member Product B contract: 1 request = 1 primary creative.
-  // DB may still allow multi-creative for Admin Direct — do not drop schema.
+  // Member Product B: 1 request = 1~3 creatives (DB CHECK sort_order 1..3).
   const creativesRaw = (Array.isArray(body.creatives) ? body.creatives : [])
     .map((c) => ({
       imageUrl: String(c.imageUrl ?? "").trim(),
       altText: String(c.altText ?? "").trim(),
       headline: String(c.headline ?? "").trim(),
     }))
-    .filter((c) => c.imageUrl.length > 0);
+    .filter((c) => c.imageUrl.length > 0)
+    .slice(0, 3);
   if (creativesRaw.length < 1) {
     return NextResponse.json({ ok: false, error: "creatives_required" }, { status: 400 });
   }
-  if (creativesRaw.length > 1) {
-    return NextResponse.json({ ok: false, error: "creatives_max_one" }, { status: 400 });
+  if ((Array.isArray(body.creatives) ? body.creatives : []).filter(
+    (c) => String((c as { imageUrl?: string }).imageUrl ?? "").trim().length > 0
+  ).length > 3) {
+    return NextResponse.json({ ok: false, error: "creatives_max_three" }, { status: 400 });
   }
   for (const c of creativesRaw) {
     if (!isProductionReachableFeedAdCreativeUrl(c.imageUrl)) {
@@ -362,7 +364,7 @@ export async function POST(req: NextRequest) {
       );
     }
   }
-  const creatives = creativesRaw.slice(0, 1);
+  const creatives = creativesRaw;
 
   const dest = normalizeFeedAdDestination({
     destinationType: String(body.destinationType ?? "none"),

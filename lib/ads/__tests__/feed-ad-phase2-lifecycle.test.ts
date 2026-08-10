@@ -251,7 +251,8 @@ describe("PHASE 2 authority markers (M5)", () => {
     );
     expect(memberPost).toContain("feed_ad_request_creatives");
     expect(memberPost).toContain("image_url: c.imageUrl");
-    expect(memberPost).toContain("creatives_max_one");
+    expect(memberPost).toContain("creatives_max_three");
+    expect(memberPost).not.toContain("creativesRaw.slice(0, 1)");
     expect(adminGet).toContain("creativeAuthority");
     expect(adminGet).toContain("feed_ad_request_creatives");
   });

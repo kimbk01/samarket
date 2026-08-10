@@ -45,7 +45,7 @@ describe("isProductionReachableFeedAdCreativeUrl", () => {
   });
 });
 
-describe("eligibility excludes invalid creatives from day-bucket pool", () => {
+describe("eligibility excludes invalid creatives from selector pool", () => {
   function camp(
     partial: Partial<FeedAdCampaignView> & { id: string; imageUrl: string }
   ): FeedAdCampaignView {

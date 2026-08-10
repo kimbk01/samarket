@@ -1,17 +1,14 @@
 # DIBAY Feed Banner Product HARD LOCK
 
 **Status:** FEED BANNER PRODUCT HARD LOCK  
-**Locked at:** 2026-08-09  
-**Product verdict:** `FEED BANNER PRODUCT PASS` / `FINAL FIRST BREAK: NONE`  
-**Repo commit:** `e04be170d` (`e04be170df03dc668b4f9b6b1e69428906166815`)  
-**Production deploy:** `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB`  
-**Production URL:** `https://samarket-argkrxdvg-kimbk01s-projects.vercel.app`  
-**Production alias:** `https://samarket.vercel.app` (inspect Ready → above deployment)  
+**Locked at:** 2026-08-10 (product contract reopen close)  
+**Prior LOCK:** 2026-08-09 (`e04be170d`) — superseded by this document for slot/selection/surface/creative  
+**Product verdict:** `PRODUCT CONTRACT CHANGE RUNTIME: PASS` / `FIRST BREAK: NONE`  
 **Companion rule:** `.cursor/rules/dibay-feed-banner-product-hard-lock.mdc`  
 **Master contract:** `docs/dibay-paid-exposure-feed-ad-master-contract.md`  
-**FINAL E2E evidence:** `.qa-logs/feed-banner-final-e2e-20260809/REPORT.json`
+**Runtime evidence:** `.qa-logs/feed-banner-runtime-evidence-20260810/REPORT.json` · `R6-FINAL.json`
 
-This document freezes Feed Banner **product decisions / financial authority / eligibility / geometry / native boundary**.  
+This document freezes Feed Banner **product decisions / surface / cadence / selector / member limit / creatives / financial authority / sanitation / native boundary**.  
 It does **not** claim Analytics, Notification, Legacy cleanup, or Native Cap changes.
 
 ---
@@ -20,32 +17,34 @@ It does **not** claim Analytics, Notification, Legacy cleanup, or Native Cap cha
 
 | Stage | Status |
 |---|---|
-| Phase 1 financial (HOLD/CAPTURE/RELEASE/idempotency/CODE price) | **CLOSED / PASS** |
-| Phase 2 member hub + admin detail/replace + cancel | **CLOSED / PASS** |
-| Phase 3 eligibility + renewal + geometry OPTION B | **CODE CLOSED / PASS** |
-| FINAL E2E A–F (Community/Trade DOM, reject/release, replace, expire, renew) | **PASS** |
+| Phase 1 financial (HOLD/CAPTURE/RELEASE/idempotency) | **CLOSED / PASS** — unchanged |
+| Phase 2 member hub + admin detail/replace + cancel | **CLOSED / PASS** — unchanged |
+| Phase 3 eligibility + renewal + geometry card-rhythm | **KEEP** |
+| Product contract reopen (surface / 6–10 cadence / multi-advertiser / 1–3 creatives / anti-repeat) | **RUNTIME PASS** |
 | HARD LOCK | **THIS DOCUMENT** |
 
 ### Product PASS scope (what YES means)
 
-Directly verified PASS (API + DOM remasure against localhost QA; product code unchanged after remasure):
+Verified (unit + local runtime evidence 2026-08-10):
 
-- Community / Trade mid-slot feed exposure (`feedId` = MEMBER_REQUESTED campaigns)
-- Reject → hold `released` + balance restore path
-- Admin creative replace → live Creative URL on feed
-- Eligibility resolver: `status=active` AND `start_at ≤ now` AND `end_at > now` (expired surfaces as ended / not eligible)
-- Renewal: same campaign, `point_ledger` spend, `end_at` extends; changed creative/destination → `re_review_required`
-- Static gates at close: lint · `tsc --noEmit` · ads vitest (42) · `verify:i18n-key-exposure` · `npm run build`
+- **Community surface CASE 2:** topic-first IA (`showAllFeedTab=false` prod+local); ads follow `COMMUNITY_TOPIC:<slug>`; `COMMUNITY_HOME` only when All tab is ON
+- Surface SSOT: `resolveCommunityFeedSurface` shared by chips / URL / posts / banner / `/api/feed-ads/active`
+- Cadence: gaps ∈ **[6,10]** deterministic (`FeedAdSlotPolicy`); rerender/pagination stable; DB pagination has no ad rows
+- Multi-advertiser: stable hash selector + anti-repeat when `eligible.length > 1`
+- One member = one current banner: pending/active → second POST **409** / HOLD **0**; terminal → new create + HOLD **1**
+- One campaign = **1–3** creatives; carousel = selected campaign only; 2–3 auto-slide
+- Empty pool → component **null** (no reserved blank height)
+- Financial SSOT unchanged: HOLD / CAPTURE / RELEASE / renew spend
+- Creative URL sanitation KEEP; Native **ZERO**
 
 ### Intentional residual (NOT product FAIL / not this LOCK)
 
 | Residual | Status |
 |---|---|
-| Legacy cleanup | Deferred — independent track |
-| Analytics | Deferred |
-| Notification | Deferred |
-| Playwright `member-feed-ad-banner-ui.spec.ts` refresh | Stale vs Phase 2 Detail CTAs; FINAL used API+DOM probe |
-| Native / Capacitor / Auth / Push | **ZERO CHANGE** — out of scope |
+| Legacy cleanup | Deferred |
+| Analytics / Notification | Deferred |
+| Native / Capacitor / Auth / Push | **ZERO CHANGE** |
+| `COMMUNITY_HOME` as default user surface | **Not required** while All tab OFF (product IA) |
 
 ---
 
@@ -53,12 +52,19 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 
 | Concern | Decision |
 |---|---|
-| Slot | **N=4 KEEP** — `FEED_AD_SLOT_AFTER_CONTENT_COUNT` / `shouldInjectFeedAdAfterContentIndex` |
-| Rotation | **day-bucket KEEP** — `selectCampaignForPlacement` |
-| Geometry | **REOPENED 2026-08-09 (Card-rhythm correction)** — source 1200×400; runtime **fixed list-thumb height + object-cover** (Community 72→88 / Trade 100). Former unbounded aspect 3:1 + contain (hero strip) superseded. |
-| Price/period | **REOPENED 2026-08-09** — runtime SSOT = DB `feed_ad_products` (Admin writer). CODE seed = deploy reference only. Request still snapshots `duration_days`/`point_cost`. |
-| Eligibility | Resolver-only; no cron status writer to flip expired campaigns |
-| Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend (not second hold) |
+| Community surface | **Topic-first.** Primary = `COMMUNITY_TOPIC:<slug>`. `COMMUNITY_HOME` = user surface **only when** `showAllFeedTab=true` / empty·recommend-sort category. Do **not** flip `showAllFeedTab` for ads QA. |
+| Surface authority | `lib/community/resolve-community-feed-surface.ts` — HOME/TOPIC **no cross-fallback** |
+| Cadence | Gaps **6–10** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. **N=4 REOPENED.** No `Math.random()`. |
+| Session seed | `feedSessionId` via `lib/ads/feed-ad-session.ts` (sessionStorage per surfaceKey; not remount-minted) |
+| Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignForPlacement`. **day-bucket-only REOPENED.** |
+| Multi-advertiser | Many members’ campaigns share exact placement pool; slot picks **one** campaign |
+| Member limit | One **current** campaign per member — `findCurrentFeedAdBanner` / `isFeedAdDisplayStatusBlockingNewCreate` |
+| Creatives | 1 request → 1 campaign → **1–3** creatives. Member max-one REOPENED. |
+| Carousel | Campaign selection ≠ creative slide mix. Same campaign only. |
+| Empty pool | `null` / height 0 |
+| Geometry | Card-rhythm KEEP (Community 72~88 / Trade 100 fixed + cover). Not hero 3:1. |
+| Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend |
+| Sanitation | Production-reachable HTTPS creatives only |
 | Native | **ZERO CHANGE** |
 
 ### Product boundary (do not merge)
@@ -73,31 +79,37 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 
 | Concern | Owner (final) | Forbidden without reopen |
 |---|---|---|
-| Member create + HOLD | `POST /api/me/feed-ad-requests` + point-hold writers | Capture-before-persist; inventing prices outside `feed_ad_products` |
-| Approve CAPTURE + campaign activate | `lib/ads/approve-feed-ad-request.ts` | Leaving ACTIVE without capture; skipping compensate on post-capture failure |
-| Reject / cancel RELEASE | approve reject path · `cancel-feed-ad-request.ts` | Double-release / silent skip of hold row |
-| Renewal | `lib/ads/renew-feed-ad-campaign.ts` + `POST .../renew` | Treating renew as new request without re-review when creative/destination change |
-| Price / period | DB `feed_ad_products` via Admin PATCH + `lib/ads/feed-ad-products.ts` readers | Dual CODE+DB runtime prices; rewriting past request snapshots |
-| Eligibility read | placement/campaigns-db resolver (`end_at > now`) | Cron that rewrites campaign status solely for expiry |
-| Feed injection | Community / Trade list slot helpers (N=4) | Changing slot interval / inventing second creative viewport without reopen |
-| Admin creative replace | Admin detail PATCH path | Queue-only approve without persisted creative review |
+| Community surface | `resolveCommunityFeedSurface` + feed `category` state | Banner from URL-only while posts use divergent category; HOME↔TOPIC campaign fallback |
+| Cadence | `planFeedAdSlots` / `shouldInjectFeedAdAtContentIndex` | Fixed N=4; `Math.random()` gaps; ads in DB page rows |
+| feedSessionId | `getOrCreateFeedAdSessionId(surfaceKey)` | New id every mount; new global session platform |
+| Campaign select | `selectCampaignForPlacement` (+ anti-repeat) | Day-bucket-only permanent winner; auction/weighting engine |
+| Member create + HOLD | `POST /api/me/feed-ad-requests` + point-hold writers | Second current without 409; inventing prices outside `feed_ad_products` |
+| Approve CAPTURE | `lib/ads/approve-feed-ad-request.ts` | Leaving ACTIVE without capture |
+| Reject / cancel RELEASE | approve reject · `cancel-feed-ad-request.ts` | Double-release / silent skip of hold row |
+| Renewal | `lib/ads/renew-feed-ad-campaign.ts` | Treating renew as new request without re-review when creative/destination change |
+| Price / period | DB `feed_ad_products` | Dual CODE+DB runtime prices |
+| Eligibility read | resolver (`active` + window + reachable creative) | Cron status flip solely for expiry |
+| Feed active API | `GET /api/feed-ads/active` + slot/session seeds | Mixing advertiser creatives in one carousel |
+| Admin creative replace | Admin detail PATCH path | Queue-only approve without persisted creative |
 
 ### Required migration (runtime)
 
-- `supabase/migrations/20261024160000_feed_ad_request_idempotency.sql`
+- `supabase/migrations/20261024160000_feed_ad_request_idempotency.sql` (prior)
 
 ---
 
 ## 3. DO NOT (without explicit reopen)
 
-- Reopen Phase 1/2 financial writers “for cleanup”
-- Change slot N or day-bucket rotation
-- Revert card-rhythm fixed-height + cover back to unbounded aspect-3:1 + contain hero strip without measured reopen
-- Dual price authority (CODE constants + DB) for runtime catalog
+- Flip `showAllFeedTab` solely to force `COMMUNITY_HOME` for ads tests
+- Restore fixed **N=4** or **day-bucket-only** selection as product defaults
+- Mix A/B/C advertisers’ images in one carousel
+- Allow second current campaign without **409** / HOLD **0**
+- Revert card-rhythm geometry to unbounded aspect-3:1 + contain hero strip
+- Dual price authority (CODE + DB) for runtime catalog
 - Mix Legacy cleanup / Analytics into this product commit stream
 - Touch Native Cap / Auth / Push / Badge as part of Feed Banner
-- Claim Playwright UI e2e PASS from the stale member banner UI spec
-- Hollow product PASS by deleting FINAL evidence references
+- Hollow product PASS by deleting runtime evidence references
+- Raw `point_ledger` INSERT / balance patch bypassing `adjustUserPoints` / hold writers
 
 ---
 
@@ -105,10 +117,8 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 
 | Step | Result |
 |---|---|
-| Ads-only commit | `e04be170d` on `main` |
-| Push | `origin/main` @ `e04be170d` |
-| Production deploy | clean worktree `scripts/deploy-prod-clean-worktree.sh e04be170d` → `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB` |
-| Alias | `https://samarket.vercel.app` → Ready on that deployment |
+| Runtime evidence | `.qa-logs/feed-banner-runtime-evidence-20260810/` (R1–R7 / R6-FINAL) |
+| Ads commit / push / prod | *Filled at release* |
 
 ---
 
@@ -117,7 +127,8 @@ Directly verified PASS (API + DOM remasure against localhost QA; product code un
 Only with explicit user approval naming this LOCK:
 
 1. Financial writer / hold semantics change  
-2. Slot / rotation / geometry product redesign  
-3. Eligibility cron writer  
-4. Native surface for banner ads  
-5. Merging Product A/C into B or deleting deferred tracks as “same PASS”
+2. Cadence / selector / surface / creative-count product redesign  
+3. Forcing Community All-tab / HOME as default user IA for ads  
+4. Eligibility cron writer  
+5. Native surface for banner ads  
+6. Merging Product A/C into B or deleting deferred tracks as “same PASS”

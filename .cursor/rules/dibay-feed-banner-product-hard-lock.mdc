@@ -1,50 +1,61 @@
 ---
-description: HARD LOCK — DIBAY Feed Banner product (slot/geometry/financial/native)
+description: HARD LOCK — DIBAY Feed Banner product (surface/cadence/selector/creatives/financial/native)
 alwaysApply: true
 ---
 
 # DIBAY Feed Banner Product HARD LOCK
 
-**HARD LOCK (2026-08-09).** Full doc: `docs/dibay-feed-banner-product-hard-lock.md`.
+**HARD LOCK (2026-08-10).** Full doc: `docs/dibay-feed-banner-product-hard-lock.md`.
 
 ## Baseline
 
-- **FEED BANNER PRODUCT PASS** — FINAL E2E A–F · `FINAL FIRST BREAK: NONE`
-- Commit: `e04be170d` · Prod: `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB` · Alias: `https://samarket.vercel.app`
-- Evidence: `.qa-logs/feed-banner-final-e2e-20260809/REPORT.json`
+- **PRODUCT CONTRACT CHANGE RUNTIME: PASS** — `FIRST BREAK: NONE`
+- Evidence: `.qa-logs/feed-banner-runtime-evidence-20260810/REPORT.json` · `R6-FINAL.json`
 - **NOT claimed:** Legacy cleanup · Analytics · Native Cap
 
 ## KEEP (without reopen — doc §1)
 
 | Concern | Decision |
 |---|---|
-| Slot | N=4 |
-| Rotation | day-bucket |
-| Geometry | **REOPENED Operating UX** — source 1200×400; runtime fixed list-thumb height + object-cover (Community 72→88 / Trade 100) |
-| Eligibility | resolver-only (`active` + start≤now + end>now) |
-| Financial | HOLD/CAPTURE/RELEASE/RENEW |
-| Price/period | **REOPENED** — DB `feed_ad_products` SSOT (Admin writer); request snapshot |
+| Community surface | **Topic-first** — `COMMUNITY_TOPIC:<slug>` primary; `COMMUNITY_HOME` only when All tab ON |
+| Surface SSOT | `resolveCommunityFeedSurface` (no HOME↔TOPIC fallback) |
+| Cadence | Gaps **6–10** deterministic (`FeedAdSlotPolicy`); N=4 REOPENED |
+| Session | `feedSessionId` stable per surfaceKey (not remount-minted) |
+| Selector | Stable hash + anti-repeat; day-bucket-only REOPENED |
+| Member limit | One current campaign; 409 + HOLD 0 on second; terminal → new OK |
+| Creatives | 1 campaign = **1–3**; carousel = same campaign only |
+| Empty pool | `null` / blank height 0 |
+| Geometry | Card-rhythm fixed height + cover (not hero 3:1) |
+| Financial | HOLD / CAPTURE / RELEASE / RENEW SSOT |
+| Sanitation | Reachable HTTPS creatives only |
 | Native | ZERO CHANGE |
 
 ## DO NOT (without reopen — doc §3)
 
-- Reopen Phase 1/2 financial writers for “cleanup”
-- Change slot N / day-bucket
+- Flip `showAllFeedTab` for ads-only HOME forcing
+- Restore N=4 or day-bucket-only as product defaults
+- Mix multi-advertiser images in one carousel
+- Bypass 409 / invent second current HOLD
 - Revert creative to unbounded aspect-3:1 + object-contain hero strip
 - Dual CODE+DB runtime prices
 - Mix Legacy cleanup / Analytics into banner product work
 - Touch Native Cap / Auth / Push / Badge for Feed Banner
 - Merge Post promotion (A) or Admin Direct (C) into member Feed Banner (B)
+- Raw ledger/balance patch bypassing `adjustUserPoints` / hold writers
 - Call residual deferred tracks “PASS” without new evidence
 
 ## Authority (summary)
 
 | Concern | Owner |
 |---|---|
+| Surface | `resolveCommunityFeedSurface` |
+| Cadence | `lib/ads/feed-ad-slot-policy.ts` |
+| Session | `lib/ads/feed-ad-session.ts` |
+| Select + anti-repeat | `selectCampaignForPlacement` |
 | Create + HOLD | `POST /api/me/feed-ad-requests` |
 | Approve CAPTURE | `approve-feed-ad-request.ts` |
 | Reject/cancel RELEASE | approve reject · `cancel-feed-ad-request.ts` |
 | Renew | `renew-feed-ad-campaign.ts` |
-| Price/period | `feed_ad_products` DB + `lib/ads/feed-ad-products.ts` readers |
-| Feed inject | `shouldInjectFeedAdAfterContentIndex` (N=4) |
+| Price/period | `feed_ad_products` DB + readers |
+| Feed active | `GET /api/feed-ads/active` |
 | Admin ops badge | `/api/admin/admin-bell` `feed_ad_requests` pending_review COUNT |

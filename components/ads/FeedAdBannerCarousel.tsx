@@ -46,7 +46,8 @@ function resolveHref(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): string
  * Empty campaign → null (no reserved height / blank shell).
  * Geometry SSOT: `lib/ads/feed-ad-geometry.ts` — card-rhythm fixed height + cover.
  *
- * Multi-slide: Admin Direct may have >1; Member Product B is 1 creative.
+ * Multi-slide: selected campaign creatives 1–3 only (never mix advertisers).
+ * Member Product B: 1 request → 1 campaign → 1–3 creatives.
  * Width: host-aligned; height matches list thumbs (not unbounded 3:1 hero).
  */
 export function FeedAdBannerCarousel({
@@ -54,11 +55,18 @@ export function FeedAdBannerCarousel({
   placement,
   categoryId,
   topicSlug,
+  slotOrdinal = 0,
+  feedSessionId,
+  surfaceKey,
 }: {
   domain: "trade" | "community";
   placement: string;
   categoryId?: string;
   topicSlug?: string;
+  /** 0-based ad slot on this surface — selection seed / anti-repeat chain. */
+  slotOrdinal?: number;
+  feedSessionId?: string;
+  surfaceKey?: string;
 }) {
   const { t, safeT } = useI18n();
   const [campaign, setCampaign] = useState<FeedAdCampaignView | null>(null);
@@ -69,9 +77,12 @@ export function FeedAdBannerCarousel({
     const qs = new URLSearchParams({
       domain,
       placement,
+      slotOrdinal: String(Math.max(0, Math.floor(slotOrdinal))),
     });
     if (categoryId) qs.set("categoryId", categoryId);
     if (topicSlug) qs.set("topicSlug", topicSlug);
+    if (feedSessionId) qs.set("feedSessionId", feedSessionId);
+    if (surfaceKey) qs.set("surfaceKey", surfaceKey);
     const key = `feed-ad-active:${qs.toString()}`;
     // Parse JSON inside single-flight — shared Response.json() must not run twice
     // (React Strict Mode remount joins the same flight and would clear campaign).
@@ -90,7 +101,7 @@ export function FeedAdBannerCarousel({
     return () => {
       cancelled = true;
     };
-  }, [domain, placement, categoryId, topicSlug]);
+  }, [domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey]);
 
   const slides = campaign?.slides.filter((s) => s.imageUrl.trim()) ?? [];
   if (!campaign || slides.length === 0) return null;

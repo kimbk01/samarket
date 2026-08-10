@@ -30,15 +30,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const all = await listEligibleFeedAdCampaigns(sb, domain);
+    const slotOrdinalRaw = req.nextUrl.searchParams.get("slotOrdinal");
+    const slotOrdinal = slotOrdinalRaw != null ? Number(slotOrdinalRaw) : 0;
+    const feedSessionId = req.nextUrl.searchParams.get("feedSessionId");
+    const viewerSalt = req.nextUrl.searchParams.get("viewerSalt");
     const campaign = selectCampaignForPlacement(all, {
       domain,
       placement,
       categoryId,
       topicSlug,
+      slotOrdinal: Number.isFinite(slotOrdinal) ? Math.max(0, Math.floor(slotOrdinal)) : 0,
+      feedSessionId,
+      viewerSalt,
     });
     return NextResponse.json(
       { ok: true, campaign },
-      { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" } }
+      { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } }
     );
   } catch {
     return NextResponse.json({ ok: true, campaign: null });

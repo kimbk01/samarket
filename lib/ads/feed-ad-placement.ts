@@ -1,17 +1,15 @@
 /**
  * Feed Advertisement placement SSOT.
- * Slot N is server policy — never hardcode index % N in UI.
+ * SLOT vs CAMPAIGN SELECTION are separate authorities — do not merge.
  *
- * PHASE 3 LOCK — SLOT vs CAMPAIGN SELECTION are separate authorities:
- *   SLOT = where the ad row appears (FEED_AD_SLOT_AFTER_CONTENT_COUNT)
- *   SELECTION = which campaign fills that slot (selectCampaignForPlacement day-bucket)
- * DO NOT merge them. DO NOT randomize slot index.
- *
- * Cadence KEEP (PHASE 3): N=4 remains until Community/Trade phone+tablet
- * runtime measurement proves a change. 6–10 is a candidate idea, not a requirement.
+ * PRODUCT CONTRACT (2026-08-10 reopen):
+ *   SLOT = FeedAdSlotPolicy gaps ∈ [6,10] (lib/ads/feed-ad-slot-policy.ts)
+ *   SELECTION = stable hash + anti-repeat (selectCampaignForPlacement)
+ * DO NOT use Math.random(). DO NOT day-bucket-only permanent winner.
  */
 
 import { isProductionReachableFeedAdCreativeUrl } from "@/lib/ads/feed-ad-creative-url";
+import { feedAdStableHash } from "@/lib/ads/feed-ad-slot-policy";
 import { isPhilifeNeighborhoodSortSlotSlug } from "@/lib/neighborhood/philife-topic-slug-rules";
 
 export type FeedAdDomain = "trade" | "community";
@@ -36,23 +34,29 @@ export type FeedAdDestinationType =
   | "internal_page"
   | "external_url";
 
-/** After how many content rows to inject first ad (page 0 only). NOT Karrot copy — DIBAY policy. */
-export const FEED_AD_SLOT_AFTER_CONTENT_COUNT = 4;
+import {
+  FEED_AD_SLOT_AFTER_CONTENT_COUNT,
+  planFeedAdSlots,
+  shouldInjectFeedAdAtContentIndex,
+  feedAdSlotSeed,
+} from "@/lib/ads/feed-ad-slot-policy";
+
+/** Re-export for callers that imported slot constant from this module. */
+export { FEED_AD_SLOT_AFTER_CONTENT_COUNT };
 
 /**
- * LOCK: slot index is counted on projected feed content rows (NORMAL + PROMOTED_CONTENT).
- * Do not invent blank rows when contentLength < N; do not inject when no campaign.
- * Client insertion only — never count the ad in DB pagination.
+ * @deprecated Prefer planFeedAdSlots + shouldInjectFeedAdAtContentIndex.
+ * Legacy helper: injects only at the first planned gap (deterministic ≥6).
  */
 export function shouldInjectFeedAdAfterContentIndex(
   contentIndex: number,
   contentLength: number,
   hasCampaign: boolean,
-  slotAfter = FEED_AD_SLOT_AFTER_CONTENT_COUNT
+  _slotAfter = FEED_AD_SLOT_AFTER_CONTENT_COUNT
 ): boolean {
   if (!hasCampaign) return false;
-  if (contentLength < slotAfter) return false;
-  return contentIndex === slotAfter - 1;
+  const plan = planFeedAdSlots(contentLength, "legacy-single-slot");
+  return shouldInjectFeedAdAtContentIndex(contentIndex, plan);
 }
 
 export type FeedAdCreativeSlide = {
@@ -89,9 +93,8 @@ export type FeedAdCampaignView = {
 };
 
 /**
- * RESOLVER-ONLY time eligibility (PHASE 3).
+ * RESOLVER-ONLY time eligibility.
  * Eligible iff status=active AND (no start or start<=now) AND (no end or end>now).
- * No cron writer required: expired active rows simply fail this check.
  */
 export function isFeedAdCampaignEligibleNow(
   c: Pick<FeedAdCampaignView, "status" | "startAt" | "endAt">,
@@ -104,13 +107,12 @@ export function isFeedAdCampaignEligibleNow(
   }
   if (c.endAt) {
     const t = Date.parse(c.endAt);
-    // ends_at > now required — equal or past ⇒ not eligible
     if (Number.isFinite(t) && t <= nowMs) return false;
   }
   return true;
 }
 
-export function selectCampaignForPlacement(
+export function listEligibleCampaignsForPlacement(
   campaigns: FeedAdCampaignView[],
   input: {
     domain: FeedAdDomain;
@@ -119,13 +121,12 @@ export function selectCampaignForPlacement(
     topicSlug?: string | null;
     nowMs?: number;
   }
-): FeedAdCampaignView | null {
+): FeedAdCampaignView[] {
   const nowMs = input.nowMs ?? Date.now();
   const eligible = campaigns.filter((c) => {
     if (c.domain !== input.domain) return false;
     if (c.placement !== input.placement) return false;
     if (!isFeedAdCampaignEligibleNow(c, nowMs)) return false;
-    // Empty or Production-invalid creatives (localhost / QA sample / non-https) → not eligible
     if (
       c.slides.filter((s) => isProductionReachableFeedAdCreativeUrl(s.imageUrl)).length === 0
     ) {
@@ -143,11 +144,67 @@ export function selectCampaignForPlacement(
     }
     return true;
   });
+  eligible.sort((a, b) => a.id.localeCompare(b.id));
+  return eligible;
+}
+
+function pickIndex(eligibleLen: number, seed: string): number {
+  if (eligibleLen <= 0) return 0;
+  return feedAdStableHash(seed) % eligibleLen;
+}
+
+/**
+ * Stable multi-advertiser selection + anti-repeat.
+ * Simulates slots 0..slotOrdinal so any slot can be resolved independently
+ * (no mutable global queue, no DB write).
+ */
+export function selectCampaignForPlacement(
+  campaigns: FeedAdCampaignView[],
+  input: {
+    domain: FeedAdDomain;
+    placement: FeedAdPlacement;
+    categoryId?: string | null;
+    topicSlug?: string | null;
+    nowMs?: number;
+    /** Slot ordinal on this surface (0-based). Default 0. */
+    slotOrdinal?: number;
+    feedSessionId?: string | null;
+    viewerSalt?: string | null;
+  }
+): FeedAdCampaignView | null {
+  const nowMs = input.nowMs ?? Date.now();
+  const eligible = listEligibleCampaignsForPlacement(campaigns, input);
   if (eligible.length === 0) return null;
-  eligible.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
-  // Deterministic rotation by day bucket (no starvation forever on priority-only)
-  const bucket = Math.floor(nowMs / 86_400_000);
-  return eligible[bucket % eligible.length] ?? eligible[0] ?? null;
+
+  const targetOrd = Math.max(0, Math.floor(input.slotOrdinal ?? 0));
+  const hourBucket = Math.floor(nowMs / 3_600_000);
+  const surfacePart = [
+    input.domain,
+    input.placement,
+    (input.categoryId ?? "").trim(),
+    normalizeFeedAdTopicSlug(input.topicSlug ?? ""),
+    (input.feedSessionId ?? "").trim(),
+    (input.viewerSalt ?? "").trim(),
+    String(hourBucket),
+  ].join("|");
+
+  let previousId: string | null = null;
+  let picked: FeedAdCampaignView | null = null;
+  for (let o = 0; o <= targetOrd; o += 1) {
+    let idx = pickIndex(eligible.length, `${surfacePart}|slot|${o}`);
+    picked = eligible[idx] ?? eligible[0] ?? null;
+    if (
+      previousId &&
+      eligible.length > 1 &&
+      picked &&
+      picked.id === previousId
+    ) {
+      idx = (idx + 1) % eligible.length;
+      picked = eligible[idx] ?? picked;
+    }
+    previousId = picked?.id ?? null;
+  }
+  return picked;
 }
 
 /** Admin/consumer-facing placement label — never expose TRADE_HOME raw codes as primary UI. */
@@ -172,18 +229,6 @@ export function feedAdPlacementHumanLabel(
 
 /**
  * COMMUNITY_TOPIC authority SSOT = Philife topic **slug** (string).
- *
- * Single chain (no id dual authority, no ID↔slug conversion):
- *   picker `<option value={slug}>`
- *   → POST body `targetTopicSlug`
- *   → `feed_ad_requests.target_topic_slug`
- *   → approve → `feed_ad_campaigns.target_topic_slug`
- *   → `/api/feed-ads/active?topicSlug=`
- *   → `selectCampaignForPlacement` match on `campaign.targetTopicSlug`
- *   → CommunityFeed `?category=<slug>` → `FeedAdBannerCarousel topicSlug`
- *
- * DO NOT add `target_topic_id` / dual slug+id writers.
- * DO NOT treat recommended/recommend/popular as topic targets (HOME/`?sort=` remap).
  */
 export function normalizeFeedAdTopicSlug(slug: string): string {
   return String(slug ?? "").trim().toLowerCase();
@@ -194,3 +239,5 @@ export function isFeedAdCommunityTopicTargetAllowed(slug: string): boolean {
   if (!s) return false;
   return !isPhilifeNeighborhoodSortSlotSlug(s);
 }
+
+export { feedAdSlotSeed, planFeedAdSlots, shouldInjectFeedAdAtContentIndex };

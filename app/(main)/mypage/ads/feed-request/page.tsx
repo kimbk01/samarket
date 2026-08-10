@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import {
+  FEED_AD_SLOT_GAP_MIN,
+  FEED_AD_SLOT_GAP_MAX,
+} from "@/lib/ads/feed-ad-slot-policy";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
-  FEED_AD_SLOT_AFTER_CONTENT_COUNT,
   feedAdPlacementHumanLabel,
   isFeedAdCommunityTopicTargetAllowed,
 } from "@/lib/ads/feed-ad-placement";
@@ -77,7 +80,8 @@ export default function MemberFeedAdRequestPage() {
   const [productId, setProductId] = useState("");
   const [catalog, setCatalog] = useState<FeedAdProduct[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
-  const [creative, setCreative] = useState<CreativeState>({ ...EMPTY_CREATIVE });
+  const [creatives, setCreatives] = useState<CreativeState[]>([{ ...EMPTY_CREATIVE }]);
+  const [uploadSlot, setUploadSlot] = useState(0);
   const [showSample, setShowSample] = useState(true);
   const [currentBanner, setCurrentBanner] = useState<{
     requestId: string;
@@ -210,11 +214,10 @@ export default function MemberFeedAdRequestPage() {
   const selectedCat = cats.find((c) => c.id === categoryId) ?? null;
 
   const placementExplain = useMemo(() => {
-    const n = FEED_AD_SLOT_AFTER_CONTENT_COUNT;
     if (en) {
-      return `Shown in one mid-feed ad slot after the first ${n} posts in the selected feed (not repeated every ${n}).`;
+      return `Shown in mid-feed ad slots with ${FEED_AD_SLOT_GAP_MIN}–${FEED_AD_SLOT_GAP_MAX} posts between each slot in the selected feed.`;
     }
-    return `선택한 피드의 게시물 목록 중간 광고 영역에 노출됩니다. 현재 광고 영역은 피드의 첫 ${n}개 콘텐츠 이후 광고 슬롯(한 곳)부터 노출됩니다.`;
+    return `선택한 피드에서 일반 콘텐츠 ${FEED_AD_SLOT_GAP_MIN}~${FEED_AD_SLOT_GAP_MAX}개마다 중간 광고 슬롯에 노출됩니다.`;
   }, [en]);
 
   const targetSummary = useMemo(() => {
@@ -262,8 +265,9 @@ export default function MemberFeedAdRequestPage() {
   const afterBalance =
     balance != null && selected ? Math.max(0, balance - selected.pointCost) : null;
 
-  const upload = async (file: File) => {
+  const upload = async (file: File, slotIndex: number) => {
     setUploading(true);
+    setUploadSlot(slotIndex);
     setErr("");
     setImgWarn("");
     try {
@@ -315,13 +319,19 @@ export default function MemberFeedAdRequestPage() {
         return;
       }
       const preview = URL.createObjectURL(file);
-      setCreative({
-        imageUrl: j.url,
-        previewUrl: preview,
-        headline: creative.headline,
-        width: check.width,
-        height: check.height,
-        belowStandard: check.belowStandard,
+      setCreatives((prev) => {
+        const next = [...prev];
+        while (next.length <= slotIndex) next.push({ ...EMPTY_CREATIVE });
+        const prevSlot = next[slotIndex] ?? EMPTY_CREATIVE;
+        next[slotIndex] = {
+          imageUrl: j.url!,
+          previewUrl: preview,
+          headline: prevSlot.headline,
+          width: check.width,
+          height: check.height,
+          belowStandard: check.belowStandard,
+        };
+        return next.slice(0, 3);
       });
       setShowSample(false);
     } finally {
@@ -335,11 +345,11 @@ export default function MemberFeedAdRequestPage() {
       setErr(t("points_ui_insufficient"));
       return;
     }
-    if (!creative.imageUrl) {
+    if (!creatives.some((c) => c.imageUrl.trim())) {
       setErr(
         safeT("feed_ad_req_need_image", {
-          fallbackKo: "배너 이미지를 1장 올려 주세요.",
-          fallbackEn: "Upload one banner image.",
+          fallbackKo: "배너 이미지를 최소 1장 올려 주세요.",
+          fallbackEn: "Upload at least one banner image.",
         })
       );
       return;
@@ -415,12 +425,13 @@ export default function MemberFeedAdRequestPage() {
           destinationType,
           destinationId: destinationId || undefined,
           destinationUrl: destinationUrl || undefined,
-          creatives: [
-            {
-              imageUrl: creative.imageUrl,
-              headline: creative.headline,
-            },
-          ],
+          creatives: creatives
+            .filter((c) => c.imageUrl.trim())
+            .slice(0, 3)
+            .map((c) => ({
+              imageUrl: c.imageUrl,
+              headline: c.headline,
+            })),
           idempotencyKey: idem,
         }),
       });
@@ -436,11 +447,11 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "Invalid destination.",
             })
           );
-        } else if (code === "creatives_max_one") {
+        } else if (code === "creatives_max_three" || code === "creatives_max_one") {
           setErr(
             safeT("feed_ad_req_need_image", {
-              fallbackKo: "배너 이미지는 1장만 등록할 수 있습니다.",
-              fallbackEn: "Only one banner image is allowed.",
+              fallbackKo: "배너 이미지는 최대 3장까지 등록할 수 있습니다.",
+              fallbackEn: "You can upload up to 3 banner images.",
             })
           );
         } else if (code === "current_banner_exists") {
@@ -461,12 +472,13 @@ export default function MemberFeedAdRequestPage() {
     }
   };
 
+  const filledCreatives = creatives.filter((c) => c.imageUrl.trim());
   const canSubmit =
     !busy &&
     !uploading &&
     !currentBanner &&
     Boolean(selected) &&
-    Boolean(creative.imageUrl) &&
+    filledCreatives.length >= 1 &&
     !allUnaffordable &&
     (balance == null || (selected != null && selected.pointCost <= balance)) &&
     (placement !== "TRADE_CATEGORY" || Boolean(categoryId.trim())) &&
@@ -675,8 +687,8 @@ export default function MemberFeedAdRequestPage() {
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_images", {
-              fallbackKo: "3. 배너 이미지",
-              fallbackEn: "3. Banner image",
+              fallbackKo: "3. 배너 이미지 (1~3장)",
+              fallbackEn: "3. Banner images (1–3)",
             })}
           </h2>
           <p className="sam-text-helper text-sam-muted">
@@ -686,8 +698,7 @@ export default function MemberFeedAdRequestPage() {
             })}
           </p>
           <p className="sam-text-helper text-sam-muted">
-            JPG · PNG · WebP ·{" "}
-            {en ? "max 2MB" : "최대 2MB"}
+            JPG · PNG · WebP · {en ? "max 2MB each · 2–3 images auto-slide in feed" : "장당 최대 2MB · 2~3장은 피드에서 자동 슬라이드"}
           </p>
 
           <div className="space-y-2">
@@ -721,45 +732,90 @@ export default function MemberFeedAdRequestPage() {
             ) : null}
           </div>
 
-          <label className="mt-2 block cursor-pointer rounded-ui-rect border border-dashed border-sam-border px-3 py-3 text-center sam-text-helper">
-            {uploading
-              ? t("common_loading")
-              : safeT("feed_ad_req_pick_image", {
-                  fallbackKo: "이미지 불러오기",
-                  fallbackEn: "Choose image",
-                })}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void upload(f);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          {imgWarn ? <p className="sam-text-helper text-sam-warning">{imgWarn}</p> : null}
-          {creative.imageUrl ? (
-            <div className="space-y-2" data-testid="feed-ad-member-preview">
-              <FeedAdFramePreview
-                density={density}
-                imageUrl={creative.previewUrl || creative.imageUrl}
-                headline={creative.headline}
-              />
-              {creative.width != null && creative.height != null ? (
-                <p className="sam-text-helper text-sam-muted">
-                  {en ? "Current" : "현재"}: {creative.width} × {creative.height} px
+          {creatives.map((slot, idx) => (
+            <div key={`creative-slot-${idx}`} className="space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="sam-text-helper font-medium">
+                  {en ? `Image ${idx + 1}` : `이미지 ${idx + 1}`}
+                  {idx === 0 ? (en ? " (required)" : " (필수)") : ""}
                 </p>
+                {slot.imageUrl && creatives.length > 1 ? (
+                  <button
+                    type="button"
+                    className="sam-text-helper text-sam-warning"
+                    onClick={() => {
+                      setCreatives((prev) => {
+                        const next = prev.filter((_, i) => i !== idx);
+                        return next.length > 0 ? next : [{ ...EMPTY_CREATIVE }];
+                      });
+                    }}
+                  >
+                    {en ? "Remove" : "삭제"}
+                  </button>
+                ) : null}
+              </div>
+              <label className="block cursor-pointer rounded-ui-rect border border-dashed border-sam-border px-3 py-3 text-center sam-text-helper">
+                {uploading && uploadSlot === idx
+                  ? t("common_loading")
+                  : slot.imageUrl
+                    ? en
+                      ? "Replace image"
+                      : "이미지 바꾸기"
+                    : safeT("feed_ad_req_pick_image", {
+                        fallbackKo: "이미지 불러오기",
+                        fallbackEn: "Choose image",
+                      })}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void upload(f, idx);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {slot.imageUrl ? (
+                <div className="space-y-2" data-testid={idx === 0 ? "feed-ad-member-preview" : `feed-ad-member-preview-${idx}`}>
+                  <FeedAdFramePreview
+                    density={density}
+                    imageUrl={slot.previewUrl || slot.imageUrl}
+                    headline={slot.headline}
+                  />
+                  {slot.width != null && slot.height != null ? (
+                    <p className="sam-text-helper text-sam-muted">
+                      {en ? "Current" : "현재"}: {slot.width} × {slot.height} px
+                    </p>
+                  ) : null}
+                  <input
+                    className="w-full rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper"
+                    placeholder={en ? "Headline (optional)" : "헤드라인 (선택)"}
+                    value={slot.headline}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCreatives((prev) =>
+                        prev.map((c, i) => (i === idx ? { ...c, headline: v } : c))
+                      );
+                    }}
+                  />
+                </div>
               ) : null}
-              <input
-                className="w-full rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper"
-                placeholder={en ? "Headline (optional)" : "헤드라인 (선택)"}
-                value={creative.headline}
-                onChange={(e) => setCreative((prev) => ({ ...prev, headline: e.target.value }))}
-              />
             </div>
+          ))}
+
+          {imgWarn ? <p className="sam-text-helper text-sam-warning">{imgWarn}</p> : null}
+
+          {creatives.length < 3 && creatives.some((c) => c.imageUrl.trim()) ? (
+            <button
+              type="button"
+              className="w-full rounded-ui-rect border border-dashed border-sam-border px-3 py-2 sam-text-helper text-sam-primary"
+              onClick={() => setCreatives((prev) => [...prev, { ...EMPTY_CREATIVE }].slice(0, 3))}
+              data-testid="feed-ad-add-creative"
+            >
+              {en ? `Add image (${creatives.length}/3)` : `이미지 추가 (${creatives.length}/3)`}
+            </button>
           ) : null}
         </section>
 
@@ -1018,12 +1074,24 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "6. Preview + confirm",
             })}
           </h2>
-          {creative.imageUrl ? (
-            <FeedAdFramePreview
-              density={density}
-              imageUrl={creative.previewUrl || creative.imageUrl}
-              headline={creative.headline}
-            />
+          {filledCreatives.length > 0 ? (
+            <div className="space-y-2" data-testid="feed-ad-final-preview">
+              {filledCreatives.map((c, i) => (
+                <FeedAdFramePreview
+                  key={`final-prev-${i}`}
+                  density={density}
+                  imageUrl={c.previewUrl || c.imageUrl}
+                  headline={c.headline}
+                />
+              ))}
+              {filledCreatives.length >= 2 ? (
+                <p className="sam-text-helper text-sam-muted">
+                  {en
+                    ? `${filledCreatives.length} images · auto-slide in feed (same campaign)`
+                    : `${filledCreatives.length}장 · 피드에서 같은 캠페인만 자동 슬라이드`}
+                </p>
+              ) : null}
+            </div>
           ) : showSample ? (
             <FeedAdFramePreview
               density={density}
@@ -1054,10 +1122,12 @@ export default function MemberFeedAdRequestPage() {
               <dd className="max-w-[60%] text-right font-medium">{targetSummary}</dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Image" : "이미지"}</dt>
+              <dt className="text-sam-muted">{en ? "Images" : "이미지"}</dt>
               <dd className="font-medium">
-                {creative.width && creative.height
-                  ? `${creative.width} × ${creative.height} px`
+                {filledCreatives.length > 0
+                  ? en
+                    ? `${filledCreatives.length} / 3`
+                    : `${filledCreatives.length}장 / 최대 3장`
                   : pixelLabel}
               </dd>
             </div>

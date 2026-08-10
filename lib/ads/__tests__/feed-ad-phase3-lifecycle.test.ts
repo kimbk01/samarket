@@ -12,6 +12,12 @@ import {
   type FeedAdCampaignView,
 } from "@/lib/ads/feed-ad-placement";
 import {
+  FEED_AD_SLOT_GAP_MIN,
+  FEED_AD_SLOT_GAP_MAX,
+  planFeedAdSlots,
+  shouldInjectFeedAdAtContentIndex,
+} from "@/lib/ads/feed-ad-slot-policy";
+import {
   computeFeedAdRenewalEndAt,
   projectFeedAdMemberPresentation,
 } from "@/lib/ads/feed-ad-member-presentation";
@@ -254,12 +260,15 @@ describe("PHASE 3 eligibility (D1–D4)", () => {
   });
 });
 
-describe("PHASE 3 slot + rotation (D5–D8)", () => {
-  it("D5/D6 KEEP slot N=4; selection separate", () => {
-    expect(FEED_AD_SLOT_AFTER_CONTENT_COUNT).toBe(4);
-    expect(shouldInjectFeedAdAfterContentIndex(3, 10, true)).toBe(true);
-    expect(shouldInjectFeedAdAfterContentIndex(3, 3, true)).toBe(false);
-    expect(shouldInjectFeedAdAfterContentIndex(7, 20, true)).toBe(false);
+describe("PHASE 3 slot + delivery (D5-D8)", () => {
+  it("D5/D6 cadence gaps in [6,10]; selection separate", () => {
+    expect(FEED_AD_SLOT_GAP_MIN).toBe(6);
+    expect(FEED_AD_SLOT_GAP_MAX).toBe(10);
+    expect(FEED_AD_SLOT_AFTER_CONTENT_COUNT).toBe(6);
+    expect(shouldInjectFeedAdAfterContentIndex(3, 20, true)).toBe(false);
+    // legacy helper uses seed "legacy-single-slot" → first gap 10 → inject after index 9
+    expect(shouldInjectFeedAdAfterContentIndex(9, 20, true)).toBe(true);
+    expect(shouldInjectFeedAdAfterContentIndex(9, 9, true)).toBe(false);
 
     const a = camp({ id: "a", priority: 1 });
     const b = camp({ id: "b", priority: 2 });
@@ -267,6 +276,8 @@ describe("PHASE 3 slot + rotation (D5–D8)", () => {
       domain: "trade",
       placement: "TRADE_HOME",
       nowMs: 86_400_000 * 10,
+      feedSessionId: "sess-test",
+      slotOrdinal: 0,
     });
     expect(picked?.id).toBeTruthy();
   });
@@ -283,11 +294,21 @@ describe("PHASE 3 slot + rotation (D5–D8)", () => {
     expect(community.mediaClass).toContain("h-[72px]");
   });
 
-  it("D8 pagination: single slot index only (no every-N)", () => {
-    const hits = [0, 1, 2, 3, 4, 5, 6, 7].filter((i) =>
-      shouldInjectFeedAdAfterContentIndex(i, 20, true)
-    );
-    expect(hits).toEqual([3]);
+  it("D8 pagination: deterministic multi-slot plan; gaps 6-10; stable on grow", () => {
+    const seed = "community:home|sess-a";
+    const plan20 = planFeedAdSlots(20, seed);
+    const plan40 = planFeedAdSlots(40, seed);
+    const hits20 = [...plan20.injectAfterIndex].sort((a, b) => a - b);
+    expect(hits20.length).toBeGreaterThanOrEqual(1);
+    let prev = -1;
+    for (const idx of hits20) {
+      const gap = idx - prev;
+      expect(gap).toBeGreaterThanOrEqual(FEED_AD_SLOT_GAP_MIN);
+      expect(gap).toBeLessThanOrEqual(FEED_AD_SLOT_GAP_MAX);
+      prev = idx;
+      expect(shouldInjectFeedAdAtContentIndex(idx, plan40)).toBe(true);
+    }
+    expect(shouldInjectFeedAdAfterContentIndex(3, 20, true)).toBe(false);
   });
 });
 

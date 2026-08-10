@@ -38,7 +38,12 @@ import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPu
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
-import { shouldInjectFeedAdAfterContentIndex } from "@/lib/ads/feed-ad-placement";
+import {
+  feedAdSlotSeed,
+  planFeedAdSlots,
+  shouldInjectFeedAdAtContentIndex,
+} from "@/lib/ads/feed-ad-slot-policy";
+import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -567,6 +572,22 @@ export function PostListByCategory({
   }
 
   const skinKey = category?.icon_key ?? undefined;
+  const tradeCategorySurfaceKey = `trade:category:${categoryId}`;
+  const tradeCategoryAdSessionId = useMemo(
+    () => getOrCreateFeedAdSessionId(tradeCategorySurfaceKey),
+    [tradeCategorySurfaceKey]
+  );
+  const tradeCategoryAdPlan = useMemo(
+    () =>
+      planFeedAdSlots(
+        posts.length,
+        feedAdSlotSeed({
+          surfaceKey: tradeCategorySurfaceKey,
+          feedSessionId: tradeCategoryAdSessionId,
+        })
+      ),
+    [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
+  );
 
   return (
     <>
@@ -592,11 +613,14 @@ export function PostListByCategory({
                   onMenuAction={handleMenuAction}
                 />
               </li>
-              {shouldInjectFeedAdAfterContentIndex(index, posts.length, true) ? (
+              {shouldInjectFeedAdAtContentIndex(index, tradeCategoryAdPlan) ? (
                 <FeedAdBannerCarousel
                   domain="trade"
                   placement="TRADE_CATEGORY"
                   categoryId={categoryId}
+                  surfaceKey={tradeCategorySurfaceKey}
+                  feedSessionId={tradeCategoryAdSessionId}
+                  slotOrdinal={tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
                 />
               ) : null}
             </Fragment>

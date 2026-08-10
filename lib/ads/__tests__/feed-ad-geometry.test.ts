@@ -173,24 +173,52 @@ describe("multi-advertiser pool selection", () => {
     };
   }
 
-  it("eligible pool keeps A/B/C; day-bucket rotates across members", () => {
+  it("eligible pool keeps A/B/C; stable seed rotates across sessions/slots", () => {
     const pool = [
       camp({ id: "A", priority: 1 }),
       camp({ id: "B", priority: 1 }),
       camp({ id: "C", priority: 1 }),
     ];
-    const input = {
+    const base = {
       domain: "community" as const,
       placement: "COMMUNITY_HOME" as const,
+      nowMs: 3_600_000 * 100,
     };
-    const day0 = selectCampaignForPlacement(pool, { ...input, nowMs: 0 });
-    const day1 = selectCampaignForPlacement(pool, { ...input, nowMs: 86_400_000 });
-    const day2 = selectCampaignForPlacement(pool, { ...input, nowMs: 86_400_000 * 2 });
-    const ids = new Set([day0?.id, day1?.id, day2?.id]);
+    const ids = new Set(
+      [
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s0", slotOrdinal: 0 })?.id,
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s1", slotOrdinal: 0 })?.id,
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s2", slotOrdinal: 0 })?.id,
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s0", slotOrdinal: 1 })?.id,
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s0", slotOrdinal: 2 })?.id,
+        selectCampaignForPlacement(pool, { ...base, feedSessionId: "s3", slotOrdinal: 3 })?.id,
+      ].filter(Boolean)
+    );
     expect(ids.size).toBe(3);
     expect(ids.has("A")).toBe(true);
     expect(ids.has("B")).toBe(true);
     expect(ids.has("C")).toBe(true);
+  });
+
+  it("anti-repeat: adjacent slots differ when eligible.length > 1", () => {
+    const pool = [
+      camp({ id: "A", priority: 1 }),
+      camp({ id: "B", priority: 1 }),
+      camp({ id: "C", priority: 1 }),
+    ];
+    const base = {
+      domain: "community" as const,
+      placement: "COMMUNITY_HOME" as const,
+      nowMs: 3_600_000 * 42,
+      feedSessionId: "anti-repeat-sess",
+    };
+    for (let o = 1; o < 12; o += 1) {
+      const prev = selectCampaignForPlacement(pool, { ...base, slotOrdinal: o - 1 });
+      const cur = selectCampaignForPlacement(pool, { ...base, slotOrdinal: o });
+      expect(prev?.id).toBeTruthy();
+      expect(cur?.id).toBeTruthy();
+      expect(cur?.id).not.toBe(prev?.id);
+    }
   });
 });
 
@@ -260,7 +288,8 @@ describe("COMMUNITY_TOPIC target contract", () => {
     expect(approve).not.toMatch(/target_topic_id|targetTopicId/);
     expect(active).toContain('searchParams.get("topicSlug")');
     expect(carousel).toContain('qs.set("topicSlug", topicSlug)');
-    expect(feed).toContain("categoryParamNorm");
-    expect(feed).toMatch(/topicSlug=\{[\s\S]*categoryParamNorm/);
+    expect(feed).toContain("resolveCommunityFeedSurface");
+    expect(feed).toContain("feedAdSurface");
+    expect(feed).toMatch(/topicSlug=\{feedAdSurface\.topicSlug\}/);
   });
 });

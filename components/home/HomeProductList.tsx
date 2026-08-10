@@ -50,7 +50,12 @@ import {
 } from "@/lib/ui/network-policy";
 import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
-import { shouldInjectFeedAdAfterContentIndex } from "@/lib/ads/feed-ad-placement";
+import {
+  feedAdSlotSeed,
+  planFeedAdSlots,
+  shouldInjectFeedAdAtContentIndex,
+} from "@/lib/ads/feed-ad-slot-policy";
+import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -298,6 +303,21 @@ export function HomeProductList({
     resetKey: tradeListPaginationResetKey(tradeState, posts),
   });
   const visiblePosts = listPagination.visibleItems;
+  const tradeHomeAdSessionId = useMemo(
+    () => getOrCreateFeedAdSessionId("trade:home"),
+    []
+  );
+  const tradeHomeAdPlan = useMemo(
+    () =>
+      planFeedAdSlots(
+        visiblePosts.length,
+        feedAdSlotSeed({
+          surfaceKey: "trade:home",
+          feedSessionId: tradeHomeAdSessionId,
+        })
+      ),
+    [visiblePosts.length, tradeHomeAdSessionId]
+  );
 
   const refreshSilent = useCallback(async () => {
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
@@ -501,8 +521,14 @@ export function HomeProductList({
                   onMenuAction={handleMenuAction}
                 />
               </li>
-              {shouldInjectFeedAdAfterContentIndex(index, visiblePosts.length, true) ? (
-                <FeedAdBannerCarousel domain="trade" placement="TRADE_HOME" />
+              {shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
+                <FeedAdBannerCarousel
+                  domain="trade"
+                  placement="TRADE_HOME"
+                  surfaceKey="trade:home"
+                  feedSessionId={tradeHomeAdSessionId}
+                  slotOrdinal={tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                />
               ) : null}
             </Fragment>
           )
