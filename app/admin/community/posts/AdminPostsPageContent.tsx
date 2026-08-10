@@ -22,9 +22,13 @@ type CommunityPostRow = {
   title?: string | null;
   status?: string | null;
   is_reported?: boolean | null;
+  like_count?: number | null;
+  comment_count?: number | null;
+  view_count?: number | null;
   region_label?: string | null;
   is_sample_data?: boolean | null;
   created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export function AdminPostsPageContent() {
@@ -56,6 +60,11 @@ export function AdminPostsPageContent() {
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
   const [communityTopicFilter, setCommunityTopicFilter] = useState("");
+  const [communityUserFilter, setCommunityUserFilter] = useState("");
+  const [communityStatusFilter, setCommunityStatusFilter] = useState("");
+  const [communityReportedOnly, setCommunityReportedOnly] = useState(false);
+  const [communityCreatedFrom, setCommunityCreatedFrom] = useState("");
+  const [communityCreatedTo, setCommunityCreatedTo] = useState("");
   const [topicNameBySlug, setTopicNameBySlug] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [communityErr, setCommunityErr] = useState("");
@@ -79,6 +88,18 @@ export function AdminPostsPageContent() {
       const q = new URLSearchParams({ limit: "100" });
       const topic = communityTopicFilter.trim().toLowerCase();
       if (topic) q.set("topicSlug", topic);
+      const userId = communityUserFilter.trim();
+      if (userId) q.set("userId", userId);
+      if (communityStatusFilter && ["active", "hidden", "deleted"].includes(communityStatusFilter)) {
+        q.set("status", communityStatusFilter);
+      }
+      if (communityReportedOnly) q.set("reportedOnly", "1");
+      if (communityCreatedFrom) q.set("createdFrom", new Date(communityCreatedFrom).toISOString());
+      if (communityCreatedTo) {
+        const end = new Date(communityCreatedTo);
+        end.setHours(23, 59, 59, 999);
+        q.set("createdTo", end.toISOString());
+      }
       const res = await fetch(`/api/admin/community/engine/posts?${q.toString()}`, {
         cache: "no-store",
         credentials: "include",
@@ -95,7 +116,15 @@ export function AdminPostsPageContent() {
       setCommunityErr((e as Error).message);
       setCommunityRows([]);
     }
-  }, [tr, communityTopicFilter]);
+  }, [
+    tr,
+    communityTopicFilter,
+    communityUserFilter,
+    communityStatusFilter,
+    communityReportedOnly,
+    communityCreatedFrom,
+    communityCreatedTo,
+  ]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -383,15 +412,68 @@ export function AdminPostsPageContent() {
       )}
 
       {tab === "community" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={communityTopicFilter}
-            onChange={(e) => setCommunityTopicFilter(e.target.value)}
-            placeholder={tr("admin_posts_col_topic")}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            aria-label={tr("admin_posts_col_topic")}
-          />
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-0.5">
+            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_topic")}</span>
+            <input
+              type="text"
+              value={communityTopicFilter}
+              onChange={(e) => setCommunityTopicFilter(e.target.value)}
+              placeholder={tr("admin_posts_col_topic")}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_author")}</span>
+            <input
+              type="text"
+              value={communityUserFilter}
+              onChange={(e) => setCommunityUserFilter(e.target.value)}
+              placeholder={tr("admin_posts_filter_author_id")}
+              className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
+            <select
+              value={communityStatusFilter}
+              onChange={(e) => setCommunityStatusFilter(e.target.value)}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            >
+              <option value="">{tr("admin_posts_filter_all_status")}</option>
+              {communityStatusOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {tr(o.labelKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 self-end pb-2 sam-text-body-secondary">
+            <input
+              type="checkbox"
+              checked={communityReportedOnly}
+              onChange={(e) => setCommunityReportedOnly(e.target.checked)}
+            />
+            {tr("admin_posts_filter_reported_only")}
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_from")}</span>
+            <input
+              type="date"
+              value={communityCreatedFrom}
+              onChange={(e) => setCommunityCreatedFrom(e.target.value)}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_to")}</span>
+            <input
+              type="date"
+              value={communityCreatedTo}
+              onChange={(e) => setCommunityCreatedTo(e.target.value)}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            />
+          </label>
           <button
             type="button"
             onClick={() => void loadCommunity()}
@@ -541,7 +623,7 @@ export function AdminPostsPageContent() {
             </div>
           ) : communityRows.length > 0 ? (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-              <table className="w-full min-w-[760px] text-left sam-text-body">
+              <table className="w-full min-w-[1100px] text-left sam-text-body">
                 <thead>
                   <tr className="border-b border-sam-border bg-sam-app">
                     <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
@@ -557,7 +639,11 @@ export function AdminPostsPageContent() {
                     </th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_topic")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_author")}</th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_region")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_views")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_likes")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_comments")}</th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_reported")}</th>
                     <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_registered")}</th>
@@ -595,12 +681,18 @@ export function AdminPostsPageContent() {
                           ) : null}
                         </td>
                         <td className="p-3 text-sam-muted">{topicDisplayLabel(r)}</td>
+                        <td className="max-w-[120px] truncate p-3 sam-text-xxs text-sam-muted" title={String(r.user_id ?? "")}>
+                          {String(r.user_id ?? dash)}
+                        </td>
                         <td
                           className="max-w-[140px] truncate p-3 text-sam-muted"
                           title={String(r.region_label ?? "")}
                         >
                           {String(r.region_label ?? dash)}
                         </td>
+                        <td className="p-3 text-sam-muted">{Number(r.view_count ?? 0)}</td>
+                        <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
+                        <td className="p-3 text-sam-muted">{Number(r.comment_count ?? 0)}</td>
                         <td className="p-3">
                           <select
                             value={String(r.status ?? "active")}

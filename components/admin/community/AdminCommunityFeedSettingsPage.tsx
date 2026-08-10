@@ -69,7 +69,7 @@ export function AdminCommunityFeedSettingsPage() {
   if (loading || !ops) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/philife/sections" />
+        <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community/topics" />
         <p className="sam-text-body-secondary text-sam-muted">{tr("common_loading")}</p>
       </div>
     );
@@ -77,7 +77,7 @@ export function AdminCommunityFeedSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/philife/sections" />
+      <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community/topics" />
       <AdminCard titleKey="admin_feed_settings_card_title">
         <p className="mb-4 sam-text-body-secondary text-sam-muted">{tr("admin_feed_settings_intro")}</p>
         <form onSubmit={onSave} className="max-w-xl space-y-4 sam-text-body-secondary">

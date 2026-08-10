@@ -74,9 +74,10 @@ export function AdminCommunityReportsPage({
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_feed_reports_page_title" backHref="/admin/philife/topics" />
+      <AdminPageHeader titleKey="admin_feed_reports_page_title" backHref="/admin/community/topics" />
       <AdminCard titleKey="admin_feed_reports_card_title">
         <p className="mb-3 sam-text-body-secondary text-sam-muted">{tr("admin_feed_reports_intro")}</p>
+        <p className="mb-3 sam-text-body-secondary text-sam-muted">{tr("admin_feed_reports_comment_hold_note")}</p>
         {patchErr ? (
           <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{patchErr}</p>
         ) : null}

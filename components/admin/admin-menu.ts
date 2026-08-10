@@ -113,8 +113,9 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-meeting-events": "admin_menu_meeting_logs",
   "community-meetings": "admin_menu_meetings",
   "community-posts": "admin_menu_community_posts",
-  "community-comments": "admin_menu_comments",
+  "community-comments": "admin_menu_community_comments",
   "community-feed-reports": "admin_menu_community_reports",
+  "community-point-policies": "admin_menu_community_point_policies",
 
   // Delivery
   "stores-commerce": "admin_menu_store_review_queue",
@@ -427,8 +428,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── COMMUNITY ──────────────────────────────────
-  // App 2-tier Community IA: 주제(topics) / 게시글(posts) / 신고(reports) 만 노출.
-  // hub·boards·sections·feed-settings·meetings·meeting-events·comments 라우트는 유지되나 메뉴에서 제외.
+  // App 2-tier Community IA Admin: topics / posts / comments / reports / ops / point(general|qna).
+  // Comment report authority · topic-specific point · Manner = HOLD (do not surface as supported).
   {
     key: "community",
     title: "",
@@ -442,10 +443,28 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       },
       { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
       {
+        key: "community-comments",
+        title: "",
+        path: "/admin/community/comments",
+        status: "done",
+      },
+      {
         key: "community-feed-reports",
         title: "",
         path: "/admin/community/reports",
         matchPaths: ["/admin/philife/reports"],
+        status: "done",
+      },
+      {
+        key: "community-feed-settings",
+        title: "",
+        path: "/admin/community/settings",
+        status: "done",
+      },
+      {
+        key: "community-point-policies",
+        title: "",
+        path: "/admin/community/point-policies",
         status: "done",
       },
     ],

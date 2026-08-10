@@ -22,8 +22,11 @@ export async function GET(req: NextRequest) {
   /** Topic identity filter — never filter the legacy enum `category` column */
   const topicFilter = topicSlugParam || categoryAlias;
   const locationId = sp.get("locationId")?.trim() || "";
+  const userId = sp.get("userId")?.trim() || "";
   const reportedOnly = sp.get("reportedOnly") === "1";
   const status = sp.get("status")?.trim() || "";
+  const createdFrom = sp.get("createdFrom")?.trim() || "";
+  const createdTo = sp.get("createdTo")?.trim() || "";
   const limit = Math.min(Math.max(parseInt(sp.get("limit") ?? "30", 10) || 30, 1), 100);
   const offset = Math.min(Math.max(parseInt(sp.get("offset") ?? "0", 10) || 0, 0), 10_000);
 
@@ -44,8 +47,11 @@ export async function GET(req: NextRequest) {
 
   if (topicFilter) q = q.eq("topic_slug", topicFilter);
   if (locationId) q = q.eq("location_id", locationId);
+  if (userId) q = q.eq("user_id", userId);
   if (reportedOnly) q = q.eq("is_reported", true);
   if (status && ["active", "hidden", "deleted"].includes(status)) q = q.eq("status", status);
+  if (createdFrom) q = q.gte("created_at", createdFrom);
+  if (createdTo) q = q.lte("created_at", createdTo);
 
   const { data, error } = await q;
   if (error) {
