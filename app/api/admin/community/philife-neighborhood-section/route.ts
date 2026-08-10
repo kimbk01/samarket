@@ -3,13 +3,13 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import {
-
   PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
   getPhilifeNeighborhoodSectionSettingsV1Server,
   getPhilifeNeighborhoodSectionSlugServer,
   getPhilifeShowAllFeedTabServer,
   getPhilifeShowNeighborOnlyFilterServer,
 } from "@/lib/community-feed/philife-neighborhood-section";
+import { planPhilifeNeighborhoodSectionPatch } from "@/lib/community-feed/plan-philife-neighborhood-section-patch";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { revalidatePath } from "next/cache";
 
@@ -99,22 +99,17 @@ export async function PATCH(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (typeof body.show_all_feed_tab !== "boolean" && typeof body.show_neighbor_only_filter !== "boolean") {
-    return NextResponse.json(
-      { ok: false, error: "at_least_one_of_show_all_feed_tab_or_show_neighbor_only_filter" },
-      { status: 400 }
-    );
+  const plan = planPhilifeNeighborhoodSectionPatch(body);
+  if (!plan.ok) {
+    return NextResponse.json({ ok: false, error: plan.error }, { status: 400 });
   }
   try {
     const sb = getSupabaseServer();
     const prev = await getPhilifeNeighborhoodSectionSettingsV1Server(sb);
-    const value_json: Record<string, unknown> = { ...prev };
-    if (typeof body.show_all_feed_tab === "boolean") {
-      value_json.show_all_feed_tab = body.show_all_feed_tab;
-    }
-    if (typeof body.show_neighbor_only_filter === "boolean") {
-      value_json.show_neighbor_only_filter = body.show_neighbor_only_filter;
-    }
+    const value_json: Record<string, unknown> = {
+      ...prev,
+      show_neighbor_only_filter: plan.write.show_neighbor_only_filter,
+    };
     const { error } = await sb.from("admin_settings").upsert(
       {
         key: PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
@@ -133,10 +128,8 @@ export async function PATCH(req: NextRequest) {
     revalidatePath("/philife", "page");
     return NextResponse.json({
       ok: true,
-      ...(typeof body.show_all_feed_tab === "boolean" ? { show_all_feed_tab: body.show_all_feed_tab } : {}),
-      ...(typeof body.show_neighbor_only_filter === "boolean"
-        ? { show_neighbor_only_filter: body.show_neighbor_only_filter }
-        : {}),
+      show_neighbor_only_filter: plan.write.show_neighbor_only_filter,
+      ...(plan.ignoredShowAllFeedTab ? { show_all_feed_tab_ignored: true as const } : {}),
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });
