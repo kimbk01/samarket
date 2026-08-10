@@ -153,4 +153,35 @@ describe("form-keyboard-viewport-contract", () => {
     // topLimit = 100 + 8 → delta = floor(40 - 108) = -68
     expect(Math.abs(delta)).toBe(68);
   });
+
+  it("CASE D: tiny usable band relaxes chrome top enough for focused height", async () => {
+    vi.stubGlobal("window", {
+      innerHeight: 280,
+      visualViewport: { offsetTop: 0, height: 280 },
+    });
+    const chrome = {
+      getBoundingClientRect: () => ({
+        bottom: 180,
+        top: 140,
+        height: 40,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as HTMLElement;
+    const { resolveFormEffectiveViewportTopPx } = await import(
+      "@/lib/ui/form-keyboard-viewport-contract"
+    );
+    const top = resolveFormEffectiveViewportTopPx({
+      stickyChromeEl: chrome,
+      effectiveViewportBottom: 280,
+      focusedHeightPx: 40,
+    });
+    // Without relax: 180 → usable 100. With focus need ~56–96, top must drop.
+    expect(top).toBeLessThan(180);
+    expect(280 - top).toBeGreaterThanOrEqual(120);
+  });
 });

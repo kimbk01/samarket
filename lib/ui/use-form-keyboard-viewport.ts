@@ -6,6 +6,10 @@ import {
   subscribeSamarketShellKeyboardInsets,
 } from "@/lib/platform/samarket-shell-keyboard";
 import {
+  detectFormKeyboardRuntimeContext,
+  resolveFormAdapterKeyboardOcclusionInsetPx,
+} from "@/lib/ui/form-keyboard-platform-adapter";
+import {
   buildFormKeyboardViewportSnapshot,
   resolveFormVisualViewportFrame,
   type FormKeyboardViewportSnapshot,
@@ -24,6 +28,7 @@ const CLOSED_SNAPSHOT: FormKeyboardViewportSnapshot = {
 /**
  * Form (TYPE B) keyboard / viewport authority.
  * Consumers apply `effectiveBottomInset` only — do not add `--safe-bottom` again.
+ * Geometry is adapter-local (HARD LOCK: one UX contract ≠ one formula).
  */
 export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKeyboardViewportSnapshot {
   const enabled = options?.enabled !== false;
@@ -42,9 +47,18 @@ export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKe
 
     const measure = () => {
       pending = false;
+      const runtimeContext = detectFormKeyboardRuntimeContext();
+      const nativeShellInsetPx = readSamarketShellKeyboardBottomInsetCssPx();
+      const keyboardOcclusionInsetOverride = resolveFormAdapterKeyboardOcclusionInsetPx(
+        runtimeContext,
+        { nativeShellInsetPx }
+      );
       const next = buildFormKeyboardViewportSnapshot({
         baselineClosedHeightPx,
-        nativeShellInsetPx: readSamarketShellKeyboardBottomInsetCssPx(),
+        nativeShellInsetPx,
+        safeBottomPx: runtimeContext.safeBottomPx,
+        keyboardOcclusionInsetOverride,
+        runtimeContext,
       });
       baselineClosedHeightPx = next.baselineClosedHeightPx;
       setSnap({
@@ -55,6 +69,7 @@ export function useFormKeyboardViewport(options?: { enabled?: boolean }): FormKe
         keyboardOcclusionInset: next.keyboardOcclusionInset,
         safeBottom: next.safeBottom,
         effectiveBottomInset: next.effectiveBottomInset,
+        runtimeContext: next.runtimeContext,
       });
     };
 

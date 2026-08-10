@@ -1,0 +1,40 @@
+---
+description: HARD LOCK — Global input UX: one product contract, multiple platform/orientation adapters (not one geometry formula)
+alwaysApply: true
+---
+
+# DIBAY Global Input UX Parity HARD LOCK
+
+**HARD LOCK (2026-08-10).** Full doc: `docs/dibay-global-input-ux-parity-hard-lock.md`.
+
+## Core
+
+**동일 UX 계약 ≠ 동일 inset 계산.**
+
+Unify product outcomes only: focus not hidden, no over-push, no blank keyboard–CTA gap, CTA reachable, keyboard close restore, press/haptic semantics.
+
+**Do not** unify raw bottom inset / safe-area / keyboard height / viewport / nav bar / orientation / iOS·Android resize / tablet·desktop layout into one formula or one hardcoded px.
+
+## Architecture
+
+`Capability → Orientation → Nav/Safe (measured) → Keyboard model → Platform Adapter → Form SSOT → Surface → Form`
+
+Normalized outputs (`effectiveViewportTop/Bottom`, `effectiveBottomInset`, `keyboardOpen`, `keyboardOcclusion`, `safeBottom`, focus band) = **common interface**, adapter-computed per environment.
+
+## DO NOT (without reopen)
+
+- Shared raw `safeBottom + keyboardHeight` (or one formula) for all platforms  
+- Hardcode 3-button / home-indicator px  
+- Reuse portrait→landscape or phone→tablet geometry  
+- UA-only keyboard mode; guess nav bar from device name  
+- Assume Android/iOS visualViewport identical  
+- Expand one-env PASS (e.g. Samsung Community) to Android / Global / CLOSED  
+
+## Matrix
+
+Samsung/Xiaomi × portrait/landscape × gesture/3-button; iPhone P/L; tablet P/L; Windows physical/OSK — each row independent. Unmeasured = **NOT_PROVEN**. FINAL **OPEN** until doc CLOSED criteria.
+
+## Code
+
+- `lib/ui/form-keyboard-platform-adapter.ts` · `form-keyboard-viewport-contract.ts` · hooks  
+- Messenger CM room KEEP LOCK — do not fold into Form adapters

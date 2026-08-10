@@ -1,19 +1,32 @@
 /**
  * DIBAY Form keyboard / visual-viewport SSOT (TYPE B — multi-field forms).
  *
+ * HARD LOCK: `docs/dibay-global-input-ux-parity-hard-lock.md`
+ * ONE PRODUCT CONTRACT ≠ ONE GEOMETRY FORMULA — platform adapters live in
+ * `form-keyboard-platform-adapter.ts`. Normalized field *names* are shared;
+ * raw inset/keyboard/safe/nav/orientation math is **not**.
+ *
  * CM Room (TYPE A Composer) stays on `cm-room-visible-viewport-contract` + LOCK.
  * This module shares the same *concepts* (vv height, no safe+keyboard double count)
  * but must not import or mutate CM room shell code.
  *
  * effectiveBottomInset is the only padding-bottom consumers may apply.
  * Never add `var(--safe-bottom)` on top of it.
+ * Never interpret effectiveBottomInset as “one shared px across devices.”
  */
+
+import type { FormKeyboardRuntimeContext } from "@/lib/ui/form-keyboard-platform-adapter";
 
 export const FORM_KEYBOARD_LAYOUT_ALIGNED_SLACK_PX = 28;
 export const FORM_KEYBOARD_MIN_OCCLUSION_PX = 24;
 /** Closed→open shrink threshold (nav chrome noise), same order as CM nav gap. */
 export const FORM_KEYBOARD_NAVIGATION_GAP_PX = 48;
 export const FORM_FOCUS_GAP_PX = 8;
+/**
+ * Minimum usable band (bottom - top) before CASE D relaxes sticky chrome.
+ * Landscape + IME often leaves ~100px; chrome must not consume the focus band.
+ */
+export const FORM_FOCUS_MIN_USABLE_BAND_PX = 120;
 export const FORM_VIEWPORT_MIN_PX = 240;
 
 /** Shared pressed visual — CSS :active only; respects prefers-reduced-motion via motion-reduce. */
@@ -32,8 +45,11 @@ export type FormKeyboardViewportSnapshot = {
   /**
    * Footer / sticky CTA `padding-bottom` authority.
    * closed → safeBottom; open → keyboardOcclusionInset only (never safe+keyboard).
+   * Value is adapter-local for this environment — not a global constant.
    */
   effectiveBottomInset: number;
+  /** Capability / orientation labels for matrix rows (nav mode never UA-guessed). */
+  runtimeContext?: FormKeyboardRuntimeContext;
 };
 
 export type FormKeyboardViewportBuildArgs = {
@@ -43,6 +59,13 @@ export type FormKeyboardViewportBuildArgs = {
   safeBottomPx?: number;
   layoutAlignedSlackPx?: number;
   minOcclusionPx?: number;
+  /**
+   * When set (platform adapter path), skips bare `resolveFormKeyboardOcclusionInsetPx`.
+   * Desktop physical KB / model `none` passes 0 here.
+   */
+  keyboardOcclusionInsetOverride?: number;
+  /** Matrix labels — optional; never invent gesture vs 3-button. */
+  runtimeContext?: FormKeyboardRuntimeContext;
 };
 
 /** Probe `--safe-bottom` resolved px (env + native bridge). */
@@ -160,19 +183,28 @@ export function buildFormKeyboardViewportSnapshot(
   args: FormKeyboardViewportBuildArgs
 ): FormKeyboardViewportSnapshot & { baselineClosedHeightPx: number } {
   const frame = resolveFormVisualViewportFrame();
-  const keyboardOcclusionInset = resolveFormKeyboardOcclusionInsetPx({
-    nativeShellInsetPx: args.nativeShellInsetPx,
-    layoutAlignedSlackPx: args.layoutAlignedSlackPx,
-    minOcclusionPx: args.minOcclusionPx,
-  });
-  const keyboardOpen = resolveFormKeyboardOpenFromViewport(
-    args.baselineClosedHeightPx,
-    args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX
-  );
+  const keyboardOcclusionInset =
+    typeof args.keyboardOcclusionInsetOverride === "number" &&
+    Number.isFinite(args.keyboardOcclusionInsetOverride)
+      ? Math.max(0, Math.round(args.keyboardOcclusionInsetOverride))
+      : resolveFormKeyboardOcclusionInsetPx({
+          nativeShellInsetPx: args.nativeShellInsetPx,
+          layoutAlignedSlackPx: args.layoutAlignedSlackPx,
+          minOcclusionPx: args.minOcclusionPx,
+        });
+  const keyboardOpen =
+    args.runtimeContext?.keyboardModel === "none"
+      ? false
+      : resolveFormKeyboardOpenFromViewport(
+          args.baselineClosedHeightPx,
+          args.minOcclusionPx ?? FORM_KEYBOARD_MIN_OCCLUSION_PX
+        );
   const safeBottom =
     typeof args.safeBottomPx === "number" && Number.isFinite(args.safeBottomPx)
       ? Math.max(0, Math.round(args.safeBottomPx))
-      : readCssSafeBottomPx();
+      : args.runtimeContext?.safeBottomPx != null
+        ? Math.max(0, Math.round(args.runtimeContext.safeBottomPx))
+        : readCssSafeBottomPx();
 
   const nextBaseline = keyboardOpen
     ? args.baselineClosedHeightPx
@@ -190,16 +222,24 @@ export function buildFormKeyboardViewportSnapshot(
       keyboardOcclusionInset,
       safeBottom,
     }),
+    runtimeContext: args.runtimeContext,
     baselineClosedHeightPx: nextBaseline,
   };
 }
 
 /**
  * Visible band top in layout Y — visualViewport.offsetTop, optionally raised to sticky chrome bottom.
- * Do not invent page-specific px offsets.
+ * Do not invent page-specific px offsets or device-name branches.
+ *
+ * CASE D (tiny usable viewport, e.g. landscape + keyboard): if chrome would leave
+ * less space than the focused control needs, relax top toward vv.offsetTop just enough
+ * to fit — focus visibility wins over keeping full sticky chrome in the band.
  */
 export function resolveFormEffectiveViewportTopPx(args?: {
   stickyChromeEl?: HTMLElement | null;
+  effectiveViewportBottom?: number;
+  /** Focused control height (textarea: pass caret-line estimate, not full scroll height). */
+  focusedHeightPx?: number;
 }): number {
   const frame = resolveFormVisualViewportFrame();
   let topPx = frame.offsetTopPx;
@@ -208,6 +248,20 @@ export function resolveFormEffectiveViewportTopPx(args?: {
     const bottom = Math.round(chrome.getBoundingClientRect().bottom);
     if (Number.isFinite(bottom)) topPx = Math.max(topPx, bottom);
   }
+
+  const bandBottom = args?.effectiveViewportBottom ?? frame.visualBottomPx;
+  const focusedNeed = Math.max(0, Math.round(args?.focusedHeightPx ?? 0));
+  const minUsable = Math.max(
+    FORM_FOCUS_MIN_USABLE_BAND_PX,
+    focusedNeed + FORM_FOCUS_GAP_PX * 2
+  );
+  const usable = bandBottom - topPx;
+  if (focusedNeed > 0 && usable < minUsable && bandBottom > frame.offsetTopPx) {
+    const relaxedFloor = frame.offsetTopPx;
+    const fitTop = bandBottom - minUsable;
+    topPx = Math.max(relaxedFloor, Math.min(topPx, fitTop));
+  }
+
   return Math.max(0, topPx);
 }
 
@@ -227,9 +281,14 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
   focusGapPx?: number;
 }): number {
   const gap = args.focusGapPx ?? FORM_FOCUS_GAP_PX;
-  const topLimit = (args.effectiveViewportTop ?? 0) + gap;
-  const bottomLimit = args.effectiveViewportBottom - gap;
-  if (!(bottomLimit > topLimit)) return 0;
+  let topLimit = (args.effectiveViewportTop ?? 0) + gap;
+  let bottomLimit = args.effectiveViewportBottom - gap;
+
+  // Degenerate band after keyboard+chrome — still keep focused top edge in view.
+  if (!(bottomLimit > topLimit)) {
+    topLimit = Math.max(0, args.effectiveViewportTop ?? 0);
+    bottomLimit = Math.max(topLimit + 1, args.effectiveViewportBottom);
+  }
 
   const rect = args.focused.getBoundingClientRect();
   let delta = 0;

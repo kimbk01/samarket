@@ -26,9 +26,21 @@ function isTextEntryTarget(el: EventTarget | null): el is HTMLElement {
   return el.isContentEditable;
 }
 
+/** Prefer caret-line height for tall textareas (CASE D) — not full box. */
+function resolveFocusedBandHeightPx(focused: HTMLElement): number {
+  const rect = focused.getBoundingClientRect();
+  const raw = Math.max(0, Math.round(rect.height));
+  if (focused.tagName === "TEXTAREA") return Math.min(raw, 48);
+  return raw;
+}
+
 /**
- * focusin / textarea growth: scroll only when focused control is outside the visible band
+ * focusin / textarea growth / vv resize while focused:
+ * scroll only when focused control is outside the visible band
  * (bottom occlusion OR top clipping). Never scrollIntoView(center).
+ *
+ * Re-runs on visualViewport resize so landscape keyboard open does not leave
+ * a stale focus band from the pre-keyboard geometry.
  */
 export function useFormKeyboardFocusVisibility(opts: Options): void {
   const enabled = opts.enabled !== false;
@@ -43,6 +55,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
 
     let resizeRo: ResizeObserver | null = null;
     let observed: HTMLElement | null = null;
+    let activeFocused: HTMLElement | null = null;
 
     const run = (focused: HTMLElement) => {
       const root = scrollRootRef?.current ?? findFormScrollRoot(focused);
@@ -54,6 +67,8 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         null;
       const effectiveViewportTop = resolveFormEffectiveViewportTopPx({
         stickyChromeEl: stickyFromDom,
+        effectiveViewportBottom: bottom,
+        focusedHeightPx: resolveFocusedBandHeightPx(focused),
       });
       ensureFormFocusVisibleInScrollRoot({
         focused,
@@ -73,28 +88,49 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       resizeRo.observe(focused);
     };
 
-    const onFocusIn = (e: FocusEvent) => {
-      if (!isTextEntryTarget(e.target)) return;
-      const focused = e.target as HTMLElement;
-      const boundRoot = scrollRootRef?.current;
-      if (boundRoot && !boundRoot.contains(focused)) return;
-      observeGrowth(focused);
+    const scheduleRun = (focused: HTMLElement) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => run(focused));
       });
     };
 
+    const onFocusIn = (e: FocusEvent) => {
+      if (!isTextEntryTarget(e.target)) return;
+      const focused = e.target as HTMLElement;
+      const boundRoot = scrollRootRef?.current;
+      if (boundRoot && !boundRoot.contains(focused)) return;
+      activeFocused = focused;
+      observeGrowth(focused);
+      scheduleRun(focused);
+    };
+
     const onFocusOut = () => {
+      activeFocused = null;
       resizeRo?.disconnect();
       resizeRo = null;
       observed = null;
     };
 
+    const onViewportGeometry = () => {
+      if (!activeFocused || !document.contains(activeFocused)) return;
+      scheduleRun(activeFocused);
+    };
+
     document.addEventListener("focusin", onFocusIn, true);
     document.addEventListener("focusout", onFocusOut, true);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", onViewportGeometry);
+    vv?.addEventListener("scroll", onViewportGeometry);
+    window.addEventListener("resize", onViewportGeometry);
+    window.addEventListener("orientationchange", onViewportGeometry);
+
     return () => {
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
+      vv?.removeEventListener("resize", onViewportGeometry);
+      vv?.removeEventListener("scroll", onViewportGeometry);
+      window.removeEventListener("resize", onViewportGeometry);
+      window.removeEventListener("orientationchange", onViewportGeometry);
       resizeRo?.disconnect();
     };
   }, [enabled, bottom, gap, scrollRootRef, stickyChromeRef]);
