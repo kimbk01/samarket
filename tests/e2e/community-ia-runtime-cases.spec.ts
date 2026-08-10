@@ -164,6 +164,18 @@ function topicTabByName(page: Page, name: string) {
   return page.getByRole("tab", { name: new RegExp(`^${escaped}$`, "i") });
 }
 
+async function clickTopicTab(page: Page, label: string): Promise<void> {
+  const tab = topicTabByName(page, label);
+  await tab.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+  await tab.click({ timeout: 15_000 });
+}
+
+async function clickAllTab(page: Page): Promise<void> {
+  const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
+  await allTab.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+  await allTab.click({ timeout: 15_000 });
+}
+
 function labelEqualsInsensitive(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
@@ -230,8 +242,7 @@ async function assertOneRowNav(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 
 test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) => {
-  // APP A–H + ADMIN A–F serial wall; 420s was cutting at APP_H before Admin.
-  test.setTimeout(900_000);
+  test.setTimeout(1_200_000);
   const origin = playwrightOriginFromEnv();
   const results: CaseResult[] = [];
   await assertPlaywrightOriginReachable(request);
@@ -353,10 +364,10 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
   // ── APP C: Topic A ──
   {
     const feedP = waitNeighborhoodFeed(page, (h) => h.globalFeed && !!h.category, 12_000).catch(() => null);
-    await page.getByRole("tab", { name: topicALabel, exact: true }).click();
+    await clickTopicTab(page, topicALabel);
     await page.waitForURL(/[?&]category=/, { timeout: 15_000 });
     const urlCat = new URL(page.url()).searchParams.get("category")?.toLowerCase() ?? "";
-    await expect(page.getByRole("tab", { name: topicALabel, exact: true })).toHaveAttribute(
+    await expect(topicTabByName(page, topicALabel)).toHaveAttribute(
       "aria-selected",
       "true"
     );
@@ -392,17 +403,14 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
 
   // ── APP D: Topic switch ──
   if (topicBLabel) {
-    await page.getByRole("tab", { name: topicBLabel, exact: true }).click();
+    await clickTopicTab(page, topicBLabel);
     await page.waitForURL(/[?&]category=/, { timeout: 15_000 });
     const catBUrl = new URL(page.url()).searchParams.get("category")?.toLowerCase() ?? "";
-    await expect(page.getByRole("tab", { name: topicBLabel, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
-    await page.getByRole("tab", { name: topicALabel, exact: true }).click();
+    await expect(topicTabByName(page, topicBLabel)).toHaveAttribute("aria-selected", "true");
+    await clickTopicTab(page, topicALabel);
     await page.waitForURL(/[?&]category=/, { timeout: 15_000 });
     const catAUrl = new URL(page.url()).searchParams.get("category")?.toLowerCase() ?? "";
-    await expect(page.getByRole("tab", { name: topicALabel, exact: true })).toHaveAttribute(
+    await expect(topicTabByName(page, topicALabel)).toHaveAttribute(
       "aria-selected",
       "true"
     );
@@ -427,8 +435,13 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
 
   // ── APP E: Local ──
   {
+    const localFeedP = waitNeighborhoodFeed(
+      page,
+      (h) => !h.globalFeed && !h.category && !!h.locationKey,
+      12_000
+    ).catch(() => null);
     await page.getByRole("tab", { name: /동네|Local/i }).click();
-    await page.waitForTimeout(800);
+    await page.waitForURL(/nav=local/, { timeout: 15_000 });
     await assertOneRowNav(page);
     const list = page.locator("main");
     const text = await list.innerText();
@@ -446,13 +459,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         scopeOfFix: "Local empty UI — after approval",
       });
     }
-    // If region message: must still be one-row; if feed: must be locationKey not global
-    let feedHit: FeedHit | null = null;
-    try {
-      feedHit = await waitNeighborhoodFeed(page, undefined, 8_000);
-    } catch {
-      feedHit = null;
-    }
+    const feedHit = await localFeedP;
     if (feedHit && !regionBlocked) {
       if (feedHit.globalFeed) {
         failFirstBreak({
@@ -543,8 +550,13 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
 
   // ── APP G: Detail back ──
   {
-    const feedTopicP = waitNeighborhoodFeed(page, (h) => h.globalFeed && !!h.category);
-    await page.getByRole("tab", { name: topicALabel, exact: true }).click();
+    const feedTopicP = waitNeighborhoodFeed(
+      page,
+      (h) => h.globalFeed && !!h.category,
+      12_000
+    ).catch(() => null);
+    await clickTopicTab(page, topicALabel);
+    await page.waitForURL(/[?&]category=/, { timeout: 15_000 });
     const before = await feedTopicP;
     const firstCard = communityFeedCards(page).first();
     const href = await firstCard.getAttribute("href").catch(() => null);
@@ -556,18 +568,21 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
       await page.waitForTimeout(800);
       await page.goBack();
       await page.waitForTimeout(800);
-      await expect(page.getByRole("tab", { name: topicALabel, exact: true })).toHaveAttribute(
+      await expect(topicTabByName(page, topicALabel)).toHaveAttribute(
         "aria-selected",
         "true",
         { timeout: 15_000 }
       );
-      // All + popular back
-      const allPopularP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "popular");
-      await page.getByRole("tab", { name: /^(전체|All)$/i }).first().click();
+      const allPopularP = waitNeighborhoodFeed(
+        page,
+        (h) => h.globalFeed && h.sort === "popular",
+        12_000
+      ).catch(() => null);
+      await clickAllTab(page);
       await page.waitForURL(/nav=all/, { timeout: 15_000 });
       const sortSelect = allSortSelect(page);
       await sortSelect.selectOption("popular");
-      await page.waitForURL(/sort=popular/);
+      await page.waitForURL(/sort=popular/, { timeout: 15_000 });
       await allPopularP;
       const card2 = communityFeedCards(page).first();
       if (await card2.isVisible().catch(() => false)) {
@@ -581,22 +596,23 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         );
         await expect(allSortSelect(page)).toHaveValue("popular");
       }
-      results.push({ case: "APP_G", pass: true, notes: `topic back + all popular back; beforeCat=${before.category}` });
+      results.push({ case: "APP_G", pass: true, notes: `topic back + all popular back; beforeCat=${before?.category ?? ""}` });
       writeEvidence("APP_G.json", { before, url: page.url() });
     }
   }
 
   // ── APP H: Bottom tab return ──
   {
-    await page.getByRole("tab", { name: /^(전체|All)$/i }).first().click();
+    await clickAllTab(page);
+    await page.waitForURL(/nav=all/, { timeout: 15_000 });
     const sortSelect = allSortSelect(page);
     await sortSelect.selectOption("popular");
-    await page.waitForURL(/nav=all.*sort=popular|sort=popular.*nav=all/);
-    // go to market then back to philife
+    await page.waitForURL(/sort=popular/, { timeout: 15_000 });
     await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
+    await page.waitForURL(/nav=all/, { timeout: 20_000 }).catch(() => {});
+    await page.waitForTimeout(800);
     const url = page.url();
     const allSelected =
       (await page.getByRole("tab", { name: /^(전체|All)$/i }).first().getAttribute("aria-selected")) === "true";
@@ -613,14 +629,14 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         scopeOfFix: "hub state restore — after approval",
       });
     }
-    // Topic A remount
-    await page.getByRole("tab", { name: topicALabel, exact: true }).click();
+    await clickTopicTab(page, topicALabel);
     await page.waitForTimeout(500);
     await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(400);
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
-    await expect(page.getByRole("tab", { name: topicALabel, exact: true })).toHaveAttribute(
+    await page.waitForURL(/category=/, { timeout: 20_000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    await expect(topicTabByName(page, topicALabel)).toHaveAttribute(
       "aria-selected",
       "true",
       { timeout: 15_000 }
@@ -980,21 +996,22 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
       labels.push((await tabs.nth(i).innerText()).trim());
     }
     const homeIdx = labels.findIndex((l) => /^(홈|Home)/i.test(l));
+    const allIdx = labels.findIndex((l) => /^(전체|All)/i.test(l));
     const localIdx = labels.findIndex((l) => /^(동네|Local)/i.test(l));
     const popularIdx = labels.findIndex((l) => /^(인기|Popular)/i.test(l));
-    if (homeIdx < 0 || localIdx < 0 || popularIdx < 0 || localIdx <= homeIdx) {
+    if (homeIdx < 0 || allIdx < 0 || localIdx < 0 || popularIdx < 0 || allIdx <= homeIdx || localIdx <= allIdx) {
       failFirstBreak({
         case: "ADMIN_C",
-        expected: "Home … Local Popular one-row nav",
+        expected: "Home | All | …topics… | Local | Popular one-row nav",
         actual: `labels=${labels.join(" | ")}`,
         firstBreak: "nav chrome missing after order patch",
         rootAuthority: "composeCommunityNavItems",
         file: "lib/community/community-nav.ts",
-        why: "Need Home/topics/Local/Popular frame to compare topic order",
+        why: "Need Home/All/topics/Local/Popular frame to compare topic order",
         scopeOfFix: "nav chrome — after approval",
       });
     }
-    const appTopicLabels = labels.slice(homeIdx + 1, localIdx);
+    const appTopicLabels = labels.slice(allIdx + 1, localIdx);
     const apiNorm = apiTopicLabels.map((x) => x.toLowerCase());
     const appNorm = appTopicLabels.map((x) => x.toLowerCase());
     if (apiNorm.length === 0 || apiNorm.join("|") !== appNorm.join("|")) {

@@ -644,8 +644,18 @@ export function CommunityFeed({
   /** Persist hub state for detail-back / tab remount */
   useEffect(() => {
     if (!isCommunityHubPath(pathname)) return;
+    const hasNavParams =
+      searchParams.has("nav") ||
+      searchParams.has("category") ||
+      searchParams.has("sort") ||
+      searchParams.has("mode");
+    /**
+     * Bare /philife remount: layout restore reads sessionStorage first.
+     * Do not overwrite saved all/topic with parsed default home before replace runs.
+     */
+    if (!hasNavParams && navSelection.kind === "home") return;
     writeCommunityHubState(navSelection);
-  }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort]);
+  }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort, searchParams]);
 
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
