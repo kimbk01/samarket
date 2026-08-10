@@ -96,13 +96,32 @@ async function main() {
         status: "ended",
         end_at: now,
         updated_at: now,
+        admin_memo: "invalid_creatives_sanitation",
       })
       .eq("id", t.id)
       .neq("status", "ended");
     if (updErr) {
       console.error("FAIL", t.id, updErr.message);
-    } else {
-      console.log("ENDED", t.id, t.name);
+      continue;
+    }
+    console.log("ENDED", t.id, t.name);
+    const requestId = t.request_id != null ? String(t.request_id).trim() : "";
+    if (requestId) {
+      const { error: reqErr } = await sb
+        .from("feed_ad_requests")
+        .update({
+          status: "ended",
+          end_at: now,
+          review_reason: "invalid_creatives_sanitation",
+          updated_at: now,
+        })
+        .eq("id", requestId)
+        .in("status", ["active", "approved", "pending_review"]);
+      if (reqErr) {
+        console.error("REQUEST_SYNC_FAIL", requestId, reqErr.message);
+      } else {
+        console.log("REQUEST_ENDED", requestId);
+      }
     }
   }
 }

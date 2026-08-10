@@ -82,7 +82,7 @@ export default function MemberFeedAdRequestPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [creatives, setCreatives] = useState<CreativeState[]>([{ ...EMPTY_CREATIVE }]);
   const [uploadSlot, setUploadSlot] = useState(0);
-  const [showSample, setShowSample] = useState(true);
+  const [showSample, setShowSample] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<{
     requestId: string;
     displayStatus: FeedAdMemberDisplayStatus | string;

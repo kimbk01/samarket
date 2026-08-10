@@ -27,6 +27,21 @@ describe("feed ad ops presentation SSOT", () => {
     ).toBe("scheduled");
   });
 
+  it("campaign ended beats stale request active + future request end_at", () => {
+    const now = Date.parse("2026-08-10T12:00:00.000Z");
+    expect(
+      projectFeedAdOpsProductStatus({
+        requestStatus: "active",
+        startAt: "2026-08-01T00:00:00.000Z",
+        endAt: "2026-08-16T00:00:00.000Z",
+        campaignStatus: "ended",
+        campaignStartAt: "2026-08-01T00:00:00.000Z",
+        campaignEndAt: "2026-08-09T16:00:00.000Z",
+        nowMs: now,
+      })
+    ).toBe("ended");
+  });
+
   it("builds timeline from existing fields only", () => {
     const events = projectFeedAdOpsTimeline({
       request: {

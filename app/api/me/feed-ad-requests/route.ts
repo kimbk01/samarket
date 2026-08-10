@@ -31,6 +31,7 @@ function mapRequestRow(
     creatives?: { sortOrder: number; imageUrl: string; altText: string; headline: string }[];
     startAt?: string | null;
     endAt?: string | null;
+    campaignStatus?: string | null;
     holdStatus?: string | null;
   }
 ) {
@@ -44,6 +45,7 @@ function mapRequestRow(
     requestStatus: String(row.status ?? ""),
     startAt,
     endAt,
+    campaignStatus: extras?.campaignStatus ?? null,
   });
   return {
     id: String(row.id ?? ""),
@@ -116,7 +118,7 @@ export async function GET(req: NextRequest) {
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [] as unknown[] }),
     campaignIds.length
-      ? sb.from("feed_ad_campaigns").select("id, start_at, end_at").in("id", campaignIds)
+      ? sb.from("feed_ad_campaigns").select("id, status, start_at, end_at").in("id", campaignIds)
       : Promise.resolve({ data: [] as unknown[] }),
     ids.length
       ? sb
@@ -141,10 +143,14 @@ export async function GET(req: NextRequest) {
     byReq.set(rid, list);
   }
 
-  const campById = new Map<string, { startAt: string | null; endAt: string | null }>();
+  const campById = new Map<
+    string,
+    { status: string | null; startAt: string | null; endAt: string | null }
+  >();
   for (const c of campaigns ?? []) {
     const row = c as Record<string, unknown>;
     campById.set(String(row.id ?? ""), {
+      status: row.status != null ? String(row.status) : null,
       startAt: row.start_at != null ? String(row.start_at) : null,
       endAt: row.end_at != null ? String(row.end_at) : null,
     });
@@ -167,6 +173,7 @@ export async function GET(req: NextRequest) {
       creatives: byReq.get(id) ?? [],
       startAt: camp?.startAt ?? null,
       endAt: camp?.endAt ?? null,
+      campaignStatus: camp?.status ?? null,
       holdStatus: holdByReq.get(id) ?? null,
     });
   });

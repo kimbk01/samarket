@@ -1,6 +1,13 @@
 /**
  * Member/Admin presentation projection for Feed Banner lifecycle (PHASE 3).
- * Uses request status + campaign window — RESOLVER-ONLY, no status cron writer.
+ *
+ * CONTRACT:
+ * - Prefer **campaign** status + window over request row copies when present.
+ * - Campaign `ended` ⇒ display `ended` even if request.status is still `active`
+ *   (orphan request rows must not look like feed-eligible "광고중").
+ * - Natural window expiry is RESOLVER-ONLY (no cron required for feed).
+ * - Writers that end a campaign MUST also mark the linked request ended
+ *   (`endFeedAdCampaign` / sync helper) so admin filters stay honest.
  */
 
 import { isFeedAdCampaignEligibleNow } from "@/lib/ads/feed-ad-placement";
@@ -24,16 +31,56 @@ export type FeedAdMemberPresentation = {
   endAt: string | null;
 };
 
+/**
+ * Resolve the window + campaign status used for ops/member projection.
+ * Campaign window fields override request copies when provided; otherwise request window.
+ */
+export function resolveFeedAdPresentationInputs(input: {
+  requestStatus: string;
+  requestStartAt?: string | null;
+  requestEndAt?: string | null;
+  campaignStatus?: string | null;
+  campaignStartAt?: string | null;
+  campaignEndAt?: string | null;
+}): {
+  requestStatus: string;
+  campaignStatus: string | null;
+  startAt: string | null;
+  endAt: string | null;
+} {
+  return {
+    requestStatus: String(input.requestStatus ?? "").trim().toLowerCase(),
+    campaignStatus:
+      input.campaignStatus != null && String(input.campaignStatus).trim() !== ""
+        ? String(input.campaignStatus).trim().toLowerCase()
+        : null,
+    startAt:
+      input.campaignStartAt !== undefined && input.campaignStartAt !== null
+        ? input.campaignStartAt
+        : (input.requestStartAt ?? null),
+    endAt:
+      input.campaignEndAt !== undefined && input.campaignEndAt !== null
+        ? input.campaignEndAt
+        : (input.requestEndAt ?? null),
+  };
+}
+
 export function projectFeedAdMemberPresentation(input: {
   requestStatus: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** When set, campaign terminal status overrides stale request.status=active. */
+  campaignStatus?: string | null;
   nowMs?: number;
 }): FeedAdMemberPresentation {
   const nowMs = input.nowMs ?? Date.now();
   const startAt = input.startAt ?? null;
   const endAt = input.endAt ?? null;
   const rs = String(input.requestStatus ?? "").trim().toLowerCase();
+  const cs =
+    input.campaignStatus != null
+      ? String(input.campaignStatus).trim().toLowerCase()
+      : null;
 
   if (rs === "pending_review" || rs === "pending" || rs === "held") {
     return {
@@ -63,9 +110,29 @@ export function projectFeedAdMemberPresentation(input: {
     };
   }
 
-  // active / approved / ended request — window drives Member UX
+  // Campaign ended/paused/draft ⇒ not advertising (even if request row stuck active).
+  if (cs === "ended" || cs === "expired") {
+    return {
+      displayStatus: "ended",
+      eligible: false,
+      remainingMs: 0,
+      startAt,
+      endAt,
+    };
+  }
+  if (cs != null && cs !== "" && cs !== "active" && cs !== "scheduled") {
+    return {
+      displayStatus: "ended",
+      eligible: false,
+      remainingMs: 0,
+      startAt,
+      endAt,
+    };
+  }
+
+  const eligibilityStatus = cs === "scheduled" ? "scheduled" : "active";
   const eligible = isFeedAdCampaignEligibleNow(
-    { status: "active", startAt, endAt },
+    { status: eligibilityStatus, startAt, endAt },
     nowMs
   );
 

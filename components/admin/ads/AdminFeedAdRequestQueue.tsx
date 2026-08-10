@@ -24,6 +24,8 @@ type RequestRow = {
   reviewReason: string | null;
   creatives: { sortOrder: number; imageUrl: string; headline: string }[];
   createdAt: string;
+  endAt?: string | null;
+  startAt?: string | null;
 };
 
 /**
@@ -103,6 +105,9 @@ export function AdminFeedAdRequestQueue() {
           <option value="pending_review">
             {en ? "In review" : "심사중"} ({countLabel("pending_review", 0)})
           </option>
+          <option value="scheduled">
+            {en ? "Scheduled" : "광고 예정"} ({countLabel("scheduled", 0)})
+          </option>
           <option value="active">
             {en ? "Running" : "광고중"} ({countLabel("active", 0)})
           </option>
@@ -177,7 +182,9 @@ export function AdminFeedAdRequestQueue() {
                       {r.durationDays}
                       {en ? "d" : "일"} · {r.pointCost.toLocaleString()}P
                       {" · "}
-                      {new Date(r.createdAt).toLocaleString()}
+                      {r.endAt
+                        ? `${en ? "Ends" : "종료"} ${new Date(r.endAt).toLocaleString()}`
+                        : new Date(r.createdAt).toLocaleString()}
                     </p>
                   </div>
                   <button

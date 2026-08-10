@@ -3,7 +3,7 @@
  *
  * CONTRACT:
  * - campaign → ended (end_at = now)
- * - linked request → ended
+ * - linked request → ended (always, including already-ended campaign repair)
  * - Feed eligibility drops immediately (status !== active)
  * - NO automatic D-Point refund (CAPTURE already settled)
  *
@@ -12,6 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { syncFeedAdRequestEndedWithCampaign } from "@/lib/ads/sync-feed-ad-request-ended";
 
 export type EndFeedAdCampaignResult =
   | { ok: true; status: "ended"; campaignId: string; requestId: string | null }
@@ -56,7 +57,7 @@ export async function endFeedAdCampaign(
 
   const { data: camp, error: campFetchErr } = await sb
     .from("feed_ad_campaigns")
-    .select("id, status, request_id")
+    .select("id, status, request_id, end_at")
     .eq("id", campaignId)
     .maybeSingle();
   if (campFetchErr || !camp?.id) {
@@ -64,24 +65,38 @@ export async function endFeedAdCampaign(
   }
 
   const st = String((camp as { status?: string }).status ?? "").toLowerCase();
+  const linkedFromCamp =
+    (camp as { request_id?: string | null }).request_id != null
+      ? String((camp as { request_id: string }).request_id)
+      : null;
+  const linkedRequestId = requestId || linkedFromCamp;
+  const reason = (input.reason ?? "").trim() || "admin_ended";
+  const now = new Date().toISOString();
+
   if (st === "ended") {
+    // Repair path: campaign already ended but request may still be active.
+    if (linkedRequestId) {
+      await syncFeedAdRequestEndedWithCampaign(sb, {
+        requestId: linkedRequestId,
+        reason,
+        actorUserId: adminUserId,
+        endAt:
+          (camp as { end_at?: string | null }).end_at != null
+            ? String((camp as { end_at: string }).end_at)
+            : now,
+        nowIso: now,
+      });
+    }
     return {
       ok: true,
       status: "ended",
       campaignId,
-      requestId:
-        requestId ||
-        ((camp as { request_id?: string | null }).request_id != null
-          ? String((camp as { request_id: string }).request_id)
-          : null),
+      requestId: linkedRequestId,
     };
   }
   if (st !== "active" && st !== "scheduled" && st !== "paused" && st !== "draft") {
     return { ok: false, error: "not_endable", httpStatus: 409 };
   }
-
-  const now = new Date().toISOString();
-  const reason = (input.reason ?? "").trim() || "admin_ended";
 
   const { data: endedCamp, error: endErr } = await sb
     .from("feed_ad_campaigns")
@@ -103,31 +118,26 @@ export async function endFeedAdCampaign(
     return { ok: false, error: "not_endable", httpStatus: 409 };
   }
 
-  const linkedRequestId =
+  const finalRequestId =
     requestId ||
     ((endedCamp as { request_id?: string | null }).request_id != null
       ? String((endedCamp as { request_id: string }).request_id)
       : null);
 
-  if (linkedRequestId) {
-    await sb
-      .from("feed_ad_requests")
-      .update({
-        status: "ended",
-        review_reason: reason.slice(0, 500),
-        reviewed_by: adminUserId,
-        reviewed_at: now,
-        updated_at: now,
-        end_at: now,
-      })
-      .eq("id", linkedRequestId)
-      .in("status", ["active", "approved", "pending_review"]);
+  if (finalRequestId) {
+    await syncFeedAdRequestEndedWithCampaign(sb, {
+      requestId: finalRequestId,
+      reason,
+      actorUserId: adminUserId,
+      endAt: now,
+      nowIso: now,
+    });
   }
 
   return {
     ok: true,
     status: "ended",
     campaignId,
-    requestId: linkedRequestId,
+    requestId: finalRequestId,
   };
 }

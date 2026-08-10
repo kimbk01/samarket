@@ -3,11 +3,12 @@ import { endFeedAdCampaign } from "@/lib/ads/end-feed-ad-campaign";
 
 function makeSb(opts: {
   campStatus: string;
+  requestStatus?: string;
   updateCampFail?: boolean;
 }) {
   const state = {
     campStatus: opts.campStatus,
-    requestStatus: "active",
+    requestStatus: opts.requestStatus ?? "active",
     campUpdates: 0,
     reqUpdates: 0,
   };
@@ -30,6 +31,7 @@ function makeSb(opts: {
                 id: "camp-1",
                 status: state.campStatus,
                 request_id: "req-1",
+                end_at: "2026-08-09T00:00:00.000Z",
               },
               error: null,
             };
@@ -65,17 +67,40 @@ function makeSb(opts: {
       }
       if (table === "feed_ad_requests") {
         return {
+          select() {
+            return this;
+          },
+          eq() {
+            return this;
+          },
+          in() {
+            return this;
+          },
           update() {
             return {
               eq() {
                 return {
                   in() {
-                    state.reqUpdates += 1;
-                    state.requestStatus = "ended";
-                    return Promise.resolve({ data: null, error: null });
+                    return {
+                      select() {
+                        return {
+                          async maybeSingle() {
+                            state.reqUpdates += 1;
+                            state.requestStatus = "ended";
+                            return { data: { id: "req-1" }, error: null };
+                          },
+                        };
+                      },
+                    };
                   },
                 };
               },
+            };
+          },
+          async maybeSingle() {
+            return {
+              data: { id: "req-1", status: state.requestStatus },
+              error: null,
             };
           },
         };
@@ -105,13 +130,15 @@ describe("endFeedAdCampaign", () => {
     expect(state.campStatus).toBe("ended");
   });
 
-  it("idempotent when already ended", async () => {
-    const { sb, state } = makeSb({ campStatus: "ended" });
+  it("idempotent when already ended still repairs linked request", async () => {
+    const { sb, state } = makeSb({ campStatus: "ended", requestStatus: "active" });
     const res = await endFeedAdCampaign(sb as never, {
       adminUserId: "admin-1",
       campaignId: "camp-1",
     });
     expect(res.ok).toBe(true);
     expect(state.campUpdates).toBe(0);
+    expect(state.reqUpdates).toBe(1);
+    expect(state.requestStatus).toBe("ended");
   });
 });

@@ -1,11 +1,13 @@
 /**
  * Feed Banner ops presentation SSOT — Admin queue/sheet + Member hub.
- * Projects request (+ optional window) to product labels. No new DB enum family.
+ * Projects request (+ campaign status/window) to product labels. No new DB enum family.
+ * DO NOT filter admin "광고중" by raw feed_ad_requests.status alone.
  * DO NOT duplicate status switches in UI components.
  */
 
 import {
   projectFeedAdMemberPresentation,
+  resolveFeedAdPresentationInputs,
   type FeedAdMemberDisplayStatus,
 } from "@/lib/ads/feed-ad-member-presentation";
 
@@ -45,9 +47,27 @@ export function projectFeedAdOpsProductStatus(input: {
   requestStatus: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** Prefer campaign fields — stale request copies must not keep "광고중". */
+  campaignStatus?: string | null;
+  campaignStartAt?: string | null;
+  campaignEndAt?: string | null;
   nowMs?: number;
 }): FeedAdOpsProductStatus {
-  const presentation = projectFeedAdMemberPresentation(input);
+  const resolved = resolveFeedAdPresentationInputs({
+    requestStatus: input.requestStatus,
+    requestStartAt: input.startAt,
+    requestEndAt: input.endAt,
+    campaignStatus: input.campaignStatus,
+    campaignStartAt: input.campaignStartAt,
+    campaignEndAt: input.campaignEndAt,
+  });
+  const presentation = projectFeedAdMemberPresentation({
+    requestStatus: resolved.requestStatus,
+    startAt: resolved.startAt,
+    endAt: resolved.endAt,
+    campaignStatus: resolved.campaignStatus,
+    nowMs: input.nowMs,
+  });
   return feedAdOpsProductStatusFromDisplay(presentation.displayStatus);
 }
 

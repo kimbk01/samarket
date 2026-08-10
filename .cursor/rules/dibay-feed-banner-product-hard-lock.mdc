@@ -47,6 +47,8 @@ alwaysApply: true
 - Raw ledger/balance patch bypassing `adjustUserPoints` / hold writers
 - Call residual deferred tracks “PASS” without new evidence
 - Cross-topic bleed on TOPIC feeds / invent multi-topic schema
+- Treat raw `feed_ad_requests.status=active` as feed-running “광고중” without campaign status/window
+- End a campaign without syncing the linked request to ended
 
 ## Authority (summary)
 
@@ -62,4 +64,6 @@ alwaysApply: true
 | Renew | `renew-feed-ad-campaign.ts` |
 | Price/period | `feed_ad_products` DB + readers |
 | Feed active | `GET /api/feed-ads/active` |
+| Admin queue filter/count | `projectFeedAdOpsProductStatus` (campaign status + window) — not raw request.status |
+| Campaign end → request | `endFeedAdCampaign` + `syncFeedAdRequestEndedWithCampaign` |
 | Admin ops badge | `/api/admin/admin-bell` `feed_ad_requests` pending_review COUNT |

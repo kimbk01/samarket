@@ -92,6 +92,8 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Renewal | `lib/ads/renew-feed-ad-campaign.ts` | Treating renew as new request without re-review when creative/destination change |
 | Price / period | DB `feed_ad_products` | Dual CODE+DB runtime prices |
 | Eligibility read | resolver (`active` + window + reachable creative) | Cron status flip solely for expiry |
+| Admin queue filter/count | `projectFeedAdOpsProductStatus` (campaign status + window) | Raw `feed_ad_requests.status=active` as “광고중” |
+| Campaign end → request | `endFeedAdCampaign` + `syncFeedAdRequestEndedWithCampaign` | Ending campaign without syncing linked request |
 | Feed active API | `GET /api/feed-ads/active` + slot/session seeds | Mixing advertiser creatives in one carousel |
 | Admin creative replace | Admin detail PATCH path | Queue-only approve without persisted creative |
 

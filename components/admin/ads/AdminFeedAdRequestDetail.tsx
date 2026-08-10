@@ -138,8 +138,9 @@ export function AdminFeedAdRequestDetail({
     if (!data) return "pending_review" as const;
     return projectFeedAdOpsProductStatus({
       requestStatus: data.request.status,
-      startAt: data.campaign?.startAt ?? null,
-      endAt: data.campaign?.endAt ?? null,
+      campaignStatus: data.campaign?.status ?? null,
+      campaignStartAt: data.campaign?.startAt ?? null,
+      campaignEndAt: data.campaign?.endAt ?? null,
     });
   }, [data]);
 
