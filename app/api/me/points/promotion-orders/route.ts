@@ -198,7 +198,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                 ? 404
                 : applied.error === "target_unavailable"
                   ? 400
-                  : 400;
+                  : applied.error === "rpc_unavailable"
+                    ? 503
+                    : 400;
       return NextResponse.json(
         { ok: false, error: applied.error, code: applied.error },
         { status }

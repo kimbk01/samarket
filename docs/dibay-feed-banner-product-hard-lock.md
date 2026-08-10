@@ -25,14 +25,16 @@ It does **not** claim Analytics, Notification, Legacy cleanup, or Native Cap cha
 
 ### Product PASS scope (what YES means)
 
-Verified (unit + local runtime evidence 2026-08-10):
+Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items reopen 2026-08-10 SSOT connect**):
 
-- **Community surface:** Nav-aligned — HOME→`COMMUNITY_HOME`, TOPIC→`COMMUNITY_TOPIC:<slug>`, LOCAL/POPULAR→no Feed Banner (do not borrow HOME)
+- **Community surface:** ALL (latest|popular) → `COMMUNITY_HOME`; TOPIC → `COMMUNITY_TOPIC:<slug>`; LOCAL → no Feed Banner
+- **ALL candidate pool:** `COMMUNITY_HOME` campaigns + all active `COMMUNITY_TOPIC` campaigns → existing rotation
+- **TOPIC candidate pool:** matching `COMMUNITY_TOPIC` only (no cross-topic; no HOME bleed)
 - Surface SSOT: `resolveCommunityFeedSurface` shared by chips / URL / posts / banner / `/api/feed-ads/active`
-- Cadence: gaps ∈ **[6,10]** deterministic (`FeedAdSlotPolicy`); rerender/pagination stable; DB pagination has no ad rows
+- Cadence: gaps ∈ **[4,6]** deterministic (`FeedAdSlotPolicy`); rerender/pagination stable; DB pagination has no ad rows
+- Slot items: up to **3 distinct campaigns** per slot (`selectCampaignsForPlacement`); creative 1–3 remains per-campaign metadata
 - Multi-advertiser: stable hash selector + anti-repeat when `eligible.length > 1`
 - One member = one current banner: pending/active → second POST **409** / HOLD **0**; terminal → new create + HOLD **1**
-- One campaign = **1–3** creatives; carousel = selected campaign only; 2–3 auto-slide
 - Empty pool → component **null** (no reserved blank height)
 - Financial SSOT unchanged: HOLD / CAPTURE / RELEASE / renew spend
 - Creative URL sanitation KEEP; Native **ZERO**
@@ -44,7 +46,7 @@ Verified (unit + local runtime evidence 2026-08-10):
 | Legacy cleanup | Deferred |
 | Analytics / Notification | Deferred |
 | Native / Capacitor / Auth / Push | **ZERO CHANGE** |
-| `COMMUNITY_HOME` as default on Local/Popular | **No** — Local/Popular do not sell / do not inherit HOME banner |
+| Local nav banner | **No** — Local does not sell / does not inherit HOME banner |
 
 ---
 
@@ -52,15 +54,16 @@ Verified (unit + local runtime evidence 2026-08-10):
 
 | Concern | Decision |
 |---|---|
-| Community surface | **Nav-aligned.** HOME → `COMMUNITY_HOME`. TOPIC → `COMMUNITY_TOPIC:<slug>`. **LOCAL / POPULAR → no Feed Banner** (no sold placement; do not borrow HOME). Do **not** flip `showAllFeedTab` for ads QA. |
-| Surface authority | `lib/community/resolve-community-feed-surface.ts` — HOME/TOPIC **no cross-fallback** |
-| Cadence | Gaps **6–10** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. **N=4 REOPENED.** No `Math.random()`. |
+| Community surface | **ALL** (latest\|popular) → `COMMUNITY_HOME`. TOPIC → `COMMUNITY_TOPIC:<slug>`. **LOCAL → no Feed Banner**. |
+| ALL candidate pool | HOME + all active TOPIC campaigns → `selectCampaignsForPlacement` |
+| TOPIC candidate pool | Matching TOPIC only |
+| Surface authority | `lib/community/resolve-community-feed-surface.ts` |
+| Cadence | Gaps **4–6** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. No `Math.random()`. |
 | Session seed | `feedSessionId` via `lib/ads/feed-ad-session.ts` (sessionStorage per surfaceKey; not remount-minted) |
-| Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignForPlacement`. **day-bucket-only REOPENED.** |
-| Multi-advertiser | Many members’ campaigns share exact placement pool; slot picks **one** campaign |
+| Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignsForPlacement` (max 3 / slot). **day-bucket-only REOPENED.** |
+| Multi-advertiser | Slot may show up to **3 distinct campaigns** L→R |
 | Member limit | One **current** campaign per member — `findCurrentFeedAdBanner` / `isFeedAdDisplayStatusBlockingNewCreate` |
-| Creatives | 1 request → 1 campaign → **1–3** creatives. Member max-one REOPENED. |
-| Carousel | Campaign selection ≠ creative slide mix. Same campaign only. |
+| Creatives | 1 request → 1 campaign → **1–3** creatives (per-campaign). Slot items ≠ creative slides. |
 | Empty pool | `null` / height 0 |
 | Geometry | Card-rhythm KEEP (Community 72~88 / Trade 100 fixed + cover). Not hero 3:1. |
 | Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend |
@@ -82,7 +85,7 @@ Verified (unit + local runtime evidence 2026-08-10):
 | Community surface | `resolveCommunityFeedSurface` + feed `category` state | Banner from URL-only while posts use divergent category; HOME↔TOPIC campaign fallback |
 | Cadence | `planFeedAdSlots` / `shouldInjectFeedAdAtContentIndex` | Fixed N=4; `Math.random()` gaps; ads in DB page rows |
 | feedSessionId | `getOrCreateFeedAdSessionId(surfaceKey)` | New id every mount; new global session platform |
-| Campaign select | `selectCampaignForPlacement` (+ anti-repeat) | Day-bucket-only permanent winner; auction/weighting engine |
+| Campaign select | `selectCampaignsForPlacement` (+ anti-repeat, max 3) | Day-bucket-only permanent winner; auction/weighting engine; `Math.random()` |
 | Member create + HOLD | `POST /api/me/feed-ad-requests` + point-hold writers | Second current without 409; inventing prices outside `feed_ad_products` |
 | Approve CAPTURE | `lib/ads/approve-feed-ad-request.ts` | Leaving ACTIVE without capture |
 | Reject / cancel RELEASE | approve reject · `cancel-feed-ad-request.ts` | Double-release / silent skip of hold row |
@@ -95,21 +98,23 @@ Verified (unit + local runtime evidence 2026-08-10):
 ### Required migration (runtime)
 
 - `supabase/migrations/20261024160000_feed_ad_request_idempotency.sql` (prior)
+- `supabase/migrations/20261026120000_purchase_member_community_promotion.sql` — Community Top-Pin atomic TX
 
 ---
 
 ## 3. DO NOT (without explicit reopen)
 
-- Flip `showAllFeedTab` solely to force `COMMUNITY_HOME` for ads tests
-- Restore fixed **N=4** or **day-bucket-only** selection as product defaults
-- Mix A/B/C advertisers’ images in one carousel
-- Allow second current campaign without **409** / HOLD **0**
-- Revert card-rhythm geometry to unbounded aspect-3:1 + contain hero strip
-- Dual price authority (CODE + DB) for runtime catalog
+- Flip `showAllFeedTab` solely for ads tests unrelated to ALL→COMMUNITY_HOME contract
+- Restore gaps **6–10** or day-bucket-only selection as product defaults
+- Bypass 409 / invent second current HOLD
+- Revert creative to unbounded aspect-3:1 + object-contain hero strip
+- Dual CODE+DB runtime prices
 - Mix Legacy cleanup / Analytics into this product commit stream
 - Touch Native Cap / Auth / Push / Badge as part of Feed Banner
 - Hollow product PASS by deleting runtime evidence references
 - Raw `point_ledger` INSERT / balance patch bypassing `adjustUserPoints` / hold writers
+- Put ads into DB pagination rows
+- Topic feed showing other-topic or inventing multi-topic schema
 
 ---
 

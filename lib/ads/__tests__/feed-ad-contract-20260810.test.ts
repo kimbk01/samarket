@@ -1,6 +1,5 @@
 /**
- * Product contract reopen 2026-08-10 — surface / session / cadence / selector.
- * Not a Runtime PASS claim.
+ * Product contract — community SSOT connect (surface / cadence 4–6 / multi-campaign slot).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
@@ -17,6 +16,7 @@ import {
 import {
   listEligibleCampaignsForPlacement,
   selectCampaignForPlacement,
+  selectCampaignsForPlacement,
   type FeedAdCampaignView,
 } from "@/lib/ads/feed-ad-placement";
 
@@ -57,42 +57,27 @@ function camp(partial: Partial<FeedAdCampaignView> & { id: string }): FeedAdCamp
 }
 
 describe("Community surface SSOT", () => {
-  it("HOME vs TOPIC — no cross fallback keys", () => {
-    const home = resolveCommunityFeedSurface("", "home");
-    expect(home.placement).toBe("COMMUNITY_HOME");
-    expect(home.topicSlug).toBeUndefined();
-    expect(home.surfaceKey).toBe("community:home");
+  it("ALL latest|popular + legacy home → COMMUNITY_HOME (same surfaceKey)", () => {
+    for (const kind of ["all", "home", "popular"] as const) {
+      const s = resolveCommunityFeedSurface("", kind);
+      expect(s.placement).toBe("COMMUNITY_HOME");
+      expect(s.surfaceKey).toBe("community:all");
+      expect(s.topicSlug).toBeUndefined();
+    }
+  });
 
+  it("TOPIC vs ALL — distinct keys; no local banner", () => {
+    const all = resolveCommunityFeedSurface("", "all");
     const topic = resolveCommunityFeedSurface("travel", "topic");
     expect(topic.placement).toBe("COMMUNITY_TOPIC");
     expect(topic.topicSlug).toBe("travel");
     expect(topic.surfaceKey).toBe("community:topic:travel");
+    expect(topic.surfaceKey).not.toBe(all.surfaceKey);
 
-    const back = resolveCommunityFeedSurface("", "home");
-    expect(back.surfaceKey).toBe(home.surfaceKey);
-    expect(back.surfaceKey).not.toBe(topic.surfaceKey);
-  });
-
-  it("ALL (Latest|Popular) does not inherit COMMUNITY_HOME", () => {
-    expect(resolveCommunityFeedSurface("", "all")).toMatchObject({
-      placement: null,
-      surfaceKey: "community:all",
-    });
-    expect(resolveCommunityFeedSurface("", "all").placement).not.toBe("COMMUNITY_HOME");
-  });
-
-  it("LOCAL and POPULAR do not inherit COMMUNITY_HOME (no sold placement)", () => {
     expect(resolveCommunityFeedSurface("", "local")).toMatchObject({
       placement: null,
       surfaceKey: "community:local",
     });
-    expect(resolveCommunityFeedSurface("", "popular")).toMatchObject({
-      placement: null,
-      surfaceKey: "community:popular",
-    });
-    /** empty category alone must not force HOME when nav is local/popular */
-    expect(resolveCommunityFeedSurface("", "local").placement).not.toBe("COMMUNITY_HOME");
-    expect(resolveCommunityFeedSurface("", "popular").placement).not.toBe("COMMUNITY_HOME");
   });
 
   it("TOPIC unset does not fall back to HOME ads", () => {
@@ -107,19 +92,21 @@ describe("feedSessionId stability", () => {
   });
 
   it("same surfaceKey reuses id; different surface gets another", () => {
-    const a1 = getOrCreateFeedAdSessionId("community:home");
-    const a2 = getOrCreateFeedAdSessionId("community:home");
+    const a1 = getOrCreateFeedAdSessionId("community:all");
+    const a2 = getOrCreateFeedAdSessionId("community:all");
     const b = getOrCreateFeedAdSessionId("community:topic:travel");
     expect(a1).toBe(a2);
     expect(b).not.toBe(a1);
-    expect(getOrCreateFeedAdSessionId("community:home")).toBe(a1);
+    expect(getOrCreateFeedAdSessionId("community:all")).toBe(a1);
   });
 });
 
-describe("6-10 cadence continuity", () => {
-  it("all gaps in [6,10] and early slots stable when length grows", () => {
+describe("4-6 cadence continuity", () => {
+  it("all gaps in [4,6] and early slots stable when length grows", () => {
+    expect(FEED_AD_SLOT_GAP_MIN).toBe(4);
+    expect(FEED_AD_SLOT_GAP_MAX).toBe(6);
     const seed = feedAdSlotSeed({
-      surfaceKey: "community:home",
+      surfaceKey: "community:all",
       feedSessionId: "sess-stable",
     });
     const short = planFeedAdSlots(30, seed);
@@ -139,28 +126,69 @@ describe("6-10 cadence continuity", () => {
   });
 });
 
-describe("selector + anti-repeat", () => {
-  it("same inputs → same campaign; empty pool → null", () => {
-    const pool = [
-      camp({ id: "A" }),
-      camp({ id: "B" }),
-      camp({ id: "C" }),
-    ];
+describe("candidate pool + multi-campaign slot", () => {
+  const nowMs = 3_600_000 * 7;
+  const pool = [
+    camp({ id: "HOME1", placement: "COMMUNITY_HOME" }),
+    camp({ id: "TA", placement: "COMMUNITY_TOPIC", targetTopicSlug: "food" }),
+    camp({ id: "TB", placement: "COMMUNITY_TOPIC", targetTopicSlug: "life" }),
+    camp({ id: "TC", placement: "COMMUNITY_TOPIC", targetTopicSlug: "news" }),
+    camp({
+      id: "DEAD",
+      placement: "COMMUNITY_TOPIC",
+      targetTopicSlug: "food",
+      status: "ended",
+    }),
+  ];
+
+  it("ALL (COMMUNITY_HOME) eligible = HOME + all TOPIC; excludes ended", () => {
+    const elig = listEligibleCampaignsForPlacement(pool, {
+      domain: "community",
+      placement: "COMMUNITY_HOME",
+      nowMs,
+    });
+    const ids = elig.map((c) => c.id).sort();
+    expect(ids).toEqual(["HOME1", "TA", "TB", "TC"]);
+  });
+
+  it("TOPIC food = food only; no HOME; no other topic", () => {
+    const elig = listEligibleCampaignsForPlacement(pool, {
+      domain: "community",
+      placement: "COMMUNITY_TOPIC",
+      topicSlug: "food",
+      nowMs,
+    });
+    expect(elig.map((c) => c.id)).toEqual(["TA"]);
+  });
+
+  it("selectCampaignsForPlacement returns up to 3 distinct", () => {
+    const picked = selectCampaignsForPlacement(pool, {
+      domain: "community",
+      placement: "COMMUNITY_HOME",
+      nowMs,
+      feedSessionId: "m3",
+      slotOrdinal: 0,
+    });
+    expect(picked.length).toBe(3);
+    expect(new Set(picked.map((c) => c.id)).size).toBe(3);
+  });
+
+  it("same inputs → same campaigns; empty → []", () => {
     const input = {
       domain: "community" as const,
       placement: "COMMUNITY_HOME" as const,
-      nowMs: 3_600_000 * 7,
+      nowMs,
       feedSessionId: "stable",
-      slotOrdinal: 2,
+      slotOrdinal: 1,
     };
-    expect(selectCampaignForPlacement(pool, input)?.id).toBe(
-      selectCampaignForPlacement(pool, input)?.id
+    expect(selectCampaignsForPlacement(pool, input).map((c) => c.id)).toEqual(
+      selectCampaignsForPlacement(pool, input).map((c) => c.id)
     );
-    expect(listEligibleCampaignsForPlacement([], input)).toEqual([]);
+    expect(selectCampaignsForPlacement([], input)).toEqual([]);
     expect(selectCampaignForPlacement([], input)).toBeNull();
   });
 
-  it("eligible=1 may repeat; eligible>1 adjacent slots do not", () => {
+  it("eligible=1 may repeat across slots; eligible>1 adjacent single picks differ", () => {
     const solo = [camp({ id: "ONLY" })];
     const multi = [camp({ id: "A" }), camp({ id: "B" }), camp({ id: "C" })];
     const base = {

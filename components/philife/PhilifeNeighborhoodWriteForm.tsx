@@ -288,9 +288,11 @@ export function PhilifeNeighborhoodWriteForm({
 
   /**
    * 카테고리 선택 SSOT (iOS / APK / Windows 동일):
-   * 1) 폼 category 갱신
-   * 2) 시트면 피드 URL `?category=` 동기화 → 상단 주제 탭 aria-selected/스타일 즉시 반영
-   * 3) 풀페이지 write면 write URL 의 category 쿼리 동기화
+   * - 폼 category 만 갱신한다.
+   * - 시트(suppressWriteScreenTier1)에서 피드 URL 을 replace 하면
+   *   sticky 탭·strip scroll·panel slide·feed refetch 가 동시에 돌아 탭이 요동한다.
+   * - 피드 탭/URL 동기화는 제출 성공 후 buildCommunityFeedHref 경로만 사용.
+   * - 풀페이지 `/philife/write` 만 write URL `?category=` 를 맞춘다(피드 탭 머신 비개입).
    */
   const applyWriteCategory = useCallback(
     (slug: string) => {
@@ -299,16 +301,8 @@ export function PhilifeNeighborhoodWriteForm({
       setCategory(next);
       setTopicMenuOpen(false);
 
-      if (suppressWriteScreenTier1) {
-        const base =
-          typeof window !== "undefined" ? window.location.search : "";
-        const target = buildCommunityFeedHref(pathname, {
-          selection: { kind: "topic", topicSlug: next, allSort: "latest" },
-          base,
-        });
-        void router.replace(target, { scroll: false });
-        return;
-      }
+      /** 시트 중에는 라이브 피드 네비를 건드리지 않는다 */
+      if (suppressWriteScreenTier1) return;
 
       const pathNoQuery = pathname.split("?")[0] ?? pathname;
       if (pathNoQuery === philifeAppPaths.write || pathNoQuery.endsWith("/write")) {

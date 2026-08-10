@@ -1,14 +1,15 @@
 /**
- * Feed Banner insertion cadence — deterministic gaps in [6, 10].
+ * Feed Banner insertion cadence — deterministic gaps in [4, 6].
  *
- * REOPEN (2026-08-10): replaces fixed N=4.
+ * PRODUCT (2026-08-10 community SSOT connect): posts ≈4–6 between banner slots.
+ * Prior HARD LOCK [6,10] superseded for cadence only.
  * - Math.random() forbidden
  * - Content-row indices only (ads never enter DB pagination)
  * - Same surface+session seed → stable inject indices across rerender
  */
 
-export const FEED_AD_SLOT_GAP_MIN = 6;
-export const FEED_AD_SLOT_GAP_MAX = 10;
+export const FEED_AD_SLOT_GAP_MIN = 4;
+export const FEED_AD_SLOT_GAP_MAX = 6;
 
 /** @deprecated Prefer FEED_AD_SLOT_GAP_* — kept for gradual call-site migration. */
 export const FEED_AD_SLOT_AFTER_CONTENT_COUNT = FEED_AD_SLOT_GAP_MIN;

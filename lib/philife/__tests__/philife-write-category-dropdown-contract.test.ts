@@ -18,11 +18,13 @@ describe("philife write category dropdown contract", () => {
     expect(writeForm).toContain("applyWriteCategory");
   });
 
-  it("syncs selected write category to community feed topic tabs via URL", () => {
+  it("does not live-replace community feed URL while write sheet is open", () => {
+    expect(writeForm).toContain("if (suppressWriteScreenTier1) return;");
+    expect(writeForm).not.toMatch(
+      /if \(suppressWriteScreenTier1\) \{[\s\S]*?buildCommunityFeedHref[\s\S]*?router\.replace/
+    );
+    /** 제출 성공 후에만 피드 탭/URL 동기화 */
     expect(writeForm).toContain("buildCommunityFeedHref");
     expect(writeForm).toContain('kind: "topic"');
-    expect(writeForm).toContain("topicSlug: next");
-    expect(writeForm).toContain("suppressWriteScreenTier1");
-    expect(writeForm).toContain('void router.replace(target, { scroll: false })');
   });
 });

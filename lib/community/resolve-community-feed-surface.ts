@@ -1,14 +1,13 @@
 /**
  * Community feed SURFACE SSOT — posts / chips / URL / Feed Banner share one result.
  *
- * CONTRACT (aligned to Community Nav SSOT + sold Feed Banner products):
- * - ALL (Latest|Popular global list) → no Feed Banner (do not borrow HOME)
- * - TOPIC nav + topic_slug → COMMUNITY_TOPIC (sold product; community_topics slug authority)
- * - LOCAL nav → no Feed Banner (no sold Local placement; do not borrow HOME)
- * - Legacy HOME kind → COMMUNITY_HOME (sold product; not reachable from current nav UI)
- * - Legacy POPULAR kind → no Feed Banner
- * - DO NOT fallback HOME campaign into TOPIC (or reverse)
+ * CONTRACT (2026-08-10 community SSOT connect):
+ * - ALL (Latest|Popular global list) → COMMUNITY_HOME (sold + all-topic candidate pool)
+ * - TOPIC nav + topic_slug → COMMUNITY_TOPIC (matching topic only)
+ * - LOCAL nav → no Feed Banner (no sold Local placement)
+ * - Legacy POPULAR kind → absorb as ALL surface (same as all+popular URL)
  * - DO NOT invent COMMUNITY_LOCAL / COMMUNITY_POPULAR placement enums/tables
+ * - Candidate pool rules live in listEligibleCampaignsForPlacement (not here)
  */
 
 import type { CommunityNavKind } from "@/lib/community/community-nav";
@@ -44,22 +43,6 @@ export function resolveCommunityFeedSurface(
       feedCategoryKey: "",
     };
   }
-  if (navKind === "all") {
-    return {
-      placement: null,
-      topicSlug: undefined,
-      surfaceKey: "community:all",
-      feedCategoryKey: "",
-    };
-  }
-  if (navKind === "popular") {
-    return {
-      placement: null,
-      topicSlug: undefined,
-      surfaceKey: "community:popular",
-      feedCategoryKey: "",
-    };
-  }
   if (navKind === "topic") {
     const c = String(feedCategoryKey ?? "").trim().toLowerCase();
     if (!c || isPhilifeRecommendSortCategory(c)) {
@@ -79,11 +62,28 @@ export function resolveCommunityFeedSurface(
     };
   }
 
-  /** Legacy home kind only */
+  /**
+   * ALL latest|popular (+ legacy home/popular kinds):
+   * COMMUNITY_HOME surface — candidate pool = HOME + all TOPIC (resolver).
+   * Sort (latest vs popular) does not change placement / pool.
+   */
+  if (
+    navKind === "all" ||
+    navKind === "home" ||
+    navKind === "popular"
+  ) {
+    return {
+      placement: "COMMUNITY_HOME",
+      topicSlug: undefined,
+      surfaceKey: "community:all",
+      feedCategoryKey: "",
+    };
+  }
+
   return {
     placement: "COMMUNITY_HOME",
     topicSlug: undefined,
-    surfaceKey: "community:home",
+    surfaceKey: "community:all",
     feedCategoryKey: "",
   };
 }

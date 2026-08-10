@@ -2,9 +2,12 @@
  * Feed Advertisement placement SSOT.
  * SLOT vs CAMPAIGN SELECTION are separate authorities — do not merge.
  *
- * PRODUCT CONTRACT (2026-08-10 reopen):
- *   SLOT = FeedAdSlotPolicy gaps ∈ [6,10] (lib/ads/feed-ad-slot-policy.ts)
- *   SELECTION = stable hash + anti-repeat (selectCampaignForPlacement)
+ * PRODUCT CONTRACT (2026-08-10 community SSOT connect):
+ *   SLOT = FeedAdSlotPolicy gaps ∈ [4,6] (lib/ads/feed-ad-slot-policy.ts)
+ *   SELECTION = stable hash + anti-repeat
+ *   COMMUNITY ALL (COMMUNITY_HOME surface) pool = HOME + all TOPIC campaigns
+ *   COMMUNITY TOPIC pool = matching TOPIC only
+ *   One slot → up to 3 distinct campaigns (selectCampaignsForPlacement)
  * DO NOT use Math.random(). DO NOT day-bucket-only permanent winner.
  */
 
@@ -112,6 +115,8 @@ export function isFeedAdCampaignEligibleNow(
   return true;
 }
 
+export const FEED_AD_SLOT_MAX_CAMPAIGNS = 3;
+
 export function listEligibleCampaignsForPlacement(
   campaigns: FeedAdCampaignView[],
   input: {
@@ -125,7 +130,6 @@ export function listEligibleCampaignsForPlacement(
   const nowMs = input.nowMs ?? Date.now();
   const eligible = campaigns.filter((c) => {
     if (c.domain !== input.domain) return false;
-    if (c.placement !== input.placement) return false;
     if (!isFeedAdCampaignEligibleNow(c, nowMs)) return false;
     if (
       c.slides.filter((s) => isProductionReachableFeedAdCreativeUrl(s.imageUrl)).length === 0
@@ -133,16 +137,30 @@ export function listEligibleCampaignsForPlacement(
       return false;
     }
     if (input.placement === "TRADE_CATEGORY") {
+      if (c.placement !== "TRADE_CATEGORY") return false;
       const want = (input.categoryId ?? "").trim();
       if (!want) return false;
       return (c.targetCategoryId ?? "").trim() === want;
     }
+    if (input.placement === "TRADE_HOME") {
+      return c.placement === "TRADE_HOME";
+    }
+    /**
+     * COMMUNITY_HOME surface (= community 「전체」 latest|popular):
+     * CASE A — HOME campaigns + all active TOPIC campaigns.
+     */
+    if (input.placement === "COMMUNITY_HOME") {
+      if (c.placement === "COMMUNITY_HOME") return true;
+      return c.placement === "COMMUNITY_TOPIC";
+    }
+    /** Topic feed: matching COMMUNITY_TOPIC only (no cross-topic, no HOME bleed). */
     if (input.placement === "COMMUNITY_TOPIC") {
+      if (c.placement !== "COMMUNITY_TOPIC") return false;
       const want = normalizeFeedAdTopicSlug(input.topicSlug ?? "");
       if (!want) return false;
       return normalizeFeedAdTopicSlug(c.targetTopicSlug ?? "") === want;
     }
-    return true;
+    return c.placement === input.placement;
   });
   eligible.sort((a, b) => a.id.localeCompare(b.id));
   return eligible;
@@ -153,29 +171,78 @@ function pickIndex(eligibleLen: number, seed: string): number {
   return feedAdStableHash(seed) % eligibleLen;
 }
 
-/**
- * Stable multi-advertiser selection + anti-repeat.
- * Simulates slots 0..slotOrdinal so any slot can be resolved independently
- * (no mutable global queue, no DB write).
- */
-export function selectCampaignForPlacement(
-  campaigns: FeedAdCampaignView[],
-  input: {
-    domain: FeedAdDomain;
-    placement: FeedAdPlacement;
-    categoryId?: string | null;
-    topicSlug?: string | null;
-    nowMs?: number;
-    /** Slot ordinal on this surface (0-based). Default 0. */
-    slotOrdinal?: number;
-    feedSessionId?: string | null;
-    viewerSalt?: string | null;
-  }
+function pickDistinctCampaign(
+  eligible: FeedAdCampaignView[],
+  seed: string,
+  avoidIds: ReadonlySet<string>,
+  previousId: string | null
 ): FeedAdCampaignView | null {
+  if (eligible.length === 0) return null;
+  const idx = pickIndex(eligible.length, seed);
+  let picked = eligible[idx] ?? eligible[0] ?? null;
+  if (!picked) return null;
+
+  const tryAdvance = (from: FeedAdCampaignView): FeedAdCampaignView => {
+    const cur = from;
+    let i = eligible.findIndex((c) => c.id === cur.id);
+    if (i < 0) i = idx;
+    for (let step = 0; step < eligible.length; step += 1) {
+      const cand = eligible[(i + step) % eligible.length]!;
+      if (avoidIds.has(cand.id)) continue;
+      if (previousId && eligible.length > 1 && cand.id === previousId) continue;
+      return cand;
+    }
+    for (let step = 0; step < eligible.length; step += 1) {
+      const cand = eligible[(i + step) % eligible.length]!;
+      if (!avoidIds.has(cand.id)) return cand;
+    }
+    return cur;
+  };
+
+  if (
+    (previousId && eligible.length > 1 && picked.id === previousId) ||
+    avoidIds.has(picked.id)
+  ) {
+    picked = tryAdvance(picked);
+  }
+  return picked;
+}
+
+export type SelectCampaignsInput = {
+  domain: FeedAdDomain;
+  placement: FeedAdPlacement;
+  categoryId?: string | null;
+  topicSlug?: string | null;
+  nowMs?: number;
+  /** Slot ordinal on this surface (0-based). Default 0. */
+  slotOrdinal?: number;
+  feedSessionId?: string | null;
+  viewerSalt?: string | null;
+  /** Max distinct campaigns per slot (default 3). */
+  maxCampaigns?: number;
+};
+
+/**
+ * Stable multi-advertiser selection — up to N distinct campaigns per slot.
+ * Simulates slots 0..slotOrdinal so any slot resolves independently.
+ * Anti-repeat: within slot + vs previous slot's last pick.
+ */
+export function selectCampaignsForPlacement(
+  campaigns: FeedAdCampaignView[],
+  input: SelectCampaignsInput
+): FeedAdCampaignView[] {
   const nowMs = input.nowMs ?? Date.now();
   const eligible = listEligibleCampaignsForPlacement(campaigns, input);
-  if (eligible.length === 0) return null;
+  if (eligible.length === 0) return [];
 
+  const maxPerSlot = Math.max(
+    1,
+    Math.min(
+      FEED_AD_SLOT_MAX_CAMPAIGNS,
+      Math.floor(input.maxCampaigns ?? FEED_AD_SLOT_MAX_CAMPAIGNS),
+      eligible.length
+    )
+  );
   const targetOrd = Math.max(0, Math.floor(input.slotOrdinal ?? 0));
   const hourBucket = Math.floor(nowMs / 3_600_000);
   const surfacePart = [
@@ -189,22 +256,36 @@ export function selectCampaignForPlacement(
   ].join("|");
 
   let previousId: string | null = null;
-  let picked: FeedAdCampaignView | null = null;
+  let slotPicks: FeedAdCampaignView[] = [];
   for (let o = 0; o <= targetOrd; o += 1) {
-    let idx = pickIndex(eligible.length, `${surfacePart}|slot|${o}`);
-    picked = eligible[idx] ?? eligible[0] ?? null;
-    if (
-      previousId &&
-      eligible.length > 1 &&
-      picked &&
-      picked.id === previousId
-    ) {
-      idx = (idx + 1) % eligible.length;
-      picked = eligible[idx] ?? picked;
+    const avoid = new Set<string>();
+    const picked: FeedAdCampaignView[] = [];
+    for (let item = 0; item < maxPerSlot; item += 1) {
+      const cand = pickDistinctCampaign(
+        eligible,
+        `${surfacePart}|slot|${o}|item|${item}`,
+        avoid,
+        previousId
+      );
+      if (!cand) break;
+      picked.push(cand);
+      avoid.add(cand.id);
+      previousId = cand.id;
     }
-    previousId = picked?.id ?? null;
+    slotPicks = picked;
   }
-  return picked;
+  return slotPicks;
+}
+
+/**
+ * Stable single-campaign selection (Trade / compat).
+ * Community slot UI should prefer selectCampaignsForPlacement (max 3).
+ */
+export function selectCampaignForPlacement(
+  campaigns: FeedAdCampaignView[],
+  input: SelectCampaignsInput
+): FeedAdCampaignView | null {
+  return selectCampaignsForPlacement(campaigns, { ...input, maxCampaigns: 1 })[0] ?? null;
 }
 
 /** Admin/consumer-facing placement label — never expose TRADE_HOME raw codes as primary UI. */

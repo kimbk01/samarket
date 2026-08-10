@@ -49,6 +49,7 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
+import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
@@ -505,6 +506,7 @@ export function CommunityFeed({
   const firstCardPaintQueryKeyRef = useRef("");
   const [err, setErr] = useState("");
   const [topAds, setTopAds] = useState<AdFeedPost[]>([]);
+  const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const nextOffsetRef = useRef(bootNextOffset);
   const loadMoreLockRef = useRef(false);
@@ -1223,6 +1225,37 @@ export function CommunityFeed({
     };
   }, [category]);
 
+  /** Feed Banner pool — one fetch per surface (slot selection is local). */
+  useEffect(() => {
+    if (!feedAdSurface.placement) {
+      setFeedAdPool(null);
+      return;
+    }
+    let cancelled = false;
+    const qs = new URLSearchParams({
+      domain: "community",
+      placement: feedAdSurface.placement,
+      pool: "1",
+    });
+    if (feedAdSurface.topicSlug) qs.set("topicSlug", feedAdSurface.topicSlug);
+    const key = `feed-ad-pool:${qs.toString()}`;
+    void runSingleFlight(key, async () => {
+      const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
+        credentials: "include",
+      });
+      return (await r.json()) as { campaigns?: FeedAdCampaignView[] };
+    })
+      .then((j) => {
+        if (!cancelled) setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedAdPool([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [feedAdSurface.placement, feedAdSurface.topicSlug]);
+
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore || loading || loadingMore) return;
@@ -1242,7 +1275,14 @@ export function CommunityFeed({
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
 
-  const postsForList = posts;
+  const postsForList = useMemo(() => {
+    if (topAds.length === 0) return posts;
+    const promotedIds = new Set(
+      topAds.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)
+    );
+    if (promotedIds.size === 0) return posts;
+    return posts.filter((p) => !promotedIds.has(String(p.id)));
+  }, [posts, topAds]);
   const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
@@ -2007,6 +2047,7 @@ export function CommunityFeed({
                       surfaceKey={feedAdSurface.surfaceKey}
                       feedSessionId={feedAdSessionId}
                       slotOrdinal={feedAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
+                      campaignPool={feedAdPool ?? []}
                     />
                   ) : null}
                 </Fragment>

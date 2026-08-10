@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type TransitionEvent,
@@ -14,7 +15,9 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type {
   FeedAdCampaignView,
   FeedAdCreativeSlide,
+  FeedAdPlacement,
 } from "@/lib/ads/feed-ad-placement";
+import { selectCampaignsForPlacement } from "@/lib/ads/feed-ad-placement";
 import {
   FEED_AD_SLIDE_INTERVAL_MS,
   FEED_AD_SLIDE_TRANSITION_MS,
@@ -41,14 +44,19 @@ function resolveHref(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): string
   return url || "#";
 }
 
+/** One slot item = one campaign's primary reachable creative. */
+function primarySlide(c: FeedAdCampaignView): FeedAdCreativeSlide | null {
+  return c.slides.find((s) => s.imageUrl.trim()) ?? null;
+}
+
 /**
- * In-feed Advertisement sector (1 slot · up to 3 creatives).
- * Empty campaign → null (no reserved height / blank shell).
- * Geometry SSOT: `lib/ads/feed-ad-geometry.ts` — card-rhythm fixed height + cover.
+ * In-feed Advertisement sector.
  *
- * Multi-slide: selected campaign creatives 1–3 only (never mix advertisers).
- * Member Product B: 1 request → 1 campaign → 1–3 creatives.
- * Width: host-aligned; height matches list thumbs (not unbounded 3:1 hero).
+ * Slot contract (community SSOT connect):
+ * - Up to 3 **distinct campaigns** left→right (selectCampaignsForPlacement).
+ * - Creative 1–3 on a single campaign ≠ multi-campaign slot items.
+ * - Single campaign with multiple creatives keeps existing creative carousel.
+ * Empty → null (no reserved height).
  */
 export function FeedAdBannerCarousel({
   domain,
@@ -58,21 +66,46 @@ export function FeedAdBannerCarousel({
   slotOrdinal = 0,
   feedSessionId,
   surfaceKey,
+  /** Feed-level eligible pool — when set, no per-slot HTTP (FIX-8). */
+  campaignPool,
 }: {
   domain: "trade" | "community";
   placement: string;
   categoryId?: string;
   topicSlug?: string;
-  /** 0-based ad slot on this surface — selection seed / anti-repeat chain. */
   slotOrdinal?: number;
   feedSessionId?: string;
   surfaceKey?: string;
+  campaignPool?: FeedAdCampaignView[] | null;
 }) {
   const { t, safeT } = useI18n();
-  const [campaign, setCampaign] = useState<FeedAdCampaignView | null>(null);
+  const [fetchedCampaigns, setFetchedCampaigns] = useState<FeedAdCampaignView[]>([]);
   const density: FeedAdHostDensity = domain === "community" ? "community" : "trade";
+  const usePool = Array.isArray(campaignPool);
+
+  const selectedFromPool = useMemo(() => {
+    if (!usePool) return null;
+    return selectCampaignsForPlacement(campaignPool ?? [], {
+      domain,
+      placement: placement as FeedAdPlacement,
+      categoryId,
+      topicSlug,
+      slotOrdinal: Math.max(0, Math.floor(slotOrdinal)),
+      feedSessionId,
+    });
+  }, [
+    usePool,
+    campaignPool,
+    domain,
+    placement,
+    categoryId,
+    topicSlug,
+    slotOrdinal,
+    feedSessionId,
+  ]);
 
   useEffect(() => {
+    if (usePool) return;
     let cancelled = false;
     const qs = new URLSearchParams({
       domain,
@@ -84,31 +117,72 @@ export function FeedAdBannerCarousel({
     if (feedSessionId) qs.set("feedSessionId", feedSessionId);
     if (surfaceKey) qs.set("surfaceKey", surfaceKey);
     const key = `feed-ad-active:${qs.toString()}`;
-    // Parse JSON inside single-flight — shared Response.json() must not run twice
-    // (React Strict Mode remount joins the same flight and would clear campaign).
     void runSingleFlight(key, async () => {
       const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
         credentials: "include",
       });
-      return (await r.json()) as { campaign?: FeedAdCampaignView | null };
+      return (await r.json()) as {
+        campaign?: FeedAdCampaignView | null;
+        campaigns?: FeedAdCampaignView[];
+      };
     })
       .then((j) => {
-        if (!cancelled) setCampaign(j.campaign ?? null);
+        if (cancelled) return;
+        const list =
+          Array.isArray(j.campaigns) && j.campaigns.length > 0
+            ? j.campaigns
+            : j.campaign
+              ? [j.campaign]
+              : [];
+        setFetchedCampaigns(list);
       })
       .catch(() => {
-        if (!cancelled) setCampaign(null);
+        if (!cancelled) setFetchedCampaigns([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey]);
+  }, [usePool, domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey]);
 
-  const slides = campaign?.slides.filter((s) => s.imageUrl.trim()) ?? [];
-  if (!campaign || slides.length === 0) return null;
+  const campaigns = usePool ? (selectedFromPool ?? []) : fetchedCampaigns;
+  if (campaigns.length === 0) return null;
+
+  /**
+   * Multi-campaign slot: one primary slide per campaign (L→R).
+   * Single campaign: keep creative-slide carousel when 2–3 creatives exist.
+   */
+  const multiCampaign = campaigns.length > 1;
+  const slides: FeedAdCreativeSlide[] = (() => {
+    if (multiCampaign) {
+      const out: FeedAdCreativeSlide[] = [];
+      for (const c of campaigns) {
+        const s = primarySlide(c);
+        if (!s) continue;
+        out.push({
+          ...s,
+          id: `camp:${c.id}:${s.id}`,
+          destinationType: s.destinationType ?? c.destinationType,
+          destinationId: s.destinationId || c.destinationId,
+          destinationUrl: s.destinationUrl || c.destinationUrl,
+          headline: s.headline || c.name,
+        });
+      }
+      return out;
+    }
+    return (campaigns[0]?.slides.filter((s) => s.imageUrl.trim()) ?? []).slice();
+  })();
+
+  if (slides.length === 0) return null;
+
+  const leadCampaign = campaigns[0]!;
+  const campaignBySlide: FeedAdCampaignView[] = multiCampaign
+    ? campaigns.filter((c) => primarySlide(c) != null).slice(0, slides.length)
+    : slides.map(() => leadCampaign);
 
   return (
     <FeedAdBannerCarouselView
-      campaign={campaign}
+      campaign={leadCampaign}
+      campaigns={campaignBySlide}
       slides={slides}
       density={density}
       adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
@@ -119,19 +193,20 @@ export function FeedAdBannerCarousel({
 
 function FeedAdBannerCarouselView({
   campaign,
+  campaigns,
   slides,
   density,
   adLabel,
   altFallback,
 }: {
   campaign: FeedAdCampaignView;
+  campaigns: FeedAdCampaignView[];
   slides: FeedAdCreativeSlide[];
   density: FeedAdHostDensity;
   adLabel: string;
   altFallback: string;
 }) {
   const multi = slides.length > 1;
-  /** Track index: 0..n-1 real; when multi, n = clone of first for seamless loop. */
   const [trackIndex, setTrackIndex] = useState(0);
   const [transitionOn, setTransitionOn] = useState(true);
   const [inView, setInView] = useState(true);
@@ -144,6 +219,7 @@ function FeedAdBannerCarouselView({
     ? trackIndex % slides.length
     : Math.min(trackIndex, slides.length - 1);
   const current = slides[logicalIndex]!;
+  const currentCampaign = campaigns[logicalIndex] ?? campaign;
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -187,7 +263,6 @@ function FeedAdBannerCarouselView({
     setTransitionOn(!reduceMotion);
     setTrackIndex((prev) => {
       if (reduceMotion) return (prev + 1) % slides.length;
-      // Move toward clone of first (index === slides.length) for seamless wrap.
       if (prev >= slides.length) return slides.length;
       return prev + 1;
     });
@@ -205,7 +280,6 @@ function FeedAdBannerCarouselView({
       if (e.propertyName !== "transform") return;
       if (!multi || reduceMotion) return;
       if (trackIndex < slides.length) return;
-      // Landed on clone of first → snap to real first without animation.
       loopingRef.current = true;
       setTransitionOn(false);
       setTrackIndex(0);
@@ -216,17 +290,13 @@ function FeedAdBannerCarouselView({
   useLayoutEffect(() => {
     if (!loopingRef.current) return;
     loopingRef.current = false;
-    // Re-enable transition on next frame after snap-back.
     const id = window.requestAnimationFrame(() => setTransitionOn(true));
     return () => window.cancelAnimationFrame(id);
   }, [trackIndex]);
 
-  /**
-   * Track is `w-full` (= viewport width). Each slide is `flex: 0 0 100%` of that width.
-   * `translateX(-N * 100%)` is % of the track box (= one viewport per step). R→L = index++.
-   */
   const translatePct = multi ? -(trackIndex * 100) : 0;
   const trackSlides = multi ? [...slides, slides[0]!] : slides;
+  const trackCampaigns = multi ? [...campaigns, campaigns[0]!] : campaigns;
 
   return (
     <li
@@ -235,6 +305,7 @@ function FeedAdBannerCarouselView({
       data-feed-ad-slot=""
       data-feed-ad-density={density}
       data-feed-ad-slides={String(slides.length)}
+      data-feed-ad-campaigns={String(new Set(campaigns.map((c) => c.id)).size)}
     >
       <div className={feedAdFrameClass(density)}>
         <div className={feedAdChromeBarClass(density)}>
@@ -277,7 +348,8 @@ function FeedAdBannerCarouselView({
               onTransitionEnd={onTrackTransitionEnd}
             >
               {trackSlides.map((s, i) => {
-                const href = resolveHref(campaign, s);
+                const camp = trackCampaigns[i] ?? currentCampaign;
+                const href = resolveHref(camp, s);
                 const external = href.startsWith("http");
                 const isClone = multi && i === trackSlides.length - 1 && i > 0;
                 return (
@@ -302,7 +374,7 @@ function FeedAdBannerCarouselView({
                       fill
                       roundedClassName="rounded-ui-rect"
                       className="!h-full !w-full bg-sam-app"
-                      alt={s.altText || campaign.name || altFallback}
+                      alt={s.altText || camp.name || altFallback}
                     />
                   </Link>
                 );

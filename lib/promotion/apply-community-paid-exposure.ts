@@ -13,7 +13,6 @@ import {
   getMemberPromotionProduct,
   type MemberPromotionProduct,
 } from "@/lib/points/promotion-products";
-import { creditUserPoints, spendUserPoints } from "@/lib/points/user-point-ledger";
 import {
   captureHeldPointsForPromotionOrder,
   holdPointsForPromotionOrder,
@@ -158,8 +157,10 @@ export async function applyCommunityPaidExposurePending(
 }
 
 /**
- * A2 — Community top exposure: immediate D-Point spend + active entitlement.
+ * A2 — Community top exposure: atomic D-Point spend + active entitlement.
+ * Authority: RPC purchase_member_community_promotion (one DB TX).
  * No HOLD, no admin approve/reject on this path.
+ * DO NOT app-layer spend→insert→compensate (partial failure window).
  */
 export async function applyCommunityPaidExposureImmediate(
   sb: SupabaseClient,
@@ -180,102 +181,64 @@ export async function applyCommunityPaidExposureImmediate(
   const key = input.idempotencyKey.trim();
   if (!key) return { ok: false, error: "invalid_input" };
 
-  const { data: existingKey } = await sb
-    .from("point_promotion_orders")
-    .select("id, order_status, start_at, end_at, point_cost, product_id")
-    .eq("user_id", input.userId)
-    .eq("idempotency_key", key)
-    .maybeSingle();
-  if (existingKey?.id) {
-    return {
-      ok: true,
-      orderId: String(existingKey.id),
-      status: String(existingKey.order_status) === "active" ? "active" : "pending_review",
-      startAt: String(existingKey.start_at ?? ""),
-      endAt: String(existingKey.end_at ?? ""),
-      pointCost: Number(existingKey.point_cost ?? product.pointCost),
-      productId: String(existingKey.product_id ?? product.id),
-    };
-  }
-
   const owned = await resolveOwnedCommunityPost(sb, input.postId, input.userId);
   if (!owned.ok) return owned;
 
-  const { data: conflict } = await sb
-    .from("point_promotion_orders")
-    .select("id")
-    .eq("target_id", owned.canonicalId)
-    .eq("domain", "community")
-    .in("order_status", ["pending_review", "active"])
-    .limit(1);
-  if ((conflict ?? []).length > 0) {
-    return { ok: false, error: "already_active_promotion" };
+  const title = (input.targetTitle?.trim() || owned.title).slice(0, 500);
+  const nick = (input.userNickname ?? "").slice(0, 120);
+
+  const { data: rpcRaw, error: rpcErr } = await sb.rpc(
+    "purchase_member_community_promotion",
+    {
+      p_user_id: input.userId,
+      p_target_id: owned.canonicalId,
+      p_product_id: product.id,
+      p_point_cost: product.pointCost,
+      p_duration_days: product.durationDays,
+      p_placement: product.placementPolicy,
+      p_idempotency_key: key,
+      p_user_nickname: nick,
+      p_target_title: title,
+    }
+  );
+
+  if (rpcErr) {
+    if (
+      rpcErr.message?.includes("purchase_member_community_promotion") ||
+      rpcErr.message?.includes("Could not find the function")
+    ) {
+      return { ok: false, error: "rpc_unavailable" };
+    }
+    return { ok: false, error: rpcErr.message || "point_mutation_failed" };
   }
 
-  const orderId = randomUUID();
-  const now = new Date();
-  const end = new Date(now.getTime() + product.durationDays * 86_400_000);
-  const title = input.targetTitle?.trim() || owned.title;
-  const startAt = now.toISOString();
-  const endAt = end.toISOString();
+  const rpc = (rpcRaw && typeof rpcRaw === "object" ? rpcRaw : {}) as {
+    ok?: boolean;
+    error?: string;
+    order_id?: string;
+    status?: string;
+    start_at?: string;
+    end_at?: string;
+    point_cost?: number;
+    product_id?: string;
+  };
 
-  const spent = await spendUserPoints(sb, {
-    userId: input.userId,
-    amount: product.pointCost,
-    entryType: "spend",
-    relatedType: "promotion_order",
-    relatedId: orderId,
-    description: `커뮤니티 게시물 상위 노출 (${product.durationDays}일)`,
-    actorType: "user",
-  });
-  if (!spent.ok) {
-    return {
-      ok: false,
-      error:
-        spent.code === "insufficient_balance" || spent.error === "insufficient_balance"
-          ? "insufficient_balance"
-          : spent.error || "point_mutation_failed",
-    };
+  if (!rpc.ok) {
+    const err = rpc.error ?? "purchase_failed";
+    return { ok: false, error: err };
   }
 
-  const { error: insErr } = await sb.from("point_promotion_orders").insert({
-    id: orderId,
-    user_id: input.userId,
-    user_nickname: (input.userNickname ?? "").slice(0, 120),
-    target_type: "community_post",
-    target_id: owned.canonicalId,
-    target_title: title.slice(0, 500),
-    placement: product.placementPolicy,
-    duration_days: product.durationDays,
-    point_cost: product.pointCost,
-    order_status: "active",
-    start_at: startAt,
-    end_at: endAt,
-    product_id: product.id,
-    domain: "community",
-    idempotency_key: key,
-  });
-  if (insErr) {
-    await creditUserPoints(sb, {
-      userId: input.userId,
-      amount: product.pointCost,
-      entryType: "refund",
-      relatedType: "promotion_order",
-      relatedId: `compensate:${orderId}`,
-      description: "커뮤니티 상위 노출 신청 실패 환불",
-      actorType: "system",
-    });
-    return { ok: false, error: insErr.message || "insert_failed" };
-  }
+  const orderId = String(rpc.order_id ?? "");
+  if (!orderId) return { ok: false, error: "purchase_failed" };
 
   return {
     ok: true,
     orderId,
-    status: "active",
-    startAt,
-    endAt,
-    pointCost: product.pointCost,
-    productId: product.id,
+    status: String(rpc.status) === "pending_review" ? "pending_review" : "active",
+    startAt: rpc.start_at != null ? String(rpc.start_at) : undefined,
+    endAt: String(rpc.end_at ?? ""),
+    pointCost: Number(rpc.point_cost ?? product.pointCost),
+    productId: String(rpc.product_id ?? product.id),
   };
 }
 

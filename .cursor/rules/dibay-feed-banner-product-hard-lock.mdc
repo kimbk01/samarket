@@ -5,7 +5,8 @@ alwaysApply: true
 
 # DIBAY Feed Banner Product HARD LOCK
 
-**HARD LOCK (2026-08-10).** Full doc: `docs/dibay-feed-banner-product-hard-lock.md`.
+**HARD LOCK (2026-08-10).** Full doc: `docs/dibay-feed-banner-product-hard-lock.md`.  
+**Surface/cadence/slot-items reopen:** community SSOT connect (ALL→COMMUNITY_HOME, gaps 4–6, max 3 campaigns/slot).
 
 ## Baseline
 
@@ -19,13 +20,15 @@ alwaysApply: true
 
 | Concern | Decision |
 |---|---|
-| Community surface | **Nav-aligned** — HOME→`COMMUNITY_HOME`; TOPIC→`COMMUNITY_TOPIC:<slug>`; LOCAL/POPULAR→no banner (do not borrow HOME) |
-| Surface SSOT | `resolveCommunityFeedSurface` (no HOME↔TOPIC fallback) |
-| Cadence | Gaps **6–10** deterministic (`FeedAdSlotPolicy`); N=4 REOPENED |
+| Community surface | **ALL** (latest\|popular)→`COMMUNITY_HOME`; TOPIC→`COMMUNITY_TOPIC:<slug>`; LOCAL→no banner |
+| ALL pool | HOME + all active TOPIC → rotation |
+| TOPIC pool | Matching TOPIC only |
+| Surface SSOT | `resolveCommunityFeedSurface` |
+| Cadence | Gaps **4–6** deterministic (`FeedAdSlotPolicy`) |
 | Session | `feedSessionId` stable per surfaceKey (not remount-minted) |
-| Selector | Stable hash + anti-repeat; day-bucket-only REOPENED |
+| Selector | Stable hash + anti-repeat; up to **3 campaigns/slot** (`selectCampaignsForPlacement`) |
 | Member limit | One current campaign; 409 + HOLD 0 on second; terminal → new OK |
-| Creatives | 1 campaign = **1–3**; carousel = same campaign only |
+| Creatives | 1 campaign = **1–3** creatives (metadata); slot items ≠ creative slides |
 | Empty pool | `null` / blank height 0 |
 | Geometry | Card-rhythm fixed height + cover (not hero 3:1) |
 | Financial | HOLD / CAPTURE / RELEASE / RENEW SSOT |
@@ -34,9 +37,7 @@ alwaysApply: true
 
 ## DO NOT (without reopen — doc §3)
 
-- Flip `showAllFeedTab` for ads-only HOME forcing
-- Restore N=4 or day-bucket-only as product defaults
-- Mix multi-advertiser images in one carousel
+- Restore gaps **6–10** or day-bucket-only as product defaults
 - Bypass 409 / invent second current HOLD
 - Revert creative to unbounded aspect-3:1 + object-contain hero strip
 - Dual CODE+DB runtime prices
@@ -45,6 +46,7 @@ alwaysApply: true
 - Merge Post promotion (A) or Admin Direct (C) into member Feed Banner (B)
 - Raw ledger/balance patch bypassing `adjustUserPoints` / hold writers
 - Call residual deferred tracks “PASS” without new evidence
+- Cross-topic bleed on TOPIC feeds / invent multi-topic schema
 
 ## Authority (summary)
 
@@ -53,7 +55,7 @@ alwaysApply: true
 | Surface | `resolveCommunityFeedSurface` |
 | Cadence | `lib/ads/feed-ad-slot-policy.ts` |
 | Session | `lib/ads/feed-ad-session.ts` |
-| Select + anti-repeat | `selectCampaignForPlacement` |
+| Select + anti-repeat | `selectCampaignsForPlacement` |
 | Create + HOLD | `POST /api/me/feed-ad-requests` |
 | Approve CAPTURE | `approve-feed-ad-request.ts` |
 | Reject/cancel RELEASE | approve reject · `cancel-feed-ad-request.ts` |
