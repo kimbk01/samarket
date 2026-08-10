@@ -6,6 +6,7 @@ import {
   findFormScrollRoot,
   FORM_FOCUS_GAP_PX,
   resolveFormEffectiveViewportTopPx,
+  resolveFormVisualViewportFrame,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
 type Options = {
@@ -68,10 +69,34 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       settleTimers.length = 0;
     };
 
+    const resolveLiveBandBottomPx = () => {
+      const live = resolveFormVisualViewportFrame().visualBottomPx;
+      if (!(live > 0)) return bottomRef.current;
+      // React snap can lag one frame behind Android adjustResize — never use a
+      // stale taller band or landscape focus stays below the IME.
+      const fromSnap = bottomRef.current > 0 ? bottomRef.current : live;
+      let bandBottom = Math.min(fromSnap, live);
+      const footer = document.querySelector<HTMLElement>(
+        "[data-form-keyboard-footer='1']"
+      );
+      if (footer) {
+        const footerTop = Math.round(footer.getBoundingClientRect().top);
+        if (Number.isFinite(footerTop) && footerTop > 0) {
+          bandBottom = Math.min(bandBottom, footerTop);
+        }
+      }
+      return bandBottom;
+    };
+
     const run = (focused: HTMLElement) => {
-      const bandBottom = bottomRef.current;
+      const bandBottom = resolveLiveBandBottomPx();
       if (!(bandBottom > 0)) return;
-      const root = scrollRootRef?.current ?? findFormScrollRoot(focused);
+      const root =
+        (scrollRootRef?.current &&
+        scrollRootRef.current.isConnected &&
+        scrollRootRef.current.scrollHeight > scrollRootRef.current.clientHeight + 1
+          ? scrollRootRef.current
+          : null) ?? findFormScrollRoot(focused);
       const stickyFromDom =
         stickyChromeRef?.current ??
         root?.closest("[data-form-keyboard-surface]")?.querySelector<HTMLElement>(
@@ -83,13 +108,17 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         effectiveViewportBottom: bandBottom,
         focusedHeightPx: resolveFocusedBandHeightPx(focused),
       });
-      ensureFormFocusVisibleInScrollRoot({
-        focused,
-        scrollRoot: root,
-        effectiveViewportBottom: bandBottom,
-        effectiveViewportTop,
-        focusGapPx: gapRef.current,
-      });
+      // Resize reflow can leave one correction short — iterate while still occluded.
+      for (let i = 0; i < 3; i += 1) {
+        const applied = ensureFormFocusVisibleInScrollRoot({
+          focused,
+          scrollRoot: root,
+          effectiveViewportBottom: bandBottom,
+          effectiveViewportTop,
+          focusGapPx: gapRef.current,
+        });
+        if (applied === 0) break;
+      }
     };
 
     const observeGrowth = (focused: HTMLElement) => {
@@ -187,7 +216,24 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     const timers = [0, 50, 150, 320].map((ms) =>
       window.setTimeout(() => {
         if (activeFocusedRef.current !== focused || !document.contains(focused)) return;
-        const root = scrollRootRef?.current ?? findFormScrollRoot(focused);
+        const live = resolveFormVisualViewportFrame().visualBottomPx;
+        let bandBottom = Math.min(bottom, live > 0 ? live : bottom);
+        const footer = document.querySelector<HTMLElement>(
+          "[data-form-keyboard-footer='1']"
+        );
+        if (footer) {
+          const footerTop = Math.round(footer.getBoundingClientRect().top);
+          if (Number.isFinite(footerTop) && footerTop > 0) {
+            bandBottom = Math.min(bandBottom, footerTop);
+          }
+        }
+        if (!(bandBottom > 0)) return;
+        const root =
+          (scrollRootRef?.current &&
+          scrollRootRef.current.isConnected &&
+          scrollRootRef.current.scrollHeight > scrollRootRef.current.clientHeight + 1
+            ? scrollRootRef.current
+            : null) ?? findFormScrollRoot(focused);
         const stickyFromDom =
           stickyChromeRef?.current ??
           root?.closest("[data-form-keyboard-surface]")?.querySelector<HTMLElement>(
@@ -196,16 +242,19 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
           null;
         const effectiveViewportTop = resolveFormEffectiveViewportTopPx({
           stickyChromeEl: stickyFromDom,
-          effectiveViewportBottom: bottom,
+          effectiveViewportBottom: bandBottom,
           focusedHeightPx: resolveFocusedBandHeightPx(focused),
         });
-        ensureFormFocusVisibleInScrollRoot({
-          focused,
-          scrollRoot: root,
-          effectiveViewportBottom: bottom,
-          effectiveViewportTop,
-          focusGapPx: gap,
-        });
+        for (let i = 0; i < 3; i += 1) {
+          const applied = ensureFormFocusVisibleInScrollRoot({
+            focused,
+            scrollRoot: root,
+            effectiveViewportBottom: bandBottom,
+            effectiveViewportTop,
+            focusGapPx: gap,
+          });
+          if (applied === 0) break;
+        }
       }, ms)
     );
     return () => {
