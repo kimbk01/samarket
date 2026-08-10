@@ -9,7 +9,20 @@ import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
 import type { CommunityTopicAdminRow } from "@/lib/community-topics/server";
 import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 import type { CommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
+import {
+  COMMUNITY_FEED_LIST_SKINS,
+  normalizeCommunityFeedListSkin,
+} from "@/lib/community-feed/topic-feed-skin";
 import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
+import type { CommunityTopicContentStats } from "@/lib/community-topics/admin-topic-content-stats";
+
+const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${CommunityFeedListSkin}`> = {
+  compact_media: "admin_topics_skin_compact_media",
+  compact_media_left: "admin_topics_skin_compact_media_left",
+  text_primary: "admin_topics_skin_text_primary",
+  location_pin: "admin_topics_skin_location_pin",
+  hashtags_below: "admin_topics_skin_hashtags_below",
+};
 
 /**
  * App 2-tier Community IA — 운영자에게는 「주제(content topics)」만 노출한다.
@@ -22,10 +35,12 @@ export function AdminCommunityTopicsPage({
   sections,
   topics: initial,
   philifeNeighborhoodSectionSlug,
+  topicStatsBySlug = {},
 }: {
   sections: CommunitySectionAdminRow[];
   topics: CommunityTopicAdminRow[];
   philifeNeighborhoodSectionSlug: string;
+  topicStatsBySlug?: Record<string, CommunityTopicContentStats>;
 }) {
   const router = useRouter();
   const { t: tr } = useI18n();
@@ -44,6 +59,7 @@ export function AdminCommunityTopicsPage({
   const [sortOrder, setSortOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
+  const [feedListSkin, setFeedListSkin] = useState<CommunityFeedListSkin>(DEFAULT_FEED_LIST_SKIN);
   const [edit, setEdit] = useState<CommunityTopicAdminRow | null>(null);
 
   const contentTopics = useMemo(
@@ -100,7 +116,7 @@ export function AdminCommunityTopicsPage({
           allow_question: true,
           allow_meetup: false,
           color: null,
-          feed_list_skin: DEFAULT_FEED_LIST_SKIN,
+          feed_list_skin: feedListSkin,
         }),
       });
       const j = await res.json();
@@ -115,6 +131,7 @@ export function AdminCommunityTopicsPage({
       setSortOrder(0);
       setIsActive(true);
       setIsVisible(true);
+      setFeedListSkin(DEFAULT_FEED_LIST_SKIN);
       await refresh();
     } finally {
       setBusy(false);
@@ -226,6 +243,22 @@ export function AdminCommunityTopicsPage({
               />
             </label>
             <label className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sam-muted sam-text-helper">{tr("admin_topics_label_skin")}</span>
+              <select
+                className="min-h-10 min-w-[12rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg"
+                value={feedListSkin}
+                onChange={(e) =>
+                  setFeedListSkin(normalizeCommunityFeedListSkin(e.target.value))
+                }
+              >
+                {COMMUNITY_FEED_LIST_SKINS.map((skin) => (
+                  <option key={skin} value={skin}>
+                    {tr(ADMIN_TOPIC_SKIN_I18N[skin])}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-col gap-0.5">
               <span className="text-sam-muted sam-text-helper">{tr("admin_topics_label_order")}</span>
               <input
                 type="number"
@@ -261,19 +294,31 @@ export function AdminCommunityTopicsPage({
           <p className="sam-text-body-secondary text-sam-muted">{tr("admin_topics_empty_content")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sam-fg sam-text-body-secondary">
+            <table className="w-full min-w-[960px] border-collapse text-left text-sam-fg sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border text-sam-meta">
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_order")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_topic_name")}</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_slug")}</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_skin")}</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_posts")}</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_comments")}</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_reports")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_use")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_display")}</th>
                   <th className="px-0 py-2.5 text-left font-medium sam-text-helper">{tr("admin_topics_col_manage")}</th>
                 </tr>
               </thead>
               <tbody>
-                {contentTopics.map((topic) =>
-                  edit?.id === topic.id ? (
+                {contentTopics.map((topic) => {
+                  const slugKey = (topic.slug ?? "").trim().toLowerCase();
+                  const stats = topicStatsBySlug[slugKey] ?? {
+                    postCount: 0,
+                    commentCount: 0,
+                    reportCount: 0,
+                  };
+                  const skin = normalizeCommunityFeedListSkin(topic.feed_list_skin);
+                  return edit?.id === topic.id ? (
                     <tr key={topic.id} className="border-b border-sam-border-soft bg-amber-50/40 align-top">
                       <td className="py-2.5 pr-2">
                         <input
@@ -299,6 +344,28 @@ export function AdminCommunityTopicsPage({
                           />
                         </div>
                       </td>
+                      <td className="py-2.5 pr-2 sam-text-xxs text-sam-muted">{edit.slug}</td>
+                      <td className="py-2.5 pr-2">
+                        <select
+                          className="min-w-[10rem] rounded border px-1 py-1 text-sam-fg"
+                          value={normalizeCommunityFeedListSkin(edit.feed_list_skin)}
+                          onChange={(e) =>
+                            setEdit({
+                              ...edit,
+                              feed_list_skin: normalizeCommunityFeedListSkin(e.target.value),
+                            })
+                          }
+                        >
+                          {COMMUNITY_FEED_LIST_SKINS.map((s) => (
+                            <option key={s} value={s}>
+                              {tr(ADMIN_TOPIC_SKIN_I18N[s])}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2.5 pr-2">{stats.postCount}</td>
+                      <td className="py-2.5 pr-2">{stats.commentCount}</td>
+                      <td className="py-2.5 pr-2">{stats.reportCount}</td>
                       <td className="py-2.5 pr-2">
                         <input
                           type="checkbox"
@@ -336,6 +403,11 @@ export function AdminCommunityTopicsPage({
                           <span className="ml-1 text-sam-muted sam-text-xxs">· {topic.name_en}</span>
                         ) : null}
                       </td>
+                      <td className="py-2.5 pr-2 sam-text-xxs text-sam-muted">{topic.slug}</td>
+                      <td className="py-2.5 pr-2 sam-text-xxs">{tr(ADMIN_TOPIC_SKIN_I18N[skin])}</td>
+                      <td className="py-2.5 pr-2">{stats.postCount}</td>
+                      <td className="py-2.5 pr-2">{stats.commentCount}</td>
+                      <td className="py-2.5 pr-2">{stats.reportCount}</td>
                       <td className="py-2.5 pr-2">{topic.is_active ? "Y" : "N"}</td>
                       <td className="py-2.5 pr-2">{topic.is_visible ? "Y" : "N"}</td>
                       <td className="py-2.5">
@@ -355,8 +427,8 @@ export function AdminCommunityTopicsPage({
                         </button>
                       </td>
                     </tr>
-                  )
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>

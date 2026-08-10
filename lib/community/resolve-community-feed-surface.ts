@@ -3,6 +3,7 @@
  *
  * CONTRACT (aligned to Community Nav SSOT + sold Feed Banner products):
  * - HOME nav → COMMUNITY_HOME (sold product)
+ * - ALL nav → no Feed Banner (no sold All placement; do not borrow HOME)
  * - TOPIC nav + topic_slug → COMMUNITY_TOPIC (sold product; community_topics slug authority)
  * - LOCAL nav → no Feed Banner (no sold Local placement; do not borrow HOME)
  * - POPULAR nav → no Feed Banner (no sold Popular placement; do not borrow HOME)
@@ -40,6 +41,14 @@ export function resolveCommunityFeedSurface(
       placement: null,
       topicSlug: undefined,
       surfaceKey: "community:local",
+      feedCategoryKey: "",
+    };
+  }
+  if (navKind === "all") {
+    return {
+      placement: null,
+      topicSlug: undefined,
+      surfaceKey: "community:all",
       feedCategoryKey: "",
     };
   }

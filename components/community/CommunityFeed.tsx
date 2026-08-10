@@ -152,26 +152,32 @@ function readCommunityHubState(): CommunityHubStateShape | null {
   }
 }
 
-/** `CommunityNavSelection` → hub state shape (URL 과 같은 authority: nav=home|local|popular, category=topic slug, sort=home 전용) */
+/** `CommunityNavSelection` → hub state shape (URL 과 같은 authority) */
 function communityNavSelectionToHubState(sel: CommunityNavSelection): CommunityHubStateShape {
   if (sel.kind === "topic") {
     return { nav: "", category: sel.topicSlug.trim().toLowerCase(), sort: "" };
   }
+  if (sel.kind === "all") {
+    return { nav: "all", category: "", sort: sel.allSort };
+  }
   if (sel.kind === "home") {
-    return { nav: "home", category: "", sort: sel.homeSort };
+    return { nav: "home", category: "", sort: "" };
   }
   return { nav: sel.kind, category: "", sort: "" };
 }
 
 function hubStateToCommunityNavSelection(h: CommunityHubStateShape): CommunityNavSelection {
-  if (h.nav === "local") return { kind: "local", topicSlug: "", homeSort: "recommended" };
-  if (h.nav === "popular") return { kind: "popular", topicSlug: "", homeSort: "recommended" };
-  if (h.category) return { kind: "topic", topicSlug: h.category, homeSort: "recommended" };
-  return {
-    kind: "home",
-    topicSlug: "",
-    homeSort: h.sort === "latest" ? "latest" : "recommended",
-  };
+  if (h.nav === "local") return { kind: "local", topicSlug: "", allSort: "latest" };
+  if (h.nav === "popular") return { kind: "popular", topicSlug: "", allSort: "latest" };
+  if (h.nav === "all") {
+    return { kind: "all", topicSlug: "", allSort: h.sort === "popular" ? "popular" : "latest" };
+  }
+  if (h.category) return { kind: "topic", topicSlug: h.category, allSort: "latest" };
+  if (h.nav === "home") return { kind: "home", topicSlug: "", allSort: "latest" };
+  /** Legacy hub: home sort was wrongly stored — migrate to All */
+  if (h.sort === "latest") return { kind: "all", topicSlug: "", allSort: "latest" };
+  if (h.sort === "popular") return { kind: "all", topicSlug: "", allSort: "popular" };
+  return { kind: "home", topicSlug: "", allSort: "latest" };
 }
 
 function writeCommunityHubState(sel: CommunityNavSelection): void {
@@ -188,12 +194,13 @@ function isCommunityHubPath(pathname: string): boolean {
   return p === "/" || p === "/philife" || p === "/community";
 }
 
-/** `CommunityNavComposeItem`(홈/주제/동네/인기) → 해당 항목을 선택했을 때의 `CommunityNavSelection` */
+/** `CommunityNavComposeItem` → 해당 항목을 선택했을 때의 `CommunityNavSelection` */
 function communityNavComposeItemToSelection(item: CommunityNavComposeItem): CommunityNavSelection {
-  if (item.kind === "topic") return { kind: "topic", topicSlug: item.slug, homeSort: "recommended" };
-  if (item.kind === "local") return { kind: "local", topicSlug: "", homeSort: "recommended" };
-  if (item.kind === "popular") return { kind: "popular", topicSlug: "", homeSort: "recommended" };
-  return { kind: "home", topicSlug: "", homeSort: "recommended" };
+  if (item.kind === "topic") return { kind: "topic", topicSlug: item.slug, allSort: "latest" };
+  if (item.kind === "local") return { kind: "local", topicSlug: "", allSort: "latest" };
+  if (item.kind === "popular") return { kind: "popular", topicSlug: "", allSort: "latest" };
+  if (item.kind === "all") return { kind: "all", topicSlug: "", allSort: "latest" };
+  return { kind: "home", topicSlug: "", allSort: "latest" };
 }
 
 function resolveActiveNavIndex(items: CommunityNavComposeItem[], sel: CommunityNavSelection): number {
@@ -430,7 +437,7 @@ export function CommunityFeed({
     [currentRegion]
   );
 
-  /** Community 2단 Navigation SSOT — Home | Topic… | Local | Popular */
+  /** Community 2단 Navigation SSOT — Home | All | Topic… | Local | Popular */
   const navSelection = parseCommunityNavFromSearchParams(searchParams);
   const plan = communityNavToFeedQuery(navSelection);
   const feedSort = plan.feedSort;
@@ -513,7 +520,7 @@ export function CommunityFeed({
   });
   const hubStateRestoredRef = useRef(false);
 
-  /** Community home 은 지역 필요 없음(globalFeed); local 만 지역 필요 */
+  /** Home/All/Local/Popular: region-aware when requiresRegion; global when globalFeed */
   const feedSessionKey = plan.globalFeed
     ? PHILIFE_GLOBAL_FEED_SESSION_KEY
     : locationKey
@@ -553,7 +560,7 @@ export function CommunityFeed({
     const rawCategory = (searchParams.get("category") ?? "").trim().toLowerCase();
     if (rawCategory !== "recommend" && rawCategory !== "recommended") return;
     const target = buildCommunityFeedHref(pathname, {
-      selection: { kind: "home", topicSlug: "", homeSort: "recommended" },
+      selection: { kind: "home", topicSlug: "", allSort: "latest" },
       base: searchQueryString,
     });
     if (typeof window !== "undefined") {
@@ -597,7 +604,7 @@ export function CommunityFeed({
     if (!want) return;
     if (plan.category === want) return;
     const target = buildCommunityFeedHref(pathname, {
-      selection: { kind: "topic", topicSlug: want, homeSort: "recommended" },
+      selection: { kind: "topic", topicSlug: want, allSort: "latest" },
       base: searchQueryString,
     });
     void router.replace(target, { scroll: false });
@@ -638,7 +645,7 @@ export function CommunityFeed({
   useEffect(() => {
     if (!isCommunityHubPath(pathname)) return;
     writeCommunityHubState(navSelection);
-  }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.homeSort]);
+  }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort]);
 
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
@@ -995,7 +1002,7 @@ export function CommunityFeed({
       return;
     }
 
-    /** Local nav 만 지역이 필요 — 다른 nav 는 지역 오류로 전체 피드를 비우지 않는다. */
+    /** Home/Local 등 requiresRegion nav — 지역 없으면 해당 nav 만 empty + CTA */
     if (plan.requiresRegion && (!locationKey || !feedSessionKey)) {
       setPosts([]);
       setHasMore(false);
@@ -1234,7 +1241,7 @@ export function CommunityFeed({
       searchKeyForNav,
       navSelection.kind,
       navSelection.topicSlug,
-      navSelection.homeSort,
+      navSelection.allSort,
       guardBeforeNavigate,
     ]
   );
@@ -1324,8 +1331,13 @@ export function CommunityFeed({
   const leadingNavItems = useMemo(
     () =>
       navItems.filter(
-        (item): item is Extract<CommunityNavComposeItem, { kind: "home" } | { kind: "topic" }> =>
-          item.kind === "home" || item.kind === "topic"
+        (
+          item
+        ): item is
+          | Extract<CommunityNavComposeItem, { kind: "home" }>
+          | Extract<CommunityNavComposeItem, { kind: "all" }>
+          | Extract<CommunityNavComposeItem, { kind: "topic" }> =>
+          item.kind === "home" || item.kind === "all" || item.kind === "topic"
       ),
     [navItems]
   );
@@ -1609,47 +1621,70 @@ export function CommunityFeed({
                       if (item.kind === "home") {
                         const on = navSelection.kind === "home";
                         return (
-                          <Fragment key="nav-home">
+                          <button
+                            key="nav-home"
+                            type="button"
+                            role="tab"
+                            aria-selected={on}
+                            onClick={() =>
+                              applyNavSelection({
+                                kind: "home",
+                                topicSlug: "",
+                                allSort: "latest",
+                              })
+                            }
+                            className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
+                          >
+                            <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
+                              {safeT("community_nav_home", { fallbackKo: "홈", fallbackEn: "Home" })}
+                            </span>
+                          </button>
+                        );
+                      }
+                      if (item.kind === "all") {
+                        const on = navSelection.kind === "all";
+                        return (
+                          <Fragment key="nav-all">
                             <button
                               type="button"
                               role="tab"
                               aria-selected={on}
                               onClick={() =>
                                 applyNavSelection({
-                                  kind: "home",
+                                  kind: "all",
                                   topicSlug: "",
-                                  homeSort: on ? navSelection.homeSort : "recommended",
+                                  allSort: on ? navSelection.allSort : "latest",
                                 })
                               }
                               className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
                             >
                               <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
-                                {safeT("community_nav_home", { fallbackKo: "홈", fallbackEn: "Home" })}
+                                {safeT("community_nav_all", { fallbackKo: "전체", fallbackEn: "All" })}
                               </span>
                             </button>
                             {on ? (
                               <select
                                 aria-label={t("community_feed_sort_aria")}
-                                value={navSelection.homeSort}
+                                value={navSelection.allSort}
                                 onChange={(e) =>
                                   applyNavSelection({
-                                    kind: "home",
+                                    kind: "all",
                                     topicSlug: "",
-                                    homeSort: e.target.value === "latest" ? "latest" : "recommended",
+                                    allSort: e.target.value === "popular" ? "popular" : "latest",
                                   })
                                 }
                                 className="h-8 shrink-0 rounded-full border border-sam-border bg-sam-surface px-2 text-[12px] font-semibold text-sam-fg"
                               >
-                                <option value="recommended">
-                                  {safeT("community_nav_home_sort_recommended", {
-                                    fallbackKo: "추천순",
-                                    fallbackEn: "Recommended",
-                                  })}
-                                </option>
                                 <option value="latest">
-                                  {safeT("community_nav_home_sort_latest", {
+                                  {safeT("community_sort_latest", {
                                     fallbackKo: "최신순",
                                     fallbackEn: "Latest",
+                                  })}
+                                </option>
+                                <option value="popular">
+                                  {safeT("community_sort_popular", {
+                                    fallbackKo: "인기순",
+                                    fallbackEn: "Popular",
                                   })}
                                 </option>
                               </select>
@@ -1665,7 +1700,7 @@ export function CommunityFeed({
                           type="button"
                           role="tab"
                           aria-selected={on}
-                          onClick={() => applyNavSelection({ kind: "topic", topicSlug: item.slug, homeSort: "recommended" })}
+                          onClick={() => applyNavSelection({ kind: "topic", topicSlug: item.slug, allSort: "latest" })}
                           onMouseEnter={() => prefetchNavItemByIntent(item)}
                           onTouchStart={() => prefetchNavItemByIntent(item)}
                           onPointerDown={() => prefetchNavItemByIntent(item)}

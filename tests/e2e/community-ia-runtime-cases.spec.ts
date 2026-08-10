@@ -6,8 +6,10 @@
  *   npx playwright test tests/e2e/community-ia-runtime-cases.spec.ts --workers=1
  *
  * CONTRACT LOCK (do not change mid-runtime):
- * - HOME/TOPIC/POPULAR = globalFeed; LOCAL = region only
+ * - HOME = region-aware recommended (not globalFeed)
+ * - ALL/TOPIC/POPULAR = globalFeed; LOCAL = region only
  * - POPULAR = globalFeed + feedSort=popular (not regional)
+ * - ALL(popular) ≠ POPULAR nav state
  */
 import { test, expect, type Page, type Response } from "@playwright/test";
 import fs from "node:fs";
@@ -145,8 +147,8 @@ function communityNavTablist(page: Page) {
   });
 }
 
-/** Home sort `<select>` lives in sticky/portal chrome — not under data-community-feed. */
-function homeSortSelect(page: Page) {
+/** All sort `<select>` — only visible when All tab selected */
+function allSortSelect(page: Page) {
   return page.getByRole("combobox", { name: /피드 정렬|Feed sort/i }).or(
     communityNavTablist(page).locator("select")
   ).first();
@@ -174,7 +176,9 @@ async function assertOneRowNav(page: Page): Promise<void> {
   const home = page.getByRole("tab", { name: /^(홈|Home)$/i }).first();
   const local = page.getByRole("tab", { name: /^(동네|Local)$/i }).first();
   const popular = page.getByRole("tab", { name: /^(인기|Popular)$/i }).first();
+  const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
   await expect(home).toBeVisible({ timeout: 15_000 });
+  await expect(allTab).toBeVisible();
   await expect(local).toBeVisible();
   await expect(popular).toBeVisible();
 
@@ -190,7 +194,7 @@ async function assertOneRowNav(page: Page): Promise<void> {
       firstBreak: "Community Home tablist missing or duplicated",
       rootAuthority: "CommunityFeed sticky nav (harness)",
       file: "tests/e2e/community-ia-runtime-cases.spec.ts",
-      why: "New IA requires single-row Home|Topics|Local|Popular",
+      why: "New IA requires single-row Home|All|Topics|Local|Popular",
       scopeOfFix: "harness selector only",
     });
   }
@@ -208,16 +212,16 @@ async function assertOneRowNav(page: Page): Promise<void> {
       scopeOfFix: "PRODUCT — after approval (not harness)",
     });
   }
-  const allChip = page.getByRole("tab", { name: /^(전체|All)$/i });
-  if (await allChip.isVisible().catch(() => false)) {
+  const allInHomeList = await homeList.getByRole("tab", { name: /^(전체|All)$/i }).count();
+  if (allInHomeList < 1) {
     failFirstBreak({
       case: "ONE_ROW_UI",
-      expected: "Home replaces All chip",
-      actual: "All/전체 tab visible",
-      firstBreak: "legacy All chip still shown",
-      rootAuthority: "composeCommunityNavItems / chips",
-      file: "lib/philife/philife-feed-chips-from-topic-options.ts",
-      why: "All chip is old two-row IA",
+      expected: "All tab in the same tablist as Home",
+      actual: `all=${allInHomeList}`,
+      firstBreak: "All system nav missing from one-row nav",
+      rootAuthority: "composeCommunityNavItems",
+      file: "lib/community/community-nav.ts",
+      why: "All must share one row with Home",
       scopeOfFix: "PRODUCT — after approval (not harness)",
     });
   }
@@ -244,11 +248,14 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     }
   });
 
-  // ── APP A: Home + recommended, no region block ──
+  // ── APP A: Home + recommended (region-aware, not global ALL) ──
   {
     const feedP = waitNeighborhoodFeed(
       page,
-      (h) => h.globalFeed === true && !h.category && (h.sort === "recommended" || h.sort === null || h.sort === "")
+      (h) =>
+        !h.globalFeed &&
+        !h.category &&
+        (h.sort === "recommended" || h.sort === null || h.sort === "")
     );
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
     const feed = await feedP;
@@ -256,37 +263,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     const homeTab = page.getByRole("tab", { name: /홈|Home/i }).first();
     await expect(homeTab).toBeVisible({ timeout: 20_000 });
     await expect(homeTab).toHaveAttribute("aria-selected", "true");
-    await expect(homeSortSelect(page)).toHaveValue("recommended");
-    const bodyText = await page.locator("main").innerText().catch(() => "");
-    if (/동네를 먼저 설정해 주세요|Set your neighborhood first/i.test(bodyText) && feed.postCount === 0) {
-      // Full-page region block on Home is FAIL
-      const onlyLocalCta =
-        (await page.getByRole("tab", { name: /동네|Local/i }).getAttribute("aria-selected")) === "true";
-      if (!onlyLocalCta) {
-        failFirstBreak({
-          case: "APP_A",
-          expected: "Home opens without region; feed or empty list, not community-wide region block",
-          actual: bodyText.slice(0, 240),
-          firstBreak: "Home blocked by neighborhood required message",
-          rootAuthority: "communityNavToFeedQuery / fetchPage requiresRegion",
-          file: "components/community/CommunityFeed.tsx",
-          why: "HOME must be globalFeed; region only for LOCAL",
-          scopeOfFix: "Home fetch path — after approval",
-        });
-      }
-    }
-    if (!feed.globalFeed) {
-      failFirstBreak({
-        case: "APP_A",
-        expected: "globalFeed=1 for Home",
-        actual: feed.url,
-        firstBreak: "Home not using globalFeed",
-        rootAuthority: "communityNavToFeedQuery(home)",
-        file: "lib/community/community-nav.ts",
-        why: "HOME = global community feed",
-        scopeOfFix: "nav→feed plan — after approval",
-      });
-    }
+    await expect(allSortSelect(page)).toHaveCount(0);
     const sort = (feed.sort ?? "").toLowerCase();
     if (sort && sort !== "recommended") {
       failFirstBreak({
@@ -296,45 +273,58 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         firstBreak: "Home default sort not recommended",
         rootAuthority: "defaultCommunityNavSelection / URL sort",
         file: "lib/community/community-nav.ts",
-        why: "Product default Home + 추천순",
+        why: "Product default Home + region recommended",
         scopeOfFix: "default sort — after approval",
+      });
+    }
+    if (feed.globalFeed) {
+      failFirstBreak({
+        case: "APP_A",
+        expected: "Home is region-aware (not globalFeed)",
+        actual: feed.url,
+        firstBreak: "Home still using globalFeed (ALL alias)",
+        rootAuthority: "communityNavToFeedQuery(home)",
+        file: "lib/community/community-nav.ts",
+        why: "HOME ≠ ALL",
+        scopeOfFix: "nav→feed plan — after approval",
       });
     }
     results.push({ case: "APP_A", pass: true, notes: `feed posts=${feed.postCount} url=${page.url()}` });
     writeEvidence("APP_A.json", { feed, url: page.url() });
   }
 
-  // ── APP B: Home sort toggle ──
+  // ── APP B: All sort toggle (latest / popular) — HOME has no dropdown ──
   {
-    const sortSelect = homeSortSelect(page);
+    const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
+    await allTab.click();
+    await page.waitForURL(/nav=all/, { timeout: 15_000 });
+    await expect(allTab).toHaveAttribute("aria-selected", "true");
+    const sortSelect = allSortSelect(page);
     await expect(sortSelect).toBeVisible();
-    // Network may be skipped when session cache hits — URL + combobox are product authority.
     const feedLatestP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "latest", 12_000).catch(
       () => null
     );
     await sortSelect.selectOption("latest");
-    await expect(page).toHaveURL(/sort=latest/);
+    await expect(page).toHaveURL(/nav=all/);
     await expect(sortSelect).toHaveValue("latest");
     const latest = await feedLatestP;
     await assertOneRowNav(page);
-    const feedRecP = waitNeighborhoodFeed(
-      page,
-      (h) => h.globalFeed && (h.sort === "recommended" || !h.sort),
-      12_000
-    ).catch(() => null);
-    await sortSelect.selectOption("recommended");
-    await expect(page).toHaveURL(/sort=recommended/);
-    await expect(sortSelect).toHaveValue("recommended");
-    const rec = await feedRecP;
-    if (!latest && !/sort=latest/.test(page.url())) {
-      /* already moved to recommended — latest URL was asserted above */
-    }
+    const feedPopularP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "popular", 12_000).catch(
+      () => null
+    );
+    await sortSelect.selectOption("popular");
+    await expect(page).toHaveURL(/sort=popular/);
+    await expect(sortSelect).toHaveValue("popular");
+    const popularFeed = await feedPopularP;
+    await page.getByRole("tab", { name: /^(홈|Home)$/i }).first().click();
+    await expect(page.getByRole("tab", { name: /^(홈|Home)$/i }).first()).toHaveAttribute("aria-selected", "true");
+    await expect(allSortSelect(page)).toHaveCount(0);
     results.push({
       case: "APP_B",
       pass: true,
-      notes: `latestNet=${latest?.sort ?? "cache"} recNet=${rec?.sort ?? "cache"} url=${page.url()}`,
+      notes: `allLatest=${latest?.sort ?? "cache"} allPopular=${popularFeed?.sort ?? "cache"} url=${page.url()}`,
     });
-    writeEvidence("APP_B.json", { latest, rec, url: page.url() });
+    writeEvidence("APP_B.json", { latest, popularFeed, url: page.url() });
   }
 
   // Discover topics from nav
@@ -343,7 +333,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
   const n = await topicTabs.count();
   for (let i = 0; i < n; i += 1) {
     const t = (await topicTabs.nth(i).innerText()).trim();
-    if (t && !/^(홈|Home|동네|Local|인기|Popular)/i.test(t)) tabLabels.push(t);
+    if (t && !/^(홈|Home|전체|All|동네|Local|인기|Popular)/i.test(t)) tabLabels.push(t);
   }
   if (tabLabels.length < 1) {
     failFirstBreak({
@@ -478,9 +468,15 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
       }
     }
     // Navigate away to Home to prove not community-wide blocked
-    const homeFeedP = waitNeighborhoodFeed(page, (h) => h.globalFeed, 12_000).catch(() => null);
+    const homeFeedP = waitNeighborhoodFeed(
+      page,
+      (h) => !h.globalFeed && (h.sort === "recommended" || !h.sort),
+      12_000
+    ).catch(() => null);
     await page.getByRole("tab", { name: /홈|Home/i }).click();
-    await page.waitForURL((u) => !u.searchParams.get("nav"), { timeout: 15_000 }).catch(() => {});
+    await page.waitForURL((u) => !u.searchParams.get("nav") || u.searchParams.get("nav") === "home", {
+      timeout: 15_000,
+    }).catch(() => {});
     await expect(page.getByRole("tab", { name: /홈|Home/i })).toHaveAttribute("aria-selected", "true");
     await homeFeedP;
     results.push({
@@ -565,53 +561,55 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         "true",
         { timeout: 15_000 }
       );
-      // Home + latest back
-      const homeLatestP = waitNeighborhoodFeed(page, (h) => h.globalFeed);
-      await page.getByRole("tab", { name: /홈|Home/i }).click();
-      await homeLatestP;
-      const sortSelect = homeSortSelect(page);
-      await sortSelect.selectOption("latest");
-      await page.waitForURL(/sort=latest/);
+      // All + popular back
+      const allPopularP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "popular");
+      await page.getByRole("tab", { name: /^(전체|All)$/i }).first().click();
+      await page.waitForURL(/nav=all/, { timeout: 15_000 });
+      const sortSelect = allSortSelect(page);
+      await sortSelect.selectOption("popular");
+      await page.waitForURL(/sort=popular/);
+      await allPopularP;
       const card2 = communityFeedCards(page).first();
       if (await card2.isVisible().catch(() => false)) {
         await card2.click();
         await page.waitForTimeout(600);
         await page.goBack();
         await page.waitForTimeout(600);
-        await expect(page.getByRole("tab", { name: /홈|Home/i })).toHaveAttribute("aria-selected", "true");
-        await expect(homeSortSelect(page)).toHaveValue("latest");
+        await expect(page.getByRole("tab", { name: /^(전체|All)$/i }).first()).toHaveAttribute(
+          "aria-selected",
+          "true"
+        );
+        await expect(allSortSelect(page)).toHaveValue("popular");
       }
-      results.push({ case: "APP_G", pass: true, notes: `topic back + home latest back; beforeCat=${before.category}` });
+      results.push({ case: "APP_G", pass: true, notes: `topic back + all popular back; beforeCat=${before.category}` });
       writeEvidence("APP_G.json", { before, url: page.url() });
     }
   }
 
   // ── APP H: Bottom tab return ──
   {
-    await page.getByRole("tab", { name: /홈|Home/i }).click();
-    const sortSelect = homeSortSelect(page);
-    await sortSelect.selectOption("latest");
-    await page.waitForURL(/sort=latest/);
+    await page.getByRole("tab", { name: /^(전체|All)$/i }).first().click();
+    const sortSelect = allSortSelect(page);
+    await sortSelect.selectOption("popular");
+    await page.waitForURL(/nav=all.*sort=popular|sort=popular.*nav=all/);
     // go to market then back to philife
     await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1000);
-    // hub state should restore latest if session kept
     const url = page.url();
-    const homeSelected =
-      (await page.getByRole("tab", { name: /홈|Home/i }).getAttribute("aria-selected")) === "true";
-    const sortVal = await homeSortSelect(page).inputValue().catch(() => "");
-    if (!homeSelected || sortVal !== "latest") {
-      // try reading hub — if restore failed, FIRST BREAK
+    const allSelected =
+      (await page.getByRole("tab", { name: /^(전체|All)$/i }).first().getAttribute("aria-selected")) === "true";
+    const sortVal = await allSortSelect(page).inputValue().catch(() => "");
+    if (!allSelected || sortVal !== "popular") {
       failFirstBreak({
         case: "APP_H",
-        expected: "Home + latest restored after leaving Community tab",
-        actual: `url=${url} homeSelected=${homeSelected} sort=${sortVal}`,
+        expected: "All + popular restored after leaving Community tab",
+        actual: `url=${url} allSelected=${allSelected} sort=${sortVal}`,
         firstBreak: "hub state not restored on Community remount",
         rootAuthority: "community_hub_state_v1",
         file: "components/community/CommunityFeed.tsx",
-        why: "Bottom tab return must keep Home+latest",
+        why: "Bottom tab return must keep All+popular",
         scopeOfFix: "hub state restore — after approval",
       });
     }
@@ -627,7 +625,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
       "true",
       { timeout: 15_000 }
     );
-    results.push({ case: "APP_H", pass: true, notes: "home latest + topic restore" });
+    results.push({ case: "APP_H", pass: true, notes: "all popular + topic restore" });
     writeEvidence("APP_H.json", { url: page.url() });
   }
 

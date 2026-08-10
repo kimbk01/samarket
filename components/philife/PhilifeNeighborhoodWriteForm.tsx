@@ -795,8 +795,8 @@ export function PhilifeNeighborhoodWriteForm({
         router.replace(
           buildCommunityFeedHref(philifeAppPaths.home, {
             selection: topic
-              ? { kind: "topic", topicSlug: topic, homeSort: "recommended" }
-              : { kind: "home", topicSlug: "", homeSort: "recommended" },
+              ? { kind: "topic", topicSlug: topic, allSort: "latest" }
+              : { kind: "home", topicSlug: "", allSort: "latest" },
           })
         );
       }

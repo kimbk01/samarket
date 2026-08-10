@@ -9,102 +9,123 @@ import {
 } from "@/lib/community/community-nav";
 
 describe("community-nav", () => {
-  it("defaults to home + recommended", () => {
+  it("defaults to home (region-aware recommended)", () => {
     expect(defaultCommunityNavSelection()).toEqual({
       kind: "home",
       topicSlug: "",
-      homeSort: "recommended",
+      allSort: "latest",
     });
     expect(parseCommunityNavFromSearchParams(new URLSearchParams(""))).toEqual({
       kind: "home",
       topicSlug: "",
-      homeSort: "recommended",
+      allSort: "latest",
     });
   });
 
-  it("maps home sorts and popular/local nav", () => {
-    expect(parseCommunityNavFromSearchParams(new URLSearchParams("sort=latest"))).toEqual({
-      kind: "home",
+  it("maps all sorts and popular/local nav", () => {
+    expect(parseCommunityNavFromSearchParams(new URLSearchParams("nav=all"))).toEqual({
+      kind: "all",
       topicSlug: "",
-      homeSort: "latest",
+      allSort: "latest",
+    });
+    expect(parseCommunityNavFromSearchParams(new URLSearchParams("nav=all&sort=popular"))).toEqual({
+      kind: "all",
+      topicSlug: "",
+      allSort: "popular",
+    });
+    expect(parseCommunityNavFromSearchParams(new URLSearchParams("sort=latest"))).toEqual({
+      kind: "all",
+      topicSlug: "",
+      allSort: "latest",
     });
     expect(parseCommunityNavFromSearchParams(new URLSearchParams("nav=local"))).toEqual({
       kind: "local",
       topicSlug: "",
-      homeSort: "recommended",
+      allSort: "latest",
     });
     expect(parseCommunityNavFromSearchParams(new URLSearchParams("nav=popular"))).toEqual({
       kind: "popular",
       topicSlug: "",
-      homeSort: "recommended",
+      allSort: "latest",
     });
     expect(parseCommunityNavFromSearchParams(new URLSearchParams("sort=popular"))).toEqual({
       kind: "popular",
       topicSlug: "",
-      homeSort: "recommended",
+      allSort: "latest",
     });
   });
 
-  it("topic category wins over home sort", () => {
+  it("topic category wins over all sort", () => {
     expect(
       parseCommunityNavFromSearchParams(new URLSearchParams("category=daily&sort=latest"))
     ).toEqual({
       kind: "topic",
       topicSlug: "daily",
-      homeSort: "recommended",
+      allSort: "latest",
     });
   });
 
   it("plans feed query with separated authorities", () => {
-    expect(communityNavToFeedQuery({ kind: "home", topicSlug: "", homeSort: "recommended" })).toEqual(
-      {
-        feedSort: "recommended",
-        category: "",
-        globalFeed: true,
-        requiresRegion: false,
-      }
-    );
-    expect(communityNavToFeedQuery({ kind: "local", topicSlug: "", homeSort: "recommended" })).toEqual(
-      {
-        feedSort: "latest",
-        category: "",
-        globalFeed: false,
-        requiresRegion: true,
-      }
-    );
-    expect(communityNavToFeedQuery({ kind: "popular", topicSlug: "", homeSort: "recommended" })).toEqual(
-      {
-        feedSort: "popular",
-        category: "",
-        globalFeed: true,
-        requiresRegion: false,
-      }
-    );
+    expect(communityNavToFeedQuery({ kind: "home", topicSlug: "", allSort: "latest" })).toEqual({
+      feedSort: "recommended",
+      category: "",
+      globalFeed: false,
+      requiresRegion: true,
+    });
+    expect(communityNavToFeedQuery({ kind: "all", topicSlug: "", allSort: "latest" })).toEqual({
+      feedSort: "latest",
+      category: "",
+      globalFeed: true,
+      requiresRegion: false,
+    });
+    expect(communityNavToFeedQuery({ kind: "all", topicSlug: "", allSort: "popular" })).toEqual({
+      feedSort: "popular",
+      category: "",
+      globalFeed: true,
+      requiresRegion: false,
+    });
+    expect(communityNavToFeedQuery({ kind: "local", topicSlug: "", allSort: "latest" })).toEqual({
+      feedSort: "latest",
+      category: "",
+      globalFeed: false,
+      requiresRegion: true,
+    });
+    expect(communityNavToFeedQuery({ kind: "popular", topicSlug: "", allSort: "latest" })).toEqual({
+      feedSort: "popular",
+      category: "",
+      globalFeed: true,
+      requiresRegion: false,
+    });
   });
 
   it("builds URL with nav/category/sort separated", () => {
     expect(
       buildCommunityFeedSearchParams({
-        selection: { kind: "home", topicSlug: "", homeSort: "recommended" },
+        selection: { kind: "home", topicSlug: "", allSort: "latest" },
       }).toString()
-    ).toBe("sort=recommended");
+    ).toBe("nav=home");
     expect(
       buildCommunityFeedSearchParams({
-        selection: { kind: "topic", topicSlug: "daily", homeSort: "recommended" },
+        selection: { kind: "all", topicSlug: "", allSort: "popular" },
+      }).toString()
+    ).toBe("nav=all&sort=popular");
+    expect(
+      buildCommunityFeedSearchParams({
+        selection: { kind: "topic", topicSlug: "daily", allSort: "latest" },
       }).toString()
     ).toBe("category=daily");
     expect(
       buildCommunityFeedHref("/philife", {
-        selection: { kind: "local", topicSlug: "", homeSort: "recommended" },
+        selection: { kind: "local", topicSlug: "", allSort: "latest" },
       })
     ).toBe("/philife?nav=local");
   });
 
-  it("composes Home + topics + Local + Popular", () => {
+  it("composes Home + All + topics + Local + Popular", () => {
     const items = composeCommunityNavItems([
       { slug: "daily", label: "일상", name_en: "Daily", is_feed_sort: false, sort_slot: null },
       { slug: "", label: "", is_feed_sort: false, sort_slot: null },
     ]);
-    expect(items.map((i) => i.kind)).toEqual(["home", "topic", "local", "popular"]);
+    expect(items.map((i) => i.kind)).toEqual(["home", "all", "topic", "local", "popular"]);
   });
 });
