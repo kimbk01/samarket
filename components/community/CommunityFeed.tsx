@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
+import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import {
   fetchPhilifeNeighborhoodTopicOptions,
   invalidatePhilifeNeighborhoodTopicOptionsCache,
@@ -24,7 +28,7 @@ import {
   COMMUNITY_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
   PHILIFE_TOPIC_TAB_PILL_ACTIVE,
-  PHILIFE_TOPIC_TAB_ROW_CLASS,
+  PHILIFE_TOPIC_TAB_PILL_IDLE,
   PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE,
   PHILIFE_TOPIC_TAB_SUBJECT_IDLE,
 } from "@/lib/philife/philife-flat-ui-classes";
@@ -60,6 +64,7 @@ import {
   defaultCommunityNavSelection,
   isSameCommunityNavSelection,
   parseCommunityNavFromSearchParams,
+  type CommunityAllSort,
   type CommunityNavComposeItem,
   type CommunityNavSelection,
 } from "@/lib/community/community-nav";
@@ -157,27 +162,33 @@ function communityNavSelectionToHubState(sel: CommunityNavSelection): CommunityH
   if (sel.kind === "topic") {
     return { nav: "", category: sel.topicSlug.trim().toLowerCase(), sort: "" };
   }
-  if (sel.kind === "all") {
-    return { nav: "all", category: "", sort: sel.allSort };
+  if (sel.kind === "local") {
+    return { nav: "local", category: "", sort: "" };
+  }
+  /** home/popular kinds absorb to all+sort */
+  if (sel.kind === "popular") {
+    return { nav: "all", category: "", sort: "popular" };
   }
   if (sel.kind === "home") {
-    return { nav: "home", category: "", sort: "" };
+    return { nav: "all", category: "", sort: "latest" };
   }
-  return { nav: sel.kind, category: "", sort: "" };
+  return { nav: "all", category: "", sort: sel.allSort === "popular" ? "popular" : "latest" };
 }
 
 function hubStateToCommunityNavSelection(h: CommunityHubStateShape): CommunityNavSelection {
   if (h.nav === "local") return { kind: "local", topicSlug: "", allSort: "latest" };
-  if (h.nav === "popular") return { kind: "popular", topicSlug: "", allSort: "latest" };
+  if (h.category) return { kind: "topic", topicSlug: h.category, allSort: "latest" };
   if (h.nav === "all") {
     return { kind: "all", topicSlug: "", allSort: h.sort === "popular" ? "popular" : "latest" };
   }
-  if (h.category) return { kind: "topic", topicSlug: h.category, allSort: "latest" };
-  if (h.nav === "home") return { kind: "home", topicSlug: "", allSort: "latest" };
-  /** Legacy hub: home sort was wrongly stored — migrate to All */
-  if (h.sort === "latest") return { kind: "all", topicSlug: "", allSort: "latest" };
-  if (h.sort === "popular") return { kind: "all", topicSlug: "", allSort: "popular" };
-  return { kind: "home", topicSlug: "", allSort: "latest" };
+  /** Legacy home / popular chip hub → all+sort */
+  if (h.nav === "popular" || h.sort === "popular") {
+    return { kind: "all", topicSlug: "", allSort: "popular" };
+  }
+  if (h.nav === "home" || h.sort === "latest" || h.sort === "recommended") {
+    return { kind: "all", topicSlug: "", allSort: "latest" };
+  }
+  return { kind: "all", topicSlug: "", allSort: "latest" };
 }
 
 function writeCommunityHubState(sel: CommunityNavSelection): void {
@@ -197,14 +208,15 @@ function isCommunityHubPath(pathname: string): boolean {
 /** `CommunityNavComposeItem` → 해당 항목을 선택했을 때의 `CommunityNavSelection` */
 function communityNavComposeItemToSelection(item: CommunityNavComposeItem): CommunityNavSelection {
   if (item.kind === "topic") return { kind: "topic", topicSlug: item.slug, allSort: "latest" };
-  if (item.kind === "local") return { kind: "local", topicSlug: "", allSort: "latest" };
-  if (item.kind === "popular") return { kind: "popular", topicSlug: "", allSort: "latest" };
-  if (item.kind === "all") return { kind: "all", topicSlug: "", allSort: "latest" };
-  return { kind: "home", topicSlug: "", allSort: "latest" };
+  return { kind: "local", topicSlug: "", allSort: "latest" };
 }
 
 function resolveActiveNavIndex(items: CommunityNavComposeItem[], sel: CommunityNavSelection): number {
   if (!items.length) return 0;
+  if (sel.kind === "all" || sel.kind === "home" || sel.kind === "popular") {
+    /** Latest|Popular are fixed leading tabs outside compose items */
+    return -1;
+  }
   if (sel.kind === "topic") {
     const ix = items.findIndex((it) => it.kind === "topic" && it.slug === sel.topicSlug);
     return ix >= 0 ? ix : 0;
@@ -437,7 +449,7 @@ export function CommunityFeed({
     [currentRegion]
   );
 
-  /** Community 2단 Navigation SSOT — Home | All | Topic… | Local | Popular */
+  /** Community Navigation SSOT — Latest | Popular | Topic… | Local */
   const navSelection = parseCommunityNavFromSearchParams(searchParams);
   const plan = communityNavToFeedQuery(navSelection);
   const feedSort = plan.feedSort;
@@ -555,12 +567,12 @@ export function CommunityFeed({
     postsRef.current = posts;
   }, [posts]);
 
-  /** 레거시 `?category=recommended` → Home + 추천순 (recommended 는 topic 이 아니다) */
+  /** 레거시 `?category=recommended` → all+latest (recommended 는 topic 이 아니다) */
   useLayoutEffect(() => {
     const rawCategory = (searchParams.get("category") ?? "").trim().toLowerCase();
     if (rawCategory !== "recommend" && rawCategory !== "recommended") return;
     const target = buildCommunityFeedHref(pathname, {
-      selection: { kind: "home", topicSlug: "", allSort: "latest" },
+      selection: { kind: "all", topicSlug: "", allSort: "latest" },
       base: searchQueryString,
     });
     if (typeof window !== "undefined") {
@@ -651,9 +663,11 @@ export function CommunityFeed({
       searchParams.has("mode");
     /**
      * Bare /philife remount: layout restore reads sessionStorage first.
-     * Do not overwrite saved all/topic with parsed default home before replace runs.
+     * Do not overwrite saved topic/local/sort with parsed default all+latest before replace runs.
      */
-    if (!hasNavParams && navSelection.kind === "home") return;
+    if (!hasNavParams && isSameCommunityNavSelection(navSelection, defaultCommunityNavSelection())) {
+      return;
+    }
     writeCommunityHubState(navSelection);
   }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort, searchParams]);
 
@@ -1341,21 +1355,14 @@ export function CommunityFeed({
   const leadingNavItems = useMemo(
     () =>
       navItems.filter(
-        (
-          item
-        ): item is
-          | Extract<CommunityNavComposeItem, { kind: "home" }>
-          | Extract<CommunityNavComposeItem, { kind: "all" }>
-          | Extract<CommunityNavComposeItem, { kind: "topic" }> =>
-          item.kind === "home" || item.kind === "all" || item.kind === "topic"
+        (item): item is Extract<CommunityNavComposeItem, { kind: "topic" }> => item.kind === "topic"
       ),
     [navItems]
   );
   const trailingNavItems = useMemo(
     () =>
       navItems.filter(
-        (item): item is Extract<CommunityNavComposeItem, { kind: "local" } | { kind: "popular" }> =>
-          item.kind === "local" || item.kind === "popular"
+        (item): item is Extract<CommunityNavComposeItem, { kind: "local" }> => item.kind === "local"
       ),
     [navItems]
   );
@@ -1405,6 +1412,96 @@ export function CommunityFeed({
   }, []);
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
+  const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
+  const allSortMenuRef = useRef<HTMLUListElement | null>(null);
+  const lastAllSortRef = useRef<CommunityAllSort>(
+    navSelection.kind === "all" || navSelection.kind === "popular"
+      ? navSelection.kind === "popular"
+        ? "popular"
+        : navSelection.allSort
+      : "latest"
+  );
+  const [allSortOpen, setAllSortOpen] = useState(false);
+  const [allSortMenuPos, setAllSortMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (navSelection.kind === "all") {
+      lastAllSortRef.current = navSelection.allSort === "popular" ? "popular" : "latest";
+    } else if (navSelection.kind === "popular") {
+      lastAllSortRef.current = "popular";
+    } else if (navSelection.kind === "home") {
+      lastAllSortRef.current = "latest";
+    }
+  }, [navSelection.kind, navSelection.allSort]);
+
+  const displayAllSort: CommunityAllSort =
+    navSelection.kind === "all"
+      ? navSelection.allSort === "popular"
+        ? "popular"
+        : "latest"
+      : lastAllSortRef.current;
+  const allSortOn = navSelection.kind === "all" || navSelection.kind === "home" || navSelection.kind === "popular";
+  const allSortLabel =
+    displayAllSort === "popular"
+      ? safeT("community_sort_popular", { fallbackKo: "인기순", fallbackEn: "Popular" })
+      : safeT("community_sort_latest", { fallbackKo: "최신순", fallbackEn: "Latest" });
+
+  const updateAllSortMenuPos = useCallback(() => {
+    const el = allSortButtonRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setAllSortMenuPos({ top: rect.bottom + 6, left: rect.left });
+  }, []);
+
+  const applyAllSort = useCallback(
+    (next: CommunityAllSort) => {
+      lastAllSortRef.current = next;
+      applyNavSelection({ kind: "all", topicSlug: "", allSort: next });
+      setAllSortOpen(false);
+    },
+    [applyNavSelection]
+  );
+
+  const onAllSortChipClick = useCallback(() => {
+    if (!allSortOn) {
+      applyNavSelection({
+        kind: "all",
+        topicSlug: "",
+        allSort: lastAllSortRef.current,
+      });
+    }
+    if (allSortOpen) {
+      setAllSortOpen(false);
+      return;
+    }
+    updateAllSortMenuPos();
+    setAllSortOpen(true);
+  }, [allSortOn, allSortOpen, applyNavSelection, updateAllSortMenuPos]);
+
+  useEffect(() => {
+    if (!allSortOpen) return;
+    updateAllSortMenuPos();
+    const close = () => setAllSortOpen(false);
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (allSortButtonRef.current?.contains(target) || allSortMenuRef.current?.contains(target)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [allSortOpen, updateAllSortMenuPos]);
+
   /**
    * 홈 범위 탭이면 `scrollLeft` 복귀, 오른쪽 바깥 탭만 전진·왼쪽 잘리면 선택 기준 스크롤.
    * `scrollPhilifeTopicTabStrip` + 세대 ref + 이중 rAF.
@@ -1620,88 +1717,55 @@ export function CommunityFeed({
           <>
             <PhilifePullRefreshHint />
             <div className="min-w-0 overflow-x-hidden bg-sam-surface">
-              <div className={APP_MAIN_HEADER_INNER_CLASS}>
-                <div
+              <div
+                className={`${APP_MAIN_HEADER_INNER_CLASS} flex min-w-0 items-center gap-1 border-b border-sam-border bg-sam-surface py-1.5`}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  ref={allSortButtonRef}
+                  aria-selected={allSortOn}
+                  aria-haspopup="listbox"
+                  aria-expanded={allSortOpen}
+                  aria-label={t("community_feed_all_sort_chip_aria", { label: allSortLabel })}
+                  onClick={onAllSortChipClick}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      updateAllSortMenuPos();
+                      setAllSortOpen(true);
+                    }
+                  }}
+                  className={
+                    allSortOn
+                      ? `${PHILIFE_TOPIC_TAB_PILL_ACTIVE} inline-flex items-center gap-1`
+                      : `${PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`
+                  }
+                >
+                  <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
+                  {allSortOpen ? (
+                    <ChevronUp
+                      className={`relative z-[1] h-3.5 w-3.5 shrink-0 ${allSortOn ? "text-sam-primary" : "text-sam-muted"}`}
+                      strokeWidth={2.4}
+                      aria-hidden
+                    />
+                  ) : (
+                    <ChevronDown
+                      className={`relative z-[1] h-3.5 w-3.5 shrink-0 ${allSortOn ? "text-sam-primary" : "text-sam-muted"}`}
+                      strokeWidth={2.4}
+                      aria-hidden
+                    />
+                  )}
+                </button>
+                <HorizontalDragScroll
                   ref={topicTablistRef}
-                  className={PHILIFE_TOPIC_TAB_ROW_CLASS}
+                  allowDragFromInteractive
+                  className="flex min-h-10 min-w-0 max-w-full flex-1 flex-nowrap items-center justify-start gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  style={{ WebkitOverflowScrolling: "touch" }}
                   role="tablist"
                   aria-label={t("community_feed_topic_aria")}
                 >
                   {leadingNavItems.map((item) => {
-                      if (item.kind === "home") {
-                        const on = navSelection.kind === "home";
-                        return (
-                          <button
-                            key="nav-home"
-                            type="button"
-                            role="tab"
-                            aria-selected={on}
-                            onClick={() =>
-                              applyNavSelection({
-                                kind: "home",
-                                topicSlug: "",
-                                allSort: "latest",
-                              })
-                            }
-                            className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
-                          >
-                            <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
-                              {safeT("community_nav_home", { fallbackKo: "홈", fallbackEn: "Home" })}
-                            </span>
-                          </button>
-                        );
-                      }
-                      if (item.kind === "all") {
-                        const on = navSelection.kind === "all";
-                        return (
-                          <Fragment key="nav-all">
-                            <button
-                              type="button"
-                              role="tab"
-                              aria-selected={on}
-                              onClick={() =>
-                                applyNavSelection({
-                                  kind: "all",
-                                  topicSlug: "",
-                                  allSort: on ? navSelection.allSort : "latest",
-                                })
-                              }
-                              className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
-                            >
-                              <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
-                                {safeT("community_nav_all", { fallbackKo: "전체", fallbackEn: "All" })}
-                              </span>
-                            </button>
-                            {on ? (
-                              <select
-                                aria-label={t("community_feed_sort_aria")}
-                                value={navSelection.allSort}
-                                onChange={(e) =>
-                                  applyNavSelection({
-                                    kind: "all",
-                                    topicSlug: "",
-                                    allSort: e.target.value === "popular" ? "popular" : "latest",
-                                  })
-                                }
-                                className="h-8 shrink-0 rounded-full border border-sam-border bg-sam-surface px-2 text-[12px] font-semibold text-sam-fg"
-                              >
-                                <option value="latest">
-                                  {safeT("community_sort_latest", {
-                                    fallbackKo: "최신순",
-                                    fallbackEn: "Latest",
-                                  })}
-                                </option>
-                                <option value="popular">
-                                  {safeT("community_sort_popular", {
-                                    fallbackKo: "인기순",
-                                    fallbackEn: "Popular",
-                                  })}
-                                </option>
-                              </select>
-                            ) : null}
-                          </Fragment>
-                        );
-                      }
                       const on = navSelection.kind === "topic" && navSelection.topicSlug === item.slug;
                       const chipLabel = resolveCommunityTopicUILabel(language, item.label, item.name_en, item.slug);
                       return (
@@ -1717,7 +1781,7 @@ export function CommunityFeed({
                           onFocus={() => prefetchNavItemByIntent(item)}
                           className={on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
                         >
-                          <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
+                          <span className={`block min-w-0 max-w-[min(12rem,40vw)] truncate ${I18N_COMPACT_CHIP_LABEL}`}>
                             {chipLabel}
                           </span>
                         </button>
@@ -1730,11 +1794,11 @@ export function CommunityFeed({
                     </span>
                   ) : null}
                   {trailingNavItems.map((item) => {
-                    const on = navSelection.kind === item.kind;
-                    const label =
-                      item.kind === "local"
-                        ? safeT("community_feed_mode_local", { fallbackKo: "동네", fallbackEn: "Local" })
-                        : safeT("community_feed_mode_popular", { fallbackKo: "인기", fallbackEn: "Popular" });
+                    const on = navSelection.kind === "local";
+                    const label = safeT("community_feed_mode_local", {
+                      fallbackKo: "동네",
+                      fallbackEn: "Local",
+                    });
                     return (
                       <button
                         key={item.kind}
@@ -1748,12 +1812,69 @@ export function CommunityFeed({
                         onFocus={() => prefetchNavItemByIntent(item)}
                         className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
                       >
-                        {label}
+                        <span className={`block min-w-0 max-w-[min(12rem,40vw)] truncate ${I18N_COMPACT_CHIP_LABEL}`}>
+                          {label}
+                        </span>
                       </button>
                     );
                   })}
-                </div>
+                </HorizontalDragScroll>
               </div>
+              {allSortOpen && allSortMenuPos && typeof document !== "undefined"
+                ? createPortal(
+                    <ul
+                      ref={allSortMenuRef}
+                      role="listbox"
+                      aria-label={t("community_feed_all_sort_menu_aria")}
+                      className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+                      style={{
+                        position: "fixed",
+                        top: allSortMenuPos.top,
+                        left: allSortMenuPos.left,
+                        zIndex: 200,
+                      }}
+                    >
+                      {(
+                        [
+                          {
+                            key: "latest" as const,
+                            label: safeT("community_sort_latest", {
+                              fallbackKo: "최신순",
+                              fallbackEn: "Latest",
+                            }),
+                          },
+                          {
+                            key: "popular" as const,
+                            label: safeT("community_sort_popular", {
+                              fallbackKo: "인기순",
+                              fallbackEn: "Popular",
+                            }),
+                          },
+                        ] as const
+                      ).map((opt) => {
+                        const selected = displayAllSort === opt.key && allSortOn;
+                        return (
+                          <li key={opt.key} role="none">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={selected}
+                              onClick={() => applyAllSort(opt.key)}
+                              className={
+                                selected
+                                  ? "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
+                                  : "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                              }
+                            >
+                              {opt.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>,
+                    document.body
+                  )
+                : null}
             </div>
             {showNeighborOnlyStrip ? (
               <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>

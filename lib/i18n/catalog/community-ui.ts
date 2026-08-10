@@ -38,7 +38,10 @@ export const communityUiMessages = {
     community_compose_create_meeting: "모임 만들기",
     community_compose_cancel: "취소",
     community_feed_topic_aria: "피드 주제",
-    community_feed_sort_aria: "피드 정렬(최신순·추천순)",
+    community_feed_sort_aria: "전체 글 정렬(최신순·인기순)",
+    community_feed_all_sort_chip_aria:
+      "{label}. 탭하면 전체 글의 최신순·인기순을 고를 수 있어요.",
+    community_feed_all_sort_menu_aria: "전체 글 정렬",
     community_feed_mode_aria: "피드 모드",
     community_feed_mode_local: "동네",
     community_feed_mode_popular: "인기",
@@ -566,7 +569,10 @@ export const communityUiMessages = {
     community_compose_create_meeting: "Create a meeting",
     community_compose_cancel: "Cancel",
     community_feed_topic_aria: "Feed topic",
-    community_feed_sort_aria: "Feed sort (newest · recommended)",
+    community_feed_sort_aria: "All-posts sort (newest · popular)",
+    community_feed_all_sort_chip_aria:
+      "{label}. Tap to choose newest or popular for the all-posts list.",
+    community_feed_all_sort_menu_aria: "All-posts sort",
     community_feed_mode_aria: "Feed mode",
     community_feed_mode_local: "Local",
     community_feed_mode_popular: "Popular",

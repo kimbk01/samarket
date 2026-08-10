@@ -5,11 +5,10 @@
  *   E2E_TEST_USERNAME=aaaa@manual.local E2E_TEST_PASSWORD='DibayQa1!' \
  *   npx playwright test tests/e2e/community-ia-runtime-cases.spec.ts --workers=1
  *
- * CONTRACT LOCK (do not change mid-runtime):
- * - HOME = region-aware recommended (not globalFeed)
- * - ALL/TOPIC/POPULAR = globalFeed; LOCAL = region only
- * - POPULAR = globalFeed + feedSort=popular (not regional)
- * - ALL(popular) ≠ POPULAR nav state
+ * CONTRACT LOCK (2026-08-10 IA):
+ * - Default = Latest (all + latest, globalFeed)
+ * - Latest|Popular tabs = global all-topics list (no Home/All/Popular chips)
+ * - TOPIC = globalFeed; LOCAL = region only
  */
 import { test, expect, type Page, type Response } from "@playwright/test";
 import fs from "node:fs";
@@ -143,15 +142,27 @@ function failFirstBreak(input: {
 
 function communityNavTablist(page: Page) {
   return page.getByRole("tablist").filter({
-    has: page.getByRole("tab", { name: /^(홈|Home)$/i }),
+    has: page.getByRole("tab", { name: /^(동네|Local)$/i }),
   });
 }
 
-/** All sort `<select>` — only visible when All tab selected */
-function allSortSelect(page: Page) {
-  return page.getByRole("combobox", { name: /피드 정렬|Feed sort/i }).or(
-    communityNavTablist(page).locator("select")
-  ).first();
+function allSortChip(page: Page) {
+  return page
+    .getByRole("tab", { name: /(최신순|Latest|인기순|Popular)/i })
+    .filter({ has: page.locator("svg") })
+    .first();
+}
+
+function latestSortTab(page: Page) {
+  return allSortChip(page);
+}
+
+function popularSortOption(page: Page) {
+  return page.getByRole("option", { name: /^(인기순|Popular)$/i }).first();
+}
+
+function latestSortOption(page: Page) {
+  return page.getByRole("option", { name: /^(최신순|Latest)$/i }).first();
 }
 
 function communityFeedCards(page: Page) {
@@ -170,10 +181,23 @@ async function clickTopicTab(page: Page, label: string): Promise<void> {
   await tab.click({ timeout: 15_000 });
 }
 
-async function clickAllTab(page: Page): Promise<void> {
-  const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
-  await allTab.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
-  await allTab.click({ timeout: 15_000 });
+async function openAllSortMenu(page: Page): Promise<void> {
+  const chip = allSortChip(page);
+  await chip.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+  const expanded = await chip.getAttribute("aria-expanded");
+  if (expanded === "true") return;
+  await chip.click({ timeout: 15_000 });
+  await expect(latestSortOption(page)).toBeVisible({ timeout: 5_000 });
+}
+
+async function clickLatestTab(page: Page): Promise<void> {
+  await openAllSortMenu(page);
+  await latestSortOption(page).click({ timeout: 15_000 });
+}
+
+async function clickPopularSortTab(page: Page): Promise<void> {
+  await openAllSortMenu(page);
+  await popularSortOption(page).click({ timeout: 15_000 });
 }
 
 function labelEqualsInsensitive(a: string, b: string): boolean {
@@ -183,58 +207,46 @@ function labelEqualsInsensitive(a: string, b: string): boolean {
 /**
  * ONE ROW UI — sticky header may portal outside `[data-community-feed="list"]`.
  * DO NOT scope tablist under that attribute (harness false FAIL).
+ * Fixed: sort dropdown chip (최신순▼) · Swipe: topics | Local
  */
 async function assertOneRowNav(page: Page): Promise<void> {
-  const home = page.getByRole("tab", { name: /^(홈|Home)$/i }).first();
+  const chip = allSortChip(page);
   const local = page.getByRole("tab", { name: /^(동네|Local)$/i }).first();
-  const popular = page.getByRole("tab", { name: /^(인기|Popular)$/i }).first();
-  const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
-  await expect(home).toBeVisible({ timeout: 15_000 });
-  await expect(allTab).toBeVisible();
+  await expect(chip).toBeVisible({ timeout: 15_000 });
   await expect(local).toBeVisible();
-  await expect(popular).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^(홈|Home)$/i })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /^(전체|All)$/i })).toHaveCount(0);
 
-  const tablists = page.getByRole("tablist");
-  const count = await tablists.count();
-  const homeList = communityNavTablist(page);
-  const homeListCount = await homeList.count();
-  if (homeListCount !== 1) {
+  await openAllSortMenu(page);
+  await expect(latestSortOption(page)).toBeVisible();
+  await expect(popularSortOption(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const topicList = communityNavTablist(page);
+  const topicListCount = await topicList.count();
+  if (topicListCount !== 1) {
     failFirstBreak({
       case: "ONE_ROW_UI",
-      expected: "exactly 1 tablist containing Home (portal-safe)",
-      actual: `home-tablist count=${homeListCount} all-tablists=${count}`,
-      firstBreak: "Community Home tablist missing or duplicated",
+      expected: "exactly 1 swipe tablist containing Local (topics strip)",
+      actual: `topic-tablist count=${topicListCount}`,
+      firstBreak: "Community topic swipe tablist missing or duplicated",
       rootAuthority: "CommunityFeed sticky nav (harness)",
       file: "tests/e2e/community-ia-runtime-cases.spec.ts",
-      why: "New IA requires single-row Home|All|Topics|Local|Popular",
+      why: "IA: fixed sort dropdown + swipe Topics|Local",
       scopeOfFix: "harness selector only",
     });
   }
-  const localInHomeList = await homeList.getByRole("tab", { name: /^(동네|Local)$/i }).count();
-  const popularInHomeList = await homeList.getByRole("tab", { name: /^(인기|Popular)$/i }).count();
-  if (localInHomeList < 1 || popularInHomeList < 1) {
+  const localInTopicList = await topicList.getByRole("tab", { name: /^(동네|Local)$/i }).count();
+  if (localInTopicList < 1) {
     failFirstBreak({
       case: "ONE_ROW_UI",
-      expected: "Local and Popular in the same tablist as Home",
-      actual: `local=${localInHomeList} popular=${popularInHomeList}`,
-      firstBreak: "two-row regression (Local/Popular not in Home row)",
-      rootAuthority: "CommunityFeed nav composition",
-      file: "components/community/CommunityFeed.tsx",
-      why: "Local/Popular must share one row with Home",
-      scopeOfFix: "PRODUCT — after approval (not harness)",
-    });
-  }
-  const allInHomeList = await homeList.getByRole("tab", { name: /^(전체|All)$/i }).count();
-  if (allInHomeList < 1) {
-    failFirstBreak({
-      case: "ONE_ROW_UI",
-      expected: "All tab in the same tablist as Home",
-      actual: `all=${allInHomeList}`,
-      firstBreak: "All system nav missing from one-row nav",
+      expected: "Local in swipe topic tablist",
+      actual: `local=${localInTopicList}`,
+      firstBreak: "Local missing from swipe strip",
       rootAuthority: "composeCommunityNavItems",
-      file: "lib/community/community-nav.ts",
-      why: "All must share one row with Home",
-      scopeOfFix: "PRODUCT — after approval (not harness)",
+      file: "components/community/CommunityFeed.tsx",
+      why: "Local stays in swipeable topic row",
+      scopeOfFix: "nav compose / UI",
     });
   }
 }
@@ -259,77 +271,67 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     }
   });
 
-  // ── APP A: Home + recommended (region-aware, not global ALL) ──
+  // ── APP A: Default Latest (global all-topics) ──
   {
     const feedP = waitNeighborhoodFeed(
       page,
-      (h) =>
-        !h.globalFeed &&
-        !h.category &&
-        (h.sort === "recommended" || h.sort === null || h.sort === "")
+      (h) => h.globalFeed && !h.category && (h.sort === "latest" || h.sort === null || h.sort === "")
     );
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
     const feed = await feedP;
     await assertOneRowNav(page);
-    const homeTab = page.getByRole("tab", { name: /홈|Home/i }).first();
-    await expect(homeTab).toBeVisible({ timeout: 20_000 });
-    await expect(homeTab).toHaveAttribute("aria-selected", "true");
-    await expect(allSortSelect(page)).toHaveCount(0);
+    await expect(latestSortTab(page)).toHaveAttribute("aria-selected", "true");
     const sort = (feed.sort ?? "").toLowerCase();
-    if (sort && sort !== "recommended") {
+    if (sort && sort !== "latest") {
       failFirstBreak({
         case: "APP_A",
-        expected: "sort=recommended (or default recommended)",
+        expected: "sort=latest (default)",
         actual: `sort=${feed.sort}`,
-        firstBreak: "Home default sort not recommended",
+        firstBreak: "Default sort not latest",
         rootAuthority: "defaultCommunityNavSelection / URL sort",
         file: "lib/community/community-nav.ts",
-        why: "Product default Home + region recommended",
-        scopeOfFix: "default sort — after approval",
+        why: "Product default Latest global list",
+        scopeOfFix: "default sort",
       });
     }
-    if (feed.globalFeed) {
+    if (!feed.globalFeed) {
       failFirstBreak({
         case: "APP_A",
-        expected: "Home is region-aware (not globalFeed)",
+        expected: "Latest is globalFeed",
         actual: feed.url,
-        firstBreak: "Home still using globalFeed (ALL alias)",
-        rootAuthority: "communityNavToFeedQuery(home)",
+        firstBreak: "Latest still region-only",
+        rootAuthority: "communityNavToFeedQuery(all)",
         file: "lib/community/community-nav.ts",
-        why: "HOME ≠ ALL",
-        scopeOfFix: "nav→feed plan — after approval",
+        why: "Latest|Popular = global all-topics",
+        scopeOfFix: "nav to feed plan",
       });
     }
     results.push({ case: "APP_A", pass: true, notes: `feed posts=${feed.postCount} url=${page.url()}` });
     writeEvidence("APP_A.json", { feed, url: page.url() });
   }
 
-  // ── APP B: All sort toggle (latest / popular) — HOME has no dropdown ──
+  // ── APP B: Latest | Popular sort tabs ──
   {
-    const allTab = page.getByRole("tab", { name: /^(전체|All)$/i }).first();
-    await allTab.click();
-    await page.waitForURL(/nav=all/, { timeout: 15_000 });
-    await expect(allTab).toHaveAttribute("aria-selected", "true");
-    const sortSelect = allSortSelect(page);
-    await expect(sortSelect).toBeVisible();
+    await clickLatestTab(page);
+    await page.waitForURL(/nav=all/, { timeout: 15_000 }).catch(() => {});
+    await expect(latestSortTab(page)).toHaveAttribute("aria-selected", "true");
     const feedLatestP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "latest", 12_000).catch(
       () => null
     );
-    await sortSelect.selectOption("latest");
-    await expect(page).toHaveURL(/nav=all/);
-    await expect(sortSelect).toHaveValue("latest");
+    await clickLatestTab(page);
     const latest = await feedLatestP;
     await assertOneRowNav(page);
     const feedPopularP = waitNeighborhoodFeed(page, (h) => h.globalFeed && h.sort === "popular", 12_000).catch(
       () => null
     );
-    await sortSelect.selectOption("popular");
+    await clickPopularSortTab(page);
     await expect(page).toHaveURL(/sort=popular/);
-    await expect(sortSelect).toHaveValue("popular");
+    await expect(allSortChip(page)).toHaveAttribute("aria-selected", "true");
+    await expect(allSortChip(page)).toContainText(/인기순|Popular/);
     const popularFeed = await feedPopularP;
-    await page.getByRole("tab", { name: /^(홈|Home)$/i }).first().click();
-    await expect(page.getByRole("tab", { name: /^(홈|Home)$/i }).first()).toHaveAttribute("aria-selected", "true");
-    await expect(allSortSelect(page)).toHaveCount(0);
+    await clickLatestTab(page);
+    await expect(latestSortTab(page)).toHaveAttribute("aria-selected", "true");
+    await expect(allSortChip(page)).toContainText(/최신순|Latest/);
     results.push({
       case: "APP_B",
       pass: true,
@@ -344,7 +346,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
   const n = await topicTabs.count();
   for (let i = 0; i < n; i += 1) {
     const t = (await topicTabs.nth(i).innerText()).trim();
-    if (t && !/^(홈|Home|전체|All|동네|Local|인기|Popular)/i.test(t)) tabLabels.push(t);
+    if (t && !/^(최신순|Latest|인기순|Popular|동네|Local|홈|Home|전체|All|인기)/i.test(t)) tabLabels.push(t);
   }
   if (tabLabels.length < 1) {
     failFirstBreak({
@@ -446,12 +448,12 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     const list = page.locator("main");
     const text = await list.innerText();
     const regionBlocked = /동네를 먼저 설정해 주세요|Set your neighborhood first/i.test(text);
-    const homeStillReachable = await page.getByRole("tab", { name: /홈|Home/i }).isVisible();
-    if (!homeStillReachable) {
+    const latestStillReachable = await latestSortTab(page).isVisible();
+    if (!latestStillReachable) {
       failFirstBreak({
         case: "APP_E",
-        expected: "Home/Topic/Popular still reachable when Local has no region",
-        actual: "Home tab missing",
+        expected: "Latest/Topic still reachable when Local has no region",
+        actual: "Latest tab missing",
         firstBreak: "Community shell collapsed on Local",
         rootAuthority: "Local-only region gate",
         file: "components/community/CommunityFeed.tsx",
@@ -474,22 +476,20 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         });
       }
     }
-    // Navigate away to Home to prove not community-wide blocked
-    const homeFeedP = waitNeighborhoodFeed(
+    // Navigate away to Latest to prove not community-wide blocked
+    const latestFeedP = waitNeighborhoodFeed(
       page,
-      (h) => !h.globalFeed && (h.sort === "recommended" || !h.sort),
+      (h) => h.globalFeed && (h.sort === "latest" || !h.sort),
       12_000
     ).catch(() => null);
-    await page.getByRole("tab", { name: /홈|Home/i }).click();
-    await page.waitForURL((u) => !u.searchParams.get("nav") || u.searchParams.get("nav") === "home", {
-      timeout: 15_000,
-    }).catch(() => {});
-    await expect(page.getByRole("tab", { name: /홈|Home/i })).toHaveAttribute("aria-selected", "true");
-    await homeFeedP;
+    await clickLatestTab(page);
+    await page.waitForURL(/nav=all/, { timeout: 15_000 }).catch(() => {});
+    await expect(latestSortTab(page)).toHaveAttribute("aria-selected", "true");
+    await latestFeedP;
     results.push({
       case: "APP_E",
       pass: true,
-      notes: regionBlocked ? "no-region CTA on Local; Home still works" : `local feed=${feedHit?.url ?? "n/a"}`,
+      notes: regionBlocked ? "no-region CTA on Local; Latest still works" : `local feed=${feedHit?.url ?? "n/a"}`,
     });
     writeEvidence("APP_E.json", { regionBlocked, feedHit, url: page.url() });
   }
@@ -501,9 +501,10 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
       (h) => h.globalFeed === true && h.sort === "popular",
       12_000
     ).catch(() => null);
-    await page.getByRole("tab", { name: /인기|Popular/i }).click();
-    await page.waitForURL(/nav=popular/, { timeout: 15_000 });
-    await expect(page.getByRole("tab", { name: /인기|Popular/i })).toHaveAttribute("aria-selected", "true");
+    await clickPopularSortTab(page);
+    await page.waitForURL(/sort=popular/, { timeout: 15_000 });
+    await expect(allSortChip(page)).toHaveAttribute("aria-selected", "true");
+    await expect(allSortChip(page)).toContainText(/인기순|Popular/);
     await assertOneRowNav(page);
     const feed = await feedP;
     if (feed) {
@@ -578,10 +579,7 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         (h) => h.globalFeed && h.sort === "popular",
         12_000
       ).catch(() => null);
-      await clickAllTab(page);
-      await page.waitForURL(/nav=all/, { timeout: 15_000 });
-      const sortSelect = allSortSelect(page);
-      await sortSelect.selectOption("popular");
+      await clickPopularSortTab(page);
       await page.waitForURL(/sort=popular/, { timeout: 15_000 });
       await allPopularP;
       const card2 = communityFeedCards(page).first();
@@ -590,11 +588,8 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
         await page.waitForTimeout(600);
         await page.goBack();
         await page.waitForTimeout(600);
-        await expect(page.getByRole("tab", { name: /^(전체|All)$/i }).first()).toHaveAttribute(
-          "aria-selected",
-          "true"
-        );
-        await expect(allSortSelect(page)).toHaveValue("popular");
+        await expect(allSortChip(page)).toHaveAttribute("aria-selected", "true");
+        await expect(allSortChip(page)).toContainText(/인기순|Popular/);
       }
       results.push({ case: "APP_G", pass: true, notes: `topic back + all popular back; beforeCat=${before?.category ?? ""}` });
       writeEvidence("APP_G.json", { before, url: page.url() });
@@ -603,29 +598,26 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
 
   // ── APP H: Bottom tab return ──
   {
-    await clickAllTab(page);
-    await page.waitForURL(/nav=all/, { timeout: 15_000 });
-    const sortSelect = allSortSelect(page);
-    await sortSelect.selectOption("popular");
+    await clickPopularSortTab(page);
     await page.waitForURL(/sort=popular/, { timeout: 15_000 });
     await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
     await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
-    await page.waitForURL(/nav=all/, { timeout: 20_000 }).catch(() => {});
+    await page.waitForURL(/sort=popular/, { timeout: 20_000 }).catch(() => {});
     await page.waitForTimeout(800);
     const url = page.url();
-    const allSelected =
-      (await page.getByRole("tab", { name: /^(전체|All)$/i }).first().getAttribute("aria-selected")) === "true";
-    const sortVal = await allSortSelect(page).inputValue().catch(() => "");
-    if (!allSelected || sortVal !== "popular") {
+    const popularSelected =
+      (await allSortChip(page).getAttribute("aria-selected")) === "true" &&
+      /인기순|Popular/i.test((await allSortChip(page).innerText()).trim());
+    if (!popularSelected) {
       failFirstBreak({
         case: "APP_H",
-        expected: "All + popular restored after leaving Community tab",
-        actual: `url=${url} allSelected=${allSelected} sort=${sortVal}`,
+        expected: "Popular-sort restored after leaving Community tab",
+        actual: `url=${url} popularSelected=${popularSelected}`,
         firstBreak: "hub state not restored on Community remount",
         rootAuthority: "community_hub_state_v1",
         file: "components/community/CommunityFeed.tsx",
-        why: "Bottom tab return must keep All+popular",
+        why: "Bottom tab return must keep popular sort",
         scopeOfFix: "hub state restore — after approval",
       });
     }
@@ -995,23 +987,24 @@ test("COMMUNITY IA Runtime APP A–H + ADMIN A–F", async ({ page, request }) =
     for (let i = 0; i < (await tabs.count()); i += 1) {
       labels.push((await tabs.nth(i).innerText()).trim());
     }
-    const homeIdx = labels.findIndex((l) => /^(홈|Home)/i.test(l));
-    const allIdx = labels.findIndex((l) => /^(전체|All)/i.test(l));
+    await expect(latestSortTab(page)).toBeVisible();
+    await openAllSortMenu(page);
+    await expect(popularSortOption(page)).toBeVisible();
+    await page.keyboard.press("Escape");
     const localIdx = labels.findIndex((l) => /^(동네|Local)/i.test(l));
-    const popularIdx = labels.findIndex((l) => /^(인기|Popular)/i.test(l));
-    if (homeIdx < 0 || allIdx < 0 || localIdx < 0 || popularIdx < 0 || allIdx <= homeIdx || localIdx <= allIdx) {
+    if (localIdx < 0) {
       failFirstBreak({
         case: "ADMIN_C",
-        expected: "Home | All | …topics… | Local | Popular one-row nav",
+        expected: "…topics… | Local in swipe strip (sort dropdown fixed)",
         actual: `labels=${labels.join(" | ")}`,
         firstBreak: "nav chrome missing after order patch",
         rootAuthority: "composeCommunityNavItems",
         file: "lib/community/community-nav.ts",
-        why: "Need Home/All/topics/Local/Popular frame to compare topic order",
+        why: "Need topics/Local swipe frame to compare topic order",
         scopeOfFix: "nav chrome — after approval",
       });
     }
-    const appTopicLabels = labels.slice(allIdx + 1, localIdx);
+    const appTopicLabels = labels.slice(0, localIdx);
     const apiNorm = apiTopicLabels.map((x) => x.toLowerCase());
     const appNorm = appTopicLabels.map((x) => x.toLowerCase());
     if (apiNorm.length === 0 || apiNorm.join("|") !== appNorm.join("|")) {

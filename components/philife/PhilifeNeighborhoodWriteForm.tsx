@@ -789,14 +789,14 @@ export function PhilifeNeighborhoodWriteForm({
         const mid = typeof j.meetingId === "string" && j.meetingId.trim() ? j.meetingId.trim() : null;
         router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
       } else {
-        // Return to Community hub with same topic (or Home when none).
+        // Return to Community hub with same topic (or Latest when none).
         const topic =
           category && category !== "meetup" ? category.trim().toLowerCase() : "";
         router.replace(
           buildCommunityFeedHref(philifeAppPaths.home, {
             selection: topic
               ? { kind: "topic", topicSlug: topic, allSort: "latest" }
-              : { kind: "home", topicSlug: "", allSort: "latest" },
+              : { kind: "all", topicSlug: "", allSort: "latest" },
           })
         );
       }

@@ -1,21 +1,24 @@
 /**
- * Community 2단 Navigation composition SSOT.
+ * Community Navigation composition SSOT.
  *
- * CONTRACT:
- * - User sees ONE row: Home | All | Admin topics… | Local | Popular
- * - SYSTEM NAV (not community_topics rows): home | all | local | popular
+ * CONTRACT (2026-08-10 IA):
+ * - Fixed leading CTA: sort dropdown (최신순|인기순) → globalFeed all-topics (`kind: "all"` + allSort)
+ * - Swipeable row: Admin topics… | Local (HorizontalDragScroll)
+ * - SYSTEM NAV (not community_topics rows): all (sort) | local
  * - CONTENT TOPIC: community_topics via topic chips / category slug
- * - HOME → region-aware recommended (NOT global all-topics)
- * - ALL → globalFeed all topics + latest|popular dropdown
- * - DO NOT store home/all/local/popular as community_topics rows
+ * - Default entry = all + latest
+ * - DO NOT expose separate Home / All / Popular system chips
+ * - DO NOT store latest/popular/local as community_topics rows
+ * - Legacy `nav=home` / `nav=popular` / `sort=recommended` parse → all+latest|popular
  */
 
 import type { PhilifeFeedTopicChip } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { isPhilifeRecommendSortCategory } from "@/lib/philife/philife-feed-chips-from-topic-options";
 
+/** `home` / `popular` kept for legacy hub/URL absorb only — not composed as chips */
 export type CommunityNavKind = "home" | "all" | "topic" | "local" | "popular";
 
-/** ALL-only user sorts — maps to server feedSort */
+/** ALL list sorts — maps to server feedSort */
 export type CommunityAllSort = "latest" | "popular";
 
 export type CommunityNavSelection = {
@@ -27,11 +30,8 @@ export type CommunityNavSelection = {
 };
 
 export type CommunityNavComposeItem =
-  | { kind: "home" }
-  | { kind: "all" }
   | { kind: "topic"; slug: string; label: string; name_en: string | null }
-  | { kind: "local" }
-  | { kind: "popular" };
+  | { kind: "local" };
 
 export type CommunityFeedQueryPlan = {
   /** API neighborhood-feed sort */
@@ -45,7 +45,7 @@ export type CommunityFeedQueryPlan = {
 };
 
 export function defaultCommunityNavSelection(): CommunityNavSelection {
-  return { kind: "home", topicSlug: "", allSort: "latest" };
+  return { kind: "all", topicSlug: "", allSort: "latest" };
 }
 
 export function normalizeCommunityAllSort(raw: string | null | undefined): CommunityAllSort {
@@ -56,12 +56,12 @@ export function normalizeCommunityAllSort(raw: string | null | undefined): Commu
 
 /**
  * Parse nav from URL.
- * - `nav=local|popular|all|home` wins over category/sort for those kinds
+ * - `nav=local` → local
+ * - `nav=all` + sort → all+latest|popular
+ * - Legacy `nav=home` / `sort=recommended` → all+latest
+ * - Legacy `nav=popular` / bare `sort=popular` → all+popular
  * - `category` (real topic) → topic
- * - Legacy `sort=popular` without nav → popular
- * - Legacy `sort=latest` without nav/category → all+latest (was wrongly on home)
- * - Legacy `sort=recommended` without nav → home
- * - Default → home
+ * - Default → all+latest
  */
 export function parseCommunityNavFromSearchParams(
   searchParams: URLSearchParams | { get(name: string): string | null }
@@ -74,22 +74,6 @@ export function parseCommunityNavFromSearchParams(
   if (navRaw === "local" || modeRaw === "local") {
     return { kind: "local", topicSlug: "", allSort: "latest" };
   }
-  if (navRaw === "popular" || modeRaw === "popular") {
-    return { kind: "popular", topicSlug: "", allSort: "latest" };
-  }
-  if (!navRaw && !modeRaw && sortRaw === "popular" && !categoryRaw) {
-    return { kind: "popular", topicSlug: "", allSort: "latest" };
-  }
-  if (navRaw === "all") {
-    return {
-      kind: "all",
-      topicSlug: "",
-      allSort: normalizeCommunityAllSort(sortRaw),
-    };
-  }
-  if (navRaw === "home") {
-    return { kind: "home", topicSlug: "", allSort: "latest" };
-  }
 
   if (categoryRaw && !isPhilifeRecommendSortCategory(categoryRaw)) {
     return {
@@ -97,6 +81,27 @@ export function parseCommunityNavFromSearchParams(
       topicSlug: categoryRaw,
       allSort: "latest",
     };
+  }
+
+  /** Legacy popular chip / mode → all+popular */
+  if (navRaw === "popular" || modeRaw === "popular") {
+    return { kind: "all", topicSlug: "", allSort: "popular" };
+  }
+  if (!navRaw && !modeRaw && sortRaw === "popular" && !categoryRaw) {
+    return { kind: "all", topicSlug: "", allSort: "popular" };
+  }
+
+  if (navRaw === "all") {
+    return {
+      kind: "all",
+      topicSlug: "",
+      allSort: normalizeCommunityAllSort(sortRaw),
+    };
+  }
+
+  /** Legacy home / recommended → all+latest */
+  if (navRaw === "home" || modeRaw === "home" || sortRaw === "recommended") {
+    return { kind: "all", topicSlug: "", allSort: "latest" };
   }
 
   if (!navRaw && !modeRaw && !categoryRaw) {
@@ -108,7 +113,7 @@ export function parseCommunityNavFromSearchParams(
     }
   }
 
-  return { kind: "home", topicSlug: "", allSort: "latest" };
+  return { kind: "all", topicSlug: "", allSort: "latest" };
 }
 
 export function communityNavToFeedQuery(sel: CommunityNavSelection): CommunityFeedQueryPlan {
@@ -120,20 +125,6 @@ export function communityNavToFeedQuery(sel: CommunityNavSelection): CommunityFe
         globalFeed: false,
         requiresRegion: true,
       };
-    case "popular":
-      return {
-        feedSort: "popular",
-        category: "",
-        globalFeed: true,
-        requiresRegion: false,
-      };
-    case "all":
-      return {
-        feedSort: sel.allSort === "popular" ? "popular" : "latest",
-        category: "",
-        globalFeed: true,
-        requiresRegion: false,
-      };
     case "topic":
       return {
         feedSort: "latest",
@@ -141,13 +132,29 @@ export function communityNavToFeedQuery(sel: CommunityNavSelection): CommunityFe
         globalFeed: true,
         requiresRegion: false,
       };
+    case "popular":
+      /** Legacy kind absorb */
+      return {
+        feedSort: "popular",
+        category: "",
+        globalFeed: true,
+        requiresRegion: false,
+      };
     case "home":
+      /** Legacy kind absorb → global latest (no recommended home surface) */
+      return {
+        feedSort: "latest",
+        category: "",
+        globalFeed: true,
+        requiresRegion: false,
+      };
+    case "all":
     default:
       return {
-        feedSort: "recommended",
+        feedSort: sel.allSort === "popular" ? "popular" : "latest",
         category: "",
-        globalFeed: false,
-        requiresRegion: true,
+        globalFeed: true,
+        requiresRegion: false,
       };
   }
 }
@@ -172,20 +179,21 @@ export function buildCommunityFeedSearchParams(input: {
   const sel = input.selection;
   if (sel.kind === "local") {
     sp.set("nav", "local");
-  } else if (sel.kind === "popular") {
-    sp.set("nav", "popular");
-  } else if (sel.kind === "all") {
-    sp.set("nav", "all");
-    if (sel.allSort === "popular") {
-      sp.set("sort", "popular");
-    } else {
-      sp.set("sort", "latest");
-    }
-  } else if (sel.kind === "home") {
-    sp.set("nav", "home");
   } else if (sel.kind === "topic") {
     const slug = sel.topicSlug.trim().toLowerCase();
     if (slug) sp.set("category", slug);
+  } else if (sel.kind === "all" || sel.kind === "home" || sel.kind === "popular") {
+    /** home/popular kinds serialize as all+sort */
+    const allSort =
+      sel.kind === "popular"
+        ? "popular"
+        : sel.kind === "home"
+          ? "latest"
+          : sel.allSort === "popular"
+            ? "popular"
+            : "latest";
+    sp.set("nav", "all");
+    sp.set("sort", allSort);
   }
 
   return sp;
@@ -202,7 +210,7 @@ export function buildCommunityFeedHref(
   return next ? `${pathname}?${next}` : pathname;
 }
 
-/** Compose ONE-row items: Home + All + content topics + Local + Popular */
+/** Compose ONE-row trailing/topic items: content topics + Local (Latest|Popular rendered in UI) */
 export function composeCommunityNavItems(
   topicChips: PhilifeFeedTopicChip[]
 ): CommunityNavComposeItem[] {
@@ -214,13 +222,14 @@ export function composeCommunityNavItems(
       label: (c.label ?? "").trim(),
       name_en: c.name_en ?? null,
     }));
-  return [{ kind: "home" }, { kind: "all" }, ...topics, { kind: "local" }, { kind: "popular" }];
+  return [...topics, { kind: "local" }];
 }
 
 export function communityNavSelectionKey(sel: CommunityNavSelection): string {
   if (sel.kind === "topic") return `topic:${sel.topicSlug}`;
   if (sel.kind === "all") return `all:${sel.allSort}`;
-  if (sel.kind === "home") return "home";
+  if (sel.kind === "popular") return "all:popular";
+  if (sel.kind === "home") return "all:latest";
   return sel.kind;
 }
 

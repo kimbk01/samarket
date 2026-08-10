@@ -58,7 +58,7 @@ export const PHILIFE_TOPIC_TAB_ROW_CLASS = [
   "overflow-x-auto border-b border-sam-border bg-sam-surface py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
 ].join(" ");
 
-/** 전역 정렬(최신순·추천순) 칩 — 피드 2단에서는 항상 `PILL_ACTIVE`만 씀(내부색·테두리가 선택과 동일하게 상시). */
+/** 전역 정렬(최신순·인기순) 드롭다운 칩 — `kind=all` 선택 시 `PILL_ACTIVE`(sam-primary / 브랜드 그린). */
 export const PHILIFE_TOPIC_TAB_PILL_IDLE =
   "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-muted transition-colors";
 

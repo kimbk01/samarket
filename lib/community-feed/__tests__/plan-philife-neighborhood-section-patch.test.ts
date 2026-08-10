@@ -34,7 +34,7 @@ describe("show_all_feed_tab PATCH writer isolation", () => {
       writeTopics: [],
     }).chips;
     const nav = composeCommunityNavItems(chips).map((i) => i.kind);
-    expect(nav).toEqual(["home", "all", "topic", "local", "popular"]);
+    expect(nav).toEqual(["topic", "local"]);
     expect(routeSrc).toContain("getPhilifeShowAllFeedTabServer");
     expect(routeSrc).toContain("show_all_feed_tab: show");
   });
@@ -67,12 +67,12 @@ describe("show_all_feed_tab PATCH writer isolation", () => {
     expect(routeSrc).not.toMatch(/show_all_feed_tab:\s*body\.show_all_feed_tab/);
   });
 
-  it("product feed plans unchanged (Home/All/Topic/Local/Popular + allSort)", () => {
+  it("product feed plans unchanged (Latest|Popular/Topic/Local + allSort)", () => {
     expect(communityNavToFeedQuery(parseCommunityNavFromSearchParams(new URLSearchParams("")))).toMatchObject({
-      feedSort: "recommended",
+      feedSort: "latest",
       category: "",
-      globalFeed: false,
-      requiresRegion: true,
+      globalFeed: true,
+      requiresRegion: false,
     });
     expect(
       communityNavToFeedQuery(parseCommunityNavFromSearchParams(new URLSearchParams("nav=all&sort=latest")))
@@ -82,7 +82,7 @@ describe("show_all_feed_tab PATCH writer isolation", () => {
     ).toMatchObject({ feedSort: "latest", category: "", globalFeed: true });
     expect(
       communityNavToFeedQuery(parseCommunityNavFromSearchParams(new URLSearchParams("nav=popular")))
-    ).toMatchObject({ feedSort: "popular", category: "" });
+    ).toMatchObject({ feedSort: "popular", category: "", globalFeed: true });
     expect(
       communityNavToFeedQuery(parseCommunityNavFromSearchParams(new URLSearchParams("nav=local")))
     ).toMatchObject({ requiresRegion: true, globalFeed: false });

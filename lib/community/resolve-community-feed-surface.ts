@@ -2,11 +2,11 @@
  * Community feed SURFACE SSOT — posts / chips / URL / Feed Banner share one result.
  *
  * CONTRACT (aligned to Community Nav SSOT + sold Feed Banner products):
- * - HOME nav → COMMUNITY_HOME (sold product)
- * - ALL nav → no Feed Banner (no sold All placement; do not borrow HOME)
+ * - ALL (Latest|Popular global list) → no Feed Banner (do not borrow HOME)
  * - TOPIC nav + topic_slug → COMMUNITY_TOPIC (sold product; community_topics slug authority)
  * - LOCAL nav → no Feed Banner (no sold Local placement; do not borrow HOME)
- * - POPULAR nav → no Feed Banner (no sold Popular placement; do not borrow HOME)
+ * - Legacy HOME kind → COMMUNITY_HOME (sold product; not reachable from current nav UI)
+ * - Legacy POPULAR kind → no Feed Banner
  * - DO NOT fallback HOME campaign into TOPIC (or reverse)
  * - DO NOT invent COMMUNITY_LOCAL / COMMUNITY_POPULAR placement enums/tables
  */
@@ -30,11 +30,11 @@ export type CommunityFeedAdSurface = {
 
 /**
  * @param feedCategoryKey — authoritative topic slug when nav=topic (synced chip/URL/state)
- * @param navKind — Community Nav selection kind (Home|Topic|Local|Popular)
+ * @param navKind — Community Nav selection kind (default all = Latest|Popular list)
  */
 export function resolveCommunityFeedSurface(
   feedCategoryKey: string,
-  navKind: CommunityNavKind = "home"
+  navKind: CommunityNavKind = "all"
 ): CommunityFeedAdSurface {
   if (navKind === "local") {
     return {
@@ -79,6 +79,7 @@ export function resolveCommunityFeedSurface(
     };
   }
 
+  /** Legacy home kind only */
   return {
     placement: "COMMUNITY_HOME",
     topicSlug: undefined,
