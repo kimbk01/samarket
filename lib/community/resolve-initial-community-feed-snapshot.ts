@@ -101,7 +101,7 @@ export function isSameCommunityTopicOptionsAuthority(
 ): boolean {
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
-  if ((a.showAllFeedTab !== false) !== (b.showAllFeedTab !== false)) return false;
+  /** `showAllFeedTab` is bridge-only under Community Nav SSOT — do not treat as authority. */
   if ((a.showNeighborOnlyFilter !== false) !== (b.showNeighborOnlyFilter !== false)) return false;
   const ac = buildFeedChipsFromPhilifeTopicOptionsJson(a).chips;
   const bc = buildFeedChipsFromPhilifeTopicOptionsJson(b).chips;

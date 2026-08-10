@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import {
+  applyAdminTopicPatchSortMetadata,
+  assertAdminTopicSlugNotSortSlot,
+} from "@/lib/community-feed/admin-topic-sort-metadata-contract";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
-import { parseCommunityTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -62,28 +65,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!newSlug || newSlug.length < 2) {
       return NextResponse.json({ ok: false, error: "invalid_slug" }, { status: 400 });
     }
+    const slugGate = assertAdminTopicSlugNotSortSlot(newSlug);
+    if (!slugGate.ok) {
+      return NextResponse.json({ ok: false, error: slugGate.error }, { status: 400 });
+    }
     patch.slug = newSlug;
   }
   if (typeof body.sort_order === "number") patch.sort_order = body.sort_order;
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
   if (typeof body.is_visible === "boolean") patch.is_visible = body.is_visible;
-  if (typeof body.is_feed_sort === "boolean") {
-    patch.is_feed_sort = body.is_feed_sort;
-    if (body.is_feed_sort === false) {
-      patch.feed_sort_mode = null;
-    } else if (body.feed_sort_mode === undefined) {
-      patch.feed_sort_mode = "popular";
-    }
-  }
-  if (body.feed_sort_mode !== undefined) {
-    const p = parseCommunityTopicFeedSortMode(body.feed_sort_mode);
-    if (p === "popular" || p === "recommended") {
-      patch.feed_sort_mode = p;
-      patch.is_feed_sort = true;
-    } else if (body.feed_sort_mode === null) {
-      patch.feed_sort_mode = null;
-      patch.is_feed_sort = false;
-    }
+  const sortMeta = applyAdminTopicPatchSortMetadata(body, patch);
+  if (!sortMeta.ok) {
+    return NextResponse.json({ ok: false, error: sortMeta.error }, { status: 400 });
   }
   if (typeof body.allow_question === "boolean") patch.allow_question = body.allow_question;
   if (typeof body.allow_meetup === "boolean") patch.allow_meetup = body.allow_meetup;

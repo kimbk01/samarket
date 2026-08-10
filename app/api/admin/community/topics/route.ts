@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
+import {
+  adminTopicCreateSortMetadata,
+  assertAdminTopicSlugNotSortSlot,
+} from "@/lib/community-feed/admin-topic-sort-metadata-contract";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
-import { parseCommunityTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -55,18 +58,16 @@ export async function POST(req: NextRequest) {
   if (!section_id) return NextResponse.json({ ok: false, error: "section_id_required" }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, error: "name_required" }, { status: 400 });
   if (!slug || slug.length < 2) return NextResponse.json({ ok: false, error: "invalid_slug" }, { status: 400 });
+  const slugGate = assertAdminTopicSlugNotSortSlot(slug);
+  if (!slugGate.ok) {
+    return NextResponse.json({ ok: false, error: slugGate.error }, { status: 400 });
+  }
 
   const sort_order = typeof body.sort_order === "number" ? body.sort_order : 0;
   const is_active = body.is_active !== false;
   const is_visible = body.is_visible !== false;
-  const is_feed_sort = !!body.is_feed_sort;
-  const feedSortParsed = parseCommunityTopicFeedSortMode(body.feed_sort_mode);
-  const feed_sort_mode: "popular" | "recommended" | null =
-    is_feed_sort
-      ? feedSortParsed === "recommended" || feedSortParsed === "popular"
-        ? feedSortParsed
-        : "popular"
-      : null;
+  /** Community Nav SSOT — Admin Topics create never writes legacy sort-slot metadata */
+  const { is_feed_sort, feed_sort_mode } = adminTopicCreateSortMetadata();
   const allow_question = body.allow_question !== false;
   const allow_meetup = !!body.allow_meetup;
   const color = body.color != null && String(body.color).trim() ? String(body.color).trim().slice(0, 32) : null;
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
     is_active,
     is_visible,
     is_feed_sort,
-    feed_sort_mode: is_feed_sort ? feed_sort_mode : null,
+    feed_sort_mode,
     allow_question,
     allow_meetup,
     color,

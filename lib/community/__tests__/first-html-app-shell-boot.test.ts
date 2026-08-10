@@ -112,6 +112,22 @@ describe("first-html + single snapshot boot", () => {
     ).toBe(false);
   });
 
+  it("treats showAllFeedTab-only difference as same authority (bridge, not decision)", () => {
+    const a = {
+      ok: true,
+      showAllFeedTab: false,
+      feedChips: [{ slug: "philippines", name: "필리핀생활" }],
+      writeTopics: [],
+    };
+    const b = {
+      ok: true,
+      showAllFeedTab: true,
+      feedChips: [{ slug: "philippines", name: "필리핀생활" }],
+      writeTopics: [],
+    };
+    expect(isSameCommunityTopicOptionsAuthority(a, b)).toBe(true);
+  });
+
   it("treats same slug with different display name as different authority (Admin rename)", () => {
     const a = {
       ok: true,
