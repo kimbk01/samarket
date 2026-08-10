@@ -26,12 +26,11 @@ import { buildMypageAddressesHref, parseStoreIdFromReturnTo } from "@/lib/addres
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
 import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import {
-  MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS,
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
-import { ADDR_BOTTOM_INNER } from "@/lib/ui/address-flow-viber";
+import { ADDR_CONTENT_COLUMN } from "@/lib/ui/address-flow-viber";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { AddressDesignationDupConfirmModal } from "@/components/addresses/AddressDesignationDupConfirmModal";
 import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
@@ -936,6 +935,11 @@ export function AddressEditorSheet(props: {
     </div>
   );
 
+  /**
+   * Bottom inset SSOT: `effectiveBottomInset` only (closed → safeBottom; open → occlusion).
+   * DO NOT stack `safe-area-pb` / `var(--safe-bottom)` outside this when keyboard can open —
+   * that recreated Address page blank_gap under IME (Android resize).
+   */
   const editorFooter = (
     <div
       data-form-keyboard-footer="1"
@@ -945,11 +949,11 @@ export function AddressEditorSheet(props: {
           ? "w-full min-w-0 space-y-2"
           : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pt-3 sm:px-4"
       }
-      style={
-        layout === "page"
-          ? undefined
-          : { paddingBottom: `${Math.max(8, effectiveBottomInset)}px` }
-      }
+      style={{
+        paddingBottom: `${
+          layout === "page" ? effectiveBottomInset : Math.max(8, effectiveBottomInset)
+        }px`,
+      }}
     >
       {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
       <div className="flex flex-col gap-2">
@@ -1052,9 +1056,10 @@ export function AddressEditorSheet(props: {
     const pageRootClass = storesGreenHeader
       ? "delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[color:var(--delivery-bg-main)]"
       : MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS;
+    /** No `safe-area-pb` here — bottom reserve is only `effectiveBottomInset` on editorFooter. */
     const pageFooterWrapClass = storesGreenHeader
-      ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] safe-area-pb"
-      : MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS;
+      ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]"
+      : "z-30 w-full min-w-0 shrink-0 border-t border-sam-primary-border/50 bg-sam-surface";
 
     return (
       <>
@@ -1080,7 +1085,7 @@ export function AddressEditorSheet(props: {
               <div className={pageScrollInnerClass}>{editorScrollBody}</div>
             </div>
             <div className={pageFooterWrapClass}>
-              <div className={ADDR_BOTTOM_INNER}>{editorFooter}</div>
+              <div className={`flex flex-col gap-2 pt-3 ${ADDR_CONTENT_COLUMN}`}>{editorFooter}</div>
             </div>
           </div>
         </div>
