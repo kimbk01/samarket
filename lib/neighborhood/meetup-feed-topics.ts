@@ -29,15 +29,15 @@ export function qualifiesForPhilifeMeetupAdminList(
   );
 }
 
-/** 어드민 「일반 게시판」 탭 — 동일 섹션에서 모임 목록에 안 나가는 주제만 */
+/** 어드민 「일반 게시판」 탭 — 동일 섹션에서 meetup 전용(`allow_meetup`)이 아닌 주제만 */
 export function qualifiesForPhilifeGeneralAdminList(
   allowMeetup: boolean,
-  topicSlug: string,
+  _topicSlug: string,
   sectionSlug: string | null | undefined,
   philifeNeighborhoodSectionSlug: string
 ): boolean {
   if (!topicBelongsToPhilifeNeighborhoodSection(sectionSlug, philifeNeighborhoodSectionSlug)) return false;
-  return !allowMeetup || isPhilifeGeneralOnlyTopicSlug(topicSlug);
+  return !allowMeetup;
 }
 
 /**

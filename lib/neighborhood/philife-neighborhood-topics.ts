@@ -348,7 +348,7 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
 
 /**
  * `/philife/write` 일반(동네) 글 — `POST /api/.../neighborhood-posts` + `resolveTopicForNeighborhoodCategory` 와 동일.
- * - `is_visible` + `isPhilifeNeighborhoodWriteEligibleRow` — 정렬 **탭 slug**(`popular`·`recommend*`)만 제외. `is_feed_sort` DB 오류로 일반 주제를 막지 않음.
+ * - `is_visible` + writeEligible (sort-slot / allow_meetup 제외). content slug allowlist 없음.
  */
 export function buildPhilifeWriteTopicOptionsFromTopics(
   topics: CommunityTopicDTO[]

@@ -9,15 +9,12 @@ import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
 import type { CommunityTopicAdminRow } from "@/lib/community-topics/server";
 import { normalizeFeedSlug, normalizeSectionSlug } from "@/lib/community-feed/constants";
 import type { CommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
-import {
-  qualifiesForPhilifeMeetupAdminList,
-  topicBelongsToPhilifeNeighborhoodSection,
-} from "@/lib/neighborhood/meetup-feed-topics";
+import { topicBelongsToPhilifeNeighborhoodSection } from "@/lib/neighborhood/meetup-feed-topics";
 
 /**
  * App 2-tier Community IA — 운영자에게는 「주제(content topics)」만 노출한다.
  * 인기/추천 정렬 시드(is_feed_sort)·모임(allow_meetup) 주제는 이 화면에서 만들 수 없고
- * 목록에도 나오지 않는다(앱이 실제로 보여주는 일반 주제만 관리).
+ * 목록에도 나오지 않는다 — Composer writeEligible 과 동일 SSOT (`!allow_meetup`).
  */
 const DEFAULT_FEED_LIST_SKIN: CommunityFeedListSkin = "compact_media";
 
@@ -56,12 +53,8 @@ export function AdminCommunityTopicsPage({
           return false;
         }
         if (t.is_feed_sort) return false;
-        return !qualifiesForPhilifeMeetupAdminList(
-          t.allow_meetup,
-          t.slug,
-          t.section_slug,
-          philifeNeighborhoodSectionSlug
-        );
+        if (t.allow_meetup) return false;
+        return true;
       }),
     [topics, philifeNeighborhoodSectionSlug]
   );

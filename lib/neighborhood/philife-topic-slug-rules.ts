@@ -1,11 +1,13 @@
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
 
 /**
- * 일반 필라이프 글쓰기 전용 주제 slug.
- * - 동네 카테고리 중 `meetup` 제외 전부
- * - 커스텀 시드(자유게시판 등)
+ * Meetup misconfig guard — NOT content write allowlist.
  *
- * DB에서 실수로 `allow_meetup=true`여도 모임 만들기·`/api/philife/meetup-feed-topics`·어드민「모임」탭에서 제외.
+ * If Admin marks a known content slug `allow_meetup=true` by mistake, that slug
+ * must not appear as a meetup-writer topic. Normal compose eligibility does **not**
+ * consult this set (community_topics.is_active/is_visible/allow_meetup + sort-slot).
+ *
+ * KEEP for meetup SPECIAL_BEHAVIOR only. Do not revive as content Topic authority.
  */
 const EXTRA_GENERAL_SLUGS = ["free", "board", "general", "talk"] as const;
 
@@ -32,24 +34,29 @@ export function isPhilifeGeneralOnlyTopicSlug(raw: string): boolean {
 }
 
 /**
- * 필라이프 상단 **인기·추천(정렬) 탭**에 쓰는 시드 slug — 일반 글 `community_posts.topic` 로는 쓰지 않음.
- * DB `is_feed_sort` 누락(레거시) 시에도 글쓰기 드롭다운에 `인기글`이 끼는 것을 막기 위함.
+ * Sort-tab seed slugs — never general compose topics.
+ * Defense when `is_feed_sort` is wrong in DB.
  */
 export function isPhilifeNeighborhoodSortSlotSlug(raw: string): boolean {
   const s = normalizeFeedSlug(raw);
   return s === "popular" || s === "recommend" || s === "recommended";
 }
 
-/** 모임 만들기 피드 주제로 노출 가능: allow_meetup 이고 일반 전용 slug 아님 */
+/** Meetup writer topics: DB `allow_meetup` + not a content-slug misconfig. */
 export function qualifiesForPhilifeMeetupWriterTopic(allowMeetup: boolean, slug: string): boolean {
   return allowMeetup && !isPhilifeGeneralOnlyTopicSlug(slug);
 }
 
 /**
- * `/philify/write` 일반 동네 글·`resolveTopicForNeighborhoodCategory`·주제 셀렉트.
- * - **글쓰기에서 빼는 것**은 `popular` / `recommend` / `recommended` **정렬 탭용 slug**뿐(아래). 인기/추천은 여기에만 해당.
- * - `is_feed_sort`만 보고 끄면, DB에 잘못 `true`가 박힌 **일반 주제(phlifee 등)**가 전부 셀렉트에서 사라짐 — 그래서 **슬롯 slug로만** 판단한다.
- * - `allow_meetup`+일반전용이 아닌 slug는 모임용으로 취급(글쓰기 일반 토픽에서 제외) — `question`·`free` 등 예외는 `isPhilifeGeneralOnlyTopicSlug`
+ * Canonical general write eligibility (Composer + `resolveTopicForNeighborhoodCategory`).
+ *
+ * SSOT for normal content Topics: `community_topics` (caller already requires
+ * is_active + is_visible). This helper only excludes system/special rows:
+ * - sort-slot seed slugs
+ * - meetup-dedicated rows (`allow_meetup`)
+ *
+ * DO NOT use PHILIFE_GENERAL_ONLY_TOPIC_SLUGS here — that would reintroduce a
+ * competing content-topic allowlist.
  */
 export function isPhilifeNeighborhoodWriteEligibleRow(
   allowMeetup: boolean,
@@ -57,6 +64,6 @@ export function isPhilifeNeighborhoodWriteEligibleRow(
   slug: string
 ): boolean {
   if (isPhilifeNeighborhoodSortSlotSlug(slug)) return false;
-  if (!allowMeetup) return true;
-  return isPhilifeGeneralOnlyTopicSlug(slug);
+  if (allowMeetup) return false;
+  return true;
 }

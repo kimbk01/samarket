@@ -3,8 +3,8 @@ import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/ph
 import { isPhilifeNeighborhoodWriteEligibleRow } from "@/lib/neighborhood/philife-topic-slug-rules";
 
 /**
- * 동네 일반 글 — `community_topics` 와 동기(어드민「일반 게시판」+ `buildPhilifeWriteTopicOptionsFromTopics`).
- * 모임 전용·정렬 전용은 제외, 일반 전용 slug(자유·질문 등)는 allow_meetup이어도 허용.
+ * 동네 일반 글 — `community_topics` SSOT + `buildPhilifeWriteTopicOptionsFromTopics`.
+ * Requires is_active + is_visible; excludes sort-slot + allow_meetup rows only.
  */
 export async function resolveTopicForNeighborhoodCategory(
   sb: SupabaseClient<any>,
