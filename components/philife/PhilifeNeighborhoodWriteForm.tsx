@@ -51,6 +51,8 @@ import {
   PHILIFE_WRITE_FORM_ROOT_CLASS,
   PHILIFE_WRITE_SCROLL_BODY_CLASS,
 } from "@/lib/ui/philife-write-fb-ui";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
@@ -161,6 +163,12 @@ export function PhilifeNeighborhoodWriteForm({
     [t]
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const writeScrollBodyRef = useRef<HTMLDivElement>(null);
+  const { effectiveViewportBottom } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({
+    scrollRootRef: writeScrollBodyRef,
+    effectiveViewportBottom,
+  });
   const [writeTopicOptions, setWriteTopicOptions] = useState<PhilifeNeighborhoodWriteTopicOption[]>([]);
   /** `writeTopicOptions.length === 0` 이 로딩 중인지·진짜 비어 있는지 구분 */
   const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
@@ -995,7 +1003,7 @@ export function PhilifeNeighborhoodWriteForm({
     "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden bg-white",
     COMMUNITY_FONT_CLASS,
     "text-[#050505]",
-    suppressWriteScreenTier1 ? "" : "min-h-screen",
+    suppressWriteScreenTier1 ? "" : "min-h-[100dvh]",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1021,7 +1029,11 @@ export function PhilifeNeighborhoodWriteForm({
         </div>
       ) : null}
 
-      <div className={scrollWrapClass}>
+      <div
+        ref={writeScrollBodyRef}
+        data-form-keyboard-scroll-root="1"
+        className={scrollWrapClass}
+      >
         <div className={suppressWriteScreenTier1 ? APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS : "w-full"}>
         <form id={PHILIFE_WRITE_FORM_ID} onSubmit={onSubmit} className={PHILIFE_WRITE_FORM_ROOT_CLASS}>
         {category === "meetup" ? (

@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 export const PHILIFE_WRITE_FORM_ID = "philife-neighborhood-write-form";
 
@@ -14,8 +14,8 @@ type PhilifeWriteActionFooterProps = {
 };
 
 /**
- * 거래 `SubmitButton` 과 동일 — 뷰포트 하단 고정 + visualViewport 키보드 inset.
- * (시트·풀페이지 공통; 메인 BottomNav 는 시트 열릴 때 셸에서 숨김)
+ * Form CTA — flex footer (not fixed) so transform sheet containing-block cannot
+ * fight window visualViewport. Bottom padding = Form SSOT `effectiveBottomInset` only.
  */
 export function PhilifeWriteActionFooter({
   busy,
@@ -24,15 +24,17 @@ export function PhilifeWriteActionFooter({
   error,
 }: PhilifeWriteActionFooterProps) {
   const { t } = useI18n();
-  const keyboardInset = useMobileKeyboardInset();
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
 
   return (
     <div
       role="contentinfo"
       aria-label={t("philife_write_footer_aria")}
-      className="fixed bottom-0 left-0 right-0 z-[55] border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+      data-form-keyboard-footer="1"
+      data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+      className="shrink-0 border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
       style={{
-        paddingBottom: `calc(var(--safe-bottom) + ${keyboardInset}px)`,
+        paddingBottom: `${effectiveBottomInset}px`,
       }}
     >
       {error ? (

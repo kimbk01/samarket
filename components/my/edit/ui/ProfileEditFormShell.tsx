@@ -9,16 +9,20 @@ import {
   PROFILE_EDIT_ROW_DIVIDER_CLASS,
 } from "@/lib/ui/profile-edit-starbucks-styles";
 import { SECTOR_HEADER_CONTENT_TOP_PAD_CLASS } from "@/lib/ui/sector-header-classes";
-import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+
+/** Footer chrome (~py-3 + 44px buttons) — reserved in scroll so last fields clear CTA. */
+const PROFILE_EDIT_FOOTER_CHROME_PX = 88;
 
 export function ProfileEditFormShell({ children }: { children: ReactNode }) {
-  const keyboardInset = useMobileKeyboardInset();
+  const { effectiveBottomInset } = useFormKeyboardViewport();
 
   return (
     <div
+      data-form-keyboard-scroll-root="1"
       className={`${PROFILE_EDIT_BODY_CLASS} ${PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS} ${SECTOR_HEADER_CONTENT_TOP_PAD_CLASS} space-y-3`}
       style={{
-        paddingBottom: `calc(5.5rem + var(--safe-bottom) + ${keyboardInset}px)`,
+        paddingBottom: `${PROFILE_EDIT_FOOTER_CHROME_PX + effectiveBottomInset}px`,
       }}
     >
       {children}

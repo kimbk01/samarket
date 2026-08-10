@@ -15,6 +15,9 @@ export const PHILIFE_WRITE_SELECT_CLASS =
 /** 글쓰기 폼 루트 — 섹션 자체에 구분선·패딩 */
 export const PHILIFE_WRITE_FORM_ROOT_CLASS = "min-w-0 w-full max-w-full space-y-0 py-0";
 
-/** 스크롤 본문 — 고정 하단 취소·등록 바 높이만큼 여백 */
+/**
+ * 스크롤 본문 — flex footer(CTA)가 같은 column에 있으므로 fixed-footer reserve 금지.
+ * (이전: fixed CTA 높이+safe 를 scroll pb 로 이중 reserve → keyboard blank gap)
+ */
 export const PHILIFE_WRITE_SCROLL_BODY_CLASS =
-  "min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4.75rem+var(--safe-bottom))]";
+  "min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-3";

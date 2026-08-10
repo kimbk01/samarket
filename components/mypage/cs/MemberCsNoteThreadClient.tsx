@@ -12,6 +12,8 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 
 type Message = {
   id: string;
@@ -27,6 +29,8 @@ type Thread = {
 
 export function MemberCsNoteThreadClient({ kind }: { kind: MemberAdminNoteKind }) {
   const { t, language, safeT } = useI18n();
+  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const params = useParams();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
@@ -133,7 +137,12 @@ export function MemberCsNoteThreadClient({ kind }: { kind: MemberAdminNoteKind }
               </li>
             ))}
           </ul>
-          <div className="sticky bottom-0 border-t border-sam-border bg-sam-app pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+          <div
+            data-form-keyboard-footer="1"
+            data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+            className="sticky bottom-0 border-t border-sam-border bg-sam-app pt-2"
+            style={{ paddingBottom: `${Math.max(8, effectiveBottomInset)}px` }}
+          >
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}

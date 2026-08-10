@@ -11,6 +11,8 @@ import {
   CM_SEGMENT_ACTIVE_CLASS,
   CM_SEGMENT_IDLE_CLASS,
 } from "@/lib/community/community-ui-classes";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 
 export type CommentSortMode = "thread" | "newest";
 
@@ -78,6 +80,11 @@ export function CommunityCommentSection({
   composer = null,
 }: Props) {
   const { t } = useI18n();
+  const { effectiveViewportBottom } = useFormKeyboardViewport({ enabled: Boolean(composer) });
+  useFormKeyboardFocusVisibility({
+    enabled: Boolean(composer),
+    effectiveViewportBottom,
+  });
   const [sortMode, setSortMode] = useState<CommentSortMode>("thread");
   const [replyOpenCommentId, setReplyOpenCommentId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);

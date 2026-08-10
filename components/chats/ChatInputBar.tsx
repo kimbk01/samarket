@@ -16,7 +16,7 @@ import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePi
 import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import {
   MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
   MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
@@ -92,8 +92,12 @@ function ChatInputBarInner({
     () => Math.max(1, getAppSettings().maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH),
     []
   );
-  const keyboardInsetPx = useMobileKeyboardInset();
-  const composerBottomPadPx = Math.max(8, keyboardInsetPx);
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
+  /** Form/legacy composer SSOT — never safe-bottom + occlusion. Closed keeps small chrome floor. */
+  const composerBottomPadPx = Math.max(
+    keyboardOpen ? 0 : MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
+    effectiveBottomInset
+  );
   const hasText = !!text.trim();
   const inputLocked = !!disabled || imageSending;
 
@@ -240,16 +244,17 @@ function ChatInputBarInner({
 
   if (ig) {
     const instagramFooterBottomPx =
-      Math.max(MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX, composerBottomPadPx) +
-      MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX;
+      composerBottomPadPx + (keyboardOpen ? 0 : MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX);
 
     return (
       <>
         <footer
           data-delivery-composer-host
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
           className="delivery-ui relative w-full shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
           style={{
-            paddingBottom: `calc(var(--safe-bottom) + ${instagramFooterBottomPx}px)`,
+            paddingBottom: `${instagramFooterBottomPx}px`,
           }}
         >
           {onImageFilesSelected ? (
@@ -363,8 +368,10 @@ function ChatInputBarInner({
   return (
     <>
     <div
-      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center bg-sam-surface safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
-      style={{ paddingBottom: `calc(var(--safe-bottom) + ${composerBottomPadPx}px)` }}
+      data-form-keyboard-footer="1"
+      data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center bg-sam-surface ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
+      style={{ paddingBottom: `${composerBottomPadPx}px` }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
       {showEmojiButton && emojiOpen && (

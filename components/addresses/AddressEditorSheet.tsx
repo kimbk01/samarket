@@ -45,6 +45,7 @@ import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 type Mode = "create" | "edit";
 
@@ -89,6 +90,7 @@ export function AddressEditorSheet(props: {
     returnTo = "",
   } = props;
   const { t } = useI18n();
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport({ enabled: open });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -936,10 +938,17 @@ export function AddressEditorSheet(props: {
 
   const editorFooter = (
     <div
+      data-form-keyboard-footer="1"
+      data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       className={
         layout === "page"
           ? "w-full min-w-0 space-y-2"
-          : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pb-[max(0.5rem,var(--safe-bottom))] pt-3 sm:px-4"
+          : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pt-3 sm:px-4"
+      }
+      style={
+        layout === "page"
+          ? undefined
+          : { paddingBottom: `${Math.max(8, effectiveBottomInset)}px` }
       }
     >
       {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}

@@ -5,6 +5,7 @@ import {
   readSamarketShellKeyboardBottomInsetCssPx,
   subscribeSamarketShellKeyboardInsets,
 } from "@/lib/platform/samarket-shell-keyboard";
+import { resolveFormKeyboardOcclusionInsetPx } from "@/lib/ui/form-keyboard-viewport-contract";
 
 type UseMobileKeyboardInsetOptions = {
   /** false 면 측정·리스너를 붙이지 않고 0 유지 (입장 직후 composer 경량화) */
@@ -26,11 +27,13 @@ type UseMobileKeyboardInsetOptions = {
 };
 
 /**
- * 모바일 가상 키보드가 레이아웃 viewport 하단을 가리는 높이(px)를 추정한다.
+ * Legacy numeric keyboard occlusion (px).
+ * Prefer `useFormKeyboardViewport().effectiveBottomInset` for Form CTAs —
+ * that API already merges safe vs keyboard and forbids double-count.
  *
- * - Safari 등에서 키보드 시 `innerHeight`/`100dvh` 가 이미 줄어든 경우, `visualViewport` 와
- *   맞춰져 있으면 **0**을 반환해 이중 패딩(입력창이 키보드 위로 뜨는 빈 공간)을 막는다.
- * - 레이아웃 높이는 그대로인 경우에만 `innerHeight - (vv.height + vv.offsetTop)` 만큼 반환한다.
+ * This hook returns **occlusion only** (0 when layout already resized / adjustResize).
+ * Callers that still do `safe-bottom + inset` on Android will over-pad if they ignore
+ * Form SSOT — migrate those callers.
  */
 export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions): number {
   const enabled = options?.enabled !== false;
@@ -51,29 +54,17 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
     const vv = window.visualViewport;
 
     const measure = () => {
-      /** 네이티브·WebView 셸이 있으면 `visualViewport` 보다 우선 (기기별 키보드 정확도) */
-      const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
-      if (shellInset != null) {
-        setInset(shellInset);
-        return;
-      }
       if (disableOverlapEstimate) {
         setInset(0);
         return;
       }
-      if (!vv) {
-        setInset(0);
-        return;
-      }
-      const inner = window.innerHeight;
-      const vvBottom = vv.height + vv.offsetTop;
-      // 레이아웃이 이미 시각 viewport에 맞춤 → 추가 inset 불필요
-      if (inner <= vvBottom + layoutAlignedSlackPx) {
-        setInset(0);
-        return;
-      }
-      const overlap = Math.max(0, inner - vvBottom);
-      setInset(overlap >= minObscuredPx ? Math.round(overlap) : 0);
+      setInset(
+        resolveFormKeyboardOcclusionInsetPx({
+          nativeShellInsetPx: readSamarketShellKeyboardBottomInsetCssPx(),
+          layoutAlignedSlackPx,
+          minOcclusionPx: minObscuredPx,
+        })
+      );
     };
 
     measure();
@@ -97,4 +88,3 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
 
   return inset;
 }
-
