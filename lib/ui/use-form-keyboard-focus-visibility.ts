@@ -124,6 +124,21 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     window.addEventListener("resize", onViewportGeometry);
     window.addEventListener("orientationchange", onViewportGeometry);
 
+    /**
+     * When `effectiveViewportBottom` updates (keyboard open/close), this effect
+     * re-subscribes and clears `activeFocused`. Re-bind the already-focused
+     * control so landscape IME resize does not leave it below the band.
+     */
+    const existing = document.activeElement;
+    if (isTextEntryTarget(existing)) {
+      const boundRoot = scrollRootRef?.current;
+      if (!boundRoot || boundRoot.contains(existing)) {
+        activeFocused = existing;
+        observeGrowth(existing);
+        scheduleRun(existing);
+      }
+    }
+
     return () => {
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
