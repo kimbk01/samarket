@@ -19,7 +19,7 @@ import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-err
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
-import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
+import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,13 +30,6 @@ function resolveMeetingEntryPolicy(meet: { entry_policy?: unknown; join_policy?:
   const raw = typeof meet.entry_policy === "string" ? meet.entry_policy.trim().toLowerCase() : "";
   if (raw === "approve" || raw === "password" || raw === "invite_only" || raw === "open") return raw;
   return meet.join_policy === "approve" ? "approve" : "open";
-}
-
-/** 리스트 요약 — 이미지 마크다운·단독 이미지/스토리지 URL 절대 노출 금지 */
-function summarize(text: string, max = 160): string {
-  const t = stripMarkdownImageSyntaxForFeedPreview(text);
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
 }
 
 export async function POST(req: NextRequest) {
@@ -340,7 +333,7 @@ export async function POST(req: NextRequest) {
       topic_slug: topicMeta.topicSlug,
       title,
       content,
-      summary: summarize(content),
+      summary: summarizeCommunityPostContent(content),
       region_label: locationName || city || "동네",
       location_id: locationId,
       category: categoryForDb,

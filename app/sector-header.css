@@ -431,6 +431,38 @@
   width: var(--sector-header-action-size);
 }
 
+/**
+ * 커뮤니티 헤더 우측: 글쓰기 · 지도 · 종.
+ * 동일 36px hit box, 6px 간격, 지도 핀 24:32 원본 비율 보존.
+ */
+.community-tier1-header-actions {
+  margin-left: auto;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.community-tier1-header-actions > button,
+.community-tier1-header-actions > a,
+.community-tier1-header-actions > .inline-flex,
+.community-tier1-header-actions > .relative {
+  width: var(--sector-header-action-size);
+  min-width: var(--sector-header-action-size);
+  height: var(--sector-header-action-size);
+  flex: 0 0 var(--sector-header-action-size);
+}
+
+/* 녹색 면적이 있는 연필은 2px 작게 잡아 지도·종과 광학 크기를 맞춤 */
+.community-tier1-header-actions .community-tier1-header-compose svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* AddressKindHeadPin viewBox 24×32 — 공통 svg 정사각 강제를 해제 */
+.community-tier1-header-actions .community-tier1-header-address svg {
+  width: 16.5px !important;
+  height: 22px !important;
+}
+
 @media (max-width: 374px) {
   :root {
     --sector-header-pad-x: 10px;
@@ -441,6 +473,20 @@
     --sector-header-back-icon: 21px;
     --sector-header-action-icon: 21px;
     --sector-header-title-size: 16px;
+  }
+
+  .community-tier1-header-actions {
+    gap: 5px;
+  }
+
+  .community-tier1-header-actions .community-tier1-header-compose svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .community-tier1-header-actions .community-tier1-header-address svg {
+    width: 15.75px !important;
+    height: 21px !important;
   }
 }
 

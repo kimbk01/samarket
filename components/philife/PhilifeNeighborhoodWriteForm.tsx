@@ -18,8 +18,8 @@ import {
   hasInterleavedMarkdownImageSyntax,
   interleavedMarkdownFromPastedHtml,
   isPlainClipboardMostlyImageUrls,
+  stripImageReferencesPreservingParagraphs,
   stripKnownImageUrlsFromText,
-  stripMarkdownImageSyntaxForFeedPreview,
   workItemsFromInterleavedMd,
 } from "@/lib/philife/interleaved-body-markdown";
 import {
@@ -379,9 +379,17 @@ export function PhilifeNeighborhoodWriteForm({
     if (imageFiles.length > 0) {
       e.preventDefault();
       const plainClip = cd.getData("text/plain") || "";
-      /** 파일 붙여넣기: 이미지 URL만 있는 plain 은 본문에 넣지 않음(리스트 URL 노출 방지) */
-      if (plainClip.trim() && !isPlainClipboardMostlyImageUrls(plainClip)) {
-        insertPlainAtSelection(stripMarkdownImageSyntaxForFeedPreview(plainClip));
+      const htmlClip = cd.getData("text/html") || "";
+      /**
+       * 이미지 파일+HTML 동시 클립보드가 일반적입니다.
+       * 파일 분기에서도 HTML을 먼저 본문으로 복원하고 이미지 참조만 제거합니다.
+       */
+      const richClip = htmlClip.trim()
+        ? interleavedMarkdownFromPastedHtml(htmlClip, plainClip)
+        : plainClip;
+      const pastedText = stripImageReferencesPreservingParagraphs(richClip);
+      if (pastedText && !isPlainClipboardMostlyImageUrls(pastedText)) {
+        insertPlainAtSelection(pastedText);
       }
       setUploading(true);
       setErr("");
@@ -435,7 +443,7 @@ export function PhilifeNeighborhoodWriteForm({
     let middle =
       useInterleaved && richMd
         ? richMd
-        : stripMarkdownImageSyntaxForFeedPreview(plain0 || "");
+        : stripImageReferencesPreservingParagraphs(plain0 || "");
     if (!middle.trim() && useInterleaved && richMd) {
       middle = richMd;
     }
@@ -583,7 +591,7 @@ export function PhilifeNeighborhoodWriteForm({
             ...urlPairs.map((p) => p.from),
             ...urlPairs.map((p) => p.to),
           ];
-          newMid = stripMarkdownImageSyntaxForFeedPreview(
+          newMid = stripImageReferencesPreservingParagraphs(
             stripKnownImageUrlsFromText(middle, leakSources)
           );
         }

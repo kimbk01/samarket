@@ -35,13 +35,7 @@ import {
 } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
-import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
-
-function summarize(text: string, max = 120): string {
-  const t = stripMarkdownImageSyntaxForFeedPreview(text);
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
-}
+import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 function countCsvSelectColumns(selectList: string): number {
   return selectList.split(",").map((c) => c.trim()).filter(Boolean).length;
@@ -479,7 +473,11 @@ export async function listNeighborhoodFeed(options: {
     if (imgs.length === 0 && meet?.cover_image_url) {
       imgs = [meet.cover_image_url];
     }
-    const summaryRaw = r.summary != null ? String(r.summary) : "";
+    /** DB summary만 읽는 hot path: 이미지 URL/깨진 마크다운을 응답에 다시 노출하지 않음 */
+    const summaryRaw = summarizeCommunityPostContent(
+      r.summary != null ? String(r.summary) : "",
+      160
+    );
     const content = summaryRaw;
     const isQuestion = Boolean(r.is_question);
     const isMeetupRow = Boolean(r.is_meetup);
@@ -500,7 +498,7 @@ export async function listNeighborhoodFeed(options: {
       meetup_place: meetupPlace,
       title: String(r.title ?? ""),
       content,
-      summary: summaryRaw || summarize(content),
+      summary: summaryRaw,
       location_id: String(r.location_id ?? (allLocations ? "" : lid)),
       location_label: locationLabel,
       images: imgs,
@@ -722,6 +720,10 @@ export async function getNeighborhoodPostDetail(
     imgs = [meetLink.cover_image_url];
   }
   const content = String(row.content ?? "");
+  const storedSummary = summarizeCommunityPostContent(
+    row.summary != null ? String(row.summary) : "",
+    160
+  );
   const isQuestion = Boolean(row.is_question);
   const isMeetupRow = Boolean(row.is_meetup);
   const meetupPlace = row.meetup_place != null && String(row.meetup_place).trim() !== "" ? String(row.meetup_place).trim() : null;
@@ -743,7 +745,7 @@ export async function getNeighborhoodPostDetail(
     meetup_place: meetupPlace,
     title: String(row.title ?? ""),
     content,
-    summary: row.summary != null ? String(row.summary) : summarize(content),
+    summary: storedSummary || summarizeCommunityPostContent(content, 160),
     location_id: String(row.location_id ?? ""),
     location_label: locationLabel,
     images: imgs,

@@ -10,6 +10,15 @@ const BARE_IMAGE_URL_RE =
   /https?:\/\/[^\s<>"'`)\]]+?\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s<>"'`)\]]*)?/gi;
 const POST_IMAGES_STORAGE_URL_RE =
   /https?:\/\/[^\s<>"'`)\]]+?\/storage\/v1\/object\/public\/post-images\/[^\s<>"'`)\]]+/gi;
+const TRUNCATED_MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\([^)]*$/g;
+
+function removeImageReferences(s: string): string {
+  return s
+    .replace(IMG_RE, " ")
+    .replace(TRUNCATED_MARKDOWN_IMAGE_RE, " ")
+    .replace(POST_IMAGES_STORAGE_URL_RE, " ")
+    .replace(BARE_IMAGE_URL_RE, " ");
+}
 
 /**
  * 피드 목록 등: 본문의 `![…](https…)` 및 단독 이미지/스토리지 URL을 미리보기에서 제거.
@@ -17,11 +26,29 @@ const POST_IMAGES_STORAGE_URL_RE =
  */
 export function stripMarkdownImageSyntaxForFeedPreview(s: string): string {
   if (!s) return "";
-  let t = s.replace(IMG_RE, " ");
-  t = t.replace(POST_IMAGES_STORAGE_URL_RE, " ");
-  t = t.replace(BARE_IMAGE_URL_RE, " ");
+  let t = removeImageReferences(s);
   t = t.replace(/\s+/g, " ").trim();
   return t;
+}
+
+/**
+ * 글쓰기 본문용: 이미지 참조만 제거하고 문단/줄바꿈은 보존합니다.
+ * 이미지 파일과 HTML이 함께 오는 클립보드에서도 텍스트 본문을 잃지 않게 합니다.
+ */
+export function stripImageReferencesPreservingParagraphs(s: string): string {
+  if (!s) return "";
+  return removeImageReferences(s)
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/ *\r?\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** 모든 community_posts writer/read path가 공유하는 리스트 요약 SSOT */
+export function summarizeCommunityPostContent(text: string, max = 160): string {
+  const plain = stripMarkdownImageSyntaxForFeedPreview(text);
+  if (plain.length <= max) return plain;
+  return `${plain.slice(0, max)}…`;
 }
 
 /** 알려진 이미지 URL(호스팅 결과 등)을 본문 텍스트에서 제거 */
@@ -36,7 +63,11 @@ export function stripKnownImageUrlsFromText(text: string, urls: string[]): strin
     if (!s.includes(u)) continue;
     s = s.split(u).join(" ");
   }
-  return s.replace(/\s+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return s
+    .replace(/[^\S\r\n]+/g, " ")
+    .replace(/ *\r?\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** plain 클립보드가 이미지 URL만인지 (파일 붙여넣기 시 본문에 넣지 않음) */

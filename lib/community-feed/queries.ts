@@ -18,7 +18,7 @@ import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
 import { parsePostgresBool } from "./parse-postgres-bool";
 import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
-import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
+import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 /** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
 export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
@@ -142,12 +142,6 @@ export async function listTopicsForSectionSlug(
   }
 }
 
-function summarize(text: string, max = 120): string {
-  const t = stripMarkdownImageSyntaxForFeedPreview(text);
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
-}
-
 export async function listCommunityFeedPosts(options: {
   sectionSlug: string;
   topicSlug?: string | null;
@@ -269,7 +263,10 @@ export async function listCommunityFeedPosts(options: {
       color?: string | null;
       feed_list_skin?: unknown;
     } | null;
-    const summaryRaw = r.summary != null ? String(r.summary) : "";
+    const summaryRaw = summarizeCommunityPostContent(
+      r.summary != null ? String(r.summary) : "",
+      160
+    );
     return {
       id: String(r.id),
       section_slug: String(r.section_slug ?? sectionSlug),
@@ -364,6 +361,10 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     feed_list_skin?: unknown;
   } | null;
   const content = String(row.content ?? "");
+  const storedSummary = summarizeCommunityPostContent(
+    row.summary != null ? String(row.summary) : "",
+    160
+  );
   const imgsRaw = row.community_post_images;
   const images = Array.isArray(imgsRaw)
     ? (imgsRaw as Record<string, unknown>[])
@@ -386,7 +387,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
     title: String(row.title ?? ""),
     content,
-    summary: row.summary != null ? String(row.summary) : summarize(content),
+    summary: storedSummary || summarizeCommunityPostContent(content, 160),
     region_label: String(row.region_label ?? ""),
     is_question: !!row.is_question,
     is_meetup: !!row.is_meetup,

@@ -39,7 +39,11 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
         titleAlign="left"
         title={segmentTitle}
         rightSlot={
-          <div className={samTier1HeaderIconCluster}>
+          <div
+            className={`${samTier1HeaderIconCluster} ${
+              isCommunityHome ? "community-tier1-header-actions" : ""
+            }`}
+          >
             {isCommunityHome ?
               <>
                 <PhilifeHeaderComposeButton />

@@ -28,7 +28,7 @@ export function PhilifeHeaderComposeButton() {
 /** 스타벅스 그린 사각 히트 — 커뮤니티 스코프 `--cm-primary` / 전역 폴백 `#006241` */
 const COMPOSE_BTN_CLASS = [
   SAM_TIER1_HEADER_ICON_HIT_CLASS,
-  "inline-flex shrink-0 items-center justify-center rounded-[9px]",
+  "community-tier1-header-compose inline-flex shrink-0 items-center justify-center rounded-[9px]",
   "bg-[var(--cm-primary,#006241)] text-white",
   "hover:bg-[var(--cm-primary-hover,#00754a)]",
   "disabled:opacity-50",

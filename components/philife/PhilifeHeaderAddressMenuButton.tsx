@@ -268,7 +268,7 @@ export function PhilifeHeaderAddressMenuButton({
       <button
         ref={buttonRef}
         type="button"
-        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} text-sam-primary active:bg-sam-primary/10`}
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} community-tier1-header-address text-sam-primary active:bg-sam-primary/10`}
         aria-label={t("philife_addr_open_menu_aria")}
         aria-expanded={open}
         onClick={toggleMenu}

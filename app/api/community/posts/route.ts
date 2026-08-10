@@ -19,15 +19,10 @@ import {
 } from "@/lib/http/api-route";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
+import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function summarize(text: string, max = 160): string {
-  const t = text.replace(/\s+/g, " ").trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
@@ -166,7 +161,7 @@ export async function POST(req: NextRequest) {
       topic_slug: topicSlug,
       title,
       content,
-      summary: summarize(content),
+      summary: summarizeCommunityPostContent(content),
       region_label,
       category: categoryForDb,
       images: [],
