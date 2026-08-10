@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import {
   ensureFormFocusVisibleInScrollRoot,
   findFormScrollRoot,
@@ -39,8 +39,9 @@ function resolveFocusedBandHeightPx(focused: HTMLElement): number {
  * scroll only when focused control is outside the visible band
  * (bottom occlusion OR top clipping). Never scrollIntoView(center).
  *
- * Re-runs on visualViewport resize so landscape keyboard open does not leave
- * a stale focus band from the pre-keyboard geometry.
+ * `effectiveViewportBottom` is read from a ref so keyboard open does not tear
+ * down listeners (and drop active focus). Settle retries cover Android resize
+ * reflow that can reset scrollTop after the first correction.
  */
 export function useFormKeyboardFocusVisibility(opts: Options): void {
   const enabled = opts.enabled !== false;
@@ -49,15 +50,27 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
   const scrollRootRef = opts.scrollRootRef;
   const stickyChromeRef = opts.stickyChromeRef;
 
+  const bottomRef = useRef(bottom);
+  bottomRef.current = bottom;
+  const gapRef = useRef(gap);
+  gapRef.current = gap;
+  const activeFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return;
-    if (!(bottom > 0)) return;
 
     let resizeRo: ResizeObserver | null = null;
     let observed: HTMLElement | null = null;
-    let activeFocused: HTMLElement | null = null;
+    const settleTimers: number[] = [];
+
+    const clearSettle = () => {
+      for (const id of settleTimers) window.clearTimeout(id);
+      settleTimers.length = 0;
+    };
 
     const run = (focused: HTMLElement) => {
+      const bandBottom = bottomRef.current;
+      if (!(bandBottom > 0)) return;
       const root = scrollRootRef?.current ?? findFormScrollRoot(focused);
       const stickyFromDom =
         stickyChromeRef?.current ??
@@ -67,15 +80,15 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         null;
       const effectiveViewportTop = resolveFormEffectiveViewportTopPx({
         stickyChromeEl: stickyFromDom,
-        effectiveViewportBottom: bottom,
+        effectiveViewportBottom: bandBottom,
         focusedHeightPx: resolveFocusedBandHeightPx(focused),
       });
       ensureFormFocusVisibleInScrollRoot({
         focused,
         scrollRoot: root,
-        effectiveViewportBottom: bottom,
+        effectiveViewportBottom: bandBottom,
         effectiveViewportTop,
-        focusGapPx: gap,
+        focusGapPx: gapRef.current,
       });
     };
 
@@ -89,9 +102,19 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     };
 
     const scheduleRun = (focused: HTMLElement) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => run(focused));
-      });
+      clearSettle();
+      const kick = () => {
+        if (activeFocusedRef.current !== focused || !document.contains(focused)) return;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => run(focused));
+        });
+      };
+      kick();
+      // Android WebView resize can reflow and reset scrollTop after the first
+      // correction — re-apply while the same control stays focused.
+      for (const ms of [50, 150, 320]) {
+        settleTimers.push(window.setTimeout(kick, ms));
+      }
     };
 
     const onFocusIn = (e: FocusEvent) => {
@@ -99,21 +122,23 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       const focused = e.target as HTMLElement;
       const boundRoot = scrollRootRef?.current;
       if (boundRoot && !boundRoot.contains(focused)) return;
-      activeFocused = focused;
+      activeFocusedRef.current = focused;
       observeGrowth(focused);
       scheduleRun(focused);
     };
 
     const onFocusOut = () => {
-      activeFocused = null;
+      activeFocusedRef.current = null;
+      clearSettle();
       resizeRo?.disconnect();
       resizeRo = null;
       observed = null;
     };
 
     const onViewportGeometry = () => {
-      if (!activeFocused || !document.contains(activeFocused)) return;
-      scheduleRun(activeFocused);
+      const focused = activeFocusedRef.current;
+      if (!focused || !document.contains(focused)) return;
+      scheduleRun(focused);
     };
 
     document.addEventListener("focusin", onFocusIn, true);
@@ -124,22 +149,18 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     window.addEventListener("resize", onViewportGeometry);
     window.addEventListener("orientationchange", onViewportGeometry);
 
-    /**
-     * When `effectiveViewportBottom` updates (keyboard open/close), this effect
-     * re-subscribes and clears `activeFocused`. Re-bind the already-focused
-     * control so landscape IME resize does not leave it below the band.
-     */
     const existing = document.activeElement;
     if (isTextEntryTarget(existing)) {
       const boundRoot = scrollRootRef?.current;
       if (!boundRoot || boundRoot.contains(existing)) {
-        activeFocused = existing;
+        activeFocusedRef.current = existing;
         observeGrowth(existing);
         scheduleRun(existing);
       }
     }
 
     return () => {
+      clearSettle();
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
       vv?.removeEventListener("resize", onViewportGeometry);
@@ -147,6 +168,48 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       window.removeEventListener("resize", onViewportGeometry);
       window.removeEventListener("orientationchange", onViewportGeometry);
       resizeRo?.disconnect();
+    };
+  }, [enabled, scrollRootRef, stickyChromeRef]);
+
+  // Keyboard open/close updates band bottom without tearing listeners.
+  useEffect(() => {
+    if (!enabled || !(bottom > 0)) return;
+    const focused =
+      activeFocusedRef.current && document.contains(activeFocusedRef.current)
+        ? activeFocusedRef.current
+        : isTextEntryTarget(document.activeElement)
+          ? document.activeElement
+          : null;
+    if (!focused) return;
+    const boundRoot = scrollRootRef?.current;
+    if (boundRoot && !boundRoot.contains(focused)) return;
+    activeFocusedRef.current = focused;
+    const timers = [0, 50, 150, 320].map((ms) =>
+      window.setTimeout(() => {
+        if (activeFocusedRef.current !== focused || !document.contains(focused)) return;
+        const root = scrollRootRef?.current ?? findFormScrollRoot(focused);
+        const stickyFromDom =
+          stickyChromeRef?.current ??
+          root?.closest("[data-form-keyboard-surface]")?.querySelector<HTMLElement>(
+            "[data-form-keyboard-sticky-chrome]"
+          ) ??
+          null;
+        const effectiveViewportTop = resolveFormEffectiveViewportTopPx({
+          stickyChromeEl: stickyFromDom,
+          effectiveViewportBottom: bottom,
+          focusedHeightPx: resolveFocusedBandHeightPx(focused),
+        });
+        ensureFormFocusVisibleInScrollRoot({
+          focused,
+          scrollRoot: root,
+          effectiveViewportBottom: bottom,
+          effectiveViewportTop,
+          focusGapPx: gap,
+        });
+      }, ms)
+    );
+    return () => {
+      for (const id of timers) window.clearTimeout(id);
     };
   }, [enabled, bottom, gap, scrollRootRef, stickyChromeRef]);
 }
