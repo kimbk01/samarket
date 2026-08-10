@@ -76,7 +76,6 @@ const thumbnailFiles = [
   "components/post/PostDetailView.tsx",
   "components/offers/MyOffersView.tsx",
   "components/community/feed-list-layouts.tsx",
-  "components/community/CommunityWriteFormClient.tsx",
   "components/community/post-detail/CommunityCommentComposerForm.tsx",
   "components/community/post-detail/CommunitySimilarPostsSection.tsx",
   "components/community/post-detail/CommunityInlineAdCard.tsx",
