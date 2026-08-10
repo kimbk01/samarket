@@ -9,6 +9,8 @@ import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 
 const SHEET_EXIT_MS = 520;
 
@@ -34,8 +36,17 @@ export function TradeWriteBottomSheet() {
   const [sheetCategoryKey, setSheetCategoryKey] = useState("");
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
+  const stickyChromeRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
   const [headerLeaveOpen, setHeaderLeaveOpen] = useState(false);
+  const { effectiveViewportBottom } = useFormKeyboardViewport({ enabled: isOpen });
+  useFormKeyboardFocusVisibility({
+    enabled: isOpen,
+    scrollRootRef: scrollBodyRef,
+    stickyChromeRef,
+    effectiveViewportBottom,
+  });
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -173,6 +184,7 @@ export function TradeWriteBottomSheet() {
         }`}
       >
         <div
+          ref={stickyChromeRef}
           data-form-keyboard-sticky-chrome="1"
           className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11"
         >
@@ -188,7 +200,10 @@ export function TradeWriteBottomSheet() {
             </span>
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+        <div
+          ref={scrollBodyRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
+        >
           <div className={APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS}>
             <WriteSheetFlowInner
               key={openEpoch}
