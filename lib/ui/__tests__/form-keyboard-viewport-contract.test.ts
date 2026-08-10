@@ -210,4 +210,31 @@ describe("form-keyboard-viewport-contract", () => {
     expect(delta).toBe(128);
     expect(scrollRoot.scrollTop).toBe(128);
   });
+
+  it("CASE D tall textarea: ease down when caret line is under sticky chrome", () => {
+    // Usable band 77..168; tall box bottom already in band but caret under chrome.
+    const focused = {
+      getBoundingClientRect: () => ({
+        bottom: 103,
+        top: 3,
+        height: 100,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as HTMLElement;
+    const scrollRoot = { scrollTop: 300 } as HTMLElement;
+    const delta = ensureFormFocusVisibleInScrollRoot({
+      focused,
+      scrollRoot,
+      effectiveViewportBottom: 176,
+      effectiveViewportTop: 69,
+      focusGapPx: 8,
+    });
+    expect(delta).toBeLessThan(0);
+    expect(scrollRoot.scrollTop).toBe(300 + delta);
+  });
 });

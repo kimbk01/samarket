@@ -298,12 +298,17 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
   let delta = 0;
 
   if (tallerThanBand) {
-    // CASE D — keep caret/end region in band; do not fight top clip.
-    const caretFloor = topLimit + Math.min(48, Math.max(24, Math.floor(usable * 0.35)));
+    // CASE D — keep caret/end region in band; do not require the full box above chrome.
+    const caretH = Math.min(48, Math.max(24, Math.floor(usable * 0.35)));
+    const caretFloor = topLimit + caretH;
+    const caretTop = rect.bottom - Math.min(48, Math.max(0, rect.height));
     if (rect.bottom > bottomLimit) {
       delta = Math.ceil(rect.bottom - bottomLimit);
     } else if (rect.bottom < caretFloor) {
       delta = Math.floor(rect.bottom - caretFloor);
+    } else if (caretTop + 0.5 < topLimit) {
+      // Caret line still under sticky chrome — ease content down (negative delta).
+      delta = Math.floor(caretTop - topLimit);
     } else {
       return 0;
     }
