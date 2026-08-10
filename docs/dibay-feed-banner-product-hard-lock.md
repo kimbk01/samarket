@@ -118,7 +118,12 @@ Verified (unit + local runtime evidence 2026-08-10):
 | Step | Result |
 |---|---|
 | Runtime evidence | `.qa-logs/feed-banner-runtime-evidence-20260810/` (R1–R7 / R6-FINAL) |
-| Ads commit / push / prod | *Filled at release* |
+| Ads commit | `b0359b90b` — `feat(ads): reopen feed banner cadence, surface SSOT, multi-advertiser` |
+| Push | `origin/main` @ `b0359b90bd0e50a351aa6b485257017dfaf7fe7d` |
+| Production deploy | `dpl_EG56Virz2MPdgJXtXLpg4E5qvw6D` (clean worktree @ `b0359b90b`) |
+| Alias | `https://samarket.vercel.app` → same deployment |
+| SHA align | `HEAD == origin/main == deploy SHA` (`b0359b90b`) |
+| Production smoke | **PASS** — `.qa-logs/feed-banner-prod-smoke-20260810/REPORT.json` · `SMOKE.json` · `FIRST BREAK: NONE` |
 
 ---
 

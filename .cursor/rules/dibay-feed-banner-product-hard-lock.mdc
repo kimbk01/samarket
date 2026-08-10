@@ -10,7 +10,9 @@ alwaysApply: true
 ## Baseline
 
 - **PRODUCT CONTRACT CHANGE RUNTIME: PASS** — `FIRST BREAK: NONE`
+- Commit: `b0359b90b` · Prod: `dpl_EG56Virz2MPdgJXtXLpg4E5qvw6D` · Alias: `https://samarket.vercel.app`
 - Evidence: `.qa-logs/feed-banner-runtime-evidence-20260810/REPORT.json` · `R6-FINAL.json`
+- Production smoke: `.qa-logs/feed-banner-prod-smoke-20260810/`
 - **NOT claimed:** Legacy cleanup · Analytics · Native Cap
 
 ## KEEP (without reopen — doc §1)
