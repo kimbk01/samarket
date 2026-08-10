@@ -129,9 +129,19 @@ async function tryInjectSupabaseSessionCookies(
 async function tryUiLogin(page: Page, candidate: { id: string; pass: string }): Promise<boolean> {
   const origin = playwrightOriginFromEnv();
   await gotoWithRetry(page, `${origin}/login`);
-  const submit = page.getByRole("button", { name: /^(로그인|Sign in)$/i });
+  const ops = page.getByRole("button", { name: /Internal \/ operations|내부|운영/i }).first();
+  if (await ops.isVisible().catch(() => false)) {
+    await ops.click();
+    await page.waitForTimeout(400);
+  }
+  const submit = page.getByRole("button", { name: /^(로그인|Sign in)$/i }).or(
+    page.getByRole("button", { name: /Sign in|로그인/i })
+  ).first();
   await expect(submit).toBeVisible({ timeout: 30_000 });
-  const idInput = page.getByRole("textbox", { name: /Email or Login ID|이메일|로그인\s*ID/i });
+  const idInput = page
+    .getByRole("textbox", { name: /Email or Login ID|이메일|로그인\s*ID/i })
+    .or(page.locator('form input[type="text"]').first())
+    .first();
   const passInput = page.locator('input[type="password"]').first();
   await expect(idInput).toBeVisible({ timeout: 15_000 });
   await idInput.fill(candidate.id);

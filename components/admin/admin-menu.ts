@@ -84,7 +84,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "reports-posts": "admin_menu_reports_all",
   "reports-logs": "admin_menu_reports_logs",
   "reviews-trade": "admin_menu_trade_reviews",
-  "community-feed-reports": "admin_menu_feed_reports",
   "store-reports-admin": "admin_menu_store_reports",
   "store-reviews-admin": "admin_menu_store_reviews",
   "chat-reported": "admin_menu_chat_reported",
@@ -109,12 +108,13 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-hub": "admin_menu_community",
   "community-boards": "admin_menu_boards",
   "community-sections": "admin_menu_feed_sections",
-  "community-topics": "admin_menu_feed_topics",
+  "community-topics": "admin_menu_community_topics",
   "community-feed-settings": "admin_menu_feed_settings",
   "community-meeting-events": "admin_menu_meeting_logs",
   "community-meetings": "admin_menu_meetings",
-  "community-posts": "admin_menu_posts",
+  "community-posts": "admin_menu_community_posts",
   "community-comments": "admin_menu_comments",
+  "community-feed-reports": "admin_menu_community_reports",
 
   // Delivery
   "stores-commerce": "admin_menu_store_review_queue",
@@ -378,13 +378,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "reports-posts", title: "", path: "/admin/reports", status: "done" },
       { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
       { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
-      {
-        key: "community-feed-reports",
-        title: "",
-        path: "/admin/community/reports",
-        matchPaths: ["/admin/philife/reports"],
-        status: "done",
-      },
       { key: "store-reports-admin", title: "", path: "/admin/store-reports", status: "partial" },
       { key: "store-reviews-admin", title: "", path: "/admin/store-reviews", status: "partial" },
       { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
@@ -434,54 +427,27 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── COMMUNITY ──────────────────────────────────
+  // App 2-tier Community IA: 주제(topics) / 게시글(posts) / 신고(reports) 만 노출.
+  // hub·boards·sections·feed-settings·meetings·meeting-events·comments 라우트는 유지되나 메뉴에서 제외.
   {
     key: "community",
     title: "",
     children: [
       {
-        key: "community-hub",
-        title: "",
-        path: "/admin/community",
-        matchPaths: ["/admin/philife"],
-        status: "done",
-      },
-      { key: "community-boards", title: "", path: "/admin/boards", status: "done" },
-      {
-        key: "community-sections",
-        title: "",
-        path: "/admin/community/sections",
-        matchPaths: ["/admin/philife/sections"],
-        status: "done",
-      },
-      {
         key: "community-topics",
         title: "",
         path: "/admin/community/topics",
-        matchPaths: ["/admin/philife/topics"],
-        status: "done",
-      },
-      {
-        key: "community-feed-settings",
-        title: "",
-        path: "/admin/community/settings",
-        matchPaths: ["/admin/philife/settings"],
-        status: "done",
-      },
-      {
-        key: "community-meetings",
-        title: "",
-        path: "/admin/community/meetings",
-        matchPaths: ["/admin/philife/meetings"],
-        status: "done",
-      },
-      {
-        key: "community-meeting-events",
-        title: "",
-        path: "/admin/philife/meeting-events",
+        matchPaths: ["/admin/philife/topics", "/admin/philife", "/admin/community"],
         status: "done",
       },
       { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
-      { key: "community-comments", title: "", path: "/admin/comments", status: "done" },
+      {
+        key: "community-feed-reports",
+        title: "",
+        path: "/admin/community/reports",
+        matchPaths: ["/admin/philife/reports"],
+        status: "done",
+      },
     ],
   },
 

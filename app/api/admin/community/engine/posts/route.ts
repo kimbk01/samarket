@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { neighborhoodPostTopicUiSlug } from "@/lib/neighborhood/philife-neighborhood-topics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/community/engine/posts
- * 관리자 — 커뮤니티 글 목록 (필터: category, locationId, reportedOnly, status, limit, offset)
+ * 관리자 — 커뮤니티 글 목록 (필터: category, topicSlug, locationId, reportedOnly, status, limit, offset)
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const category = sp.get("category")?.trim() || "";
+  const topicSlug = sp.get("topicSlug")?.trim().toLowerCase() || "";
   const locationId = sp.get("locationId")?.trim() || "";
   const reportedOnly = sp.get("reportedOnly") === "1";
   const status = sp.get("status")?.trim() || "";
@@ -31,12 +33,13 @@ export async function GET(req: NextRequest) {
   let q = sb
     .from("community_posts")
     .select(
-      "id, user_id, location_id, category, title, status, is_reported, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data"
+      "id, user_id, location_id, category, topic_id, topic_slug, title, status, is_reported, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data"
     )
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (category) q = q.eq("category", category);
+  if (topicSlug) q = q.eq("topic_slug", topicSlug);
+  else if (category) q = q.eq("category", category);
   if (locationId) q = q.eq("location_id", locationId);
   if (reportedOnly) q = q.eq("is_reported", true);
   if (status && ["active", "hidden", "deleted"].includes(status)) q = q.eq("status", status);
@@ -45,5 +48,16 @@ export async function GET(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, posts: data ?? [] });
+  const posts = (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const uiSlug = neighborhoodPostTopicUiSlug({
+      category: r.category,
+      topic_slug: r.topic_slug,
+    });
+    return {
+      ...r,
+      topicSlug: uiSlug,
+    };
+  });
+  return NextResponse.json({ ok: true, posts });
 }

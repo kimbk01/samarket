@@ -14,6 +14,7 @@ import {
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { buildFeedChipsFromPhilifeTopicOptionsJson } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import type { UserRegion } from "@/lib/regions/types";
 
 const PHILIFE_TAB_PREWARM_COOLDOWN_MS = 12_000;
 const philifeTabPrewarmAt = new Map<string, number>();
@@ -29,9 +30,9 @@ function canRunPhilifeTabPrewarm(key: string): boolean {
 function prewarmPhilifeGlobalFeedVariant(
   viewerSig: string,
   category: string,
-  sort: "latest" | "recommended"
+  sort: "latest" | "popular" | "recommended"
 ): void {
-  const warmKey = `${viewerSig}:${category}:${sort}`;
+  const warmKey = `${viewerSig}:global:${category}:${sort}`;
   if (!canRunPhilifeTabPrewarm(warmKey)) return;
   const personalized = viewerSig !== "_anon";
   const url = buildPhilifeNeighborhoodFeedClientUrl({
@@ -41,7 +42,7 @@ function prewarmPhilifeGlobalFeedVariant(
     limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
     sort,
   });
-  const flightKey = `philife:tab-prewarm:${viewerSig}:${category}:${sort}`;
+  const flightKey = `philife:tab-prewarm:${viewerSig}:global:${category}:${sort}`;
   void runSingleFlight(flightKey, () =>
     fetchNeighborhoodFeedShortTtl(url, {
       credentials: "include",
@@ -71,24 +72,27 @@ function prewarmPhilifeGlobalFeedVariant(
           hasMore: !!parsed.hasMore,
           nextOffset,
         },
-        category ? "" : sort
+        sort
       );
     })
     .catch(() => {
-      /* philife 글로벌 prewarm 실패는 무시 */
+      /* philife global prewarm 실패는 무시 */
     });
 }
 
-export function prewarmBottomNavPhilifeTab(): void {
+/**
+ * Community home prewarm — Home + recommended (globalFeed). Region not required.
+ * `@param region` retained for call-site compatibility; unused for home authority.
+ */
+export function prewarmBottomNavPhilifeTab(_region?: UserRegion | null): void {
+  void _region;
   const viewerSig = philifeFeedViewerSig();
-  prewarmPhilifeGlobalFeedVariant(viewerSig, "", "latest");
-  prewarmPhilifeGlobalFeedVariant(viewerSig, "", "recommended");
   warmPhilifeNeighborhoodTopicOptions();
+  prewarmPhilifeGlobalFeedVariant(viewerSig, "", "recommended");
   void fetchPhilifeNeighborhoodTopicOptions()
     .then((json) => {
       const { chips } = buildFeedChipsFromPhilifeTopicOptionsJson(json);
       const categoryTargets = chips
-        .filter((chip) => !chip.is_feed_sort)
         .map((chip) => (chip.slug ?? "").trim())
         .filter((slug) => slug.length > 0)
         .slice(0, 2);

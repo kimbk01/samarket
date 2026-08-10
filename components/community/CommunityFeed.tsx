@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
 import {
   fetchPhilifeNeighborhoodTopicOptions,
   invalidatePhilifeNeighborhoodTopicOptionsCache,
@@ -13,9 +12,7 @@ import {
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import {
   buildFeedChipsFromPhilifeTopicOptionsJson,
-  isPhilifeRecommendSortCategory,
   type PhilifeFeedTopicChip,
-  PHILIFE_FEED_ALL_TAB_CHIP,
 } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { philifeAppPaths } from "@domain/philife/paths";
@@ -23,7 +20,6 @@ import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
-  COMMUNITY_DROPDOWN_PANEL_CLASS,
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   COMMUNITY_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
@@ -49,20 +45,27 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
-import { Fragment } from "react";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
 import {
   isSameCommunityTopicOptionsAuthority,
   resolveCommunityFeedBootSelection,
   resolveInitialCommunityFeedSnapshot,
 } from "@/lib/community/resolve-initial-community-feed-snapshot";
+import {
+  buildCommunityFeedHref,
+  communityNavToFeedQuery,
+  composeCommunityNavItems,
+  defaultCommunityNavSelection,
+  isSameCommunityNavSelection,
+  parseCommunityNavFromSearchParams,
+  type CommunityNavComposeItem,
+  type CommunityNavSelection,
+} from "@/lib/community/community-nav";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { getBottomNavAdjacentHref } from "@/lib/main-menu/bottom-nav-config";
@@ -71,12 +74,12 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
-import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
   PHILIFE_GLOBAL_FEED_SESSION_KEY,
+  philifeFeedSessionKeyForLocation,
 } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { isSamarketPhilifeFeedPerfDiagEnabled } from "@/lib/debug/samarket-client-console-flags";
@@ -91,7 +94,12 @@ import {
   tryTrackFirstMenuListFetchSuccess,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { useRegionOptional } from "@/contexts/RegionContext";
+import {
+  neighborhoodLocationKeyFromRegion,
+  neighborhoodLocationMetaFromRegion,
+} from "@/lib/neighborhood/location-key";
 
 declare global {
   interface Window {
@@ -124,32 +132,77 @@ function philifePerfDiag(event: string, extra: Record<string, unknown>): void {
   console.debug(`[community-feed:perf-diag] ${event}`, extra);
 }
 
-function resolvePhilifeFeedSortForQuery(
-  categoryRaw: string,
-  sortRaw: string
-): "latest" | "popular" | "recommended" {
-  const c = categoryRaw.trim().toLowerCase();
-  if (!c) {
-    if (!sortRaw.trim()) return "latest";
-    return normalizeFeedSort(sortRaw);
+const COMMUNITY_HUB_STATE_KEY = "community_hub_state_v1";
+
+type CommunityHubStateShape = { nav: string; category: string; sort: string };
+
+function readCommunityHubState(): CommunityHubStateShape | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(COMMUNITY_HUB_STATE_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { nav?: unknown; category?: unknown; sort?: unknown };
+    return {
+      nav: typeof j.nav === "string" ? j.nav.trim().toLowerCase() : "",
+      category: typeof j.category === "string" ? j.category.trim().toLowerCase() : "",
+      sort: typeof j.sort === "string" ? j.sort.trim().toLowerCase() : "",
+    };
+  } catch {
+    return null;
   }
-  if (isPhilifeRecommendSortCategory(c) && !sortRaw.trim()) return "recommended";
-  return normalizeFeedSort(sortRaw || undefined);
 }
 
-/** 주제 미선택(전역) 칩: 최신/추천 전환(별도 `recommended` 주제 탭 없음) */
-function isGlobalSortDropdownChip(c: { slug: string }): boolean {
-  return c.slug === "";
+/** `CommunityNavSelection` → hub state shape (URL 과 같은 authority: nav=home|local|popular, category=topic slug, sort=home 전용) */
+function communityNavSelectionToHubState(sel: CommunityNavSelection): CommunityHubStateShape {
+  if (sel.kind === "topic") {
+    return { nav: "", category: sel.topicSlug.trim().toLowerCase(), sort: "" };
+  }
+  if (sel.kind === "home") {
+    return { nav: "home", category: "", sort: sel.homeSort };
+  }
+  return { nav: sel.kind, category: "", sort: "" };
 }
 
-function resolveActiveTopicTabIndex(list: PhilifeFeedTopicChip[], categoryRaw: string): number {
-  if (!list.length) return 0;
-  const c = categoryRaw.trim().toLowerCase();
-  if (!c || isPhilifeRecommendSortCategory(c)) {
-    const g = list.findIndex((t) => t.slug === "");
-    return g >= 0 ? g : 0;
+function hubStateToCommunityNavSelection(h: CommunityHubStateShape): CommunityNavSelection {
+  if (h.nav === "local") return { kind: "local", topicSlug: "", homeSort: "recommended" };
+  if (h.nav === "popular") return { kind: "popular", topicSlug: "", homeSort: "recommended" };
+  if (h.category) return { kind: "topic", topicSlug: h.category, homeSort: "recommended" };
+  return {
+    kind: "home",
+    topicSlug: "",
+    homeSort: h.sort === "latest" ? "latest" : "recommended",
+  };
+}
+
+function writeCommunityHubState(sel: CommunityNavSelection): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(COMMUNITY_HUB_STATE_KEY, JSON.stringify(communityNavSelectionToHubState(sel)));
+  } catch {
+    /* ignore */
   }
-  const ix = list.findIndex((t) => (t.slug ?? "").trim().toLowerCase() === c);
+}
+
+function isCommunityHubPath(pathname: string): boolean {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  return p === "/" || p === "/philife" || p === "/community";
+}
+
+/** `CommunityNavComposeItem`(홈/주제/동네/인기) → 해당 항목을 선택했을 때의 `CommunityNavSelection` */
+function communityNavComposeItemToSelection(item: CommunityNavComposeItem): CommunityNavSelection {
+  if (item.kind === "topic") return { kind: "topic", topicSlug: item.slug, homeSort: "recommended" };
+  if (item.kind === "local") return { kind: "local", topicSlug: "", homeSort: "recommended" };
+  if (item.kind === "popular") return { kind: "popular", topicSlug: "", homeSort: "recommended" };
+  return { kind: "home", topicSlug: "", homeSort: "recommended" };
+}
+
+function resolveActiveNavIndex(items: CommunityNavComposeItem[], sel: CommunityNavSelection): number {
+  if (!items.length) return 0;
+  if (sel.kind === "topic") {
+    const ix = items.findIndex((it) => it.kind === "topic" && it.slug === sel.topicSlug);
+    return ix >= 0 ? ix : 0;
+  }
+  const ix = items.findIndex((it) => it.kind === sel.kind);
   return ix >= 0 ? ix : 0;
 }
 
@@ -356,38 +409,43 @@ export function CommunityFeed({
 }: {
   initialGlobalFeedRsc?: PhilifeGlobalFeedInitialRsc | null;
 } = {}) {
-  const { t, language } = useI18n();
-  const philifeGlobalFeedSortLabel = useCallback(
-    (mode: "latest" | "recommended") =>
-      mode === "recommended" ? t("community_sort_recommended") : t("community_sort_latest"),
-    [t]
-  );
+  const { t, language, safeT } = useI18n();
   const { open: openPhilifeWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const pathname = usePathname();
-  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
+  const { beginMenuNavigation } = useLatestMenuNavigation();
   const searchParams = useSearchParams();
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
   const searchQueryString = searchParams.toString();
   const viewerSig = usePhilifeFeedViewerSig();
-  const categoryParam = searchParams.get("category")?.trim() ?? "";
-  const sortParam = searchParams.get("sort")?.trim() ?? "";
-  const categoryParamNorm = categoryParam.trim().toLowerCase();
+  const regionCtx = useRegionOptional();
+  const currentRegion = regionCtx?.currentRegion ?? null;
+  const locationKey = useMemo(
+    () => neighborhoodLocationKeyFromRegion(currentRegion) ?? "",
+    [currentRegion]
+  );
+  const locationMeta = useMemo(
+    () => neighborhoodLocationMetaFromRegion(currentRegion),
+    [currentRegion]
+  );
+
+  /** Community 2단 Navigation SSOT — Home | Topic… | Local | Popular */
+  const navSelection = parseCommunityNavFromSearchParams(searchParams);
+  const plan = communityNavToFeedQuery(navSelection);
+  const feedSort = plan.feedSort;
+
   const initialTopicOptions = initialGlobalFeedRsc?.topicOptionsSeed ?? null;
   const initialBootSelection = resolveCommunityFeedBootSelection(
-    categoryParamNorm,
+    plan.category,
     initialTopicOptions
-  );
-  const sortForCurrentQuery = resolvePhilifeFeedSortForQuery(
-    initialBootSelection.category,
-    sortParam
   );
   const canBootFromInitialGlobalFeed =
     !!initialGlobalFeedRsc &&
+    (!plan.requiresRegion || !!locationKey) &&
     initialBootSelection.authorityReady &&
     initialGlobalFeedRsc.seededCategory === initialBootSelection.category &&
-    initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
+    initialGlobalFeedRsc.seededSort === feedSort;
   /**
    * Persistent cache 는 서버에서 읽을 수 없음 — 초기 state 에 넣으면 SSR/클라 하이드레이션 불일치.
    * Cold Boot Cache-First: `useLayoutEffect` 에서 snapshot 복원 후 paint (splash 는 shellReady 에서 이미 해제).
@@ -416,8 +474,9 @@ export function CommunityFeed({
   /** cache/RSC 없으면 true — UI는 skeleton/blank 없이 셸만 유지, network 는 background */
   const [loading, setLoading] = useState(!bootPosts.length);
   const [loadingMore, setLoadingMore] = useState(false);
-  const categoryParamRef = useRef(categoryParam);
-  categoryParamRef.current = categoryParam;
+  /** 최신 URL topic slug("" 은 home/local/popular) — 다른 effect 안에서 최신값 참조용 */
+  const planCategoryRef = useRef(plan.category);
+  planCategoryRef.current = plan.category;
   const postsRef = useRef<NeighborhoodFeedPostDTO[]>(bootPosts);
   const adjacentPrefetchAtRef = useRef<Record<string, number>>({});
   const initialPrewarmDoneRef = useRef(false);
@@ -446,24 +505,25 @@ export function CommunityFeed({
     }
     return [];
   });
-  const [recommendMenuOpen, setRecommendMenuOpen] = useState(false);
-  const [recommendMenuPos, setRecommendMenuPos] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-  const recommendMenuRef = useRef<HTMLButtonElement | null>(null);
-  const recommendMenuPanelRef = useRef<HTMLUListElement | null>(null);
   const [chipsLoadDone, setChipsLoadDone] = useState(Boolean(initialTopicOptions));
   /** 주제 옵션 API: false면「관심이웃 글만 보기」띠(체크+문구) 전체 비노출. */
   const [showNeighborOnlyStrip, setShowNeighborOnlyStrip] = useState(() => {
     if (initialTopicOptions) return initialTopicOptions.showNeighborOnlyFilter !== false;
     return true;
   });
+  const hubStateRestoredRef = useRef(false);
+
+  /** Community home 은 지역 필요 없음(globalFeed); local 만 지역 필요 */
+  const feedSessionKey = plan.globalFeed
+    ? PHILIFE_GLOBAL_FEED_SESSION_KEY
+    : locationKey
+      ? philifeFeedSessionKeyForLocation(locationKey)
+      : "";
 
   /**
    * Persistent topic-options 는 hydration 완료 후, 첫 paint 전에만 적용한다.
    * 서버 렌더 중 localStorage 를 읽지 않아 HTML/hydration tree 를 동일하게 유지한다.
-   * 동일 authority(칩/전체탭)면 state 를 바꾸지 않아 neighborhood-feed reset 을 막는다.
+   * 동일 authority(칩)면 state 를 바꾸지 않아 neighborhood-feed reset 을 막는다.
    */
   useLayoutEffect(() => {
     const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
@@ -476,35 +536,32 @@ export function CommunityFeed({
       setChipsLoadDone(true);
     }
 
-    const selection = resolveCommunityFeedBootSelection(categoryParam, options);
+    const selection = resolveCommunityFeedBootSelection(planCategoryRef.current, options);
     if (!selection.authorityReady) return;
     setTopicAuthorityReady(true);
     setCategory((prev) => (
       prev === selection.category ? prev : selection.category
     ));
-  }, [categoryParam]);
+  }, [plan.category]);
 
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
 
-  /** 레거시 `?category=recommended` → `?sort=recommended` */
+  /** 레거시 `?category=recommended` → Home + 추천순 (recommended 는 topic 이 아니다) */
   useLayoutEffect(() => {
-    if (!isPhilifeRecommendSortCategory(categoryParamNorm)) return;
-    const sp = new URLSearchParams(searchQueryString);
-    if (!sp.has("category")) return;
-    sp.delete("category");
-    if (!sp.get("sort")?.trim()) sp.set("sort", "recommended");
-    const next = sp.toString();
-    const target = next ? `${pathname}?${next}` : pathname;
+    const rawCategory = (searchParams.get("category") ?? "").trim().toLowerCase();
+    if (rawCategory !== "recommend" && rawCategory !== "recommended") return;
+    const target = buildCommunityFeedHref(pathname, {
+      selection: { kind: "home", topicSlug: "", homeSort: "recommended" },
+      base: searchQueryString,
+    });
     if (typeof window !== "undefined") {
       const current = `${window.location.pathname}${window.location.search}`;
       if (current === target) return;
     }
     void router.replace(target, { scroll: false });
-  }, [pathname, router, searchQueryString, categoryParamNorm]);
-
-  const isAllTabView = !category.trim() || isPhilifeRecommendSortCategory(category);
+  }, [pathname, router, searchQueryString, searchParams]);
 
   /**
    * Feed Banner + chip/URL must share this surface (not URL-only).
@@ -530,130 +587,66 @@ export function CommunityFeed({
     [posts.length, feedAdSurface.surfaceKey, feedAdSessionId]
   );
 
-  /** Surface SSOT: topic feed without ?category= → write slug into URL (no HOME/TOPIC split). */
+  /** Surface SSOT: topic feed without ?category= → write slug into URL (preserve nav model). */
   useEffect(() => {
     if (!topicAuthorityReady) return;
     if (feedAdSurface.placement !== "COMMUNITY_TOPIC") return;
     const want = feedAdSurface.topicSlug ?? "";
     if (!want) return;
-    if (categoryParamNorm === want) return;
-    const sp = new URLSearchParams(searchQueryString);
-    sp.set("category", want);
-    sp.delete("sort");
-    const next = sp.toString();
-    const target = next ? `${pathname}?${next}` : pathname;
+    if (plan.category === want) return;
+    const target = buildCommunityFeedHref(pathname, {
+      selection: { kind: "topic", topicSlug: want, homeSort: "recommended" },
+      base: searchQueryString,
+    });
     void router.replace(target, { scroll: false });
   }, [
     topicAuthorityReady,
     feedAdSurface.placement,
     feedAdSurface.topicSlug,
-    categoryParamNorm,
+    plan.category,
     searchQueryString,
     pathname,
     router,
   ]);
 
-  const latestSortHref = (() => {
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.set("sort", "latest");
-    const next = sp.toString();
-    return next ? `${pathname}?${next}` : pathname;
-  })();
-  const recommendedSortHref = (() => {
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.set("sort", "recommended");
-    const next = sp.toString();
-    return next ? `${pathname}?${next}` : pathname;
-  })();
-  const recSortKey: "latest" | "recommended" = (() => {
-    if (!isAllTabView) return "latest";
-    if (!sortParam.trim()) return "latest";
-    return normalizeFeedSort(sortParam) === "recommended" ? "recommended" : "latest";
-  })();
-  const effectiveRecSort: "latest" | "recommended" = menuHrefMatchesIntent(recommendedSortHref, pendingMenuIntent)
-    ? "recommended"
-    : menuHrefMatchesIntent(latestSortHref, pendingMenuIntent)
-      ? "latest"
-      : recSortKey;
-
-  /** 주제 칩(필리핀생활 등)일 때는 `sort` 쿼리 제거 */
-  useEffect(() => {
-    const cp = categoryParam.trim();
-    if (!cp || isPhilifeRecommendSortCategory(cp)) return;
-    if (!sortParam) return;
-    const sp = new URLSearchParams(searchQueryString);
-    sp.delete("sort");
-    const next = sp.toString();
-    const target = next ? `${pathname}?${next}` : pathname;
-    if (typeof window !== "undefined") {
-      const current = `${window.location.pathname}${window.location.search}`;
-      if (current === target) return;
-    }
-    void router.replace(target, { scroll: false });
-  }, [categoryParam, sortParam, pathname, router, searchQueryString]);
-
-  useEffect(() => {
-    if (!isAllTabView) setRecommendMenuOpen((prev) => (prev ? false : prev));
-  }, [isAllTabView]);
-
-  useEffect(() => {
-    if (!recommendMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRecommendMenuOpen((prev) => (prev ? false : prev));
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [recommendMenuOpen]);
-
-  useEffect(() => {
-    if (!recommendMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (recommendMenuRef.current?.contains(t) || recommendMenuPanelRef.current?.contains(t)) return;
-      setRecommendMenuOpen((prev) => (prev ? false : prev));
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [recommendMenuOpen]);
-
-  const updateRecommendMenuPos = useCallback(() => {
-    const el = recommendMenuRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const pad = 8;
-    const menuMinW = 160;
-    let left = r.left;
-    if (typeof window !== "undefined") {
-      const maxLeft = window.innerWidth - menuMinW - pad;
-      if (left > maxLeft) left = Math.max(pad, maxLeft);
-      if (left < pad) left = pad;
-    }
-    setRecommendMenuPos({ top: r.bottom + 6, left });
-  }, []);
-
+  /** Hub remount without params — restore last nav selection */
   useLayoutEffect(() => {
-    if (!recommendMenuOpen || !isAllTabView) {
-      setRecommendMenuPos(null);
+    if (hubStateRestoredRef.current) return;
+    if (!isCommunityHubPath(pathname)) return;
+    const hasNavParams =
+      searchParams.has("nav") ||
+      searchParams.has("category") ||
+      searchParams.has("sort") ||
+      searchParams.has("mode");
+    if (hasNavParams) {
+      hubStateRestoredRef.current = true;
       return;
     }
-    updateRecommendMenuPos();
-    window.addEventListener("resize", updateRecommendMenuPos);
-    document.addEventListener("scroll", updateRecommendMenuPos, true);
-    return () => {
-      window.removeEventListener("resize", updateRecommendMenuPos);
-      document.removeEventListener("scroll", updateRecommendMenuPos, true);
-    };
-  }, [recommendMenuOpen, isAllTabView, updateRecommendMenuPos, chipsLoadDone]);
+    const saved = readCommunityHubState();
+    hubStateRestoredRef.current = true;
+    if (!saved) return;
+    const selection = hubStateToCommunityNavSelection(saved);
+    if (isSameCommunityNavSelection(selection, defaultCommunityNavSelection())) return;
+    const target = buildCommunityFeedHref(pathname, { selection });
+    if (target === pathname) return;
+    void router.replace(target, { scroll: false });
+  }, [pathname, searchParams, router]);
+
+  /** Persist hub state for detail-back / tab remount */
+  useEffect(() => {
+    if (!isCommunityHubPath(pathname)) return;
+    writeCommunityHubState(navSelection);
+  }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.homeSort]);
 
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
 
   /** Philife `meetup` 피드는 쓰지 않음 — 모임 UX는 메신저 `open_chat` 로 보낸다(`meetingId` 딥링크는 아래 effect 가 처리). */
   useEffect(() => {
-    if (categoryParam !== "meetup") return;
+    if (plan.category !== "meetup") return;
     if (meetingIdParam) return;
     void router.replace(philifeAppPaths.meetingsFeed, { scroll: false });
-  }, [categoryParam, meetingIdParam, router]);
+  }, [plan.category, meetingIdParam, router]);
 
   useEffect(() => {
     if (!meetingIdParam) return;
@@ -710,7 +703,7 @@ export function CommunityFeed({
         if (!isSameCommunityTopicOptionsAuthority(topicOptionsAuthorityRef.current, j)) {
           setTopicOptionsAuthority(j);
         }
-        const selection = resolveCommunityFeedBootSelection(categoryParamRef.current, j);
+        const selection = resolveCommunityFeedBootSelection(planCategoryRef.current, j);
         if (selection.authorityReady) {
           setTopicAuthorityReady(true);
           setCategory((current) => (
@@ -719,7 +712,7 @@ export function CommunityFeed({
         }
       } catch {
         if (!cancelled) {
-          setChips([PHILIFE_FEED_ALL_TAB_CHIP]);
+          setChips([]);
           setShowNeighborOnlyStrip(true);
         }
       } finally {
@@ -770,14 +763,35 @@ export function CommunityFeed({
         communityFetchT0 = performance.now();
       }
       try {
-        const url = buildPhilifeNeighborhoodFeedClientUrl({
-          globalFeed: true,
-          category: category && !isPhilifeRecommendSortCategory(category) ? category : undefined,
-          neighborOnly,
-          offset: nextOffset,
-          limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
-          ...(isAllTabView ? { sort: recSortKey === "recommended" ? "recommended" : "latest" } : {}),
-        });
+        /** Local nav 만 지역 필요 — 다른 nav 는 지역 없이도 진행한다. */
+        if (plan.requiresRegion && (!locationKey || !locationMeta)) {
+          setErr(
+            safeT("philife_write_err_region_required", {
+              fallbackKo: "동네를 먼저 설정해 주세요.",
+              fallbackEn: "Set your neighborhood first.",
+            })
+          );
+          setHasMore(false);
+          return;
+        }
+        const url = plan.globalFeed
+          ? buildPhilifeNeighborhoodFeedClientUrl({
+              globalFeed: true,
+              category: category || undefined,
+              neighborOnly,
+              offset: nextOffset,
+              limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+              sort: feedSort,
+            })
+          : buildPhilifeNeighborhoodFeedClientUrl({
+              locationKey,
+              /** `plan.requiresRegion` 가드가 위에서 이미 통과했으므로 non-null */
+              meta: locationMeta!,
+              neighborOnly,
+              offset: nextOffset,
+              limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+              sort: feedSort,
+            });
         const personalized = neighborOnly || viewerSig !== "_anon";
         const tFetchStart = performance.now();
         const res = await fetchNeighborhoodFeedShortTtl(url, {
@@ -865,9 +879,9 @@ export function CommunityFeed({
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
         nextOffsetRef.current = resolvedNextOffset;
 
-        if (!append && session === feedSessionRef.current && patchedRows.length > 0) {
+        if (!append && session === feedSessionRef.current && patchedRows.length > 0 && feedSessionKey) {
           writePhilifeFeedCache(
-            PHILIFE_GLOBAL_FEED_SESSION_KEY,
+            feedSessionKey,
             category,
             neighborOnly,
             viewerSig,
@@ -876,7 +890,7 @@ export function CommunityFeed({
               hasMore: !!j.hasMore,
               nextOffset: resolvedNextOffset,
             },
-            recSortKey
+            feedSort
           );
         }
         if (isInitialPage) {
@@ -952,18 +966,44 @@ export function CommunityFeed({
         }
       }
     },
-    [category, neighborOnly, viewerSig, recSortKey, isAllTabView, t]
+    [
+      category,
+      neighborOnly,
+      viewerSig,
+      feedSort,
+      locationKey,
+      locationMeta,
+      feedSessionKey,
+      plan.globalFeed,
+      plan.requiresRegion,
+      t,
+      safeT,
+    ]
   );
 
-  /** 주제·필터 시 피드 리셋. URL category 와 확정된 topic-options 권한이 같은 cache/fetch 키를 사용한다. */
+  /** 주제·필터 시 피드 리셋. URL topic slug 와 확정된 topic-options 권한이 같은 cache/fetch 키를 사용한다. */
   useLayoutEffect(() => {
     const options = topicOptionsAuthorityRef.current;
-    const bootSelection = resolveCommunityFeedBootSelection(categoryParam, options);
+    const bootSelection = resolveCommunityFeedBootSelection(plan.category, options);
     /**
-     * category 없는 cold boot 는 topic-options 권한이 정해질 때까지 전체 피드를 추측하지 않는다.
+     * topic slug 없는 cold boot(home/local/popular) 는 topic-options 권한이 정해질 때까지 추측하지 않는다.
      * category state 전환과 같은 commit 에서는 다음 layout pass 가 올바른 cache/fetch 키를 사용한다.
      */
     if (!topicAuthorityReady || !bootSelection.authorityReady || bootSelection.category !== category) {
+      return;
+    }
+
+    /** Local nav 만 지역이 필요 — 다른 nav 는 지역 오류로 전체 피드를 비우지 않는다. */
+    if (plan.requiresRegion && (!locationKey || !feedSessionKey)) {
+      setPosts([]);
+      setHasMore(false);
+      setLoading(false);
+      setErr(
+        safeT("philife_write_err_region_required", {
+          fallbackKo: "동네를 먼저 설정해 주세요.",
+          fallbackEn: "Set your neighborhood first.",
+        })
+      );
       return;
     }
 
@@ -972,11 +1012,11 @@ export function CommunityFeed({
     nextOffsetRef.current = 0;
     loadMoreLockRef.current = false;
 
-    /** RSC `전체` 시드: URL뿐 아니라 **선택한 주제 칩(state)**이 비어 있을 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
+    /** RSC 시드: URL 과 선택한 주제·정렬이 일치할 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
     const canUseRscSeedForCurrentQuery =
       initialGlobalFeedRsc &&
-      initialGlobalFeedRsc.seededCategory === category.trim().toLowerCase() &&
-      initialGlobalFeedRsc.seededSort === resolvePhilifeFeedSortForQuery(category, sortParam) &&
+      initialGlobalFeedRsc.seededCategory === plan.category &&
+      initialGlobalFeedRsc.seededSort === feedSort &&
       !neighborOnly;
 
     const canDisplayRscSeedForCurrentQuery =
@@ -998,7 +1038,7 @@ export function CommunityFeed({
       setErr("");
       if (merged.length) {
         writePhilifeFeedCache(
-          PHILIFE_GLOBAL_FEED_SESSION_KEY,
+          feedSessionKey,
           category,
           neighborOnly,
           cacheViewerSig !== "_anon" ? cacheViewerSig : philifeFeedViewerSig(),
@@ -1007,7 +1047,7 @@ export function CommunityFeed({
             hasMore: s.hasMore,
             nextOffset: resolvedNext,
           },
-          recSortKey
+          feedSort
         );
       }
       setLoading(false);
@@ -1028,16 +1068,17 @@ export function CommunityFeed({
           ? `${window.location.pathname}${window.location.search}`
           : "/philife",
       topicOptions: options,
+      locationKey,
     });
     const snapMeta =
       bootSnap?.posts?.length ?
         bootSnap
       : readPhilifeFeedCache(
-          PHILIFE_GLOBAL_FEED_SESSION_KEY,
+          feedSessionKey,
           category,
           neighborOnly,
           cacheViewerSig,
-          recSortKey
+          feedSort
         );
 
     if (snapMeta?.posts?.length) {
@@ -1066,14 +1107,17 @@ export function CommunityFeed({
      */
   }, [
     category,
-    categoryParam,
+    plan.category,
+    plan.requiresRegion,
     neighborOnly,
     viewerSig,
-    recSortKey,
-    sortParam,
+    feedSort,
     fetchPage,
     initialGlobalFeedRsc,
     topicAuthorityReady,
+    locationKey,
+    feedSessionKey,
+    safeT,
   ]);
 
   const ptrDomain = useMainHubPtrDomain();
@@ -1081,11 +1125,11 @@ export function CommunityFeed({
 
   const onPhilifePullRefresh = useCallback(async () => {
     clearPhilifeFeedCacheEntry(
-      PHILIFE_GLOBAL_FEED_SESSION_KEY,
+      feedSessionKey,
       category,
       neighborOnly,
       viewerSig,
-      recSortKey
+      feedSort
     );
     invalidateNeighborhoodFeedClientShortTtl();
     invalidatePhilifeNeighborhoodTopicOptionsCache();
@@ -1102,7 +1146,7 @@ export function CommunityFeed({
         /* topic chips refresh optional */
       });
     await Promise.all([fetchPage(0, false, session, false), topicRefresh]);
-  }, [category, neighborOnly, viewerSig, recSortKey, fetchPage]);
+  }, [category, neighborOnly, viewerSig, feedSort, feedSessionKey, fetchPage]);
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
@@ -1165,85 +1209,77 @@ export function CommunityFeed({
   }, [hasMore, loading, loadingMore, fetchPage]);
 
   const postsForList = posts;
-  const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${recSortKey}`;
+  const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
-  const setPhilifeRecommendSort = useCallback(
-    (mode: "latest" | "recommended") => {
-      if (normalizeFeedSort(sortParam) !== mode && !guardBeforeNavigate()) return;
-      const sp = new URLSearchParams(searchKeyForNav);
-      sp.set("sort", mode);
-      const next = sp.toString();
-      beginMenuNavigation(next ? `${pathname}?${next}` : pathname, "community-topic");
-      void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+
+  /** Nav 선택 단일 진입점 — 상태 갱신 + URL 동기화 + hub state 저장 (Home/Topic/Local/Popular 공통) */
+  const applyNavSelection = useCallback(
+    (sel: CommunityNavSelection) => {
+      const changed = !isSameCommunityNavSelection(sel, navSelection);
+      if (changed && !guardBeforeNavigate()) return;
+      const nextCategory = sel.kind === "topic" ? sel.topicSlug.trim().toLowerCase() : "";
+      setCategory(nextCategory);
+      const target = buildCommunityFeedHref(pathname, { selection: sel, base: searchKeyForNav });
+      beginMenuNavigation(target, "community-topic");
+      writeCommunityHubState(sel);
+      void router.replace(target, { scroll: false });
     },
-    [beginMenuNavigation, pathname, router, searchKeyForNav, sortParam, guardBeforeNavigate]
-  );
-  const applyRecommendSort = useCallback(
-    (mode: "latest" | "recommended") => {
-      setPhilifeRecommendSort(mode);
-      setRecommendMenuOpen(false);
-    },
-    [setPhilifeRecommendSort]
-  );
-
-  const onPhilifeGlobalSortChipTap = useCallback(() => {
-    setRecommendMenuOpen(false);
-    applyRecommendSort("latest");
-  }, [applyRecommendSort]);
-
-  const onPhilifeGlobalSortChipLongPress = useCallback(() => {
-    setRecommendMenuOpen(true);
-  }, []);
-
-  const philifeGlobalSortChipGestures = useLongPressOrTap({
-    onTap: onPhilifeGlobalSortChipTap,
-    onLongPress: onPhilifeGlobalSortChipLongPress,
-  });
-
-  /** 주제 탭: 상태 + `?category=` 동기화 — 새로고침·공유 시에도 동일 주제, 시드/캐시 키와도 맞음 */
-  const applyCategoryTab = useCallback(
-    (nextSlug: string) => {
-      const t = nextSlug.trim();
-      if (t !== category.trim() && !guardBeforeNavigate()) return;
-      setCategory(t);
-      const sp = new URLSearchParams(searchKeyForNav);
-      if (t) sp.set("category", t);
-      else sp.delete("category");
-      const next = sp.toString();
-      beginMenuNavigation(next ? `${pathname}?${next}` : pathname, "community-topic");
-      void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-    },
-    [beginMenuNavigation, pathname, router, searchKeyForNav, category, guardBeforeNavigate]
+    [
+      beginMenuNavigation,
+      pathname,
+      router,
+      searchKeyForNav,
+      navSelection.kind,
+      navSelection.topicSlug,
+      navSelection.homeSort,
+      guardBeforeNavigate,
+    ]
   );
 
-  const prefetchCategoryFeedByIntent = useCallback(
-    (chip: PhilifeFeedTopicChip) => {
+  /** Home/Topic/Local/Popular 공용 prefetch — globalFeed 는 globalFeed URL, local 은 지역 필요 */
+  const prefetchNavItemByIntent = useCallback(
+    (item: CommunityNavComposeItem) => {
       if (isConstrainedNetwork()) return;
-      const targetCategory = isGlobalSortDropdownChip(chip) ? "" : chip.slug.trim();
-      const targetSort = resolvePhilifeFeedSortForQuery(targetCategory, sortParam);
-      const targetSortKey = targetCategory ? "" : targetSort;
+      const sel = communityNavComposeItemToSelection(item);
+      const itemPlan = communityNavToFeedQuery(sel);
+      if (itemPlan.requiresRegion && (!locationKey || !locationMeta)) return;
+      const targetSessionKey = itemPlan.globalFeed
+        ? PHILIFE_GLOBAL_FEED_SESSION_KEY
+        : philifeFeedSessionKeyForLocation(locationKey);
+      if (!targetSessionKey) return;
+      const targetCategory = itemPlan.category;
+      const targetSort = itemPlan.feedSort;
       const cacheHit = readPhilifeFeedCache(
-        PHILIFE_GLOBAL_FEED_SESSION_KEY,
+        targetSessionKey,
         targetCategory,
         neighborOnly,
         viewerSig,
-        targetSortKey
+        targetSort
       );
       if (cacheHit?.posts?.length) return;
-      const prefetchKey = `${targetCategory}\u001f${neighborOnly ? "1" : "0"}\u001f${targetSortKey}`;
+      const prefetchKey = `${targetSessionKey}\u001f${targetCategory}\u001f${neighborOnly ? "1" : "0"}\u001f${targetSort}`;
       const now = Date.now();
       const last = adjacentPrefetchAtRef.current[prefetchKey] ?? 0;
       if (now - last < 10_000) return;
       adjacentPrefetchAtRef.current[prefetchKey] = now;
-      const url = buildPhilifeNeighborhoodFeedClientUrl({
-        globalFeed: true,
-        category: targetCategory && !isPhilifeRecommendSortCategory(targetCategory) ? targetCategory : undefined,
-        neighborOnly,
-        offset: 0,
-        limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
-        ...(targetCategory ? {} : { sort: targetSort }),
-      });
+      const url = itemPlan.globalFeed
+        ? buildPhilifeNeighborhoodFeedClientUrl({
+            globalFeed: true,
+            category: targetCategory || undefined,
+            neighborOnly,
+            offset: 0,
+            limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+            sort: targetSort,
+          })
+        : buildPhilifeNeighborhoodFeedClientUrl({
+            locationKey,
+            meta: locationMeta!,
+            neighborOnly,
+            offset: 0,
+            limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+            sort: targetSort,
+          });
       const personalized = neighborOnly || viewerSig !== "_anon";
       void runSingleFlight(`community-feed:intent-prefetch:${prefetchKey}`, async () => {
         try {
@@ -1263,7 +1299,7 @@ export function CommunityFeed({
           const advance = typeof j.dbPageLength === "number" ? j.dbPageLength : j.posts.length;
           const resolvedNextOffset = typeof j.nextOffset === "number" ? j.nextOffset : advance;
           writePhilifeFeedCache(
-            PHILIFE_GLOBAL_FEED_SESSION_KEY,
+            targetSessionKey,
             targetCategory,
             neighborOnly,
             viewerSig,
@@ -1272,47 +1308,65 @@ export function CommunityFeed({
               hasMore: !!j.hasMore,
               nextOffset: resolvedNextOffset,
             },
-            targetSortKey
+            targetSort
           );
         } catch {
           /* intent prefetch 실패는 무시 */
         }
       });
     },
-    [sortParam, neighborOnly, viewerSig]
+    [neighborOnly, viewerSig, locationKey, locationMeta]
+  );
+
+  const navItems = useMemo(() => composeCommunityNavItems(chips), [chips]);
+  const leadingNavItems = useMemo(
+    () =>
+      navItems.filter(
+        (item): item is Extract<CommunityNavComposeItem, { kind: "home" } | { kind: "topic" }> =>
+          item.kind === "home" || item.kind === "topic"
+      ),
+    [navItems]
+  );
+  const trailingNavItems = useMemo(
+    () =>
+      navItems.filter(
+        (item): item is Extract<CommunityNavComposeItem, { kind: "local" } | { kind: "popular" }> =>
+          item.kind === "local" || item.kind === "popular"
+      ),
+    [navItems]
   );
 
   const activeTopicTabIndex = useMemo(
-    () => resolveActiveTopicTabIndex(chips, category),
-    [chips, category]
+    () => resolveActiveNavIndex(navItems, navSelection),
+    [navItems, navSelection.kind, navSelection.topicSlug]
   );
 
   useEffect(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     if (initialPrewarmDoneRef.current) return;
     initialPrewarmDoneRef.current = true;
-    const initialTargets = chips.slice(0, 3);
-    for (const chip of initialTargets) {
-      prefetchCategoryFeedByIntent(chip);
+    const initialTargets = navItems.slice(0, 3);
+    for (const item of initialTargets) {
+      prefetchNavItemByIntent(item);
     }
-  }, [chips, prefetchCategoryFeedByIntent]);
+  }, [navItems, prefetchNavItemByIntent]);
 
   useEffect(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const immediateTargets = chips
-      .map((chip, idx) => ({ chip, dist: Math.abs(idx - activeTopicTabIndex) }))
-      .filter((item) => item.dist > 0)
+    const immediateTargets = navItems
+      .map((item, idx) => ({ item, dist: Math.abs(idx - activeTopicTabIndex) }))
+      .filter((x) => x.dist > 0)
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 2)
-      .map((item) => item.chip);
-    for (const chip of immediateTargets) {
-      prefetchCategoryFeedByIntent(chip);
+      .map((x) => x.item);
+    for (const item of immediateTargets) {
+      prefetchNavItemByIntent(item);
     }
-  }, [chips, activeTopicTabIndex, prefetchCategoryFeedByIntent]);
+  }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent]);
 
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
   useEffect(() => {
@@ -1378,34 +1432,34 @@ export function CommunityFeed({
       topicTabScrollGenRef.current += 1;
       for (const id of toCancel) cancelAnimationFrame(id);
     };
-  }, [chipsLoadDone, activeTopicTabIndex, category]);
+  }, [chipsLoadDone, activeTopicTabIndex]);
 
   const swipeToNextTab = useCallback(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     const i = activeTopicTabIndex;
-    if (i < chips.length - 1) {
-      const next = chips[i + 1]!;
-      applyCategoryTab(isGlobalSortDropdownChip(next) ? "" : next.slug);
+    if (i < navItems.length - 1) {
+      const next = navItems[i + 1]!;
+      applyNavSelection(communityNavComposeItemToSelection(next));
       return;
     }
     const href = getBottomNavAdjacentHref("community", "next") ?? "/market";
     if (!guardBeforeNavigate()) return;
     void router.push(href, { scroll: false });
-  }, [chips, activeTopicTabIndex, applyCategoryTab, router, guardBeforeNavigate]);
+  }, [navItems, activeTopicTabIndex, applyNavSelection, router, guardBeforeNavigate]);
 
   const swipeToPrevTab = useCallback(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     const i = activeTopicTabIndex;
     if (i <= 0) return;
-    const prev = chips[i - 1]!;
-    applyCategoryTab(isGlobalSortDropdownChip(prev) ? "" : prev.slug);
-  }, [chips, activeTopicTabIndex, applyCategoryTab]);
+    const prev = navItems[i - 1]!;
+    applyNavSelection(communityNavComposeItemToSelection(prev));
+  }, [navItems, activeTopicTabIndex, applyNavSelection]);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
-  const canSwipeToNext = useMemo(() => chips.length > 0, [chips.length]);
+  const canSwipeToNext = useMemo(() => navItems.length > 0, [navItems.length]);
   const canSwipeToPrev = useMemo(
-    () => chips.length > 0 && activeTopicTabIndex > 0,
-    [chips.length, activeTopicTabIndex]
+    () => navItems.length > 0 && activeTopicTabIndex > 0,
+    [navItems.length, activeTopicTabIndex]
   );
   const { setSwipeableEl: setFeedSwipeable } = useMobileHorizontalSwipePanel({
     enabled: feedSwipeOn,
@@ -1417,47 +1471,62 @@ export function CommunityFeed({
   });
 
   useEffect(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const idleId = scheduleWhenBrowserIdle(() => {
-      const neighborTabs = chips
-        .map((chip, idx) => ({ chip, dist: Math.abs(idx - activeTopicTabIndex) }))
-        .filter((item) => item.dist > 0)
+      const neighborItems = navItems
+        .map((item, idx) => ({ item, dist: Math.abs(idx - activeTopicTabIndex) }))
+        .filter((x) => x.dist > 0)
         .sort((a, b) => a.dist - b.dist)
         .slice(0, 3)
-        .map((item) => item.chip);
+        .map((x) => x.item);
       const nextBottomHref = getBottomNavAdjacentHref("community", "next");
       const prevBottomHref = getBottomNavAdjacentHref("community", "prev");
       if (nextBottomHref) void router.prefetch(nextBottomHref);
       if (prevBottomHref) void router.prefetch(prevBottomHref);
 
-      for (const target of neighborTabs) {
-        const targetCategory = isGlobalSortDropdownChip(target) ? "" : target.slug.trim();
-        const targetSort = resolvePhilifeFeedSortForQuery(targetCategory, sortParam);
-        const targetSortKey = targetCategory ? "" : targetSort;
+      for (const target of neighborItems) {
+        const sel = communityNavComposeItemToSelection(target);
+        const itemPlan = communityNavToFeedQuery(sel);
+        if (itemPlan.requiresRegion && (!locationKey || !locationMeta)) continue;
+        const targetSessionKey = itemPlan.globalFeed
+          ? PHILIFE_GLOBAL_FEED_SESSION_KEY
+          : philifeFeedSessionKeyForLocation(locationKey);
+        if (!targetSessionKey) continue;
+        const targetCategory = itemPlan.category;
+        const targetSort = itemPlan.feedSort;
         const cacheHit = readPhilifeFeedCache(
-          PHILIFE_GLOBAL_FEED_SESSION_KEY,
+          targetSessionKey,
           targetCategory,
           neighborOnly,
           viewerSig,
-          targetSortKey
+          targetSort
         );
         if (cacheHit?.posts?.length) continue;
-        const prefetchKey = `${targetCategory}\u001f${neighborOnly ? "1" : "0"}\u001f${targetSortKey}`;
+        const prefetchKey = `${targetSessionKey}\u001f${targetCategory}\u001f${neighborOnly ? "1" : "0"}\u001f${targetSort}`;
         const now = Date.now();
         const last = adjacentPrefetchAtRef.current[prefetchKey] ?? 0;
         if (now - last < 12_000) continue;
         adjacentPrefetchAtRef.current[prefetchKey] = now;
 
-        const url = buildPhilifeNeighborhoodFeedClientUrl({
-          globalFeed: true,
-          category: targetCategory && !isPhilifeRecommendSortCategory(targetCategory) ? targetCategory : undefined,
-          neighborOnly,
-          offset: 0,
-          limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
-          ...(targetCategory ? {} : { sort: targetSort }),
-        });
+        const url = itemPlan.globalFeed
+          ? buildPhilifeNeighborhoodFeedClientUrl({
+              globalFeed: true,
+              category: targetCategory || undefined,
+              neighborOnly,
+              offset: 0,
+              limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+              sort: targetSort,
+            })
+          : buildPhilifeNeighborhoodFeedClientUrl({
+              locationKey,
+              meta: locationMeta!,
+              neighborOnly,
+              offset: 0,
+              limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
+              sort: targetSort,
+            });
         const personalized = neighborOnly || viewerSig !== "_anon";
         void runSingleFlight(`community-feed:adjacent-prefetch:${prefetchKey}`, async () => {
           try {
@@ -1477,7 +1546,7 @@ export function CommunityFeed({
             const advance = typeof j.dbPageLength === "number" ? j.dbPageLength : j.posts.length;
             const resolvedNextOffset = typeof j.nextOffset === "number" ? j.nextOffset : advance;
             writePhilifeFeedCache(
-              PHILIFE_GLOBAL_FEED_SESSION_KEY,
+              targetSessionKey,
               targetCategory,
               neighborOnly,
               viewerSig,
@@ -1486,7 +1555,7 @@ export function CommunityFeed({
                 hasMore: !!j.hasMore,
                 nextOffset: resolvedNextOffset,
               },
-              targetSortKey
+              targetSort
             );
           } catch {
             /* 인접 탭 prefetch 실패는 조용히 무시 */
@@ -1495,27 +1564,27 @@ export function CommunityFeed({
       }
     }, 120);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [chips, activeTopicTabIndex, sortParam, neighborOnly, viewerSig, router]);
+  }, [navItems, activeTopicTabIndex, neighborOnly, viewerSig, router, locationKey, locationMeta]);
 
   /** idle 대기 전, 경계 스와이프 목적지와 인접 주제를 즉시 prewarm해 첫 리스트 지연을 줄인다. */
   useEffect(() => {
-    if (!chips.length) return;
+    if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const nextBottomHref = getBottomNavAdjacentHref("community", "next");
     const prevBottomHref = getBottomNavAdjacentHref("community", "prev");
     if (nextBottomHref) void router.prefetch(nextBottomHref);
     if (prevBottomHref) void router.prefetch(prevBottomHref);
-    const immediate = chips
-      .map((chip, idx) => ({ chip, dist: Math.abs(idx - activeTopicTabIndex) }))
-      .filter((item) => item.dist > 0)
+    const immediate = navItems
+      .map((item, idx) => ({ item, dist: Math.abs(idx - activeTopicTabIndex) }))
+      .filter((x) => x.dist > 0)
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 2)
-      .map((item) => item.chip);
-    for (const chip of immediate) {
-      prefetchCategoryFeedByIntent(chip);
+      .map((x) => x.item);
+    for (const item of immediate) {
+      prefetchNavItemByIntent(item);
     }
-  }, [chips, activeTopicTabIndex, prefetchCategoryFeedByIntent, router]);
+  }, [navItems, activeTopicTabIndex, prefetchNavItemByIntent, router]);
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS} data-community-renderer="canonical-v1" data-community-feed="list">
@@ -1534,98 +1603,108 @@ export function CommunityFeed({
                   role="tablist"
                   aria-label={t("community_feed_topic_aria")}
                 >
-                  {!chipsLoadDone ? (
-                    <div className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1 py-1.5" aria-hidden>
-                      <span className="h-8 w-14 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
-                      <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
-                      <span className="h-8 w-16 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
-                    </div>
-                  ) : (
-                    chips.map((c) => {
-                      const catKey = category.trim().toLowerCase();
-                      const slugKey = (c.slug ?? "").trim().toLowerCase();
-                      const on = c.slug === "" ? isAllTabView : catKey === slugKey;
-                      const sortModeLabel =
-                        c.slug === ""
-                          ? philifeGlobalFeedSortLabel(recSortKey)
-                          : resolveCommunityTopicUILabel(language, c.label, c.name_en, c.slug);
-                      const subjectChipClass = on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE;
-                      if (isGlobalSortDropdownChip(c)) {
-                        const globalSortInteractionProps =
-                          category.trim() !== ""
-                            ? {
-                                onClick: () => {
-                                  applyCategoryTab("");
-                                  setRecommendMenuOpen(false);
-                                },
-                              }
-                            : philifeGlobalSortChipGestures.buttonProps;
+                  {leadingNavItems.map((item) => {
+                      if (item.kind === "home") {
+                        const on = navSelection.kind === "home";
                         return (
-                          <button
-                            key={c.slug || "rec"}
-                            ref={recommendMenuRef}
-                            type="button"
-                            role="tab"
-                            aria-selected={on}
-                            aria-label={t("community_feed_global_sort_tab_aria", { label: sortModeLabel })}
-                            aria-haspopup="listbox"
-                            aria-expanded={recommendMenuOpen}
-                            className={PHILIFE_TOPIC_TAB_PILL_ACTIVE}
-                            {...globalSortInteractionProps}
-                            onPointerDown={(e) => {
-                              prefetchCategoryFeedByIntent(c);
-                              if (category.trim() === "") {
-                                philifeGlobalSortChipGestures.buttonProps.onPointerDown?.(e);
+                          <Fragment key="nav-home">
+                            <button
+                              type="button"
+                              role="tab"
+                              aria-selected={on}
+                              onClick={() =>
+                                applyNavSelection({
+                                  kind: "home",
+                                  topicSlug: "",
+                                  homeSort: on ? navSelection.homeSort : "recommended",
+                                })
                               }
-                            }}
-                            onKeyDown={(e) => {
-                              if (category.trim() !== "") return;
-                              if (e.key === "ArrowDown") {
-                                e.preventDefault();
-                                setRecommendMenuOpen(true);
-                              }
-                            }}
-                            onMouseEnter={() => prefetchCategoryFeedByIntent(c)}
-                            onTouchStart={() => prefetchCategoryFeedByIntent(c)}
-                            onFocus={() => prefetchCategoryFeedByIntent(c)}
-                          >
-                            <span className="min-w-0 flex-1 truncate">{sortModeLabel}</span>
-                            {recSortKey === "recommended" ? (
-                              <ChevronUp
-                                className="h-3.5 w-3.5 shrink-0 text-sam-primary"
-                                strokeWidth={2.4}
-                                aria-hidden
-                              />
-                            ) : (
-                              <ChevronDown
-                                className="h-3.5 w-3.5 shrink-0 text-sam-primary"
-                                strokeWidth={2.4}
-                                aria-hidden
-                              />
-                            )}
-                          </button>
+                              className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
+                            >
+                              <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
+                                {safeT("community_nav_home", { fallbackKo: "홈", fallbackEn: "Home" })}
+                              </span>
+                            </button>
+                            {on ? (
+                              <select
+                                aria-label={t("community_feed_sort_aria")}
+                                value={navSelection.homeSort}
+                                onChange={(e) =>
+                                  applyNavSelection({
+                                    kind: "home",
+                                    topicSlug: "",
+                                    homeSort: e.target.value === "latest" ? "latest" : "recommended",
+                                  })
+                                }
+                                className="h-8 shrink-0 rounded-full border border-sam-border bg-sam-surface px-2 text-[12px] font-semibold text-sam-fg"
+                              >
+                                <option value="recommended">
+                                  {safeT("community_nav_home_sort_recommended", {
+                                    fallbackKo: "추천순",
+                                    fallbackEn: "Recommended",
+                                  })}
+                                </option>
+                                <option value="latest">
+                                  {safeT("community_nav_home_sort_latest", {
+                                    fallbackKo: "최신순",
+                                    fallbackEn: "Latest",
+                                  })}
+                                </option>
+                              </select>
+                            ) : null}
+                          </Fragment>
                         );
                       }
+                      const on = navSelection.kind === "topic" && navSelection.topicSlug === item.slug;
+                      const chipLabel = resolveCommunityTopicUILabel(language, item.label, item.name_en, item.slug);
                       return (
                         <button
-                          key={c.slug || "all"}
+                          key={item.slug}
                           type="button"
                           role="tab"
                           aria-selected={on}
-                          onClick={() => applyCategoryTab(c.slug === "" ? "" : c.slug)}
-                          onMouseEnter={() => prefetchCategoryFeedByIntent(c)}
-                          onTouchStart={() => prefetchCategoryFeedByIntent(c)}
-                          onPointerDown={() => prefetchCategoryFeedByIntent(c)}
-                          onFocus={() => prefetchCategoryFeedByIntent(c)}
-                          className={subjectChipClass}
+                          onClick={() => applyNavSelection({ kind: "topic", topicSlug: item.slug, homeSort: "recommended" })}
+                          onMouseEnter={() => prefetchNavItemByIntent(item)}
+                          onTouchStart={() => prefetchNavItemByIntent(item)}
+                          onPointerDown={() => prefetchNavItemByIntent(item)}
+                          onFocus={() => prefetchNavItemByIntent(item)}
+                          className={on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
                         >
                           <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
-                            {sortModeLabel}
+                            {chipLabel}
                           </span>
                         </button>
                       );
-                    })
-                  )}
+                  })}
+                  {!chipsLoadDone ? (
+                    <span className="flex shrink-0 items-center gap-1" aria-hidden>
+                      <span className="h-8 w-14 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                      <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                    </span>
+                  ) : null}
+                  {trailingNavItems.map((item) => {
+                    const on = navSelection.kind === item.kind;
+                    const label =
+                      item.kind === "local"
+                        ? safeT("community_feed_mode_local", { fallbackKo: "동네", fallbackEn: "Local" })
+                        : safeT("community_feed_mode_popular", { fallbackKo: "인기", fallbackEn: "Popular" });
+                    return (
+                      <button
+                        key={item.kind}
+                        type="button"
+                        role="tab"
+                        aria-selected={on}
+                        onClick={() => applyNavSelection(communityNavComposeItemToSelection(item))}
+                        onMouseEnter={() => prefetchNavItemByIntent(item)}
+                        onTouchStart={() => prefetchNavItemByIntent(item)}
+                        onPointerDown={() => prefetchNavItemByIntent(item)}
+                        onFocus={() => prefetchNavItemByIntent(item)}
+                        className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1648,49 +1727,6 @@ export function CommunityFeed({
           </>
         }
       />
-
-      {recommendMenuOpen &&
-        isAllTabView &&
-        recommendMenuPos &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <ul
-            ref={recommendMenuPanelRef}
-            role="listbox"
-            aria-label={t("community_feed_sort_aria")}
-            className={`min-w-[10rem] text-left ${COMMUNITY_DROPDOWN_PANEL_CLASS}`}
-            style={{
-              position: "fixed",
-              top: recommendMenuPos.top,
-              left: recommendMenuPos.left,
-              zIndex: 200,
-            }}
-          >
-            <li role="none">
-              <button
-                type="button"
-                role="option"
-                aria-selected={effectiveRecSort === "latest"}
-                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-sam-fg transition hover:bg-sam-app"
-                onClick={() => applyRecommendSort("latest")}
-              >
-                {t("community_sort_latest")}
-              </button>
-            </li>
-            <li role="none">
-              <button
-                type="button"
-                role="option"
-                aria-selected={effectiveRecSort === "recommended"}
-                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-sam-fg transition hover:bg-sam-app"
-                onClick={() => applyRecommendSort("recommended")}
-              >
-                {t("community_sort_recommended")}
-              </button>
-            </li>
-          </ul>,
-          document.body
-        )}
 
       <div className="relative min-w-0">
         <div ref={setFeedSwipeable} className="will-change-transform touch-pan-y min-w-0">

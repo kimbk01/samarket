@@ -8,7 +8,9 @@ export type PhilifeFeedTopicChip = {
   sort_slot: "recommend" | "popular" | null;
 };
 
-/** 상단 첫 칩: 주제 없음(전역) — 화면 라벨은 `CommunityFeed` 의 `philifeGlobalFeedSortLabel` 만 사용 */
+/**
+ * @deprecated Home is composition SSOT (`composeCommunityNavItems`), not an All topic chip.
+ */
 export const PHILIFE_FEED_ALL_TAB_CHIP: PhilifeFeedTopicChip = {
   slug: "",
   label: "",
@@ -22,15 +24,15 @@ export function isPhilifeRecommendSortCategory(slug: string): boolean {
 }
 
 /**
- * `GET /api/philife/neighborhood-topic-options` (또는 RSC 시드) → 피드 2단 탭 칩 목록.
- * `CommunityFeed` 와 동일 규칙(정렬 전용 slug 제외 등).
+ * Content topic chips for Community Navigation composition (Admin topics only).
+ * Home / Local / Popular are composed separately — not prepended here.
  */
 export function buildFeedChipsFromPhilifeTopicOptionsJson(
   j: PhilifeNeighborhoodTopicOptionsJson
 ): { chips: PhilifeFeedTopicChip[]; showNeighborOnlyStrip: boolean } {
   const showNeighborOnlyStrip = j?.showNeighborOnlyFilter !== false;
   if (!j?.ok || !Array.isArray(j.feedChips)) {
-    return { chips: [PHILIFE_FEED_ALL_TAB_CHIP], showNeighborOnlyStrip };
+    return { chips: [], showNeighborOnlyStrip };
   }
   const rest: PhilifeFeedTopicChip[] = j.feedChips
     .map((x) => {
@@ -56,11 +58,13 @@ export function buildFeedChipsFromPhilifeTopicOptionsJson(
     })
     .filter((chip) => {
       const s = (chip.slug ?? "").trim().toLowerCase();
+      if (!s) return false;
       if (isPhilifeRecommendSortCategory(s)) return false;
-      if (chip.is_feed_sort && chip.sort_slot === "recommend") return false;
+      if (s === "popular" || s === "latest" || s === "home" || s === "local") return false;
+      if (chip.is_feed_sort === true) return false;
+      if (chip.sort_slot != null) return false;
       return true;
     });
-  const allTab = j.showAllFeedTab !== false;
-  const chips = allTab ? [PHILIFE_FEED_ALL_TAB_CHIP, ...rest] : rest;
-  return { chips, showNeighborOnlyStrip };
+  void j.showAllFeedTab;
+  return { chips: rest, showNeighborOnlyStrip };
 }

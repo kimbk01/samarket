@@ -25,6 +25,7 @@ import {
 } from "@/lib/philife/neighborhood-write-paste";
 import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
+import { buildCommunityFeedHref } from "@/lib/community/community-nav";
 import {
   neighborhoodLocationKeyFromRegion,
   neighborhoodLocationMetaFromRegion,
@@ -788,7 +789,16 @@ export function PhilifeNeighborhoodWriteForm({
         const mid = typeof j.meetingId === "string" && j.meetingId.trim() ? j.meetingId.trim() : null;
         router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
       } else {
-        router.replace(philifeAppPaths.post(j.id));
+        // Return to Community hub with same topic (or Home when none).
+        const topic =
+          category && category !== "meetup" ? category.trim().toLowerCase() : "";
+        router.replace(
+          buildCommunityFeedHref(philifeAppPaths.home, {
+            selection: topic
+              ? { kind: "topic", topicSlug: topic, homeSort: "recommended" }
+              : { kind: "home", topicSlug: "", homeSort: "recommended" },
+          })
+        );
       }
       } catch {
         setErr(t("philife_write_err_network_occurred"));

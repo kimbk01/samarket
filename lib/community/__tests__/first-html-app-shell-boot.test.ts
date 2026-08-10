@@ -53,7 +53,7 @@ describe("first-html + single snapshot boot", () => {
     });
   });
 
-  it("uses the first visible topic when the all tab is disabled", () => {
+  it("always boots to all topics when no explicit category (even if all tab admin flag is off)", () => {
     expect(
       resolveCommunityFeedBootSelection("", {
         ok: true,
@@ -71,7 +71,7 @@ describe("first-html + single snapshot boot", () => {
         writeTopics: [],
       })
     ).toEqual({
-      category: "philippines",
+      category: "",
       authorityReady: true,
     });
   });
@@ -110,5 +110,51 @@ describe("first-html + single snapshot boot", () => {
         feedChips: [{ slug: "daily", name: "일상생활" }],
       })
     ).toBe(false);
+  });
+
+  it("treats same slug with different display name as different authority (Admin rename)", () => {
+    const a = {
+      ok: true,
+      showAllFeedTab: false,
+      feedChips: [{ slug: "qa-topic", name: "QA IA", name_en: "QA IA" }],
+      writeTopics: [],
+    };
+    const b = {
+      ok: true,
+      showAllFeedTab: false,
+      feedChips: [{ slug: "qa-topic", name: "QA IA 2", name_en: "QA IA" }],
+      writeTopics: [],
+    };
+    expect(isSameCommunityTopicOptionsAuthority(a, b)).toBe(false);
+  });
+
+  it("treats same slug+name+name_en as same authority", () => {
+    const a = {
+      ok: true,
+      showAllFeedTab: true,
+      feedChips: [{ slug: "qa-topic", name: "QA IA", name_en: "QA" }],
+      writeTopics: [],
+    };
+    const b = {
+      ok: true,
+      showAllFeedTab: true,
+      feedChips: [{ slug: "qa-topic", name: "QA IA", name_en: "QA" }],
+      writeTopics: [],
+    };
+    expect(isSameCommunityTopicOptionsAuthority(a, b)).toBe(true);
+  });
+
+  it("treats name_en-only display change as different authority", () => {
+    const a = {
+      ok: true,
+      feedChips: [{ slug: "qa-topic", name: "QA IA", name_en: "Old" }],
+      writeTopics: [],
+    };
+    const b = {
+      ok: true,
+      feedChips: [{ slug: "qa-topic", name: "QA IA", name_en: "New" }],
+      writeTopics: [],
+    };
+    expect(isSameCommunityTopicOptionsAuthority(a, b)).toBe(false);
   });
 });

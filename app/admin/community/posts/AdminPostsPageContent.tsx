@@ -17,6 +17,8 @@ type CommunityPostRow = {
   user_id?: string | null;
   location_id?: string | null;
   category?: string | null;
+  topic_slug?: string | null;
+  topicSlug?: string | null;
   title?: string | null;
   status?: string | null;
   is_reported?: boolean | null;
@@ -53,6 +55,8 @@ export function AdminPostsPageContent() {
   const [tab, setTab] = useState<PostsTab>("community");
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
+  const [communityTopicFilter, setCommunityTopicFilter] = useState("");
+  const [topicNameBySlug, setTopicNameBySlug] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [communityErr, setCommunityErr] = useState("");
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -72,7 +76,10 @@ export function AdminPostsPageContent() {
   const loadCommunity = useCallback(async () => {
     setCommunityErr("");
     try {
-      const res = await fetch("/api/admin/community/engine/posts?limit=100", {
+      const q = new URLSearchParams({ limit: "100" });
+      const topic = communityTopicFilter.trim().toLowerCase();
+      if (topic) q.set("topicSlug", topic);
+      const res = await fetch(`/api/admin/community/engine/posts?${q.toString()}`, {
         cache: "no-store",
         credentials: "include",
         headers: { "Cache-Control": "no-store" },
@@ -88,7 +95,7 @@ export function AdminPostsPageContent() {
       setCommunityErr((e as Error).message);
       setCommunityRows([]);
     }
-  }, [tr]);
+  }, [tr, communityTopicFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +110,39 @@ export function AdminPostsPageContent() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancel = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/community/topics", { credentials: "include", cache: "no-store" });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          topics?: { slug?: string; name?: string }[];
+        };
+        if (cancel || !j.ok || !Array.isArray(j.topics)) return;
+        const map: Record<string, string> = {};
+        for (const t of j.topics) {
+          if (t.slug && t.name) map[t.slug] = t.name;
+        }
+        setTopicNameBySlug(map);
+      } catch {
+        /* keep slug fallback */
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  const topicDisplayLabel = useCallback(
+    (row: CommunityPostRow) => {
+      const slug = String(row.topicSlug ?? row.topic_slug ?? row.category ?? "");
+      if (!slug) return dash;
+      return topicNameBySlug[slug] ?? slug;
+    },
+    [topicNameBySlug, dash]
+  );
 
   useEffect(() => {
     setSelectedCommunity(new Set());
@@ -342,6 +382,26 @@ export function AdminPostsPageContent() {
         </p>
       )}
 
+      {tab === "community" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={communityTopicFilter}
+            onChange={(e) => setCommunityTopicFilter(e.target.value)}
+            placeholder={tr("admin_posts_col_topic")}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+            aria-label={tr("admin_posts_col_topic")}
+          />
+          <button
+            type="button"
+            onClick={() => void loadCommunity()}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
+          >
+            {tr("admin_feed_posts_refresh")}
+          </button>
+        </div>
+      ) : null}
+
       {tab === "community" && !loading && communityRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <span className="sam-text-body-secondary text-sam-fg">
@@ -534,7 +594,7 @@ export function AdminPostsPageContent() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="p-3 text-sam-muted">{String(r.category ?? dash)}</td>
+                        <td className="p-3 text-sam-muted">{topicDisplayLabel(r)}</td>
                         <td
                           className="max-w-[140px] truncate p-3 text-sam-muted"
                           title={String(r.region_label ?? "")}

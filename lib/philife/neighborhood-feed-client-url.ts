@@ -2,13 +2,26 @@ import { philifeNeighborhoodFeedUrl } from "@domain/philife/api";
 
 export const NEIGHBORHOOD_FEED_PAGE_SIZE = 20;
 
-/** 세션 캐시 키 — 지역과 무관한 전역 필라이프 피드 */
+/**
+ * 세션 캐시 키 — 지역과 무관한 전역 피드.
+ * Community Home / Topic / Popular 기본 경로에서 사용.
+ * Local(동네)만 `philifeFeedSessionKeyForLocation` 사용.
+ */
 export const PHILIFE_GLOBAL_FEED_SESSION_KEY = "__philife_global";
 
+/** Local(동네) — location-scoped session/cache key. */
+export function philifeFeedSessionKeyForLocation(locationKey: string): string {
+  const k = locationKey.trim();
+  return k || PHILIFE_GLOBAL_FEED_SESSION_KEY;
+}
+
 export function buildPhilifeNeighborhoodFeedClientUrl(input: {
-  /** true면 지역 없이 전체 글(주제·관심이웃·차단만 적용). 필라이프 홈 기본 */
+  /**
+   * true면 지역 없이 전체 글(주제·관심이웃·차단만 적용).
+   * Community Home / Topic / Popular 기본.
+   */
   globalFeed?: boolean;
-  /** `globalFeed` 가 아닐 때만 필요 (레거시·직접 호출) */
+  /** `globalFeed` 가 아닐 때 필요 (Local 동네) */
   locationKey?: string;
   /** `neighborhoodLocationMetaFromRegion` 결과 또는 null */
   meta?: { city: string; district: string; name: string; label: string } | null;
@@ -21,7 +34,7 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   authorUserId?: string;
   offset?: number;
   limit?: number;
-  /** `community` neighborhood-feed `sort` — `recommend*` 탭의 최신/추천 등 */
+  /** neighborhood-feed `sort` — local→latest, popular→popular */
   sort?: "latest" | "popular" | "recommended";
 }): string {
   const p = new URLSearchParams();

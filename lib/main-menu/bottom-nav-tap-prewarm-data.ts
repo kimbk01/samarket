@@ -54,7 +54,28 @@ export function prewarmBottomNavTapTargetClientCache(
   }
 
   if (path === "/philife" || path === "/" || path === "/community") {
-    void import("@/lib/main-menu/bottom-nav-tap-prewarm-philife").then((m) => m.prewarmBottomNavPhilifeTab());
+    void Promise.all([
+      import("@/lib/main-menu/bottom-nav-tap-prewarm-philife"),
+      import("@/lib/app-boot/app-boot-store"),
+      import("@/lib/regions/profile-to-user-region"),
+    ]).then(([philife, boot, regionMod]) => {
+      const profile = boot.peekAppBootProfile();
+      const region = profile
+        ? regionMod.userRegionFromProfileSlice({
+            region_code: typeof profile.region_code === "string" ? profile.region_code : null,
+            region_name: typeof profile.region_name === "string" ? profile.region_name : null,
+            address_detail:
+              typeof (profile as { address_detail?: unknown }).address_detail === "string"
+                ? (profile as { address_detail: string }).address_detail
+                : null,
+            full_address:
+              typeof (profile as { full_address?: unknown }).full_address === "string"
+                ? (profile as { full_address: string }).full_address
+                : null,
+          })
+        : null;
+      philife.prewarmBottomNavPhilifeTab(region);
+    });
     return;
   }
 

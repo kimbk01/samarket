@@ -9,7 +9,6 @@ import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrows
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
 /** 거래 셸 체류 중 탭 전환과 경합 줄이기 — 너무 짧으면 장시간 머문 뒤 메인 스레드·네트워크가 밀림 */
 const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 900;
@@ -29,7 +28,8 @@ function remainingBottomNavQuietMs(): number {
 }
 
 /**
- * /philife 가 아닐 때만 워밍 — 피드 화면 자체의 요청과 중복 최소화
+ * /philife 가 아닐 때만 워밍 — 피드 화면 자체의 요청과 중복 최소화.
+ * Community Home 기본 = globalFeed + recommended (지역 불필요).
  */
 export function PhilifeFeedWarmPrefetch() {
   const pathname = usePathname();
@@ -42,7 +42,7 @@ export function PhilifeFeedWarmPrefetch() {
   const tickRef = useRef(0);
 
   /**
-   * deps: `viewerSig`·`warmShellDomain`·`router` — `/market` 내부 이동처럼 **같은 거래 셸** 안에서는
+   * deps: `viewerSig`·`warmShellDomain` — `/market` 내부 이동처럼 **같은 거래 셸** 안에서는
    * `warmShellDomain` 불변이라 타이머를 리셋하지 않는다. 실행·가드에는 `pathnameRef` 로 최신 경로를 본다.
    */
   useEffect(() => {
@@ -53,7 +53,10 @@ export function PhilifeFeedWarmPrefetch() {
     if (document.visibilityState !== "visible") return;
     if (isConstrainedNetwork()) return;
 
-    const url = buildPhilifeNeighborhoodFeedClientUrl({ globalFeed: true });
+    const url = buildPhilifeNeighborhoodFeedClientUrl({
+      globalFeed: true,
+      sort: "recommended",
+    });
     const cacheKey = `global:${viewerSig}:${url}`;
     const lastWarmedAt = warmedFeedAtByKey.get(cacheKey) ?? 0;
     if (Date.now() - lastWarmedAt < PHILIFE_WARM_PREFETCH_TTL_MS) return;
