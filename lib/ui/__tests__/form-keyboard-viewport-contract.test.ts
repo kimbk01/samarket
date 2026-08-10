@@ -154,7 +154,7 @@ describe("form-keyboard-viewport-contract", () => {
     expect(Math.abs(delta)).toBe(68);
   });
 
-  it("CASE D: tiny usable band relaxes chrome top enough for focused height", async () => {
+  it("does not relax opaque sticky chrome below its bottom", async () => {
     vi.stubGlobal("window", {
       innerHeight: 280,
       visualViewport: { offsetTop: 0, height: 280 },
@@ -180,8 +180,7 @@ describe("form-keyboard-viewport-contract", () => {
       effectiveViewportBottom: 280,
       focusedHeightPx: 40,
     });
-    expect(top).toBeLessThan(180);
-    expect(280 - top).toBeGreaterThanOrEqual(120);
+    expect(top).toBe(180);
   });
 
   it("CASE D tall textarea: prioritize bottom/caret, allow top clip", () => {

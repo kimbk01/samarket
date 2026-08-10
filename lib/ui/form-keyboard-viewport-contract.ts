@@ -256,7 +256,17 @@ export function resolveFormEffectiveViewportTopPx(args?: {
     focusedNeed + FORM_FOCUS_GAP_PX * 2
   );
   const usable = bandBottom - topPx;
-  if (focusedNeed > 0 && usable < minUsable && bandBottom > frame.offsetTopPx) {
+  /**
+   * Only relax the top floor when there is no opaque sticky chrome.
+   * Relaxing under sheet/header chrome marks caret as "visible" while it is
+   * still covered (Trade landscape multiline).
+   */
+  if (
+    !chrome &&
+    focusedNeed > 0 &&
+    usable < minUsable &&
+    bandBottom > frame.offsetTopPx
+  ) {
     const relaxedFloor = frame.offsetTopPx;
     const fitTop = bandBottom - minUsable;
     topPx = Math.max(relaxedFloor, Math.min(topPx, fitTop));
