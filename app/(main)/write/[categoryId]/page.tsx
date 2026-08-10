@@ -7,10 +7,9 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
-import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
-import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { getCategoryHref, getCanonicalCommunityWriteHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -51,9 +50,14 @@ export default function WriteByCategoryPage() {
       setStatus("not_found");
       return;
     }
+    /** Legacy community create isolated — canonical Philife neighborhood writer only. */
+    if (c.type === "community") {
+      setStatus("redirecting");
+      router.replace(getCanonicalCommunityWriteHref());
+      return;
+    }
     const nextPath = pathname || `/write/${categoryId}`;
-    const profileAction =
-      c.type === "community" ? "community_write" : c.type === "trade" ? "trade_create_item" : null;
+    const profileAction = c.type === "trade" ? "trade_create_item" : null;
     if (profileAction) {
       const profileOk = await requireAuthAction(profileAction, async () => {}, { next: nextPath });
       if (!profileOk) {
@@ -148,12 +152,11 @@ export default function WriteByCategoryPage() {
         />
       );
     case "community":
+      // Should redirect in load(); keep as safety net without legacy form.
       return (
-        <CommunityWriteForm
-          category={category}
-          onSuccess={handleSuccess}
-          onCancel={handleCancel}
-        />
+        <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
+          {t("ui_write_auth_checking")}
+        </div>
       );
     case "service":
       return (

@@ -10,12 +10,11 @@ import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18
 import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
-import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
+import { getUnifiedWriteHref, getCanonicalCommunityWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
-import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
@@ -83,7 +82,7 @@ export function WriteSheetFlowInner({
     () => ({
       trade: categories.filter((x) => x.type === "trade"),
       service: categories.filter((x) => x.type === "service"),
-      community: categories.filter((x) => x.type === "community"),
+      // community: product write is /philife/write only — exclude legacy sheet path
       feature: categories.filter((x) => x.type === "feature"),
     }),
     [categories]
@@ -95,6 +94,15 @@ export function WriteSheetFlowInner({
       ),
     [byType]
   );
+
+  const redirectCommunityWriteToCanonical = useCallback(() => {
+    setSelectedCategory(null);
+    setFormStatus("redirecting");
+    if (mode === "tradeSheet") {
+      onUserRequestClose();
+    }
+    router.replace(getCanonicalCommunityWriteHref());
+  }, [mode, onUserRequestClose, router]);
 
   const loadSelectedCategory = useCallback(
     async (value: string) => {
@@ -109,9 +117,11 @@ export function WriteSheetFlowInner({
         (c) => c.id === v || c.id === n || (c.slug && (c.slug === v || c.slug === n))
       );
       if (fromList) {
-        const profileAction =
-          fromList.type === "community" ? "community_write" : "trade_create_item";
-        const profileOk = await requireAuthAction(profileAction, async () => {}, {
+        if (fromList.type === "community") {
+          redirectCommunityWriteToCanonical();
+          return;
+        }
+        const profileOk = await requireAuthAction("trade_create_item", async () => {}, {
           next: pathnameForAuth || "/write",
         });
         if (!profileOk) {
@@ -136,8 +146,11 @@ export function WriteSheetFlowInner({
           setFormStatus("not_found");
           return;
         }
-        const profileAction = c.type === "community" ? "community_write" : "trade_create_item";
-        const profileOk = await requireAuthAction(profileAction, async () => {}, {
+        if (c.type === "community") {
+          redirectCommunityWriteToCanonical();
+          return;
+        }
+        const profileOk = await requireAuthAction("trade_create_item", async () => {}, {
           next: pathnameForAuth || "/write",
         });
         if (!profileOk) {
@@ -157,7 +170,7 @@ export function WriteSheetFlowInner({
         setFormStatus("not_found");
       }
     },
-    [pathnameForAuth, categories]
+    [pathnameForAuth, categories, redirectCommunityWriteToCanonical]
   );
 
   useEffect(() => {
@@ -206,6 +219,10 @@ export function WriteSheetFlowInner({
       }
       const selected = categories.find((c) => c.id === value);
       if (!selected || !selected.settings?.can_write) return;
+      if (selected.type === "community") {
+        redirectCommunityWriteToCanonical();
+        return;
+      }
       setIsFormDirty(false);
       setMeaningfulTradeDraft(false);
       if (mode === "tradeSheet") {
@@ -220,6 +237,7 @@ export function WriteSheetFlowInner({
       handleSelect,
       mode,
       onTradeSheetCategoryChange,
+      redirectCommunityWriteToCanonical,
       router,
       selectedCategory,
     ]
@@ -365,14 +383,8 @@ export function WriteSheetFlowInner({
           />
         );
       case "community":
-        return (
-          <CommunityWriteForm
-            category={selectedCategory}
-            onSuccess={handleSuccess}
-            onCancel={tryClose}
-            suppressTier1Chrome
-          />
-        );
+        // Legacy CommunityWriteForm isolated — product callers redirect to /philife/write
+        return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_auth_checking")}</p>;
       case "service":
         return (
           <ServiceWriteForm
