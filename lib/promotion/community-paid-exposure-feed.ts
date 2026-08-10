@@ -122,7 +122,7 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
   for (const row of rows) {
     const post = postById.get(String(row.target_id));
     if (!post) continue;
-    const topicSlug = String(post.topic_slug ?? post.category ?? "").trim();
+    const topicSlug = String(post.topic_slug ?? "").trim() || String(post.category ?? "").trim();
     if (topicFilter && !topicMatches(topicSlug, topicFilter)) continue;
 
     const title = String(post.title ?? "").trim() || "(제목 없음)";

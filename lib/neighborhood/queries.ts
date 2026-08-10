@@ -18,7 +18,6 @@ import {
   loadPhilifeDefaultSectionTopics,
   neighborhoodPostTopicUiSlug,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
-import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 import { fetchCommunityPostViewerState, fetchCommunityPostViewerStatesBatch } from "@/lib/community/post-engagement/viewer-state";
 import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
 import type {
@@ -274,10 +273,10 @@ export async function listNeighborhoodFeed(options: {
     if (filterCat) {
       if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
         if (filterCat === "meetup") {
+          /** Meetup subtype still stored on legacy enum column — not Topic identity */
           qq = qq.eq("category", "meetup");
-        } else if (normalizeNeighborhoodCategory(filterCat)) {
-          qq = qq.or(`category.eq.${filterCat},topic_slug.eq.${filterCat}`);
         } else {
+          /** Topic identity filter — data baseline: all rows have topic_slug */
           qq = qq.eq("topic_slug", filterCat);
         }
       } else {
@@ -541,8 +540,6 @@ export async function listNeighborhoodFeed(options: {
     else parts.push("scope=location_id+not_null");
     if (filterCat) {
       if (filterCat === "meetup") parts.push("filter=category.eq.meetup");
-      else if (useTopicSlug && normalizeNeighborhoodCategory(filterCat))
-        parts.push(`filter=or(category.eq.${filterCat},topic_slug.eq.${filterCat})`);
       else if (useTopicSlug) parts.push(`filter=topic_slug.eq.${filterCat}`);
       else parts.push(`filter=category.eq.${filterCat}`);
     } else parts.push("filter=none");

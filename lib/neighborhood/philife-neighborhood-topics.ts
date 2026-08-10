@@ -452,8 +452,8 @@ export function labelForNeighborhoodPostCategory(
 }
 
 /**
- * 피드·상세 배지·스킨·칩 필터용 slug.
- * `community_posts.topic_slug`(어드민 주제)가 있으면 우선하고, 옛 글은 `category` enum만 사용.
+ * 피드·상세 배지·스킨·칩 필터용 Topic identity slug.
+ * Authority: `community_posts.topic_slug`. `category` is legacy enum bridge only when topic_slug missing.
  */
 export function neighborhoodPostTopicUiSlug(row: { category?: unknown; topic_slug?: unknown }): string {
   const ts = String(row.topic_slug ?? "").trim().toLowerCase();

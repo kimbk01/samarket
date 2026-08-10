@@ -115,7 +115,7 @@ export function AdminCommunityEnginePostsClient() {
               const id = String(r.id ?? "");
               const title = String(r.title ?? "");
               const isSample = r.is_sample_data === true;
-              const topicSlug = String(r.topicSlug ?? r.topic_slug ?? r.category ?? "");
+              const topicSlug = String(r.topicSlug ?? r.topic_slug ?? "").trim();
               const topicLabel = topicSlug ? topicNameBySlug[topicSlug] ?? topicSlug : "";
               return (
                 <tr key={id} className="border-t border-sam-border-soft">

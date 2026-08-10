@@ -8,15 +8,19 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/community/engine/posts
- * 관리자 — 커뮤니티 글 목록 (필터: category, topicSlug, locationId, reportedOnly, status, limit, offset)
+ * 관리자 — 커뮤니티 글 목록
+ * Topic filter authority = `topic_slug` only.
+ * Query `category` is a legacy alias for topic slug (not DB enum identity).
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
   const sp = req.nextUrl.searchParams;
-  const category = sp.get("category")?.trim() || "";
-  const topicSlug = sp.get("topicSlug")?.trim().toLowerCase() || "";
+  const categoryAlias = sp.get("category")?.trim().toLowerCase() || "";
+  const topicSlugParam = sp.get("topicSlug")?.trim().toLowerCase() || "";
+  /** Topic identity filter — never filter the legacy enum `category` column */
+  const topicFilter = topicSlugParam || categoryAlias;
   const locationId = sp.get("locationId")?.trim() || "";
   const reportedOnly = sp.get("reportedOnly") === "1";
   const status = sp.get("status")?.trim() || "";
@@ -38,8 +42,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (topicSlug) q = q.eq("topic_slug", topicSlug);
-  else if (category) q = q.eq("category", category);
+  if (topicFilter) q = q.eq("topic_slug", topicFilter);
   if (locationId) q = q.eq("location_id", locationId);
   if (reportedOnly) q = q.eq("is_reported", true);
   if (status && ["active", "hidden", "deleted"].includes(status)) q = q.eq("status", status);

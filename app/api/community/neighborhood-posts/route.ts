@@ -16,7 +16,7 @@ import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
-import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
+import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 
@@ -322,10 +322,11 @@ export async function POST(req: NextRequest) {
           ? "password_approval"
           : "free";
 
-  /** DB `community_posts_category_check` — 글쓰기 주제 slug(어드민 임의 값)와 별도로 고정 enum 만 허용 */
-  const categoryForDb = isMeetup
-    ? "meetup"
-    : normalizeNeighborhoodCategory(rawCat) ?? "etc";
+  /** Legacy enum column only — Topic identity is topic_id/topic_slug above */
+  const categoryForDb = deriveCommunityPostCategoryBucket({
+    topicOrCategoryRaw: rawCat,
+    isMeetup,
+  });
 
   const { data: inserted, error: insErr } = await sb
     .from("community_posts")
@@ -342,7 +343,7 @@ export async function POST(req: NextRequest) {
       location_id: locationId,
       category: categoryForDb,
       images,
-      is_question: rawCat === "question",
+      is_question: rawCat === "question" || topicMeta.topicSlug === "question",
       is_meetup: isMeetup,
       meetup_place: isMeetup ? meetupPlace || null : null,
       meetup_date: isMeetup && tenureType === "short" ? meetupDate : null,

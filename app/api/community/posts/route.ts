@@ -17,7 +17,7 @@ import {
   parseJsonBody,
   safeErrorMessage,
 } from "@/lib/http/api-route";
-import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
+import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
@@ -131,7 +131,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const categoryForDb = is_meetup ? "meetup" : normalizeNeighborhoodCategory(topicSlug) ?? "etc";
+  const categoryForDb = deriveCommunityPostCategoryBucket({
+    topicOrCategoryRaw: topicSlug,
+    isMeetup: is_meetup,
+  });
 
   if (ops.max_posts_per_day > 0) {
     const n = await countUserCommunityPostsToday(auth.userId);
