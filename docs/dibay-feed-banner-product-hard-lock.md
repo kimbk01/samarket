@@ -27,7 +27,7 @@ It does **not** claim Analytics, Notification, Legacy cleanup, or Native Cap cha
 
 Verified (unit + local runtime evidence 2026-08-10):
 
-- **Community surface CASE 2:** topic-first IA (`showAllFeedTab=false` prod+local); ads follow `COMMUNITY_TOPIC:<slug>`; `COMMUNITY_HOME` only when All tab is ON
+- **Community surface:** Nav-aligned — HOME→`COMMUNITY_HOME`, TOPIC→`COMMUNITY_TOPIC:<slug>`, LOCAL/POPULAR→no Feed Banner (do not borrow HOME)
 - Surface SSOT: `resolveCommunityFeedSurface` shared by chips / URL / posts / banner / `/api/feed-ads/active`
 - Cadence: gaps ∈ **[6,10]** deterministic (`FeedAdSlotPolicy`); rerender/pagination stable; DB pagination has no ad rows
 - Multi-advertiser: stable hash selector + anti-repeat when `eligible.length > 1`
@@ -44,7 +44,7 @@ Verified (unit + local runtime evidence 2026-08-10):
 | Legacy cleanup | Deferred |
 | Analytics / Notification | Deferred |
 | Native / Capacitor / Auth / Push | **ZERO CHANGE** |
-| `COMMUNITY_HOME` as default user surface | **Not required** while All tab OFF (product IA) |
+| `COMMUNITY_HOME` as default on Local/Popular | **No** — Local/Popular do not sell / do not inherit HOME banner |
 
 ---
 
@@ -52,7 +52,7 @@ Verified (unit + local runtime evidence 2026-08-10):
 
 | Concern | Decision |
 |---|---|
-| Community surface | **Topic-first.** Primary = `COMMUNITY_TOPIC:<slug>`. `COMMUNITY_HOME` = user surface **only when** `showAllFeedTab=true` / empty·recommend-sort category. Do **not** flip `showAllFeedTab` for ads QA. |
+| Community surface | **Nav-aligned.** HOME → `COMMUNITY_HOME`. TOPIC → `COMMUNITY_TOPIC:<slug>`. **LOCAL / POPULAR → no Feed Banner** (no sold placement; do not borrow HOME). Do **not** flip `showAllFeedTab` for ads QA. |
 | Surface authority | `lib/community/resolve-community-feed-surface.ts` — HOME/TOPIC **no cross-fallback** |
 | Cadence | Gaps **6–10** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. **N=4 REOPENED.** No `Math.random()`. |
 | Session seed | `feedSessionId` via `lib/ads/feed-ad-session.ts` (sessionStorage per surfaceKey; not remount-minted) |

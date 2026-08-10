@@ -1,13 +1,16 @@
 /**
  * Community feed SURFACE SSOT — posts / chips / URL / Feed Banner share one result.
  *
- * CONTRACT (2026-08-10 product reopen):
- * - HOME: empty or recommend-sort feed category → COMMUNITY_HOME
- * - TOPIC: real topic slug → COMMUNITY_TOPIC + normalized slug
- * - DO NOT derive banner placement from URL alone while posts use category state
+ * CONTRACT (aligned to Community Nav SSOT + sold Feed Banner products):
+ * - HOME nav → COMMUNITY_HOME (sold product)
+ * - TOPIC nav + topic_slug → COMMUNITY_TOPIC (sold product; community_topics slug authority)
+ * - LOCAL nav → no Feed Banner (no sold Local placement; do not borrow HOME)
+ * - POPULAR nav → no Feed Banner (no sold Popular placement; do not borrow HOME)
  * - DO NOT fallback HOME campaign into TOPIC (or reverse)
+ * - DO NOT invent COMMUNITY_LOCAL / COMMUNITY_POPULAR placement enums/tables
  */
 
+import type { CommunityNavKind } from "@/lib/community/community-nav";
 import { isPhilifeRecommendSortCategory } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import {
   normalizeFeedAdTopicSlug,
@@ -15,7 +18,8 @@ import {
 } from "@/lib/ads/feed-ad-placement";
 
 export type CommunityFeedAdSurface = {
-  placement: Extract<FeedAdPlacement, "COMMUNITY_HOME" | "COMMUNITY_TOPIC">;
+  /** null = Feed Banner disabled on this nav surface */
+  placement: Extract<FeedAdPlacement, "COMMUNITY_HOME" | "COMMUNITY_TOPIC"> | null;
   topicSlug: string | undefined;
   /** Stable key for feedSessionId / cadence / selector seed. */
   surfaceKey: string;
@@ -24,23 +28,52 @@ export type CommunityFeedAdSurface = {
 };
 
 /**
- * @param feedCategoryKey — authoritative feed category (synced chip/URL/state), not a divergent boot-only guess
+ * @param feedCategoryKey — authoritative topic slug when nav=topic (synced chip/URL/state)
+ * @param navKind — Community Nav selection kind (Home|Topic|Local|Popular)
  */
-export function resolveCommunityFeedSurface(feedCategoryKey: string): CommunityFeedAdSurface {
-  const c = String(feedCategoryKey ?? "").trim().toLowerCase();
-  if (!c || isPhilifeRecommendSortCategory(c)) {
+export function resolveCommunityFeedSurface(
+  feedCategoryKey: string,
+  navKind: CommunityNavKind = "home"
+): CommunityFeedAdSurface {
+  if (navKind === "local") {
     return {
-      placement: "COMMUNITY_HOME",
+      placement: null,
       topicSlug: undefined,
-      surfaceKey: "community:home",
+      surfaceKey: "community:local",
       feedCategoryKey: "",
     };
   }
-  const slug = normalizeFeedAdTopicSlug(c);
+  if (navKind === "popular") {
+    return {
+      placement: null,
+      topicSlug: undefined,
+      surfaceKey: "community:popular",
+      feedCategoryKey: "",
+    };
+  }
+  if (navKind === "topic") {
+    const c = String(feedCategoryKey ?? "").trim().toLowerCase();
+    if (!c || isPhilifeRecommendSortCategory(c)) {
+      return {
+        placement: null,
+        topicSlug: undefined,
+        surfaceKey: "community:topic:unset",
+        feedCategoryKey: "",
+      };
+    }
+    const slug = normalizeFeedAdTopicSlug(c);
+    return {
+      placement: "COMMUNITY_TOPIC",
+      topicSlug: slug,
+      surfaceKey: `community:topic:${slug}`,
+      feedCategoryKey: slug,
+    };
+  }
+
   return {
-    placement: "COMMUNITY_TOPIC",
-    topicSlug: slug,
-    surfaceKey: `community:topic:${slug}`,
-    feedCategoryKey: slug,
+    placement: "COMMUNITY_HOME",
+    topicSlug: undefined,
+    surfaceKey: "community:home",
+    feedCategoryKey: "",
   };
 }

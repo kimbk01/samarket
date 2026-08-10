@@ -58,19 +58,38 @@ function camp(partial: Partial<FeedAdCampaignView> & { id: string }): FeedAdCamp
 
 describe("Community surface SSOT", () => {
   it("HOME vs TOPIC — no cross fallback keys", () => {
-    const home = resolveCommunityFeedSurface("");
+    const home = resolveCommunityFeedSurface("", "home");
     expect(home.placement).toBe("COMMUNITY_HOME");
     expect(home.topicSlug).toBeUndefined();
     expect(home.surfaceKey).toBe("community:home");
 
-    const topic = resolveCommunityFeedSurface("travel");
+    const topic = resolveCommunityFeedSurface("travel", "topic");
     expect(topic.placement).toBe("COMMUNITY_TOPIC");
     expect(topic.topicSlug).toBe("travel");
     expect(topic.surfaceKey).toBe("community:topic:travel");
 
-    const back = resolveCommunityFeedSurface("");
+    const back = resolveCommunityFeedSurface("", "home");
     expect(back.surfaceKey).toBe(home.surfaceKey);
     expect(back.surfaceKey).not.toBe(topic.surfaceKey);
+  });
+
+  it("LOCAL and POPULAR do not inherit COMMUNITY_HOME (no sold placement)", () => {
+    expect(resolveCommunityFeedSurface("", "local")).toMatchObject({
+      placement: null,
+      surfaceKey: "community:local",
+    });
+    expect(resolveCommunityFeedSurface("", "popular")).toMatchObject({
+      placement: null,
+      surfaceKey: "community:popular",
+    });
+    /** empty category alone must not force HOME when nav is local/popular */
+    expect(resolveCommunityFeedSurface("", "local").placement).not.toBe("COMMUNITY_HOME");
+    expect(resolveCommunityFeedSurface("", "popular").placement).not.toBe("COMMUNITY_HOME");
+  });
+
+  it("TOPIC unset does not fall back to HOME ads", () => {
+    expect(resolveCommunityFeedSurface("", "topic").placement).toBeNull();
+    expect(resolveCommunityFeedSurface("recommended", "topic").placement).toBeNull();
   });
 });
 

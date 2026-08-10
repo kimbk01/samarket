@@ -565,11 +565,11 @@ export function CommunityFeed({
 
   /**
    * Feed Banner + chip/URL must share this surface (not URL-only).
-   * `category` state is the feed authority after boot/URL sync.
+   * Nav kind is required so Local/Popular do not inherit COMMUNITY_HOME.
    */
   const feedAdSurface = useMemo(
-    () => resolveCommunityFeedSurface(category),
-    [category]
+    () => resolveCommunityFeedSurface(category, navSelection.kind),
+    [category, navSelection.kind]
   );
   const feedAdSessionId = useMemo(
     () => getOrCreateFeedAdSessionId(feedAdSurface.surfaceKey),
@@ -577,14 +577,16 @@ export function CommunityFeed({
   );
   const feedAdPlan = useMemo(
     () =>
-      planFeedAdSlots(
-        posts.length,
-        feedAdSlotSeed({
-          surfaceKey: feedAdSurface.surfaceKey,
-          feedSessionId: feedAdSessionId,
-        })
-      ),
-    [posts.length, feedAdSurface.surfaceKey, feedAdSessionId]
+      feedAdSurface.placement
+        ? planFeedAdSlots(
+            posts.length,
+            feedAdSlotSeed({
+              surfaceKey: feedAdSurface.surfaceKey,
+              feedSessionId: feedAdSessionId,
+            })
+          )
+        : planFeedAdSlots(0, "community-ads-disabled"),
+    [posts.length, feedAdSurface.placement, feedAdSurface.surfaceKey, feedAdSessionId]
   );
 
   /** Surface SSOT: topic feed without ?category= → write slug into URL (preserve nav model). */
@@ -1785,7 +1787,8 @@ export function CommunityFeed({
                   <li className="list-none">
                     <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
                   </li>
-                  {shouldInjectFeedAdAtContentIndex(index, feedAdPlan) ? (
+                  {feedAdSurface.placement &&
+                  shouldInjectFeedAdAtContentIndex(index, feedAdPlan) ? (
                     <FeedAdBannerCarousel
                       domain="community"
                       placement={feedAdSurface.placement}

@@ -19,7 +19,7 @@ alwaysApply: true
 
 | Concern | Decision |
 |---|---|
-| Community surface | **Topic-first** — `COMMUNITY_TOPIC:<slug>` primary; `COMMUNITY_HOME` only when All tab ON |
+| Community surface | **Nav-aligned** — HOME→`COMMUNITY_HOME`; TOPIC→`COMMUNITY_TOPIC:<slug>`; LOCAL/POPULAR→no banner (do not borrow HOME) |
 | Surface SSOT | `resolveCommunityFeedSurface` (no HOME↔TOPIC fallback) |
 | Cadence | Gaps **6–10** deterministic (`FeedAdSlotPolicy`); N=4 REOPENED |
 | Session | `feedSessionId` stable per surfaceKey (not remount-minted) |
