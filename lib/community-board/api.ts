@@ -1,13 +1,12 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 /**
  * 커뮤니티 게시판 — Supabase (services / boards / posts / post_images)
+ * createPost writer: LEGACY ISOLATED — see Community Nav SSOT / neighborhood-posts.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
-import { isValidLocalTopicId } from "@/lib/community-topics/server";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import type {
   Board,
@@ -366,109 +365,10 @@ export async function getPostById(postId: string, boardId?: string): Promise<Pos
 }
 
 /**
- * 글 등록 — 서버에서 authorUserId 필수 (본인 확인 후 호출)
+ * 글 등록 — LEGACY ISOLATED (Community Nav SSOT).
+ * Product write authority = neighborhood-posts → community_posts.
+ * This posts-table writer must not create new Community product rows.
  */
-export async function createPost(payload: PostCreatePayload, authorUserId: string): Promise<{ id: string }> {
-  const sb = getSupabaseServer();
-  const access = await assertVerifiedMemberForAction(sb as any, authorUserId);
-  if (!access.ok) throw new Error(access.error);
-  const commId = await resolveCommunityServiceId(sb);
-  if (!commId) throw new Error("동네생활 서비스가 설정되지 않았습니다.");
-
-  const { data: boardRow, error: boardErr } = await sb
-    .from("boards")
-    .select("id, service_id, category_mode")
-    .eq("id", payload.board_id)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (boardErr || !boardRow) throw new Error("게시판을 찾을 수 없습니다.");
-  const b = boardRow as { id: string; service_id: string; category_mode?: string };
-  if (b.service_id !== commId) throw new Error("커뮤니티 게시판이 아닙니다.");
-
-  if (!authorUserId?.trim()) throw new Error("로그인이 필요합니다.");
-  if (!payload.title?.trim()) throw new Error("제목을 입력하세요.");
-
-  const boardCategoryIdTrim = payload.board_category_id?.trim() || null;
-  if (boardCategoryIdTrim) {
-    const { data: catOk } = await sb
-      .from("board_categories")
-      .select("id")
-      .eq("id", boardCategoryIdTrim)
-      .eq("board_id", b.id)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!catOk) throw new Error("유효하지 않은 카테고리입니다.");
-  } else if (b.category_mode === "board_category") {
-    const { count, error: cErr } = await sb
-      .from("board_categories")
-      .select("id", { count: "exact", head: true })
-      .eq("board_id", b.id)
-      .eq("is_active", true);
-    const n = !cErr && typeof count === "number" ? count : 0;
-    if (n > 0) throw new Error("카테고리를 선택하세요.");
-  }
-
-  let communityTopicId: string | null = null;
-  const rawTopic = payload.community_topic_id?.trim();
-  if (rawTopic) {
-    if (!(await isValidLocalTopicId(rawTopic))) throw new Error("유효하지 않은 주제입니다.");
-    communityTopicId = rawTopic;
-  }
-
-  const meta: Record<string, unknown> = {
-    board_id: payload.board_id,
-    ...(boardCategoryIdTrim ? { board_category_id: boardCategoryIdTrim } : {}),
-    visibility: "public",
-  };
-
-  const insertRow: Record<string, unknown> = {
-    user_id: authorUserId.trim(),
-    title: payload.title.trim(),
-    content: (payload.content ?? "").trim(),
-    trade_category_id: null,
-    community_topic_id: communityTopicId,
-    type: "community",
-    status: "active",
-    meta,
-  };
-
-  const { data: inserted, error: insErr } = await (sb as any).from(POSTS_TABLE_WRITE).insert(insertRow).select("id").single();
-
-  if (insErr || !inserted?.id) {
-    throw new Error(insErr?.message ?? "글 저장에 실패했습니다.");
-  }
-
-  const newId = String(inserted.id);
-  const imgs = payload.images?.filter((x) => x.storage_path?.trim()) ?? [];
-  if (imgs.length > 0) {
-    const rows = imgs.map((im, i) => ({
-      post_id: newId,
-      storage_path: im.storage_path.trim(),
-      url: im.url?.trim() || null,
-      sort_order: i,
-    }));
-    await (sb as any).from("post_images").insert(rows);
-  }
-
-  const { voidCommunityPointRewardOnPostWrite } = await import("@/lib/points/community-point-bridge");
-  voidCommunityPointRewardOnPostWrite({
-    userId: authorUserId.trim(),
-    postId: newId,
-    topicSlug: payload.community_topic_id ?? null,
-    category: boardCategoryIdTrim,
-  });
-
-  try {
-    const { ensureCommunityPostIdForAds } = await import(
-      "@/lib/community-feed/ensure-community-post-for-ads"
-    );
-    await ensureCommunityPostIdForAds(sb as never, newId, authorUserId.trim());
-  } catch (mirrorErr) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[createPost] community_posts mirror:", mirrorErr);
-    }
-  }
-
-  return { id: newId };
+export async function createPost(_payload: PostCreatePayload, _authorUserId: string): Promise<{ id: string }> {
+  throw new Error("legacy_community_board_writer_isolated");
 }

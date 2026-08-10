@@ -1,16 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createPost } from "@/lib/community-board/api";
 import type { PostCreatePayload } from "@/lib/community-board/types";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+import { getCanonicalCommunityWriteHref } from "@/lib/categories/getCategoryHref";
 
-export async function submitCommunityPost(boardSlug: string, payload: PostCreatePayload) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) {
-    throw new Error("로그인이 필요합니다.");
-  }
-  const { id } = await createPost(payload, auth.userId);
-  redirect(SAMARKET_ROUTES.community.boardPost(boardSlug, id));
+/**
+ * Legacy community-board write entry — PRODUCT CALLERS = 0 under Community Nav SSOT.
+ * Canonical write: /philife/write → neighborhood-posts → community_posts.
+ * DO NOT invoke the legacy posts-table writer from this path.
+ */
+export async function submitCommunityPost(_boardSlug: string, _payload: PostCreatePayload) {
+  redirect(getCanonicalCommunityWriteHref());
 }
