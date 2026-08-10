@@ -137,12 +137,6 @@ describe("group Phase2 rejoin + permission parity", () => {
     });
 
     it("reactivates left members as member and skips active; never touches blocked_hidden_at", async () => {
-      const updateEq = vi.fn(() => ({
-        in: vi.fn(() => ({
-          not: vi.fn(async () => ({ error: null })),
-        })),
-      }));
-      const update = vi.fn(() => ({ eq: updateEq }));
       const insert = vi.fn(async () => ({ error: null }));
       const selectIn = vi.fn(async () => ({
         data: [
@@ -156,8 +150,9 @@ describe("group Phase2 rejoin + permission parity", () => {
           in: selectIn,
         })),
       }));
-      const from = vi.fn(() => ({ select, update, insert }));
-      const sb = { from } as never;
+      const from = vi.fn(() => ({ select, insert }));
+      const rpc = vi.fn(async () => ({ data: { ok: true, action: "restored" }, error: null }));
+      const sb = { from, rpc } as never;
 
       const newId = "44444444-4444-4444-4444-444444444444";
       const result = await upsertGroupMemberParticipants(sb, roomId, [peerA, peerB, newId]);
@@ -166,10 +161,11 @@ describe("group Phase2 rejoin + permission parity", () => {
       if (!result.ok) return;
       expect(result.alreadyActiveMemberIds).toEqual([peerB]);
       expect(result.newlyInvitedMemberIds.sort()).toEqual([peerA, newId].sort());
-      expect(update).toHaveBeenCalledWith({ left_at: null, role: "member" });
-      const firstUpdateArg = (update as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0];
-      expect(firstUpdateArg).toEqual({ left_at: null, role: "member" });
-      expect(JSON.stringify(firstUpdateArg ?? {})).not.toContain("blocked_hidden_at");
+      expect(rpc).toHaveBeenCalledWith("cm_group_activate_member", {
+        p_room_id: roomId,
+        p_user_id: peerA,
+      });
+      expect(rpc.mock.calls.some((c) => JSON.stringify(c).includes("blocked_hidden_at"))).toBe(false);
       expect(insert).toHaveBeenCalledWith([
         { room_id: roomId, user_id: newId, role: "member", left_at: null },
       ]);

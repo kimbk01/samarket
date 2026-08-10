@@ -392,14 +392,18 @@ export async function upsertGroupMemberParticipants(
   }
 
   if (toReactivate.length > 0) {
-    const { error: reactivateError } = await (sb as any)
-      .from("community_messenger_participants")
-      .update({ left_at: null, role: "member" })
-      .eq("room_id", rid)
-      .in("user_id", toReactivate)
-      .not("left_at", "is", null);
-    if (reactivateError) {
-      return { ok: false, error: String(reactivateError.message ?? "invite_failed") };
+    for (const memberId of toReactivate) {
+      const { data: act, error: reactivateError } = await (sb as any).rpc("cm_group_activate_member", {
+        p_room_id: rid,
+        p_user_id: memberId,
+      });
+      if (reactivateError) {
+        return { ok: false, error: String(reactivateError.message ?? "invite_failed") };
+      }
+      const payload = act && typeof act === "object" ? (act as { ok?: boolean; error?: string }) : null;
+      if (payload && payload.ok === false) {
+        return { ok: false, error: String(payload.error ?? "invite_failed") };
+      }
     }
   }
 
@@ -413,17 +417,21 @@ export async function upsertGroupMemberParticipants(
       }))
     );
     if (insertError) {
-      // Concurrent invite: unique conflict → treat as reactivation/idempotent.
+      // Concurrent invite: unique conflict → reactivate via leave-interval RPC (do not raw UPDATE).
       const msg = String(insertError.message ?? "");
       if (/duplicate|unique/i.test(msg)) {
-        const { error: retryError } = await (sb as any)
-          .from("community_messenger_participants")
-          .update({ left_at: null, role: "member" })
-          .eq("room_id", rid)
-          .in("user_id", toInsert)
-          .not("left_at", "is", null);
-        if (retryError) {
-          return { ok: false, error: String(retryError.message ?? "invite_failed") };
+        for (const memberId of toInsert) {
+          const { data: act, error: retryError } = await (sb as any).rpc("cm_group_activate_member", {
+            p_room_id: rid,
+            p_user_id: memberId,
+          });
+          if (retryError) {
+            return { ok: false, error: String(retryError.message ?? "invite_failed") };
+          }
+          const payload = act && typeof act === "object" ? (act as { ok?: boolean; error?: string }) : null;
+          if (payload && payload.ok === false) {
+            return { ok: false, error: String(payload.error ?? "invite_failed") };
+          }
         }
       } else {
         return { ok: false, error: String(insertError.message ?? "invite_failed") };
