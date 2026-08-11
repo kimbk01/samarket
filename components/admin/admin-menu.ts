@@ -106,6 +106,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
 
   // Community
   "community-hub": "admin_menu_community",
+  "community-home": "admin_community_home_title",
   "community-boards": "admin_menu_boards",
   "community-sections": "admin_menu_feed_sections",
   "community-topics": "admin_menu_community_topics",
@@ -435,10 +436,16 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     title: "",
     children: [
       {
+        key: "community-home",
+        title: "",
+        path: "/admin/community",
+        status: "done",
+      },
+      {
         key: "community-topics",
         title: "",
         path: "/admin/community/topics",
-        matchPaths: ["/admin/philife/topics", "/admin/philife", "/admin/community"],
+        matchPaths: ["/admin/philife/topics", "/admin/philife"],
         status: "done",
       },
       { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },

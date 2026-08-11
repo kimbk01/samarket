@@ -2,9 +2,76 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { voidCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import {
+  formatAdminMemberLabel,
+  loadAdminMemberIdentityMap,
+} from "@/lib/admin-community/member-identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/admin/community/engine/posts/:postId
+ * Operator post detail — existing community_posts authority only.
+ */
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
+  const { postId } = await ctx.params;
+  const id = postId?.trim();
+  if (!id) return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
+  }
+
+  const { data, error } = await sb
+    .from("community_posts")
+    .select(
+      "id, user_id, location_id, category, topic_id, topic_slug, title, content, status, is_reported, report_count, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+
+  const row = data as Record<string, unknown>;
+  const uid = String(row.user_id ?? "");
+  const identityMap = await loadAdminMemberIdentityMap(sb, [uid]);
+  const identity = uid ? identityMap.get(uid) : undefined;
+
+  let images: Array<{ id: string; url: string; sort_order: number }> = [];
+  const { data: imgs } = await sb
+    .from("community_post_images")
+    .select("id, image_url, sort_order")
+    .eq("post_id", id)
+    .order("sort_order", { ascending: true });
+  if (Array.isArray(imgs)) {
+    images = imgs.map((img) => {
+      const i = img as { id?: string; image_url?: string; url?: string; sort_order?: number };
+      return {
+        id: String(i.id ?? ""),
+        url: String(i.image_url ?? i.url ?? ""),
+        sort_order: Number(i.sort_order ?? 0) || 0,
+      };
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    post: {
+      ...row,
+      author_nickname: identity?.nickname ?? null,
+      author_username: identity?.username ?? null,
+      author_label: formatAdminMemberLabel(identity ?? null),
+      images,
+    },
+  });
+}
 
 /**
  * PATCH /api/admin/community/engine/posts/:postId

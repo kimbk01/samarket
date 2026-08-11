@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { formatTimeAgo } from "@/lib/utils/format";
@@ -17,11 +18,15 @@ type CommunityCommentRow = {
   updated_at?: string | null;
   post_title?: string | null;
   topic_slug?: string | null;
+  author_label?: string | null;
 };
 
 export function AdminCommunityCommentsPage() {
   const { t: tr } = useI18n();
   const dash = tr("admin_users_empty_placeholder");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const statusOptions = useMemo(
     () =>
@@ -37,12 +42,30 @@ export function AdminCommunityCommentsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [postFilter, setPostFilter] = useState("");
-  const [topicFilter, setTopicFilter] = useState("");
-  const [userFilter, setUserFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [createdFrom, setCreatedFrom] = useState("");
-  const [createdTo, setCreatedTo] = useState("");
+  const [postFilter, setPostFilter] = useState(() => searchParams.get("postId") ?? "");
+  const [topicFilter, setTopicFilter] = useState(() => searchParams.get("topicSlug") ?? "");
+  const [userFilter, setUserFilter] = useState(() => searchParams.get("userId") ?? "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "");
+  const [period, setPeriod] = useState(() => searchParams.get("period") ?? "");
+  const [topicFilterTruncated, setTopicFilterTruncated] = useState(false);
+  const skipUrlWriteRef = useRef(true);
+
+  useEffect(() => {
+    if (skipUrlWriteRef.current) {
+      skipUrlWriteRef.current = false;
+      return;
+    }
+    const q = new URLSearchParams();
+    if (postFilter.trim()) q.set("postId", postFilter.trim());
+    if (topicFilter.trim()) q.set("topicSlug", topicFilter.trim().toLowerCase());
+    if (userFilter.trim()) q.set("userId", userFilter.trim());
+    if (statusFilter && ["active", "hidden", "deleted"].includes(statusFilter)) {
+      q.set("status", statusFilter);
+    }
+    if (period.trim()) q.set("period", period.trim());
+    const next = q.toString() ? `${pathname}?${q.toString()}` : pathname;
+    router.replace(next);
+  }, [pathname, router, postFilter, topicFilter, userFilter, statusFilter, period]);
 
   const load = useCallback(async () => {
     setErr("");
@@ -55,30 +78,33 @@ export function AdminCommunityCommentsPage() {
       if (statusFilter && ["active", "hidden", "deleted"].includes(statusFilter)) {
         q.set("status", statusFilter);
       }
-      if (createdFrom) q.set("createdFrom", new Date(createdFrom).toISOString());
-      if (createdTo) {
-        const end = new Date(createdTo);
-        end.setHours(23, 59, 59, 999);
-        q.set("createdTo", end.toISOString());
-      }
+      if (period.trim()) q.set("period", period.trim());
       const res = await fetch(`/api/admin/community/engine/comments?${q.toString()}`, {
         credentials: "include",
         cache: "no-store",
       });
-      const j = (await res.json()) as { ok?: boolean; comments?: CommunityCommentRow[]; error?: string };
+      const j = (await res.json()) as {
+        ok?: boolean;
+        comments?: CommunityCommentRow[];
+        error?: string;
+        topicFilterTruncated?: boolean;
+      };
       if (!res.ok || !j.ok) {
         setErr(j.error ?? tr("admin_community_comments_err_load"));
         setRows([]);
+        setTopicFilterTruncated(false);
         return;
       }
       setRows(j.comments ?? []);
+      setTopicFilterTruncated(j.topicFilterTruncated === true);
     } catch (e) {
       setErr((e as Error).message);
       setRows([]);
+      setTopicFilterTruncated(false);
     } finally {
       setLoading(false);
     }
-  }, [tr, postFilter, topicFilter, userFilter, statusFilter, createdFrom, createdTo]);
+  }, [tr, postFilter, topicFilter, userFilter, statusFilter, period]);
 
   useEffect(() => {
     void load();
@@ -111,11 +137,6 @@ export function AdminCommunityCommentsPage() {
         description={tr("admin_community_comments_page_desc")}
       />
 
-      <p className="sam-text-body-secondary text-sam-muted">
-        <code className="rounded bg-sam-surface-muted px-1">community_comments</code>
-        {tr("admin_community_comments_authority_note")}
-      </p>
-
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-0.5">
           <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_post")}</span>
@@ -145,7 +166,10 @@ export function AdminCommunityCommentsPage() {
           <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              if (e.target.value) setPeriod("");
+            }}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
           >
             <option value="">{tr("admin_posts_filter_all_status")}</option>
@@ -156,24 +180,6 @@ export function AdminCommunityCommentsPage() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_from")}</span>
-          <input
-            type="date"
-            value={createdFrom}
-            onChange={(e) => setCreatedFrom(e.target.value)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
-        <label className="flex flex-col gap-0.5">
-          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_to")}</span>
-          <input
-            type="date"
-            value={createdTo}
-            onChange={(e) => setCreatedTo(e.target.value)}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-          />
-        </label>
         <button
           type="button"
           onClick={() => void load()}
@@ -182,6 +188,12 @@ export function AdminCommunityCommentsPage() {
           {tr("admin_feed_posts_refresh")}
         </button>
       </div>
+
+      {topicFilterTruncated ? (
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+          {tr("admin_community_topic_filter_truncated")}
+        </div>
+      ) : null}
 
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
@@ -214,6 +226,9 @@ export function AdminCommunityCommentsPage() {
               {rows.map((r) => {
                 const id = String(r.id ?? "");
                 const postId = String(r.post_id ?? "");
+                const uid = String(r.user_id ?? "").trim();
+                const authorLabel = String(r.author_label ?? "").trim() || dash;
+                const topic = String(r.topic_slug ?? "").trim();
                 const busy = busyId === id;
                 const content = String(r.content ?? "");
                 return (
@@ -221,21 +236,42 @@ export function AdminCommunityCommentsPage() {
                     <td className="max-w-[180px] p-3">
                       {postId ? (
                         <Link
-                          href={`/philife/${encodeURIComponent(postId)}`}
+                          href={`/admin/community/posts/${encodeURIComponent(postId)}`}
                           className="font-medium text-signature hover:underline"
                         >
-                          {String(r.post_title ?? "").trim() || postId.slice(0, 8)}
+                          {String(r.post_title ?? "").trim() || tr("admin_posts_no_title")}
                         </Link>
                       ) : (
                         dash
                       )}
                     </td>
-                    <td className="p-3 text-sam-muted">{String(r.topic_slug ?? dash)}</td>
+                    <td className="p-3 text-sam-muted">
+                      {topic ? (
+                        <button
+                          type="button"
+                          className="text-signature hover:underline"
+                          onClick={() => setTopicFilter(topic)}
+                        >
+                          {topic}
+                        </button>
+                      ) : (
+                        dash
+                      )}
+                    </td>
                     <td className="max-w-[280px] p-3 text-sam-fg" title={content}>
                       <span className="line-clamp-3">{content || dash}</span>
                     </td>
-                    <td className="max-w-[120px] truncate p-3 sam-text-xxs text-sam-muted" title={String(r.user_id ?? "")}>
-                      {String(r.user_id ?? dash)}
+                    <td className="max-w-[140px] truncate p-3 text-sam-muted" title={authorLabel}>
+                      {uid ? (
+                        <Link
+                          href={`/admin/users/${encodeURIComponent(uid)}`}
+                          className="text-signature hover:underline"
+                        >
+                          {authorLabel}
+                        </Link>
+                      ) : (
+                        authorLabel
+                      )}
                     </td>
                     <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
                     <td className="p-3">

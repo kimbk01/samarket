@@ -1,5 +1,7 @@
-import { AdminCommunityEnginePageClient } from "@/components/admin/community/AdminCommunityEnginePageClient";
+import { AdminCommunityHomePage } from "@/components/admin/community/AdminCommunityHomePage";
+import { loadAdminCommunityHomeSummary } from "@/lib/admin-community/home-summary";
 
-export default function AdminCommunityEnginePage() {
-  return <AdminCommunityEnginePageClient />;
+export default async function AdminCommunityRoute() {
+  const summary = await loadAdminCommunityHomeSummary();
+  return <AdminCommunityHomePage summary={summary} />;
 }

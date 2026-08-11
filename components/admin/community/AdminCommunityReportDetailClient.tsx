@@ -67,38 +67,46 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
     return key ? tr(key) : status;
   }
 
+  const reporterLabel = String(row.reporter_label ?? "").trim() || dash;
+  const authorLabel = String(row.author_label ?? "").trim() || dash;
+  const authorId = String(row.post_author_id ?? "").trim();
+  const reporterId = String(row.reporter_id ?? "").trim();
+  const postId = row.target_type === "post" ? String(row.target_id ?? "").trim() : "";
+
   return (
     <div className="space-y-4">
       <AdminPageHeader
         titleKey="admin_feed_report_detail_title"
-        backHref="/admin/reports"
+        backHref="/admin/community/reports"
         descriptionKey="admin_feed_report_detail_desc"
       />
 
       <AdminCard titleKey="admin_feed_report_detail_card_info">
         <dl className="grid gap-2 sam-text-body">
           <div>
-            <dt className="text-sam-muted">{tr("admin_feed_report_detail_col_id")}</dt>
-            <dd className="font-mono sam-text-helper text-sam-fg">{row.id}</dd>
-          </div>
-          <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_target")}</dt>
-            <dd className="font-mono sam-text-helper">
-              {row.target_type} · {row.target_id}
-            </dd>
+            <dd>{tr("admin_community_target_type_post")}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_post")}</dt>
-            <dd>
-              {row.target_type === "post" && row.post_title ? (
-                <Link
-                  href={`/philife/${row.target_id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
-                >
-                  {row.post_title}
-                </Link>
+            <dd className="flex flex-wrap gap-3">
+              {postId ? (
+                <>
+                  <Link
+                    href={`/admin/community/posts/${encodeURIComponent(postId)}`}
+                    className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
+                  >
+                    {row.post_title?.trim() || tr("admin_posts_no_title")}
+                  </Link>
+                  <Link
+                    href={`/philife/${encodeURIComponent(postId)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sam-primary hover:underline"
+                  >
+                    {tr("admin_community_view_on_site")}
+                  </Link>
+                </>
               ) : (
                 <span className="text-sam-meta">{dash}</span>
               )}
@@ -106,7 +114,33 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           </div>
           <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_reporter")}</dt>
-            <dd className="font-mono sam-text-helper">{row.reporter_id}</dd>
+            <dd>
+              {reporterId ? (
+                <Link
+                  href={`/admin/users/${encodeURIComponent(reporterId)}`}
+                  className="text-sam-primary hover:underline"
+                >
+                  {reporterLabel}
+                </Link>
+              ) : (
+                reporterLabel
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">{tr("admin_feed_report_detail_author")}</dt>
+            <dd>
+              {authorId ? (
+                <Link
+                  href={`/admin/users/${encodeURIComponent(authorId)}`}
+                  className="text-sam-primary hover:underline"
+                >
+                  {authorLabel}
+                </Link>
+              ) : (
+                authorLabel
+              )}
+            </dd>
           </div>
           <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_reason_code")}</dt>
@@ -135,6 +169,49 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
             </div>
           ) : null}
         </dl>
+
+        <div className="mt-4 flex flex-wrap gap-3 sam-text-body-secondary">
+          {authorId ? (
+            <Link
+              href={`/admin/users/${encodeURIComponent(authorId)}`}
+              className="text-sam-primary hover:underline"
+            >
+              {tr("admin_community_open_member")}
+            </Link>
+          ) : null}
+          {authorId ? (
+            <Link
+              href={`/admin/community/posts?userId=${encodeURIComponent(authorId)}`}
+              className="text-sam-primary hover:underline"
+            >
+              {tr("admin_community_member_posts")}
+            </Link>
+          ) : null}
+          {authorId ? (
+            <Link
+              href={`/admin/community/comments?userId=${encodeURIComponent(authorId)}`}
+              className="text-sam-primary hover:underline"
+            >
+              {tr("admin_community_member_comments")}
+            </Link>
+          ) : null}
+          {authorId ? (
+            <Link
+              href={`/admin/community/reports?authorId=${encodeURIComponent(authorId)}`}
+              className="text-sam-primary hover:underline"
+            >
+              {tr("admin_community_member_reports_received")}
+            </Link>
+          ) : null}
+          {reporterId ? (
+            <Link
+              href={`/admin/community/reports?reporterId=${encodeURIComponent(reporterId)}`}
+              className="text-sam-primary hover:underline"
+            >
+              {tr("admin_community_member_reports_submitted")}
+            </Link>
+          ) : null}
+        </div>
       </AdminCard>
 
       <AdminCard titleKey="admin_feed_report_memo_card_title">
@@ -162,11 +239,32 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           ))}
         </div>
         <p className="mt-4 sam-text-body-secondary">
-          <Link href="/admin/philife/reports" className="text-sam-primary hover:text-sam-primary-hover hover:underline">
+          <Link
+            href="/admin/community/reports"
+            className="text-sam-primary hover:text-sam-primary-hover hover:underline"
+          >
             {tr("admin_feed_report_back_list")}
           </Link>
         </p>
       </AdminCard>
+
+      <details className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+        <summary className="cursor-pointer sam-text-helper text-sam-muted">
+          {tr("admin_community_system_info")}
+        </summary>
+        <dl className="mt-2 space-y-1 font-mono sam-text-xxs text-sam-meta">
+          <div>
+            <dt className="inline">{tr("admin_feed_report_detail_col_id")}: </dt>
+            <dd className="inline break-all">{row.id}</dd>
+          </div>
+          {postId ? (
+            <div>
+              <dt className="inline">{tr("admin_feed_report_detail_post")}: </dt>
+              <dd className="inline break-all">{postId}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </details>
     </div>
   );
 }

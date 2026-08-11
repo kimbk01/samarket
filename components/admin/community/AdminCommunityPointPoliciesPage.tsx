@@ -39,6 +39,36 @@ export function AdminCommunityPointPoliciesPage() {
 
   const refreshAll = useCallback(() => setRefresh((r) => r + 1), []);
 
+  const boardDisplayName = useCallback(
+    (boardKey: string, boardName?: string | null) => {
+      const key = String(boardKey ?? "").toLowerCase();
+      if (key === "general") return t("admin_community_point_board_general");
+      if (key === "qna") return t("admin_community_point_board_qna");
+      return boardName || boardKey;
+    },
+    [t]
+  );
+
+  const formatReward = useCallback(
+    (opts: {
+      isActive: boolean;
+      rewardType: string;
+      fixed: number;
+      randomMin: number;
+      randomMax: number;
+    }) => {
+      if (opts.isActive === false) return t("admin_community_point_none");
+      if (opts.rewardType === "random") {
+        return t("admin_community_point_reward_random", {
+          min: opts.randomMin,
+          max: opts.randomMax,
+        });
+      }
+      return t("admin_community_point_reward_fixed", { n: opts.fixed });
+    },
+    [t]
+  );
+
   const handleSave = async (values: Partial<BoardPointPolicy>) => {
     const boardKey = String(values.boardKey ?? selected?.boardKey ?? "").toLowerCase();
     if (!COMMUNITY_BOARD_KEYS.has(boardKey)) {
@@ -82,9 +112,6 @@ export function AdminCommunityPointPoliciesPage() {
         description={t("admin_community_point_page_desc")}
       />
 
-      <p className="sam-text-body-secondary text-sam-muted">{t("admin_community_point_hold_note")}</p>
-      <p className="sam-text-body-secondary text-sam-muted">{t("admin_community_point_reclaim_note")}</p>
-
       <AdminCard title={t("admin_community_point_list_title")}>
         {communityPolicies.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">{t("admin_community_point_empty")}</p>
@@ -103,25 +130,25 @@ export function AdminCommunityPointPoliciesPage() {
               <tbody>
                 {communityPolicies.map((p) => (
                   <tr key={p.id} className="border-b border-sam-border-soft">
-                    <td className="py-2 pr-2 font-medium">{p.boardName || p.boardKey}</td>
+                    <td className="py-2 pr-2 font-medium">{boardDisplayName(p.boardKey, p.boardName)}</td>
                     <td className="py-2 pr-2">{p.isActive ? "Y" : "N"}</td>
                     <td className="py-2 pr-2">
-                      {p.isActive === false
-                        ? t("admin_community_point_none")
-                        : `${p.writeRewardType} · ${
-                            p.writeRewardType === "random"
-                              ? `${p.writeRandomMin}-${p.writeRandomMax}`
-                              : p.writeFixedPoint
-                          }`}
+                      {formatReward({
+                        isActive: p.isActive,
+                        rewardType: p.writeRewardType,
+                        fixed: p.writeFixedPoint,
+                        randomMin: p.writeRandomMin,
+                        randomMax: p.writeRandomMax,
+                      })}
                     </td>
                     <td className="py-2 pr-2">
-                      {p.isActive === false
-                        ? t("admin_community_point_none")
-                        : `${p.commentRewardType} · ${
-                            p.commentRewardType === "random"
-                              ? `${p.commentRandomMin}-${p.commentRandomMax}`
-                              : p.commentFixedPoint
-                          }`}
+                      {formatReward({
+                        isActive: p.isActive,
+                        rewardType: p.commentRewardType,
+                        fixed: p.commentFixedPoint,
+                        randomMin: p.commentRandomMin,
+                        randomMax: p.commentRandomMax,
+                      })}
                     </td>
                     <td className="py-2">
                       <button
@@ -141,7 +168,9 @@ export function AdminCommunityPointPoliciesPage() {
       </AdminCard>
 
       {selected ? (
-        <AdminCard title={`${t("admin_community_point_edit_title")}: ${selected.boardKey}`}>
+        <AdminCard
+          title={`${t("admin_community_point_edit_title")}: ${boardDisplayName(selected.boardKey, selected.boardName)}`}
+        >
           <BoardPointPolicyForm
             initial={selected}
             onCancel={() => setSelectedId(null)}

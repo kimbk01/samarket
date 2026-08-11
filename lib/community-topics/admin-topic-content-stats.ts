@@ -1,3 +1,9 @@
+/**
+ * Admin Topics list — single-query aggregate (no N+1).
+ * comment_count is denormalized on community_posts.
+ * reportCount = SUM(report_count) — aligns with community_reports increments on post report.
+ */
+
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export type CommunityTopicContentStats = {
@@ -12,10 +18,6 @@ const EMPTY_STATS: CommunityTopicContentStats = {
   reportCount: 0,
 };
 
-/**
- * Admin Topics list — single-query aggregate (no N+1).
- * comment_count is denormalized on community_posts; reportCount uses is_reported on posts.
- */
 export async function loadCommunityTopicContentStatsBySlug(
   topicSlugs: string[]
 ): Promise<Record<string, CommunityTopicContentStats>> {
@@ -30,7 +32,7 @@ export async function loadCommunityTopicContentStatsBySlug(
     const sb = getSupabaseServer();
     const { data, error } = await sb
       .from("community_posts")
-      .select("topic_slug, comment_count, is_reported")
+      .select("topic_slug, comment_count, report_count")
       .eq("status", "active")
       .in("topic_slug", slugs);
 
@@ -39,13 +41,13 @@ export async function loadCommunityTopicContentStatsBySlug(
     for (const row of data as Array<{
       topic_slug?: string | null;
       comment_count?: number | null;
-      is_reported?: boolean | null;
+      report_count?: number | null;
     }>) {
       const slug = String(row.topic_slug ?? "").trim().toLowerCase();
       if (!slug || !out[slug]) continue;
       out[slug].postCount += 1;
       out[slug].commentCount += Number(row.comment_count ?? 0) || 0;
-      if (row.is_reported === true) out[slug].reportCount += 1;
+      out[slug].reportCount += Number(row.report_count ?? 0) || 0;
     }
     return out;
   } catch {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -64,14 +65,17 @@ export function AdminCommunityTopicsPage({
 
   const contentTopics = useMemo(
     () =>
-      topics.filter((t) => {
-        if (!topicBelongsToPhilifeNeighborhoodSection(t.section_slug, philifeNeighborhoodSectionSlug)) {
-          return false;
-        }
-        if (t.is_feed_sort) return false;
-        if (t.allow_meetup) return false;
-        return true;
-      }),
+      topics
+        .filter((t) => {
+          if (!topicBelongsToPhilifeNeighborhoodSection(t.section_slug, philifeNeighborhoodSectionSlug)) {
+            return false;
+          }
+          if (t.is_feed_sort) return false;
+          if (t.allow_meetup) return false;
+          return true;
+        })
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
     [topics, philifeNeighborhoodSectionSlug]
   );
 
@@ -196,6 +200,51 @@ export function AdminCommunityTopicsPage({
     }
   }
 
+  async function moveSort(topic: CommunityTopicAdminRow, direction: -1 | 1) {
+    const sorted = [...contentTopics].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((t) => t.id === topic.id);
+    const swapWith = sorted[idx + direction];
+    if (idx < 0 || !swapWith) return;
+    setBusy(true);
+    try {
+      const aOrder = topic.sort_order;
+      const bOrder = swapWith.sort_order;
+      const patch = async (row: CommunityTopicAdminRow, sort_order: number) => {
+        const res = await fetch(`/api/admin/community/topics/${row.id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            section_id: row.section_id,
+            name: row.name,
+            name_en: row.name_en,
+            slug: row.slug,
+            sort_order,
+            is_active: row.is_active,
+            is_visible: row.is_visible,
+            is_feed_sort: row.is_feed_sort,
+            feed_sort_mode: row.feed_sort_mode,
+            allow_question: row.allow_question,
+            allow_meetup: row.allow_meetup,
+            color: row.color,
+            icon: row.icon,
+            feed_list_skin: row.feed_list_skin,
+          }),
+        });
+        return res.json();
+      };
+      const j1 = await patch(topic, bOrder);
+      const j2 = await patch(swapWith, aOrder);
+      if (!j1.ok || !j2.ok) {
+        alert(tr("admin_topics_err_save"));
+        return;
+      }
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4 text-sam-fg">
       <AdminPageHeader
@@ -299,8 +348,6 @@ export function AdminCommunityTopicsPage({
                 <tr className="border-b border-sam-border text-sam-meta">
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_order")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_topic_name")}</th>
-                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_slug")}</th>
-                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_skin")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_posts")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_comments")}</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">{tr("admin_topics_col_reports")}</th>
@@ -310,14 +357,17 @@ export function AdminCommunityTopicsPage({
                 </tr>
               </thead>
               <tbody>
-                {contentTopics.map((topic) => {
+                {contentTopics.map((topic, topicIndex) => {
                   const slugKey = (topic.slug ?? "").trim().toLowerCase();
                   const stats = topicStatsBySlug[slugKey] ?? {
                     postCount: 0,
                     commentCount: 0,
                     reportCount: 0,
                   };
-                  const skin = normalizeCommunityFeedListSkin(topic.feed_list_skin);
+                  const countLinkClass = "text-sam-primary hover:underline tabular-nums";
+                  const postsHref = `/admin/community/posts?topicSlug=${encodeURIComponent(slugKey)}`;
+                  const commentsHref = `/admin/community/comments?topicSlug=${encodeURIComponent(slugKey)}`;
+                  const reportsHref = `/admin/community/reports?topicSlug=${encodeURIComponent(slugKey)}`;
                   return edit?.id === topic.id ? (
                     <tr key={topic.id} className="border-b border-sam-border-soft bg-amber-50/40 align-top">
                       <td className="py-2.5 pr-2">
@@ -342,26 +392,23 @@ export function AdminCommunityTopicsPage({
                             onChange={(e) => setEdit({ ...edit, name_en: e.target.value.trim() || null })}
                             placeholder={tr("admin_topics_label_name_en_simple")}
                           />
+                          <select
+                            className="min-w-[10rem] rounded border px-1 py-1 text-sam-fg"
+                            value={normalizeCommunityFeedListSkin(edit.feed_list_skin)}
+                            onChange={(e) =>
+                              setEdit({
+                                ...edit,
+                                feed_list_skin: normalizeCommunityFeedListSkin(e.target.value),
+                              })
+                            }
+                          >
+                            {COMMUNITY_FEED_LIST_SKINS.map((s) => (
+                              <option key={s} value={s}>
+                                {tr(ADMIN_TOPIC_SKIN_I18N[s])}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      </td>
-                      <td className="py-2.5 pr-2 sam-text-xxs text-sam-muted">{edit.slug}</td>
-                      <td className="py-2.5 pr-2">
-                        <select
-                          className="min-w-[10rem] rounded border px-1 py-1 text-sam-fg"
-                          value={normalizeCommunityFeedListSkin(edit.feed_list_skin)}
-                          onChange={(e) =>
-                            setEdit({
-                              ...edit,
-                              feed_list_skin: normalizeCommunityFeedListSkin(e.target.value),
-                            })
-                          }
-                        >
-                          {COMMUNITY_FEED_LIST_SKINS.map((s) => (
-                            <option key={s} value={s}>
-                              {tr(ADMIN_TOPIC_SKIN_I18N[s])}
-                            </option>
-                          ))}
-                        </select>
                       </td>
                       <td className="py-2.5 pr-2">{stats.postCount}</td>
                       <td className="py-2.5 pr-2">{stats.commentCount}</td>
@@ -396,20 +443,72 @@ export function AdminCommunityTopicsPage({
                     </tr>
                   ) : (
                     <tr key={topic.id} className="border-b border-sam-border-soft">
-                      <td className="py-2.5 pr-2">{topic.sort_order}</td>
+                      <td className="py-2.5 pr-2">
+                        <div className="flex items-center gap-1">
+                          <span className="tabular-nums">{topic.sort_order}</span>
+                          <button
+                            type="button"
+                            disabled={busy || topicIndex === 0}
+                            className="rounded px-1 text-sam-muted hover:bg-sam-app disabled:opacity-30"
+                            aria-label={tr("admin_community_sort_up")}
+                            onClick={() => void moveSort(topic, -1)}
+                          >
+                            {tr("admin_community_sort_up")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || topicIndex >= contentTopics.length - 1}
+                            className="rounded px-1 text-sam-muted hover:bg-sam-app disabled:opacity-30"
+                            aria-label={tr("admin_community_sort_down")}
+                            onClick={() => void moveSort(topic, 1)}
+                          >
+                            {tr("admin_community_sort_down")}
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-2.5 pr-2 text-sam-fg">
                         {topic.name}
                         {topic.name_en ? (
                           <span className="ml-1 text-sam-muted sam-text-xxs">· {topic.name_en}</span>
                         ) : null}
                       </td>
-                      <td className="py-2.5 pr-2 sam-text-xxs text-sam-muted">{topic.slug}</td>
-                      <td className="py-2.5 pr-2 sam-text-xxs">{tr(ADMIN_TOPIC_SKIN_I18N[skin])}</td>
-                      <td className="py-2.5 pr-2">{stats.postCount}</td>
-                      <td className="py-2.5 pr-2">{stats.commentCount}</td>
-                      <td className="py-2.5 pr-2">{stats.reportCount}</td>
-                      <td className="py-2.5 pr-2">{topic.is_active ? "Y" : "N"}</td>
-                      <td className="py-2.5 pr-2">{topic.is_visible ? "Y" : "N"}</td>
+                      <td className="py-2.5 pr-2">
+                        {stats.postCount > 0 ? (
+                          <Link href={postsHref} className={countLinkClass}>
+                            {stats.postCount}
+                          </Link>
+                        ) : (
+                          <span className="tabular-nums text-sam-muted">0</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        {stats.commentCount > 0 ? (
+                          <Link href={commentsHref} className={countLinkClass}>
+                            {stats.commentCount}
+                          </Link>
+                        ) : (
+                          <span className="tabular-nums text-sam-muted">0</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        {stats.reportCount > 0 ? (
+                          <Link href={reportsHref} className={countLinkClass}>
+                            {stats.reportCount}
+                          </Link>
+                        ) : (
+                          <span className="tabular-nums text-sam-muted">0</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        {topic.is_active
+                          ? tr("admin_community_ops_status_active")
+                          : tr("admin_community_ops_status_inactive")}
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        {topic.is_visible
+                          ? tr("admin_community_visibility_on")
+                          : tr("admin_community_visibility_off")}
+                      </td>
                       <td className="py-2.5">
                         <button
                           type="button"

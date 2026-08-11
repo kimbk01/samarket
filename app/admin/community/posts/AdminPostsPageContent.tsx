@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminPosts } from "@/lib/admin-posts/getAdminPosts";
 import { updatePostStatusAdmin } from "@/lib/admin-posts/updatePostAdmin";
@@ -22,6 +23,7 @@ type CommunityPostRow = {
   title?: string | null;
   status?: string | null;
   is_reported?: boolean | null;
+  report_count?: number | null;
   like_count?: number | null;
   comment_count?: number | null;
   view_count?: number | null;
@@ -29,11 +31,29 @@ type CommunityPostRow = {
   is_sample_data?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
+  author_label?: string | null;
+  author_nickname?: string | null;
+  author_username?: string | null;
 };
+
+function isoToDateInput(iso: string): string {
+  const d = iso.trim();
+  if (!d) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parsed = new Date(d);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export function AdminPostsPageContent() {
   const { t: tr } = useI18n();
   const dash = tr("admin_users_empty_placeholder");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const statusTradeOptions = useMemo(
     () =>
@@ -59,12 +79,26 @@ export function AdminPostsPageContent() {
   const [tab, setTab] = useState<PostsTab>("community");
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
-  const [communityTopicFilter, setCommunityTopicFilter] = useState("");
-  const [communityUserFilter, setCommunityUserFilter] = useState("");
-  const [communityStatusFilter, setCommunityStatusFilter] = useState("");
-  const [communityReportedOnly, setCommunityReportedOnly] = useState(false);
-  const [communityCreatedFrom, setCommunityCreatedFrom] = useState("");
-  const [communityCreatedTo, setCommunityCreatedTo] = useState("");
+  const [communityTopicFilter, setCommunityTopicFilter] = useState(
+    () => searchParams.get("topicSlug") ?? ""
+  );
+  const [communityUserFilter, setCommunityUserFilter] = useState(() => searchParams.get("userId") ?? "");
+  const [communityPostIdFilter, setCommunityPostIdFilter] = useState(
+    () => searchParams.get("postId") ?? ""
+  );
+  const [communityStatusFilter, setCommunityStatusFilter] = useState(
+    () => searchParams.get("status") ?? ""
+  );
+  const [communityPeriod, setCommunityPeriod] = useState(() => searchParams.get("period") ?? "");
+  const [communityReportedOnly, setCommunityReportedOnly] = useState(
+    () => searchParams.get("reportedOnly") === "1"
+  );
+  const [communityCreatedFrom, setCommunityCreatedFrom] = useState(() =>
+    isoToDateInput(searchParams.get("createdFrom") ?? "")
+  );
+  const [communityCreatedTo, setCommunityCreatedTo] = useState(() =>
+    isoToDateInput(searchParams.get("createdTo") ?? "")
+  );
   const [topicNameBySlug, setTopicNameBySlug] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [communityErr, setCommunityErr] = useState("");
@@ -76,6 +110,43 @@ export function AdminPostsPageContent() {
   const [selectedTrade, setSelectedTrade] = useState<Set<string>>(() => new Set());
   const communitySelectAllRef = useRef<HTMLInputElement>(null);
   const tradeSelectAllRef = useRef<HTMLInputElement>(null);
+  const skipUrlWriteRef = useRef(true);
+
+  useEffect(() => {
+    if (tab !== "community") return;
+    if (skipUrlWriteRef.current) {
+      skipUrlWriteRef.current = false;
+      return;
+    }
+    const q = new URLSearchParams();
+    const topic = communityTopicFilter.trim().toLowerCase();
+    if (topic) q.set("topicSlug", topic);
+    const userId = communityUserFilter.trim();
+    if (userId) q.set("userId", userId);
+    const postId = communityPostIdFilter.trim();
+    if (postId) q.set("postId", postId);
+    if (communityStatusFilter && ["active", "hidden", "deleted"].includes(communityStatusFilter)) {
+      q.set("status", communityStatusFilter);
+    }
+    if (communityPeriod.trim()) q.set("period", communityPeriod.trim());
+    if (communityReportedOnly) q.set("reportedOnly", "1");
+    if (communityCreatedFrom) q.set("createdFrom", communityCreatedFrom);
+    if (communityCreatedTo) q.set("createdTo", communityCreatedTo);
+    const next = q.toString() ? `${pathname}?${q.toString()}` : pathname;
+    router.replace(next);
+  }, [
+    tab,
+    pathname,
+    router,
+    communityTopicFilter,
+    communityUserFilter,
+    communityPostIdFilter,
+    communityStatusFilter,
+    communityPeriod,
+    communityReportedOnly,
+    communityCreatedFrom,
+    communityCreatedTo,
+  ]);
 
   const loadTrade = useCallback(async () => {
     const list = await getAdminPosts();
@@ -90,9 +161,12 @@ export function AdminPostsPageContent() {
       if (topic) q.set("topicSlug", topic);
       const userId = communityUserFilter.trim();
       if (userId) q.set("userId", userId);
+      const postId = communityPostIdFilter.trim();
+      if (postId) q.set("postId", postId);
       if (communityStatusFilter && ["active", "hidden", "deleted"].includes(communityStatusFilter)) {
         q.set("status", communityStatusFilter);
       }
+      if (communityPeriod.trim()) q.set("period", communityPeriod.trim());
       if (communityReportedOnly) q.set("reportedOnly", "1");
       if (communityCreatedFrom) q.set("createdFrom", new Date(communityCreatedFrom).toISOString());
       if (communityCreatedTo) {
@@ -120,7 +194,9 @@ export function AdminPostsPageContent() {
     tr,
     communityTopicFilter,
     communityUserFilter,
+    communityPostIdFilter,
     communityStatusFilter,
+    communityPeriod,
     communityReportedOnly,
     communityCreatedFrom,
     communityCreatedTo,
@@ -172,6 +248,10 @@ export function AdminPostsPageContent() {
     },
     [topicNameBySlug, dash]
   );
+
+  const topicSlugOf = useCallback((row: CommunityPostRow) => {
+    return String(row.topicSlug ?? row.topic_slug ?? row.category ?? "").trim();
+  }, []);
 
   useEffect(() => {
     setSelectedCommunity(new Set());
@@ -361,7 +441,10 @@ export function AdminPostsPageContent() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_posts_page_title" />
+      <AdminPageHeader
+        titleKey="admin_posts_page_title"
+        description={tab === "community" ? tr("admin_posts_help_community_short") : undefined}
+      />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border pb-2">
         <button
@@ -394,22 +477,13 @@ export function AdminPostsPageContent() {
         </div>
       ) : null}
 
-      {tab === "community" ? (
-        <p className="sam-text-body-secondary text-sam-muted">
-          <code className="rounded bg-sam-surface-muted px-1">community_posts</code>
-          {tr("admin_posts_help_community_before_link")}
-          <Link href="/philife" className="text-signature hover:underline">
-            /philife
-          </Link>
-          {tr("admin_posts_help_community_after_link")}
-        </p>
-      ) : (
+      {tab === "trade" ? (
         <p className="sam-text-body-secondary text-sam-muted">
           {tr("admin_posts_help_trade_before_code")}
           <code className="rounded bg-sam-surface-muted px-1">posts</code>
           {tr("admin_posts_help_trade_after_code")}
         </p>
-      )}
+      ) : null}
 
       {tab === "community" ? (
         <div className="flex flex-wrap items-end gap-2">
@@ -437,7 +511,10 @@ export function AdminPostsPageContent() {
             <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
             <select
               value={communityStatusFilter}
-              onChange={(e) => setCommunityStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setCommunityStatusFilter(e.target.value);
+                if (e.target.value) setCommunityPeriod("");
+              }}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
             >
               <option value="">{tr("admin_posts_filter_all_status")}</option>
@@ -461,7 +538,10 @@ export function AdminPostsPageContent() {
             <input
               type="date"
               value={communityCreatedFrom}
-              onChange={(e) => setCommunityCreatedFrom(e.target.value)}
+              onChange={(e) => {
+                setCommunityCreatedFrom(e.target.value);
+                if (e.target.value) setCommunityPeriod("");
+              }}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
             />
           </label>
@@ -470,7 +550,10 @@ export function AdminPostsPageContent() {
             <input
               type="date"
               value={communityCreatedTo}
-              onChange={(e) => setCommunityCreatedTo(e.target.value)}
+              onChange={(e) => {
+                setCommunityCreatedTo(e.target.value);
+                if (e.target.value) setCommunityPeriod("");
+              }}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
             />
           </label>
@@ -480,22 +563,6 @@ export function AdminPostsPageContent() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
           >
             {tr("admin_feed_posts_refresh")}
-          </button>
-        </div>
-      ) : null}
-
-      {tab === "community" && !loading && communityRows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="sam-text-body-secondary text-sam-fg">
-            {tr("admin_posts_bulk_selected", { count: selectedCommunity.size })}
-          </span>
-          <button
-            type="button"
-            disabled={bulkBusy || selectedCommunity.size === 0}
-            onClick={() => void bulkDeleteCommunity()}
-            className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
-          >
-            {tr("admin_posts_bulk_delete_db")}
           </button>
         </div>
       ) : null}
@@ -556,54 +623,54 @@ export function AdminPostsPageContent() {
                   const listingLocLine =
                     resolveTradePostListingLocationLine(metaRec, p.region, p.city) ?? dash;
                   return (
-                  <tr key={p.id} className="border-b border-sam-border-soft">
-                    <td className="px-2 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedTrade.has(p.id)}
-                        onChange={(e) => toggleTradeRow(p.id, e.target.checked)}
-                        className="rounded border-sam-border"
-                        aria-label={tr("admin_posts_aria_select_row", { label: p.title.slice(0, 20) })}
-                      />
-                    </td>
-                    <td className="p-3">
-                      <Link href={`/post/${p.id}`} className="text-signature hover:underline">
-                        {p.title}
-                      </Link>
-                    </td>
-                    <td
-                      className="max-w-[220px] truncate p-3 text-sam-muted"
-                      title={listingLocLine === dash ? undefined : listingLocLine}
-                    >
-                      {listingLocLine}
-                    </td>
-                    <td className="p-3 text-sam-muted">{p.type}</td>
-                    <td className="p-3">
-                      <select
-                        value={p.status}
-                        onChange={(e) =>
-                          handleStatusChange(p.id, e.target.value as PostWithMeta["status"])
-                        }
-                        className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
+                    <tr key={p.id} className="border-b border-sam-border-soft">
+                      <td className="px-2 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedTrade.has(p.id)}
+                          onChange={(e) => toggleTradeRow(p.id, e.target.checked)}
+                          className="rounded border-sam-border"
+                          aria-label={tr("admin_posts_aria_select_row", { label: p.title.slice(0, 20) })}
+                        />
+                      </td>
+                      <td className="p-3">
+                        <Link href={`/post/${p.id}`} className="text-signature hover:underline">
+                          {p.title}
+                        </Link>
+                      </td>
+                      <td
+                        className="max-w-[220px] truncate p-3 text-sam-muted"
+                        title={listingLocLine === dash ? undefined : listingLocLine}
                       >
-                        {statusTradeOptions.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {tr(o.labelKey)}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="p-3 text-sam-muted">{formatTimeAgo(p.created_at)}</td>
-                    <td className="p-3">
-                      <button
-                        type="button"
-                        onClick={() => handleStatusChange(p.id, "hidden")}
-                        className="sam-text-body-secondary text-red-600 hover:underline"
-                      >
-                        {tr("admin_feed_posts_action_hide")}
-                      </button>
-                    </td>
-                  </tr>
+                        {listingLocLine}
+                      </td>
+                      <td className="p-3 text-sam-muted">{p.type}</td>
+                      <td className="p-3">
+                        <select
+                          value={p.status}
+                          onChange={(e) =>
+                            handleStatusChange(p.id, e.target.value as PostWithMeta["status"])
+                          }
+                          className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
+                        >
+                          {statusTradeOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {tr(o.labelKey)}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-3 text-sam-muted">{formatTimeAgo(p.created_at)}</td>
+                      <td className="p-3">
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(p.id, "hidden")}
+                          className="sam-text-body-secondary text-red-600 hover:underline"
+                        >
+                          {tr("admin_feed_posts_action_hide")}
+                        </button>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -622,135 +689,205 @@ export function AdminPostsPageContent() {
               {tr("admin_posts_empty_community")}
             </div>
           ) : communityRows.length > 0 ? (
-            <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-              <table className="w-full min-w-[1100px] text-left sam-text-body">
-                <thead>
-                  <tr className="border-b border-sam-border bg-sam-app">
-                    <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
-                      <input
-                        ref={communitySelectAllRef}
-                        type="checkbox"
-                        checked={allCommunitySelected}
-                        onChange={(e) => toggleAllCommunity(e.target.checked)}
-                        className="rounded border-sam-border"
-                        title={tr("admin_posts_title_select_all_visible")}
-                        aria-label={tr("admin_posts_aria_select_all_community")}
-                      />
-                    </th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_topic")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_author")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_region")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_views")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_likes")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_comments")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_reported")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_registered")}</th>
-                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <>
+              <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+                <table className="w-full min-w-[1100px] text-left sam-text-body">
+                  <thead>
+                    <tr className="border-b border-sam-border bg-sam-app">
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_topic")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_author")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_region")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_views")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_likes")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_comments")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_reported")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_registered")}</th>
+                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {communityRows.map((r) => {
+                      const id = String(r.id ?? "");
+                      const busy = communityBusyId === id;
+                      const titleStr = String(r.title ?? "");
+                      const uid = String(r.user_id ?? "").trim();
+                      const authorLabel = String(r.author_label ?? "").trim() || dash;
+                      const slug = topicSlugOf(r);
+                      const reportCount = Number(r.report_count ?? 0);
+                      const commentCount = Number(r.comment_count ?? 0);
+                      return (
+                        <tr key={id} className="border-b border-sam-border-soft">
+                          <td className="max-w-[220px] p-3">
+                            <Link
+                              href={`/admin/community/posts/${encodeURIComponent(id)}`}
+                              className="font-medium text-signature hover:underline"
+                            >
+                              {titleStr ? titleStr : tr("admin_posts_no_title")}
+                            </Link>
+                            {r.is_sample_data === true ? (
+                              <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
+                                {tr("admin_feed_posts_sample_badge")}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="p-3 text-sam-muted">
+                            {slug ? (
+                              <button
+                                type="button"
+                                className="text-signature hover:underline"
+                                onClick={() => setCommunityTopicFilter(slug)}
+                              >
+                                {topicDisplayLabel(r)}
+                              </button>
+                            ) : (
+                              dash
+                            )}
+                          </td>
+                          <td className="max-w-[140px] truncate p-3 text-sam-muted" title={authorLabel}>
+                            {uid ? (
+                              <Link
+                                href={`/admin/users/${encodeURIComponent(uid)}`}
+                                className="text-signature hover:underline"
+                              >
+                                {authorLabel}
+                              </Link>
+                            ) : (
+                              authorLabel
+                            )}
+                          </td>
+                          <td
+                            className="max-w-[140px] truncate p-3 text-sam-muted"
+                            title={String(r.region_label ?? "")}
+                          >
+                            {String(r.region_label ?? dash)}
+                          </td>
+                          <td className="p-3 text-sam-muted">{Number(r.view_count ?? 0)}</td>
+                          <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
+                          <td className="p-3">
+                            <Link
+                              href={`/admin/community/comments?postId=${encodeURIComponent(id)}`}
+                              className="text-signature hover:underline"
+                            >
+                              {commentCount}
+                            </Link>
+                          </td>
+                          <td className="p-3">
+                            {reportCount > 0 ? (
+                              <Link
+                                href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
+                                className="text-signature hover:underline"
+                              >
+                                {reportCount}
+                              </Link>
+                            ) : (
+                              <span className="text-sam-muted">0</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <select
+                              value={String(r.status ?? "active")}
+                              disabled={busy || bulkBusy}
+                              onChange={(e) => void patchCommunityPost(id, e.target.value)}
+                              className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
+                            >
+                              {communityStatusOptions.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {tr(o.labelKey)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="whitespace-nowrap p-3 text-sam-muted">
+                            {r.created_at ? formatTimeAgo(r.created_at) : dash}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-wrap gap-1">
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() => void patchCommunityPost(id, "hidden")}
+                                className="sam-text-helper text-amber-700 hover:underline"
+                              >
+                                {tr("admin_feed_posts_action_hide")}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() => void patchCommunityPost(id, "deleted")}
+                                className="sam-text-helper text-red-600 hover:underline"
+                              >
+                                {tr("admin_feed_posts_action_delete")}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() => void patchCommunityPost(id, "active")}
+                                className="sam-text-helper text-emerald-700 hover:underline"
+                              >
+                                {tr("admin_feed_posts_action_restore")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <details className="rounded-ui-rect border border-red-200 bg-red-50/40 px-3 py-2">
+                <summary className="cursor-pointer font-medium text-red-800">
+                  {tr("admin_community_danger_zone")}
+                </summary>
+                <p className="mt-2 sam-text-body-secondary text-red-900/80">
+                  {tr("admin_community_danger_zone_hint")}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-1.5 sam-text-body-secondary">
+                    <input
+                      ref={communitySelectAllRef}
+                      type="checkbox"
+                      checked={allCommunitySelected}
+                      onChange={(e) => toggleAllCommunity(e.target.checked)}
+                      className="rounded border-sam-border"
+                      aria-label={tr("admin_posts_aria_select_all_community")}
+                    />
+                    {tr("admin_posts_title_select_all_visible")}
+                  </label>
+                  <span className="sam-text-body-secondary text-sam-fg">
+                    {tr("admin_posts_bulk_selected", { count: selectedCommunity.size })}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={bulkBusy || selectedCommunity.size === 0}
+                    onClick={() => void bulkDeleteCommunity()}
+                    className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
+                  >
+                    {tr("admin_posts_bulk_delete_db")}
+                  </button>
+                </div>
+                <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto sam-text-helper">
                   {communityRows.map((r) => {
                     const id = String(r.id ?? "");
-                    const busy = communityBusyId === id;
-                    const titleStr = String(r.title ?? "");
+                    const titleStr = String(r.title ?? "").trim() || tr("admin_posts_no_title");
                     return (
-                      <tr key={id} className="border-b border-sam-border-soft">
-                        <td className="px-2 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedCommunity.has(id)}
-                            onChange={(e) => toggleCommunityRow(id, e.target.checked)}
-                            disabled={bulkBusy}
-                            className="rounded border-sam-border"
-                            aria-label={tr("admin_posts_aria_select_row", { label: titleStr.slice(0, 24) })}
-                          />
-                        </td>
-                        <td className="max-w-[220px] p-3">
-                          <Link
-                            href={`/philife/${encodeURIComponent(id)}`}
-                            className="font-medium text-signature hover:underline"
-                          >
-                            {titleStr ? titleStr : tr("admin_posts_no_title")}
-                          </Link>
-                          {r.is_sample_data === true ? (
-                            <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
-                              {tr("admin_feed_posts_sample_badge")}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="p-3 text-sam-muted">{topicDisplayLabel(r)}</td>
-                        <td className="max-w-[120px] truncate p-3 sam-text-xxs text-sam-muted" title={String(r.user_id ?? "")}>
-                          {String(r.user_id ?? dash)}
-                        </td>
-                        <td
-                          className="max-w-[140px] truncate p-3 text-sam-muted"
-                          title={String(r.region_label ?? "")}
-                        >
-                          {String(r.region_label ?? dash)}
-                        </td>
-                        <td className="p-3 text-sam-muted">{Number(r.view_count ?? 0)}</td>
-                        <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
-                        <td className="p-3 text-sam-muted">{Number(r.comment_count ?? 0)}</td>
-                        <td className="p-3">
-                          <select
-                            value={String(r.status ?? "active")}
-                            disabled={busy || bulkBusy}
-                            onChange={(e) => void patchCommunityPost(id, e.target.value)}
-                            className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
-                          >
-                            {communityStatusOptions.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {tr(o.labelKey)}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3 text-center sam-text-body-secondary">
-                          {r.is_reported === true ? (
-                            <span className="rounded bg-amber-100 px-1.5 text-amber-900">Y</span>
-                          ) : (
-                            dash
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap p-3 text-sam-muted">
-                          {r.created_at ? formatTimeAgo(r.created_at) : dash}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex flex-wrap gap-1">
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() => void patchCommunityPost(id, "hidden")}
-                              className="sam-text-helper text-amber-700 hover:underline"
-                            >
-                              {tr("admin_feed_posts_action_hide")}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() => void patchCommunityPost(id, "deleted")}
-                              className="sam-text-helper text-red-600 hover:underline"
-                            >
-                              {tr("admin_feed_posts_action_delete")}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() => void patchCommunityPost(id, "active")}
-                              className="sam-text-helper text-emerald-700 hover:underline"
-                            >
-                              {tr("admin_feed_posts_action_restore")}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <li key={`danger-${id}`} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedCommunity.has(id)}
+                          disabled={bulkBusy}
+                          onChange={(e) => toggleCommunityRow(id, e.target.checked)}
+                          aria-label={tr("admin_posts_aria_select_row", { label: titleStr.slice(0, 24) })}
+                        />
+                        <span className="truncate text-sam-fg">{titleStr}</span>
+                      </li>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </ul>
+              </details>
+            </>
           ) : null}
         </>
       )}

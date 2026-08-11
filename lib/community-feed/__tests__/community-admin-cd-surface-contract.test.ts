@@ -40,9 +40,10 @@ describe("community admin C+D safe-scope surface contract", () => {
     expect(page).not.toMatch(/manner/i);
   });
 
-  it("reports UI declares comment report HOLD", () => {
+  it("reports UI does not declare comment report HOLD in operator console", () => {
     const reports = read("components/admin/community/AdminCommunityReportsPage.tsx");
-    expect(reports).toMatch(/admin_feed_reports_comment_hold_note/);
+    expect(reports).not.toMatch(/admin_feed_reports_comment_hold_note/);
+    expect(reports).not.toMatch(/sanction/i);
   });
 
   it("admin menu wires comments + ops + point without A+B community-nav edits", () => {
