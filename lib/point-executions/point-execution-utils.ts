@@ -43,6 +43,7 @@ export const POINT_RECLAIM_TRIGGER_LABELS: Record<
   delete: "삭제",
   admin_remove: "관리자삭제",
   report_confirmed: "신고적중",
+  eligibility_lost: "적격 상실",
 };
 
 export const POINT_RECLAIM_MODE_LABELS: Record<PointReclaimMode, string> = {

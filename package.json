@@ -111,6 +111,7 @@
     "verify:store-order-structure-optimization": "node scripts/verify-store-order-structure-optimization.mjs",
     "verify:store-order-repo-cleanup": "node scripts/verify-store-order-repo-cleanup.mjs",
     "verify:delivery-product-hard-lock": "node scripts/verify-delivery-product-hard-lock.mjs",
+    "verify:community-dpoint-financial-hard-lock": "node scripts/verify-community-dpoint-financial-hard-lock.mjs",
     "verify:phone-otp-contract": "node scripts/verify-phone-otp-contract.mjs",
     "verify:owner-products-perf": "node scripts/verify-owner-products-perf.mjs",
     "verify:store-cart-sheet-contract": "node scripts/verify-store-cart-sheet-contract.cjs",

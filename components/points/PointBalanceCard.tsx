@@ -18,6 +18,11 @@ export function PointBalanceCard({ balance, className = "" }: PointBalanceCardPr
       <p className="mt-1 sam-text-hero font-bold text-sam-fg">
         {balance.toLocaleString()}P
       </p>
+      {balance < 0 ? (
+        <p className="mt-2 sam-text-helper text-sam-muted">
+          {t("point_fin_negative_balance_note")}
+        </p>
+      ) : null}
     </div>
   );
 }

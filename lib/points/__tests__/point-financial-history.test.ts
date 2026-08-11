@@ -17,6 +17,11 @@ describe("point-financial-history normalize", () => {
     expect(normalizePointFinancialCategory("charge", "point_charge")).toBe("CHARGE");
   });
 
+  it("maps community reward/reclaim to REWARD/REFUND", () => {
+    expect(normalizePointFinancialCategory("reward", "community_reward")).toBe("REWARD");
+    expect(normalizePointFinancialCategory("reverse", "community_reclaim")).toBe("REFUND");
+  });
+
   it("maps refunds and ad_refund to REFUND", () => {
     expect(normalizePointFinancialCategory("refund", "admin_manual")).toBe("REFUND");
     expect(normalizePointFinancialCategory("ad_refund", "ad_application")).toBe("REFUND");

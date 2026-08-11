@@ -18,7 +18,7 @@ describe("community admin C+D safe-scope surface contract", () => {
     expect(patch).toMatch(/active/);
     expect(patch).toMatch(/hidden/);
     expect(patch).toMatch(/deleted/);
-    expect(patch).toMatch(/voidCommunityPointReclaimOnModeration/);
+    expect(patch).toMatch(/applyCommunityPointReclaimOnModeration/);
     expect(patch).not.toMatch(/\.delete\(/);
   });
 
@@ -30,13 +30,12 @@ describe("community admin C+D safe-scope surface contract", () => {
     expect(posts).toMatch(/from\("community_posts"\)/);
   });
 
-  it("point policies page locks to general|qna and does not invent topic writers", () => {
+  it("point policies page is financial console with global + topic override", () => {
     const page = read("components/admin/community/AdminCommunityPointPoliciesPage.tsx");
-    expect(page).toMatch(/COMMUNITY_BOARD_KEYS/);
-    expect(page).toMatch(/general/);
-    expect(page).toMatch(/qna/);
-    expect(page).toMatch(/\/api\/admin\/point-policies\/board/);
-    expect(page).not.toMatch(/topicSlug.*point.*policy/i);
+    expect(page).toMatch(/admin_community_point_tab_global/);
+    expect(page).toMatch(/admin_community_point_tab_boards/);
+    expect(page).toMatch(/admin_community_point_inherit/);
+    expect(page).toMatch(/admin_community_point_override/);
     expect(page).not.toMatch(/manner/i);
   });
 

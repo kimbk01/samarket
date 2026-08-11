@@ -4,6 +4,8 @@
 
 export type PointRewardType = "fixed" | "random";
 
+export type CommunityPointPolicyLayer = "global" | "qna" | "topic";
+
 export interface BoardPointPolicy {
   id: string;
   boardKey: string;
@@ -23,6 +25,14 @@ export interface BoardPointPolicy {
   reportRewardPoint: number;
   maxFreeUserPointCap: number;
   eventMultiplierEnabled: boolean;
+  /** topic rows: true = 전체 설정 사용 */
+  inheritGlobal: boolean;
+  policyLayer: CommunityPointPolicyLayer;
+  dailyRewardPostCap: number;
+  dailyRewardCommentCap: number;
+  minRewardPostChars: number;
+  minRewardCommentChars: number;
+  policyVersion: number;
   updatedAt: string;
   adminMemo?: string;
 }

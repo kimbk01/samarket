@@ -522,7 +522,7 @@
   "admin_community_comments_col_body": "Comment",
   "admin_community_comments_updated": "Updated",
   "admin_community_point_page_title": "Community point policies",
-  "admin_community_point_page_desc": "Point rewards for General and Q&A boards.",
+  "admin_community_point_page_desc": "Community D-Point: global defaults, Q&A defaults, then per-board overrides.",
   "admin_community_point_list_title": "Board policies",
   "admin_community_point_empty": "No general/qna policies. Check /admin/point-policies.",
   "admin_community_point_col_board": "Board key",

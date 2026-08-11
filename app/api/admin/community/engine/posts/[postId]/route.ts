@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { voidCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
@@ -113,7 +113,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   if (body.status === "hidden" || body.status === "deleted") {
-    voidCommunityPointReclaimOnPostAdminRemove({ postId: id });
+    await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
   }
 
   return NextResponse.json({ ok: true });

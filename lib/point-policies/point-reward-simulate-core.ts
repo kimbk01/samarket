@@ -1,3 +1,8 @@
+import {
+  applyEventMultiplier,
+  communityRewardAmountSeed,
+  resolveFixedOrRandomBase,
+} from "@/lib/community-points/deterministic-award";
 import type {
   BoardPointPolicy,
   PointEventPolicy,
@@ -5,7 +10,11 @@ import type {
   PointRewardSimulation,
 } from "@/lib/types/point-policy";
 
-/** 정책 데이터를 주입받아 포인트 지급 시뮬레이션 (DB/mock 공용) */
+/**
+ * Admin preview + legacy callers.
+ * Product community writer does not use probabilityRules.
+ * Random = write/comment min/max + deterministic seed.
+ */
 export function computePointRewardSimulation(input: {
   boardKey: string;
   actionType: "write" | "comment";
@@ -14,9 +23,10 @@ export function computePointRewardSimulation(input: {
   policy: BoardPointPolicy | null | undefined;
   event: PointEventPolicy | null | undefined;
   probabilityRules: PointProbabilityRule[];
+  amountSeed?: string;
 }): PointRewardSimulation {
-  const { boardKey, actionType, userType, currentPointBalance, policy, event, probabilityRules } =
-    input;
+  const { boardKey, actionType, userType, currentPointBalance, policy, event } = input;
+  void input.probabilityRules;
   const base: PointRewardSimulation = {
     boardKey,
     actionType,
@@ -31,30 +41,27 @@ export function computePointRewardSimulation(input: {
 
   if (!policy || !policy.isActive) return base;
 
-  let rawPoint = 0;
-  if (actionType === "write") {
-    if (policy.writeRewardType === "fixed") {
-      rawPoint = policy.writeFixedPoint;
-    } else {
-      const rules = probabilityRules.filter((r) => r.targetType === "write");
-      const total = rules.reduce((s, r) => s + r.probabilityPercent, 0);
-      const roll = total > 0 ? Math.random() * total : 0;
-      let acc = 0;
-      for (const r of rules) {
-        acc += r.probabilityPercent;
-        if (roll < acc) {
-          rawPoint = r.minPoint + Math.floor(Math.random() * (r.maxPoint - r.minPoint + 1));
-          break;
-        }
-      }
-    }
-  } else if (policy.commentRewardType === "fixed") {
-    rawPoint = policy.commentFixedPoint;
-  } else {
-    rawPoint =
-      policy.commentRandomMin +
-      Math.floor(Math.random() * (policy.commentRandomMax - policy.commentRandomMin + 1));
-  }
+  const rewardType = actionType === "write" ? policy.writeRewardType : policy.commentRewardType;
+  const fixedPoint = actionType === "write" ? policy.writeFixedPoint : policy.commentFixedPoint;
+  const randomMin = actionType === "write" ? policy.writeRandomMin : policy.commentRandomMin;
+  const randomMax = actionType === "write" ? policy.writeRandomMax : policy.commentRandomMax;
+  const seed =
+    input.amountSeed ??
+    communityRewardAmountSeed({
+      executionKey: `preview:${boardKey}:${actionType}`,
+      policyId: policy.id,
+      policyVersion: policy.policyVersion ?? 1,
+      rewardType,
+      min: randomMin,
+      max: randomMax,
+    });
+  const rawPoint = resolveFixedOrRandomBase({
+    rewardType,
+    fixedPoint,
+    randomMin,
+    randomMax,
+    seed,
+  });
 
   let multiplier = 1;
   const now = new Date().toISOString();
@@ -67,7 +74,7 @@ export function computePointRewardSimulation(input: {
     multiplier = actionType === "write" ? event.writeMultiplier : event.commentMultiplier;
   }
 
-  const rewardPoint = Math.round(rawPoint * multiplier);
+  const rewardPoint = applyEventMultiplier(rawPoint, multiplier);
   const maxCap = userType === "free" ? policy.maxFreeUserPointCap : Infinity;
   const wouldBe = currentPointBalance + rewardPoint;
   const capped = userType === "free" && wouldBe > maxCap;

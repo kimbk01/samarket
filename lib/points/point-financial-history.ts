@@ -127,6 +127,7 @@ export function normalizePointFinancialCategory(
   if (et === "charge" || rt === "point_charge") return "CHARGE";
   if (et === "refund" || et === "reverse" || et === "ad_refund") return "REFUND";
   if (et === "reward" || rt === "community_reward") return "REWARD";
+  if (rt === "community_reclaim") return "REFUND";
   if (et === "admin_credit") return "ADMIN_CREDIT";
   if (et === "admin_debit") return "ADMIN_DEBIT";
   if (et === "admin_adjust") {

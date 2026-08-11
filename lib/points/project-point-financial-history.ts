@@ -29,6 +29,45 @@ const DELETED_POST_EN = "Deleted post";
 
 type LedgerRow = Record<string, unknown>;
 
+function communityFinancialTitles(
+  relatedType: string,
+  entryType: string,
+  description: string
+): { titleKey: string; fallbackTitleKo: string; fallbackTitleEn: string } | null {
+  const rt = relatedType.trim().toLowerCase();
+  if (rt === "community_reward") {
+    const isComment = description.includes("댓글");
+    const isQna = description.includes("질문");
+    if (isComment) {
+      return {
+        titleKey: "point_fin_community_comment",
+        fallbackTitleKo: "커뮤니티 댓글 작성",
+        fallbackTitleEn: "Community comment",
+      };
+    }
+    if (isQna) {
+      return {
+        titleKey: "point_fin_community_question",
+        fallbackTitleKo: "커뮤니티 질문 작성",
+        fallbackTitleEn: "Community question",
+      };
+    }
+    return {
+      titleKey: "point_fin_community_post",
+      fallbackTitleKo: "커뮤니티 게시글 작성",
+      fallbackTitleEn: "Community post",
+    };
+  }
+  if (rt === "community_reclaim" || (entryType === "reverse" && rt === "community_reclaim")) {
+    return {
+      titleKey: "point_fin_community_reclaim",
+      fallbackTitleKo: "커뮤니티 포인트 회수",
+      fallbackTitleEn: "Community point reversal",
+    };
+  }
+  return null;
+}
+
 function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
   const amount = Math.trunc(Number(row.amount ?? 0));
   const entryType = String(row.entry_type ?? "");
@@ -36,7 +75,7 @@ function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
   const relatedId = String(row.related_id ?? "");
   const description = String(row.description ?? "");
   const category = normalizePointFinancialCategory(entryType, relatedType);
-  const titles = pointFinancialCategoryTitle(category);
+  const titles = communityFinancialTitles(relatedType, entryType, description) ?? pointFinancialCategoryTitle(category);
   const direction = normalizePointFinancialDirection(amount);
   // admin_adjust with signed amount
   let resolvedCategory = category;
@@ -132,6 +171,71 @@ async function loadChargeMap(
     });
   }
   return map;
+}
+
+const DELETED_COMMUNITY_KO = "삭제된 게시글";
+
+async function loadCommunityPostTitleMap(
+  sb: SupabaseClient,
+  postIds: string[]
+): Promise<Map<string, { title: string; missing: boolean }>> {
+  const map = new Map<string, { title: string; missing: boolean }>();
+  const ids = [...new Set(postIds.map((x) => x.trim()).filter(Boolean))];
+  if (!ids.length) return map;
+  const { data, error } = await sb
+    .from("community_posts")
+    .select("id, title, status")
+    .in("id", ids);
+  if (error) {
+    for (const id of ids) map.set(id, { title: "", missing: true });
+    return map;
+  }
+  const found = new Set<string>();
+  for (const row of data ?? []) {
+    const r = row as { id?: string; title?: string; status?: string };
+    const id = String(r.id ?? "");
+    found.add(id);
+    const status = String(r.status ?? "").toLowerCase();
+    const deleted = status === "deleted" || status === "hidden";
+    map.set(id, {
+      title: deleted ? "" : String(r.title ?? "").trim(),
+      missing: deleted || !String(r.title ?? "").trim(),
+    });
+  }
+  for (const id of ids) {
+    if (!found.has(id)) map.set(id, { title: "", missing: true });
+  }
+  return map;
+}
+
+function enrichCommunityItem(
+  item: PointFinancialHistoryItem,
+  communityPosts: Map<string, { title: string; missing: boolean }>
+): PointFinancialHistoryItem {
+  if (item.relatedType !== "community_reward" || !item.relatedId) return item;
+  const meta = communityPosts.get(item.relatedId);
+  if (!meta) return item;
+  if (meta.missing) {
+    return {
+      ...item,
+      relatedObject: {
+        kind: "post",
+        id: item.relatedId,
+        label: DELETED_COMMUNITY_KO,
+        missing: true,
+      },
+      subtitle: item.subtitle || DELETED_COMMUNITY_KO,
+    };
+  }
+  return {
+    ...item,
+    relatedObject: {
+      kind: "post",
+      id: item.relatedId,
+      label: meta.title,
+      missing: false,
+    },
+  };
 }
 
 async function loadPostTitleMap(
@@ -368,6 +472,10 @@ export async function loadPointFinancialHistory(
     .filter((o) => o.targetType === "product")
     .map((o) => o.targetId);
   const posts = await loadPostTitleMap(sb, postIds);
+  const communityIds = pageRows
+    .filter((r) => String(r.related_type ?? "") === "community_reward")
+    .map((r) => String(r.related_id ?? ""));
+  const communityPosts = await loadCommunityPostTitleMap(sb, communityIds);
 
   const feedRequestIds = pageRows
     .filter((r) => String(r.related_type ?? "") === "feed_ad_request")
@@ -379,7 +487,12 @@ export async function loadPointFinancialHistory(
   const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
 
   const items = pageRows
-    .map((row) => enrichItem(asLedgerItemBase(row), promotions, charges, posts))
+    .map((row) =>
+      enrichCommunityItem(
+        enrichItem(asLedgerItemBase(row), promotions, charges, posts),
+        communityPosts
+      )
+    )
     .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
     .filter((item): item is PointFinancialHistoryItem => item != null)
     .filter((item) => matchesPointFinancialFilter(item, filter));
@@ -444,7 +557,7 @@ export async function loadPointFinancialSummary(
   return {
     balance,
     ledgerSum,
-    cacheMatchesLedger: ledgerSum === null ? null : balance === Math.max(0, ledgerSum),
+    cacheMatchesLedger: ledgerSum === null ? null : balance === ledgerSum,
     totalCredit,
     totalDebit,
     lastOccurredAt,

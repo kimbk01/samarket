@@ -82,6 +82,7 @@ export const ADMIN_POINTS_RECLAIM_TRIGGER_KEYS: Record<PointReclaimTriggerType, 
   delete: "admin_points_reclaim_trigger_delete",
   admin_remove: "admin_points_reclaim_trigger_admin_remove",
   report_confirmed: "admin_points_reclaim_trigger_report_confirmed",
+  eligibility_lost: "admin_points_reclaim_trigger_eligibility_lost",
 };
 
 export const ADMIN_POINTS_RECLAIM_MODE_KEYS: Record<PointReclaimMode, MessageKey> = {

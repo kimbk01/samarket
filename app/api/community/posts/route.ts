@@ -18,7 +18,11 @@ import {
   safeErrorMessage,
 } from "@/lib/http/api-route";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
-import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
+import {
+  communityAcceptanceErrorMessage,
+  evaluateCommunityPostAcceptance,
+} from "@/lib/community-points/content-acceptance";
+import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 export const runtime = "nodejs";
@@ -81,6 +85,10 @@ export async function POST(req: NextRequest) {
   }
   if (!content) {
     return jsonError("내용을 입력하세요.", 400);
+  }
+  const accepted = evaluateCommunityPostAcceptance({ title, content });
+  if (!accepted.ok) {
+    return jsonError(communityAcceptanceErrorMessage(accepted.code), 400);
   }
 
   const ops = await getCommunityFeedOps();
@@ -201,12 +209,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  voidCommunityPointRewardOnPostWrite({
+  await applyCommunityPointRewardOnPostWrite({
     userId: auth.userId,
     postId: newId,
+    title,
+    content,
     isQuestion: is_question,
     topicSlug,
-    category: categoryForDb,
   });
 
   return jsonOk({ id: newId });

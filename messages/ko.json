@@ -522,7 +522,7 @@
   "admin_community_comments_col_body": "댓글",
   "admin_community_comments_updated": "수정",
   "admin_community_point_page_title": "포인트 정책",
-  "admin_community_point_page_desc": "자유게시판·Q&A 포인트 보상 정책입니다.",
+  "admin_community_point_page_desc": "전체 기본 → Q&A 기본 → 게시판별 설정의 커뮤니티 D-Point 정책입니다.",
   "admin_community_point_list_title": "게시판 정책",
   "admin_community_point_empty": "general·qna 정책이 없습니다. /admin/point-policies에서 확인하세요.",
   "admin_community_point_col_board": "게시판",

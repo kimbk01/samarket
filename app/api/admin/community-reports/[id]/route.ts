@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getCommunityReportByIdForAdmin } from "@/lib/community-feed/admin-community-reports";
-import { voidCommunityPointReclaimFromReportTarget } from "@/lib/points/community-point-bridge";
+import { applyCommunityPointReclaimFromReportTarget } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   if (status === "resolved" && prevStatus !== "resolved") {
-    voidCommunityPointReclaimFromReportTarget({
+    await applyCommunityPointReclaimFromReportTarget({
       targetType: String((before as { target_type?: string }).target_type ?? ""),
       targetId: String((before as { target_id?: string }).target_id ?? ""),
     });

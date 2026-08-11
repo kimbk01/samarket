@@ -1,0 +1,35 @@
+---
+description: HARD LOCK — Community D-Point financial reward / reversal / ledger
+alwaysApply: true
+---
+
+# DIBAY Community D-Point Financial HARD LOCK
+
+**HARD LOCK (2026-08-11).** Full doc: `docs/dibay-community-dpoint-financial-hard-lock.md`.
+
+## Authority
+
+| Concern | Owner |
+|---|---|
+| Level 1 accept | `lib/community-points/content-acceptance.ts` |
+| Level 2 eligibility | `lib/community-points/reward-eligibility.ts` |
+| Policy resolve | `lib/community-points/policy-resolver.ts` |
+| Amount | deterministic hash — not `Math.random` |
+| Credit / reclaim | `apply_community_point_reward` / `apply_community_point_reclaim` |
+| Member/Admin history | same `point_ledger` row |
+
+## DO NOT (without reopen)
+
+- Fire-and-forget credit after INSERT as the writer
+- `Math.random` / client amount / probability-bucket product random
+- Skip reversal on insufficient balance; 0-clamp to hide debt
+- Negative spend for member purchases (reversal-only negative)
+- Community-only balance; Business Credit mix
+- New comment-report writer; community_reports → sanctions
+- Hidden policy fallback; treat feed `max_posts_per_day` as reward cap
+
+## Gate
+
+```bash
+npm run verify:community-dpoint-financial-hard-lock
+```

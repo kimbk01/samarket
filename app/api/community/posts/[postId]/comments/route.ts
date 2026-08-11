@@ -28,7 +28,11 @@ import {
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
 import { notifyCommunityPostCommentReceived } from "@/lib/notifications/community-social-inapp-notify";
-import { voidCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
+import {
+  communityAcceptanceErrorMessage,
+  evaluateCommunityContentAcceptance,
+} from "@/lib/community-points/content-acceptance";
+import { applyCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -144,6 +148,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
   const body = parsed.value;
   const content = body.content?.trim();
   if (!content) return jsonError("내용을 입력하세요.", 400);
+  const accepted = evaluateCommunityContentAcceptance(content, "comment");
+  if (!accepted.ok) {
+    return jsonError(communityAcceptanceErrorMessage(accepted.code), 400);
+  }
 
   const ops = await getCommunityFeedOps();
   if (content.length > ops.max_comment_length) {
@@ -276,10 +284,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       parentCommentAuthorUserId: parentCommentAuthorId,
     }).catch(() => {});
     const commentId = (ins as { id: string }).id;
-    voidCommunityPointRewardOnCommentWrite({
+    await applyCommunityPointRewardOnCommentWrite({
       userId: auth.userId,
       postId: id,
       commentId,
+      content,
     });
     return jsonOk({ id: commentId });
   } catch (error) {

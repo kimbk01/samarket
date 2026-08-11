@@ -67,7 +67,7 @@ export async function readUserPointBalance(
   if (!uid) return 0;
   const { data, error } = await sb.from("profiles").select("points").eq("id", uid).maybeSingle();
   if (error) return 0;
-  return Math.max(0, Number((data as { points?: number } | null)?.points ?? 0));
+  return Math.trunc(Number((data as { points?: number } | null)?.points ?? 0));
 }
 
 /** SSOT: SUM(point_ledger.amount) for user. */
@@ -108,7 +108,7 @@ function isMissingRpc(message: string): boolean {
 }
 
 /**
- * ONLY allowed TS writer for profiles.points — projects GREATEST(0, ledger SUM).
+ * ONLY allowed TS writer for profiles.points — projects ledger SUM (may be negative after system reversal).
  */
 export async function projectUserPointBalanceFromLedger(
   sb: SupabaseClient,
@@ -119,12 +119,12 @@ export async function projectUserPointBalanceFromLedger(
 
   const rpc = await sb.rpc("project_user_point_balance_from_ledger", { p_user_id: uid });
   if (!rpc.error && rpc.data !== null && rpc.data !== undefined) {
-    return { ok: true, balance: Math.max(0, Math.trunc(Number(rpc.data) || 0)) };
+    return { ok: true, balance: Math.trunc(Number(rpc.data) || 0) };
   }
 
   const summed = await sumUserPointLedger(sb, uid);
   if (!summed.ok) return summed;
-  const balance = Math.max(0, summed.sum);
+  const balance = summed.sum;
   const { error } = await sb.from("profiles").update({ points: balance }).eq("id", uid);
   if (error) {
     if (isMissingPointsTable(error.message ?? "", "profiles")) {
@@ -147,7 +147,7 @@ export async function reconcileUserPointBalance(
   const summed = await sumUserPointLedger(sb, uid);
   if (!summed.ok) return summed;
   const ledgerSum = summed.sum;
-  if (cacheBefore === Math.max(0, ledgerSum)) {
+  if (cacheBefore === ledgerSum) {
     return { ok: true, repaired: false, cacheBefore, ledgerSum, cacheAfter: cacheBefore };
   }
   const projected = await projectUserPointBalanceFromLedger(sb, uid);
@@ -224,7 +224,7 @@ export async function spendUserPoints(
 
   const summed = await sumUserPointLedger(sb, uid);
   if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const current = Math.max(0, summed.sum);
+  const current = summed.sum;
   if (current < cost) {
     return { ok: false, error: "insufficient_balance", code: "insufficient_balance" };
   }
@@ -299,7 +299,7 @@ export async function creditUserPoints(
 
   const summed = await sumUserPointLedger(sb, uid);
   if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const balanceAfter = Math.max(0, summed.sum) + amount;
+  const balanceAfter = summed.sum + amount;
 
   const ledgerInsert: Record<string, unknown> = {
     user_id: uid,
@@ -490,7 +490,7 @@ export async function appendUserPointLedgerAudit(
 
   const summed = await sumUserPointLedger(sb, uid);
   if (!summed.ok) return { ok: false, error: summed.error, code: summed.code };
-  const balanceAfter = Math.max(0, summed.sum) + amount;
+  const balanceAfter = summed.sum + amount;
 
   const { data: ledgerRow, error: ledgerErr } = await sb
     .from("point_ledger")

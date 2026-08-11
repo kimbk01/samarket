@@ -18,7 +18,11 @@ import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
-import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
+import {
+  communityAcceptanceErrorMessage,
+  evaluateCommunityPostAcceptance,
+} from "@/lib/community-points/content-acceptance";
+import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 export const runtime = "nodejs";
@@ -115,6 +119,13 @@ export async function POST(req: NextRequest) {
   }
   if (!content) {
     return NextResponse.json({ ok: false, error: "내용을 입력해 주세요." }, { status: 400 });
+  }
+  const accepted = evaluateCommunityPostAcceptance({ title, content });
+  if (!accepted.ok) {
+    return NextResponse.json(
+      { ok: false, error: communityAcceptanceErrorMessage(accepted.code) },
+      { status: 400 }
+    );
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -468,12 +479,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  voidCommunityPointRewardOnPostWrite({
+  await applyCommunityPointRewardOnPostWrite({
     userId: auth.userId,
     postId,
+    title,
+    content,
     isQuestion: rawCat === "question",
     topicSlug: topicMeta.topicSlug,
-    category: categoryForDb,
   });
 
   return NextResponse.json({ ok: true, id: postId, meetingId, messengerRoomId });

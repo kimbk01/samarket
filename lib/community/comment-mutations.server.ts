@@ -1,3 +1,7 @@
+import {
+  communityAcceptanceErrorMessage,
+  evaluateCommunityContentAcceptance,
+} from "@/lib/community-points/content-acceptance";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
@@ -109,6 +113,10 @@ export async function updateCommentContentServer(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const t = content?.trim() ?? "";
   if (!t) return { ok: false, error: "내용을 입력하세요." };
+  const accepted = evaluateCommunityContentAcceptance(t, "comment");
+  if (!accepted.ok) {
+    return { ok: false, error: communityAcceptanceErrorMessage(accepted.code) };
+  }
   const ops = await getCommunityFeedOps();
   if (t.length > ops.max_comment_length) {
     return { ok: false, error: `댓글은 ${ops.max_comment_length}자 이하로 입력하세요.` };

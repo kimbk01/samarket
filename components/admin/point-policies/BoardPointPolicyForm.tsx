@@ -284,6 +284,77 @@ export function BoardPointPolicyForm({
         />
       </div>
 
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
+            {t("admin_community_point_daily_posts")}
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={values.dailyRewardPostCap ?? 10}
+            onChange={(e) =>
+              setValues((v) => ({
+                ...v,
+                dailyRewardPostCap: parseInt(e.target.value, 10) || 0,
+              }))
+            }
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
+            {t("admin_community_point_daily_comments")}
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={values.dailyRewardCommentCap ?? 30}
+            onChange={(e) =>
+              setValues((v) => ({
+                ...v,
+                dailyRewardCommentCap: parseInt(e.target.value, 10) || 0,
+              }))
+            }
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
+            {t("admin_community_point_min_post_chars")}
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={values.minRewardPostChars ?? 10}
+            onChange={(e) =>
+              setValues((v) => ({
+                ...v,
+                minRewardPostChars: parseInt(e.target.value, 10) || 0,
+              }))
+            }
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
+            {t("admin_community_point_min_comment_chars")}
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={values.minRewardCommentChars ?? 8}
+            onChange={(e) =>
+              setValues((v) => ({
+                ...v,
+                minRewardCommentChars: parseInt(e.target.value, 10) || 0,
+              }))
+            }
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <input
           type="checkbox"

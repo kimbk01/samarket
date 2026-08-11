@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { communityPolicyLayerForBoardKey } from "@/lib/community-points/policy-resolver";
 import type {
   BoardPointPolicy,
   PointEventPolicy,
@@ -28,6 +29,13 @@ function rowToBoardPolicy(row: Record<string, unknown>): BoardPointPolicy {
     reportRewardPoint: Number(row.report_reward_point ?? 0),
     maxFreeUserPointCap: Number(row.max_free_user_point_cap ?? 0),
     eventMultiplierEnabled: Boolean(row.event_multiplier_enabled),
+    inheritGlobal: row.inherit_global == null ? false : Boolean(row.inherit_global),
+    policyLayer: (String(row.policy_layer ?? "topic") as BoardPointPolicy["policyLayer"]),
+    dailyRewardPostCap: Number(row.daily_reward_post_cap ?? 10),
+    dailyRewardCommentCap: Number(row.daily_reward_comment_cap ?? 30),
+    minRewardPostChars: Number(row.min_reward_post_chars ?? 10),
+    minRewardCommentChars: Number(row.min_reward_comment_chars ?? 8),
+    policyVersion: Number(row.policy_version ?? 1),
     adminMemo: row.admin_memo ? String(row.admin_memo) : undefined,
     updatedAt: String(row.updated_at ?? new Date().toISOString()),
   };
@@ -119,6 +127,13 @@ export async function saveBoardPointPolicyDb(
     report_reward_point: input.reportRewardPoint,
     max_free_user_point_cap: input.maxFreeUserPointCap,
     event_multiplier_enabled: input.eventMultiplierEnabled,
+    inherit_global: input.inheritGlobal ?? false,
+    policy_layer: input.policyLayer ?? communityPolicyLayerForBoardKey(input.boardKey),
+    daily_reward_post_cap: input.dailyRewardPostCap ?? 10,
+    daily_reward_comment_cap: input.dailyRewardCommentCap ?? 30,
+    min_reward_post_chars: input.minRewardPostChars ?? 10,
+    min_reward_comment_chars: input.minRewardCommentChars ?? 8,
+    policy_version: Math.max(1, Math.trunc(Number(input.policyVersion ?? 0) || 0) + 1),
     admin_memo: input.adminMemo ?? null,
     updated_at: now,
   };

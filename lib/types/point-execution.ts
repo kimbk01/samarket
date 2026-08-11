@@ -38,7 +38,8 @@ export type PointReclaimTargetType = "post" | "comment";
 export type PointReclaimTriggerType =
   | "delete"
   | "admin_remove"
-  | "report_confirmed";
+  | "report_confirmed"
+  | "eligibility_lost";
 
 export type PointReclaimMode = "full" | "partial";
 
