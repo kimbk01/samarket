@@ -332,15 +332,49 @@ export function ensureFormFocusVisibleInScrollRoot(args: {
   if (delta === 0) return 0;
 
   const root = args.scrollRoot;
+  let applied = 0;
   if (root && typeof root.scrollTop === "number") {
     root.scrollTop += delta;
-    return delta;
-  }
-  if (typeof window !== "undefined") {
+    applied = delta;
+  } else if (typeof window !== "undefined") {
     window.scrollBy(0, delta);
     return delta;
   }
-  return 0;
+
+  /**
+   * iOS WKWebView often scrolls the document / visualViewport on focus, not the
+   * form overflow root. If the control is still outside the band, correct via
+   * window.scrollBy (no-op on Android Cap when already in-band).
+   */
+  if (typeof window !== "undefined") {
+    const rect2 = args.focused.getBoundingClientRect();
+    let topLimit2 = (args.effectiveViewportTop ?? 0) + gap;
+    let bottomLimit2 = args.effectiveViewportBottom - gap;
+    if (!(bottomLimit2 > topLimit2)) {
+      topLimit2 = Math.max(0, args.effectiveViewportTop ?? 0);
+      bottomLimit2 = Math.max(topLimit2 + 1, args.effectiveViewportBottom);
+    }
+    const usable2 = bottomLimit2 - topLimit2;
+    const taller2 = rect2.height > usable2 + 1;
+    let delta2 = 0;
+    if (taller2) {
+      const caretH = Math.min(48, Math.max(24, Math.floor(usable2 * 0.35)));
+      const caretFloor = topLimit2 + caretH;
+      const caretTop = rect2.bottom - Math.min(48, Math.max(0, rect2.height));
+      if (rect2.bottom > bottomLimit2) delta2 = Math.ceil(rect2.bottom - bottomLimit2);
+      else if (rect2.bottom < caretFloor) delta2 = Math.floor(rect2.bottom - caretFloor);
+      else if (caretTop + 0.5 < topLimit2) delta2 = Math.floor(caretTop - topLimit2);
+    } else if (rect2.bottom > bottomLimit2) {
+      delta2 = Math.ceil(rect2.bottom - bottomLimit2);
+    } else if (rect2.top < topLimit2) {
+      delta2 = Math.floor(rect2.top - topLimit2);
+    }
+    if (delta2 !== 0) {
+      window.scrollBy(0, delta2);
+      applied += delta2;
+    }
+  }
+  return applied;
 }
 
 export function findFormScrollRoot(from: HTMLElement | null): HTMLElement | null {

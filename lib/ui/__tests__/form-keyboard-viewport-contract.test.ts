@@ -236,4 +236,41 @@ describe("form-keyboard-viewport-contract", () => {
     expect(delta).toBeLessThan(0);
     expect(scrollRoot.scrollTop).toBe(300 + delta);
   });
+
+  it("falls back to window.scrollBy when root scroll leaves control clipped", () => {
+    const scrollBy = vi.fn();
+    vi.stubGlobal("window", { scrollBy });
+    const top = 40;
+    const focused = {
+      getBoundingClientRect: () => ({
+        bottom: top + 40,
+        top,
+        height: 40,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as HTMLElement;
+    // Root accepts scroll but geometry unchanged (iOS document-scrolled case).
+    const scrollRoot = {
+      get scrollTop() {
+        return 0;
+      },
+      set scrollTop(_v: number) {
+        /* no geometry change */
+      },
+    } as HTMLElement;
+    const applied = ensureFormFocusVisibleInScrollRoot({
+      focused,
+      scrollRoot,
+      effectiveViewportBottom: 600,
+      effectiveViewportTop: 200,
+      focusGapPx: 8,
+    });
+    expect(applied).toBeLessThan(0);
+    expect(scrollBy).toHaveBeenCalled();
+  });
 });
