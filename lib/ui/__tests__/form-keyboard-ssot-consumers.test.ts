@@ -66,6 +66,19 @@ describe("form-keyboard-ssot consumer contract", () => {
     const src = read("components/addresses/AddressEditorSheet.tsx");
     expect(src).toContain("useFormKeyboardViewport");
     expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("useFormKeyboardFocusVisibility");
+    expect(src).toContain("BodyPortal");
+    expect(src).toContain("MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS");
+    expect(src).not.toMatch(/safe-area-pb/);
+    expect(src).not.toMatch(/Math\.max\(8, effectiveBottomInset\)/);
+    expect(src).not.toMatch(/fixed inset-0 z-\[80\]/);
+  });
+
+  it("Mypage bottom sheet shell uses Form SSOT inset, not stacked safe-area", () => {
+    const src = read("components/mypage/profile-settings/MypageBottomSheetShell.tsx");
+    expect(src).toContain("useFormKeyboardViewport");
+    expect(src).toContain("effectiveBottomInset");
+    expect(src).not.toMatch(/safe-area-pb/);
   });
 
   it("CS thread sticky composer uses Form SSOT", () => {

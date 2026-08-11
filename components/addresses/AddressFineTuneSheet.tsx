@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { reverseGeocodeLatLngPh, type ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 const AddressFineTuneMapLazy = dynamic(
   () =>
@@ -36,6 +37,8 @@ type Props = {
 export function AddressFineTuneSheet(props: Props) {
   const { t } = useI18n();
   const { open, latitude, longitude, onClose, onApply } = props;
+  const { effectiveBottomInset, keyboardOpen, visualViewportHeight, visualViewportOffsetTop } =
+    useFormKeyboardViewport({ enabled: open });
   const [draftLat, setDraftLat] = useState(latitude);
   const [draftLng, setDraftLng] = useState(longitude);
   const [resolving, setResolving] = useState(false);
@@ -114,16 +117,29 @@ export function AddressFineTuneSheet(props: Props) {
       ? stripCountryFromAddressDisplayLine(preview.formattedAddress, "Philippines") || preview.formattedAddress
       : null;
 
+  const overlayStyle =
+    visualViewportHeight > 0
+      ? {
+          top: visualViewportOffsetTop,
+          height: visualViewportHeight,
+          left: 0,
+          right: 0,
+          bottom: "auto",
+        }
+      : undefined;
+
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      className="fixed inset-0 z-[1310] flex items-end justify-center bg-black/50 px-3 pt-3 sm:items-center sm:p-4"
+      style={overlayStyle}
+      data-form-keyboard-open={keyboardOpen ? "true" : "false"}
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="flex max-h-[min(88dvh,560px)] w-full max-w-md min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
+        className="flex max-h-full w-full max-w-md min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-finetune-title"
@@ -171,26 +187,32 @@ export function AddressFineTuneSheet(props: Props) {
           {resolveErr ? <p className="sam-text-body-secondary font-medium text-sam-danger">{resolveErr}</p> : null}
         </div>
 
-        <div className="flex shrink-0 gap-2 border-t border-sam-border bg-sam-app/40 px-4 py-3 safe-area-pb">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-sam-border bg-sam-surface py-2.5 sam-text-body font-semibold text-sam-fg transition-colors hover:bg-sam-app"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            disabled={resolving || !preview?.placeId}
-            onClick={() => {
-              if (!preview?.placeId) return;
-              onApply(preview);
-              onClose();
-            }}
-            className="flex-1 rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
-          >
-            {t("addr_ui_apply_location")}
-          </button>
+        <div
+          data-form-keyboard-footer="1"
+          className="shrink-0 border-t border-sam-border bg-sam-app/40"
+          style={{ paddingBottom: `${effectiveBottomInset}px` }}
+        >
+          <div className="flex gap-2 px-4 py-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-sam-border bg-sam-surface py-2.5 sam-text-body font-semibold text-sam-fg transition-colors hover:bg-sam-app"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              disabled={resolving || !preview?.placeId}
+              onClick={() => {
+                if (!preview?.placeId) return;
+                onApply(preview);
+                onClose();
+              }}
+              className="flex-1 rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
+            >
+              {t("addr_ui_apply_location")}
+            </button>
+          </div>
         </div>
       </div>
     </div>

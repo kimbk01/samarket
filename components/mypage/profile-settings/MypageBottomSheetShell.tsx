@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 export function MypageBottomSheetShell({
   open,
@@ -20,6 +21,12 @@ export function MypageBottomSheetShell({
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  const {
+    effectiveBottomInset,
+    keyboardOpen,
+    visualViewportHeight,
+    visualViewportOffsetTop,
+  } = useFormKeyboardViewport({ enabled: open });
 
   useEffect(() => {
     setMounted(true);
@@ -45,8 +52,24 @@ export function MypageBottomSheetShell({
 
   if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
 
+  const hostStyle =
+    visualViewportHeight > 0
+      ? {
+          top: visualViewportOffsetTop,
+          height: visualViewportHeight,
+          left: 0,
+          right: 0,
+          bottom: "auto",
+        }
+      : undefined;
+
   return createPortal(
-    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`} role="presentation">
+    <div
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
+      style={hostStyle}
+      data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+      role="presentation"
+    >
       <button
         type="button"
         className="absolute inset-0 cursor-default bg-black/30"
@@ -57,9 +80,11 @@ export function MypageBottomSheetShell({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel ?? title}
-        className={`absolute inset-x-0 bottom-0 flex max-h-[min(88vh,720px)] flex-col rounded-t-2xl bg-sam-surface shadow-xl transition-transform duration-200 ease-out ${
+        data-form-keyboard-surface="1"
+        className={`absolute inset-x-0 bottom-0 flex max-h-full flex-col rounded-t-2xl bg-sam-surface shadow-xl transition-transform duration-200 ease-out ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
+        style={{ paddingBottom: `${effectiveBottomInset}px` }}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
           <h2 className="truncate sam-text-body font-semibold text-sam-fg">{title}</h2>

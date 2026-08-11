@@ -22,7 +22,7 @@ export function AddressDesignationDupConfirmModal(props: {
   return (
     <BodyPortal>
       <div
-        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[1px]"
+        className="fixed inset-0 z-[1312] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[1px]"
         role="presentation"
         onClick={(e) => {
           if (e.target === e.currentTarget && !busy) onCancel();

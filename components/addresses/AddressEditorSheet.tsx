@@ -44,6 +44,9 @@ import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
+import { BodyPortal } from "@/components/layout/BodyPortal";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 type Mode = "create" | "edit";
@@ -89,7 +92,19 @@ export function AddressEditorSheet(props: {
     returnTo = "",
   } = props;
   const { t } = useI18n();
-  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport({ enabled: open });
+  const {
+    effectiveBottomInset,
+    keyboardOpen,
+    visualViewportHeight,
+    visualViewportOffsetTop,
+    effectiveViewportBottom,
+  } = useFormKeyboardViewport({ enabled: open });
+  const editorScrollRootRef = useRef<HTMLDivElement>(null);
+  useFormKeyboardFocusVisibility({
+    enabled: open,
+    scrollRootRef: editorScrollRootRef,
+    effectiveViewportBottom,
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -276,7 +291,8 @@ export function AddressEditorSheet(props: {
       storeCreateBootstrapRef.current = false;
       return;
     }
-    if (storeCreateBootstrapRef.current || mode !== "create" || labelPreset) return;
+    if (storeCreateBootstrapRef.current || mode !== "create") return;
+    if (labelPreset && labelPreset !== "home") return;
     if (!returnToStoreId || meStores.length === 0) return;
     const row = meStores.find((store) => store.id.trim() === returnToStoreId);
     if (!row) return;
@@ -354,7 +370,7 @@ export function AddressEditorSheet(props: {
       setFineTuneOpen(false);
     } else if (mode === "create") {
       storeCreateBootstrapRef.current = false;
-      setLabelPreset(null);
+      setLabelPreset("home");
       setSelectedStoreId("");
       setNickname("");
       setRecipientName("");
@@ -807,7 +823,9 @@ export function AddressEditorSheet(props: {
     (labelPreset === "custom" &&
       !nickname.trim() &&
       !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))) ||
-    !geoReady;
+    !geoReady ||
+    !placeId.trim() ||
+    !unitFloorRoom.trim();
   const selectedStoreDisplayName = (
     meStores.find((store) => store.id.trim() === selectedStoreId.trim())?.store_name ?? ""
   ).trim();
@@ -824,10 +842,10 @@ export function AddressEditorSheet(props: {
   const scrollShellClass =
     layout === "page"
       ? "w-full min-w-0 overflow-y-auto"
-      : "min-h-0 w-full max-h-[min(52dvh,400px)] overflow-y-auto px-3 sm:max-h-[min(62dvh,480px)] sm:px-4";
+      : "min-h-0 w-full flex-1 overflow-y-auto px-3 sm:px-4";
 
   const editorScrollBody = (
-    <div className={scrollShellClass}>
+    <div ref={editorScrollRootRef} data-form-keyboard-scroll-root="1" className={scrollShellClass}>
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <OwnerStoreAdminDashSection
           title={t("addr_ui_designation_section")}
@@ -938,7 +956,7 @@ export function AddressEditorSheet(props: {
 
   /**
    * Bottom inset SSOT: `effectiveBottomInset` only (closed → safeBottom; open → occlusion).
-   * DO NOT stack `safe-area-pb` / `var(--safe-bottom)` outside this when keyboard can open —
+   * DO NOT stack extra safe-bottom CSS outside this when keyboard can open —
    * that recreated Address page blank_gap under IME (Android resize).
    */
   const editorFooter = (
@@ -951,9 +969,7 @@ export function AddressEditorSheet(props: {
           : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pt-3 sm:px-4"
       }
       style={{
-        paddingBottom: `${
-          layout === "page" ? effectiveBottomInset : Math.max(8, effectiveBottomInset)
-        }px`,
+        paddingBottom: `${effectiveBottomInset}px`,
       }}
     >
       {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
@@ -988,7 +1004,7 @@ export function AddressEditorSheet(props: {
   const preflightStoreSaveModal =
     preflightStoreOnly && open ? (
       <div
-        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4"
+        className="fixed inset-0 z-[1312] flex items-center justify-center bg-black/55 p-4"
         role="presentation"
         onClick={(e) => {
           if (e.target === e.currentTarget && !busy) setPreflightSave(null);
@@ -1057,7 +1073,7 @@ export function AddressEditorSheet(props: {
     const pageRootClass = storesGreenHeader
       ? "delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[color:var(--delivery-bg-main)]"
       : MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS;
-    /** No `safe-area-pb` here — bottom reserve is only `effectiveBottomInset` on editorFooter. */
+    /** Bottom reserve is only `effectiveBottomInset` on editorFooter. */
     const pageFooterWrapClass = storesGreenHeader
       ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]"
       : "z-30 w-full min-w-0 shrink-0 border-t border-sam-primary-border/50 bg-sam-surface";
@@ -1097,49 +1113,67 @@ export function AddressEditorSheet(props: {
     );
   }
 
+  const modalOverlayStyle =
+    visualViewportHeight > 0
+      ? {
+          top: visualViewportOffsetTop,
+          height: visualViewportHeight,
+          left: 0,
+          right: 0,
+          bottom: "auto",
+        }
+      : undefined;
+
   return (
-    <>
-      <div
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 sm:p-6"
-        role="presentation"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
+    <BodyPortal>
+      <>
         <div
-          className="flex max-h-[min(88dvh,640px)] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface text-sam-fg shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="addr-editor-title"
-          onClick={(e) => e.stopPropagation()}
+          className={`fixed inset-0 ${MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS} flex items-end justify-center bg-black/50 px-3 pt-3 sm:items-center sm:p-4`}
+          style={modalOverlayStyle}
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
-            <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
-              {t("addr_ui_address_detail_header")}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
-              aria-label={t("common_close")}
+          <div
+            data-form-keyboard-surface="1"
+            className="flex max-h-full w-full max-w-md min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface text-sam-fg shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="addr-editor-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              data-form-keyboard-sticky-chrome="1"
+              className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
+              <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
+                {t("addr_ui_address_detail_header")}
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
+                aria-label={t("common_close")}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M6 6l12 12M18 6L6 18"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            {editorScrollBody}
+            {editorFooter}
           </div>
-          {editorScrollBody}
-          {editorFooter}
         </div>
-      </div>
-      {fineTuneLayer}
-      {designationDupModal}
-      {preflightStoreSaveModal}
-    </>
+        {fineTuneLayer}
+        {designationDupModal}
+        {preflightStoreSaveModal}
+      </>
+    </BodyPortal>
   );
 }
