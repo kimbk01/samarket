@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
  * git commit 직전 게이트 — CI `check`의 tsc 실패(부분 커밋)를 로컬에서 선차단.
+ * tsc 는 working tree 가 아니라 git index 를 본다. dirty 파일이 타입을 메워
+ * Vercel/CI 만 터지던 구멍(1bfd71913 / a00f341)을 막는다.
  * 전체 CI 대체 아님. push 직전에는 `npm run ci` 또는 `npm run verify:push` 권장.
  */
 import { spawnSync } from "node:child_process";
@@ -26,7 +28,7 @@ const steps = [
     ["scripts/verify-i18n-staged-catalog.mjs", "--staged"],
     "staged i18n catalog keys",
   ],
-  ["npx", ["tsc", "--noEmit"], "TypeScript"],
+  ["node", ["scripts/verify-index-tsc.mjs"], "TypeScript (git index, not working tree)"],
   ["npm", ["run", "lint"], "ESLint"],
   ["npm", ["run", "verify:i18n-key-exposure"], "i18n key exposure"],
   [

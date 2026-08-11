@@ -96,6 +96,8 @@
     "verify:vercel-deploy-excludes": "node scripts/verify-vercel-deploy-excludes.mjs",
     "verify:i18n-staged-catalog:staged": "node scripts/verify-i18n-staged-catalog.mjs --staged",
     "verify:pre-commit": "node scripts/verify-pre-commit.mjs",
+    "verify:index-tsc": "node scripts/verify-index-tsc.mjs",
+    "verify:index-tsc:head": "node scripts/verify-index-tsc.mjs --head",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",
     "verify:trade-primary-tab-transition": "node scripts/verify-trade-primary-tab-transition-contract.cjs",
