@@ -6,10 +6,10 @@ import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
 type Summary = {
-  total: number;
-  member: number;
-  storeManager: number;
-  admin: number;
+  total: number | null;
+  member: number | null;
+  storeManager: number | null;
+  admin: number | null;
 };
 
 function countLocale(language: AppLanguageCode): string {
@@ -43,7 +43,8 @@ function StatCard({
 export function AdminUserListSummaryCards({ summary }: { summary: Summary }) {
   const { t, language } = useI18n();
   const locale = countLocale(language);
-  const fmt = (n: number) => n.toLocaleString(locale);
+  const dash = t("admin_users_empty_placeholder");
+  const fmt = (n: number | null) => (n == null ? dash : n.toLocaleString(locale));
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -12,6 +12,24 @@ import {
 import { resolveAdminDisplayEmail } from "@/lib/admin-users/resolve-admin-user-display";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 import type { MemberType } from "@/lib/types/admin-user";
+import {
+  adminMembershipRoleFromRow,
+  parseAdminMemberRelationFilter,
+  resolveAdminMemberRoleBadges,
+  type AdminMemberRoleBadge,
+} from "@/lib/admin-users/member-role-badges";
+import {
+  ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT,
+  adminMemberRelationFilterPlan,
+  adminMemberSearchFilterOps,
+  adminMemberStatusFilterOps,
+  applyProfileFilterOps,
+  isAdminMemberUuidSearch,
+  normalizeAdminMemberSearchToken,
+  parseAdminMemberListPage,
+  uniqueAdminMemberIds,
+  type ProfileFilterOp,
+} from "@/lib/admin-users/admin-member-list-query";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
@@ -39,7 +57,6 @@ type ProfileRow = {
   region_name: string | null;
   address_street_line: string | null;
   address_detail: string | null;
-  points: number | null;
   phone: string | null;
   phone_verified: boolean | null;
   phone_verified_at: string | null;
@@ -58,6 +75,7 @@ type AdminUserListItem = AdminUser & {
   accountCategory: AdminAccountCategory;
   roleCategory: AdminAccountCategory;
   statusCategory: AdminUserStatusCategory;
+  roleBadges: AdminMemberRoleBadge[];
 };
 
 function profileIsManualMember(row: Pick<ProfileRow, "auth_provider" | "provider">): boolean {
@@ -70,30 +88,16 @@ function normalizeRoleToken(value: string | null | undefined): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function resolveAdminAccountCategory(
-  row: Pick<ProfileRow, "role" | "member_type">,
-  opts?: { storeCount?: number; hasAdminMembership?: boolean },
-): AdminAccountCategory {
-  // Admin relationship = active admin_memberships only (profiles.role is presentation/history)
-  void row.role;
-  void row.member_type;
-  if (opts?.hasAdminMembership === true) {
-    return "admin";
-  }
-  // Store ownership SSOT = stores.owner_user_id (PHASE C/D) — never invent via profiles.role
-  if ((opts?.storeCount ?? 0) > 0) {
-    return "store_manager";
-  }
-  return "member";
+function resolveMemberType(row: Pick<ProfileRow, "member_type">): MemberType {
+  const memberType = normalizeRoleToken(row.member_type);
+  if (memberType === "premium" || memberType === "special") return "premium";
+  return "normal";
 }
 
-function resolveMemberType(
-  row: Pick<ProfileRow, "role" | "member_type">,
-  accountCategory: AdminAccountCategory,
-): MemberType {
-  if (accountCategory === "admin") return "admin";
-  const memberType = normalizeRoleToken(row.member_type);
-  return memberType === "premium" || memberType === "special" ? "premium" : "normal";
+function visualAccountCategory(badges: readonly AdminMemberRoleBadge[]): AdminAccountCategory {
+  if (badges.includes("admin") || badges.includes("super_admin")) return "admin";
+  if (badges.includes("store_owner")) return "store_manager";
+  return "member";
 }
 
 function resolveAdminStatusCategory(
@@ -126,16 +130,21 @@ function resolveAdminStatusCategory(
 }
 
 function sanitizeAdminUserSearch(raw: string | null): string {
-  return String(raw ?? "")
-    .trim()
-    .replace(/[%,()]/g, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
+  return normalizeAdminMemberSearchToken(
+    String(raw ?? "")
+      .trim()
+      .replace(/[%,()]/g, " ")
+      .replace(/\s+/g, " ")
+      .slice(0, 80),
+  );
 }
 
 function parseAccountCategoryFilter(raw: string | null): AdminAccountCategory | null {
-  const value = normalizeRoleToken(raw);
-  return value === "member" || value === "store_manager" || value === "admin" ? value : null;
+  const relation = parseAdminMemberRelationFilter(raw);
+  if (relation === "plain") return "member";
+  if (relation === "store_owner") return "store_manager";
+  if (relation === "admin") return "admin";
+  return null;
 }
 
 function parseStatusCategoryFilter(raw: string | null): AdminUserStatusCategory | null {
@@ -158,8 +167,9 @@ function mapProfileRowToAdminUser(input: {
     connectedAt: string | null;
   }>;
   hasAdminMembership: boolean;
+  adminMembershipRole: "admin" | "super_admin" | null;
 }): AdminUserListItem {
-  const { row: r, warnedUserIds, storeCount, hasApprovedStore, stores, hasAdminMembership } = input;
+  const { row: r, warnedUserIds, storeCount, hasApprovedStore, stores, hasAdminMembership, adminMembershipRole } = input;
   const authProvider = resolveAdminAuthProvider({
     profile: r,
     isManualTestUser: profileIsManualMember(r),
@@ -168,12 +178,13 @@ function mapProfileRowToAdminUser(input: {
     profile: r,
     provider: authProvider,
   });
-  const accountCategory = resolveAdminAccountCategory(r, {
-    storeCount,
-    hasAdminMembership,
+  const roleBadges = resolveAdminMemberRoleBadges({
+    hasStoreOwnership: storeCount > 0,
+    adminMembershipRole,
   });
+  const accountCategory = visualAccountCategory(roleBadges);
   const statusCategory = resolveAdminStatusCategory(r);
-  const memberType = resolveMemberType(r, accountCategory);
+  const memberType = resolveMemberType(r);
   const dibayId = r.dibay_id?.trim() || null;
   const username = r.username?.trim() || null;
   const nickname =
@@ -213,7 +224,6 @@ function mapProfileRowToAdminUser(input: {
     hasProfile: true,
     moderationStatus: mapProfileStatusToModeration(r.status, r.deleted_at, warnedUserIds.has(r.id)),
     location: r.region_name?.trim() || undefined,
-    pointBalance: Number(r.points ?? 0),
     phoneVerified: r.phone_verified === true,
     phoneVerifiedAt: r.phone_verified_at ?? undefined,
     verificationStatus: r.phone_verification_status ?? undefined,
@@ -226,12 +236,13 @@ function mapProfileRowToAdminUser(input: {
     chatCount: 0,
     joinedAt: r.created_at ?? new Date().toISOString(),
     lastSignInAt: r.last_login_at ?? undefined,
-    lastActiveAt: r.last_login_at ?? undefined,
     accountCategory,
     roleCategory: accountCategory,
     statusCategory,
+    roleBadges,
     storeRelation: { count: storeCount, hasApproved: hasApprovedStore, stores },
     hasAdminMembership,
+    isSuperAdmin: adminMembershipRole === "super_admin",
   };
 }
 
@@ -255,62 +266,114 @@ export async function GET(req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
   const search = sanitizeAdminUserSearch(req.nextUrl.searchParams.get("search"));
   const roleFilter = parseAccountCategoryFilter(req.nextUrl.searchParams.get("role"));
+  const relationFilter = parseAdminMemberRelationFilter(req.nextUrl.searchParams.get("role"));
   const statusFilter = parseStatusCategoryFilter(req.nextUrl.searchParams.get("status"));
+  const { page, pageSize, from, to } = parseAdminMemberListPage(
+    req.nextUrl.searchParams.get("page"),
+    req.nextUrl.searchParams.get("pageSize"),
+  );
+  const uuidSearch = Boolean(search) && isAdminMemberUuidSearch(search);
+  const statusOps = statusFilter ? adminMemberStatusFilterOps(statusFilter) : [];
 
   const profileSelect =
-    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const profileSelectLegacy =
-    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
 
-  const fetchProfiles = async () => {
-    let primary = supabase
-      .from("profiles")
-      .select(profileSelect, { count: "exact" })
-      .order("created_at", { ascending: false });
-    if (search) {
-      const pattern = `%${search}%`;
-      primary = primary.or(
-        [
-          `nickname.ilike.${pattern}`,
-          `display_name.ilike.${pattern}`,
-          `dibay_id.ilike.${pattern}`,
-          `username.ilike.${pattern}`,
-          `email.ilike.${pattern}`,
-          `auth_login_email.ilike.${pattern}`,
-        ].join(","),
-      );
-    }
-    const primaryResult = await primary;
-    if (!primaryResult.error) return primaryResult;
-    const message = String(primaryResult.error.message ?? "").toLowerCase();
-    if (
-      message.includes("auth_login_email")
-      || message.includes("provider_user_id")
-      || message.includes("column")
-    ) {
-      let legacy = supabase
-        .from("profiles")
-        .select(profileSelectLegacy, { count: "exact" })
-        .order("created_at", { ascending: false });
-      if (search) {
-        const pattern = `%${search}%`;
-        legacy = legacy.or(
-          [
-            `nickname.ilike.${pattern}`,
-            `display_name.ilike.${pattern}`,
-            `dibay_id.ilike.${pattern}`,
-            `username.ilike.${pattern}`,
-            `email.ilike.${pattern}`,
-          ].join(","),
-        );
-      }
-      return legacy;
-    }
-    return primaryResult;
+  const isMissingProfileColumn = (message: string) => {
+    const lower = message.toLowerCase();
+    return (
+      lower.includes("auth_login_email")
+      || lower.includes("provider_user_id")
+      || lower.includes("column")
+    );
   };
 
   try {
-    const { data: rows, error, count } = await fetchProfiles();
+    const [storeOwnerResult, adminIdResult, storeNameResult] = await Promise.all([
+      supabase.from("stores").select("owner_user_id"),
+      supabase.from("admin_memberships").select("user_id").eq("status", "active"),
+      search && !uuidSearch
+        ? supabase
+            .from("stores")
+            .select("owner_user_id")
+            .ilike("store_name", `%${search}%`)
+            .limit(ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT)
+        : Promise.resolve({ data: [] as Array<{ owner_user_id?: string }>, error: null }),
+    ]);
+
+    if (storeOwnerResult.error || adminIdResult.error) {
+      const message = storeOwnerResult.error?.message ?? adminIdResult.error?.message ?? "relation_lookup_failed";
+      console.warn("[admin-users] relation id lookup failed", { message });
+      return NextResponse.json(
+        {
+          error: message,
+          code: "admin_users_relation_lookup_failed",
+          summary: { profilesFetchOk: false, profilesRowCount: 0, dedupedCount: 0 },
+        },
+        { status: 500 },
+      );
+    }
+
+    const ownerIds = uniqueAdminMemberIds(
+      (storeOwnerResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
+    );
+    const adminIds = uniqueAdminMemberIds(
+      (adminIdResult.data ?? []).map((r) => String((r as { user_id?: string }).user_id ?? "")),
+    );
+    const storeNameOwnerIds = uniqueAdminMemberIds(
+      (storeNameResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
+    );
+
+    const listOps = (includeAuthLoginEmail: boolean, relation: typeof relationFilter) => {
+      const plan = adminMemberRelationFilterPlan(relation, ownerIds, adminIds);
+      return {
+        empty: plan.empty,
+        ops: [
+          ...adminMemberSearchFilterOps(search, {
+            includeAuthLoginEmail,
+            extraIds: uuidSearch ? [] : storeNameOwnerIds,
+          }),
+          ...statusOps,
+          ...plan.ops,
+        ] as ProfileFilterOp[],
+      };
+    };
+
+    const runPage = async (select: string, includeAuthLoginEmail: boolean) => {
+      const planned = listOps(includeAuthLoginEmail, relationFilter);
+      if (planned.empty) {
+        return { data: [] as ProfileRow[], error: null as { message?: string } | null, count: 0 };
+      }
+      const query = applyProfileFilterOps(
+        supabase
+          .from("profiles")
+          .select(select, { count: "exact" })
+          .order("created_at", { ascending: false }),
+        planned.ops,
+      );
+      return query.range(from, to);
+    };
+
+    const runCount = async (includeAuthLoginEmail: boolean, relation: typeof relationFilter) => {
+      const planned = listOps(includeAuthLoginEmail, relation);
+      if (planned.empty) return { count: 0 as number | null, error: null as string | null };
+      const resolved = await applyProfileFilterOps(
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        planned.ops,
+      );
+      if (resolved.error) return { count: null, error: resolved.error.message ?? "count_failed" };
+      return { count: resolved.count ?? 0, error: null };
+    };
+
+    let includeAuthLoginEmail = true;
+    let pageResult = await runPage(profileSelect, true);
+    if (pageResult.error && isMissingProfileColumn(String(pageResult.error.message ?? ""))) {
+      includeAuthLoginEmail = false;
+      pageResult = await runPage(profileSelectLegacy, false);
+    }
+
+    const { data: rows, error, count } = pageResult;
 
     if (error) {
       console.warn("[admin-users] profiles fetch failed", { message: error.message });
@@ -329,7 +392,13 @@ export async function GET(req: NextRequest) {
 
     const profileRows = (rows ?? []) as ProfileRow[];
     const profileIds = profileRows.map((row) => row.id).filter(Boolean);
-    const warnedUserIds = await loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>());
+    const [warnedUserIds, plainCount, storeOwnerCount, adminRelationCount, allCount] = await Promise.all([
+      loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
+      runCount(includeAuthLoginEmail, "plain"),
+      runCount(includeAuthLoginEmail, "store_owner"),
+      runCount(includeAuthLoginEmail, "admin"),
+      runCount(includeAuthLoginEmail, "all"),
+    ]);
 
     const storeAgg = new Map<
       string,
@@ -346,6 +415,7 @@ export async function GET(req: NextRequest) {
       }
     >();
     const adminMemberIds = new Set<string>();
+    const adminMembershipRoleByUser = new Map<string, "admin" | "super_admin">();
     if (profileIds.length > 0) {
       const { data: storeRows, error: storeErr } = await supabase
         .from("stores")
@@ -379,83 +449,93 @@ export async function GET(req: NextRequest) {
       }
       const { data: membershipRows, error: memErr } = await supabase
         .from("admin_memberships")
-        .select("user_id")
+        .select("user_id, role")
         .in("user_id", profileIds)
         .eq("status", "active");
       if (!memErr && Array.isArray(membershipRows)) {
         for (const m of membershipRows) {
           const uid = String((m as { user_id?: string }).user_id ?? "").trim();
-          if (uid) adminMemberIds.add(uid);
+          const membershipRole = adminMembershipRoleFromRow(
+            (m as { role?: string }).role,
+          );
+          if (!uid || !membershipRole) continue;
+          adminMemberIds.add(uid);
+          adminMembershipRoleByUser.set(uid, membershipRole);
         }
       }
     }
 
-    const list: AdminUserListItem[] = profileRows
-      .map((r) => {
-        const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false, stores: [] };
-        const hasAdminMembership = adminMemberIds.has(r.id);
-        return mapProfileRowToAdminUser({
-          row: r,
-          warnedUserIds,
-          storeCount: store.count,
-          hasApprovedStore: store.hasApproved,
-          stores: store.stores,
-          hasAdminMembership,
-        });
-      })
-      .filter((u) => (roleFilter ? u.accountCategory === roleFilter : true))
-      .filter((u) => (statusFilter ? u.statusCategory === statusFilter : true));
+    const list: AdminUserListItem[] = profileRows.map((r) => {
+      const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false, stores: [] };
+      const hasAdminMembership = adminMemberIds.has(r.id);
+      return mapProfileRowToAdminUser({
+        row: r,
+        warnedUserIds,
+        storeCount: store.count,
+        hasApprovedStore: store.hasApproved,
+        stores: store.stores,
+        hasAdminMembership,
+        adminMembershipRole: adminMembershipRoleByUser.get(r.id) ?? null,
+      });
+    });
 
     const seenIds = new Set<string>();
-    const dedupedUsers: AdminUserListItem[] = [];
+    const pageUsers: AdminUserListItem[] = [];
     for (const u of list) {
       const id = String(u.id ?? "").trim();
-      if (!id) continue;
-      if (seenIds.has(id)) continue;
+      if (!id || seenIds.has(id)) continue;
       seenIds.add(id);
-      dedupedUsers.push(u);
+      pageUsers.push(u);
     }
-    dedupedUsers.sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime());
 
-    /** provider 카운트는 profiles.provider/auth_provider 기준 — auth.users 전량 로드 없음. */
-    const providerCounts = dedupedUsers.reduce<Record<string, number>>((acc, u) => {
+    const countsOk =
+      plainCount.error == null
+      && storeOwnerCount.error == null
+      && adminRelationCount.error == null
+      && allCount.error == null;
+    const accountCategoryCounts: Record<AdminAccountCategory, number | null> = {
+      member: countsOk ? plainCount.count : null,
+      store_manager: countsOk ? storeOwnerCount.count : null,
+      admin: countsOk ? adminRelationCount.count : null,
+    };
+    const totalRows = count ?? pageUsers.length;
+    const providerCounts = pageUsers.reduce<Record<string, number>>((acc, u) => {
       const key = String(u.authProvider ?? "unknown");
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {});
-    const accountCategoryCounts = dedupedUsers.reduce<Record<AdminAccountCategory, number>>(
-      (acc, u) => {
-        acc[u.accountCategory] += 1;
-        return acc;
-      },
-      { member: 0, store_manager: 0, admin: 0 },
-    );
 
     console.info("[admin-users] list summary", {
       profilesFetchOk: true,
       profilesRowCount: profileRows.length,
-      dedupedCount: dedupedUsers.length,
+      page,
+      pageSize,
+      totalRows,
       searchApplied: Boolean(search),
+      uuidSearch,
       roleFilter,
       statusFilter,
-      accountCategoryCounts,
+      countsOk,
     });
 
     return NextResponse.json({
-      users: dedupedUsers,
+      users: pageUsers,
       summary: {
         profilesFetchOk: true,
         profilesRowCount: profileRows.length,
-        dedupedCount: dedupedUsers.length,
-        totalProfiles: count ?? profileRows.length,
+        dedupedCount: pageUsers.length,
+        totalProfiles: allCount.count,
         search,
         roleFilter,
         statusFilter,
+        page,
+        pageSize,
         source: "profiles_stores_admin_membership",
         totalAuthUsers: 0,
-        totalRows: dedupedUsers.length,
-        withProfile: dedupedUsers.filter((u) => u.hasProfile === true).length,
-        withoutProfile: dedupedUsers.filter((u) => u.hasProfile === false).length,
+        totalRows,
+        countsOk,
+        withProfile: pageUsers.filter((u) => u.hasProfile === true).length,
+        withoutProfile: pageUsers.filter((u) => u.hasProfile === false).length,
         providerCounts,
         accountCategoryCounts,
       },

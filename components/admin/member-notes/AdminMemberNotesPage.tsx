@@ -37,6 +37,7 @@ function AdminMemberNotesPageInner() {
   const { t, language, safeT } = useI18n();
   const searchParams = useSearchParams();
   const kind = parseKind(searchParams.get("kind"));
+  const memberUserId = searchParams.get("memberUserId")?.trim() ?? "";
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -67,8 +68,11 @@ function AdminMemberNotesPageInner() {
 
   const loadThreads = useCallback(async () => {
     setListLoading(true);
-    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
-    const res = await fetch(`/api/admin/member-notes${qs}`, {
+    const qs = new URLSearchParams();
+    if (kind) qs.set("kind", kind);
+    if (memberUserId) qs.set("memberUserId", memberUserId);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    const res = await fetch(`/api/admin/member-notes${suffix}`, {
       credentials: "include",
       cache: "no-store",
     });
@@ -86,7 +90,7 @@ function AdminMemberNotesPageInner() {
     setThreads(Array.isArray(j.threads) ? j.threads : []);
     setError(null);
     setListLoading(false);
-  }, [kind]);
+  }, [kind, memberUserId]);
 
   const loadThread = useCallback(
     async (id: string) => {

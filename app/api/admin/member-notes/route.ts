@@ -5,6 +5,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import {
   createAdminNoteThread,
   listAdminNoteThreads,
+  listMemberNoteThreads,
 } from "@/lib/notifications/member-admin-notes-service";
 
 export const runtime = "nodejs";
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   const kindRaw = req.nextUrl.searchParams.get("kind")?.trim() ?? "";
   const kind = kindRaw === "inquiry" || kindRaw === "inbox" ? kindRaw : undefined;
-  const res = await listAdminNoteThreads(sb, kind ? { kind } : undefined);
+  const memberUserId = req.nextUrl.searchParams.get("memberUserId")?.trim() ?? "";
+  const res = memberUserId
+    ? await listMemberNoteThreads(sb, memberUserId, kind ? { kind } : undefined)
+    : await listAdminNoteThreads(sb, kind ? { kind } : undefined);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
   return NextResponse.json({ ok: true, threads: res.threads });
 }

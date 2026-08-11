@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  AdminMemberDetail,
-  type AdminPersonMembershipRow,
-  type AdminPersonStoreRow,
-  type AdminUserDetailPayload,
+import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
+import type {
+  AdminPersonMembershipRow,
+  AdminPersonStoreRow,
+  AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
 import { ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -36,7 +36,12 @@ function detailErrorKeyForStatus(status: number): MessageKey {
 
 export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   const { t } = useI18n();
+  const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<DetailLoadState>({ kind: "loading" });
+
+  const onUpdated = useCallback(() => {
+    setRefreshKey((key) => key + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +85,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   if (state.kind === "loading") {
     return (
@@ -99,11 +104,12 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
   }
 
   return (
-    <AdminMemberDetail
+    <AdminMemberControlCenter
       user={state.user}
       stores={state.stores}
       adminMembership={state.adminMembership}
       activityStatus={state.activityStatus}
+      onUpdated={onUpdated}
     />
   );
 }

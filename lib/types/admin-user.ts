@@ -3,9 +3,12 @@
  */
 
 import type { ModerationStatus } from "@/lib/types/report";
+import type { AdminMemberRoleBadge } from "@/lib/admin-users/member-role-badges";
 
 export type MemberType = "normal" | "premium" | "admin";
+/** List tab/query compat only — not Person identity SSOT. */
 export type AdminAccountCategory = "member" | "store_manager" | "admin";
+export type { AdminMemberRoleBadge };
 export type AdminUserStatusCategory = "active" | "needs_review" | "suspended" | "deleted";
 export type AdminAuthProvider =
   | "google"
@@ -64,8 +67,12 @@ export interface AdminUser {
       connectedAt: string | null;
     }>;
   };
+  /** Additive badges: member + optional store_owner + admin|super_admin. */
+  roleBadges?: AdminMemberRoleBadge[];
   /** Active admin_memberships only. */
   hasAdminMembership?: boolean;
+  /** Active admin_memberships.role === super_admin */
+  isSuperAdmin?: boolean;
   /** Legacy Lite 상태 분류 — 목록 표시·필터용 */
   statusCategory?: AdminUserStatusCategory;
   /**
@@ -79,6 +86,7 @@ export interface AdminUser {
   city?: string;
   barangay?: string;
   location?: string;
+  /** List omits this. Detail ledger SSOT is GET /points — never profiles.points. */
   pointBalance?: number;
   phoneVerified?: boolean;
   verificationStatus?: string;
@@ -89,7 +97,9 @@ export interface AdminUser {
   reportCount: number;
   chatCount: number;
   joinedAt: string;
+  /** App session clock = profiles.last_login_at. Do not alias as lastActiveAt. */
   lastSignInAt?: string;
+  /** Forbidden as last_login_at alias. Domain activity belongs on detail tabs. */
   lastActiveAt?: string;
   adminMemo?: string;
 }
@@ -140,6 +150,8 @@ export interface AdminUserDetail {
   moderation_status: string;
   verified_member_at: string | null;
   created_at: string | null;
+  /** App last login — profiles.last_login_at. Not Auth last_sign_in_at. */
+  last_login_at?: string | null;
   hasProfile: boolean;
   /** User Facts Trust SSOT — profiles.trust_score (0–100) */
   trust_score?: number | null;

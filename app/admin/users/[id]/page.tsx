@@ -1,11 +1,11 @@
-import { redirect } from "next/navigation";
+import { AdminUserDetailPage } from "@/components/admin/users/AdminUserDetailPage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-/** 레거시 상세 URL → 목록 팝업으로 연결 */
+/** Canonical Admin Member Control Center — `/admin/users/[id]`. */
 export default async function AdminUserDetailRoute({ params }: PageProps) {
   const { id } = await params;
-  redirect(`/admin/users?detail=${encodeURIComponent(id)}`);
+  return <AdminUserDetailPage userId={id} />;
 }

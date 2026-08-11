@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -33,35 +33,28 @@ import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
-import { AdminUserDetailModal } from "./AdminUserDetailModal";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 
-type Tab = "general" | "store" | "admin";
+type Tab = "all" | "general" | "store" | "admin";
 
 type AdminUsersListResult = {
   users: AdminUser[];
   summary: {
     totalRows: number;
-    accountCategoryCounts: Record<AdminAccountCategory, number>;
+    totalProfiles: number | null;
+    countsOk: boolean;
+    accountCategoryCounts: Record<AdminAccountCategory, number | null>;
   };
-};
-
-const EMPTY_ACCOUNT_COUNTS: Record<AdminAccountCategory, number> = {
-  member: 0,
-  store_manager: 0,
-  admin: 0,
 };
 
 export function AdminUserListPage() {
   const { t } = useI18n();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const detailFromUrl = searchParams.get("detail");
-  const [tab, setTab] = useState<Tab>("general");
+  const [tab, setTab] = useState<Tab>("all");
   const [searchDraft, setSearchDraft] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("member");
+  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("");
   const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">("");
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
@@ -72,7 +65,6 @@ export function AdminUserListPage() {
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [membersPage, setMembersPage] = useState(1);
   const [membersPageSize, setMembersPageSize] = useState(10);
-  const detailUserId = detailFromUrl?.trim() || null;
   const { isSuperAdmin } = useAdminMe();
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
@@ -93,45 +85,20 @@ export function AdminUserListPage() {
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
-  const openDetail = useCallback(
-    (userId: string) => {
-      const id = userId.trim();
-      if (!id) return;
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("detail", id);
-      router.replace(`/admin/users?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
-
-  const closeDetail = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("detail");
-    const next = params.toString();
-    router.replace(next ? `/admin/users?${next}` : "/admin/users", { scroll: false });
-  }, [router, searchParams]);
-
   const handleViewDetail = useCallback(
     (user: AdminUser) => {
-      openDetail(user.id);
+      const id = user.id.trim();
+      if (!id) return;
+      router.push(`/admin/users/${encodeURIComponent(id)}`);
     },
-    [openDetail],
+    [router],
   );
 
   const handleSendMessage = useCallback(
     (user: AdminUser) => {
-      closeDetail();
       router.push(adminMemberMessengerHref(user.id));
     },
-    [closeDetail, router],
-  );
-
-  const handleSendMessageToUserId = useCallback(
-    (userId: string) => {
-      closeDetail();
-      router.push(adminMemberMessengerHref(userId));
-    },
-    [closeDetail, router],
+    [router],
   );
 
   const membersQueryParams = useMemo(() => {
@@ -139,8 +106,10 @@ export function AdminUserListPage() {
     if (appliedSearch) params.set("search", appliedSearch);
     if (roleFilter) params.set("role", roleFilter);
     if (statusFilter) params.set("status", statusFilter);
+    params.set("page", String(membersPage));
+    params.set("pageSize", String(membersPageSize));
     return params.toString();
-  }, [appliedSearch, roleFilter, statusFilter]);
+  }, [appliedSearch, roleFilter, statusFilter, membersPage, membersPageSize]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -171,7 +140,9 @@ export function AdminUserListPage() {
           users?: AdminUser[];
           summary?: {
             totalRows?: number;
-            accountCategoryCounts?: Partial<Record<AdminAccountCategory, number>>;
+            totalProfiles?: number | null;
+            countsOk?: boolean;
+            accountCategoryCounts?: Partial<Record<AdminAccountCategory, number | null>>;
           };
           error?: string;
           code?: string;
@@ -186,14 +157,17 @@ export function AdminUserListPage() {
         }
         const users = data.users ?? [];
         const counts = data.summary?.accountCategoryCounts ?? {};
+        const countsOk = data.summary?.countsOk !== false;
         return {
           users,
           summary: {
             totalRows: data.summary?.totalRows ?? users.length,
+            totalProfiles: countsOk ? (data.summary?.totalProfiles ?? null) : null,
+            countsOk,
             accountCategoryCounts: {
-              member: counts.member ?? 0,
-              store_manager: counts.store_manager ?? 0,
-              admin: counts.admin ?? 0,
+              member: countsOk ? (counts.member ?? null) : null,
+              store_manager: countsOk ? (counts.store_manager ?? null) : null,
+              admin: countsOk ? (counts.admin ?? null) : null,
             },
           },
         };
@@ -248,6 +222,13 @@ export function AdminUserListPage() {
     setMembersPage(1);
   }, [appliedSearch, roleFilter, statusFilter, membersKey]);
 
+  useEffect(() => {
+    const total = membersFromApi?.summary?.totalRows;
+    if (total == null) return;
+    const maxPage = Math.max(1, Math.ceil(total / membersPageSize));
+    if (membersPage > maxPage) setMembersPage(maxPage);
+  }, [membersFromApi?.summary?.totalRows, membersPage, membersPageSize]);
+
   const handleRoleFilterChange = useCallback((value: AdminAccountCategory | "") => {
     setRoleFilter(value);
     setMembersPage(1);
@@ -268,34 +249,36 @@ export function AdminUserListPage() {
   }, []);
 
   const users = useMemo(() => membersFromApi?.users ?? [], [membersFromApi]);
-  const paginatedUsers = useMemo(() => {
-    const start = (membersPage - 1) * membersPageSize;
-    return users.slice(start, start + membersPageSize);
-  }, [membersPage, membersPageSize, users]);
   const membersListPending =
     membersLoading || (membersRefreshing && users.length === 0);
+  const filteredTotal = membersFromApi?.summary?.totalRows ?? 0;
   const memberSummary = useMemo(() => {
-    const counts = membersFromApi?.summary?.accountCategoryCounts ?? EMPTY_ACCOUNT_COUNTS;
+    const counts = membersFromApi?.summary?.accountCategoryCounts;
+    const countsOk = membersFromApi?.summary?.countsOk !== false;
     return {
-      total: membersFromApi?.summary?.totalRows ?? users.length,
-      member: counts.member,
-      storeManager: counts.store_manager,
-      admin: counts.admin,
+      total: countsOk ? (membersFromApi?.summary?.totalProfiles ?? null) : null,
+      member: countsOk ? (counts?.member ?? null) : null,
+      storeManager: countsOk ? (counts?.store_manager ?? null) : null,
+      admin: countsOk ? (counts?.admin ?? null) : null,
     };
-  }, [membersFromApi, users.length]);
+  }, [membersFromApi]);
 
   const isMaster = isSuperAdmin;
   const handleTabChange = useCallback((next: Tab) => {
     setTab(next);
-    setRoleFilter(next === "general" ? "member" : next === "store" ? "store_manager" : "");
+    setRoleFilter(
+      next === "general" ? "member" : next === "store" ? "store_manager" : "",
+    );
     setMembersPage(1);
   }, []);
   const tabTitleKey: MessageKey =
-    tab === "general"
-      ? "admin_users_tab_general"
-      : tab === "store"
-        ? "admin_users_tab_store"
-        : "admin_users_tab_admin";
+    tab === "all"
+      ? "admin_users_tab_all"
+      : tab === "general"
+        ? "admin_users_tab_general"
+        : tab === "store"
+          ? "admin_users_tab_store"
+          : "admin_users_tab_admin";
 
   const showMembersTable =
     tab !== "admin" && !membersError && !membersListPending && users.length > 0;
@@ -429,6 +412,17 @@ export function AdminUserListPage() {
           <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
             <button
               type="button"
+              onClick={() => handleTabChange("all")}
+              className={
+                tab === "all"
+                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
+                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
+              }
+            >
+              {t("admin_users_tab_all")}
+            </button>
+            <button
+              type="button"
               onClick={() => handleTabChange("general")}
               className={
                 tab === "general"
@@ -463,7 +457,7 @@ export function AdminUserListPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tab === "general" && (
+          {(tab === "all" || tab === "general") && (
             <>
               <button
                 type="button"
@@ -532,8 +526,8 @@ export function AdminUserListPage() {
           ) : (
             <AdminUserTable
               ref={tableScrollRef}
-              users={paginatedUsers}
-              totalItems={users.length}
+              users={users}
+              totalItems={filteredTotal}
               page={membersPage}
               pageSize={membersPageSize}
               onPageChange={setMembersPage}
@@ -618,15 +612,6 @@ export function AdminUserListPage() {
           onSuccess={refreshMembers}
         />
       )}
-      {detailUserId ? (
-        <AdminUserDetailModal
-          key={detailUserId}
-          userId={detailUserId}
-          onClose={closeDetail}
-          onUpdated={refreshMembers}
-          onSendMessage={handleSendMessageToUserId}
-        />
-      ) : null}
     </div>
   );
 }

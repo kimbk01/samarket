@@ -7,14 +7,15 @@ import { AdminUserListPagination } from "./AdminUserListPagination";
 import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
 import {
   formatAdminLiteDate,
+  memberRoleBadgeClass,
   publicIdForAdminUser,
-  roleBadgeClass,
+  roleBadgesForAdminUser,
   roleCategoryForAdminUser,
   roleRowClass,
   statusBadgeClass,
   statusCategoryForAdminUser,
 } from "./admin-user-lite-display";
-import type { AdminAccountCategory, AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
+import type { AdminAuthProvider, AdminMemberRoleBadge, AdminUser } from "@/lib/types/admin-user";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
@@ -43,10 +44,11 @@ const PROVIDER_LABEL_KEYS: Record<AdminAuthProvider, MessageKey> = {
   unknown: "admin_user_provider_unknown",
 };
 
-const ROLE_LABEL_KEYS: Record<AdminAccountCategory, MessageKey> = {
-  member: "admin_users_lite_role_member",
-  store_manager: "admin_users_lite_role_store_manager",
+const ROLE_BADGE_LABEL_KEYS: Record<AdminMemberRoleBadge, MessageKey> = {
+  member: "admin_users_role_badge_member",
+  store_owner: "admin_users_role_badge_store_owner",
   admin: "admin_users_lite_role_admin",
+  super_admin: "admin_users_lite_role_super_admin",
 };
 
 const STATUS_LABEL_KEYS = {
@@ -60,10 +62,21 @@ function dateLocaleTag(language: AppLanguageCode): string {
   return language === "en" ? "en-US" : "ko-KR";
 }
 
-function roleLabelKeyForUser(user: AdminUser): MessageKey {
-  const role = String(user.profileRole ?? "").trim().toLowerCase();
-  if (role === "super_admin" || role === "master") return "admin_users_lite_role_super_admin";
-  return ROLE_LABEL_KEYS[roleCategoryForAdminUser(user)];
+function RoleBadges({ user }: { user: AdminUser }) {
+  const { t } = useI18n();
+  const badges = roleBadgesForAdminUser(user);
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${memberRoleBadgeClass(badge)}`}
+        >
+          {t(ROLE_BADGE_LABEL_KEYS[badge])}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 const AdminUserTableRow = memo(function AdminUserTableRow({
@@ -97,7 +110,12 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
     return (
       <tr className={`border-b border-[#eaecf0] transition ${rowClass}`}>
         <td className="whitespace-nowrap px-4 py-3.5 font-semibold text-[#101828]">{publicId || emptyCell}</td>
-        <td className="px-4 py-3.5 text-[#344054]">{user.displayName ?? user.nickname ?? emptyCell}</td>
+        <td className="px-4 py-3.5 text-[#344054]">
+          <div className="space-y-1">
+            <p>{user.displayName ?? user.nickname ?? emptyCell}</p>
+            <RoleBadges user={user} />
+          </div>
+        </td>
         <td className="px-4 py-3.5 text-[#475467]">{user.loginIdentifier || user.email || emptyCell}</td>
         <td className="px-4 py-3.5 text-[#344054]">{stores.map((store) => store.name || emptyCell).join(", ") || emptyCell}</td>
         <td className="px-4 py-3.5 font-mono text-xs text-[#667085]">{stores.map((store) => store.id).join(", ") || emptyCell}</td>
@@ -109,6 +127,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         </td>
         <td className="whitespace-nowrap px-4 py-3.5 text-sm tabular-nums text-[#475467]">
           {formatAdminLiteDate(user.joinedAt, dateLocale, emptyCell)}
+        </td>
+        <td className="whitespace-nowrap px-4 py-3.5 text-sm tabular-nums text-[#475467]">
+          {formatAdminLiteDate(user.lastSignInAt, dateLocale, emptyCell)}
         </td>
         <td className="whitespace-nowrap px-4 py-3.5">
           <button type="button" className={ADMIN_USERS_LITE_TABLE_ACTION} onClick={handleViewDetail}>
@@ -146,9 +167,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         </span>
       </td>
       <td className="whitespace-nowrap px-4 py-3.5">
-        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${roleBadgeClass(role)}`}>
-          {t(roleLabelKeyForUser(user))}
-        </span>
+        <RoleBadges user={user} />
       </td>
       <td className="whitespace-nowrap px-4 py-3.5">
         <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}>
@@ -157,6 +176,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="whitespace-nowrap px-4 py-3.5 text-sm tabular-nums text-[#475467]">
         {formatAdminLiteDate(user.joinedAt, dateLocale, emptyCell)}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3.5 text-sm tabular-nums text-[#475467]">
+        {formatAdminLiteDate(user.lastSignInAt, dateLocale, emptyCell)}
       </td>
       <td className="min-w-[280px] whitespace-nowrap px-4 py-3.5">
         <div className="flex flex-nowrap items-center gap-1">
@@ -219,6 +241,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
                 <th className="px-4 py-3">{t("admin_users_store_col_store_status")}</th>
                 <th className="px-4 py-3">{t("admin_users_lite_col_status")}</th>
                 <th className="px-4 py-3">{t("admin_users_col_joined")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_last_login")}</th>
                 <th className="px-4 py-3">{t("admin_users_col_actions")}</th>
               </>
             ) : (
@@ -229,6 +252,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
                 <th className="px-4 py-3">{t("admin_users_lite_col_role")}</th>
                 <th className="px-4 py-3">{t("admin_users_lite_col_status")}</th>
                 <th className="px-4 py-3">{t("admin_users_col_joined")}</th>
+                <th className="px-4 py-3">{t("admin_users_col_last_login")}</th>
                 <th className="px-4 py-3">{t("admin_users_col_actions")}</th>
               </>
             )}

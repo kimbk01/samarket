@@ -3,9 +3,11 @@ import { isDibaySyntheticAuthEmail } from "@/lib/auth/synthetic-auth-email";
 import type {
   AdminAccountCategory,
   AdminAuthProvider,
+  AdminMemberRoleBadge,
   AdminUser,
   AdminUserStatusCategory,
 } from "@/lib/types/admin-user";
+import { resolveAdminMemberRoleBadges } from "@/lib/admin-users/member-role-badges";
 
 type DetailUserLike = {
   dibay_id?: string | null;
@@ -48,36 +50,26 @@ export function displayNameForDetailUser(user: DetailUserLike): string {
   );
 }
 
-export function resolveAccountCategoryFromRole(
-  role: string | null | undefined,
-  memberType?: string | null,
-): AdminAccountCategory {
-  const r = normalizeAdminLiteToken(role);
-  const mt = normalizeAdminLiteToken(memberType);
-  if (r === "admin" || r === "master" || r === "super_admin" || r === "staff") return "admin";
-  if (
-    r === "owner" ||
-    r === "store_owner" ||
-    r === "merchant" ||
-    r === "store_admin" ||
-    r === "business_owner" ||
-    mt === "owner" ||
-    mt === "store_owner" ||
-    mt === "merchant" ||
-    mt === "store_admin" ||
-    mt === "business_owner"
-  ) {
-    return "store_manager";
+export function roleBadgesForAdminUser(user: AdminUser): AdminMemberRoleBadge[] {
+  if (Array.isArray(user.roleBadges) && user.roleBadges.length > 0) {
+    return user.roleBadges;
   }
-  return "member";
+  const membershipRole = user.isSuperAdmin
+    ? "super_admin"
+    : user.hasAdminMembership
+      ? "admin"
+      : null;
+  return resolveAdminMemberRoleBadges({
+    hasStoreOwnership: (user.storeRelation?.count ?? 0) > 0,
+    adminMembershipRole: membershipRole,
+  });
 }
 
+/** Row tint only — not Person identity SSOT. */
 export function roleCategoryForAdminUser(user: AdminUser): AdminAccountCategory {
-  if (user.accountCategory === "admin" || user.accountCategory === "store_manager") return user.accountCategory;
-  if (user.roleCategory === "admin" || user.roleCategory === "store_manager") return user.roleCategory;
-  if (user.profileRole === "super_admin" || user.profileRole === "master" || user.memberType === "admin") {
-    return "admin";
-  }
+  const badges = roleBadgesForAdminUser(user);
+  if (badges.includes("admin") || badges.includes("super_admin")) return "admin";
+  if (badges.includes("store_owner")) return "store_manager";
   return "member";
 }
 
@@ -136,6 +128,13 @@ export function roleRowClass(role: AdminAccountCategory): string {
 export function roleBadgeClass(role: AdminAccountCategory): string {
   if (role === "admin") return "border-[#e9d7fe] bg-[#f9f5ff] text-[#6941c6]";
   if (role === "store_manager") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
+  return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
+}
+
+export function memberRoleBadgeClass(badge: AdminMemberRoleBadge): string {
+  if (badge === "super_admin") return "border-[#7f56d9] bg-[#f4ebff] text-[#42307d]";
+  if (badge === "admin") return "border-[#e9d7fe] bg-[#f9f5ff] text-[#6941c6]";
+  if (badge === "store_owner") return "border-[#fdead7] bg-[#fff6ed] text-[#c4320a]";
   return "border-[#abefc6] bg-[#ecfdf3] text-[#067647]";
 }
 

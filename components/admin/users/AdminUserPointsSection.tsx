@@ -30,6 +30,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   const { t, language, safeT } = useI18n();
   const dateLocale = dateLocaleTag(language);
   const [balance, setBalance] = useState<number | null>(null);
+  const [balanceUnavailable, setBalanceUnavailable] = useState(false);
   const [summary, setSummary] = useState<PointFinancialSummary | null>(null);
   const [items, setItems] = useState<PointFinancialHistoryItem[]>([]);
   const [charges, setCharges] = useState<PointChargeRequest[]>([]);
@@ -70,18 +71,36 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         if (!res.ok || j.ok === false) {
           setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
           if (!append) {
+            setBalance(null);
+            setBalanceUnavailable(true);
+            setSummary(null);
             setItems([]);
             setCharges([]);
           }
           return;
         }
-        setBalance(j.balance ?? 0);
+        if (typeof j.balance === "number" && Number.isFinite(j.balance)) {
+          setBalance(j.balance);
+          setBalanceUnavailable(false);
+        } else {
+          setBalance(null);
+          setBalanceUnavailable(true);
+        }
         setSummary(j.summary ?? null);
         const page = Array.isArray(j.history?.items) ? j.history!.items! : [];
         setItems((prev) => (append ? [...prev, ...page] : page));
         setHasMore(Boolean(j.history?.hasMore));
         setNextCursor(j.history?.nextCursor ?? null);
         if (!append) setCharges(Array.isArray(j.chargeRequests) ? j.chargeRequests : []);
+      } catch {
+        if (!append) {
+          setErr(resolveAdminApiErrorMessage("network_error", t, "admin_users_action_failed"));
+          setBalance(null);
+          setBalanceUnavailable(true);
+          setSummary(null);
+          setItems([]);
+          setCharges([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -139,7 +158,11 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-ui-rect bg-sky-50 px-4 py-3">
         <div>
           <p className="sam-text-helper text-sky-700">{t("admin_users_points_balance")}</p>
-          <p className="sam-text-hero font-bold text-sky-800">{(balance ?? 0).toLocaleString()}P</p>
+          <p className="sam-text-hero font-bold text-sky-800">
+            {balanceUnavailable || balance === null
+              ? t("admin_users_points_balance_unavailable")
+              : `${balance.toLocaleString()}P`}
+          </p>
           {summary ? (
             <p className="mt-1 sam-text-helper text-sky-800/80">
               +{summary.totalCredit.toLocaleString()}P / -{summary.totalDebit.toLocaleString()}P

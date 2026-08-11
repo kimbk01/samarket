@@ -3,7 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { insertModerationEvent, invalidateAllUserSessions } from "@/lib/admin/admin-user-server";
 import { moderationActionToProfilePatch } from "@/lib/admin-users/moderation-status";
-import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { assertMemberModerationTargetAllowed } from "@/lib/admin-users/member-moderation-target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ export async function POST(
 
   const { data: targetProfile, error: profileErr } = await sb
     .from("profiles")
-    .select("id, role, status, deleted_at, nickname")
+    .select("id, status, deleted_at, nickname")
     .eq("id", userId)
     .maybeSingle();
   if (profileErr) {
@@ -84,12 +84,12 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const targetRole = normalizeAdminRole((targetProfile as { role?: string }).role);
-  if (targetRole === "super_admin") {
-    return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
-  }
-  if (targetRole === "admin" && !actor.isSuperAdmin) {
-    return NextResponse.json({ ok: false, error: "forbidden_admin_target" }, { status: 403 });
+  const targetGuard = await assertMemberModerationTargetAllowed(sb, {
+    targetUserId: userId,
+    actorIsSuperAdmin: actor.isSuperAdmin,
+  });
+  if (!targetGuard.ok) {
+    return NextResponse.json({ ok: false, error: targetGuard.error }, { status: targetGuard.status });
   }
 
   const fromStatus = String((targetProfile as { status?: string }).status ?? "");

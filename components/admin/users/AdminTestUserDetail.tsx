@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Bell,
   CheckCircle2,
@@ -28,14 +28,18 @@ import {
   displayNameForDetailUser,
   formatAdminLiteDate,
   formatAdminLiteDateTime,
+  memberRoleBadgeClass,
   publicIdForDetailUser,
-  resolveAccountCategoryFromRole,
   resolveDetailAuthProvider,
-  roleBadgeClass,
   statusBadgeClass,
   statusCategoryForDetailUser,
 } from "./admin-user-lite-display";
-import type { AdminAccountCategory, AdminAuthProvider, AdminUser, MemberType } from "@/lib/types/admin-user";
+import {
+  adminMembershipRoleFromRow,
+  resolveAdminMemberRoleBadges,
+  type AdminMemberRoleBadge,
+} from "@/lib/admin-users/member-role-badges";
+import type { AdminAuthProvider, AdminUser, MemberType } from "@/lib/types/admin-user";
 import type { ModerationStatus } from "@/lib/types/report";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
@@ -59,6 +63,7 @@ export type AdminUserDetailPayload = {
   status?: string | null;
   moderation_status?: string;
   created_at: string | null;
+  last_login_at?: string | null;
   hasProfile?: boolean;
   /** User Facts Trust SSOT — profiles.trust_score */
   trust_score?: number | null;
@@ -93,10 +98,11 @@ const PROVIDER_LABEL_KEYS: Record<AdminAuthProvider, MessageKey> = {
   unknown: "admin_user_provider_unknown",
 };
 
-const ROLE_LABEL_KEYS: Record<AdminAccountCategory, MessageKey> = {
-  member: "admin_users_lite_role_member",
-  store_manager: "admin_users_lite_role_store_manager",
+const ROLE_BADGE_LABEL_KEYS: Record<AdminMemberRoleBadge, MessageKey> = {
+  member: "admin_users_role_badge_member",
+  store_owner: "admin_users_role_badge_store_owner",
   admin: "admin_users_lite_role_admin",
+  super_admin: "admin_users_lite_role_super_admin",
 };
 
 const STATUS_LABEL_KEYS = {
@@ -111,8 +117,6 @@ function dateLocaleTag(language: AppLanguageCode): string {
 }
 
 function deriveMemberType(user: AdminUserDetailPayload): MemberType {
-  const category = resolveAccountCategoryFromRole(user.role, user.member_type);
-  if (category === "admin") return "admin";
   const memberType = String(user.member_type ?? "").trim().toLowerCase();
   return memberType === "premium" || memberType === "special" ? "premium" : "normal";
 }
@@ -247,8 +251,9 @@ export function AdminMemberDetail({
   user,
   stores = [],
   adminMembership = null,
-  activityStatus = "not_implemented",
+  activityStatus: _activityStatus = "not_implemented",
   presentation = "page",
+  hideLedgerSections = false,
   onUpdated,
   onSendMessage,
   onDeleted,
@@ -258,6 +263,7 @@ export function AdminMemberDetail({
   adminMembership?: AdminPersonMembershipRow | null;
   activityStatus?: "not_implemented" | "ok";
   presentation?: "page" | "modal";
+  hideLedgerSections?: boolean;
   onUpdated?: () => void;
   onSendMessage?: (userId: string) => void;
   onDeleted?: () => void;
@@ -267,45 +273,24 @@ export function AdminMemberDetail({
   const dateLocale = dateLocaleTag(language);
   const emptyDash = t("admin_users_empty_placeholder");
   const [showEdit, setShowEdit] = useState(false);
-  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const display = displayNameForDetailUser(user);
   const publicId = publicIdForDetailUser(user);
-  const accountCategory = resolveAccountCategoryFromRole(user.role, user.member_type);
+  const roleBadges = resolveAdminMemberRoleBadges({
+    hasStoreOwnership: stores.length > 0,
+    adminMembershipRole: adminMembershipRoleFromRow(adminMembership?.role),
+  });
   const statusCategory = statusCategoryForDetailUser(user);
   const authProvider = resolveDetailAuthProvider(user.email);
   const isReadOnly = user.hasProfile === false;
   const editUser = useMemo(() => detailUserToAdminUser(user, display), [user, display]);
 
-  const roleLabelKey =
-    String(user.role ?? "").trim().toLowerCase() === "super_admin" ||
-    String(user.role ?? "").trim().toLowerCase() === "master"
-      ? "admin_users_lite_role_super_admin"
-      : ROLE_LABEL_KEYS[accountCategory];
-
   const phoneDisplay = contactPhoneDisplay(user.contact_phone) || emptyDash;
   const joinedAt = formatAdminLiteDate(user.created_at, dateLocale, emptyDash);
   const updatedAt = emptyDash;
-  const lastActivity = formatAdminLiteDateTime(user.phone_verified_at ?? user.created_at, dateLocale, emptyDash);
-  const emailVerified = Boolean(user.verified_member_at) || Boolean(user.email?.trim());
-
-  useEffect(() => {
-    if (isReadOnly) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/points`);
-        const data = (await res.json()) as { balance?: number };
-        if (!cancelled) setPointsBalance(data.balance ?? 0);
-      } catch {
-        if (!cancelled) setPointsBalance(0);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isReadOnly, user.id]);
+  const lastLogin = formatAdminLiteDateTime(user.last_login_at, dateLocale, emptyDash);
+  const emailVerified = Boolean(user.verified_member_at);
 
   const onEditSuccess = useCallback(() => {
     setShowEdit(false);
@@ -438,6 +423,18 @@ export function AdminMemberDetail({
             <div className="min-w-0 space-y-1">
               <h2 className="text-xl font-bold text-[#101828]">{display}</h2>
               {publicId ? <p className="text-sm font-medium text-[#667085]">{publicId}</p> : null}
+              <p className="flex flex-wrap items-center gap-2 font-mono text-xs text-[#667085]">
+                <span className="break-all">{user.id}</span>
+                <button
+                  type="button"
+                  className="rounded-md border border-[#d0d5dd] px-2 py-0.5 text-[11px] font-semibold text-[#2563eb] hover:bg-[#f9fafb]"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(user.id).catch(() => {});
+                  }}
+                >
+                  {t("admin_users_action_copy_uuid")}
+                </button>
+              </p>
               <p className="text-sm text-[#475467]">{user.email?.trim() || t("admin_users_lite_no_email")}</p>
               <p className="text-sm text-[#475467]">{phoneDisplay}</p>
               <p className="inline-flex items-center gap-2 text-sm font-medium text-[#344054]">
@@ -451,17 +448,22 @@ export function AdminMemberDetail({
               <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(statusCategory)}`}>
                 {t(STATUS_LABEL_KEYS[statusCategory])}
               </span>
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${roleBadgeClass(accountCategory)}`}>
-                {t(roleLabelKey)}
-              </span>
+              {roleBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${memberRoleBadgeClass(badge)}`}
+                >
+                  {t(ROLE_BADGE_LABEL_KEYS[badge])}
+                </span>
+              ))}
             </div>
             <div className="space-y-1 text-xs text-[#667085]">
               <p>
                 {t("admin_users_col_joined")}: <span className="font-semibold text-[#344054]">{joinedAt}</span>
               </p>
               <p>
-                {t("admin_users_lite_last_activity")}:{" "}
-                <span className="font-semibold text-[#344054]">{lastActivity}</span>
+                {t("admin_users_col_last_login")}:{" "}
+                <span className="font-semibold text-[#344054]">{lastLogin}</span>
               </p>
             </div>
           </div>
@@ -506,7 +508,11 @@ export function AdminMemberDetail({
         </DetailCard>
 
         <DetailCard title={t("admin_users_lite_detail_role_status")}>
-          <FieldRow label={t("admin_users_lite_col_role")} value={t(roleLabelKey)} action={changeBtn} />
+          <FieldRow
+            label={t("admin_users_lite_col_role")}
+            value={roleBadges.map((badge) => t(ROLE_BADGE_LABEL_KEYS[badge])).join(" · ")}
+            action={changeBtn}
+          />
           <FieldRow label={t("admin_users_lite_col_status")} value={t(STATUS_LABEL_KEYS[statusCategory])} action={changeBtn} />
           <div className="mt-2 border-t border-[#f2f4f7] pt-2">
             <VerifyRow
@@ -530,12 +536,14 @@ export function AdminMemberDetail({
           </div>
         </DetailCard>
 
-        <AdminUserTrustSection
-          userId={user.id}
-          initialTrustScore={user.trust_score}
-          readOnly={isReadOnly}
-          onUpdated={onUpdated}
-        />
+        {hideLedgerSections ? null : (
+          <AdminUserTrustSection
+            userId={user.id}
+            initialTrustScore={user.trust_score}
+            readOnly={isReadOnly}
+            onUpdated={onUpdated}
+          />
+        )}
 
         <DetailCard title={t("admin_users_lite_card_store_relation")}>
           {stores.length === 0 ? (
@@ -580,33 +588,14 @@ export function AdminMemberDetail({
         </DetailCard>
 
         <DetailCard title={t("admin_users_lite_card_activity")}>
-          {activityStatus === "not_implemented" ? (
-            <p className="text-sm text-[#667085]">{t("admin_users_lite_activity_not_implemented")}</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_total_orders")}</p>
-                <p className="mt-1 text-2xl font-bold text-[#101828]">0</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_points")}</p>
-                <p className="mt-1 text-2xl font-bold text-[#101828]">
-                  {pointsBalance === null ? emptyDash : pointsBalance.toLocaleString(dateLocale)}
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="mt-4 border-t border-[#f2f4f7] pt-4">
-            <p className="text-xs font-medium text-[#667085]">{t("admin_users_lite_points")}</p>
-            <p className="mt-1 text-2xl font-bold text-[#101828]">
-              {pointsBalance === null ? emptyDash : pointsBalance.toLocaleString(dateLocale)}
-            </p>
-          </div>
+          <p className="text-sm text-[#667085]">{t("admin_users_lite_activity_not_implemented")}</p>
         </DetailCard>
 
-        <div className="mt-4">
-          <AdminUserPointsSection userId={user.id} />
-        </div>
+        {hideLedgerSections ? null : (
+          <div className="mt-4">
+            <AdminUserPointsSection userId={user.id} />
+          </div>
+        )}
 
         {!isReadOnly ? (
           <DetailCard title={t("admin_users_lite_detail_actions")}>

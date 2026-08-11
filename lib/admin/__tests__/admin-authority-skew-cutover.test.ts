@@ -135,6 +135,13 @@ describe("ADMIN AUTHORITY — Application membership-only (post App fallback cut
     const staff = readFileSync(join(process.cwd(), "app/api/admin/staff/route.ts"), "utf8");
     const guards = readFileSync(join(process.cwd(), "lib/auth/server-guards.ts"), "utf8");
 
+    const moderation = readFileSync(
+      join(process.cwd(), "app/api/admin/users/[id]/moderation/route.ts"),
+      "utf8"
+    );
+    expect(moderation).toMatch(/assertMemberModerationTargetAllowed/);
+    expect(moderation).not.toMatch(/normalizeAdminRole\(\(targetProfile/);
+
     expect(route).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
     expect(platform).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
     expect(guards).toMatch(/hasActiveAdminMembershipOrLegacyRole/);
