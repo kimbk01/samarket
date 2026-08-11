@@ -30,67 +30,21 @@ const emptyRide: Pick<
   checkout_straight_distance_meters: null,
 };
 
-/**
- * 배달 주문 생성 시 DB에 넣을 ETA 스냅샷.
- * `delivery_user_address_id` 가 없거나 좌표가 없으면 라이딩은 null.
- */
-export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
-  sb: SupabaseClient;
-  buyerUserId: string;
-  fulfillment: string;
-  deliveryUserAddressId?: string | null;
-  storeLat: number | null;
-  storeLng: number | null;
-  business_hours_json: unknown;
-  /** true면 주소 동기화 등 — Google Routes 호출 없이 직선거리만 채움 */
-  skipGoogleRoutes?: boolean;
+async function finishEtaRide(opts: {
+  checkout_prep_minutes: number | null;
+  prepRaw: number | null | undefined;
+  slat: number;
+  slng: number;
+  ulat: number;
+  ulng: number;
+  skipGoogleRoutes: boolean;
 }): Promise<StoreOrderCheckoutEtaSnapshot> {
-  const extras = parseCommerceExtrasFromHoursJson(opts.business_hours_json);
-  const prepRaw = extras.prepMinutes;
-  const checkout_prep_minutes =
-    prepRaw != null && Number.isFinite(prepRaw) ? clampStorePrepMinutes(prepRaw) : null;
-
-  if (opts.fulfillment !== "local_delivery") {
-    return { checkout_prep_minutes, ...emptyRide };
-  }
-
-  const addrId = opts.deliveryUserAddressId?.trim();
-  if (!addrId || opts.storeLat == null || opts.storeLng == null) {
-    return { checkout_prep_minutes, ...emptyRide };
-  }
-
-  const [{ data: row, error }, rideTimeSource] = await Promise.all([
-    opts.sb
-      .from("user_addresses")
-      .select("user_id, latitude, longitude")
-      .eq("id", addrId)
-      .maybeSingle(),
-    loadDeliveryRideTimeSource(opts.sb),
-  ]);
-
-  if (error || !row) {
-    return { checkout_prep_minutes, ...emptyRide };
-  }
-  if (String((row as { user_id?: string }).user_id ?? "") !== opts.buyerUserId) {
-    return { checkout_prep_minutes, ...emptyRide };
-  }
-
-  const addrRow = row as { latitude?: unknown; longitude?: unknown };
-  const ulat = parseFiniteLatitude(addrRow.latitude);
-  const ulng = parseFiniteLongitude(addrRow.longitude);
-  const slat = parseFiniteLatitude(opts.storeLat);
-  const slng = parseFiniteLongitude(opts.storeLng);
-  if (ulat == null || ulng == null || slat == null || slng == null) {
-    return { checkout_prep_minutes, ...emptyRide };
-  }
-
-  const skipRoutes = opts.skipGoogleRoutes === true || rideTimeSource === "store";
-
+  const { checkout_prep_minutes, prepRaw, slat, slng, ulat, ulng, skipGoogleRoutes } = opts;
   const straightKm = haversineKm(slat, slng, ulat, ulng);
   const checkout_straight_distance_meters =
     straightKm != null && Number.isFinite(straightKm) && straightKm >= 0 ? Math.round(straightKm * 1000) : null;
 
-  if (skipRoutes === true) {
+  if (skipGoogleRoutes) {
     return {
       checkout_prep_minutes,
       checkout_ride_minutes: null,
@@ -121,4 +75,89 @@ export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
     checkout_route_distance_meters,
     checkout_straight_distance_meters,
   };
+}
+
+/**
+ * 배달 주문 생성 시 DB에 넣을 ETA 스냅샷.
+ * 주문 좌표 스냅샷이 있으면 live `user_addresses` 를 읽지 않는다.
+ */
+export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
+  sb: SupabaseClient;
+  buyerUserId: string;
+  fulfillment: string;
+  deliveryUserAddressId?: string | null;
+  /** Frozen order pin. When set, do not read live `user_addresses` coords. */
+  deliverySnapshotLat?: number | null;
+  deliverySnapshotLng?: number | null;
+  storeLat: number | null;
+  storeLng: number | null;
+  business_hours_json: unknown;
+  /** true면 주소 동기화 등 — Google Routes 호출 없이 직선거리만 채움 */
+  skipGoogleRoutes?: boolean;
+}): Promise<StoreOrderCheckoutEtaSnapshot> {
+  const extras = parseCommerceExtrasFromHoursJson(opts.business_hours_json);
+  const prepRaw = extras.prepMinutes;
+  const checkout_prep_minutes =
+    prepRaw != null && Number.isFinite(prepRaw) ? clampStorePrepMinutes(prepRaw) : null;
+
+  if (opts.fulfillment !== "local_delivery") {
+    return { checkout_prep_minutes, ...emptyRide };
+  }
+
+  const slat = parseFiniteLatitude(opts.storeLat);
+  const slng = parseFiniteLongitude(opts.storeLng);
+  if (slat == null || slng == null) {
+    return { checkout_prep_minutes, ...emptyRide };
+  }
+
+  let ulat = parseFiniteLatitude(opts.deliverySnapshotLat);
+  let ulng = parseFiniteLongitude(opts.deliverySnapshotLng);
+  const addrId = opts.deliveryUserAddressId?.trim();
+  const rideTimeSourcePromise = loadDeliveryRideTimeSource(opts.sb);
+
+  if (ulat == null || ulng == null) {
+    if (!addrId) {
+      return { checkout_prep_minutes, ...emptyRide };
+    }
+    const [{ data: row, error }, rideTimeSource] = await Promise.all([
+      opts.sb
+        .from("user_addresses")
+        .select("user_id, latitude, longitude")
+        .eq("id", addrId)
+        .maybeSingle(),
+      rideTimeSourcePromise,
+    ]);
+    if (error || !row) {
+      return { checkout_prep_minutes, ...emptyRide };
+    }
+    if (String((row as { user_id?: string }).user_id ?? "") !== opts.buyerUserId) {
+      return { checkout_prep_minutes, ...emptyRide };
+    }
+    const addrRow = row as { latitude?: unknown; longitude?: unknown };
+    ulat = parseFiniteLatitude(addrRow.latitude);
+    ulng = parseFiniteLongitude(addrRow.longitude);
+    if (ulat == null || ulng == null) {
+      return { checkout_prep_minutes, ...emptyRide };
+    }
+    return finishEtaRide({
+      checkout_prep_minutes,
+      prepRaw,
+      slat,
+      slng,
+      ulat,
+      ulng,
+      skipGoogleRoutes: opts.skipGoogleRoutes === true || rideTimeSource === "store",
+    });
+  }
+
+  const rideTimeSource = await rideTimeSourcePromise;
+  return finishEtaRide({
+    checkout_prep_minutes,
+    prepRaw,
+    slat,
+    slng,
+    ulat,
+    ulng,
+    skipGoogleRoutes: opts.skipGoogleRoutes === true || rideTimeSource === "store",
+  });
 }
