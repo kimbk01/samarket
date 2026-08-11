@@ -181,7 +181,7 @@ test.describe("Revenue final regression gate", () => {
     await expect(page.locator("body")).toContainText(/회원 신청|Member|관리자 직접|Admin|캠페인|Campaign/i);
 
     // Growth sidebar group labels (open Growth if present)
-    const growth = page.getByText(/^Growth$|^그로스$/i).first();
+    const growth = page.getByText(/^Ad exposure$|^광고 노출$/i).first();
     if (await growth.isVisible().catch(() => false)) {
       await growth.click().catch(() => null);
     }

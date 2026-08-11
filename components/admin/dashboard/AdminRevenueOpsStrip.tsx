@@ -51,8 +51,8 @@ export function AdminRevenueOpsStrip() {
           </h2>
           <p className="mt-0.5 sam-text-helper text-sam-muted">
             {safeT("admin_revenue_ops_hint", {
-              fallbackKo: "그로스 워크스페이스와 동일 메뉴입니다. 대시보드에서 바로 들어갑니다.",
-              fallbackEn: "Same as Growth workspace — open from the dashboard.",
+              fallbackKo: "광고 노출 워크스페이스와 동일 메뉴입니다. 대시보드에서 바로 들어갑니다.",
+              fallbackEn: "Same as Ad exposure workspace — open from the dashboard.",
             })}
           </p>
         </div>
@@ -60,7 +60,7 @@ export function AdminRevenueOpsStrip() {
           href="/admin/ad-applications"
           className="sam-text-helper font-medium text-sam-primary underline-offset-2 hover:underline"
         >
-          {en ? "Open Growth → Ads" : "그로스 → 광고 · 유료노출"}
+          {en ? "Open Ad exposure → Ads" : "광고 노출 → 광고 · 유료노출"}
         </Link>
       </div>
       <ul className="grid gap-2 sm:grid-cols-3">
