@@ -30,6 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run checks (routes, types, lint, test, build)
+      - name: Run checks (types, lint, test, contracts — no next build)
         run: npm run ci
 

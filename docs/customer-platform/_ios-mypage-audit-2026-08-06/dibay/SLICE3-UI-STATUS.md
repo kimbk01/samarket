@@ -21,7 +21,7 @@ SLICE 3 UI RUNTIME LOCK
 ## Deploy countermeasure
 
 Dirty worktree → ~3.4GB Vercel upload fail.  
-**Fix:** `bash scripts/deploy-prod-clean-worktree.sh`  
+**Production deploy:** `git push origin main` → Vercel Git Integration only. CLI Production deploy is forbidden.  
 `dpl_7XS5rZL1QGJeCrEhqZjBtck7BBvq` → `samarket.vercel.app` Ready  
 Content base: `fa3e6b4a2` (scroll restore included)
 

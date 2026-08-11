@@ -1,0 +1,38 @@
+---
+description: Production deploy authority is Git main → Vercel Git Integration only. Forbid CLI --prod.
+alwaysApply: true
+---
+
+# DIBAY Production Deploy Authority HARD LOCK
+
+**HARD LOCK (2026-08-12).** Production 배포 권위는 하나다.
+
+## Authority
+
+```
+origin/main
+  → Vercel Git Integration
+  → ONE Production deployment
+```
+
+ONLY.
+
+## DO NOT
+
+- `vercel --prod`
+- `npx vercel deploy --prod`
+- Cursor CLI / `cursor-cli` Production deploy
+- dirty-tree Production deploy (`gitDirty`)
+- Git Production ERROR 후 CLI override
+- 동일 SHA 중복 Production (env 변경·incident·explicit rollback 제외)
+- `scripts/deploy-prod-clean-worktree.sh` 로 Production 올리기 (fail-only)
+
+Git Production 실패 = **FAILED**. 원인 고친 **새 commit**으로만 해결한다. CLI로 덮지 않는다.
+
+## Preview
+
+Preview는 UI / route / layout 확인용 **보조** 환경이다. Production 대체·기본 개발 서버로 강제하지 않는다.
+
+## After Git FAIL
+
+FAILED 유지 → 수정 → 새 SHA → `git push origin main` → Git Integration 1회.

@@ -35,7 +35,7 @@ alwaysApply: true
 | 순서 | 명령 | 비고 |
 |------|------|------|
 | 1 | `npm run lint` | error 1개라도 FAIL |
-| 2 | `npx tsc --noEmit` | |
+| 2 | `npm run typecheck:build` | test 스테이징 시 `typecheck:test` |
 | 3 | `npm run verify:i18n-key-exposure` | ko/en·key 노출·safe-translate |
 | 4 | 관련 `verify:*` | diff 범위만 — `.cursor/rules/samarket-pre-commit-verification.mdc` 표 |
 | 5 | 관련 unit test | `vitest run <이번 수정 테스트>` |
@@ -48,7 +48,7 @@ alwaysApply: true
 
 | 순서 | 명령 | 비고 |
 |------|------|------|
-| 1 | `npm run build` | |
+| 1 | `npm run build` | 로컬 full gate. GHA는 next build 하지 않음 (Vercel authority) |
 | 2 | CI 실패 가능 contract/verify | add 단계에서 안 돌린 snapshot E2E·parity 등, diff 관련만 |
 
 add 단계에서 이미 PASS 한 lint/tsc/i18n 이 깨졌으면 push 전에 **해당 항목만** 재실행.
@@ -77,7 +77,7 @@ add 단계에서 이미 PASS 한 lint/tsc/i18n 이 깨졌으면 push 전에 **�
 | 단계 | 명령 | 결과 |
 |------|------|------|
 | 1 | `npm run lint` | PASS / FAIL |
-| 2 | `npx tsc --noEmit` | PASS / FAIL |
+| 2 | `npm run typecheck:build` | PASS / FAIL |
 | 3 | `npm run verify:i18n-key-exposure` | PASS / FAIL |
 | 4a | `npm run verify:…` (관련만) | PASS / FAIL |
 | 4b | `vitest run …` (관련만) | PASS / FAIL |

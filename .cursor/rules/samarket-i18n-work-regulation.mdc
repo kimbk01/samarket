@@ -34,7 +34,7 @@ npm run check:i18n-staged
 
 **`git add` 직전**
 ```bash
-npm run lint && npx tsc --noEmit && npm run verify:i18n-key-exposure
+npm run lint && npm run typecheck:build && npm run verify:i18n-key-exposure
 ```
 
 **`git push` 직전**

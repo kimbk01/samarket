@@ -14,7 +14,7 @@ alwaysApply: true
 ## `git add` 직전 실행 순서 (고정)
 
 1. `npm run lint`
-2. `npx tsc --noEmit`
+2. `npm run typecheck:build` (test 파일 스테이징 시 `typecheck:test` 추가 — pre-commit hook)
 3. `npm run verify:i18n-key-exposure`
 4. `package.json`의 `verify:*` 중 **이번 수정 범위와 관련된** 스크립트만
 5. **관련 unit test** (`vitest run <경로>`)

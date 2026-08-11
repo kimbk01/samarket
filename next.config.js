@@ -207,6 +207,14 @@ const nextConfig = {
       },
     ];
   },
+  /**
+   * Production Next typecheck = app/source graph only (`tsconfig.build.json`).
+   * Tests/scripts stay on `tsconfig.test.json` (CI `typecheck:test`).
+   * DO NOT set ignoreBuildErrors — source type errors must fail `next build`.
+   */
+  typescript: {
+    tsconfigPath: "tsconfig.build.json",
+  },
   // 개발 모드 시 좌하단 'N' 아이콘 숨김 (에러 발생 시 오버레이만 표시)
   devIndicators: false,
   /**

@@ -1,6 +1,6 @@
 /**
  * Fast preflight before push — catches recurring CI failures without full build.
- * Full gate remains `npm run ci` (includes build + check:bundle lock).
+ * GHA `npm run ci` has no next build. Local full gate is `npm run check` (ci + build + check:bundle).
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -21,7 +21,7 @@ function run(cmd, args, label) {
 const steps = [
   ["node", ["scripts/verify-bundle-budget-baseline.cjs"], "bundle baseline JSON"],
   ["node", ["scripts/verify-stores-home-hub-contract.cjs"], "stores home hub contract"],
-  ["npx", ["tsc", "--noEmit"], "TypeScript"],
+  ["npm", ["run", "typecheck:build"], "TypeScript source graph"],
   ["npm", ["run", "test", "--", "--run", "lib/stores/__tests__/stores-browse-prewarm-coordinator.test.ts"], "stores prewarm unit test"],
   ["node", ["--test", "scripts/__tests__/bundle-budget-lock.test.mjs"], "bundle budget lock unit test"],
 ];

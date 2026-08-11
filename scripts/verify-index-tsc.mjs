@@ -2,12 +2,12 @@
 /**
  * Typecheck the git index (what the next commit will contain), not the dirty working tree.
  *
- * Local `npx tsc --noEmit` reads uncommitted files. That is why 1bfd71913 / a00f341
- * passed pre-commit and then failed on Vercel/CI (`deliverySnapshotLat`, `placeId`).
- * GitHub Actions and Vercel clone the commit only.
+ * Default project is tsconfig.build.json (production source). `--test` uses tsconfig.test.json.
+ * Local working-tree tsc is not this gate. GitHub Actions and Vercel clone the commit only.
  *
  * Usage:
- *   node scripts/verify-index-tsc.mjs           # git write-tree (pre-commit)
+ *   node scripts/verify-index-tsc.mjs           # source graph, git write-tree
+ *   node scripts/verify-index-tsc.mjs --test    # test graph
  *   node scripts/verify-index-tsc.mjs --head    # HEAD only
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const headOnly = process.argv.includes("--head");
+const testGraph = process.argv.includes("--test");
+const tsconfigName = testGraph ? "tsconfig.test.json" : "tsconfig.build.json";
 
 function git(args) {
   const r = spawnSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 16e6 });
@@ -53,7 +55,7 @@ function runTsc(cwd) {
   if (!existsSync(bin)) {
     throw new Error(`tsc not found: ${bin}`);
   }
-  const r = spawnSync(bin, ["--noEmit", "--pretty", "false"], {
+  const r = spawnSync(bin, ["--noEmit", "--pretty", "false", "-p", tsconfigName], {
     cwd,
     stdio: "inherit",
     env: process.env,
@@ -63,7 +65,9 @@ function runTsc(cwd) {
 
 const tree = headOnly ? git(["rev-parse", "HEAD^{tree}"]) : git(["write-tree"]);
 const dir = mkdtempSync(path.join(tmpdir(), "samarket-index-tsc-"));
-console.log(`[verify-index-tsc] tree=${tree} dir=${dir} mode=${headOnly ? "HEAD" : "index"}`);
+console.log(
+  `[verify-index-tsc] tree=${tree} dir=${dir} mode=${headOnly ? "HEAD" : "index"} project=${tsconfigName}`,
+);
 
 try {
   await pipe("git", ["archive", tree], "tar", ["-x", "-C", dir], ROOT);

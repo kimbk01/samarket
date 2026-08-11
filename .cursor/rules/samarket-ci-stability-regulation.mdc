@@ -30,7 +30,8 @@ CI(`npm run ci`) 실패를 **같은 클래스로 반복하지 않기** 위한 �
 
 ## 4. 번들 baseline
 
-- CI 마지막 단계: `npm run build` → `npm run check:bundle`.
+- GHA `npm run ci`: `verify:bundle-budget-baseline` (JSON 계약만). **`next build` / `check:bundle` 실측은 CI에 두지 않는다** — Next build authority는 Vercel.
+- 로컬 full gate (`npm run check`): `npm run ci` → `npm run build` → `npm run check:bundle`.
 - **단일 측정 원천**: `scripts/bundle-budget-baseline.json` 의 `metrics` 와 `provenance.bytes` 는 **같은 `measureBundleMetrics()` 호출**에서만 갱신 (`check:bundle:update-baseline`). 수동 편집·혼합 빌드 값 **금지**.
 - **커밋 전 구조 검증**: `verify:bundle-budget-baseline` — provenance 필수 · bytes↔KB round-trip · messenger ⊆ total.
 - **양방향 drift lock**: `check:bundle` 은 baseline ± slack 범위 밖이면 FAIL (증가·**과대 baseline**·비정상 감소 모두).

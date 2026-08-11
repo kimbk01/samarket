@@ -9,7 +9,7 @@ Recurring CI failures on `main` were traced to three areas. This doc describes t
 **Lock:**
 
 - Committed baseline: `scripts/bundle-budget-baseline.json`
-- Check: `npm run check:bundle` (after `npm run build` in CI)
+- Check: `npm run check:bundle` after `npm run build` (local full gate `npm run check`). GHA `npm run ci` does not run `next build`; Vercel is Next production build authority. CI still runs `verify:bundle-budget-baseline` (JSON contract).
 - Rule: current build must be ≤ **baseline + growth_slack_kb** per metric
 - Intentional growth: `npm run build && npm run check:bundle:update-baseline`, then commit the JSON with PR notes
 
@@ -44,5 +44,6 @@ Use these instead of ad-hoc `as any` casts in new tests.
 | Command | When |
 |---------|------|
 | `npm run verify:ci-stability` | Before push (fast, no build) |
-| `npm run ci` | Same as CI (`check` = routes + contracts + tsc + lint + test + build + bundle lock) |
+| `npm run ci` | GHA: contracts + typecheck:build + typecheck:test + lint + i18n + vitest (no next build) |
+| `npm run check` | Local full gate: `ci` + `next build` + `check:bundle` |
 | `npm run check:bundle:update-baseline` | After an intentional bundle increase |

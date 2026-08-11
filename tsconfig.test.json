@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
+    "playwright.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "scripts/delivery-financial-ssot-runtime-close.ts"
+  ]
+}
