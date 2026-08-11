@@ -98,6 +98,7 @@ import {
 import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
+import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
@@ -459,6 +460,21 @@ export function useMessengerRoomPhase2Controller() {
     (msg: CommunityMessengerMessage, clientMessageId?: string) => {
       const uid = snapshot?.viewerUserId?.trim();
       if (!uid) return;
+      applyIncomingMessageEvent({
+        viewerUserId: uid,
+        roomId: streamRoomId,
+        roomSummary: snapshot?.room ?? undefined,
+        message: msg,
+        messageRow: {
+          id: msg.id,
+          room_id: streamRoomId,
+          sender_id: msg.senderId,
+          message_type: msg.messageType,
+          content: msg.content,
+          metadata: msg.metadata ?? null,
+          created_at: msg.createdAt,
+        },
+      });
       syncMessengerHomeAfterOutboundSend({
         roomId: streamRoomId,
         senderUserId: uid,
@@ -471,6 +487,7 @@ export function useMessengerRoomPhase2Controller() {
     [
       forgetRoomBootstrapClientFlightsAfterMutation,
       showMessengerTradeProcessDock,
+      snapshot?.room,
       snapshot?.viewerUserId,
       streamRoomId,
     ]

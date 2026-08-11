@@ -6,6 +6,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logAuthClientCreated, logAuthSessionChanged } from "@/lib/supabase/auth-refresh-telemetry";
+import { dispatchSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
 let client: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
@@ -51,6 +52,9 @@ export function getSupabaseClient(): SupabaseClient | null {
       const t = session?.access_token ?? null;
       if (t) {
         void sb.realtime.setAuth(t);
+        if (event === "TOKEN_REFRESHED") {
+          dispatchSamarketRealtimeTokenRefreshed();
+        }
       } else if (event === "SIGNED_OUT") {
         void sb.realtime.setAuth();
       }

@@ -9,3 +9,11 @@ export function dispatchSamarketRealtimeTokenRefreshed(): void {
     /* ignore */
   }
 }
+
+export function subscribeSamarketRealtimeTokenRefreshed(handler: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, handler);
+  return () => {
+    window.removeEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, handler);
+  };
+}

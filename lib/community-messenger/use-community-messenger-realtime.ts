@@ -16,6 +16,8 @@ import type {
   CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import { cmRtLogAuthEpochBump } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import {
   bumpMessengerRealtimeLocalUnreadForRoom,
   clearMessengerRealtimeLocalUnreadForRoom,
@@ -480,9 +482,11 @@ function createHomeRealtimeEntry(args: {
   let pendingFingerprint = args.roomIdsFingerprint;
   let pendingVisibleTradeRoomCount = args.visibleTradeRoomCount ?? 0;
   let rebindCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
+  let homeBindGeneration = 0;
 
   const attachChannelsForFingerprint = (fingerprint: string, reason: string) => {
     if (cancelled) return;
+    const bindGen = ++homeBindGeneration;
     logRtRebindTrace({
       reason,
       roomCount: roomIdsFromFingerprint(fingerprint).length,
@@ -492,10 +496,16 @@ function createHomeRealtimeEntry(args: {
       channel: args.channelBindRole,
       subscribers: entry.listeners.size,
     });
+    cancelSchedulers?.();
+    cancelSchedulers = null;
+    const prevLen = channels.length;
+    for (const item of channels) item.stop();
+    channels.length = 0;
+    if (prevLen > 0) recordMessengerHomeSupabaseHomeChannelGaugeDelta(-prevLen);
     const { channels: next, cancelSchedulers: cancel } = bindCommunityMessengerHomeRealtimeChannels({
       sb,
       userId: args.userId,
-      isCancelled: () => cancelled,
+      isCancelled: () => cancelled || bindGen !== homeBindGeneration,
       roomIdsFingerprint: fingerprint,
       channelBindRole: args.channelBindRole,
       includeMeta: args.includeMeta,
@@ -519,12 +529,6 @@ function createHomeRealtimeEntry(args: {
       participantUnreadDeltaRef: { current: (hint) => enqueueHomeParticipantUnreadForEntry(entry, hint) },
       onRefreshRef: { current: () => emitHomeRefresh(entry) },
     });
-    cancelSchedulers?.();
-    cancelSchedulers = null;
-    const prevLen = channels.length;
-    for (const item of channels) item.stop();
-    channels.length = 0;
-    if (prevLen > 0) recordMessengerHomeSupabaseHomeChannelGaugeDelta(-prevLen);
     cancelSchedulers = cancel;
     for (const item of next) channels.push(item);
     if (next.length > 0) recordMessengerHomeSupabaseHomeChannelGaugeDelta(next.length);
@@ -583,9 +587,28 @@ function createHomeRealtimeEntry(args: {
     onReady: bindHomeChannels,
   });
 
+  let tokenRebindTimer: ReturnType<typeof setTimeout> | null = null;
+  let tokenRefreshGeneration = 0;
+  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
+    if (cancelled || !homeBound) return;
+    if (tokenRebindTimer != null) clearTimeout(tokenRebindTimer);
+    tokenRebindTimer = setTimeout(() => {
+      tokenRebindTimer = null;
+      if (cancelled || !homeBound) return;
+      tokenRefreshGeneration += 1;
+      cmRtLogAuthEpochBump({ epoch: tokenRefreshGeneration, source: "token_refresh_home" });
+      attachChannelsForFingerprint(pendingFingerprint, "token_refresh_rebind");
+    }, 50);
+  });
+
   entry.stop = () => {
     clearMessengerHomeDeferredPhysicalStopForAnyKey(args.key);
     cancelled = true;
+    unsubscribeTokenRefresh();
+    if (tokenRebindTimer != null) {
+      clearTimeout(tokenRebindTimer);
+      tokenRebindTimer = null;
+    }
     if (rebindCoalesceTimer != null) {
       clearTimeout(rebindCoalesceTimer);
       rebindCoalesceTimer = null;

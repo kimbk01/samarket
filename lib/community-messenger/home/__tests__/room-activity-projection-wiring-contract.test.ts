@@ -20,6 +20,12 @@ describe("room activity projection wiring contract", () => {
     expect(src).toContain("syncMessengerHomeAfterOutboundSend");
   });
 
+  it("outbound confirmed also commits the server row into room snapshot/store", () => {
+    const src = read("lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts");
+    expect(src).toContain("applyIncomingMessageEvent");
+    expect(src).toMatch(/onMessengerOutboundConfirmed[\s\S]*applyIncomingMessageEvent[\s\S]*syncMessengerHomeAfterOutboundSend/);
+  });
+
   it("room ingest defers tip projection to applyIncomingMessageEvent SSOT", () => {
     const src = read("lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts");
     expect(src).toContain("applyIncomingMessageEvent");

@@ -6,6 +6,11 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  buildCommunityMessengerMessagesAfterPath,
+  runMessengerRoomCatchUpSingleFlight,
+  selectNewestConfirmedMessageAnchor,
+} from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
 
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 
@@ -70,51 +75,38 @@ export function useMessengerRoomRemoteCatchup({
     if (confirmed.length === 0) {
       return false;
     }
-    /** 앵커는 배열 끝이 아니라 **시간상 최신 확정 메시지** — 정렬/가상화와 무관하게 `after=` 일관 */
-    let anchorId: string | null = null;
-    let bestTime = -Infinity;
-    let bestIdForTie = "";
-    for (const m of confirmed) {
-      const mid = String(m?.id ?? "").trim();
-      if (!mid || mid.startsWith("pending:") || !isUuidLikeString(mid)) continue;
-      const t = new Date(m.createdAt).getTime();
-      if (!Number.isFinite(t)) continue;
-      if (t > bestTime || (t === bestTime && mid > bestIdForTie)) {
-        bestTime = t;
-        anchorId = mid;
-        bestIdForTie = mid;
-      }
-    }
+    const anchorId = selectNewestConfirmedMessageAnchor(confirmed);
     if (!anchorId) {
       return false;
     }
-    try {
-      const res = await fetch(
-        `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(anchorId)}&limit=80`,
-        { cache: "no-store", credentials: "include" }
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        messages?: CommunityMessengerMessage[];
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-      const incoming = json.messages ?? [];
-      setRoomMessages((prev) => mergeRoomMessages(prev, incoming));
-      const viewer = snapshotRef.current?.viewerUserId?.trim() || null;
-      const roomSummary = snapshotRef.current?.room ?? null;
-      for (const row of incoming) {
-        projectHubTipAfterCatchUpMerge({
-          viewerUserId: viewer,
-          roomId: id,
-          message: row,
-          roomSummary,
+    return runMessengerRoomCatchUpSingleFlight(id, anchorId, async () => {
+      try {
+        const res = await fetch(buildCommunityMessengerMessagesAfterPath(id, anchorId), {
+          cache: "no-store",
+          credentials: "include",
         });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          messages?: CommunityMessengerMessage[];
+        };
+        if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
+        const incoming = json.messages ?? [];
+        setRoomMessages((prev) => mergeRoomMessages(prev, incoming));
+        const viewer = snapshotRef.current?.viewerUserId?.trim() || null;
+        const roomSummary = snapshotRef.current?.room ?? null;
+        for (const row of incoming) {
+          projectHubTipAfterCatchUpMerge({
+            viewerUserId: viewer,
+            roomId: id,
+            message: row,
+            roomSummary,
+          });
+        }
+        return true;
+      } catch {
+        return false;
       }
-      return true;
-    } catch {
-      /* ignore */
-    }
-    return false;
+    });
   }, [roomId]);
 
   const tryMergeSingleMessageFromBump = useCallback(async (messageId: string): Promise<boolean> => {

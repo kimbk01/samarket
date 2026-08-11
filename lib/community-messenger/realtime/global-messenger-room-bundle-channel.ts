@@ -14,6 +14,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import { mapRealtimeMessageRow } from "@/lib/community-messenger/realtime/community-messenger-room-message-realtime-channel";
 import {
+  cmRtLogAuthEpochBump,
   cmRtLogMapRowSkipped,
   cmRtLogPostgresPayload,
   isCommunityMessengerRealtimeDebugEnabled,
@@ -21,6 +22,8 @@ import {
 import { messengerMonitorRealtimeMessageInsertDelay } from "@/lib/community-messenger/monitoring/client";
 import type { CommunityMessengerRoomRealtimeMessageEvent } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import { isStaleRealtimeBindGeneration } from "@/lib/community-messenger/realtime/realtime-bind-generation";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
@@ -188,12 +191,20 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   const attachFilteredPostgresHandlers = (
     channel: RealtimeChannel,
     roomScopedFilter: string,
-    roomsTableFilter: string
+    roomsTableFilter: string,
+    bindGen: number
   ): RealtimeChannel => {
+    const staleBind = () =>
+      isStaleRealtimeBindGeneration({
+        cancelled,
+        liveGeneration: postgresBindGeneration,
+        callbackGeneration: bindGen,
+      });
     let c = channel.on(
       "postgres_changes",
       { event: "*", schema: "public", table: "community_messenger_messages", filter: roomScopedFilter },
       (payload) => {
+        if (staleBind()) return;
         const eventType = payload.eventType;
         const rawNew = payload.new as Record<string, unknown> | undefined;
         const rawOld = payload.old as Record<string, unknown> | undefined;
@@ -255,6 +266,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         filter: roomScopedFilter,
       },
       (payload) => {
+        if (staleBind()) return;
         const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
         const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
@@ -272,6 +284,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         filter: roomScopedFilter,
       },
       (payload) => {
+        if (staleBind()) return;
         const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
         const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
@@ -321,6 +334,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         filter: roomsTableFilter,
       },
       (payload) => {
+        if (staleBind()) return;
         const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
         const rid = typeof row?.id === "string" ? row.id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
@@ -339,6 +353,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           filter: roomScopedFilter,
         },
         (payload) => {
+          if (staleBind()) return;
           const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
           const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
           const roomKey = normalizeRoomKey(rid);
@@ -355,6 +370,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           filter: roomScopedFilter,
         },
         (payload) => {
+          if (staleBind()) return;
           const eventType = payload.eventType;
           const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
           const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
@@ -386,6 +402,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           filter: roomScopedFilter,
         },
         (payload) => {
+          if (staleBind()) return;
           const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
           const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
           const roomKey = normalizeRoomKey(rid);
@@ -461,7 +478,8 @@ export function createGlobalMessengerRoomBundleEntry(args: {
               }
             }
           },
-          build: (channel: RealtimeChannel) => attachFilteredPostgresHandlers(channel, roomScopedFilter, roomsTableFilter),
+          build: (channel: RealtimeChannel) =>
+            attachFilteredPostgresHandlers(channel, roomScopedFilter, roomsTableFilter, gen),
         });
 
         if (cancelled || gen !== postgresBindGeneration) {
@@ -515,8 +533,28 @@ export function createGlobalMessengerRoomBundleEntry(args: {
     onReady: bindGlobalRoomBundle,
   });
 
+  let tokenRebindTimer: ReturnType<typeof setTimeout> | null = null;
+  let tokenRefreshGeneration = 0;
+  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
+    if (cancelled || !roomBound) return;
+    if (tokenRebindTimer != null) clearTimeout(tokenRebindTimer);
+    tokenRebindTimer = setTimeout(() => {
+      tokenRebindTimer = null;
+      if (cancelled || !roomBound) return;
+      tokenRefreshGeneration += 1;
+      cmRtLogAuthEpochBump({ epoch: tokenRefreshGeneration, source: "token_refresh_room_bundle" });
+      lastBoundRoomIdsKey = "";
+      bindFilteredPostgresSubscriptions();
+    }, 50);
+  });
+
   entry.stop = () => {
     cancelled = true;
+    unsubscribeTokenRefresh();
+    if (tokenRebindTimer != null) {
+      clearTimeout(tokenRebindTimer);
+      tokenRebindTimer = null;
+    }
     postgresBindGeneration += 1;
     lastBoundRoomIdsKey = "";
     clearNotifyDebounce();

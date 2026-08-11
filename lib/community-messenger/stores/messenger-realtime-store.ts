@@ -25,10 +25,12 @@ import {
 import {
   mergeMessageIntoRoomSnapshotCache,
   patchRoomSummaryInSnapshotCache,
+  peekRoomSnapshot,
   primeHotRoomSnapshot,
   primeRoomSnapshot,
   seedRoomSnapshotFromSummary,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import { mergeCommunityMessengerMessageLists } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
 import {
   MESSENGER_REALTIME_TRACKED_ROOMS_CAP,
   pruneSeenIncomingMessageIdsByRoom,
@@ -277,9 +279,14 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     const rid = normalizeRoomId(snapshot.room.id);
     if (!rid) return;
     set((state) => {
+      const existing = state.messagesByRoomId[rid] ?? [];
+      const incoming = snapshot.messages ?? [];
+      const mergedMessages = mergeCallStubDuplicates(
+        mergeCommunityMessengerMessageLists(existing, incoming)
+      );
       let messagesByRoomId = {
         ...state.messagesByRoomId,
-        [rid]: mergeCallStubDuplicates(snapshot.messages ?? state.messagesByRoomId[rid] ?? []),
+        [rid]: mergedMessages,
       };
       let lastReadByRoomId = {
         ...state.lastReadByRoomId,
@@ -294,8 +301,14 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       lastReadByRoomId = pr.lastReadByRoomId;
       const viewer = snapshot.viewerUserId?.trim() || state.viewerUserId;
       if (viewer) {
-        primeRoomSnapshot(rid, snapshot);
-        primeHotRoomSnapshot(rid, snapshot);
+        const cached = peekRoomSnapshot(rid, viewer);
+        const toPrime = {
+          ...snapshot,
+          viewerUserId: viewer,
+          messages: mergeCommunityMessengerMessageLists(cached?.messages ?? [], mergedMessages),
+        };
+        primeRoomSnapshot(rid, toPrime);
+        primeHotRoomSnapshot(rid, toPrime);
       }
       return {
         viewerUserId: viewer,

@@ -64,7 +64,7 @@ import { logChatRoomTimelineInitialFetch } from "@/lib/community-messenger/room/
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { mergePrimedTimelineSeedIntoExisting } from "@/lib/community-messenger/room/merge-primed-timeline-seed";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import {
   isCmRoomEntryPriorityModeActive,
@@ -164,18 +164,21 @@ function applyPrimedTimelineSeed(
 ): boolean {
   if (!setRoomMessages) return false;
   const msgs = primed.messages ?? [];
-  if (msgs.length === 0) return false;
+  const roomId = primed.room?.id?.trim() ?? "";
+  if (msgs.length === 0 && roomId === "") return false;
   setRoomMessages((prev) => {
-    if (prev.length === 0) {
-      return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
-    }
-    const next = mergeRoomMessages(prev, msgs);
+    const next = mergePrimedTimelineSeedIntoExisting({
+      roomId,
+      prev,
+      seed: msgs,
+    });
+    if (next.length === 0) return prev;
     if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {
       return prev;
     }
     return next;
   });
-  return true;
+  return msgs.length > 0;
 }
 
 /** 메시지 전송 직후 in-flight 부트스트랩 Promise 가 옛 결과를 재사용하지 않도록 비운다. */

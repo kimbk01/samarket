@@ -19,6 +19,7 @@ import type { CommunityMessengerRoomRealtimeMessageRow } from "@/lib/community-m
 import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { callStubSessionDedupeKeys } from "@/lib/community-messenger/call-event-message";
+import { retainDeletedForEveryoneAt } from "@/lib/community-messenger/room/messenger-message-merge-authority";
 
 /** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
 export function formatVoiceRecordTenThousandths(ms: number): string {
@@ -183,6 +184,10 @@ export function mergeRoomMessages(
       ...existing,
       ...item,
       ...(itemMetadata ? { metadata: itemMetadata } : {}),
+      deletedForEveryoneAt: retainDeletedForEveryoneAt(
+        existing?.deletedForEveryoneAt,
+        item.deletedForEveryoneAt
+      ),
       pending: false,
     });
   }

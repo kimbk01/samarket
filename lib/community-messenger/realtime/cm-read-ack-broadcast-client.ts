@@ -11,6 +11,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
 
 export const CM_READ_ACK_CHANNEL_NAME = "cm_read_ack";
 export const CM_READ_ACK_BROADCAST_EVENT = "read_ack";
@@ -24,10 +25,14 @@ function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
 
   let cancelled = false;
   let ch: RealtimeChannel | null = null;
+  let readAckGeneration = 0;
 
-  const onBroadcast = (msg: { payload?: unknown }) => {
-    if (cancelled) return;
-    const raw = msg.payload;
+  const onBroadcast = (msg: unknown, callbackGeneration: number) => {
+    if (cancelled || callbackGeneration !== readAckGeneration) return;
+    const raw =
+      msg && typeof msg === "object" && "payload" in msg
+        ? (msg as { payload?: unknown }).payload
+        : undefined;
     const p = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
     const roomId = typeof p.roomId === "string" ? p.roomId.trim() : "";
     const readerUserId = typeof p.readerUserId === "string" ? p.readerUserId.trim() : "";
@@ -55,20 +60,37 @@ function subscribeCmReadAckBroadcast(viewerUserId: string): () => void {
     });
   };
 
+  const subscribeReadAckChannel = () => {
+    if (cancelled) return;
+    const bindGen = ++readAckGeneration;
+    if (ch) {
+      try {
+        void sb.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+      ch = null;
+    }
+    ch = sb
+      .channel(CM_READ_ACK_CHANNEL_NAME, { config: { broadcast: { ack: false } } })
+      .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, (msg) => onBroadcast(msg, bindGen))
+      .subscribe();
+  };
+
   const bridgeCleanup = createRealtimeAuthBridge({
     sb,
     isCancelled: () => cancelled,
-    onReady: () => {
-      if (cancelled) return;
-      ch = sb
-        .channel(CM_READ_ACK_CHANNEL_NAME, { config: { broadcast: { ack: false } } })
-        .on("broadcast", { event: CM_READ_ACK_BROADCAST_EVENT }, onBroadcast)
-        .subscribe();
-    },
+    onReady: subscribeReadAckChannel,
+  });
+
+  const unsubscribeTokenRefresh = subscribeSamarketRealtimeTokenRefreshed(() => {
+    if (cancelled) return;
+    subscribeReadAckChannel();
   });
 
   return () => {
     cancelled = true;
+    unsubscribeTokenRefresh();
     bridgeCleanup();
     if (ch) {
       try {

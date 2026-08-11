@@ -3,8 +3,10 @@ import type {
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
+import { retainDeletedForEveryoneAt } from "@/lib/community-messenger/room/messenger-message-merge-authority";
 
-function mergeMessageLists(
+/** ID 기준 합집합 — stale bootstrap 창이 더 최신 행을 지우지 않는다. */
+export function mergeCommunityMessengerMessageLists(
   prev: CommunityMessengerMessage[],
   next: CommunityMessengerMessage[]
 ): CommunityMessengerMessage[] {
@@ -12,7 +14,19 @@ function mergeMessageLists(
   for (const m of prev) byId.set(m.id, m);
   for (const m of next) {
     const existing = byId.get(m.id);
-    byId.set(m.id, existing ? { ...existing, ...m } : m);
+    byId.set(
+      m.id,
+      existing
+        ? {
+            ...existing,
+            ...m,
+            deletedForEveryoneAt: retainDeletedForEveryoneAt(
+              existing.deletedForEveryoneAt,
+              m.deletedForEveryoneAt
+            ),
+          }
+        : m
+    );
   }
   const merged = Array.from(byId.values());
   merged.sort((a, b) => {
@@ -82,7 +96,9 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
   const prevMessages = prev.messages ?? [];
   const nextMessages = next.messages ?? [];
   const messages =
-    nextMessages.length > 0 ? mergeMessageLists(prevMessages, nextMessages) : prevMessages;
+    nextMessages.length > 0
+      ? mergeCommunityMessengerMessageLists(prevMessages, nextMessages)
+      : prevMessages;
   const members = mergeMembers(prev.members, next.members);
   const prevCount = prevMessages.length;
   const nextCount = nextMessages.length;

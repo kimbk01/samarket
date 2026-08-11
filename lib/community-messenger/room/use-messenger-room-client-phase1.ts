@@ -195,6 +195,7 @@ import {
   VoiceRecordingLiveWaveform,
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { mergePrimedTimelineSeedIntoExisting } from "@/lib/community-messenger/room/merge-primed-timeline-seed";
 
 import { MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
 
@@ -403,7 +404,7 @@ export function useMessengerRoomClientPhase1({
     const rid = roomId.trim();
     if (!rid || isCmRoomEntryShellFirstPass()) return base;
     const live = getMessengerRealtimeRoomMessages(rid);
-    if (live.length <= base.length) return base;
+    if (live.length === 0) return base;
     return mergeRoomMessages(base, live);
   });
 
@@ -413,10 +414,7 @@ export function useMessengerRoomClientPhase1({
     if (!rid) return;
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length <= 0) return;
-    setRoomMessages((prev) => {
-      if (live.length <= prev.length) return prev;
-      return mergeRoomMessages(prev, live);
-    });
+    setRoomMessages((prev) => mergeRoomMessages(prev, live));
   }, [roomId, phase1EntryLightPass]);
 
   useLayoutEffect(() => {
@@ -451,9 +449,13 @@ export function useMessengerRoomClientPhase1({
     const snapMsgs = snap.messages ?? [];
     if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
     setRoomMessages((prev) => {
-      if (snapMsgs.length === 0) return prev;
-      if (prev.length === 0) return snapMsgs;
-      return mergeRoomMessages(prev, snapMsgs);
+      if (snapMsgs.length === 0 && prev.length > 0) return prev;
+      const next = mergePrimedTimelineSeedIntoExisting({
+        roomId: snap.room.id,
+        prev,
+        seed: snapMsgs,
+      });
+      return next.length > 0 ? next : prev;
     });
   }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage]);
 
@@ -1050,6 +1052,13 @@ export function useMessengerRoomClientPhase1({
     setRoomMessages,
   });
 
+  useEffect(() => {
+    if (!roomReadyForRealtime) return;
+    const rid = (streamRoomId || roomId).trim();
+    if (!rid) return;
+    void catchUpNewerMessages();
+  }, [catchUpNewerMessages, roomId, roomReadyForRealtime, streamRoomId]);
+
   useMessengerRoomVisibilityBusCatchup({
     roomId,
     streamRoomId,
@@ -1456,22 +1465,21 @@ export function useMessengerRoomClientPhase1({
       return;
     }
     setRoomMessages((prev) => {
-      let next: Array<CommunityMessengerMessage & { pending?: boolean }>;
+      if ((snapshot.messages?.length ?? 0) === 0 && Boolean(snapshot.room.lastMessage?.trim()) && prev.length > 0) {
+        /** hydrate wave 가 빈 messages[] 만 내려줄 때 기존 cached timeline 유지 */
+        return prev;
+      }
       if (prev.length === 0) {
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
-        next = snapshot.messages;
-      } else if ((snapshot.messages?.length ?? 0) === 0 && Boolean(snapshot.room.lastMessage?.trim())) {
-        /** hydrate wave 가 빈 messages[] 만 내려줄 때 기존 cached timeline 유지 */
-        return prev;
-      } else {
-        next = mergeRoomMessages(prev, snapshot.messages, {
-          perfScope: "messenger_room_entry",
-          perfMetricPrefix: "initial_messages_merge",
-        });
       }
+      const next = mergePrimedTimelineSeedIntoExisting({
+        roomId: snapshot.room.id,
+        prev,
+        seed: snapshot.messages ?? [],
+      });
       if (next.length > 0) {
         recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
         recordCmRoomDomFirstMessageVisible({
