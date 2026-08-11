@@ -7,6 +7,8 @@ export type MapAddressPickPayload = {
   fullAddress: string;
   /** 지번·건물명·호 등 — 같은 화면에서 이어서 입력 */
   addressDetail?: string | null;
+  /** Google place id — 편집기 저장 권위가 요구 */
+  placeId?: string | null;
   savedAt: number;
 };
 
@@ -15,6 +17,7 @@ export function writeMapAddressPick(input: {
   longitude: number;
   fullAddress: string;
   addressDetail?: string | null;
+  placeId?: string | null;
 }): void {
   if (typeof sessionStorage === "undefined") return;
   const payload: MapAddressPickPayload = {
@@ -38,11 +41,14 @@ function parseMapAddressPickPayload(raw: string | null): Omit<MapAddressPickPayl
     const fullAddress = typeof j.fullAddress === "string" ? j.fullAddress.trim() : "";
     const rawDetail = (j as { addressDetail?: unknown }).addressDetail;
     const detail = typeof rawDetail === "string" ? rawDetail.trim() : undefined;
+    const rawPlaceId = (j as { placeId?: unknown }).placeId;
+    const placeId = typeof rawPlaceId === "string" ? rawPlaceId.trim() || null : undefined;
     return {
       latitude: j.latitude,
       longitude: j.longitude,
       fullAddress,
       ...(detail !== undefined ? { addressDetail: detail } : {}),
+      ...(placeId !== undefined ? { placeId } : {}),
     };
   } catch {
     return null;
