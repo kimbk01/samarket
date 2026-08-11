@@ -12,6 +12,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.json.JSONObject;
 
 /** Native HTTP facade for voice runtime. Uses the same server APIs as Web V4. */
@@ -55,25 +58,31 @@ public final class NativeVoiceCallApi {
   private NativeVoiceCallApi() {}
 
   public static void acceptAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "accept", "accept_patch_start", "accept_patch_done", callback);
+    patchAsync(context, callId, "accept", "accept_patch_start", "accept_patch_done", 0L, callback);
   }
 
   public static void rejectAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "reject", "reject_patch_start", "reject_patch_done", callback);
+    patchAsync(context, callId, "reject", "reject_patch_start", "reject_patch_done", 2_000L, callback);
   }
 
   public static void endAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "end", "end_patch_start", "end_patch_done", callback);
+    patchAsync(context, callId, "end", "end_patch_start", "end_patch_done", 2_000L, callback);
   }
 
   public static void missedAsync(Context context, String callId, PatchCallback callback) {
-    patchAsync(context, callId, "missed", "missed_patch_start", "missed_patch_done", callback);
+    patchAsync(context, callId, "missed", "missed_patch_start", "missed_patch_done", 2_000L, callback);
   }
 
   /** Phase V V1 — dead code until Runtime wiring (V4). */
   public static void upgradeToVideoAsync(Context context, String callId, PatchCallback callback) {
     patchAsync(
-        context, callId, "upgrade_to_video", "upgrade_patch_start", "upgrade_patch_done", callback);
+        context,
+        callId,
+        "upgrade_to_video",
+        "upgrade_patch_start",
+        "upgrade_patch_done",
+        0L,
+        callback);
   }
 
   /** Phase V V1 — dead code until Realtime wiring (V2). Memory-only; never log token values. */
@@ -202,6 +211,7 @@ public final class NativeVoiceCallApi {
       String action,
       String startMarker,
       String doneMarker,
+      long cookieTimeoutMs,
       PatchCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
@@ -221,7 +231,7 @@ public final class NativeVoiceCallApi {
                         origin
                             + "/api/community-messenger/calls/sessions/"
                             + URLEncoder.encode(sid, "UTF-8"));
-                conn = open(app, origin, url);
+                conn = open(app, origin, url, cookieTimeoutMs);
                 conn.setRequestMethod("PATCH");
                 conn.setDoOutput(true);
                 String deviceId = resolveDeviceId(app);
@@ -281,16 +291,48 @@ public final class NativeVoiceCallApi {
   }
 
   private static HttpURLConnection open(Context context, String origin, URL url) throws Exception {
+    return open(context, origin, url, 0L);
+  }
+
+  private static HttpURLConnection open(Context context, String origin, URL url, long cookieTimeoutMs)
+      throws Exception {
     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
     conn.setConnectTimeout(8_000);
     conn.setReadTimeout(8_000);
     conn.setRequestProperty("Accept", "application/json");
     conn.setRequestProperty("Content-Type", "application/json");
-    String cookie = CookieManager.getInstance().getCookie(origin);
+    String cookie =
+        cookieTimeoutMs > 0L
+            ? readCookieBounded(origin, cookieTimeoutMs)
+            : CookieManager.getInstance().getCookie(origin);
     if (cookie != null && !cookie.isEmpty()) {
       conn.setRequestProperty("Cookie", cookie);
     }
     return conn;
+  }
+
+  private static String readCookieBounded(String origin, long timeoutMs) {
+    FutureTask<String> task =
+        new FutureTask<>(
+            () -> {
+              try {
+                return CookieManager.getInstance().getCookie(origin);
+              } catch (Exception ignored) {
+                return null;
+              }
+            });
+    Thread thread = new Thread(task, "dibay-native-voice-cookie");
+    thread.setDaemon(true);
+    thread.start();
+    try {
+      String cookie = task.get(timeoutMs, TimeUnit.MILLISECONDS);
+      return cookie != null ? cookie : "";
+    } catch (TimeoutException timeout) {
+      NativeVoiceCallLog.warn("terminal_patch_cookie_timeout", "cookie", "timeoutMs=" + timeoutMs);
+      return "";
+    } catch (Exception ignored) {
+      return "";
+    }
   }
 
   private static String readBody(HttpURLConnection conn, int status) {

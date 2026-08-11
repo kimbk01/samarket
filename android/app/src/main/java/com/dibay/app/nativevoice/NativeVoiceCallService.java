@@ -42,11 +42,16 @@ public class NativeVoiceCallService extends Service {
 
   public static void stop(Context context, String callId, String reason) {
     if (context == null) return;
-    Intent intent = new Intent(context, NativeVoiceCallService.class);
+    Context app = context.getApplicationContext();
+    NotificationManager manager = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (manager != null) {
+      manager.cancel(NOTIFICATION_ID);
+    }
+    Intent intent = new Intent(app, NativeVoiceCallService.class);
     intent.setAction(ACTION_STOP);
     intent.putExtra(EXTRA_CALL_ID, callId);
     intent.putExtra("reason", reason != null ? reason : "stop");
-    context.startService(intent);
+    app.startService(intent);
   }
 
   private static void start(Context context, String callId, String action) {

@@ -100,6 +100,11 @@ public class NativeVoiceCallActivity extends Activity {
       finish();
       return;
     }
+    if (NativeVoiceCallRuntime.getSession(callId) == null) {
+      NativeVoiceCallLog.info("stale_activity_finish", callId, "reason=no_session");
+      finish();
+      return;
+    }
     if (!claimVisibleSurface()) {
       finish();
       return;
@@ -124,14 +129,19 @@ public class NativeVoiceCallActivity extends Activity {
     super.onNewIntent(intent);
     setIntent(intent);
     if (!bindIntent(intent)) return;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    if (session == null) {
+      NativeVoiceCallLog.info("stale_activity_finish", callId, "reason=no_session");
+      finish();
+      return;
+    }
     // Resuming via any route other than the in-dock "return" button (e.g. tapping back into
     // the task from Recents/launcher) must not leave the Activity stuck rendering the mini
     // dock — force full-screen restore so media controls (speaker/mute/video/end) reappear.
     if (dockMode) {
       hideDock("new_intent_resume");
     }
-    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    applyState(session != null ? session.state : defaultStateForMode());
+    applyState(session.state);
     maybeHandleNotificationAccept(intent);
   }
 

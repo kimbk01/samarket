@@ -15,6 +15,9 @@ public final class NativeVoiceCallAgoraEngine {
     void onDisconnected(String reason);
 
     void onError(String reason);
+
+    /** Remote peer left the channel (USER_OFFLINE_QUIT). Not network drop. */
+    void onRemotePeerLeft(String reason);
   }
 
   private static final Object LOCK = new Object();
@@ -22,6 +25,7 @@ public final class NativeVoiceCallAgoraEngine {
   private static String activeCallId;
   private static Listener listener;
   private static boolean callerJoinActive;
+  private static int remoteUid;
 
   private NativeVoiceCallAgoraEngine() {}
 
@@ -48,6 +52,7 @@ public final class NativeVoiceCallAgoraEngine {
       listener = nextListener;
       activeCallId = sid;
       callerJoinActive = caller;
+      remoteUid = 0;
     }
     if (caller) {
       NativeVoiceCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
@@ -115,6 +120,7 @@ public final class NativeVoiceCallAgoraEngine {
       if (engine == null) return false;
       if (activeCallId != null && !activeCallId.isEmpty()) return false;
       listener = null;
+      remoteUid = 0;
       try {
         engine.leaveChannel();
       } catch (RuntimeException error) {
@@ -136,6 +142,7 @@ public final class NativeVoiceCallAgoraEngine {
       listener = null;
       activeCallId = null;
       callerJoinActive = false;
+      remoteUid = 0;
       if (engine != null) {
         engine.leaveChannel();
         RtcEngine.destroy();
@@ -194,10 +201,31 @@ public final class NativeVoiceCallAgoraEngine {
             currentListener = listener;
             sid = activeCallId;
             callerJoin = callerJoinActive;
+            if (uid != 0) remoteUid = uid;
           }
           if (!callerJoin || sid == null || uid == 0) return;
           NativeVoiceCallLog.info("remote_user_joined", sid, "uid=" + uid);
           if (currentListener != null) currentListener.onConnected();
+        }
+
+        @Override
+        public void onUserOffline(int uid, int reason) {
+          Listener currentListener;
+          String sid;
+          int expectedUid;
+          synchronized (LOCK) {
+            currentListener = listener;
+            sid = activeCallId;
+            expectedUid = remoteUid;
+          }
+          if (sid == null || uid == 0 || uid != expectedUid) return;
+          if (reason == Constants.USER_OFFLINE_QUIT) {
+            NativeVoiceCallLog.info("agora_remote_user_offline_quit", sid, "uid=" + uid);
+            if (currentListener != null) currentListener.onRemotePeerLeft("agora_user_offline_quit");
+            return;
+          }
+          NativeVoiceCallLog.info(
+              "agora_remote_user_offline_ignored", sid, "uid=" + uid + " reason=" + reason);
         }
 
         @Override

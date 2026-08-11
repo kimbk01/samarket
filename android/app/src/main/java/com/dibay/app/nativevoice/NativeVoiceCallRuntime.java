@@ -17,6 +17,7 @@ import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Voice-only call runtime. It must not route through MainActivity or WebView before connected. */
 public final class NativeVoiceCallRuntime {
@@ -57,9 +58,30 @@ public final class NativeVoiceCallRuntime {
   }
 
   private static final long MISSED_TIMEOUT_MS = 30_000L;
+  private static final long TERMINAL_PATCH_BOUND_MS = 8_000L;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Boolean> PATCH_REQUESTED = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Runnable> PATCH_BOUNDS = new ConcurrentHashMap<>();
+
+  interface TerminalPatchDispatcher {
+    void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
+  }
+
+  private static final TerminalPatchDispatcher DEFAULT_PATCH_DISPATCHER =
+      (app, callId, action, callback) -> {
+        if ("reject".equals(action)) {
+          NativeVoiceCallApi.rejectAsync(app, callId, callback);
+        } else if ("missed".equals(action)) {
+          NativeVoiceCallApi.missedAsync(app, callId, callback);
+        } else {
+          NativeVoiceCallApi.endAsync(app, callId, callback);
+        }
+      };
+
+  static volatile TerminalPatchDispatcher terminalPatchDispatcherForTests;
+  static volatile boolean skipAgoraLeaveForTests;
 
   private NativeVoiceCallRuntime() {}
 
@@ -278,6 +300,11 @@ public final class NativeVoiceCallRuntime {
                 }
 
                 @Override
+                public void onRemotePeerLeft(String reason) {
+                  onRemoteTerminal(app, sid, "ended", reason);
+                }
+
+                @Override
                 public void onError(String reason) {
                   fail(app, sid, "agora " + safe(reason));
                 }
@@ -343,6 +370,11 @@ public final class NativeVoiceCallRuntime {
                       }
 
                       @Override
+                      public void onRemotePeerLeft(String reason) {
+                        onRemoteTerminal(app, sid, "ended", reason);
+                      }
+
+                      @Override
                       public void onError(String reason) {
                         fail(app, sid, "agora " + safe(reason));
                       }
@@ -352,16 +384,16 @@ public final class NativeVoiceCallRuntime {
   }
 
   public static void reject(Context context, String callId) {
-    terminalPatch(context, callId, "reject");
+    beginLocalTerminal(context, callId, "reject");
   }
 
   public static void end(Context context, String callId) {
     if (context != null && callId != null) NativeVoiceCallLog.info("end_tapped", callId.trim());
-    terminalPatch(context, callId, "end");
+    beginLocalTerminal(context, callId, "end");
   }
 
   public static void missed(Context context, String callId) {
-    terminalPatch(context, callId, "missed");
+    beginLocalTerminal(context, callId, "missed");
   }
 
   public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
@@ -377,12 +409,11 @@ public final class NativeVoiceCallRuntime {
       cancelMissed(sid);
       return;
     }
-    if (session != null
-        && (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED)) {
+    if (NativeVoiceCallTerminalOnce.isClaimed(sid)) {
       NativeVoiceCallLog.info(
           "native_terminal_skip",
           sid,
-          "kind=" + reason + " source=" + safe(source) + " state=" + session.state.name().toLowerCase());
+          "kind=" + reason + " source=" + safe(source) + " state=already_cleaned");
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
@@ -393,10 +424,16 @@ public final class NativeVoiceCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
+    if (!NativeVoiceCallTerminalOnce.claim(sid)) {
+      NativeVoiceCallLog.info("runtime_cleanup_idempotent_skip", sid, "reason=" + safe(reason));
+      return;
+    }
     NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     NativeOutgoingRingbackOwner.stop(sid, reason);
     cancelMissed(sid);
-    NativeVoiceCallAgoraEngine.leave(reason);
+    if (!skipAgoraLeaveForTests) {
+      NativeVoiceCallAgoraEngine.leave(reason);
+    }
     NativeVoiceCallNotification.dismiss(app, sid);
     NativeVoiceCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
     NativeVoiceCallService.stop(app, sid, reason);
@@ -411,7 +448,11 @@ public final class NativeVoiceCallRuntime {
     NativeVoiceCallActivity.finishIfActive(sid);
   }
 
-  private static void terminalPatch(Context context, String callId, String action) {
+  /**
+   * Local hangup/reject/missed: local resources are released immediately. Server PATCH is
+   * best-effort and must never block cleanup.
+   */
+  private static void beginLocalTerminal(Context context, String callId, String action) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -419,15 +460,63 @@ public final class NativeVoiceCallRuntime {
     NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
     cancelMissed(sid);
-    NativeVoiceCallApi.PatchCallback done =
-        (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");
-    if ("reject".equals(action)) {
-      NativeVoiceCallApi.rejectAsync(app, sid, done);
-    } else if ("missed".equals(action)) {
-      NativeVoiceCallApi.missedAsync(app, sid, done);
-    } else {
-      NativeVoiceCallApi.endAsync(app, sid, done);
+    cleanup(app, sid, action);
+    requestTerminalPatchBestEffort(app, sid, action);
+  }
+
+  private static void requestTerminalPatchBestEffort(Context app, String sid, String action) {
+    if (PATCH_REQUESTED.putIfAbsent(sid, Boolean.TRUE) != null) {
+      NativeVoiceCallLog.info("terminal_patch_idempotent_skip", sid, "action=" + action);
+      return;
     }
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    Runnable timeout =
+        () -> {
+          if (!finished.compareAndSet(false, true)) return;
+          PATCH_BOUNDS.remove(sid);
+          NativeVoiceCallLog.warn("terminal_patch_bounded_timeout", sid, "action=" + action);
+        };
+    PATCH_BOUNDS.put(sid, timeout);
+    MAIN.postDelayed(timeout, TERMINAL_PATCH_BOUND_MS);
+    NativeVoiceCallApi.PatchCallback done =
+        (ok, status, error) -> {
+          if (!finished.compareAndSet(false, true)) {
+            NativeVoiceCallLog.info("terminal_patch_late_or_duplicate", sid, "action=" + action);
+            return;
+          }
+          Runnable posted = PATCH_BOUNDS.remove(sid);
+          if (posted != null) MAIN.removeCallbacks(posted);
+          if (ok) {
+            NativeVoiceCallLog.info(
+                "terminal_patch_done", sid, "action=" + action + " status=" + status);
+          } else {
+            NativeVoiceCallLog.warn(
+                "terminal_patch_failed",
+                sid,
+                "action=" + action + " err=" + safe(error));
+          }
+        };
+    TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
+    if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
+    dispatcher.dispatch(app, sid, action, done);
+  }
+
+  static void putSessionForTests(Session session) {
+    if (session == null || session.callId == null) return;
+    SESSIONS.put(session.callId, session);
+  }
+
+  static void resetForTests() {
+    SESSIONS.clear();
+    MISSED_TIMEOUTS.clear();
+    PATCH_REQUESTED.clear();
+    for (Runnable posted : PATCH_BOUNDS.values()) {
+      MAIN.removeCallbacks(posted);
+    }
+    PATCH_BOUNDS.clear();
+    NativeVoiceCallTerminalOnce.clearForTests();
+    terminalPatchDispatcherForTests = null;
+    skipAgoraLeaveForTests = false;
   }
 
   private static void scheduleMissed(Context context, String callId) {
