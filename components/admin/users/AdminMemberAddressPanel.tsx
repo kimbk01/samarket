@@ -73,17 +73,22 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className={`${ADMIN_USERS_LITE_CARD} p-4`}>
-        <h3 className="text-xs font-bold uppercase tracking-wide text-[#667085]">
-          {safeT("admin_users_cc_address_profile", { fallbackKo: "프로필 주소", fallbackEn: "Profile address" })}
+      <div className={`${ADMIN_USERS_LITE_CARD} p-3`}>
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">
+          {t("admin_users_col_region")}
         </h3>
-        <p className="mt-2 text-sm font-semibold text-[#101828]">
+        <p className="mt-1 text-[13px] font-medium text-[#101828]">{profileAddress.regionName || profileAddress.regionCode || empty}</p>
+      </div>
+      <div className={`${ADMIN_USERS_LITE_CARD} p-3`}>
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-[#667085]">
+          {safeT("admin_users_cc_address_default", { fallbackKo: "기본 주소", fallbackEn: "Default address" })}
+        </h3>
+        <p className="mt-1 text-[13px] font-medium text-[#101828]">
           {profileAddress.lines.length > 0 ? profileAddress.lines.join(" · ") : empty}
         </p>
-        <p className="mt-1 text-xs text-[#667085]">{profileAddress.regionName || profileAddress.regionCode || empty}</p>
       </div>
       {addresses.length === 0 ? (
-        <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-[#667085]`}>
+        <div className={`${ADMIN_USERS_LITE_CARD} py-6 text-center text-sm text-[#667085]`}>
           {safeT("admin_users_cc_address_empty", { fallbackKo: "저장된 주소가 없습니다.", fallbackEn: "No saved addresses." })}
         </div>
       ) : (

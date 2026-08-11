@@ -1,4 +1,8 @@
 import { inferAdminAuthProviderFromSyntheticEmail } from "@/lib/admin-users/resolve-admin-auth-provider";
+import {
+  adminMemberListDisplayName,
+  adminMemberPublicIdAt,
+} from "@/lib/admin-users/admin-member-identity";
 import { isDibaySyntheticAuthEmail } from "@/lib/auth/synthetic-auth-email";
 import type {
   AdminAccountCategory,
@@ -28,26 +32,35 @@ export function normalizeAdminLiteToken(value: string | null | undefined): strin
   return String(value ?? "").trim().toLowerCase();
 }
 
-export function publicIdFromParts(dibayId?: string | null, username?: string | null): string {
-  const id = (dibayId ?? username ?? "").trim();
-  return id ? `@${id}` : "";
+/** Member ID column: @{dibay_id} only. username is login alias, never public ID. */
+export function publicIdFromParts(dibayId?: string | null, _username?: string | null): string {
+  return adminMemberPublicIdAt(dibayId);
 }
 
 export function publicIdForAdminUser(user: AdminUser): string {
-  return publicIdFromParts(user.dibay_id, user.username);
+  return adminMemberPublicIdAt(user.dibay_id);
 }
 
 export function publicIdForDetailUser(user: DetailUserLike): string {
-  return publicIdFromParts(user.dibay_id, user.username);
+  return adminMemberPublicIdAt(user.dibay_id);
+}
+
+export function displayNameForAdminUser(user: AdminUser): string {
+  return adminMemberListDisplayName({
+    displayName: user.displayName,
+    nickname: user.nickname,
+    email: user.email,
+    username: user.username,
+  });
 }
 
 export function displayNameForDetailUser(user: DetailUserLike): string {
-  return (
-    user.nickname?.trim() ||
-    user.display_name?.trim() ||
-    publicIdForDetailUser(user).replace(/^@/, "") ||
-    "—"
-  );
+  return adminMemberListDisplayName({
+    display_name: user.display_name,
+    nickname: user.nickname,
+    email: user.email,
+    username: user.username,
+  });
 }
 
 export function roleBadgesForAdminUser(user: AdminUser): AdminMemberRoleBadge[] {
@@ -119,10 +132,9 @@ export function resolveDetailAuthProvider(email: string | null | undefined): Adm
   return "unknown";
 }
 
-export function roleRowClass(role: AdminAccountCategory): string {
-  if (role === "admin") return "bg-[#f9f5ff] hover:bg-[#f4ebff]";
-  if (role === "store_manager") return "bg-[#fff6ed] hover:bg-[#ffead5]";
-  return "bg-white hover:bg-[#f9fafb]";
+/** No exclusive-type row tint. Status/relation badges carry meaning. */
+export function roleRowClass(_role?: AdminAccountCategory): string {
+  return "bg-white hover:bg-[#f8fafc]";
 }
 
 export function roleBadgeClass(role: AdminAccountCategory): string {

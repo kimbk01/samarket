@@ -2,7 +2,6 @@
 
 import type { OverviewMetric } from "@/lib/admin-users/member-overview-aggregates";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 
 export function AdminMemberMetricValue({
   metric,
@@ -35,16 +34,14 @@ export function AdminMemberMetricGrid({
   items: Array<{ label: string; metric: OverviewMetric<number | string | null>; format?: (value: number | string | null) => string }>;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className={`${ADMIN_USERS_LITE_CARD} p-4`}>
-          <p className="text-xs font-medium text-[#667085]">{item.label}</p>
-          <div className="mt-1">
-            <AdminMemberMetricValue metric={item.metric} format={item.format} />
-          </div>
-        </div>
+    <p className="text-[13px] font-medium text-[#344054]">
+      {items.map((item, index) => (
+        <span key={item.label}>
+          {index > 0 ? " | " : null}
+          {item.label} <AdminMemberMetricValue metric={item.metric} format={item.format} />
+        </span>
       ))}
-    </div>
+    </p>
   );
 }
 

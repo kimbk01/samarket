@@ -119,26 +119,42 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         </Link>
       </div>
 
-      <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-[#eaecf0]`}>
-        {section === "posts"
-          ? state.data.posts.map((row) => (
-              <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm font-semibold text-[#101828]">{row.title || row.preview || row.id}</p>
-                <p className="text-xs text-[#667085]">
-                  {row.status} · {row.topicSlug || row.category || "—"} · {fmt(row.createdAt)}
-                  {row.isReported ? ` · ${t("admin_users_cc_overview_reports")}` : ""}
-                </p>
-                <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
-                  <Link href={memberCommunityPostHref(row.id)}>
-                    {safeT("admin_users_cc_cta_view_post", { fallbackKo: "게시물 보기", fallbackEn: "View post" })}
-                  </Link>
-                  <Link href={memberCommunityReportsAdminHref(userId)}>
-                    {safeT("admin_users_cc_cta_view_reports", { fallbackKo: "신고 내역 보기", fallbackEn: "View reports" })}
-                  </Link>
-                </div>
-              </div>
-            ))
-          : null}
+      <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+        {section === "posts" ? (
+          <table className="min-w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+                <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "제목", fallbackEn: "Title" })}</th>
+                <th className="px-3 py-2">{t("admin_users_col_region")}</th>
+                <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
+                <th className="px-3 py-2">{t("admin_users_cc_overview_reports")}</th>
+                <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.data.posts.map((row) => (
+                <tr key={row.id} className="border-b border-[#eaecf0]">
+                  <td className="px-3 py-2">{row.status}</td>
+                  <td className="px-3 py-2 font-medium text-[#101828]">{row.title || row.preview || row.id}</td>
+                  <td className="px-3 py-2 text-[#475467]">{row.topicSlug || row.category || "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+                  <td className="px-3 py-2">{row.isReported ? t("admin_users_cc_overview_reports") : "—"}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+                      <Link href={memberCommunityPostHref(row.id)}>
+                        {safeT("admin_users_cc_cta_view_post", { fallbackKo: "원문", fallbackEn: "Open" })}
+                      </Link>
+                      <Link href={memberCommunityReportsAdminHref(userId)}>
+                        {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리", fallbackEn: "Community admin" })}
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
         {section === "comments"
           ? state.data.comments.map((row) => (
               <div key={row.id} className="space-y-1 px-4 py-3">

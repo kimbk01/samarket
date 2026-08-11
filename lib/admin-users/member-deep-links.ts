@@ -44,12 +44,23 @@ export function memberStoreOrdersByStoreHref(storeId: string): string {
   return `/admin/stores/orders/by-store/${encodeURIComponent(storeId)}`;
 }
 
-export function memberStoresAdminHref(): string {
-  return "/admin/stores";
+export function memberStoresAdminHref(query?: string): string {
+  const q = String(query ?? "").trim();
+  return q ? `/admin/stores?q=${encodeURIComponent(q)}` : "/admin/stores";
 }
 
-export function memberBusinessCreditHref(): string {
-  return "/admin/store-settlements";
+export function memberStorePublicHref(slug: string): string {
+  const value = slug.trim();
+  return `/stores/${encodeURIComponent(value)}`;
+}
+
+export function memberBusinessCreditHref(query?: string): string {
+  const q = String(query ?? "").trim();
+  return q ? `/admin/store-points?q=${encodeURIComponent(q)}` : "/admin/store-points";
+}
+
+export function memberNoteComposeHref(userId: string): string {
+  return `/admin/member-notes?kind=inbox&memberUserId=${encodeURIComponent(userId)}`;
 }
 
 export function memberMessengerAdminHref(userId: string): string {

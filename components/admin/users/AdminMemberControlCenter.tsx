@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  AdminMemberDetail,
-  type AdminPersonMembershipRow,
-  type AdminPersonStoreRow,
-  type AdminUserDetailPayload,
+import { useAdminMe } from "@/hooks/useAdminMe";
+import type {
+  AdminPersonMembershipRow,
+  AdminPersonStoreRow,
+  AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
+import { AdminMemberMasterHeader } from "@/components/admin/users/AdminMemberMasterHeader";
+import { AdminMemberAlertStrip } from "@/components/admin/users/AdminMemberAlertStrip";
 import { AdminMemberOverviewPanel } from "@/components/admin/users/AdminMemberOverviewPanel";
 import { AdminMemberAuthPanel } from "@/components/admin/users/AdminMemberAuthPanel";
 import { AdminMemberAddressPanel } from "@/components/admin/users/AdminMemberAddressPanel";
@@ -20,6 +22,7 @@ import { AdminMemberChatPanel } from "@/components/admin/users/AdminMemberChatPa
 import { AdminMemberOpsPanel } from "@/components/admin/users/AdminMemberOpsPanel";
 import { AdminUserPointsSection } from "@/components/admin/users/AdminUserPointsSection";
 import { AdminUserTrustSection } from "@/components/admin/users/AdminUserTrustSection";
+import { EditAdminForm } from "@/components/admin/users/EditAdminForm";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
   ADMIN_USERS_LITE_PAGE_BG,
@@ -67,7 +70,7 @@ export function AdminMemberControlCenter({
   user,
   stores,
   adminMembership,
-  activityStatus,
+  activityStatus: _activityStatus,
   initialTab,
   onUpdated,
 }: {
@@ -79,8 +82,10 @@ export function AdminMemberControlCenter({
   onUpdated?: () => void;
 }) {
   const { t } = useI18n();
+  const { isSuperAdmin } = useAdminMe();
   const [tab, setTab] = useState<AdminMemberCcTab>(() => parseCcTab(initialTab));
   const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(() => new Set([parseCcTab(initialTab)]));
+  const [editPermissions, setEditPermissions] = useState(false);
 
   const selectTab = (next: AdminMemberCcTab) => {
     setTab(next);
@@ -95,37 +100,46 @@ export function AdminMemberControlCenter({
   const lazy = useMemo(() => visited, [visited]);
 
   return (
-    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
-          <span>{t("admin_users_lite_breadcrumb_members")}</span>
-          <span className="mx-1.5 text-[#98a2b3]">›</span>
-          <Link href="/admin/users" className="hover:text-[#344054]">
-            {t("admin_users_lite_list_title")}
+    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-3 pb-6`}>
+      <div className="sticky top-0 z-20 space-y-3 bg-[#f4f6f9] pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
+            <span>{t("admin_users_lite_breadcrumb_members")}</span>
+            <span className="mx-1.5 text-[#98a2b3]">›</span>
+            <Link href="/admin/users" className="hover:text-[#344054]">
+              {t("admin_users_lite_list_title")}
+            </Link>
+            <span className="mx-1.5 text-[#98a2b3]">›</span>
+            <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
+          </nav>
+          <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
+            {t("admin_users_lite_back_to_list")}
           </Link>
-          <span className="mx-1.5 text-[#98a2b3]">›</span>
-          <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
-        </nav>
-        <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
-          {t("admin_users_lite_back_to_list")}
-        </Link>
-      </div>
-
-      <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
-        {ADMIN_MEMBER_CC_TABS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => selectTab(id)}
-            className={
-              tab === id
-                ? "shrink-0 rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
-                : "shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
-            }
-          >
-            {t(TAB_LABEL_KEYS[id])}
-          </button>
-        ))}
+        </div>
+        <AdminMemberMasterHeader
+          user={user}
+          stores={stores}
+          adminMembership={adminMembership}
+          onUpdated={onUpdated}
+          onEditPermissions={isSuperAdmin && adminMembership ? () => setEditPermissions(true) : undefined}
+        />
+        <AdminMemberAlertStrip user={user} stores={stores} />
+        <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#e4e7ec] bg-white p-1">
+          {ADMIN_MEMBER_CC_TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => selectTab(id)}
+              className={
+                tab === id
+                  ? "shrink-0 rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
+                  : "shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
+              }
+            >
+              {t(TAB_LABEL_KEYS[id])}
+            </button>
+          ))}
+        </div>
       </div>
 
       {lazy.has("overview") ? (
@@ -134,22 +148,14 @@ export function AdminMemberControlCenter({
             user={user}
             stores={stores}
             adminMembership={adminMembership}
+            onOpenTab={selectTab}
           />
         </div>
       ) : null}
 
       {lazy.has("account") ? (
-        <div hidden={tab !== "account"} className="space-y-4">
-          <AdminMemberAuthPanel userId={user.id} />
-          <AdminMemberDetail
-            user={user}
-            stores={stores}
-            adminMembership={adminMembership}
-            activityStatus={activityStatus}
-            presentation="modal"
-            hideLedgerSections
-            onUpdated={onUpdated}
-          />
+        <div hidden={tab !== "account"}>
+          <AdminMemberAuthPanel user={user} />
         </div>
       ) : null}
 
@@ -210,11 +216,22 @@ export function AdminMemberControlCenter({
         <div hidden={tab !== "ops"}>
           <AdminMemberOpsPanel
             userId={user.id}
-            nickname={user.nickname || user.display_name || user.id}
+            nickname={user.display_name || user.nickname || user.id}
             moderationStatus={user.moderation_status}
             onUpdated={onUpdated}
           />
         </div>
+      ) : null}
+
+      {editPermissions ? (
+        <EditAdminForm
+          staffId={user.id}
+          onClose={() => setEditPermissions(false)}
+          onSuccess={() => {
+            setEditPermissions(false);
+            onUpdated?.();
+          }}
+        />
       ) : null}
     </div>
   );

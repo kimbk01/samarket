@@ -5,14 +5,11 @@ import { useRouter } from "next/navigation";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { adminMemberMessengerHref } from "@/lib/admin-users/admin-member-messenger-link";
+import { memberNoteComposeHref } from "@/lib/admin-users/member-deep-links";
 import { fetchAdminStaffList } from "@/lib/admin-users/admin-staff-api";
 import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type { AdminStaff } from "@/lib/types/admin-staff";
-import {
-  ADMIN_USERS_CARD_CLASS,
-} from "@/lib/ui/admin-users-starbucks-styles";
 import {
   ADMIN_USERS_LITE_BTN_OUTLINE_DANGER,
   ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
@@ -28,7 +25,6 @@ import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
 import { AdminUserListSummaryCards } from "./AdminUserListSummaryCards";
 import { AdminUserTable } from "./AdminUserTable";
-import { AdminStaffTable } from "./AdminStaffTable";
 import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
@@ -96,7 +92,7 @@ export function AdminUserListPage() {
 
   const handleSendMessage = useCallback(
     (user: AdminUser) => {
-      router.push(adminMemberMessengerHref(user.id));
+      router.push(memberNoteComposeHref(user.id));
     },
     [router],
   );
@@ -124,7 +120,7 @@ export function AdminUserListPage() {
     refreshing: membersRefreshing,
   } = useAdminQuery<AdminUsersListResult>({
     queryKey: membersQueryKey,
-    enabled: tab !== "admin",
+    enabled: true,
     ttlMs: ADMIN_QUERY_TTL_MS,
     revalidateOnMount: true,
     fetcher: async () => {
@@ -191,7 +187,6 @@ export function AdminUserListPage() {
 
   const {
     data: staffFromQuery,
-    loading: staffLoading,
     error: staffErrorCode,
   } = useAdminQuery<AdminStaff[]>({
     queryKey: `admin:staff:list:${staffKey}`,
@@ -267,7 +262,7 @@ export function AdminUserListPage() {
   const handleTabChange = useCallback((next: Tab) => {
     setTab(next);
     setRoleFilter(
-      next === "general" ? "member" : next === "store" ? "store_manager" : "",
+      next === "general" ? "member" : next === "store" ? "store_manager" : next === "admin" ? "admin" : "",
     );
     setMembersPage(1);
   }, []);
@@ -280,10 +275,14 @@ export function AdminUserListPage() {
           ? "admin_users_tab_store"
           : "admin_users_tab_admin";
 
-  const showMembersTable =
-    tab !== "admin" && !membersError && !membersListPending && users.length > 0;
-  const showStaffTable = tab === "admin" && staffList.length > 0;
-  const showTableScrollChrome = showMembersTable || showStaffTable;
+  const staffByUserId = useMemo(() => {
+    const map = new Map<string, AdminStaff>();
+    for (const row of staffList) map.set(row.id, row);
+    return map;
+  }, [staffList]);
+
+  const showMembersTable = !membersError && !membersListPending && users.length > 0;
+  const showTableScrollChrome = showMembersTable;
 
   const onTableHorizontalScroll = useCallback(() => {
     const tableEl = tableScrollRef.current;
@@ -406,8 +405,8 @@ export function AdminUserListPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#101828]">
-            {t(tabTitleKey)}
+          <h1 className="text-xl font-bold text-[#101828]">
+            {t("admin_users_lite_breadcrumb_members")}
           </h1>
           <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
             <button
@@ -490,91 +489,58 @@ export function AdminUserListPage() {
         </div>
       </div>
 
-      {tab !== "admin" && (
-        <>
-          <AdminUserListSummaryCards summary={memberSummary} />
-          <AdminUserFilterBar
-            searchDraft={searchDraft}
-            onSearchDraftChange={setSearchDraft}
-            onSearchSubmit={applySearch}
-            roleFilter={roleFilter}
-            onRoleFilterChange={handleRoleFilterChange}
-            hideRoleFilter
-            statusFilter={statusFilter}
-            onStatusFilterChange={handleStatusFilterChange}
-          />
-          {membersError ? (
-            <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">
-              <p className="font-bold">{t("admin_users_list_error_title")}</p>
-              <p className="mt-1">{membersError}</p>
-              <button
-                type="button"
-                onClick={refreshMembers}
-                className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
-              >
-                {t("admin_users_retry")}
-              </button>
-            </div>
-          ) : membersListPending ? (
-            <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
-              {t("admin_users_loading_list")}
-            </div>
-          ) : users.length === 0 ? (
-            <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
-              {t("admin_users_empty_filtered")}
-            </div>
-          ) : (
-            <AdminUserTable
-              ref={tableScrollRef}
-              users={users}
-              totalItems={filteredTotal}
-              page={membersPage}
-              pageSize={membersPageSize}
-              onPageChange={setMembersPage}
-              onPageSizeChange={handleMembersPageSizeChange}
-              onViewDetail={handleViewDetail}
-              onEditMember={handleEditMember}
-              onSendMessage={handleSendMessage}
-              category={tab === "store" ? "store_manager" : "member"}
-              onHorizontalScroll={onTableHorizontalScroll}
-            />
-          )}
-        </>
-      )}
-
-      {tab === "admin" && (
-        <>
-          {staffError ? (
-            <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">
-              <p className="font-bold">{t("admin_users_list_error_title")}</p>
-              <p className="mt-1">{staffError}</p>
-              <button
-                type="button"
-                onClick={refreshStaff}
-                className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
-              >
-                {t("admin_users_retry")}
-              </button>
-            </div>
-          ) : staffLoading && staffList.length === 0 ? (
-            <div className={`${ADMIN_USERS_CARD_CLASS} py-12 text-center text-sm font-semibold text-[#6F4E37]`}>
-              {t("admin_users_loading_list")}
-            </div>
-          ) : staffList.length === 0 ? (
-            <div className={`${ADMIN_USERS_CARD_CLASS} py-12 text-center text-sm font-semibold text-[#6F4E37]`}>
-              {t("admin_users_staff_empty")}
-              {isMaster ? t("admin_users_staff_empty_master_hint") : null}
-            </div>
-          ) : (
-            <AdminStaffTable
-              ref={tableScrollRef}
-              staffList={staffList}
-              isMaster={isMaster}
-              onEdit={setEditingStaffId}
-              onHorizontalScroll={onTableHorizontalScroll}
-            />
-          )}
-        </>
+      {tab === "admin" && staffError ? (
+        <p className="text-[12px] text-[#b42318]">{staffError}</p>
+      ) : null}
+      <AdminUserListSummaryCards summary={memberSummary} />
+      <AdminUserFilterBar
+        searchDraft={searchDraft}
+        onSearchDraftChange={setSearchDraft}
+        onSearchSubmit={applySearch}
+        roleFilter={roleFilter}
+        onRoleFilterChange={handleRoleFilterChange}
+        hideRoleFilter
+        statusFilter={statusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
+      />
+      {membersError ? (
+        <div className="rounded-lg border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318]">
+          <p className="font-bold">{t("admin_users_list_error_title")}</p>
+          <p className="mt-1">{membersError}</p>
+          <button
+            type="button"
+            onClick={refreshMembers}
+            className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
+          >
+            {t("admin_users_retry")}
+          </button>
+        </div>
+      ) : membersListPending ? (
+        <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
+          {t("admin_users_loading_list")}
+        </div>
+      ) : users.length === 0 ? (
+        <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
+          {tab === "admin" ? t("admin_users_staff_empty") : t("admin_users_empty_filtered")}
+        </div>
+      ) : (
+        <AdminUserTable
+          ref={tableScrollRef}
+          users={users}
+          totalItems={filteredTotal}
+          page={membersPage}
+          pageSize={membersPageSize}
+          onPageChange={setMembersPage}
+          onPageSizeChange={handleMembersPageSizeChange}
+          onViewDetail={handleViewDetail}
+          onEditMember={handleEditMember}
+          onSendMessage={handleSendMessage}
+          onEditPermissions={isMaster ? setEditingStaffId : undefined}
+          variant={tab === "store" ? "store" : tab === "admin" ? "admin" : "all"}
+          staffByUserId={staffByUserId}
+          isMaster={isMaster}
+          onHorizontalScroll={onTableHorizontalScroll}
+        />
       )}
 
       <AdminTableBottomHorizontalScroll

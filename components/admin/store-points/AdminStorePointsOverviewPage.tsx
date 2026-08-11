@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -27,9 +28,10 @@ type StoreRow = {
 
 export function AdminStorePointsOverviewPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [stores, setStores] = useState<StoreRow[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q")?.trim() ?? "");
   const [searchDebounced, setSearchDebounced] = useState("");
   const [loading, setLoading] = useState(true);
   const [storesLoading, setStoresLoading] = useState(true);

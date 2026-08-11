@@ -30,7 +30,7 @@ import {
   uniqueAdminMemberIds,
   type ProfileFilterOp,
 } from "@/lib/admin-users/admin-member-list-query";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { resolveDisplayName } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,6 +162,7 @@ function mapProfileRowToAdminUser(input: {
   stores: Array<{
     id: string;
     name: string;
+    slug?: string | null;
     approvalStatus: string | null;
     isVisible: boolean | null;
     connectedAt: string | null;
@@ -187,22 +188,19 @@ function mapProfileRowToAdminUser(input: {
   const memberType = resolveMemberType(r);
   const dibayId = r.dibay_id?.trim() || null;
   const username = r.username?.trim() || null;
-  const nickname =
-    labelFromDisplayAndUsername(
-      (r.display_name ?? r.nickname ?? "").trim(),
-      (r.username ?? "").trim(),
-    ) ||
-    r.display_name?.trim() ||
-    r.nickname?.trim() ||
-    username ||
-    r.id;
-  const publicId = dibayId || username;
+  const nickname = r.nickname?.trim() || "";
+  const displayName = resolveDisplayName({
+    display_name: r.display_name,
+    nickname: r.nickname,
+    email: displayEmail ?? r.email,
+    username,
+  });
   const email = displayEmail ?? r.auth_login_email?.trim() ?? r.email?.trim() ?? undefined;
 
   return {
     id: r.id,
-    loginUsername: undefined,
-    loginIdentifier: email ?? (publicId ? `@${publicId}` : r.id),
+    loginUsername: username ?? undefined,
+    loginIdentifier: email ?? undefined,
     username,
     dibay_id: dibayId,
     dibay_id_locked: r.dibay_id_locked === true,
@@ -212,8 +210,8 @@ function mapProfileRowToAdminUser(input: {
     dibay_id_changed_at: r.dibay_id_changed_at ?? null,
     onboarding_status: r.onboarding_status?.trim() || null,
     onboarding_completed_at: r.onboarding_completed_at ?? null,
-    displayName: r.display_name?.trim() || r.nickname?.trim() || null,
-    nickname,
+    displayName,
+    nickname: nickname || displayName,
     email,
     authProvider,
     providerLabel: adminAuthProviderLabel(authProvider),
@@ -408,6 +406,7 @@ export async function GET(req: NextRequest) {
         stores: Array<{
           id: string;
           name: string;
+          slug?: string | null;
           approvalStatus: string | null;
           isVisible: boolean | null;
           connectedAt: string | null;
@@ -419,7 +418,7 @@ export async function GET(req: NextRequest) {
     if (profileIds.length > 0) {
       const { data: storeRows, error: storeErr } = await supabase
         .from("stores")
-        .select("id, owner_user_id, store_name, approval_status, is_visible, created_at")
+        .select("id, owner_user_id, store_name, slug, approval_status, is_visible, created_at")
         .in("owner_user_id", profileIds);
       if (!storeErr && Array.isArray(storeRows)) {
         for (const s of storeRows) {
@@ -428,6 +427,7 @@ export async function GET(req: NextRequest) {
           const store = s as {
             id?: string;
             store_name?: string | null;
+            slug?: string | null;
             approval_status?: string | null;
             is_visible?: boolean | null;
             created_at?: string | null;
@@ -440,6 +440,7 @@ export async function GET(req: NextRequest) {
           prev.stores.push({
             id: String(store.id ?? ""),
             name: String(store.store_name ?? "").trim(),
+            slug: String(store.slug ?? "").trim() || null,
             approvalStatus: store.approval_status ?? null,
             isVisible: store.is_visible ?? null,
             connectedAt: store.created_at ?? null,

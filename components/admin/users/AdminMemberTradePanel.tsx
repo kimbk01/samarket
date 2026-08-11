@@ -122,40 +122,52 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
           {safeT("admin_users_cc_cta_open_trade_admin", { fallbackKo: "Trade Admin에서 열기", fallbackEn: "Open in Trade admin" })}
         </Link>
       </div>
-      <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-[#eaecf0]`}>
-        {section === "listings"
-          ? state.data.listings.map((row) => (
-              <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm font-semibold text-[#101828]">{row.title || row.id}</p>
-                <p className="text-xs text-[#667085]">
-                  {row.listingState || row.status} · {row.price == null ? "—" : row.price.toLocaleString()} · {fmt(row.createdAt)}
-                </p>
-                <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
-                  <Link href={memberTradePostHref(row.id)}>
+      <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+        {section === "listings" ? (
+          <table className="min-w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "상품", fallbackEn: "Listing" })}</th>
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "가격", fallbackEn: "Price" })}</th>
+                <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
+                <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
+                <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.data.listings.map((row) => (
+                <tr key={row.id} className="border-b border-[#eaecf0]">
+                  <td className="px-3 py-2 font-medium text-[#101828]">{row.title || row.id}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.price == null ? "—" : row.price.toLocaleString()}</td>
+                  <td className="px-3 py-2">{row.listingState || row.status}</td>
+                  <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+                  <td className="px-3 py-2">
+                    <Link href={memberTradePostHref(row.id)} className="text-xs font-semibold text-[#2563eb]">
+                      {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "원본", fallbackEn: "Open listing" })}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          state.data.buyer.map((row) => (
+            <div key={row.id} className="space-y-1 px-4 py-3">
+              <p className="text-sm font-semibold text-[#101828]">{row.postTitle || row.postId}</p>
+              <p className="text-xs text-[#667085]">{row.tradeFlowStatus || "—"}</p>
+              <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
+                {row.postId ? (
+                  <Link href={memberTradePostHref(row.postId)}>
                     {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "거래 게시물 보기", fallbackEn: "View listing" })}
                   </Link>
-                  <Link href={memberTradeChatAdminHref()}>
-                    {safeT("admin_users_cc_cta_view_trade_chat", { fallbackKo: "Trade 채팅 보기", fallbackEn: "View trade chat" })}
-                  </Link>
-                </div>
+                ) : null}
+                <Link href={memberTradeChatAdminHref()}>
+                  {safeT("admin_users_cc_cta_view_trade_chat", { fallbackKo: "Trade 채팅 보기", fallbackEn: "View trade chat" })}
+                </Link>
               </div>
-            ))
-          : state.data.buyer.map((row) => (
-              <div key={row.id} className="space-y-1 px-4 py-3">
-                <p className="text-sm font-semibold text-[#101828]">{row.postTitle || row.postId}</p>
-                <p className="text-xs text-[#667085]">{row.tradeFlowStatus || "—"}</p>
-                <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
-                  {row.postId ? (
-                    <Link href={memberTradePostHref(row.postId)}>
-                      {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "거래 게시물 보기", fallbackEn: "View listing" })}
-                    </Link>
-                  ) : null}
-                  <Link href={memberTradeChatAdminHref()}>
-                    {safeT("admin_users_cc_cta_view_trade_chat", { fallbackKo: "Trade 채팅 보기", fallbackEn: "View trade chat" })}
-                  </Link>
-                </div>
-              </div>
-            ))}
+            </div>
+          ))
+        )}
         {(section === "listings" && state.data.listings.length === 0) || (section === "buyer" && state.data.buyer.length === 0) ? (
           <p className="px-4 py-6 text-center text-sm text-[#667085]">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}

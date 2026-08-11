@@ -41,6 +41,7 @@ export function AdminMemberOpsPanel({
   const [modBusy, setModBusy] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [stack, setStack] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<"all" | MemberOpsHistoryItem["source"]>("all");
   const [history, setHistory] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberOpsHistoryPayload }>({
     kind: "loading",
   });
@@ -223,14 +224,39 @@ export function AdminMemberOpsPanel({
                 {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
               </p>
             ) : null}
+            <div className="flex flex-wrap gap-1">
+              {(["all", "user_moderation_events", "audit_logs", "trust_events"] as const).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSourceFilter(id)}
+                  className={
+                    sourceFilter === id
+                      ? "rounded-md bg-[#eff6ff] px-2 py-1 text-[11px] font-semibold text-[#2563eb]"
+                      : "rounded-md px-2 py-1 text-[11px] font-semibold text-[#667085]"
+                  }
+                >
+                  {id === "all"
+                    ? t("admin_users_tab_all")
+                    : id === "user_moderation_events"
+                      ? t("admin_users_cc_moderation_title")
+                      : id === "trust_events"
+                        ? t("admin_users_cc_tab_trust")
+                        : t("admin_users_cc_overview_account")}
+                </button>
+              ))}
+            </div>
             <ul className="divide-y divide-[#eaecf0]">
-              {history.data.items.map((item: MemberOpsHistoryItem) => (
-                <li key={item.id} className="py-2 text-sm">
+              {history.data.items
+                .filter((item) => sourceFilter === "all" || item.source === sourceFilter)
+                .map((item: MemberOpsHistoryItem) => (
+                <li key={item.id} className="py-2 text-[13px]">
+                  <p className="tabular-nums text-[#667085]">{fmt(item.createdAt)}</p>
                   <p className="font-semibold text-[#101828]">{item.action}</p>
-                  <p className="text-xs text-[#667085]">
-                    {item.source} · actor {item.actorId || "—"} · {fmt(item.createdAt)}
+                  <p className="text-[12px] text-[#667085]">
+                    {item.source} · {item.actorId || "—"}
                   </p>
-                  {item.reason ? <p className="text-xs text-[#667085]">{item.reason}</p> : null}
+                  {item.reason ? <p className="text-[12px] text-[#667085]">{item.reason}</p> : null}
                 </li>
               ))}
             </ul>

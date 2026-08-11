@@ -38,7 +38,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const { isSuperAdmin: isMasterUi } = useAdminMe();
   const [nickname, setNickname] = useState(user.nickname);
-  const [dibayId, setDibayId] = useState(() => (user.dibay_id ?? user.username ?? "").replace(/^@+/, ""));
+  const [dibayId, setDibayId] = useState(() => (user.dibay_id ?? "").replace(/^@+/, ""));
   const [email, setEmail] = useState(user.email ?? "");
   const [phone, setPhone] = useState(user.phone ?? "");
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
@@ -55,7 +55,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
   useEffect(() => {
     setNickname(user.nickname);
-    setDibayId((user.dibay_id ?? user.username ?? "").replace(/^@+/, ""));
+    setDibayId((user.dibay_id ?? "").replace(/^@+/, ""));
     setEmail(user.email ?? "");
     setPhone(user.phone ?? "");
     setMemberType(user.memberType);
@@ -93,7 +93,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     } = {};
     if (nextNickname !== user.nickname) body.nickname = nextNickname;
     const nextDibayId = dibayId.trim().replace(/^@+/, "").toLowerCase();
-    const currentDibayId = (user.dibay_id ?? user.username ?? "").replace(/^@+/, "").toLowerCase();
+    const currentDibayId = (user.dibay_id ?? "").replace(/^@+/, "").toLowerCase();
     if (nextDibayId !== currentDibayId) body.dibayId = nextDibayId;
     const nextEmail = email.trim().toLowerCase();
     const currentEmail = (user.email ?? "").trim().toLowerCase();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -51,6 +52,7 @@ function displayAdminPhone(raw: string | null | undefined): string {
 
 export function AdminStoresPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
@@ -58,7 +60,7 @@ export function AdminStoresPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(() => searchParams.get("q")?.trim() ?? "");
   const [realtimeBadge, setRealtimeBadge] = useState(false);
   const [toast, setToast] = useState(false);
   const toastTimeoutRef = useRef<number | null>(null);

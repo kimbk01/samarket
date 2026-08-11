@@ -536,7 +536,7 @@ export async function GET(
     );
     const user: AdminUserDetailRow = {
       id: rawId,
-      username: prof.username ?? prof.dibay_id ?? null,
+      username: prof.username ?? null,
       dibay_id: prof.dibay_id ?? null,
       dibay_id_locked: prof.dibay_id_locked === true,
       dibay_id_auto_assigned: prof.dibay_id_auto_assigned === true,
@@ -545,7 +545,7 @@ export async function GET(
       dibay_id_changed_at: prof.dibay_id_changed_at ?? null,
       email: prof.email ?? null,
       role: String(prof.role ?? "user").trim() || "user",
-      display_name: prof.display_name ?? prof.nickname ?? null,
+      display_name: prof.display_name ?? null,
       nickname: prof.nickname ?? null,
       contact_phone: prof.phone ?? null,
       contact_address: fromProfileLines.length > 0 ? fromProfileLines.join("\n") : null,
@@ -562,6 +562,7 @@ export async function GET(
       verified_member_at: prof.verified_member_at ?? null,
       created_at: prof.created_at ?? null,
       last_login_at: prof.last_login_at ?? null,
+      region_name: prof.region_name ?? null,
       hasProfile: true,
       trust_score:
         prof.trust_score != null && Number.isFinite(Number(prof.trust_score))

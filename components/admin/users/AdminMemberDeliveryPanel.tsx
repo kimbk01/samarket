@@ -7,7 +7,6 @@ import { AdminMemberMetricGrid, AdminMemberPager } from "@/components/admin/user
 import {
   memberOrderDetailHref,
   memberOrdersByBuyerHref,
-  memberStoresAdminHref,
 } from "@/lib/admin-users/member-deep-links";
 import type { MemberOrdersTabPayload } from "@/lib/admin-users/member-orders-tab";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
@@ -89,26 +88,35 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
           {safeT("admin_users_cc_cta_open_order_admin", { fallbackKo: "Admin 주문관리에서 열기", fallbackEn: "Open in order admin" })}
         </Link>
       </div>
-      <div className={`${ADMIN_USERS_LITE_CARD} divide-y divide-[#eaecf0]`}>
-        {orders.map((row) => (
-          <div key={row.id} className="space-y-1 px-4 py-3">
-            <p className="text-sm font-semibold text-[#101828]">{row.orderNo}</p>
-            <p className="text-xs text-[#667085]">
-              {row.storeName || row.storeId} · {row.status} · {row.paymentAmount == null ? "—" : row.paymentAmount.toLocaleString()} ·{" "}
-              {fmt(row.createdAt)}
-            </p>
-            <div className="flex flex-wrap gap-3 text-xs font-semibold text-[#2563eb]">
-              <Link href={memberOrderDetailHref(row.id)}>
-                {safeT("admin_users_cc_cta_order_detail", { fallbackKo: "주문 상세", fallbackEn: "Order detail" })}
-              </Link>
-              {row.storeId ? (
-                <Link href={memberStoresAdminHref()}>
-                  {safeT("admin_users_cc_cta_view_store", { fallbackKo: "매장 보기", fallbackEn: "View store" })}
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        ))}
+      <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+        <table className="min-w-full border-collapse text-[13px]">
+          <thead>
+            <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase text-[#475467]">
+              <th className="px-3 py-2">{safeT("admin_users_cc_col_order_no", { fallbackKo: "주문번호", fallbackEn: "Order no." })}</th>
+              <th className="px-3 py-2">{t("admin_users_store_col_store_name")}</th>
+              <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "주문금액", fallbackEn: "Amount" })}</th>
+              <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
+              <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
+              <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((row) => (
+              <tr key={row.id} className="border-b border-[#eaecf0]">
+                <td className="px-3 py-2 font-medium text-[#101828]">{row.orderNo}</td>
+                <td className="px-3 py-2 text-[#475467]">{row.storeName || row.storeId}</td>
+                <td className="px-3 py-2 tabular-nums">{row.paymentAmount == null ? "—" : row.paymentAmount.toLocaleString()}</td>
+                <td className="px-3 py-2">{row.status}</td>
+                <td className="px-3 py-2 tabular-nums text-[#475467]">{fmt(row.createdAt)}</td>
+                <td className="px-3 py-2">
+                  <Link href={memberOrderDetailHref(row.id)} className="text-xs font-semibold text-[#2563eb]">
+                    {safeT("admin_users_cc_cta_order_detail", { fallbackKo: "주문 상세", fallbackEn: "Order detail" })}
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         {orders.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-[#667085]">
             {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}

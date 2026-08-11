@@ -64,6 +64,7 @@ export type AdminUserDetailPayload = {
   moderation_status?: string;
   created_at: string | null;
   last_login_at?: string | null;
+  region_name?: string | null;
   hasProfile?: boolean;
   /** User Facts Trust SSOT — profiles.trust_score */
   trust_score?: number | null;

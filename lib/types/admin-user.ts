@@ -62,6 +62,7 @@ export interface AdminUser {
     stores?: Array<{
       id: string;
       name: string;
+      slug?: string | null;
       approvalStatus: string | null;
       isVisible: boolean | null;
       connectedAt: string | null;
@@ -152,6 +153,8 @@ export interface AdminUserDetail {
   created_at: string | null;
   /** App last login — profiles.last_login_at. Not Auth last_sign_in_at. */
   last_login_at?: string | null;
+  /** profiles.region_name — list/detail region line. Not user_addresses. */
+  region_name?: string | null;
   hasProfile: boolean;
   /** User Facts Trust SSOT — profiles.trust_score (0–100) */
   trust_score?: number | null;
