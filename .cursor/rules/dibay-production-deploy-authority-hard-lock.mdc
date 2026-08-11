@@ -1,11 +1,11 @@
 ---
-description: Production deploy authority is Git main → Vercel Git Integration only. Forbid CLI --prod.
+description: Production deploy = Git main → Vercel Git Integration only. Enhanced 8c/16GB. No CLI --prod, no GHA next build, no Turbo.
 alwaysApply: true
 ---
 
-# DIBAY Production Deploy Authority HARD LOCK
+# DIBAY Build / Deploy HARD LOCK
 
-**HARD LOCK (2026-08-12).** Production 배포 권위는 하나다.
+**HARD LOCK (2026-08-12).** Full doc: `docs/dibay-build-deploy-hard-lock.md`.
 
 ## Authority
 
@@ -17,6 +17,14 @@ origin/main
 
 ONLY.
 
+Build machine: **Enhanced 8c / 16GB** (`buildMachineType=enhanced`, `buildMachineSelection=fixed`).
+
+Next production build: **Vercel ONLY**.
+
+GitHub CI (`npm run ci`): source typecheck + test typecheck + lint + vitest + contracts + i18n. **No `next build`.**
+
+TypeScript: Next uses `tsconfig.build.json`. Tests use `tsconfig.test.json`. `ignoreBuildErrors` = 0.
+
 ## DO NOT
 
 - `vercel --prod`
@@ -25,7 +33,13 @@ ONLY.
 - dirty-tree Production deploy (`gitDirty`)
 - Git Production ERROR 후 CLI override
 - 동일 SHA 중복 Production (env 변경·incident·explicit rollback 제외)
+- Dashboard Production Redeploy as cutover
 - `scripts/deploy-prod-clean-worktree.sh` 로 Production 올리기 (fail-only)
+- GitHub Actions `next build`
+- `ignoreBuildErrors: true`
+- Turbo build machine
+- NODE_OPTIONS / heap change as a substitute for Enhanced
+- Revert `tsconfig.build.json` / `tsconfig.test.json` without reopen
 
 Git Production 실패 = **FAILED**. 원인 고친 **새 commit**으로만 해결한다. CLI로 덮지 않는다.
 
