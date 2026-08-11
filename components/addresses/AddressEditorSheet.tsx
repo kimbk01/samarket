@@ -504,6 +504,61 @@ export function AddressEditorSheet(props: {
     } as UserAddressDTO);
   }, [roadAddress, formattedAddress, fullAddress]);
 
+  const storeOptions = useMemo(
+    () =>
+      meStores.map((store) => ({
+        id: store.id,
+        label: (store.slug || store.store_name || store.id).trim(),
+      })),
+    [meStores],
+  );
+  const approvedStoresById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const store of meStores) {
+      const id = store.id.trim();
+      const name = (store.store_name ?? "").trim();
+      if (id && name) map.set(id, name);
+    }
+    return map;
+  }, [meStores]);
+  const handleDesignationChange = useCallback(
+    (next: AddressDesignationPreset) => {
+      const prev = labelPreset;
+      setLabelPreset(next);
+      setErr(null);
+
+      if (next === "shop") {
+        if (returnToStoreId && meStores.some((store) => store.id.trim() === returnToStoreId)) {
+          const row = meStores.find((store) => store.id.trim() === returnToStoreId);
+          setSelectedStoreId(returnToStoreId);
+          if (row) applyStoreRow(row);
+        }
+        return;
+      }
+
+      setSelectedStoreId("");
+
+      if (prev === "shop" || storeGeoAppliedRef.current) {
+        storeGeoAppliedRef.current = false;
+        if (mode === "edit" && initial && initial.labelType !== "shop") {
+          restoreInitialLocationFields();
+        } else {
+          clearLocationFormFields();
+        }
+      }
+    },
+    [
+      applyStoreRow,
+      clearLocationFormFields,
+      initial,
+      labelPreset,
+      meStores,
+      mode,
+      restoreInitialLocationFields,
+      returnToStoreId,
+    ],
+  );
+
   async function selectPrediction(row: PlacePredictionRow) {
     if (!row.placeId.trim()) return;
     setResolvingPlaceId(row.placeId);
@@ -756,61 +811,7 @@ export function AddressEditorSheet(props: {
   const selectedStoreDisplayName = (
     meStores.find((store) => store.id.trim() === selectedStoreId.trim())?.store_name ?? ""
   ).trim();
-  const storeOptions = useMemo(
-    () =>
-      meStores.map((store) => ({
-        id: store.id,
-        label: (store.slug || store.store_name || store.id).trim(),
-      })),
-    [meStores],
-  );
-  const approvedStoresById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const store of meStores) {
-      const id = store.id.trim();
-      const name = (store.store_name ?? "").trim();
-      if (id && name) map.set(id, name);
-    }
-    return map;
-  }, [meStores]);
   const showStoreDesignationOption = meStores.length > 0 || labelPreset === "shop" || Boolean(returnToStoreId);
-  const handleDesignationChange = useCallback(
-    (next: AddressDesignationPreset) => {
-      const prev = labelPreset;
-      setLabelPreset(next);
-      setErr(null);
-
-      if (next === "shop") {
-        if (returnToStoreId && meStores.some((store) => store.id.trim() === returnToStoreId)) {
-          const row = meStores.find((store) => store.id.trim() === returnToStoreId);
-          setSelectedStoreId(returnToStoreId);
-          if (row) applyStoreRow(row);
-        }
-        return;
-      }
-
-      setSelectedStoreId("");
-
-      if (prev === "shop" || storeGeoAppliedRef.current) {
-        storeGeoAppliedRef.current = false;
-        if (mode === "edit" && initial && initial.labelType !== "shop") {
-          restoreInitialLocationFields();
-        } else {
-          clearLocationFormFields();
-        }
-      }
-    },
-    [
-      applyStoreRow,
-      clearLocationFormFields,
-      initial,
-      labelPreset,
-      meStores,
-      mode,
-      restoreInitialLocationFields,
-      returnToStoreId,
-    ],
-  );
 
   const designationRadioValue: AddressDesignationPreset | null =
     labelPreset === "home" ||
