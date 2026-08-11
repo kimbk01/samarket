@@ -39,9 +39,6 @@ export default function BusinessApplyRoute() {
   const [existingLoading, setExistingLoading] = useState(true);
   const [computedStoreSlug, setComputedStoreSlug] = useState<string>("");
 
-  useEffect(() => {
-    void requireAuthAction("owner_dashboard", () => {}, { next: pathname });
-  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +97,8 @@ export default function BusinessApplyRoute() {
   }, [profileSeed?.username]);
 
   const handleSubmit = async (values: BusinessApplyFormValues) => {
+    const gated = await requireAuthAction("owner_dashboard", async () => {}, { next: pathname });
+    if (!gated) return;
     setSubmitError(null);
     const nick = (profileSeed?.applicantNickname ?? values.applicantNickname).trim();
     if (!nick || nick.length > 20) {

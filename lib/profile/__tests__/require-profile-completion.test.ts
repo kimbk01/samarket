@@ -14,13 +14,14 @@ const completeBaseProfile = {
 };
 
 describe("require-profile-completion", () => {
-  it("community_write requires phone, dibay_id, display_name", () => {
+  it("community_write requires phone and display_name, not dibay_id", () => {
     const missing = evaluateProfileRequirements(
-      { display_name: null, nickname: null, phone_verified: false },
+      { display_name: null, nickname: null, phone_verified: false, dibay_id: null },
       "community_write"
     );
     expect(missing.satisfied).toBe(false);
     expect(missing.missingFields).toEqual(ACTION_ACCESS_BASE_FIELDS);
+    expect(missing.missingFields).not.toContain("dibay_id");
 
     const ok = evaluateProfileRequirements(completeBaseProfile, "community_write");
     expect(ok.satisfied).toBe(true);
@@ -55,14 +56,38 @@ describe("require-profile-completion", () => {
     expect(result.missingFields).toContain("default_address");
   });
 
-  it("messenger_open uses base access fields", () => {
+  it("messenger_open has no profile requirements", () => {
     const result = evaluateProfileRequirements(
-      { display_name: "User", phone_verified: false, dibay_id_locked: false },
+      { display_name: "User", phone_verified: false, dibay_id: null },
       "messenger_open"
     );
-    expect(result.satisfied).toBe(false);
-    expect(result.missingFields).toContain("phone_verified");
-    expect(result.missingFields).toContain("dibay_id");
+    expect(result.satisfied).toBe(true);
+    expect(result.missingFields).toEqual([]);
+  });
+
+  it("feature actions never require dibay_id custom change", async () => {
+    const { ACTION_PROFILE_REQUIREMENTS } = await import("@/lib/profile/profile-requirements");
+    for (const fields of Object.values(ACTION_PROFILE_REQUIREMENTS)) {
+      expect(fields).not.toContain("dibay_id");
+    }
+  });
+
+  it("auto-assigned handle with phone and display_name passes community_write", () => {
+    const result = evaluateProfileRequirements(
+      {
+        display_name: "홍길동",
+        nickname: "홍길동",
+        dibay_id: "dibay_ab12cd",
+        dibay_id_auto_assigned: true,
+        dibay_id_changed_once: false,
+        dibay_id_locked: false,
+        phone_verified: true,
+        phone_verified_at: "2026-01-01T00:00:00.000Z",
+      },
+      "community_write"
+    );
+    expect(result.satisfied).toBe(true);
+    expect(result.missingFields).toEqual([]);
   });
 });
 

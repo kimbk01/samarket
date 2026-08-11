@@ -12,8 +12,7 @@ import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
-import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
 
 type VerificationPayload = {
   phone: string | null;
@@ -147,8 +146,7 @@ export function PhoneVerificationRequestForm() {
         );
         return;
       }
-      invalidateMeProfileDedupedCache();
-      invalidateMandatoryAddressGateClientCache();
+      await refreshClientMemberAccountAfterMutation();
       setStatus(data.verification as VerificationPayload);
       setMessage(t("my_phone_verified_success"));
       setOtpCode("");

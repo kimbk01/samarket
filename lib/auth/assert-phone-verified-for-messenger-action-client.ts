@@ -3,7 +3,7 @@
 import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
-import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import type { Profile } from "@/lib/types/profile";
 
 /**
@@ -15,11 +15,12 @@ export function clientProfilePassesPhoneVerification(user: Profile | null | unde
   if (!user?.id) return false;
   const privilegedAdmin = user.privilegedAdmin === true;
   if (isPrivilegedAdminAuthority({ privilegedAdmin })) return true;
-  return hasPhilippinePhoneVerification({
+  return hasVerifiedPhone({
     role: user.role,
     privilegedAdmin,
     phone_verified: user.phone_verified === true,
     phone_verified_at: user.phone_verified_at ?? null,
+    phone_verification_method: user.phone_verification_method ?? null,
     provider: user.provider ?? user.auth_provider,
     auth_provider: user.auth_provider,
     email: user.email,

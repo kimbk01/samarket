@@ -4,17 +4,19 @@ import {
   invalidatePhoneVerifiedPositiveProfile,
   rememberPhoneVerifiedPositiveProfile,
 } from "@/lib/auth/phone-verified-positive-cache";
-import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 
 /** OTP 검증 성공 직후 — stale positive 캐시 제거 후 fresh profile 로 gate 캐시 재구성 */
 export async function syncPhoneVerifiedServerCache(userId: string): Promise<void> {
   invalidatePhoneVerifiedPositiveProfile(userId);
   const profile = await getCurrentProfile(userId);
   if (!profile) return;
-  const passes = hasPhilippinePhoneVerification({
+  const passes = hasVerifiedPhone({
     role: profile.role ?? null,
+    privilegedAdmin: profile.privilegedAdmin === true,
     phone_verified: profile.phone_verified === true,
     phone_verified_at: profile.phone_verified_at ?? null,
+    phone_verification_method: profile.phone_verification_method ?? null,
     provider: profile.provider ?? profile.auth_provider ?? null,
     auth_provider: profile.auth_provider ?? profile.provider ?? null,
     email: profile.email ?? null,

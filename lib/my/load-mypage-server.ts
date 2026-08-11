@@ -13,7 +13,7 @@ import { defaultMypageCmsPack, loadMypageCmsPack } from "@/lib/my/load-mypage-cm
 import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
 import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
 import { loadAddressDefaultsSnapshotServer } from "@/lib/addresses/load-address-defaults-snapshot-server";
-import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
+import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-service";
 import { deriveProfileCompletionState } from "@/lib/profile/profile-completion-state";
 
 const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
@@ -47,7 +47,7 @@ async function resolveMypageProfileCompletion(
   const sbStores = tryGetSupabaseForStores();
   if (sbStores && userId.trim()) {
     try {
-      hasDefaultAddress = await isMandatoryAddressGateSatisfied(sbStores, userId);
+      hasDefaultAddress = await hasCanonicalDefaultMasterAddress(sbStores, userId);
     } catch {
       hasDefaultAddress = false;
     }

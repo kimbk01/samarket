@@ -11,14 +11,13 @@ import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-le
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
-  hasPhilippinePhoneVerification,
   hasStoreTermsConsent,
   isDeletedStoreMember,
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
-import { resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
+import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 
@@ -123,15 +122,17 @@ export function bypassesPhilippinePhoneVerificationGate(input: {
   privilegedAdmin?: boolean;
   phone_verified: boolean;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
   auth_provider?: string | null;
   provider?: string | null;
   email?: string | null;
 }): boolean {
-  return hasPhilippinePhoneVerification({
+  return hasVerifiedPhone({
     role: input.role,
     privilegedAdmin: input.privilegedAdmin,
     phone_verified: input.phone_verified,
     phone_verified_at: input.phone_verified_at ?? null,
+    phone_verification_method: input.phone_verification_method ?? null,
     provider: input.provider ?? input.auth_provider ?? null,
     auth_provider: input.auth_provider ?? null,
     email: input.email ?? null,
@@ -145,13 +146,15 @@ export function bypassesPhilippinePhoneVerificationGate(input: {
 export function hasFormalMemberContactVerification(input: {
   phone_verified: boolean;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
   auth_provider?: string | null;
   provider?: string | null;
   email?: string | null;
 }): boolean {
-  return hasPhilippinePhoneVerification({
+  return hasVerifiedPhone({
     phone_verified: input.phone_verified,
     phone_verified_at: input.phone_verified_at ?? null,
+    phone_verification_method: input.phone_verification_method ?? null,
     provider: input.provider ?? input.auth_provider ?? null,
     auth_provider: input.auth_provider ?? null,
     email: input.email ?? null,
@@ -577,7 +580,7 @@ export async function loadMemberAccessState(
   const { data: profile } = await sb
     .from("profiles")
     .select(
-      "id, email, display_name, username, nickname, avatar_url, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+      "id, email, display_name, username, nickname, avatar_url, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_method, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -604,17 +607,29 @@ export async function loadMemberAccessState(
     phone_number: phoneNumber,
   });
   const phoneVerifiedAt = pickTrimmed((profile as { phone_verified_at?: string | null } | null)?.phone_verified_at);
-  const phoneVerified = profile?.phone_verified === true || Boolean(phoneVerifiedAt);
+  const phoneVerificationMethod = pickTrimmed(
+    (profile as { phone_verification_method?: string | null } | null)?.phone_verification_method,
+  );
   const authLoginEmail = pickTrimmed((profile as { auth_login_email?: string | null } | null)?.auth_login_email);
   const memberStatus = pickTrimmed((profile as { member_status?: string | null } | null)?.member_status);
   const isAdmin = privilegedAdmin;
-  const phoneVerificationStatus =
-    pickTrimmed(profile?.phone_verification_status) ??
-    (phoneVerified ? "verified" : phone ? "pending" : "unverified");
   const authProvider =
     normalizeProvider(pickTrimmed((profile as { provider?: string | null } | null)?.provider) ?? pickTrimmed(profile?.auth_provider)) ??
     normalizeProvider(opts?.fallbackProvider) ??
     null;
+  const phoneVerified = hasVerifiedPhone({
+    role,
+    privilegedAdmin,
+    phone_verified: profile?.phone_verified === true,
+    phone_verified_at: phoneVerifiedAt,
+    phone_verification_method: phoneVerificationMethod,
+    provider: authProvider,
+    auth_provider: authProvider,
+    email,
+  });
+  const phoneVerificationStatus =
+    pickTrimmed(profile?.phone_verification_status) ??
+    (phoneVerified ? "verified" : phone ? "pending" : "unverified");
   const avatarUrl = pickTrimmed((profile as { avatar_url?: string | null } | null)?.avatar_url);
   const termsAcceptedAt = pickTrimmed((profile as { terms_accepted_at?: string | null } | null)?.terms_accepted_at);
   const termsVersion = pickTrimmed((profile as { terms_version?: string | null } | null)?.terms_version);
@@ -690,7 +705,7 @@ export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | u
   ) {
     return false;
   }
-  return hasPhilippinePhoneVerification({
+  return hasVerifiedPhone({
     role: state.role,
     privilegedAdmin: state.isAdmin === true ? true : undefined,
     phone_verified: state.phoneVerified,

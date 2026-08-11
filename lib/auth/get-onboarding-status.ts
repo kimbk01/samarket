@@ -1,9 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
-import {
-  hasPhilippinePhoneVerification,
-  hasStoreTermsConsent,
-} from "@/lib/auth/store-member-policy";
+import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import {
   deriveDibaySignupStatus,
@@ -57,6 +55,7 @@ type ProfileRowSubset = {
   role: string | null;
   phone_verified: boolean | null;
   phone_verified_at: string | null;
+  phone_verification_method: string | null;
   provider: string | null;
   auth_provider: string | null;
   terms_accepted_at: string | null;
@@ -82,7 +81,7 @@ async function loadProfileSubset(
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,avatar_url,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
+      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,avatar_url,nickname,email,role,phone_verified,phone_verified_at,phone_verification_method,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -102,6 +101,7 @@ async function loadProfileSubset(
     role: pickTrimmedString(row.role),
     phone_verified: row.phone_verified === true,
     phone_verified_at: pickTrimmedString(row.phone_verified_at),
+    phone_verification_method: pickTrimmedString(row.phone_verification_method),
     provider: pickTrimmedString(row.provider),
     auth_provider: pickTrimmedString(row.auth_provider),
     terms_accepted_at: pickTrimmedString(row.terms_accepted_at),
@@ -150,11 +150,12 @@ export async function getOnboardingStatus(
     : false;
   const phoneVerified =
     isPrivilegedAdmin ||
-    hasPhilippinePhoneVerification({
+    hasVerifiedPhone({
       role: profile?.role ?? null,
       privilegedAdmin: isPrivilegedAdmin,
       phone_verified: profile?.phone_verified ?? false,
       phone_verified_at: profile?.phone_verified_at ?? null,
+      phone_verification_method: profile?.phone_verification_method ?? null,
       provider: profile?.provider ?? profile?.auth_provider ?? null,
       auth_provider: profile?.auth_provider ?? null,
       email: profile?.email ?? null,

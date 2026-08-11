@@ -7,59 +7,27 @@ import { ProfileGateAlertDialog } from "@/components/auth/ProfileGateAlertDialog
 import {
   DIBAY_PROFILE_COMPLETION_REQUIRED_EVENT,
   buildProfileEditHref,
-  modalVariantForAction,
   type ProfileCompletionRequiredDetail,
 } from "@/lib/profile/profile-completion-modal-client";
 import { dismissPendingAuthAction } from "@/lib/auth/require-auth-action";
-import type { ProfileCompletionModalVariant, ProfileActionType } from "@/lib/profile/profile-requirements";
-import { buildRequiredQuery } from "@/lib/profile/profile-requirements";
+import { buildAddressEditHref, buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
+import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
+import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
 
-function titleKey(variant: ProfileCompletionModalVariant): string {
-  switch (variant) {
-    case "community":
-      return "profile_completion_title_community";
-    case "trade":
-      return "profile_completion_title_trade";
-    case "messenger":
-      return "profile_completion_title_messenger";
-    case "delivery":
-      return "profile_completion_title_delivery";
-    case "owner":
-      return "profile_completion_title_owner";
-    default:
-      return "profile_completion_title_generic";
-  }
+function withoutHandle(fields: ProfileRequirementField[]): ProfileRequirementField[] {
+  return fields.filter((field) => field !== "dibay_id");
 }
 
-function bodyKey(variant: ProfileCompletionModalVariant, actionType?: ProfileActionType): string {
-  if (actionType === "messenger_add_friend") {
-    return "profile_completion_body_messenger_add_friend";
-  }
-  switch (variant) {
-    case "community":
-      return "profile_completion_body_community";
-    case "trade":
-      return "profile_completion_body_trade";
-    case "messenger":
-      return "profile_completion_body_messenger";
-    case "delivery":
-      return "profile_completion_body_delivery";
-    case "owner":
-      return "profile_completion_body_owner";
-    default:
-      return "profile_completion_body_generic";
-  }
+function hasPhoneMissing(fields: ProfileRequirementField[]): boolean {
+  return fields.includes("phone_verified") || fields.includes("recipient_phone");
 }
 
-function secondaryKey(variant: ProfileCompletionModalVariant): string {
-  if (variant === "community" || variant === "messenger") {
-    return "profile_completion_later";
-  }
-  return "common_cancel";
+function hasAddressMissing(fields: ProfileRequirementField[]): boolean {
+  return fields.includes("default_address");
 }
 
 /**
- * 기능별 프로필 미완 안내 — AuthGateOverlay + ProfileGateAlertDialog 로 로그인 게이트와 동일 셸.
+ * ACTION 미충족 안내. @아이디는 목록에 넣지 않는다.
  */
 export function MissingProfileInfoModal() {
   const { safeT } = useI18n();
@@ -72,7 +40,9 @@ export function MissingProfileInfoModal() {
     const onReq = (ev: Event) => {
       const ce = ev as CustomEvent<ProfileCompletionRequiredDetail>;
       if (!ce.detail?.actionType) return;
-      setDetail(ce.detail);
+      const missingFields = withoutHandle(ce.detail.missingFields);
+      if (missingFields.length === 0) return;
+      setDetail({ ...ce.detail, missingFields });
       setOpen(true);
     };
     window.addEventListener(DIBAY_PROFILE_COMPLETION_REQUIRED_EVENT, onReq as EventListener);
@@ -85,18 +55,36 @@ export function MissingProfileInfoModal() {
     setDetail(null);
   }, []);
 
-  const goProfile = useCallback(() => {
-    if (!detail) return;
-    const returnTo =
-      detail.next?.trim() ||
-      `${pathname}${typeof window !== "undefined" ? window.location.search : ""}`;
-    const href = buildProfileEditHref({
-      required: buildRequiredQuery(detail.missingFields),
-      returnTo,
-    });
-    router.push(href);
+  const returnTo =
+    detail?.next?.trim() ||
+    `${pathname}${typeof window !== "undefined" ? window.location.search : ""}`;
+
+  const missing = detail ? withoutHandle(detail.missingFields) : [];
+  const phoneMissing = hasPhoneMissing(missing);
+  const addressMissing = hasAddressMissing(missing);
+  const displayNameMissing = missing.includes("display_name");
+  const phoneOnly =
+    phoneMissing &&
+    !addressMissing &&
+    !displayNameMissing &&
+    missing.every((f) => f === "phone_verified" || f === "recipient_phone");
+  const addressOnly =
+    addressMissing && !phoneMissing && !displayNameMissing && missing.every((f) => f === "default_address");
+  const displayNameOnly =
+    displayNameMissing && !phoneMissing && !addressMissing && missing.every((f) => f === "display_name");
+
+  const goPrimary = useCallback(() => {
+    if (phoneOnly) {
+      router.push(buildPhoneVerificationHref(returnTo));
+    } else if (addressOnly) {
+      router.push(buildAddressEditHref(returnTo));
+    } else if (displayNameOnly) {
+      router.push(buildProfileEditHref({ required: missing, returnTo }));
+    } else {
+      router.push(`${MYPAGE_MAIN_HREF}?returnTo=${encodeURIComponent(returnTo)}`);
+    }
     close();
-  }, [router, pathname, detail, close]);
+  }, [addressOnly, close, displayNameOnly, missing, phoneOnly, returnTo, router]);
 
   const onLater = useCallback(() => {
     if (detail?.token) {
@@ -107,30 +95,85 @@ export function MissingProfileInfoModal() {
 
   if (!open || !detail) return null;
 
-  const variant = modalVariantForAction(detail.actionType);
+  const missingItemLabels = [
+    displayNameMissing
+      ? safeT("profile_gate_item_display_name", {
+          fallbackKo: "프로필 이름 설정 필요",
+          fallbackEn: "Display name needed",
+        })
+      : null,
+    phoneMissing
+      ? safeT("profile_gate_item_phone", {
+          fallbackKo: "전화번호 인증 필요",
+          fallbackEn: "Phone verification needed",
+        })
+      : null,
+    addressMissing
+      ? safeT("profile_gate_item_address", {
+          fallbackKo: "기본주소 등록 필요",
+          fallbackEn: "Default address needed",
+        })
+      : null,
+  ].filter((label): label is string => Boolean(label));
+
+  const title = phoneOnly
+    ? safeT("profile_gate_title_phone", {
+        fallbackKo: "전화번호 인증이 필요합니다",
+        fallbackEn: "Phone verification required",
+      })
+    : addressOnly
+      ? safeT("profile_gate_title_address", {
+          fallbackKo: "기본 주소 등록이 필요합니다",
+          fallbackEn: "Default address required",
+        })
+      : displayNameOnly
+        ? safeT("profile_gate_title_display_name", {
+            fallbackKo: "프로필 이름 설정이 필요합니다",
+            fallbackEn: "Display name required",
+          })
+        : safeT("profile_gate_title_mixed", {
+            fallbackKo: "이 기능을 사용하려면 아래 정보를 완료해 주세요",
+            fallbackEn: "Complete the information below to use this feature",
+          });
+
+  const description = phoneOnly
+    ? safeT("profile_gate_body_phone", {
+        fallbackKo: "이 기능을 사용하려면 전화번호 인증이 필요합니다.",
+        fallbackEn: "Phone verification is required to use this feature.",
+      })
+    : addressOnly
+      ? safeT("profile_gate_body_address", {
+          fallbackKo: "이 기능을 사용하려면 기본 주소를 등록해 주세요.",
+          fallbackEn: "A default address is required to use this feature.",
+        })
+      : displayNameOnly
+        ? safeT("profile_gate_body_display_name", {
+            fallbackKo: "이 기능을 사용하려면 프로필 이름을 설정해 주세요.",
+            fallbackEn: "Set a display name to use this feature.",
+          })
+        : missingItemLabels.join(" · ");
+
+  const primaryLabel = phoneOnly
+    ? safeT("profile_gate_cta_phone", { fallbackKo: "전화번호 인증", fallbackEn: "Verify phone" })
+    : addressOnly
+      ? safeT("profile_gate_cta_address", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
+      : displayNameOnly
+        ? safeT("profile_gate_cta_display_name", { fallbackKo: "이름 설정", fallbackEn: "Set name" })
+        : safeT("profile_completion_go_mypage", {
+            fallbackKo: "내정보에서 확인",
+            fallbackEn: "Open My Info",
+          });
 
   return (
     <ProfileGateAlertDialog
       open={open}
       titleId="profile-completion-title"
       descId="profile-completion-desc"
-      title={safeT(titleKey(variant) as never, {
-        fallbackKo: "프로필 정보가 필요합니다",
-        fallbackEn: "Profile information required",
-      })}
-      description={safeT(bodyKey(variant, detail.actionType) as never, {
-        fallbackKo: "이 기능을 사용하려면 내정보에서 필요한 항목을 설정해 주세요.",
-        fallbackEn: "Please set up the required items in My Info to use this feature.",
-      })}
-      primaryLabel={safeT("profile_completion_go_mypage", {
-        fallbackKo: "내정보에서 설정하기",
-        fallbackEn: "Set up in My Info",
-      })}
-      onPrimary={goProfile}
-      secondaryLabel={safeT(secondaryKey(variant) as never, {
-        fallbackKo: variant === "community" || variant === "messenger" ? "나중에" : "취소",
-        fallbackEn: variant === "community" || variant === "messenger" ? "Later" : "Cancel",
-      })}
+      title={title}
+      description={description}
+      primaryLabel={primaryLabel}
+      onPrimary={goPrimary}
+      secondaryLabel={safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
       onSecondary={onLater}
     />
   );

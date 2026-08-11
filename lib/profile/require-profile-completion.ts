@@ -40,7 +40,9 @@ export function evaluateProfileRequirements(
   profile: ProfileFieldCheckInput | null | undefined,
   actionType: ProfileActionType
 ): ProfileRequirementEvaluation {
-  const required = ACTION_PROFILE_REQUIREMENTS[actionType] ?? [];
+  const required = (ACTION_PROFILE_REQUIREMENTS[actionType] ?? []).filter(
+    (field) => field !== "dibay_id",
+  );
   const missingFields = required.filter((field) => !isFieldSatisfied(field, profile ?? {}));
   return {
     actionType,

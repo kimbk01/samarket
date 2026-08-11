@@ -19,6 +19,7 @@ type ProfileLike = {
   status?: string | null;
   phone_verified?: boolean | null;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
   provider?: string | null;
   auth_provider?: string | null;
   member_status?: string | null;
@@ -96,16 +97,36 @@ export function isAdminManualProvider(input: Pick<ProfileLike, "provider" | "aut
     .endsWith("@manual.local");
 }
 
+/**
+ * Store-member phone reader — MUST stay identical to `hasVerifiedPhone`.
+ * Product gates must call `hasVerifiedPhone` directly. This alias exists for
+ * `deriveStoreMemberStatus` / legacy store labels only.
+ */
 export function hasPhilippinePhoneVerification(
   profile: Pick<
     ProfileLike,
-    "phone_verified" | "phone_verified_at" | "provider" | "auth_provider" | "email" | "role" | "privilegedAdmin"
+    | "phone_verified"
+    | "phone_verified_at"
+    | "phone_verification_method"
+    | "provider"
+    | "auth_provider"
+    | "email"
+    | "role"
+    | "privilegedAdmin"
   >
 ): boolean {
   if (isPrivilegedAdminAuthority({ role: profile.role, privilegedAdmin: profile.privilegedAdmin })) {
     return true;
   }
-  if (profile.phone_verified === true || Boolean(profile.phone_verified_at)) return true;
+  if (profile.phone_verified === true) return true;
+  const verifiedAt =
+    typeof profile.phone_verified_at === "string" ? profile.phone_verified_at.trim() : "";
+  if (verifiedAt) return true;
+  const method =
+    typeof profile.phone_verification_method === "string"
+      ? profile.phone_verification_method.trim().toLowerCase()
+      : "";
+  if (method === "admin_manual") return true;
   return isAdminManualProvider(profile);
 }
 

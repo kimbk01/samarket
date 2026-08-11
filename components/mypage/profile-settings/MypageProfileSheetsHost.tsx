@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import type { ProfileRow } from "@/lib/profile/types";
 
 const ProfileSettingsSheet = dynamic(
@@ -26,12 +27,7 @@ const MypageAddressSheet = dynamic(
 );
 
 function resolveMypagePhoneVerified(profile: ProfileRow | null): boolean {
-  if (!profile) return false;
-  return (
-    profile.phone_verified === true ||
-    Boolean(String(profile.phone ?? "").trim()) ||
-    Boolean(String(profile.phone_number ?? "").trim())
-  );
+  return hasVerifiedPhone(profile);
 }
 
 /** Mount only the active sheet — closed sheets return null and stay unmounted. */

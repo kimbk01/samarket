@@ -38,6 +38,7 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     phone_verified: row.phone_verified === true,
     phone_verified_at: row.phone_verified_at ?? null,
     phone_verification_status: row.phone_verification_status,
+    phone_verification_method: row.phone_verification_method ?? null,
     auth_login_email: row.auth_login_email ?? null,
     provider: row.provider ?? row.auth_provider,
     auth_provider: row.auth_provider,

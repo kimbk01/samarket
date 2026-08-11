@@ -6,8 +6,7 @@ import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
@@ -75,9 +74,11 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
       phone_number: profile.phone_number ?? null,
       phone_verified: profile.phone_verified === true,
       phone_verified_at: profile.phone_verified_at ?? null,
+      phone_verification_method: profile.phone_verification_method ?? null,
       phone_verification_status: profile.phone_verification_status ?? null,
       member_status: profile.member_status ?? null,
       role: profile.role ?? null,
+      privilegedAdmin: profile.privilegedAdmin === true,
       email: profile.auth_login_email ?? profile.email ?? null,
       provider: profile.provider ?? profile.auth_provider ?? null,
       auth_provider: profile.auth_provider ?? profile.provider ?? null,
@@ -86,10 +87,8 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
   }, [profile, phoneSettings]);
 
   const handleRefresh = useCallback(async () => {
-    invalidateMeProfileDedupedCache();
-    invalidateMandatoryAddressGateClientCache();
     const [p, settingsRes] = await Promise.all([
-      getMyProfile(),
+      refreshClientMemberAccountAfterMutation(),
       runSingleFlight("me:phone-verification:get", () =>
         fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
       ),

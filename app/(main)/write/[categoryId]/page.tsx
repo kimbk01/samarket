@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
@@ -56,15 +55,7 @@ export default function WriteByCategoryPage() {
       router.replace(getCanonicalCommunityWriteHref());
       return;
     }
-    const nextPath = pathname || `/write/${categoryId}`;
-    const profileAction = c.type === "trade" ? "trade_create_item" : null;
-    if (profileAction) {
-      const profileOk = await requireAuthAction(profileAction, async () => {}, { next: nextPath });
-      if (!profileOk) {
-        setStatus("redirecting");
-        return;
-      }
-    }
+    // 거래 프로필 gate 는 제출 CTA (`requireAuthAction("trade_create_item")`) 에서만.
     // settings가 있으면 can_write 반영, 없으면 글쓰기 허용
     if (c.settings && !c.settings.can_write) {
       setCategory(c);

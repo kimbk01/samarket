@@ -11,7 +11,7 @@ import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } 
 import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
-import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 
 type VerificationSettings = {
@@ -27,9 +27,11 @@ type VerifySnapshot = {
   phone_number?: string | null;
   phone_verified: boolean;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
   phone_verification_status?: string | null;
   member_status?: string | null;
   role?: string | null;
+  privilegedAdmin?: boolean;
   email?: string | null;
   provider?: string | null;
   auth_provider?: string | null;
@@ -70,10 +72,12 @@ export function PhoneVerificationBox({
 
   const resolvedSnapshotPhone = useMemo(() => resolveSnapshotPhoneDb09(snapshot), [snapshot]);
 
-  const verified = hasPhilippinePhoneVerification({
+  const verified = hasVerifiedPhone({
     role: snapshot.role ?? null,
+    privilegedAdmin: snapshot.privilegedAdmin === true,
     phone_verified: snapshot.phone_verified === true,
     phone_verified_at: snapshot.phone_verified_at ?? null,
+    phone_verification_method: snapshot.phone_verification_method ?? null,
     provider: snapshot.provider ?? snapshot.auth_provider ?? null,
     auth_provider: snapshot.auth_provider ?? snapshot.provider ?? null,
     email: snapshot.email ?? null,

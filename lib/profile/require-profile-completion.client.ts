@@ -1,10 +1,11 @@
 "use client";
 
 import {
-  fetchMandatoryAddressGateDeduped,
-  peekMandatoryAddressGateCached,
-} from "@/lib/addresses/mandatory-address-gate-client";
+  fetchAddressDefaultsSnapshot,
+  peekFreshAddressDefaultsSnapshot,
+} from "@/lib/addresses/fetch-address-defaults-client";
 import type { Profile } from "@/lib/types/profile";
+import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
 import type { ProfileFieldCheckInput } from "@/lib/auth/post-login-profile-policy";
@@ -15,22 +16,25 @@ import {
 import {
   ACTION_PROFILE_REQUIREMENTS,
   type ProfileActionType,
+  type ProfileRequirementField,
 } from "@/lib/profile/profile-requirements";
 
 export type { ProfileCompletionRequiredDetail };
 
-async function readHasDefaultAddressFromGate(): Promise<boolean> {
+function isPhoneOnlyMissing(fields: ProfileRequirementField[]): boolean {
+  return fields.length > 0 && fields.every((field) => field === "phone_verified" || field === "recipient_phone");
+}
+
+async function readHasCanonicalDefaultAddress(): Promise<boolean> {
   try {
-    const cached = peekMandatoryAddressGateCached();
-    const res =
+    const cached = peekFreshAddressDefaultsSnapshot();
+    const snap =
       cached ??
-      (await fetchMandatoryAddressGateDeduped({
-        component: "require-profile-completion",
-        reason: "profileToRequirementInput",
+      (await fetchAddressDefaultsSnapshot({
+        caller: "unknown",
+        reason: "unspecified",
       }));
-    if (!res.ok) return false;
-    const json = (await res.json()) as { needsBlock?: boolean; authenticated?: boolean };
-    return json.authenticated === true && json.needsBlock !== true;
+    return snap?.ok === true && snap.defaults?.master != null;
   } catch {
     return false;
   }
@@ -47,7 +51,7 @@ export async function profileToRequirementInput(
       : hasDefaultAddress === undefined;
 
   if (hasDefaultAddress === undefined && needsAddress) {
-    hasDefaultAddress = await readHasDefaultAddressFromGate();
+    hasDefaultAddress = await readHasCanonicalDefaultAddress();
   } else if (hasDefaultAddress === undefined) {
     hasDefaultAddress = false;
   }
@@ -82,6 +86,10 @@ export async function requireProfileCompletionClient(
 ): Promise<boolean> {
   const evaluation = await evaluateClientProfileRequirements(profile, actionType);
   if (evaluation.satisfied) return true;
+  if (isPhoneOnlyMissing(evaluation.missingFields)) {
+    openPhoneVerificationRequiredSheet({ next: detail.next });
+    return false;
+  }
   openProfileCompletionRequiredModal({
     actionType,
     missingFields: evaluation.missingFields,

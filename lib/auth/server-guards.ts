@@ -15,10 +15,10 @@ import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membersh
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import {
-  hasPhilippinePhoneVerification,
   isDeletedStoreMember,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import {
   emptyAuthHotPathBreakdown,
   logAuthHotPathBreakdown,
@@ -252,11 +252,12 @@ function profilePassesPhoneVerificationGate(
   ) {
     return true;
   }
-  return hasPhilippinePhoneVerification({
+  return hasVerifiedPhone({
     role: profile.role,
     privilegedAdmin,
     phone_verified: profile.phone_verified === true,
     phone_verified_at: profile.phone_verified_at ?? null,
+    phone_verification_method: profile.phone_verification_method ?? null,
     provider: profile.provider ?? profile.auth_provider,
     auth_provider: profile.auth_provider,
     email: profile.email,

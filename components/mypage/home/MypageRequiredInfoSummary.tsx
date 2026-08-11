@@ -1,175 +1,138 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  RequiredInfoActiveStepPanel,
-  type RequiredInfoPhoneSettings,
-} from "@/components/mypage/required/RequiredInfoActiveStepPanel";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
-import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
-import {
-  invalidateMandatoryAddressGateClientCache,
-  readMandatoryAddressGateNeedsBlock,
-} from "@/lib/addresses/mandatory-address-gate-client";
-import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
-import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { deriveMemberAccountStatus } from "@/lib/profile/member-account-status";
+import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
+import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
-import {
-  deriveRequiredInfoBundleFromProfile,
-  isRequiredInfoBundleComplete,
-  resolveFirstIncompleteStep,
-  resolveRequiredInfoStepIndex,
-} from "@/lib/mypage/required-info-flow";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import type { ProfileRow } from "@/lib/profile/types";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_SECTION_HEADER_CLASS,
   MYPAGE_HOME_SECTION_LABEL_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
+type RowTone = "neutral" | "action";
+
+function ControlRow({
+  title,
+  badge,
+  value,
+  hint,
+  ctaLabel,
+  onActivate,
+  tone,
+  testId,
+}: {
+  title: string;
+  badge: string;
+  value: string;
+  hint: string;
+  ctaLabel?: string;
+  onActivate?: () => void;
+  tone: RowTone;
+  testId: string;
+}) {
+  const clickable = Boolean(onActivate);
+  return (
+    <li
+      className={`rounded-ui-rect border ${
+        tone === "action"
+          ? "border-[#E53935]/45 bg-[#FFF5F5] shadow-[inset_3px_0_0_0_#E53935]"
+          : "border-[#D4E9E2] bg-white"
+      } ${clickable ? "cursor-pointer active:opacity-90" : ""}`}
+      data-testid={testId}
+      onClick={clickable ? onActivate : undefined}
+      onKeyDown={
+        clickable
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onActivate?.();
+              }
+            }
+          : undefined
+      }
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+    >
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        <span className={`mt-0.5 ${tone === "action" ? "text-[#C62828]" : "text-[#00704A]"}`}>
+          {tone === "action" ? <span className="block h-5 w-5" aria-hidden /> : <CheckCircle2 className="h-5 w-5" aria-hidden />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={`text-[15px] font-semibold ${tone === "action" ? "text-[#B71C1C]" : "text-[#1E3932]"}`}>
+              {title}
+            </p>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                tone === "action" ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#E8F3EE] text-[#00704A]"
+              }`}
+            >
+              {badge}
+            </span>
+          </div>
+          <p className={`mt-1 truncate text-[13px] leading-snug ${tone === "action" ? "text-[#C62828]" : "text-[#6F4E37]"}`}>
+            {value}
+          </p>
+          <p className="mt-0.5 text-[12px] leading-snug text-[#6F4E37]">{hint}</p>
+        </div>
+        {ctaLabel ? (
+          <span className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2">
+            {ctaLabel}
+          </span>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 /**
- * Incomplete required info — inline inputs under manner battery (same methods as `/mypage/required`).
- * Complete → hide (manage via account / sheets). DO NOT fetch address-defaults here.
+ * 계정·인증 컨트롤 센터 — @아이디 / 전화 / 주소 3행을 항상 표시.
+ * 3/3 합산·필수완료 위저드 금지. DO NOT fetch address-defaults here.
  */
 export function MypageRequiredInfoSummary({
   projection,
-  onProfileRefresh,
 }: {
   projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
 }) {
   const { safeT } = useI18n();
   const { openSheet } = useMypageProfileSheets();
-  const [profile, setProfile] = useState<ProfileRow | null>(projection?.profile ?? null);
-  const [hasDefaultAddress, setHasDefaultAddress] = useState(
-    projection?.addressStatus === "complete",
-  );
-  const [phoneSettings, setPhoneSettings] = useState<RequiredInfoPhoneSettings | null>(null);
+  const profile = projection?.profile ?? null;
+  const addressRegistered = projection?.addressStatus === "complete";
 
-  useEffect(() => {
-    setProfile(projection?.profile ?? null);
-    if (projection?.addressStatus === "complete") setHasDefaultAddress(true);
-    if (projection?.addressStatus === "required") setHasDefaultAddress(false);
-  }, [projection]);
-
-  const loadPhoneSettings = useCallback(async () => {
-    try {
-      const settingsRes = await runSingleFlight("me:phone-verification:get", () =>
-        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
-      );
-      const j = (await settingsRes.json()) as {
-        ok?: boolean;
-        verification?: {
-          settings?: {
-            enabled?: boolean;
-            provider?: string;
-            guide_text?: string;
-            resend_cooldown_seconds?: number;
-          };
-        };
-      };
-      const s = j?.verification?.settings;
-      if (j?.ok && s) {
-        setPhoneSettings({
-          enabled: s.enabled === true,
-          provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
-          guideText: String(s.guide_text ?? ""),
-          resendCooldownSeconds: Number(s.resend_cooldown_seconds ?? 60),
-        });
-      } else {
-        setPhoneSettings(null);
-      }
-    } catch {
-      setPhoneSettings(null);
-    }
-  }, []);
-
-  const refreshLocal = useCallback(async () => {
-    invalidateMeProfileDedupedCache();
-    invalidateMandatoryAddressGateClientCache();
-    const [fresh, needsBlock] = await Promise.all([
-      getMyProfile(),
-      readMandatoryAddressGateNeedsBlock(),
-    ]);
-    if (fresh) {
-      setProfile(fresh);
-      setSupabaseProfileCache(profileRowToClientProfile(fresh));
-    }
-    setHasDefaultAddress(!needsBlock);
-    onProfileRefresh?.();
-    return fresh;
-  }, [onProfileRefresh]);
-
-  useEffect(() => {
-    if (!projection || projection.phoneStatus === "complete") return;
-    void loadPhoneSettings();
-  }, [loadPhoneSettings, projection]);
-
-  useEffect(() => {
-    const onAddressesUpdated = () => {
-      invalidateMandatoryAddressGateClientCache();
-      void refreshLocal();
-    };
-    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [refreshLocal]);
-
-  const bundle = useMemo(
-    () => deriveRequiredInfoBundleFromProfile(profile, { hasDefaultAddress }),
-    [hasDefaultAddress, profile],
+  const status = useMemo(
+    () => deriveMemberAccountStatus(profile, { hasDefaultAddress: addressRegistered }),
+    [addressRegistered, profile],
   );
 
-  const activeStep = useMemo(() => resolveFirstIncompleteStep(bundle), [bundle]);
-  const bundleComplete = isRequiredInfoBundleComplete(bundle);
+  const addressLine = useMemo(() => {
+    const snap = peekFreshAddressDefaultsSnapshot();
+    return resolveRepresentativeFullAddressLineFromSnapshot(snap)?.trim() ?? "";
+  }, [projection?.addressStatus]);
 
-  const handleDibayIdConfirmed = useCallback(
-    async (confirmedDibayId: string) => {
-      if (!confirmedDibayId.trim()) return;
-      await refreshLocal();
-    },
-    [refreshLocal],
-  );
-
-  const handlePhoneRefresh = useCallback(async () => {
-    const fresh = await refreshLocal();
-    await loadPhoneSettings();
-    if (fresh && hasVerifiedPhone(fresh)) return;
-  }, [loadPhoneSettings, refreshLocal]);
-
-  const knownFromProjection =
-    !!projection &&
-    projection.phoneStatus !== "unknown" &&
-    projection.addressStatus !== "unknown";
-
-  /** Complete → hide home card (account / sheets own edits). */
-  if (bundleComplete) {
-    return null;
-  }
-
-  /** Still resolving projection — no form flash. */
-  if (!projection || !profile || !knownFromProjection) {
+  if (!projection || projection.phoneStatus === "unknown" || projection.addressStatus === "unknown" || !profile) {
     return (
       <section
         className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
-        data-testid="mypage-required-info-card"
+        data-testid="mypage-account-control-card"
         data-state="checking"
       >
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
           <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-            {safeT("mypage_required_section_title", {
-              fallbackKo: "필수 정보",
-              fallbackEn: "Required info",
+            {safeT("mypage_account_control_title", {
+              fallbackKo: "계정 및 인증 정보",
+              fallbackEn: "Account & verification",
             })}
           </h2>
           <p className="text-[13px] leading-snug text-[#6F4E37]">
-            {safeT("mypage_required_checking_desc", {
-              fallbackKo: "필수 정보 상태를 확인하고 있습니다.",
-              fallbackEn: "Checking required info status.",
+            {safeT("mypage_account_control_checking_desc", {
+              fallbackKo: "계정 정보를 확인하고 있습니다.",
+              fallbackEn: "Checking account info.",
             })}
           </p>
         </div>
@@ -177,60 +140,137 @@ export function MypageRequiredInfoSummary({
     );
   }
 
-  if (!activeStep) {
-    return null;
-  }
-
-  const stepIndex = resolveRequiredInfoStepIndex(activeStep);
-  const stepTitle =
-    activeStep === "dibay-id"
-      ? safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" })
-      : activeStep === "phone"
-        ? safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" })
-        : safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" });
+  const handleValue = status.handle.atDisplay || status.handle.value || "—";
+  const handleCanChange = status.handle.canChange;
+  const handleMissing = !status.handle.atDisplay && !status.handle.value;
 
   return (
     <section
       className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`}
-      data-testid="mypage-required-info-card"
-      data-state="incomplete"
-      data-active-step={activeStep}
+      data-testid="mypage-account-control-card"
+      data-state="ready"
     >
-      <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-            {safeT("mypage_required_section_title", {
-              fallbackKo: "필수 정보",
-              fallbackEn: "Required info",
-            })}
-          </h2>
-          <span
-            className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[12px] font-bold text-[#C62828]"
-            data-testid="required-info-flow-progress"
-          >
-            {stepIndex}/3
-          </span>
-        </div>
+      <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-1.5`}>
+        <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
+          {safeT("mypage_account_control_title", {
+            fallbackKo: "계정 및 인증 정보",
+            fallbackEn: "Account & verification",
+          })}
+        </h2>
         <p className="text-[13px] leading-snug text-[#6F4E37]">
-          {safeT("mypage_required_incomplete_desc", {
-            fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
-            fallbackEn: "Complete the required items below to continue using the service.",
+          {safeT("mypage_account_control_desc", {
+            fallbackKo: "아이디·전화번호·기본 주소를 관리하세요.",
+            fallbackEn: "Manage your ID, phone, and default address.",
           })}
         </p>
-        <p className="text-[14px] font-semibold text-[#1E3932]">{stepTitle}</p>
       </div>
 
-      <div className="space-y-3 px-3 pb-4 pt-1">
-        <RequiredInfoActiveStepPanel
-          activeStep={activeStep}
-          profile={profile}
-          phoneSettings={phoneSettings}
-          onDibayIdConfirmed={handleDibayIdConfirmed}
-          onPhoneRefresh={handlePhoneRefresh}
-          addressMode="sheet"
-          onAddressOpen={() => openSheet("address")}
+      <ul className="space-y-2 p-3">
+        <ControlRow
+          testId="mypage-account-row-handle"
+          title={safeT("mypage_required_dibay_id", { fallbackKo: "@아이디", fallbackEn: "@ ID" })}
+          badge={
+            handleMissing
+              ? safeT("mypage_required_dibay_id_recover_btn", { fallbackKo: "복구", fallbackEn: "Recover" })
+              : handleCanChange
+                ? safeT("mypage_handle_badge_default", { fallbackKo: "기본 아이디", fallbackEn: "Default ID" })
+                : safeT("mypage_handle_badge_changed", { fallbackKo: "변경 완료", fallbackEn: "Changed" })
+          }
+          value={handleValue}
+          hint={
+            handleMissing
+              ? safeT("mypage_required_dibay_id_recover_hint", {
+                  fallbackKo: "아이디가 없습니다. 복구가 필요합니다.",
+                  fallbackEn: "No ID found. Recovery is required.",
+                })
+              : handleCanChange
+                ? safeT("mypage_handle_hint_change_once", {
+                    fallbackKo: "아이디는 1회 변경할 수 있습니다.",
+                    fallbackEn: "You can change your ID once.",
+                  })
+                : safeT("mypage_handle_hint_changed", {
+                    fallbackKo: "아이디 변경 기회를 사용했습니다.",
+                    fallbackEn: "Your one-time ID change has been used.",
+                  })
+          }
+          ctaLabel={
+            handleMissing
+              ? safeT("mypage_required_dibay_id_recover_btn", { fallbackKo: "복구", fallbackEn: "Recover" })
+              : handleCanChange
+                ? safeT("mypage_handle_cta_change", { fallbackKo: "아이디 변경", fallbackEn: "Change ID" })
+                : undefined
+          }
+          onActivate={handleCanChange || handleMissing ? () => openSheet("dibay-id") : undefined}
+          tone="neutral"
         />
-      </div>
+        <ControlRow
+          testId="mypage-account-row-phone"
+          title={safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" })}
+          badge={
+            status.phone.verified
+              ? safeT("mypage_required_status_phone_done", { fallbackKo: "인증 완료", fallbackEn: "Verified" })
+              : safeT("mypage_required_status_phone_needed", { fallbackKo: "인증 필요", fallbackEn: "Verification needed" })
+          }
+          value={
+            status.phone.value ||
+            safeT("mypage_phone_none", {
+              fallbackKo: "등록된 번호 없음",
+              fallbackEn: "No phone on file",
+            })
+          }
+          hint={
+            status.phone.verified
+              ? safeT("mypage_required_status_phone_done", { fallbackKo: "인증 완료", fallbackEn: "Verified" })
+              : safeT("mypage_required_phone_active_hint", {
+                  fallbackKo: "전화번호 인증이 필요합니다.",
+                  fallbackEn: "Phone verification is required.",
+                })
+          }
+          ctaLabel={
+            status.phone.verified
+              ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" })
+              : safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" })
+          }
+          onActivate={() => openSheet("phone")}
+          tone={status.phone.verified ? "neutral" : "action"}
+        />
+        <ControlRow
+          testId="mypage-account-row-address"
+          title={safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" })}
+          badge={
+            status.address.registered
+              ? safeT("mypage_required_status_address_done", { fallbackKo: "등록 완료", fallbackEn: "Registered" })
+              : safeT("mypage_required_status_address_needed", {
+                  fallbackKo: "주소 등록 필요",
+                  fallbackEn: "Address needed",
+                })
+          }
+          value={
+            status.address.registered
+              ? addressLine ||
+                safeT("mypage_required_status_address_done", { fallbackKo: "등록 완료", fallbackEn: "Registered" })
+              : safeT("mypage_address_none", {
+                  fallbackKo: "등록된 기본주소 없음",
+                  fallbackEn: "No default address",
+                })
+          }
+          hint={
+            status.address.registered
+              ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" })
+              : safeT("mypage_required_address_active_hint", {
+                  fallbackKo: "대표 주소를 등록해 주세요.",
+                  fallbackEn: "Please add your default address.",
+                })
+          }
+          ctaLabel={
+            status.address.registered
+              ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" })
+              : safeT("mypage_required_cta_register", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
+          }
+          onActivate={() => openSheet("address")}
+          tone={status.address.registered ? "neutral" : "action"}
+        />
+      </ul>
     </section>
   );
 }

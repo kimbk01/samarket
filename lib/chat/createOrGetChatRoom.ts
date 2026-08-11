@@ -1,10 +1,8 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  PHONE_VERIFICATION_REQUIRED_MESSAGE,
-  bypassesPhilippinePhoneVerificationGate,
-} from "@/lib/auth/member-access";
+import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
@@ -43,17 +41,8 @@ function inflightKey(userId: string, productId: string): string {
 export function prepareTradeChatRoom(productId: string): void {
   const user = getCurrentUser();
   if (!user?.id) return;
-  if (user.phone_verified === false) {
-    if (
-      !bypassesPhilippinePhoneVerificationGate({
-        role: user.role,
-        phone_verified: false,
-        auth_provider: user.auth_provider,
-        email: user.email,
-      })
-    ) {
-      return;
-    }
+  if (!hasVerifiedPhone(user)) {
+    return;
   }
   const key = inflightKey(user.id, productId);
   for (const [k, entry] of itemRoomCache) {
@@ -81,23 +70,14 @@ export async function createOrGetChatRoom(
   if (!user?.id) {
     return { ok: false, error: tClient("common_login_required") };
   }
-  if (user.phone_verified === false) {
-    if (
-      !bypassesPhilippinePhoneVerificationGate({
-        role: user.role,
-        phone_verified: false,
-        auth_provider: user.auth_provider,
-        email: user.email,
-      })
-    ) {
-      return {
-        ok: false,
-        error: tClient("auth_phone_gate_requirement", {
-          fallbackKo: PHONE_VERIFICATION_REQUIRED_MESSAGE,
-          fallbackEn: PHONE_VERIFICATION_REQUIRED_MESSAGE,
-        }),
-      };
-    }
+  if (!hasVerifiedPhone(user)) {
+    return {
+      ok: false,
+      error: tClient("auth_phone_gate_requirement", {
+        fallbackKo: PHONE_VERIFICATION_REQUIRED_MESSAGE,
+        fallbackEn: PHONE_VERIFICATION_REQUIRED_MESSAGE,
+      }),
+    };
   }
 
   const key = inflightKey(user.id, productId);

@@ -27,10 +27,12 @@ export type ProfileActionType =
   | "order_chat"
   | "owner_store_register";
 
-/** 실질 행동 공통 — 전화·@아이디·표시 이름 */
+/**
+ * 실질 행동 공통 — 전화·표시 이름.
+ * @아이디 커스텀 변경은 Feature Gate 가 아니다 (자동 지급 ID = 정상).
+ */
 export const ACTION_ACCESS_BASE_FIELDS: ProfileRequirementField[] = [
   "phone_verified",
-  "dibay_id",
   "display_name",
 ];
 
@@ -82,10 +84,11 @@ export const ACTION_PROFILE_REQUIREMENTS: Record<ProfileActionType, ProfileRequi
   trade_create_item: [...ACTION_ACCESS_BASE_FIELDS, "default_address"],
   trade_chat: ACTION_ACCESS_BASE_FIELDS,
   trade_buy: ["phone_verified", "default_address"],
-  messenger_open: ACTION_ACCESS_BASE_FIELDS,
+  /** 메신저 열람 — 페이지 진입 popup 금지. 전송·새채팅·통화는 별 action. */
+  messenger_open: [],
   messenger_new_chat: ACTION_ACCESS_BASE_FIELDS,
   messenger_send_message: ACTION_ACCESS_BASE_FIELDS,
-  messenger_add_friend: ["display_name", "dibay_id"],
+  messenger_add_friend: ["display_name"],
   friend_chat: ["display_name"],
   delivery_cart_add: ACTION_ACCESS_BASE_FIELDS,
   delivery_order: [...ACTION_ACCESS_BASE_FIELDS, "default_address", "recipient_phone"],

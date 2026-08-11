@@ -189,6 +189,25 @@ export async function listUserAddresses(
  * - 일반: `is_default_master` 한 건만 조회해 부하를 줄임.
  * - 활성 주소는 있는데 마스터가 없으면 `listUserAddresses`와 동일하게 서버에서 대표 보정 후 판정.
  */
+/**
+ * 제품 기본주소 완료 — 활성 `is_default_master` 행만.
+ * region_name / 프로필 geo fallback 은 완료가 아니다.
+ */
+export async function hasCanonicalDefaultMasterAddress(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<boolean> {
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .eq("is_default_master", true)
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return Boolean(data && data.length > 0);
+}
+
 export async function isMandatoryAddressGateSatisfied(
   sb: SupabaseClient<any>,
   userId: string

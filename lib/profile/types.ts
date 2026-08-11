@@ -47,6 +47,7 @@ export interface ProfileRow {
   phone_verified: boolean;
   phone_verification_status: string;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
   auth_login_email?: string | null;
   realname: string | null;
   realname_verified: boolean;

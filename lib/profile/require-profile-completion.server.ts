@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
+import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-service";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
 import {
   ACTION_PROFILE_REQUIREMENTS,
@@ -58,7 +58,7 @@ export async function requireProfileFieldsForAction(
   const needsAddress = ACTION_PROFILE_REQUIREMENTS[actionType].includes("default_address");
   if (needsAddress) {
     try {
-      hasDefaultAddress = await isMandatoryAddressGateSatisfied(sb, userId);
+      hasDefaultAddress = await hasCanonicalDefaultMasterAddress(sb, userId);
     } catch {
       hasDefaultAddress = false;
     }

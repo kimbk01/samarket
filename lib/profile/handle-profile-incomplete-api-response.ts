@@ -1,5 +1,6 @@
 "use client";
 
+import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { openProfileCompletionRequiredModal } from "@/lib/profile/profile-completion-modal-client";
 import type { ProfileActionType, ProfileRequirementField } from "@/lib/profile/profile-requirements";
 
@@ -45,10 +46,18 @@ export function handleProfileIncompleteApiResponse(
     (typeof window !== "undefined"
       ? `${window.location.pathname}${window.location.search}`
       : undefined);
-  openProfileCompletionRequiredModal({
-    actionType: data.actionType,
-    missingFields: data.missingFields,
-    next: returnTo ?? undefined,
-  });
+  const missingFields = data.missingFields.filter((field) => field !== "dibay_id");
+  const phoneOnly =
+    missingFields.length > 0 &&
+    missingFields.every((field) => field === "phone_verified" || field === "recipient_phone");
+  if (phoneOnly) {
+    openPhoneVerificationRequiredSheet({ next: returnTo ?? undefined });
+  } else {
+    openProfileCompletionRequiredModal({
+      actionType: data.actionType,
+      missingFields,
+      next: returnTo ?? undefined,
+    });
+  }
   return { handled: true, error: PROFILE_INCOMPLETE_USER_MESSAGE };
 }

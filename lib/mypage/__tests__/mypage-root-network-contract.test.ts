@@ -126,6 +126,9 @@ describe("mypage root network contract", () => {
     );
     expect(src).not.toMatch(/useRepresentativeAddressPresentation/);
     expect(src).not.toMatch(/fetchAddressDefaultsSnapshot\s*\(/);
+    expect(src).toMatch(/mypage-account-control-card/);
+    expect(src).not.toMatch(/mypage-required-info-complete/);
+    expect(src).not.toMatch(/stepIndex/);
   });
 
   it("owner-lite idle hydrate scheduled off mypage is cancelled on mypage cancel API", async () => {

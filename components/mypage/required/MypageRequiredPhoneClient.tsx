@@ -7,8 +7,9 @@ import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 
 export function MypageRequiredPhoneClient() {
@@ -73,9 +74,11 @@ export function MypageRequiredPhoneClient() {
       phone_number: profile.phone_number ?? null,
       phone_verified: profile.phone_verified === true,
       phone_verified_at: profile.phone_verified_at ?? null,
+      phone_verification_method: profile.phone_verification_method ?? null,
       phone_verification_status: profile.phone_verification_status ?? null,
       member_status: profile.member_status ?? null,
       role: profile.role ?? null,
+      privilegedAdmin: profile.privilegedAdmin === true,
       email: profile.auth_login_email ?? profile.email ?? null,
       provider: profile.provider ?? profile.auth_provider ?? null,
       auth_provider: profile.auth_provider ?? profile.provider ?? null,
@@ -84,13 +87,16 @@ export function MypageRequiredPhoneClient() {
   }, [profile, phoneSettings]);
 
   const handleRefresh = useCallback(async () => {
-    invalidateMeProfileDedupedCache();
-    invalidateMandatoryAddressGateClientCache();
+    const fresh = await refreshClientMemberAccountAfterMutation();
     await load();
-    if (profile?.phone_verified) {
-      router.replace(MYPAGE_MAIN_HREF);
+    if (fresh && hasVerifiedPhone(fresh)) {
+      const raw =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnTo")
+          : null;
+      router.replace(sanitizeNextPath(raw) || MYPAGE_MAIN_HREF);
     }
-  }, [load, profile?.phone_verified, router]);
+  }, [load, router]);
 
   if (loading || !snapshot) {
     return <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
