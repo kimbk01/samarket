@@ -73,6 +73,7 @@ function AddressEditorPageInner() {
     longitude: number;
     fullAddress: string;
     addressDetail?: string | null;
+    placeId?: string | null;
   } | null>(null);
 
   const mapHandledRef = useRef(false);
@@ -104,6 +105,7 @@ function AddressEditorPageInner() {
             longitude: pick.longitude,
             fullAddress: pick.fullAddress,
             addressDetail: pick.addressDetail ?? null,
+            placeId: pick.placeId ?? null,
           });
           if (ctx.source === "edit") {
             const row = rows.find((a) => a.id === ctx.addressId);

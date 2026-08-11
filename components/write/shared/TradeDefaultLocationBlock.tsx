@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
+import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -106,7 +106,7 @@ export function TradeDefaultLocationBlock({
         setReady(true);
         return;
       }
-      const line = formatUserAddressListPlainLine(addr).trim();
+      const line = (buildExplorationRegionSubtitleLine(addr) ?? "").trim();
       const nextLine = line && line !== t("trade_write_address_empty") && line !== "—" ? line : null;
       displayLineRef.current = nextLine;
       setDisplayLine(nextLine);

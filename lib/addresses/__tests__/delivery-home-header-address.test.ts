@@ -157,10 +157,12 @@ describe("pickDeliveryHomeHeaderAddress", () => {
     expect(pickDeliveryHomeHeaderAddress({ delivery, master, life: null, trade: null })?.id).toBe("d1");
   });
 
-  it("falls back to trade then life when delivery and master are missing", () => {
+  it("does not fall back to master/trade/life when delivery is missing", () => {
     const trade = addr({ id: "t1", neighborhoodName: "Trade", buildingName: "1" });
     const life = addr({ id: "l1", neighborhoodName: "Life", buildingName: "2" });
-    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade, life })?.id).toBe("t1");
-    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade: null, life })?.id).toBe("l1");
+    const master = addr({ id: "m1", neighborhoodName: "Master", buildingName: "2" });
+    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master, trade, life })).toBeNull();
+    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade, life })).toBeNull();
+    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade: null, life })).toBeNull();
   });
 });

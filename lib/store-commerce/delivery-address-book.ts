@@ -48,24 +48,18 @@ export function isCartDeliverySelectionValid(
 }
 
 /**
- * 카트 배송지 라디오 기본값 — **대표 주소(`isDefaultMaster`)** 우선.
- * 대표가 프로필 checkout 행과 같으면 `PROFILE_DELIVERY_SELECTION_ID`.
+ * 카트 배송지 라디오 기본값 — **배달 주소(`isDefaultDelivery`)만**.
+ * master/첫 행/프로필로 몰래 대체하지 않는다.
  */
 export function resolveCartDefaultDeliverySelectionId(
   savedAddresses: readonly UserAddressDTO[],
   profileSnap: CartDeliveryProfileSnap
 ): string | null {
-  const masterRow = savedAddresses.find((x) => x.isDefaultMaster);
-  if (masterRow?.id) {
-    if (profileSnap?.userAddressId === masterRow.id) return PROFILE_DELIVERY_SELECTION_ID;
-    return userAddressDeliverySelectionId(masterRow.id);
-  }
-  const deliveryDefault = savedAddresses.find((x) => x.isDefaultDelivery) ?? savedAddresses[0];
+  const deliveryDefault = savedAddresses.find((x) => x.isDefaultDelivery);
   if (deliveryDefault?.id) {
     if (profileSnap?.userAddressId === deliveryDefault.id) return PROFILE_DELIVERY_SELECTION_ID;
     return userAddressDeliverySelectionId(deliveryDefault.id);
   }
-  if (profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
   return null;
 }
 

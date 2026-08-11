@@ -24,6 +24,10 @@ import {
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+import {
+  publicRegionLabelLeaksPrivateDetail,
+  resolveCommunityPublicRegionLabelForUser,
+} from "@/lib/addresses/community-public-region-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -149,6 +153,14 @@ export async function POST(req: NextRequest) {
   if (!profileGate.ok) return profileGate.response;
 
   const isMeetup = rawCat === "meetup";
+  if (
+    publicRegionLabelLeaksPrivateDetail(locationName) ||
+    publicRegionLabelLeaksPrivateDetail(city) ||
+    publicRegionLabelLeaksPrivateDetail(district)
+  ) {
+    return NextResponse.json({ ok: false, error: "region_label_invalid" }, { status: 400 });
+  }
+
   const locInput = coalesceNeighborhoodLocationInput(locationKey, {
     city,
     district,
@@ -345,7 +357,7 @@ export async function POST(req: NextRequest) {
       title,
       content,
       summary: summarizeCommunityPostContent(content),
-      region_label: locationName || city || "동네",
+      region_label: await resolveCommunityPublicRegionLabelForUser(sb, auth.userId),
       location_id: locationId,
       category: categoryForDb,
       images,

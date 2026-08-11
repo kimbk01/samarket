@@ -34,10 +34,14 @@ describe("translateUserAddressApiError", () => {
         mockTranslate,
       ),
     ).toBe("STORE_MASTER");
+    expect(translateUserAddressApiError("주소 추가시 문제가 발생했습니다", mockTranslate)).toBe("SAVE_FAIL");
+    expect(translateUserAddressApiError("매장을 선택해 주세요.", mockTranslate)).toBe("addr_ui_pick_shop");
+    expect(translateUserAddressApiError("shop_owner_required", mockTranslate)).toBe("addr_ui_store_permission");
   });
 
-  it("passes through unknown errors", () => {
-    expect(translateUserAddressApiError("db_timeout", mockTranslate, "addr_ui_save_failed")).toBe("db_timeout");
+  it("maps unknown errors to the user fallback, not raw DB text", () => {
+    expect(translateUserAddressApiError("duplicate key value violates unique constraint", mockTranslate, "addr_ui_save_failed")).toBe("SAVE_FAIL");
+    expect(translateUserAddressApiError("address_default_conflict", mockTranslate)).toBe("SAVE_FAIL");
   });
 });
 

@@ -1,60 +1,25 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { formatPhAddressCardOneLine } from "@/lib/addresses/ph-address-display";
+import { buildPublicAllowListAddressLine } from "@/lib/addresses/public-address-allow-list";
 import { formatPhDetailThenStreetFromParts } from "@/lib/stores/store-location-label";
 import { getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
 
 /**
- * 타인에게 보이는 거래 동네 한 줄 — 상세 도로명·fullAddress 는 제외.
- * (물품 상세 판매자 줄·프로필 「거래 주소」와 맞춤)
+ * 타인에게 보이는 거래 동네 한 줄 — Community 와 같은 allow-list.
  */
 export function buildTradeLocationPreviewForPublic(a: UserAddressDTO | null | undefined): string | null {
-  if (!a) return null;
-  const nn = a.neighborhoodName?.trim();
-  if (nn) return nn;
-  const rid = a.appRegionId?.trim() ?? "";
-  const cid = a.appCityId?.trim() ?? "";
-  if (rid && cid && rid.toLowerCase() !== "null" && cid.toLowerCase() !== "null") {
-    const valid = getLocationLabelIfValid(rid, cid);
-    if (valid) return valid;
-  }
-  const parts = [a.barangay, a.cityMunicipality, a.province].filter(
-    (x) => x?.trim() && x.trim().toLowerCase() !== "null",
-  );
-  const line = parts.join(", ").trim();
-  return line || null;
-}
-
-/** `parseFullAddressThroughCityLine` 등에서 앞 구간이 도로·번지로 남은 경우 제거 */
-function stripStreetLikeLeadingCommaSegments(line: string): string {
-  const parts = line.split(",").map((x) => x.trim()).filter(Boolean);
-  if (parts.length <= 1) return line.trim();
-  const isStreetLike = (p: string) => {
-    const t = p.trim();
-    if (/^\d+[\s-]/.test(t)) return true;
-    if (/^\d+\s/.test(t) && /\b(st|street|ave|avenue|rd|blvd|road|hwy|highway|way|drive|dr)\b/i.test(t)) {
-      return true;
-    }
-    if (/\b(st|street|ave|avenue|rd|blvd|road|hwy|highway|way|drive|dr)\b/i.test(t)) return true;
-    return false;
-  };
-  while (parts.length > 1 && isStreetLike(parts[0])) {
-    parts.shift();
-  }
-  return parts.join(", ").trim();
+  return buildPublicAllowListAddressLine(a);
 }
 
 /**
- * 필라이프·1단 탐색 헤더 등 — **도로·번지 없이** 바랑가이·시·주 등 지역만.
- * `buildTradePublicLine` 과 달리 `fullAddress`는 말미 구간만 파싱해 쓰며, 상세 주소는 주소 관리에만 둔다.
+ * 필라이프·1단 탐색 헤더 등 — 공개 allow-list (barangay/city + building/landmark).
+ * `formatted_address` 원문·unit/detail 은 쓰지 않는다.
  */
 export function buildExplorationRegionSubtitleLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a) return null;
 
-  const preview = buildTradeLocationPreviewForPublic(a);
-  if (preview?.trim()) {
-    const s = stripCountryFromAddressDisplayLine(preview.trim(), a.countryName).trim();
-    if (s) return s;
-  }
+  const allow = buildPublicAllowListAddressLine(a);
+  if (allow?.trim()) return allow.trim();
 
   const fromIds = tradePublicLineFromAppLocationIds(a);
   if (fromIds?.trim()) {
@@ -62,17 +27,7 @@ export function buildExplorationRegionSubtitleLine(a: UserAddressDTO | null | un
     if (s) return s;
   }
 
-  const fa = a.fullAddress?.trim();
-  if (fa && !isDisplayNullish(fa)) {
-    const parsed = parseFullAddressThroughCityLine(fa);
-    if (parsed?.trim()) {
-      const cleaned = stripStreetLikeLeadingCommaSegments(parsed.trim());
-      const s = stripCountryFromAddressDisplayLine(cleaned, a.countryName).trim();
-      if (s) return s;
-    }
-  }
-
-  const tail = [a.barangay, a.district, a.cityMunicipality, a.province].filter(
+  const tail = [a.barangay, a.cityMunicipality].filter(
     (x) => x?.trim() && !isDisplayNullish(x),
   ) as string[];
   if (tail.length) {
@@ -140,59 +95,6 @@ export function stripCountryFromAddressDisplayLine(line: string, countryName?: s
   return t.replace(/[,，]\s*$/, "").trim();
 }
 
-/**
- * `fullAddress`에서 주소관리·헤더에 쓰는 **체크 구간**(도로·동네 ~ 시, 우편·꼬리 제외) 한 줄.
- * 예: `170 Commonwealth Ave, Quezon City` / `Quiapo, Manila` / `Rizal St, Cebu City`
- */
-function parseFullAddressThroughCityLine(full: string): string | null {
-  let s = full.trim();
-  s = s.replace(/\s*\(\s*[\d\s+-]{5,}\s*\)\s*$/, "").trim();
-  let parts = s.split(",").map((x) => x.trim()).filter(Boolean);
-  if (parts.length === 0) return null;
-
-  const dropTail = (p: string) => {
-    const l = p.toLowerCase();
-    if (/\bmetro\s+manila\b/i.test(p)) return true;
-    if (/^\d{3,5}\s*metro\s+manila$/i.test(l)) return true;
-    if (/^ncr$/i.test(l)) return true;
-    if (/^philippines$/i.test(l)) return true;
-    if (/^필리핀$/i.test(p)) return true;
-    return false;
-  };
-
-  parts = parts.filter((p) => !dropTail(p));
-  while (parts.length >= 2) {
-    const last = parts[parts.length - 1].trim();
-    const prev = parts[parts.length - 2].trim();
-    const ll = last.toLowerCase();
-    const pl = prev.toLowerCase();
-    if (last.length <= 12 && pl.includes(ll) && pl !== ll) {
-      parts.pop();
-      continue;
-    }
-    break;
-  }
-
-  const isBlockLot = (p: string) => /^blk\.?\s|^block\s|^lot\s/i.test(p.trim());
-  while (parts.length && isBlockLot(parts[0])) {
-    parts.shift();
-  }
-
-  const isStripHead = (p: string) => {
-    const t = p.trim();
-    if (/^\d+[\s-]+\d+\s*$/.test(t)) return true;
-    if (/^\d+\s/.test(t) && /\b(st|street|ave|avenue|rd|blvd|road|hwy|highway)\b/i.test(t)) return true;
-    return false;
-  };
-  while (parts.length > 2 && isStripHead(parts[0])) {
-    parts.shift();
-  }
-
-  if (parts.length === 0) return null;
-  if (parts.length === 1) return parts[0];
-  return parts.slice(-2).join(", ");
-}
-
 /** 앱 지역 ID → `세부(에어리어), 광역(시)` — 예: Quiapo, Manila */
 function tradePublicLineFromAppLocationIds(a: UserAddressDTO): string | null {
   if (!a.appRegionId || !a.appCityId || isDisplayNullish(a.appRegionId) || isDisplayNullish(a.appCityId)) {
@@ -216,28 +118,19 @@ function tradePublicLineFromAppLocationIds(a: UserAddressDTO): string | null {
 }
 
 /**
- * 목록 회색 줄·상단 헤더 — **체크한 구간**(세부~시). `fullAddress` 우선 파싱, 없으면 필드·지역 ID.
+ * 거래 공개 한 줄 — Community 와 같은 allow-list.
+ * `formatted_address` 원문·unit/detail 은 쓰지 않는다.
  */
 export function buildTradePublicLine(a: UserAddressDTO): string {
-  const road = a.roadAddress?.trim() || a.formattedAddress?.trim();
-  if (road && !isDisplayNullish(road)) {
-    return stripCountryFromAddressDisplayLine(road, a.countryName);
-  }
-  const fa = a.fullAddress?.trim();
-  if (fa && !isDisplayNullish(fa)) {
-    const parsed = parseFullAddressThroughCityLine(fa);
-    if (parsed) return parsed;
-  }
+  const allow = buildPublicAllowListAddressLine(a);
+  if (allow?.trim()) return allow.trim();
 
   const fromIds = tradePublicLineFromAppLocationIds(a);
   if (fromIds) return fromIds;
 
-  const chunks = [
-    a.streetAddress,
-    a.barangay,
-    a.district,
-    a.cityMunicipality,
-  ].filter((x) => x?.trim() && !isDisplayNullish(x)) as string[];
+  const chunks = [a.barangay, a.cityMunicipality].filter(
+    (x) => x?.trim() && !isDisplayNullish(x),
+  ) as string[];
   if (chunks.length >= 2) return chunks.join(", ");
   if (chunks.length === 1) return chunks[0];
 
@@ -247,14 +140,6 @@ export function buildTradePublicLine(a: UserAddressDTO): string {
     const valid = getLocationLabelIfValid(rid, cid);
     if (valid) return valid;
   }
-
-  const fallback = [
-    a.unitFloorRoom,
-    a.buildingName,
-    a.province,
-    a.neighborhoodName,
-  ].filter((x) => x?.trim() && !isDisplayNullish(x)) as string[];
-  if (fallback.length > 0) return [...chunks, ...fallback].join(", ");
 
   if (a.latitude != null && a.longitude != null) {
     return `${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)}`;

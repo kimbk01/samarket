@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const userId = await getRouteUserId();
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "login_required" }, { status: 401 });
   }
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -23,7 +23,7 @@ export async function GET() {
     const neighborhoodFromLife = summarizeLifeDefaultAppLocation(defaults.life);
     return NextResponse.json({ ok: true, defaults, neighborhoodFromLife });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "load_failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("[address-defaults]", e);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 }

@@ -44,11 +44,11 @@ export async function assertNoDuplicateShopLinkedAddress(
     .eq("user_id", userId)
     .eq("is_active", true)
     .eq("linked_store_id", storeId.trim());
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("address_update_failed");
   for (const row of data ?? []) {
     const rid = String((row as { id?: unknown }).id ?? "");
     if (excludeAddressId && rid === excludeAddressId) continue;
-    throw new Error("이미 이 매장으로 등록된 주소가 있어요.");
+    throw new Error("shop_address_duplicate");
   }
 }
 
@@ -161,7 +161,7 @@ async function syncApprovedStoreAddressFromAddressPayload(
   const latChanged = num(storeRow.lat) !== lat;
   const lngChanged = num(storeRow.lng) !== lng;
   const { error } = await sb.from("stores").update(patch).eq("id", sid);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("address_update_failed");
   if (latChanged || lngChanged) {
     await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(sb, sid);
   }
@@ -179,12 +179,12 @@ export async function resolveUserAddressWritePayloadForShop(
   }
   const sid = (p.linkedStoreId ?? "").trim();
   if (!sid) {
-    throw new Error("매장을 선택해 주세요.");
+    throw new Error("shop_store_required");
   }
   await assertNoDuplicateShopLinkedAddress(sb, userId, sid, excludeAddressId);
   const storeRow = await loadOwnedApprovedStoreRow(sb, userId, sid);
   if (!storeRow) {
-    throw new Error("승인된 매장 오너만 Store Address를 등록할 수 있습니다.");
+    throw new Error("shop_owner_required");
   }
 
   if (hasPayloadStorePlaceSnapshot(p)) {
@@ -193,11 +193,11 @@ export async function resolveUserAddressWritePayloadForShop(
 
   const snap = await loadOwnedStoreSnapshotForAddress(sb, userId, sid);
   if (!snap) {
-    throw new Error("검색 결과에서 매장 주소를 선택해 주세요.");
+    throw new Error("shop_place_required");
   }
   const placeId = snap.placeId?.trim() ?? "";
   if (!placeId) {
-    throw new Error("검색 결과에서 매장 주소를 선택해 주세요.");
+    throw new Error("shop_place_required");
   }
 
   if (hasPayloadStorePlaceSnapshot(p)) {

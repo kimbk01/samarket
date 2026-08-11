@@ -8,8 +8,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 대표 주소 필수 게이트 — 클라이언트 추측 없이 서버가 단일 진실원으로 판정합니다.
- * (레거시: session + 전체 주소 목록 이중 호출 대체)
+ * 대표 주소 필수 게이트 — ADDRESS_COMPLETE = active user_addresses AND is_default_master.
+ * Geo / region_name / any-row 보정 없음. GET list 는 read-only.
  */
 export async function GET() {
   const userId = await getRouteUserId();
@@ -39,7 +39,7 @@ export async function GET() {
       fullInteractiveMemberOk: canUseVerifiedMemberFeatures(accessState),
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "gate_check_failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    console.error("[mandatory-address-gate]", e);
+    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
   }
 }

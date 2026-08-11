@@ -1053,6 +1053,7 @@ export const storeCommerceUiMessages = {
     store_cart_saved_address_aria: "{label}, 저장 주소 {index} 선택",
     store_cart_profile_address_manage: "내정보 · 주소 관리",
     store_cart_save_from_address_manage: "주소 관리에서 저장",
+    store_cart_pick_or_register_delivery: "배달 주소를 선택하거나 등록해 주세요.",
     store_cart_verify_delivery_address:
       "선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {streetLabel}이 필요합니다.",
     store_cart_address_too_short:
@@ -2757,6 +2758,7 @@ export const storeCommerceUiMessages = {
     store_cart_saved_address_aria: "{label}, select saved address {index}",
     store_cart_profile_address_manage: "My page · addresses",
     store_cart_save_from_address_manage: "Save in address manager",
+    store_cart_pick_or_register_delivery: "Select or register a delivery address.",
     store_cart_verify_delivery_address:
       "Check the selected address. Region, neighborhood, or {streetLabel} is required.",
     store_cart_address_too_short:

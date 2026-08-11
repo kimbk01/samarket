@@ -23,7 +23,7 @@ export function resolveDeliveryHomeHeaderButtonLabel(
   } else if (view.hasLinkedAddress) {
     key = "philife_addr_not_set";
   } else {
-    key = "addr_ui_add_first";
+    key = "addr_ui_pick_delivery_cta";
   }
   return translate(lang, key);
 }

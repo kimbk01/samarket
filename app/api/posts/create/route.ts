@@ -16,6 +16,7 @@ import type { ProfileActionType } from "@/lib/profile/profile-requirements";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
+import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
 
 const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
@@ -40,15 +41,25 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
   const base = { type: type as PostType, categoryId, title, content };
 
   if (type === "trade") {
+    const region = typeof raw.region === "string" ? raw.region : undefined;
+    const city = typeof raw.city === "string" ? raw.city : undefined;
+    const barangay = typeof raw.barangay === "string" ? raw.barangay : undefined;
+    if (
+      publicRegionLabelLeaksPrivateDetail(region ?? "") ||
+      publicRegionLabelLeaksPrivateDetail(city ?? "") ||
+      publicRegionLabelLeaksPrivateDetail(barangay ?? "")
+    ) {
+      return { error: "region_label_invalid" };
+    }
     return {
       ...base,
       type: "trade",
       price: raw.price != null ? Number(raw.price) : null,
       isPriceOfferEnabled: raw.isPriceOfferEnabled === true,
       isFreeShare: raw.isFreeShare === true,
-      region: typeof raw.region === "string" ? raw.region : undefined,
-      city: typeof raw.city === "string" ? raw.city : undefined,
-      barangay: typeof raw.barangay === "string" ? raw.barangay : undefined,
+      region,
+      city,
+      barangay,
       imageUrls: Array.isArray(raw.imageUrls)
         ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
         : undefined,
@@ -64,13 +75,23 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
   }
 
   if (type === "service") {
+    const region = typeof raw.region === "string" ? raw.region : undefined;
+    const city = typeof raw.city === "string" ? raw.city : undefined;
+    const barangay = typeof raw.barangay === "string" ? raw.barangay : undefined;
+    if (
+      publicRegionLabelLeaksPrivateDetail(region ?? "") ||
+      publicRegionLabelLeaksPrivateDetail(city ?? "") ||
+      publicRegionLabelLeaksPrivateDetail(barangay ?? "")
+    ) {
+      return { error: "region_label_invalid" };
+    }
     return {
       ...base,
       type: "service",
       contactMethod: typeof raw.contactMethod === "string" ? raw.contactMethod : undefined,
-      region: typeof raw.region === "string" ? raw.region : undefined,
-      city: typeof raw.city === "string" ? raw.city : undefined,
-      barangay: typeof raw.barangay === "string" ? raw.barangay : undefined,
+      region,
+      city,
+      barangay,
     };
   }
 

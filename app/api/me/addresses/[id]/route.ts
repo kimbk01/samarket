@@ -4,11 +4,8 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { deleteUserAddress, updateUserAddress } from "@/lib/addresses/user-address-service";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import {
-  loadUserAddressDtoForBuyer,
-  refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated,
-} from "@/lib/stores/sync-store-orders-checkout-geo";
 import { parseUserAddressWritePayload } from "@/lib/addresses/address-api-validation";
+import { toPublicUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,17 +44,13 @@ export async function PATCH(
     patch.phoneNumber = ph.value;
   }
   try {
-    const addressBefore = await loadUserAddressDtoForBuyer(sb as never, userId, id.trim());
     const row = await updateUserAddress(sb, userId, id.trim(), patch);
-    const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated(
-      sb as never,
-      userId,
-      row,
-      addressBefore
-    );
-    return NextResponse.json({ ok: true, address: row, store_orders_checkout_geo_sync });
+    return NextResponse.json({ ok: true, address: row });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "update_failed";
+    const msg = toPublicUserAddressApiError(
+      e instanceof Error ? e.message : "address_update_failed",
+      "address_update_failed",
+    );
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }
@@ -82,8 +75,10 @@ export async function DELETE(
     await deleteUserAddress(sb, userId, id.trim());
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "delete_failed";
-    const status = msg === "last_address_cannot_delete" ? 400 : 400;
-    return NextResponse.json({ ok: false, error: msg }, { status });
+    const msg = toPublicUserAddressApiError(
+      e instanceof Error ? e.message : "address_delete_failed",
+      "address_delete_failed",
+    );
+    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

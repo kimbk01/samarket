@@ -24,6 +24,7 @@ import {
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/community-public-region-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +66,6 @@ export async function POST(req: NextRequest) {
     is_question?: boolean;
     meetup_place?: string | null;
     meetup_date?: string | null;
-    region_label?: string;
     imageUrls?: string[];
   }>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
   const topicSlug = body.topicSlug?.trim().toLowerCase();
   const title = body.title?.trim();
   const content = (body.content ?? "").trim();
-  const region_label = (body.region_label ?? "").trim() || "Malate";
 
   if (!topicSlug) {
     return jsonError("주제를 선택하세요.", 400);
@@ -157,6 +156,14 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (se || !sec) {
     return jsonError("섹션을 찾을 수 없습니다.", 400);
+  }
+
+  let region_label: string;
+  try {
+    region_label = await resolveCommunityPublicRegionLabelForUser(sb, auth.userId);
+  } catch (e) {
+    console.error("[community-posts] region_label", e);
+    return jsonError("지역 정보를 확인하지 못했습니다.", 500, { code: "region_label_resolve_failed" });
   }
 
   const { data: inserted, error: insErr } = await sb

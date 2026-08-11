@@ -91,6 +91,4 @@ export type UserAddressWritePayload = {
   isDefaultDelivery?: boolean;
   sortOrder?: number;
   lastUsedAt?: string | null;
-  /** API 전용 — DB 미저장. true 이면 저장 직후 이 주소를 대표·용도 기본으로 승격 */
-  promoteAsLastSavedPrimary?: boolean;
 };

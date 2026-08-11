@@ -1,5 +1,6 @@
 import type { CreatePostPayload } from "@/lib/posts/types";
 import { tradeJobColumnsForInsert } from "@/lib/posts/trade-job-db-fields";
+import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
 
 /** `createPost` · `POST /api/posts/create` 공통 — posts INSERT 행 조립 */
 export function buildCreatePostInsertRow(
@@ -41,10 +42,12 @@ export function buildCreatePostInsertRow(
   }
 
   if (payload.type === "trade" && "region" in payload && payload.region != null && String(payload.region).trim()) {
-    row.region = payload.region.trim();
+    const region = payload.region.trim();
+    if (!publicRegionLabelLeaksPrivateDetail(region)) row.region = region;
   }
   if (payload.type === "trade" && "city" in payload && payload.city != null && String(payload.city).trim()) {
-    row.city = payload.city.trim();
+    const city = payload.city.trim();
+    if (!publicRegionLabelLeaksPrivateDetail(city)) row.city = city;
   }
   if (
     payload.type === "trade" &&
@@ -68,10 +71,12 @@ export function buildCreatePostInsertRow(
 
   if (payload.type === "service") {
     if (payload.region != null && String(payload.region).trim()) {
-      row.region = payload.region.trim();
+      const region = payload.region.trim();
+      if (!publicRegionLabelLeaksPrivateDetail(region)) row.region = region;
     }
     if (payload.city != null && String(payload.city).trim()) {
-      row.city = payload.city.trim();
+      const city = payload.city.trim();
+      if (!publicRegionLabelLeaksPrivateDetail(city)) row.city = city;
     }
   }
 

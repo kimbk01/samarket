@@ -378,6 +378,15 @@ export async function POST(req: NextRequest) {
     deliveryAddressSnapshot = ownAddr as DeliveryAddressOrderSnapshot;
   }
 
+  if (fulfillment === "local_delivery") {
+    const deliveryDetail =
+      String(deliveryAddressSnapshot?.detail_address ?? "").trim() ||
+      String(delivery_address_detail ?? "").trim();
+    if (!deliveryDetail) {
+      return NextResponse.json({ ok: false, error: "delivery_detail_address_required" }, { status: 400 });
+    }
+  }
+
   const etaSnapshot = await computeStoreOrderCheckoutEtaSnapshot({
     sb,
     buyerUserId: buyerId,

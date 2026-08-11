@@ -339,9 +339,9 @@ export async function POST(req: NextRequest) {
           useForTrade: true,
           useForDelivery: true,
           isDefaultMaster: true,
-          isDefaultLife: true,
-          isDefaultTrade: true,
-          isDefaultDelivery: true,
+          isDefaultLife: false,
+          isDefaultTrade: false,
+          isDefaultDelivery: false,
         });
       }
     } catch (seedErr) {

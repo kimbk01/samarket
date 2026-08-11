@@ -1273,6 +1273,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       setErr(t("store_err_saved_address_required"));
       return;
     }
+    if (fulfillment === "local_delivery" && !addressDetail.trim()) {
+      setErr(t("addr_ui_detail_required"));
+      return;
+    }
     if (needsAddressAndPhone && !deliveryAddressReady) {
       setErr(
         resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
@@ -1866,7 +1870,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   </p>
                 </li>
               ) : null}
-              {checkoutContactReady && profileSnap ? (
+              {checkoutContactReady &&
+              !savedAddresses.some((a) => a.isDefaultDelivery) &&
+              savedAddresses.length > 0 ? (
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
+                  <p className="sam-text-helper leading-snug text-amber-950">
+                    {t("store_cart_pick_or_register_delivery")}{" "}
+                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                      {t("store_address_manage_link")}
+                    </Link>
+                  </p>
+                </li>
+              ) : null}
+              {checkoutContactReady && profileSnap?.userAddressId ? (
                 <li
                   className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} ${
                     selectedAddressId === PROFILE_DELIVERY_SELECTION_ID

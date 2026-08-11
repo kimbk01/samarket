@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 매장 장바구니 등에서 자동 채움용.
- * 정책: `user_addresses` 에서 **배달 기본 → 대표 → 거래 → 생활** 순으로 한 건을 `default_delivery` 로 내리고,
+ * 정책: `user_addresses` 에서 **배달 기본(`is_default_delivery`)만** `default_delivery` 로 내린다.
  * `test_users.contact_*` 는 그다음(개발·테스트 보조). 매장 영업 주소와 혼동하지 않는다.
  */
 export async function GET() {

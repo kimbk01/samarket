@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const ADDRESS_SELECT =
   "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
 
-/** READ ONLY. Do not call listUserAddresses — that writer repairs defaults. */
+/** READ ONLY. listUserAddresses is also read-only; this route selects member rows directly. */
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },

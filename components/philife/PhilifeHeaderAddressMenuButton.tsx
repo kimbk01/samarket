@@ -233,9 +233,6 @@ export function PhilifeHeaderAddressMenuButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           isDefaultMaster: true,
-          isDefaultLife: true,
-          isDefaultTrade: true,
-          isDefaultDelivery: true,
         }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; address?: UserAddressDTO };
@@ -246,9 +243,6 @@ export function PhilifeHeaderAddressMenuButton({
       const updated = list.map((item) => ({
         ...item,
         isDefaultMaster: item.id === id,
-        isDefaultLife: item.id === id,
-        isDefaultTrade: item.id === id,
-        isDefaultDelivery: item.id === id,
       }));
       setList(updated);
       writeCachedMeAddressList(updated);

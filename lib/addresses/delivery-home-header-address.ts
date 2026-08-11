@@ -90,17 +90,12 @@ function pickDefaultAddressRow(
   return row?.id ? row : null;
 }
 
-/** 배달 기본 → master → trade → life (`pickAddressRowForDeliveryRouting` 과 동일 우선순위) */
+/** 배달 기본(`is_default_delivery`)만. master/trade/life 로 대체하지 않는다. */
 export function pickDeliveryHomeHeaderAddress(
   defaults: UserAddressDefaultsDTO | null | undefined
 ): UserAddressDTO | null {
   if (!defaults) return null;
-  return (
-    pickDefaultAddressRow(defaults.delivery) ??
-    pickDefaultAddressRow(defaults.master) ??
-    pickDefaultAddressRow(defaults.trade) ??
-    pickDefaultAddressRow(defaults.life)
-  );
+  return pickDefaultAddressRow(defaults.delivery);
 }
 
 function isHeaderDisplayPlaceholderLine(line: string | null | undefined): boolean {

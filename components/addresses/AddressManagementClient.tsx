@@ -278,14 +278,36 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           isDefaultMaster: true,
-          isDefaultLife: true,
-          isDefaultTrade: true,
-          isDefaultDelivery: true,
         }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         alert(translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed"));
+        return;
+      }
+      const rows = await commitUserAddressListAfterMutation();
+      setList(rows);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function setAsDelivery(id: string) {
+    const row = list.find((a) => a.id === id);
+    if (!row || row.isDefaultDelivery) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/me/addresses/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isDefaultDelivery: true,
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        alert(translateUserAddressApiError(j.error, t, "addr_ui_set_delivery_failed"));
         return;
       }
       const rows = await commitUserAddressListAfterMutation();
@@ -346,9 +368,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             {t("common_loading")}
           </p>
         ) : list.length === 0 && !loadErr ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-            {t("address_empty")}
-          </p>
+          <div className="flex flex-col items-center gap-4 py-8">
+            <button type="button" onClick={openCreate} className="rounded-full border border-sam-border bg-white px-5 py-2.5 sam-text-body font-semibold text-sam-fg">
+              {t("address_add")}
+            </button>
+          </div>
         ) : (
           <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
             {list.map((row) => (
@@ -363,6 +387,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                     : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
                       ? undefined
                       : () => void setAsRepresentative(row.id)
+                }
+                onSetAsDelivery={
+                  selectingForReturn ? undefined : () => void setAsDelivery(row.id)
                 }
                 onEdit={() => openEdit(row)}
                 onDelete={() => void removeRow(row.id)}
@@ -424,7 +451,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           {addressListBody}
         </div>
       </div>
-      {managementActionBar}
+      {list.length > 0 || selectingForReturn ? managementActionBar : null}
     </div>
   );
 
@@ -459,7 +486,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-0 py-0 pb-2">
             {addressListBody}
           </div>
-          {managementActionBar}
+          {list.length > 0 || selectingForReturn ? managementActionBar : null}
         </div>
       ) : (
         pageBodyColumn

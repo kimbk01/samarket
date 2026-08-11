@@ -84,7 +84,7 @@ describe("address-defaults-snapshot-resolvers", () => {
     expect(line).toBe("Quezon City · Diliman");
   });
 
-  it("picks delivery row for stores header and falls back to life neighborhood", () => {
+  it("picks delivery row for stores header", () => {
     const state = resolveDeliveryHomeHeaderStateFromSnapshot(
       snapshot({
         defaults: {
@@ -96,10 +96,29 @@ describe("address-defaults-snapshot-resolvers", () => {
         },
       })
     );
+    expect(state.status).toBe("ready");
+    if (state.status !== "ready") throw new Error("expected ready");
+    expect(state.hasLinkedAddress).toBe(true);
+    expect(state.line).toBeTruthy();
+  });
+
+  it("does not fall back to master or life neighborhood when delivery is missing", () => {
+    const state = resolveDeliveryHomeHeaderStateFromSnapshot(
+      snapshot({
+        defaults: {
+          master: addr({
+            id: "m1",
+            neighborhoodName: "Malate",
+            buildingName: "Tower",
+          }),
+        },
+        neighborhoodFromLife: { complete: true, label: "Quezon City · Diliman" },
+      })
+    );
     expect(state).toEqual({
       status: "ready",
-      line: "12B",
-      hasLinkedAddress: true,
+      line: null,
+      hasLinkedAddress: false,
     });
   });
 

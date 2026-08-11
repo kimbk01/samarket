@@ -81,18 +81,12 @@ export function resolveDeliveryHomeHeaderStateFromSnapshot(
   }
 
   const picked = pickDeliveryHomeHeaderAddress(defaults);
-  let line =
+  const line =
     picked?.id ?
       normalizeDeliveryHomeHeaderDisplayLine(resolveDeliveryHomeHeaderDisplayLine(picked))
     : null;
 
-  const lifeNeighborhood = resolveNeighborhoodFromLifeLabel(snapshot);
-  if (!line && lifeNeighborhood) {
-    line = lifeNeighborhood;
-  }
-
-  const hasLinkedAddress = Boolean(picked?.id) || Boolean(lifeNeighborhood);
-  if (!hasLinkedAddress) {
+  if (!picked?.id) {
     return { status: "ready", line: null, hasLinkedAddress: false };
   }
 

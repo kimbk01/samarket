@@ -2,7 +2,7 @@
  * `/api/stores/browse?user_lat=&user_lng=` 용 사용자 기준 좌표.
  *
  * 우선순위 (저장된 주소를 먼저 — 계정·기기 간 목록 거리/ETA 일치):
- * 1. `GET /api/me/address-defaults` — `pickAddressRowForDeliveryRouting` 과 동일 (`fetchAddressDefaultsSnapshot` 합류).
+ * 1. `GET /api/me/address-defaults` — `is_default_delivery` 만 (`pickAddressRowForDeliveryRouting`).
  * 2. `GET /api/me/profile`(dedupe) — `profiles.latitude` / `longitude`.
  * 3. `navigator.geolocation` — secure context 일 때만.
  */

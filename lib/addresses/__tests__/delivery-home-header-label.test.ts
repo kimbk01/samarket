@@ -17,7 +17,7 @@ describe("resolveDeliveryHomeHeaderButtonLabel", () => {
       "ko"
     );
     expect(label).not.toBe("주소 관리");
-    expect(label).toContain("주소");
+    expect(label).toMatch(/배달 주소|주소/);
   });
 
   it("uses not-set copy when linked but line still empty", () => {

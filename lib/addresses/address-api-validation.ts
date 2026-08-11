@@ -94,7 +94,6 @@ export function parseUserAddressWritePayload(body: unknown, opts?: { partial?: b
   bool("isDefaultLife", "isDefaultLife", "is_default_life");
   bool("isDefaultTrade", "isDefaultTrade", "is_default_trade");
   bool("isDefaultDelivery", "isDefaultDelivery", "is_default_delivery", "isDefault");
-  bool("promoteAsLastSavedPrimary", "promoteAsLastSavedPrimary", "promote_as_last_saved_primary");
 
   if (typeof o.sortOrder === "number") out.sortOrder = o.sortOrder;
   if (!opts?.partial) {

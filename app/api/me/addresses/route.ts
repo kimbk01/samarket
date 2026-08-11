@@ -4,14 +4,14 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { createUserAddress, listUserAddresses } from "@/lib/addresses/user-address-service";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import { refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { parseUserAddressWritePayload } from "@/lib/addresses/address-api-validation";
+import { toPublicUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function normalizeAddressApiErrorMessage(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? "load_failed");
+function normalizeAddressApiErrorMessage(error: unknown, fallback: string): string {
+  const raw = error instanceof Error ? error.message : String(error ?? fallback);
   const msg = raw.toLowerCase();
   if (
     msg.includes("user_addresses") &&
@@ -19,7 +19,7 @@ function normalizeAddressApiErrorMessage(error: unknown): string {
   ) {
     return "user_addresses_table_missing";
   }
-  return raw;
+  return toPublicUserAddressApiError(raw, fallback);
 }
 
 export async function GET() {
@@ -35,7 +35,7 @@ export async function GET() {
     const addresses = await listUserAddresses(sb, userId);
     return NextResponse.json({ ok: true, addresses });
   } catch (e) {
-    const msg = normalizeAddressApiErrorMessage(e);
+    const msg = normalizeAddressApiErrorMessage(e, "load_failed");
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
@@ -66,15 +66,9 @@ export async function POST(req: NextRequest) {
   const payload: UserAddressWritePayload = { ...p, phoneNumber: ph.value };
   try {
     const row = await createUserAddress(sb, userId, payload);
-    const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated(
-      sb as never,
-      userId,
-      row,
-      null
-    );
-    return NextResponse.json({ ok: true, address: row, store_orders_checkout_geo_sync });
+    return NextResponse.json({ ok: true, address: row });
   } catch (e) {
-    const msg = normalizeAddressApiErrorMessage(e);
+    const msg = normalizeAddressApiErrorMessage(e, "address_create_failed");
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

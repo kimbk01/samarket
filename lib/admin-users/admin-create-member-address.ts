@@ -81,9 +81,9 @@ function asInferDto(a: AdminCreateMemberAddressInput): UserAddressDTO {
     useForTrade: true,
     useForDelivery: true,
     isDefaultMaster: true,
-    isDefaultLife: true,
-    isDefaultTrade: true,
-    isDefaultDelivery: true,
+    isDefaultLife: false,
+    isDefaultTrade: false,
+    isDefaultDelivery: false,
     isActive: true,
     sortOrder: 0,
     lastUsedAt: null,
@@ -153,9 +153,9 @@ export function buildUserAddressSeedPayload(
     useForTrade: true,
     useForDelivery: true,
     isDefaultMaster: true,
-    isDefaultLife: true,
-    isDefaultTrade: true,
-    isDefaultDelivery: true,
+    isDefaultLife: false,
+    isDefaultTrade: false,
+    isDefaultDelivery: false,
   };
 }
 

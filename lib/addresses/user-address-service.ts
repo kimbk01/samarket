@@ -20,6 +20,7 @@ import {
   shouldApplyShopSnapshotToUpdatePatch,
   shopResolvedToAddressPatch,
 } from "@/lib/addresses/resolve-user-address-shop-write";
+import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
 
 const SEL =
   "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
@@ -55,7 +56,7 @@ async function userHasNonStoreLinkedAddress(sb: SupabaseClient<any>, userId: str
     .select("label_type,linked_store_id")
     .eq("user_id", userId)
     .eq("is_active", true);
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_update_failed");
   for (const r of data ?? []) {
     const row = r as Record<string, unknown>;
     const lt = String(row.label_type ?? "");
@@ -79,37 +80,26 @@ async function assertStoreAddressNotForcedAsMasterWhenGeneralExists(
   }
 }
 
-/** 대표가 하나도 없으면 매장 연결 주소보다 일반 주소를 우선해 대표·생활·거래·배달 기본으로 통일 (매장만 있으면 그중 첫 행) */
-async function assignFirstRowAsFullDefaultIfNoMaster(
-  sb: SupabaseClient<any>,
-  userId: string,
-  list: UserAddressDTO[],
-): Promise<void> {
-  if (list.length === 0 || list.some((x) => x.isDefaultMaster)) return;
-  const ordered = [...list].sort((a, b) => {
-    const storeA = isLinkedSamarketStoreAddressRow(a);
-    const storeB = isLinkedSamarketStoreAddressRow(b);
-    if (storeA !== storeB) return storeA ? 1 : -1;
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  });
-  const pick = ordered[0];
-  await clearDefaultColumn(sb, userId, "is_default_master");
-  await clearDefaultColumn(sb, userId, "is_default_life");
-  await clearDefaultColumn(sb, userId, "is_default_trade");
-  await clearDefaultColumn(sb, userId, "is_default_delivery");
-  const { error } = await sb
-    .from("user_addresses")
-    .update({
-      is_default_master: true,
-      is_default_life: true,
-      is_default_trade: true,
-      is_default_delivery: true,
-    })
-    .eq("id", pick.id)
-    .eq("user_id", userId);
-  if (error) throw new Error(error.message);
-  await syncProfileRegionFromLifeDefault(sb, userId);
+function throwUserAddressWriteError(error: { message?: string; code?: string } | null, fallback: string): never {
+  const msg = String(error?.message ?? fallback);
+  if (isPostgresUniqueViolation(error) || /user_addresses_one_(master|life|trade|delivery)/i.test(msg)) {
+    throw new Error("address_default_conflict");
+  }
+  console.error("[user-address-write]", fallback, msg);
+  throw new Error(fallback);
+}
+
+/** INSERT must not carry default flags — unique indexes `user_addresses_one_*` fire on insert. */
+export function userAddressInsertPayloadWithoutDefaultFlags(
+  p: UserAddressWritePayload,
+): UserAddressWritePayload {
+  return {
+    ...p,
+    isDefaultMaster: false,
+    isDefaultLife: false,
+    isDefaultTrade: false,
+    isDefaultDelivery: false,
+  };
 }
 
 /** 매장 연결 행이 대표인데 일반 주소가 있으면 대표·기본 플래그를 일반 주소 한 건으로 옮긴다(과거 자동 우선 로직으로 꼬인 데이터 보정). */
@@ -143,11 +133,15 @@ async function repairStoreLinkedMasterWhenGeneralAddressExists(
     })
     .eq("id", pick.id)
     .eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_set_master_failed");
   await syncProfileRegionFromLifeDefault(sb, userId);
   return true;
 }
 
+/**
+ * READ ONLY. GET must not invent a master or rewrite flags.
+ * Default repair belongs on create / update / delete / set-default writers.
+ */
 export async function listUserAddresses(
   sb: SupabaseClient<any>,
   userId: string
@@ -158,40 +152,25 @@ export async function listUserAddresses(
     .eq("user_id", userId)
     .eq("is_active", true)
     .order("updated_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  let list = sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
-  if (await repairStoreLinkedMasterWhenGeneralAddressExists(sb, userId, list)) {
-    const { data: dataR, error: eR } = await sb
-      .from("user_addresses")
-      .select(SEL)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false });
-    if (eR) throw new Error(eR.message);
-    list = sortAddressList((dataR ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  if (error) {
+    console.error("[listUserAddresses]", error.message);
+    throw new Error("load_failed");
   }
-  if (list.length > 0 && !list.some((x) => x.isDefaultMaster)) {
-    await assignFirstRowAsFullDefaultIfNoMaster(sb, userId, list);
-    const { data: data2, error: e2 } = await sb
-      .from("user_addresses")
-      .select(SEL)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false });
-    if (e2) throw new Error(e2.message);
-    list = sortAddressList((data2 ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
-  }
-  return list;
+  return sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+}
+
+/** POST-WRITE invariant: store-linked row must not remain master when a general address exists. Not GET repair. */
+async function repairStoreLinkedMasterAfterWrite(
+  sb: SupabaseClient<any>,
+  userId: string,
+): Promise<void> {
+  const list = await listUserAddresses(sb, userId);
+  await repairStoreLinkedMasterWhenGeneralAddressExists(sb, userId, list);
 }
 
 /**
- * 대표 주소(필수 게이트) 충족 여부 — **항상 DB 기준**.
- * - 일반: `is_default_master` 한 건만 조회해 부하를 줄임.
- * - 활성 주소는 있는데 마스터가 없으면 `listUserAddresses`와 동일하게 서버에서 대표 보정 후 판정.
- */
-/**
  * 제품 기본주소 완료 — 활성 `is_default_master` 행만.
- * region_name / 프로필 geo fallback 은 완료가 아니다.
+ * region_name / 프로필 geo / “아무 주소나 있음” 은 완료가 아니다.
  */
 export async function hasCanonicalDefaultMasterAddress(
   sb: SupabaseClient<any>,
@@ -204,62 +183,19 @@ export async function hasCanonicalDefaultMasterAddress(
     .eq("is_active", true)
     .eq("is_default_master", true)
     .limit(1);
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[hasCanonicalDefaultMasterAddress]", error.message);
+    throw new Error("load_failed");
+  }
   return Boolean(data && data.length > 0);
 }
 
+/** Alias of `hasCanonicalDefaultMasterAddress`. Geo fallback / list-side write 금지. */
 export async function isMandatoryAddressGateSatisfied(
   sb: SupabaseClient<any>,
   userId: string
 ): Promise<boolean> {
-  const { data: masterRows, error: e1 } = await sb
-    .from("user_addresses")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .eq("is_default_master", true)
-    .limit(1);
-
-  if (e1) throw new Error(e1.message);
-  if (masterRows && masterRows.length > 0) return true;
-
-  const { count, error: e2 } = await sb
-    .from("user_addresses")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_active", true);
-
-  if (e2) throw new Error(e2.message);
-  if ((count ?? 0) > 0) {
-    const list = await listUserAddresses(sb, userId);
-    return list.some((x) => x.isDefaultMaster);
-  }
-
-  /**
-   * 레거시·프로필 수정만 한 회원 — `profiles` 좌표/주소는 있으나 `user_addresses` 대표 행이 없을 수 있다.
-   * setup 게이트·MandatoryAddressGate 가 영구 루프에 빠지지 않도록 프로필 geo 로 완화한다.
-   */
-  const { data: profile, error: e3 } = await sb
-    .from("profiles")
-    .select("latitude,longitude,full_address")
-    .eq("id", userId)
-    .maybeSingle();
-  if (e3) throw new Error(e3.message);
-  return isProfileGeoAddressFallbackSatisfied(profile as Record<string, unknown> | null);
-}
-
-export function isProfileGeoAddressFallbackSatisfied(
-  profile: Record<string, unknown> | null | undefined,
-): boolean {
-  if (!profile) return false;
-  const fullAddress = String(profile.full_address ?? "").trim();
-  if (!fullAddress) return false;
-  const rawLat = profile.latitude;
-  const rawLng = profile.longitude;
-  if (rawLat == null || rawLng == null) return false;
-  const lat = typeof rawLat === "number" ? rawLat : Number(rawLat);
-  const lng = typeof rawLng === "number" ? rawLng : Number(rawLng);
-  return Number.isFinite(lat) && Number.isFinite(lng);
+  return hasCanonicalDefaultMasterAddress(sb, userId);
 }
 
 export async function getUserAddressDefaults(
@@ -277,10 +213,10 @@ export async function getUserAddressDefaults(
 
 /**
  * 배달 ETA·checkout 자동 채움에 쓸 주소 한 건.
- * 배달 전용 기본(`is_default_delivery`)이 없어도 대표·거래·생활 기본 순으로 동일 사용자 좌표를 쓴다.
+ * `is_default_delivery` 만. master/trade/life 로 몰래 대체하지 않는다.
  */
 export function pickAddressRowForDeliveryRouting(defs: UserAddressDefaultsDTO): UserAddressDTO | null {
-  return defs.delivery ?? defs.master ?? defs.trade ?? defs.life ?? null;
+  return defs.delivery?.id ? defs.delivery : null;
 }
 
 /** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
@@ -372,7 +308,7 @@ async function assertAddressNicknameUnique(
     .select("id,nickname")
     .eq("user_id", userId)
     .eq("is_active", true);
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_update_failed");
   for (const row of data ?? []) {
     const rid = String((row as { id: unknown }).id ?? "");
     if (excludeAddressId && rid === excludeAddressId) continue;
@@ -395,19 +331,7 @@ async function clearDefaultColumn(
     .eq("user_id", userId)
     .eq("is_active", true)
     .eq(col, true);
-  if (error) throw new Error(error.message);
-}
-
-async function promoteLastSavedAddressAsPrimaryIfAllowed(
-  sb: SupabaseClient<any>,
-  userId: string,
-  addressId: string,
-  dto: { labelType: UserAddressDTO["labelType"]; linkedStoreId?: string | null },
-): Promise<void> {
-  if (isLinkedSamarketStoreAddressRow(dto)) {
-    if (await userHasNonStoreLinkedAddress(sb, userId)) return;
-  }
-  await setUserAddressAsDefault(sb, userId, addressId);
+  if (error) throwUserAddressWriteError(error, "address_default_conflict");
 }
 
 async function applyDefaultFlagsOnCreate(
@@ -423,7 +347,7 @@ async function applyDefaultFlagsOnCreate(
       .update({ is_default_master: true })
       .eq("id", addressId)
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throwUserAddressWriteError(error, "address_set_master_failed");
   }
   if (p.isDefaultLife) {
     await clearDefaultColumn(sb, userId, "is_default_life");
@@ -432,7 +356,7 @@ async function applyDefaultFlagsOnCreate(
       .update({ is_default_life: true })
       .eq("id", addressId)
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
   if (p.isDefaultTrade) {
     await clearDefaultColumn(sb, userId, "is_default_trade");
@@ -441,7 +365,7 @@ async function applyDefaultFlagsOnCreate(
       .update({ is_default_trade: true })
       .eq("id", addressId)
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
   if (p.isDefaultDelivery) {
     await clearDefaultColumn(sb, userId, "is_default_delivery");
@@ -450,11 +374,11 @@ async function applyDefaultFlagsOnCreate(
       .update({ is_default_delivery: true })
       .eq("id", addressId)
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
 }
 
-/** 신규 주소에 기본 플래그가 하나도 없으면 첫 주소로 대표+전부 기본 처리 */
+/** 신규 주소에 기본 플래그가 하나도 없으면 첫 주소를 대표(`is_default_master`)만 지정 */
 async function ensureSomeoneDefaultIfFirst(
   sb: SupabaseClient<any>,
   userId: string,
@@ -466,7 +390,7 @@ async function ensureSomeoneDefaultIfFirst(
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("is_active", true);
-  if (cErr) throw new Error(cErr.message);
+  if (cErr) throwUserAddressWriteError(cErr, "address_create_failed");
   const n = count ?? 0;
   if (n !== 1) return;
   const any =
@@ -479,9 +403,6 @@ async function ensureSomeoneDefaultIfFirst(
     .from("user_addresses")
     .update({
       is_default_master: true,
-      is_default_life: true,
-      is_default_trade: true,
-      is_default_delivery: true,
     })
     .eq("id", addressId)
     .eq("user_id", userId);
@@ -528,7 +449,7 @@ export async function markUserAddressUsed(
     .eq("id", id)
     .eq("user_id", userId)
     .eq("is_active", true);
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_update_failed");
 }
 
 export async function setUserAddressAsDefault(
@@ -544,16 +465,19 @@ export async function setUserAddressAsDefault(
     .eq("user_id", userId)
     .eq("is_active", true)
     .maybeSingle();
-  if (e0) throw new Error(e0.message);
+  if (e0) throwUserAddressWriteError(e0, "address_set_master_failed");
   if (!exists) throw new Error("address_not_found");
   const targetPick = rowToUserAddressDTO(exists as Record<string, unknown>);
 
   const next = {
-    master: opts?.master !== false,
-    life: opts?.life !== false,
-    trade: opts?.trade !== false,
-    delivery: opts?.delivery !== false,
+    master: opts?.master === true,
+    life: opts?.life === true,
+    trade: opts?.trade === true,
+    delivery: opts?.delivery === true,
   };
+  if (!next.master && !next.life && !next.trade && !next.delivery) {
+    next.master = true;
+  }
   if (next.master) {
     await assertStoreAddressNotForcedAsMasterWhenGeneralExists(sb, userId, targetPick);
   }
@@ -581,9 +505,11 @@ export async function setUserAddressAsDefault(
     .eq("user_id", userId)
     .select(SEL)
     .single();
-  if (error || !data) throw new Error(error?.message ?? "update_failed");
+  if (error || !data) throwUserAddressWriteError(error, "address_set_master_failed");
+  await repairStoreLinkedMasterAfterWrite(sb, userId);
   await syncProfileRegionFromLifeDefault(sb, userId);
-  return rowToUserAddressDTO(data as Record<string, unknown>);
+  const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).maybeSingle();
+  return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
 }
 
 export type { CheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
@@ -597,7 +523,6 @@ export async function createUserAddress(
   if (!p.useForLife && !p.useForTrade && !p.useForDelivery) {
     throw new Error("use_case_required");
   }
-  const promoteAsLastSavedPrimary = p.promoteAsLastSavedPrimary !== false;
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, p);
   const invalid = validatePlacesAddressPayload(resolved);
   if (invalid) {
@@ -605,15 +530,13 @@ export async function createUserAddress(
   }
   const displayNick = await assertAddressNicknameUnique(sb, userId, resolved.nickname ?? "");
   const pWithNick: UserAddressWritePayload = { ...resolved, nickname: displayNick };
-  const row = payloadToInsertRow(userId, pWithNick);
+  const row = payloadToInsertRow(userId, userAddressInsertPayloadWithoutDefaultFlags(pWithNick));
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_create_failed");
   const dto = rowToUserAddressDTO(data as Record<string, unknown>);
   await applyDefaultFlagsOnCreate(sb, userId, dto.id, pWithNick);
   await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, pWithNick);
-  if (promoteAsLastSavedPrimary) {
-    await promoteLastSavedAddressAsPrimaryIfAllowed(sb, userId, dto.id, resolved);
-  }
+  await repairStoreLinkedMasterAfterWrite(sb, userId);
   await syncProfileRegionFromLifeDefault(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", dto.id).single();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
@@ -626,11 +549,10 @@ export async function updateUserAddress(
   p: Partial<UserAddressWritePayload>
 ): Promise<UserAddressDTO> {
   const { data: ex, error: e0 } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).single();
-  if (e0 || !ex) throw new Error(e0?.message ?? "not found");
+  if (e0 || !ex) throw new Error("address_not_found");
   const dto = rowToUserAddressDTO(ex as Record<string, unknown>);
   const base = userAddressDtoToWritePayload(dto);
   const mergedFull: UserAddressWritePayload = { ...base, ...p };
-  const promoteAsLastSavedPrimary = p.promoteAsLastSavedPrimary === true;
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, mergedFull, id);
 
   if (p.isDefaultMaster === true) {
@@ -676,7 +598,7 @@ export async function updateUserAddress(
 
   if (Object.keys(patch).length > 0) {
     const { error } = await sb.from("user_addresses").update(patch).eq("id", id).eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
   if (p.isDefaultMaster === true) {
     await clearDefaultColumn(sb, userId, "is_default_master");
@@ -685,7 +607,7 @@ export async function updateUserAddress(
       .update({ is_default_master: true })
       .eq("id", id)
       .eq("user_id", userId);
-    if (eM) throw new Error(eM.message);
+    if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
   }
   if (p.isDefaultLife === true) {
     await clearDefaultColumn(sb, userId, "is_default_life");
@@ -694,7 +616,7 @@ export async function updateUserAddress(
       .update({ is_default_life: true })
       .eq("id", id)
       .eq("user_id", userId);
-    if (eL) throw new Error(eL.message);
+    if (eL) throwUserAddressWriteError(eL, "address_update_failed");
   }
   if (p.isDefaultTrade === true) {
     await clearDefaultColumn(sb, userId, "is_default_trade");
@@ -703,7 +625,7 @@ export async function updateUserAddress(
       .update({ is_default_trade: true })
       .eq("id", id)
       .eq("user_id", userId);
-    if (eT) throw new Error(eT.message);
+    if (eT) throwUserAddressWriteError(eT, "address_update_failed");
   }
   if (p.isDefaultDelivery === true) {
     await clearDefaultColumn(sb, userId, "is_default_delivery");
@@ -712,14 +634,12 @@ export async function updateUserAddress(
       .update({ is_default_delivery: true })
       .eq("id", id)
       .eq("user_id", userId);
-    if (eD) throw new Error(eD.message);
+    if (eD) throwUserAddressWriteError(eD, "address_update_failed");
   }
-  if (promoteAsLastSavedPrimary) {
-    await promoteLastSavedAddressAsPrimaryIfAllowed(sb, userId, id, resolved);
-  }
+  await repairStoreLinkedMasterAfterWrite(sb, userId);
   await syncProfileRegionFromLifeDefault(sb, userId);
   const { data, error: e2 } = await sb.from("user_addresses").select(SEL).eq("id", id).single();
-  if (e2 || !data) throw new Error(e2?.message ?? "not found");
+  if (e2 || !data) throw new Error("address_not_found");
   return rowToUserAddressDTO(data as Record<string, unknown>);
 }
 
@@ -735,21 +655,11 @@ export async function deleteUserAddress(
     .eq("user_id", userId)
     .eq("is_active", true)
     .maybeSingle();
-  if (e0) throw new Error(e0.message);
+  if (e0) throwUserAddressWriteError(e0, "address_delete_failed");
   if (!cur) throw new Error("address_not_found");
 
-  const { count, error: cErr } = await sb
-    .from("user_addresses")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_active", true);
-  if (cErr) throw new Error(cErr.message);
-  if ((count ?? 0) <= 1) {
-    throw new Error("last_address_cannot_delete");
-  }
-
   const { error } = await sb.from("user_addresses").update({ is_active: false }).eq("id", id).eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) throwUserAddressWriteError(error, "address_delete_failed");
 
   const { data: rest } = await sb
     .from("user_addresses")
@@ -759,7 +669,11 @@ export async function deleteUserAddress(
     .order("updated_at", { ascending: false })
     .limit(1);
   const next = rest?.[0] as Record<string, unknown> | undefined;
-  if (!next) return;
+  if (!next) {
+    await repairStoreLinkedMasterAfterWrite(sb, userId);
+    await syncProfileRegionFromLifeDefault(sb, userId);
+    return;
+  }
 
   const wasMaster = !!(cur as Record<string, unknown>).is_default_master;
   const wasLife = !!(cur as Record<string, unknown>).is_default_life;
@@ -784,5 +698,6 @@ export async function deleteUserAddress(
     await sb.from("user_addresses").update({ is_default_delivery: true }).eq("id", nid).eq("user_id", userId);
   }
 
+  await repairStoreLinkedMasterAfterWrite(sb, userId);
   await syncProfileRegionFromLifeDefault(sb, userId);
 }

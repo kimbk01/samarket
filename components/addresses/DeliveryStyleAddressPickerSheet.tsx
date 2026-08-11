@@ -147,12 +147,7 @@ export function DeliveryStyleAddressPickerSheet({
         const body =
           purpose === "delivery"
             ? { isDefaultDelivery: true }
-            : {
-                isDefaultMaster: true,
-                isDefaultLife: true,
-                isDefaultTrade: true,
-                isDefaultDelivery: true,
-              };
+            : { isDefaultMaster: true };
         const res = await fetch(`/api/me/addresses/${id}`, {
           method: "PATCH",
           credentials: "include",
@@ -174,13 +169,9 @@ export function DeliveryStyleAddressPickerSheet({
           if (purpose === "delivery") {
             return { ...item, isDefaultDelivery: item.id === id };
           }
-          const selected = item.id === id;
           return {
             ...item,
-            isDefaultMaster: selected,
-            isDefaultLife: selected,
-            isDefaultTrade: selected,
-            isDefaultDelivery: selected,
+            isDefaultMaster: item.id === id,
           };
         });
         setList(updated);

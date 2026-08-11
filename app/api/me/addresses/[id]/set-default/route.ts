@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { setUserAddressAsDefault } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { toPublicUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,14 +31,17 @@ export async function POST(
   const o = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   try {
     const address = await setUserAddressAsDefault(sb, userId, aid, {
-      master: o.master !== false,
-      life: o.life !== false,
-      trade: o.trade !== false,
-      delivery: o.delivery !== false,
+      master: o.master === true,
+      life: o.life === true,
+      trade: o.trade === true,
+      delivery: o.delivery === true,
     });
     return NextResponse.json({ ok: true, address });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "set_default_failed";
+    const msg = toPublicUserAddressApiError(
+      e instanceof Error ? e.message : "address_set_master_failed",
+      "address_set_master_failed",
+    );
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

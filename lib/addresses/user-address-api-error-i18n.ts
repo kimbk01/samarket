@@ -36,6 +36,19 @@ export const USER_ADDRESS_API_ERROR_CODES = {
   empty_patch: "empty_patch",
   missing_id: "missing_id",
   supabase_unconfigured: "supabase_unconfigured",
+  default_flag_conflict: "default_flag_conflict",
+  create_failed: "create_failed",
+  address_invalid: "address_invalid",
+  address_default_conflict: "address_default_conflict",
+  address_detail_required: "address_detail_required",
+  address_create_failed: "address_create_failed",
+  address_update_failed: "address_update_failed",
+  address_delete_failed: "address_delete_failed",
+  address_set_master_failed: "address_set_master_failed",
+  shop_address_duplicate: "shop_address_duplicate",
+  shop_store_required: "shop_store_required",
+  shop_owner_required: "shop_owner_required",
+  shop_place_required: "shop_place_required",
 } as const;
 
 export type UserAddressApiErrorCode = keyof typeof USER_ADDRESS_API_ERROR_CODES;
@@ -67,6 +80,19 @@ const ERROR_I18N_KEYS: Record<string, MessageKey> = {
   empty_patch: "addr_ui_api_invalid_payload",
   missing_id: "addr_ui_api_invalid_payload",
   supabase_unconfigured: "addr_ui_api_supabase_unconfigured",
+  default_flag_conflict: "addr_ui_save_failed",
+  create_failed: "addr_ui_save_failed",
+  address_invalid: "addr_ui_api_invalid_payload",
+  address_default_conflict: "addr_ui_save_failed",
+  address_detail_required: "addr_ui_detail_required",
+  address_create_failed: "addr_ui_save_failed",
+  address_update_failed: "addr_ui_save_failed",
+  address_delete_failed: "address_delete_failed",
+  address_set_master_failed: "addr_ui_set_default_failed",
+  shop_address_duplicate: "addr_ui_shop_address_duplicate",
+  shop_store_required: "addr_ui_pick_shop",
+  shop_owner_required: "addr_ui_store_permission",
+  shop_place_required: "addr_ui_store_no_place",
 };
 
 /** 구버전 서버가 한국어 문장을 그대로 내려줄 때(배포 전후 호환) */
@@ -81,6 +107,11 @@ const LEGACY_KO_ERROR_KEYS: Record<string, MessageKey> = {
     "addr_ui_store_not_master",
   "마지막 주소는 삭제할 수 없습니다. 새 주소를 추가한 뒤 삭제해 주세요.":
     "addr_ui_api_last_address_cannot_delete",
+  /** Xiaomi 사용자 보고 문구. 현재 소스·APK·prod chunk 에는 없음. 구버전 raw error 호환. */
+  "주소 추가시 문제가 발생했습니다": "addr_ui_save_failed",
+  "매장을 선택해 주세요.": "addr_ui_pick_shop",
+  "승인된 매장 오너만 Store Address를 등록할 수 있습니다.": "addr_ui_store_permission",
+  "검색 결과에서 매장 주소를 선택해 주세요.": "addr_ui_store_no_place",
 };
 
 export function translateUserAddressApiError(
@@ -92,7 +123,15 @@ export function translateUserAddressApiError(
   if (!code) return translate(fallbackKey);
   const key = ERROR_I18N_KEYS[code] ?? LEGACY_KO_ERROR_KEYS[code];
   if (key) return translate(key);
-  return code;
+  return translate(fallbackKey);
+}
+
+/** API JSON `error` — known codes only. Raw Postgres/text never leaves the route. */
+export function toPublicUserAddressApiError(raw: string, fallback: string): string {
+  const code = raw.trim();
+  if (!code) return fallback;
+  if (code in ERROR_I18N_KEYS || code in USER_ADDRESS_API_ERROR_CODES) return code;
+  return fallback;
 }
 
 /** 마이그레이션 안내 블록 — `error` 코드 기준(번역문과 분리) */

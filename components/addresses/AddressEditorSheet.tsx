@@ -7,6 +7,7 @@ import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
+import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
 import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
@@ -129,6 +130,9 @@ export function AddressEditorSheet(props: {
   const [neighborhoodName, setNeighborhoodName] = useState("");
   const [buildingName, setBuildingName] = useState("");
   const [fineTuneOpen, setFineTuneOpen] = useState(false);
+  const [mapPinConfirmed, setMapPinConfirmed] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [geoHint, setGeoHint] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [predictions, setPredictions] = useState<PlacePredictionRow[]>([]);
   const [searching, setSearching] = useState(false);
@@ -189,6 +193,8 @@ export function AddressEditorSheet(props: {
     setPredictions([]);
     selectionAnchorSearchRef.current = null;
     setFineTuneOpen(false);
+    setMapPinConfirmed(false);
+    setGeoHint(null);
   }, []);
 
   const restoreInitialLocationFields = useCallback(() => {
@@ -234,6 +240,7 @@ export function AddressEditorSheet(props: {
     }
     setPredictions([]);
     setFineTuneOpen(false);
+    setMapPinConfirmed(true);
   }, [initial, mapBootstrap, mode]);
 
   const applyStoreRow = useCallback((row: StoreRow) => {
@@ -260,6 +267,7 @@ export function AddressEditorSheet(props: {
     const anchor = (fmt || line1).trim();
     setSearch(anchor);
     selectionAnchorSearchRef.current = anchor.length >= 2 ? anchor : null;
+    setMapPinConfirmed(Boolean((row.place_id ?? "").trim() && Number.isFinite(la) && Number.isFinite(ln)));
     if (!(row.place_id ?? "").trim()) {
       setErr(t("addr_ui_store_no_place"));
     } else {
@@ -281,6 +289,8 @@ export function AddressEditorSheet(props: {
     setPlaceId("");
     setFormattedAddress("");
     setFullAddress("");
+    setMapPinConfirmed(false);
+    setFineTuneOpen(false);
   }, [search]);
 
   const returnToStoreId = useMemo(() => parseStoreIdFromReturnTo(returnTo), [returnTo]);
@@ -368,6 +378,7 @@ export function AddressEditorSheet(props: {
       setDefTrade(false);
       setDefDel(false);
       setFineTuneOpen(false);
+      setMapPinConfirmed(true);
     } else if (mode === "create") {
       storeCreateBootstrapRef.current = false;
       setLabelPreset("home");
@@ -416,6 +427,8 @@ export function AddressEditorSheet(props: {
       setDefTrade(false);
       setDefDel(false);
       setFineTuneOpen(false);
+      setMapPinConfirmed(Boolean(mapBootstrap));
+      setGeoHint(null);
     }
   }, [open, mode, initial, mapBootstrap]);
 
@@ -508,6 +521,10 @@ export function AddressEditorSheet(props: {
     const s = r.formattedAddress.trim();
     setSearch(s);
     selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
+    setMapPinConfirmed(true);
+    window.setTimeout(() => {
+      document.getElementById("addr-editor-detail")?.focus();
+    }, 0);
   }, []);
 
   const streetPreview = useMemo(() => {
@@ -608,14 +625,41 @@ export function AddressEditorSheet(props: {
       setUnitFloorRoom("");
       setPredictions([]);
       setSearch(label);
-      setFineTuneOpen(false);
-      window.setTimeout(() => {
-        document.getElementById("addr-editor-detail")?.focus();
-      }, 0);
+      setMapPinConfirmed(false);
+      setFineTuneOpen(true);
     } finally {
       setResolvingPlaceId(null);
     }
   }
+
+  const onCurrentLocation = useCallback(async () => {
+    setGeoHint(null);
+    setLocating(true);
+    try {
+      const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
+      if (!res.ok) {
+        if (res.reason === "later") {
+          setGeoHint(null);
+          return;
+        }
+        if (res.reason === "deferred") {
+          setGeoHint(t("addr_ui_geo_hint_default"));
+          return;
+        }
+        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
+        return;
+      }
+      storeGeoAppliedRef.current = false;
+      setLatitude(res.position.latitude);
+      setLongitude(res.position.longitude);
+      setPlaceId("");
+      setFormattedAddress("");
+      setMapPinConfirmed(false);
+      setFineTuneOpen(true);
+    } finally {
+      setLocating(false);
+    }
+  }, [t]);
 
   async function saveAddress(opts?: { skipDupCheck?: boolean; skipShopAck?: boolean }) {
     setBusy(true);
@@ -748,7 +792,6 @@ export function AddressEditorSheet(props: {
         isDefaultLife: defLife,
         isDefaultTrade: defTrade,
         isDefaultDelivery: defDel,
-        promoteAsLastSavedPrimary: true,
       };
       const url = mode === "create" ? "/api/me/addresses" : `/api/me/addresses/${initial?.id}`;
       const res = await fetch(url, {
@@ -815,7 +858,7 @@ export function AddressEditorSheet(props: {
   const saveLabel = layout === "page" ? t("addr_ui_save_address") : t("common_save");
   const detailViol = detailAttempted && latitude != null && longitude != null && !unitFloorRoom.trim();
   const geoReady = latitude != null && longitude != null && !!formattedAddress.trim();
-  const showDetailSection = geoReady;
+  const showDetailSection = geoReady && mapPinConfirmed;
   const saveDisabled =
     busy ||
     !labelPreset ||
@@ -876,18 +919,41 @@ export function AddressEditorSheet(props: {
           />
         </OwnerStoreAdminDashSection>
 
-        <AddressEditorLocationSearch
-          search={search}
-          searching={searching}
-          predictions={predictions}
-          resolvingPlaceId={resolvingPlaceId}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setErr(null);
-          }}
-          onSearchFocus={handleSearchFocus}
-          onSelectPrediction={(p) => void selectPrediction(p)}
-        />
+        <OwnerStoreAdminDashSection
+          title={t("addr_ui_pick_location_title")}
+          subtitle={t("addr_ui_search_first_hint")}
+        >
+          <AddressEditorLocationSearch
+            search={search}
+            searching={searching}
+            predictions={predictions}
+            resolvingPlaceId={resolvingPlaceId}
+            onSearchChange={(value) => {
+              setSearch(value);
+              setErr(null);
+            }}
+            onSearchFocus={handleSearchFocus}
+            onSelectPrediction={(p) => void selectPrediction(p)}
+          />
+          <button
+            type="button"
+            onClick={() => void onCurrentLocation()}
+            disabled={locating}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-sam-border bg-sam-surface py-3 sam-text-body font-medium text-sam-muted disabled:opacity-50"
+          >
+            {locating ? t("addr_ui_locating") : t("addr_ui_find_current")}
+          </button>
+          {geoHint ? <p className="sam-text-body-secondary leading-snug text-red-700">{geoHint}</p> : null}
+          {latitude != null && longitude != null && !mapPinConfirmed ? (
+            <button
+              type="button"
+              onClick={() => setFineTuneOpen(true)}
+              className="flex w-full items-center justify-center rounded-lg border border-sam-primary bg-sam-primary-soft/40 py-3 sam-text-body font-semibold text-sam-primary"
+            >
+              {t("addr_ui_open_fine_tune")}
+            </button>
+          ) : null}
+        </OwnerStoreAdminDashSection>
 
         {showDetailSection ? (
           <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
