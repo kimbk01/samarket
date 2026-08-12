@@ -368,6 +368,9 @@ export async function GET(req: NextRequest) {
    * List rows = notification_events only — same Authority as Bell digit.
    * DO NOT merge legacy `notifications` unread into product Bell list.
    * Legacy table remains history / PATCH mark-all compatibility only (not list SSOT).
+   *
+   * J8 explainability (2026-08-12): `fetchUpper` is the eligible-row target after
+   * chat/owner exclude — fetchNotificationEventsForInbox fills past raw recent-N windows.
    */
   const mergeFetchUpper = explicitPage ? listOffset + displayCap + 1 : fetchUpper;
 

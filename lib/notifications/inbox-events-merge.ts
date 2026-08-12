@@ -457,13 +457,17 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
   return pk === pushKind;
 }
 
-export function filterMappedInboxEventRows(
+/**
+ * Eligibility / exclude filters only — no page window.
+ * DO NOT apply raw pagination before this (J8 explainability).
+ */
+export function applyInboxEligibilityFilters(
   rows: InboxNotificationRow[],
   opts: FetchNotificationEventsForInboxOpts
 ): InboxNotificationRow[] {
   let list = rows;
   if (opts.ownerStoreId) {
-    list = filterOwnerStoreCommerceByStoreId(list, opts.ownerStoreId).slice(0, 200);
+    list = filterOwnerStoreCommerceByStoreId(list, opts.ownerStoreId);
   } else if (opts.excludeOwnerList) {
     list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r));
   }
@@ -473,9 +477,77 @@ export function filterMappedInboxEventRows(
   if (opts.inboxPushKind && opts.inboxPushKind !== "all") {
     list = list.filter((r) => matchesInboxPushKind(r, opts.inboxPushKind!));
   }
-  return list.slice(0, opts.fetchUpper);
+  return list;
 }
 
+export function filterMappedInboxEventRows(
+  rows: InboxNotificationRow[],
+  opts: FetchNotificationEventsForInboxOpts
+): InboxNotificationRow[] {
+  const eligible = applyInboxEligibilityFilters(rows, opts);
+  if (opts.ownerStoreId) {
+    const cap = Math.min(200, Math.max(0, Math.floor(Number(opts.fetchUpper) || 200)));
+    return eligible.slice(0, cap);
+  }
+  const target = Math.max(0, Math.floor(Number(opts.fetchUpper) || 0));
+  return eligible.slice(0, target > 0 ? target : eligible.length);
+}
+
+/** Raw batch size while scanning for eligible rows after exclude. */
+export const INBOX_ELIGIBLE_FILL_BATCH = 80;
+/**
+ * Scan ceiling while filling eligible rows — aligned with Member A load limit.
+ * This is NOT a product display limit (do not treat as "raise limit to 2000").
+ */
+export const INBOX_ELIGIBLE_FILL_SCAN_MAX = 2000;
+
+/**
+ * Consume newest-first batches → eligibility/exclude → dedupe first-win
+ * until `target` eligible rows or batches exhausted.
+ *
+ * CONTRACT (J8): page window is applied to eligible rows, never to raw recent N.
+ */
+export function fillEligibleInboxRowsUntilLimit(
+  batches: readonly InboxNotificationRow[][],
+  opts: FetchNotificationEventsForInboxOpts,
+  target: number
+): InboxNotificationRow[] {
+  const want = Math.max(0, Math.min(INBOX_ELIGIBLE_FILL_SCAN_MAX, Math.floor(Number(target) || 0)));
+  if (want <= 0) return [];
+
+  const seenIds = new Set<string>();
+  const seenDedupe = new Set<string>();
+  const out: InboxNotificationRow[] = [];
+
+  for (const batch of batches) {
+    const eligible = applyInboxEligibilityFilters(batch, opts);
+    for (const row of eligible) {
+      const id = trimText(row.id);
+      if (!id || seenIds.has(id)) continue;
+      const dk = trimText(row.dedupe_key);
+      if (dk) {
+        if (seenDedupe.has(dk)) continue;
+        seenDedupe.add(dk);
+      }
+      seenIds.add(id);
+      out.push(row);
+      if (out.length >= want) return out;
+    }
+  }
+  return out;
+}
+
+function mapRawNotificationEventRows(data: unknown[]): InboxNotificationRow[] {
+  return (data ?? [])
+    .filter((row) => !INBOX_EXCLUDED_EVENT_TYPES.has(trimText((row as NotificationEventInboxSource).type)))
+    .filter((row) => !isInboxDismissedNotificationEvent(row as NotificationEventInboxSource))
+    .map((row) => mapNotificationEventToInboxRow(row as NotificationEventInboxSource));
+}
+
+/**
+ * Bell / NC inbox list loader.
+ * Fills eligible visible rows after chat/owner exclude — not a single raw `limit(N)` cut.
+ */
 export async function fetchNotificationEventsForInbox(
   sb: SupabaseClient,
   userId: string,
@@ -484,25 +556,54 @@ export async function fetchNotificationEventsForInbox(
   const uid = userId.trim();
   if (!uid) return [];
 
-  const { data, error } = await sb
-    .from("notification_events")
-    .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
-    .eq("user_id", uid)
-    .order("created_at", { ascending: false })
-    .limit(Math.max(opts.fetchUpper, 80));
+  const target = Math.max(
+    1,
+    Math.min(INBOX_ELIGIBLE_FILL_SCAN_MAX, Math.floor(Number(opts.fetchUpper) || 80))
+  );
 
-  if (error) {
-    if (error.message?.includes("notification_events") && error.message.includes("does not exist")) {
-      return [];
+  const seenIds = new Set<string>();
+  const seenDedupe = new Set<string>();
+  const filled: InboxNotificationRow[] = [];
+  let offset = 0;
+
+  while (filled.length < target && offset < INBOX_ELIGIBLE_FILL_SCAN_MAX) {
+    const batchSize = Math.min(INBOX_ELIGIBLE_FILL_BATCH, INBOX_ELIGIBLE_FILL_SCAN_MAX - offset);
+    const { data, error } = await sb
+      .from("notification_events")
+      .select("id, type, category, title, body, display_payload, read_at, created_at, dedupe_key, room_id")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + batchSize - 1);
+
+    if (error) {
+      if (error.message?.includes("notification_events") && error.message.includes("does not exist")) {
+        return filled;
+      }
+      console.warn("[fetchNotificationEventsForInbox]", error.message);
+      return filled;
     }
-    console.warn("[fetchNotificationEventsForInbox]", error.message);
-    return [];
+
+    const raw = data ?? [];
+    if (raw.length === 0) break;
+    offset += raw.length;
+
+    const mapped = mapRawNotificationEventRows(raw);
+    const eligible = applyInboxEligibilityFilters(mapped, opts);
+    for (const row of eligible) {
+      const id = trimText(row.id);
+      if (!id || seenIds.has(id)) continue;
+      const dk = trimText(row.dedupe_key);
+      if (dk) {
+        if (seenDedupe.has(dk)) continue;
+        seenDedupe.add(dk);
+      }
+      seenIds.add(id);
+      filled.push(row);
+      if (filled.length >= target) break;
+    }
+
+    if (raw.length < batchSize) break;
   }
 
-  const mapped = (data ?? [])
-    .filter((row) => !INBOX_EXCLUDED_EVENT_TYPES.has(trimText((row as NotificationEventInboxSource).type)))
-    .filter((row) => !isInboxDismissedNotificationEvent(row as NotificationEventInboxSource))
-    .map((row) => mapNotificationEventToInboxRow(row as NotificationEventInboxSource));
-
-  return filterMappedInboxEventRows(mapped, opts);
+  return filled.slice(0, target);
 }
