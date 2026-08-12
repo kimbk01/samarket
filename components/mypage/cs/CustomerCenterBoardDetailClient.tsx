@@ -6,6 +6,7 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CustomerCenterCommentsPanel } from "@/components/mypage/cs/CustomerCenterCommentsPanel";
+import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   BOARD_LABEL,
@@ -183,13 +184,15 @@ function Inner({
                   />
                 </div>
               ) : null}
-              <div className="whitespace-pre-wrap break-words sam-text-body text-sam-fg">
-                {unavailable
-                  ? language === "en"
+              {unavailable ? (
+                <div className="whitespace-pre-wrap break-words sam-text-body text-sam-fg">
+                  {language === "en"
                     ? customerCenterContentUnavailableFallback("en")
-                    : customerCenterContentUnavailableFallback("ko")
-                  : notice.body}
-              </div>
+                    : customerCenterContentUnavailableFallback("ko")}
+                </div>
+              ) : (
+                <CustomerCenterSafeMarkdownBody body={notice.body} />
+              )}
               {!unavailable && notice.commentEnabled !== false ? (
                 <CustomerCenterCommentsPanel contentId={notice.id} enabled />
               ) : null}
