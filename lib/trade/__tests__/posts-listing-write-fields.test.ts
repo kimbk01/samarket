@@ -41,6 +41,17 @@ describe("L1 posts listing write fields", () => {
     expect(p.seller_listing_state).toBe("inquiry");
     expect(p.reserved_buyer_id).toBe(null);
   });
+
+  it("build from listing reserved binds buyer id", () => {
+    const p = buildPostsPatchFromSellerListingState({
+      sellerListingState: "reserved",
+      nowIso: "t0",
+      reservedBuyerId: "buyer-1",
+    });
+    expect(p.status).toBe("reserved");
+    expect(p.seller_listing_state).toBe("reserved");
+    expect(p.reserved_buyer_id).toBe("buyer-1");
+  });
 });
 
 describe("trade bridge exit conditions (lock only)", () => {

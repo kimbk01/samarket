@@ -19,7 +19,10 @@ import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
-import { peekTradeMarketClientShell } from "@/lib/market/peek-trade-market-client-shell";
+import {
+  hydrateTradeMarketCategoryPeekCache,
+  peekTradeMarketClientShell,
+} from "@/lib/market/peek-trade-market-client-shell";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 
@@ -80,7 +83,12 @@ export function CategoryListLayout({
     const topic = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
     const fsRaw = searchParams.get("fs")?.trim().toLowerCase() ?? "";
     const sort = parseTradeFeedSortQuery(fsRaw || null);
-    return peekTradeMarketClientShell(slugOrId, { topic, sort });
+    const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
+    const tradeState =
+      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+        ? tradeStateRaw
+        : "latest";
+    return peekTradeMarketClientShell(slugOrId, { topic, sort, tradeState });
   }, [expectedType, isTradeSeeded, slugOrId, tradeMarketSearchSyncKey, searchParams]);
 
   const [category, setCategory] = useState<CategoryWithSettings | null>(() =>
@@ -127,6 +135,10 @@ export function CategoryListLayout({
 
   useEffect(() => {
     if (expectedType !== "trade" || !tradeServerSeed) return;
+    hydrateTradeMarketCategoryPeekCache(
+      tradeServerSeed.category,
+      tradeServerSeed.tradeBootstrapChildren
+    );
     writeCategoryCache(`children:${tradeServerSeed.category.id}`, tradeServerSeed.tradeBootstrapChildren);
   }, [expectedType, tradeServerSeed]);
 
@@ -182,9 +194,14 @@ export function CategoryListLayout({
     const softShellKeepTradeChrome = softTradeResync || softTradeQueryOnly;
 
     const sortForPeek = parseTradeFeedSortQuery(fsPad || null);
+    const tradeStateRaw = (searchParamsRef.current.get("tradeState")?.trim() ?? "");
+    const tradeStateForPeek =
+      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+        ? tradeStateRaw
+        : "latest";
     const instantClientShell =
       expectedType === "trade" && !softShellKeepTradeChrome
-        ? peekTradeMarketClientShell(slugOrId, { topic, sort: sortForPeek })
+        ? peekTradeMarketClientShell(slugOrId, { topic, sort: sortForPeek, tradeState: tradeStateForPeek })
         : null;
     const keepTradeChrome = softShellKeepTradeChrome || instantClientShell != null;
 
@@ -251,6 +268,7 @@ export function CategoryListLayout({
           }
           const children = (j.children ?? []).map((row) => mapChildCategoryRow(row as unknown as TradeChildDbRow));
           writeCategoryCache(`children:${c.id}`, children);
+          hydrateTradeMarketCategoryPeekCache(c, children);
           const childrenForFilter = (j.childrenForFilter ?? [])
             .map((row) => ({
               id: String(row?.id ?? ""),
@@ -288,6 +306,9 @@ export function CategoryListLayout({
     }
     if (expectedType === "trade") {
       tradeResolvedSlugNormRef.current = slugNorm;
+    }
+    if (expectedType === "trade") {
+      hydrateTradeMarketCategoryPeekCache(c);
     }
     setCategory(c);
     setTradeBootstrapChildren(undefined);

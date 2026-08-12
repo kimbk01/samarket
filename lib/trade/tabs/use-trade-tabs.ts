@@ -7,16 +7,24 @@ import { getHomeChipCategories } from "@/lib/categories/getHomeChipCategories";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { hydrateTradeMarketCategoryPeekCache } from "@/lib/market/peek-trade-market-client-shell";
 import type { TradePrimaryTab } from "./types";
 
 let cachedTradePrimaryCategories: CategoryWithSettings[] | null = null;
 let tradePrimaryCategoriesFlight: Promise<CategoryWithSettings[]> | null = null;
 let tradePrimaryCategoriesPrimed = false;
 
+function hydratePeekFromTradeChips(list: CategoryWithSettings[]): void {
+  for (const c of list) {
+    if (c.type === "trade") hydrateTradeMarketCategoryPeekCache(c);
+  }
+}
+
 /** RSC `layout` — `getHomeTradeChipCategoriesForServer` 와 동기(같은 쿼리). `AppStickyHeader` 보다 먼저 프라임. */
 export function primeTradeTabCategoriesCache(categories: CategoryWithSettings[]): void {
   tradePrimaryCategoriesPrimed = true;
   cachedTradePrimaryCategories = categories;
+  hydratePeekFromTradeChips(categories);
 }
 
 async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
@@ -33,6 +41,7 @@ async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
     .then((list) => {
       tradePrimaryCategoriesPrimed = true;
       cachedTradePrimaryCategories = list;
+      hydratePeekFromTradeChips(list);
       return list;
     })
     .finally(() => {

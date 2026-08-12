@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { PointBalanceCard } from "@/components/points/PointBalanceCard";
@@ -29,9 +29,11 @@ function resolvePromotionSubmitError(
   return t("points_ui_request_failed");
 }
 
-export default function MyPointsPromotionsPage() {
+function MyPointsPromotionsPageInner() {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTargetId = searchParams.get("postId")?.trim() || searchParams.get("targetId")?.trim() || null;
   const { balance, loading: balanceLoading, refresh: refreshBalance } = useUserPointBalance();
   const {
     productOptions,
@@ -129,6 +131,7 @@ export default function MyPointsPromotionsPage() {
               balance={balance}
               balanceLoading={balanceLoading}
               productOptions={productOptions}
+              initialTargetId={initialTargetId}
               onSubmit={(v) => void handleSubmit(v)}
               submitLabel={busy ? t("common_loading") : undefined}
             />
@@ -146,5 +149,14 @@ export default function MyPointsPromotionsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function MyPointsPromotionsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" aria-busy="true" />}>
+      <MyPointsPromotionsPageInner />
+    </Suspense>
   );
 }

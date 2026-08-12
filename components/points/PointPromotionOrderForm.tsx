@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   listActiveMemberPromotionProducts,
@@ -19,6 +19,8 @@ interface PointPromotionOrderFormProps {
   balance: number;
   balanceLoading?: boolean;
   productOptions: { id: string; title: string }[];
+  /** Deep-link from My Trade — preselect listing */
+  initialTargetId?: string | null;
   onSubmit: (values: PointPromotionOrderFormValues) => void;
   submitLabel?: string;
 }
@@ -27,6 +29,7 @@ export function PointPromotionOrderForm({
   balance,
   balanceLoading = false,
   productOptions,
+  initialTargetId = null,
   onSubmit,
   submitLabel,
 }: PointPromotionOrderFormProps) {
@@ -36,6 +39,13 @@ export function PointPromotionOrderForm({
   const [productId, setProductId] = useState<MemberPromotionProductId>(
     catalog[0]?.id ?? "trade_promote_7"
   );
+
+  useEffect(() => {
+    const want = (initialTargetId ?? "").trim();
+    if (!want) return;
+    if (!productOptions.some((p) => p.id === want)) return;
+    setTargetId((prev) => (prev === want ? prev : want));
+  }, [initialTargetId, productOptions]);
 
   const selected = catalog.find((p) => p.id === productId) ?? catalog[0];
   const cost = selected?.pointCost ?? 0;

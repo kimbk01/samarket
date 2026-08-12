@@ -62,10 +62,16 @@ export function buildPostsPatchFromSellerListingState(input: {
   return patch;
 }
 
-/** Patch from owner-status style post status (active|reserved|sold|hidden). */
+/**
+ * Patch from owner-status style post status.
+ * CONTRACT: HTTP owner-status only allows active|hidden (reserved/sold need buyer bind).
+ * Helper still maps reserved/sold for tests / admin-adjacent callers — those must set
+ * reserved_buyer_id / sold_buyer_id themselves when writing.
+ */
 export function buildPostsPatchFromOwnerStatus(input: {
   postStatus: "active" | "reserved" | "sold" | "hidden";
   nowIso: string;
+  reservedBuyerId?: string | null;
 }): PostsListingWritePatch {
   if (input.postStatus === "hidden") {
     return {
@@ -76,9 +82,17 @@ export function buildPostsPatchFromOwnerStatus(input: {
     };
   }
   const listing = sellerListingStateForPostStatus(input.postStatus);
-  return {
+  const patch: PostsListingWritePatch = {
     status: input.postStatus,
     seller_listing_state: listing ?? "inquiry",
     updated_at: input.nowIso,
   };
+  if (input.postStatus === "reserved") {
+    if (input.reservedBuyerId) {
+      patch.reserved_buyer_id = input.reservedBuyerId;
+    }
+  } else {
+    patch.reserved_buyer_id = null;
+  }
+  return patch;
 }

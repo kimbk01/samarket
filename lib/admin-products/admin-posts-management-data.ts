@@ -37,6 +37,8 @@ export interface AdminProductRow {
   type?: string;
   meta?: unknown;
   seller_listing_state?: string;
+  reserved_buyer_id?: string | null;
+  sold_buyer_id?: string | null;
 }
 
 export interface CategoryMeta {
@@ -116,6 +118,14 @@ function mapRowToProduct(
     postMeta,
     visibility: visibilityFromMeta,
     sellerListingState: normalizeSellerListingState(row.seller_listing_state, row.status),
+    reservedBuyerId:
+      typeof row.reserved_buyer_id === "string" && row.reserved_buyer_id.trim()
+        ? row.reserved_buyer_id.trim()
+        : null,
+    soldBuyerId:
+      typeof row.sold_buyer_id === "string" && row.sold_buyer_id.trim()
+        ? row.sold_buyer_id.trim()
+        : null,
   };
 }
 

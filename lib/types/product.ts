@@ -77,6 +77,10 @@ export interface Product {
   isPromoted?: boolean;
   /** 판매자 공개 거래 단계 — posts.seller_listing_state */
   sellerListingState?: SellerListingState;
+  /** Admin / ops — posts.reserved_buyer_id */
+  reservedBuyerId?: string | null;
+  /** Admin / ops — posts.sold_buyer_id */
+  soldBuyerId?: string | null;
 }
 
 /** 13단계: 관리자 상품 상태 변경 이력 */

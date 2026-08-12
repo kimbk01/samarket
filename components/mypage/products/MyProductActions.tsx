@@ -94,6 +94,15 @@ export function MyProductActions({
             {t("mypage_comp_product_edit")}
           </Link>
           {product.status === "active" && (
+            <Link
+              href={`/mypage/points/promotions?postId=${encodeURIComponent(product.id)}`}
+              className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+              onClick={() => setOpen(false)}
+            >
+              {t("mypage_comp_product_go_promotion")}
+            </Link>
+          )}
+          {product.status === "active" && (
             <button
               type="button"
               onClick={handleBump}

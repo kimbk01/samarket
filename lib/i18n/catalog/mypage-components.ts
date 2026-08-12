@@ -663,6 +663,11 @@ export const mypageComponentsMessages = {
     mypage_comp_product_pick_complete_subtitle:
       "여러 분과 동시에 문의 중이면, 거래를 마칠 구매자를 골라 주세요.",
     mypage_comp_product_empty_all: "등록한 상품이 없어요",
+    mypage_comp_product_primary_hub_hint:
+      "판매 상태·거래완료는 판매 관리 허브가 기준입니다. 이 화면은 보조 목록입니다.",
+    mypage_comp_product_go_sales_hub: "판매 관리로 이동",
+    mypage_comp_product_go_promotion: "상위노출",
+    mypage_comp_product_go_ads: "배너·광고",
     mypage_comp_product_empty_filter: "이 상태의 상품이 없어요",
     mypage_comp_sales_listing_change_confirm: '물품 상태를 "{label}"(으)로 바꿀까요?',
     mypage_comp_sales_complete_confirm:
@@ -835,6 +840,8 @@ export const mypageComponentsMessages = {
     mypage_comp_sales_complete_irreversible: "거래완료 (되돌리기 불가)",
     mypage_comp_sales_buyer_review_view: "구매자 후기 보기",
     mypage_comp_sales_view_post: "게시글 보기",
+    mypage_comp_sales_promote_cta: "상위노출 신청",
+    mypage_comp_sales_banner_cta: "배너 광고 신청",
     mypage_comp_sales_report_block: "신고·차단",
     mypage_comp_community_loading: "불러오는 중입니다.",
     mypage_comp_community_posts_empty: "아직 남긴 커뮤니티 글이 없습니다.",
@@ -1494,6 +1501,11 @@ export const mypageComponentsMessages = {
     mypage_comp_product_pick_complete_subtitle:
       "If multiple buyers are inquiring, pick who you’re closing the trade with.",
     mypage_comp_product_empty_all: "You haven’t listed any items yet",
+    mypage_comp_product_primary_hub_hint:
+      "Sales status and completion are managed in the sales hub. This screen is a secondary list.",
+    mypage_comp_product_go_sales_hub: "Go to sales hub",
+    mypage_comp_product_go_promotion: "Promote listing",
+    mypage_comp_product_go_ads: "Banner ads",
     mypage_comp_product_empty_filter: "No items in this status",
     mypage_comp_sales_listing_change_confirm: 'Change item status to "{label}"?',
     mypage_comp_sales_complete_confirm: "Complete the trade with this buyer and mark the item sold?",
@@ -1666,6 +1678,8 @@ export const mypageComponentsMessages = {
     mypage_comp_sales_complete_irreversible: "Complete trade (cannot undo)",
     mypage_comp_sales_buyer_review_view: "View buyer review",
     mypage_comp_sales_view_post: "View post",
+    mypage_comp_sales_promote_cta: "Promote listing",
+    mypage_comp_sales_banner_cta: "Apply for banner ad",
     mypage_comp_sales_report_block: "Report · block",
     mypage_comp_community_loading: "Loading…",
     mypage_comp_community_posts_empty: "You haven’t posted in the community yet.",

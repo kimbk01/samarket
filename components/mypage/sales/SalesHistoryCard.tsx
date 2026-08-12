@@ -90,12 +90,22 @@ export function SalesHistoryCard({
     if (typeof window !== "undefined" && !window.confirm(t("mypage_comp_sales_listing_change_confirm", { label }))) {
       return;
     }
+    if (next === "reserved" && !row.buyerId?.trim()) {
+      window.alert(t("mypage_comp_product_reserve_inquiry_only"));
+      return;
+    }
     setActionBusy("listing");
     try {
+      const body: { sellerListingState: SellerListingState; reservedBuyerId?: string } = {
+        sellerListingState: next,
+      };
+      if (next === "reserved") {
+        body.reservedBuyerId = row.buyerId.trim();
+      }
       const res = await fetch(`/api/posts/${encodeURIComponent(row.postId)}/seller-listing-state`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sellerListingState: next }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) onReload();
@@ -319,6 +329,20 @@ export function SalesHistoryCard({
                   {t("mypage_comp_sales_buyer_review_view")}
                 </button>
               ) : null}
+              <Link
+                href={`/mypage/points/promotions?postId=${encodeURIComponent(row.postId)}`}
+                onClick={() => setMenuOpen(false)}
+                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+              >
+                {t("mypage_comp_sales_promote_cta")}
+              </Link>
+              <Link
+                href="/mypage/ads/feed-request"
+                onClick={() => setMenuOpen(false)}
+                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+              >
+                {t("mypage_comp_sales_banner_cta")}
+              </Link>
               <Link
                 href={detailHref}
                 onPointerEnter={() => void router.prefetch(detailHref)}

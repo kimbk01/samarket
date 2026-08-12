@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
  * Body: { tradeStatus: string }
  *
  * Bridge / secondary: listing SSOT is L1 (`seller-listing-state`).
- * When syncing posts, always write seller_listing_state + status together
- * via `buildPostsPatchFromSellerListingState` (no status-only desync).
+ * When syncing posts for inquiry|negotiating|reserved, write seller_listing_state + status
+ * via `buildPostsPatchFromSellerListingState` and bind reserved_buyer_id from room buyer.
+ * completed → room trade_status only (seller-complete owns sold_buyer_id).
  * Exit: `TRADE_BRIDGE_EXIT_CONDITIONS.TRADE_STATUS_ROOM_API` — do not remove yet.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -18,7 +19,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import {
   L1_SELLER_LISTING_STATES,
-  postStatusForSellerListingState,
+  buildPostsPatchFromSellerListingState,
 } from "@/lib/trade/posts-listing-write-fields";
 
 const ALLOWED: string[] = [
@@ -200,11 +201,13 @@ export async function POST(
     /* ignore */
   }
 
-  // L1: listing states → posts에 seller_listing_state+status 동시 반영 (status-only 금지).
-  // reserved_buyer_id는 이 API가 기존에 건드리지 않았음 → 유지 (CANONICAL seller-listing-state만 예약자 관리).
+  // Bridge mirror: L1 listing columns when tradeStatus is a listing state.
+  // reserved → always bind this room's buyer_id (no buyer-less reserved).
+  // completed → room-only (sold_buyer_id / chat flow remain seller-complete authority).
   if (
     r.item_id &&
-    (L1_SELLER_LISTING_STATES as readonly string[]).includes(tradeStatus)
+    (L1_SELLER_LISTING_STATES as readonly string[]).includes(tradeStatus) &&
+    tradeStatus !== "completed"
   ) {
     const { data: postRow } = await sbAny
       .from(POSTS_TABLE_READ)
@@ -215,14 +218,19 @@ export async function POST(
     const ownerId = post?.user_id ?? "";
     if (post && ownerId === r.seller_id) {
       const listing = tradeStatus as SellerListingState;
-      await sbAny
-        .from(POSTS_TABLE_WRITE)
-        .update({
-          status: postStatusForSellerListingState(listing),
-          seller_listing_state: listing,
-          updated_at: now,
-        })
-        .eq("id", r.item_id);
+      if (listing === "reserved" && !String(r.buyer_id ?? "").trim()) {
+        return NextResponse.json(
+          { ok: false, error: "예약에는 채팅 상대 구매자가 필요합니다.", code: "reserved_requires_buyer" },
+          { status: 400 }
+        );
+      }
+      const patch = buildPostsPatchFromSellerListingState({
+        sellerListingState: listing,
+        nowIso: now,
+        reservedBuyerId: listing === "reserved" ? String(r.buyer_id).trim() : null,
+        clearReservedBuyer: listing !== "reserved",
+      });
+      await sbAny.from(POSTS_TABLE_WRITE).update(patch).eq("id", r.item_id);
     }
   }
 

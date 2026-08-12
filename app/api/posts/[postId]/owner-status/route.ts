@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/posts/[postId]/owner-status
- * Body: { status: active | reserved | sold | hidden } — 판매자는 세션
+ * Body: { status: active | hidden } — 판매자 세션
  *
- * Secondary HTTP entry; posts columns via L1 mapping (`buildPostsPatchFromOwnerStatus`).
+ * Secondary HTTP entry for hide/relist only.
+ * RESERVED / SOLD require buyer binding — use seller-listing-state / seller-complete.
  * Full listing transitions / reserved buyer / broadcast → seller-listing-state.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -15,7 +16,8 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildPostsPatchFromOwnerStatus } from "@/lib/trade/posts-listing-write-fields";
 
-const ALLOWED = new Set(["active", "reserved", "sold", "hidden"]);
+/** Member-facing coarse status via this route — reserved/sold rejected (buyer binding). */
+const ALLOWED = new Set(["active", "hidden"]);
 
 export async function POST(
   req: NextRequest,
@@ -40,9 +42,33 @@ export async function POST(
     body = {};
   }
   const nextStatus = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
-  if (!postId?.trim() || !ALLOWED.has(nextStatus)) {
+  if (!postId?.trim()) {
+    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+  }
+  if (nextStatus === "reserved") {
     return NextResponse.json(
-      { ok: false, error: "postId, status(active|reserved|sold|hidden) 필요" },
+      {
+        ok: false,
+        error:
+          "예약은 구매자를 지정하는 판매 단계 변경으로만 가능합니다. (seller-listing-state + reservedBuyerId)",
+        code: "reserved_requires_buyer",
+      },
+      { status: 400 }
+    );
+  }
+  if (nextStatus === "sold") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.",
+        code: "sold_requires_seller_complete",
+      },
+      { status: 400 }
+    );
+  }
+  if (!ALLOWED.has(nextStatus)) {
+    return NextResponse.json(
+      { ok: false, error: "postId, status(active|hidden) 필요" },
       { status: 400 }
     );
   }
@@ -70,7 +96,7 @@ export async function POST(
 
   const now = new Date().toISOString();
   const postUpdate = buildPostsPatchFromOwnerStatus({
-    postStatus: nextStatus as "active" | "reserved" | "sold" | "hidden",
+    postStatus: nextStatus as "active" | "hidden",
     nowIso: now,
   });
 

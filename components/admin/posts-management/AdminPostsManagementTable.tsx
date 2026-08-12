@@ -104,7 +104,7 @@ export const AdminPostsManagementTable = forwardRef<
       className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm [-webkit-overflow-scrolling:touch]"
     >
       <table
-        className={`w-full border-collapse sam-text-body ${showProductIdColumn ? "min-w-[1240px]" : "min-w-[1120px]"}`}
+        className={`w-full border-collapse sam-text-body ${showProductIdColumn ? "min-w-[1480px]" : "min-w-[1360px]"}`}
       >
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
@@ -121,6 +121,15 @@ export const AdminPostsManagementTable = forwardRef<
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
               {t("admin_posts_mgmt_th_seller")}
+            </th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
+              {t("admin_posts_mgmt_th_reserved_buyer")}
+            </th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
+              {t("admin_posts_mgmt_th_sold_buyer")}
+            </th>
+            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
+              {t("admin_posts_mgmt_th_trade_ops")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
               {t("admin_posts_mgmt_th_web_section")}
@@ -216,6 +225,48 @@ export const AdminPostsManagementTable = forwardRef<
                     </span>
                   ) : null}
                 </Link>
+              </td>
+              <td className="px-3 py-2.5 text-sam-fg">
+                {p.reservedBuyerId ? (
+                  <Link
+                    href={`/admin/users/${p.reservedBuyerId}`}
+                    className="font-mono sam-text-body-secondary text-signature hover:underline"
+                    title={p.reservedBuyerId}
+                  >
+                    {p.reservedBuyerId.slice(0, 8)}…
+                  </Link>
+                ) : (
+                  <span className="text-sam-meta">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5 text-sam-fg">
+                {p.soldBuyerId ? (
+                  <Link
+                    href={`/admin/users/${p.soldBuyerId}`}
+                    className="font-mono sam-text-body-secondary text-signature hover:underline"
+                    title={p.soldBuyerId}
+                  >
+                    {p.soldBuyerId.slice(0, 8)}…
+                  </Link>
+                ) : (
+                  <span className="text-sam-meta">—</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5 text-sam-fg">
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href="/admin/chats/trade"
+                    className="sam-text-helper text-signature hover:underline"
+                  >
+                    {t("admin_posts_mgmt_link_trade_chats")}
+                  </Link>
+                  <Link
+                    href="/admin/trade-flow"
+                    className="sam-text-helper text-signature hover:underline"
+                  >
+                    {t("admin_posts_mgmt_link_trade_flow")}
+                  </Link>
+                </div>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {(() => {
