@@ -126,6 +126,6 @@ npx vitest run \
 
 | Field | Value |
 |---|---|
-| Commit | _(filled after push)_ |
-| Production deployment | _(filled after Git Integration)_ |
+| Commit | `874b4a60e1a4c0a3d710533c8c3efc134b4c303b` |
+| Production deployment | `dpl_CNu9VhGEPnAUQAPDBGaX9AghSXac` |
 | Alias | `https://samarket.vercel.app` |
