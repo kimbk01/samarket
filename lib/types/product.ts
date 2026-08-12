@@ -81,6 +81,10 @@ export interface Product {
   reservedBuyerId?: string | null;
   /** Admin / ops — posts.sold_buyer_id */
   soldBuyerId?: string | null;
+  /** Admin deep-link — preferred item_trade chat_rooms.id for this listing */
+  tradeChatRoomId?: string | null;
+  /** Admin deep-link — preferred product_chats.id (trade-flow session) */
+  tradeProductChatId?: string | null;
 }
 
 /** 13단계: 관리자 상품 상태 변경 이력 */

@@ -7,6 +7,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 
 import type { Product } from "@/lib/types/product";
 import { normalizePostMeta } from "@/lib/posts/post-normalize";
+import { pickPreferredTradeChatIds } from "@/lib/admin-products/admin-trade-deep-link";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
@@ -408,44 +409,58 @@ async function enrichPostsToProducts(
 
   const reportCountByTarget: Record<string, number> = {};
   const chatCountByPostId: Record<string, number> = {};
+  const productChatsByPostId: Record<string, Array<{ id: string; buyer_id: string | null }>> = {};
+  const chatRoomsByPostId: Record<string, Array<{ id: string; buyer_id: string | null }>> = {};
 
   const postIds = list.map((r) => r.id).filter(Boolean);
   const uniquePostIds = [...new Set(postIds)];
 
   // chat_count 컬럼이 트리거로 갱신되지 않는 환경도 있어서,
   // product_chats / chat_rooms를 직접 집계해 정확한 채팅방 수를 표시합니다.
+  // 동일 SELECT로 Admin CTA deep-link용 room/productChat id도 고릅니다.
   try {
     const { data: chatRows } = await client
       .from("product_chats")
-      .select("post_id")
+      .select("id, post_id, buyer_id")
       .in("post_id", uniquePostIds);
 
     if (Array.isArray(chatRows)) {
-      chatRows.forEach((r: { post_id: string }) => {
-        if (!r?.post_id) return;
+      chatRows.forEach((r: { id?: string; post_id?: string; buyer_id?: string | null }) => {
+        if (!r?.post_id || !r?.id) return;
         chatCountByPostId[r.post_id] = (chatCountByPostId[r.post_id] ?? 0) + 1;
+        (productChatsByPostId[r.post_id] ??= []).push({
+          id: r.id,
+          buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
+        });
       });
     }
   } catch {
     /* product_chats 없을 수 있음 */
   }
 
-  if (Object.keys(chatCountByPostId).length === 0) {
-    try {
-      const { data: roomRows } = await client
-        .from("chat_rooms")
-        .select("item_id")
-        .eq("room_type", "item_trade")
-        .in("item_id", uniquePostIds);
+  try {
+    const { data: roomRows } = await client
+      .from("chat_rooms")
+      .select("id, item_id, buyer_id")
+      .eq("room_type", "item_trade")
+      .in("item_id", uniquePostIds);
 
-      if (Array.isArray(roomRows)) {
-        roomRows.forEach((r: { item_id: string | null }) => {
-          if (!r?.item_id) return;
-          chatCountByPostId[r.item_id] = (chatCountByPostId[r.item_id] ?? 0) + 1;
+    if (Array.isArray(roomRows)) {
+      roomRows.forEach((r: { id?: string; item_id?: string | null; buyer_id?: string | null }) => {
+        if (!r?.item_id || !r?.id) return;
+        (chatRoomsByPostId[r.item_id] ??= []).push({
+          id: r.id,
+          buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
         });
-      }
-    } catch {
-      /* chat_rooms 없을 수 있음 */
+      });
+    }
+  } catch {
+    /* chat_rooms 없을 수 있음 */
+  }
+
+  if (Object.keys(chatCountByPostId).length === 0) {
+    for (const [itemId, rooms] of Object.entries(chatRoomsByPostId)) {
+      chatCountByPostId[itemId] = rooms.length;
     }
   }
   if (uniquePostIds.length > 0) {
@@ -476,6 +491,17 @@ async function enrichPostsToProducts(
     if (chatCount != null) p.chatCount = chatCount;
     const reportCount = reportCountByTarget[row.id];
     if (reportCount != null && reportCount > 0) p.reportCount = reportCount;
+    const preferredBuyer =
+      (typeof p.soldBuyerId === "string" && p.soldBuyerId.trim()) ||
+      (typeof p.reservedBuyerId === "string" && p.reservedBuyerId.trim()) ||
+      "";
+    const ids = pickPreferredTradeChatIds({
+      preferredBuyerId: preferredBuyer,
+      chatRooms: chatRoomsByPostId[row.id] ?? [],
+      productChats: productChatsByPostId[row.id] ?? [],
+    });
+    if (ids.tradeChatRoomId) p.tradeChatRoomId = ids.tradeChatRoomId;
+    if (ids.tradeProductChatId) p.tradeProductChatId = ids.tradeProductChatId;
     return p;
   });
 }

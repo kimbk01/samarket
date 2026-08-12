@@ -14,6 +14,10 @@ import {
   getPublicProductPath,
 } from "@/lib/products/web-post-links";
 import { inferPostsManagementSection } from "@/lib/admin-products/posts-management-utils";
+import {
+  buildAdminTradeChatsHref,
+  buildAdminTradeFlowHref,
+} from "@/lib/admin-products/admin-trade-deep-link";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -255,13 +259,13 @@ export const AdminPostsManagementTable = forwardRef<
               <td className="px-3 py-2.5 text-sam-fg">
                 <div className="flex flex-col gap-1">
                   <Link
-                    href="/admin/chats/trade"
+                    href={buildAdminTradeChatsHref(p)}
                     className="sam-text-helper text-signature hover:underline"
                   >
                     {t("admin_posts_mgmt_link_trade_chats")}
                   </Link>
                   <Link
-                    href="/admin/trade-flow"
+                    href={buildAdminTradeFlowHref(p)}
                     className="sam-text-helper text-signature hover:underline"
                   >
                     {t("admin_posts_mgmt_link_trade_flow")}

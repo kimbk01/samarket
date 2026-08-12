@@ -70,6 +70,12 @@ export const adminTradeMessages = {
     admin_trade_flow_processing: "처리 중…",
     admin_trade_flow_revert_trade: "거래 되돌리기",
     admin_trade_flow_no_data: "데이터가 없습니다.",
+    admin_trade_deep_link_chat_focus:
+      "선택 거래 채팅 · 글 {post} · 방 {room} · 판매 {seller} · 구매 {buyer}",
+    admin_trade_deep_link_chat_open_detail: "채팅 상세 열기",
+    admin_trade_deep_link_flow_focus:
+      "선택 거래흐름 · 글 {post} · 상태 {status} · 판매표시 {listing} · 흐름 {flow} · 판매 {seller} · 구매 {buyer}",
+    admin_trade_deep_link_no_match: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
     admin_trade_flow_reviews_title: "거래 후기 (최근 60건)",
     admin_trade_flow_reviews_all_link: "전체 목록 (최대 500건) →",
     admin_trade_flow_th_public: "공개",
@@ -233,6 +239,12 @@ export const adminTradeMessages = {
     admin_trade_flow_processing: "Processing…",
     admin_trade_flow_revert_trade: "Revert trade",
     admin_trade_flow_no_data: "No data.",
+    admin_trade_deep_link_chat_focus:
+      "Focused trade chat · post {post} · room {room} · seller {seller} · buyer {buyer}",
+    admin_trade_deep_link_chat_open_detail: "Open chat detail",
+    admin_trade_deep_link_flow_focus:
+      "Focused trade flow · post {post} · status {status} · listing {listing} · flow {flow} · seller {seller} · buyer {buyer}",
+    admin_trade_deep_link_no_match: "No trade in this list matches the deep link.",
     admin_trade_flow_reviews_title: "Trade reviews (latest 60)",
     admin_trade_flow_reviews_all_link: "Full list (up to 500) →",
     admin_trade_flow_th_public: "Public",

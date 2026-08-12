@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminChatRoomsFromDb } from "@/lib/admin-chats/getAdminChatRoomsFromDb";
 import {
@@ -16,6 +18,11 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminChatFilterBar } from "./AdminChatFilterBar";
 import { AdminChatTable } from "./AdminChatTable";
+import {
+  adminTradeChatDeepLinkActive,
+  matchAdminChatRoomToDeepLink,
+  parseAdminTradeChatDeepLink,
+} from "@/lib/admin-products/admin-trade-deep-link";
 
 type AdminMergeSource = "chat_rooms" | "product_chats";
 type TaggedAdminRoom = AdminChatRoom & { _mergeSource: AdminMergeSource };
@@ -122,7 +129,10 @@ interface AdminChatListPageProps {
 }
 
 export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const deepLink = useMemo(() => parseAdminTradeChatDeepLink(searchParams), [searchParams]);
+  const deepLinkActive = mode === "trade" && adminTradeChatDeepLinkActive(deepLink);
   const [filters, setFilters] = useState<AdminChatFilters>(() => getInitialFilters(mode));
   const [searchQuery, setSearchQuery] = useState("");
   const [rooms, setRooms] = useState<AdminChatRoom[]>([]);
@@ -208,10 +218,29 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     [rooms, filters, searchQuery]
   );
 
+  const deepLinkedFiltered = useMemo(() => {
+    if (!deepLinkActive) return filtered;
+    return matchAdminChatRoomToDeepLink(filtered, deepLink);
+  }, [deepLinkActive, deepLink, filtered]);
+
   const visibleFiltered = useMemo(
-    () => filtered.filter((r) => !listHiddenIds.has(r.id)),
-    [filtered, listHiddenIds]
+    () => deepLinkedFiltered.filter((r) => !listHiddenIds.has(r.id)),
+    [deepLinkedFiltered, listHiddenIds]
   );
+
+  useEffect(() => {
+    if (!deepLinkActive || loading) return;
+    if (deepLink.roomId) {
+      const hit = rooms.find((r) => r.id === deepLink.roomId);
+      if (hit) {
+        setSelectedIds(new Set([hit.id]));
+        return;
+      }
+    }
+    if (visibleFiltered.length === 1) {
+      setSelectedIds(new Set([visibleFiltered[0].id]));
+    }
+  }, [deepLinkActive, deepLink.roomId, loading, rooms, visibleFiltered]);
 
   const handleToggleRow = useCallback((roomId: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -359,6 +388,8 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     setActionBusy(false);
   }, [mode, selectedIds, t]);
 
+  const focusedRoom = deepLinkActive ? visibleFiltered[0] ?? null : null;
+
   const emptyCopy =
     rooms.length === 0
       ? mode === "trade"
@@ -372,13 +403,39 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
               : mode === "group"
                 ? t("admin_chat_empty_group")
                 : t("admin_chat_empty_all")
-      : filtered.length === 0
-        ? t("admin_chat_empty_filtered")
-        : t("admin_chat_empty_hidden_only");
+      : deepLinkActive && deepLinkedFiltered.length === 0
+        ? safeT("admin_trade_deep_link_no_match", {
+            fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
+            fallbackEn: "No trade in this list matches the deep link.",
+          })
+        : filtered.length === 0
+          ? t("admin_chat_empty_filtered")
+          : t("admin_chat_empty_hidden_only");
 
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey={getTitleKey(mode)} />
+      {deepLinkActive && focusedRoom ? (
+        <div
+          data-testid="admin-trade-chat-deep-link-focus"
+          className="rounded-ui-rect border border-signature/30 bg-signature/5 px-3 py-2 sam-text-body-secondary text-sam-fg"
+        >
+          <p>
+            {t("admin_trade_deep_link_chat_focus", {
+              post: focusedRoom.productTitle || focusedRoom.productId || deepLink.postId || "—",
+              room: focusedRoom.id,
+              seller: focusedRoom.sellerNickname || focusedRoom.sellerId.slice(0, 8),
+              buyer: focusedRoom.buyerNickname || focusedRoom.buyerId.slice(0, 8),
+            })}
+          </p>
+          <Link
+            href={`/admin/chats/${encodeURIComponent(focusedRoom.id)}`}
+            className="mt-1 inline-block font-medium text-signature hover:underline"
+          >
+            {t("admin_trade_deep_link_chat_open_detail")}
+          </Link>
+        </div>
+      ) : null}
       <AdminChatFilterBar
         filters={filters}
         searchQuery={searchQuery}
@@ -455,6 +512,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         <AdminChatTable
           rooms={visibleFiltered}
           selectedIds={selectedIds}
+          focusedRoomId={focusedRoom?.id ?? null}
           onToggleRow={handleToggleRow}
           onToggleAllVisible={handleToggleAllVisible}
         />

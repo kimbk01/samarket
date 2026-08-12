@@ -10,6 +10,7 @@ import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
 interface AdminChatTableProps {
   rooms: AdminChatRoom[];
   selectedIds: ReadonlySet<string>;
+  focusedRoomId?: string | null;
   onToggleRow: (roomId: string, checked: boolean) => void;
   onToggleAllVisible: (checked: boolean) => void;
 }
@@ -17,6 +18,7 @@ interface AdminChatTableProps {
 export function AdminChatTable({
   rooms,
   selectedIds,
+  focusedRoomId = null,
   onToggleRow,
   onToggleAllVisible,
 }: AdminChatTableProps) {
@@ -65,7 +67,13 @@ export function AdminChatTable({
         </thead>
         <tbody>
           {rooms.map((r) => (
-            <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+            <tr
+              key={r.id}
+              data-focused-room={focusedRoomId === r.id ? "1" : undefined}
+              className={`border-b border-sam-border-soft hover:bg-sam-app ${
+                focusedRoomId === r.id ? "bg-signature/10 ring-1 ring-inset ring-signature/40" : ""
+              }`}
+            >
               <td className="px-2 py-2.5 text-center">
                 <input
                   type="checkbox"

@@ -1,12 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import {
+  adminTradeFlowDeepLinkActive,
+  matchAdminTradeFlowSessionToDeepLink,
+  parseAdminTradeFlowDeepLink,
+} from "@/lib/admin-products/admin-trade-deep-link";
 
 interface SessionRow {
   id: string;
@@ -55,7 +61,10 @@ interface ReviewRow {
 }
 
 export function AdminTradeFlowPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const deepLink = useMemo(() => parseAdminTradeFlowDeepLink(searchParams), [searchParams]);
+  const deepLinkActive = adminTradeFlowDeepLinkActive(deepLink);
   const reviewRoleLabels = useMemo(
     () => ({
       buyer_to_seller: t("admin_trade_flow_review_role_buyer_seller"),
@@ -113,6 +122,12 @@ export function AdminTradeFlowPage() {
     load();
   }, [load]);
 
+  const visibleSessions = useMemo(
+    () => (deepLinkActive ? matchAdminTradeFlowSessionToDeepLink(sessions, deepLink) : sessions),
+    [deepLinkActive, deepLink, sessions]
+  );
+  const focusedSession = deepLinkActive ? visibleSessions[0] ?? null : null;
+
   const revertTrade = useCallback(
     async (roomId: string) => {
       if (
@@ -150,6 +165,29 @@ export function AdminTradeFlowPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader titleKey="admin_page_trade_flow" />
+      {deepLinkActive && focusedSession ? (
+        <div
+          data-testid="admin-trade-flow-deep-link-focus"
+          className="rounded-ui-rect border border-signature/30 bg-signature/5 px-3 py-2 sam-text-body-secondary text-sam-fg"
+        >
+          {t("admin_trade_deep_link_flow_focus", {
+            post: focusedSession.postTitle || focusedSession.post_id,
+            status: focusedSession.postStatus ?? "—",
+            listing: focusedSession.sellerListingState ?? "—",
+            flow: focusedSession.trade_flow_status,
+            seller: focusedSession.seller_id.slice(0, 8) + "…",
+            buyer: focusedSession.buyer_id.slice(0, 8) + "…",
+          })}
+        </div>
+      ) : null}
+      {deepLinkActive && !loading && !focusedSession ? (
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body text-amber-900">
+          {safeT("admin_trade_deep_link_no_match", {
+            fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
+            fallbackEn: "No trade in this list matches the deep link.",
+          })}
+        </div>
+      ) : null}
       {error && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {error}
@@ -180,8 +218,16 @@ export function AdminTradeFlowPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((s) => (
-                    <tr key={s.id} className="border-b border-sam-border-soft hover:bg-sam-app/80">
+                  {visibleSessions.map((s) => (
+                    <tr
+                      key={s.id}
+                      data-focused-flow={focusedSession?.id === s.id ? "1" : undefined}
+                      className={`border-b border-sam-border-soft hover:bg-sam-app/80 ${
+                        focusedSession?.id === s.id
+                          ? "bg-signature/10 ring-1 ring-inset ring-signature/40"
+                          : ""
+                      }`}
+                    >
                       <td className="px-3 py-2 font-mono sam-text-helper">
                         <Link href={tradeChatNotificationHref(s.id, "product_chat")} className="text-signature hover:underline" target="_blank">
                           {s.id.slice(0, 8)}…
@@ -225,7 +271,7 @@ export function AdminTradeFlowPage() {
                   ))}
                 </tbody>
               </table>
-              {sessions.length === 0 && (
+              {visibleSessions.length === 0 && (
                 <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_data")}</p>
               )}
             </div>
