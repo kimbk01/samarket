@@ -135,7 +135,7 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/mypage/notifications#notification-inbox");
+    expect(href).toBe("/mypage/notices");
   });
 
   it("resolves community post href from meta", () => {

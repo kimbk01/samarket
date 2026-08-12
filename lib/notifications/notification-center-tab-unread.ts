@@ -59,6 +59,7 @@ function isUnreadRow(row: CountableInboxRow): boolean {
 
 /**
  * Build per-tab unread badges from Member A rows only.
+ * CONTRACT: action digit only on 안읽음 (+ category unread). Never badge 전체/읽음.
  */
 export function buildNotificationCenterTabUnreadCounts(input: {
   memberRows: readonly CountableInboxRow[];
@@ -68,14 +69,13 @@ export function buildNotificationCenterTabUnreadCounts(input: {
   storeAttention?: number | null;
 }): NotificationCenterTabUnreadCounts {
   const unread = input.memberRows.filter(isUnreadRow);
-  const read = input.memberRows.filter((r) => !isUnreadRow(r));
   const cat = (tab: "trade" | "community" | "delivery" | "cs" | "marketing" | "system") =>
     unread.filter((r) => matchesNotificationCenterMemberTab(r, tab)).length;
 
   return {
-    all: unread.length,
+    all: 0,
     unread: unread.length,
-    read: read.length,
+    read: 0,
     trade: cat("trade"),
     community: cat("community"),
     delivery: cat("delivery"),

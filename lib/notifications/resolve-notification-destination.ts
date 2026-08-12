@@ -27,6 +27,14 @@ export type ResolveNotificationDestinationInput = {
   fallbackHref?: string | null;
 };
 
+function isBareNotificationsCenterPath(href: string): boolean {
+  const pathOnly = href.split("?")[0] ?? href;
+  if (pathOnly !== "/notifications") return false;
+  if (href.includes("/notifications/")) return false;
+  const q = href.includes("?") ? href.slice(href.indexOf("?")) : "";
+  return q === "" || q === "?";
+}
+
 function resolveByRegistryKey(
   resolverKey: NotificationDeepLinkResolverKey,
   context: { roomId?: string | null; callSessionId?: string | null; displayRoute?: string | null },
@@ -34,6 +42,14 @@ function resolveByRegistryKey(
 ): NotificationDestination {
   const displayRoute = resolveSafeNotificationInternalRoute(context.displayRoute, null);
   if (displayRoute && resolverKey !== "call_authority") {
+    if (isBareNotificationsCenterPath(displayRoute)) {
+      return {
+        href: fallbackHref,
+        fallbackHref,
+        destinationType: "origin_unavailable",
+        isExternal: false,
+      };
+    }
     return {
       href: displayRoute,
       fallbackHref,
@@ -64,7 +80,8 @@ function resolveByRegistryKey(
       break;
     }
     case "display_route":
-      href = "/notifications";
+      href = fallbackHref;
+      destinationType = "origin_unavailable";
       break;
     case "notification_inbox":
       href = fallbackHref;
@@ -74,8 +91,8 @@ function resolveByRegistryKey(
       href = "/community-messenger";
       break;
     default:
-      href = "/notifications";
-      destinationType = "fallback";
+      href = fallbackHref;
+      destinationType = "origin_unavailable";
   }
 
   const safe = resolveSafeNotificationInternalRoute(href, fallbackHref) ?? fallbackHref;
@@ -104,7 +121,7 @@ export function resolveNotificationDestination(
     return {
       href,
       fallbackHref,
-      destinationType: "inbox_row",
+      destinationType: href === fallbackHref ? "origin_unavailable" : "inbox_row",
       isExternal: false,
     };
   }
@@ -123,10 +140,18 @@ export function resolveNotificationDestination(
 
   const fromDisplay =
     resolveSafeNotificationInternalRoute(input.displayRoute, fallbackHref) ?? fallbackHref;
+  if (isBareNotificationsCenterPath(fromDisplay)) {
+    return {
+      href: fallbackHref,
+      fallbackHref,
+      destinationType: "origin_unavailable",
+      isExternal: false,
+    };
+  }
   return {
     href: fromDisplay,
     fallbackHref,
-    destinationType: "display_route",
+    destinationType: fromDisplay === fallbackHref ? "origin_unavailable" : "display_route",
     isExternal: false,
   };
 }

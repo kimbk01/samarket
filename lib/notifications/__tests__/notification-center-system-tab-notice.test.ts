@@ -43,7 +43,7 @@ describe("notification center system tab includes admin_notice", () => {
     expect(filtered).toHaveLength(1);
   });
 
-  it("tab unread counts put admin_notice on system and all", () => {
+  it("tab unread counts put admin_notice on system; all/read never carry badge digit", () => {
     const counts = buildNotificationCenterTabUnreadCounts({
       memberRows: [
         {
@@ -58,9 +58,16 @@ describe("notification center system tab includes admin_notice", () => {
           notification_type: "status",
           bell_presentation_type: "trade_status",
         },
+        {
+          is_read: true,
+          push_kind: "trade",
+          notification_type: "status",
+          bell_presentation_type: "trade_status",
+        },
       ],
     });
-    expect(counts.all).toBe(2);
+    expect(counts.all).toBe(0);
+    expect(counts.read).toBe(0);
     expect(counts.unread).toBe(2);
     expect(counts.system).toBe(1);
     expect(counts.trade).toBe(1);

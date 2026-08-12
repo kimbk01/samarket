@@ -130,5 +130,20 @@ export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
 }
 
 export function defaultInboxFallbackHref(): string {
-  return "/mypage/notifications#notification-inbox";
+  // Explicit fallback only when exact origin is missing/deleted — not a silent dump.
+  return "/notifications?fallback=origin_unavailable";
+}
+
+/** True when href is the intentional "origin unavailable" NC fallback. */
+export function isNotificationOriginUnavailableFallback(href: string | null | undefined): boolean {
+  const t = String(href ?? "").trim();
+  if (!t) return false;
+  try {
+    const u = new URL(t, "https://samarket.local");
+    return (
+      u.pathname === "/notifications" && u.searchParams.get("fallback") === "origin_unavailable"
+    );
+  } catch {
+    return t.includes("fallback=origin_unavailable");
+  }
 }

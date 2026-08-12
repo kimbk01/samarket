@@ -8,7 +8,8 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 export const PUSH_SCHEMA_VERSION_V1 = "1" as const;
 export type PushSchemaVersionV1 = typeof PUSH_SCHEMA_VERSION_V1;
 
-export const PUSH_SAFE_FALLBACK_ROUTE = "/notifications" as const;
+/** Explicit origin-unavailable fallback (same as defaultInboxFallbackHref). */
+export const PUSH_SAFE_FALLBACK_ROUTE = "/notifications?fallback=origin_unavailable" as const;
 
 export type PushEventClassV1 =
   | "admin_notice"
@@ -208,8 +209,9 @@ function buildNotificationCenterPath(
   tab: "system" | "marketing",
   notificationId: string
 ): string {
+  // Exact NC row focus — not the origin-unavailable fallback.
   const q = new URLSearchParams({ tab, notificationId });
-  return `${PUSH_SAFE_FALLBACK_ROUTE}?${q.toString()}`;
+  return `/notifications?${q.toString()}`;
 }
 
 /**

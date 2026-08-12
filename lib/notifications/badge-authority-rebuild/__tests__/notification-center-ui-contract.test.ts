@@ -275,6 +275,38 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(view.includes("setBadgeCount(")).toBe(false);
   });
 
+  it("delete soft-dismiss does not call read bridge first (Delete ≠ Read)", () => {
+    const bridge = fs.readFileSync(
+      path.join(root, "lib/notifications/inbox-read-bridge.ts"),
+      "utf8"
+    );
+    const fnStart = bridge.indexOf("export async function patchInboxNotificationIdsDelete");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = bridge.slice(fnStart, fnStart + 900);
+    expect(fnBody.includes("patchInboxNotificationIdsRead(")).toBe(false);
+    expect(fnBody.includes("Delete is history soft-dismiss")).toBe(true);
+    expect(bridge.includes("inbox_dismissed_at")).toBe(true);
+    // dismiss must not stamp read_at in the soft-delete update block
+    const dismissStart = bridge.indexOf("async function dismissNotificationEventFromInbox");
+    const dismissBody = bridge.slice(dismissStart, dismissStart + 1200);
+    expect(dismissBody.includes("read_at: now")).toBe(false);
+    expect(dismissBody.includes("unread: false")).toBe(false);
+  });
+
+  it("NC tab bar never badges all/read; unread digit only for action tabs", () => {
+    const tabUnread = fs.readFileSync(
+      path.join(root, "lib/notifications/notification-center-tab-unread.ts"),
+      "utf8"
+    );
+    expect(tabUnread.includes("all: 0")).toBe(true);
+    expect(tabUnread.includes("read: 0")).toBe(true);
+    const bar = fs.readFileSync(
+      path.join(root, "components/notifications/NotificationInboxTabBar.tsx"),
+      "utf8"
+    );
+    expect(bar.includes('key !== "all" && key !== "read"')).toBe(true);
+  });
+
   it("delete-all targets current member A list items via soft dismiss bridge", () => {
     const bridge = fs.readFileSync(
       path.join(root, "lib/notifications/inbox-read-bridge.ts"),

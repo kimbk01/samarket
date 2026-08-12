@@ -1,5 +1,6 @@
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
+import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 
 export {
   buildChatRoomDeepLink,
@@ -27,6 +28,6 @@ export function resolveNotificationDeepLink(
     roomId: context.roomId,
     callSessionId: context.callSessionId,
     displayRoute: context.displayRoute,
-    fallbackHref: "/notifications",
+    fallbackHref: defaultInboxFallbackHref(),
   }).href;
 }

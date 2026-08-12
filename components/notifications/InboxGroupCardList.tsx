@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
+import { resolveNotificationDestinationHint } from "@/lib/notifications/notification-destination-hint";
 import { TRADE_HUB_LIST_ITEM_CARD_CLASS } from "@/lib/ui/app-content-layout";
 
 const CHAT_UNREAD_BADGE =
@@ -75,6 +76,9 @@ export function InboxGroupCardList({
           !summaryOnly && isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
         const showBody =
           !summaryOnly && item.body && !(isOrderGroup && item.body === item.displayTitle);
+        const destinationHint = !summaryOnly
+          ? resolveNotificationDestinationHint(item.href, language)
+          : null;
         const deleting = deleteBusyKey === item.key;
         const selected = selectionMode && (selectedKeys?.has(item.key) ?? false);
         const unreadBadge =
@@ -173,6 +177,16 @@ export function InboxGroupCardList({
                       {showBody ? (
                         <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
                           {item.body}
+                        </p>
+                      ) : null}
+                      {destinationHint ? (
+                        <p className="mt-1 flex min-w-0 items-center gap-0.5 text-[11px] leading-snug text-sam-meta">
+                          <span className="truncate">{destinationHint}</span>
+                          <ChevronRight
+                            className="h-3.5 w-3.5 shrink-0 opacity-70"
+                            strokeWidth={2}
+                            aria-hidden
+                          />
                         </p>
                       ) : null}
                     </div>

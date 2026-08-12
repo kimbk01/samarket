@@ -5,6 +5,7 @@ import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 import { getNotificationEventDefinition } from "@/lib/notifications/core/notification-event-registry";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
+import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
@@ -33,7 +34,7 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
     roomId,
     callSessionId: row.call_session_id,
     displayRoute: routeFromDisplay,
-    fallbackHref: "/notifications",
+    fallbackHref: defaultInboxFallbackHref(),
   });
   const link_url = dest.href;
   const eventKey = definition.soundEventKey ?? "system_default";

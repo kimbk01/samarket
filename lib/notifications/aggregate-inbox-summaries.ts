@@ -44,6 +44,6 @@ export function typeShortcutHref(notificationType: string): string {
     case "commerce":
       return "/my/store-orders";
     default:
-      return "/mypage/notifications#notification-inbox";
+      return "/notifications?fallback=origin_unavailable";
   }
 }

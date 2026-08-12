@@ -283,6 +283,11 @@ export async function clearNotificationTargetsForInboxRows(
   }
 }
 
+/**
+ * Soft-dismiss from Notification Center history only.
+ * CONTRACT: Delete ≠ Read — do not stamp read_at / unread / opened_at here.
+ * A digit drops because dismissed rows are excluded (deleted_at / inbox_dismissed_at).
+ */
 async function dismissNotificationEventFromInbox(
   sb: SupabaseClient,
   userId: string,
@@ -314,9 +319,6 @@ async function dismissNotificationEventFromInbox(
   const { error } = await sb
     .from("notification_events")
     .update({
-      unread: false,
-      read_at: now,
-      opened_at: now,
       display_payload: nextPayload,
     })
     .eq("user_id", uid)
@@ -428,9 +430,7 @@ export async function patchInboxNotificationIdsDelete(
     return { ok: false, error: "delete_ids_required" };
   }
 
-  const readResult = await patchInboxNotificationIdsRead(sb, userId, unique);
-  if (!readResult.ok) return readResult;
-
+  // CONTRACT: Delete is history soft-dismiss only — never call read-ids patch first.
   const { legacyIdSet, eventIdSet } = await lookupInboxReadIdSets(sb, userId, unique);
   const { legacyIds, eventIds } = partitionInboxReadIdsFromLookup(unique, legacyIdSet, eventIdSet);
 

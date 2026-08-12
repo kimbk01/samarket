@@ -331,6 +331,18 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
     return "/my/store-orders";
   }
   if (type === "community_activity") return "/philife";
+
+  const tradeProductId =
+    trimText(meta?.product_id) ||
+    trimText(meta?.item_id) ||
+    trimText(meta?.post_id) ||
+    trimText(payload?.productId) ||
+    trimText(payload?.product_id);
+  if (type === "trade_status" || event.category === "trade_status") {
+    if (tradeProductId) return `/post/${encodeURIComponent(tradeProductId)}`;
+    return "/market";
+  }
+
   if (type === "admin_marketing_banner") {
     const landing = trimText(payload?.deeplinkUrl ?? payload?.webUrl ?? payload?.landing_url);
     if (landing) {
@@ -345,7 +357,11 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   if (appNoticeId) {
     return `/mypage/notices/${encodeURIComponent(appNoticeId)}`;
   }
+  if (type === "admin_notice" || type === "admin_system" || event.category === "admin_notice") {
+    return "/mypage/notices";
+  }
 
+  // Explicit fallback only — never silent bare /notifications.
   return defaultInboxFallbackHref();
 }
 

@@ -111,6 +111,6 @@ describe("notification event registry SSOT", () => {
       resolveNotificationDeepLink("display_route", {
         displayRoute: "https://evil.example/path",
       })
-    ).toBe("/notifications");
+    ).toBe("/notifications?fallback=origin_unavailable");
   });
 });

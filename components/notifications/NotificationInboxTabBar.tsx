@@ -49,6 +49,8 @@ export function NotificationInboxTabBar({
         {chips.map(({ key, label }) => {
           const selected = active === key;
           const count = counts[key] ?? 0;
+          // CONTRACT: Badge digit only for action tabs (unread + category). Never 전체/읽음.
+          const showBadge = key !== "all" && key !== "read" && count > 0;
           return (
             <button
               key={key}
@@ -63,7 +65,7 @@ export function NotificationInboxTabBar({
               }`}
             >
               <span>{label}</span>
-              {count > 0 ? (
+              {showBadge ? (
                 <span
                   className={`ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
                     selected ? "bg-white text-sam-danger" : "bg-sam-danger text-white"
