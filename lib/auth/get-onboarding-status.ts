@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
+import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-service";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
@@ -123,7 +123,7 @@ export async function getOnboardingStatus(
   const [profileSettled, addressSettled] = await Promise.allSettled([
     loadProfileSubset(sb, userId),
     Promise.race([
-      isMandatoryAddressGateSatisfied(sb, userId),
+      hasCanonicalDefaultMasterAddress(sb, userId),
       new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ADDRESS_STATUS_TIMEOUT_MS)),
     ]),
   ]);

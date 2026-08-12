@@ -8,6 +8,7 @@ import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
 import {
   parseFiniteLatitude,
   parseFiniteLongitude,
@@ -136,7 +137,9 @@ export async function PATCH(
 
   const { data: currentRow, error: curErr } = await sb
     .from("stores")
-    .select("store_category_id, store_topic_id, region, city, district, address_line1, address_line2")
+    .select(
+      "store_category_id, store_topic_id, region, city, district, address_line1, address_line2, place_id, formatted_address, lat, lng",
+    )
     .eq("id", sid)
     .maybeSingle();
 
@@ -381,6 +384,28 @@ export async function PATCH(
     patch.address_line1 = norm.address1;
     patch.address_line2 = norm.address2;
     patch.district = norm.address1;
+  }
+
+  const locCheck = assertStoreLocationPatchConsistent(
+    {
+      place_id: (currentRow as { place_id?: string | null }).place_id,
+      formatted_address: (currentRow as { formatted_address?: string | null }).formatted_address,
+      address_line1: (currentRow as { address_line1?: string | null }).address_line1,
+      lat: (currentRow as { lat?: unknown }).lat,
+      lng: (currentRow as { lng?: unknown }).lng,
+    },
+    {
+      ...(patch.place_id !== undefined ? { place_id: patch.place_id as string | null } : {}),
+      ...(patch.formatted_address !== undefined
+        ? { formatted_address: patch.formatted_address as string | null }
+        : {}),
+      ...(patch.address_line1 !== undefined ? { address_line1: patch.address_line1 as string | null } : {}),
+      ...(patch.lat !== undefined ? { lat: patch.lat as number | null } : {}),
+      ...(patch.lng !== undefined ? { lng: patch.lng as number | null } : {}),
+    },
+  );
+  if (locCheck !== "ok") {
+    return NextResponse.json({ ok: false, error: locCheck }, { status: 400 });
   }
 
   const resolvedCategoryId =

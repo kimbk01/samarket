@@ -20,6 +20,7 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   invalid_gallery_images_json: "business_phase7_510",
   invalid_lat: "business_phase7_511",
   invalid_lng: "business_phase7_512",
+  store_location_inconsistent: "addr_ui_store_location_inconsistent",
 };
 
 const TZ_LABEL_KEYS: Record<string, MessageKey> = {

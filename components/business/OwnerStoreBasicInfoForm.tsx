@@ -751,6 +751,14 @@ export function OwnerStoreBasicInfoForm({
           resolvedLng = dlng;
         }
       }
+      if (resolvedLat == null || resolvedLng == null) {
+        const cla = parseFiniteLatitude(row.lat);
+        const cln = parseFiniteLongitude(row.lng);
+        if (cla != null && cln != null) {
+          resolvedLat = cla;
+          resolvedLng = cln;
+        }
+      }
       if (resolvedLat != null && resolvedLng != null) {
         basicInfoPatch.lat = resolvedLat;
         basicInfoPatch.lng = resolvedLng;

@@ -12,6 +12,8 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   store_point_blocked: "store_err_point_blocked",
   below_min_order: "store_err_below_minimum_cart",
   delivery_address_required: "store_err_delivery_address_required",
+  delivery_detail_address_required: "addr_ui_detail_required",
+  delivery_user_address_required: "store_err_saved_address_required",
   client_unit_php_required: "store_err_price_changed_cart",
   price_changed: "store_err_price_changed_cart",
   delivery_region_city_required: "store_err_delivery_region_city_google_hint",

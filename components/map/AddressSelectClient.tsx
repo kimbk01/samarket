@@ -30,11 +30,10 @@ import {
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import {
-  ADDR_BOTTOM_BAR,
-  ADDR_BOTTOM_INNER,
   ADDR_BTN_PRIMARY_FULL,
   ADDR_BTN_TERTIARY_FULL,
   ADDR_BODY,
+  ADDR_CONTENT_COLUMN,
   ADDR_FLOW_MIN_VIEWPORT,
   ADDR_LIST_ROW_BTN,
   ADDR_MAP_HOST,
@@ -44,6 +43,7 @@ import {
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 type LatLng = { lat: number; lng: number };
 const NEARBY_FALLBACK_MAX_DISTANCE_METERS = 20;
@@ -52,6 +52,14 @@ type Step = "settings" | "map";
 
 /** 위치 선택 화면: ① 지도에서 핀 맞춤 → ② 같은 화면에서 상세주소·확인 */
 type MapPhase = "pin" | "detail";
+
+export type AddressLocationPickResult = {
+  latitude: number;
+  longitude: number;
+  fullAddress: string;
+  addressDetail: string | null;
+  placeId: string | null;
+};
 
 function distMeters(a: LatLng, b: LatLng): number {
   const R = 6371000;
@@ -64,9 +72,10 @@ function distMeters(a: LatLng, b: LatLng): number {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
+function useReverseGeocode(marker: LatLng): { text: string; busy: boolean; placeId: string | null } {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [placeId, setPlaceId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +94,7 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
           if (status !== "OK" || !results?.[0]) {
             setBusy(false);
             setText("");
+            setPlaceId(null);
             return;
           }
           void (async () => {
@@ -115,6 +125,11 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
             }
 
             if (cancelled) return;
+            const resolvedPlaceId = (
+              (placeDetails?.place_id ?? primaryPlaceId) ||
+              ""
+            ).trim() || null;
+            setPlaceId(resolvedPlaceId);
             const geocodeComponents = results[0]?.address_components ?? [];
             const byPlaceDetails = placeDetails
               ? buildPhFriendlyAddress({
@@ -140,12 +155,21 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
     };
   }, [marker]);
 
-  return { text, busy };
+  return { text, busy, placeId };
 }
 
-export function AddressSelectClient() {
+export function AddressSelectClient(props?: {
+  /** 주소 편집기 안에 임베드 — sessionStorage + router.back 대신 콜백 */
+  embedded?: boolean;
+  onEmbeddedConfirm?: (pick: AddressLocationPickResult) => void;
+  onEmbeddedCancel?: () => void;
+}) {
+  const embedded = Boolean(props?.embedded);
+  const onEmbeddedConfirm = props?.onEmbeddedConfirm;
+  const onEmbeddedCancel = props?.onEmbeddedCancel;
   const { t } = useI18n();
   const router = useRouter();
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport({ enabled: true });
   const [step, setStep] = useState<Step>("settings");
   const [mapsError, setMapsError] = useState<string | null>(null);
   const [marker, setMarker] = useState<LatLng>(MAP_PICKER_DEFAULT_CENTER);
@@ -163,13 +187,15 @@ export function AddressSelectClient() {
     lat: number;
     lng: number;
     baseAddress: string;
+    placeId: string | null;
   } | null>(null);
+  const searchPlaceIdRef = useRef<string | null>(null);
   /** localStorage 기반 최근 주소는 SSR·첫 페인트에서 제외 — hydration 불일치 방지 */
   const [recentLocalReady, setRecentLocalReady] = useState(false);
   /** 최근 목록에서 항목 삭제·숨김 후 재계산 */
   const [recentListVersion, setRecentListVersion] = useState(0);
 
-  const { text: geocodedAddress, busy: geocodeBusy } = useReverseGeocode(marker);
+  const { text: geocodedAddress, busy: geocodeBusy, placeId: geocodedPlaceId } = useReverseGeocode(marker);
   const displayAddress = geocodedAddress;
 
   const loadAddresses = useCallback(async () => {
@@ -203,6 +229,7 @@ export function AddressSelectClient() {
   }, []);
 
   const goToMap = useCallback((next: LatLng) => {
+    searchPlaceIdRef.current = null;
     setMarker(next);
     setManualAddress(null);
     manualAnchorRef.current = null;
@@ -214,10 +241,19 @@ export function AddressSelectClient() {
   }, []);
 
   const onPlaceResolved = useCallback(
-    (lat: number, lng: number, _formatted: string) => {
-      goToMap({ lat, lng });
+    (lat: number, lng: number, formatted: string, placeId: string | null) => {
+      searchPlaceIdRef.current = placeId;
+      setMarker({ lat, lng });
+      const addr = formatted.trim();
+      setManualAddress(addr || null);
+      manualAnchorRef.current = addr ? { lat, lng } : null;
+      setDetailLine("");
+      setMapPhase("pin");
+      setPinSnapshot(null);
+      setGeoHint(null);
+      setStep("map");
     },
-    [goToMap],
+    [],
   );
 
   const onCurrentLocation = useCallback(async () => {
@@ -312,27 +348,44 @@ export function AddressSelectClient() {
   const onPinConfirm = useCallback(() => {
     const addr = (manualAddress ?? displayAddress).trim();
     if (!addr || mapsError) return;
-    setPinSnapshot({ lat: marker.lat, lng: marker.lng, baseAddress: addr });
+    setPinSnapshot({
+      lat: marker.lat,
+      lng: marker.lng,
+      baseAddress: addr,
+      placeId: searchPlaceIdRef.current || geocodedPlaceId,
+    });
     setMapPhase("detail");
     setDetailLine("");
-  }, [displayAddress, manualAddress, marker.lat, marker.lng, mapsError]);
+  }, [displayAddress, geocodedPlaceId, manualAddress, marker.lat, marker.lng, mapsError]);
 
   const onFinalConfirm = useCallback(() => {
     if (!pinSnapshot || mapsError) return;
     const detail = detailLine.trim();
-    writeMapAddressPick({
+    const pick: AddressLocationPickResult = {
       latitude: pinSnapshot.lat,
       longitude: pinSnapshot.lng,
       fullAddress: pinSnapshot.baseAddress,
       addressDetail: detail || null,
-    });
+      placeId: pinSnapshot.placeId,
+    };
     pushMapAddressRecent({
       latitude: pinSnapshot.lat,
       longitude: pinSnapshot.lng,
       address: detail ? `${pinSnapshot.baseAddress} · ${detail}` : pinSnapshot.baseAddress,
     });
+    if (embedded && onEmbeddedConfirm) {
+      onEmbeddedConfirm(pick);
+      return;
+    }
+    writeMapAddressPick({
+      latitude: pick.latitude,
+      longitude: pick.longitude,
+      fullAddress: pick.fullAddress,
+      addressDetail: pick.addressDetail,
+      placeId: pick.placeId,
+    });
     router.back();
-  }, [detailLine, pinSnapshot, mapsError, router]);
+  }, [detailLine, embedded, onEmbeddedConfirm, pinSnapshot, mapsError, router]);
 
   const mapMarkerPos =
     mapPhase === "detail" && pinSnapshot
@@ -365,6 +418,15 @@ export function AddressSelectClient() {
           backHref="/mypage"
           hideCtaStrip
           showHubQuickActions={false}
+          leftSlot={
+            embedded ? (
+              <AppBackButton
+                preferHistoryBack={false}
+                onBack={() => onEmbeddedCancel?.()}
+                ariaLabelKey="nav_back"
+              />
+            ) : undefined
+          }
         />
       ) : (
         <MySubpageHeader
@@ -498,8 +560,13 @@ export function AddressSelectClient() {
             )}
           </div>
 
-          <div className={ADDR_BOTTOM_BAR}>
-            <div className={ADDR_BOTTOM_INNER}>
+          <div
+            data-form-keyboard-footer="1"
+            data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+            className="shrink-0 border-t border-sam-primary-border/50 bg-sam-surface"
+            style={{ paddingBottom: `${effectiveBottomInset}px` }}
+          >
+            <div className={`flex flex-col gap-2 pt-3 ${ADDR_CONTENT_COLUMN}`}>
               {geoHint ? <p className="sam-text-helper text-red-700">{geoHint}</p> : null}
               {mapPhase === "pin" ? (
                 <>
@@ -563,12 +630,14 @@ export function AddressSelectClient() {
                   </button>
                 </>
               )}
-              <Link
-                href={buildMypageItemHref("settings", "address")}
-                className={`block pb-1 text-center ${ADDR_BTN_TERTIARY_FULL}`}
-              >
-                {t("addr_ui_address_list")}
-              </Link>
+              {!embedded && !keyboardOpen ? (
+                <Link
+                  href={buildMypageItemHref("settings", "address")}
+                  className={`block pb-1 text-center ${ADDR_BTN_TERTIARY_FULL}`}
+                >
+                  {t("addr_ui_address_list")}
+                </Link>
+              ) : null}
             </div>
           </div>
         </>

@@ -6,7 +6,7 @@ import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { ADDR_SEARCH_INPUT, ADDR_SEARCH_WRAP } from "@/lib/ui/address-flow-viber";
 
 type AddressSearchProps = {
-  onPlaceResolved: (lat: number, lng: number, formattedAddress: string) => void;
+  onPlaceResolved: (lat: number, lng: number, formattedAddress: string, placeId: string | null) => void;
   placeholder?: string;
   className?: string;
 };
@@ -41,7 +41,7 @@ export function AddressSearch({
       }
       if (cancelled || !inputRef.current) return;
       const ac = new google.maps.places.Autocomplete(inputRef.current, {
-        fields: ["geometry", "formatted_address", "name"],
+        fields: ["geometry", "formatted_address", "name", "place_id"],
         componentRestrictions: { country: "ph" },
       });
       acRef.current = ac;
@@ -50,7 +50,8 @@ export function AddressSearch({
         const loc = place.geometry?.location;
         if (!loc) return;
         const addr = (place.formatted_address ?? place.name ?? "").trim();
-        cbRef.current(loc.lat(), loc.lng(), addr);
+        const placeId = typeof place.place_id === "string" ? place.place_id.trim() || null : null;
+        cbRef.current(loc.lat(), loc.lng(), addr, placeId);
       });
     })();
 
