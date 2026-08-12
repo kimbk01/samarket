@@ -60,12 +60,12 @@ export function isSafeMainBottomNavHref(v: unknown): v is string {
   return true;
 }
 
-/** 하단 메신저 탭은 항상 `채팅` 섹션으로 진입(미읽음 뱃지·알림 확인). 허브 경로면 쿼리 무시하고 통일 */
+/** 하단 메신저 탭은 항상 미읽음 Chat 인박스로 진입(B list SSOT). 허브 경로면 쿼리 무시하고 통일 */
 function normalizeBuiltinMessengerTabHref(tabId: string, href: string): string {
   if (tabId !== "chat") return href;
   const basePath = href.split("?")[0]?.trim() ?? "";
   if (basePath !== "/community-messenger") return href;
-  return "/community-messenger?section=chats";
+  return "/community-messenger?section=chats&inbox=unread";
 }
 
 function trimLabel(v: unknown, fallback: string): string {

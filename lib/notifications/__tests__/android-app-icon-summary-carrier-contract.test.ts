@@ -47,10 +47,15 @@ describe("Android App Icon summary single-carrier contract", () => {
     expect(adapter).toContain("summary_cleared");
   });
 
-  it("total==0 clears summary only; onDomain posts apply summary", () => {
+  it("total==0 clears summary only; onDomain ignores FCM numeric hint", () => {
     expect(adapter).toContain("if (n <= 0)");
     expect(adapter).toContain("summary_cleared total=0");
+    // Gate 3.5: send-time badgeCount is hint only — launcher authority is NativeBadgeSync → apply(A+B).
+    expect(adapter).toContain("fcm_hint_ignored");
     expect(adapter).toMatch(
+      /onDomainNotificationPosted\([\s\S]*?\)\s*\{\s*Log\.i\(TAG,\s*"fcm_hint_ignored/
+    );
+    expect(adapter).not.toMatch(
       /onDomainNotificationPosted\([\s\S]*?\)\s*\{\s*apply\(context,\s*appIconTotal\);/
     );
   });

@@ -41,6 +41,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "general_direct",
         domainIdentityKey: "general_direct:viewer-1:peer-a",
         unreadMessageCount: 1,
+        latestMessageId: "tip:g1",
         peerUserId: "peer-a",
       },
       {
@@ -48,6 +49,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "general_direct",
         domainIdentityKey: "general_direct:viewer-1:peer-b",
         unreadMessageCount: 2,
+        latestMessageId: "tip:g2",
         peerUserId: "peer-b",
       },
       {
@@ -55,6 +57,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "group",
         domainIdentityKey: "group:group-1",
         unreadMessageCount: 1,
+        latestMessageId: "tip:gr1",
         groupId: "group-1",
       },
       {
@@ -62,6 +65,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "trade",
         domainIdentityKey: "trade:item:seller:buyer",
         unreadMessageCount: 4,
+        latestMessageId: "tip:t1",
         listingId: "item",
         sellerId: "seller",
         counterpartyId: "buyer",
@@ -71,6 +75,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "trade",
         domainIdentityKey: "trade:item2:seller:buyer",
         unreadMessageCount: 1,
+        latestMessageId: "tip:t2",
         listingId: "item2",
         sellerId: "seller",
         counterpartyId: "buyer",
@@ -80,6 +85,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "trade",
         domainIdentityKey: "trade:item3:seller:buyer",
         unreadMessageCount: 1,
+        latestMessageId: "tip:t3",
         listingId: "item3",
         sellerId: "seller",
         counterpartyId: "buyer",
@@ -89,6 +95,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "trade",
         domainIdentityKey: "trade:item4:seller:buyer",
         unreadMessageCount: 1,
+        latestMessageId: "tip:t4",
         listingId: "item4",
         sellerId: "seller",
         counterpartyId: "buyer",
@@ -98,6 +105,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "store_order_customer",
         domainIdentityKey: "store_order:ord-1",
         unreadMessageCount: 2,
+        latestMessageId: "tip:o1",
         orderId: "ord-1",
       },
       {
@@ -105,6 +113,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "store_order_customer",
         domainIdentityKey: "store_order:ord-2",
         unreadMessageCount: 1,
+        latestMessageId: "tip:o2",
         orderId: "ord-2",
       },
       {
@@ -112,6 +121,7 @@ describe("Trade/Customer Order unread SSOT contracts", () => {
         chatDomain: "store_order_customer",
         domainIdentityKey: "store_order:ord-3",
         unreadMessageCount: 1,
+        latestMessageId: "tip:o3",
         orderId: "ord-3",
       },
     ]);

@@ -30,7 +30,18 @@ function room(
   partial: Partial<MemberConversationRoomInput> &
     Pick<MemberConversationRoomInput, "roomId" | "chatDomain" | "unreadMessageCount">
 ): MemberConversationRoomInput {
-  return { memberId: MEMBER, leftAt: null, deletedAt: null, ...partial };
+  return {
+    memberId: MEMBER,
+    leftAt: null,
+    deletedAt: null,
+    latestMessageId:
+      partial.latestMessageId !== undefined
+        ? partial.latestMessageId
+        : partial.unreadMessageCount > 0
+          ? `tip:${partial.roomId}`
+          : null,
+    ...partial,
+  };
 }
 
 describe("Gate3 Step12 Room Identity Fallback", () => {

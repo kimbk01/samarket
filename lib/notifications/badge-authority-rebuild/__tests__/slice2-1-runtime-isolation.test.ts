@@ -42,6 +42,9 @@ const ALLOW_B_STORE_PROJECTION_IMPORT = new Set([
   "lib/order-domain/read-order-chat.ts",
 ]);
 
+/** Equation registry documents A kinds — classifier import is intentional SSOT, not a product surface. */
+const ALLOW_CLASSIFIER_IMPORT = new Set(["lib/notifications/badge-equation-registry.ts"]);
+
 const PRODUCT_SCAN_ROOTS = ["app", "components", "hooks", "services", "android", "ios"];
 
 /** lib product runtime dirs — exclude badge-authority-rebuild itself. */
@@ -106,6 +109,12 @@ describe("Slice 2-1 runtime isolation", () => {
         if (
           marker.includes("store-communication-b-projection") &&
           ALLOW_B_STORE_PROJECTION_IMPORT.has(rel)
+        ) {
+          continue;
+        }
+        if (
+          marker.includes("badge-event-classifier") &&
+          ALLOW_CLASSIFIER_IMPORT.has(rel)
         ) {
           continue;
         }

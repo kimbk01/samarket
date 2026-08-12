@@ -14,7 +14,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
       icon: "trade",
     });
     expect(items.find((i) => i.id === "chat")).toMatchObject({
-      href: "/community-messenger?section=chats",
+      href: "/community-messenger?section=chats&inbox=unread",
       labelKey: "nav.chat",
     });
   });
@@ -37,7 +37,9 @@ describe("resolveMainBottomNavDisplayItems", () => {
       "chat",
       "my",
     ]);
-    expect(items.find((i) => i.id === "chat")?.href).toBe("/community-messenger?section=chats");
+    expect(items.find((i) => i.id === "chat")?.href).toBe(
+      "/community-messenger?section=chats&inbox=unread"
+    );
   });
 
   it("현재 5내장 저장본은 순서를 그대로 유지", () => {
@@ -69,7 +71,9 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
-    expect(items.find((i) => i.id === "chat")?.href).toBe("/community-messenger?section=chats");
+    expect(items.find((i) => i.id === "chat")?.href).toBe(
+      "/community-messenger?section=chats&inbox=unread"
+    );
   });
 
   it("거래 탭에 예전 icon=home 저장본이면 trade 아이콘으로 승격", () => {
