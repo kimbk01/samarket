@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { buildPublicAllowListAddressLine } from "@/lib/addresses/public-address-allow-list";
-import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
+import { formatPublicAddress, buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 
 const PRIVATE_DETAIL_RE =
   /\b(unit|room|apt|apartment|suite|floor)\b|\bfl(?:oor)?\.?\s*\d+\b|\d+\s*(?:동|호|층)|(?:동|호|층)\s*\d+|호수/i;
@@ -29,11 +28,11 @@ export async function resolveCommunityPublicRegionLabelForUser(
 ): Promise<string> {
   const defaults = await getUserAddressDefaults(sb, userId);
   const fromMaster = sanitizePublicRegionLabel(
-    buildPublicAllowListAddressLine(defaults.master) ?? buildExplorationRegionSubtitleLine(defaults.master),
+    formatPublicAddress(defaults.master) ?? buildExplorationRegionSubtitleLine(defaults.master),
   );
   if (fromMaster) return fromMaster;
   const fromLife = sanitizePublicRegionLabel(
-    buildPublicAllowListAddressLine(defaults.life) ?? buildExplorationRegionSubtitleLine(defaults.life),
+    formatPublicAddress(defaults.life) ?? buildExplorationRegionSubtitleLine(defaults.life),
   );
   if (fromLife) return fromLife;
   return COMMUNITY_PUBLIC_REGION_FALLBACK;

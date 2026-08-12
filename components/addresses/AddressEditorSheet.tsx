@@ -13,6 +13,7 @@ import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/goog
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
 import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-display";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
 import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -501,6 +502,41 @@ export function AddressEditorSheet(props: {
     };
   }, [open, t]);
 
+  const applyTaxonomyFromDraftFields = useCallback(
+    (draft: {
+      buildingName?: string;
+      barangay?: string;
+      cityMunicipality?: string;
+      province?: string;
+      streetAddress?: string;
+      neighborhoodName?: string;
+      formattedAddress?: string;
+      roadAddress?: string;
+      fullAddress?: string;
+    }) => {
+      const hit = mapUserAddressToAppLocation({
+        appRegionId: null,
+        appCityId: null,
+        buildingName: draft.buildingName ?? null,
+        landmark: null,
+        barangay: draft.barangay ?? null,
+        district: null,
+        cityMunicipality: draft.cityMunicipality ?? null,
+        province: draft.province ?? null,
+        streetAddress: draft.streetAddress ?? null,
+        neighborhoodName: draft.neighborhoodName ?? null,
+        formattedAddress: draft.formattedAddress ?? null,
+        roadAddress: draft.roadAddress ?? null,
+        fullAddress: draft.fullAddress ?? null,
+      });
+      if (hit) {
+        setRegion(hit.regionId);
+        setCity(hit.cityId);
+      }
+    },
+    [],
+  );
+
   const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
     if (!r.placeId) return;
     setLatitude(r.latitude);
@@ -511,13 +547,30 @@ export function AddressEditorSheet(props: {
     setRoadAddress(r.formattedAddress);
     const ph = r.parsed;
     const headLine = r.formattedAddress.split(",")[0]?.trim() ?? "";
-    setStreetAddress(ph.routeLine || headLine);
-    setBarangay(ph.barangay ?? "");
-    setCityMunicipality(ph.cityMunicipality ?? "");
-    setProvince(ph.province ?? "");
-    setNeighborhoodName(ph.neighborhood ?? "");
-    setBuildingName(ph.buildingOrPlaceHeadline ?? "");
+    const nextStreet = ph.routeLine || headLine;
+    const nextBarangay = ph.barangay ?? "";
+    const nextCityMun = ph.cityMunicipality ?? "";
+    const nextProvince = ph.province ?? "";
+    const nextNeighborhood = ph.neighborhood ?? "";
+    const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+    setStreetAddress(nextStreet);
+    setBarangay(nextBarangay);
+    setCityMunicipality(nextCityMun);
+    setProvince(nextProvince);
+    setNeighborhoodName(nextNeighborhood);
+    setBuildingName(nextBuilding);
     setUnitFloorRoom("");
+    applyTaxonomyFromDraftFields({
+      buildingName: nextBuilding,
+      barangay: nextBarangay,
+      cityMunicipality: nextCityMun,
+      province: nextProvince,
+      streetAddress: nextStreet,
+      neighborhoodName: nextNeighborhood,
+      formattedAddress: r.formattedAddress,
+      roadAddress: r.formattedAddress,
+      fullAddress: r.formattedAddress,
+    });
     const s = r.formattedAddress.trim();
     setSearch(s);
     selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
@@ -525,7 +578,7 @@ export function AddressEditorSheet(props: {
     window.setTimeout(() => {
       document.getElementById("addr-editor-detail")?.focus();
     }, 0);
-  }, []);
+  }, [applyTaxonomyFromDraftFields]);
 
   const streetPreview = useMemo(() => {
     return formatPhDeliveryStreetSummary({
@@ -614,15 +667,32 @@ export function AddressEditorSheet(props: {
       setFormattedAddress(formatted);
       setRoadAddress(row.description || formatted);
       setFullAddress(formatted);
-      setStreetAddress(ph.routeLine || row.mainText || formatted);
-      setBarangay(ph.barangay ?? "");
-      setCityMunicipality(ph.cityMunicipality ?? "");
-      setProvince(ph.province ?? "");
-      setNeighborhoodName(ph.neighborhood ?? "");
-      setBuildingName(ph.buildingOrPlaceHeadline ?? "");
+      const nextStreet = ph.routeLine || row.mainText || formatted;
+      const nextBarangay = ph.barangay ?? "";
+      const nextCityMun = ph.cityMunicipality ?? "";
+      const nextProvince = ph.province ?? "";
+      const nextNeighborhood = ph.neighborhood ?? "";
+      const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+      setStreetAddress(nextStreet);
+      setBarangay(nextBarangay);
+      setCityMunicipality(nextCityMun);
+      setProvince(nextProvince);
+      setNeighborhoodName(nextNeighborhood);
+      setBuildingName(nextBuilding);
       setLatitude(lat);
       setLongitude(lng);
       setUnitFloorRoom("");
+      applyTaxonomyFromDraftFields({
+        buildingName: nextBuilding,
+        barangay: nextBarangay,
+        cityMunicipality: nextCityMun,
+        province: nextProvince,
+        streetAddress: nextStreet,
+        neighborhoodName: nextNeighborhood,
+        formattedAddress: formatted,
+        roadAddress: row.description || formatted,
+        fullAddress: formatted,
+      });
       setPredictions([]);
       setSearch(label);
       setMapPinConfirmed(false);
@@ -761,14 +831,39 @@ export function AddressEditorSheet(props: {
           return;
         }
       }
+      let resolvedRegionId = region.trim() || null;
+      let resolvedCityId = city.trim() || null;
+      if (!resolvedRegionId || !resolvedCityId) {
+        const hit = mapUserAddressToAppLocation({
+          appRegionId: null,
+          appCityId: null,
+          buildingName: buildingName.trim() || null,
+          landmark: landmark.trim() || null,
+          barangay: barangay.trim() || null,
+          district: null,
+          cityMunicipality: cityMunicipality.trim() || null,
+          province: province.trim() || null,
+          streetAddress: streetAddress.trim() || null,
+          neighborhoodName: neighborhoodName.trim() || null,
+          formattedAddress: formattedAddress.trim() || null,
+          roadAddress: roadAddress.trim() || null,
+          fullAddress: fullAddress.trim() || null,
+        });
+        if (hit) {
+          resolvedRegionId = hit.regionId;
+          resolvedCityId = hit.cityId;
+          setRegion(hit.regionId);
+          setCity(hit.cityId);
+        }
+      }
       const body = {
         labelType: submitLabelType,
         linkedStoreId: submitLabelType === "shop" ? selectedStoreId.trim() : null,
         nickname: resolvedNickname,
         recipientName: recipientName.trim() || null,
         phoneNumber: ph.value,
-        appRegionId: region.trim() || null,
-        appCityId: city.trim() || null,
+        appRegionId: resolvedRegionId,
+        appCityId: resolvedCityId,
         barangay: barangay.trim() || null,
         cityMunicipality: cityMunicipality.trim() || null,
         province: province.trim() || null,
@@ -957,6 +1052,24 @@ export function AddressEditorSheet(props: {
 
         {showDetailSection ? (
           <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
+            {/* PH order: Unit/detail first, then Google/street place summary */}
+            <div>
+              <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
+                {t("addr_ui_detail_required_label")}
+              </label>
+              <input
+                id="addr-editor-detail"
+                value={unitFloorRoom}
+                onChange={(e) => setUnitFloorRoom(e.target.value)}
+                placeholder={t("addr_ui_detail_ph")}
+                autoComplete="address-line2"
+                aria-invalid={detailViol}
+                className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
+              />
+              {detailViol ? (
+                <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
+              ) : null}
+            </div>
             <div>
               <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
               <div className="mt-1.5 flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
@@ -983,23 +1096,6 @@ export function AddressEditorSheet(props: {
                   </p>
                 </div>
               </div>
-            </div>
-            <div>
-              <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
-                {t("addr_ui_detail_required_label")}
-              </label>
-              <input
-                id="addr-editor-detail"
-                value={unitFloorRoom}
-                onChange={(e) => setUnitFloorRoom(e.target.value)}
-                placeholder={t("addr_ui_detail_ph")}
-                autoComplete="address-line2"
-                aria-invalid={detailViol}
-                className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
-              />
-              {detailViol ? (
-                <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
-              ) : null}
             </div>
             <div>
               <label htmlFor="addr-editor-note" className={fieldLabelClass}>

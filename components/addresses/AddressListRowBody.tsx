@@ -2,9 +2,10 @@
 
 /**
  * CONTRACT — 내정보 주소관리·배달 홈 주소 시트·마이페이지 시트 공통 본문.
- * PH 표기: `formatPhAddressCardOneLine` (상세 gate 먼저) — `lib/addresses/format-user-address-list-line.ts`
+ * PH 표기: `formatAddressBookLine` = compact continuous address string
+ *   (detail bold + rest, country excluded, natural wrap — NOT forced single visual row)
  * 핀: `AddressKindHeadPin` gold teardrop 통일.
- * DO NOT: 시트·화면마다 별도 한 줄 포맷·lucide MapPin — 여기만 수정.
+ * DO NOT: nowrap / truncate / line-clamp / field별 `<br>` · 시트마다 별도 포맷.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";

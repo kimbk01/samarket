@@ -386,9 +386,9 @@ export function PhilifeHeaderAddressMenuButton({
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 flex gap-1.5 line-clamp-2 text-[13px] leading-5 text-neutral-700">
+                            <span className="mt-0.5 flex min-w-0 gap-1.5 text-[13px] leading-5 text-neutral-700">
                               <AddressKindHeadPin kind={row.isDefaultMaster ? "master" : "general"} className="mt-0.5 shrink-0" />
-                              <span className="min-w-0 flex-1">
+                              <span className="min-w-0 flex-1 whitespace-normal break-words">
                                 <AddressUserRowLineText
                                   row={row}
                                   detailClassName="font-bold text-neutral-800"

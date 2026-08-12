@@ -13,7 +13,7 @@ type TextProps = {
   emptyClassName?: string;
 };
 
-/** PH 주소 카드 본문 — `상세(gate)` 굵게 + `, ` + 도로·포맷(street). 주소 관리·마이페이지·시트 공통 */
+/** PH 주소록 compact flow — detail bold inline + rest; natural wrap (no nowrap/ellipsis). ADDRESS BOOK SSOT */
 export function AddressPhCardLineText(props: TextProps) {
   const {
     presentation,
@@ -27,19 +27,21 @@ export function AddressPhCardLineText(props: TextProps) {
   }
 
   return (
-    <span className="leading-snug">
+    <span className="inline whitespace-normal break-words leading-snug">
       {presentation.gatePrefix ? (
         <>
-          <strong className={detailClassName}>{presentation.gatePrefix}</strong>
+          <strong className={`inline font-bold ${detailClassName}`}>{presentation.gatePrefix}</strong>
           {presentation.streetBody ? ", " : null}
         </>
       ) : null}
-      {presentation.streetBody ? <span className={bodyClassName}>{presentation.streetBody}</span> : null}
+      {presentation.streetBody ? (
+        <span className={`inline font-normal ${bodyClassName}`}>{presentation.streetBody}</span>
+      ) : null}
     </span>
   );
 }
 
-/** `UserAddressDTO` → PH 카드 본문(비PH는 plain 한 줄) */
+/** `UserAddressDTO` → PH 주소록 compact continuous flow (비PH는 plain compact string) */
 export function AddressUserRowLineText(props: {
   row: UserAddressDTO;
   opts?: FormatPhAddressCardOneLineOpts | null;

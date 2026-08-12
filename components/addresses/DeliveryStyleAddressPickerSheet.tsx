@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
+import { AddressBookPickerList } from "@/components/addresses/AddressBookPickerList";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   describeMeAddressesListFailure,
@@ -227,66 +227,20 @@ export function DeliveryStyleAddressPickerSheet({
           </Link>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--delivery-page-x)] py-2">
-          {error ?
-            <p className="mb-2 rounded-[var(--delivery-radius)] bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-              {error}
-            </p>
-          : null}
-          {loading && list.length === 0 ?
-            <p className="py-4 text-[13px] text-[color:var(--delivery-text-muted)]">
-              {t("philife_addr_list_loading")}
-            </p>
-          : null}
-          {!loading && list.length === 0 ?
-            <p className="py-4 text-[13px] text-[color:var(--delivery-text-muted)]">{t("philife_addr_empty")}</p>
-          : null}
-          <ul className="space-y-1">
-            {list.map((row) => {
-              const active = purpose === "delivery" ? row.isDefaultDelivery : row.isDefaultMaster;
-              const busy = busyId === row.id;
-              const storeBlocked = purpose === "master" && isLinkedSamarketStoreAddressRow(row);
-              return (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    disabled={busy || busyId != null || storeBlocked}
-                    onClick={() => void pickRow(row.id)}
-                    className={`flex w-full items-start gap-3 rounded-[var(--delivery-radius)] px-3 py-3 text-left transition-colors ${
-                      active ?
-                        "bg-[color:var(--delivery-primary-soft)] ring-1 ring-[color:var(--delivery-primary-border)]"
-                      : storeBlocked ?
-                        "cursor-not-allowed opacity-50"
-                      : "hover:bg-[color:var(--delivery-bg-soft)]"
-                    }`}
-                  >
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                        active ?
-                          "border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary)]"
-                        : "border-[color:var(--delivery-border)] bg-white"
-                      }`}
-                      aria-hidden
-                    >
-                      {active ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <AddressListRowBody
-                        row={row}
-                        showDefaultDeliveryBadge={purpose === "delivery"}
-                        preferFullAddressLine
-                        addressMainClassName="text-[color:var(--delivery-text-main)]"
-                      />
-                    </span>
-                    {busy ?
-                      <span className="shrink-0 text-[11px] text-[color:var(--delivery-text-muted)]">
-                        {t("philife_addr_changing")}
-                      </span>
-                    : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <AddressBookPickerList
+            list={list}
+            loading={loading}
+            error={error}
+            busyId={busyId}
+            selectedId={
+              list.find((r) => (purpose === "delivery" ? r.isDefaultDelivery : r.isDefaultMaster))?.id ??
+              null
+            }
+            preferDeliveryBadge={purpose === "delivery"}
+            preferFullAddressLine
+            isRowDisabled={(row) => purpose === "master" && isLinkedSamarketStoreAddressRow(row)}
+            onSelect={(row) => void pickRow(row.id)}
+          />
         </div>
       </div>
     </div>,

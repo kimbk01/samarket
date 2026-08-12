@@ -56,7 +56,7 @@ export function parsePhFromGooglePlaceResult(
 ): PhGooglePlaceParsed {
   const ac = place?.address_components;
   const province = pickLongName(ac, "administrative_area_level_1");
-  let cityMunicipality =
+  const cityMunicipality =
     pickLongName(ac, "locality") ||
     pickLongName(ac, "administrative_area_level_2") ||
     pickLongName(ac, "administrative_area_level_3");
@@ -77,13 +77,21 @@ export function parsePhFromGooglePlaceResult(
   const name = (place?.name ?? "").trim() || null;
   const buildingOrPlaceHeadline = name || premise || null;
 
-  if (!cityMunicipality && province && /metro\s*manila|^ncr$/i.test(province)) {
-    cityMunicipality = pickLongName(ac, "locality") || barangay;
+  let city = cityMunicipality?.trim() || null;
+  // Never promote province / NCR / barangay into city_municipality.
+  if (city && /^(metro\s*manila|ncr|national\s*capital\s*region|philippines)$/i.test(city)) {
+    city = null;
+  }
+  if (city && barangay && city.toLowerCase() === barangay.toLowerCase()) {
+    city = null;
+  }
+  if (city && /^(barangay|brgy\.?)\b/i.test(city)) {
+    city = null;
   }
 
   return {
     barangay,
-    cityMunicipality: cityMunicipality?.trim() || null,
+    cityMunicipality: city,
     province: province?.trim() || null,
     neighborhood: neighborhood?.trim() || null,
     routeLine: routeLine?.trim() || null,

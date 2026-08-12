@@ -1,5 +1,5 @@
 import type { FormatPhAddressCardOneLineOpts } from "@/lib/addresses/ph-address-display";
-import { formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
+import { formatAddressBookLine } from "@/lib/addresses/address-book-line";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   buildAddressManagementListPrimaryLine,
@@ -16,15 +16,15 @@ export function isPhUserAddressRow(row: UserAddressDTO): boolean {
 }
 
 /**
- * 사용자 주소 목록·프로필·필라이프·사이드바 — **한 줄 plain**.
- * PH: `formatPhAddressCardOneLine` (상세 gate 먼저). 비PH: `buildAddressManagementListPrimaryLine`.
+ * 사용자 주소 목록·프로필·필라이프·사이드바 — **compact continuous plain**.
+ * PH: `formatAddressBookLine` (detail-first, country excluded, natural wrap). 비PH: management primary + strip country.
  */
 export function formatUserAddressListPlainLine(
   row: UserAddressDTO,
   opts?: FormatPhAddressCardOneLineOpts | null,
 ): string {
   if (isPhUserAddressRow(row)) {
-    return formatPhAddressCardOneLinePlain(row, opts);
+    return formatAddressBookLine(row, opts) ?? "—";
   }
   return stripCountryFromAddressDisplayLine(
     buildAddressManagementListPrimaryLine(row),

@@ -6,9 +6,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchPostRowForOwnerEdit } from "@/lib/posts/owner-edit-select-post-row";
 import {
-
   allowAnyPostUpdate,
   allowEditCoreFields,
+  allowEditTradeLocationSnapshot,
   allowSoftDelete,
   deriveTradeLifecycleStatus,
   tradeLifecycleHint,
@@ -96,6 +96,7 @@ export async function GET(
       lifecycleStatus: lifecycle,
       hint,
       allowEditCore: allowEditCoreFields(lifecycle),
+      allowEditTradeLocation: allowEditTradeLocationSnapshot(lifecycle),
       allowAppendOnlyDescription: lifecycle === "negotiating" || lifecycle === "in_progress" || lifecycle === "cancelled",
       canSoftDelete: allowSoftDelete(lifecycle),
     },

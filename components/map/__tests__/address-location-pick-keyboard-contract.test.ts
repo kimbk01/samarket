@@ -23,7 +23,15 @@ describe("address location pick keyboard / CTA contract", () => {
     expect(src).toContain("AddressEditorLocationSearch");
     expect(src).toContain("addr_ui_save_address");
     expect(src).toContain("fetchPlacePredictionsPh");
+    expect(src).toContain("mapUserAddressToAppLocation");
     expect(src).not.toContain("editorPhase");
+    expect(src).not.toContain("new google.maps.places.Autocomplete");
+  });
+
+  it("AddressSearch member path uses AutocompleteService, not Autocomplete widget", () => {
+    const src = read("components/map/AddressSearch.tsx");
+    expect(src).toContain("fetchPlacePredictionsPh");
+    expect(src).toContain("AddressEditorLocationSearch");
     expect(src).not.toContain("new google.maps.places.Autocomplete");
   });
 

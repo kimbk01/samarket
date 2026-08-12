@@ -2,40 +2,27 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { formatPhAddressCardOneLine } from "@/lib/addresses/ph-address-display";
 import { buildPublicAllowListAddressLine } from "@/lib/addresses/public-address-allow-list";
 import { formatPhDetailThenStreetFromParts } from "@/lib/stores/store-location-label";
-import { getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
 
 /**
- * 타인에게 보이는 거래 동네 한 줄 — Community 와 같은 allow-list.
+ * PUBLIC ADDRESS SSOT — Community / Trade / open surfaces.
+ * City / Municipality ONLY (PH product contract).
  */
-export function buildTradeLocationPreviewForPublic(a: UserAddressDTO | null | undefined): string | null {
+export function formatPublicAddress(a: UserAddressDTO | null | undefined): string | null {
   return buildPublicAllowListAddressLine(a);
 }
 
 /**
- * 필라이프·1단 탐색 헤더 등 — 공개 allow-list (barangay/city + building/landmark).
- * `formatted_address` 원문·unit/detail 은 쓰지 않는다.
+ * 타인에게 보이는 거래 동네 한 줄 — PUBLIC SSOT.
+ */
+export function buildTradeLocationPreviewForPublic(a: UserAddressDTO | null | undefined): string | null {
+  return formatPublicAddress(a);
+}
+
+/**
+ * 필라이프·1단 탐색 헤더 등 — PUBLIC City/Municipality only.
  */
 export function buildExplorationRegionSubtitleLine(a: UserAddressDTO | null | undefined): string | null {
-  if (!a) return null;
-
-  const allow = buildPublicAllowListAddressLine(a);
-  if (allow?.trim()) return allow.trim();
-
-  const fromIds = tradePublicLineFromAppLocationIds(a);
-  if (fromIds?.trim()) {
-    const s = stripCountryFromAddressDisplayLine(fromIds.trim(), a.countryName).trim();
-    if (s) return s;
-  }
-
-  const tail = [a.barangay, a.cityMunicipality].filter(
-    (x) => x?.trim() && !isDisplayNullish(x),
-  ) as string[];
-  if (tail.length) {
-    const s = stripCountryFromAddressDisplayLine(tail.join(", "), a.countryName).trim();
-    if (s) return s;
-  }
-
-  return null;
+  return formatPublicAddress(a);
 }
 
 function isDisplayNullish(s: string | null | undefined): boolean {
@@ -95,51 +82,23 @@ export function stripCountryFromAddressDisplayLine(line: string, countryName?: s
   return t.replace(/[,，]\s*$/, "").trim();
 }
 
-/** 앱 지역 ID → `세부(에어리어), 광역(시)` — 예: Quiapo, Manila */
+/** 앱 지역 ID → City/Municipality public label (taxonomy leading token). */
 function tradePublicLineFromAppLocationIds(a: UserAddressDTO): string | null {
-  if (!a.appRegionId || !a.appCityId || isDisplayNullish(a.appRegionId) || isDisplayNullish(a.appCityId)) {
-    return null;
-  }
-  if (!getLocationLabelIfValid(a.appRegionId, a.appCityId)) return null;
-  const region = REGIONS.find((r) => r.id === a.appRegionId);
-  const city = region?.cities.find((c) => c.id === a.appCityId);
-  const cityName = city?.name?.trim() ?? "";
-  const regionName = region?.name?.trim() ?? "";
-  if (cityName && regionName) {
-    const br =
-      (a.barangay?.trim() && !isDisplayNullish(a.barangay) ? a.barangay.trim() : "") ||
-      (a.district?.trim() && !isDisplayNullish(a.district) ? a.district.trim() : "");
-    if (br && br.toLowerCase() !== cityName.toLowerCase()) {
-      return `${br}, ${cityName}`;
-    }
-    return `${cityName}, ${regionName}`;
-  }
-  return getLocationLabelIfValid(a.appRegionId, a.appCityId);
+  return buildPublicAllowListAddressLine({
+    ...a,
+    cityMunicipality: null,
+  });
 }
 
 /**
- * 거래 공개 한 줄 — Community 와 같은 allow-list.
- * `formatted_address` 원문·unit/detail 은 쓰지 않는다.
+ * 거래 공개 한 줄 — City/Municipality ONLY.
  */
 export function buildTradePublicLine(a: UserAddressDTO): string {
-  const allow = buildPublicAllowListAddressLine(a);
+  const allow = formatPublicAddress(a);
   if (allow?.trim()) return allow.trim();
 
   const fromIds = tradePublicLineFromAppLocationIds(a);
-  if (fromIds) return fromIds;
-
-  const chunks = [a.barangay, a.cityMunicipality].filter(
-    (x) => x?.trim() && !isDisplayNullish(x),
-  ) as string[];
-  if (chunks.length >= 2) return chunks.join(", ");
-  if (chunks.length === 1) return chunks[0];
-
-  const rid = a.appRegionId?.trim() ?? "";
-  const cid = a.appCityId?.trim() ?? "";
-  if (rid && cid && !isDisplayNullish(rid) && !isDisplayNullish(cid)) {
-    const valid = getLocationLabelIfValid(rid, cid);
-    if (valid) return valid;
-  }
+  if (fromIds?.trim()) return fromIds.trim();
 
   if (a.latitude != null && a.longitude != null) {
     return `${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)}`;
@@ -180,30 +139,72 @@ export function buildAddressListDetailLine(a: UserAddressDTO, mainLine: string):
   return line;
 }
 
+/**
+ * DELIVERY ADDRESS SSOT — PH full deliverable address.
+ *
+ * Order:
+ * Unit/Room/Floor → Street → Subdivision/Building → Barangay → City → Postal+Province → Country
+ * Empty fields omitted (no blank lines). Prefer structured fields over formatted dump.
+ */
 export function buildDeliveryDetailLines(a: UserAddressDTO): string {
   const lines: string[] = [];
-  if (a.detailAddress?.trim()) lines.push(a.detailAddress.trim());
-  // Philippines-friendly order: unit/building first, then street/full address.
-  const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
-  if (unit && !lines.some((x) => x.toLowerCase().includes(unit.toLowerCase()))) lines.push(unit);
+  const push = (raw: string | null | undefined) => {
+    const t = raw?.replace(/\s+/g, " ").trim();
+    if (!t || isDisplayNullish(t)) return;
+    const lower = t.toLowerCase();
+    if (lines.some((x) => x.toLowerCase() === lower)) return;
+    lines.push(t);
+  };
 
-  const full = a.formattedAddress?.trim() || a.fullAddress?.trim() || "";
-  const street = a.streetAddress?.trim() ?? "";
-  const main = full || street;
-  if (main) {
-    // Avoid duplicating unit if it was already included in the full line.
-    if (!unit || !main.toLowerCase().includes(unit.toLowerCase())) {
-      lines.push(main);
+  const unit = (a.unitFloorRoom?.trim() || a.detailAddress?.trim() || "") || "";
+  push(unit);
+
+  push(a.streetAddress);
+
+  // Subdivision / Village / Building — prefer buildingName, then landmark (not delivery_note).
+  const subdivisionOrBuilding = a.buildingName?.trim() || a.landmark?.trim() || "";
+  if (subdivisionOrBuilding) {
+    const uLower = unit.toLowerCase();
+    if (!uLower || !subdivisionOrBuilding.toLowerCase().includes(uLower)) {
+      push(subdivisionOrBuilding);
     }
-  } else {
-    const parts = [a.barangay, a.cityMunicipality, a.province]
-      .map((x) => x?.trim())
-      .filter((x) => x && !isDisplayNullish(x)) as string[];
-    if (parts.length) lines.push(parts.join(", "));
   }
-  if (a.landmark?.trim()) lines.push(`Landmark: ${a.landmark.trim()}`);
-  return lines.join("\n");
+
+  const barangay = a.barangay?.trim();
+  if (barangay) {
+    push(/^barangay\b/i.test(barangay) || /^brgy\.?\b/i.test(barangay) ? barangay : `Barangay ${barangay}`);
+  }
+
+  push(a.cityMunicipality);
+
+  const province = a.province?.trim();
+  if (province) push(province);
+
+  const country = (a.countryName?.trim() || (a.countryCode?.toUpperCase() === "PH" ? "PHILIPPINES" : "")).trim();
+  if (country) {
+    push(/philippines/i.test(country) ? "PHILIPPINES" : country);
+  }
+
+  if (lines.length > 0) return lines.join("\n");
+
+  const fallback =
+    a.formattedAddress?.trim() ||
+    a.fullAddress?.trim() ||
+    a.roadAddress?.trim() ||
+    "";
+  return fallback ? stripCountryFromAddressDisplayLine(fallback, a.countryName) : "";
 }
+
+/** DELIVERY ADDRESS SSOT — detail/unit allowed. */
+export function formatDeliveryAddress(a: UserAddressDTO): string {
+  return buildDeliveryDetailLines(a);
+}
+
+export {
+  formatAddressBookLine,
+  formatAddressBookLineSegments,
+  type AddressBookLineSegments,
+} from "@/lib/addresses/address-book-line";
 
 /**
  * 주소 관리 카드 본문 — **전체 주소** 한 줄 (헤더·거래 요약용 `buildTradePublicLine` 과 별개).

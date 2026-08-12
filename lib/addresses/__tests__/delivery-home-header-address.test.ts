@@ -117,7 +117,7 @@ describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
   });
 });
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
-  it("uses PH card line matching address sheet (not barangay-prefixed baemin)", () => {
+  it("uses PH address-book compact string matching address sheet (not barangay-prefixed baemin)", () => {
     const row = addr({
       id: "office1",
       labelType: "office",
@@ -134,19 +134,23 @@ describe("resolveDeliveryHomeHeaderDisplayLine", () => {
     });
     const line = resolveDeliveryHomeHeaderDisplayLine(row);
     expect(line).not.toMatch(/^Diliman wwwww/);
+    expect(line).not.toMatch(/PHILIPPINES|Philippines/i);
     expect(line).toContain("wwwww");
+    expect(line).toContain("3/F Room");
     expect(line).toContain("UP EEEI Smart Systems Laboratory");
     expect(line).toContain("310 P. Velasquez Street");
+    expect(line).toContain("Quezon City");
   });
 
-  it("falls back to detailAddress when PH card and baemin are empty", () => {
+  it("uses address-book compact string when only detail + city/province present", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
       addr({
         id: "a5",
         detailAddress: "1003 - COD",
-      })
+      }),
     );
-    expect(line).toBe("1003 - COD");
+    expect(line).toBe("1003 - COD, Manila, Metro Manila");
+    expect(line).not.toMatch(/PHILIPPINES|Philippines/i);
   });
 });
 

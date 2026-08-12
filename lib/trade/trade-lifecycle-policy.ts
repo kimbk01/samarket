@@ -188,6 +188,14 @@ export function allowEditCoreFields(status: TradeLifecycleStatus): boolean {
   return status === "draft" || status === "active";
 }
 
+/**
+ * Trade post region + meet spot snapshot — editable only before publish (draft).
+ * After publish (active+), location/region must stay immutable.
+ */
+export function allowEditTradeLocationSnapshot(status: TradeLifecycleStatus): boolean {
+  return status === "draft";
+}
+
 export function allowSoftDelete(status: TradeLifecycleStatus): boolean {
   return status === "draft" || status === "active";
 }

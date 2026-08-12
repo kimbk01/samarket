@@ -3,6 +3,8 @@ export type TradePolicyClient = {
   lifecycleStatus: string;
   hint: string | null;
   allowEditCore: boolean;
+  /** draft only — region/city + trade_meet_spot immutable after publish */
+  allowEditTradeLocation: boolean;
   allowAppendOnlyDescription: boolean;
   canSoftDelete: boolean;
 };

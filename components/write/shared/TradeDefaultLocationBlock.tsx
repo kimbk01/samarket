@@ -4,15 +4,23 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AddressBookPickerList } from "@/components/addresses/AddressBookPickerList";
 import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
-import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
+import {
+  describeMeAddressesListFailure,
+  fetchMeAddressesListSingleFlight,
+  prefetchMeAddressListIntoCache,
+  readCachedMeAddressList,
+  writeCachedMeAddressList,
+} from "@/lib/addresses/address-list-client-cache";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 
@@ -22,6 +30,16 @@ function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown 
   if (master?.id) return master;
   if (trade?.id) return trade;
   return null;
+}
+
+function applyAddressToTradeRegion(
+  addr: UserAddressDTO,
+  sync: (regionId: string, cityId: string) => void,
+): string | null {
+  const line = (buildExplorationRegionSubtitleLine(addr) ?? "").trim();
+  const inferred = mapUserAddressToAppLocation(addr);
+  if (inferred) sync(inferred.regionId, inferred.cityId);
+  return line && line !== "—" ? line : null;
 }
 
 type TradeDefaultLocationBlockProps = {
@@ -36,16 +54,9 @@ type TradeDefaultLocationBlockProps = {
   meetSpotLine?: string | null;
   meetSpotError?: string;
   onBeforeMeetSpotPick?: () => void | Promise<void>;
-  /** 지도·주소 한 줄 카드 제목 (기본: 거래 희망 장소) */
   meetSpotHeading?: string;
-  /** 당근형 `karrotMeetSpotUi` 카드 바로 아래 — 부동산 건물명 등 */
   belowMeetSpotSlot?: ReactNode;
-  /** 부동산 글쓰기 등 — 안내 문구 생략·패딩 축소 */
   denseLayout?: boolean;
-  /**
-   * 지도에서 거래 장소를 고른 뒤에는 주소록 기준으로 `region`/`city` 를 덮어쓰지 않음
-   * (대표 주소와 핀 위치가 다를 때 검증 실패 방지).
-   */
   suppressAddressBookRegionSync?: boolean;
 };
 
@@ -78,6 +89,11 @@ export function TradeDefaultLocationBlock({
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerList, setPickerList] = useState<UserAddressDTO[]>(() => readCachedMeAddressList() ?? []);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
   const suppressAddressBookSyncRef = useRef(suppressAddressBookRegionSync);
@@ -106,14 +122,12 @@ export function TradeDefaultLocationBlock({
         setReady(true);
         return;
       }
-      const line = (buildExplorationRegionSubtitleLine(addr) ?? "").trim();
-      const nextLine = line && line !== t("trade_write_address_empty") && line !== "—" ? line : null;
+      setPickedId(addr.id);
+      const nextLine = applyAddressToTradeRegion(addr, (rid, cid) => {
+        if (!suppressAddressBookSyncRef.current) syncRef.current(rid, cid);
+      });
       displayLineRef.current = nextLine;
       setDisplayLine(nextLine);
-      const inferred = inferAppLocationIdsFromUserAddress(addr);
-      if (inferred && !suppressAddressBookSyncRef.current) {
-        syncRef.current(inferred.regionId, inferred.cityId);
-      }
     } catch {
       displayLineRef.current = null;
       setDisplayLine(null);
@@ -170,12 +184,37 @@ export function TradeDefaultLocationBlock({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
-  /** 함수 참조가 아니라 “신규 글 + 주소 이동 훅 존재”만 본다. 부모가 `useCallback`deps에 폼 전체 상태를 넣으면 매 입력마다 참조가 바뀌어 프리페치가 폭주한다. */
   const shouldPrefetchAddressListForNavigate = typeof onBeforeNavigateToAddresses === "function";
   useEffect(() => {
     if (!shouldPrefetchAddressListForNavigate) return;
     prefetchMeAddressListIntoCache();
   }, [shouldPrefetchAddressListForNavigate]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    let cancelled = false;
+    setPickerLoading(true);
+    setPickerError(null);
+    void fetchMeAddressesListSingleFlight()
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setPickerError(describeMeAddressesListFailure(result, t, "philife_addr_list_load_failed"));
+          return;
+        }
+        setPickerList(result.rows);
+        if (result.rows.length > 0) writeCachedMeAddressList(result.rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPickerError(t("philife_addr_list_network_failed"));
+      })
+      .finally(() => {
+        if (!cancelled) setPickerLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pickerOpen, t]);
 
   const snapshotLabel = editPostId && region && city ? getLocationLabel(region, city) : null;
 
@@ -189,6 +228,17 @@ export function TradeDefaultLocationBlock({
     }
     router.push(addressesHref);
   }, [addressesHref, onBeforeNavigateToAddresses, router]);
+
+  const handlePickSavedAddress = useCallback(
+    (row: UserAddressDTO) => {
+      setPickedId(row.id);
+      const nextLine = applyAddressToTradeRegion(row, (rid, cid) => syncRef.current(rid, cid));
+      displayLineRef.current = nextLine;
+      setDisplayLine(nextLine);
+      setPickerOpen(false);
+    },
+    [],
+  );
 
   const currentAddressText = !ready
     ? snapshotLabel ?? "…"
@@ -257,7 +307,7 @@ export function TradeDefaultLocationBlock({
                 try {
                   await onBeforeMeetSpotPick();
                 } catch {
-                  /* 부모(업로드·초안 저장) 실패 — 조용히 무시하지 않고 사용자가 재시도 가능 */
+                  /* parent may stage draft — user can retry */
                 }
               })();
             }}
@@ -270,25 +320,72 @@ export function TradeDefaultLocationBlock({
         </div>
       ) : null}
       {belowMeetSpotSlot ? <div className="mt-0">{belowMeetSpotSlot}</div> : null}
-      {!readOnly && !karrotMeetSpotUi ? (
-        onBeforeNavigateToAddresses ? (
+      {!readOnly ? (
+        <div className={denseLayout ? "mt-2 flex flex-wrap gap-2" : "mt-3 flex flex-wrap gap-2"}>
           <button
             type="button"
-            className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
-            onClick={() => void handleNavigateToAddresses()}
+            className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+            onClick={() => setPickerOpen(true)}
           >
-            {t("trade_write_manage_addresses")}
+            {t("trade_write_location_select_region")}
           </button>
-        ) : (
-          <Link
-            href={addressesHref}
-            className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-          >
-            {t("trade_write_manage_addresses")}
-          </Link>
-        )
+          {onBeforeNavigateToAddresses ? (
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+              onClick={() => void handleNavigateToAddresses()}
+            >
+              {t("trade_write_manage_addresses")}
+            </button>
+          ) : (
+            <Link
+              href={addressesHref}
+              className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+            >
+              {t("trade_write_manage_addresses")}
+            </Link>
+          )}
+        </div>
       ) : null}
       {error ? <p className="mt-2 sam-text-body-secondary text-red-500">{error}</p> : null}
+      {pickerOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-[120]" role="presentation">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                aria-label={t("philife_addr_close_menu_aria")}
+                onClick={() => setPickerOpen(false)}
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="absolute inset-x-0 bottom-0 max-h-[min(78dvh,560px)] overflow-hidden rounded-t-[16px] bg-white shadow-lg"
+              >
+                <div className="flex items-center justify-between border-b border-sam-border px-4 py-3">
+                  <h2 className="text-[16px] font-bold text-sam-fg">{t("trade_write_trade_region")}</h2>
+                  <button
+                    type="button"
+                    className="text-[13px] font-semibold text-sam-primary"
+                    onClick={() => void handleNavigateToAddresses()}
+                  >
+                    {t("trade_write_manage_addresses")}
+                  </button>
+                </div>
+                <div className="max-h-[min(60dvh,480px)] overflow-y-auto px-3 py-2">
+                  <AddressBookPickerList
+                    list={pickerList}
+                    loading={pickerLoading}
+                    error={pickerError}
+                    selectedId={pickedId}
+                    onSelect={handlePickSavedAddress}
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

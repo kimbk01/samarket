@@ -60,7 +60,7 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
 
 /**
  * 배달 홈 헤더·주소 시트 — 표시용 한 줄 (동일 규칙).
- * PH: `formatPhAddressCardOneLinePlain` (`AddressListRowBody`·주소 시트) 우선.
+ * PH: `formatAddressBookLine` (`AddressListRowBody`·주소 시트) 우선.
  * 카드가 비어 있으면 Baemin형 동·상세 → detailAddress → plain fallback.
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {

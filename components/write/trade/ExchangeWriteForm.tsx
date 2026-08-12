@@ -155,6 +155,9 @@ export function ExchangeWriteForm({
   const [submitting, setSubmitting] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  const locationLocked = Boolean(
+    editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
+  );
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
@@ -788,7 +791,7 @@ export function ExchangeWriteForm({
   );
 
   const tradeLocationEl = (
-    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
         editPostId={editPostId}
         region={region}
@@ -796,12 +799,12 @@ export function ExchangeWriteForm({
         onSyncRegionCity={syncTradeRegionCity}
         suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.location}
-        readOnly={coreLocked}
+        readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
-        onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+        onBeforeMeetSpotPick={!locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
         meetSpotHeading={t("trade_write_location")}
         denseLayout
       />

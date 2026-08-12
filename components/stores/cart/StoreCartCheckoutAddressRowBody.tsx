@@ -169,7 +169,7 @@ export function StoreCartCheckoutAddressRowBody(props: {
 
         <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
           <AddressKindHeadPin kind={headKind} className="pt-0.5" />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 whitespace-normal break-words">
             <AddressUserRowLineText row={row} opts={phOpts} />
           </div>
         </div>

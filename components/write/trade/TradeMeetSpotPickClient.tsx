@@ -36,7 +36,7 @@ import {
   parseMarketTradeWriteReturnCategoryKey,
   scheduleTradeWriteSheetReopenAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
-import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
+import { mapAddressLineToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -617,7 +617,7 @@ export function TradeMeetSpotPickClient() {
           displayLine.trim() || geocodedLine.trim() || fallbackCoordLine;
         const lineTrimmed = line.trim();
         if (!lineTrimmed) return;
-        const matched = matchRegionCityFromFullAddress(lineTrimmed);
+        const matched = mapAddressLineToAppLocation(lineTrimmed);
         setTradeMeetSpotPickResult({
           displayLine: lineTrimmed,
           lat: marker.lat,

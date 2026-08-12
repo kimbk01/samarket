@@ -305,6 +305,9 @@ export function JobsWriteForm({
   const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
 
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  const locationLocked = Boolean(
+    editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
+  );
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const isSeeker = listingKind === "work";
 
@@ -1255,7 +1258,7 @@ export function JobsWriteForm({
   const policyHint = tradePolicy?.hint?.trim() ?? "";
 
   const tradeLocationEl = (
-    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
         editPostId={editPostId}
         region={region}
@@ -1263,12 +1266,12 @@ export function JobsWriteForm({
         onSyncRegionCity={syncTradeRegionCity}
         suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.region}
-        readOnly={coreLocked}
+        readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
-        onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+        onBeforeMeetSpotPick={!locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
         meetSpotHeading={isSeeker ? t("jobs_write_meet_seeker") : t("jobs_write_meet_hire")}
         denseLayout
       />

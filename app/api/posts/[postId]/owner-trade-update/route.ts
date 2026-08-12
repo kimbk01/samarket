@@ -12,9 +12,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
-
   allowAnyPostUpdate,
   allowEditCoreFields,
+  allowEditTradeLocationSnapshot,
   allowsCancelledPartialEdit,
   allowsRestrictedPartialEdit,
   deriveTradeLifecycleStatus,
@@ -135,10 +135,26 @@ export async function PATCH(
   const tradeKind = resolveTradeKindFromCategory({ slug: catSlug, icon_key: catIcon });
 
   const before = flattenPostForTradeCompare(row as Record<string, unknown>);
-  const proposed = mergeTradePostFromPatch(before, body, tradeKind);
+  let proposed = mergeTradePostFromPatch(before, body, tradeKind);
 
   if (allowEditCoreFields(lifecycle)) {
-    /* draft / active — 전체 수정 */
+    if (!allowEditTradeLocationSnapshot(lifecycle)) {
+      const beforeMeta =
+        before.meta && typeof before.meta === "object" ? { ...before.meta } : {};
+      const proposedMeta =
+        proposed.meta && typeof proposed.meta === "object" ? { ...proposed.meta } : {};
+      if ("trade_meet_spot" in beforeMeta) {
+        proposedMeta.trade_meet_spot = beforeMeta.trade_meet_spot;
+      } else {
+        delete proposedMeta.trade_meet_spot;
+      }
+      proposed = {
+        ...proposed,
+        region: before.region,
+        city: before.city,
+        meta: proposedMeta,
+      };
+    }
   } else if (allowsRestrictedPartialEdit(lifecycle) || allowsCancelledPartialEdit(lifecycle)) {
     const v = validateRestrictedMetaPatch(tradeKind, before, proposed);
     if (!v.ok) {

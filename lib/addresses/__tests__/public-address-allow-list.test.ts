@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildPublicAllowListAddressLine } from "@/lib/addresses/public-address-allow-list";
-import { buildExplorationRegionSubtitleLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import {
+  buildExplorationRegionSubtitleLine,
+  buildTradePublicLine,
+  formatPublicAddress,
+} from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 
 function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO {
@@ -32,8 +36,8 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
     deliveryNote: null,
     fullAddress: partial.fullAddress ?? "Unit 1203, Robinsons Manila, Malate, Manila, Philippines",
     neighborhoodName: partial.neighborhoodName ?? "Malate",
-    appRegionId: "ncr",
-    appCityId: "manila",
+    appRegionId: "manila",
+    appCityId: "m1",
     useForLife: true,
     useForTrade: true,
     useForDelivery: true,
@@ -50,22 +54,24 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
 }
 
 describe("public address allow-list", () => {
-  it("composes barangay/city + building and drops unit/detail/formatted dump", () => {
+  it("returns City/Municipality only and drops barangay/building/unit", () => {
     const row = addr({ id: "m1" });
     const line = buildPublicAllowListAddressLine(row) ?? "";
-    expect(line).toContain("Malate");
-    expect(line).toContain("Manila");
-    expect(line).toContain("Robinsons Manila");
+    expect(line).toBe("Manila");
+    expect(line).not.toContain("Malate");
+    expect(line).not.toContain("Robinsons Manila");
     expect(line).not.toMatch(/Unit 1203|Room 4/i);
     expect(line).not.toBe(row.formattedAddress);
   });
 
-  it("community and trade formatters share the allow-list (no unit leak)", () => {
+  it("community and trade formatters are city-only (no unit leak)", () => {
     const row = addr({ id: "m1", unitFloorRoom: "8th Floor", detailAddress: "House No. 15 interior" });
     const community = buildExplorationRegionSubtitleLine(row) ?? "";
     const trade = buildTradePublicLine(row);
-    expect(community).not.toMatch(/Unit|Room|Floor|House No\.|8th Floor/i);
-    expect(trade).not.toMatch(/Unit|Room|Floor|House No\.|8th Floor/i);
-    expect(community).not.toContain("formatted");
+    expect(community).toBe("Manila");
+    expect(trade).toBe("Manila");
+    expect(formatPublicAddress(row)).toBe("Manila");
+    expect(community).not.toMatch(/Unit|Room|Floor|House No\.|8th Floor|Malate|Robinsons/i);
+    expect(trade).not.toMatch(/Unit|Room|Floor|House No\.|8th Floor|Malate|Robinsons/i);
   });
 });
