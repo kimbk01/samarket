@@ -1,9 +1,16 @@
 /**
- * posts.author_id / user_id → 프로필 닉네임 (채팅 목록·방 상단 「작성자」 표시)
+ * posts.author_id / user_id → Member public identity (nickname + dibay_id)
+ * Community / Trade / chat author labels — MEMBER DOMAIN only.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  memberCompactLabelFromRow,
+  memberDisplayLabelFromRow,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 /** 비어 있지 않은 문자열만 (null·""·공백은 무시) */
 function nonEmptyString(v: unknown): string | undefined {
@@ -60,21 +67,33 @@ export function postTradeListingOwnerUserId(
 export type AuthorPublicProfile = {
   displayName: string;
   avatarUrl: string | null;
+  dibayId?: string | null;
+  nickname?: string | null;
 };
 
 function profileRowToPublicProfile(row: Record<string, unknown> | null | undefined): AuthorPublicProfile | null {
   if (!row) return null;
-  const display = nonEmptyString(row.display_name);
-  const legacy = nonEmptyString(row.nickname);
-  const uname = nonEmptyString(row.username);
-  const name =
-    labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
-    display ||
-    legacy ||
-    uname;
-  if (!name) return null;
-  const avatarRaw = nonEmptyString(row.avatar_url);
-  return { displayName: String(name).trim(), avatarUrl: avatarRaw ?? null };
+  const id = nonEmptyString(row.id);
+  const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, {
+    userId: id ?? undefined,
+  });
+  if (!identity) return null;
+  return {
+    displayName: identity.displayLabel,
+    avatarUrl: identity.avatarUrl,
+    dibayId: identity.dibayId,
+    nickname: identity.nickname,
+  };
+}
+
+function testUserToPublicProfile(row: Record<string, unknown> | null | undefined): AuthorPublicProfile | null {
+  if (!row) return null;
+  const id = nonEmptyString(row.id);
+  if (!id) return null;
+  /** test_users has no dibay_id — nickname-like display_name only; never treat as store. */
+  const nick = nonEmptyString(row.display_name) ?? nonEmptyString(row.username);
+  if (!nick) return null;
+  return { displayName: nick, avatarUrl: null, nickname: nick, dibayId: null };
 }
 
 export async function fetchAuthorPublicProfilesForUserIds(
@@ -89,7 +108,7 @@ export async function fetchAuthorPublicProfilesForUserIds(
     const onlyId = ids[0]!;
     const { data: profile } = await sbAny
       .from("profiles")
-      .select("id, display_name, nickname, username, avatar_url")
+      .select(MEMBER_IDENTITY_PROFILE_SELECT)
       .eq("id", onlyId)
       .maybeSingle();
     const parsed = profileRowToPublicProfile(profile as Record<string, unknown> | null);
@@ -102,17 +121,14 @@ export async function fetchAuthorPublicProfilesForUserIds(
       .select("id, display_name, username")
       .eq("id", onlyId)
       .maybeSingle();
-    const testName = testUser
-      ? nonEmptyString((testUser as Record<string, unknown>).display_name) ??
-        nonEmptyString((testUser as Record<string, unknown>).username)
-      : undefined;
-    if (testName) map.set(onlyId, { displayName: testName, avatarUrl: null });
+    const testParsed = testUserToPublicProfile(testUser as Record<string, unknown> | null);
+    if (testParsed) map.set(onlyId, testParsed);
     return map;
   }
 
   const { data: profiles } = await sbAny
     .from("profiles")
-    .select("id, display_name, nickname, username, avatar_url")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
     .in("id", ids);
   (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
     const id = p.id as string;
@@ -130,13 +146,17 @@ export async function fetchAuthorPublicProfilesForUserIds(
   (testUsers as Record<string, unknown>[] | null | undefined)?.forEach((t) => {
     const id = t.id as string;
     if (map.has(id)) return;
-    const name = (t.display_name ?? t.username) as string;
-    if (id && name) map.set(id, { displayName: String(name).trim(), avatarUrl: null });
+    const parsed = testUserToPublicProfile(t);
+    if (id && parsed) map.set(id, parsed);
   });
 
   return map;
 }
 
+/**
+ * Community / meeting labels — Member displayLabel (nickname; UI may strip @).
+ * Prefer displayLabel so CommunityAuthorRow shows nickname without forcing handle in every surface.
+ */
 export async function fetchNicknamesForUserIds(
   sbAny: SupabaseClient<any>,
   userIds: string[],
@@ -145,25 +165,22 @@ export async function fetchNicknamesForUserIds(
   const map = new Map<string, string>();
   const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
   if (ids.length === 0) return map;
+
+  const applyProfile = (id: string, row: Record<string, unknown> | null | undefined) => {
+    const label = memberDisplayLabelFromRow(row as MemberIdentityProfileFields, { userId: id });
+    if (label) map.set(id, label);
+  };
+
   if (ids.length === 1) {
-    const onlyId = ids[0];
+    const onlyId = ids[0]!;
     if (metrics) metrics.profileSelect += 1;
     const { data: profile } = await sbAny
       .from("profiles")
-      .select("id, display_name, nickname, username")
+      .select(MEMBER_IDENTITY_PROFILE_SELECT)
       .eq("id", onlyId)
       .maybeSingle();
-    const profileRow = profile as Record<string, unknown> | null;
-    const display = profileRow ? nonEmptyString(profileRow.display_name) : undefined;
-    const legacy = profileRow ? nonEmptyString(profileRow.nickname) : undefined;
-    const uname = profileRow ? nonEmptyString(profileRow.username) : undefined;
-    const profileName =
-      labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
-      display ||
-      legacy ||
-      uname;
-    if (profileName) {
-      map.set(onlyId, profileName);
+    if (profile) {
+      applyProfile(onlyId, profile as Record<string, unknown>);
       return map;
     }
     if (metrics) metrics.testUsersSelect += 1;
@@ -172,30 +189,19 @@ export async function fetchNicknamesForUserIds(
       .select("id, display_name, username")
       .eq("id", onlyId)
       .maybeSingle();
-    const testName = testUser
-      ? nonEmptyString((testUser as Record<string, unknown>).display_name) ??
-        nonEmptyString((testUser as Record<string, unknown>).username)
-      : undefined;
-    if (testName) map.set(onlyId, testName);
+    const testParsed = testUserToPublicProfile(testUser as Record<string, unknown> | null);
+    if (testParsed) map.set(onlyId, testParsed.displayName);
     return map;
   }
 
   if (metrics) metrics.profileSelect += 1;
   const { data: profiles } = await sbAny
     .from("profiles")
-    .select("id, display_name, nickname, username")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
     .in("id", ids);
   (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
     const id = p.id as string;
-    const display = nonEmptyString(p.display_name);
-    const legacy = nonEmptyString(p.nickname);
-    const uname = nonEmptyString(p.username);
-    const name =
-      labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
-      display ||
-      legacy ||
-      uname;
-    if (id && name) map.set(id, String(name).trim());
+    if (id) applyProfile(id, p);
   });
 
   const needTest = ids.filter((id) => !map.has(id));
@@ -209,10 +215,30 @@ export async function fetchNicknamesForUserIds(
   (testUsers as Record<string, unknown>[] | null | undefined)?.forEach((t) => {
     const id = t.id as string;
     if (map.has(id)) return;
-    const name = (t.display_name ?? t.username) as string;
-    if (id && name) map.set(id, String(name).trim());
+    const parsed = testUserToPublicProfile(t);
+    if (id && parsed) map.set(id, parsed.displayName);
   });
 
+  return map;
+}
+
+/** Trade list seller line — compact `nickname (@dibay_id)`. */
+export async function fetchMemberCompactLabelsForUserIds(
+  sbAny: SupabaseClient<any>,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
+  if (ids.length === 0) return map;
+  const { data: profiles } = await sbAny
+    .from("profiles")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
+    .in("id", ids);
+  for (const p of (profiles as Record<string, unknown>[] | null | undefined) ?? []) {
+    const id = typeof p.id === "string" ? p.id.trim() : "";
+    if (!id) continue;
+    map.set(id, memberCompactLabelFromRow(p as MemberIdentityProfileFields, { userId: id }));
+  }
   return map;
 }
 

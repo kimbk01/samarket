@@ -6,7 +6,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdFeedPost, AdType } from "@/lib/ads/types";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  memberDisplayLabelFromRow,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 function excerptFromPostBody(raw: string, max = 180): string {
   const t = raw.replace(/\s+/g, " ").trim();
@@ -101,20 +105,12 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
   if (userIds.length) {
     const { data: profs } = await sb
       .from("profiles")
-      .select("id, display_name, nickname, username")
+      .select(MEMBER_IDENTITY_PROFILE_SELECT)
       .in("id", userIds);
-    for (const p of (profs ?? []) as {
-      id?: string;
-      display_name?: string | null;
-      nickname?: string | null;
-      username?: string | null;
-    }[]) {
+    for (const p of (profs ?? []) as MemberIdentityProfileFields[]) {
       const id = String(p.id ?? "");
-      const base = String(p.display_name ?? p.nickname ?? "").trim();
-      const uname = String(p.username ?? "").trim();
-      const label =
-        labelFromDisplayAndUsername(base || null, uname || null) || base || uname || id.slice(0, 8);
-      nicknameById.set(id, label);
+      if (!id) continue;
+      nicknameById.set(id, memberDisplayLabelFromRow(p, { userId: id }));
     }
   }
 

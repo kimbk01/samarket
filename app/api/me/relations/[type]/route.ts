@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  memberDisplayLabelFromRow,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 import {
   listBlockedByMeIds,
   listHiddenUserRelationshipRows,
@@ -52,7 +56,7 @@ async function fetchProfileMap(
 
   const { data: profiles } = await sb
     .from("profiles")
-    .select("id, display_name, nickname, username, avatar_url, region_name")
+    .select(`${MEMBER_IDENTITY_PROFILE_SELECT}, region_name`)
     .in("id", targetIds);
 
   for (const row of (profiles ?? []) as Record<string, unknown>[]) {
@@ -68,16 +72,20 @@ function mapProfilesToRelationItems(
 ): RelationListItem[] {
   return rows.map((row) => {
     const profile = profileMap.get(row.targetId);
-    const displayName = typeof profile?.display_name === "string" ? profile.display_name : null;
-    const legacy = typeof profile?.nickname === "string" ? profile.nickname : null;
-    const username = typeof profile?.username === "string" ? profile.username : null;
-    const label = labelFromDisplayAndUsername(displayName ?? legacy, username).trim();
+    const identity = profile
+      ? memberDisplayLabelFromRow(profile as MemberIdentityProfileFields, { userId: row.targetId })
+      : null;
+    const dibayId =
+      typeof profile?.dibay_id === "string" && profile.dibay_id.trim() ? profile.dibay_id.trim() : null;
+    const nick =
+      typeof profile?.nickname === "string" && profile.nickname.trim() ? profile.nickname.trim() : null;
     return {
       id: row.id,
       targetId: row.targetId,
       createdAt: row.createdAt,
-      nickname: label || legacy || null,
-      username,
+      nickname: identity || nick || null,
+      /** DTO field kept — Member public id = dibay_id */
+      username: dibayId,
       avatarUrl: typeof profile?.avatar_url === "string" ? profile.avatar_url : null,
       regionName: typeof profile?.region_name === "string" ? profile.region_name : null,
     };

@@ -24,7 +24,7 @@ function applyProfileToFields(
   },
 ) {
   setters.setProfile(p);
-  setters.setDisplayName((p.display_name ?? p.nickname ?? "").trim());
+  setters.setDisplayName((p.nickname ?? p.display_name ?? "").trim());
   setters.setAvatarUrl(p.avatar_url ?? null);
   setters.setBio((p.bio ?? "").trim());
 }
@@ -45,7 +45,7 @@ export function ProfilePublicEditForm({
   const [loading, setLoading] = useState(!initialProfile);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState(
-    () => (initialProfile?.display_name ?? initialProfile?.nickname ?? "").trim(),
+    () => (initialProfile?.nickname ?? initialProfile?.display_name ?? "").trim(),
   );
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialProfile?.avatar_url ?? null);
   const [bio, setBio] = useState(() => (initialProfile?.bio ?? "").trim());
@@ -88,7 +88,7 @@ export function ProfilePublicEditForm({
     const result = await updateMyProfile({
       avatar_url: withDefaultAvatar(avatarUrl),
       bio: bio.trim() || null,
-      ...(trimmedName.length >= 2 ? { display_name: trimmedName } : {}),
+      ...(trimmedName.length >= 2 ? { nickname: trimmedName } : {}),
     });
     setSaving(false);
     if (!result.ok) {

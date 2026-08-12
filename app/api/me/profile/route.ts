@@ -327,20 +327,22 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   const b = body as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
 
-  // display_name(표시용 닉네임): 중복 허용, 자유 변경 가능
-  if ("display_name" in b) {
-    const n = String(b.display_name ?? "").trim();
-    if (n.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
-    if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
-    patch.display_name = n;
-  }
-
-  // 레거시 호환: nickname 업데이트 요청은 display_name 업데이트로 처리한다.
-  if ("nickname" in b) {
-    const n = String(b.nickname ?? "").trim();
-    if (n.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
-    if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
-    if (!("display_name" in patch)) patch.display_name = n;
+  /**
+   * MEMBER DISPLAY SSOT = profiles.nickname.
+   * UI “닉네임” / display_name body → nickname canonical write.
+   * display_name is legacy bridge only (same value), never the sole writer target.
+   */
+  const nicknameFromBody =
+    "nickname" in b
+      ? String(b.nickname ?? "").trim()
+      : "display_name" in b
+        ? String(b.display_name ?? "").trim()
+        : null;
+  if (nicknameFromBody != null) {
+    if (nicknameFromBody.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
+    if (nicknameFromBody.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
+    patch.nickname = nicknameFromBody;
+    patch.display_name = nicknameFromBody;
   }
 
   if ("avatar_url" in b) {
@@ -1077,12 +1079,22 @@ export async function PATCH(req: NextRequest) {
   const existingCompletionRow = await fetchProfileCompletionRow(auth.userId);
   applyProfileCompletedFromMergedRow(parsed.patch, existingCompletionRow);
 
+  const serviceSb = tryCreateSupabaseServiceClient();
+  if (serviceSb && typeof parsed.patch.nickname === "string") {
+    const taken = await isNicknameTaken(serviceSb, auth.userId, parsed.patch.nickname);
+    if (taken) {
+      return NextResponse.json(
+        { ok: false, error: "이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해 주세요." },
+        { status: 409 }
+      );
+    }
+  }
+
   const row = {
     ...parsed.patch,
     updated_at: new Date().toISOString(),
   };
 
-  const serviceSb = tryCreateSupabaseServiceClient();
   if (serviceSb) {
     let attemptRow: Record<string, unknown> = row;
     let { data, error } = await serviceSb

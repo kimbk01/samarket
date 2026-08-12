@@ -5,13 +5,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT_WITH_TRUST,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 export type PartnerDisplayFields = {
   partnerNickname: string;
   partnerAvatar: string;
   partnerTrustScore: number;
+  /** Member public id (dibay_id) — field name kept for callers */
   partnerUsername?: string | null;
+  /** Canonical member display (= nickname / displayLabel) */
   partnerDisplayName?: string | null;
 };
 
@@ -34,7 +40,7 @@ export async function fetchPartnerDisplayFieldsMap(
 
   const { data: profiles } = await sbAny
     .from("profiles")
-    .select("id, display_name, nickname, username, avatar_url, trust_score, manner_score, manner_temperature")
+    .select(MEMBER_IDENTITY_PROFILE_SELECT_WITH_TRUST)
     .in("id", ids);
 
   const foundProfile = new Set<string>();
@@ -44,22 +50,16 @@ export async function fetchPartnerDisplayFieldsMap(
     if (!id) continue;
     foundProfile.add(id);
     const fb = id.slice(0, 8) || "?";
-    const username = typeof p.username === "string" && p.username.trim() ? p.username.trim() : null;
-    const displayName =
-      typeof p.display_name === "string" && p.display_name.trim() ? p.display_name.trim() : null;
-    const label =
-      labelFromDisplayAndUsername(
-        (p.display_name ?? p.nickname) as string | null | undefined,
-        p.username as string | null | undefined
-      ).trim() || fb;
+    const identity = resolvePublicMemberIdentity(p as MemberIdentityProfileFields, { userId: id });
+    const label = identity?.displayLabel?.trim() || fb;
     const av = p.avatar_url;
     const avatar = typeof av === "string" && av.trim() ? av.trim() : "";
     map.set(id, {
       partnerNickname: label,
       partnerAvatar: avatar,
       partnerTrustScore: resolveProfileTrustScore(p),
-      partnerUsername: username,
-      partnerDisplayName: displayName,
+      partnerUsername: identity?.dibayId ?? null,
+      partnerDisplayName: identity?.nickname ?? identity?.displayLabel ?? null,
     });
   }
 

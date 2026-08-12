@@ -34,7 +34,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
     const p = await getMyProfile();
     setProfile(p);
     if (p) {
-      setDisplayName((p.display_name ?? p.nickname ?? "").trim());
+      setDisplayName((p.nickname ?? p.display_name ?? "").trim());
       setAvatarUrl(p.avatar_url ?? null);
       setBio((p.bio ?? "").trim());
     }
@@ -62,7 +62,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
     const result = await updateMyProfile({
       avatar_url: withDefaultAvatar(avatarUrl),
       bio: bio.trim() || null,
-      ...(trimmedName.length >= 2 ? { display_name: trimmedName } : {}),
+      ...(trimmedName.length >= 2 ? { nickname: trimmedName } : {}),
     });
     setSaving(false);
     if (!result.ok) {

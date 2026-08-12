@@ -315,7 +315,11 @@ import {
 } from "@/lib/community-messenger/types";
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
-import { incomingCallPeerNicknameLabel, labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import {
+  memberDisplayLabelFromRow,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 export {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
@@ -1151,20 +1155,17 @@ export function profileDibaySubtitle(row: ProfileRow | null | undefined): string
   return resolvePublicIdAtDisplay(row) ?? undefined;
 }
 
+/** Member peer label — nickname (+ dibay_id fallback); never display_name / username authority. */
 export function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
-  const display = trimText(row?.display_name) || trimText(row?.nickname);
-  const username = trimText(row?.username);
-  const label = labelFromDisplayAndUsername(display, username).trim();
+  const label = memberDisplayLabelFromRow(row as MemberIdentityProfileFields | null, {
+    userId: fallbackId,
+  }).trim();
   if (label) return label;
   return cmProfileFallbackLabel(fallbackId);
 }
 
 function profileCallPeerLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
-  const display = trimText(row?.display_name) || trimText(row?.nickname);
-  if (display) return display;
-  const username = trimText(row?.username).replace(/^@+/, "");
-  if (username) return username;
-  return cmProfileFallbackLabel(fallbackId);
+  return profileLabel(row, fallbackId);
 }
 
 function directKeyFor(userA: string, userB: string): string {
@@ -1459,9 +1460,9 @@ type FetchProfilesByIdsRowStats = {
   singleflightJoined: boolean;
 };
 
-/** lite bootstrap first paint — bio 제외·컬럼 최소(관계 쿼리 없음) */
+/** lite bootstrap first paint — Member Identity cols (+ legacy fields unused by profileLabel) */
 const BOOTSTRAP_LITE_FIRST_PAINT_PROFILE_SELECT =
-  "id, display_name, nickname, username, dibay_id, avatar_url";
+  "id, nickname, dibay_id, avatar_url, display_name, username";
 
 async function fetchProfilesByIdsBootstrapLiteFirstPaint(
   ids: string[],
@@ -15480,10 +15481,12 @@ async function resolveCommunityMessengerReplyFieldsForFallbackInsert(
   const sender = trimText((rr as { sender_id?: string | null }).sender_id);
   let label = cmSvcUserDefaultLabel();
   if (sender) {
-    const { data: pr } = await (sb as any).from("profiles").select("nickname, username").eq("id", sender).maybeSingle();
-    const nick = trimText((pr as { nickname?: string } | null)?.nickname);
-    const user = trimText((pr as { username?: string } | null)?.username);
-    label = nick || user || label;
+    const { data: pr } = await (sb as any)
+      .from("profiles")
+      .select("id, nickname, dibay_id")
+      .eq("id", sender)
+      .maybeSingle();
+    label = memberDisplayLabelFromRow(pr as MemberIdentityProfileFields | null, { userId: sender }) || label;
   }
   const dfe = trimText((rr as { deleted_for_everyone_at?: string | null }).deleted_for_everyone_at);
   let preview = "";
@@ -17606,10 +17609,7 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
   if (!(await ensureNoBlockedEitherWay(recipient, callerId))) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
-  const callerLabel =
-    trimText(callerProfile?.display_name) ||
-    trimText(callerProfile?.nickname) ||
-    profileLabel(callerProfile, callerId);
+  const callerLabel = profileLabel(callerProfile, callerId);
   await sendWebPushForCommunityMessengerIncomingCall({
     recipientUserId: recipient,
     sessionId,

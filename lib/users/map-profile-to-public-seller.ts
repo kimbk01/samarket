@@ -1,12 +1,18 @@
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
-/** 거래 상세·채팅 등에 노출하는 판매자 공개 정보 */
+/** 거래 상세·채팅 등에 노출하는 판매자 공개 정보 — MEMBER Identity SSOT */
 export type PublicSellerProfileDTO = {
   id: string;
-  /** 사용자 고유 @아이디 (nullable) */
+  /**
+   * @handle value for UI — **Member public id (`dibay_id`)**.
+   * Field name kept for callers; never profiles.username / store slug as authority.
+   */
   username?: string | null;
-  /** 사용자 표시명 (nullable) */
+  /** Canonical member display (= nickname) */
   display_name?: string | null;
   nickname: string | null;
   avatar_url: string | null;
@@ -20,31 +26,27 @@ export type PublicSellerProfileDTO = {
 };
 
 export function mapProfileRowToPublicSeller(row: Record<string, unknown>): PublicSellerProfileDTO {
-  const rawDisplay = (row.display_name ?? row.nickname) as string | null | undefined;
-  const rawUser = row.username as string | null | undefined;
-  const display = typeof rawDisplay === "string" ? rawDisplay : null;
-  const user = typeof rawUser === "string" ? rawUser : null;
+  const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields);
+  const id = identity?.userId || String(row.id ?? "");
   return {
-    id: String(row.id ?? ""),
-    username: user,
-    display_name: display,
-    nickname:
-      labelFromDisplayAndUsername(display, user) ||
-      (((row.nickname ?? row.username) ?? null) as string | null),
-    avatar_url: (row.avatar_url ?? null) as string | null,
+    id,
+    username: identity?.dibayId ?? null,
+    display_name: identity?.nickname ?? identity?.displayLabel ?? null,
+    nickname: identity?.nickname ?? identity?.displayLabel ?? null,
+    avatar_url: identity?.avatarUrl ?? ((row.avatar_url ?? null) as string | null),
     trustScore: resolveProfileTrustScore(row),
   };
 }
 
 export function mapTestUserRowToPublicSeller(row: Record<string, unknown>): PublicSellerProfileDTO {
-  const display = typeof row.display_name === "string" ? row.display_name : null;
-  const user = typeof row.username === "string" ? row.username : null;
-  const nick = (display ?? user) as string | null;
+  const display = typeof row.display_name === "string" ? row.display_name.trim() : null;
+  const user = typeof row.username === "string" ? row.username.trim() : null;
+  const nick = display || user;
   return {
     id: String(row.id ?? ""),
     username: user,
-    display_name: display,
-    nickname: nick && String(nick).trim() ? String(nick).trim() : null,
+    display_name: nick,
+    nickname: nick,
     avatar_url: null,
     trustScore: resolveProfileTrustScore({}),
   };

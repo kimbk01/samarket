@@ -17,7 +17,11 @@ import { translate } from "@/lib/i18n/messages";
 import { normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  memberDisplayLabelFromRow,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 export type ChatRoomListRow = ChatRoom;
 export type EffectiveListSegment = "trade" | "order" | "all";
@@ -339,11 +343,7 @@ export function buildNicknamesFromIdentityRows(
   for (const p of profiles) {
     const id = String(p.id ?? "").trim();
     if (!id) continue;
-    const display = typeof p.display_name === "string" ? p.display_name.trim() : "";
-    const legacy = typeof p.nickname === "string" ? p.nickname.trim() : "";
-    const uname = typeof p.username === "string" ? p.username.trim() : "";
-    const name =
-      labelFromDisplayAndUsername(display || legacy || null, uname || null) || display || legacy || uname;
+    const name = memberDisplayLabelFromRow(p as MemberIdentityProfileFields, { userId: id });
     if (name) map.set(id, name);
   }
   for (const t of testUsers) {
@@ -363,9 +363,10 @@ export function buildIdentityMapFromProfiles(
   for (const row of profiles) {
     const id = String(row.id ?? "").trim();
     if (!id) continue;
+    const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, { userId: id });
     identityByUserId.set(id, {
-      username: typeof row.username === "string" ? row.username.trim() || null : null,
-      displayName: typeof row.display_name === "string" ? row.display_name.trim() || null : null,
+      username: identity?.dibayId ?? null,
+      displayName: identity?.nickname ?? identity?.displayLabel ?? null,
     });
   }
   for (const row of testUsers) {

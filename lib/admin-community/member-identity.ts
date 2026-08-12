@@ -1,12 +1,19 @@
 /**
  * Admin Community operator console — member display identity (profiles SSOT).
  * Batch only. Do not use UUID as primary UI label.
+ * MEMBER DISPLAY = nickname · PUBLIC ID = dibay_id (never username / display_name).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 export type AdminMemberIdentity = {
   nickname: string | null;
+  /** Member public id — dibay_id (legacy DTO field name `username`) */
   username: string | null;
 };
 
@@ -15,10 +22,10 @@ export function formatAdminMemberLabel(
   unknownLabel = "알 수 없는 회원"
 ): string {
   const nick = typeof identity?.nickname === "string" ? identity.nickname.trim() : "";
-  const user = typeof identity?.username === "string" ? identity.username.trim() : "";
-  if (nick && user) return `${nick} | ${user}`;
+  const handle = typeof identity?.username === "string" ? identity.username.trim().replace(/^@+/, "") : "";
+  if (nick && handle) return `${nick} | ${handle}`;
   if (nick) return nick;
-  if (user) return user;
+  if (handle) return `@${handle}`;
   return unknownLabel;
 }
 
@@ -33,14 +40,17 @@ export async function loadAdminMemberIdentityMap(
   const chunkSize = 200;
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
-    const { data, error } = await sb.from("profiles").select("id, nickname, username").in("id", chunk);
+    const { data, error } = await sb
+      .from("profiles")
+      .select(MEMBER_IDENTITY_PROFILE_SELECT)
+      .in("id", chunk);
     if (error || !Array.isArray(data)) continue;
-    for (const row of data as Array<{ id?: string; nickname?: string | null; username?: string | null }>) {
-      const id = String(row.id ?? "").trim();
-      if (!id) continue;
-      map.set(id, {
-        nickname: row.nickname != null && String(row.nickname).trim() ? String(row.nickname).trim() : null,
-        username: row.username != null && String(row.username).trim() ? String(row.username).trim() : null,
+    for (const row of data as MemberIdentityProfileFields[]) {
+      const identity = resolvePublicMemberIdentity(row);
+      if (!identity) continue;
+      map.set(identity.userId, {
+        nickname: identity.nickname,
+        username: identity.dibayId,
       });
     }
   }

@@ -9,21 +9,19 @@ import {
   type MessageNotificationDisplayPayload,
 } from "@/lib/notifications/display/build-message-notification-display";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-function resolveSenderDisplayName(row: {
-  display_name?: string | null;
-  nickname?: string | null;
-  username?: string | null;
-} | null): string {
-  const display = trimText(row?.display_name) || trimText(row?.nickname);
-  if (display) return display;
-  const username = trimText(row?.username).replace(/^@+/, "");
-  if (username) return username;
-  return "";
+function resolveSenderDisplayName(row: MemberIdentityProfileFields | null | undefined): string {
+  const identity = resolvePublicMemberIdentity(row);
+  return identity?.displayLabel?.trim() || "";
 }
 
 function resolveEffectiveRoomKind(input: {
@@ -257,7 +255,7 @@ export async function loadMessageNotificationDisplaySharedContext(
   const [{ data: senderRow }, messageRow, chatPreviewByUserId, room] = await Promise.all([
     sb
       .from("profiles")
-      .select("display_name, nickname, username, avatar_url")
+      .select(`${MEMBER_IDENTITY_PROFILE_SELECT}`)
       .eq("id", input.senderUserId.trim())
       .maybeSingle(),
     loadMessageRow(sb, input.messageId, resolvedRoomKind),
@@ -265,12 +263,7 @@ export async function loadMessageNotificationDisplaySharedContext(
     loadRoomContext(sb, input.roomId, resolvedRoomKind, "ko"),
   ]);
 
-  const senderProfile = senderRow as {
-    display_name?: string | null;
-    nickname?: string | null;
-    username?: string | null;
-    avatar_url?: string | null;
-  } | null;
+  const senderProfile = senderRow as MemberIdentityProfileFields | null;
 
   return {
     resolvedRoomKind,

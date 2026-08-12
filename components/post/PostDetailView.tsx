@@ -504,8 +504,9 @@ function PostDetailSellerProfileRow({
   regionLine: React.ReactNode;
 }) {
   const { t } = useI18n();
+  /** Member Identity: nickname display + @dibay_id (DTO.username carries dibay_id) */
   const displayName =
-    author?.display_name?.trim() || author?.nickname?.trim() || t("trade_detail_seller_fallback");
+    author?.nickname?.trim() || t("trade_detail_seller_fallback");
   const atUsername = formatAtUsername(author?.username ?? null);
   const label = displayName;
   const initial = label.charAt(0).toUpperCase() || "?";
@@ -1377,7 +1378,7 @@ export function PostDetailView({
             ? formatPrice(post.price, defaultCurrency)
             : t("trade_detail_price_inquiry");
         const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
-        const sellerNameDisplay = author?.display_name?.trim() || sellerName;
+        const sellerNameDisplay = sellerName;
         openCreateTradeChat(router, {
           productId: post.id,
           composePreview: {

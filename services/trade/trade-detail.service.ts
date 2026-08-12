@@ -64,8 +64,9 @@ async function loadSellerPublicProfile(
 ): Promise<PublicSellerProfileDTO | null> {
   const sellerId = userId.trim();
   if (!sellerId) return null;
+  /** Member Identity SSOT — nickname + dibay_id (never display_name / username as authority) */
   const profileSelect =
-    "id, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
+    "id, nickname, dibay_id, avatar_url, trust_score, manner_score, manner_temperature";
   const fallbacks = [clients.serviceSb, clients.readSb].filter(Boolean);
   for (const sb of fallbacks) {
     const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
@@ -81,7 +82,7 @@ async function loadSellerPublicProfile(
     ) {
       const retry = await sbAny
         .from("profiles")
-        .select("id, nickname, username, avatar_url")
+        .select("id, nickname, dibay_id, avatar_url")
         .eq("id", sellerId)
         .maybeSingle();
       prof = retry.data as typeof prof;
