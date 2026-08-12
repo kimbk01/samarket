@@ -43,10 +43,14 @@ import {
   TRADE_POST_DETAIL_BOTTOM_MUTED_CTA,
   TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA,
   TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW,
+  TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER,
   TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY,
   TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA,
   TRADE_POST_DETAIL_BOTTOM_SELLER_BAND,
   TRADE_POST_DETAIL_BOTTOM_SHELL,
+  TRADE_POST_DETAIL_SCROLL_PAD_BUYER,
+  TRADE_POST_DETAIL_SCROLL_PAD_SELLER,
+  tradePostDetailSellerBandVisible,
 } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { getCarTradeLabel } from "@/lib/posts/car-trade-label";
@@ -563,7 +567,7 @@ function TradePostDetailActionBar({
   chatBlockedByCompleted,
   chatBlockedByReservedState,
   tradeChatCtaLabel,
-  showSellerTradeControls,
+  sellerBandVisible,
   showSellerOfferList,
   canApplyTradeAd,
   onSellerOffersOpen,
@@ -606,16 +610,20 @@ function TradePostDetailActionBar({
   chatBlockedByCompleted: boolean;
   chatBlockedByReservedState: boolean;
   tradeChatCtaLabel: string;
-  showSellerTradeControls: boolean;
+  /** CTA 실렌더 기준 — 빈 seller band 금지 */
+  sellerBandVisible: boolean;
   showSellerOfferList: boolean;
   canApplyTradeAd: boolean;
   onSellerOffersOpen: () => void;
   onTradeAdOpen: () => void;
 }) {
   const { t } = useI18n();
+  const primaryRowClass = sellerBandVisible
+    ? TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER
+    : TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW;
   return (
     <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
-        <div className={TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW}>
+        <div className={primaryRowClass}>
           <button
             type="button"
             onClick={onFavorite}
@@ -754,7 +762,7 @@ function TradePostDetailActionBar({
             </div>
           </div>
         </div>
-      {showSellerTradeControls ? (
+      {sellerBandVisible ? (
         <div className={TRADE_POST_DETAIL_BOTTOM_SELLER_BAND}>
           <PostDetailSellerPromoButtons
             showSellerOfferList={showSellerOfferList}
@@ -953,8 +961,6 @@ export function PostDetailView({
     postOwnedByUserId(post as unknown as Record<string, unknown>, resolvedViewerId);
   const postStatusLower = String(post.status ?? "").toLowerCase();
   const listingState = normalizeSellerListingState(post.seller_listing_state, post.status);
-  const showSellerTradeControls =
-    isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
   const canApplyTradeAd = isOwnPost && post.type !== "community" && postStatusLower === "active";
   const showSellerMoreMenu =
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
@@ -1495,6 +1501,12 @@ export function PostDetailView({
     Number.isFinite(post.price) &&
     post.price > 0;
 
+  /** CTA 실렌더 기준 — BUTTON 0 → SELLER BAND 0 (빈 회색 밴드 금지) */
+  const sellerBandVisible = tradePostDetailSellerBandVisible({
+    showSellerOfferList,
+    canApplyTradeAd,
+  });
+
   /** 가격 제안 상품·구매자 흐름: 수락 전까지 거래 채팅 CTA·프리페치 비활성 */
   const buyerPriceOfferFlowActive =
     !isOwnPost &&
@@ -1983,7 +1995,7 @@ export function PostDetailView({
       tradeDetailFavoritesLine(t, favoriteCount),
     ].filter(Boolean) as string[];
     return (
-      <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
+      <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${sellerBandVisible ? TRADE_POST_DETAIL_SCROLL_PAD_SELLER : TRADE_POST_DETAIL_SCROLL_PAD_BUYER}`}>
         <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
           <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {imgList.length > 0 ? (
@@ -2111,7 +2123,7 @@ export function PostDetailView({
           chatBlockedByCompleted={chatBlockedByCompleted}
           chatBlockedByReservedState={chatBlockedByReservedState}
           tradeChatCtaLabel={tradeChatCtaLabel}
-          showSellerTradeControls={showSellerTradeControls}
+          sellerBandVisible={sellerBandVisible}
           showSellerOfferList={showSellerOfferList}
           canApplyTradeAd={canApplyTradeAd}
           onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
@@ -2166,7 +2178,7 @@ export function PostDetailView({
   })();
 
   return (
-    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
+    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${sellerBandVisible ? TRADE_POST_DETAIL_SCROLL_PAD_SELLER : TRADE_POST_DETAIL_SCROLL_PAD_BUYER}`}>
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
         {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
           <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
@@ -2408,7 +2420,7 @@ export function PostDetailView({
         chatBlockedByCompleted={chatBlockedByCompleted}
         chatBlockedByReservedState={chatBlockedByReservedState}
         tradeChatCtaLabel={tradeChatCtaLabel}
-        showSellerTradeControls={showSellerTradeControls}
+        sellerBandVisible={sellerBandVisible}
         showSellerOfferList={showSellerOfferList}
         canApplyTradeAd={canApplyTradeAd}
         onSellerOffersOpen={() => setSellerOffersModalOpen(true)}

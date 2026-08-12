@@ -200,8 +200,8 @@ export function MemberPostPromoteSheet({
           fallbackEn: "Promote this post",
         })
       : safeT("promo_sheet_title", {
-          fallbackKo: "게시물 더 알리기",
-          fallbackEn: "Promote this post",
+          fallbackKo: "게시물 상위 노출",
+          fallbackEn: "Post paid exposure",
         });
 
   return (
@@ -212,10 +212,10 @@ export function MemberPostPromoteSheet({
         onClick={onClose}
         aria-label={t("ui_sheet_close_aria")}
       />
-      <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl">
-        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
+      <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(0.75rem,var(--safe-bottom))] pt-2 shadow-xl">
+        <div className="mx-auto mb-2 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
         <h2 className="mb-1 px-1 sam-text-body-lg font-semibold text-sam-fg">{sheetTitle}</h2>
-        <p className="mb-3 line-clamp-2 px-1 sam-text-body-secondary text-sam-muted">{postTitle}</p>
+        <p className="mb-2 line-clamp-2 px-1 sam-text-body-secondary text-sam-muted">{postTitle}</p>
 
         {successEndAt ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
@@ -418,7 +418,7 @@ export function MemberPostPromoteSheet({
               {err ? <p className="mt-2 sam-text-body-secondary text-red-600">{err}</p> : null}
             </div>
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-2 flex gap-2">
               {insufficient ? (
                 <a
                   href="/mypage/points"

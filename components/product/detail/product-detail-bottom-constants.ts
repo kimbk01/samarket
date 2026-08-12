@@ -8,12 +8,29 @@ export const PRODUCT_DETAIL_CTA_BUTTON =
 
 // --- 거래 상세(PostDetailView) 하단 — FB 마켓플레이스형 통일 (모바일·태블릿 동일 토큰) ---
 
-/** 외곽 셸: 상단 그림자·안전영역 */
+/**
+ * CONTRACT — visual `--safe-bottom`는 최하단 섹터에서 정확히 1회만.
+ * - seller band 없음 → PRIMARY 가 bottom-most consumer
+ * - seller band 있음 → SELLER BAND 만 bottom-most consumer (PRIMARY 에 safe 금지)
+ * DO NOT: PRIMARY + SELLER 동시 `var(--safe-bottom)` · shell 에 추가 pb · 기기별 inset 분기
+ */
+
+/** 외곽 셸: 상단 그림자 — safe-area 는 자식 최하단 섹터에만 */
 export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} -translate-x-1/2 flex-col border-t border-[#DDE1E7] bg-sam-surface shadow-[0_-2px_16px_rgba(15,20,25,0.07)] dark:border-sam-border dark:shadow-[0_-2px_14px_rgba(0,0,0,0.4)]`;
 
-/** 구매자 첫 줄: 찜·부동산 요약·CTA (+ 하단 safe-area, 판매자 밴드와 중복 없음) */
-export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW =
-  "flex min-h-[56px] w-full max-w-full items-stretch gap-0 pb-[max(10px,var(--safe-bottom))] sm:min-h-[58px] md:min-h-[60px]";
+/** PRIMARY 공통 골격 (safe 제외) */
+const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_BASE =
+  "flex min-h-[56px] w-full max-w-full items-stretch gap-0 sm:min-h-[58px] md:min-h-[60px]";
+
+/**
+ * 구매자·상대방 글 — PRIMARY 가 최하단 → safe-bottom 1회.
+ */
+export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW = `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_BASE} pb-[max(10px,var(--safe-bottom))]`;
+
+/**
+ * 판매자 밴드가 바로 아래 있을 때 — PRIMARY 에 safe 금지 (행 사이 dead space 0).
+ */
+export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER = `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_BASE} pb-0`;
 
 /** 관심 — 고정 폭 컬럼 (분기 공통) */
 export const TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN =
@@ -46,7 +63,28 @@ export const TRADE_POST_DETAIL_BOTTOM_MUTED_CTA =
 export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =
   "flex min-h-[48px] flex-1 items-center justify-center rounded-[10px] border border-dashed border-sam-border bg-sam-app/80 px-3 sam-text-body-secondary text-sam-muted md:min-h-[50px]";
 
-/** 판매자 전용 두 번째 밴드 */
+/**
+ * 판매자 전용 두 번째 밴드 — 최하단 safe-bottom 1회 · PRIMARY 와 border 만으로 연결.
+ * CTA min-h 48 유지 · pt compact (구 pt-3 → pt-2).
+ */
 export const TRADE_POST_DETAIL_BOTTOM_SELLER_BAND =
-  "w-full border-t border-[#E4E6EB] bg-[#F0F2F5] px-3 pb-[max(10px,var(--safe-bottom))] pt-3 dark:border-sam-border dark:bg-sam-app sm:px-4 md:px-5";
+  "w-full border-t border-[#E4E6EB] bg-[#F0F2F5] px-3 pb-[max(10px,var(--safe-bottom))] pt-2 dark:border-sam-border dark:bg-sam-app sm:px-4 md:px-5";
 
+/**
+ * 본문 스크롤 reserve (overlay avoidance — bar 내부 visual safe 와 별개).
+ * buyer: ~PRIMARY min-h + bottom-most safe
+ * seller: PRIMARY + compact SELLER(pt-2+CTA) + bottom-most safe
+ */
+export const TRADE_POST_DETAIL_SCROLL_PAD_BUYER =
+  "pb-[calc(3.75rem+max(10px,var(--safe-bottom)))]";
+
+export const TRADE_POST_DETAIL_SCROLL_PAD_SELLER =
+  "pb-[calc(7.25rem+max(10px,var(--safe-bottom)))]";
+
+/** Seller band 실렌더 — CTA 0이면 band 0 (빈 회색 밴드 금지) */
+export function tradePostDetailSellerBandVisible(opts: {
+  showSellerOfferList: boolean;
+  canApplyTradeAd: boolean;
+}): boolean {
+  return Boolean(opts.showSellerOfferList || opts.canApplyTradeAd);
+}
