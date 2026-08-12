@@ -1,0 +1,19 @@
+# Cursor indexing / AI context exclusions — reduce memory & embeddable scan load.
+# Does not affect app runtime or git. See Cursor ignore-file docs.
+
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+.vercel/
+
+android/app/build/
+android/.gradle/
+ios/build/
+ios/DerivedData/
+
+.git/
+.qa-logs/
+.worktrees/

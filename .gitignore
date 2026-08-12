@@ -59,6 +59,20 @@ dist/apk/**/*.apk
 # vercel
 .vercel
 
+# Local QA dumps / runtime evidence (already-tracked harnesses under .qa-logs/ stay tracked)
+.qa-logs/
+tmp-a1-evidence/
+*evidence.zip
+supabase-realtime-update-evidence.zip
+
+# Generated perf QA JSON dumps (APK ignore already above)
+docs/perf/**/*-qa-*.json
+docs/perf/**/*-qa-*.json.meta.json
+docs/perf/**/*.apk.meta.json
+
+# local SPM resolve noise (not App product source)
+ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
 # notification runtime QA — never commit live cron secrets
 .qa-logs/**/.cron-secret.local
 .qa-logs/notification-runtime-lock/.cron-secret.local

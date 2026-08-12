@@ -1,0 +1,38 @@
+# DIBAY Auth HARD LOCK
+
+**HARD LOCK (2026-08-05).** Full doc: `docs/auth-hard-lock.md`.
+
+## Baseline
+
+- HEAD / Production: `0d6da8324`
+- Product code at lock: 0
+- Code First Break: NO / NOT PROVEN
+- Slice 9: AUTH MEMBER PRODUCT PASS WITH OPS LIMITATIONS / CLOSED
+- Slice 10: AUTH HARD LOCK
+
+## DO NOT (without explicit reopen under §4 of `docs/auth-hard-lock.md`)
+
+- Redesign or reopen Slice 6 Completion / Slice 7 Profile Writer / Slice 8 State Machine
+- Invent a mega Auth FSM (`NO_MEGA_FSM` / PLAN_B4 stay)
+- Let Provider / UI own Destination, Profile write, or Session phase
+- Let Trace or QA tokens drive product Auth meaning
+- Reopen Auth for QA env gaps, instrumentation limits, OPS NOT_RUN, or PARTIAL_EXTERNAL_CLOSED maintenance
+- Hollow out `verify:auth-*-contract` gates or delete Slice 6–8 contract SSOT without reopen
+
+## Authority (summary)
+
+| Concern | Owner |
+|---|---|
+| Session Lifecycle | `dibay-session-manager` |
+| Completion | `finishClientAuthLogin` → `runCommonAuthClientCompletion` |
+| Profile | `ensureAuthProfileForLogin` (+ Google `ensureProfileForUserId`) |
+| Destination | `resolveCommonAuthDestination` |
+| Client Sync | `syncCommonClientSessionAfterAuth` |
+| Thin Handoff | `buildNativeAuthCompletionHandoff` |
+| External/QA class | `auth-external-classification-contract` (QA ≠ product) |
+
+## Reopen only if
+
+New Provider · product contract change · proven Code First Break · security change · platform policy requiring contract edit.
+
+Evidence: `.qa-logs/auth-slice10-hard-lock-2026-08-05/` · Slice 8-6 / Slice 9 reports.
