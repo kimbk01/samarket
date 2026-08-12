@@ -35,6 +35,7 @@ describe("customer-center paths", () => {
     expect(resolveNoticeListBackHref("customer-center")).toBe(
       "/mypage/customer-center/notice?from=customer-center",
     );
+    expect(resolveNoticeListBackHref("notifications")).toBe("/notifications");
   });
 
   it("redirects legacy support stub to hub", () => {

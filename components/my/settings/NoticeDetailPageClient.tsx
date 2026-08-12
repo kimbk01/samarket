@@ -9,6 +9,10 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveNoticeListBackHref, withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
+  isNotificationEntryFrom,
+  withNotificationEntryFrom,
+} from "@/lib/notifications/notification-entry-from";
+import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_READING_COLUMN_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
@@ -67,7 +71,11 @@ function NoticeDetailPageInner({ noticeId }: { noticeId: string }) {
         }
         const canonical = json.notice.canonicalHref?.trim();
         if (canonical) {
-          router.replace(withCustomerCenterFrom(canonical, from));
+          router.replace(
+            isNotificationEntryFrom(from)
+              ? withNotificationEntryFrom(canonical)
+              : withCustomerCenterFrom(canonical, from),
+          );
           return;
         }
         setTitle(String(json.notice.title ?? ""));

@@ -80,7 +80,7 @@ import {
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
-import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 
 import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
@@ -417,18 +417,21 @@ export function PhilifeHeaderNotificationInbox({
 
 
   const closePanel = useCallback(() => {
-
     setOpen(false);
-
   }, []);
 
-  const openNotificationsCenter = useCallback(
-    () => {
-      closePanel();
-      pushNotificationDestination(router, "/notifications");
-    },
-    [closePanel, router]
-  );
+  /** Kill overlay sync — see-all / row nav must not wait 240ms close motion. */
+  const closePanelImmediate = useCallback(() => {
+    enterGenRef.current += 1;
+    setOpen(false);
+    setEntered(false);
+    setVisible(false);
+  }, []);
+
+  const openNotificationsCenter = useCallback(() => {
+    closePanelImmediate();
+    pushNotificationDestination(router, "/notifications");
+  }, [closePanelImmediate, router]);
 
 
 
@@ -790,7 +793,7 @@ export function PhilifeHeaderNotificationInbox({
       },
       onBeforeNavigate: (resolvedHref) => {
         suppressCmRoomEntryNotificationSound(resolvedHref);
-        closePanel();
+        closePanelImmediate();
         prewarmInboxNotificationChatHref(router, resolvedHref);
       },
       unreadIds: item.unreadCount > 0 ? item.ids : [],
@@ -810,56 +813,38 @@ export function PhilifeHeaderNotificationInbox({
 
 
   const markAllRead = useCallback(async () => {
-
     if (markBusy || totalUnread === 0) return;
-
     setMarkBusy(true);
-
+    const previousRows = rows;
+    // Immediate modal UI — unread queue clears now; badge uses existing resync after ACK.
+    setRows((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    invalidateMeNotificationsListDedupedCache();
     try {
-      // Modal mark-all = Member A (same as badge), never surface-scoped chat/trade-only.
       const markBody = resolveTier1BellMarkAllReadBody("tier1_inbox_bell", []);
-
       const res = await fetch("/api/me/notifications", {
-
         method: "PATCH",
-
         credentials: "include",
-
         headers: { "Content-Type": "application/json" },
-
         body: JSON.stringify(markBody),
-
       });
-
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-
       if (res.ok && j?.ok) {
-
-        setRows((prev) => prev.map((x) => ({ ...x, is_read: true })));
-
-        applyTier1InboxMarkAllReadOptimistic();
-
-        invalidateMeNotificationsListDedupedCache();
-
-        await loadInbox(true, { silent: true });
-
         if (typeof window !== "undefined") {
-
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
-
         }
-
         resyncBadgesAfterNotificationEventsRead("mark_all_read_cross_tab");
-
+        void loadInbox(true, { silent: true });
+      } else {
+        setRows(previousRows);
+        await loadInbox(true, { silent: true });
       }
-
+    } catch {
+      setRows(previousRows);
+      await loadInbox(true, { silent: true });
     } finally {
-
       setMarkBusy(false);
-
     }
-
-  }, [loadInbox, markBusy, totalUnread]);
+  }, [loadInbox, markBusy, rows, totalUnread]);
 
 
 

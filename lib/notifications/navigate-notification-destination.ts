@@ -7,36 +7,21 @@ import {
   resolveNotificationDestination,
   type ResolveNotificationDestinationInput,
 } from "@/lib/notifications/resolve-notification-destination";
-
-const ATTR = "data-notif-dest-enter";
-export const NOTIFICATION_DESTINATION_ENTER_MS = 440;
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
-
-/** Arm bottom→top 440ms enter on the next route paint. */
-export function armNotificationDestinationEnter(): void {
-  if (typeof document === "undefined") return;
-  if (prefersReducedMotion()) return;
-  document.documentElement.setAttribute(ATTR, "1");
-  window.setTimeout(() => {
-    document.documentElement.removeAttribute(ATTR);
-  }, NOTIFICATION_DESTINATION_ENTER_MS + 80);
-}
+import { armNotificationDestinationEnterSession } from "@/lib/notifications/notification-destination-enter-session";
+import { withNotificationEntryFrom } from "@/lib/notifications/notification-entry-from";
 
 type RouterLike = { push: (href: string) => void };
 
-/** Resolve-first: never divert destination because read mutation failed. */
+/**
+ * Resolve-first navigate.
+ * - Stamps `from=notifications` so destination Back returns to Notification Center.
+ * - Enter motion: path-matched session → `AppRouteTransition` bottom→top 440ms.
+ */
 export function pushNotificationDestination(router: RouterLike, href: string): void {
-  const target = String(href ?? "").trim();
-  if (!target) return;
-  armNotificationDestinationEnter();
+  const raw = String(href ?? "").trim();
+  if (!raw) return;
+  const target = withNotificationEntryFrom(raw);
+  armNotificationDestinationEnterSession(target);
   router.push(target);
 }
 
@@ -53,11 +38,12 @@ export function activateNotificationDestination(input: {
   markRead?: (ids: string[]) => void | Promise<void | boolean>;
 }): string {
   const dest = resolveNotificationDestination(input.resolveInput);
-  input.onBeforeNavigate?.(dest.href);
+  const stamped = withNotificationEntryFrom(dest.href);
+  input.onBeforeNavigate?.(stamped);
   const ids = (input.unreadIds ?? []).map((id) => String(id).trim()).filter(Boolean);
   if (ids.length > 0 && input.markRead) {
     void Promise.resolve(input.markRead(ids)).then(() => undefined);
   }
   pushNotificationDestination(input.router, dest.href);
-  return dest.href;
+  return stamped;
 }

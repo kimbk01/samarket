@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
@@ -14,6 +15,7 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
+import { resolveNotificationAwareDetailBackHref } from "@/lib/notifications/notification-entry-from";
 import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_READING_COLUMN_CLASS,
@@ -54,8 +56,13 @@ function Inner({
   contentId: string;
 }) {
   const { safeT, language } = useI18n();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
   const boardLabel = BOARD_LABEL[contentType][language === "en" ? "en" : "ko"];
-  const backHref = buildCustomerCenterBoardListPath(contentType);
+  const backHref = resolveNotificationAwareDetailBackHref({
+    from,
+    fallbackHref: buildCustomerCenterBoardListPath(contentType),
+  });
   const [notice, setNotice] = useState<DetailNotice | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);

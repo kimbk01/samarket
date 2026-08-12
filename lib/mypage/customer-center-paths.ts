@@ -32,5 +32,6 @@ export function withCustomerCenterFrom(
 
 /** Notice detail back → notice board list (legacy list still bridged). */
 export function resolveNoticeListBackHref(from: string | null | undefined): string {
+  if (from === "notifications") return "/notifications";
   return withCustomerCenterFrom("/mypage/customer-center/notice", from);
 }

@@ -547,7 +547,7 @@ a,
 
 /**
  * Notification row → canonical destination — bottom→top 440ms (presentation only).
- * Armed via `armNotificationDestinationEnter` / `data-notif-dest-enter`.
+ * Armed via path-matched session → `AppRouteTransition` applies class on push surface.
  */
 @keyframes notif-dest-enter-up-kf {
   from {
@@ -560,14 +560,14 @@ a,
   }
 }
 
-html[data-notif-dest-enter] [data-main-shell-root] {
+[data-main-shell-push-surface].notif-dest-enter-up {
   backface-visibility: hidden;
   will-change: transform, opacity;
   animation: notif-dest-enter-up-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-notif-dest-enter] [data-main-shell-root] {
+  [data-main-shell-push-surface].notif-dest-enter-up {
     animation: none;
   }
 }

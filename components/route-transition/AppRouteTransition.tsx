@@ -18,6 +18,10 @@ import {
   mainShellPushEnterClassForAxis,
   mainShellPushFromClassForAxis,
 } from "@/lib/navigation/main-shell-push-session";
+import {
+  applyNotificationDestinationEnterOnSurface,
+  consumeNotificationDestinationEnterSession,
+} from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 
@@ -163,6 +167,13 @@ export function AppRouteTransition({
       el.removeEventListener("transitionend", onEnd);
       window.clearTimeout(timer);
     };
+  }, [pathname]);
+
+  /** Notification Bell/Inbox row → destination: bottom→top 440ms (path-matched session). */
+  useLayoutEffect(() => {
+    const session = consumeNotificationDestinationEnterSession(pathname);
+    if (!session) return;
+    applyNotificationDestinationEnterOnSurface(pushSurfaceRef.current);
   }, [pathname]);
 
   useLayoutEffect(() => {
