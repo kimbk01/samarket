@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
 const from = vi.fn();
@@ -21,33 +21,30 @@ import {
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
 
 function mockSvc() {
-  return {
-    rpc,
-    from,
-  } as never;
+  return { rpc, from } as never;
 }
 
-describe("claim-scheduled-campaign", () => {
+describe("claim-scheduled-campaign occurrence", () => {
   beforeEach(() => {
     rpc.mockReset();
     from.mockReset();
   });
 
-  it("returns null when RPC yields empty", async () => {
-    rpc.mockResolvedValue({ data: [], error: null });
-    const out = await claimDueScheduledCampaign(mockSvc(), { claimToken: "tok" });
-    expect(out).toBeNull();
-    expect(rpc).toHaveBeenCalledWith(
-      "claim_due_admin_notification_campaign",
-      expect.objectContaining({ p_claim_token: "tok" })
-    );
-  });
-
-  it("returns claimed campaign row", async () => {
-    rpc.mockResolvedValue({
-      data: [{ id: "camp-1", status: "sending", target_type: "all" }],
-      error: null,
+  it("claimDueScheduledCampaign returns campaign via occurrence RPC", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_due_admin_notification_campaign_occurrence") {
+        return { data: [{ id: "occ-1", campaign_id: "camp-1", status: "sending" }], error: null };
+      }
+      return { data: null, error: null };
     });
+    from.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { id: "camp-1", status: "sending" }, error: null }),
+        }),
+      }),
+    });
+
     const out = await claimDueScheduledCampaign(mockSvc(), { claimToken: "tok" });
     expect(out?.id).toBe("camp-1");
   });
@@ -58,22 +55,22 @@ describe("claim-scheduled-campaign", () => {
         {
           claimed: false,
           already_running: true,
-          campaign: { id: "camp-1", status: "sending", send_idempotency_key: "k1" },
+          occurrence: { id: "occ-1", status: "sending", idempotency_key: "k1" },
         },
       ],
       error: null,
     });
-    const out = await claimAdminCampaignManualSend(mockSvc(), "camp-1", {
+    const out = await claimAdminCampaignManualSend(mockSvc(), "occ-1", {
       idempotencyKey: "k1",
       claimToken: "tok",
     });
     expect(out.claimed).toBe(false);
     expect(out.alreadyRunning).toBe(true);
-    expect(out.campaign?.id).toBe("camp-1");
+    expect(out.occurrence?.id).toBe("occ-1");
   });
 
   it("drains batches until done", async () => {
-    const out = await drainNotificationCampaignSendBatches(mockSvc(), "camp-1", {
+    const out = await drainNotificationCampaignSendBatches(mockSvc(), "occ-1", {
       maxBatches: 5,
       maxWallMs: 10_000,
     });

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  claimDueScheduledCampaign,
+  claimDueOccurrence,
+  getCampaignOccurrence,
+} from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
+import {
   drainNotificationCampaignSendBatches,
   newCampaignSendClaimToken,
+  scheduleNextRecurringOccurrence,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -11,17 +15,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Max campaigns claimed per cron invocation. */
-const MAX_CAMPAIGNS_PER_TICK = 3;
-/** Max batch loops per campaign within this tick. */
-const MAX_BATCHES_PER_CAMPAIGN = 25;
-const MAX_WALL_MS_PER_CAMPAIGN = 45_000;
+const MAX_OCCURRENCES_PER_TICK = 3;
+const MAX_BATCHES_PER_OCCURRENCE = 25;
+const MAX_WALL_MS_PER_OCCURRENCE = 45_000;
 
-/**
- * Vercel Cron — due scheduled admin notification campaigns.
- * Auth: Authorization Bearer CRON_SECRET | x-cron-secret
- * Reuses runNotificationCampaignSendBatch via drain helper (no new FCM path).
- */
 async function runDispatchScheduled(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret) {
@@ -37,6 +34,7 @@ async function runDispatchScheduled(req: Request) {
   }
 
   const results: Array<{
+    occurrenceId: string;
     campaignId: string;
     ok: boolean;
     done: boolean;
@@ -47,41 +45,19 @@ async function runDispatchScheduled(req: Request) {
     error?: string;
   }> = [];
 
-  for (let i = 0; i < MAX_CAMPAIGNS_PER_TICK; i += 1) {
+  for (let i = 0; i < MAX_OCCURRENCES_PER_TICK; i += 1) {
     const claimToken = newCampaignSendClaimToken();
-    const claimed = await claimDueScheduledCampaign(svc, { claimToken });
+    const claimed = await claimDueOccurrence(svc, { claimToken });
     if (!claimed?.id) break;
 
-    if (String(claimed.target_type) === "segment") {
-      await svc
-        .from("admin_notification_campaigns")
-        .update({
-          status: "failed",
-          last_error: "segment_unsupported",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", claimed.id);
-      results.push({
-        campaignId: claimed.id,
-        ok: false,
-        done: true,
-        batches: 0,
-        sent: 0,
-        skipped: 0,
-        failed: 0,
-        error: "segment_unsupported",
-      });
-      continue;
-    }
-
     const drained = await drainNotificationCampaignSendBatches(svc, claimed.id, {
-      maxBatches: MAX_BATCHES_PER_CAMPAIGN,
-      maxWallMs: MAX_WALL_MS_PER_CAMPAIGN,
+      maxBatches: MAX_BATCHES_PER_OCCURRENCE,
+      maxWallMs: MAX_WALL_MS_PER_OCCURRENCE,
     });
 
     if (!drained.ok) {
       await svc
-        .from("admin_notification_campaigns")
+        .from("admin_notification_campaign_occurrences")
         .update({
           last_error: drained.error ?? "batch_failed",
           updated_at: new Date().toISOString(),
@@ -90,7 +66,8 @@ async function runDispatchScheduled(req: Request) {
     }
 
     results.push({
-      campaignId: claimed.id,
+      occurrenceId: claimed.id,
+      campaignId: claimed.campaign_id,
       ok: drained.ok,
       done: drained.done,
       batches: drained.batches,
@@ -99,6 +76,32 @@ async function runDispatchScheduled(req: Request) {
       failed: drained.failed,
       error: drained.error,
     });
+
+    if (drained.done) {
+      const occ = await getCampaignOccurrence(svc, claimed.id);
+      if (occ?.trigger_type === "recurring") {
+        await scheduleNextRecurringOccurrence(svc, occ.campaign_id);
+      }
+    }
+  }
+
+  const { data: activeRecurring } = await svc
+    .from("admin_notification_campaigns")
+    .select("id")
+    .eq("send_mode", "recurring")
+    .eq("status", "active")
+    .limit(20);
+
+  for (const row of activeRecurring ?? []) {
+    const campaignId = String((row as { id: string }).id);
+    const { count } = await svc
+      .from("admin_notification_campaign_occurrences")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .in("status", ["queued", "sending"]);
+    if ((count ?? 0) === 0) {
+      await scheduleNextRecurringOccurrence(svc, campaignId);
+    }
   }
 
   return NextResponse.json({

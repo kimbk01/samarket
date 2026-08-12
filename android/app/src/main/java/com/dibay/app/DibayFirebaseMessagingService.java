@@ -5,6 +5,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
@@ -14,6 +16,10 @@ import com.dibay.app.nativevideo.NativeVideoCallLane;
 import com.dibay.app.nativevoice.NativeVoiceCallLane;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -30,6 +36,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   /** @deprecated use {@link DibayNotificationChannelRegistry#DEFAULT_MESSAGE_CHANNEL_ID} */
   static final String MESSAGES_CHANNEL_ID = DibayNotificationChannelRegistry.DEFAULT_MESSAGE_CHANNEL_ID;
   private static final long EVENT_DEDUPE_MS = 10_000L;
+  private static final int PUSH_IMAGE_CONNECT_TIMEOUT_MS = 10_000;
+  private static final int PUSH_IMAGE_READ_TIMEOUT_MS = 10_000;
+  private static final int PUSH_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
   private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
       new ConcurrentHashMap<>();
 
@@ -367,7 +376,109 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + (senderName != null ? senderName : "-")
               + " badge="
               + badgeCount);
+
+      String pushImageUrl = resolvePushImageUrl(data);
+      if (pushImageUrl != null) {
+        enrichMessageNotificationWithImageAsync(nm, requestCode, builder, pushImageUrl, safeBody);
+      }
     }
+  }
+
+  private static String resolvePushImageUrl(Map<String, String> data) {
+    if (data == null) return null;
+    String raw =
+        firstNonEmpty(
+            data.get("bigPictureUrl"),
+            data.get("big_picture_url"),
+            data.get("imageUrl"),
+            data.get("image_url"));
+    if (raw == null) return null;
+    String absolute = IncomingCallAvatarUrl.resolveAbsolute(raw);
+    if (absolute != null && absolute.startsWith("https://")) {
+      return absolute;
+    }
+    Log.w(TAG, "[notify-message] push_image_url_rejected non_https url=" + raw);
+    return null;
+  }
+
+  private void enrichMessageNotificationWithImageAsync(
+      NotificationManager nm,
+      int notificationId,
+      NotificationCompat.Builder builder,
+      String imageUrl,
+      String safeBody) {
+    new Thread(
+            () -> {
+              Bitmap bitmap = loadPushImageBitmap(imageUrl);
+              if (bitmap == null) {
+                Log.w(TAG, "[notify-message] push_image_load_failed url=" + imageUrl);
+                return;
+              }
+              builder.setLargeIcon(bitmap);
+              builder.setStyle(
+                  new NotificationCompat.BigPictureStyle()
+                      .bigPicture(bitmap)
+                      .bigLargeIcon((Bitmap) null)
+                      .setSummaryText(safeBody));
+              nm.notify(notificationId, builder.build());
+              Log.i(TAG, "[notify-message] push_image_applied url=" + imageUrl);
+            },
+            "fcm-push-image")
+        .start();
+  }
+
+  private static Bitmap loadPushImageBitmap(String httpsUrl) {
+    HttpURLConnection connection = null;
+    try {
+      connection = (HttpURLConnection) new URL(httpsUrl).openConnection();
+      connection.setConnectTimeout(PUSH_IMAGE_CONNECT_TIMEOUT_MS);
+      connection.setReadTimeout(PUSH_IMAGE_READ_TIMEOUT_MS);
+      connection.setInstanceFollowRedirects(true);
+      connection.connect();
+      if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+        Log.w(
+            TAG,
+            "[notify-message] push_image_http code="
+                + connection.getResponseCode()
+                + " url="
+                + httpsUrl);
+        return null;
+      }
+      long contentLength = connection.getContentLengthLong();
+      if (contentLength > PUSH_IMAGE_MAX_BYTES) {
+        Log.w(
+            TAG,
+            "[notify-message] push_image_too_large bytes="
+                + contentLength
+                + " url="
+                + httpsUrl);
+        return null;
+      }
+      byte[] bytes = readBoundedBytes(connection.getInputStream(), PUSH_IMAGE_MAX_BYTES);
+      if (bytes == null || bytes.length == 0) return null;
+      return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+    } catch (Exception error) {
+      Log.w(
+          TAG,
+          "[notify-message] push_image_load_error url=" + httpsUrl + " err=" + error.getMessage());
+      return null;
+    } finally {
+      if (connection != null) connection.disconnect();
+    }
+  }
+
+  private static byte[] readBoundedBytes(InputStream stream, int maxBytes) throws java.io.IOException {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    byte[] chunk = new byte[8_192];
+    int total = 0;
+    int read;
+    while ((read = stream.read(chunk)) != -1) {
+      total += read;
+      if (total > maxBytes) return null;
+      buffer.write(chunk, 0, read);
+    }
+    stream.close();
+    return buffer.toByteArray();
   }
 
   /** Winner device must not tear down its own active call on answered_elsewhere fan-out. */

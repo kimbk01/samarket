@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { createAdminNotificationCampaign } from "@/lib/admin/notification-campaigns/campaign-create-service";
 import { CAMPAIGN_CHANNELS } from "@/lib/admin/notification-campaigns/campaign-types";
+import { CAMPAIGN_SEND_MODES } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { resolveCampaignTargetPayload } from "@/lib/admin/notification-campaigns/resolve-campaign-target-payload";
-import { ensureCampaignTargetsForSelectedUsers } from "@/lib/admin/notification-campaigns/run-campaign-send-batch";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -11,7 +12,14 @@ export const dynamic = "force-dynamic";
 const TYPES = new Set(["notice", "marketing", "system"]);
 const TARGETS = new Set(["all", "selected_users", "marketing_opt_in", "active_users", "region"]);
 
-/** GET — 목록 */
+function readCreateRequestId(req: NextRequest, bodyKey: unknown): string | null {
+  const header = req.headers.get("idempotency-key")?.trim() || req.headers.get("Idempotency-Key")?.trim();
+  if (header) return header.slice(0, 128);
+  if (typeof bodyKey === "string" && bodyKey.trim()) return bodyKey.trim().slice(0, 128);
+  return null;
+}
+
+/** GET — list (production default excludes QA) */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -25,12 +33,17 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status")?.trim();
   const type = searchParams.get("type")?.trim();
   const qTitle = searchParams.get("q")?.trim();
+  const audience = searchParams.get("audience")?.trim() ?? "ops";
 
-  let query = svc
-    .from("admin_notification_campaigns")
-    .select(
-      "id, title, body, type, target_type, channel, status, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count"
-    );
+  let query = svc.from("admin_notification_campaigns").select(
+    "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count"
+  );
+
+  if (audience === "ops") {
+    query = query.eq("is_qa", false);
+  } else if (audience === "qa") {
+    query = query.eq("is_qa", true);
+  }
 
   if (status && status !== "all") {
     query = query.eq("status", status);
@@ -43,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
   query = query.order("created_at", { ascending: false }).limit(200);
 
-  const { data, error } = await query;
+  const { data: campaigns, error } = await query;
   if (error) {
     if (error.message?.includes("does not exist")) {
       return NextResponse.json({ ok: true, campaigns: [], table_missing: true });
@@ -51,7 +64,30 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, campaigns: data ?? [] });
+  const ids = (campaigns ?? []).map((c) => String((c as { id: string }).id));
+  const latestOccurrences: Record<string, Record<string, unknown>> = {};
+  if (ids.length) {
+    const { data: occRows } = await svc
+      .from("admin_notification_campaign_occurrences")
+      .select(
+        "id, campaign_id, sequence_number, status, scheduled_for, push_sent, push_skipped, push_failed, push_device_count, in_app_sent, in_app_member_count, target_member_count, completed_at"
+      )
+      .in("campaign_id", ids)
+      .order("sequence_number", { ascending: false });
+
+    for (const row of occRows ?? []) {
+      const cid = String((row as { campaign_id: string }).campaign_id);
+      if (!latestOccurrences[cid]) latestOccurrences[cid] = row as Record<string, unknown>;
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    campaigns: (campaigns ?? []).map((c) => {
+      const id = String((c as { id: string }).id);
+      return { ...c, latest_occurrence: latestOccurrences[id] ?? null };
+    }),
+  });
 }
 
 type CreateBody = {
@@ -69,9 +105,18 @@ type CreateBody = {
   scheduled_at?: unknown;
   segment_region_code?: unknown;
   status?: unknown;
+  send_mode?: unknown;
+  save_as_draft?: unknown;
+  is_qa?: unknown;
   target_user_ids?: unknown;
-  priority?: unknown;
-  visibility_policy?: unknown;
+  create_request_id?: unknown;
+  recurrence_kind?: unknown;
+  recurrence_time?: unknown;
+  recurrence_timezone?: unknown;
+  recurrence_start_at?: unknown;
+  recurrence_end_at?: unknown;
+  recurrence_max_count?: unknown;
+  recurrence_weekday?: unknown;
   app_notice_id?: unknown;
   target_payload?: unknown;
 };
@@ -80,7 +125,7 @@ function optionalUrl(v: unknown, max = 2000): string | null {
   return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
 }
 
-/** POST — 생성 (임시저장 draft) */
+/** POST — create campaign (idempotent) + optional first occurrence */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -103,8 +148,13 @@ export async function POST(req: NextRequest) {
   const targetType = typeof body.target_type === "string" ? body.target_type.trim() : "all";
   const channelRaw = typeof body.channel === "string" ? body.channel.trim() : "push_and_in_app";
   const channel = (CAMPAIGN_CHANNELS as readonly string[]).includes(channelRaw)
-    ? channelRaw
+    ? (channelRaw as (typeof CAMPAIGN_CHANNELS)[number])
     : "push_and_in_app";
+
+  const sendModeRaw = typeof body.send_mode === "string" ? body.send_mode.trim() : "immediate";
+  const send_mode = (CAMPAIGN_SEND_MODES as readonly string[]).includes(sendModeRaw)
+    ? (sendModeRaw as (typeof CAMPAIGN_SEND_MODES)[number])
+    : "immediate";
 
   if (!title || !content || !TYPES.has(typ)) {
     return NextResponse.json({ ok: false, error: "invalid_fields" }, { status: 400 });
@@ -123,22 +173,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });
   }
 
-  const deeplink_url = optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url);
-  const web_url = optionalUrl(body.web_url);
-  const push_image_url = optionalUrl(body.push_image_url) ?? optionalUrl(body.image_url);
-  const in_app_image_url = optionalUrl(body.in_app_image_url) ?? optionalUrl(body.image_url);
-  const target_url = deeplink_url;
-  const image_url = in_app_image_url ?? push_image_url;
-  const scheduled_at =
-    typeof body.scheduled_at === "string" && body.scheduled_at.trim() ? body.scheduled_at.trim() : null;
-  const segment_region_code =
-    typeof body.segment_region_code === "string" && body.segment_region_code.trim()
-      ? body.segment_region_code.trim().slice(0, 32)
-      : null;
-
-  const initialStatus =
-    typeof body.status === "string" && body.status === "scheduled" && scheduled_at ? "scheduled" : "draft";
-
   const resolvedPayload = resolveCampaignTargetPayload({
     app_notice_id: body.app_notice_id,
     target_payload: body.target_payload,
@@ -148,47 +182,55 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: resolvedPayload.error }, { status: 400 });
   }
 
-  const insertRow = {
+  const scheduled_at =
+    typeof body.scheduled_at === "string" && body.scheduled_at.trim() ? body.scheduled_at.trim() : null;
+  const save_as_draft =
+    body.save_as_draft === true ||
+    body.status === "draft" ||
+    (typeof body.status === "string" && body.status.trim() === "draft");
+
+  const result = await createAdminNotificationCampaign(svc, admin.userId, {
     title,
     body: content,
-    type: typ,
+    type: typ as "notice" | "marketing" | "system",
     target_type: targetType,
     channel,
-    target_url,
-    image_url,
-    deeplink_url,
-    web_url,
-    push_image_url,
-    in_app_image_url,
-    scheduled_at: initialStatus === "scheduled" ? scheduled_at : null,
-    segment_region_code: targetType === "region" ? segment_region_code : null,
-    status: initialStatus,
-    created_by: admin.userId,
-    send_progress_offset: 0,
-    priority: typeof body.priority === "string" ? body.priority : "normal",
-    visibility_policy: typeof body.visibility_policy === "string" ? body.visibility_policy : "default",
-    updated_at: new Date().toISOString(),
-    /** Match DB DEFAULT '{}'::jsonb — never insert null (overrides default → 500). */
+    deeplink_url: optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url),
+    web_url: optionalUrl(body.web_url),
+    push_image_url: optionalUrl(body.push_image_url) ?? optionalUrl(body.image_url),
+    in_app_image_url: optionalUrl(body.in_app_image_url) ?? optionalUrl(body.image_url),
+    segment_region_code:
+      typeof body.segment_region_code === "string" && body.segment_region_code.trim()
+        ? body.segment_region_code.trim().slice(0, 32)
+        : null,
     target_payload: resolvedPayload.target_payload,
-  };
+    send_mode,
+    scheduled_at,
+    is_qa: body.is_qa === true || channel === "test_only",
+    recurrence_kind: typeof body.recurrence_kind === "string" ? body.recurrence_kind : undefined,
+    recurrence_time: typeof body.recurrence_time === "string" ? body.recurrence_time : null,
+    recurrence_timezone: typeof body.recurrence_timezone === "string" ? body.recurrence_timezone : undefined,
+    recurrence_start_at: typeof body.recurrence_start_at === "string" ? body.recurrence_start_at : null,
+    recurrence_end_at: typeof body.recurrence_end_at === "string" ? body.recurrence_end_at : null,
+    recurrence_max_count:
+      typeof body.recurrence_max_count === "number" ? body.recurrence_max_count : null,
+    recurrence_weekday:
+      typeof body.recurrence_weekday === "number" ? body.recurrence_weekday : null,
+    target_user_ids: Array.isArray(body.target_user_ids)
+      ? body.target_user_ids.map((x) => String(x).trim()).filter(Boolean)
+      : undefined,
+    create_request_id: readCreateRequestId(req, body.create_request_id),
+    save_as_draft,
+  });
 
-  const { data: row, error } = await svc.from("admin_notification_campaigns").insert(insertRow).select("id").maybeSingle();
-
-  if (error) {
-    if (error.message?.includes("does not exist")) {
-      return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
-    }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.status ?? 500 });
   }
 
-  const campaignId = String((row as { id?: string })?.id ?? "");
-  if (targetType === "selected_users" && Array.isArray(body.target_user_ids) && campaignId) {
-    const ids = body.target_user_ids
-      .map((x) => String(x).trim())
-      .filter(Boolean)
-      .slice(0, 5000);
-    await ensureCampaignTargetsForSelectedUsers(svc, campaignId, ids);
-  }
-
-  return NextResponse.json({ ok: true, id: campaignId });
+  return NextResponse.json({
+    ok: true,
+    id: result.campaignId,
+    occurrence_id: result.occurrenceId,
+    replay: result.replay,
+  });
 }

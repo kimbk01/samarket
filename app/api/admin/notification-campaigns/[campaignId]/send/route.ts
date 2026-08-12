@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { resolveActiveOccurrenceForSend } from "@/lib/admin/notification-campaigns/campaign-create-service";
+import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import {
   claimAdminCampaignManualSend,
   drainNotificationCampaignSendBatches,
@@ -19,8 +21,7 @@ function readIdempotencyKey(req: NextRequest, bodyKey: unknown): string | null {
 }
 
 /**
- * POST — claim campaign atomically then drain batches (or one batch if `single_batch`).
- * Idempotent: same Idempotency-Key while sending/sent returns existing progress.
+ * POST — claim occurrence atomically then drain batches (async-friendly single round).
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const admin = await requireAdminApiUser();
@@ -37,18 +38,34 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  let body: { idempotency_key?: unknown; single_batch?: unknown } = {};
+  let body: { idempotency_key?: unknown; single_batch?: unknown; occurrence_id?: unknown; enqueue_only?: unknown } =
+    {};
   try {
     body = await req.json();
   } catch {
     body = {};
   }
 
-  const idempotencyKey = readIdempotencyKey(req, body.idempotency_key) ?? `manual:${id}:${admin.userId}`;
+  const occurrenceId = await resolveActiveOccurrenceForSend(
+    svc,
+    id,
+    typeof body.occurrence_id === "string" ? body.occurrence_id : null
+  );
+  if (!occurrenceId) {
+    return NextResponse.json({ ok: false, error: "occurrence_not_found" }, { status: 404 });
+  }
+
+  const occurrence = await getCampaignOccurrence(svc, occurrenceId);
+  if (!occurrence) {
+    return NextResponse.json({ ok: false, error: "occurrence_not_found" }, { status: 404 });
+  }
+
+  const idempotencyKey = readIdempotencyKey(req, body.idempotency_key) ?? `manual:${occurrenceId}:${admin.userId}`;
   const singleBatch = body.single_batch === true;
+  const enqueueOnly = body.enqueue_only === true;
   const claimToken = newCampaignSendClaimToken();
 
-  const claim = await claimAdminCampaignManualSend(svc, id, {
+  const claim = await claimAdminCampaignManualSend(svc, occurrenceId, {
     idempotencyKey,
     claimToken,
   });
@@ -56,66 +73,59 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   if (claim.error === "not_found") {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  if (claim.error && !claim.campaign) {
+  if (claim.error && !claim.occurrence) {
     return NextResponse.json({ ok: false, error: claim.error }, { status: 500 });
   }
 
-  if (claim.campaign && String(claim.campaign.target_type) === "segment") {
-    await svc
-      .from("admin_notification_campaigns")
-      .update({
-        status: "failed",
-        last_error: "segment_unsupported",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "segment_unsupported",
-        message: "Segment targeting is not supported yet.",
-      },
-      { status: 400 }
-    );
-  }
-
   if (!claim.claimed && claim.alreadyRunning) {
-    const status = String(claim.campaign?.status ?? "");
+    const status = String(claim.occurrence?.status ?? "");
     if (status === "sent" || status === "partially_failed" || status === "failed") {
       return NextResponse.json({
         ok: true,
         done: true,
         replay: true,
+        occurrence_id: occurrenceId,
         status,
-        processed: 0,
-        sent: claim.campaign?.sent_count ?? 0,
-        skipped: claim.campaign?.skipped_count ?? 0,
-        failed: claim.campaign?.failed_count ?? 0,
+        metrics: {
+          push_sent: claim.occurrence?.push_sent ?? 0,
+          push_skipped: claim.occurrence?.push_skipped ?? 0,
+          push_failed: claim.occurrence?.push_failed ?? 0,
+          in_app_sent: claim.occurrence?.in_app_sent ?? 0,
+        },
       });
     }
-    // Still sending — allow drain continuation for same idempotency key
-    if (claim.campaign?.send_idempotency_key && claim.campaign.send_idempotency_key !== idempotencyKey) {
-      return NextResponse.json({ ok: false, error: "campaign_already_sending" }, { status: 409 });
+    if (claim.occurrence?.idempotency_key && claim.occurrence.idempotency_key !== idempotencyKey) {
+      return NextResponse.json({ ok: false, error: "occurrence_already_sending" }, { status: 409 });
     }
   }
 
   if (!claim.claimed && !claim.alreadyRunning) {
     return NextResponse.json(
-      { ok: false, error: "campaign_not_sendable", status: claim.campaign?.status },
+      { ok: false, error: "occurrence_not_sendable", status: claim.occurrence?.status },
       { status: 409 }
     );
+  }
+
+  if (enqueueOnly) {
+    return NextResponse.json({
+      ok: true,
+      enqueued: true,
+      occurrence_id: occurrenceId,
+      claimed: claim.claimed,
+    });
   }
 
   if (singleBatch) {
     const { runNotificationCampaignSendBatch } = await import(
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
-    const result = await runNotificationCampaignSendBatch(svc, id);
+    const result = await runNotificationCampaignSendBatch(svc, occurrenceId);
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "batch_failed" }, { status: 500 });
     }
     return NextResponse.json({
       ok: true,
+      occurrence_id: occurrenceId,
       processed: result.processed,
       sent: result.sent,
       skipped: result.skipped,
@@ -125,9 +135,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     });
   }
 
-  const drained = await drainNotificationCampaignSendBatches(svc, id, {
-    maxBatches: 40,
-    maxWallMs: 50_000,
+  const drained = await drainNotificationCampaignSendBatches(svc, occurrenceId, {
+    maxBatches: 8,
+    maxWallMs: 12_000,
   });
 
   if (!drained.ok) {
@@ -136,6 +146,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
 
   return NextResponse.json({
     ok: true,
+    occurrence_id: occurrenceId,
     processed: drained.sent + drained.skipped + drained.failed,
     sent: drained.sent,
     skipped: drained.skipped,
@@ -143,5 +154,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     done: drained.done,
     batches: drained.batches,
     claimed: claim.claimed,
+    continuing: !drained.done,
   });
 }

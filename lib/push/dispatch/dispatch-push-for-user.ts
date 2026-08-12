@@ -296,6 +296,7 @@ export async function dispatchPushForUser(
 
   const loadedTargets = await loadActivePushTargets(svc, out.user_id, {
     fcmMode: "multi_device_fcm",
+    environment: opts?.push_environment,
   });
   const targetDeviceId = opts?.target_device_id?.trim() ?? "";
   const targets = targetDeviceId

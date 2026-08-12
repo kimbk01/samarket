@@ -36,6 +36,7 @@ export type CampaignUserSendResult = {
 async function recordUserTargetStatus(
   svc: SupabaseClient,
   campaign: AdminNotificationCampaignRow,
+  occurrenceId: string,
   userId: string,
   status: "sent" | "skipped" | "failed",
   opts?: { skipReason?: string | null; notificationEventId?: string | null; sentAt?: string }
@@ -46,6 +47,7 @@ async function recordUserTargetStatus(
     skip_reason: opts?.skipReason ?? null,
     notification_event_id: opts?.notificationEventId ?? null,
     sent_at: status === "sent" ? opts?.sentAt ?? new Date().toISOString() : null,
+    occurrence_id: occurrenceId,
   };
   await svc.from("admin_notification_campaign_targets").upsert(
     {
@@ -64,6 +66,7 @@ async function recordUserTargetStatus(
 export async function sendCampaignToUser(
   svc: SupabaseClient,
   campaign: AdminNotificationCampaignRow,
+  occurrenceId: string,
   userId: string,
   maps: SettingsMaps,
   opts?: { forceChannel?: CampaignChannel; skipDuplicateCheck?: boolean }
@@ -93,11 +96,12 @@ export async function sendCampaignToUser(
   const now = new Date().toISOString();
 
   if (channel === "test_only" && !opts?.forceChannel) {
-    await recordUserTargetStatus(svc, campaign, userId, "skipped", {
+    await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", {
       skipReason: "test_only_channel",
     });
     await recordCampaignDelivery(svc, {
       campaignId: campaign.id,
+      occurrenceId,
       userId,
       channel: "in_app",
       status: "skipped",
@@ -141,6 +145,7 @@ export async function sendCampaignToUser(
         lastSkipReason = "duplicate_campaign_user";
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
+          occurrenceId,
           userId,
           channel: "in_app",
           status: "skipped",
@@ -150,12 +155,13 @@ export async function sendCampaignToUser(
         lastSkipReason = "event_insert_or_dispatch_failed";
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
+          occurrenceId,
           userId,
           channel: "in_app",
           status: "failed",
           skipReason: "event_insert_or_dispatch_failed",
         });
-        await recordUserTargetStatus(svc, campaign, userId, "failed", {
+        await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "failed", {
           skipReason: created.error,
         });
         return {
@@ -172,6 +178,7 @@ export async function sendCampaignToUser(
       inAppSent = true;
       await recordCampaignDelivery(svc, {
         campaignId: campaign.id,
+        occurrenceId,
         userId,
         notificationEventId,
         channel: "in_app",
@@ -186,6 +193,7 @@ export async function sendCampaignToUser(
       lastSkipReason = "foreground_no_os_push";
       await recordCampaignDelivery(svc, {
         campaignId: campaign.id,
+        occurrenceId,
         userId,
         notificationEventId,
         channel: "push",
@@ -193,7 +201,7 @@ export async function sendCampaignToUser(
         skipReason: "foreground_no_os_push",
       });
       if (channel === "push_only" && !inAppSent) {
-        await recordUserTargetStatus(svc, campaign, userId, "skipped", {
+        await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", {
           skipReason: "foreground_no_os_push",
         });
         return {
@@ -206,11 +214,17 @@ export async function sendCampaignToUser(
         };
       }
     } else {
-      const targets = await loadActivePushTargets(svc, userId);
+      const targets = await loadActivePushTargets(svc, userId, {
+        // Capacitor member apps register as production. Local/preview admin servers
+        // must still address those devices — otherwise push is skipped as token_missing.
+        environment: "production",
+        fcmMode: "multi_device_fcm",
+      });
       if (!targets.length) {
         lastSkipReason = "token_missing";
         await recordCampaignDelivery(svc, {
           campaignId: campaign.id,
+          occurrenceId,
           userId,
           notificationEventId,
           channel: "push",
@@ -232,6 +246,7 @@ export async function sendCampaignToUser(
           if (deviceRow.notification_permission_status === "denied") {
             await recordCampaignDelivery(svc, {
               campaignId: campaign.id,
+              occurrenceId,
               userId,
               deviceId: deviceRow.id,
               notificationEventId,
@@ -284,6 +299,7 @@ export async function sendCampaignToUser(
           lastSkipReason = gate.skipReason ?? "user_setting_blocked";
           await recordCampaignDelivery(svc, {
             campaignId: campaign.id,
+            occurrenceId,
             userId,
             notificationEventId,
             channel: "push",
@@ -297,6 +313,7 @@ export async function sendCampaignToUser(
             target_id: campaign.id,
             skip_settings_gate: true,
             notification_event_id: notificationEventId ?? undefined,
+            push_environment: "production",
           });
 
           for (const delivery of pushResult.deliveries) {
@@ -307,6 +324,7 @@ export async function sendCampaignToUser(
                 : null;
             await recordCampaignDelivery(svc, {
               campaignId: campaign.id,
+              occurrenceId,
               userId,
               deviceId,
               notificationEventId,
@@ -333,6 +351,7 @@ export async function sendCampaignToUser(
             lastSkipReason = "token_missing";
             await recordCampaignDelivery(svc, {
               campaignId: campaign.id,
+              occurrenceId,
               userId,
               notificationEventId,
               channel: "push",
@@ -347,7 +366,7 @@ export async function sendCampaignToUser(
 
   const sent = inAppSent || anyPushSent;
   if (sent) {
-    await recordUserTargetStatus(svc, campaign, userId, "sent", {
+    await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "sent", {
       notificationEventId,
       sentAt: now,
     });
@@ -355,7 +374,7 @@ export async function sendCampaignToUser(
   }
 
   if (lastSkipReason) {
-    await recordUserTargetStatus(svc, campaign, userId, "skipped", {
+    await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", {
       skipReason: String(lastSkipReason),
       notificationEventId,
     });
@@ -370,7 +389,7 @@ export async function sendCampaignToUser(
   }
 
   if (pushAttempted) {
-    await recordUserTargetStatus(svc, campaign, userId, "failed", {
+    await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "failed", {
       skipReason: "push_failed",
       notificationEventId,
     });
@@ -384,7 +403,7 @@ export async function sendCampaignToUser(
     };
   }
 
-  await recordUserTargetStatus(svc, campaign, userId, "skipped", {
+  await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", {
     skipReason: "no_channel_action",
     notificationEventId,
   });

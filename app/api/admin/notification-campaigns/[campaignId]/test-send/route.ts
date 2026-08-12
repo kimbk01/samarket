@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { buildCampaignContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-content-snapshot";
+import {
+  ensureCampaignOccurrence,
+  getNextOccurrenceSequenceNumber,
+  newOccurrenceIdempotencyKey,
+} from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { runNotificationCampaignTestSend } from "@/lib/admin/notification-campaigns/run-campaign-send-batch";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -13,7 +19,7 @@ function readIdempotencyKey(req: NextRequest, bodyKey: unknown): string | null {
   return null;
 }
 
-/** POST — test send to selected user IDs (does not change campaign status). */
+/** POST — test send to selected user IDs (QA occurrence, does not mutate ops lifecycle). */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -50,7 +56,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
 
   const { data: camp } = await svc
     .from("admin_notification_campaigns")
-    .select("id, test_send_idempotency_key")
+    .select(
+      "id, title, body, type, channel, target_type, deeplink_url, web_url, push_image_url, in_app_image_url, test_send_idempotency_key"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -60,35 +68,47 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
 
   const prevKey = String((camp as { test_send_idempotency_key?: string | null }).test_send_idempotency_key ?? "");
   if (prevKey && prevKey === idempotencyKey) {
-    return NextResponse.json({
-      ok: true,
-      replay: true,
-      sent: 0,
-      skipped: 0,
-      failed: 0,
-    });
+    return NextResponse.json({ ok: true, replay: true, sent: 0, skipped: 0, failed: 0 });
   }
 
-  const { error: lockErr } = await svc
+  await svc
     .from("admin_notification_campaigns")
-    .update({
-      test_send_idempotency_key: idempotencyKey,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .or(`test_send_idempotency_key.is.null,test_send_idempotency_key.neq.${idempotencyKey}`);
+    .update({ test_send_idempotency_key: idempotencyKey, is_qa: true, updated_at: new Date().toISOString() })
+    .eq("id", id);
 
-  if (lockErr) {
-    console.warn("[test-send idempotency]", lockErr.message);
+  const snapshot = buildCampaignContentSnapshot({
+    title: String(camp.title ?? ""),
+    body: String(camp.body ?? ""),
+    type: camp.type as "notice" | "marketing" | "system",
+    channel: camp.channel as "push_only" | "in_app_only" | "push_and_in_app" | "test_only",
+    target_type: String(camp.target_type ?? "all"),
+    deeplink_url: (camp.deeplink_url as string | null) ?? null,
+    web_url: (camp.web_url as string | null) ?? null,
+    push_image_url: (camp.push_image_url as string | null) ?? null,
+    in_app_image_url: (camp.in_app_image_url as string | null) ?? null,
+  });
+  const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, id);
+  const ensured = await ensureCampaignOccurrence(svc, {
+    campaignId: id,
+    sequenceNumber,
+    triggerType: "test",
+    idempotencyKey: newOccurrenceIdempotencyKey(idempotencyKey),
+    triggeredBy: admin.userId,
+    campaign: snapshot,
+  });
+
+  if (!ensured.ok) {
+    return NextResponse.json({ ok: false, error: ensured.error }, { status: 500 });
   }
 
-  const result = await runNotificationCampaignTestSend(svc, id, userIds);
+  const result = await runNotificationCampaignTestSend(svc, id, ensured.occurrence.id, userIds);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error ?? "test_send_failed" }, { status: 500 });
   }
 
   return NextResponse.json({
     ok: true,
+    occurrence_id: ensured.occurrence.id,
     sent: result.sent,
     skipped: result.skipped,
     failed: result.failed,

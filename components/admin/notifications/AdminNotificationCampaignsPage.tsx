@@ -10,6 +10,17 @@ import {
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
 
+type LatestOccurrence = {
+  id?: string;
+  status?: string;
+  scheduled_for?: string | null;
+  completed_at?: string | null;
+  push_sent?: number;
+  push_device_count?: number;
+  in_app_sent?: number;
+  in_app_member_count?: number;
+};
+
 type CampaignRow = {
   id: string;
   title: string;
@@ -17,18 +28,54 @@ type CampaignRow = {
   target_type: string;
   channel?: string;
   status: string;
+  send_mode?: string;
+  is_qa?: boolean;
   scheduled_at: string | null;
   sent_at: string | null;
   created_at: string;
   created_by: string | null;
-  target_count?: number;
-  sent_count?: number;
-  skipped_count?: number;
-  failed_count?: number;
+  latest_occurrence?: LatestOccurrence | null;
 };
+
+type AudienceFilter = "ops" | "qa" | "all";
+
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type TFn = (key: MessageKey, params?: Record<string, string | number>) => string;
+
+function sendModeLabel(t: TFn, mode: string | undefined): string {
+  if (mode === "scheduled") return t("admin_notif_send_mode_scheduled");
+  if (mode === "recurring") return t("admin_notif_send_mode_recurring");
+  return t("admin_notif_send_mode_immediate");
+}
+
+function formatResult(t: TFn, occ: LatestOccurrence | null | undefined): string {
+  if (!occ) return "—";
+  return t("admin_notif_result_metrics", {
+    pushSent: occ.push_sent ?? 0,
+    pushTotal: occ.push_device_count ?? 0,
+    inAppSent: occ.in_app_sent ?? 0,
+    inAppTotal: occ.in_app_member_count ?? 0,
+  });
+}
+
+function formatRunTimes(t: TFn, row: CampaignRow): string {
+  const occ = row.latest_occurrence;
+  const parts: string[] = [];
+  const next = occ?.scheduled_for ?? row.scheduled_at;
+  if (next && occ?.status === "queued") {
+    parts.push(t("admin_notif_run_next", { time: next.slice(0, 16) }));
+  }
+  const last = occ?.completed_at ?? row.sent_at;
+  if (last) {
+    parts.push(t("admin_notif_run_last", { time: last.slice(0, 16) }));
+  }
+  return parts.length ? parts.join(" · ") : "—";
+}
 
 export function AdminNotificationCampaignsPage() {
   const { t } = useI18n();
+  const [audience, setAudience] = useState<AudienceFilter>("ops");
   const [status, setStatus] = useState<string>("all");
   const [type, setType] = useState<string>("all");
   const [q, setQ] = useState("");
@@ -41,6 +88,7 @@ export function AdminNotificationCampaignsPage() {
     setErr(null);
     try {
       const sp = new URLSearchParams();
+      sp.set("audience", audience);
       if (status !== "all") sp.set("status", status);
       if (type !== "all") sp.set("type", type);
       if (q.trim()) sp.set("q", q.trim());
@@ -55,7 +103,8 @@ export function AdminNotificationCampaignsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, type, q, t]);
+    // `t` omitted on purpose: i18n boot recreates `t` and was re-triggering load → prolonged "불러오는 중…".
+  }, [audience, status, type, q]);
 
   useEffect(() => {
     void load();
@@ -75,6 +124,15 @@ export function AdminNotificationCampaignsPage() {
 
       <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
         <select
+          value={audience}
+          onChange={(e) => setAudience(e.target.value as AudienceFilter)}
+          className="rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
+        >
+          <option value="ops">{t("admin_notif_filter_audience_ops")}</option>
+          <option value="qa">{t("admin_notif_filter_audience_qa")}</option>
+          <option value="all">{t("admin_notif_filter_audience_all")}</option>
+        </select>
+        <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           className="rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm"
@@ -82,6 +140,7 @@ export function AdminNotificationCampaignsPage() {
           <option value="all">{t("admin_notif_filter_status_all")}</option>
           <option value="draft">{t("admin_notif_status_draft")}</option>
           <option value="scheduled">{t("admin_notif_status_scheduled")}</option>
+          <option value="active">{t("admin_notif_status_active")}</option>
           <option value="sending">{t("admin_notif_status_sending")}</option>
           <option value="sent">{t("admin_notif_status_sent")}</option>
           <option value="partially_failed">{t("admin_notif_status_partially_failed")}</option>
@@ -124,14 +183,13 @@ export function AdminNotificationCampaignsPage() {
               <tr>
                 <th className="px-3 py-2">{t("admin_notif_th_title")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_type")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_target")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_send_mode")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_status")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_target_count")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_sent_count")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_skipped_count")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_failed_count")}</th>
-                <th className="px-3 py-2">{t("admin_notif_th_sent_at")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_result")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_run_times")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_author")}</th>
               </tr>
             </thead>
             <tbody>
@@ -141,21 +199,27 @@ export function AdminNotificationCampaignsPage() {
                     <Link href={`/admin/notifications/${r.id}`} className="hover:underline">
                       {r.title}
                     </Link>
+                    {r.is_qa ? (
+                      <span className="ml-2 rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+                        QA
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
-                  <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
                   <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
+                  <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
+                  <td className="px-3 py-2">{sendModeLabel(t, r.send_mode)}</td>
                   <td className="px-3 py-2">{notifStatusLabel(t, r.status)}</td>
-                  <td className="px-3 py-2 tabular-nums">{r.target_count ?? 0}</td>
-                  <td className="px-3 py-2 tabular-nums text-green-700">{r.sent_count ?? 0}</td>
-                  <td className="px-3 py-2 tabular-nums text-amber-700">{r.skipped_count ?? 0}</td>
-                  <td className="px-3 py-2 tabular-nums text-red-700">{r.failed_count ?? 0}</td>
-                  <td className="px-3 py-2 text-sam-muted">{r.sent_at ? r.sent_at.slice(0, 16) : "—"}</td>
+                  <td className="px-3 py-2 text-[12px] text-sam-muted">{formatResult(t, r.latest_occurrence)}</td>
+                  <td className="px-3 py-2 text-[12px] text-sam-muted">{formatRunTimes(t, r)}</td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
+                    {r.created_by ? `${r.created_by.slice(0, 8)}…` : "—"}
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={9} className="px-3 py-8 text-center text-sam-muted">
                     {t("admin_notif_empty_campaigns")}
                   </td>
                 </tr>

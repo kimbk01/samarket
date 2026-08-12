@@ -88,6 +88,11 @@ function apnsCategory(data: Record<string, unknown>): string | null {
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
+function apnsPushImageUrl(data: Record<string, unknown>): string | null {
+  const raw = data.imageUrl ?? data.image_url ?? data.bigPictureUrl ?? data.big_picture_url;
+  return typeof raw === "string" && raw.trim().startsWith("https://") ? raw.trim() : null;
+}
+
 export function buildApnsAlertBody(input: {
   title: string;
   body: string;
@@ -101,9 +106,14 @@ export function buildApnsAlertBody(input: {
   if (badge != null) aps.badge = badge;
   const category = apnsCategory(input.data);
   if (category) aps.category = category;
+  const imageUrl = apnsPushImageUrl(input.data);
+  if (imageUrl) {
+    aps["mutable-content"] = 1;
+  }
   return {
     aps,
     ...input.data,
+    ...(imageUrl ? { imageUrl, push_image_url: imageUrl } : {}),
   };
 }
 

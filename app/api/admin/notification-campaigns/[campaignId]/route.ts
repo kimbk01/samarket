@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { listCampaignOccurrences } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const TYPES = new Set(["notice", "marketing", "system"]);
-const TARGETS = new Set(["all", "selected_users", "segment", "marketing_opt_in", "active_users", "region"]);
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const admin = await requireAdminApiUser();
@@ -28,83 +26,59 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ campaignId
     return NextResponse.json({ ok: false, error: error?.message ?? "not_found" }, { status: error ? 500 : 404 });
   }
 
-  const { data: targets } = await svc
-    .from("admin_notification_campaign_targets")
-    .select("user_id,status,failure_reason,sent_at,updated_at")
-    .eq("campaign_id", id);
+  const occurrences = await listCampaignOccurrences(svc, id, 50);
+  const latest = occurrences[0] ?? null;
 
-  const tallies = { pending: 0, sent: 0, failed: 0, skipped: 0 };
-  for (const r of targets ?? []) {
-    const s = String((r as { status?: string }).status ?? "");
-    if (s === "pending") tallies.pending += 1;
-    else if (s === "sent") tallies.sent += 1;
-    else if (s === "failed") tallies.failed += 1;
-    else if (s === "skipped") tallies.skipped += 1;
-  }
-
-  const targetCount = (targets ?? []).length;
-  const deliveryLog = (targets ?? [])
-    .map((r) => {
-      const row = r as {
-        user_id?: string;
-        status?: string;
-        failure_reason?: string | null;
-        sent_at?: string | null;
-        updated_at?: string | null;
-      };
+  const occurrenceId = latest?.id;
+  let deviceDeliveryLog: Array<Record<string, unknown>> = [];
+  if (occurrenceId) {
+    const { data: deliveries } = await svc
+      .from("notification_campaign_deliveries")
+      .select("user_id, device_id, channel, status, skip_reason, provider_message_id, sent_at, opened_at, updated_at")
+      .eq("occurrence_id", occurrenceId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    deviceDeliveryLog = (deliveries ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
       return {
         userId: String(row.user_id ?? ""),
+        deviceId: row.device_id ?? null,
+        channel: String(row.channel ?? ""),
         status: String(row.status ?? ""),
-        failureReason: row.failure_reason ?? null,
+        skipReason: row.skip_reason ?? null,
+        providerMessageId: row.provider_message_id ?? null,
         sentAt: row.sent_at ?? null,
+        openedAt: row.opened_at ?? null,
         updatedAt: row.updated_at ?? null,
       };
-    })
-    .sort((a, b) => {
-      const aa = Date.parse(a.updatedAt ?? a.sentAt ?? "") || 0;
-      const bb = Date.parse(b.updatedAt ?? b.sentAt ?? "") || 0;
-      return bb - aa;
-    })
-    .slice(0, 80);
+    });
+  }
 
-  const { data: deliveries } = await svc
-    .from("notification_campaign_deliveries")
-    .select("user_id, device_id, channel, status, skip_reason, provider_message_id, sent_at, opened_at, updated_at")
-    .eq("campaign_id", id)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const deviceDeliveryLog = (deliveries ?? []).map((r) => {
-    const row = r as {
-      user_id?: string;
-      device_id?: string | null;
-      channel?: string;
-      status?: string;
-      skip_reason?: string | null;
-      provider_message_id?: string | null;
-      sent_at?: string | null;
-      opened_at?: string | null;
-      updated_at?: string | null;
-    };
-    return {
-      userId: String(row.user_id ?? ""),
-      deviceId: row.device_id ?? null,
-      channel: String(row.channel ?? ""),
-      status: String(row.status ?? ""),
-      skipReason: row.skip_reason ?? null,
-      providerMessageId: row.provider_message_id ?? null,
-      sentAt: row.sent_at ?? null,
-      openedAt: row.opened_at ?? null,
-      updatedAt: row.updated_at ?? null,
-    };
-  });
+  const summary = latest
+    ? {
+        occurrence_id: latest.id,
+        status: latest.status,
+        target_member_count: latest.target_member_count,
+        push_eligible_member_count: latest.push_eligible_member_count,
+        push_device_count: latest.push_device_count,
+        in_app_member_count: latest.in_app_member_count,
+        push_sent: latest.push_sent,
+        push_skipped: latest.push_skipped,
+        push_failed: latest.push_failed,
+        in_app_sent: latest.in_app_sent,
+        in_app_skipped: latest.in_app_skipped,
+        in_app_failed: latest.in_app_failed,
+        scheduled_for: latest.scheduled_for,
+        started_at: latest.started_at,
+        completed_at: latest.completed_at,
+      }
+    : null;
 
   return NextResponse.json({
     ok: true,
     campaign: camp,
-    targets: tallies,
-    targetCount,
-    deliveryLog,
+    summary,
+    occurrences,
     deviceDeliveryLog,
   });
 }
@@ -119,7 +93,11 @@ type PatchBody = {
   scheduled_at?: unknown | null;
   segment_region_code?: unknown | null;
   status?: unknown;
+  send_mode?: unknown;
 };
+
+const TYPES = new Set(["notice", "marketing", "system"]);
+const TARGETS = new Set(["all", "selected_users", "segment", "marketing_opt_in", "active_users", "region"]);
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
   const admin = await requireAdminApiUser();
@@ -143,7 +121,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    updated_by: admin.userId,
+  };
 
   if (typeof body.title === "string" && body.title.trim()) patch.title = body.title.trim();
   if (typeof body.body === "string" && body.body.trim()) patch.body = body.body.trim();
@@ -161,10 +142,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
   }
   if (typeof body.status === "string") {
     const s = body.status.trim();
-    if (["draft", "scheduled", "sent", "failed"].includes(s)) patch.status = s;
+    if (["draft", "scheduled", "active", "paused", "ended", "cancelled"].includes(s)) patch.status = s;
+  }
+  if (typeof body.send_mode === "string") {
+    patch.send_mode = body.send_mode.trim();
   }
 
-  if (Object.keys(patch).length <= 1) {
+  if (Object.keys(patch).length <= 2) {
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
 
@@ -172,14 +156,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
     .from("admin_notification_campaigns")
     .update(patch)
     .eq("id", id)
-    .eq("status", "draft")
+    .in("status", ["draft", "scheduled", "active", "paused"])
     .select("id");
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   if (!updated?.length) {
-    return NextResponse.json({ ok: false, error: "not_draft_or_missing" }, { status: 409 });
+    return NextResponse.json({ ok: false, error: "not_editable_or_missing" }, { status: 409 });
   }
 
   return NextResponse.json({ ok: true });

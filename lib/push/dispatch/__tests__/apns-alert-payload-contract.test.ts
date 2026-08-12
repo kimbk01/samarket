@@ -53,6 +53,34 @@ describe("APNS alert payload contract", () => {
     expect(body.notificationEventId).toBe("evt-admin-1");
   });
 
+  it("sets mutable-content inside aps when https push image is present", () => {
+    const body = buildApnsAlertBody({
+      title: "Promo",
+      body: "Sale",
+      data: { imageUrl: "https://cdn.example/push.jpg" },
+    });
+    const aps = body.aps as Record<string, unknown>;
+    expect(aps.alert).toEqual({ title: "Promo", body: "Sale" });
+    expect(aps["mutable-content"]).toBe(1);
+    expect(body["mutable-content"]).toBeUndefined();
+    expect(body.imageUrl).toBe("https://cdn.example/push.jpg");
+    expect(body.push_image_url).toBe("https://cdn.example/push.jpg");
+  });
+
+  it("does not force mutable-content on text-only alert", () => {
+    const body = buildApnsAlertBody({
+      title: "DIBAY D7 TEXT",
+      body: "APNs text runtime probe",
+      data: { routeUrl: "/notifications" },
+    });
+    const aps = body.aps as Record<string, unknown>;
+    expect(aps.alert).toEqual({ title: "DIBAY D7 TEXT", body: "APNs text runtime probe" });
+    expect(aps.sound).toBe("default");
+    expect(aps["mutable-content"]).toBeUndefined();
+    expect(body.imageUrl).toBeUndefined();
+    expect(body.push_image_url).toBeUndefined();
+  });
+
   it("keeps incoming call off normal APNS alert and missed call on alert badge route", () => {
     const missed = buildWebPushJsonPayload(
       out({

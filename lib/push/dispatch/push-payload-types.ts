@@ -48,6 +48,8 @@ export type DispatchPushOptions = {
   badge_count?: number;
   /** notification_events row id — native 10s dedupe */
   notification_event_id?: string;
+  /** Override device environment filter (admin campaign → production member devices). */
+  push_environment?: PushEnvironment;
 };
 
 export type DispatchDeliveryAudit = {

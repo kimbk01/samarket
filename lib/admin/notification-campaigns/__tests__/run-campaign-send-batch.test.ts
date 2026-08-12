@@ -8,11 +8,33 @@ vi.mock("@/lib/admin/notification-campaigns/campaign-send-user", () => ({
 
 type TargetRow = {
   campaign_id: string;
+  occurrence_id: string;
   user_id: string;
   status: "pending" | "sent" | "failed" | "skipped";
-  failure_reason?: string | null;
-  sent_at?: string | null;
 };
+
+function createOccurrence(overrides?: Partial<{ status: string; channel: string }>) {
+  return {
+    id: "occ-1",
+    campaign_id: "camp-1",
+    sequence_number: 1,
+    trigger_type: "immediate",
+    scheduled_for: null,
+    status: overrides?.status ?? "queued",
+    send_progress_offset: 0,
+    content_snapshot: {
+      title: "promo",
+      body: "sale",
+      type: "marketing",
+      channel: overrides?.channel ?? "push_and_in_app",
+      target_type: "selected_users",
+      deeplink_url: "/community",
+      web_url: null,
+      push_image_url: null,
+      in_app_image_url: null,
+    },
+  };
+}
 
 function createSvcFixture(overrides?: Partial<{ status: string; channel: string }>) {
   const campaign = {
@@ -39,10 +61,34 @@ function createSvcFixture(overrides?: Partial<{ status: string; channel: string 
     failed_count: 0,
     target_count: 0,
   };
-  const targets: TargetRow[] = [{ campaign_id: "camp-1", user_id: "u1", status: "pending" }];
+  const occurrence = createOccurrence(overrides);
+  const targets: TargetRow[] = [
+    { campaign_id: "camp-1", occurrence_id: "occ-1", user_id: "u1", status: "pending" },
+  ];
 
   const svc = {
     from(table: string) {
+      if (table === "admin_notification_campaign_occurrences") {
+        return {
+          select() {
+            return {
+              eq(_k: string, _v: string) {
+                return {
+                  maybeSingle: async () => ({ data: occurrence, error: null }),
+                };
+              },
+            };
+          },
+          update(patch: Record<string, unknown>) {
+            return {
+              eq: async () => {
+                Object.assign(occurrence, patch);
+                return { error: null };
+              },
+            };
+          },
+        };
+      }
       if (table === "admin_notification_campaigns") {
         return {
           select() {
@@ -67,7 +113,7 @@ function createSvcFixture(overrides?: Partial<{ status: string; channel: string 
       if (table === "notification_campaign_deliveries") {
         return {
           select: () => ({
-            eq: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }),
+            eq: () => ({ data: [], error: null }),
           }),
           insert: async () => ({ data: { id: "d1" }, error: null }),
         };
@@ -103,19 +149,6 @@ function createSvcFixture(overrides?: Partial<{ status: string; channel: string 
               },
             };
           },
-          update(patch: Partial<TargetRow>) {
-            return {
-              eq(_k1: string, _v1: string) {
-                return {
-                  eq: async (_k2: string, userId: string) => {
-                    const t = targets.find((r) => r.user_id === userId);
-                    if (t) Object.assign(t, patch);
-                    return { error: null };
-                  },
-                };
-              },
-            };
-          },
           upsert: async () => ({ error: null }),
         };
       }
@@ -145,16 +178,15 @@ function createSvcFixture(overrides?: Partial<{ status: string; channel: string 
     },
   };
 
-  return { svc, campaign, targets };
+  return { svc, campaign, occurrence, targets };
 }
 
-describe("runNotificationCampaignSendBatch Phase A", () => {
+describe("runNotificationCampaignSendBatch occurrence SSOT", () => {
   beforeEach(() => {
-    vi.resetModules();
     sendCampaignToUser.mockReset();
   });
 
-  it("treats duplicate as sent via sendCampaignToUser skipped duplicate", async () => {
+  it("treats duplicate as skipped via sendCampaignToUser", async () => {
     sendCampaignToUser.mockResolvedValue({
       ok: true,
       sent: false,
@@ -168,14 +200,14 @@ describe("runNotificationCampaignSendBatch Phase A", () => {
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
 
-    const out = await runNotificationCampaignSendBatch(svc as never, "camp-1");
+    const out = await runNotificationCampaignSendBatch(svc as never, "occ-1");
 
     expect(out.ok).toBe(true);
     expect(out.skipped).toBe(1);
     expect(sendCampaignToUser).toHaveBeenCalled();
   });
 
-  it("calls sendCampaignToUser for eligible marketing user", async () => {
+  it("calls sendCampaignToUser with occurrence id", async () => {
     sendCampaignToUser.mockResolvedValue({
       ok: true,
       sent: true,
@@ -189,13 +221,14 @@ describe("runNotificationCampaignSendBatch Phase A", () => {
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
 
-    const out = await runNotificationCampaignSendBatch(svc as never, "camp-1");
+    const out = await runNotificationCampaignSendBatch(svc as never, "occ-1");
 
     expect(out.ok).toBe(true);
     expect(out.sent).toBe(1);
     expect(sendCampaignToUser).toHaveBeenCalledWith(
       svc,
       expect.objectContaining({ id: "camp-1", channel: "push_and_in_app" }),
+      "occ-1",
       "u1",
       expect.any(Object)
     );
@@ -207,19 +240,19 @@ describe("runNotificationCampaignSendBatch Phase A", () => {
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
 
-    const out = await runNotificationCampaignSendBatch(svc as never, "camp-1");
+    const out = await runNotificationCampaignSendBatch(svc as never, "occ-1");
     expect(out.ok).toBe(false);
     expect(out.error).toBe("test_only_use_test_send_endpoint");
   });
 
-  it("blocks resend when campaign already sent", async () => {
+  it("blocks resend when occurrence already sent", async () => {
     const { svc } = createSvcFixture({ status: "sent" });
     const { runNotificationCampaignSendBatch } = await import(
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
 
-    const out = await runNotificationCampaignSendBatch(svc as never, "camp-1");
+    const out = await runNotificationCampaignSendBatch(svc as never, "occ-1");
     expect(out.ok).toBe(false);
-    expect(out.error).toBe("campaign_already_sent");
+    expect(out.error).toBe("occurrence_already_completed");
   });
 });
