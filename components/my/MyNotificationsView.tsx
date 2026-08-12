@@ -19,7 +19,6 @@ import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-no
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
-import { isAdminNoticeOrSystemInboxItem } from "@/lib/notifications/admin-campaign-inbox";
 import {
   NotificationInboxTabBar,
   type NotificationInboxTabKey,
@@ -27,11 +26,11 @@ import {
 import {
   buildNotificationCenterTabUnreadCounts,
   EMPTY_NOTIFICATION_CENTER_TAB_UNREAD,
-  type NotificationCenterReadFilter,
   type NotificationCenterCategoryKey,
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
 import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
+import { pushNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 
 type Row = {
   id: string;
@@ -49,7 +48,6 @@ type Row = {
 
 const INBOX_PAGE_SIZE = 40;
 
-const READ_FILTERS: NotificationCenterReadFilter[] = ["all", "unread", "read"];
 const CATEGORY_TABS: NotificationCenterCategoryKey[] = [
   "all",
   "trade",
@@ -59,11 +57,6 @@ const CATEGORY_TABS: NotificationCenterCategoryKey[] = [
   "marketing",
   "system",
 ];
-
-function parseReadFilter(raw: string | null): NotificationCenterReadFilter {
-  if (raw && (READ_FILTERS as string[]).includes(raw)) return raw as NotificationCenterReadFilter;
-  return "all";
-}
 
 function parseCategoryTab(raw: string | null): NotificationCenterCategoryKey {
   if (raw === "store") return "all";
@@ -99,7 +92,6 @@ export type MyNotificationsViewProps = {
   /** Gate 3 Step 8 — Notification Center product surface */
   variant?: "default" | "notification_center";
   registerMarkAll?: (fn: () => Promise<void>) => void;
-  onOpenDetail?: (notificationId: string) => void;
   /** Notification Center — selection mode controlled by page header */
   selectionMode?: boolean;
   onSelectionModeChange?: (next: boolean) => void;
@@ -116,7 +108,6 @@ export type MyNotificationsViewProps = {
 export function MyNotificationsView({
   variant = "default",
   registerMarkAll,
-  onOpenDetail,
   selectionMode = false,
   onSelectionModeChange,
   registerSelectionApi,
@@ -124,14 +115,6 @@ export function MyNotificationsView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language, t } = useI18n();
-  const readFilterChips = useMemo(
-    (): { key: NotificationInboxTabKey; label: string }[] => [
-      { key: "all", label: t("notif_filter_all") },
-      { key: "unread", label: t("notif_filter_unread") },
-      { key: "read", label: t("notif_filter_read") },
-    ],
-    [t]
-  );
   const categoryChips = useMemo(
     (): { key: NotificationInboxTabKey; label: string }[] => [
       { key: "all", label: t("notif_filter_all") },
@@ -152,49 +135,31 @@ export function MyNotificationsView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const readFromUrl = parseReadFilter(searchParams?.get("filter") ?? null);
   const tabFromUrl = parseCategoryTab(searchParams?.get("tab") ?? null);
-  const focusNotificationId = String(searchParams?.get("notificationId") ?? "").trim();
-  const [readFilter, setReadFilter] = useState<NotificationCenterReadFilter>(readFromUrl);
   const [categoryFilter, setCategoryFilter] = useState<NotificationCenterCategoryKey>(tabFromUrl);
-
-  useEffect(() => {
-    setReadFilter(readFromUrl);
-  }, [readFromUrl]);
 
   useEffect(() => {
     setCategoryFilter(tabFromUrl);
   }, [tabFromUrl]);
 
   const replaceCenterUrl = useCallback(
-    (nextRead: NotificationCenterReadFilter, nextCategory: NotificationCenterCategoryKey) => {
+    (nextCategory: NotificationCenterCategoryKey) => {
       if (variant !== "notification_center") return;
       const sp = new URLSearchParams();
-      if (nextRead !== "all") sp.set("filter", nextRead);
       if (nextCategory !== "all") sp.set("tab", nextCategory);
-      if (focusNotificationId) sp.set("notificationId", focusNotificationId);
       const q = sp.toString();
       router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
     },
-    [focusNotificationId, router, variant]
-  );
-
-  const selectReadFilter = useCallback(
-    (key: NotificationInboxTabKey) => {
-      const next = parseReadFilter(key);
-      setReadFilter(next);
-      replaceCenterUrl(next, categoryFilter);
-    },
-    [categoryFilter, replaceCenterUrl]
+    [router, variant]
   );
 
   const selectCategoryFilter = useCallback(
     (key: NotificationInboxTabKey) => {
       const next = parseCategoryTab(key);
       setCategoryFilter(next);
-      replaceCenterUrl(readFilter, next);
+      replaceCenterUrl(next);
     },
-    [readFilter, replaceCenterUrl]
+    [replaceCenterUrl]
   );
 
   const refreshTabCounts = useCallback(async (forceFetch = false) => {
@@ -236,7 +201,7 @@ export function MyNotificationsView({
 
   useEffect(() => {
     setSelectedKeys(new Set());
-  }, [readFilter, categoryFilter]);
+  }, [categoryFilter]);
 
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
@@ -467,40 +432,14 @@ export function MyNotificationsView({
 
   const visibleRows = useMemo(() => {
     return rows.filter((r) => {
-      const unread = r.is_read !== true;
-      if (readFilter === "unread" && !unread) return false;
-      if (readFilter === "read" && unread) return false;
       if (categoryFilter !== "all" && !matchesNotificationCenterMemberTab(r, categoryFilter)) {
         return false;
       }
       return true;
     });
-  }, [categoryFilter, readFilter, rows]);
+  }, [categoryFilter, rows]);
 
   const grouped = useMemo(() => buildInboxGroupItems(visibleRows, language), [language, visibleRows]);
-
-  const focusOpenedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (variant !== "notification_center") return;
-    if (!focusNotificationId || !onOpenDetail || loading) return;
-    if (focusOpenedRef.current === focusNotificationId) return;
-    const hit = grouped.find((g) => g.ids.includes(focusNotificationId));
-    if (!hit) return;
-    if (
-      !isAdminNoticeOrSystemInboxItem({
-        notification_type: hit.notification_type,
-        push_kind: hit.push_kind,
-        bell_presentation_type: hit.bell_presentation_type,
-        event_type: hit.event_type,
-        campaign_type: hit.campaign_type,
-        meta: hit.meta,
-      })
-    ) {
-      return;
-    }
-    focusOpenedRef.current = focusNotificationId;
-    onOpenDetail(focusNotificationId);
-  }, [focusNotificationId, grouped, loading, onOpenDetail, variant]);
 
   const toggleSelectItem = useCallback((item: InboxGroupItem) => {
     setSelectedKeys((prev) => {
@@ -603,43 +542,11 @@ export function MyNotificationsView({
   }, [pendingDelete, t]);
 
   const onActivate = (item: InboxGroupItem) => {
-    void (async () => {
-      prewarmInboxNotificationChatHref(router, item.href);
-      if (item.unreadCount > 0) {
-        const ok = await markIdsRead(item.ids);
-        if (!ok) return;
-      }
-      const primaryId = item.ids[0] ?? "";
-      if (
-        variant === "notification_center" &&
-        primaryId &&
-        onOpenDetail &&
-        isAdminNoticeOrSystemInboxItem({
-          notification_type: item.notification_type,
-          push_kind: item.push_kind,
-          bell_presentation_type: item.bell_presentation_type,
-          event_type: item.event_type,
-          campaign_type: item.campaign_type,
-          meta: item.meta,
-        })
-      ) {
-        if (item.href.includes("/notifications/notes/")) {
-          try {
-            router.push(item.href);
-          } catch {
-            /* read committed */
-          }
-          return;
-        }
-        onOpenDetail(primaryId);
-        return;
-      }
-      try {
-        router.push(item.href);
-      } catch {
-        /* read state already committed */
-      }
-    })();
+    prewarmInboxNotificationChatHref(router, item.href);
+    pushNotificationDestination(router, item.href);
+    if (item.unreadCount > 0) {
+      void markIdsRead(item.ids);
+    }
   };
 
   const onItemWarm = (item: InboxGroupItem) => {
@@ -688,24 +595,15 @@ export function MyNotificationsView({
     <div className="space-y-2">
       <div className="sticky top-0 z-10 -mx-1 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
         <NotificationInboxTabBar
-          chips={readFilterChips}
-          active={readFilter}
+          chips={categoryChips}
+          active={categoryFilter}
           counts={tabCounts}
-          onSelect={selectReadFilter}
+          onSelect={selectCategoryFilter}
         />
-        <div className="mt-1.5">
-          <NotificationInboxTabBar
-            chips={categoryChips}
-            active={categoryFilter}
-            counts={tabCounts}
-            onSelect={selectCategoryFilter}
-            compact
-          />
-        </div>
         {variant === "notification_center" ? (
           <div className="mt-2 flex justify-end px-0.5">
             <Link
-              href="/notifications/notes"
+              href="/mypage/inquiries"
               className="text-[12px] font-medium text-signature underline-offset-2 hover:underline"
             >
               {t("notif_admin_notes_entry")}
@@ -831,10 +729,10 @@ export function MyNotificationsView({
         }
         deleteBusyKey={deleteBusyKey}
         emptyLabel={
-          categoryFilter === "marketing"
-            ? t("notif_marketing_empty")
+          categoryFilter !== "all"
+            ? t("notif_category_empty")
             : variant === "notification_center"
-              ? `${t("notif_center_empty_title")} ${t("notif_center_empty_body")}`
+              ? t("notif_full_inbox_empty")
               : t("common_notifications_empty")
         }
       />

@@ -15,23 +15,21 @@ import { isMemberNotificationAUnread } from "@/lib/notifications/badge-authority
 const root = process.cwd();
 
 describe("Gate3 Step8 Notification Center UI contract", () => {
-  it("Bell click opens inbox modal; see-all and tabs go to /notifications", () => {
+  it("Bell click opens unread-only modal; see-all goes to /notifications", () => {
     const src = fs.readFileSync(
       path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
       "utf8"
     );
     expect(src.includes("setOpen((v) => !v)")).toBe(true);
     expect(src.includes("openNotificationsCenter")).toBe(true);
-    expect(src.includes("/notifications?")).toBe(true);
-    expect(src.includes("filter")).toBe(true);
-    expect(src.includes("unread")).toBe(true);
+    expect(src.includes('pushNotificationDestination(router, "/notifications")')).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
+    expect(src.includes("showSequenceIndex")).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
-    expect(src.includes("compact")).toBe(true);
-    expect(src.includes("NotificationInboxTabBar")).toBe(true);
-    expect(src.includes("modalTabCounts")).toBe(true);
+    expect(src.includes("NotificationInboxTabBar")).toBe(false);
+    expect(src.includes("modalTabCounts")).toBe(false);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
   });
@@ -61,8 +59,9 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
-    expect(view.includes('key: "unread"')).toBe(true);
-    expect(view.includes("notif_filter_unread")).toBe(true);
+    expect(view.includes("notif_filter_unread")).toBe(false);
+    expect(view.includes('key: "unread"')).toBe(false);
+    expect(view.includes('key: "trade"')).toBe(true);
     expect(view.includes('key: "store"')).toBe(false);
     const actions = fs.readFileSync(
       path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),
@@ -94,14 +93,16 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(page.includes("MyNotificationsView")).toBe(true);
     expect(page.includes('variant="notification_center"')).toBe(true);
+    expect(page.includes("onOpenDetail")).toBe(false);
     const view = fs.readFileSync(
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
     expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
-    expect(view.includes("notif_filter_unread")).toBe(true);
+    expect(view.includes("pushNotificationDestination")).toBe(true);
     expect(view.includes("NotificationInboxTabBar")).toBe(true);
     expect(view.includes("tabCounts")).toBe(true);
+    expect(view.includes("isAdminNoticeOrSystemInboxItem")).toBe(false);
     expect(view.includes('"chat"')).toBe(false);
   });
 
@@ -293,18 +294,18 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(dismissBody.includes("unread: false")).toBe(false);
   });
 
-  it("NC tab bar never badges all/read; unread digit only for action tabs", () => {
+  it("NC tab bar badges 전체 + category unread; never badges 읽음", () => {
     const tabUnread = fs.readFileSync(
       path.join(root, "lib/notifications/notification-center-tab-unread.ts"),
       "utf8"
     );
-    expect(tabUnread.includes("all: 0")).toBe(true);
+    expect(tabUnread.includes("all: totalUnread")).toBe(true);
     expect(tabUnread.includes("read: 0")).toBe(true);
     const bar = fs.readFileSync(
       path.join(root, "components/notifications/NotificationInboxTabBar.tsx"),
       "utf8"
     );
-    expect(bar.includes('key !== "all" && key !== "read"')).toBe(true);
+    expect(bar.includes('key !== "read" && count > 0')).toBe(true);
   });
 
   it("delete-all targets current member A list items via soft dismiss bridge", () => {

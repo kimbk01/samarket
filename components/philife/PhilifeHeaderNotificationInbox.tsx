@@ -73,6 +73,7 @@ import {
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
+import { pushNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
 import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
@@ -97,14 +98,6 @@ import {
   hasOwnerBellOperationRows,
   OwnerBellOperationSummary,
 } from "@/components/notifications/OwnerBellOperationSummary";
-import {
-  NotificationInboxTabBar,
-  type NotificationInboxTabKey,
-} from "@/components/notifications/NotificationInboxTabBar";
-import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
-import {
-  buildNotificationCenterTabUnreadCounts,
-} from "@/lib/notifications/notification-center-tab-unread";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 
@@ -352,15 +345,12 @@ export function PhilifeHeaderNotificationInbox({
 
   const [soundLoaded, setSoundLoaded] = useState(false);
 
-  /** Bell modal triage tab — Member A tabs + optional store (O). */
-  const [modalTab, setModalTab] = useState<NotificationInboxTabKey>("all");
-
   const grouped = useMemo(
     () => buildInboxGroupItems(rows, language, priorityPushKind),
     [rows, language, priorityPushKind]
   );
 
-  /** Bell sheet: badge-bearing (unread) rows only — detail lives on /notifications. */
+  /** Bell sheet: unread-only quick inbox — full history lives on /notifications. */
   const unreadPreviewItems = useMemo(
     () => grouped.filter((item) => item.unreadCount > 0),
     [grouped]
@@ -368,61 +358,13 @@ export function PhilifeHeaderNotificationInbox({
 
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(ownerStore != null);
-  const storeAttention =
-    Math.max(0, Math.floor(Number(ownerHub.orderAttention) || 0)) +
-    Math.max(0, Math.floor(Number(ownerHub.inquiryAttention) || 0));
   const hasOPreview = hasOwnerBellOperationRows({
     hasOwnerStore: ownerStore != null,
     orderAttention: ownerHub.orderAttention,
     inquiryAttention: ownerHub.inquiryAttention,
   });
 
-  const modalTabChips = useMemo(() => {
-    const base: { key: NotificationInboxTabKey; label: string }[] = [
-      { key: "all", label: t("notif_filter_all") },
-      { key: "unread", label: t("notif_filter_unread") },
-      { key: "trade", label: t("notif_filter_trade") },
-      { key: "community", label: t("notif_filter_community") },
-      { key: "delivery", label: t("notif_filter_delivery") },
-      { key: "cs", label: t("notif_filter_cs") },
-      { key: "system", label: t("notif_filter_system") },
-    ];
-    return base;
-  }, [t]);
-
-  const modalTabCounts = useMemo(
-    () =>
-      buildNotificationCenterTabUnreadCounts({
-        memberRows: rows.filter((r) => r.is_read !== true),
-      }),
-    [rows]
-  );
-
-  const tabFilteredUnreadItems = useMemo(() => {
-    if (modalTab === "all" || modalTab === "unread" || modalTab === "read") return unreadPreviewItems;
-    const allowIds = new Set(
-      rows
-        .filter((r) => r.is_read !== true)
-        .filter((r) =>
-          matchesNotificationCenterMemberTab(
-            {
-              push_kind: r.push_kind,
-              notification_type: r.notification_type,
-              bell_presentation_type: r.bell_presentation_type,
-            },
-            modalTab
-          )
-        )
-        .map((r) => r.id)
-    );
-    return unreadPreviewItems.filter((item) => item.ids.some((id) => allowIds.has(id)));
-  }, [modalTab, unreadPreviewItems, rows]);
-
-  const hasNPreview = tabFilteredUnreadItems.length > 0;
-
-  useEffect(() => {
-    if (!open) setModalTab("all");
-  }, [open]);
+  const hasNPreview = unreadPreviewItems.length > 0;
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
@@ -485,14 +427,9 @@ export function PhilifeHeaderNotificationInbox({
   }, []);
 
   const openNotificationsCenter = useCallback(
-    (tab: NotificationInboxTabKey = "all") => {
+    () => {
       closePanel();
-      const sp = new URLSearchParams();
-      sp.set("filter", "unread");
-      if (tab !== "all" && tab !== "unread" && tab !== "read") {
-        sp.set("tab", tab);
-      }
-      router.push(`/notifications?${sp.toString()}`);
+      pushNotificationDestination(router, "/notifications");
     },
     [closePanel, router]
   );
@@ -852,17 +789,13 @@ export function PhilifeHeaderNotificationInbox({
 
   const onActivate = async (item: InboxGroupItem) => {
     suppressCmRoomEntryNotificationSound(item.href);
-    if (item.unreadCount > 0) {
-      await markIdsRead(item.ids);
-    }
-
-    prewarmInboxNotificationChatHref(router, item.href);
-
     closePanel();
-
+    prewarmInboxNotificationChatHref(router, item.href);
+    pushNotificationDestination(router, item.href);
+    if (item.unreadCount > 0) {
+      void markIdsRead(item.ids);
+    }
     invalidateMeNotificationsListDedupedCache();
-
-    router.push(item.href);
   };
 
 
@@ -1145,21 +1078,12 @@ export function PhilifeHeaderNotificationInbox({
 
 
               <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${APP_MAIN_GUTTER_X_CLASS}`}>
-                <div className="shrink-0 border-b border-sam-border/60 bg-sam-surface px-0 py-2">
-                  <NotificationInboxTabBar
-                    chips={modalTabChips}
-                    active={modalTab}
-                    counts={modalTabCounts}
-                    onSelect={setModalTab}
-                    compact
-                  />
-                </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2">
                 {showListLoading ? (
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
                 ) : (
                   <>
-                    {modalTab === "all" && hasOPreview ? (
+                    {hasOPreview ? (
                       <OwnerBellOperationSummary
                         onNavigate={closePanel}
                         compact
@@ -1168,14 +1092,15 @@ export function PhilifeHeaderNotificationInbox({
                     ) : null}
                     {hasNPreview ? (
                       <InboxGroupCardList
-                        items={tabFilteredUnreadItems}
+                        items={unreadPreviewItems}
                         summaryOnly
+                        showSequenceIndex
                         emptyLabel={t("notif_tier1_empty")}
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                       />
                     ) : null}
-                    {!hasNPreview && !(modalTab === "all" && hasOPreview) ? (
+                    {!hasNPreview && !hasOPreview ? (
                       <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
                         {totalUnread > 0 && unreadPreviewItems.length === 0
                           ? t("notif_tier1_empty_with_digit_hint")
@@ -1219,9 +1144,7 @@ export function PhilifeHeaderNotificationInbox({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    openNotificationsCenter(modalTab)
-                  }
+                  onClick={() => openNotificationsCenter()}
                   className="ml-auto shrink-0 text-[14px] font-semibold text-sam-primary underline-offset-2 hover:underline"
                 >
                   {t("notif_tier1_see_all")}

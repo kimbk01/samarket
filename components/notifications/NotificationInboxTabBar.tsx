@@ -49,8 +49,8 @@ export function NotificationInboxTabBar({
         {chips.map(({ key, label }) => {
           const selected = active === key;
           const count = counts[key] ?? 0;
-          // CONTRACT: Badge digit only for action tabs (unread + category). Never 전체/읽음.
-          const showBadge = key !== "all" && key !== "read" && count > 0;
+          // CONTRACT: unread digit on 전체 + category. Never badge 읽음.
+          const showBadge = key !== "read" && count > 0;
           return (
             <button
               key={key}

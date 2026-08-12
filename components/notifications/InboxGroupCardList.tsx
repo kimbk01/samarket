@@ -1,15 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
-import { resolveNotificationDestinationHint } from "@/lib/notifications/notification-destination-hint";
 import { TRADE_HUB_LIST_ITEM_CARD_CLASS } from "@/lib/ui/app-content-layout";
 
 const CHAT_UNREAD_BADGE =
-  "inline-flex min-w-[1.125rem] shrink-0 items-center justify-center rounded-md bg-violet-500/15 px-1 py-0.5 text-[10px] font-bold leading-none text-violet-800";
+  "inline-flex min-w-[1.125rem] items-center justify-center rounded-md bg-violet-500/15 px-1 py-0.5 text-[10px] font-bold leading-none text-violet-800";
 const ORDER_STATUS_CHIP =
   "inline-flex shrink-0 items-center rounded-md bg-[color:var(--delivery-primary,#0B421A)]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-[color:var(--delivery-primary,#0B421A)]";
 const SURFACE_BADGE =
@@ -28,10 +27,15 @@ type Props = {
   /** 필라이프 드롭다운 — 살짝 촘촘 */
   compact?: boolean;
   /**
-   * Bell preview sheet — 「어디에 무엇이」만 (카테고리 뱃지 + 짧은 제목).
-   * 본문·주문 디테일·긴 메타는 전체 알림에서만 표시.
+   * Bell unread quick inbox — sequence + category + title + summary + time.
+   * Full inbox shows history cards (no destination-hint CTA).
    */
   summaryOnly?: boolean;
+  /**
+   * When `summaryOnly`, show presentation index 1..N (not DB id).
+   * Index is 1-based position in `items`.
+   */
+  showSequenceIndex?: boolean;
   /** 비어 있을 때 */
   emptyLabel: string;
   /** Notification Center — multi-select with checkbox controls */
@@ -53,6 +57,7 @@ export function InboxGroupCardList({
   deleteBusyKey,
   compact,
   summaryOnly = false,
+  showSequenceIndex = false,
   emptyLabel,
   selectionMode = false,
   selectedKeys,
@@ -67,7 +72,7 @@ export function InboxGroupCardList({
   const hideDelete = summaryOnly || !onDelete || selectionMode;
   return (
     <ul className={`min-w-0 ${summaryOnly ? "space-y-1" : "space-y-2"}`}>
-      {items.map((item) => {
+      {items.map((item, index) => {
         const kind = item.kindLabel;
         const hasUnread = item.unreadCount > 0;
         const isChat = item.notification_type === "chat";
@@ -75,18 +80,26 @@ export function InboxGroupCardList({
         const orderMetaLine =
           !summaryOnly && isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
         const showBody =
-          !summaryOnly && item.body && !(isOrderGroup && item.body === item.displayTitle);
-        const destinationHint = !summaryOnly
-          ? resolveNotificationDestinationHint(item.href, language)
-          : null;
+          Boolean(item.body) &&
+          !(isOrderGroup && item.body === item.displayTitle) &&
+          (summaryOnly || !isOrderGroup || Boolean(item.body));
+        const summaryBody =
+          summaryOnly && item.body && item.body !== item.displayTitle ? item.body : null;
         const deleting = deleteBusyKey === item.key;
         const selected = selectionMode && (selectedKeys?.has(item.key) ?? false);
-        const unreadBadge =
-          hasUnread && item.unreadCount > 1
-            ? item.unreadCount > 99
-              ? "99+"
-              : String(item.unreadCount)
+        const sequenceLabel =
+          showSequenceIndex && summaryOnly
+            ? String(index + 1).padStart(2, "0")
             : null;
+        const timeLabel = new Date(item.created_at).toLocaleString(
+          language === "ko" ? "ko-KR" : "en-US",
+          {
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        );
         return (
           <li key={item.key}>
             <div
@@ -94,7 +107,9 @@ export function InboxGroupCardList({
                 summaryOnly
                   ? "min-w-0 rounded-ui-rect hover:bg-sam-muted/10 active:bg-sam-muted/15"
                   : TRADE_HUB_LIST_ITEM_CARD_CLASS
-              } ${selected ? "ring-1 ring-signature/40" : ""}`}
+              } ${selected ? "ring-1 ring-signature/40" : ""} ${
+                !summaryOnly && hasUnread ? "bg-sam-surface" : ""
+              } ${!summaryOnly && !hasUnread ? "opacity-90" : ""}`}
             >
               {selectionMode ? (
                 <button
@@ -128,6 +143,14 @@ export function InboxGroupCardList({
                   </span>
                 </button>
               ) : null}
+              {sequenceLabel ? (
+                <div
+                  className={`flex shrink-0 items-start justify-center pt-2.5 tabular-nums text-[11px] font-bold leading-none text-sam-muted ${railPad}`}
+                  aria-hidden
+                >
+                  {sequenceLabel}
+                </div>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
@@ -144,7 +167,7 @@ export function InboxGroupCardList({
                   }}
                   className={`min-w-0 w-full text-left transition active:bg-sam-surface-muted disabled:opacity-60 ${pad}`}
                 >
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight text-sam-meta">
                         <span className={SURFACE_BADGE} title={item.surfaceBadge}>
@@ -166,38 +189,32 @@ export function InboxGroupCardList({
                         </p>
                       ) : null}
                       <p
-                        className={`mt-0.5 break-words font-semibold leading-snug text-sam-fg ${
+                        className={`mt-0.5 break-words leading-snug text-sam-fg ${
                           summaryOnly
-                            ? "line-clamp-1 text-[13px]"
-                            : "line-clamp-2 text-[14px]"
+                            ? "line-clamp-1 text-[13px] font-semibold"
+                            : hasUnread
+                              ? "line-clamp-2 text-[14px] font-semibold"
+                              : "line-clamp-2 text-[14px] font-medium"
                         }`}
                       >
                         {item.displayTitle}
                       </p>
-                      {showBody ? (
+                      {summaryBody ? (
+                        <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-muted">
+                          {summaryBody}
+                        </p>
+                      ) : null}
+                      {!summaryOnly && showBody && item.body ? (
                         <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
                           {item.body}
                         </p>
                       ) : null}
-                      {destinationHint ? (
-                        <p className="mt-1 flex min-w-0 items-center gap-0.5 text-[11px] leading-snug text-sam-meta">
-                          <span className="truncate">{destinationHint}</span>
-                          <ChevronRight
-                            className="h-3.5 w-3.5 shrink-0 opacity-70"
-                            strokeWidth={2}
-                            aria-hidden
-                          />
+                      {summaryOnly ? (
+                        <p className="mt-1 text-[10px] leading-tight text-sam-meta" suppressHydrationWarning>
+                          {timeLabel}
                         </p>
                       ) : null}
                     </div>
-                    {summaryOnly && unreadBadge ? (
-                      <span
-                        className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
-                        title={t("notif_inbox_unread_n", { n: item.unreadCount })}
-                      >
-                        {unreadBadge}
-                      </span>
-                    ) : null}
                     {!summaryOnly && hasUnread && isChat ? (
                       <span
                         className={CHAT_UNREAD_BADGE}
@@ -208,7 +225,7 @@ export function InboxGroupCardList({
                     ) : null}
                     {!summaryOnly && hasUnread && !isChat ? (
                       <span
-                        className="inline-flex h-2 w-2 shrink-0 rounded-full bg-sam-danger"
+                        className="mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full bg-sam-danger"
                         aria-hidden
                       />
                     ) : null}
@@ -232,6 +249,7 @@ export function InboxGroupCardList({
                       title={t("notif_inbox_delete_aria")}
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         void onDelete?.(item);
                       }}
                       className="touch-manipulation flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sam-muted shadow-none outline-none ring-0 [-webkit-tap-highlight-color:transparent] transition hover:bg-sam-surface-muted/80 hover:text-red-600 focus:outline-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-40"
@@ -240,12 +258,7 @@ export function InboxGroupCardList({
                     </button>
                   ) : null}
                   <span className="text-[10px] leading-tight text-sam-meta" suppressHydrationWarning>
-                    {new Date(item.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
-                      month: "numeric",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {timeLabel}
                   </span>
                 </div>
               ) : null}

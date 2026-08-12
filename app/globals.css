@@ -546,6 +546,33 @@ a,
 }
 
 /**
+ * Notification row → canonical destination — bottom→top 440ms (presentation only).
+ * Armed via `armNotificationDestinationEnter` / `data-notif-dest-enter`.
+ */
+@keyframes notif-dest-enter-up-kf {
+  from {
+    transform: translate3d(0, 14px, 0);
+    opacity: 0.92;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+html[data-notif-dest-enter] [data-main-shell-root] {
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation: notif-dest-enter-up-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-notif-dest-enter] [data-main-shell-root] {
+    animation: none;
+  }
+}
+
+/**
  * Duration 단일 정책: forward/back 슬라이드 **440ms**(하단 탭 전환과 동일), subtle 만 150ms.
  * 좌측 메뉴 → 좌→우 push / 우측 메뉴 → 우→좌 push.
  */

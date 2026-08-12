@@ -5,14 +5,14 @@ import { resolveNotificationDestinationHint } from "@/lib/notifications/notifica
 import { buildNotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
 
 describe("notification UX contract bundle (badge / CTA / row hint)", () => {
-  it("all and read tab counts stay 0; unread holds the digit", () => {
+  it("전체 tab carries total unread; read stays 0", () => {
     const counts = buildNotificationCenterTabUnreadCounts({
       memberRows: [
         { is_read: false, notification_type: "status" },
         { is_read: true, notification_type: "status" },
       ],
     });
-    expect(counts.all).toBe(0);
+    expect(counts.all).toBe(1);
     expect(counts.read).toBe(0);
     expect(counts.unread).toBe(1);
   });

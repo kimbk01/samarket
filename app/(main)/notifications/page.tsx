@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useLayoutEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -11,6 +10,11 @@ import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-not
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import {
+  getNotificationBadgeCountServerSnapshot,
+  getNotificationBadgeCountSnapshot,
+  subscribeNotificationBadgeCount,
+} from "@/lib/notifications/notification-badge-count-store";
 
 type SelectionApi = {
   selectAll: () => void;
@@ -27,7 +31,6 @@ type SelectionApi = {
  */
 export default function NotificationsCenterPage() {
   const { t } = useI18n();
-  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +42,16 @@ export default function NotificationsCenterPage() {
   confirmRef.current = confirm;
   const markAllRef = useRef<(() => Promise<void>) | null>(null);
   const selectionApiRef = useRef<SelectionApi | null>(null);
+
+  const badgeSnap = useSyncExternalStore(
+    subscribeNotificationBadgeCount,
+    getNotificationBadgeCountSnapshot,
+    getNotificationBadgeCountServerSnapshot
+  );
+  const headerUnread = useMemo(() => {
+    const n = Math.max(0, Math.floor(Number(badgeSnap?.total) || 0));
+    return n;
+  }, [badgeSnap?.total]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -90,11 +103,24 @@ export default function NotificationsCenterPage() {
     setSelectedCount(api?.selectedCount ?? 0);
   }, []);
 
+  const headerTitle = (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span className="truncate">{t("common_notifications")}</span>
+      {headerUnread > 0 ? (
+        <span
+          className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums"
+          aria-label={t("notif_inbox_unread_n", { n: headerUnread })}
+        >
+          {headerUnread > 99 ? "99+" : headerUnread}
+        </span>
+      ) : null}
+    </span>
+  );
+
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
-        title={t("common_notifications")}
-        subtitle={t("tier1_notifications_subtitle")}
+        title={headerTitle}
         backHref="/"
         hideCtaStrip
         rightSlot={
@@ -195,7 +221,7 @@ export default function NotificationsCenterPage() {
         }
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col px-3 py-3 md:max-w-md lg:max-w-[420px]">
+        <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col px-3 py-3 sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
           <section
             id="notification-inbox"
             className="min-w-0 scroll-mt-4"
@@ -212,9 +238,6 @@ export default function NotificationsCenterPage() {
                 registerSelectionApi={onRegisterSelectionApi}
                 registerMarkAll={(fn) => {
                   markAllRef.current = fn;
-                }}
-                onOpenDetail={(id) => {
-                  router.push(`/notifications/${encodeURIComponent(id)}`);
                 }}
               />
             </Suspense>

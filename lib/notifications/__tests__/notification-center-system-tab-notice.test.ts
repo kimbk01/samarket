@@ -43,7 +43,7 @@ describe("notification center system tab includes admin_notice", () => {
     expect(filtered).toHaveLength(1);
   });
 
-  it("tab unread counts put admin_notice on system; all/read never carry badge digit", () => {
+  it("tab unread counts put admin_notice on system; 전체 carries total unread", () => {
     const counts = buildNotificationCenterTabUnreadCounts({
       memberRows: [
         {
@@ -66,7 +66,7 @@ describe("notification center system tab includes admin_notice", () => {
         },
       ],
     });
-    expect(counts.all).toBe(0);
+    expect(counts.all).toBe(2);
     expect(counts.read).toBe(0);
     expect(counts.unread).toBe(2);
     expect(counts.system).toBe(1);
