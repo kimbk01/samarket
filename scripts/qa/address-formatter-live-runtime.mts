@@ -52,7 +52,7 @@ async function main() {
         process.env.E2E_MEMBER_PASSWORD,
         "DibayQa1!",
         "1234",
-      ].filter(Boolean),
+      ].filter((x): x is string => Boolean(x)),
     ),
   ];
   const sb = createClient(url, anon, { auth: { persistSession: false } });

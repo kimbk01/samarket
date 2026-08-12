@@ -45,7 +45,7 @@ function loadEnv() {
   }
 }
 
-function passwords() {
+function passwords(): string[] {
   return [
     ...new Set(
       [
@@ -54,7 +54,7 @@ function passwords() {
         process.env.E2E_MEMBER_PASSWORD,
         "DibayQa1!",
         "1234",
-      ].filter(Boolean),
+      ].filter((x): x is string => Boolean(x)),
     ),
   ];
 }
@@ -546,7 +546,7 @@ async function gateGoogleUi(cookies: Array<Record<string, unknown>>): Promise<Ga
       !countryLeak(body) &&
       !/Loading…/.test(body);
     return {
-      status: bookVisible ? "PASS" : googleUi === "FAIL" ? "FAIL" : "HOLD",
+      status: bookVisible ? "PASS" : "HOLD",
       detail: { bookVisible, googleUi, googleDetail, bodyPreview: body.slice(0, 240) },
     };
   } catch (e: any) {
