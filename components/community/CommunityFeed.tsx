@@ -52,7 +52,20 @@ import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-f
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
+import {
+  clearAllPhilifeFeedPersistentCaches,
+  clearPhilifeFeedCacheEntry,
+  philifeFeedViewerSig,
+  readPhilifeFeedCache,
+  resolvePhilifeColdBootViewerSig,
+  writePhilifeFeedCache,
+} from "@/lib/community/philife-feed-session-cache";
+import {
+  dedupeNeighborhoodFeedById,
+  mergeNeighborhoodFeedById,
+  patchNeighborhoodFeedRows,
+} from "@/lib/community/neighborhood-feed-row-merge";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import {
   isSameCommunityTopicOptionsAuthority,
   resolveCommunityFeedBootSelection,
@@ -323,106 +336,6 @@ function recordPhilifeCommunityPhase(key: string, ms: number, isInitialPage: boo
   if (!isInitialPage) return;
   philifePerfDiag("phase_before_record", { key, ms, willCallRecordAppWidePhaseLastMs: true });
   recordAppWidePhaseLastMs(key, ms);
-}
-
-function mergeNeighborhoodFeedById(
-  prev: NeighborhoodFeedPostDTO[],
-  incoming: NeighborhoodFeedPostDTO[],
-  append: boolean
-): NeighborhoodFeedPostDTO[] {
-  if (!append) {
-    const seen = new Set<string>();
-    const out: NeighborhoodFeedPostDTO[] = [];
-    for (const p of incoming) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      out.push(p);
-    }
-    return out;
-  }
-  const seen = new Set(prev.map((p) => p.id));
-  const out = [...prev];
-  for (const p of incoming) {
-    if (seen.has(p.id)) continue;
-    seen.add(p.id);
-    out.push(p);
-  }
-  return out;
-}
-
-function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): NeighborhoodFeedPostDTO[] {
-  const seen = new Set<string>();
-  const out: NeighborhoodFeedPostDTO[] = [];
-  for (const p of list) {
-    if (seen.has(p.id)) continue;
-    seen.add(p.id);
-    out.push(p);
-  }
-  return out;
-}
-
-function isSameNeighborhoodFeedRow(
-  a: NeighborhoodFeedPostDTO,
-  b: NeighborhoodFeedPostDTO
-): boolean {
-  const ax = a as NeighborhoodFeedPostDTO & {
-    updated_at?: string;
-    created_at?: string;
-    content?: string;
-  };
-  const bx = b as NeighborhoodFeedPostDTO & {
-    updated_at?: string;
-    created_at?: string;
-    content?: string;
-  };
-  return (
-    ax.id === bx.id &&
-    (ax.updated_at ?? "") === (bx.updated_at ?? "") &&
-    (ax.created_at ?? "") === (bx.created_at ?? "") &&
-    (ax.content ?? "") === (bx.content ?? "")
-  );
-}
-
-function isSameNeighborhoodFeedRows(
-  prev: NeighborhoodFeedPostDTO[],
-  next: NeighborhoodFeedPostDTO[]
-): boolean {
-  if (prev === next) return true;
-  if (prev.length !== next.length) return false;
-  for (let i = 0; i < prev.length; i += 1) {
-    const a = prev[i];
-    const b = next[i];
-    if (!a || !b) return false;
-    if (!isSameNeighborhoodFeedRow(a, b)) return false;
-  }
-  return true;
-}
-
-/**
- * Network/cache 적용 — 동일 row 객체 참조 재사용, 변경분만 새 참조.
- * 전체 동일하면 prev 배열 반환 (setState skip).
- */
-function patchNeighborhoodFeedRows(
-  prev: NeighborhoodFeedPostDTO[],
-  incoming: NeighborhoodFeedPostDTO[]
-): NeighborhoodFeedPostDTO[] {
-  const deduped = mergeNeighborhoodFeedById([], incoming, false);
-  if (isSameNeighborhoodFeedRows(prev, deduped)) return prev;
-  const prevById = new Map(prev.map((p) => [p.id, p]));
-  let reused = 0;
-  const out = deduped.map((row) => {
-    const old = prevById.get(row.id);
-    if (old && isSameNeighborhoodFeedRow(old, row)) {
-      reused += 1;
-      return old;
-    }
-    return row;
-  });
-  if (reused === out.length && out.length === prev.length) {
-    const sameOrder = out.every((row, i) => row === prev[i]);
-    if (sameOrder) return prev;
-  }
-  return out;
 }
 
 export function CommunityFeed({
@@ -1183,6 +1096,19 @@ export function CommunityFeed({
       });
     await Promise.all([fetchPage(0, false, session, false), topicRefresh]);
   }, [category, neighborOnly, viewerSig, feedSort, feedSessionKey, fetchPage]);
+
+  /** Member Identity mutation — drop contaminated author_name snapshots; SWR refetch */
+  useEffect(() => {
+    const onProfileUpdated = () => {
+      clearAllPhilifeFeedPersistentCaches();
+      invalidateNeighborhoodFeedClientShortTtl();
+      feedSessionRef.current += 1;
+      const session = feedSessionRef.current;
+      void fetchPage(0, false, session, false);
+    };
+    window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
+  }, [fetchPage]);
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {

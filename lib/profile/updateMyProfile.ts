@@ -9,6 +9,8 @@ import { patchSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { dispatchProfileUpdated } from "./profile-update-events";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { invalidatePhilifeFeedCachesForMemberIdentityChange } from "@/lib/community/philife-feed-session-cache";
+import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 
 export type UpdateMyProfileResult =
   | { ok: true; warning?: string }
@@ -18,6 +20,8 @@ function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
   const cur = getCurrentUser();
   if (!cur) return;
   const patch: { nickname?: string; display_name?: string | null; avatar_url?: string | null } = {};
+  const identityTouched =
+    payload.display_name !== undefined || payload.nickname !== undefined;
   if (payload.display_name !== undefined) {
     const next = (payload.display_name ?? cur.display_name ?? cur.nickname)?.trim() || cur.nickname;
     patch.display_name = next;
@@ -32,6 +36,10 @@ function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
   }
   if (Object.keys(patch).length > 0) {
     patchSupabaseProfileCache(patch);
+  }
+  if (identityTouched) {
+    invalidatePhilifeFeedCachesForMemberIdentityChange();
+    invalidateNeighborhoodFeedClientShortTtl();
   }
   dispatchProfileUpdated();
 }

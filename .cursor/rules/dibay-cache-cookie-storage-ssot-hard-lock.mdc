@@ -1,0 +1,28 @@
+---
+description: DIBAY Cache/Cookie/Storage SSOT — Community feed stale identity HARD LOCK
+alwaysApply: true
+---
+
+# DIBAY Cache / Cookie / Storage SSOT HARD LOCK
+
+**HARD LOCK (2026-08-13).** Full doc: `docs/dibay-cache-cookie-storage-ssot-hard-lock.md`.
+
+## Principle
+
+`SERVER = AUTHORITY` · `CLIENT CACHE = OPTIMIZATION` only.
+
+## Community feed (incident closed)
+
+- Key: `philife_neighborhood_feed_v4_persistent` (`COMMUNITY_FEED_CACHE_SCHEMA_VERSION = 4`)
+- Envelope: `{ schemaVersion, entries }`
+- Legacy `v3` ignored + removed
+- `patchNeighborhoodFeedRows` **must** treat `author_name` / `author_id` / engagement as mutable
+- Nickname change → `invalidatePhilifeFeedCachesForMemberIdentityChange` + short TTL invalidate
+- Logout / account switch → `clearAllPhilifeFeedPersistentCaches`
+
+## DO NOT
+
+- App-data-delete / reinstall as the fix for stale author labels
+- Restore merge equality without `author_name`
+- Re-enable v3 feed storage as authority
+- Global `localStorage.clear()` for identity convergence
