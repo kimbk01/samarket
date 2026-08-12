@@ -268,7 +268,17 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
 
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
-  /** Phase 2 — board notice SSOT before routeUrl (absolute deeplink can poison routeUrl). */
+  /** Content-bound campaigns: prefer immutable canonical_route from send snapshot/payload. */
+  const canonicalRoute = trimText(payload?.canonical_route);
+  if (canonicalRoute) {
+    return resolveSafeNotificationInternalRoute(canonicalRoute, defaultInboxFallbackHref())!;
+  }
+  const contentId = trimText(payload?.content_id ?? payload?.appNoticeId ?? payload?.app_notice_id);
+  const contentType = trimText(payload?.content_type);
+  if (contentId && (contentType === "notice" || contentType === "system" || contentType === "marketing")) {
+    return `/mypage/customer-center/${contentType}/${encodeURIComponent(contentId)}`;
+  }
+  /** Legacy Bell rows: bridge via /mypage/notices/{id} until cleanup. */
   const appNoticeIdEarly = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
   if (appNoticeIdEarly) {
     return `/mypage/notices/${encodeURIComponent(appNoticeIdEarly)}`;

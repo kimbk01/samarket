@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import {
+  APP_NOTICES_CONTENT_SELECT,
+  customerCenterContentUnavailableFallback,
+  isCustomerCenterContentPublishedNow,
+  parseCustomerCenterContentType,
+  resolveCustomerCenterAuthorLabel,
+} from "@/lib/notices/customer-center-content";
+import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
@@ -9,6 +17,10 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ noticeId: string }> };
 
+/**
+ * Member content detail.
+ * Soft-deleted / ended: safe fallback body (not bare 404) for Bell/Push history.
+ */
 export async function GET(_req: Request, ctx: Ctx) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -26,7 +38,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   const { data: row, error } = await sb
     .from("app_notices")
-    .select("id, title, body, created_at, is_active, starts_at, ends_at")
+    .select(APP_NOTICES_CONTENT_SELECT)
     .eq("id", noticeId)
     .maybeSingle();
 
@@ -36,33 +48,58 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  if (!row || !row.is_active) {
+  if (!row) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const now = Date.now();
-  if (row.starts_at) {
-    const t = Date.parse(String(row.starts_at));
-    if (Number.isFinite(t) && t > now) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
-  }
-  if (row.ends_at) {
-    const t = Date.parse(String(row.ends_at));
-    if (Number.isFinite(t) && t < now) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
+  const id = String(row.id);
+  const contentType = parseCustomerCenterContentType(row.content_type, "notice");
+  const canonicalHref = buildCustomerCenterBoardDetailPath(contentType, id);
+  const href = buildAppNoticeDetailPath(id);
+
+  if (!isCustomerCenterContentPublishedNow(row) || row.deleted_at || row.archived_at) {
+    return NextResponse.json({
+      ok: true,
+      unavailable: true,
+      message: customerCenterContentUnavailableFallback("ko"),
+      messageEn: customerCenterContentUnavailableFallback("en"),
+      notice: {
+        id,
+        contentType,
+        title: String(row.title ?? ""),
+        body: customerCenterContentUnavailableFallback("ko"),
+        heroImageUrl: null,
+        authorLabel: resolveCustomerCenterAuthorLabel({
+          contentType,
+          authorLabel: row.author_label,
+        }),
+        viewCount: Number(row.view_count) || 0,
+        commentEnabled: false,
+        createdAt: String(row.published_at ?? row.created_at ?? ""),
+        href,
+        canonicalHref,
+      },
+    });
   }
 
-  const id = String(row.id);
   return NextResponse.json({
     ok: true,
+    unavailable: false,
     notice: {
       id,
+      contentType,
       title: String(row.title ?? ""),
       body: String(row.body ?? ""),
-      createdAt: String(row.created_at ?? ""),
-      href: buildAppNoticeDetailPath(id),
+      heroImageUrl: row.hero_image_url ? String(row.hero_image_url) : null,
+      authorLabel: resolveCustomerCenterAuthorLabel({
+        contentType,
+        authorLabel: row.author_label,
+      }),
+      viewCount: Number(row.view_count) || 0,
+      commentEnabled: row.comment_enabled !== false,
+      createdAt: String(row.published_at ?? row.created_at ?? ""),
+      href,
+      canonicalHref,
     },
   });
 }

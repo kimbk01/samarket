@@ -177,6 +177,7 @@ export async function POST(req: NextRequest) {
     app_notice_id: body.app_notice_id,
     target_payload: body.target_payload,
     targetPayloadKeyPresent: Object.prototype.hasOwnProperty.call(body, "target_payload"),
+    campaign_type: typ,
   });
   if (!resolvedPayload.ok) {
     return NextResponse.json({ ok: false, error: resolvedPayload.error }, { status: 400 });

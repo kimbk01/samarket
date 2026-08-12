@@ -31,7 +31,7 @@ function newClientIdempotencyKey(): string {
 }
 
 export function AdminNotificationCampaignCreatePage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
@@ -63,6 +63,7 @@ export function AdminNotificationCampaignCreatePage() {
   useEffect(() => {
     const qType = searchParams.get("type");
     if (qType === "notice" || qType === "marketing" || qType === "system") setType(qType);
+    // Optional draft only — never treat query body as Board original authority.
     const qTitle = searchParams.get("title");
     if (qTitle) setTitle(qTitle);
     const qBody = searchParams.get("body");
@@ -442,6 +443,13 @@ export function AdminNotificationCampaignCreatePage() {
             onChange={(e) => setTitle(e.target.value)}
             className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
           />
+          <span className="mt-1 block text-xs text-sam-meta">
+            {safeT("admin_notif_title_soft_guide", {
+              fallbackKo: "권장: 알림 제목 40~50자 이하 (게시판 원본과 별도)",
+              fallbackEn: "Guide: notification title ≤40–50 chars (separate from board original)",
+            })}{" "}
+            · {title.length}
+          </span>
         </label>
 
         <label className="block text-sm">
@@ -452,7 +460,32 @@ export function AdminNotificationCampaignCreatePage() {
             rows={5}
             className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
           />
+          <span className="mt-1 block text-xs text-sam-meta">
+            {safeT("admin_notif_body_soft_guide", {
+              fallbackKo: "권장: 알림 내용 80~120자 이하 · 원본 본문 자동 축약 금지",
+              fallbackEn: "Guide: notification body ≤80–120 chars · never auto-truncate board body",
+            })}{" "}
+            · {body.length}
+          </span>
         </label>
+
+        {appNoticeId.trim() ? (
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {safeT("admin_notif_linked_content_hint", {
+              fallbackKo: `연결 원본(content_id): ${appNoticeId.trim()} — Push/Bell은 짧은 알림 문구, 탭 시 보드 원본으로 이동합니다.`,
+              fallbackEn: `Linked content_id: ${appNoticeId.trim()} — Push/Bell use short copy; tap opens the board original.`,
+            })}
+          </p>
+        ) : (
+          <p className="rounded border border-sam-border bg-sam-muted/10 px-3 py-2 text-xs text-sam-muted">
+            {safeT("admin_notif_content_id_required_hint", {
+              fallbackKo:
+                "notice/system/marketing 캠페인은 고객센터 콘텐츠를 연결하세요(알림 발송 CTA). 순수 transport 예외는 별도 증명 전 금지.",
+              fallbackEn:
+                "Link Customer Center content for notice/system/marketing (via Send notification CTA). Pure-transport exception needs proven callers.",
+            })}
+          </p>
+        )}
 
         <p className="text-xs text-sam-muted">
           {t("admin_notif_sound_policy_readonly")}: {presentation.soundPolicyKey}

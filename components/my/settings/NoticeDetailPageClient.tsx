@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { resolveNoticeListBackHref } from "@/lib/mypage/customer-center-paths";
+import { resolveNoticeListBackHref, withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_READING_COLUMN_CLASS,
@@ -24,8 +24,10 @@ export function NoticeDetailPageClient({ noticeId }: { noticeId: string }) {
 
 function NoticeDetailPageInner({ noticeId }: { noticeId: string }) {
   const { t, language } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const backHref = resolveNoticeListBackHref(searchParams.get("from"));
+  const from = searchParams.get("from");
+  const backHref = resolveNoticeListBackHref(from);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [createdAt, setCreatedAt] = useState("");
@@ -50,12 +52,22 @@ function NoticeDetailPageInner({ noticeId }: { noticeId: string }) {
         );
         const json = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
-          notice?: { title?: string; body?: string; createdAt?: string };
+          notice?: {
+            title?: string;
+            body?: string;
+            createdAt?: string;
+            canonicalHref?: string;
+          };
           error?: string;
         };
         if (cancelled) return;
         if (!res.ok || !json.ok || !json.notice) {
           setError(typeof json.error === "string" ? json.error : t("settings_notices_load_failed"));
+          return;
+        }
+        const canonical = json.notice.canonicalHref?.trim();
+        if (canonical) {
+          router.replace(withCustomerCenterFrom(canonical, from));
           return;
         }
         setTitle(String(json.notice.title ?? ""));
@@ -70,7 +82,7 @@ function NoticeDetailPageInner({ noticeId }: { noticeId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [noticeId, t]);
+  }, [noticeId, t, router, from]);
 
   const dateLabel = (() => {
     const value = new Date(createdAt);

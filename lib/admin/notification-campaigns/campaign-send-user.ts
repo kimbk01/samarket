@@ -88,7 +88,13 @@ export async function sendCampaignToUser(
     appNoticeId:
       typeof campaign.target_payload?.appNoticeId === "string"
         ? campaign.target_payload.appNoticeId
-        : null,
+        : typeof campaign.target_payload?.content_id === "string"
+          ? campaign.target_payload.content_id
+          : null,
+    contentType:
+      typeof campaign.target_payload?.content_type === "string"
+        ? campaign.target_payload.content_type
+        : campaign.type,
   });
   const routeUrl = presentation.routeUrl;
   const inAppImageUrl = presentation.inAppImageUrl;
@@ -283,7 +289,13 @@ export async function sendCampaignToUser(
             appNoticeId:
               typeof campaign.target_payload?.appNoticeId === "string"
                 ? campaign.target_payload.appNoticeId
-                : null,
+                : typeof campaign.target_payload?.content_id === "string"
+                  ? campaign.target_payload.content_id
+                  : null,
+            contentType:
+              typeof campaign.target_payload?.content_type === "string"
+                ? campaign.target_payload.content_type
+                : campaign.type,
           },
           {
             userId,

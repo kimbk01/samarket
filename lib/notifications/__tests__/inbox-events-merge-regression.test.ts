@@ -124,6 +124,24 @@ describe("inbox-events-merge-regression", () => {
     expect(href).toBe("/mypage/notices/notice-1");
   });
 
+  it("Customer Center content bind uses canonical board route", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        type: "admin_marketing_banner",
+        category: "admin_marketing_banner",
+        display_payload: {
+          appNoticeId: "mkt-1",
+          content_id: "mkt-1",
+          content_type: "marketing",
+          canonical_route: "/mypage/customer-center/marketing/mkt-1",
+          routeUrl: "/community",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/mypage/customer-center/marketing/mkt-1");
+  });
+
   it("retires friend request href to inbox fallback (Contact SSOT)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({

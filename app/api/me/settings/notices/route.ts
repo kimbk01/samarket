@@ -1,34 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import {
+  APP_NOTICES_CONTENT_SELECT,
+  isCustomerCenterContentPublishedNow,
+  isCustomerCenterContentType,
+  parseCustomerCenterContentType,
+  resolveCustomerCenterAuthorLabel,
+} from "@/lib/notices/customer-center-content";
+import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isPublishedNow(row: {
-  is_active?: boolean;
-  starts_at?: string | null;
-  ends_at?: string | null;
-}): boolean {
-  if (!row.is_active) return false;
-  const now = Date.now();
-  if (row.starts_at) {
-    const t = Date.parse(String(row.starts_at));
-    if (Number.isFinite(t) && t > now) return false;
-  }
-  if (row.ends_at) {
-    const t = Date.parse(String(row.ends_at));
-    if (Number.isFinite(t) && t < now) return false;
-  }
-  return true;
-}
-
 /**
- * Phase 2 — board SSOT only. Do not merge notification_events (Bell) into CS notice list.
+ * Member board list — Content SSOT only (not Bell merge).
+ * Optional ?content_type=notice|system|marketing
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -37,12 +28,20 @@ export async function GET() {
     return NextResponse.json({ ok: true, notices: [], source: "fallback" });
   }
 
-  const { data: boardRows, error: boardError } = await sb
+  const typeRaw = req.nextUrl.searchParams.get("content_type");
+  let q = sb
     .from("app_notices")
-    .select("id, title, body, created_at, is_active, starts_at, ends_at")
+    .select(APP_NOTICES_CONTENT_SELECT)
     .eq("is_active", true)
+    .is("deleted_at", null)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
+  if (isCustomerCenterContentType(typeRaw)) {
+    q = q.eq("content_type", typeRaw);
+  }
+
+  const { data: boardRows, error: boardError } = await q;
 
   if (boardError) {
     if (isMissingAppNoticesTableError(boardError.message ?? "")) {
@@ -56,17 +55,26 @@ export async function GET() {
 
   const notices = [];
   for (const row of boardRows ?? []) {
-    if (!isPublishedNow(row as { is_active?: boolean; starts_at?: string | null; ends_at?: string | null })) {
-      continue;
-    }
+    if (!isCustomerCenterContentPublishedNow(row)) continue;
     const id = String(row.id ?? "").trim();
     if (!id) continue;
+    const contentType = parseCustomerCenterContentType(row.content_type, "notice");
     notices.push({
       id,
+      contentType,
       title: String(row.title ?? ""),
       body: String(row.body ?? ""),
-      createdAt: String(row.created_at ?? ""),
+      heroImageUrl: row.hero_image_url ? String(row.hero_image_url) : null,
+      authorLabel: resolveCustomerCenterAuthorLabel({
+        contentType,
+        authorLabel: row.author_label,
+      }),
+      viewCount: Number(row.view_count) || 0,
+      commentCount: Number(row.comment_count) || 0,
+      commentEnabled: row.comment_enabled !== false,
+      createdAt: String(row.published_at ?? row.created_at ?? ""),
       href: buildAppNoticeDetailPath(id),
+      canonicalHref: buildCustomerCenterBoardDetailPath(contentType, id),
       source: "board" as const,
     });
   }

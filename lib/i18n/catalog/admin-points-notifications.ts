@@ -27,6 +27,12 @@ export const adminPointsNotificationsMessages = {
     admin_notif_label_status: "상태",
     admin_notif_label_title: "제목",
     admin_notif_label_body: "내용",
+    admin_notif_title_soft_guide: "권장: 알림 제목 40~50자 이하 (게시판 원본과 별도)",
+    admin_notif_body_soft_guide: "권장: 알림 내용 80~120자 이하 · 원본 본문 자동 축약 금지",
+    admin_notif_linked_content_hint:
+      "연결 원본(content_id) — Push/Bell은 짧은 알림 문구, 탭 시 보드 원본으로 이동합니다.",
+    admin_notif_content_id_required_hint:
+      "notice/system/marketing 캠페인은 고객센터 콘텐츠를 연결하세요(알림 발송 CTA). 순수 transport 예외는 별도 증명 전 금지.",
     admin_notif_label_target_url: "이동 URL",
     admin_notif_label_image_url: "이미지 URL",
     admin_notif_label_region_code: "region_code",
@@ -438,6 +444,12 @@ export const adminPointsNotificationsMessages = {
     admin_notif_label_status: "Status",
     admin_notif_label_title: "Title",
     admin_notif_label_body: "Body",
+    admin_notif_title_soft_guide: "Guide: notification title ≤40–50 chars (separate from board original)",
+    admin_notif_body_soft_guide: "Guide: notification body ≤80–120 chars · never auto-truncate board body",
+    admin_notif_linked_content_hint:
+      "Linked content_id — Push/Bell use short copy; tap opens the board original.",
+    admin_notif_content_id_required_hint:
+      "Link Customer Center content for notice/system/marketing (via Send notification CTA). Pure-transport exception needs proven callers.",
     admin_notif_label_target_url: "Target URL",
     admin_notif_label_image_url: "Image URL",
     admin_notif_label_region_code: "region_code",

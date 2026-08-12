@@ -179,6 +179,10 @@ export async function scheduleNextRecurringOccurrence(
     web_url: (row.web_url as string | null) ?? null,
     push_image_url: (row.push_image_url as string | null) ?? null,
     in_app_image_url: (row.in_app_image_url as string | null) ?? null,
+    target_payload:
+      row.target_payload && typeof row.target_payload === "object"
+        ? (row.target_payload as Record<string, unknown>)
+        : null,
   });
 
   const ensured = await ensureCampaignOccurrence(svc, {

@@ -163,6 +163,7 @@ export async function createAdminNotificationCampaign(
     web_url: input.web_url,
     push_image_url: input.push_image_url,
     in_app_image_url: input.in_app_image_url,
+    target_payload: input.target_payload,
   });
 
   let occurrenceId: string | null = null;

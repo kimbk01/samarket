@@ -160,6 +160,11 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
       }) as never
     );
     expect(res.status).toBe(200);
-    expect(inserted[0]?.target_payload).toEqual({ appNoticeId: "n-1" });
+    expect(inserted[0]?.target_payload).toEqual({
+      appNoticeId: "n-1",
+      content_id: "n-1",
+      content_type: "notice",
+      canonical_route: "/mypage/customer-center/notice/n-1",
+    });
   });
 });

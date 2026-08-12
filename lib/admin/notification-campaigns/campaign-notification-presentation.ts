@@ -15,7 +15,7 @@ import type { NotificationEventType } from "@/lib/notifications/core/notificatio
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { getSiteOrigin } from "@/lib/env/runtime";
-import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
+import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer-center-campaign-bind";
 
 export type AdminCampaignPresentationInput = {
   title: string;
@@ -30,8 +30,9 @@ export type AdminCampaignPresentationInput = {
   image_url?: string | null;
   campaignId?: string | null;
   target_type?: string | null;
-  /** Phase 2 — link Bell tap to Customer Center notice detail. */
+  /** Content SSOT id (physical app_notices.id). */
   appNoticeId?: string | null;
+  contentType?: string | null;
 };
 
 export type AdminCampaignNotificationPresentation = {
@@ -97,9 +98,13 @@ export function buildAdminCampaignNotificationPresentation(
   const definition = getNotificationEventDefinition(eventType);
   const category = definition.eventCategory;
   const appNoticeId = input.appNoticeId?.trim() || null;
-  // Phase 2 — board notice SSOT wins over absolute/external deeplink strings.
-  const routeUrl = appNoticeId
-    ? buildAppNoticeDetailPath(appNoticeId)
+  const bind = resolveCustomerCenterCampaignContentBind({
+    contentId: appNoticeId,
+    contentType: input.contentType ?? input.type,
+  });
+  // Content-bound campaigns: Push + Bell share canonical board detail.
+  const routeUrl = bind
+    ? bind.canonical_route
     : resolveCampaignRouteUrl(campaign);
   const pushImageUrl = resolveCampaignPushImageUrl(campaign);
   const inAppImageUrl = resolveCampaignInAppImageUrl(campaign);
@@ -120,7 +125,13 @@ export function buildAdminCampaignNotificationPresentation(
     previewKind: "admin_campaign",
     deeplinkUrl: campaign.deeplink_url,
     webUrl: campaign.web_url,
-    ...(appNoticeId ? { appNoticeId } : {}),
+    ...(appNoticeId ? { appNoticeId, content_id: appNoticeId } : {}),
+    ...(bind
+      ? {
+          content_type: bind.content_type,
+          canonical_route: bind.canonical_route,
+        }
+      : {}),
   };
 
   const eventClass =

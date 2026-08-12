@@ -33,7 +33,7 @@ describe("customer-center paths", () => {
     );
     expect(withCustomerCenterFrom("/mypage/points/charge", null)).toBe("/mypage/points/charge");
     expect(resolveNoticeListBackHref("customer-center")).toBe(
-      "/mypage/section/settings/notices?from=customer-center",
+      "/mypage/customer-center/notice?from=customer-center",
     );
   });
 
@@ -43,13 +43,13 @@ describe("customer-center paths", () => {
     );
   });
 
-  it("wires support section CS row to hub (not stub)", () => {
-    const cs = MYPAGE_HOME_SUPPORT_ITEMS.find(
-      (i) => i.titleKey === "mypage_comp_menu_support_cs_title",
-    );
-    expect(cs?.href).toBe(CUSTOMER_CENTER_HREF);
-    expect(MYPAGE_HOME_SUPPORT_ITEMS.map((i) => i.href)).not.toContain(
-      "/mypage/section/settings/support",
-    );
+  it("wires support section to Customer Center hub only", () => {
+    expect(MYPAGE_HOME_SUPPORT_ITEMS).toEqual([
+      {
+        href: CUSTOMER_CENTER_HREF,
+        titleKey: "mypage_comp_menu_support_cs_title",
+        icon: "help-circle",
+      },
+    ]);
   });
 });

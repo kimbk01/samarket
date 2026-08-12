@@ -1,7 +1,12 @@
-/** Customer Center notice detail path — Bell/Campaign deep link target (Phase 2). */
+import { buildLegacyAppNoticeDetailPath } from "@/lib/notices/customer-center-content-paths";
+
+/**
+ * Legacy Bell/Campaign deep link target.
+ * Canonical PATH boards: buildCustomerCenterBoardDetailPath(contentType, id).
+ * Do not remove until all callers migrate (OWNER bridge rule).
+ */
 export function buildAppNoticeDetailPath(noticeId: string): string {
-  const id = noticeId.trim();
-  return `/mypage/notices/${encodeURIComponent(id)}`;
+  return buildLegacyAppNoticeDetailPath(noticeId);
 }
 
 export function parseAppNoticeIdFromBoardListId(listId: string): string | null {

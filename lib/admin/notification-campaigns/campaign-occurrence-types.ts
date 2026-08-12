@@ -54,6 +54,10 @@ export type CampaignContentSnapshot = {
   push_image_url: string | null;
   in_app_image_url: string | null;
   destination_kind?: "internal" | "external" | "none";
+  /** Customer Center Content bind (immutable at send). */
+  content_id?: string | null;
+  content_type?: string | null;
+  canonical_route?: string | null;
 };
 
 export type CampaignAudienceSnapshot = {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronRight, Headphones, MessageCircle, MessageSquare, Coins, Wallet, Megaphone } from "lucide-react";
+import { ChevronRight, Headphones, MessageCircle, MessageSquare, Coins, Wallet } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
@@ -15,6 +15,8 @@ import {
   CUSTOMER_CENTER_LIST_COLUMN_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_CHEVRON_CLASS,
@@ -26,6 +28,8 @@ import {
   MYPAGE_HOME_SECTION_HEADER_CLASS,
   MYPAGE_HOME_SECTION_LABEL_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
+
+const BOARD_TABS: CustomerCenterContentType[] = ["notice", "system", "marketing"];
 
 type HubEntry = {
   href: string;
@@ -112,13 +116,6 @@ export function CustomerCenterHubClient() {
       titleEn: "Top-up request",
       icon: <Wallet className="h-5 w-5" aria-hidden />,
     },
-    {
-      href: customerCenterChildHref("/mypage/section/settings/notices"),
-      titleKey: "mypage_comp_menu_support_notices_title",
-      titleKo: "공지사항",
-      titleEn: "Announcements",
-      icon: <Megaphone className="h-5 w-5" aria-hidden />,
-    },
   ];
 
   return (
@@ -149,10 +146,36 @@ export function CustomerCenterHubClient() {
             <p className="mt-3 text-[17px] font-semibold leading-snug text-[#1E3932]">{greeting}</p>
             <p className="mt-1 sam-text-helper text-[#6F4E37]">
               {safeT("mypage_cs_hub_greeting_sub", {
-                fallbackKo: "문의·쪽지·D-Point·공지를 한곳에서 확인하세요.",
-                fallbackEn: "Inquiries, inbox, D-Point, and notices in one place.",
+                fallbackKo: "공지·시스템·마케팅과 문의·쪽지·D-Point를 한곳에서 확인하세요.",
+                fallbackEn: "Boards, inquiries, inbox, and D-Point in one place.",
               })}
             </p>
+          </section>
+
+          <section className={`${MYPAGE_HOME_CARD_CLASS} p-3`} data-testid="customer-center-boards">
+            <div className={MYPAGE_HOME_SECTION_HEADER_CLASS}>
+              <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
+                {safeT("mypage_cs_hub_boards_title", {
+                  fallbackKo: "고객센터",
+                  fallbackEn: "Customer Center",
+                })}
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2 px-3 pb-3">
+              {BOARD_TABS.map((type) => {
+                const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
+                return (
+                  <Link
+                    key={type}
+                    href={buildCustomerCenterBoardListPath(type)}
+                    className="flex min-h-11 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-center text-sm font-semibold text-sam-fg transition hover:bg-sam-muted/10"
+                    data-testid={`cc-board-tab-${type}`}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
           </section>
 
           <section className={MYPAGE_HOME_CARD_CLASS}>
@@ -181,8 +204,8 @@ export function CustomerCenterHubClient() {
 
           <p className="px-1 pb-4 text-center text-[11px] text-sam-muted" data-route={CUSTOMER_CENTER_HREF}>
             {safeT("mypage_cs_hub_footnote", {
-              fallbackKo: "각 항목은 기존 화면으로 이동합니다.",
-              fallbackEn: "Each item opens the existing screen.",
+              fallbackKo: "게시판은 고객센터 보드로, 바로가기는 기존 화면으로 이동합니다.",
+              fallbackEn: "Boards open Customer Center; shortcuts open existing screens.",
             })}
           </p>
         </div>

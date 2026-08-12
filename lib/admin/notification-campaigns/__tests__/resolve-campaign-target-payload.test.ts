@@ -39,17 +39,37 @@ describe("resolveCampaignTargetPayload", () => {
     ).toBe(false);
   });
 
-  it("maps app_notice_id to { appNoticeId } over omitted payload", () => {
-    const res = resolveCampaignTargetPayload({ app_notice_id: "  notice-9  " });
-    expect(res).toEqual({ ok: true, target_payload: { appNoticeId: "notice-9" } });
+  it("maps app_notice_id to content bind payload", () => {
+    const res = resolveCampaignTargetPayload({
+      app_notice_id: "  notice-9  ",
+      campaign_type: "marketing",
+    });
+    expect(res).toEqual({
+      ok: true,
+      target_payload: {
+        appNoticeId: "notice-9",
+        content_id: "notice-9",
+        content_type: "marketing",
+        canonical_route: "/mypage/customer-center/marketing/notice-9",
+      },
+    });
   });
 
   it("prefers app_notice_id when both provided", () => {
     const res = resolveCampaignTargetPayload({
       app_notice_id: "from-notice",
+      campaign_type: "notice",
       target_payload: { appNoticeId: "from-payload" },
       targetPayloadKeyPresent: true,
     });
-    expect(res).toEqual({ ok: true, target_payload: { appNoticeId: "from-notice" } });
+    expect(res).toEqual({
+      ok: true,
+      target_payload: {
+        appNoticeId: "from-notice",
+        content_id: "from-notice",
+        content_type: "notice",
+        canonical_route: "/mypage/customer-center/notice/from-notice",
+      },
+    });
   });
 });

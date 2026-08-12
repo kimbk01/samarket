@@ -13,6 +13,7 @@ type NoticeItem = {
   body: string;
   createdAt: string;
   href?: string;
+  canonicalHref?: string;
   source?: "board";
 };
 
@@ -84,7 +85,7 @@ export function NoticesContent() {
   return (
     <ul className="divide-y divide-sam-border-soft">
       {notices.map((n) => {
-        const base = n.href?.trim() || `/mypage/notices/${encodeURIComponent(n.id)}`;
+        const base = n.canonicalHref?.trim() || n.href?.trim() || `/mypage/notices/${encodeURIComponent(n.id)}`;
         const href = withCustomerCenterFrom(base, from);
         return (
           <li key={n.id} className="py-3">

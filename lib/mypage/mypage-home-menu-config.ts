@@ -176,28 +176,14 @@ export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
 ];
 
 /**
- * Support — notices → CS → inquiries → inbox (policy split out).
+ * Support — Customer Center hub only (boards + shortcuts live inside hub).
+ * Legacy notices / inquiries / inbox flat rows removed after CS cutover.
  */
 export const MYPAGE_HOME_SUPPORT_ITEMS: MypageHomeLinkMenuItem[] = [
-  {
-    href: "/mypage/section/settings/notices",
-    titleKey: "mypage_comp_menu_support_notices_title",
-    icon: "book-open",
-  },
   {
     href: "/mypage/customer-center",
     titleKey: "mypage_comp_menu_support_cs_title",
     icon: "help-circle",
-  },
-  {
-    href: "/mypage/inquiries",
-    titleKey: "mypage_comp_menu_support_inquiries_title",
-    icon: "message-square",
-  },
-  {
-    href: "/mypage/inbox",
-    titleKey: "mypage_comp_menu_support_inbox_title",
-    icon: "message-circle",
   },
 ];
 

@@ -30,7 +30,7 @@ export function withCustomerCenterFrom(
   return customerCenterChildHref(path);
 }
 
-/** Notice detail back → notices list (preserves hub when entered from CS). */
+/** Notice detail back → notice board list (legacy list still bridged). */
 export function resolveNoticeListBackHref(from: string | null | undefined): string {
-  return withCustomerCenterFrom("/mypage/section/settings/notices", from);
+  return withCustomerCenterFrom("/mypage/customer-center/notice", from);
 }
