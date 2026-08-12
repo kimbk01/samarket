@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextResponse } from "next/server";
 
 const requireAdminApiUser = vi.fn();
 const tryCreateSupabaseServiceClient = vi.fn();
 const ensureCampaignTargetsForSelectedUsers = vi.fn();
+const previewCampaignAudience = vi.fn();
+const ensureCampaignOccurrence = vi.fn();
 
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: () => requireAdminApiUser(),
@@ -18,13 +19,50 @@ vi.mock("@/lib/admin/notification-campaigns/run-campaign-send-batch", () => ({
     ensureCampaignTargetsForSelectedUsers(...args),
 }));
 
+vi.mock("@/lib/admin/notification-campaigns/campaign-audience-preview", () => ({
+  previewCampaignAudience: (...args: unknown[]) => previewCampaignAudience(...args),
+}));
+
+vi.mock("@/lib/admin/notification-campaigns/campaign-occurrence-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/admin/notification-campaigns/campaign-occurrence-service")
+  >("@/lib/admin/notification-campaigns/campaign-occurrence-service");
+  return {
+    ...actual,
+    ensureCampaignOccurrence: (...args: unknown[]) => ensureCampaignOccurrence(...args),
+  };
+});
+
 describe("POST /api/admin/notification-campaigns target_payload contract", () => {
   beforeEach(() => {
     vi.resetModules();
     requireAdminApiUser.mockReset();
     tryCreateSupabaseServiceClient.mockReset();
     ensureCampaignTargetsForSelectedUsers.mockReset();
+    previewCampaignAudience.mockReset();
+    ensureCampaignOccurrence.mockReset();
     requireAdminApiUser.mockResolvedValue({ ok: true, userId: "admin-1" });
+    previewCampaignAudience.mockResolvedValue({
+      totalUsers: 0,
+      eligibleUsers: 0,
+      pushEligibleUsers: 0,
+      inAppEligibleUsers: 0,
+      activeDevices: 0,
+      androidDevices: 0,
+      iosDevices: 0,
+      webDevices: 0,
+      excludedNoDevice: 0,
+      excludedOptOut: 0,
+      excludedInvalidTarget: 0,
+      truncated: false,
+      segmentUnsupported: false,
+    });
+    ensureCampaignOccurrence.mockResolvedValue({
+      ok: true,
+      occurrence: { id: "occ-1" },
+      created: true,
+    });
+    ensureCampaignTargetsForSelectedUsers.mockResolvedValue(undefined);
   });
 
   function mockInsertCapture() {

@@ -14,7 +14,7 @@ describe("engine shadow must not become live writer", () => {
 });
 
 describe("segment target must not fallback to all", () => {
-  it("batch and cron block segment", () => {
+  it("batch and create block segment; cron drains batch SSOT only", () => {
     const batch = readFileSync(
       join(process.cwd(), "lib/admin/notification-campaigns/run-campaign-send-batch.ts"),
       "utf8"
@@ -27,9 +27,12 @@ describe("segment target must not fallback to all", () => {
       join(process.cwd(), "app/api/admin/notification-campaigns/route.ts"),
       "utf8"
     );
+    // Segment gate lives on create + batch SSOT. Cron claims occurrences then drains batch.
     expect(batch).toContain("segment_unsupported");
-    expect(cron).toContain("segment_unsupported");
     expect(createApi).toContain("segment_unsupported");
+    expect(cron).toContain("drainNotificationCampaignSendBatches");
+    expect(cron).not.toMatch(/target_type\s*===\s*["']all["']/);
     expect(batch).not.toMatch(/segment.*all/);
   });
 });
+
