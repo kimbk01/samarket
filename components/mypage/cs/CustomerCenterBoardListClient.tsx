@@ -9,7 +9,6 @@ import {
   BOARD_LABEL,
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
-import { customerCenterPlainExcerpt } from "@/lib/notices/customer-center-safe-markdown";
 import {
   buildCustomerCenterBoardDetailPath,
   CUSTOMER_CENTER_HUB_HREF,
@@ -132,8 +131,8 @@ export function CustomerCenterBoardListClient({
                   <li key={n.id}>
                     <Link href={href} className="block px-4 py-3 transition hover:bg-sam-muted/10">
                       <p className="break-words font-medium text-sam-fg">{n.title}</p>
-                      <p className="mt-1 line-clamp-2 break-words text-sm text-sam-muted">
-                        {customerCenterPlainExcerpt(n.body)}
+                      <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-sam-muted">
+                        {n.body}
                       </p>
                       <p className="mt-1 text-xs text-sam-meta">
                         {[

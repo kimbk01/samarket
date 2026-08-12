@@ -59,11 +59,6 @@ export function AdminNotificationCampaignCreatePage() {
   const [recurrenceStartAt, setRecurrenceStartAt] = useState("");
   const [recurrenceEndAt, setRecurrenceEndAt] = useState("");
   const [audience, setAudience] = useState<CampaignAudiencePreview | null>(null);
-  const [linkedContent, setLinkedContent] = useState<{
-    title: string;
-    hero_image_url: string | null;
-    content_type: string;
-  } | null>(null);
 
   useEffect(() => {
     const qType = searchParams.get("type");
@@ -78,42 +73,6 @@ export function AdminNotificationCampaignCreatePage() {
     const qNotice = searchParams.get("appNoticeId");
     if (qNotice) setAppNoticeId(qNotice);
   }, [searchParams]);
-
-  useEffect(() => {
-    const id = appNoticeId.trim();
-    if (!id) {
-      setLinkedContent(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(id)}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const j = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          notice?: { title?: string; hero_image_url?: string | null; content_type?: string };
-        };
-        if (cancelled) return;
-        if (res.ok && j.ok && j.notice) {
-          setLinkedContent({
-            title: String(j.notice.title ?? ""),
-            hero_image_url: j.notice.hero_image_url ? String(j.notice.hero_image_url) : null,
-            content_type: String(j.notice.content_type ?? type),
-          });
-        } else {
-          setLinkedContent(null);
-        }
-      } catch {
-        if (!cancelled) setLinkedContent(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [appNoticeId, type]);
 
   const presentation = useMemo(
     () =>
@@ -412,48 +371,7 @@ export function AdminNotificationCampaignCreatePage() {
 
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
 
-      {/* SECTION A — linked Content */}
-      <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_notif_section_linked_content", {
-            fallbackKo: "연결된 원본 콘텐츠",
-            fallbackEn: "Linked original content",
-          })}
-        </h2>
-        {appNoticeId.trim() && linkedContent ? (
-          <div className="flex gap-3">
-            {linkedContent.hero_image_url ? (
-              <SamarketThumbnail
-                src={linkedContent.hero_image_url}
-                alt=""
-                className="h-16 w-16 shrink-0 rounded-ui-rect object-cover"
-                size={64}
-              />
-            ) : null}
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs text-sam-meta">{linkedContent.content_type}</p>
-              <p className="truncate text-sm font-medium text-sam-fg">{linkedContent.title}</p>
-              <p className="text-xs text-sam-muted">content_id: {appNoticeId.trim()}</p>
-              {deeplinkUrl ? (
-                <Link href={deeplinkUrl} className="text-xs text-signature hover:underline" target="_blank">
-                  {safeT("admin_notif_btn_view_original", {
-                    fallbackKo: "원본 보기",
-                    fallbackEn: "View original",
-                  })}
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-sam-muted">
-            {safeT("admin_notif_content_id_required_hint", {
-              fallbackKo:
-                "notice/system/marketing 캠페인은 고객센터 콘텐츠를 연결하세요(알림 발송 CTA). 순수 transport 예외는 별도 증명 전 금지.",
-              fallbackEn:
-                "Link Customer Center content for notice/system/marketing (via Send notification CTA). Pure-transport exception needs proven callers.",
-            })}
-          </p>
-        )}
+      <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_type")}</span>
           <select
@@ -466,165 +384,7 @@ export function AdminNotificationCampaignCreatePage() {
             <option value="system">{t("admin_notif_type_system")}</option>
           </select>
         </label>
-      </section>
 
-      {/* SECTION B — delivery summary (shared Push+Bell copy) */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <div>
-          <h2 className="text-sm font-semibold text-sam-fg">
-            {safeT("admin_notif_section_delivery_summary", {
-              fallbackKo: "알림 요약",
-              fallbackEn: "Notification summary",
-            })}
-          </h2>
-          <p className="mt-1 text-xs text-sam-muted">
-            {safeT("admin_notif_delivery_summary_help", {
-              fallbackKo:
-                "휴대폰 Push와 앱 알림함에서 먼저 보이는 짧은 안내 문구입니다. 게시글 원문은 연결된 콘텐츠에서 확인합니다.",
-              fallbackEn:
-                "Short copy shown first on phone Push and in-app Bell. Board original is the linked content.",
-            })}
-          </p>
-        </div>
-        <label className="block text-sm">
-          <span className="text-sam-muted">
-            {safeT("admin_notif_label_delivery_title", {
-              fallbackKo: "알림 제목",
-              fallbackEn: "Notification title",
-            })}
-          </span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
-          />
-          <span className="mt-1 block text-xs text-sam-meta">
-            {safeT("admin_notif_title_soft_guide", {
-              fallbackKo: "권장: 알림 제목 40~50자 이하 (게시판 원본과 별도 · Soft guide)",
-              fallbackEn: "Guide: notification title ≤40–50 chars (separate from board · soft)",
-            })}{" "}
-            · {title.length}
-          </span>
-        </label>
-        <label className="block text-sm">
-          <span className="text-sam-muted">
-            {safeT("admin_notif_label_delivery_body", {
-              fallbackKo: "알림 메시지",
-              fallbackEn: "Notification message",
-            })}
-          </span>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={4}
-            className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
-          />
-          <span className="mt-1 block text-xs text-sam-meta">
-            {safeT("admin_notif_body_soft_guide", {
-              fallbackKo: "권장: 알림 내용 80~120자 이하 · Soft guide · 원본 본문 자동 축약 금지",
-              fallbackEn: "Guide: ≤80–120 chars · soft · never auto-truncate board body",
-            })}{" "}
-            · {body.length}
-          </span>
-        </label>
-      </section>
-
-      {/* SECTION C — delivery images */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_notif_section_delivery_images", {
-            fallbackKo: "전달 이미지",
-            fallbackEn: "Delivery images",
-          })}
-        </h2>
-        <p className="text-xs text-sam-muted">
-          {safeT("admin_notif_delivery_images_help", {
-            fallbackKo: "Push/In-App 이미지는 원본 게시 이미지와 역할이 다릅니다. 재사용은 버튼을 눌렀을 때만 복사됩니다.",
-            fallbackEn: "Push/In-App images are not Content authority. Reuse only copies when you click.",
-          })}
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2 text-sm">
-            <span className="text-sam-muted">{t("admin_notif_label_push_image")}</span>
-            <input
-              value={pushImageUrl}
-              onChange={(e) => setPushImageUrl(e.target.value)}
-              className="w-full rounded border border-sam-border bg-sam-app px-2 py-2 text-[12px]"
-            />
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="block w-full text-xs"
-              onChange={(e) => void onUpload("push", e.target.files?.[0] ?? null)}
-            />
-            <button
-              type="button"
-              disabled={!linkedContent?.hero_image_url}
-              className="rounded border border-sam-border bg-sam-app px-2 py-1 text-xs disabled:opacity-40"
-              onClick={() => {
-                if (linkedContent?.hero_image_url) setPushImageUrl(linkedContent.hero_image_url);
-              }}
-            >
-              {safeT("admin_notif_btn_use_hero_push", {
-                fallbackKo: "원본 대표 이미지 사용",
-                fallbackEn: "Use original hero",
-              })}
-            </button>
-            {presentation.pushImageUrl ? (
-              <SamarketThumbnail
-                src={presentation.pushImageUrl}
-                alt=""
-                className="h-16 w-16 rounded-ui-rect object-cover"
-                size={64}
-              />
-            ) : null}
-          </div>
-          <div className="space-y-2 text-sm">
-            <span className="text-sam-muted">{t("admin_notif_label_in_app_image")}</span>
-            <input
-              value={inAppImageUrl}
-              onChange={(e) => setInAppImageUrl(e.target.value)}
-              className="w-full rounded border border-sam-border bg-sam-app px-2 py-2 text-[12px]"
-            />
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="block w-full text-xs"
-              onChange={(e) => void onUpload("in_app", e.target.files?.[0] ?? null)}
-            />
-            <button
-              type="button"
-              disabled={!linkedContent?.hero_image_url}
-              className="rounded border border-sam-border bg-sam-app px-2 py-1 text-xs disabled:opacity-40"
-              onClick={() => {
-                if (linkedContent?.hero_image_url) setInAppImageUrl(linkedContent.hero_image_url);
-              }}
-            >
-              {safeT("admin_notif_btn_use_hero_in_app", {
-                fallbackKo: "원본 대표 이미지 사용",
-                fallbackEn: "Use original hero",
-              })}
-            </button>
-            {presentation.inAppImageUrl ? (
-              <SamarketThumbnail
-                src={presentation.inAppImageUrl}
-                alt=""
-                className="h-16 w-16 rounded-ui-rect object-cover"
-                size={64}
-              />
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION D — send policy */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_notif_section_send_policy", {
-            fallbackKo: "발송 정책",
-            fallbackEn: "Send policy",
-          })}
-        </h2>
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>
           <select
@@ -637,6 +397,7 @@ export function AdminNotificationCampaignCreatePage() {
             <option value="in_app_only">{t("admin_notif_channel_in_app_only")}</option>
           </select>
         </label>
+
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_target")}</span>
           <select
@@ -651,6 +412,7 @@ export function AdminNotificationCampaignCreatePage() {
             <option value="selected_users">{t("admin_notif_target_selected_users")}</option>
           </select>
         </label>
+
         {targetType === "region" ? (
           <label className="block text-sm">
             <span className="text-sam-muted">{t("admin_notif_label_region_code")}</span>
@@ -661,6 +423,7 @@ export function AdminNotificationCampaignCreatePage() {
             />
           </label>
         ) : null}
+
         {targetType === "selected_users" ? (
           <label className="block text-sm">
             <span className="text-sam-muted">{t("admin_notif_label_member_uuids")}</span>
@@ -672,9 +435,62 @@ export function AdminNotificationCampaignCreatePage() {
             />
           </label>
         ) : null}
+
+        <label className="block text-sm">
+          <span className="text-sam-muted">{t("admin_notif_label_title")}</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
+          />
+          <span className="mt-1 block text-xs text-sam-meta">
+            {safeT("admin_notif_title_soft_guide", {
+              fallbackKo: "권장: 알림 제목 40~50자 이하 (게시판 원본과 별도)",
+              fallbackEn: "Guide: notification title ≤40–50 chars (separate from board original)",
+            })}{" "}
+            · {title.length}
+          </span>
+        </label>
+
+        <label className="block text-sm">
+          <span className="text-sam-muted">{t("admin_notif_label_body")}</span>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={5}
+            className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
+          />
+          <span className="mt-1 block text-xs text-sam-meta">
+            {safeT("admin_notif_body_soft_guide", {
+              fallbackKo: "권장: 알림 내용 80~120자 이하 · 원본 본문 자동 축약 금지",
+              fallbackEn: "Guide: notification body ≤80–120 chars · never auto-truncate board body",
+            })}{" "}
+            · {body.length}
+          </span>
+        </label>
+
+        {appNoticeId.trim() ? (
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {safeT("admin_notif_linked_content_hint", {
+              fallbackKo: `연결 원본(content_id): ${appNoticeId.trim()} — Push/Bell은 짧은 알림 문구, 탭 시 보드 원본으로 이동합니다.`,
+              fallbackEn: `Linked content_id: ${appNoticeId.trim()} — Push/Bell use short copy; tap opens the board original.`,
+            })}
+          </p>
+        ) : (
+          <p className="rounded border border-sam-border bg-sam-muted/10 px-3 py-2 text-xs text-sam-muted">
+            {safeT("admin_notif_content_id_required_hint", {
+              fallbackKo:
+                "notice/system/marketing 캠페인은 고객센터 콘텐츠를 연결하세요(알림 발송 CTA). 순수 transport 예외는 별도 증명 전 금지.",
+              fallbackEn:
+                "Link Customer Center content for notice/system/marketing (via Send notification CTA). Pure-transport exception needs proven callers.",
+            })}
+          </p>
+        )}
+
         <p className="text-xs text-sam-muted">
           {t("admin_notif_sound_policy_readonly")}: {presentation.soundPolicyKey}
         </p>
+
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_deeplink_url")}</span>
           <input
@@ -684,6 +500,7 @@ export function AdminNotificationCampaignCreatePage() {
             className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
           />
         </label>
+
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_web_url")}</span>
           <input
@@ -692,6 +509,54 @@ export function AdminNotificationCampaignCreatePage() {
             className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
           />
         </label>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="text-sam-muted">{t("admin_notif_label_push_image")}</span>
+            <input
+              value={pushImageUrl}
+              onChange={(e) => setPushImageUrl(e.target.value)}
+              className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2 text-[12px]"
+            />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="mt-2 block w-full text-xs"
+              onChange={(e) => void onUpload("push", e.target.files?.[0] ?? null)}
+            />
+            {presentation.pushImageUrl ? (
+              <SamarketThumbnail
+                src={presentation.pushImageUrl}
+                alt=""
+                className="mt-2 h-16 w-16 rounded-ui-rect object-cover"
+                size={64}
+              />
+            ) : null}
+          </label>
+          <label className="block text-sm">
+            <span className="text-sam-muted">{t("admin_notif_label_in_app_image")}</span>
+            <input
+              value={inAppImageUrl}
+              onChange={(e) => setInAppImageUrl(e.target.value)}
+              className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2 text-[12px]"
+            />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="mt-2 block w-full text-xs"
+              onChange={(e) => void onUpload("in_app", e.target.files?.[0] ?? null)}
+            />
+            {presentation.inAppImageUrl ? (
+              <SamarketThumbnail
+                src={presentation.inAppImageUrl}
+                alt=""
+                className="mt-2 h-16 w-16 rounded-ui-rect object-cover"
+                size={64}
+              />
+            ) : null}
+          </label>
+        </div>
+
         <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_test_user_ids")}</span>
           <textarea
@@ -701,68 +566,51 @@ export function AdminNotificationCampaignCreatePage() {
             className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2 font-mono text-[12px]"
           />
         </label>
-      </section>
+      </div>
 
-      {/* SECTION E — channel previews (shared copy, channel presentation) */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_notif_section_channel_preview", {
-            fallbackKo: "채널별 미리보기",
-            fallbackEn: "Channel preview",
-          })}
-        </h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_android_push")}</p>
-            <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-              {presentation.pushImageUrl ? (
-                <SamarketThumbnail
-                  src={presentation.pushImageUrl}
-                  alt=""
-                  className="mb-2 h-20 w-full rounded-ui-rect object-cover"
-                  size={80}
-                />
-              ) : null}
-              <p className="text-sm font-medium">{presentation.pushPayload.title}</p>
-              <p className="text-xs text-sam-muted">{presentation.pushPayload.body}</p>
-            </div>
-          </div>
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_ios_push")}</p>
-            <p className="mt-1 text-[11px] text-sam-muted">{t("admin_notif_preview_ios_push_note")}</p>
-            <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-              {presentation.pushImageUrl ? (
-                <SamarketThumbnail
-                  src={presentation.pushImageUrl}
-                  alt=""
-                  className="mb-2 h-20 w-full rounded-ui-rect object-cover"
-                  size={80}
-                />
-              ) : null}
-              <p className="text-sm font-medium">{presentation.pushPayload.title}</p>
-              <p className="text-xs text-sam-muted">{presentation.pushPayload.body}</p>
-            </div>
-          </div>
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_in_app")}</p>
-            <div className="mt-2 flex gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-              {presentation.inAppPresentation.imageUrl ? (
-                <SamarketThumbnail
-                  src={presentation.inAppPresentation.imageUrl}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
-                  size={40}
-                />
-              ) : null}
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{presentation.inAppPresentation.title}</p>
-                <p className="line-clamp-2 text-xs text-sam-muted">{presentation.inAppPresentation.body}</p>
-              </div>
-            </div>
-            <p className="mt-1 truncate text-[11px] text-signature">{presentation.deepLink}</p>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+          <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_android_push")}</p>
+          <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
+            {presentation.pushImageUrl ? (
+              <SamarketThumbnail
+                src={presentation.pushImageUrl}
+                alt=""
+                className="mb-2 h-20 w-full rounded-ui-rect object-cover"
+                size={80}
+              />
+            ) : null}
+            <p className="text-sm font-medium">{presentation.pushPayload.title}</p>
+            <p className="text-xs text-sam-muted">{presentation.pushPayload.body}</p>
           </div>
         </div>
-      </section>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+          <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_ios_push")}</p>
+          <p className="mt-1 text-[11px] text-amber-700">{t("admin_notif_preview_ios_push_note")}</p>
+          <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
+            <p className="text-sm font-medium">{presentation.pushPayload.title}</p>
+            <p className="text-xs text-sam-muted">{presentation.pushPayload.body}</p>
+          </div>
+        </div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+          <p className="text-xs font-semibold text-sam-fg">{t("admin_notif_preview_in_app")}</p>
+          <div className="mt-2 flex gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
+            {presentation.inAppPresentation.imageUrl ? (
+              <SamarketThumbnail
+                src={presentation.inAppPresentation.imageUrl}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
+                size={40}
+              />
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{presentation.inAppPresentation.title}</p>
+              <p className="line-clamp-2 text-xs text-sam-muted">{presentation.inAppPresentation.body}</p>
+            </div>
+          </div>
+          <p className="mt-1 truncate text-[11px] text-signature">{presentation.deepLink}</p>
+        </div>
+      </div>
 
       {showReview ? (
         <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
