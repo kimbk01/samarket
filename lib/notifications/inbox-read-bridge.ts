@@ -285,8 +285,11 @@ export async function clearNotificationTargetsForInboxRows(
 
 /**
  * Soft-dismiss from Notification Center history only.
- * CONTRACT: Delete ≠ Read — do not stamp read_at / unread / opened_at here.
- * A digit drops because dismissed rows are excluded (deleted_at / inbox_dismissed_at).
+ * CONTRACT — DELETE WITHOUT READ:
+ * - unread / read_at / opened_at MUST NOT change here
+ * - only stamp deleted_at + inbox_dismissed_at on display_payload
+ * - A digit drops because dismissed rows fail isMemberNotificationAUnread / isInboxDismissed
+ * - App Icon = A+B recomputes after cache invalidate
  */
 async function dismissNotificationEventFromInbox(
   sb: SupabaseClient,

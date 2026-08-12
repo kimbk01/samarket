@@ -117,6 +117,8 @@ export function memberNotificationAEventFromInboxRow(row: {
   type?: string | null;
   category?: string | null;
   notification_type?: string | null;
+  /** Canonical notification_events.type from inbox DTO — prefer over collapsed legacy type. */
+  event_type?: string | null;
   bell_presentation_type?: string | null;
   is_read?: boolean | null;
   unread?: boolean | null;
@@ -127,12 +129,20 @@ export function memberNotificationAEventFromInboxRow(row: {
   display_payload?: unknown;
   push_kind?: string | null;
 }): MemberNotificationAEventRow {
+  const eventType = String(row.event_type ?? "").trim();
   const legacyType =
-    String(row.type ?? "").trim() || String(row.notification_type ?? "").trim();
+    eventType ||
+    String(row.type ?? "").trim() ||
+    String(row.notification_type ?? "").trim();
   const bell = String(row.bell_presentation_type ?? "").trim();
   const categoryRaw = String(row.category ?? "").trim();
-  const type =
-    (legacyType === "" || legacyType === "system") && bell
+  const pushKind = String(row.push_kind ?? "").trim().toLowerCase();
+  // Collapsed legacy notification_type=chat / push_kind=chat → treat as chat for A gates.
+  const chatCollapsed =
+    pushKind === "chat" || String(row.notification_type ?? "").trim().toLowerCase() === "chat";
+  const type = chatCollapsed
+    ? eventType || "chat"
+    : (legacyType === "" || legacyType === "system") && bell
       ? bell
       : legacyType || bell || categoryRaw;
   const category =

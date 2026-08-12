@@ -69,7 +69,8 @@ export function resolveTier1BellListFetchOpts(
 ): Tier1BellListFetchOpts {
   switch (surface) {
     case "bottom_nav_chat":
-      return { pushKind: "chat" as InboxPushKindFilter };
+      // Chat surface — include chat rows; must not inherit Member Bell A-only default.
+      return { pushKind: "chat" as InboxPushKindFilter, excludeChatMessages: false };
     case "bottom_nav_community":
       return { excludeChatMessages: true, pushKind: "community" as InboxPushKindFilter };
     case "bottom_nav_my":

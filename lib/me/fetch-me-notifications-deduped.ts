@@ -95,11 +95,16 @@ function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string 
   const ownerSid = opts?.ownerStoreId?.trim();
   if (ownerSid) {
     sp.set("owner_store_id", ownerSid);
-  } else if (opts?.excludeOwnerStoreCommerce === true) {
-    sp.set("exclude_owner_store_commerce", "1");
-  }
-  if (opts?.excludeChatMessages === true) {
-    sp.set("exclude_chat_message", "1");
+  } else {
+    // Member Bell SSOT: default exclude owner + chat (A-only). Chat surface opts out.
+    const excludeOwner = opts?.excludeOwnerStoreCommerce !== false;
+    if (excludeOwner) sp.set("exclude_owner_store_commerce", "1");
+    else sp.set("exclude_owner_store_commerce", "0");
+
+    const excludeChat =
+      opts?.pushKind !== "chat" && opts?.excludeChatMessages !== false;
+    if (excludeChat) sp.set("exclude_chat_message", "1");
+    else sp.set("exclude_chat_message", "0");
   }
   const pk = opts?.pushKind;
   if (pk && pk !== "all") {

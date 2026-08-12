@@ -294,9 +294,25 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
-  const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
+  const excludeOwnerParam = searchParams.get("exclude_owner_store_commerce");
+  const excludeChatParam = searchParams.get("exclude_chat_message");
+  const inboxPushKindRawEarly = searchParams.get("push_kind")?.trim().toLowerCase() ?? "";
+  /**
+   * Member Bell SSOT (C1 recovery): list defaults to A-only (no chat / no owner).
+   * Opt out only with exclude_*=0, or push_kind=chat (Chat surface).
+   * Owner store list uses owner_store_id and is not Member A.
+   */
+  const excludeOwnerList =
+    !ownerStoreId &&
+    (excludeOwnerParam === "0" ? false : true);
+  const excludeChatMessageList =
+    !ownerStoreId &&
+    (excludeChatParam === "0"
+      ? false
+      : excludeChatParam === "1"
+        ? true
+        : inboxPushKindRawEarly !== "chat");
   const ownerListDb0 = ownerStoreId ? perfNowMs() : 0;
 
   if (ownerStoreId) {

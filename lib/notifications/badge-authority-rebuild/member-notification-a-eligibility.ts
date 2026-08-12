@@ -57,6 +57,11 @@ export function storeIdFromMemberARow(row: MemberNotificationAEventRow): string 
   return null;
 }
 
+/**
+ * Persistent A gates (list + unread).
+ * DELETE WITHOUT READ: unread=true + read_at=null + deleted_at/inbox_dismissed_at set
+ * still fails here via isInboxDismissedNotificationEvent — Badge A / App Icon drop without READ.
+ */
 function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   if (!isNotificationEventBadgeEligible(row)) return false;
   if (isInboxDismissedNotificationEvent(row as never)) return false;
@@ -64,7 +69,9 @@ function passesPersistentAGates(row: MemberNotificationAEventRow): boolean {
   const type = String(row.type ?? "").trim();
   const category = String(row.category ?? "").trim();
   if (isChatMessageNotificationType(type)) return false;
-  if (type === "admin_test") return false;
+  // Legacy inbox collapsed type ("chat") must not pass as A when event_type was omitted.
+  if (type === "chat" || category === "chat") return false;
+  if (type === "admin_test" || type === "incoming_call_signal" || type === "incoming_call") return false;
 
   // Gate 2 missed: room-bound → B only; orphan → A
   if (isRoomBoundMissedCallEvent(row)) return false;

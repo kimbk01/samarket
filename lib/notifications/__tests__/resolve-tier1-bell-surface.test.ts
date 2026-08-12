@@ -59,7 +59,10 @@ describe("resolveTier1BellListFetchOpts", () => {
   });
 
   it("uses chat push kind for messenger surface", () => {
-    expect(resolveTier1BellListFetchOpts("bottom_nav_chat")).toEqual({ pushKind: "chat" });
+    expect(resolveTier1BellListFetchOpts("bottom_nav_chat")).toEqual({
+      pushKind: "chat",
+      excludeChatMessages: false,
+    });
   });
 
   it("delivery surface excludes owner store commerce (owner has own surface)", () => {
