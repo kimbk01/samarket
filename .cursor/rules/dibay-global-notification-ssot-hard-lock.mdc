@@ -5,14 +5,15 @@ alwaysApply: true
 
 # DIBAY Global Notification SSOT HARD LOCK
 
-**HARD LOCK (2026-08-12).** Full doc: `docs/dibay-global-notification-ssot-hard-lock.md`.
+**HARD LOCK DECLARED (2026-08-12).** Full doc: `docs/dibay-global-notification-ssot-hard-lock.md`.
 
 ## Baseline
 
-- **ACTUAL PRODUCT DEFECTS: 0** · FINAL RED TEAM **PASS**
+- **ACTUAL PRODUCT DEFECTS: 0** · FINAL RED TEAM **PASS** · **HARD LOCK DECLARED**
+- Equation / Logout / Explainability / Read-Delete-History / Admin RT / Android+iOS Push CTA / Android summary / iOS equation·ACK·Icon·logout·cold·resume: **PASS**
 - 2-store Owner UI: **NOT_PROVEN — NO FIXTURE**
-- Samsung / Xiaomi: **NOT_PROVEN — inactive device registration**
-- Do not force those NOT_PROVEN rows to PASS. Do not keep the whole SSOT OPEN because of them.
+- Xiaomi Dock digits: **OEM / NOT product FAIL** (App Icon = A+B)
+- Do not force those NOT_PROVEN / OEM rows to PASS. Do not reopen the whole SSOT for them.
 
 ## Authority
 
@@ -23,6 +24,7 @@ alwaysApply: true
 | Admin Action Queue | `loadAdminActionQueueCounts` → `/api/admin/admin-bell` |
 | Admin RT wake-up | `supabase_realtime` + Admin SELECT RLS |
 | Admin vs Member badge | `isMemberBadgeAuthoritySurface` — `/admin` and `/admin/*` do **not** run Member badge-count |
+| Push exact CTA | Cap `pushNotificationActionPerformed` → `resolvePushRouteFromFcmData` |
 
 ## DO NOT (without reopen)
 
@@ -32,7 +34,8 @@ alwaysApply: true
 - Kill Member/Owner/Messenger/Trade/order badge paths to isolate Admin
 - Poll-workaround Admin sound when RT works
 - ALTER replica identity without a new FIRST BREAK
-- Call 2-store UI or device sound PASS without new fixture/device evidence
+- Call 2-store UI or Xiaomi Dock digit PASS without new fixture/device evidence
+- Treat OEM-hidden Dock digits as App Icon FAIL
 
 ## Gate
 

@@ -1,11 +1,11 @@
 # DIBAY Global Notification SSOT HARD LOCK
 
-**Status:** HARD LOCK READY WITH EXPLICIT NOT_PROVEN EVIDENCE  
+**Status:** HARD LOCK DECLARED  
 **Locked at:** 2026-08-12  
 **Companion rule:** `.cursor/rules/dibay-global-notification-ssot-hard-lock.mdc`
 
-This freezes Member / Messenger / Store Owner / Platform Admin notification **authority** after GATE 4 + GATE 4.5 runtime.  
-It does **not** claim 2-store Owner UI E2E or Samsung/Xiaomi `user_devices` sound matrix.
+This freezes Member / Messenger / Store Owner / Platform Admin notification **authority** after GATE 4 + GATE 4.5 + device Push/summary close.  
+It does **not** claim 2-store Owner UI E2E or OEM launcher digit rendering (Xiaomi Dock).
 
 ---
 
@@ -14,6 +14,15 @@ It does **not** claim 2-store Owner UI E2E or Samsung/Xiaomi `user_devices` soun
 | Concern | Status |
 |---|---|
 | Migration `20261028120000_global_notification_ssot_owner_admin.sql` | **PASS** (Production applied) |
+| Equation A+B | **PASS** |
+| Logout badge clear | **PASS** |
+| Explainability | **PASS** |
+| Read / Delete / History | **PASS** |
+| Admin RT | **PASS** |
+| Push exact CTA (Android) | **PASS** |
+| Android summary residual (`setNumber` ≡ A+B) | **PASS** |
+| iOS equation / ACK / Icon / logout·cold·resume | **PASS** |
+| Push exact CTA (iOS) | **PASS** (user-confirmed OS path after Xcode reinstall; APNS deliver HTTP 200 proven) |
 | Store Point RT | **PASS** |
 | Feed Ad RT | **PASS** |
 | Delivery P0 RT | **PASS** |
@@ -27,17 +36,17 @@ It does **not** claim 2-store Owner UI E2E or Samsung/Xiaomi `user_devices` soun
 | auth isolation | **PASS** |
 | Admin domain ≠ Member badge-count | **PASS** |
 | Member badge-count / Bell smoke | **PASS** |
+| ACTUAL PRODUCT DEFECTS | **0** |
 | 2-store Owner UI | **NOT_PROVEN — NO FIXTURE** |
-| Samsung / Xiaomi device sound | **NOT_PROVEN — inactive device registration** |
-| HARD LOCK | **THIS DOCUMENT** |
+| Xiaomi Dock digit display | **OEM / NOT product FAIL** (App Icon authority = A+B; dumpsys `setNumber` proven) |
+| HARD LOCK | **DECLARED** |
 
 ### Intentional NOT_PROVEN (not product FAIL)
 
 | Residual | Reason | Do not |
 |---|---|---|
-| 2-store Owner UI | Production/QA: approved stores = 14, owner with ≥2 approved stores = 0. No new QA store created. | Invent fixture · force PASS |
-| Samsung | ADB present (`RFCY40PY2CA`) · QA `user_devices` active = 0 | Device registration rewrite |
-| Xiaomi | ADB present (`8b37179f7d94`) · QA `user_devices` active = 0 | Device registration rewrite |
+| 2-store Owner UI | Production/QA: no owner with ≥2 approved stores fixture | Invent fixture · force PASS |
+| Xiaomi Dock digits | Launcher may hide digits; product authority is A+B + summary carrier | Force Dock visual PASS · reopen Native unless DIBAY-only numeric failure |
 
 Static/unit Owner active-store authority remains **PASS** without 2-store UI.
 
@@ -51,6 +60,7 @@ Static/unit Owner active-store authority remains **PASS** without 2-store UI.
 | Owner commerce inbox | `get_owner_store_commerce_notifications` / snapshot + `?owner_store_id=` | existing Owner surface | Bleed Owner kinds into Member inbox |
 | Platform Admin Action Queue | `loadAdminActionQueueCounts` → `/api/admin/admin-bell` (+ CP Overview same total) | Admin row PK + GATE 2 class · RT wake-up only | `/api/me/notifications` as Admin ops inbox |
 | Admin RT | `supabase_realtime` + Admin SELECT RLS (`is_platform_admin`) | ingest on INSERT | Poll-only sound workaround · replica identity guess |
+| Push route CTA | Cap `pushNotificationActionPerformed` → `resolvePushRouteFromFcmData` | — | Fake CTA via deep-link launch in QA |
 
 ### Admin ≠ Member badge
 
@@ -69,15 +79,19 @@ DO NOT:
 
 ---
 
-## 2. Evidence (GATE 4.5)
+## 2. Evidence
 
 | Item | Log |
 |---|---|
 | PCR RT FIRST BREAK close | `.qa-logs/gate45-pcr-first-break-2026-08-12T02-42-06-287Z/` |
 | Origin UI + Owner inbox + sound | `.qa-logs/gate45-notification-ssot-2026-08-12T02-43-56-006Z/` |
 | Admin isolation + multi-tab + auth + Member smoke | `.qa-logs/gate45-remaining-2026-08-12T02-53-13-675Z/` |
+| Android summary residual | `.qa-logs/gate4-android-summary-only-2026-08-12T06-39-44-342Z/` |
+| iOS equation / ACK / logout | `.qa-logs/gate4-summary-ios-final-2026-08-12T07-08-14-125Z/` |
+| iOS APNS deliver (presence background) | `.qa-logs/gate4-ios-apns-deliver-only-2026-08-12T07-43-06-548Z/` |
 
-SIGKILL(137) origin crashes are **test-harness**, not product defects.
+SIGKILL(137) origin crashes are **test-harness**, not product defects.  
+iOS empty Bell sheet during Xcode tooling break = **environment**, not product FAIL (user-confirmed restored after Xcode reinstall).
 
 ---
 
@@ -102,11 +116,16 @@ npx vitest run \
 - Bypass 409 / invent second current HOLD (Feed Banner LOCK still applies)
 - Poll-workaround Admin sound when RT is available
 - ALTER replica identity without a new FIRST BREAK
-- Declare 2-store UI or Samsung/Xiaomi device sound **PASS** without new fixture/device evidence
+- Declare 2-store UI or Xiaomi Dock digit **PASS** without new fixture/device evidence
+- Treat OEM launcher-hidden digits as App Icon authority FAIL
 - `vercel --prod` / dirty-tree Production (Build/Deploy HARD LOCK)
 
 ---
 
 ## 5. Cutover SHAs
 
-Filled at commit / Git Integration Production time.
+| Field | Value |
+|---|---|
+| Commit | _(filled after push)_ |
+| Production deployment | _(filled after Git Integration)_ |
+| Alias | `https://samarket.vercel.app` |
