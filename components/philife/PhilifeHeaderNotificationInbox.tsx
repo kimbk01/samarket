@@ -120,7 +120,7 @@ import {
 
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 
-import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { unlockNotificationSoundAudio } from "@/lib/notifications/notification-sound-unlock";
 
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -1250,7 +1250,7 @@ export function PhilifeHeaderNotificationInbox({
         type="button"
 
         onClick={() => {
-          primeNotificationSoundAudio();
+          unlockNotificationSoundAudio();
           setOpen((v) => !v);
         }}
 

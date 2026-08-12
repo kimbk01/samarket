@@ -1,0 +1,36 @@
+# DIBAY Notification Sound Silent Unlock HARD LOCK
+
+**HARD LOCK (2026-08-12).** Full doc: `docs/dibay-notification-sound-silent-unlock-hard-lock.md`.
+
+## Baseline
+
+- **GATE 2 occurrence:** UNCHANGED
+- **Alert-asset prime:** REMOVED — unlock = silent only (`notification-sound-unlock.ts`)
+- **Route `/mypage` unlock coupling:** REMOVED — unlock at `NotificationSoundLeaderBootstrap`
+- **iOS Cap audible runtime:** NOT_PROVEN until device log
+
+## Authority
+
+| Concern | Owner |
+|---|---|
+| Silent unlock | `notification-sound-unlock.ts` + `NotificationSoundLeaderBootstrap` |
+| SSOT hydrate (no audio) | `NotificationSoundPrime` |
+| Occurrence PLAY/SKIP | `notification-sound-decision.ts` (GATE 2) |
+| Alert playback | `notification-sound-engine.ts` (`[sound-event]`) |
+
+## DO NOT (without reopen)
+
+- `system_default` / `notification.wav` / `resolveNotificationSound` in unlock path
+- Route-gated alert-asset prime on `/mypage` or `startsWith("/my")`
+- Mypage unread consume / mark-read / poll suppress to hide prime
+- `muted=false` or volume restore after silent unlock
+- iOS-only mute workaround branches
+
+## Gate
+
+```bash
+vitest run lib/notifications/__tests__/notification-sound-silent-unlock-contract.test.ts \
+  lib/notifications/__tests__/notification-sound-unlock.test.ts \
+  lib/notifications/__tests__/notification-sound-hard-lock-contract.test.ts \
+  lib/notifications/__tests__/notification-sound-decision.gate2.test.ts
+```

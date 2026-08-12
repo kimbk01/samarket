@@ -46,14 +46,19 @@ describe("notification sound GATE 2 contract", () => {
     expect(deferred).toContain("requestAnimationFrame");
   });
 
-  it("sound tab leader starts at app lifetime, not route Prime", () => {
+  it("sound tab leader and silent unlock start at app lifetime, not route Prime", () => {
     const layout = read("app/layout.tsx");
     const bootstrap = read("components/notifications/NotificationSoundLeaderBootstrap.tsx");
     const prime = read("components/notifications/NotificationSoundPrime.tsx");
+    const unlock = read("lib/notifications/notification-sound-unlock.ts");
     const flags = read("lib/layout/conditional-app-shell-flags.ts");
     expect(layout).toContain("NotificationSoundLeaderBootstrap");
     expect(bootstrap).toContain("ensureNotificationSoundRuntimeStarted");
-    expect(prime).toContain("ensureNotificationSoundRuntimeStarted");
+    expect(bootstrap).toContain("unlockNotificationSoundAudio");
+    expect(prime).not.toContain("primeNotificationSoundAudio");
+    expect(prime).not.toContain("unlockNotificationSoundAudio");
+    expect(unlock).not.toContain("resolveNotificationSound");
+    expect(unlock).not.toContain("notification.wav");
     expect(flags).not.toMatch(/mountNotificationSoundPrime[\s\S]{0,80}\/market/);
   });
 

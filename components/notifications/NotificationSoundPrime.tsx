@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { ensureNotificationSoundSsotHydratedForClient } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
-import { ensureNotificationSoundRuntimeStarted } from "@/lib/notifications/notification-sound-decision";
 
-/** 앱 내 첫 제스처에서 알림 사운드 프리로드·오디오 잠금 해제(iOS/WebKit). SSOT hydrate 는 play hot path 가 아니다. */
+/**
+ * Route-gated SSOT hydrate only — NOT audio unlock.
+ * Unlock authority: `NotificationSoundLeaderBootstrap` (app lifetime, route-independent).
+ */
 export function NotificationSoundPrime() {
   useEffect(() => {
-    ensureNotificationSoundRuntimeStarted();
     void ensureNotificationSoundSsotHydratedForClient();
     const onFirstGesture = () => {
-      primeNotificationSoundAudio();
       void ensureNotificationSoundSsotHydratedForClient();
     };
     window.addEventListener("pointerdown", onFirstGesture, { passive: true, once: true });

@@ -8,7 +8,7 @@ import {
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
-import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { unlockNotificationSoundAudio } from "@/lib/notifications/notification-sound-unlock";
 
 import {
   samTier1HeaderIconCluster,
@@ -93,7 +93,7 @@ function MyHubHeaderInAppSoundInner() {
       if (res.ok && j?.ok) {
         setSoundOn(next);
         if (next && typeof window !== "undefined") {
-          primeNotificationSoundAudio();
+          unlockNotificationSoundAudio();
         }
         invalidateMeNotificationSettingsGetFlight();
         window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));

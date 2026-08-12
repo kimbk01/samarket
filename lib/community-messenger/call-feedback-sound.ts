@@ -1,4 +1,4 @@
-import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { unlockNotificationSoundAudio } from "@/lib/notifications/notification-sound-unlock";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import {
   primeWebAudioCallToneContextFromUserGesture,
@@ -209,7 +209,7 @@ export async function startCommunityMessengerCallTone(
 
   await ensureCallNotificationSsotHydrated();
 
-  primeNotificationSoundAudio();
+  unlockNotificationSoundAudio();
   /**
    * 유지 이유: 수신 벨은 사용자 제스처 없이 시작되는 경우가 많아, 설정 API(await)가 벨 첫 재생을 막으면 체감 지연이 커진다.
    * `void fetch`로 최신 관리자 음원은 백그라운드 반영하고, 첫 틱은 캐시·합성/HTML 경로로 즉시 시작한다.
@@ -243,7 +243,7 @@ export async function startCommunityMessengerCallTone(
         audio = null;
       }
     };
-    primeNotificationSoundAudio();
+    unlockNotificationSoundAudio();
     for (const useCrossOrigin of [true, false] as const) {
       let next: HTMLAudioElement | null = null;
       try {
@@ -304,7 +304,7 @@ async function playCallSignalLegacyUrlFallback(
       ? resolveMessengerCallMissedSoundUrl(cfg)
       : resolveMessengerCallEndSoundUrl(cfg);
   if (!url) return;
-  primeNotificationSoundAudio();
+  unlockNotificationSoundAudio();
   try {
     const audio = new Audio(url);
     trackDetachedCommunityMessengerCallAudio(audio);

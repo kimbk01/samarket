@@ -39,6 +39,8 @@ const REPEAT_GAP_MS = 800;
 
 /** Runtime Link P1 — prod WebView logcat/CDP 계측 (로직 무관) */
 const RUNTIME_LINK_P1_LOG = "[runtime-link-p1]";
+/** Alert event playback — distinct from `[sound-unlock]` (no occurrence identity). */
+export const SOUND_EVENT_LOG = "[sound-event]";
 
 /** 재생 중 타이머만 정리 — 수신 pending hydrate 는 유지 (06e392d1a 계약) */
 export function stopNotificationPlayback(): void {
@@ -64,11 +66,20 @@ export function resetNotificationSoundEngineForAuthEpoch(): void {
   invalidatePendingNotificationSoundPlayback();
 }
 
-function playOneShot(url: string, volume: number, entryEpoch: number): void {
+function playOneShot(url: string, volume: number, entryEpoch: number, eventKey: string): void {
   if (entryEpoch !== roomEntryCancelEpoch) {
     logBadgeFdProbe("playOneShot.skip", { reason: "room_entry_cancel", url });
     return;
   }
+  console.info(
+    `${SOUND_EVENT_LOG} ${JSON.stringify({
+      source: "event",
+      stage: "before_play",
+      eventKey,
+      asset: url,
+      volume,
+    })}`
+  );
   try {
     const a = new Audio(url);
     a.volume = Math.max(0, Math.min(1, volume));
@@ -162,11 +173,11 @@ export async function playEventNotificationSound(
    * 수신 pending 을 죽이면 안 된다. `invalidatePending` 만 epoch 로 취소.
    */
   queueMicrotask(() => {
-    playOneShot(url, vol, entryEpochForShots);
+    playOneShot(url, vol, entryEpochForShots, resolved.eventKey);
   });
   for (let i = 1; i < repeats; i++) {
     const t = window.setTimeout(() => {
-      playOneShot(url, vol, entryEpochForShots);
+      playOneShot(url, vol, entryEpochForShots, resolved.eventKey);
     }, i * REPEAT_GAP_MS);
     repeatTimers.push(t);
   }
