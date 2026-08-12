@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const audience = searchParams.get("audience")?.trim() ?? "ops";
 
   let query = svc.from("admin_notification_campaigns").select(
-    "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count"
+    "id, title, body, type, target_type, channel, status, send_mode, is_qa, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count, target_payload, push_image_url, in_app_image_url"
   );
 
   if (audience === "ops") {

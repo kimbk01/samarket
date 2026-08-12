@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AdminCustomerCenterMarkdownToolbar } from "@/components/admin/app/AdminCustomerCenterMarkdownToolbar";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
 import {
   BOARD_LABEL,
   CUSTOMER_CENTER_CONTENT_TYPES,
@@ -36,6 +39,19 @@ const EMPTY_FORM: NoticeFormState = {
   ends_at: "",
 };
 
+async function uploadContentImage(kind: "hero" | "body", file: File): Promise<string | null> {
+  const fd = new FormData();
+  fd.set("kind", kind);
+  fd.set("file", file);
+  const res = await fetch("/api/admin/app-notices/upload-image", {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+  const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string };
+  return res.ok && j.ok && j.url ? j.url : null;
+}
+
 export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
   const { safeT, language } = useI18n();
   const router = useRouter();
@@ -45,6 +61,9 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(noticeId?.trim() || null);
+  const [showPreview, setShowPreview] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const heroFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isEdit || !noticeId) return;
@@ -73,9 +92,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           return;
         }
         const n = json.notice;
-        const ct = (CUSTOMER_CENTER_CONTENT_TYPES as readonly string[]).includes(
-          String(n.content_type)
-        )
+        const ct = (CUSTOMER_CENTER_CONTENT_TYPES as readonly string[]).includes(String(n.content_type))
           ? (String(n.content_type) as CustomerCenterContentType)
           : "notice";
         setForm({
@@ -113,6 +130,27 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
     return d.toISOString();
+  };
+
+  const onHeroUpload = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const url = await uploadContentImage("hero", file);
+      if (!url) {
+        setErr(
+          safeT("admin_cc_upload_failed", {
+            fallbackKo: "이미지 업로드에 실패했습니다",
+            fallbackEn: "Image upload failed",
+          })
+        );
+        return;
+      }
+      setForm((f) => ({ ...f, hero_image_url: url }));
+    } finally {
+      setBusy(false);
+      if (heroFileRef.current) heroFileRef.current.value = "";
+    }
   };
 
   const onSave = async () => {
@@ -159,8 +197,8 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       }
       const id = String(json.notice?.id ?? noticeId ?? "").trim();
       setSavedId(id || null);
-      if (!isEdit && id) {
-        router.replace(`/admin/app/notices/${encodeURIComponent(id)}/edit`);
+      if (id) {
+        router.push(`/admin/app/notices/${encodeURIComponent(id)}`);
         return;
       }
       router.push("/admin/app/notices");
@@ -186,23 +224,14 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
   const boardLabel = BOARD_LABEL[form.content_type][language === "en" ? "en" : "ko"];
   const defaultAuthor = DEFAULT_AUTHOR_LABEL[form.content_type][language === "en" ? "en" : "ko"];
+  const authorDisplay = form.author_label.trim() || defaultAuthor;
   const canonical =
     savedId != null && savedId.trim()
       ? buildCustomerCenterBoardDetailPath(form.content_type, savedId)
       : null;
 
-  /** COPY CONTRACT: never pass Board body as Campaign body. */
-  const campaignHref =
-    savedId != null && savedId.trim() && canonical
-      ? `/admin/notifications/create?${new URLSearchParams({
-          type: form.content_type,
-          deeplink: canonical,
-          appNoticeId: savedId,
-        }).toString()}`
-      : null;
-
   return (
-    <div className="mx-auto max-w-xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
           {isEdit
@@ -214,18 +243,20 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
             fallbackEn: "Customer Center content",
           })}
         </h1>
-        <Link href="/admin/app/notices" className="sam-text-body text-signature">
-          {safeT("admin_app_notices_title", {
-            fallbackKo: "목록",
-            fallbackEn: "List",
-          })}
+        <Link
+          href={savedId ? `/admin/app/notices/${encodeURIComponent(savedId)}` : "/admin/app/notices"}
+          className="sam-text-body text-signature"
+        >
+          {savedId
+            ? safeT("admin_cc_back_detail", { fallbackKo: "상세로", fallbackEn: "Back to detail" })
+            : safeT("admin_cc_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
         </Link>
       </div>
 
-      <p className="rounded-ui-rect border border-sam-border bg-sam-muted/10 px-3 py-2 text-xs text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         {safeT("admin_cc_content_vs_campaign", {
           fallbackKo:
-            "여기 제목·본문은 게시판 원본입니다. 알림 문구는 [알림 발송]에서 따로 작성합니다(자동 축약 없음).",
+            "여기 제목/본문은 게시판 원문입니다. 알림 문구는 [알림 발송]에서 따로 작성합니다(자동 축약 없음).",
           fallbackEn:
             "Title/body here are the board original. Write short notification copy separately via Send notification (no auto-truncate).",
         })}
@@ -235,7 +266,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board", { fallbackKo: "보드", fallbackEn: "Board" })}
+          {safeT("admin_cc_board", { fallbackKo: "유형", fallbackEn: "Type" })}
         </span>
         <select
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -257,7 +288,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board_title", { fallbackKo: "원본 제목", fallbackEn: "Board title" })}
+          {safeT("admin_cc_board_title", { fallbackKo: "원본 제목", fallbackEn: "Original title" })}
         </span>
         <input
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -266,31 +297,69 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
         />
       </label>
 
-      <label className="block space-y-1">
+      <div className="space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board_body", { fallbackKo: "원본 본문", fallbackEn: "Board body" })}
+          {safeT("admin_cc_board_body", { fallbackKo: "원본 본문", fallbackEn: "Original body" })}
         </span>
+        <AdminCustomerCenterMarkdownToolbar
+          value={form.body}
+          textareaRef={bodyRef}
+          disabled={busy}
+          onUploadingChange={setBusy}
+          onChange={(next) => setForm((f) => ({ ...f, body: next }))}
+        />
         <textarea
-          className="min-h-[200px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          ref={bodyRef}
+          className="min-h-[240px] w-full rounded-b-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm"
           value={form.body}
           onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
         />
-      </label>
+        <p className="text-xs text-sam-meta">
+          {safeT("admin_cc_md_hint", {
+            fallbackKo: "제한된 Markdown(제목·굵게·목록·링크·이미지). HTML은 저장해도 실행되지 않습니다.",
+            fallbackEn: "Limited Markdown (headings, bold, lists, links, images). HTML is not executed.",
+          })}
+        </p>
+      </div>
 
-      <label className="block space-y-1">
+      <div className="space-y-2">
         <span className="sam-text-helper text-sam-muted">
           {safeT("admin_cc_hero_image", {
-            fallbackKo: "대표 이미지 URL",
-            fallbackEn: "Hero image URL",
+            fallbackKo: "대표 이미지",
+            fallbackEn: "Hero image",
           })}
         </span>
         <input
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
-          value={form.hero_image_url}
-          onChange={(e) => setForm((f) => ({ ...f, hero_image_url: e.target.value }))}
-          placeholder="https://"
+          ref={heroFileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="block w-full text-xs"
+          disabled={busy}
+          onChange={(e) => void onHeroUpload(e.target.files?.[0] ?? null)}
         />
-      </label>
+        {form.hero_image_url ? (
+          <div className="space-y-2">
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
+              <SamarketThumbnail
+                src={form.hero_image_url}
+                alt=""
+                fill
+                fetchDisplayPx={640}
+                className="h-full w-full"
+                imageClassName="object-cover"
+                roundedClassName="rounded-ui-rect"
+              />
+            </div>
+            <button
+              type="button"
+              className="text-xs text-red-600"
+              onClick={() => setForm((f) => ({ ...f, hero_image_url: "" }))}
+            >
+              {safeT("admin_cc_hero_clear", { fallbackKo: "대표 이미지 제거", fallbackEn: "Remove hero" })}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
@@ -356,6 +425,37 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
         </p>
       ) : null}
 
+      {showPreview ? (
+        <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-app p-4">
+          <p className="text-xs font-semibold text-sam-fg">
+            {safeT("admin_cc_member_preview", {
+              fallbackKo: "회원 화면 미리보기",
+              fallbackEn: "Member preview",
+            })}
+          </p>
+          <article className="space-y-3">
+            <header className="space-y-1">
+              <h2 className="text-xl font-semibold break-words text-sam-fg">{form.title || "—"}</h2>
+              <p className="text-xs text-sam-meta">{authorDisplay}</p>
+            </header>
+            {form.hero_image_url ? (
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
+                <SamarketThumbnail
+                  src={form.hero_image_url}
+                  alt=""
+                  fill
+                  fetchDisplayPx={640}
+                  className="h-full w-full"
+                  imageClassName="object-cover"
+                  roundedClassName="rounded-ui-rect"
+                />
+              </div>
+            ) : null}
+            <CustomerCenterSafeMarkdownBody body={form.body || ""} />
+          </article>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -363,19 +463,21 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           onClick={() => void onSave()}
           className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {safeT("common_save", { fallbackKo: "게시", fallbackEn: "Publish" })}
+          {isEdit
+            ? safeT("common_save", { fallbackKo: "저장", fallbackEn: "Save" })
+            : safeT("common_save", { fallbackKo: "게시", fallbackEn: "Publish" })}
         </button>
-        {campaignHref ? (
-          <Link
-            href={campaignHref}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium"
-          >
-            {safeT("admin_cc_send_notification", {
-              fallbackKo: "알림 발송",
-              fallbackEn: "Send notification",
-            })}
-          </Link>
-        ) : null}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setShowPreview((v) => !v)}
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium"
+        >
+          {safeT("admin_cc_member_preview", {
+            fallbackKo: "회원 화면 미리보기",
+            fallbackEn: "Member preview",
+          })}
+        </button>
       </div>
     </div>
   );

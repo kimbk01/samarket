@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   notifChannelLabel,
@@ -9,6 +9,10 @@ import {
   notifTargetLabel,
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
+import {
+  BOARD_LABEL,
+  parseCustomerCenterContentType,
+} from "@/lib/notices/customer-center-content";
 
 type LatestOccurrence = {
   id?: string;
@@ -35,9 +39,16 @@ type CampaignRow = {
   created_at: string;
   created_by: string | null;
   latest_occurrence?: LatestOccurrence | null;
+  target_payload?: unknown;
 };
 
 type AudienceFilter = "ops" | "qa" | "all";
+
+type NoticeLite = {
+  id: string;
+  title: string;
+  content_type?: string | null;
+};
 
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -73,15 +84,48 @@ function formatRunTimes(t: TFn, row: CampaignRow): string {
   return parts.length ? parts.join(" · ") : "—";
 }
 
+function readLinkedContentId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const p = payload as Record<string, unknown>;
+  if (typeof p.appNoticeId === "string") return p.appNoticeId.trim();
+  if (typeof p.content_id === "string") return p.content_id.trim();
+  return "";
+}
+
 export function AdminNotificationCampaignsPage() {
-  const { t } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [audience, setAudience] = useState<AudienceFilter>("ops");
   const [status, setStatus] = useState<string>("all");
   const [type, setType] = useState<string>("all");
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<CampaignRow[]>([]);
+  const [noticeMap, setNoticeMap] = useState<Record<string, NoticeLite>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/app-notices", { credentials: "include" });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          notices?: NoticeLite[];
+        };
+        if (cancelled || !res.ok || !j.ok || !Array.isArray(j.notices)) return;
+        const map: Record<string, NoticeLite> = {};
+        for (const n of j.notices) {
+          if (n?.id) map[n.id] = n;
+        }
+        setNoticeMap(map);
+      } catch {
+        /* optional join — list still works */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,6 +153,20 @@ export function AdminNotificationCampaignsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const langKey = language === "en" ? "en" : "ko";
+
+  const linkedLabel = useMemo(() => {
+    return (row: CampaignRow) => {
+      const contentId = readLinkedContentId(row.target_payload);
+      if (!contentId) return null;
+      const notice = noticeMap[contentId];
+      const ct = parseCustomerCenterContentType(notice?.content_type ?? row.type, "notice");
+      const typeLabel = BOARD_LABEL[ct][langKey];
+      const title = notice?.title?.trim() || contentId.slice(0, 8) + "…";
+      return { contentId, typeLabel, title };
+    };
+  }, [noticeMap, langKey]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
@@ -182,6 +240,12 @@ export function AdminNotificationCampaignsPage() {
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
                 <th className="px-3 py-2">{t("admin_notif_th_title")}</th>
+                <th className="px-3 py-2">
+                  {safeT("admin_notif_th_linked_content", {
+                    fallbackKo: "연결 원본",
+                    fallbackEn: "Linked original",
+                  })}
+                </th>
                 <th className="px-3 py-2">{t("admin_notif_th_type")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_target")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
@@ -193,33 +257,62 @@ export function AdminNotificationCampaignsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-sam-border-soft">
-                  <td className="px-3 py-2 font-medium text-sam-fg">
-                    <Link href={`/admin/notifications/${r.id}`} className="hover:underline">
-                      {r.title}
-                    </Link>
-                    {r.is_qa ? (
-                      <span className="ml-2 rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
-                        QA
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
-                  <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
-                  <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
-                  <td className="px-3 py-2">{sendModeLabel(t, r.send_mode)}</td>
-                  <td className="px-3 py-2">{notifStatusLabel(t, r.status)}</td>
-                  <td className="px-3 py-2 text-[12px] text-sam-muted">{formatResult(t, r.latest_occurrence)}</td>
-                  <td className="px-3 py-2 text-[12px] text-sam-muted">{formatRunTimes(t, r)}</td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
-                    {r.created_by ? `${r.created_by.slice(0, 8)}…` : "—"}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const linked = linkedLabel(r);
+                return (
+                  <tr key={r.id} className="border-b border-sam-border-soft">
+                    <td className="px-3 py-2 font-medium text-sam-fg">
+                      <Link href={`/admin/notifications/${r.id}`} className="hover:underline">
+                        {r.title}
+                      </Link>
+                      {r.is_qa ? (
+                        <span className="ml-2 rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+                          QA
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 text-[12px]">
+                      {linked ? (
+                        <div className="space-y-0.5">
+                          <p className="text-sam-fg">
+                            <span className="text-sam-muted">{linked.typeLabel}</span> · {linked.title}
+                          </p>
+                          <Link
+                            href={`/admin/app/notices/${encodeURIComponent(linked.contentId)}`}
+                            className="text-signature hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {safeT("admin_notif_btn_view_original", {
+                              fallbackKo: "원본 보기",
+                              fallbackEn: "View original",
+                            })}
+                          </Link>
+                        </div>
+                      ) : (
+                        <span className="text-sam-muted">
+                          {safeT("admin_notif_pure_transport_short", {
+                            fallbackKo: "[단순 알림]",
+                            fallbackEn: "[Pure transport]",
+                          })}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
+                    <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
+                    <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
+                    <td className="px-3 py-2">{sendModeLabel(t, r.send_mode)}</td>
+                    <td className="px-3 py-2">{notifStatusLabel(t, r.status)}</td>
+                    <td className="px-3 py-2 text-[12px] text-sam-muted">{formatResult(t, r.latest_occurrence)}</td>
+                    <td className="px-3 py-2 text-[12px] text-sam-muted">{formatRunTimes(t, r)}</td>
+                    <td className="px-3 py-2 font-mono text-[11px] text-sam-muted">
+                      {r.created_by ? `${r.created_by.slice(0, 8)}…` : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={10} className="px-3 py-8 text-center text-sam-muted">
                     {t("admin_notif_empty_campaigns")}
                   </td>
                 </tr>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   notifChannelLabel,
@@ -10,6 +11,10 @@ import {
   notifTargetLabel,
   notifTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
+import {
+  BOARD_LABEL,
+  parseCustomerCenterContentType,
+} from "@/lib/notices/customer-center-content";
 
 type CampaignSummary = {
   occurrence_id?: string;
@@ -53,6 +58,15 @@ type DeviceLogRow = {
   updatedAt: string | null;
 };
 
+type LinkedContent = {
+  id: string;
+  content_type: string;
+  title: string;
+  hero_image_url?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
+
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type TFn = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -63,8 +77,16 @@ function sendModeLabel(t: TFn, mode: string | undefined): string {
   return t("admin_notif_send_mode_immediate");
 }
 
+function readLinkedContentId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const p = payload as Record<string, unknown>;
+  if (typeof p.appNoticeId === "string") return p.appNoticeId.trim();
+  if (typeof p.content_id === "string") return p.content_id.trim();
+  return "";
+}
+
 export function AdminNotificationCampaignDetailPage() {
-  const { t } = useI18n();
+  const { t, safeT, language } = useI18n();
   const params = useParams();
   const id = typeof params?.campaignId === "string" ? params.campaignId : "";
 
@@ -72,6 +94,7 @@ export function AdminNotificationCampaignDetailPage() {
   const [summary, setSummary] = useState<CampaignSummary | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
   const [deviceDeliveryLog, setDeviceDeliveryLog] = useState<DeviceLogRow[]>([]);
+  const [linkedContent, setLinkedContent] = useState<LinkedContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -107,6 +130,34 @@ export function AdminNotificationCampaignDetailPage() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const contentId = readLinkedContentId(camp?.target_payload);
+    if (!contentId) {
+      setLinkedContent(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(contentId)}`, {
+          credentials: "include",
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          notice?: LinkedContent;
+        };
+        if (cancelled) return;
+        if (res.ok && j.ok && j.notice) setLinkedContent(j.notice);
+        else setLinkedContent(null);
+      } catch {
+        if (!cancelled) setLinkedContent(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [camp?.target_payload]);
+
   const isSending = summary?.status === "sending" || occurrences.some((o) => o.status === "sending");
 
   useEffect(() => {
@@ -141,6 +192,21 @@ export function AdminNotificationCampaignDetailPage() {
     return <p className="p-4 text-sm text-sam-muted">{t("admin_notif_err_invalid_route")}</p>;
   }
 
+  const linkedId = readLinkedContentId(camp?.target_payload);
+  const linkedType = linkedContent
+    ? parseCustomerCenterContentType(linkedContent.content_type, "notice")
+    : null;
+  const boardLabel =
+    linkedType != null ? BOARD_LABEL[linkedType][language === "en" ? "en" : "ko"] : "";
+  const pushImage =
+    typeof camp?.push_image_url === "string" && camp.push_image_url.trim()
+      ? String(camp.push_image_url).trim()
+      : "";
+  const inAppImage =
+    typeof camp?.in_app_image_url === "string" && camp.in_app_image_url.trim()
+      ? String(camp.in_app_image_url).trim()
+      : "";
+
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4">
       <Link href="/admin/notifications" className="text-sm text-signature hover:underline">
@@ -151,13 +217,128 @@ export function AdminNotificationCampaignDetailPage() {
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : camp ? (
         <>
-          <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          {/* 1. Linked content */}
+          <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <h2 className="text-sm font-semibold text-sam-fg">
+              {safeT("admin_notif_section_linked_content", {
+                fallbackKo: "연결 원본",
+                fallbackEn: "Linked original",
+              })}
+            </h2>
+            {linkedId && linkedContent ? (
+              <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                <div className="flex flex-wrap items-start gap-3">
+                  {linkedContent.hero_image_url ? (
+                    <SamarketThumbnail
+                      src={String(linkedContent.hero_image_url)}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-ui-rect object-cover"
+                      size={56}
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[11px] font-medium text-sam-muted">
+                      {boardLabel}
+                    </span>
+                    <p className="break-words text-sm font-semibold text-sam-fg">{linkedContent.title}</p>
+                    <p className="font-mono text-[11px] text-sam-meta">
+                      {safeT("admin_notif_content_id_label", {
+                        fallbackKo: "콘텐츠 ID",
+                        fallbackEn: "Content ID",
+                      })}
+                      : {linkedContent.id}
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={`/admin/app/notices/${encodeURIComponent(linkedContent.id)}`}
+                  className="inline-block rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-signature"
+                >
+                  {safeT("admin_notif_btn_view_original", {
+                    fallbackKo: "원본 보기",
+                    fallbackEn: "View original",
+                  })}
+                </Link>
+              </div>
+            ) : (
+              <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 px-3 py-2 text-sm text-sam-fg">
+                {safeT("admin_notif_pure_transport_box", {
+                  fallbackKo: "[단순 알림] 연결된 게시물이 없습니다.",
+                  fallbackEn: "[Pure transport] No linked post.",
+                })}
+              </p>
+            )}
+          </section>
+
+          {/* 2. Delivery copy + images */}
+          <header className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h1 className="text-lg font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs text-sam-muted">
+                  {safeT("admin_notif_label_title", {
+                    fallbackKo: "알림 제목",
+                    fallbackEn: "Notification title",
+                  })}
+                </p>
+                <h1 className="text-lg font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
+              </div>
               <span className="rounded-ui-rect bg-sam-app px-2 py-1 text-xs text-sam-muted">
                 {notifStatusLabel(t, String(camp.status ?? ""))}
               </span>
             </div>
+            <div>
+              <p className="text-xs text-sam-muted">
+                {safeT("admin_notif_label_body", {
+                  fallbackKo: "알림 메시지",
+                  fallbackEn: "Notification message",
+                })}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{String(camp.body ?? "")}</p>
+            </div>
+            {(pushImage || inAppImage) && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-sam-muted">
+                  {safeT("admin_notif_detail_delivery_images", {
+                    fallbackKo: "알림 이미지",
+                    fallbackEn: "Delivery images",
+                  })}
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  {pushImage ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-sam-muted">{t("admin_notif_label_push_image")}</p>
+                      <SamarketThumbnail
+                        src={pushImage}
+                        alt=""
+                        className="h-16 w-16 rounded-ui-rect object-cover"
+                        size={64}
+                      />
+                    </div>
+                  ) : null}
+                  {inAppImage ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-sam-muted">{t("admin_notif_label_in_app_image")}</p>
+                      <SamarketThumbnail
+                        src={inAppImage}
+                        alt=""
+                        className="h-16 w-16 rounded-ui-rect object-cover"
+                        size={64}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </header>
+
+          {/* 3. Policy fields */}
+          <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+            <h2 className="text-sm font-semibold text-sam-fg">
+              {safeT("admin_notif_section_send_policy", {
+                fallbackKo: "발송 정책",
+                fallbackEn: "Send policy",
+              })}
+            </h2>
             <div className="grid gap-1 text-sm sm:grid-cols-2">
               <p>
                 <span className="text-sam-muted">{t("admin_notif_label_type")}</span>{" "}
@@ -184,7 +365,6 @@ export function AdminNotificationCampaignDetailPage() {
                 {String(camp.scheduled_at ?? "—")}
               </p>
             </div>
-            <p className="whitespace-pre-wrap text-sm text-sam-fg">{String(camp.body ?? "")}</p>
             {camp.deeplink_url || camp.web_url ? (
               <p className="break-all text-xs text-signature">
                 {camp.deeplink_url ? String(camp.deeplink_url) : null}
@@ -192,7 +372,7 @@ export function AdminNotificationCampaignDetailPage() {
                 {camp.web_url ? String(camp.web_url) : null}
               </p>
             ) : null}
-          </header>
+          </section>
 
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
 
@@ -211,6 +391,7 @@ export function AdminNotificationCampaignDetailPage() {
             </div>
           ) : null}
 
+          {/* 4. Occurrence + summary */}
           {summary ? (
             <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <h2 className="text-sm font-semibold text-sam-fg">{t("admin_notif_section_summary")}</h2>
@@ -297,6 +478,7 @@ export function AdminNotificationCampaignDetailPage() {
             )}
           </section>
 
+          {/* 5. Device log */}
           <details className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <summary className="cursor-pointer text-sm font-medium text-sam-fg">
               {t("admin_notif_detail_delivery_log")} (device)
