@@ -20,5 +20,11 @@ export function adaptNotificationEventInsertToLegacyRow(
     domain: mapped.domain ?? null,
     muted_snapshot: row.muted_snapshot ?? null,
     sound_suppressed_reason: row.sound_suppressed_reason ?? null,
+    type: row.type ?? mapped.event_type ?? null,
+    event_type: mapped.event_type ?? null,
+    message_id: row.message_id ?? null,
+    dedupe_key: row.dedupe_key ?? mapped.dedupe_key ?? null,
+    call_session_id: row.call_session_id ?? null,
+    room_id: row.room_id ?? mapped.ref_id ?? null,
   };
 }

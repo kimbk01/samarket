@@ -1,10 +1,9 @@
 import { MESSENGER_CHAT_ALERT_MIN_GAP_MS } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { shouldSkipPushForEventDedupe } from "@/lib/notifications/core/notification-dedupe";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
-import {
-  playDomainNotificationSound,
-  playEventNotificationSound,
-} from "@/lib/notifications/notification-sound-engine";
+import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { ingestCanonicalNotificationSound } from "@/lib/notifications/notification-sound-decision";
 import { playOrderMatchChatAlert } from "@/lib/notifications/play-order-match-alert";
 
 const seenDedupeKeys = new Set<string>();
@@ -53,6 +52,17 @@ function tryConsumeChatAlertSlot(dedupeKey: string): ChatAlertSoundScheduleResul
  * 생략 시 `system_default` SSOT eventKey.
  * @returns 재생이 스케줄됐는지 (handled / notif INSERT 스킵 판단용)
  */
+function canonicalIdFromDedupe(dedupeKey: string): string | null {
+  const key = dedupeKey.trim();
+  if (!key) return null;
+  if (key.includes("->") || key.startsWith("messenger-participant:")) return null;
+  if (/^\d{10,13}$/.test(key)) return null;
+  const msg = key.match(/^msg:([^:]+)/);
+  if (msg?.[1]) return msg[1];
+  if (key.includes("Date.now") || /:\d{13}$/.test(key)) return null;
+  return key;
+}
+
 export function playCoalescedChatNotificationSound(
   dedupeKey: string,
   domain?: NotificationDomain,
@@ -61,13 +71,19 @@ export function playCoalescedChatNotificationSound(
   if (notificationEventId?.trim() && shouldSkipPushForEventDedupe(notificationEventId.trim())) {
     return { status: "skipped", reason: "push_event_dedupe" };
   }
-  const slot = tryConsumeChatAlertSlot(dedupeKey);
+  const identity = canonicalIdFromDedupe(dedupeKey) || notificationEventId?.trim() || "";
+  if (!identity) return { status: "skipped", reason: "empty_dedupe_key" };
+  const slot = tryConsumeChatAlertSlot(identity);
   if (slot.status !== "scheduled") return slot;
-  if (domain) {
-    void playDomainNotificationSound(domain);
-  } else {
-    void playEventNotificationSound("system_default");
-  }
+  const eventType = domain ? eventKeyForNotificationDomain(domain) : "system_default";
+  ingestCanonicalNotificationSound({
+    identityKind: "messenger_message",
+    canonicalEventId: identity,
+    recipientId: getBoundAuthUserId() ?? "",
+    eventType,
+    domain: domain ?? null,
+    source: "realtime",
+  });
   return slot;
 }
 
@@ -87,9 +103,17 @@ export function playCoalescedEventNotificationSound(
 ): ChatAlertSoundScheduleResult {
   const key = eventKey.trim();
   if (!key) return { status: "skipped", reason: "empty_dedupe_key" };
-  const slot = tryConsumeChatAlertSlot(dedupeKey);
+  const identity = canonicalIdFromDedupe(dedupeKey);
+  if (!identity) return { status: "skipped", reason: "empty_dedupe_key" };
+  const slot = tryConsumeChatAlertSlot(identity);
   if (slot.status !== "scheduled") return slot;
-  void playEventNotificationSound(key);
+  ingestCanonicalNotificationSound({
+    identityKind: "messenger_message",
+    canonicalEventId: identity,
+    recipientId: getBoundAuthUserId() ?? "",
+    eventType: key,
+    source: "realtime",
+  });
   return slot;
 }
 

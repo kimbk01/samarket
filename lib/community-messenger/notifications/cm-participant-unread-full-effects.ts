@@ -1,18 +1,11 @@
 "use client";
 
 /**
- * participants unread 증가 — full playback 전용 (sound·banner·desktop·nav).
- * hub-sync 와 같은 턴에서 동기 호출한다 (dynamic import 금지 — 음 지연 원인).
- *
- * 알림음 억제 (텔레그램·카톡형):
- * - 현재 보고 있는 바로 그 방 (activeRoomId === roomId)
- * - 방 음소거 / 앱·도메인 알림음 OFF
- * - silent delivery / 중복 스케줄
- * pathname(`/market` 등)만으로 general_direct·group 음을 막지 않는다.
+ * participants unread 증가 — badge / banner / desktop only.
+ * GATE 2: SOUND = NO AUTHORITY. messageId ingress 가 음을 낸다.
  *
  * Root layout 참가자 브리지는 NotificationSurfaceProvider 밖이라 surfaceRef 가 null 이다.
  * 설정·activeRoom 은 `getNotificationSoundGateSnapshot()`(+ pathname) 폴백.
- * settings 미수신 시 sound OFF 로 오판하지 않는다 (`=== false` 만 억제).
  */
 
 import type { RefObject } from "react";
@@ -35,10 +28,8 @@ import {
   logCmSurfaceSync,
   noteCmParticipantSurfaceSoundHandled,
 } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
-import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
-import { resolveCmInAppSoundNotificationDomain } from "@/lib/community-messenger/notifications/cm-in-app-sound-domain";
 import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   messengerRoomListSourceFromPathname,
@@ -54,18 +45,11 @@ function activeCommunityRoomIdFromPathname(pathname: string | null): string | nu
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
-/**
- * `MainShellMessengerParticipantBridge` 는 root layout 에 있어
- * `useNotificationSurface()` 가 null 이다. Provider 는 children 쪽에서
- * `syncNotificationSoundGateSnapshot` 으로 모듈 게이트를 갱신하므로 그걸 폴백한다.
- * settings 미수신 시 기본은 음 허용 (undefined → OFF 로 오판 금지).
- */
 function resolveParticipantSoundSurface(args: {
   surface: ReturnType<typeof useNotificationSurface>;
   pathname: string | null;
 }): {
   activeRoom: string | null;
-  suppressSound: boolean;
   windowFocused: boolean;
   communityChatEnabled: boolean;
 } {
@@ -77,8 +61,6 @@ function resolveParticipantSoundSurface(args: {
     activeCommunityRoomIdFromPathname(args.pathname);
   return {
     activeRoom,
-    suppressSound:
-      settings?.sound_enabled === false || settings?.community_chat_enabled === false,
     windowFocused: args.surface?.isWindowFocused ?? gate?.isWindowFocused ?? true,
     communityChatEnabled: settings?.community_chat_enabled !== false,
   };
@@ -115,7 +97,6 @@ export type CmParticipantUnreadFullEffectsArgs = {
   nextUnread: number;
   prevUnread: number;
   latencyKey: string;
-  /** Domain resolve — snapshot/bootstrap chatDomain. 없으면 재생 생략. */
   viewerUserId?: string | null;
   pathnameRef: RefObject<string | null>;
   visibilityRef: RefObject<DocumentVisibilityState>;
@@ -130,7 +111,6 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     nextUnread,
     prevUnread,
     latencyKey: key,
-    viewerUserId,
     pathnameRef,
     visibilityRef,
     surfaceRef,
@@ -138,38 +118,16 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     routerRef,
   } = args;
 
-  const soundDomain = resolveCmInAppSoundNotificationDomain(nextRoomId, viewerUserId ?? null);
-
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-  let sound_schedule_ms: number | null = null;
   let banner_ms: number | null = null;
   const onNavigateToRoom = (roomId: string) => navigateToCommunityRoomLazy(routerRef, pathnameRef, roomId);
 
+  const sameRoomPath = pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`;
+  if (sameRoomPath) {
+    noteCmParticipantSurfaceSoundHandled(nextRoomId);
+  }
+
   if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
-    const sameRoomPath = pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`;
-    const visOk = typeof document !== "undefined" && document.visibilityState === "visible";
-    const focusOk = typeof document === "undefined" || document.hasFocus();
-    if (sameRoomPath && visOk && focusOk) {
-      /** 현재 방 — 강한 음·notif INSERT 중복음 차단 */
-      noteCmParticipantSurfaceSoundHandled(nextRoomId);
-      requestMessengerHubBadgeResync("participant_unread_changed", {
-        roomId: nextRoomId,
-        participantUnreadDirection: "increase",
-      });
-      return;
-    }
-    /** domain 미상 — CM 재생 생략만. INSERT 가 row domain 으로 소유권 가져가도록 handled 금지. */
-    if (soundDomain) {
-      const scheduled = playCoalescedChatNotificationSound(
-        `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
-        soundDomain
-      );
-      if (scheduled.status === "scheduled") {
-        noteCmParticipantSurfaceSoundHandled(nextRoomId);
-        sound_schedule_ms =
-          typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
-      }
-    }
     tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
       title: tRef.current("notify_messenger_banner_title"),
@@ -193,7 +151,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
       t0,
       bottom_ms: 0,
       list_cache_ms: 0,
-      sound_schedule_ms,
+      sound_schedule_ms: null,
       banner_ms: null,
       unread: nextUnread,
       prevUnread,
@@ -202,12 +160,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   }
 
   const appVisibility = documentVisibilityToAppVisibility(visibilityRef.current);
-  const {
-    activeRoom,
-    suppressSound,
-    windowFocused,
-    communityChatEnabled,
-  } = resolveParticipantSoundSurface({
+  const { activeRoom, windowFocused, communityChatEnabled } = resolveParticipantSoundSurface({
     surface: surfaceRef.current,
     pathname: pathnameRef.current,
   });
@@ -217,60 +170,24 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     : null;
 
   cmReceiveLatencyMark(key, { notification_decision_ms: cmReceiveLatencyNow() });
-  const { playInAppMessageSound, showAppLevelBanner, dedupeKey } = resolveParticipantUnreadDeltaInAppEffects({
+  const { showAppLevelBanner, dedupeKey } = resolveParticipantUnreadDeltaInAppEffects({
     targetRoomId: nextRoomId,
     nextUnread,
     prevUnread,
     activeCommunityRoomId: activeRoom,
     appVisibility,
-    suppressInAppMessageSound: suppressSound,
     sameRoomScrollHint: scrollHint,
     applySameRoomScrollPolicy: scrollPolicy,
     windowFocused,
   });
 
-  /**
-   * allowSound = domain/room/user 정책만 (pathname `/market` 억제 금지).
-   * 배너와 소리는 같은 decision 에서 파생하되 결과가 다를 수 있음(현재 방 등).
-   */
-  const allowSound = playInAppMessageSound && soundDomain != null;
-  let insertOwnerClaimed = false;
-  let coalesceStatus: string | null = null;
-  if (dedupeKey && allowSound && soundDomain) {
-    cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
-    const scheduled = playCoalescedChatNotificationSound(dedupeKey, soundDomain);
-    coalesceStatus = scheduled.status;
-    if (scheduled.status === "scheduled") {
-      noteCmParticipantSurfaceSoundHandled(nextRoomId);
-      insertOwnerClaimed = true;
-      sound_schedule_ms =
-        typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
-    }
-  } else if (dedupeKey && !playInAppMessageSound) {
-    /**
-     * 현재 방·음소거·설정 OFF — 의도적 억제만 INSERT 중복음 차단.
-     * domain 미상(soundDomain==null)인데 정책상 재생 허용이면 INSERT 가 row domain 소유.
-     */
-    noteCmParticipantSurfaceSoundHandled(nextRoomId);
-    insertOwnerClaimed = true;
-  }
   logBadgeFdProbe("cm_participant_sound.decision", {
     roomId: nextRoomId,
     prevUnread,
     nextUnread,
-    playInAppMessageSound,
-    allowSound,
-    soundDomain,
-    insertOwnerClaimed,
-    coalesceStatus,
-    soundScheduleMs: sound_schedule_ms,
-    skipReason: !playInAppMessageSound
-      ? "policy_suppress"
-      : soundDomain == null
-        ? "domain_unknown_insert_may_own"
-        : coalesceStatus === "scheduled"
-          ? null
-          : coalesceStatus,
+    playInAppMessageSound: false,
+    allowSound: false,
+    skipReason: "unread_delta_not_sound_authority",
   });
   if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
     useMessengerInAppMessageBannerStore.getState().pushOrMerge({
@@ -305,7 +222,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     t0,
     bottom_ms: 0,
     list_cache_ms: 0,
-    sound_schedule_ms,
+    sound_schedule_ms: null,
     banner_ms,
     unread: nextUnread,
     prevUnread,

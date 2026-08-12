@@ -2,7 +2,8 @@
  * 도메인별 알림음 — SSOT resolver · 반복·타임아웃·중단(stopNotificationPlayback).
  * 브라우저 전용.
  *
- * CONTRACT: 수신 알림음(playEvent) 은 hydrate 중 일반 stop 으로 취소하지 않는다.
+ * CONTRACT: 수신 알림음(playEvent) 은 일반 stop 으로 취소하지 않는다.
+ * SOUND HOT PATH HTTP = 0 — SSOT hydrate 를 play 직전에 await 하지 않는다.
  * 채팅 상세 진입은 `invalidateChatRoomEntryInAppSound` → `invalidatePendingNotificationSoundPlayback`
  * 으로 pending 을 끊는다.
  */
@@ -12,10 +13,7 @@ import {
   invalidateNotificationSoundSsotCache,
   resolveNotificationSound,
 } from "@/lib/notifications/notification-sound-resolver";
-import {
-  ensureNotificationSoundSsotHydratedForClient,
-  invalidateNotificationSoundSsotClientHydrate,
-} from "@/lib/notifications/notification-sound-ssot-client-hydrate";
+import { invalidateNotificationSoundSsotClientHydrate } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
@@ -29,7 +27,8 @@ let maxDurationTimer: TimerHandle | null = null;
 const repeatTimers: TimerHandle[] = [];
 /**
  * 종·푸시·배너 방 진입 전용 cancel epoch.
- * 일반 stopNotificationPlayback 은 이 값을 올리지 않음 → 수신 hydrate 를 죽이지 않음.
+ * 일반 stopNotificationPlayback 은 이 값을 올리지 않음 → 수신 pending 을 죽이지 않음.
+ * Logout / authEpoch wipe 도 이 epoch 를 올려 delayed Audio.play 를 끊는다.
  */
 let roomEntryCancelEpoch = 0;
 
@@ -53,10 +52,16 @@ export function stopNotificationPlayback(): void {
   repeatTimers.length = 0;
 }
 
-/** 방 진입(종/푸시) — hydrate 대기 중이던 play 만 무효화 */
+/** 방 진입(종/푸시) — 대기 중이던 play 만 무효화 */
 export function invalidatePendingNotificationSoundPlayback(): void {
   roomEntryCancelEpoch += 1;
   stopNotificationPlayback();
+}
+
+/** Logout / account switch — pending one-shots + domain play clock. */
+export function resetNotificationSoundEngineForAuthEpoch(): void {
+  lastDomainPlayAt.clear();
+  invalidatePendingNotificationSoundPlayback();
 }
 
 function playOneShot(url: string, volume: number, entryEpoch: number): void {
@@ -102,12 +107,11 @@ export async function playEventNotificationSound(
   console.info(
     `${RUNTIME_LINK_P1_LOG} ${JSON.stringify({ stage: "playEventNotificationSound:enter", eventKey })}`
   );
-  await ensureNotificationSoundSsotHydratedForClient();
-  /** 방 진입 invalidate 만 pending 취소 — 일반 stop 은 여기 안 걸림 */
+  /** 방 진입 / auth wipe invalidate 만 pending 취소 — 일반 stop 은 여기 안 걸림 */
   if (entryEpochAtStart !== roomEntryCancelEpoch) {
     logBadgeFdProbe("playEventNotificationSound.skip", {
       eventKey,
-      reason: "room_entry_cancel_after_hydrate",
+      reason: "room_entry_cancel",
     });
     return;
   }
@@ -153,7 +157,14 @@ export async function playEventNotificationSound(
       repeats,
     })}`
   );
-  for (let i = 0; i < repeats; i++) {
+  /**
+   * 첫 샷은 repeatTimers 밖에 둔다. 일반 `stopNotificationPlayback` 이
+   * 수신 pending 을 죽이면 안 된다. `invalidatePending` 만 epoch 로 취소.
+   */
+  queueMicrotask(() => {
+    playOneShot(url, vol, entryEpochForShots);
+  });
+  for (let i = 1; i < repeats; i++) {
     const t = window.setTimeout(() => {
       playOneShot(url, vol, entryEpochForShots);
     }, i * REPEAT_GAP_MS);

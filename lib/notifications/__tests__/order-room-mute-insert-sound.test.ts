@@ -11,9 +11,11 @@ import {
   type NotificationSoundGateSnapshot,
 } from "@/lib/notifications/notification-sound-gate";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { __resetNotificationSoundDecisionForTests } from "@/lib/notifications/notification-sound-decision";
 
 vi.mock("@/lib/notifications/notification-sound-engine", () => ({
   playEventNotificationSound: vi.fn(async () => {}),
+  resetNotificationSoundEngineForAuthEpoch: vi.fn(),
 }));
 
 const DEFAULT_GATE: NotificationSoundGateSnapshot = {
@@ -37,6 +39,13 @@ describe("order room mute blocks INSERT sound", () => {
     clearChatRoomMessageSoundMuteForTests();
     syncNotificationSoundGateSnapshot({ ...DEFAULT_GATE });
     setChatRoomMessageSoundMuted("order-room-1", false);
+    __resetNotificationSoundDecisionForTests({
+      recipientId: "user-1",
+      isLeader: true,
+      visibility: "visible",
+      windowFocused: true,
+      sessionStartedAt: Date.now() - 1_000,
+    });
   });
 
   it("blocks INSERT when room mute is ON", () => {
@@ -62,10 +71,12 @@ describe("order room mute blocks INSERT sound", () => {
 
     const routed = routeNotificationInsertSound({
       id: "evt-order-2",
+      user_id: "user-1",
       notification_type: "chat",
       unread: true,
       domain: "store",
       ref_id: "order-room-1",
+      created_at: new Date().toISOString(),
       meta: { kind: "store_order_message", room_id: "order-room-1", receiverRole: "user" },
     });
 

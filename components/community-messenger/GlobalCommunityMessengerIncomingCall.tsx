@@ -71,8 +71,6 @@ import {
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { eventKeyForCallKind } from "@/lib/notifications/notification-sound-event-map";
-import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
@@ -273,7 +271,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   >(() => readIncomingCallVisibilityState());
   /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
   const [incomingListError, setIncomingListError] = useState<string | null>(null);
-  const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
   const lastRefreshAtRef = useRef(0);
   const lastBurstAtRef = useRef(0);
@@ -1715,18 +1712,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    const nextIds = new Set<string>();
-    for (const session of sessions) {
-      nextIds.add(session.id);
-      if (!seenIdsRef.current.has(session.id) && incomingCallSoundEnabled && !incomingCallBannerEnabled) {
-        const kind: CommunityMessengerCallKind = session.callKind === "video" ? "video" : "voice";
-        void playEventNotificationSound(eventKeyForCallKind(kind, "incoming"));
-      }
-    }
-    seenIdsRef.current = nextIds;
-  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, sessions]);
 
   useEffect(() => {
     if (!minimizedSessionId) return;

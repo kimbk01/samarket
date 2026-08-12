@@ -4,40 +4,69 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
-describe("notification sound HARD LOCK contract (Phase 1)", () => {
-  it("keeps cm_participant_already_played duplicate gate", () => {
-    const gate = read("lib/notifications/notification-sound-gate.ts");
-    expect(gate).toContain("cm_participant_already_played");
-    expect(gate).toContain("shouldSkipNotificationInsertSoundForCmParticipant");
+describe("notification sound GATE 2 contract", () => {
+  it("central decision owns occurrence identity", () => {
+    const decision = read("lib/notifications/notification-sound-decision.ts");
+    expect(decision).toContain("canonicalEventId");
+    expect(decision).toContain("SKIP_ALREADY_CONSUMED");
+    expect(decision).toContain("SKIP_BOOTSTRAP");
+    expect(decision).toContain("looksLikeTimestampIdentity");
+    expect(decision).not.toMatch(/canonicalEventId:\s*(String\()?Date\.now/);
   });
 
-  it("does not claim INSERT ownership when CM domain is unknown", () => {
+  it("participant unread is not sound authority", () => {
     const effects = read(
       "lib/community-messenger/notifications/cm-participant-unread-full-effects.ts"
     );
-    expect(effects).toContain("else if (dedupeKey && !playInAppMessageSound)");
-    expect(effects).not.toMatch(
-      /else if \(dedupeKey && !allowSound\)[\s\S]{0,200}noteCmParticipantSurfaceSoundHandled/
-    );
-    expect(effects).toContain("domain 미상");
+    expect(effects).not.toContain("playCoalescedChatNotificationSound");
+    expect(effects).toContain("unread_delta_not_sound_authority");
   });
 
-  it("hub-sync does not forge sound_schedule_ms from schedule latency", () => {
-    const hub = read("lib/community-messenger/notifications/use-cm-participants-hub-sync.ts");
-    expect(hub).toContain("sound_schedule_ms: null");
-    expect(hub).toContain("scheduled\" 오판");
-  });
-
-  it("keeps single coalesced owner entry for chat alert sound", () => {
-    const coalesced = read("lib/notifications/coalesced-chat-alert-sound.ts");
-    expect(coalesced).toContain("playDomainNotificationSound");
-    expect(coalesced).toContain("tryConsumeChatAlertSlot");
-  });
-
-  it("does not silently swallow Audio.play failures", () => {
+  it("engine play path does not await SSOT hydrate", () => {
     const engine = read("lib/notifications/notification-sound-engine.ts");
-    expect(engine).not.toContain("void a.play().catch(() => {})");
+    expect(engine).not.toContain("ensureNotificationSoundSsotHydratedForClient");
+    expect(engine).toContain("SOUND HOT PATH HTTP = 0");
     expect(engine).toContain("playOneShot_failed");
-    expect(engine).toContain("playDomainNotificationSound.enter");
+  });
+
+  it("chat poll is not sound authority", () => {
+    const chat = read("components/chats/ChatDetailView.tsx");
+    expect(chat).not.toContain("playCoalescedEventNotificationSound");
+    expect(chat).not.toContain("playCoalescedOrderMatchChatAlert");
+  });
+
+  it("incoming call JS one-shot is removed", () => {
+    const incoming = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(incoming).not.toContain("playEventNotificationSound");
+  });
+
+  it("idle 3s participant bridge is after-paint rAF", () => {
+    const deferred = read("components/layout/DeferredMainShellMessengerParticipantBridge.tsx");
+    expect(deferred).not.toContain("timeout: 3000");
+    expect(deferred).toContain("requestAnimationFrame");
+  });
+
+  it("sound tab leader starts at app lifetime, not route Prime", () => {
+    const layout = read("app/layout.tsx");
+    const bootstrap = read("components/notifications/NotificationSoundLeaderBootstrap.tsx");
+    const prime = read("components/notifications/NotificationSoundPrime.tsx");
+    const flags = read("lib/layout/conditional-app-shell-flags.ts");
+    expect(layout).toContain("NotificationSoundLeaderBootstrap");
+    expect(bootstrap).toContain("ensureNotificationSoundRuntimeStarted");
+    expect(prime).toContain("ensureNotificationSoundRuntimeStarted");
+    expect(flags).not.toMatch(/mountNotificationSoundPrime[\s\S]{0,80}\/market/);
+  });
+
+  it("admin sound ingress waits for realtime JWT and uses row PK", () => {
+    const admin = read("components/admin/store-points/AdminStorePointPendingProvider.tsx");
+    expect(admin).toContain("waitForSupabaseRealtimeAuth");
+    expect(admin).toContain("ingestAdminRowSound");
+    expect(admin).not.toMatch(/setAdminBellCount\([\s\S]{0,120}ingestAdminRowSound/);
+    expect(admin).not.toMatch(/userChargePendingCount[\s\S]{0,80}ingestAdminRowSound/);
+  });
+
+  it("logout wipes sound runtime with badge epoch", () => {
+    const wipe = read("lib/auth/client-session-wipe.ts");
+    expect(wipe).toContain("resetNotificationSoundRuntimeForAuthEpoch");
   });
 });

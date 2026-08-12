@@ -94,7 +94,7 @@ export function resolveMessengerMessageArrivalEffects(
       ? buildMessengerMessageDedupeKey(s.targetRoomId, String(opts.messageId).trim())
       : buildMessengerMessageDedupeKey(
           s.targetRoomId,
-          opts.unreadTotalHint != null ? opts.unreadTotalHint : Date.now()
+          opts.unreadTotalHint != null ? String(opts.unreadTotalHint) : "unknown"
         );
 
   const inTargetRoom = sameRoom(s.activeCommunityRoomId, s.targetRoomId);
@@ -222,21 +222,16 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
   }
 
   /**
-   * 참가자 Realtime 은 message id 가 없다. `nextUnread` 단독 키는 읽음 후 동일 숫자로 다시 올 때
-   * `coalesced-chat-alert-sound` 세션 영구 dedupe 에 영구히 막히므로 전이·시각을 포함한다.
+   * GATE 2: participants unread 는 SOUND 권위가 아니다.
+   * Banner/desktop 키만 유지. Date.now() 는 identity 가 아니다.
    */
-  const dedupe = `messenger-participant:${input.targetRoomId}:${input.prevUnread}->${input.nextUnread}:${Date.now()}`;
-
-  const soundOff =
-    input.roomMuted === true ||
-    input.suppressInAppMessageSound === true ||
-    input.quietHoursActive === true;
+  const dedupe = `messenger-participant:${input.targetRoomId}:${input.prevUnread}->${input.nextUnread}`;
 
   const windowFocused = input.windowFocused !== false;
 
   if (input.appVisibility !== "foreground") {
     return {
-      playInAppMessageSound: !soundOff,
+      playInAppMessageSound: false,
       showAppLevelBanner: false,
       dedupeKey: dedupe,
     };
@@ -245,7 +240,7 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
   if (sameRoom(input.activeCommunityRoomId, input.targetRoomId)) {
     if (!windowFocused) {
       return {
-        playInAppMessageSound: !soundOff,
+        playInAppMessageSound: false,
         showAppLevelBanner: false,
         dedupeKey: dedupe,
       };
@@ -265,7 +260,7 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
   }
 
   return {
-    playInAppMessageSound: !soundOff,
+    playInAppMessageSound: false,
     showAppLevelBanner: true,
     dedupeKey: dedupe,
   };

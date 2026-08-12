@@ -57,6 +57,7 @@ import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-ka
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
 import { disconnectNativeDevicesOnAccountSwitch } from "@/lib/push/disconnect-native-devices-for-logout-client";
 import { resetNotificationBadgeCountForAuthEpoch } from "@/lib/notifications/notification-badge-count-store";
+import { resetNotificationSoundRuntimeForAuthEpoch } from "@/lib/notifications/notification-sound-decision";
 import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
 import { resetDomainBadgeSurfaceForAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
 import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge-store";
@@ -172,6 +173,7 @@ function resetAuthClientCaches(previousUserId?: string | null): void {
   resetProjectionAuthorityForAuthEpoch();
   resetOwnerHubBadgeStoreForAuthEpoch();
   resetMessengerNotificationSurfacesAfterSignOut();
+  resetNotificationSoundRuntimeForAuthEpoch();
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();
   clearAuthSessionClientCache();

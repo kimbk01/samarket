@@ -25,14 +25,7 @@ describe("invalidateChatRoomEntryInAppSound", () => {
     vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockClear();
   });
 
-  it("invalidates pending hydrate so late Admin resolve does not call Audio.play", async () => {
-    let resolveHydrate!: () => void;
-    vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveHydrate = resolve;
-        })
-    );
+  it("invalidates pending one-shot so late Audio.play does not run", async () => {
     vi.mocked(resolveNotificationSound).mockReturnValue({
       eventKey: "messenger_direct_message_received",
       assetId: "DIBAY-SND-011",
@@ -53,7 +46,6 @@ describe("invalidateChatRoomEntryInAppSound", () => {
 
     const pending = playEventNotificationSound("messenger_direct_message_received");
     invalidateChatRoomEntryInAppSound();
-    resolveHydrate();
     await pending;
     await new Promise((r) => setTimeout(r, 20));
     expect(playSpy).not.toHaveBeenCalled();

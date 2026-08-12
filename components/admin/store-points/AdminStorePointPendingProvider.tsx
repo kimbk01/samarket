@@ -13,13 +13,21 @@ import {
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  syncSupabaseRealtimeAuthFromSession,
+  waitForSupabaseRealtimeAuth,
+} from "@/lib/supabase/wait-for-realtime-auth";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
-import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { traceAdminSound } from "@/lib/notifications/admin-notification-sound-trace";
+import {
+  ingestAdminRowSound,
+  seedCanonicalSoundConsumed,
+} from "@/lib/notifications/notification-sound-decision";
 
 type FeedAdToast = {
   requestId: string;
@@ -80,6 +88,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const rtTimeoutRef = useRef<number | null>(null);
   const seenFeedIdsRef = useRef<Set<string> | null>(null);
   const prevFeedCountRef = useRef(0);
+  const feedSoundHydratedRef = useRef(false);
+  const chargeSoundHydratedRef = useRef(false);
 
   const markFeedAdAlert = useCallback(
     async (requestId: string, meta?: { domain?: string; placement?: string; pointCost?: number }) => {
@@ -114,11 +124,43 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         setFeedAdToast(null);
       }, 8000);
 
-      // Sound is enhancement only — failure must not block badge/queue.
-      void playEventNotificationSound("system_default").catch(() => {});
+      ingestAdminRowSound({
+        sourceTable: "feed_ad_requests",
+        rowId: requestId,
+      });
     },
     [safeT]
   );
+
+  const seedPendingChargeRowsSilent = useCallback(async () => {
+    try {
+      const res = await adminFetch("/api/admin/point-charges", {
+        credentials: "include",
+        cache: "no-store",
+        dedupeKey: "admin:point-charges:hydrate-seed",
+        cacheTtlMs: 3_000,
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        requests?: { id?: string }[];
+      };
+      if (!res.ok || !json.ok || !Array.isArray(json.requests)) return;
+      for (const r of json.requests) {
+        const id = String(r.id ?? "").trim();
+        if (!id) continue;
+        seedCanonicalSoundConsumed({
+          identityKind: "admin_row",
+          canonicalEventId: id,
+        });
+      }
+      traceAdminSound("HYDRATE_SEED", {
+        table: "point_charge_requests",
+        count: json.requests.length,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const detectNewFeedAds = useCallback(async () => {
     try {
@@ -134,29 +176,20 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       };
       if (!res.ok || !json.ok || !Array.isArray(json.requests)) return;
       if (!seenFeedIdsRef.current) seenFeedIdsRef.current = loadSeenIds();
-      // First hydrate: seed seen without sound (avoid replay on admin page open).
-      if (prevFeedCountRef.current === 0 && seenFeedIdsRef.current.size === 0) {
-        for (const r of json.requests) {
-          const id = String(r.id ?? "");
-          if (id) seenFeedIdsRef.current.add(id);
-        }
-        persistSeenIds(seenFeedIdsRef.current);
-        return;
-      }
       for (const r of json.requests) {
         const id = String(r.id ?? "");
-        if (!id || seenFeedIdsRef.current.has(id)) continue;
-        await markFeedAdAlert(id, {
-          domain: r.domain,
-          placement: r.placement,
-          pointCost: r.pointCost,
+        if (!id) continue;
+        seenFeedIdsRef.current.add(id);
+        seedCanonicalSoundConsumed({
+          identityKind: "admin_row",
+          canonicalEventId: id,
         });
-        break; // one toast/sound per refresh burst
       }
+      persistSeenIds(seenFeedIdsRef.current);
     } catch {
       /* ignore */
     }
-  }, [markFeedAdAlert]);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -187,15 +220,20 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         setPendingCount(storeCharges);
         setUserChargePendingCount(userCharges);
         setFeedAdPendingCount(feedAds);
-        if (feedAds > prevFeedCountRef.current) {
+        if (!feedSoundHydratedRef.current) {
+          feedSoundHydratedRef.current = true;
           void detectNewFeedAds();
+        }
+        if (!chargeSoundHydratedRef.current) {
+          chargeSoundHydratedRef.current = true;
+          void seedPendingChargeRowsSilent();
         }
         prevFeedCountRef.current = feedAds;
       }
     } catch {
       /* ignore */
     }
-  }, [detectNewFeedAds]);
+  }, [detectNewFeedAds, seedPendingChargeRowsSilent]);
 
   useEffect(() => {
     void refresh();
@@ -221,7 +259,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
   useEffect(() => {
     const sb = getSupabaseClient();
-    if (!sb) return;
+    if (!sb) {
+      traceAdminSound("RT_CLIENT", { ok: false, reason: "no_supabase_client" });
+      return;
+    }
+
+    let cancelled = false;
+    let channel: ReturnType<typeof sb.channel> | null = null;
 
     const scheduleRefresh = (showToast: boolean, eventType?: string) => {
       if (showToast && eventType === "INSERT") {
@@ -239,51 +283,123 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }, 300);
     };
 
-    const channel = sb
-      .channel("admin-point-charges-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "store_point_charge_requests" },
-        (payload) => scheduleRefresh(true, payload.eventType)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "point_charge_requests" },
-        () => scheduleRefresh(false)
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "feed_ad_requests" },
-        (payload) => {
-          const row = payload.new as {
-            id?: string;
-            status?: string;
-            domain?: string;
-            placement?: string;
-            point_cost?: number;
-          };
-          if (String(row.status ?? "") === "pending_review" && row.id) {
-            void markFeedAdAlert(String(row.id), {
-              domain: row.domain,
-              placement: row.placement,
-              pointCost: row.point_cost,
+    const rowIdFromPayload = (payload: { new?: unknown; old?: unknown }) => {
+      const next = payload.new && typeof payload.new === "object" ? (payload.new as { id?: unknown }) : null;
+      const prev = payload.old && typeof payload.old === "object" ? (payload.old as { id?: unknown }) : null;
+      return String(next?.id ?? prev?.id ?? "").trim();
+    };
+
+    const createdAtFromPayload = (payload: { new?: unknown }) => {
+      const next =
+        payload.new && typeof payload.new === "object"
+          ? (payload.new as { created_at?: unknown; requested_at?: unknown })
+          : null;
+      const v = next?.created_at ?? next?.requested_at;
+      return typeof v === "string" && v.trim() ? v : null;
+    };
+
+    void (async () => {
+      const authOk = await waitForSupabaseRealtimeAuth(sb);
+      traceAdminSound("RT_AUTH", { authOk });
+      if (cancelled) return;
+      if (!authOk) {
+        traceAdminSound("RT_SUBSCRIBE", { status: "NO_AUTH" });
+        return;
+      }
+
+      channel = sb
+        .channel("admin-point-charges-realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "store_point_charge_requests" },
+          (payload) => {
+            const rowId = rowIdFromPayload(payload);
+            traceAdminSound("RT_INSERT", {
+              table: "store_point_charge_requests",
+              eventType: payload.eventType,
+              rowId,
+              newKeys:
+                payload.new && typeof payload.new === "object" ? Object.keys(payload.new as object) : [],
             });
+            if (payload.eventType === "INSERT" && rowId) {
+              ingestAdminRowSound({
+                sourceTable: "store_point_charge_requests",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+            }
+            scheduleRefresh(true, payload.eventType);
           }
-          scheduleRefresh(false);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "feed_ad_requests" },
-        () => scheduleRefresh(false)
-      )
-      .subscribe();
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "point_charge_requests" },
+          (payload) => {
+            const rowId = rowIdFromPayload(payload);
+            traceAdminSound("RT_INSERT", {
+              table: "point_charge_requests",
+              eventType: payload.eventType,
+              rowId,
+              newKeys:
+                payload.new && typeof payload.new === "object" ? Object.keys(payload.new as object) : [],
+            });
+            if (payload.eventType === "INSERT" && rowId) {
+              ingestAdminRowSound({
+                sourceTable: "point_charge_requests",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+            }
+            scheduleRefresh(false);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "feed_ad_requests" },
+          (payload) => {
+            const row = payload.new as {
+              id?: string;
+              status?: string;
+              domain?: string;
+              placement?: string;
+              point_cost?: number;
+            };
+            const rowId = String(row?.id ?? "").trim();
+            traceAdminSound("RT_INSERT", {
+              table: "feed_ad_requests",
+              eventType: payload.eventType,
+              rowId,
+              status: row?.status ?? null,
+            });
+            if (String(row.status ?? "") === "pending_review" && rowId) {
+              void markFeedAdAlert(rowId, {
+                domain: row.domain,
+                placement: row.placement,
+                pointCost: row.point_cost,
+              });
+            }
+            scheduleRefresh(false);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "feed_ad_requests" },
+          () => scheduleRefresh(false)
+        )
+        .subscribe((status) => {
+          traceAdminSound("RT_SUBSCRIBE", { status });
+          if (status === "SUBSCRIBED") {
+            void syncSupabaseRealtimeAuthFromSession(sb);
+          }
+        });
+    })();
 
     return () => {
+      cancelled = true;
       if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
       if (feedToastTimeoutRef.current) window.clearTimeout(feedToastTimeoutRef.current);
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
-      void sb.removeChannel(channel);
+      if (channel) void sb.removeChannel(channel);
     };
   }, [refresh, markFeedAdAlert]);
 

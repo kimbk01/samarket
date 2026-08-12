@@ -11,6 +11,7 @@ import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChromeRoot } from "@/components/layout/providers/CallIncomingChromeRoot";
 import { DeferredMainShellMessengerParticipantBridge } from "@/components/layout/DeferredMainShellMessengerParticipantBridge";
+import { NotificationSoundLeaderBootstrap } from "@/components/notifications/NotificationSoundLeaderBootstrap";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
   DIBAY_APP_ICON_180_PATH,
@@ -107,6 +108,7 @@ export default async function RootLayout({
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />
             <CallIncomingChromeRoot />
+            <NotificationSoundLeaderBootstrap />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
             {children}
           </AppBootProvider>

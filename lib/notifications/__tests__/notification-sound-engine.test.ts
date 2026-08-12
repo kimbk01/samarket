@@ -19,7 +19,7 @@ describe("playEventNotificationSound", () => {
     vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockClear();
   });
 
-  it("hydrates SSOT before resolve", async () => {
+  it("does not await SSOT HTTP on the play hot path", async () => {
     vi.mocked(resolveNotificationSound).mockReturnValue({
       eventKey: "messenger_direct_message_received",
       assetId: "DIBAY-SND-010",
@@ -39,7 +39,7 @@ describe("playEventNotificationSound", () => {
 
     await playEventNotificationSound("messenger_direct_message_received");
 
-    expect(ensureNotificationSoundSsotHydratedForClient).toHaveBeenCalledTimes(1);
+    expect(ensureNotificationSoundSsotHydratedForClient).not.toHaveBeenCalled();
     expect(resolveNotificationSound).toHaveBeenCalledWith("messenger_direct_message_received", {
       platform: "web",
     });
@@ -71,14 +71,7 @@ describe("playEventNotificationSound", () => {
     playSpy.mockRestore();
   });
 
-  it("cancels play after hydrate when room entry invalidates pending playback", async () => {
-    let resolveHydrate!: () => void;
-    vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveHydrate = resolve;
-        })
-    );
+  it("cancels pending one-shot when room entry invalidates playback", async () => {
     vi.mocked(resolveNotificationSound).mockReturnValue({
       eventKey: "messenger_direct_message_received",
       assetId: "DIBAY-SND-010",
@@ -101,24 +94,14 @@ describe("playEventNotificationSound", () => {
       "@/lib/notifications/notification-sound-engine"
     );
     const pending = playEventNotificationSound("messenger_direct_message_received");
-    /** 일반 stop 만으로는 수신 pending 을 죽이면 안 됨 */
     stopNotificationPlayback();
-    resolveHydrate();
     await pending;
     await new Promise((r) => setTimeout(r, 20));
     expect(playSpy).toHaveBeenCalled();
     playSpy.mockClear();
 
-    let resolveHydrate2!: () => void;
-    vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveHydrate2 = resolve;
-        })
-    );
     const pending2 = playEventNotificationSound("messenger_direct_message_received");
     invalidatePendingNotificationSoundPlayback();
-    resolveHydrate2();
     await pending2;
     await new Promise((r) => setTimeout(r, 20));
     expect(playSpy).not.toHaveBeenCalled();

@@ -7,9 +7,11 @@ import {
   type NotificationSoundGateSnapshot,
 } from "@/lib/notifications/notification-sound-gate";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { __resetNotificationSoundDecisionForTests } from "@/lib/notifications/notification-sound-decision";
 
 vi.mock("@/lib/notifications/notification-sound-engine", () => ({
   playEventNotificationSound: vi.fn(async () => {}),
+  resetNotificationSoundEngineForAuthEpoch: vi.fn(),
 }));
 
 const DEFAULT_GATE: NotificationSoundGateSnapshot = {
@@ -31,15 +33,25 @@ describe("notification-sound-gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     syncNotificationSoundGateSnapshot({ ...DEFAULT_GATE });
+    __resetNotificationSoundDecisionForTests({
+      recipientId: "user-1",
+      isLeader: true,
+      visibility: "visible",
+      windowFocused: true,
+      callActive: false,
+      sessionStartedAt: Date.now() - 1_000,
+    });
   });
 
   it("routes friend_request_received through the same INSERT gate as badge", () => {
     const routed = routeNotificationInsertSound({
       id: "evt-friend",
+      user_id: "user-1",
       notification_type: "system",
       domain: "community_chat",
       ref_id: "req-1",
       unread: true,
+      created_at: new Date().toISOString(),
       meta: { kind: "friend_request", request_id: "req-1" },
     });
 
@@ -89,9 +101,11 @@ describe("notification-sound-gate", () => {
   it("plays one sound for a normal direct message INSERT", () => {
     const routed = routeNotificationInsertSound({
       id: "evt-direct",
+      user_id: "user-1",
       notification_type: "chat",
       unread: true,
       sound_suppressed_reason: null,
+      created_at: new Date().toISOString(),
       meta: { kind: "community_chat", room_id: "room-2" },
     });
 

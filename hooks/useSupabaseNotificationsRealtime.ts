@@ -7,9 +7,7 @@ import {
   resolveNotificationSoundEventKeyFromRow,
   type NotificationSoundRowInput,
 } from "@/lib/notifications/notification-sound-event-key-from-row";
-import {
-  playEventNotificationSound,
-} from "@/lib/notifications/notification-sound-engine";
+import { ingestNotificationEventRowSound } from "@/lib/notifications/notification-sound-decision";
 import { adaptNotificationEventInsertToLegacyRow } from "@/lib/notifications/adapt-notification-event-realtime-row";
 
 export type SupabaseNotificationsRealtimeOptions = {
@@ -49,10 +47,8 @@ function rowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowI
 
 function playRowEventSound(row: Record<string, unknown>): void {
   const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));
-  if (eventKey) {
-    void playEventNotificationSound(eventKey);
-  }
-  /** CONTRACT: eventKey 없는 채팅/행은 system_default 위장 재생 금지 */
+  if (!eventKey && row?.notification_type === "chat") return;
+  ingestNotificationEventRowSound(row);
 }
 
 /**

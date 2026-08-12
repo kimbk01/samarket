@@ -9,6 +9,7 @@ import {
 vi.mock("@/lib/notifications/notification-sound-engine", () => ({
   playDomainNotificationSound: vi.fn().mockResolvedValue(undefined),
   playEventNotificationSound: vi.fn().mockResolvedValue(undefined),
+  resetNotificationSoundEngineForAuthEpoch: vi.fn(),
 }));
 
 vi.mock("@/lib/notifications/play-order-match-alert", () => ({
@@ -17,12 +18,20 @@ vi.mock("@/lib/notifications/play-order-match-alert", () => ({
 
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { playOrderMatchChatAlert } from "@/lib/notifications/play-order-match-alert";
+import { __resetNotificationSoundDecisionForTests } from "@/lib/notifications/notification-sound-decision";
 
 describe("order chat coalesced event keys", () => {
   beforeEach(() => {
     clearCoalescedChatAlertSoundForTests();
     vi.mocked(playEventNotificationSound).mockClear();
     vi.mocked(playOrderMatchChatAlert).mockClear();
+    __resetNotificationSoundDecisionForTests({
+      recipientId: "user-1",
+      isLeader: true,
+      visibility: "visible",
+      windowFocused: true,
+      sessionStartedAt: Date.now() - 1_000,
+    });
   });
 
   it("match ack uses delivery_order_match_chat only", async () => {

@@ -1,4 +1,3 @@
-import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import {
   resolveNotificationSoundEventKeyFromRowWithFallback,
   resolveNotificationSoundGateDomainFromRow,
@@ -11,24 +10,19 @@ import {
 } from "@/lib/notifications/notification-domains";
 import { isChatRoomMessageSoundMuted } from "@/lib/chats/chat-room-message-sound-mute";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import {
+  extractCanonicalSoundIdentity,
+  ingestCanonicalNotificationSound,
+} from "@/lib/notifications/notification-sound-decision";
+import {
+  getNotificationSoundGateSnapshot,
+  syncNotificationSoundGateSnapshot,
+  type NotificationSoundGateSnapshot,
+} from "@/lib/notifications/notification-sound-gate-snapshot";
 
-/** `NotificationSurfaceProvider` 가 매 렌더 동기 갱신 — Realtime 콜백은 컨텍스트 리렌더 없이 읽는다. */
-export type NotificationSoundGateSnapshot = {
-  userNotificationSettings: {
-    trade_chat_enabled: boolean;
-    community_chat_enabled: boolean;
-    order_enabled: boolean;
-    store_enabled: boolean;
-    sound_enabled: boolean;
-    vibration_enabled: boolean;
-  };
-  activeTradeChatRoomId: string | null;
-  activeCommunityChatRoomId: string | null;
-  activeGroupChatRoomId: string | null;
-  isWindowFocused: boolean;
-};
-
-let gateSnapshot: NotificationSoundGateSnapshot | null = null;
+export type { NotificationSoundGateSnapshot };
+export { getNotificationSoundGateSnapshot, syncNotificationSoundGateSnapshot };
 
 function isCommunityChatSoundDomain(domain: NotificationDomain): boolean {
   return domain === "community_chat" || domain === "community_direct_chat" || domain === "community_group_chat";
@@ -44,15 +38,6 @@ function communityRoomIdFromWindowPath(): string | null {
   } catch {
     return m[1];
   }
-}
-
-export function syncNotificationSoundGateSnapshot(next: NotificationSoundGateSnapshot | null): void {
-  gateSnapshot = next;
-}
-
-/** Realtime 콜백 등 Provider 바깥에서 현재 게이트 스냅샷 읽기 */
-export function getNotificationSoundGateSnapshot(): NotificationSoundGateSnapshot | null {
-  return gateSnapshot;
 }
 
 export function shouldPlayInAppSoundFromGate(
@@ -103,9 +88,29 @@ function rowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowI
   };
 }
 
-function playRowEventSound(row: Record<string, unknown>): void {
+function playRowEventSound(
+  row: Record<string, unknown>,
+  extra?: { muted?: boolean; sameRoomForeground?: boolean }
+): boolean {
+  const identity = extractCanonicalSoundIdentity(row);
+  if (!identity) return false;
   const eventKey = resolveNotificationSoundEventKeyFromRowWithFallback(rowInputFromRecord(row));
-  void playEventNotificationSound(eventKey);
+  const recipientId =
+    (typeof row.user_id === "string" && row.user_id.trim() ? row.user_id.trim() : "") ||
+    getBoundAuthUserId() ||
+    "";
+  const decision = ingestCanonicalNotificationSound({
+    identityKind: identity.identityKind,
+    canonicalEventId: identity.canonicalEventId,
+    recipientId,
+    eventType: eventKey,
+    source: "realtime",
+    createdAt: typeof row.created_at === "string" ? row.created_at : null,
+    muted: extra?.muted === true || row.muted_snapshot === true,
+    sameRoomForeground: extra?.sameRoomForeground,
+    gate: getNotificationSoundGateSnapshot(),
+  });
+  return decision.action === "PLAY";
 }
 
 function hasSoundSuppression(row: Record<string, unknown>): boolean {
@@ -184,14 +189,15 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
     type: typeof row.type === "string" ? row.type : null,
     category: typeof row.category === "string" ? row.category : null,
   };
+  const surface = getNotificationSoundGateSnapshot();
   logBadgeFdProbe("routeNotificationInsertSound.enter", {
     ...probeBase,
-    hasGateSnapshot: Boolean(gateSnapshot),
-    focused: gateSnapshot?.isWindowFocused ?? null,
-    sound_enabled: gateSnapshot?.userNotificationSettings.sound_enabled ?? null,
-    activeCommunityChatRoomId: gateSnapshot?.activeCommunityChatRoomId ?? null,
-    activeTradeChatRoomId: gateSnapshot?.activeTradeChatRoomId ?? null,
-    activeGroupChatRoomId: gateSnapshot?.activeGroupChatRoomId ?? null,
+    hasGateSnapshot: Boolean(surface),
+    focused: surface?.isWindowFocused ?? null,
+    sound_enabled: surface?.userNotificationSettings.sound_enabled ?? null,
+    activeCommunityChatRoomId: surface?.activeCommunityChatRoomId ?? null,
+    activeTradeChatRoomId: surface?.activeTradeChatRoomId ?? null,
+    activeGroupChatRoomId: surface?.activeGroupChatRoomId ?? null,
   });
 
   const finish = (result: boolean | void, skipReason: string | null, extra?: Record<string, unknown>) => {
@@ -204,10 +210,8 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
     return result;
   };
 
-  const surface = gateSnapshot;
-  if (!surface) return finish(undefined, "gate_snapshot_missing");
-
   if (hasSoundSuppression(row)) {
+    playRowEventSound(row, { muted: true });
     return finish(false, "row_sound_suppressed", {
       muted_snapshot: row.muted_snapshot === true,
       sound_suppressed_reason:
@@ -222,40 +226,39 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const roomRef =
     metaAny?.room_id && typeof metaAny.room_id === "string" ? metaAny.room_id : refId;
 
-  /** 해당 방 세션/로컬 mute — polling 과 INSERT 공통 */
   if (roomRef && isChatRoomMessageSoundMuted(String(roomRef))) {
+    playRowEventSound(row, { muted: true });
     return finish(false, "chat_room_message_sound_muted", { roomRef });
   }
 
-  /**
-   * CM participants Realtime 이 이미 인앱 음을 냈으면 notifications INSERT 중복음 스킵.
-   * (INSERT 가 participants 보다 늦게 도착해 "늦게 울림"으로 체감되는 경로)
-   * 방 URL 진입 직후·동일 방 화면이면 Provider 스냅샷 지연과 무관하게 INSERT 음 차단.
-   * activeRoom store(gate) + pathname 둘 다 검사.
-   */
   const pathActiveRoom = communityRoomIdFromWindowPath();
   const roomRefNorm = roomRef != null ? String(roomRef).trim() : "";
   const gateActiveCm =
-    surface.activeCommunityChatRoomId != null ? String(surface.activeCommunityChatRoomId).trim() : "";
+    surface?.activeCommunityChatRoomId != null ? String(surface.activeCommunityChatRoomId).trim() : "";
   const gateActiveTrade =
-    surface.activeTradeChatRoomId != null ? String(surface.activeTradeChatRoomId).trim() : "";
-  if (roomRefNorm) {
-    if (pathActiveRoom && pathActiveRoom === roomRefNorm) {
-      return finish(false, "path_active_same_room", { roomRef: roomRefNorm, pathActiveRoom });
-    }
-    if (gateActiveCm && gateActiveCm === roomRefNorm) {
-      return finish(false, "gate_active_community_same_room", { roomRef: roomRefNorm });
-    }
-    if (gateActiveTrade && gateActiveTrade === roomRefNorm) {
-      return finish(false, "gate_active_trade_same_room", { roomRef: roomRefNorm });
-    }
+    surface?.activeTradeChatRoomId != null ? String(surface.activeTradeChatRoomId).trim() : "";
+  const sameRoomForeground = Boolean(
+    roomRefNorm &&
+      ((pathActiveRoom && pathActiveRoom === roomRefNorm) ||
+        (gateActiveCm && gateActiveCm === roomRefNorm) ||
+        (gateActiveTrade && gateActiveTrade === roomRefNorm))
+  );
+  if (sameRoomForeground) {
+    playRowEventSound(row, { sameRoomForeground: true });
+    return finish(false, "path_active_same_room", { roomRef: roomRefNorm, pathActiveRoom });
   }
   const gateDomainEarly = resolveNotificationSoundGateDomainFromRow(rowInput);
   if (
     (gateDomainEarly == null || isCommunityChatSoundDomain(gateDomainEarly) || metaKind === "community_chat" || metaKind === "group_chat") &&
     shouldSkipNotificationInsertSoundForCmParticipant(roomRef)
   ) {
+    playRowEventSound(row, { sameRoomForeground: true });
     return finish(false, "cm_participant_already_played", { roomRef, gateDomainEarly });
+  }
+
+  if (!surface) {
+    const played = playRowEventSound(row);
+    return finish(played, played ? null : "decision_skip");
   }
 
   if (metaKind === "community_group_invite") {
@@ -269,10 +272,11 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
         skipReason: gate.skipReason,
       });
       if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomId)) {
+        playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
         return finish(false, gate.skipReason ?? "group_invite_gate_false", { roomId });
       }
-      playRowEventSound(row);
-      return finish(true, null, { played: "community_group_invite" });
+      const played = playRowEventSound(row);
+      return finish(played, played ? null : "decision_skip", { played: "community_group_invite" });
     }
     return finish(false, "group_invite_missing_room");
   }
@@ -286,10 +290,11 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       skipReason: gate.skipReason,
     });
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
+      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
       return finish(false, gate.skipReason ?? "group_chat_gate_false", { roomId: metaAny.room_id });
     }
-    playRowEventSound(row);
-    return finish(true, null, { played: "group_chat" });
+    const played = playRowEventSound(row);
+    return finish(played, played ? null : "decision_skip", { played: "group_chat" });
   }
 
   const gateDomain = gateDomainEarly;
@@ -303,10 +308,11 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       skipReason: gate.skipReason,
     });
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomRef)) {
+      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
       return finish(false, gate.skipReason ?? "community_group_chat_gate_false", { roomRef });
     }
-    playRowEventSound(row);
-    return finish(true, null, { played: "community_group_chat" });
+    const played = playRowEventSound(row);
+    return finish(played, played ? null : "decision_skip", { played: "community_group_chat" });
   }
 
   if (gateDomain) {
@@ -319,10 +325,11 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       skipReason: gate.skipReason,
     });
     if (!shouldPlayInAppSoundFromGate(surface, gateDomain, roomRef)) {
+      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" });
       return finish(false, gate.skipReason ?? "domain_gate_false", { gateDomain, roomRef });
     }
-    playRowEventSound(row);
-    return finish(true, null, { played: gateDomain });
+    const played = playRowEventSound(row);
+    return finish(played, played ? null : "decision_skip", { played: gateDomain });
   }
 
   const domainRaw = row.domain;
@@ -338,11 +345,13 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       skipReason: gate.skipReason,
     });
     if (!shouldPlayInAppSoundFromGate(surface, routedDomain, refId)) {
+      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" });
       return finish(false, gate.skipReason ?? "legacy_domain_gate_false", { routedDomain, refId });
     }
-    playRowEventSound(row);
-    return finish(true, null, { played: routedDomain });
+    const played = playRowEventSound(row);
+    return finish(played, played ? null : "decision_skip", { played: routedDomain });
   }
 
-  return finish(undefined, "no_domain_route");
+  const played = playRowEventSound(row);
+  return finish(played, played ? null : "no_domain_route");
 }

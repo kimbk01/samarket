@@ -1,6 +1,6 @@
 /**
- * participants unread → Bottom / list cache / sound / banner 동시 표면.
- * DO NOT: notifications 테이블 INSERT 를 CM 인앱 음의 1차 경로로 쓰지 말 것.
+ * participants unread → Bottom / list cache / banner 동시 표면.
+ * GATE 2: SOUND 권위 아님. 인앱 음은 messageId / notification_events.id.
  */
 
 import { applyBootstrapCacheBusEvent } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";

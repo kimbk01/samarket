@@ -84,12 +84,8 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
     });
 
-    expect(playCoalescedMock).toHaveBeenCalled();
-    expect(playCoalescedMock).toHaveBeenCalledWith(
-      expect.any(String),
-      "community_direct_chat"
-    );
-    expect(shouldSkipNotificationInsertSoundForCmParticipant("room-other")).toBe(true);
+    expect(playCoalescedMock).not.toHaveBeenCalled();
+    expect(shouldSkipNotificationInsertSoundForCmParticipant("room-other")).toBe(false);
   });
 
   it("uses community_group_chat domain for group rooms", async () => {
@@ -115,11 +111,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
     });
 
-    expect(playCoalescedMock).toHaveBeenCalled();
-    expect(playCoalescedMock).toHaveBeenCalledWith(
-      expect.any(String),
-      "community_group_chat"
-    );
+    expect(playCoalescedMock).not.toHaveBeenCalled();
   });
 
   it("skips CM sound when domain is unknown but does not claim INSERT ownership", async () => {
@@ -167,7 +159,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
     });
 
-    expect(playCoalescedMock).toHaveBeenCalled();
+    expect(playCoalescedMock).not.toHaveBeenCalled();
   });
 
   it("mutes only the active room from gate when surface is null", async () => {

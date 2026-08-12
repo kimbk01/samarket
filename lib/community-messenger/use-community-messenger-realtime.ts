@@ -31,7 +31,7 @@ import {
   recordMessengerHomeSupabaseHomeChannelGaugeDelta,
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { ingestMessengerMessageSound } from "@/lib/notifications/notification-sound-decision";
 import { resolveCmInAppSoundNotificationDomain } from "@/lib/community-messenger/notifications/cm-in-app-sound-domain";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
@@ -437,15 +437,15 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
     });
   }
 
-  const dedupeKey = `home-msg-insert:${roomNorm}:${messageId || Date.now()}`;
-  /** 포그라운드 톤·배너는 participants hub-sync 단일 경로 — 탭 숨김만 여기서 즉시 톤 (pathname 무관) */
-  const bg = typeof document !== "undefined" && document.visibilityState !== "visible";
-  if (bg) {
-    const soundDomain = resolveCmInAppSoundNotificationDomain(roomRaw, viewer);
-    if (soundDomain) {
-      playCoalescedChatNotificationSound(dedupeKey, soundDomain);
-    }
-  }
+  if (!messageId) return;
+  const soundDomain = resolveCmInAppSoundNotificationDomain(roomRaw, viewer);
+  ingestMessengerMessageSound({
+    messageId,
+    recipientId: viewer,
+    domain: soundDomain,
+    createdAt: createdAt || null,
+    sameRoomForeground: Boolean(focused && focused === roomNorm && foreground),
+  });
 }
 
 function createHomeRealtimeEntry(args: {

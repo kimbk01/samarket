@@ -3,6 +3,7 @@ import {
   clearCoalescedChatAlertSoundForTests,
   playCoalescedChatNotificationSound,
 } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { __resetNotificationSoundDecisionForTests } from "@/lib/notifications/notification-sound-decision";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,11 +11,19 @@ import { join } from "node:path";
 vi.mock("@/lib/notifications/notification-sound-engine", () => ({
   playDomainNotificationSound: vi.fn().mockResolvedValue(undefined),
   playEventNotificationSound: vi.fn().mockResolvedValue(undefined),
+  resetNotificationSoundEngineForAuthEpoch: vi.fn(),
 }));
 
 describe("CM sound policy vs trade exploration surface", () => {
   beforeEach(() => {
     clearCoalescedChatAlertSoundForTests();
+    __resetNotificationSoundDecisionForTests({
+      recipientId: "user-1",
+      isLeader: true,
+      visibility: "visible",
+      windowFocused: true,
+      sessionStartedAt: Date.now() - 1_000,
+    });
   });
 
   it("trade exploration suppress still true for /market (trade_chat paths only)", () => {
@@ -30,8 +39,8 @@ describe("CM sound policy vs trade exploration surface", () => {
       "utf8"
     );
     expect(src).not.toContain("shouldSuppressMessengerInAppSoundOnTradeExplorationSurface");
-    expect(src).toContain("noteCmParticipantSurfaceSoundHandled");
-    expect(src).toContain('scheduled.status === "scheduled"');
+    expect(src).not.toContain("playCoalescedChatNotificationSound");
+    expect(src).toContain("unread_delta_not_sound_authority");
   });
 
   it("playCoalescedChatNotificationSound returns scheduled then skips duplicate", () => {

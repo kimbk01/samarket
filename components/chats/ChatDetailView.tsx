@@ -106,10 +106,6 @@ import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-li
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
 import {
-  playCoalescedEventNotificationSound,
-  playCoalescedOrderMatchChatAlert,
-} from "@/lib/notifications/coalesced-chat-alert-sound";
-import {
   isChatRoomMessageSoundMuted,
   setChatRoomMessageSoundMuted,
 } from "@/lib/chats/chat-room-message-sound-mute";
@@ -350,8 +346,6 @@ export function ChatDetailView({
   const [storeOrderCancelBusy, setStoreOrderCancelBusy] = useState(false);
   const [buyerOrderChatSoundOn, setBuyerOrderChatSoundOn] = useState(true);
   const buyerOrderChatSoundOnRef = useRef(true);
-  /** 폴링 1회차는 입장 직후 동기화 — 알림·소리 없음(빈 응답이어도 2회차부터만 알림) */
-  const pollTickCountRef = useRef(0);
   /** `hardRefreshMessagesAfterSellerListingWrite` 정의 이후 effect 로 연결 — posts Realtime 과 동일 훅 순서 제약 회피 */
   const hardRefreshTradeMessagesRef = useRef<() => Promise<void>>(async () => {});
   /** 서버 Realtime Broadcast 페이로드 — `isChatRoom` 정의 이후 effect 에서 연결 */
@@ -561,7 +555,6 @@ export function ChatDetailView({
 
   useEffect(() => {
     didAutoOpenReviewRef.current = false;
-    pollTickCountRef.current = 0;
     lastPostSellerListingDbSigRef.current = "";
   }, [room.id, postId]);
 
@@ -1283,9 +1276,6 @@ export function ChatDetailView({
   useEffect(() => {
     if (!room.id || !currentUserId) return;
     if (messagesLoading) return;
-    const cacheIsFresh = isChatRoom
-      ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
-      : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
 
     /** 거래 1:1은 시스템 메시지·상대 전송 누락 보강을 위해 백업 폴링을 더 촘촘히 — 그 외 통합 채팅은 기존 간격 유지 */
     const isTradeProductThread =
@@ -1304,57 +1294,8 @@ export function ChatDetailView({
 
     const tick = async () => {
       const next = await fetchMessagesForPolling();
-      const allowIncomingAlerts = pollTickCountRef.current > 0;
-      pollTickCountRef.current += 1;
       setMessages((prev) => {
         if (next.length === 0) return prev;
-        const prevIds = new Set(prev.map((m) => m.id));
-        const newly = next.filter((m) => !prevIds.has(m.id));
-        if (allowIncomingAlerts) {
-          for (const m of newly) {
-            const isFromPartner = m.senderId !== currentUserId;
-            if (!isFromPartner || !isStoreOrderChat) continue;
-            if (chatMessageSoundMutedRef.current) continue;
-
-            const isMatchAck = (m.message || "").includes(STORE_ORDER_MATCH_ACK_MESSAGE);
-            if (amISeller && isMatchAck) {
-              void playCoalescedOrderMatchChatAlert(`msg:${m.id}:match-ack`);
-              if (typeof window !== "undefined" && "Notification" in window) {
-                const showNote = () => {
-                  try {
-                    new Notification("dibaY", {
-                      body: "주문자가 주문 내용 일치를 확인했습니다.",
-                      tag: `store-order-match-${room.id}:${m.id}`,
-                    });
-                  } catch {
-                    /* ignore */
-                  }
-                };
-                if (Notification.permission === "granted") showNote();
-              }
-              continue;
-            }
-
-            if (amISeller && !isMatchAck) {
-              playCoalescedEventNotificationSound(
-                `msg:${m.id}:order-owner`,
-                "delivery_chat_message_received_owner"
-              );
-              continue;
-            }
-
-            if (
-              room.buyerId === currentUserId &&
-              buyerOrderChatSoundOnRef.current &&
-              !isMatchAck
-            ) {
-              playCoalescedEventNotificationSound(
-                `msg:${m.id}:order-user`,
-                "delivery_chat_message_received_user"
-              );
-            }
-          }
-        }
         return mergeChatMessagesById(reconcileOptimisticMessages(prev, next), next);
       });
     };
@@ -1379,10 +1320,6 @@ export function ChatDetailView({
       stopBackupInterval();
       intervalId = window.setInterval(safeTick, backupPollMs);
     };
-
-    if (cacheIsFresh) {
-      pollTickCountRef.current = 1;
-    }
 
     const onVisibility = () => {
       if (typeof document === "undefined") return;
@@ -1419,8 +1356,6 @@ export function ChatDetailView({
     isStoreOrderChat,
     isChatRoom,
     chatRealtimeLive,
-    amISeller,
-    room.buyerId,
     isGeneralPurposeChat,
     room.chatDomain,
   ]);
