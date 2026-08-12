@@ -22,7 +22,7 @@ describe("notification badge and inbox authority", () => {
     const route = read("app/api/me/notifications/route.ts");
     expect(route).toContain('authority: "notification_events"');
     expect(route).toContain("legacy_merge: false");
-    expect(route).toContain("countNotificationEventsBadge");
+    expect(route).toContain("loadMemberNotificationAUnreadCount");
     expect(route).toContain("unread_total");
     expect(route).not.toContain("mergeInboxNotificationRowsEventsPrimary");
     expect(route).not.toContain("legacy_reader_degraded");

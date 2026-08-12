@@ -66,42 +66,10 @@ enum DibayAppIconDeliveryAdapter {
   }
 
   /**
-   * When APNS delivers `aps.badge` / `badgeCount`, echo into Delivery Adapter.
-   * Authority remains server Projection — adapter never invents a total.
+   * APNS `aps.badge` / FCM `badgeCount` is send-time hint only.
+   * Launcher authority is server current A+B via NativeBadgeSync → apply(appIconTotal:).
    */
   static func applyFromPushUserInfo(_ userInfo: [AnyHashable: Any]) {
-    if let aps = userInfo["aps"] as? [String: Any] {
-      if let badge = aps["badge"] as? Int {
-        apply(appIconTotal: badge)
-        return
-      }
-      if let badgeNum = aps["badge"] as? NSNumber {
-        apply(appIconTotal: badgeNum.intValue)
-        return
-      }
-    }
-    if let badge = userInfo["badgeCount"] as? Int {
-      apply(appIconTotal: badge)
-      return
-    }
-    if let badgeNum = userInfo["badgeCount"] as? NSNumber {
-      apply(appIconTotal: badgeNum.intValue)
-      return
-    }
-    if let badge = userInfo["badge_count"] as? Int {
-      apply(appIconTotal: badge)
-      return
-    }
-    if let badgeNum = userInfo["badge_count"] as? NSNumber {
-      apply(appIconTotal: badgeNum.intValue)
-      return
-    }
-    if let badgeStr = userInfo["badgeCount"] as? String, let badge = Int(badgeStr) {
-      apply(appIconTotal: badge)
-      return
-    }
-    if let badgeStr = userInfo["badge_count"] as? String, let badge = Int(badgeStr) {
-      apply(appIconTotal: badge)
-    }
+    os_log("apns_fcm_badge_hint_ignored keys=%{public}d", log: log, type: .info, userInfo.count)
   }
 }

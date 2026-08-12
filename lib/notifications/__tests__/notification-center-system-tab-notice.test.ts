@@ -59,11 +59,10 @@ describe("notification center system tab includes admin_notice", () => {
           bell_presentation_type: "trade_status",
         },
       ],
-      storeAttention: 16,
     });
     expect(counts.all).toBe(2);
+    expect(counts.unread).toBe(2);
     expect(counts.system).toBe(1);
     expect(counts.trade).toBe(1);
-    expect(counts.store).toBe(16);
   });
 });

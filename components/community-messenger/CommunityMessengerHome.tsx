@@ -126,6 +126,7 @@ import {
   buildCommunityMessengerMarkReadPatchBody,
   communityMessengerMarkReadFetchInitBase,
   parseCommunityMessengerMarkReadResponse,
+  afterCommunityMessengerMarkReadAck,
 } from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
@@ -1869,8 +1870,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   });
 
   const inboxPillarSummaries = useMemo(
-    () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
-    [deliveryPillarSummary, pillar, tradePillarSummary]
+    () =>
+      pillar || chatInboxFilter === "unread"
+        ? null
+        : { trade: tradePillarSummary, delivery: deliveryPillarSummary },
+    [chatInboxFilter, deliveryPillarSummary, pillar, tradePillarSummary]
   );
 
   /** Home 마운트 경로에서는 room 서브 pathname 이 없음 — realtime 은 `homeRoomIds` 만 사용 */
@@ -2454,6 +2458,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           return;
         }
         refreshLocalReadGuardServerAck(roomId);
+        afterCommunityMessengerMarkReadAck({ roomId });
         cmReadBadgeLog("mark_read_patch_done", { roomId, path: "home_mark_read" });
         applyCmReadUiBadgeZero({
           roomId,

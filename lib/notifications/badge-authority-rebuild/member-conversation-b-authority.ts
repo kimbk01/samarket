@@ -167,6 +167,8 @@ export function resolveMemberConversationAuthority(
   let orderUnreadRooms = 0;
   for (const r of authRooms) {
     if (r.unreadMessageCount <= 0) continue;
+    // Phantom: unread_count>0 but no tip message — not a B room.
+    if (isBlank(r.latestMessageId)) continue;
     if (r.chatDomain === "general_direct") generalUnreadRooms += 1;
     else if (r.chatDomain === "group") groupUnreadRooms += 1;
     else if (r.chatDomain === "trade") tradeUnreadRooms += 1;

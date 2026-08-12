@@ -7,6 +7,7 @@
  * DO NOT: invent queues · use /api/me/notifications as Admin ops inbox.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 
 export const USER_CHARGE_ACTIONABLE_STATUSES = [
   "pending",
@@ -158,9 +159,10 @@ export async function loadAdminActionQueueCounts(input: {
     storesSb
       ? storesSb
           .from("feed_ad_requests")
-          .select("id", { count: "exact", head: true })
+          .select("id, status, start_at, end_at")
           .eq("status", "pending_review")
-      : Promise.resolve({ count: 0, error: null }),
+          .limit(500)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
     notesSb
       ? notesSb
           .from("member_admin_note_threads")
@@ -195,10 +197,25 @@ export async function loadAdminActionQueueCounts(input: {
     /point_charge_requests|schema cache|does not exist/i.test(userChargesRes.error.message ?? "")
       ? 0
       : safeCount(userChargesRes);
-  const feed_ad_requests =
-    feedAdRes.error && /feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")
-      ? 0
-      : safeCount(feedAdRes);
+  const feed_ad_requests = (() => {
+    if (
+      feedAdRes.error &&
+      /feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")
+    ) {
+      return 0;
+    }
+    const rows = Array.isArray(feedAdRes.data) ? feedAdRes.data : [];
+    return rows.filter((row) => {
+      const rec = row as { status?: unknown; start_at?: unknown; end_at?: unknown };
+      return (
+        projectFeedAdOpsProductStatus({
+          requestStatus: String(rec.status ?? ""),
+          startAt: typeof rec.start_at === "string" ? rec.start_at : null,
+          endAt: typeof rec.end_at === "string" ? rec.end_at : null,
+        }) === "pending_review"
+      );
+    }).length;
+  })();
   const reports = safeCount(reportsRes);
   const store_reports = safeCount(storeReportsRes);
   const delivery_alerts = safeCount(alertsRes);

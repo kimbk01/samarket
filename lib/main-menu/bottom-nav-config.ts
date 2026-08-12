@@ -327,7 +327,7 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
   { id: "stores", href: "/stores", label: "Food", labelKey: "nav.delivery", icon: "stores" },
   {
     id: "chat",
-    href: "/community-messenger?section=chats",
+    href: "/community-messenger?section=chats&inbox=unread",
     label: "Chat",
     labelKey: "nav.chat",
     icon: "chat",

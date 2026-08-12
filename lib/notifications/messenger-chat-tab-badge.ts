@@ -1,12 +1,10 @@
 /**
  * 하단 메신저(chat) 탭 뱃지 — Rebuild Authority.
  *
- * Chat tab = general 1:1 + group unread **room** count (`communityMessengerUnread` /
- * `bottom_nav_chat` chat_room targets). DO NOT overlay notification_events message SUM.
- * Event chat/group SUM is App icon total only (`badge-count`), never Chat tab.
+ * Chat tab = B unread **room** count: GD + private_group + trade + store_order_customer.
+ * DO NOT overlay notification_events message SUM. Owner store_order rooms excluded.
  *
  * CUTOVER: subscribe Messenger-only projection — not Owner hub aggregate.
- * Formula unchanged: Math.max(0, floor(communityMessengerUnread)).
  */
 import {
   getMessengerBottomChatUnreadCount,

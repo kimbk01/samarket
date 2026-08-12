@@ -2,7 +2,14 @@ import { Suspense } from "react";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { MessengerHubRouteGate } from "@/components/community-messenger/MessengerHubRouteGate";
 
-type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?: string; from?: string };
+type MessengerSearch = {
+  tab?: string;
+  section?: string;
+  filter?: string;
+  inbox?: string;
+  kind?: string;
+  from?: string;
+};
 
 /**
  * 메신저 홈 RSC 는 **부트스트랩을 기다리지 않는다**.
@@ -15,13 +22,13 @@ type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?:
  * (거래·배달 묶음은 `kind=all` 인박스 상단 pillar 행으로 노출)
  */
 async function CommunityMessengerPageBody({ searchParamsPromise }: { searchParamsPromise: Promise<MessengerSearch> }) {
-  const { tab, section, filter, kind, from: _from } = await searchParamsPromise;
+  const { tab, section, filter, inbox, kind, from: _from } = await searchParamsPromise;
   void _from;
   return (
     <MessengerHubRouteGate
       initialTab={tab}
       initialSection={section}
-      initialFilter={filter}
+      initialFilter={inbox || filter}
       initialKind={kind}
     />
   );

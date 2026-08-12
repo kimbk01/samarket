@@ -498,6 +498,7 @@ export function useCommunityMessengerHomeState({
    * - 거래/배달 서브 라우트(`pillar`): 해당 도메인 방만.
    * - 메신저 홈 인박스(`pillar == null`) + 전체 칩: 거래·배달은 상단 그룹 행으로만 보이고,
    *   스크롤 목록에는 1:1(일반) + private_group 을 `unifiedRooms` 정렬 그대로 둔다.
+   * - inbox=unread (B explain list): GD + private_group + trade + customer SO flat rows.
    * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 kind 에 맞는 방만(묶음 행은 UI 에서 숨김).
    */
   const pillarBaseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
@@ -519,6 +520,26 @@ export function useCommunityMessengerHomeState({
         dedupeDeliveryMessengerRoomSummaries
       );
       next = deliveryItems.filter((item) => keepIds.has(item.room.id));
+    } else if (!pillar && chatInboxFilter === "unread" && chatKindFilter === "all") {
+      next = unifiedRooms.filter((item) => {
+        if (!communityMessengerRoomIsVisibleInMainChatInbox(item.room)) return false;
+        if (item.room.roomType === "open_group") return false;
+        if (item.room.unreadCount < 1) return false;
+        if (item.room.roomType === "private_group") return true;
+        if (communityMessengerRoomIsConfirmedTrade(item.room) && shouldShowCommerceChatInList(item.room)) {
+          return true;
+        }
+        if (
+          communityMessengerRoomIsConfirmedDelivery(item.room) &&
+          shouldShowCommerceChatInList(item.room)
+        ) {
+          return true;
+        }
+        if (item.room.roomType === "direct") {
+          return matchesGroupChatListKindFilter(item.room, "direct");
+        }
+        return false;
+      });
     } else {
       next = unifiedRooms.filter((item) => {
         if (!communityMessengerRoomIsVisibleInMainChatInbox(item.room)) return false;
@@ -536,7 +557,7 @@ export function useCommunityMessengerHomeState({
       });
     }
     return stabilizeRoomListItems(next, pillarBaseChatListItemsStableRef);
-  }, [baseChatListItems, unifiedRooms, pillar, chatKindFilter]);
+  }, [baseChatListItems, unifiedRooms, pillar, chatInboxFilter, chatKindFilter]);
 
   const archiveListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const archiveListItems = useMemo(() => {

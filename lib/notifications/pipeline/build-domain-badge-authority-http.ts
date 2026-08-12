@@ -37,7 +37,7 @@ import {
 import {
   buildNotificationAttentionProjection,
 } from "@/lib/notifications/chat-notification-attention-projection";
-import { deriveMemberUnreadNotificationCount } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
+import { MEMBER_NOTIFICATION_A_LOAD_LIMIT } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
 import { loadOwnerOperationOFacts } from "@/lib/notifications/badge-authority-rebuild/load-owner-operation-o-facts";
 import { resolveMemberNotificationAuthorityFromRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-authority";
 import {
@@ -184,8 +184,9 @@ export async function buildDomainBadgeAuthorityHttpPayload(
       loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
       loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
       loadOrphanMissedCallFacts(sb, uid),
+      /** BRIDGE: category diagnostics only — NOT Member Bell digit. Exit when inbox UI drops categoryCounts.total. */
       countNotificationEventsBadge(sb, uid),
-      loadBellExplainUnreadEventRows(sb, uid),
+      loadBellExplainUnreadEventRows(sb, uid, { limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT }),
       loadOwnerOperationOFacts(sb, uid),
     ]);
 
@@ -206,12 +207,9 @@ export async function buildDomainBadgeAuthorityHttpPayload(
 
   const notificationAttention = buildNotificationAttentionProjection(bellExplainRows);
   const notificationAttentionTotal = notificationAttention.total;
-  /** N = A_member. Bell digit = N only (owner ops → FAB). */
-  const memberUnreadNotificationCount = deriveMemberUnreadNotificationCount(
-    bellExplainRows,
-    uid
-  );
+  /** Canonical Member Bell A — same loader limit as NC unread_total. */
   const notificationA = resolveMemberNotificationAuthorityFromRows(bellExplainRows, uid);
+  const memberUnreadNotificationCount = notificationA.unreadCount;
   const ownerOperationBellCount = ownerO.ownerOperationBellCount;
   /** O kept for Owner FAB / diagnostics; excluded from Member Bell/App Icon. */
   const ownerOperationCount = ownerO.ownerOperationCount;

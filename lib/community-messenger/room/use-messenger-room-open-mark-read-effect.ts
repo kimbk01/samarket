@@ -6,6 +6,7 @@ import {
   buildCommunityMessengerMarkReadPatchBody,
   communityMessengerMarkReadFetchInitBase,
   parseCommunityMessengerMarkReadResponse,
+  afterCommunityMessengerMarkReadAck,
 } from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
 import {
   CM_MARK_READ_SCROLL_DEBOUNCE_MS,
@@ -782,6 +783,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 
           if (parsed.okHttp && json.ok === true) {
             refreshLocalReadGuardServerAck(id);
+            afterCommunityMessengerMarkReadAck({ roomId: id });
             const sv = snapshotRef.current?.viewerUserId?.trim();
             if (sv) {
               applyCmReadUiBadgeZero({

@@ -135,7 +135,8 @@ export function useCommunityMessengerHomeShellEffects({
   const queryString = searchParams.toString();
   const activeTab = searchParams.get("tab")?.trim() ?? "";
   const activeSection = searchParams.get("section")?.trim() ?? "";
-  const activeFilter = searchParams.get("filter")?.trim() ?? "";
+  const activeFilter =
+    searchParams.get("inbox")?.trim() || searchParams.get("filter")?.trim() || "";
   const activeKind = searchParams.get("kind")?.trim() ?? "";
   const fromParam = searchParams.get("from")?.trim() ?? "";
 

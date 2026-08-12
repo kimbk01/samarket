@@ -49,15 +49,17 @@ describe("Slice 2-2 member notification A projection", () => {
         dedupe_key: "missed:1",
       }),
       row({ id: "mk", type: "admin_marketing_banner", category: "admin_marketing_banner" }),
+      row({ id: "ca", type: "community_activity", category: "community_activity", dedupe_key: "ca1" }),
     ];
     const proj = buildMemberNotificationAProjection(rows);
-    expect(proj.memberUnreadNotificationCount).toBe(4);
-    expect(proj.eventIds).toHaveLength(4);
+    expect(proj.memberUnreadNotificationCount).toBe(5);
+    expect(proj.eventIds).toHaveLength(5);
     expect(proj.memberUnreadNotificationCount).toBe(proj.eventIds.length);
     expect(isMemberNotificationAUnread(rows[3]!)).toBe(false);
     expect(isMemberNotificationAUnread(rows[4]!)).toBe(false);
     expect(isMemberNotificationAUnread(rows[6]!)).toBe(true);
-    expect(deriveMemberUnreadNotificationCount(rows)).toBe(4);
+    expect(isMemberNotificationAUnread(rows[7]!)).toBe(true);
+    expect(deriveMemberUnreadNotificationCount(rows)).toBe(5);
   });
 
   it("Bell uses A; App Icon uses A + B_member (not Phase B NotificationAttention)", () => {

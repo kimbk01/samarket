@@ -8,25 +8,13 @@ import { useAdminStorePointPendingCount } from "@/components/admin/store-points/
 
 /**
  * Admin ops bell — badge SSOT = pending-action COUNTs from /api/admin/admin-bell.
- * Deep-link prefers Feed Banner queue when pending_review > 0.
+ * Tap → Action Queue (full Q), not a single-category priority deep-link.
  */
 export function AdminNotificationBell() {
   const { t } = useI18n();
-  const {
-    adminBellCount: count,
-    feedAdPendingCount,
-    pendingCount,
-    userChargePendingCount,
-  } = useAdminStorePointPendingCount();
+  const { adminBellCount: count } = useAdminStorePointPendingCount();
 
-  const href =
-    feedAdPendingCount > 0
-      ? "/admin/ad-applications"
-      : pendingCount > 0
-        ? "/admin/store-point-charges"
-        : userChargePendingCount > 0
-          ? "/admin/point-charges"
-          : "/admin/reports";
+  const href = "/admin/customer-platform#action-queue";
 
   return (
     <Link

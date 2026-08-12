@@ -12,7 +12,7 @@ export async function loadBellExplainUnreadEventRows(
 ): Promise<BellExplainEventRow[]> {
   const uid = userId.trim();
   if (!uid) return [];
-  const limit = Math.max(1, Math.min(2000, Math.floor(Number(opts?.limit) || 500)));
+  const limit = Math.max(1, Math.min(2000, Math.floor(Number(opts?.limit) || 2000)));
 
   const { data, error } = await sb
     .from("notification_events")

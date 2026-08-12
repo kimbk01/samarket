@@ -157,6 +157,9 @@ describe("Slice 2-1 classification & identity foundation", () => {
       expect(
         classifyBadgeAuthority({ kind: "group_message", userId: "u1" }).classification
       ).toBe("B_MEMBER_COMMUNICATION");
+      expect(
+        classifyBadgeAuthority({ kind: "community_activity", userId: "u1" }).classification
+      ).toBe("A_MEMBER_NOTIFICATION");
     });
 
     it("marketing no badge; persistent notice A; unknown blocked; missed is B", () => {

@@ -20,6 +20,7 @@ import {
 } from "@/lib/push/native/logout-badge-clear-transaction";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import { logBadgeFdProbe } from "@/lib/notifications/badge-fd-probe-log";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 
 /**
  * Slice 2-6 — Native echoes MemberAppIconTotal absolute (surface.appIconTotal).
@@ -53,6 +54,7 @@ export function NativeBadgeSync() {
   const lastAppliedRef = useRef<{ phase: string; projection: string; count: number } | null>(
     null
   );
+  const lastMemberIdRef = useRef<string>("");
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) {
@@ -68,6 +70,25 @@ export function NativeBadgeSync() {
       const proj = getProjectionAuthorityState();
       const n = readAppIconTotal();
       const pendingLogoutClear = hasPendingLogoutBadgeClearTransaction();
+      const memberId = getSyncViewerUserIdForClient()?.trim() ?? "";
+      const prevMemberId = lastMemberIdRef.current;
+      if (prevMemberId && memberId && prevMemberId !== memberId) {
+        lastMemberIdRef.current = memberId;
+        lastAppliedRef.current = null;
+        void clearNativeBadgeCount({ reason: "account_switch" });
+        logBadgeFdProbe("NativeBadgeSync.account_switch", {
+          prevMemberId,
+          memberId,
+          surfaceAppIcon: n,
+        });
+      } else if (prevMemberId && !memberId) {
+        lastMemberIdRef.current = "";
+        lastAppliedRef.current = null;
+        void clearNativeBadgeCount({ reason: "account_switch_detach" });
+        return;
+      } else if (memberId) {
+        lastMemberIdRef.current = memberId;
+      }
       const decision = resolveNativeBadgeSyncWrite({
         sessionPhase: phase,
         projectionState: proj,

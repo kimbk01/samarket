@@ -68,7 +68,8 @@ const CHAT_TYPES = new Set([
   "group_message",
 ]);
 
-const A_KINDS = new Set([
+/** Member Bell A type/kind set — digit / unread list / mark-all share this. */
+export const MEMBER_NOTIFICATION_A_KINDS = [
   "trade_status",
   "customer_order_status",
   "order_status",
@@ -82,7 +83,10 @@ const A_KINDS = new Set([
   "system_persistent",
   "notice_persistent",
   "admin_marketing_banner",
-]);
+  "community_activity",
+] as const;
+
+const A_KINDS = new Set<string>(MEMBER_NOTIFICATION_A_KINDS);
 
 const MARKETING = new Set([
   "marketing_ephemeral",

@@ -28,6 +28,12 @@ function room(
     memberId: MEMBER,
     leftAt: null,
     deletedAt: null,
+    latestMessageId:
+      partial.latestMessageId !== undefined
+        ? partial.latestMessageId
+        : partial.unreadMessageCount > 0
+          ? "tip"
+          : null,
     ...partial,
   };
 }

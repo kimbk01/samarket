@@ -17,12 +17,14 @@ export type ParticipantUnreadRoomBags = Readonly<{
     unreadMessageCount: number;
     domainIdentityKey?: string;
     peerUserId?: string;
+    latestMessageId?: string | null;
   }>;
   group: ReadonlyArray<{
     roomId: string;
     unreadMessageCount: number;
     domainIdentityKey?: string;
     groupId?: string;
+    latestMessageId?: string | null;
   }>;
   trade: ReadonlyArray<{
     roomId: string;
@@ -31,12 +33,14 @@ export type ParticipantUnreadRoomBags = Readonly<{
     listingId?: string;
     sellerId?: string;
     counterpartyId?: string;
+    latestMessageId?: string | null;
   }>;
   customerOrder: ReadonlyArray<{
     roomId: string;
     unreadMessageCount: number;
     domainIdentityKey?: string;
     orderId?: string;
+    latestMessageId?: string | null;
   }>;
   /** Explicitly excluded from B — must not be passed into customerOrder. */
   ownerOrder?: ReadonlyArray<{ roomId: string; unreadMessageCount: number }>;
@@ -46,6 +50,13 @@ function cleanIdentity(key: string | undefined): string | undefined {
   const k = String(key ?? "").trim();
   if (!k || isRoomUuidFallbackIdentityKey(k)) return undefined;
   return k;
+}
+
+/** Loaders already drop empty last_message phantoms; unread facts imply a tip exists. */
+function tipId(unreadMessageCount: number, latestMessageId?: string | null): string | null {
+  const explicit = String(latestMessageId ?? "").trim();
+  if (explicit) return explicit;
+  return unreadMessageCount > 0 ? "last_message" : null;
 }
 
 /**
@@ -63,6 +74,7 @@ export function conversationRoomInputsFromParticipantFacts(
       roomId: r.roomId,
       chatDomain: "general_direct",
       unreadMessageCount: r.unreadMessageCount,
+      latestMessageId: tipId(r.unreadMessageCount, r.latestMessageId),
       domainIdentityKey: cleanIdentity(r.domainIdentityKey),
       peerUserId: r.peerUserId,
       memberId,
@@ -74,6 +86,7 @@ export function conversationRoomInputsFromParticipantFacts(
       roomId: r.roomId,
       chatDomain: "group",
       unreadMessageCount: r.unreadMessageCount,
+      latestMessageId: tipId(r.unreadMessageCount, r.latestMessageId),
       // group:{groupId} with groupId=roomId is canonical for this product.
       domainIdentityKey: cleanIdentity(r.domainIdentityKey) ?? (gid ? `group:${gid}` : undefined),
       groupId: gid || undefined,
@@ -85,6 +98,7 @@ export function conversationRoomInputsFromParticipantFacts(
       roomId: r.roomId,
       chatDomain: "trade",
       unreadMessageCount: r.unreadMessageCount,
+      latestMessageId: tipId(r.unreadMessageCount, r.latestMessageId),
       domainIdentityKey: cleanIdentity(r.domainIdentityKey),
       listingId: r.listingId,
       sellerId: r.sellerId,
@@ -103,6 +117,7 @@ export function conversationRoomInputsFromParticipantFacts(
       roomId: r.roomId,
       chatDomain: "store_order_customer",
       unreadMessageCount: r.unreadMessageCount,
+      latestMessageId: tipId(r.unreadMessageCount, r.latestMessageId),
       domainIdentityKey: key,
       orderId,
       memberId,

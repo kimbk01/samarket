@@ -16,7 +16,7 @@ describe("initial-app-surface", () => {
   it("maps Admin enums to BottomNav hrefs", () => {
     expect(pathForInitialAppSurface("trade")).toBe("/market");
     expect(pathForInitialAppSurface("food")).toBe("/stores");
-    expect(pathForInitialAppSurface("chat")).toBe("/community-messenger?section=chats");
+    expect(pathForInitialAppSurface("chat")).toBe("/community-messenger?section=chats&inbox=unread");
     expect(pathForInitialAppSurface("my")).toBe("/mypage");
   });
 

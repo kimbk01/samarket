@@ -70,11 +70,11 @@ public final class DibayAppIconDeliveryAdapter {
   }
 
   /**
-   * Domain tray posted (FCM). Keep summary as sole badge carrier with latest total.
-   * Does not write setNumber onto domain children. Does not cancel summary.
+   * Domain tray posted (FCM). Send-time badgeCount is hint only — not launcher authority.
+   * Summary writer is NativeBadgeSync → {@link #apply} with current A+B.
    */
   public static void onDomainNotificationPosted(Context context, int appIconTotal) {
-    apply(context, appIconTotal);
+    Log.i(TAG, "fcm_hint_ignored total=" + Math.max(0, appIconTotal));
   }
 
   public static void cancelSummary(Context context) {
@@ -138,7 +138,7 @@ public final class DibayAppIconDeliveryAdapter {
             .setNumber(total)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setAutoCancel(false)
+            .setAutoCancel(true)
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -28,7 +28,7 @@ import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores
 import {
   fetchNotificationEventsForInbox,
 } from "@/lib/notifications/inbox-events-merge";
-import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
+import { loadMemberNotificationAUnreadCount } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
 import {
   clearChatInboxTargetsAfterMarkAll,
   markChatNotificationEventsRead,
@@ -379,10 +379,7 @@ export async function GET(req: NextRequest) {
     ownerStoreId: ownerStoreId || undefined,
   };
 
-  const [eventRows, badgeCount] = await Promise.all([
-    fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts),
-    countNotificationEventsBadge(sbx, inboxUserId),
-  ]);
+  const eventRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts);
 
   let notifications = eventRows;
   if (explicitPage) {
@@ -391,7 +388,9 @@ export async function GET(req: NextRequest) {
     notifications = notifications.slice(0, excludeOwnerList ? 80 : fetchUpper);
   }
 
-  const unreadTotal = Math.max(0, Math.floor(Number(badgeCount.total) || 0));
+  const unreadTotal = ownerStoreId
+    ? Math.max(0, eventRows.filter((r) => r.is_read !== true).length)
+    : await loadMemberNotificationAUnreadCount(sbx, inboxUserId);
 
   if (explicitPage) {
     const hasMore = notifications.length > displayCap;

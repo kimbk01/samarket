@@ -22,7 +22,9 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(src.includes("setOpen((v) => !v)")).toBe(true);
     expect(src.includes("openNotificationsCenter")).toBe(true);
-    expect(src.includes('"/notifications"')).toBe(true);
+    expect(src.includes("/notifications?")).toBe(true);
+    expect(src.includes("filter")).toBe(true);
+    expect(src.includes("unread")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
@@ -59,8 +61,9 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
     );
-    expect(view.includes('key: "store"')).toBe(true);
-    expect(view.includes("notif_filter_store")).toBe(true);
+    expect(view.includes('key: "unread"')).toBe(true);
+    expect(view.includes("notif_filter_unread")).toBe(true);
+    expect(view.includes('key: "store"')).toBe(false);
     const actions = fs.readFileSync(
       path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),
       "utf8"
@@ -96,8 +99,7 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       "utf8"
     );
     expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
-    expect(view.includes("filterMarketingInboxDisplayRows")).toBe(true);
-    expect(view.includes("OwnerBellOperationSummary")).toBe(true);
+    expect(view.includes("notif_filter_unread")).toBe(true);
     expect(view.includes("NotificationInboxTabBar")).toBe(true);
     expect(view.includes("tabCounts")).toBe(true);
     expect(view.includes('"chat"')).toBe(false);

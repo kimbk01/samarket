@@ -22,6 +22,7 @@ import {
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
+import { removeDeliveredNotificationOnPushTap } from "@/lib/push/native/remove-delivered-notifications";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
@@ -158,6 +159,14 @@ export function PushRouteListener() {
       lastRouteRef.current = { path, at: now };
 
       console.info("[push-route] route_resolved", { path, notificationId: notificationId ?? null });
+
+      void removeDeliveredNotificationOnPushTap({
+        notificationId: notificationId ?? null,
+        data: {
+          notificationId: notificationId ?? undefined,
+          eventId: notificationId ?? undefined,
+        },
+      });
 
       if (sessionPhaseRef.current !== "authenticated" && isAuthRequiredPushRoute(path)) {
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });

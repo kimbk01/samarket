@@ -38,7 +38,7 @@ export const BUNDLED_STARTUP_NAV: readonly StartupNavTabCache[] = [
   { id: "stores", href: "/stores", label: "Food", labelKo: "배달", labelEn: "Food" },
   {
     id: "chat",
-    href: "/community-messenger?section=chats",
+    href: "/community-messenger?section=chats&inbox=unread",
     label: "Chat",
     labelKo: "채팅",
     labelEn: "Chat",

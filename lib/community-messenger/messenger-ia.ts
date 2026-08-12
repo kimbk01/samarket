@@ -44,6 +44,7 @@ export type MessengerChatListChip =
 
 export const MESSENGER_CHAT_LIST_CHIP_ORDER: readonly MessengerChatListChip[] = [
   "all",
+  "unread",
   "direct",
   "private_group",
   "trade",
@@ -177,6 +178,7 @@ export function inboxKindToChatListChip(
   if (kind !== "all") {
     return kind;
   }
+  if (inbox === "unread" || inbox === "pinned") return inbox;
   return "all";
 }
 
@@ -185,6 +187,7 @@ export { messengerChatListChipLabelI18n as messengerChatListChipLabel } from "@/
 export function messengerChatFiltersToSearchParams(inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter): URLSearchParams {
   const qs = new URLSearchParams();
   if (inbox === "unread" || inbox === "pinned") {
+    qs.set("inbox", inbox);
     qs.set("filter", inbox);
   }
   if (kind !== "all") {

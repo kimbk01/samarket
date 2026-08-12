@@ -13,6 +13,9 @@ import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-own
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 
 export const OWNER_ACTIVE_STORE_SESSION_KEY = "samarket:owner:active-store-id:v1";
+/** Cookie for SSR first paint — must match session ACTIVE_STORE. */
+export const OWNER_ACTIVE_STORE_COOKIE = "sam_owner_active_store_id";
+export const OWNER_ACTIVE_STORE_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 180;
 
 export type ResolveOwnerActiveStoreInput = {
   stores: readonly { id: string }[];
@@ -59,6 +62,39 @@ export function readOwnerActiveStoreIdFromSession(): string | null {
   }
 }
 
+function writeOwnerActiveStoreCookie(storeId: string | null): void {
+  if (typeof document === "undefined") return;
+  try {
+    if (!storeId) {
+      document.cookie = `${OWNER_ACTIVE_STORE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+      return;
+    }
+    document.cookie = `${OWNER_ACTIVE_STORE_COOKIE}=${encodeURIComponent(storeId)}; Path=/; Max-Age=${OWNER_ACTIVE_STORE_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readOwnerActiveStoreIdFromCookieHeader(
+  cookieHeader: string | null | undefined
+): string | null {
+  const raw = String(cookieHeader ?? "");
+  if (!raw) return null;
+  const parts = raw.split(";");
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === OWNER_ACTIVE_STORE_COOKIE) {
+      try {
+        const v = decodeURIComponent(rest.join("=").trim());
+        return v || null;
+      } catch {
+        return rest.join("=").trim() || null;
+      }
+    }
+  }
+  return null;
+}
+
 /** Persist preferred active store — shell selection / route storeId write here. */
 export function writeOwnerActiveStoreIdToSession(storeId: string | null | undefined): void {
   if (typeof window === "undefined") return;
@@ -67,9 +103,11 @@ export function writeOwnerActiveStoreIdToSession(storeId: string | null | undefi
     const prev = window.sessionStorage.getItem(OWNER_ACTIVE_STORE_SESSION_KEY)?.trim() ?? "";
     if (!sid) {
       window.sessionStorage.removeItem(OWNER_ACTIVE_STORE_SESSION_KEY);
+      writeOwnerActiveStoreCookie(null);
       return;
     }
     window.sessionStorage.setItem(OWNER_ACTIVE_STORE_SESSION_KEY, sid);
+    writeOwnerActiveStoreCookie(sid);
     if (prev !== sid) {
       window.dispatchEvent(new Event(KASAMA_OWNER_HUB_BADGE_REFRESH));
     }

@@ -10,7 +10,6 @@ import { KASAMA_NOTIFICATIONS_UPDATED, NOTIFICATION_SYNC_POLL_MS } from "@/lib/n
 import {
   fetchMeNotificationsListDeduped,
   invalidateMeNotificationsListDedupedCache,
-  type InboxPushKindFilter,
 } from "@/lib/me/fetch-me-notifications-deduped";
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
@@ -20,9 +19,7 @@ import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-no
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
 import { filterMemberNotificationAInboxRows } from "@/lib/notifications/badge-authority-rebuild/member-notification-a-projection";
-import { filterMarketingInboxDisplayRows } from "@/lib/notifications/notification-center-inbox-filter";
 import { isAdminNoticeOrSystemInboxItem } from "@/lib/notifications/admin-campaign-inbox";
-import { OwnerBellOperationSummary } from "@/components/notifications/OwnerBellOperationSummary";
 import {
   NotificationInboxTabBar,
   type NotificationInboxTabKey,
@@ -30,10 +27,11 @@ import {
 import {
   buildNotificationCenterTabUnreadCounts,
   EMPTY_NOTIFICATION_CENTER_TAB_UNREAD,
+  type NotificationCenterReadFilter,
+  type NotificationCenterCategoryKey,
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
-import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
-import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
+import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
 
 type Row = {
   id: string;
@@ -51,21 +49,25 @@ type Row = {
 
 const INBOX_PAGE_SIZE = 40;
 
-const NOTIF_CENTER_TABS: NotificationInboxTabKey[] = [
+const READ_FILTERS: NotificationCenterReadFilter[] = ["all", "unread", "read"];
+const CATEGORY_TABS: NotificationCenterCategoryKey[] = [
   "all",
   "trade",
+  "community",
   "delivery",
-  "system",
+  "cs",
   "marketing",
+  "system",
 ];
 
-type CenterTab = NotificationInboxTabKey;
+function parseReadFilter(raw: string | null): NotificationCenterReadFilter {
+  if (raw && (READ_FILTERS as string[]).includes(raw)) return raw as NotificationCenterReadFilter;
+  return "all";
+}
 
-function parseNotificationsTabParam(raw: string | null): CenterTab {
-  if (raw === "store") return "store";
-  if (raw && (NOTIF_CENTER_TABS as string[]).includes(raw)) {
-    return raw as NotificationInboxTabKey;
-  }
+function parseCategoryTab(raw: string | null): NotificationCenterCategoryKey {
+  if (raw === "store") return "all";
+  if (raw && (CATEGORY_TABS as string[]).includes(raw)) return raw as NotificationCenterCategoryKey;
   return "all";
 }
 
@@ -122,26 +124,25 @@ export function MyNotificationsView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language, t } = useI18n();
-  const hasOwnerStore = useOwnerLiteHasPreferredStore();
-  const ownerHub = useOwnerHubBadgeBreakdownWhenEnabled(hasOwnerStore);
-  const storeAttention =
-    Math.max(0, Math.floor(Number(ownerHub.orderAttention) || 0)) +
-    Math.max(0, Math.floor(Number(ownerHub.inquiryAttention) || 0));
-  const inboxFilterChips = useMemo(
-    (): { key: NotificationInboxTabKey; label: string }[] => {
-      const base: { key: NotificationInboxTabKey; label: string }[] = [
-        { key: "all", label: t("notif_filter_all") },
-        { key: "trade", label: t("notif_filter_trade") },
-        { key: "delivery", label: t("notif_filter_delivery") },
-        { key: "system", label: t("notif_filter_system") },
-        { key: "marketing", label: t("notif_filter_benefit") },
-      ];
-      if (hasOwnerStore) {
-        base.push({ key: "store", label: t("notif_filter_store") });
-      }
-      return base;
-    },
-    [hasOwnerStore, t]
+  const readFilterChips = useMemo(
+    (): { key: NotificationInboxTabKey; label: string }[] => [
+      { key: "all", label: t("notif_filter_all") },
+      { key: "unread", label: t("notif_filter_unread") },
+      { key: "read", label: t("notif_filter_read") },
+    ],
+    [t]
+  );
+  const categoryChips = useMemo(
+    (): { key: NotificationInboxTabKey; label: string }[] => [
+      { key: "all", label: t("notif_filter_all") },
+      { key: "trade", label: t("notif_filter_trade") },
+      { key: "community", label: t("notif_filter_community") },
+      { key: "delivery", label: t("notif_filter_delivery") },
+      { key: "cs", label: t("notif_filter_cs") },
+      { key: "marketing", label: t("notif_filter_marketing") },
+      { key: "system", label: t("notif_filter_system") },
+    ],
+    [t]
   );
   const [tabCounts, setTabCounts] = useState<NotificationCenterTabUnreadCounts>(
     EMPTY_NOTIFICATION_CENTER_TAB_UNREAD
@@ -151,20 +152,26 @@ export function MyNotificationsView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const tabFromUrl = parseNotificationsTabParam(searchParams?.get("tab") ?? null);
+  const readFromUrl = parseReadFilter(searchParams?.get("filter") ?? null);
+  const tabFromUrl = parseCategoryTab(searchParams?.get("tab") ?? null);
   const focusNotificationId = String(searchParams?.get("notificationId") ?? "").trim();
-  const [filterTab, setFilterTab] = useState<CenterTab>(tabFromUrl);
+  const [readFilter, setReadFilter] = useState<NotificationCenterReadFilter>(readFromUrl);
+  const [categoryFilter, setCategoryFilter] = useState<NotificationCenterCategoryKey>(tabFromUrl);
 
   useEffect(() => {
-    setFilterTab(tabFromUrl);
+    setReadFilter(readFromUrl);
+  }, [readFromUrl]);
+
+  useEffect(() => {
+    setCategoryFilter(tabFromUrl);
   }, [tabFromUrl]);
 
-  const selectFilterTab = useCallback(
-    (key: CenterTab) => {
-      setFilterTab(key);
+  const replaceCenterUrl = useCallback(
+    (nextRead: NotificationCenterReadFilter, nextCategory: NotificationCenterCategoryKey) => {
       if (variant !== "notification_center") return;
       const sp = new URLSearchParams();
-      if (key !== "all") sp.set("tab", key);
+      if (nextRead !== "all") sp.set("filter", nextRead);
+      if (nextCategory !== "all") sp.set("tab", nextCategory);
       if (focusNotificationId) sp.set("notificationId", focusNotificationId);
       const q = sp.toString();
       router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
@@ -172,45 +179,43 @@ export function MyNotificationsView({
     [focusNotificationId, router, variant]
   );
 
+  const selectReadFilter = useCallback(
+    (key: NotificationInboxTabKey) => {
+      const next = parseReadFilter(key);
+      setReadFilter(next);
+      replaceCenterUrl(next, categoryFilter);
+    },
+    [categoryFilter, replaceCenterUrl]
+  );
+
+  const selectCategoryFilter = useCallback(
+    (key: NotificationInboxTabKey) => {
+      const next = parseCategoryTab(key);
+      setCategoryFilter(next);
+      replaceCenterUrl(readFilter, next);
+    },
+    [readFilter, replaceCenterUrl]
+  );
+
   const refreshTabCounts = useCallback(async (forceFetch = false) => {
     try {
-      const [aRes, mRes] = await Promise.all([
-        fetchMeNotificationsListDeduped({
-          force: forceFetch,
-          pushKind: "all",
-          limit: 100,
-          offset: 0,
-          excludeChatMessages: true,
-          excludeOwnerStoreCommerce: true,
-        }),
-        fetchMeNotificationsListDeduped({
-          force: forceFetch,
-          pushKind: "marketing",
-          limit: 100,
-          offset: 0,
-          excludeChatMessages: true,
-          excludeOwnerStoreCommerce: true,
-        }),
-      ]);
+      const aRes = await fetchMeNotificationsListDeduped({
+        force: forceFetch,
+        pushKind: "all",
+        limit: 100,
+        offset: 0,
+        excludeChatMessages: true,
+        excludeOwnerStoreCommerce: true,
+      });
       const aJson = aRes.json as { ok?: boolean; notifications?: Row[] };
-      const mJson = mRes.json as { ok?: boolean; notifications?: Row[] };
       const memberRows = filterMemberNotificationAInboxRows(
         (aJson?.notifications ?? []) as Row[]
       ) as Row[];
-      const marketingRows = filterMarketingInboxDisplayRows(
-        (mJson?.notifications ?? []) as Row[]
-      ) as Row[];
-      setTabCounts(
-        buildNotificationCenterTabUnreadCounts({
-          memberRows,
-          marketingRows,
-          storeAttention,
-        })
-      );
+      setTabCounts(buildNotificationCenterTabUnreadCounts({ memberRows }));
     } catch {
       /* keep last counts */
     }
-  }, [storeAttention]);
+  }, []);
   const [hasMore, setHasMore] = useState(false);
   const [loadMoreBusy, setLoadMoreBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
@@ -231,21 +236,10 @@ export function MyNotificationsView({
 
   useEffect(() => {
     setSelectedKeys(new Set());
-  }, [filterTab]);
+  }, [readFilter, categoryFilter]);
 
   const load = useCallback(
     async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
-      if (filterTab === "store") {
-        if (!silent && !append) {
-          setLoading(false);
-          setError(null);
-          rowsLengthRef.current = 0;
-          setRows([]);
-          setHasMore(false);
-        }
-        void refreshTabCounts(forceFetch);
-        return;
-      }
       if (!silent && !append) {
         setLoading((prev) => (prev ? prev : true));
         setError((prev) => (prev === null ? prev : null));
@@ -264,7 +258,7 @@ export function MyNotificationsView({
       try {
         const { status, json: raw } = await fetchMeNotificationsListDeduped({
           force: forceFetch,
-          pushKind: filterTab,
+          pushKind: "all",
           limit: requestLimit,
           offset: requestOffset,
           excludeChatMessages: true,
@@ -289,11 +283,7 @@ export function MyNotificationsView({
           return;
         }
         const batchRaw = (j.notifications ?? []) as Row[];
-        // marketing = display-only (≠ A). Other tabs = Member A (allowlisted import site).
-        const batch =
-          filterTab === "marketing"
-            ? (filterMarketingInboxDisplayRows(batchRaw) as Row[])
-            : (filterMemberNotificationAInboxRows(batchRaw) as Row[]);
+        const batch = filterMemberNotificationAInboxRows(batchRaw) as Row[];
         setRows((prev) => {
           const next = append ? [...prev, ...batch] : batch;
           rowsLengthRef.current = next.length;
@@ -315,18 +305,12 @@ export function MyNotificationsView({
         if (append) setLoadMoreBusy(false);
       }
     },
-    [filterTab, refreshTabCounts]
+    [refreshTabCounts]
   );
 
   useEffect(() => {
     void load(false, true, false, 0);
   }, [load]);
-
-  useEffect(() => {
-    setTabCounts((prev) =>
-      prev.store === storeAttention ? prev : { ...prev, store: storeAttention }
-    );
-  }, [storeAttention]);
 
   const broadcastNotificationsUpdated = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -481,7 +465,19 @@ export function MyNotificationsView({
     [broadcastNotificationsUpdated]
   );
 
-  const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
+  const visibleRows = useMemo(() => {
+    return rows.filter((r) => {
+      const unread = r.is_read !== true;
+      if (readFilter === "unread" && !unread) return false;
+      if (readFilter === "read" && unread) return false;
+      if (categoryFilter !== "all" && !matchesNotificationCenterMemberTab(r, categoryFilter)) {
+        return false;
+      }
+      return true;
+    });
+  }, [categoryFilter, readFilter, rows]);
+
+  const grouped = useMemo(() => buildInboxGroupItems(visibleRows, language), [language, visibleRows]);
 
   const focusOpenedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -692,11 +688,20 @@ export function MyNotificationsView({
     <div className="space-y-2">
       <div className="sticky top-0 z-10 -mx-1 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
         <NotificationInboxTabBar
-          chips={inboxFilterChips}
-          active={filterTab}
+          chips={readFilterChips}
+          active={readFilter}
           counts={tabCounts}
-          onSelect={(key) => selectFilterTab(key)}
+          onSelect={selectReadFilter}
         />
+        <div className="mt-1.5">
+          <NotificationInboxTabBar
+            chips={categoryChips}
+            active={categoryFilter}
+            counts={tabCounts}
+            onSelect={selectCategoryFilter}
+            compact
+          />
+        </div>
         {variant === "notification_center" ? (
           <div className="mt-2 flex justify-end px-0.5">
             <Link
@@ -708,12 +713,7 @@ export function MyNotificationsView({
           </div>
         ) : null}
       </div>
-      {filterTab === "store" ? (
-        <div className="space-y-3 pt-1">
-          <OwnerBellOperationSummary showSectionTitle showShortcuts />
-        </div>
-      ) : (
-        <>
+      <>
       {variant === "notification_center" && selectionMode && grouped.length > 0 ? (
         <div
           role="toolbar"
@@ -831,7 +831,7 @@ export function MyNotificationsView({
         }
         deleteBusyKey={deleteBusyKey}
         emptyLabel={
-          filterTab === "marketing"
+          categoryFilter === "marketing"
             ? t("notif_marketing_empty")
             : variant === "notification_center"
               ? `${t("notif_center_empty_title")} ${t("notif_center_empty_body")}`
@@ -850,8 +850,7 @@ export function MyNotificationsView({
           </button>
         </div>
       ) : null}
-        </>
-      )}
+      </>
       <NotificationDeleteConfirmDialog
         open={pendingDelete != null}
         message={pendingDeleteMessage}

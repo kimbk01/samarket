@@ -1,7 +1,10 @@
 /**
  * PATCH mark_read 단일 계약 — 세션 쿠키·flushOpen(open RPC 모드) 고정.
  * @see app/api/community-messenger/rooms/[roomId]/route.ts
+ *
+ * After server ACK: OS tray for that room must recompute/remove (not list-open).
  */
+import { removeDeliveredNotificationsForRoomRead } from "@/lib/push/native/remove-delivered-notifications";
 export type CommunityMessengerMarkReadPatchBody =
   | { action: "mark_read"; flushOpen: true }
   | { action: "mark_read"; flushOpen: true; lastReadMessageId: string };
@@ -54,4 +57,19 @@ export async function parseCommunityMessengerMarkReadResponse(res: Response): Pr
     }
   }
   return { okHttp: res.ok, status: res.status, json, rawPreview };
+}
+
+/** Call only after mark_read HTTP ACK ok — never on list open / optimistic UI. */
+export function afterCommunityMessengerMarkReadAck(input: {
+  roomId: string;
+  domain?: string | null;
+  domainIdentityKey?: string | null;
+}): void {
+  const roomId = String(input.roomId ?? "").trim();
+  if (!roomId) return;
+  void removeDeliveredNotificationsForRoomRead({
+    roomId,
+    domain: input.domain ?? null,
+    domainIdentityKey: input.domainIdentityKey ?? null,
+  });
 }
