@@ -16,21 +16,29 @@ export function buildCampaignContentSnapshot(
     | "in_app_image_url"
   > & {
     target_payload?: Record<string, unknown> | null;
+    content_id?: string | null;
+    content_type?: string | null;
+    canonical_route?: string | null;
   },
   opts?: { destinationKind?: CampaignContentSnapshot["destination_kind"] }
 ): CampaignContentSnapshot {
   const contentId =
     typeof campaign.target_payload?.appNoticeId === "string"
-      ? campaign.target_payload.appNoticeId
+      ? campaign.target_payload.appNoticeId.trim()
       : typeof campaign.target_payload?.content_id === "string"
-        ? campaign.target_payload.content_id
-        : null;
+        ? campaign.target_payload.content_id.trim()
+        : typeof campaign.content_id === "string"
+          ? campaign.content_id.trim()
+          : null;
+  const contentType =
+    typeof campaign.target_payload?.content_type === "string"
+      ? campaign.target_payload.content_type
+      : typeof campaign.content_type === "string"
+        ? campaign.content_type
+        : campaign.type;
   const bind = resolveCustomerCenterCampaignContentBind({
     contentId,
-    contentType:
-      typeof campaign.target_payload?.content_type === "string"
-        ? campaign.target_payload.content_type
-        : campaign.type,
+    contentType,
   });
 
   return {
@@ -44,9 +52,9 @@ export function buildCampaignContentSnapshot(
     push_image_url: campaign.push_image_url ?? null,
     in_app_image_url: campaign.in_app_image_url ?? null,
     destination_kind: opts?.destinationKind,
-    content_id: bind?.content_id ?? null,
-    content_type: bind?.content_type ?? null,
-    canonical_route: bind?.canonical_route ?? null,
+    content_id: bind?.content_id ?? contentId,
+    content_type: bind?.content_type ?? (contentType || null),
+    canonical_route: bind?.canonical_route ?? campaign.canonical_route ?? null,
   };
 }
 
