@@ -96,11 +96,78 @@ export type OwnerHubBadgeApiPayload = {
 
 type HubStoreLiteRow = HubStoreLiteCached;
 
+async function hydrateHubStoreLite(
+  storesSb: SupabaseClient<any>,
+  storeId: string,
+  slug: string | null,
+  timingOut?: FindOwnerHubStoreTiming,
+  storeQueryMs = 0
+): Promise<{ hubStore: HubStoreLiteRow | null; rows: number; error?: string }> {
+  const permQuery0 = devPerfNow();
+  const { data: permRow, error: permErr } = await storesSb
+    .from("store_sales_permissions")
+    .select("allowed_to_sell,sales_status")
+    .eq("store_id", storeId)
+    .maybeSingle();
+  const permQueryMs = devPerfNow() - permQuery0;
+  if (timingOut) {
+    timingOut.find_hub_store_query_ms = Math.round(storeQueryMs);
+    timingOut.find_hub_store_permission_join_ms = Math.round(permQueryMs);
+  }
+  if (permErr) return { hubStore: null, rows: 0, error: permErr.message };
+  const allowed = Boolean((permRow as { allowed_to_sell?: unknown } | null)?.allowed_to_sell);
+  const salesStatus = trimText((permRow as { sales_status?: unknown } | null)?.sales_status);
+  if (!allowed || salesStatus !== "approved") return { hubStore: null, rows: 0 };
+
+  return {
+    hubStore: {
+      id: storeId,
+      slug,
+      allowed_to_sell: true,
+      sales_status: salesStatus,
+    },
+    rows: 1,
+  };
+}
+
+/**
+ * OWNER ACTIVE STORE AUTHORITY for hub badge FAB digits.
+ * Prefer explicit activeStoreId (route/session) when owned + approved + sellable;
+ * else newest approved+visible+sellable.
+ */
 async function fetchOwnerHubStoreFromDb(
   storesSb: SupabaseClient<any>,
   userId: string,
-  timingOut?: FindOwnerHubStoreTiming
+  timingOut?: FindOwnerHubStoreTiming,
+  activeStoreId?: string | null
 ): Promise<{ hubStore: HubStoreLiteRow | null; rows: number; error?: string }> {
+  const preferred = trimText(activeStoreId);
+  if (preferred) {
+    const storeQuery0 = devPerfNow();
+    const { data, error } = await storesSb
+      .from("stores")
+      .select("id,slug")
+      .eq("owner_user_id", userId)
+      .eq("id", preferred)
+      .eq("approval_status", "approved")
+      .eq("is_visible", true)
+      .maybeSingle();
+    const storeQueryMs = devPerfNow() - storeQuery0;
+    if (error) return { hubStore: null, rows: 0, error: error.message };
+    const row = data as { id?: unknown; slug?: unknown } | null;
+    if (typeof row?.id === "string" && row.id.trim()) {
+      const hydrated = await hydrateHubStoreLite(
+        storesSb,
+        row.id.trim(),
+        typeof row.slug === "string" ? row.slug : null,
+        timingOut,
+        storeQueryMs
+      );
+      if (hydrated.hubStore) return hydrated;
+    }
+    /* preferred invalid/not sellable → fall through to newest */
+  }
+
   const storeQuery0 = devPerfNow();
   const { data, error } = await storesSb
     .from("stores")
@@ -117,31 +184,13 @@ async function fetchOwnerHubStoreFromDb(
   const row = data![0] as { id?: unknown; slug?: unknown };
   if (typeof row.id !== "string" || !row.id.trim()) return { hubStore: null, rows: 0 };
 
-  const permQuery0 = devPerfNow();
-  const { data: permRow, error: permErr } = await storesSb
-    .from("store_sales_permissions")
-    .select("allowed_to_sell,sales_status")
-    .eq("store_id", row.id.trim())
-    .maybeSingle();
-  const permQueryMs = devPerfNow() - permQuery0;
-  if (timingOut) {
-    timingOut.find_hub_store_query_ms = Math.round(storeQueryMs);
-    timingOut.find_hub_store_permission_join_ms = Math.round(permQueryMs);
-  }
-  if (permErr) return { hubStore: null, rows: 0, error: permErr.message };
-  const allowed = Boolean((permRow as { allowed_to_sell?: unknown } | null)?.allowed_to_sell);
-  const salesStatus = trimText((permRow as { sales_status?: unknown } | null)?.sales_status);
-  if (!allowed || salesStatus !== "approved") return { hubStore: null, rows: 0 };
-
-  return {
-    hubStore: {
-      id: row.id.trim(),
-      slug: typeof row.slug === "string" ? row.slug : null,
-      allowed_to_sell: true,
-      sales_status: salesStatus,
-    },
-    rows: 1,
-  };
+  return hydrateHubStoreLite(
+    storesSb,
+    row.id.trim(),
+    typeof row.slug === "string" ? row.slug : null,
+    timingOut,
+    storeQueryMs
+  );
 }
 
 function trimText(value: unknown): string {
@@ -183,32 +232,40 @@ export async function buildOwnerHubBadgeUnreadSegment(
 async function findOwnerHubStoreViaPostgrest(
   storesSb: SupabaseClient<any>,
   userId: string,
-  timingOut?: FindOwnerHubStoreTiming
+  timingOut?: FindOwnerHubStoreTiming,
+  activeStoreId?: string | null
 ): Promise<{ hubStore: HubStoreLiteRow | null; rows: number; error?: string }> {
-  return fetchOwnerHubStoreFromDb(storesSb, userId, timingOut);
+  return fetchOwnerHubStoreFromDb(storesSb, userId, timingOut, activeStoreId);
 }
 
-/** empty/postgrest 동시 요청 — 동일 userId 단일 RTT (empty TTL 120s write 공유) */
+function ownerHubStoreFlightKey(userId: string, activeStoreId?: string | null): string {
+  const sid = trimText(activeStoreId);
+  return sid ? `${userId.trim()}:${sid}` : userId.trim();
+}
+
+/** empty/postgrest 동시 요청 — 동일 userId(+activeStore) 단일 RTT */
 const findOwnerHubStoreInflight = new Map<string, Promise<HubStoreLiteRow | null>>();
 
 async function findOwnerHubStore(
   storesSb: SupabaseClient<any> | null,
   userId: string,
-  timingOut?: FindOwnerHubStoreTiming
+  timingOut?: FindOwnerHubStoreTiming,
+  activeStoreId?: string | null
 ): Promise<HubStoreLiteRow | null> {
   if (!storesSb) {
     if (timingOut) Object.assign(timingOut, emptyFindOwnerHubStoreTiming());
     return null;
   }
   const uid = userId.trim();
+  const flightKey = ownerHubStoreFlightKey(uid, activeStoreId);
   const total0 = devPerfNow();
 
-  const mem = readOwnerHubStoreLookupMemory(uid);
+  const mem = readOwnerHubStoreLookupMemory(flightKey);
   if (mem.hit) {
     const totalMs = devPerfNow() - total0;
-    if (mem.stale && !findOwnerHubStoreInflight.has(uid)) {
-      scheduleOwnerHubStoreLookupRevalidate(uid, async () => {
-        const { hubStore } = await fetchOwnerHubStoreFromDb(storesSb, uid);
+    if (mem.stale && !findOwnerHubStoreInflight.has(flightKey)) {
+      scheduleOwnerHubStoreLookupRevalidate(flightKey, async () => {
+        const { hubStore } = await fetchOwnerHubStoreFromDb(storesSb, uid, undefined, activeStoreId);
         return hubStore;
       });
     }
@@ -228,13 +285,14 @@ async function findOwnerHubStore(
           find_hub_store_cache_age_ms: Math.round(mem.ageMs),
           ttl_ms: ownerHubStoreLookupMemoryTtlMs(),
           stale_snapshot_within_ttl: Boolean(mem.stale),
+          active_store_id_short: trimText(activeStoreId).slice(0, 8) || null,
         });
       }
     }
     return mem.hubStore;
   }
 
-  const existing = findOwnerHubStoreInflight.get(uid);
+  const existing = findOwnerHubStoreInflight.get(flightKey);
   if (existing) {
     const hubStore = await existing;
     const totalMs = devPerfNow() - total0;
@@ -252,12 +310,17 @@ async function findOwnerHubStore(
 
   const flight = (async (): Promise<HubStoreLiteRow | null> => {
     const query0 = devPerfNow();
-    const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(storesSb, uid, timingOut);
+    const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(
+      storesSb,
+      uid,
+      timingOut,
+      activeStoreId
+    );
     const queryMs = devPerfNow() - query0;
     if (!timingOut?.find_hub_store_query_ms) {
       if (timingOut) timingOut.find_hub_store_query_ms = Math.round(queryMs);
     }
-    writeOwnerHubStoreLookupMemory(uid, hubStore);
+    writeOwnerHubStoreLookupMemory(flightKey, hubStore);
     const totalMs = devPerfNow() - total0;
     if (timingOut) {
       timingOut.find_hub_store_ms = Math.round(totalMs);
@@ -272,12 +335,12 @@ async function findOwnerHubStore(
     }
     return hubStore;
   })().finally(() => {
-    if (findOwnerHubStoreInflight.get(uid) === flight) {
-      findOwnerHubStoreInflight.delete(uid);
+    if (findOwnerHubStoreInflight.get(flightKey) === flight) {
+      findOwnerHubStoreInflight.delete(flightKey);
     }
   });
 
-  findOwnerHubStoreInflight.set(uid, flight);
+  findOwnerHubStoreInflight.set(flightKey, flight);
   return flight;
 }
 
@@ -565,6 +628,11 @@ export async function buildOwnerHubBadgePayloadMerged(
 }
 
 export type OwnerHubBadgeBuildOptions = {
+  /**
+   * OWNER ACTIVE STORE AUTHORITY — route/session preferred store id.
+   * FAB Orders/Store/Chat + storeDeepLink must use this (not newest-only).
+   */
+  activeStoreId?: string | null;
   /** dev 측정(`findHubFresh=1`): find_hub process memory 만 무효화 — JSON·hub route TTL 불변 */
   findHubStoreFresh?: boolean;
   /** dev 측정(`unreadPartsFresh=1`): unread_parts process memory 만 무효화 */
@@ -648,7 +716,12 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const storeOrderUnreadFallback = false;
   const orderRoomIdsHit = 0;
 
-  const findHubPromise = findOwnerHubStore(storesSb, userId, findHubStoreTiming).catch(() => {
+  const findHubPromise = findOwnerHubStore(
+    storesSb,
+    userId,
+    findHubStoreTiming,
+    opts?.activeStoreId
+  ).catch(() => {
     findHubStoreError = true;
     findHubStoreTiming.find_hub_store_via = "error";
     return null;

@@ -42,6 +42,10 @@ export function invalidateOwnerHubStoreLookupCache(userId: string): void {
   const k = userId.trim();
   if (!k) return;
   memoryByUser.delete(k);
+  const prefix = `${k}:`;
+  for (const key of [...memoryByUser.keys()]) {
+    if (key.startsWith(prefix)) memoryByUser.delete(key);
+  }
 }
 
 function pruneExpired(now: number) {

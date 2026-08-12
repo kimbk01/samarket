@@ -1,101 +1,29 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { loadAdminActionQueueCounts } from "@/lib/admin/admin-action-queue";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const USER_CHARGE_ACTIONABLE = ["pending", "waiting_confirm", "on_hold"] as const;
-
 /**
  * GET /api/admin/admin-bell
  *
- * 어드민 전용 알림 벨 집계 — 일반 유저 알림 API(/api/me/notifications)가 아닌
- * 어드민 액션이 필요한 항목만 COUNT 반환.
+ * Durable ADMIN ACTION QUEUE COUNT SSOT — not /api/me/notifications.
+ * Realtime is wake-up only (AdminStorePointPendingProvider).
  */
 export async function GET() {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({
-      ok: true,
-      total: 0,
-      by_category: {
-        charges: 0,
-        store_charges: 0,
-        user_charges: 0,
-        reports: 0,
-        alerts: 0,
-        feed_ad_requests: 0,
-      },
-    });
-  }
-
-  const [
-    storeChargesRes,
-    userChargesRes,
-    reportsRes,
-    storeReportsRes,
-    alertsRes,
-    feedAdRes,
-  ] = await Promise.all([
-    sb
-      .from("store_point_charge_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("request_status", "pending"),
-
-    sb
-      .from("point_charge_requests")
-      .select("id", { count: "exact", head: true })
-      .in("request_status", [...USER_CHARGE_ACTIONABLE]),
-
-    sb
-      .from("reports")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-
-    sb
-      .from("store_reports")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open"),
-
-    sb
-      .from("delivery_operation_alert_events")
-      .select("id", { count: "exact", head: true })
-      .in("event_status", ["open", "acknowledged"]),
-
-    sb
-      .from("feed_ad_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending_review"),
-  ]);
-
-  const storeCharges = storeChargesRes.error ? 0 : storeChargesRes.count ?? 0;
-  const userCharges =
-    userChargesRes.error && /point_charge_requests|schema cache|does not exist/i.test(userChargesRes.error.message ?? "")
-      ? 0
-      : userChargesRes.count ?? 0;
-  const reports = (reportsRes.count ?? 0) + (storeReportsRes.count ?? 0);
-  const alerts = alertsRes.count ?? 0;
-  const feedAdRequests =
-    feedAdRes.error && /feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")
-      ? 0
-      : feedAdRes.count ?? 0;
-  const charges = storeCharges + userCharges;
-  const total = charges + reports + alerts + feedAdRequests;
+  const storesSb = tryGetSupabaseForStores();
+  const notesSb = tryCreateSupabaseServiceClient();
+  const counts = await loadAdminActionQueueCounts({ storesSb, notesSb });
 
   return NextResponse.json({
     ok: true,
-    total,
-    by_category: {
-      charges,
-      store_charges: storeCharges,
-      user_charges: userCharges,
-      reports,
-      alerts,
-      feed_ad_requests: feedAdRequests,
-    },
+    total: counts.total,
+    by_category: counts.by_category,
   });
 }

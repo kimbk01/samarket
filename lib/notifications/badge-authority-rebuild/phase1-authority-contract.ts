@@ -226,6 +226,12 @@ export const OWNER_STORE_OPERATION_META_KINDS = [
   "store_order_buyer_cancelled",
   "store_order_sold_out",
   "store_order_refund_requested",
+  "store_point_blocked",
+  "store_point_deducted",
+  "store_point_low",
+  "store_point_charge_approved",
+  "store_point_charge_rejected",
+  "store_point_account_replied",
 ] as const;
 
 export function classifyBadgeContractEvent(

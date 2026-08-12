@@ -39,25 +39,33 @@ export type OwnerHubBadgePayload = {
 
 const hubBadgeCache = new Map<string, { expiresAt: number; value: OwnerHubBadgePayload }>();
 
-export function ownerHubBadgeRouteCacheKey(userId: string): string {
-  return `owner-hub-badge:${userId.trim()}`;
+export function ownerHubBadgeRouteCacheKey(userId: string, activeStoreId?: string | null): string {
+  const uid = userId.trim();
+  const sid = typeof activeStoreId === "string" ? activeStoreId.trim() : "";
+  return sid ? `owner-hub-badge:${uid}:${sid}` : `owner-hub-badge:${uid}`;
 }
 
-function hubBadgeFlightKey(userId: string): string {
-  return ownerHubBadgeRouteCacheKey(userId);
+function hubBadgeFlightKey(userId: string, activeStoreId?: string | null): string {
+  return ownerHubBadgeRouteCacheKey(userId, activeStoreId);
 }
 
 /** 라우트 `[route-perf]` in_flight_hit — TTL miss 후 동시 요청 합류 여부 */
-export function peekOwnerHubBadgeInflight(userId: string): boolean {
+export function peekOwnerHubBadgeInflight(
+  userId: string,
+  activeStoreId?: string | null
+): boolean {
   const k = userId.trim();
   if (!k) return false;
-  return getSingleFlightPromise(hubBadgeFlightKey(k)) !== undefined;
+  return getSingleFlightPromise(hubBadgeFlightKey(k, activeStoreId)) !== undefined;
 }
 
 /** 라우트 `[route-perf]` cache_hit — 메모리 TTL 엔트리 존재 여부(인플라이트 제외) */
-export function peekOwnerHubBadgeCacheHit(userId: string): boolean {
-  const k = userId.trim();
-  if (!k) return false;
+export function peekOwnerHubBadgeCacheHit(
+  userId: string,
+  activeStoreId?: string | null
+): boolean {
+  const k = hubBadgeFlightKey(userId, activeStoreId);
+  if (!userId.trim()) return false;
   const row = hubBadgeCache.get(k);
   return !!(row && row.expiresAt > Date.now());
 }
@@ -65,7 +73,12 @@ export function peekOwnerHubBadgeCacheHit(userId: string): boolean {
 export function invalidateOwnerHubBadgeCache(userId: string): void {
   const k = userId.trim();
   if (!k) return;
-  hubBadgeCache.delete(k);
+  const prefix = `owner-hub-badge:${k}`;
+  for (const key of [...hubBadgeCache.keys()]) {
+    if (key === prefix || key.startsWith(`${prefix}:`)) {
+      hubBadgeCache.delete(key);
+    }
+  }
   /** `getCachedUserChatUnreadParts` memory TTL(5s) 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
   invalidateUserChatUnreadCache(k);
   invalidateChatRoomsSnapshotCache(k);
@@ -89,6 +102,7 @@ function pruneExpiredHubBadgeCache(now: number) {
 }
 
 export type GetCachedOwnerHubBadgeOptions = {
+  activeStoreId?: string | null;
   /**
    * Slice 2-4 cross-isolate: on HIT, recompute B_store room count without mutating cache.
    * Return `null` to keep cached storeOrderChatUnread (never SQL message-sum fallback here).
@@ -114,18 +128,19 @@ export async function getCachedOwnerHubBadge(
   factory: () => Promise<OwnerHubBadgePayload>,
   options?: GetCachedOwnerHubBadgeOptions
 ): Promise<OwnerHubBadgePayload> {
-  const cacheKey = userId.trim();
-  if (!cacheKey) {
+  const uid = userId.trim();
+  if (!uid) {
     return factory();
   }
+  const cacheKey = hubBadgeFlightKey(uid, options?.activeStoreId);
 
   const now = Date.now();
   const cached = hubBadgeCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
     logRouteCacheHit("/api/me/store-owner-hub-badge", {
       cache_hit: 1,
-      route_cache_key: hubBadgeFlightKey(cacheKey),
-      user_id: cacheKey,
+      route_cache_key: cacheKey,
+      user_id: uid,
       ttl_remaining_ms: cached.expiresAt - now,
     });
     return applyStoreOrderChatUnreadRefreshOnHit(
@@ -137,10 +152,10 @@ export async function getCachedOwnerHubBadge(
   pruneExpiredHubBadgeCache(now);
 
   logRouteCacheMiss("/api/me/store-owner-hub-badge", {
-    route_cache_key: hubBadgeFlightKey(cacheKey),
-    user_id: cacheKey,
+    route_cache_key: cacheKey,
+    user_id: uid,
   });
-  return runSingleFlight(hubBadgeFlightKey(cacheKey), async () => {
+  return runSingleFlight(cacheKey, async () => {
     const again = hubBadgeCache.get(cacheKey);
     if (again && again.expiresAt > Date.now()) {
       return applyStoreOrderChatUnreadRefreshOnHit(
@@ -154,8 +169,8 @@ export async function getCachedOwnerHubBadge(
       expiresAt: Date.now() + HUB_BADGE_TTL_MS,
     });
     console.log("[hub-badge-cache-set]", {
-      route_cache_key: hubBadgeFlightKey(cacheKey),
-      userId: cacheKey,
+      route_cache_key: cacheKey,
+      userId: uid,
       ttl_ms: HUB_BADGE_TTL_MS,
     });
     return value;

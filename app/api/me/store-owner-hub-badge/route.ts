@@ -73,6 +73,8 @@ export async function GET(request: Request) {
   const cmUnreadFresh = url.searchParams.get("cmUnreadFresh") === "1";
   const storeOrderUnreadFresh = url.searchParams.get("storeOrderUnreadFresh") === "1";
   const storeAttentionFresh = url.searchParams.get("storeAttentionFresh") === "1";
+  /** OWNER ACTIVE STORE AUTHORITY — client route/session preferred store */
+  const activeStoreId = url.searchParams.get("activeStoreId")?.trim() || null;
   /** prod: cmFresh → 짧은 캐시 bypass. dev-safe: cmFresh 만으로는 bypass 안 함 — `hubBadgeBypass=1` 필요 */
   const bypassShortCache = cmFresh && (!isDevSafeMode() || hubBadgeBypass);
 
@@ -154,12 +156,15 @@ export async function GET(request: Request) {
   const storesClientMs = devPerfNow() - stores0;
 
   const cacheLookup0 = devPerfNow();
-  const requestDedupeKey = ownerHubBadgeRouteCacheKey(userId);
+  const requestDedupeKey = ownerHubBadgeRouteCacheKey(userId, activeStoreId);
   const bypassMemoryCache = shouldBypassRouteMemoryCache(url.searchParams) || hubBadgeBypass;
   const ttlCacheHit =
-    !bypassShortCache && !bypassMemoryCache && peekOwnerHubBadgeCacheHit(userId);
+    !bypassShortCache && !bypassMemoryCache && peekOwnerHubBadgeCacheHit(userId, activeStoreId);
   const inFlightBefore =
-    !bypassShortCache && !bypassMemoryCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
+    !bypassShortCache &&
+    !bypassMemoryCache &&
+    !ttlCacheHit &&
+    peekOwnerHubBadgeInflight(userId, activeStoreId);
   const cache_lookup_ms = Math.round(devPerfNow() - cacheLookup0);
   const build0 = devPerfNow();
   let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];
@@ -172,14 +177,16 @@ export async function GET(request: Request) {
       storesSb,
       userId,
     });
+  const buildOpts = {
+    activeStoreId,
+    findHubStoreFresh,
+    unreadPartsFresh: unreadPartsStoreFresh,
+    cmUnreadFresh: cmUnreadStoreFresh,
+    storeOrderUnreadFresh: storeOrderUnreadStoreFresh,
+    storeAttentionFresh: storeAttentionStoreFresh,
+  };
   if (bypassShortCache) {
-    const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, {
-      findHubStoreFresh,
-      unreadPartsFresh: unreadPartsStoreFresh,
-      cmUnreadFresh: cmUnreadStoreFresh,
-      storeOrderUnreadFresh: storeOrderUnreadStoreFresh,
-      storeAttentionFresh: storeAttentionStoreFresh,
-    });
+    const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, buildOpts);
     payload = built.payload;
     badgeMeta = built.meta;
     hubBreakdown = built.breakdown;
@@ -188,11 +195,13 @@ export async function GET(request: Request) {
     payload = await getCachedOwnerHubBadge(
       userId,
       async () => {
-        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, {
+          activeStoreId,
+        });
         hubBreakdown = built.breakdown;
         return built.payload;
       },
-      { refreshStoreOrderChatUnreadOnHit }
+      { activeStoreId, refreshStoreOrderChatUnreadOnHit }
     );
     badgeMeta = {
       queryType: "owner_hub_badge_light",
@@ -225,11 +234,13 @@ export async function GET(request: Request) {
     payload = await getCachedOwnerHubBadge(
       userId,
       async () => {
-        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+        const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, {
+          activeStoreId,
+        });
         hubBreakdown = built.breakdown;
         return built.payload;
       },
-      { refreshStoreOrderChatUnreadOnHit }
+      { activeStoreId, refreshStoreOrderChatUnreadOnHit }
     );
     badgeMeta = {
       queryType: "owner_hub_badge_light",

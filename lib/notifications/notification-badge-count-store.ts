@@ -19,6 +19,7 @@ import {
 import { markProjectionAuthorityWaitingComplete } from "@/lib/notifications/projection-authority";
 import { EMPTY_BELL_BADGE_FACTS } from "@/lib/notifications/build-notification-badge-projection";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
+import { isMemberBadgeAuthoritySurface } from "@/lib/notifications/member-badge-surface-authority";
 
 const POLL_MS = 45_000;
 /** P3-c2 — non-fresh poll tick reason (Device QA / contract marker). */
@@ -115,6 +116,10 @@ function armPollIntervalIfNeeded(): void {
  */
 function tickBadgeCountPoll(): void {
   if (typeof document === "undefined") return;
+  if (!isMemberBadgeAuthoritySurface()) {
+    logNotifyBadge("ui_set", { poll_tick_skipped: 1, reason: "admin_surface" });
+    return;
+  }
   if (document.visibilityState !== "visible") {
     logNotifyBadge("ui_set", { poll_tick_skipped: 1, reason: "hidden" });
     return;
@@ -257,6 +262,7 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
       () => {
         if (authEpoch !== scheduledEpoch) return;
         if (!authEpochFetchOpen) return;
+        if (!isMemberBadgeAuthoritySurface()) return;
         if (snap != null) return;
         void ensureInitialBadgeSnapshotForBoot();
       },
@@ -314,6 +320,10 @@ export function __tickNotificationBadgePollForTests(): void {
  */
 export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  if (!isMemberBadgeAuthoritySurface()) {
+    logNotifyBadge("ui_set", { admin_surface_boot_skip: 1, bootEpoch: bootEpoch ?? null });
+    return Promise.resolve();
+  }
   // P3-b2 — Boot is the sole owner that may re-open network after Auth Epoch reset.
   authEpochFetchOpen = true;
   if (snap != null) {
@@ -352,6 +362,10 @@ export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<v
 
 async function doFetch(force = false, waitReason?: string): Promise<void> {
   if (typeof window === "undefined") return;
+  if (!isMemberBadgeAuthoritySurface()) {
+    logNotifyBadge("ui_set", { admin_surface_fetch_skip: 1, force: force ? 1 : 0 });
+    return;
+  }
   if (!authEpochFetchOpen) {
     logNotifyBadge("ui_set", {
       auth_epoch_fetch_blocked: 1,

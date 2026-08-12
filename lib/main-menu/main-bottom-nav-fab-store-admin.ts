@@ -4,6 +4,10 @@ import type {
   MainBottomNavFabDisplayItem,
   MainBottomNavFabStoredItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-types";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 
 /** 배달 FAB — 매장 어드민(승인 매장주 전용) */
 export const MAIN_BOTTOM_NAV_FAB_STORE_ADMIN_ITEM_ID = "fab_delivery_store_admin";
@@ -28,8 +32,14 @@ export function createMainBottomNavFabStoreAdminItem(label = ""): MainBottomNavF
   };
 }
 
+/** Approved-list helper — MODEL A (session preferred → newest sellable fallback). */
 export function pickApprovedOwnerStoreForFab(stores: readonly StoreRow[]): StoreRow | null {
-  return stores.find((store) => String(store.approval_status) === "approved") ?? null;
+  const approved = stores.filter((store) => String(store.approval_status) === "approved");
+  return (
+    resolveOwnerActiveStoreRow(approved, {
+      preferredStoreId: readOwnerActiveStoreIdFromSession(),
+    }) ?? null
+  );
 }
 
 export function resolveStoreAdminFabHref(storeId: string | null | undefined): string {

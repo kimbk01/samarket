@@ -9,13 +9,17 @@ import {
 } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { pickApprovedOwnerStoreForFab } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   captureCallerStack,
@@ -36,6 +40,21 @@ const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStore
 const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";
 const OWNER_LITE_HYDRATE_FLIGHT = "owner-lite:hydrate" as const;
 
+/** OWNER ACTIVE STORE AUTHORITY — OwnerLite preferred row must follow MODEL A, not newest-only. */
+function pickOwnerLiteActiveStore(stores: readonly StoreRow[]): StoreRow | null {
+  if (!stores.length) return null;
+  const approved = stores.filter((s) => String(s.approval_status) === "approved");
+  const pool = approved.length > 0 ? approved : stores;
+  return (
+    resolveOwnerActiveStoreRow(pool, {
+      preferredStoreId: readOwnerActiveStoreIdFromSession(),
+    }) ??
+    pickPreferredOwnerStore([...stores]) ??
+    stores[0] ??
+    null
+  );
+}
+
 function readOwnerLiteSessionSnapshot(): OwnerLiteStoreState | null {
   if (typeof window === "undefined") return null;
   try {
@@ -47,7 +66,7 @@ function readOwnerLiteSessionSnapshot(): OwnerLiteStoreState | null {
     return {
       loading: false,
       ownerStores,
-      ownerStore: pickPreferredOwnerStore(ownerStores),
+      ownerStore: pickOwnerLiteActiveStore(ownerStores),
     };
   } catch {
     return null;
@@ -71,6 +90,17 @@ function writeOwnerLiteSessionSnapshot(next: OwnerLiteStoreState): void {
 const hydratedFromSession = readOwnerLiteSessionSnapshot();
 let snapshot: OwnerLiteStoreState = hydratedFromSession ?? EMPTY;
 const listeners = new Set<() => void>();
+
+/** Active-store session write → realign OwnerLite preferred row (CTA / nav / FAB). */
+if (typeof window !== "undefined") {
+  window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, () => {
+    if (!snapshot.ownerStores.length) return;
+    const next = pickOwnerLiteActiveStore(snapshot.ownerStores);
+    if ((next?.id ?? null) === (snapshot.ownerStore?.id ?? null)) return;
+    snapshot = { ...snapshot, ownerStore: next };
+    emit();
+  });
+}
 
 let subscriberCount = 0;
 /** 첫 응답 후에는 재구독(Strict Mode)·백그라운드 갱신 시 로딩 스피너를 다시 켜지 않음 */
@@ -149,7 +179,7 @@ async function loadFromNetwork(options?: {
     snapshotLoadedAtMs = Date.now();
     snapshot = {
       loading: false,
-      ownerStore: json?.ok ? pickPreferredOwnerStore(stores) : null,
+      ownerStore: json?.ok ? pickOwnerLiteActiveStore(stores) : null,
       ownerStores: json?.ok ? stores : [],
     };
     writeOwnerLiteSessionSnapshot(snapshot);
@@ -280,7 +310,14 @@ export function refreshOwnerLiteStore(): void {
 
 /** FAB·헤더 등 — 승인 매장이 아직 없을 때만 무음 선로드 */
 export function prefetchOwnerLiteStoreQuiet(): void {
-  if (pickApprovedOwnerStoreForFab(snapshot.ownerStores)) return;
+  const approved = snapshot.ownerStores.filter((s) => String(s.approval_status) === "approved");
+  if (
+    resolveOwnerActiveStoreRow(approved, {
+      preferredStoreId: readOwnerActiveStoreIdFromSession() ?? snapshot.ownerStore?.id ?? null,
+    })
+  ) {
+    return;
+  }
   if (isMypageRootSurfacePathname(currentPathname())) {
     pushMypageNetMarker({
       event: "owner_lite_store_auto_hydrate_skipped",

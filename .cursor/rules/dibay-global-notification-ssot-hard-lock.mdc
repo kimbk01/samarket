@@ -1,0 +1,41 @@
+---
+description: HARD LOCK — DIBAY Global Notification SSOT (Member / Owner / Admin)
+alwaysApply: true
+---
+
+# DIBAY Global Notification SSOT HARD LOCK
+
+**HARD LOCK (2026-08-12).** Full doc: `docs/dibay-global-notification-ssot-hard-lock.md`.
+
+## Baseline
+
+- **ACTUAL PRODUCT DEFECTS: 0** · FINAL RED TEAM **PASS**
+- 2-store Owner UI: **NOT_PROVEN — NO FIXTURE**
+- Samsung / Xiaomi: **NOT_PROVEN — inactive device registration**
+- Do not force those NOT_PROVEN rows to PASS. Do not keep the whole SSOT OPEN because of them.
+
+## Authority
+
+| Surface | Owner |
+|---|---|
+| Member Bell / App Icon | `/api/me/notifications/badge-count` + Domain Badge Authority |
+| Owner commerce inbox | owner snapshot/RPC + `?owner_store_id=` |
+| Admin Action Queue | `loadAdminActionQueueCounts` → `/api/admin/admin-bell` |
+| Admin RT wake-up | `supabase_realtime` + Admin SELECT RLS |
+| Admin vs Member badge | `isMemberBadgeAuthoritySurface` — `/admin` and `/admin/*` do **not** run Member badge-count |
+
+## DO NOT (without reopen)
+
+- Mount Member badge-count boot/fetch/poll on Platform Admin surface
+- One-page `/admin/order-notifications` fetch cancel · digit 0 · API masking
+- Use `/api/me/notifications` as Admin ops inbox
+- Kill Member/Owner/Messenger/Trade/order badge paths to isolate Admin
+- Poll-workaround Admin sound when RT works
+- ALTER replica identity without a new FIRST BREAK
+- Call 2-store UI or device sound PASS without new fixture/device evidence
+
+## Gate
+
+```bash
+npx vitest run lib/notifications/__tests__/member-badge-admin-surface-isolation.test.ts lib/admin/__tests__/admin-action-queue-ssot-contract.test.ts
+```

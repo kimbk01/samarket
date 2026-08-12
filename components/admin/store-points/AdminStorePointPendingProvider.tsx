@@ -386,6 +386,26 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           { event: "UPDATE", schema: "public", table: "feed_ad_requests" },
           () => scheduleRefresh(false)
         )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "delivery_operation_alert_events" },
+          (payload) => {
+            const rowId = rowIdFromPayload(payload);
+            traceAdminSound("RT_INSERT", {
+              table: "delivery_operation_alert_events",
+              eventType: payload.eventType,
+              rowId,
+            });
+            if (rowId) {
+              ingestAdminRowSound({
+                sourceTable: "delivery_operation_alert_events",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+            }
+            scheduleRefresh(true, payload.eventType);
+          }
+        )
         .subscribe((status) => {
           traceAdminSound("RT_SUBSCRIBE", { status });
           if (status === "SUBSCRIBED") {

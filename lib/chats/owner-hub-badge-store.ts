@@ -25,6 +25,7 @@ import {
   isDeliveryOwnerSurfaceActive,
   subscribeDeliveryOwnerSurfaceActive,
 } from "@/lib/delivery/owner/owner-surface-activity";
+import { readOwnerActiveStoreIdFromSession } from "@/lib/delivery/owner/resolve-owner-active-store";
 import {
   applyMessengerBottomChatUnread,
 } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
@@ -742,17 +743,19 @@ export type FetchOwnerHubBadgeNowOptions = {
 
 
 function hubBadgeLeaderFetchUrl(force: boolean, serverHubBadgeBypass?: boolean): string {
-
-  if (!force) return "/api/me/store-owner-hub-badge";
-
   const q = new URLSearchParams();
-
-  q.set("cmFresh", "1");
-
-  if (serverHubBadgeBypass) q.set("hubBadgeBypass", "1");
-
-  return `/api/me/store-owner-hub-badge?${q.toString()}`;
-
+  if (force) {
+    q.set("cmFresh", "1");
+    if (serverHubBadgeBypass) q.set("hubBadgeBypass", "1");
+  }
+  if (typeof window !== "undefined") {
+    const routeSid = new URLSearchParams(window.location.search).get("storeId")?.trim() || "";
+    const preferred = readOwnerActiveStoreIdFromSession();
+    const active = routeSid || preferred || "";
+    if (active) q.set("activeStoreId", active);
+  }
+  const qs = q.toString();
+  return qs ? `/api/me/store-owner-hub-badge?${qs}` : "/api/me/store-owner-hub-badge";
 }
 
 

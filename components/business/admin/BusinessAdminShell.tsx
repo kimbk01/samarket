@@ -28,7 +28,11 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
-import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+  writeOwnerActiveStoreIdToSession,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
@@ -302,10 +306,18 @@ export function BusinessAdminShell({
 
   const selectedRow = useMemo(() => {
     if (!stores || stores.length === 0) return null;
-    const byParam =
-      storeIdParam.length > 0 ? stores.find((s) => s.id === storeIdParam) : undefined;
-    return byParam ?? pickPreferredOwnerStore(stores) ?? stores[0]!;
+    return (
+      resolveOwnerActiveStoreRow(stores, {
+        routeStoreId: storeIdParam,
+        preferredStoreId: readOwnerActiveStoreIdFromSession(),
+      }) ?? stores[0]!
+    );
   }, [stores, storeIdParam]);
+
+  useEffect(() => {
+    const sid = selectedRow?.id?.trim();
+    if (sid) writeOwnerActiveStoreIdToSession(sid);
+  }, [selectedRow?.id]);
 
   const selectedStoreId = selectedRow?.id?.trim() ?? "";
 

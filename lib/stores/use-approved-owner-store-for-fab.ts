@@ -2,28 +2,41 @@
 
 import { useSyncExternalStore } from "react";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { pickApprovedOwnerStoreForFab } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 import {
   getOwnerLiteStoreServerSnapshot,
   getOwnerLiteStoreSnapshot,
   subscribeOwnerLiteStore,
 } from "@/lib/stores/owner-lite-external-store";
-import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 
 function resolveApprovedOwnerStoreForFab(): StoreRow | null {
   const snap = getOwnerLiteStoreSnapshot();
-  const fromList = pickApprovedOwnerStoreForFab(snap.ownerStores);
-  if (fromList) return fromList;
-  const preferred = snap.ownerStore;
-  if (preferred && String(preferred.approval_status) === "approved") return preferred;
-  return pickPreferredOwnerStore(snap.ownerStores.filter((s) => String(s.approval_status) === "approved"));
+  const approved = snap.ownerStores.filter((s) => String(s.approval_status) === "approved");
+  if (approved.length === 0) return null;
+  const routeSid =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("storeId")?.trim() || ""
+      : "";
+  return resolveOwnerActiveStoreRow(approved, {
+    routeStoreId: routeSid,
+    preferredStoreId: readOwnerActiveStoreIdFromSession() ?? snap.ownerStore?.id ?? null,
+  });
 }
 
-/** FAB 매장 어드민 — `approval_status === approved` 소유 매장 1개 */
+/** FAB 매장 어드민 — OWNER ACTIVE STORE AUTHORITY (MODEL A) */
 export function useApprovedOwnerStoreForFab(): StoreRow | null {
   return useSyncExternalStore(
     subscribeOwnerLiteStore,
     resolveApprovedOwnerStoreForFab,
-    () => pickApprovedOwnerStoreForFab(getOwnerLiteStoreServerSnapshot().ownerStores)
+    () => {
+      const snap = getOwnerLiteStoreServerSnapshot();
+      const approved = snap.ownerStores.filter((s) => String(s.approval_status) === "approved");
+      return resolveOwnerActiveStoreRow(approved, {
+        preferredStoreId: snap.ownerStore?.id ?? null,
+      });
+    }
   );
 }

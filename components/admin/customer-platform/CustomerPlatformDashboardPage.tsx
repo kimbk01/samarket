@@ -14,6 +14,10 @@ type OverviewPayload = {
     platform_inquiry_open: number;
     member_charge_pending: number;
     store_charge_pending: number;
+    feed_ad_pending?: number;
+    reports_pending?: number;
+    delivery_alerts?: number;
+    community_reports_pending?: number;
     total: number;
   };
   monitoring?: {
@@ -107,6 +111,38 @@ export function CustomerPlatformDashboardPage() {
       titleKo: "매장 입금 승인 대기",
       titleEn: "Store deposit pending",
       domain: "store",
+    },
+    {
+      href: "/admin/feed-ad-requests",
+      count: aq?.feed_ad_pending ?? 0,
+      titleKey: "admin_feed_ad_toast_title",
+      titleKo: "피드 배너 광고 심사",
+      titleEn: "Feed banner ad review",
+      domain: "member",
+    },
+    {
+      href: "/admin/reports",
+      count: aq?.reports_pending ?? 0,
+      titleKey: "admin_menu_reports",
+      titleKo: "신고 (회원·매장)",
+      titleEn: "Reports (member · store)",
+      domain: "member",
+    },
+    {
+      href: "/admin/delivery-operations",
+      count: aq?.delivery_alerts ?? 0,
+      titleKey: "admin_menu_delivery_operations_stats",
+      titleKo: "배달 운영 알림",
+      titleEn: "Delivery operation alerts",
+      domain: "store",
+    },
+    {
+      href: "/admin/community/reports",
+      count: aq?.community_reports_pending ?? 0,
+      titleKey: "admin_menu_community_reports",
+      titleKo: "커뮤니티 신고",
+      titleEn: "Community reports",
+      domain: "member",
     },
   ];
 

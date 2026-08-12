@@ -10,6 +10,7 @@ import {
 import type { ProfileRow } from "@/lib/profile/types";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import { ensureInitialBadgeSnapshotForBoot } from "@/lib/notifications/notification-badge-count-store";
+import { isMemberBadgeAuthoritySurface } from "@/lib/notifications/member-badge-surface-authority";
 
 let backgroundArmId = 0;
 let backgroundCancel: (() => void) | null = null;
@@ -67,17 +68,22 @@ export function scheduleAppBootBackgroundHydration(): void {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const onStoreOwnerHub = isStoreOwnerHubPathname();
+    const onMemberBadgeSurface = isMemberBadgeAuthoritySurface();
 
     // P3-b1 — authenticated cold boot: one non-fresh Domain snapshot (COMPLETE gen owner).
-    scheduleStartupApiDeferred(
-      APP_BOOT_INITIAL_BADGE_JOB,
-      () => {
-        if (armId !== backgroundArmId) return;
-        if (!getAppBootSnapshot().profile) return;
-        void ensureInitialBadgeSnapshotForBoot(armId);
-      },
-      { delayMs: 0, source: "app_boot_initial_badge" }
-    );
+    // Platform Admin is not a Member badge surface — Admin count SSOT is admin-bell.
+    if (onMemberBadgeSurface) {
+      scheduleStartupApiDeferred(
+        APP_BOOT_INITIAL_BADGE_JOB,
+        () => {
+          if (armId !== backgroundArmId) return;
+          if (!isMemberBadgeAuthoritySurface()) return;
+          if (!getAppBootSnapshot().profile) return;
+          void ensureInitialBadgeSnapshotForBoot(armId);
+        },
+        { delayMs: 0, source: "app_boot_initial_badge" }
+      );
+    }
 
     if (!onStoreOwnerHub) {
       scheduleStartupApiDeferred(

@@ -24,6 +24,11 @@ import {
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+  writeOwnerActiveStoreIdToSession,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 import { markDeliveryOwnerSurfaceActive } from "@/lib/delivery/owner/owner-surface-activity";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 import {
@@ -53,9 +58,15 @@ const Ctx = createContext<OwnerHubRuntimeValue | null>(null);
 
 function pickRow(stores: StoreRow[], storeIdParam: string): StoreRow | null {
   if (stores.length === 0) return null;
-  const byParam =
-    storeIdParam.length > 0 ? stores.find((s) => s.id === storeIdParam) : undefined;
-  return byParam ?? pickPreferredOwnerStore(stores) ?? stores[0] ?? null;
+  return (
+    resolveOwnerActiveStoreRow(stores, {
+      routeStoreId: storeIdParam,
+      preferredStoreId: readOwnerActiveStoreIdFromSession(),
+    }) ??
+    pickPreferredOwnerStore(stores) ??
+    stores[0] ??
+    null
+  );
 }
 
 function orderCountsStoreIdFromRow(row: StoreRow | null): string | null {
@@ -120,6 +131,12 @@ export function OwnerHubRuntimeProvider({
     () => (stores?.length ? pickRow(stores, storeIdParam) : null),
     [stores, storeIdParam]
   );
+
+  useEffect(() => {
+    const sid = selectedRow?.id?.trim();
+    if (sid) writeOwnerActiveStoreIdToSession(sid);
+  }, [selectedRow?.id]);
+
   const orderCountsStoreId = orderCountsStoreIdFromRow(selectedRow);
 
   const [orderAlertsBadge, setOrderAlertsBadge] = useState(() => {
