@@ -192,22 +192,41 @@ export function PostListByCategory({
     return readFreshTradeFeedClientCache(ids, buildTradeFeedRequestOptions(1));
   }, [categoryId, tradeFeedServerResolution, effectiveIds, buildTradeFeedRequestOptions]);
 
-  const [posts, setPosts] = useState<PostWithMeta[]>(() => initialCachedFeed?.posts ?? []);
+  /**
+   * CONTRACT (C): mount seed — client cache OR matching `initialTradeFeed` only.
+   * feedKey mismatch / other category bootstrap must not seed (stale flash 금지).
+   */
+  const mountSeedFeed =
+    initialCachedFeed ??
+    (initialTradeFeed && initialTradeFeed.feedKey === feedKey
+      ? {
+          posts: initialTradeFeed.posts,
+          hasMore: initialTradeFeed.hasMore,
+          favoriteMap: initialTradeFeed.favoriteMap,
+        }
+      : null);
+
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => mountSeedFeed?.posts ?? []);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
-    () => initialCachedFeed?.favoriteMap ?? {}
+    () => mountSeedFeed?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => !initialCachedFeed);
+  const [loading, setLoading] = useState(() => !mountSeedFeed);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(() => initialCachedFeed?.hasMore === true);
+  const [hasMore, setHasMore] = useState(() => mountSeedFeed?.hasMore === true);
   const [page, setPage] = useState(1);
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
   /** 글 등록 직후 RSC bootstrap 이 클라 fetch 보다 느리면 stale 로 덮는 것 방지 */
   const allowRscBootstrapFeedRef = useRef(true);
+  /**
+   * Mount/effect 가 이미 이 feedKey 목록을 시드·적용했으면 setPosts 중복 전이 생략
+   * (cache / matching bootstrap only).
+   */
+  const appliedListFeedKeyRef = useRef<string | null>(mountSeedFeed ? feedKey : null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRootRef = useRef<HTMLUListElement | null>(null);
   const firstCardPaintStartRef = useRef(0);
@@ -359,18 +378,22 @@ export function PostListByCategory({
 
       const bootstrap = initialTradeFeedRef.current;
       if (allowRscBootstrapFeedRef.current && bootstrap && bootstrap.feedKey === feedKey) {
-        setPosts(bootstrap.posts);
-        setHasMore(bootstrap.hasMore);
-        setHiddenPostIds(new Set());
-        setNotInterestedPostIds(new Set());
-        setFavoriteMap(bootstrap.favoriteMap ?? {});
-        setLoading(false);
         const ids = tradeFeedServerResolution ? [] : effectiveIds;
         primeTradeFeedCache(ids, buildTradeFeedRequestOptions(1), {
           posts: bootstrap.posts,
           hasMore: bootstrap.hasMore,
           ...(bootstrap.favoriteMap !== undefined ? { favoriteMap: bootstrap.favoriteMap } : {}),
         });
+        const alreadyApplied = appliedListFeedKeyRef.current === feedKey;
+        if (!alreadyApplied) {
+          setPosts(bootstrap.posts);
+          setHasMore(bootstrap.hasMore);
+          setHiddenPostIds(new Set());
+          setNotInterestedPostIds(new Set());
+          setFavoriteMap(bootstrap.favoriteMap ?? {});
+          setLoading(false);
+          appliedListFeedKeyRef.current = feedKey;
+        }
         if (bootstrap.favoriteMap === undefined) {
           resolveFavoriteMapAsync(bootstrap.posts, 1, epoch);
         }
@@ -380,12 +403,16 @@ export function PostListByCategory({
       const peekIds = tradeFeedServerResolution ? [] : effectiveIds;
       const cached = readFreshTradeFeedClientCache(peekIds, buildTradeFeedRequestOptions(1));
       if (cached) {
-        setPosts(cached.posts);
-        setHasMore(cached.hasMore);
-        setHiddenPostIds(new Set());
-        setNotInterestedPostIds(new Set());
-        setFavoriteMap(cached.favoriteMap ?? {});
-        setLoading(false);
+        const alreadyApplied = appliedListFeedKeyRef.current === feedKey;
+        if (!alreadyApplied) {
+          setPosts(cached.posts);
+          setHasMore(cached.hasMore);
+          setHiddenPostIds(new Set());
+          setNotInterestedPostIds(new Set());
+          setFavoriteMap(cached.favoriteMap ?? {});
+          setLoading(false);
+          appliedListFeedKeyRef.current = feedKey;
+        }
         return true;
       }
 
@@ -398,6 +425,7 @@ export function PostListByCategory({
       };
     }
 
+    appliedListFeedKeyRef.current = null;
     setLoading(true);
     setPosts([]);
     setHasMore(false);
@@ -548,6 +576,26 @@ export function PostListByCategory({
     });
   }, []);
 
+  /** Feed Banner — always call (HomeProductList parity). Do not place below early returns. */
+  const tradeCategorySurfaceKey = `trade:category:${categoryId}`;
+  const tradeCategoryAdSessionId = useMemo(
+    () => getOrCreateFeedAdSessionId(tradeCategorySurfaceKey),
+    [tradeCategorySurfaceKey]
+  );
+  const tradeCategoryAdPlan = useMemo(
+    () =>
+      planFeedAdSlots(
+        posts.length,
+        feedAdSlotSeed({
+          surfaceKey: tradeCategorySurfaceKey,
+          feedSessionId: tradeCategoryAdSessionId,
+        })
+      ),
+    [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
+  );
+  const skinKey = category?.icon_key ?? undefined;
+
+  // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
   if (loading && posts.length === 0) {
     return (
       <>
@@ -570,24 +618,6 @@ export function PostListByCategory({
       </>
     );
   }
-
-  const skinKey = category?.icon_key ?? undefined;
-  const tradeCategorySurfaceKey = `trade:category:${categoryId}`;
-  const tradeCategoryAdSessionId = useMemo(
-    () => getOrCreateFeedAdSessionId(tradeCategorySurfaceKey),
-    [tradeCategorySurfaceKey]
-  );
-  const tradeCategoryAdPlan = useMemo(
-    () =>
-      planFeedAdSlots(
-        posts.length,
-        feedAdSlotSeed({
-          surfaceKey: tradeCategorySurfaceKey,
-          feedSessionId: tradeCategoryAdSessionId,
-        })
-      ),
-    [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
-  );
 
   return (
     <>
