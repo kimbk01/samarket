@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
@@ -22,15 +21,6 @@ import {
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
-
-const notoSansKr = Noto_Sans_KR({
-  weight: ["400", "500", "700"],
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-noto-sans-kr",
-  display: "swap",
-  /** 본문은 Pretendard Variable 우선 — Noto 선로딩이 미사용 preload 경고를 자주 낸다 */
-  preload: false,
-});
 
 export const metadata: Metadata = {
   title: APP_PRODUCT_DISPLAY_NAME,
@@ -97,7 +87,7 @@ export default async function RootLayout({
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
       <head />
-      <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Web Startup Intro = 0 — Native splash is the only cold branded surface. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <AppBootProvider>

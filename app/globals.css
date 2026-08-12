@@ -92,10 +92,10 @@
   --shadow-sam-card: var(--sam-shadow-card);
   --shadow-sam-elevated: var(--sam-shadow-elevated);
 
-  /* OS 시스템 폰트 우선 — font-size 토큰은 design-tokens.css에서만 유지 */
+  /* Pretendard Variable primary — OS Korean/system stack is fallback only (no next/font/google) */
   --font-sans:
-    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans KR", "Apple SD Gothic Neo",
-    var(--font-noto-sans-kr), sans-serif;
+    "Pretendard Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans KR",
+    "Apple SD Gothic Neo", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
 }
 
