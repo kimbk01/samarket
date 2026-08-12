@@ -3,6 +3,7 @@ import {
   badgeSurfaceToPriorityPushKind,
   resolveTier1BellListFetchOpts,
   resolveTier1BellMarkAllReadBody,
+  resolveTier1BellModalListFetchOpts,
   resolveTier1BellSurfaceFromPathname,
   resolveTier1BellUnreadFetchUrl,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
@@ -102,6 +103,16 @@ describe("resolveTier1BellMarkAllReadBody", () => {
   it("falls back to tier1 excluding owner and chat for filtered surfaces", () => {
     expect(resolveTier1BellMarkAllReadBody("bottom_nav_my", [])).toEqual({
       mark_my_notifications_read_excluding_owner_and_chat: true,
+    });
+  });
+});
+
+describe("resolveTier1BellModalListFetchOpts", () => {
+  it("always loads Member A all — never pathname community/trade filter", () => {
+    expect(resolveTier1BellModalListFetchOpts()).toEqual({
+      excludeChatMessages: true,
+      excludeOwnerStoreCommerce: true,
+      pushKind: "all",
     });
   });
 });

@@ -7,6 +7,11 @@ import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-ow
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
+import {
+  isCustomerCenterContentType,
+  type CustomerCenterContentType,
+} from "@/lib/notices/customer-center-content";
+import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 
 export type InboxNotificationRow = {
   id: string;
@@ -266,23 +271,51 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
   return "unsupported";
 }
 
-export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
+/**
+ * Infer Customer Center board type for content-bound notification destinations.
+ * content_id / appNoticeId = app_notices.id (Content SSOT). Never notification event id.
+ */
+function resolveCustomerCenterContentTypeForDestination(
+  event: NotificationEventInboxSource,
+  payload: Record<string, unknown> | null
+): CustomerCenterContentType | null {
+  const explicit = trimText(payload?.content_type);
+  if (isCustomerCenterContentType(explicit)) return explicit;
+  const campaignType = trimText(payload?.campaignType).toLowerCase();
+  if (isCustomerCenterContentType(campaignType)) return campaignType;
+  const type = trimText(event.type);
+  if (type === "admin_marketing_banner") return "marketing";
+  if (type === "admin_system") return "system";
+  if (type === "admin_notice" || type === "notice_published") return "notice";
+  return null;
+}
+
+/**
+ * Direct Content Detail href — Push / Bell / Full Inbox share this via link_url + resolveNotificationDestination.
+ * No /mypage/notices bridge (that page client-redirects = INTERMEDIATE).
+ */
+function resolveCustomerCenterBoardHrefFromEvent(
+  event: NotificationEventInboxSource
+): string | null {
   const payload = payloadRecord(event.display_payload);
-  /** Content-bound campaigns: prefer immutable canonical_route from send snapshot/payload. */
   const canonicalRoute = trimText(payload?.canonical_route);
   if (canonicalRoute) {
     return resolveSafeNotificationInternalRoute(canonicalRoute, defaultInboxFallbackHref())!;
   }
-  const contentId = trimText(payload?.content_id ?? payload?.appNoticeId ?? payload?.app_notice_id);
-  const contentType = trimText(payload?.content_type);
-  if (contentId && (contentType === "notice" || contentType === "system" || contentType === "marketing")) {
-    return `/mypage/customer-center/${contentType}/${encodeURIComponent(contentId)}`;
-  }
-  /** Legacy Bell rows: bridge via /mypage/notices/{id} until cleanup. */
-  const appNoticeIdEarly = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
-  if (appNoticeIdEarly) {
-    return `/mypage/notices/${encodeURIComponent(appNoticeIdEarly)}`;
-  }
+  const contentId = trimText(
+    payload?.content_id ?? payload?.appNoticeId ?? payload?.app_notice_id
+  );
+  if (!contentId) return null;
+  const contentType = resolveCustomerCenterContentTypeForDestination(event, payload);
+  if (!contentType) return null;
+  return buildCustomerCenterBoardDetailPath(contentType, contentId);
+}
+
+export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
+  const payload = payloadRecord(event.display_payload);
+  const boardHref = resolveCustomerCenterBoardHrefFromEvent(event);
+  if (boardHref) return boardHref;
+
   /** Phase 3 — Inquiry/Inbox CS path before routeUrl (legacy /notifications/notes poison). */
   const noteThreadIdEarly = trimText(payload?.noteThreadId);
   if (noteThreadIdEarly) {
@@ -362,13 +395,10 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
       )!;
     }
   }
-  /** Phase 2 — board notice SSOT detail (Campaign/Bell deep link). */
-  const appNoticeId = trimText(payload?.appNoticeId ?? payload?.app_notice_id);
-  if (appNoticeId) {
-    return `/mypage/notices/${encodeURIComponent(appNoticeId)}`;
-  }
+
+  // Content-bound notice/system/marketing without content id → explicit unavailable (not list hub).
   if (type === "admin_notice" || type === "admin_system" || event.category === "admin_notice") {
-    return "/mypage/notices";
+    return defaultInboxFallbackHref();
   }
 
   // Explicit fallback only — never silent bare /notifications.

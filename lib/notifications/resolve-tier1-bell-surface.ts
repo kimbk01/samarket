@@ -94,6 +94,15 @@ export function resolveTier1BellListFetchOpts(
   }
 }
 
+/**
+ * Header Bell Modal list authority.
+ * MUST match Header Bell badge digit (Member A unread), not pathname surface pushKind.
+ * Surface-scoped fetch caused: badge 64 + empty modal (only Owner ops visible).
+ */
+export function resolveTier1BellModalListFetchOpts(): Tier1BellListFetchOpts {
+  return resolveTier1BellListFetchOpts("tier1_inbox_bell");
+}
+
 export function resolveTier1BellUnreadFetchUrl(
   surface: Tier1BellBadgeSurface,
   storeId?: string | null

@@ -42,6 +42,18 @@ export function resolveNotificationDestinationHint(
     return ko ? "주문 목록으로 이동" : "Open orders";
   }
   if (p.startsWith("/stores/owner/orders")) return ko ? "사장님 주문으로 이동" : "Open owner orders";
+  if (p.startsWith("/mypage/customer-center/notice/")) {
+    return ko ? "공지 원문으로 이동" : "Open notice";
+  }
+  if (p.startsWith("/mypage/customer-center/system/")) {
+    return ko ? "시스템 원문으로 이동" : "Open system notice";
+  }
+  if (p.startsWith("/mypage/customer-center/marketing/")) {
+    return ko ? "마케팅 원문으로 이동" : "Open marketing";
+  }
+  if (p.startsWith("/mypage/customer-center/")) {
+    return ko ? "고객센터로 이동" : "Open customer center";
+  }
   if (p.startsWith("/mypage/notices/")) return ko ? "공지 상세로 이동" : "Open notice";
   if (p.startsWith("/mypage/notices")) return ko ? "공지 목록으로 이동" : "Open notices";
   if (p.startsWith("/mypage/inbox") || p.startsWith("/mypage/inquiries")) {
@@ -50,7 +62,7 @@ export function resolveNotificationDestinationHint(
   if (p.startsWith("/my/offers")) return ko ? "가격 제안으로 이동" : "Open offers";
   if (p.startsWith("/market")) return ko ? "거래 홈으로 이동" : "Open market";
   if (p === "/notifications" || p.startsWith("/notifications")) {
-    return ko ? "알림함으로 이동" : "Open notification center";
+    return ko ? "원본을 찾을 수 없음 · 알림함" : "Origin unavailable · Inbox";
   }
   return ko ? "원본으로 이동" : "Open origin";
 }

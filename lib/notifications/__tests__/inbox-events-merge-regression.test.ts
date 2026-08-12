@@ -109,7 +109,7 @@ describe("inbox-events-merge-regression", () => {
     expect(result.eventIds).toEqual(["evt-b", "unknown-c"]);
   });
 
-  it("Phase2 appNoticeId wins over poisoned absolute routeUrl", () => {
+  it("Phase2 appNoticeId maps to Customer Center notice Detail (no /mypage/notices bridge)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
         type: "admin_notice",
@@ -121,7 +121,7 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/mypage/notices/notice-1");
+    expect(href).toBe("/mypage/customer-center/notice/notice-1");
   });
 
   it("Customer Center content bind uses canonical board route", () => {
@@ -142,7 +142,7 @@ describe("inbox-events-merge-regression", () => {
     expect(href).toBe("/mypage/customer-center/marketing/mkt-1");
   });
 
-  it("retires friend request href to inbox fallback (Contact SSOT)", () => {
+  it("admin_notice without content id uses origin-unavailable fallback (not notices list)", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
         type: "admin_notice",
@@ -153,7 +153,39 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/mypage/notices");
+    expect(href).toBe("/notifications?fallback=origin_unavailable");
+  });
+
+  it("system campaignType + appNoticeId maps to system board Detail", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        type: "admin_notice",
+        category: "admin_notice",
+        display_payload: {
+          appNoticeId: "sys-1",
+          campaignType: "system",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/mypage/customer-center/system/sys-1");
+  });
+
+  it("content_id authority is app notice id — never notification event id", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        id: "evt-NOT-CONTENT",
+        type: "admin_notice",
+        category: "admin_notice",
+        display_payload: {
+          content_id: "content-row-99",
+          content_type: "notice",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/mypage/customer-center/notice/content-row-99");
+    expect(href).not.toContain("evt-NOT-CONTENT");
   });
 
   it("resolves community post href from meta", () => {

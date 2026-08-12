@@ -73,7 +73,11 @@ import {
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
-import { pushNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
+import {
+  activateNotificationDestination,
+  pushNotificationDestination,
+} from "@/lib/notifications/navigate-notification-destination";
+import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
 import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
@@ -81,9 +85,8 @@ import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOpti
 import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
 import {
-  badgeSurfaceToPriorityPushKind,
-  resolveTier1BellListFetchOpts,
   resolveTier1BellMarkAllReadBody,
+  resolveTier1BellModalListFetchOpts,
   resolveTier1BellSurfaceFromPathname,
   type Tier1BellBadgeSurface,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
@@ -289,15 +292,8 @@ export function PhilifeHeaderNotificationInbox({
 
   const resolvedSurface = surfaceProp ?? resolveTier1BellSurfaceFromPathname(pathname);
 
-  const listFetchOpts = useMemo(
-    () => resolveTier1BellListFetchOpts(resolvedSurface, storeId),
-    [resolvedSurface, storeId]
-  );
-
-  const priorityPushKind = useMemo(
-    () => badgeSurfaceToPriorityPushKind(resolvedSurface),
-    [resolvedSurface]
-  );
+  /** Modal list = Member A all unread (matches Header badge). Never pathname pushKind filter. */
+  const listFetchOpts = useMemo(() => resolveTier1BellModalListFetchOpts(), []);
 
   const router = useRouter();
 
@@ -346,8 +342,8 @@ export function PhilifeHeaderNotificationInbox({
   const [soundLoaded, setSoundLoaded] = useState(false);
 
   const grouped = useMemo(
-    () => buildInboxGroupItems(rows, language, priorityPushKind),
-    [rows, language, priorityPushKind]
+    () => buildInboxGroupItems(rows, language, null),
+    [rows, language]
   );
 
   /** Bell sheet: unread-only quick inbox — full history lives on /notifications. */
@@ -569,6 +565,7 @@ export function PhilifeHeaderNotificationInbox({
         excludeOwnerStoreCommerce: listFetchOpts.excludeOwnerStoreCommerce,
         pushKind: listFetchOpts.pushKind,
         ownerStoreId: listFetchOpts.ownerStoreId,
+        // No explicit limit — server Member A path uses fetchUpper≈200 (better than page cap 100).
       });
 
       const j = raw as { ok?: boolean; notifications?: Row[] };
@@ -590,11 +587,8 @@ export function PhilifeHeaderNotificationInbox({
       }
 
       const fetched = (j.notifications ?? []) as Row[];
-      // Slice 2-2 — Header Bell list = A_member only when on tier1_inbox_bell.
-      const nextRows =
-        resolvedSurface === "tier1_inbox_bell"
-          ? (filterMemberNotificationAInboxRows(fetched) as Row[])
-          : fetched;
+      // Header Bell Modal = A_member only (always), matches badge equation consumers.
+      const nextRows = filterMemberNotificationAInboxRows(fetched) as Row[];
 
       setRows(nextRows);
 
@@ -610,7 +604,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [listFetchOpts, resolvedSurface]);
+  }, [listFetchOpts]);
 
 
 
@@ -644,12 +638,8 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-  useEffect(() => {
-    setListSynced(false);
-    setRows([]);
-  }, [resolvedSurface, storeId]);
-
-
+  // Modal list is Member A always — pathname surface must NOT wipe rows without reload.
+  // (Previously: surface change → setRows([]) → empty sheet with only Owner ops.)
 
   useEffect(() => {
 
@@ -751,6 +741,9 @@ export function PhilifeHeaderNotificationInbox({
 
     if (ids.length === 0) return;
 
+    // Optimistic: row leaves unread queue immediately (badge resync follows server).
+    setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
+
     const res = await fetch("/api/me/notifications", {
 
       method: "PATCH",
@@ -767,12 +760,6 @@ export function PhilifeHeaderNotificationInbox({
 
     if (res.ok && j?.ok) {
 
-      setRows((prev) => {
-
-        return prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x));
-
-      });
-
       if (typeof window !== "undefined") {
 
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
@@ -781,20 +768,34 @@ export function PhilifeHeaderNotificationInbox({
 
       resyncBadgesAfterNotificationEventsRead("notification_opened");
 
+    } else {
+      // Revert optimistic read on failure — do not invent destination fallback.
+      setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: false } : x)));
     }
 
   }, []);
 
 
 
-  const onActivate = async (item: InboxGroupItem) => {
-    suppressCmRoomEntryNotificationSound(item.href);
-    closePanel();
-    prewarmInboxNotificationChatHref(router, item.href);
-    pushNotificationDestination(router, item.href);
-    if (item.unreadCount > 0) {
-      void markIdsRead(item.ids);
-    }
+  const onActivate = (item: InboxGroupItem) => {
+    activateNotificationDestination({
+      router,
+      resolveInput: {
+        inboxRow: {
+          notification_type: item.notification_type,
+          link_url: item.href,
+          meta: item.meta,
+        },
+        fallbackHref: defaultInboxFallbackHref(),
+      },
+      onBeforeNavigate: (resolvedHref) => {
+        suppressCmRoomEntryNotificationSound(resolvedHref);
+        closePanel();
+        prewarmInboxNotificationChatHref(router, resolvedHref);
+      },
+      unreadIds: item.unreadCount > 0 ? item.ids : [],
+      markRead: markIdsRead,
+    });
     invalidateMeNotificationsListDedupedCache();
   };
 
@@ -815,18 +816,8 @@ export function PhilifeHeaderNotificationInbox({
     setMarkBusy(true);
 
     try {
-      const unreadIds = grouped
-        .filter((g) => g.unreadCount > 0)
-        .flatMap((g) => g.ids);
-      const rowUnreadIds = rows.filter((r) => !r.is_read).map((r) => r.id);
-      const markBody = resolveTier1BellMarkAllReadBody(
-        resolvedSurface,
-        resolvedSurface === "tier1_inbox_bell"
-          ? []
-          : unreadIds.length > 0
-            ? unreadIds
-            : rowUnreadIds
-      );
+      // Modal mark-all = Member A (same as badge), never surface-scoped chat/trade-only.
+      const markBody = resolveTier1BellMarkAllReadBody("tier1_inbox_bell", []);
 
       const res = await fetch("/api/me/notifications", {
 
@@ -846,9 +837,7 @@ export function PhilifeHeaderNotificationInbox({
 
         setRows((prev) => prev.map((x) => ({ ...x, is_read: true })));
 
-        if (resolvedSurface === "tier1_inbox_bell") {
-          applyTier1InboxMarkAllReadOptimistic();
-        }
+        applyTier1InboxMarkAllReadOptimistic();
 
         invalidateMeNotificationsListDedupedCache();
 
@@ -870,7 +859,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [grouped, loadInbox, markBusy, resolvedSurface, rows, totalUnread]);
+  }, [loadInbox, markBusy, totalUnread]);
 
 
 
@@ -1083,13 +1072,6 @@ export function PhilifeHeaderNotificationInbox({
                   <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
                 ) : (
                   <>
-                    {hasOPreview ? (
-                      <OwnerBellOperationSummary
-                        onNavigate={closePanel}
-                        compact
-                        className="mb-2"
-                      />
-                    ) : null}
                     {hasNPreview ? (
                       <InboxGroupCardList
                         items={unreadPreviewItems}
@@ -1099,13 +1081,19 @@ export function PhilifeHeaderNotificationInbox({
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                       />
-                    ) : null}
-                    {!hasNPreview && !hasOPreview ? (
+                    ) : (
                       <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
-                        {totalUnread > 0 && unreadPreviewItems.length === 0
+                        {totalUnread > 0
                           ? t("notif_tier1_empty_with_digit_hint")
                           : t("notif_tier1_empty")}
                       </p>
+                    )}
+                    {hasOPreview ? (
+                      <OwnerBellOperationSummary
+                        onNavigate={closePanel}
+                        compact
+                        className={hasNPreview ? "mt-2" : "mt-1"}
+                      />
                     ) : null}
                   </>
                 )}
@@ -1116,7 +1104,7 @@ export function PhilifeHeaderNotificationInbox({
 
               <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-sam-border/50 px-3 py-2.5">
 
-                {!showListLoading && rows.length > 0 ? (
+                {!showListLoading && (rows.length > 0 || totalUnread > 0) ? (
 
                   <button
 

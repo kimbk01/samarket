@@ -30,7 +30,8 @@ import {
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
 import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
-import { pushNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
+import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
+import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 
 type Row = {
   id: string;
@@ -167,8 +168,6 @@ export function MyNotificationsView({
       const aRes = await fetchMeNotificationsListDeduped({
         force: forceFetch,
         pushKind: "all",
-        limit: 100,
-        offset: 0,
         excludeChatMessages: true,
         excludeOwnerStoreCommerce: true,
       });
@@ -542,11 +541,22 @@ export function MyNotificationsView({
   }, [pendingDelete, t]);
 
   const onActivate = (item: InboxGroupItem) => {
-    prewarmInboxNotificationChatHref(router, item.href);
-    pushNotificationDestination(router, item.href);
-    if (item.unreadCount > 0) {
-      void markIdsRead(item.ids);
-    }
+    activateNotificationDestination({
+      router,
+      resolveInput: {
+        inboxRow: {
+          notification_type: item.notification_type,
+          link_url: item.href,
+          meta: item.meta,
+        },
+        fallbackHref: defaultInboxFallbackHref(),
+      },
+      onBeforeNavigate: (resolvedHref) => {
+        prewarmInboxNotificationChatHref(router, resolvedHref);
+      },
+      unreadIds: item.unreadCount > 0 ? item.ids : [],
+      markRead: markIdsRead,
+    });
   };
 
   const onItemWarm = (item: InboxGroupItem) => {
@@ -604,7 +614,7 @@ export function MyNotificationsView({
           <div className="mt-2 flex justify-end px-0.5">
             <Link
               href="/mypage/inquiries"
-              className="text-[12px] font-medium text-signature underline-offset-2 hover:underline"
+              className="inline-flex min-h-9 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-semibold text-sam-fg transition active:scale-[0.97] active:bg-sam-surface-muted"
             >
               {t("notif_admin_notes_entry")}
             </Link>

@@ -23,11 +23,15 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("setOpen((v) => !v)")).toBe(true);
     expect(src.includes("openNotificationsCenter")).toBe(true);
     expect(src.includes('pushNotificationDestination(router, "/notifications")')).toBe(true);
+    expect(src.includes("activateNotificationDestination")).toBe(true);
+    expect(src.includes("resolveTier1BellModalListFetchOpts")).toBe(true);
     expect(src.includes("summaryOnly")).toBe(true);
     expect(src.includes("showSequenceIndex")).toBe(true);
     expect(src.includes("unreadPreviewItems")).toBe(true);
     expect(src.includes("OwnerBellOperationSummary")).toBe(true);
     expect(src.includes("hasOPreview")).toBe(true);
+    expect(src.includes("hasNPreview")).toBe(true);
+    expect(src.includes("[resolvedSurface, storeId]")).toBe(false);
     expect(src.includes("NotificationInboxTabBar")).toBe(false);
     expect(src.includes("modalTabCounts")).toBe(false);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
@@ -99,7 +103,7 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       "utf8"
     );
     expect(view.includes("filterMemberNotificationAInboxRows")).toBe(true);
-    expect(view.includes("pushNotificationDestination")).toBe(true);
+    expect(view.includes("activateNotificationDestination")).toBe(true);
     expect(view.includes("NotificationInboxTabBar")).toBe(true);
     expect(view.includes("tabCounts")).toBe(true);
     expect(view.includes("isAdminNoticeOrSystemInboxItem")).toBe(false);

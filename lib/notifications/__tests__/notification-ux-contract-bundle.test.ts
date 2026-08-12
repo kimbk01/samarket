@@ -43,4 +43,13 @@ describe("notification UX contract bundle (badge / CTA / row hint)", () => {
       resolveNotificationDestinationHint(defaultInboxFallbackHref(), "ko")
     ).toContain("원본을 찾을 수 없음");
   });
+
+  it("customer-center content destinations keep board labels", () => {
+    expect(
+      resolveNotificationDestinationHint("/mypage/customer-center/system/abc", "ko")
+    ).toContain("시스템");
+    expect(
+      resolveNotificationDestinationHint("/mypage/customer-center/marketing/abc", "ko")
+    ).toContain("마케팅");
+  });
 });
