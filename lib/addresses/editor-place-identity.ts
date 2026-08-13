@@ -73,7 +73,10 @@ function looksLikeStreetOnlyHeadline(name: string, routeLine: string): boolean {
   const n = norm(name);
   if (!n) return true;
   if (routeLine && eqName(n, routeLine)) return true;
-  if (/^\d+[A-Za-z]?\s/.test(n) && /\b(street|st\.|road|rd\.|avenue|ave\.|blvd|drive|dr\.)\b/i.test(n)) {
+  if (
+    /^\d+[A-Za-z]?\s/.test(n) &&
+    /\b(street|st\.?|road|rd\.?|avenue|ave\.?|blvd\.?|boulevard|drive|dr\.?)\b/i.test(n)
+  ) {
     return true;
   }
   return false;
@@ -222,6 +225,10 @@ export function reconcileIdentityAfterPinMove(args: {
   const mentionsPrev = prevDisplay ? reverseMentionsName(reverse, prevDisplay) : false;
   const streetOnlyReverse = !reverseHeadline(reverse) || looksLikeStreetOnlyHeadline(reverseHeadline(reverse), route);
   const differentPoi = reverseSuggestsDifferentPoi(reverse, prevDisplay);
+  const prevIsStreetOnly =
+    !prevDisplay ||
+    looksLikeStreetOnlyHeadline(prevDisplay, norm(previous.streetAddress)) ||
+    looksLikeStreetOnlyHeadline(prevDisplay, route);
 
   const keepIdentity = (): EditorPlaceIdentity => ({
     ...previous,
@@ -253,6 +260,14 @@ export function reconcileIdentityAfterPinMove(args: {
       ...baseGeo,
     };
   };
+
+  /**
+   * Search was street-only but pin/reverse found a real POI (Villa Milagros case):
+   * adopt reverse POI even inside same-premise distance — do not sticky the street label.
+   */
+  if (prevIsStreetOnly && !streetOnlyReverse && reverseHeadline(reverse)) {
+    return { identity: replaceFromReverse(), mode: "different_premise", distanceMeters };
+  }
 
   if (distanceMeters != null && distanceMeters <= EDITOR_SAME_PREMISE_MAX_M) {
     if (samePlaceId || mentionsPrev || streetOnlyReverse || !differentPoi) {

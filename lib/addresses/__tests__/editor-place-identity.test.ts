@@ -132,6 +132,39 @@ describe("identityFromPlaceDetails", () => {
 });
 
 describe("reconcileIdentityAfterPinMove", () => {
+  it("street-only search adopts reverse POI inside same-premise distance", () => {
+    const streetPrev: EditorPlaceIdentity = {
+      ...smAnchor,
+      placeId: "ChIJ_street",
+      placeDisplayName: "59 J. P. Rizal St",
+      buildingName: "",
+      streetAddress: "59 J. P. Rizal Street",
+    };
+    const { identity, mode } = reconcileIdentityAfterPinMove({
+      previous: streetPrev,
+      anchor: streetPrev,
+      reverse: reverse({
+        latitude: streetPrev.latitude + 0.0002,
+        longitude: streetPrev.longitude,
+        formattedAddress: "59 J. P. Rizal Street, Rodriguez, Rizal",
+        placeId: "ChIJ_villa",
+        buildingOrPlaceNames: ["Villa Milagros"],
+        parsed: {
+          barangay: null,
+          cityMunicipality: "Rodriguez",
+          province: "Rizal",
+          neighborhood: null,
+          routeLine: "J. P. Rizal Street",
+          buildingOrPlaceHeadline: "Villa Milagros",
+          premiseName: null,
+        },
+      }),
+    });
+    expect(mode).toBe("different_premise");
+    expect(identity.placeDisplayName).toBe("Villa Milagros");
+    expect(identity.placeDisplayName).not.toBe("59 J. P. Rizal St");
+  });
+
   it("same-premise micro move keeps SM Mall of Asia when reverse is street-only", () => {
     const { identity, mode } = reconcileIdentityAfterPinMove({
       previous: smAnchor,

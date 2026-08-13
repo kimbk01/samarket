@@ -84,13 +84,30 @@ export function TradeDefaultLocationBlock({
   syncRef.current = onSyncRegionCity;
   const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameEffectFirstRef = useRef(true);
+  /** After trade confirm handoff — survive ADDRESSES_UPDATED / focus reloads that would re-pick master. */
+  const stickyTradeHandoffRef = useRef<{
+    addressId: string;
+    regionId: string;
+    cityId: string;
+    displayLine: string;
+  } | null>(null);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     try {
       const handoff = consumeTradeWriteRegionApplyHandoff();
       if (handoff) {
+        stickyTradeHandoffRef.current = handoff;
         syncRef.current(handoff.regionId, handoff.cityId);
         const line = handoff.displayLine.trim();
+        displayLineRef.current = line || null;
+        setDisplayLine(line || null);
+        setReady(true);
+        return;
+      }
+      if (stickyTradeHandoffRef.current) {
+        const sticky = stickyTradeHandoffRef.current;
+        syncRef.current(sticky.regionId, sticky.cityId);
+        const line = sticky.displayLine.trim();
         displayLineRef.current = line || null;
         setDisplayLine(line || null);
         setReady(true);
@@ -195,6 +212,8 @@ export function TradeDefaultLocationBlock({
     if (!tradeWriteRestore?.surfaceHref?.trim() || !tradeWriteRestore.categoryKey.trim()) {
       return;
     }
+    /** New trip to address book — clear sticky so next confirm can apply fresh handoff. */
+    stickyTradeHandoffRef.current = null;
     openMemberAddressBook(router, {
       caller: "trade_write",
       mode: "select",

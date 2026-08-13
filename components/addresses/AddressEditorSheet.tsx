@@ -1049,6 +1049,20 @@ export function AddressEditorSheet(props: {
       const searchLabel = (id.placeDisplayName || row.description || formatted).trim();
       setSearch(searchLabel);
       selectionAnchorSearchRef.current = searchLabel.length >= 2 ? searchLabel : null;
+      /**
+       * Street search often lands the pin on a nearby POI (map label) without naming it.
+       * Run one reverse enrich so Villa Milagros-class names enter Editor state.
+       */
+      const streetOnlySelected =
+        !id.placeDisplayName.trim() ||
+        /^\d+[A-Za-z]?\s/.test(id.placeDisplayName.trim()) ||
+        /\b(street|st\.?|road|rd\.?|avenue|ave\.?|blvd\.?|boulevard|drive|dr\.?)\b/i.test(
+          id.placeDisplayName,
+        );
+      if (streetOnlySelected) {
+        const seq = locationRequestSeqRef.current;
+        void runReverseForCoords(lat, lng, seq);
+      }
     } finally {
       setResolvingPlaceId(null);
     }
@@ -1095,7 +1109,12 @@ export function AddressEditorSheet(props: {
     }
   }, [t, runReverseForCoords]);
 
-  async function saveAddress(opts?: { skipDupCheck?: boolean; skipShopAck?: boolean }) {
+  async function saveAddress(opts?: {
+    skipDupCheck?: boolean;
+    skipShopAck?: boolean;
+    /** 구분 중복「변경 확인」후 — 저장과 함께 대표(master)로 지정 */
+    forceDefaultMaster?: boolean;
+  }) {
     setBusy(true);
     setErr(null);
     setDetailAttempted(true);
@@ -1255,7 +1274,7 @@ export function AddressEditorSheet(props: {
         useForLife: useLife,
         useForTrade: useTrade,
         useForDelivery: useDel,
-        isDefaultMaster: defMaster,
+        isDefaultMaster: opts?.forceDefaultMaster === true ? true : defMaster,
         isDefaultLife: defLife,
         isDefaultTrade: defTrade,
         isDefaultDelivery: defDel,
@@ -1311,7 +1330,14 @@ export function AddressEditorSheet(props: {
       }
     }
 
-    await saveAddress({ skipDupCheck: true, skipShopAck: true });
+    /** 구분 변경 확인 = 이 주소 저장 + 대표 주소로 지정 (매장 연결은 master 금지) */
+    const promoteMaster = Boolean(pending.conflict) && labelPreset !== "shop";
+    if (promoteMaster) setDefMaster(true);
+    await saveAddress({
+      skipDupCheck: true,
+      skipShopAck: true,
+      forceDefaultMaster: promoteMaster,
+    });
   }
 
   const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
@@ -1448,24 +1474,7 @@ export function AddressEditorSheet(props: {
 
         {showDetailSection ? (
           <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
-            {/* PH order: Unit/detail first, then Google/street place summary */}
-            <div>
-              <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
-                {t("addr_ui_detail_required_label")}
-              </label>
-              <input
-                id="addr-editor-detail"
-                value={unitFloorRoom}
-                onChange={(e) => setUnitFloorRoom(e.target.value)}
-                placeholder={t("addr_ui_detail_ph")}
-                autoComplete="address-line2"
-                aria-invalid={detailViol}
-                className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
-              />
-              {detailViol ? (
-                <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
-              ) : null}
-            </div>
+            {/* Place summary ABOVE detail input — keyboard must not cover selected place */}
             <div>
               <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
               <div className="mt-1.5 flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
@@ -1482,6 +1491,23 @@ export function AddressEditorSheet(props: {
                   </p>
                 </div>
               </div>
+            </div>
+            <div>
+              <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
+                {t("addr_ui_detail_required_label")}
+              </label>
+              <input
+                id="addr-editor-detail"
+                value={unitFloorRoom}
+                onChange={(e) => setUnitFloorRoom(e.target.value)}
+                placeholder={t("addr_ui_detail_ph")}
+                autoComplete="address-line2"
+                aria-invalid={detailViol}
+                className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
+              />
+              {detailViol ? (
+                <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
+              ) : null}
             </div>
           </OwnerStoreAdminDashSection>
         ) : null}
