@@ -269,6 +269,20 @@ describe("member address book entry SSOT", () => {
     expect(philife).not.toContain("setAsRepresentative");
   });
 
+  it("fine-tune apply does not double-close; edit hydrates fineTune without requiring draft", () => {
+    const fineTune = read("components/addresses/AddressFineTuneSheet.tsx");
+    expect(fineTune).not.toMatch(/onApply\(preview\);\s*\n\s*onClose\(\)/);
+    const editor = read("components/addresses/AddressEditorSheet.tsx");
+    expect(editor).toContain("peekAddressFineTuneResult");
+    expect(editor).toContain("clearAddressFineTuneResult");
+    expect(read("lib/addresses/address-editor-page-draft.ts")).toContain(
+      "hasAddressEditorSessionRestore",
+    );
+    expect(read("components/addresses/AddressEditorPageClient.tsx")).toContain(
+      "hasAddressEditorSessionRestore",
+    );
+  });
+
   it("mypage sheets/tabs redirect to address book page", () => {
     expect(read("components/mypage/profile-settings/MypageAddressSheet.tsx")).toContain(
       "navigateToMemberAddressBook",

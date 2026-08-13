@@ -9,6 +9,8 @@ export function AddressEditorLocationSearch(props: {
   search: string;
   searching: boolean;
   predictions: PlacePredictionRow[];
+  /** Autocomplete status when rows empty (ZERO_RESULTS / REQUEST_DENIED / …) */
+  searchStatus?: string | null;
   resolvingPlaceId: string | null;
   onSearchChange: (value: string) => void;
   onSearchFocus: () => void;
@@ -19,11 +21,16 @@ export function AddressEditorLocationSearch(props: {
     search,
     searching,
     predictions,
+    searchStatus,
     resolvingPlaceId,
     onSearchChange,
     onSearchFocus,
     onSelectPrediction,
   } = props;
+
+  const q = search.trim();
+  const showEmptyHint =
+    !searching && q.length >= 2 && predictions.length === 0 && Boolean(searchStatus);
 
   return (
     <div className="space-y-2">
@@ -67,6 +74,17 @@ export function AddressEditorLocationSearch(props: {
             </li>
           ))}
         </ul>
+      ) : null}
+      {showEmptyHint ? (
+        <p className="sam-text-helper leading-snug text-sam-danger">
+          {searchStatus === "ZERO_RESULTS" || searchStatus === "OK"
+            ? t("addr_ui_search_no_results")
+            : searchStatus === "REQUEST_DENIED" ||
+                searchStatus === "AUTOCOMPLETE_UNAVAILABLE" ||
+                searchStatus === "ERROR"
+              ? t("addr_ui_search_unavailable")
+              : t("addr_ui_search_no_results")}
+        </p>
       ) : null}
     </div>
   );

@@ -6,7 +6,7 @@ import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
-import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
+import { fetchPlacePredictionsPhDetailed, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
 import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
@@ -30,12 +30,13 @@ import {
   parseStoreIdFromReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
+  clearAddressEditorPageDraft,
+  clearAddressFineTuneResult,
   consumeAddressEditorPageDraft,
-  consumeAddressFineTuneResult,
   peekAddressEditorPageDraft,
+  peekAddressFineTuneResult,
   writeAddressEditorPageDraft,
   writeAddressFineTuneIntent,
-  clearAddressEditorPageDraft,
   type AddressEditorPageDraftV1,
 } from "@/lib/addresses/address-editor-page-draft";
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
@@ -149,6 +150,7 @@ export function AddressEditorSheet(props: {
   const [search, setSearch] = useState("");
   const [predictions, setPredictions] = useState<PlacePredictionRow[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
   const [useLife, setUseLife] = useState(true);
   const [useTrade, setUseTrade] = useState(true);
@@ -287,21 +289,24 @@ export function AddressEditorSheet(props: {
   }, [t]);
 
   const handleSearchFocus = useCallback(() => {
+    /**
+     * Xiaomi/Android: 포커스만으로 확정 핀·건물명을 지우면 fine-tune 복구 직후 주소가 사라진다.
+     * 확정 위치는 유지하고, 사용자가 검색어를 바꿀 때만 새 예측을 연다.
+     */
+    if (mapPinConfirmed) {
+      selectionAnchorSearchRef.current =
+        search.trim().length >= 2 ? search.trim() : null;
+      return;
+    }
     if (!search.trim()) return;
     storeGeoAppliedRef.current = false;
     selectionAnchorSearchRef.current = null;
     setSearch("");
     setPredictions([]);
     setSearching(false);
+    setSearchStatus(null);
     setErr(null);
-    setUnitFloorRoom("");
-    setLatitude(null);
-    setLongitude(null);
-    setPlaceId("");
-    setFormattedAddress("");
-    setFullAddress("");
-    setMapPinConfirmed(false);
-  }, [search]);
+  }, [mapPinConfirmed, search]);
 
   const returnToStoreId = useMemo(() => parseStoreIdFromReturnTo(returnTo), [returnTo]);
   const storeCreateBootstrapRef = useRef(false);
@@ -335,10 +340,12 @@ export function AddressEditorSheet(props: {
     setShopListErr(null);
     storeGeoAppliedRef.current = false;
 
-    if (peekAddressEditorPageDraft()) {
+    const draftPeek = peekAddressEditorPageDraft();
+    const fineTunePeek = peekAddressFineTuneResult();
+    if (draftPeek || fineTunePeek) {
       draftHydratedRef.current = true;
-      const draft = consumeAddressEditorPageDraft();
-      const fineTune = consumeAddressFineTuneResult();
+      const draft = draftPeek ? consumeAddressEditorPageDraft() : null;
+      const fineTune = fineTunePeek;
       if (draft) {
         setLabelPreset(draft.labelPreset);
         setSelectedStoreId(draft.selectedStoreId);
@@ -372,6 +379,7 @@ export function AddressEditorSheet(props: {
         setDefDel(draft.defDel);
         setMapPinConfirmed(draft.mapPinConfirmed);
         setPredictions([]);
+        setSearchStatus(null);
       }
       if (fineTune?.placeId) {
         setLatitude(fineTune.latitude);
@@ -387,18 +395,22 @@ export function AddressEditorSheet(props: {
         const nextCityMun = ph.cityMunicipality ?? "";
         const nextProvince = ph.province ?? "";
         const nextNeighborhood = ph.neighborhood ?? "";
-        const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+        const nextBuilding =
+          (ph.buildingOrPlaceHeadline ?? "").trim() ||
+          (fineTune.buildingOrPlaceNames?.[0] ?? "").trim() ||
+          "";
         setStreetAddress(nextStreet);
         setBarangay(nextBarangay);
         setCityMunicipality(nextCityMun);
         setProvince(nextProvince);
         setNeighborhoodName(nextNeighborhood);
         setBuildingName(nextBuilding);
-        setUnitFloorRoom("");
         const s = fineTune.formattedAddress.trim();
         setSearch(s);
         selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
         setMapPinConfirmed(true);
+        setPredictions([]);
+        setSearchStatus(null);
         const hit = mapUserAddressToAppLocation({
           buildingName: nextBuilding || null,
           barangay: nextBarangay || null,
@@ -414,6 +426,7 @@ export function AddressEditorSheet(props: {
           setRegion(hit.regionId);
           setCity(hit.cityId);
         }
+        clearAddressFineTuneResult();
       }
       return;
     }
@@ -534,6 +547,7 @@ export function AddressEditorSheet(props: {
       selectionAnchorSearchRef.current = null;
       setPredictions([]);
       setSearching(false);
+      setSearchStatus(null);
       return;
     }
     if (
@@ -544,17 +558,24 @@ export function AddressEditorSheet(props: {
     ) {
       setPredictions([]);
       setSearching(false);
+      setSearchStatus(null);
       return;
     }
     let cancelled = false;
     setSearching(true);
+    setSearchStatus(null);
     const t = window.setTimeout(() => {
       void (async () => {
         try {
-          const rows = await fetchPlacePredictionsPh(q);
-          if (!cancelled) setPredictions(rows);
+          const result = await fetchPlacePredictionsPhDetailed(q);
+          if (cancelled) return;
+          setPredictions(result.rows);
+          setSearchStatus(result.rows.length > 0 ? null : result.status);
         } catch {
-          if (!cancelled) setPredictions([]);
+          if (!cancelled) {
+            setPredictions([]);
+            setSearchStatus("ERROR");
+          }
         } finally {
           if (!cancelled) setSearching(false);
         }
@@ -1167,10 +1188,14 @@ export function AddressEditorSheet(props: {
             search={search}
             searching={searching}
             predictions={predictions}
+            searchStatus={searchStatus}
             resolvingPlaceId={resolvingPlaceId}
             onSearchChange={(value) => {
               setSearch(value);
               setErr(null);
+              if (mapPinConfirmed && value.trim() !== search.trim()) {
+                selectionAnchorSearchRef.current = null;
+              }
             }}
             onSearchFocus={handleSearchFocus}
             onSelectPrediction={(p) => void selectPrediction(p)}

@@ -157,17 +157,45 @@ export function writeAddressFineTuneResult(result: ReverseGeocodePhResult): void
   }
 }
 
-export function consumeAddressFineTuneResult(): ReverseGeocodePhResult | null {
+function parseFineTuneResultWrap(raw: string | null): ReverseGeocodePhResult | null {
+  const parsed = safeParseJson(raw);
+  if (!parsed || typeof parsed !== "object") return null;
+  const wrap = parsed as { v?: number; result?: ReverseGeocodePhResult };
+  if (wrap.v !== 1 || !wrap.result) return null;
+  const r = wrap.result;
+  if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) return null;
+  /** placeId 없으면 저장 단계에서 막히므로 복구 대상에서 제외 */
+  if (!(r.placeId ?? "").trim()) return null;
+  if (!(r.formattedAddress ?? "").trim()) return null;
+  return r;
+}
+
+/** remount 레이스 대비 — 적용 전에는 peek, 적용 성공 후 clear */
+export function peekAddressFineTuneResult(): ReverseGeocodePhResult | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(ADDRESS_FINE_TUNE_RESULT_KEY);
-    sessionStorage.removeItem(ADDRESS_FINE_TUNE_RESULT_KEY);
-    const parsed = safeParseJson(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const wrap = parsed as { v?: number; result?: ReverseGeocodePhResult };
-    if (wrap.v !== 1 || !wrap.result?.placeId) return null;
-    return wrap.result;
+    return parseFineTuneResultWrap(sessionStorage.getItem(ADDRESS_FINE_TUNE_RESULT_KEY));
   } catch {
     return null;
   }
+}
+
+export function clearAddressFineTuneResult(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ADDRESS_FINE_TUNE_RESULT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function consumeAddressFineTuneResult(): ReverseGeocodePhResult | null {
+  const r = peekAddressFineTuneResult();
+  clearAddressFineTuneResult();
+  return r;
+}
+
+/** edit 페이지가 목록 fetch 로딩으로 시트를 막지 않도록 — draft/result 있으면 즉시 페인트 */
+export function hasAddressEditorSessionRestore(): boolean {
+  return peekAddressEditorPageDraft() != null || peekAddressFineTuneResult() != null;
 }

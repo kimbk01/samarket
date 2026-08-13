@@ -173,7 +173,6 @@ export function AddressFineTuneSheet(props: Props) {
         onClick={() => {
           if (!preview?.placeId) return;
           onApply(preview);
-          onClose();
         }}
         className="flex-1 rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
       >
