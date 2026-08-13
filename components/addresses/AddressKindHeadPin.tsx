@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ADDRESS_MAP_PIN_TEXT_CLASS } from "@/lib/addresses/address-map-pin-chrome";
 
-/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장 동일 gold teardrop (주소 관리·마이페이지·시트 통일) */
+/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장 동일 녹색 teardrop (주소 관리·마이페이지·시트 통일) */
 export function AddressKindHeadPin(props: {
   kind: "master" | "store" | "general";
   className?: string;

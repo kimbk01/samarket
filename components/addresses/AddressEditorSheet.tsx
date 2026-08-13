@@ -42,7 +42,6 @@ import {
   isLocationOnlyAddressNickname,
 } from "@/lib/addresses/location-only-address-nickname";
 import { AddressDesignationField, type AddressDesignationPreset } from "@/components/addresses/AddressDesignationField";
-import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
@@ -127,7 +126,6 @@ export function AddressEditorSheet(props: {
   const [formattedAddress, setFormattedAddress] = useState("");
   const [roadAddress, setRoadAddress] = useState("");
   const [fullAddress, setFullAddress] = useState("");
-  const [deliveryNote, setDeliveryNote] = useState("");
   const [neighborhoodName, setNeighborhoodName] = useState("");
   const [buildingName, setBuildingName] = useState("");
   const [fineTuneOpen, setFineTuneOpen] = useState(false);
@@ -362,7 +360,6 @@ export function AddressEditorSheet(props: {
         setFullAddress(initial.fullAddress ?? initial.formattedAddress ?? "");
         setUnitFloorRoom(initial.detailAddress ?? initial.unitFloorRoom ?? "");
       }
-      setDeliveryNote(initial.deliveryNote ?? "");
       {
         const anchor = (initial.roadAddress ?? initial.formattedAddress ?? initial.fullAddress ?? "").trim();
         setSearch(anchor);
@@ -411,7 +408,6 @@ export function AddressEditorSheet(props: {
         setRoadAddress("");
         setFullAddress("");
       }
-      setDeliveryNote("");
       if (mapBootstrap?.fullAddress?.trim()) {
         const a = mapBootstrap.fullAddress.trim();
         setSearch(a);
@@ -877,7 +873,7 @@ export function AddressEditorSheet(props: {
         formattedAddress: formattedAddress.trim(),
         roadAddress: roadAddress.trim() || formattedAddress.trim(),
         detailAddress: unitFloorRoom.trim(),
-        deliveryNote: deliveryNote.trim() || null,
+        deliveryNote: null,
         fullAddress: formattedAddress.trim() || fullAddress.trim() || null,
         neighborhoodName: neighborhoodName.trim() || null,
         useForLife: useLife,
@@ -1096,19 +1092,6 @@ export function AddressEditorSheet(props: {
                   </p>
                 </div>
               </div>
-            </div>
-            <div>
-              <label htmlFor="addr-editor-note" className={fieldLabelClass}>
-                {t("addr_ui_delivery_note")}
-              </label>
-              <AutoGrowTextarea
-                id="addr-editor-note"
-                value={deliveryNote}
-                onChange={(e) => setDeliveryNote(e.target.value)}
-                placeholder={t("addr_ui_delivery_ph")}
-                autoComplete="off"
-                className={fieldInputClass}
-              />
             </div>
           </OwnerStoreAdminDashSection>
         ) : null}

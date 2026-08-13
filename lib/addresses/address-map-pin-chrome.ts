@@ -1,11 +1,11 @@
-/** 주소·지도 UI 핀 색 — `app/samarket-components.css` `--fab-palette-gold` 와 동일 */
-export const ADDRESS_MAP_PIN_FILL = "#eac784";
+/** 주소·지도 UI 핀 색 — 녹색 지도마크 (주소 SSOT 표시) */
+export const ADDRESS_MAP_PIN_FILL = "#16a34a";
 
 /** Maps PinElement 테두리·대비용 (fill 보다 한 단계 진한 톤) */
-export const ADDRESS_MAP_PIN_BORDER = "#c4a060";
+export const ADDRESS_MAP_PIN_BORDER = "#15803d";
 
 /** Tailwind `text-[…]` — `AddressKindHeadPin` 등 teardrop SVG */
-export const ADDRESS_MAP_PIN_TEXT_CLASS = "text-[#eac784]" as const;
+export const ADDRESS_MAP_PIN_TEXT_CLASS = "text-[#16a34a]" as const;
 
 /** Google Maps `PinElement` (Advanced Marker) */
 export const ADDRESS_MAP_GOOGLE_PIN_ELEMENT = {

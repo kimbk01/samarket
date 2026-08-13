@@ -186,6 +186,25 @@ describe("computeRouteTransitionEnterKind", () => {
     );
     expect(k).toBe("subtle");
   });
+
+  it("any surface to address book uses address-book-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/write", "/mypage/addresses", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-book-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+  });
+
+  it("address book back uses address-book-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage/addresses", "/write", {
+      popstateBack: true,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-book-back");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {
