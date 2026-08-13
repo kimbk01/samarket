@@ -14,10 +14,10 @@ import { getLocationLabelIfValid } from "@/lib/products/form-options";
 import {
   hrefTradeMeetSpotPick,
   markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+  parseMarketTradeWriteReturnCategoryKey,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  scheduleTradeWriteSheetReopenAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
@@ -585,12 +585,10 @@ export function ExchangeWriteForm({
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
     markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    if (tradeWriteSheet) {
-      scheduleTradeWriteSheetReopenAfterMeetSpot(getCategoryHref(category));
-    }
+    /** Address restore: CallerContext pending_restore — not meet-spot reopen flags. */
     const ok = await persistExchangeFormStagingIfNeeded({ markRestoreAfterSubflow: true });
     if (!ok) throw new Error("exchange-staging-aborted");
-  }, [editPostId, tradeWriteSheet, category, persistExchangeFormStagingIfNeeded]);
+  }, [editPostId, persistExchangeFormStagingIfNeeded]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -776,6 +774,17 @@ export function ExchangeWriteForm({
         error={errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+        tradeWriteRestore={
+          !editPostId
+            ? {
+                surfaceHref: getCategoryHref(category),
+                categoryId: category.id,
+                categoryKey:
+                  parseMarketTradeWriteReturnCategoryKey(getCategoryHref(category)) ?? category.id,
+                reopenSheet: Boolean(tradeWriteSheet),
+              }
+            : null
+        }
         denseLayout
       />
     </div>

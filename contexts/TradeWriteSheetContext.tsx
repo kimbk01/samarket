@@ -18,6 +18,7 @@ import {
   TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY,
   TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY,
 } from "@/lib/navigation/trade-meet-spot-return-to";
+import { consumeMemberAddressTradeWritePendingRestore } from "@/lib/addresses/member-address-caller-context";
 
 type TradeWriteSheetContextValue = {
   isOpen: boolean;
@@ -114,9 +115,17 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     })();
   }, [close, router]);
 
-  /** 거래 희망 장소 지도에서 돌아온 뒤 같은 마켓 카테고리 URL이면 글쓰기 시트 자동 오픈(페인트 전) */
+  /**
+   * ADDRESS confirm → CallerContext pending_restore (not meet-spot flags).
+   * Meet-spot map return still uses TRADE_WRITE_SHEET_REOPEN_* keys below.
+   */
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
+    const fromAddress = consumeMemberAddressTradeWritePendingRestore(pathname);
+    if (fromAddress?.categoryKey) {
+      open(fromAddress.categoryKey);
+      return;
+    }
     const base = pathname.split("?")[0] ?? "";
     let flag: string | null = null;
     let cat: string | null = null;

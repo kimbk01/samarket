@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
@@ -9,12 +9,13 @@ import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { openMemberAddressBook, consumeTradeWriteRegionApplyHandoff } from "@/lib/addresses/member-address-caller-context";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
+import { usePathname } from "next/navigation";
 
 function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown } | undefined): UserAddressDTO | null {
   const master = coerceUserAddressDTO(defaults?.master ?? null);
@@ -34,6 +35,14 @@ function applyAddressToTradeRegion(
   return line && line !== "—" ? line : null;
 }
 
+/** TRADE_WRITE caller restore — identity is not URL pathname. */
+export type TradeWriteAddressCallerRestore = {
+  surfaceHref: string;
+  categoryId: string;
+  categoryKey: string;
+  reopenSheet: boolean;
+};
+
 type TradeDefaultLocationBlockProps = {
   editPostId?: string;
   region: string;
@@ -42,15 +51,16 @@ type TradeDefaultLocationBlockProps = {
   error?: string;
   readOnly?: boolean;
   onBeforeNavigateToAddresses?: () => void | Promise<void>;
-  /** 거래 지역 아래 추가 필드(예: 부동산 건물명) */
+  /** Explicit TRADE_WRITE CallerContext — required for sheet/page write continuity. */
+  tradeWriteRestore?: TradeWriteAddressCallerRestore | null;
   belowRegionSlot?: ReactNode;
   denseLayout?: boolean;
 };
 
 /**
  * 거래 글쓰기 위치 — 회원 주소록 SSOT.
- * 「거래 지역」만 표시. 탭 → `/mypage/addresses` (입력·선택은 주소록만).
- * 만남장소「위치」UI는 제품에서 제거됨.
+ * 「거래 지역」만 표시. 탭 → openMemberAddressBook(caller=trade_write).
+ * pathname=/market 을 trade_write로 추론하지 않는다.
  */
 export function TradeDefaultLocationBlock({
   editPostId,
@@ -60,17 +70,13 @@ export function TradeDefaultLocationBlock({
   error,
   readOnly = false,
   onBeforeNavigateToAddresses,
+  tradeWriteRestore = null,
   belowRegionSlot,
   denseLayout = false,
 }: TradeDefaultLocationBlockProps) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const addressesHref = buildMypageAddressesHrefFromPath(
-    pathname,
-    searchParams?.toString() ? `?${searchParams.toString()}` : "",
-  );
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -81,6 +87,15 @@ export function TradeDefaultLocationBlock({
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     try {
+      const handoff = consumeTradeWriteRegionApplyHandoff();
+      if (handoff) {
+        syncRef.current(handoff.regionId, handoff.cityId);
+        const line = handoff.displayLine.trim();
+        displayLineRef.current = line || null;
+        setDisplayLine(line || null);
+        setReady(true);
+        return;
+      }
       const snapshot = await fetchAddressDefaultsSnapshot({
         force: opts?.force === true,
         caller: "trade_default_location_block",
@@ -177,8 +192,23 @@ export function TradeDefaultLocationBlock({
         return;
       }
     }
-    router.push(addressesHref);
-  }, [addressesHref, onBeforeNavigateToAddresses, router]);
+    if (!tradeWriteRestore?.surfaceHref?.trim() || !tradeWriteRestore.categoryKey.trim()) {
+      return;
+    }
+    openMemberAddressBook(router, {
+      caller: "trade_write",
+      mode: "select",
+      purpose: "select_trade_region",
+      apply: { kind: "trade_region" },
+      restore: {
+        kind: "trade_write",
+        surfaceHref: tradeWriteRestore.surfaceHref,
+        categoryId: tradeWriteRestore.categoryId,
+        categoryKey: tradeWriteRestore.categoryKey,
+        reopenSheet: tradeWriteRestore.reopenSheet,
+      },
+    });
+  }, [onBeforeNavigateToAddresses, router, tradeWriteRestore]);
 
   const currentAddressText = !ready
     ? snapshotLabel ?? "…"

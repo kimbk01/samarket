@@ -5,6 +5,7 @@ import {
   resolveAddressManagementExitHref,
   writeAddressFlowExitHref,
 } from "@/lib/addresses/mypage-address-flow-exit";
+import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
 
 describe("mypage-address-flow-exit", () => {
   beforeEach(() => {
@@ -25,12 +26,20 @@ describe("mypage-address-flow-exit", () => {
     vi.unstubAllGlobals();
   });
 
-  it("prefers returnTo query over session", () => {
-    writeAddressFlowExitHref("/stores");
-    expect(resolveAddressManagementExitHref("/market")).toBe("/market");
+  it("CallerContext authority beats returnTo query pathname", () => {
+    openMemberAddressBook(
+      { push: () => {}, replace: () => {} },
+      {
+        caller: "delivery_home",
+        purpose: "select_delivery",
+        apply: { kind: "set_default_delivery" },
+        restore: { kind: "href", href: "/stores" },
+      },
+    );
+    expect(resolveAddressManagementExitHref("/market")).toBe("/stores");
   });
 
-  it("falls back to session when returnTo is absent", () => {
+  it("legacy writeAddressFlowExitHref becomes unknown caller context on same key", () => {
     writeAddressFlowExitHref("/stores");
     expect(resolveAddressManagementExitHref(null)).toBe("/stores");
     expect(peekAddressFlowExitHref()).toBe("/stores");

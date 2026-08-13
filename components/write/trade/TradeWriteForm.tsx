@@ -192,10 +192,10 @@ import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import {
   hrefTradeMeetSpotPick,
   markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+  parseMarketTradeWriteReturnCategoryKey,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  scheduleTradeWriteSheetReopenAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -1003,9 +1003,7 @@ export function TradeWriteForm({
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
     markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    if (tradeWriteSheet) {
-      scheduleTradeWriteSheetReopenAfterMeetSpot(getCategoryHref(category));
-    }
+    /** DO NOT scheduleTradeWriteSheetReopenAfterMeetSpot — address uses CallerContext pending_restore. */
     const workingImages = await uploadPendingTradeWriteImages();
     if (suppressDraftPersistenceRef.current) return;
     const payload = assembleTradeWriteFlushPayload(workingImages);
@@ -1016,7 +1014,6 @@ export function TradeWriteForm({
   }, [
     editPostId,
     category,
-    tradeWriteSheet,
     uploadPendingTradeWriteImages,
     assembleTradeWriteFlushPayload,
   ]);
@@ -1511,6 +1508,17 @@ export function TradeWriteForm({
         error={errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+        tradeWriteRestore={
+          !editPostId
+            ? {
+                surfaceHref: getCategoryHref(category),
+                categoryId: category.id,
+                categoryKey:
+                  parseMarketTradeWriteReturnCategoryKey(getCategoryHref(category)) ?? category.id,
+                reopenSheet: Boolean(tradeWriteSheet),
+              }
+            : null
+        }
         belowRegionSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
         denseLayout
       />
