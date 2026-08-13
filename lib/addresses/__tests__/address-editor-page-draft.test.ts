@@ -18,6 +18,7 @@ const parsedOk: PhGooglePlaceParsed = {
   province: "Metro Manila",
   neighborhood: null,
   buildingOrPlaceHeadline: "Garden Residences",
+  premiseName: null,
 };
 
 const baseDraft = (): AddressEditorPageDraftV1 => ({
@@ -114,6 +115,7 @@ describe("address-editor-page-draft fine-tune restore", () => {
         province: null,
         neighborhood: null,
         buildingOrPlaceHeadline: null,
+        premiseName: null,
       },
       buildingOrPlaceNames: [],
     });

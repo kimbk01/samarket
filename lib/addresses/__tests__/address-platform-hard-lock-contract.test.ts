@@ -232,17 +232,21 @@ describe("ADDR-003 last delete", () => {
   });
 });
 
-describe("ADDR-013 FineTune KEEP", () => {
-  it("editor opens fine-tune as mypage page stack (not modal overlay)", () => {
+describe("ADDR-013 Member Address Editor same-page map", () => {
+  it("editor keeps map pin adjust inside AddressEditorSheet (no fine-tune product navigate)", () => {
     const editor = read("components/addresses/AddressEditorSheet.tsx");
-    expect(editor).toContain("buildMypageAddressFineTuneHref");
-    expect(editor).toContain("writeAddressFineTuneIntent");
-    expect(editor).not.toContain("AddressFineTuneSheet");
+    expect(editor).toContain("AddressFineTuneMapClient");
+    expect(editor).toContain("reverseGeocodeLatLngPh");
+    expect(editor).toContain("scheduleReverseFromPin");
+    expect(editor).toContain("reconcileIdentityAfterPinMove");
+    expect(editor).toContain("placeDisplayName");
+    expect(editor).not.toContain("buildMypageAddressFineTuneHref");
+    expect(editor).not.toContain("writeAddressFineTuneIntent");
+    expect(editor).not.toContain("writeAddressEditorPageDraft");
+    expect(editor).not.toContain("router.push");
+    /** Legacy route files may remain until R5 cleanup; product path must not use them. */
     expect(read("app/(main)/mypage/addresses/fine-tune/page.tsx")).toContain(
       "AddressFineTunePageClient",
-    );
-    expect(read("components/addresses/AddressFineTunePageClient.tsx")).toContain(
-      "AddressFineTuneSheet",
     );
     expect(read("components/addresses/AddressEditorSheet.tsx")).toContain("fetchPlacePredictionsPh");
   });
@@ -269,12 +273,11 @@ describe("member address book entry SSOT", () => {
     expect(philife).not.toContain("setAsRepresentative");
   });
 
-  it("fine-tune apply merges into draft; edit peeks without consume", () => {
-    const fineTunePage = read("components/addresses/AddressFineTunePageClient.tsx");
-    expect(fineTunePage).toContain("mergeFineTuneResultIntoEditorDraft");
-    const fineTune = read("components/addresses/AddressFineTuneSheet.tsx");
-    expect(fineTune).not.toMatch(/onApply\(preview\);\s*\n\s*onClose\(\)/);
+  it("editor does not navigate to fine-tune; leftover session peek only until R5", () => {
     const editor = read("components/addresses/AddressEditorSheet.tsx");
+    expect(editor).not.toContain("buildMypageAddressFineTuneHref");
+    expect(editor).not.toContain("writeAddressFineTuneIntent");
+    expect(editor).not.toContain("writeAddressEditorPageDraft");
     expect(editor).toContain("peekAddressFineTuneResult");
     expect(editor).toContain("peekAddressEditorPageDraft");
     expect(editor).not.toContain("consumeAddressEditorPageDraft");

@@ -20,8 +20,13 @@ export type PhGooglePlaceParsed = {
   neighborhood: string | null;
   /** street_number + route */
   routeLine: string | null;
-  /** POI / 건물 / 단지 상단명 */
+  /**
+   * POI / 건물 / 단지 상단명 (호환).
+   * `place.name || premise` — Editor identity 분리는 `placeDisplayName` / `premiseName` 사용.
+   */
   buildingOrPlaceHeadline: string | null;
+  /** address_components `premise` only — not Place.name */
+  premiseName: string | null;
 };
 
 function pickLongName(
@@ -73,9 +78,10 @@ export function parsePhFromGooglePlaceResult(
   const route = pickLongName(ac, "route");
   const routeLine = [streetNumber, route].filter(Boolean).join(" ").trim() || route || null;
 
-  const premise = pickFirstOfTypes(ac, ["premise", "point_of_interest", "establishment"] as const);
+  const premise = pickFirstOfTypes(ac, ["premise"] as const);
+  const poiOrEstablishment = pickFirstOfTypes(ac, ["point_of_interest", "establishment"] as const);
   const name = (place?.name ?? "").trim() || null;
-  const buildingOrPlaceHeadline = name || premise || null;
+  const buildingOrPlaceHeadline = name || premise || poiOrEstablishment || null;
 
   let city = cityMunicipality?.trim() || null;
   // Never promote province / NCR / barangay into city_municipality.
@@ -96,5 +102,6 @@ export function parsePhFromGooglePlaceResult(
     neighborhood: neighborhood?.trim() || null,
     routeLine: routeLine?.trim() || null,
     buildingOrPlaceHeadline: buildingOrPlaceHeadline?.trim() || null,
+    premiseName: premise?.trim() || null,
   };
 }
