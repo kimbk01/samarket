@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
@@ -10,7 +11,7 @@ function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-const POST_HREF = (postId: string) => `/philife/posts/${encodeURIComponent(postId)}`;
+const POST_HREF = (postId: string) => buildCommunityPostNotificationPath(postId);
 
 export async function notifyCommunityPostCommentReceived(
   sb: SupabaseClient<any>,

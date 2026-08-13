@@ -122,8 +122,12 @@ export function bellPresentationToExplainKind(
     case "missed_call":
       return "missedCall";
     case "admin_notice":
+    case "admin_system":
+      return "systemAdmin";
     case "system_important":
       return "systemAdmin";
+    case "community_activity":
+      return "systemAdmin"; // Bell digit bucket — community still counts in A; label is separate
     case "admin_marketing":
       return "marketing";
     case "unsupported":

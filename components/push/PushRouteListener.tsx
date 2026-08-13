@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { isRecoveringPhase, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
@@ -14,6 +15,7 @@ import {
 import {
   clearPendingPushRoute,
   readPendingPushRoute,
+  writePendingPushRoute,
 } from "@/lib/push/pending-push-route";
 import {
   clearNativePersistedPendingPushRoute,
@@ -124,6 +126,23 @@ function shouldIgnoreNotification(notificationId: string | undefined): boolean {
 }
 
 /**
+ * AUTH RESOLUTION GATE for push / deep-link destinations.
+ *
+ * loading / recovering ≠ unauthenticated — hold destination until phase settles.
+ * Only terminal_guest / corrupt may open the login sheet.
+ */
+export function resolvePushAuthGate(
+  phase: DibaySessionPhase,
+  path: string
+): "allow" | "hold" | "login" {
+  if (!isAuthRequiredPushRoute(path)) return "allow";
+  if (phase === "authenticated") return "allow";
+  if (isRecoveringPhase(phase)) return "hold";
+  if (phase === "terminal_guest" || phase === "corrupt") return "login";
+  return "hold";
+}
+
+/**
  * Native FCM notification tap / dibay deep link → Next.js router navigation.
  * Call accept routes delegate to single accept gateway (no PATCH-less replace).
  */
@@ -131,10 +150,28 @@ export function PushRouteListener() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
   const sessionPhaseRef = useRef(getSessionPhase());
+  const navigateRef = useRef<
+    | ((
+        rawPath: string,
+        notificationId?: string,
+        transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
+        opts?: { skipNotificationDedupe?: boolean }
+      ) => void)
+    | null
+  >(null);
 
-  useEffect(() => subscribeSessionPhase((phase) => {
-    sessionPhaseRef.current = phase;
-  }), []);
+  useEffect(() => {
+    return subscribeSessionPhase((phase) => {
+      sessionPhaseRef.current = phase;
+      if (phase !== "authenticated") return;
+      const pending = readPendingPushRoute();
+      if (!pending?.path) return;
+      console.info("[push-route] auth_resolved_replay", { path: pending.path, phase });
+      navigateRef.current?.(pending.path, pending.notificationId ?? undefined, undefined, {
+        skipNotificationDedupe: true,
+      });
+    });
+  }, []);
 
   useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
@@ -142,17 +179,18 @@ export function PushRouteListener() {
     const navigate = (
       rawPath: string,
       notificationId?: string,
-      transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">
+      transport?: Pick<PushRouteDetail, "recipientScope" | "pipeline" | "type">,
+      opts?: { skipNotificationDedupe?: boolean }
     ) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
-      if (shouldIgnoreNotification(notificationId)) return;
+      if (!opts?.skipNotificationDedupe && shouldIgnoreNotification(notificationId)) return;
 
       suppressCmRoomEntryNotificationSound(path);
 
       const now = Date.now();
       const last = lastRouteRef.current;
-      if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS) {
+      if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS && !opts?.skipNotificationDedupe) {
         console.info("[push-route] duplicate_ignored", { path });
         return;
       }
@@ -168,7 +206,29 @@ export function PushRouteListener() {
         },
       });
 
-      if (sessionPhaseRef.current !== "authenticated" && isAuthRequiredPushRoute(path)) {
+      const authGate = resolvePushAuthGate(sessionPhaseRef.current, path);
+      if (authGate === "hold") {
+        writePendingPushRoute({
+          path,
+          notificationId: notificationId ?? null,
+          at: Date.now(),
+          source: "auth_resolution_hold",
+          fallbackReason: sessionPhaseRef.current,
+        });
+        console.info("[push-route] auth_resolution_hold", {
+          path,
+          phase: sessionPhaseRef.current,
+        });
+        return;
+      }
+      if (authGate === "login") {
+        writePendingPushRoute({
+          path,
+          notificationId: notificationId ?? null,
+          at: Date.now(),
+          source: "auth_required_login",
+          fallbackReason: sessionPhaseRef.current,
+        });
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });
         return;
       }
@@ -261,6 +321,8 @@ export function PushRouteListener() {
       console.info("[push-route] webview_route_delivered", { path });
     };
 
+    navigateRef.current = navigate;
+
     const consumePendingRoutes = async () => {
       const sessionPending = readPendingPushRoute();
       if (sessionPending) {
@@ -351,6 +413,7 @@ export function PushRouteListener() {
       window.removeEventListener("dibay:push-route", onPushRoute);
       removeAppUrlOpen?.();
       removePushTap?.();
+      navigateRef.current = null;
     };
   }, [router]);
 

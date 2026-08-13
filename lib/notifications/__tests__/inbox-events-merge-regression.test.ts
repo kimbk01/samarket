@@ -199,7 +199,7 @@ describe("inbox-events-merge-regression", () => {
         room_id: null,
       })
     );
-    expect(href).toBe("/philife/post-99");
+    expect(href).toBe("/community/posts/post-99");
   });
 
   it("resolves order href with order id", () => {

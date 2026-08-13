@@ -2,6 +2,8 @@
  * dibay:// deep link ↔ in-app HTTPS path (single source).
  */
 
+import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
+
 export type DibayDeepLinkKind =
   | "chat"
   | "trade_chat"
@@ -58,7 +60,7 @@ export function resolveDibayDeepLinkToAppPath(deepLink: string): string | null {
       return tail ? `/orders/store/${encodeURIComponent(tail)}${query}` : null;
     case "community":
       if (tailParts[0] === "post" && tailParts[1]) {
-        return `/philife/posts/${encodeURIComponent(decodeURIComponent(tailParts[1]))}${query}`;
+        return `${buildCommunityPostNotificationPath(decodeURIComponent(tailParts[1]))}${query}`;
       }
       return null;
     case "call": {
@@ -87,8 +89,16 @@ export function resolveAppPathToDibayDeepLink(appPath: string): string | null {
   const order = /^\/orders\/store\/([^/?#]+)/.exec(path);
   if (order?.[1]) return buildDibayDeepLink("order", decodeURIComponent(order[1]));
 
-  const post = /^\/philife\/posts\/([^/?#]+)/.exec(path);
-  if (post?.[1]) return buildDibayDeepLink("community_post", decodeURIComponent(post[1]));
+  const communityPost = /^\/community\/posts\/([^/?#]+)/.exec(path);
+  if (communityPost?.[1]) {
+    return buildDibayDeepLink("community_post", decodeURIComponent(communityPost[1]));
+  }
+
+  // Legacy poisoned path — still reverse-map so old payloads round-trip to dibay://
+  const legacyPhilifePosts = /^\/philife\/posts\/([^/?#]+)/.exec(path);
+  if (legacyPhilifePosts?.[1]) {
+    return buildDibayDeepLink("community_post", decodeURIComponent(legacyPhilifePosts[1]));
+  }
 
   const call = /^\/community-messenger\/calls\/([^/?#]+)/.exec(path);
   if (call?.[1]) return buildDibayDeepLink("call", decodeURIComponent(call[1]));

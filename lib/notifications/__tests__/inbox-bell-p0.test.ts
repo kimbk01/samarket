@@ -110,7 +110,7 @@ describe("Legacy bell P0 — thread read plans", () => {
 
 describe("Legacy bell P0 — href mapping", () => {
   it("community post meta → /philife/{postId}", () => {
-    expect(resolveEventInboxLinkUrl(baseEvent())).toBe("/philife/post-1");
+    expect(resolveEventInboxLinkUrl(baseEvent())).toBe("/community/posts/post-1");
   });
 
   it("order_status with order_id → buyer order detail", () => {

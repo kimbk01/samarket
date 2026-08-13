@@ -22,4 +22,16 @@ describe("iOS push tap route contract", () => {
     expect(source).toContain("readNativePersistedPendingPushRoute()");
     expect(source).toContain("window.addEventListener(\"dibay:push-route\"");
   });
+
+  it("AUTH RESOLUTION GATE: recovering/loading holds — does not open login", () => {
+    const source = read("components/push/PushRouteListener.tsx");
+    expect(source).toContain("resolvePushAuthGate");
+    expect(source).toContain("isRecoveringPhase");
+    expect(source).toContain("writePendingPushRoute");
+    expect(source).toContain("auth_resolution_hold");
+    expect(source).toContain("auth_resolved_replay");
+    expect(source).not.toMatch(
+      /sessionPhaseRef\.current !== "authenticated" && isAuthRequiredPushRoute/
+    );
+  });
 });

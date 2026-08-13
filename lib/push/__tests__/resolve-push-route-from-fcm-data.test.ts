@@ -70,7 +70,7 @@ describe("resolvePushRouteFromFcmData — legacy", () => {
       resolvePushRouteFromFcmData({ type: "delivery_order", roomId: "so-room-1", orderId: "order-1" })
     ).toBe("/community-messenger/rooms/so-room-1");
     expect(resolvePushRouteFromFcmData({ type: "community_comment", postId: "post-1" })).toBe(
-      "/philife/posts/post-1"
+      "/community/posts/post-1"
     );
   });
 

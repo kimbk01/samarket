@@ -60,6 +60,8 @@ function surfaceFromBellPresentation(
       return notifySafeT(language, "notif_filter_marketing");
     case "system_important":
       return notifySafeT(language, "notif_surface_system");
+    case "community_activity":
+      return notifySafeT(language, "notif_surface_community");
     default:
       return null;
   }

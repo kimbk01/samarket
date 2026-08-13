@@ -1,3 +1,5 @@
+import { canonicalizeLegacyCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
+
 const SAFE_NOTIFICATION_ROUTE_PREFIXES = [
   "/community-messenger",
   "/community",
@@ -38,6 +40,11 @@ export function resolveSafeNotificationInternalRoute(
     parsed = new URL(route, "https://dibay.internal");
   } catch {
     return fallback;
+  }
+  const healedPath =
+    canonicalizeLegacyCommunityPostNotificationPath(parsed.pathname) ?? parsed.pathname;
+  if (healedPath !== parsed.pathname) {
+    parsed = new URL(`${healedPath}${parsed.search}${parsed.hash}`, "https://dibay.internal");
   }
   const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
   if (

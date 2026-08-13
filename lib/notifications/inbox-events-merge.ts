@@ -12,6 +12,7 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 
 export type InboxNotificationRow = {
   id: string;
@@ -53,6 +54,8 @@ export type BellPresentationType =
   | "admin_system"
   | "admin_marketing"
   | "system_important"
+  /** Community social (comment / like / reply) — not System. */
+  | "community_activity"
   | "unsupported";
 
 export type NotificationEventInboxSource = Pick<
@@ -243,7 +246,7 @@ export function resolveBellPresentationType(event: NotificationEventInboxSource)
     return isOwnerOrderSide(event, meta) ? "owner_order_message" : "customer_order_message";
   }
   if (type === "chat_message") return "general_message";
-  if (type === "community_activity") return "system_important";
+  if (type === "community_activity") return "community_activity";
   if (type === "admin_marketing_banner") return "admin_marketing";
   if (type === "admin_test" || type === "incoming_call_signal") {
     return "unsupported";
@@ -353,7 +356,7 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   }
 
   const postId = trimText(meta?.post_id ?? meta?.community_post_id);
-  if (postId) return `/philife/${encodeURIComponent(postId)}`;
+  if (postId) return buildCommunityPostNotificationPath(postId);
 
   const orderId =
     trimText(meta?.order_id) ||
@@ -373,7 +376,7 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
     if (isOwnerOrderSide(event, meta)) return "/stores/owner/orders";
     return "/my/store-orders";
   }
-  if (type === "community_activity") return "/philife";
+  if (type === "community_activity") return "/community";
 
   const tradeProductId =
     trimText(meta?.product_id) ||
@@ -498,12 +501,14 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
   if (pushKind === "chat") return pk === "chat" || nt === "chat";
   if (pushKind === "delivery") return pk === "delivery" || (pk === "" && nt === "commerce");
   // Product 「시스템」 tab = persistent system + admin_notice (push_kind notice).
+  // community_activity presentation is community — never system_important.
   if (pushKind === "system") {
     return (
       pk === "system" ||
       pk === "notice" ||
       nt === "system" ||
       bell === "admin_notice" ||
+      bell === "admin_system" ||
       bell === "system_important"
     );
   }

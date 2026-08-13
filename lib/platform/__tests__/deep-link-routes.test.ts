@@ -23,7 +23,9 @@ describe("deep-link-routes", () => {
   });
 
   it("maps community post deep link", () => {
-    expect(resolveDibayDeepLinkToAppPath("dibay://community/post/post-1")).toBe("/philife/posts/post-1");
+    expect(resolveDibayDeepLinkToAppPath("dibay://community/post/post-1")).toBe(
+      "/community/posts/post-1"
+    );
   });
 
   it("maps call deep link", () => {

@@ -8,6 +8,7 @@
  * 4. type-based legacy resolvers
  * 5. safe fallback
  */
+import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
@@ -101,7 +102,7 @@ function resolveLegacyTypeRoute(data: FcmRouteData): string | null {
 
   const postId = firstNonEmpty(data.postId, data.post_id);
   if (type === "community_comment" && postId) {
-    return `/philife/posts/${encodeURIComponent(postId)}`;
+    return buildCommunityPostNotificationPath(postId);
   }
 
   if (roomId) return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;

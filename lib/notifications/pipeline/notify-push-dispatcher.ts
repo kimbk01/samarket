@@ -39,6 +39,18 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
   const link_url = dest.href;
   const eventKey = definition.soundEventKey ?? "system_default";
   const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
+  const legacyMeta =
+    display?.legacyMeta && typeof display.legacyMeta === "object"
+      ? (display.legacyMeta as Record<string, unknown>)
+      : null;
+  const legacyKind =
+    typeof legacyMeta?.kind === "string" ? String(legacyMeta.kind).trim() : "";
+  const communityPushType =
+    row.type === "community_activity" ||
+    legacyKind === "community_comment" ||
+    legacyKind === "community_like"
+      ? "community_comment"
+      : null;
   return {
     user_id: row.user_id,
     notification_type:
@@ -46,21 +58,22 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
         ? "community_messenger_missed_call"
         : row.type === "admin_marketing_banner"
           ? "marketing"
-          : row.type === "admin_notice" ||
-              row.type === "trade_status" ||
-              row.type === "order_status" ||
-              row.type === "delivery_status" ||
-              row.type === "community_activity" ||
-              row.type === "admin_test"
-            ? "system"
-            : "chat",
+          : communityPushType
+            ? communityPushType
+            : row.type === "admin_notice" ||
+                row.type === "trade_status" ||
+                row.type === "order_status" ||
+                row.type === "delivery_status" ||
+                row.type === "admin_test"
+              ? "system"
+              : "chat",
     title: row.title,
     body: row.body,
     link_url,
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: row.created_at,
     meta: {
-      kind: row.type,
+      kind: legacyKind || (communityPushType ? "community_comment" : row.type),
       category: row.category,
       room_id: roomId,
       notification_event_id: row.id,
@@ -77,6 +90,7 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       context_label: display?.contextLabel,
       campaign_id: display?.campaignId,
       display_payload: display,
+      ...(legacyMeta?.post_id != null ? { post_id: legacyMeta.post_id, postId: legacyMeta.post_id } : {}),
       event_key: eventKey,
       deeplink_resolver_key: definition.deepLinkResolverKey,
       sound_asset_id: soundResolved.assetId,

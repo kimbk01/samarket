@@ -1,0 +1,26 @@
+# DIBAY Auth Session + Notification Destination HARD LOCK
+
+**HARD LOCK (2026-08-13).** Full doc: `docs/dibay-auth-session-notification-destination-hard-lock.md`.
+
+## CONTRACT A — LOGIN
+
+`loading` / `recovering` ≠ guest. Push tap holds + `writePendingPushRoute` until `authenticated`. Login sheet only for `terminal_guest` / `corrupt`.
+
+Owner: `resolvePushAuthGate` in `PushRouteListener.tsx`.
+
+## CONTRACT B — NOTIFICATION
+
+Community comment/like: destination `/community/posts/:id` via `buildCommunityPostNotificationPath`. Bell presentation `community_activity` (not System). Legacy `/philife/posts/:uuid` healed at read time.
+
+## DO NOT
+
+- Guest-open login during recovering
+- Invent `/philife/posts/:id`
+- `community_activity` → System badge
+- Timeout auth hacks
+
+## Gate
+
+```bash
+npx vitest run lib/notifications/__tests__/auth-notif-root-fix-contract.test.ts lib/push/__tests__/ios-push-tap-route-contract.test.ts
+```

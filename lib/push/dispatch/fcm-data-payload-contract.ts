@@ -1,5 +1,6 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { applyPushTransportEnvelope } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
+import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
 
 export type FcmPushType =
@@ -367,7 +368,7 @@ export function buildFcmDataFields(
       const commentId = meta ? trimText(meta.comment_id ?? meta.commentId) : "";
       if (postId) {
         fields.postId = postId;
-        fields.url = `/philife/posts/${encodeURIComponent(postId)}`;
+        fields.url = buildCommunityPostNotificationPath(postId);
       }
       if (commentId) fields.commentId = commentId;
       break;

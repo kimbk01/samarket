@@ -9,6 +9,8 @@ import { sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { toProfileActionType } from "@/lib/profile/profile-requirements";
 import { requireProfileCompletionClient } from "@/lib/profile/require-profile-completion.client";
+import { getSessionPhase, ensureSessionHealthy } from "@/lib/auth/dibay-session-manager";
+import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 
 export type RequireAuthActionType =
   | "community_write"
@@ -154,7 +156,23 @@ export async function requireAuthAction(
   options: RequireAuthActionOptions = {},
 ): Promise<boolean> {
   const next = options.next?.trim() || currentHrefFallback();
-  const profile = await resolveClientProfile();
+  let profile = await resolveClientProfile();
+  if (!profile?.id) {
+    const phase = getSessionPhase();
+    // loading / recovering ≠ guest — resolve health before opening login UI.
+    if (isRecoveringPhase(phase) || phase === "loading") {
+      const health = await ensureSessionHealthy(`requireAuthAction:${actionType}`);
+      if (health.ok) {
+        profile = await resolveClientProfile();
+      } else if (isRecoveringPhase(health.phase)) {
+        console.info("[requireAuthAction] auth_resolution_hold", {
+          actionType,
+          phase: health.phase,
+        });
+        return false;
+      }
+    }
+  }
   if (!profile?.id) {
     const token = createPendingToken();
     pendingActions.set(token, async () => {

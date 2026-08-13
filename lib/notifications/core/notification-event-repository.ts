@@ -392,6 +392,7 @@ export async function markCommunityPostNotificationEventsRead(
         `display_payload->legacyMeta->>post_id.eq.${pid}`,
         `display_payload->legacyMeta->>community_post_id.eq.${pid}`,
         displayPayloadRouteUrlContainsId(pid),
+        displayPayloadRouteUrlContainsId(`/community/posts/${pid}`),
         displayPayloadRouteUrlContainsId(`/philife/${pid}`),
         displayPayloadRouteUrlContainsId(`/philife/posts/${pid}`),
       ].join(",")
