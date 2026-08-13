@@ -269,17 +269,25 @@ describe("member address book entry SSOT", () => {
     expect(philife).not.toContain("setAsRepresentative");
   });
 
-  it("fine-tune apply does not double-close; edit hydrates fineTune without requiring draft", () => {
+  it("fine-tune apply merges into draft; edit peeks without consume", () => {
+    const fineTunePage = read("components/addresses/AddressFineTunePageClient.tsx");
+    expect(fineTunePage).toContain("mergeFineTuneResultIntoEditorDraft");
     const fineTune = read("components/addresses/AddressFineTuneSheet.tsx");
     expect(fineTune).not.toMatch(/onApply\(preview\);\s*\n\s*onClose\(\)/);
     const editor = read("components/addresses/AddressEditorSheet.tsx");
     expect(editor).toContain("peekAddressFineTuneResult");
-    expect(editor).toContain("clearAddressFineTuneResult");
+    expect(editor).toContain("peekAddressEditorPageDraft");
+    expect(editor).not.toContain("consumeAddressEditorPageDraft");
+    expect(editor).not.toContain("consumeAddressFineTuneResult");
+    expect(editor).toContain("clearAddressEditorSession");
     expect(read("lib/addresses/address-editor-page-draft.ts")).toContain(
-      "hasAddressEditorSessionRestore",
+      "mergeFineTuneResultIntoEditorDraft",
     );
-    expect(read("components/addresses/AddressEditorPageClient.tsx")).toContain(
-      "hasAddressEditorSessionRestore",
+    expect(read("components/addresses/AddressManagementClient.tsx")).toContain(
+      "clearAddressEditorSession",
+    );
+    expect(read("components/route-transition/route-transition-config.ts")).toMatch(
+      /address-book-forward[\s\S]*?return null/,
     );
   });
 

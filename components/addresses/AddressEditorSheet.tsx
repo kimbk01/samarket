@@ -30,9 +30,7 @@ import {
   parseStoreIdFromReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
-  clearAddressEditorPageDraft,
-  clearAddressFineTuneResult,
-  consumeAddressEditorPageDraft,
+  clearAddressEditorSession,
   peekAddressEditorPageDraft,
   peekAddressFineTuneResult,
   writeAddressEditorPageDraft,
@@ -344,7 +342,8 @@ export function AddressEditorSheet(props: {
     const fineTunePeek = peekAddressFineTuneResult();
     if (draftPeek || fineTunePeek) {
       draftHydratedRef.current = true;
-      const draft = draftPeek ? consumeAddressEditorPageDraft() : null;
+      /** peek only — dual-panel remount 대비 consume/clear 금지 */
+      const draft = draftPeek;
       const fineTune = fineTunePeek;
       if (draft) {
         setLabelPreset(draft.labelPreset);
@@ -426,7 +425,6 @@ export function AddressEditorSheet(props: {
           setRegion(hit.regionId);
           setCity(hit.cityId);
         }
-        clearAddressFineTuneResult();
       }
       return;
     }
@@ -1066,7 +1064,7 @@ export function AddressEditorSheet(props: {
         return;
       }
       await Promise.resolve(onSaved());
-      clearAddressEditorPageDraft();
+      clearAddressEditorSession();
       if (layout !== "page") onClose();
     } finally {
       setBusy(false);

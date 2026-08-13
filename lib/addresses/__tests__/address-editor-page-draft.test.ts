@@ -1,11 +1,12 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
-  clearAddressFineTuneResult,
+  clearAddressEditorSession,
   hasAddressEditorSessionRestore,
+  mergeFineTuneResultIntoEditorDraft,
+  peekAddressEditorPageDraft,
   peekAddressFineTuneResult,
   writeAddressEditorPageDraft,
   writeAddressFineTuneResult,
-  clearAddressEditorPageDraft,
   type AddressEditorPageDraftV1,
 } from "@/lib/addresses/address-editor-page-draft";
 import type { PhGooglePlaceParsed } from "@/lib/addresses/ph-google-place-address-components";
@@ -33,7 +34,7 @@ const baseDraft = (): AddressEditorPageDraftV1 => ({
   cityMunicipality: "",
   province: "",
   streetAddress: "",
-  unitFloorRoom: "",
+  unitFloorRoom: "Unit 1",
   landmark: "",
   latitude: 14.6,
   longitude: 121.0,
@@ -77,8 +78,9 @@ describe("address-editor-page-draft fine-tune restore", () => {
     vi.unstubAllGlobals();
   });
 
-  it("peek keeps fine-tune result until clear (remount-safe)", () => {
-    writeAddressFineTuneResult({
+  it("mergeFineTuneResultIntoEditorDraft sets mapPinConfirmed and building; remount peek keeps it", () => {
+    writeAddressEditorPageDraft(baseDraft());
+    mergeFineTuneResultIntoEditorDraft({
       latitude: 14.65,
       longitude: 121.05,
       formattedAddress: "Commonwealth Ave, Quezon City",
@@ -86,11 +88,17 @@ describe("address-editor-page-draft fine-tune restore", () => {
       parsed: parsedOk,
       buildingOrPlaceNames: ["Garden Residences", "Starbucks"],
     });
+    const d1 = peekAddressEditorPageDraft();
+    expect(d1?.mapPinConfirmed).toBe(true);
+    expect(d1?.buildingName).toBe("Garden Residences");
+    expect(d1?.placeId).toBe("ChIJtest");
+    expect(d1?.unitFloorRoom).toBe("Unit 1");
     expect(peekAddressFineTuneResult()?.placeId).toBe("ChIJtest");
-    expect(peekAddressFineTuneResult()?.parsed.buildingOrPlaceHeadline).toBe("Garden Residences");
+    /** remount simulation — peek again without clear */
+    expect(peekAddressEditorPageDraft()?.buildingName).toBe("Garden Residences");
     expect(hasAddressEditorSessionRestore()).toBe(true);
-    clearAddressFineTuneResult();
-    expect(peekAddressFineTuneResult()).toBeNull();
+    clearAddressEditorSession();
+    expect(hasAddressEditorSessionRestore()).toBe(false);
   });
 
   it("rejects fine-tune result without placeId", () => {
@@ -110,14 +118,5 @@ describe("address-editor-page-draft fine-tune restore", () => {
       buildingOrPlaceNames: [],
     });
     expect(peekAddressFineTuneResult()).toBeNull();
-  });
-
-  it("hasAddressEditorSessionRestore true with draft only", () => {
-    clearAddressFineTuneResult();
-    clearAddressEditorPageDraft();
-    writeAddressEditorPageDraft(baseDraft());
-    expect(hasAddressEditorSessionRestore()).toBe(true);
-    clearAddressEditorPageDraft();
-    expect(hasAddressEditorSessionRestore()).toBe(false);
   });
 });

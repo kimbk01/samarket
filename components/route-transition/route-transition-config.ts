@@ -118,9 +118,12 @@ export function routeTransitionPushAxisForKind(
     case "profile-edit-back":
       return "ltr";
     case "address-book-forward":
-      return "rtl";
     case "address-book-back":
-      return "ltr";
+      /**
+       * dual-panel push 는 entering 트리 마운트 → session consume → handoff remount 로
+       * fine-tune 반영이 증발한다. 주소 스택은 CSS enter only (단일 Surface).
+       */
+      return null;
     case "none":
     case "subtle":
       return null;

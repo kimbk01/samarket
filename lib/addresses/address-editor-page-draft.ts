@@ -1,6 +1,13 @@
 /**
- * `/mypage/addresses/edit` ↔ `/mypage/addresses/fine-tune` 왕복 시
- * AddressEditorSheet 폼 상태 보존 (페이지 언마운트 대비).
+ * `/mypage/addresses/edit` ↔ `/mypage/addresses/fine-tune` 왕복 SSOT.
+ *
+ * CONTRACT:
+ * - draft / fineTune result 는 **peek 전용**. hydrate 에서 consume/clear 금지.
+ * - Apply 시 fine-tune 결과를 draft 에 병합(mapPinConfirmed=true) 후 navigate.
+ * - clear 는 주소록 목록 진입·저장 성공 시에만.
+ *
+ * WHY: address-book dual-panel push 가 edit 트리를 2회 마운트한다.
+ * 첫 마운트에서 consume 하면 두 번째 마운트는 빈 폼이 된다.
  */
 
 import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
@@ -86,14 +93,10 @@ export function peekAddressEditorPageDraft(): AddressEditorPageDraftV1 | null {
   }
 }
 
+/** @deprecated hydrate 에서 쓰지 말 것 — peek + 목록 진입 clear 만 */
 export function consumeAddressEditorPageDraft(): AddressEditorPageDraftV1 | null {
   const d = peekAddressEditorPageDraft();
-  if (typeof window === "undefined") return d;
-  try {
-    sessionStorage.removeItem(ADDRESS_EDITOR_PAGE_DRAFT_KEY);
-  } catch {
-    /* ignore */
-  }
+  clearAddressEditorPageDraft();
   return d;
 }
 
@@ -164,13 +167,11 @@ function parseFineTuneResultWrap(raw: string | null): ReverseGeocodePhResult | n
   if (wrap.v !== 1 || !wrap.result) return null;
   const r = wrap.result;
   if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) return null;
-  /** placeId 없으면 저장 단계에서 막히므로 복구 대상에서 제외 */
   if (!(r.placeId ?? "").trim()) return null;
   if (!(r.formattedAddress ?? "").trim()) return null;
   return r;
 }
 
-/** remount 레이스 대비 — 적용 전에는 peek, 적용 성공 후 clear */
 export function peekAddressFineTuneResult(): ReverseGeocodePhResult | null {
   if (typeof window === "undefined") return null;
   try {
@@ -189,13 +190,84 @@ export function clearAddressFineTuneResult(): void {
   }
 }
 
+/** @deprecated hydrate 에서 쓰지 말 것 */
 export function consumeAddressFineTuneResult(): ReverseGeocodePhResult | null {
   const r = peekAddressFineTuneResult();
   clearAddressFineTuneResult();
   return r;
 }
 
-/** edit 페이지가 목록 fetch 로딩으로 시트를 막지 않도록 — draft/result 있으면 즉시 페인트 */
+export function clearAddressEditorSession(): void {
+  clearAddressEditorPageDraft();
+  clearAddressFineTuneResult();
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ADDRESS_FINE_TUNE_INTENT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function hasAddressEditorSessionRestore(): boolean {
   return peekAddressEditorPageDraft() != null || peekAddressFineTuneResult() != null;
+}
+
+/**
+ * 미세조정 「이 위치로 반영」— draft 에 확정 좌표·건물명·placeId 를 병합한다.
+ * navigate 전 호출. remount 가 여러 번이어도 peek draft 만으로 복구 가능.
+ */
+export function mergeFineTuneResultIntoEditorDraft(
+  r: ReverseGeocodePhResult,
+  opts?: { returnTo?: string; mode?: "create" | "edit"; addressId?: string | null },
+): AddressEditorPageDraftV1 {
+  const prev = peekAddressEditorPageDraft();
+  const ph = r.parsed;
+  const headLine = r.formattedAddress.split(",")[0]?.trim() ?? "";
+  const nextStreet = (ph.routeLine || headLine).trim();
+  const nextBuilding =
+    (ph.buildingOrPlaceHeadline ?? "").trim() ||
+    (r.buildingOrPlaceNames?.[0] ?? "").trim() ||
+    "";
+  const formatted = r.formattedAddress.trim();
+  const placeId = (r.placeId ?? "").trim();
+  const next: AddressEditorPageDraftV1 = {
+    v: 1,
+    mode: prev?.mode ?? opts?.mode ?? "create",
+    addressId: prev?.addressId ?? opts?.addressId ?? null,
+    returnTo: prev?.returnTo ?? opts?.returnTo ?? "",
+    nickname: prev?.nickname ?? "",
+    recipientName: prev?.recipientName ?? "",
+    phoneNumber: prev?.phoneNumber ?? "",
+    region: prev?.region ?? "",
+    city: prev?.city ?? "",
+    barangay: (ph.barangay ?? prev?.barangay ?? "").trim(),
+    cityMunicipality: (ph.cityMunicipality ?? prev?.cityMunicipality ?? "").trim(),
+    province: (ph.province ?? prev?.province ?? "").trim(),
+    streetAddress: nextStreet,
+    unitFloorRoom: prev?.unitFloorRoom ?? "",
+    landmark: prev?.landmark ?? "",
+    latitude: r.latitude,
+    longitude: r.longitude,
+    placeId,
+    formattedAddress: formatted,
+    roadAddress: formatted,
+    fullAddress: formatted,
+    neighborhoodName: (ph.neighborhood ?? prev?.neighborhoodName ?? "").trim(),
+    buildingName: nextBuilding,
+    mapPinConfirmed: true,
+    search: formatted,
+    useLife: prev?.useLife ?? true,
+    useTrade: prev?.useTrade ?? true,
+    useDel: prev?.useDel ?? true,
+    defMaster: prev?.defMaster ?? false,
+    defLife: prev?.defLife ?? false,
+    defTrade: prev?.defTrade ?? false,
+    defDel: prev?.defDel ?? false,
+    labelPreset: prev?.labelPreset ?? "home",
+    selectedStoreId: prev?.selectedStoreId ?? "",
+    selectionAnchorSearch: formatted.length >= 2 ? formatted : null,
+  };
+  writeAddressEditorPageDraft(next);
+  writeAddressFineTuneResult(r);
+  return next;
 }

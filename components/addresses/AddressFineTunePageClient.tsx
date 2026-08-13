@@ -11,8 +11,8 @@ import {
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   consumeAddressFineTuneIntent,
+  mergeFineTuneResultIntoEditorDraft,
   peekAddressFineTuneIntent,
-  writeAddressFineTuneResult,
 } from "@/lib/addresses/address-editor-page-draft";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
@@ -103,7 +103,11 @@ function AddressFineTunePageInner() {
         router.replace(editHref);
       }}
       onApply={(r: ReverseGeocodePhResult) => {
-        writeAddressFineTuneResult(r);
+        mergeFineTuneResultIntoEditorDraft(r, {
+          returnTo,
+          mode: idFromUrl ? "edit" : "create",
+          addressId: idFromUrl || null,
+        });
         consumeAddressFineTuneIntent();
         router.replace(editHref);
       }}

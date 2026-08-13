@@ -19,6 +19,11 @@ describe("routeTransitionPushAxisForKind", () => {
     expect(routeTransitionPushAxisForKind("rtl-forward")).toBe("rtl");
   });
 
+  it("주소록 스택 → dual-panel push 없음 (CSS enter only)", () => {
+    expect(routeTransitionPushAxisForKind("address-book-forward")).toBeNull();
+    expect(routeTransitionPushAxisForKind("address-book-back")).toBeNull();
+  });
+
   it("subtle·none → push 없음", () => {
     expect(routeTransitionPushAxisForKind("subtle")).toBeNull();
     expect(routeTransitionPushAxisForKind("none")).toBeNull();

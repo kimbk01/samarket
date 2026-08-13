@@ -44,6 +44,7 @@ import {
   parseSafeInternalReturnTo,
   resolveAddressFlowEntryPath,
 } from "@/lib/addresses/mypage-addresses-return-to";
+import { clearAddressEditorSession } from "@/lib/addresses/address-editor-page-draft";
 import {
   resolveAddressManagementExitHref,
   clearAddressFlowExitHref,
@@ -87,6 +88,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   const selectingForReturn = Boolean(returnToFromQuery);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnToFromQuery);
+
+  useEffect(() => {
+    /** 목록이 SSOT 게이트 — edit/fine-tune 잔여 session 정리 (stale draft 방지) */
+    if (!embedded) clearAddressEditorSession();
+  }, [embedded]);
 
   useEffect(() => {
     if (embedded || !returnToFromQuery) return;
