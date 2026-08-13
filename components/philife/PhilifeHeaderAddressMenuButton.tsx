@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
+import {
+  describeMeAddressesListFailure,
+  fetchMeAddressesListSingleFlight,
+  readCachedMeAddressList,
+  writeCachedMeAddressList,
+} from "@/lib/addresses/address-list-client-cache";
+import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
+import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   formatNeighborhoodRegionSubtitle,
   neighborhoodLocationLabelFromRegion,
@@ -16,14 +26,11 @@ import {
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
 } from "@/lib/ui/tier1-header-icon";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
-import { navigateToMemberAddressBook } from "@/lib/addresses/mypage-addresses-return-to";
 
-/**
- * 필라이프 헤더 주소 — 현재 PUBLIC 지역 표시 + 변경은 MEMBER ADDRESS BOOK 페이지 스택.
- * 자체 picker / 별도 주소 입력 없음.
- */
 export function PhilifeHeaderAddressMenuButton({
   panelPlacement = "anchor",
 }: {
@@ -35,12 +42,18 @@ export function PhilifeHeaderAddressMenuButton({
   const [mounted, setMounted] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [panelOrigin, setPanelOrigin] = useState("top right");
+  const [view, setView] = useState<"menu" | "picker">("menu");
+  const [viewAnimating, setViewAnimating] = useState(false);
+  const [list, setList] = useState<UserAddressDTO[]>(() =>
+    getCurrentUser()?.id ? (readCachedMeAddressList() ?? []) : [],
+  );
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const { t } = useI18n();
-  const router = useRouter();
-  const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const prevViewRef = useRef<"menu" | "picker">("menu");
   const closeTimerRef = useRef<number | null>(null);
   const membership = useClientMembershipState("philife-header-address-menu");
   const { currentRegion } = useRegion();
@@ -61,6 +74,33 @@ export function PhilifeHeaderAddressMenuButton({
     setMounted(true);
   }, []);
 
+  const toggleMenu = () => {
+    if (!isMemberViewer) {
+      openLoginRequiredSheet({ actionType: "address_save" });
+      return;
+    }
+    if (open) {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+      setPanelEntered(false);
+      setOpen(false);
+      closeTimerRef.current = window.setTimeout(() => {
+        setRenderOpen(false);
+        closeTimerRef.current = null;
+      }, 240);
+      return;
+    }
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setRenderOpen(true);
+    setPanelEntered(false);
+    setOpen(true);
+    requestAnimationFrame(() => setPanelEntered(true));
+  };
+
   const closeMenu = () => {
     if (!open && !renderOpen) return;
     if (closeTimerRef.current != null) {
@@ -74,27 +114,9 @@ export function PhilifeHeaderAddressMenuButton({
     }, 240);
   };
 
-  const toggleMenu = () => {
-    if (!isMemberViewer) {
-      openLoginRequiredSheet({ actionType: "address_save" });
-      return;
-    }
-    if (open) {
-      closeMenu();
-      return;
-    }
-    if (closeTimerRef.current != null) {
-      window.clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    setRenderOpen(true);
-    setPanelEntered(false);
-    setOpen(true);
-    requestAnimationFrame(() => setPanelEntered(true));
-  };
-
   useEffect(() => {
     if (isMemberViewer) return;
+    setList([]);
     closeMenu();
   }, [isMemberViewer]);
 
@@ -130,24 +152,110 @@ export function PhilifeHeaderAddressMenuButton({
     const x = clamp(anchorRect.left + anchorRect.width / 2 - panelRect.left, 10, panelRect.width - 10);
     const y = clamp(anchorRect.top + anchorRect.height / 2 - panelRect.top, 8, panelRect.height - 8);
     setPanelOrigin(`${Math.round(x)}px ${Math.round(y)}px`);
-  }, [open, anchorRect]);
+  }, [open, anchorRect, panelEntered, view]);
 
-  const panelStyle: CSSProperties =
-    panelPlacement === "top-right"
-      ? { top: 8, right: 8 }
-      : panelPlacement === "anchor-top-right" && anchorRect
-        ? { top: Math.round(anchorRect.bottom + 8), right: Math.max(8, Math.round(window.innerWidth - anchorRect.right)) }
-        : anchorRect
-          ? { top: Math.round(anchorRect.bottom + 8), left: Math.max(8, Math.round(anchorRect.right - 300)) }
-          : { top: 8, right: 8 };
+  useEffect(() => {
+    if (!open) return;
+    setView("menu");
+    if (list.length > 0) return;
+    let ignore = false;
+    setListLoading(true);
+    setListError(null);
+    void fetchMeAddressesListSingleFlight()
+      .then((result) => {
+        if (ignore) return;
+        if (!result.ok) {
+          setListError(describeMeAddressesListFailure(result, t, "philife_addr_list_load_failed"));
+          return;
+        }
+        const rows = result.rows;
+        setList(rows);
+        if (rows.length > 0) writeCachedMeAddressList(rows);
+      })
+      .catch(() => {
+        if (ignore) return;
+        setListError(t("philife_addr_list_network_failed"));
+      })
+      .finally(() => {
+        if (ignore) return;
+        setListLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [open, list.length]);
 
-  const openAddressBook = () => {
-    closeMenu();
-    navigateToMemberAddressBook(router, {
-      pathname,
-      search: searchParams?.toString() ? `?${searchParams.toString()}` : "",
-    });
-  };
+  useEffect(() => {
+    if (!open) return;
+    if (prevViewRef.current === view) return;
+    prevViewRef.current = view;
+    setViewAnimating(true);
+    const t = window.setTimeout(() => setViewAnimating(false), 220);
+    return () => window.clearTimeout(t);
+  }, [view, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const panelStyle = useMemo(() => {
+    if (panelPlacement === "top-right") {
+      return { top: 62, right: 12 };
+    }
+    if (panelPlacement === "anchor-top-right" && anchorRect) {
+      const top = Math.max(8, Math.round(anchorRect.top - 10));
+      const left = Math.max(8, Math.round(anchorRect.right + 6));
+      return { top, left };
+    }
+    if (!anchorRect) return { top: 62, right: 12 };
+    const top = Math.round(anchorRect.bottom + 6);
+    const right = Math.max(8, Math.round(window.innerWidth - anchorRect.right));
+    return { top, right };
+  }, [anchorRect, panelPlacement]);
+
+  async function setAsRepresentative(id: string) {
+    const row = list.find((a) => a.id === id);
+    if (!row || row.isDefaultMaster || busyId) return;
+    if (isLinkedSamarketStoreAddressRow(row)) {
+      setListError(t("addr_ui_store_not_master"));
+      return;
+    }
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/me/addresses/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isDefaultMaster: true,
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string; address?: UserAddressDTO };
+      if (!res.ok || !j.ok) {
+        setListError(translateUserAddressApiError(j.error, t, "philife_addr_change_failed"));
+        return;
+      }
+      const updated = list.map((item) => ({
+        ...item,
+        isDefaultMaster: item.id === id,
+      }));
+      setList(updated);
+      writeCachedMeAddressList(updated);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
+      }
+      setView("menu");
+    } catch {
+      setListError(t("philife_addr_change_network_failed"));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <>
@@ -193,30 +301,112 @@ export function PhilifeHeaderAddressMenuButton({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <div className="border-b border-black/10 px-3 py-2.5">
-                  <p className="text-[12px] leading-4 text-neutral-500">{t("philife_addr_current_label")}</p>
-                  <p className="mt-1 break-words text-[14px] font-medium leading-5 text-neutral-900">{addressLine}</p>
-                </div>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-3 py-3 text-left text-[14px] leading-5 hover:bg-neutral-50"
-                  onClick={openAddressBook}
+                <div
+                  style={{
+                    transform: viewAnimating ? "translate3d(0,-6px,0)" : "translate3d(0,0,0)",
+                    opacity: viewAnimating ? 0.98 : 1,
+                    transition: "transform 210ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease-out",
+                    willChange: "transform, opacity",
+                  }}
                 >
-                  <span>{t("philife_addr_change")}</span>
-                  <svg
-                    className="h-4 w-4 text-neutral-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                {view === "menu" ? (
+                  <>
+                    <div className="border-b border-black/10 px-3 py-2.5">
+                      <p className="text-[12px] leading-4 text-neutral-500">{t("philife_addr_current_label")}</p>
+                      <p className="mt-1 truncate text-[14px] font-medium leading-5 text-neutral-900">{addressLine}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-3 text-left text-[14px] leading-5 hover:bg-neutral-50"
+                      onClick={() => setView("picker")}
+                    >
+                      <span>{t("philife_addr_change")}</span>
+                      <svg
+                        className="h-4 w-4 text-neutral-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        aria-hidden
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                ) : (
+                  <div className="max-h-[min(62vh,420px)] overflow-y-auto">
+                    <div className="flex items-center justify-between border-b border-black/10 px-3 py-2.5">
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-[13px] text-neutral-600 hover:bg-neutral-100"
+                        onClick={() => setView("menu")}
+                      >
+                        {t("philife_addr_back")}
+                      </button>
+                      <p className="text-[13px] font-semibold text-neutral-800">{t("philife_addr_change")}</p>
+                      <span className="w-[28px]" aria-hidden />
+                    </div>
+                    {listError ? (
+                      <p className="px-3 py-2 text-[12px] leading-4 text-amber-700">{listError}</p>
+                    ) : null}
+                    {listLoading && list.length === 0 ? (
+                      <p className="px-3 py-3 text-[13px] text-neutral-600">{t("philife_addr_list_loading")}</p>
+                    ) : null}
+                    {!listLoading && list.length === 0 ? (
+                      <p className="px-3 py-3 text-[13px] text-neutral-600">{t("philife_addr_empty")}</p>
+                    ) : null}
+                    {list.map((row) => {
+                      const isActive = row.isDefaultMaster;
+                      const busy = busyId === row.id;
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          className="flex w-full items-start gap-2 border-t border-black/5 px-3 py-2.5 text-left hover:bg-neutral-50"
+                          onClick={() => void setAsRepresentative(row.id)}
+                          disabled={busy || busyId != null}
+                        >
+                          <span
+                            className={`mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                              isActive ? "border-sam-primary bg-sam-primary" : "border-neutral-300 bg-white"
+                            }`}
+                            aria-hidden
+                          >
+                            {isActive ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5">
+                              <UserAddressDesignationTitle
+                                row={row}
+                                className="text-[12px] font-semibold text-neutral-700"
+                              />
+                              {isActive ? (
+                                <span className="rounded-full bg-sam-primary-soft px-1.5 py-[1px] text-[11px] font-medium text-sam-primary">
+                                  {t("philife_addr_current_badge")}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="mt-0.5 flex min-w-0 gap-1.5 text-[13px] leading-5 text-neutral-700">
+                              <AddressKindHeadPin kind={row.isDefaultMaster ? "master" : "general"} className="mt-0.5 shrink-0" />
+                              <span className="min-w-0 flex-1 whitespace-normal break-words">
+                                <AddressUserRowLineText
+                                  row={row}
+                                  detailClassName="font-bold text-neutral-800"
+                                  bodyClassName="text-neutral-700"
+                                />
+                              </span>
+                            </span>
+                          </span>
+                          {busy ? <span className="text-[11px] text-neutral-500">{t("philife_addr_changing")}</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                </div>
               </div>
             </div>,
-            document.body,
+            document.body
           )
         : null}
     </>

@@ -14,21 +14,6 @@ Do not declare HARD LOCK until current-tree Xiaomi **Google search UI** works (M
 | STORE | `stores` address + geo columns | member master fallback |
 | ORDER SNAPSHOT | `store_orders.delivery_*` at create | live member pointer |
 
-## FULL STORAGE / CONTEXTUAL DISPLAY (SSOT)
-
-```
-ONE ADDRESS BOOK → ONE user_addresses SSOT → ONE FULL ADDRESS STORAGE → MANY DISPLAY FORMATTERS
-```
-
-- **STORAGE ≠ DISPLAY.** Do not truncate DB for PUBLIC. Do not duplicate rows for Trade / Community / Delivery / Public.
-- **FULL display** (My Page, Address Book, Delivery, Checkout, Orders, authorized Store/Admin): full row via full formatters.
-- **PUBLIC display** (Trade, Community, Header region, Neighborhood): **same** `user_addresses` row → `formatPublicAddress` (city / policy region only — no unit/floor/street/landmark detail).
-- Trade write selects a member row and applies region/city snapshot to the post — **not** a second address SSOT.
-- Delivery order create may copy an **order delivery snapshot** for immutability — not a second member address book.
-- Store address authority remains `stores` when that is the product owner — do not force-merge into `user_addresses`.
-- Google Place identity (name, placeId, components, lat/lng) is an **input** to the FULL member row, not caller-scoped storage.
-- **`place_display_name` migration:** NOT APPROVED from R1 code audit alone. **MIGRATION REQUIRED: NOT PROVEN** until R2 save/list runtime shows CASE B loss that mapping cannot fix.
-
 ## Writers (member)
 
 | Op | Function | Route |
@@ -81,9 +66,7 @@ Canonical field mapper: `parsePhFromGooglePlaceResult` (+ `reverseGeocodeLatLngP
 | `profiles.full_address` / `region_name` | BRIDGE, DROP LATER |
 | `syncProfileRegionFromLifeDefault` | BRIDGE after writer |
 | `promoteAsLastSavedPrimary` payload | REMOVED |
-| `AddressFineTuneMapClient` | KEEP — embedded in `AddressEditorSheet` same-page pin adjust (R1). Standalone `/mypage/addresses/fine-tune` product path = 0 (files may remain until R5) |
-| `AddressFineTuneSheet` / FineTune page | LEGACY — product navigate cut in R1; file delete deferred to R5 |
-| Member add/edit entry | KEEP — `/mypage/addresses` → `/edit` page stack only (`navigateToMemberAddress*`); management 모달 에디터 금지 |
+| `AddressFineTuneSheet` / `AddressFineTuneMapClient` | DELETED (importer=0) |
 | `refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated` | DELETED (caller=0) |
 | community `region_label` client body | REMOVED — `resolveCommunityPublicRegionLabelForUser` |
 | shop Korean throw | REMOVED — `shop_store_required` / `shop_owner_required` / `shop_place_required` / `shop_address_duplicate` |

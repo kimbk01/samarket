@@ -11,7 +11,6 @@ import {
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isMypageAddressFlowPath, mypageAddressStackDepth } from "@/lib/addresses/mypage-addresses-return-to";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -65,12 +64,6 @@ function syncLastForwardAxisAfterKind(
     ref.current = "rtl";
   }
   if (kind === "profile-edit-back") {
-    ref.current = null;
-  }
-  if (kind === "address-book-forward") {
-    ref.current = "rtl";
-  }
-  if (kind === "address-book-back") {
     ref.current = null;
   }
 }
@@ -134,20 +127,6 @@ export function computeRouteTransitionEnterKind(
     kind = "profile-edit-forward";
   } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {
     kind = "profile-edit-back";
-  } else if (isMypageAddressFlowPath(nextPath) && isMypageAddressFlowPath(prevPath)) {
-    const dPrev = mypageAddressStackDepth(prevPath);
-    const dNext = mypageAddressStackDepth(nextPath);
-    if (dNext > dPrev) {
-      kind = "address-book-forward";
-    } else if (dNext < dPrev) {
-      kind = "address-book-back";
-    } else {
-      kind = "subtle";
-    }
-  } else if (isMypageAddressFlowPath(nextPath) && !isMypageAddressFlowPath(prevPath)) {
-    kind = "address-book-forward";
-  } else if (isMypageAddressFlowPath(prevPath) && !isMypageAddressFlowPath(nextPath)) {
-    kind = "address-book-back";
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";

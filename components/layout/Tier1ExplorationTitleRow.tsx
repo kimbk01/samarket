@@ -12,7 +12,6 @@ import {
 } from "@/lib/neighborhood/location-key";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 /** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
 type Tier1ExplorationTitleRowProps = {
@@ -63,11 +62,10 @@ export function Tier1ExplorationTitleRow({
           </span>
           <Link
             href={addressManagementHref}
-            className="sam-text-body-secondary inline-flex min-w-0 flex-1 items-center gap-1 truncate leading-none hover:text-sam-fg hover:underline"
+            className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
             aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
           >
-            <AddressKindHeadPin kind="master" className="shrink-0" />
-            <span className="min-w-0 truncate">{addressLine}</span>
+            {addressLine}
           </Link>
         </>
       ) : null}

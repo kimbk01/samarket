@@ -1,34 +1,21 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
-import { fetchPlacePredictionsPhDetailed, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
+import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
 import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
+import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
 import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-display";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
-import {
-  reverseGeocodeLatLngPh,
-  type ReverseGeocodePhResult,
-} from "@/lib/addresses/reverse-geocode-ph-client";
-import {
-  editorPlacePreviewHeadline,
-  editorPlacePreviewSubline,
-  identityFromPlaceDetails,
-  identityFromSavedAddress,
-  mapPlaceIdentityToWriteFields,
-  reconcileIdentityAfterPinMove,
-  type EditorPlaceIdentity,
-  type EditorPlaceIdentityAnchor,
-} from "@/lib/addresses/editor-place-identity";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
+import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
@@ -37,16 +24,9 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
-import {
-  buildMypageAddressesHref,
-  parseStoreIdFromReturnTo,
-} from "@/lib/addresses/mypage-addresses-return-to";
-import {
-  clearAddressEditorSession,
-  peekAddressEditorPageDraft,
-  peekAddressFineTuneResult,
-} from "@/lib/addresses/address-editor-page-draft";
+import { buildMypageAddressesHref, parseStoreIdFromReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
+import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
@@ -62,6 +42,7 @@ import {
   isLocationOnlyAddressNickname,
 } from "@/lib/addresses/location-only-address-nickname";
 import { AddressDesignationField, type AddressDesignationPreset } from "@/components/addresses/AddressDesignationField";
+import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
@@ -69,24 +50,6 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-
-const AddressFineTuneMapLazy = dynamic(
-  () =>
-    import("@/components/addresses/AddressFineTuneMapClient").then((m) => m.AddressFineTuneMapClient),
-  {
-    ssr: false,
-    loading: () => <AddressEditorInlineMapLoadingPlaceholder />,
-  },
-);
-
-function AddressEditorInlineMapLoadingPlaceholder() {
-  const { t } = useI18n();
-  return (
-    <div className="flex h-[min(40vh,320px)] items-center justify-center rounded-lg border border-sam-border bg-sam-surface-muted sam-text-body-secondary text-sam-muted">
-      {t("addr_ui_fine_tune_map_loading")}
-    </div>
-  );
-}
 
 type Mode = "create" | "edit";
 
@@ -146,13 +109,6 @@ export function AddressEditorSheet(props: {
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const draftHydratedRef = useRef(false);
-  /** Search / GPS / pin reverse generation — stale reverse must not overwrite newer selection. */
-  const locationRequestSeqRef = useRef(0);
-  const reverseDebounceRef = useRef<number | null>(null);
-  /** Search/GPS selection origin for same-premise vs different-premise reconcile. */
-  const placeIdentityAnchorRef = useRef<EditorPlaceIdentityAnchor | null>(null);
-  const placeIdentityLiveRef = useRef<EditorPlaceIdentity | null>(null);
 
   const [nickname, setNickname] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -171,20 +127,17 @@ export function AddressEditorSheet(props: {
   const [formattedAddress, setFormattedAddress] = useState("");
   const [roadAddress, setRoadAddress] = useState("");
   const [fullAddress, setFullAddress] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
   const [neighborhoodName, setNeighborhoodName] = useState("");
   const [buildingName, setBuildingName] = useState("");
-  /** Google Place display name — ≠ user nickname; ≠ always buildingName */
-  const [placeDisplayName, setPlaceDisplayName] = useState("");
+  const [fineTuneOpen, setFineTuneOpen] = useState(false);
   const [mapPinConfirmed, setMapPinConfirmed] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geoHint, setGeoHint] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [predictions, setPredictions] = useState<PlacePredictionRow[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
-  const [mapReverseResolving, setMapReverseResolving] = useState(false);
-  const [mapReverseErr, setMapReverseErr] = useState<string | null>(null);
   const [useLife, setUseLife] = useState(true);
   const [useTrade, setUseTrade] = useState(true);
   const [useDel, setUseDel] = useState(true);
@@ -236,22 +189,13 @@ export function AddressEditorSheet(props: {
     setCityMunicipality("");
     setProvince("");
     setBuildingName("");
-    setPlaceDisplayName("");
     setNeighborhoodName("");
     setSearch("");
     setPredictions([]);
     selectionAnchorSearchRef.current = null;
-    placeIdentityAnchorRef.current = null;
-    placeIdentityLiveRef.current = null;
+    setFineTuneOpen(false);
     setMapPinConfirmed(false);
     setGeoHint(null);
-    setMapReverseErr(null);
-    setMapReverseResolving(false);
-    locationRequestSeqRef.current += 1;
-    if (reverseDebounceRef.current != null) {
-      window.clearTimeout(reverseDebounceRef.current);
-      reverseDebounceRef.current = null;
-    }
   }, []);
 
   const restoreInitialLocationFields = useCallback(() => {
@@ -262,11 +206,7 @@ export function AddressEditorSheet(props: {
     setCityMunicipality(initial.cityMunicipality ?? "");
     setProvince(initial.province ?? "");
     setLandmark(initial.landmark ?? "");
-    {
-      const savedId = identityFromSavedAddress(initial);
-      setPlaceDisplayName(savedId.placeDisplayName);
-      setBuildingName(savedId.buildingName);
-    }
+    setBuildingName(initial.buildingName ?? "");
     setNeighborhoodName(initial.neighborhoodName ?? "");
     if (initial.labelType === "shop") {
       setStreetAddress((initial.streetAddress ?? "").trim());
@@ -300,6 +240,7 @@ export function AddressEditorSheet(props: {
       selectionAnchorSearchRef.current = null;
     }
     setPredictions([]);
+    setFineTuneOpen(false);
     setMapPinConfirmed(true);
   }, [initial, mapBootstrap, mode]);
 
@@ -336,24 +277,22 @@ export function AddressEditorSheet(props: {
   }, [t]);
 
   const handleSearchFocus = useCallback(() => {
-    /**
-     * Xiaomi/Android: 포커스만으로 확정 핀·건물명을 지우면 fine-tune 복구 직후 주소가 사라진다.
-     * 확정 위치는 유지하고, 사용자가 검색어를 바꿀 때만 새 예측을 연다.
-     */
-    if (mapPinConfirmed) {
-      selectionAnchorSearchRef.current =
-        search.trim().length >= 2 ? search.trim() : null;
-      return;
-    }
     if (!search.trim()) return;
     storeGeoAppliedRef.current = false;
     selectionAnchorSearchRef.current = null;
     setSearch("");
     setPredictions([]);
     setSearching(false);
-    setSearchStatus(null);
     setErr(null);
-  }, [mapPinConfirmed, search]);
+    setUnitFloorRoom("");
+    setLatitude(null);
+    setLongitude(null);
+    setPlaceId("");
+    setFormattedAddress("");
+    setFullAddress("");
+    setMapPinConfirmed(false);
+    setFineTuneOpen(false);
+  }, [search]);
 
   const returnToStoreId = useMemo(() => parseStoreIdFromReturnTo(returnTo), [returnTo]);
   const storeCreateBootstrapRef = useRef(false);
@@ -375,111 +314,13 @@ export function AddressEditorSheet(props: {
   }, [open, mode, labelPreset, returnToStoreId, meStores, applyStoreRow]);
 
   useEffect(() => {
-    if (!open) {
-      draftHydratedRef.current = false;
-      return;
-    }
-    if (draftHydratedRef.current) return;
-
+    if (!open) return;
     setErr(null);
     setPreflightSave(null);
     setDetailAttempted(false);
     setShopListErr(null);
-    storeGeoAppliedRef.current = false;
-
-    const draftPeek = peekAddressEditorPageDraft();
-    const fineTunePeek = peekAddressFineTuneResult();
-    if (draftPeek || fineTunePeek) {
-      draftHydratedRef.current = true;
-      /** peek only — dual-panel remount 대비 consume/clear 금지 */
-      const draft = draftPeek;
-      const fineTune = fineTunePeek;
-      if (draft) {
-        setLabelPreset(draft.labelPreset);
-        setSelectedStoreId(draft.selectedStoreId);
-        setNickname(draft.nickname);
-        setRecipientName(draft.recipientName);
-        setPhoneNumber(draft.phoneNumber);
-        setRegion(draft.region);
-        setCity(draft.city);
-        setBarangay(draft.barangay);
-        setCityMunicipality(draft.cityMunicipality);
-        setProvince(draft.province);
-        setStreetAddress(draft.streetAddress);
-        setUnitFloorRoom(draft.unitFloorRoom);
-        setLandmark(draft.landmark);
-        setBuildingName(draft.buildingName);
-        setPlaceDisplayName(draft.buildingName);
-        setNeighborhoodName(draft.neighborhoodName);
-        setLatitude(draft.latitude);
-        setLongitude(draft.longitude);
-        setPlaceId(draft.placeId);
-        setFormattedAddress(draft.formattedAddress);
-        setRoadAddress(draft.roadAddress);
-        setFullAddress(draft.fullAddress);
-        setSearch(draft.search);
-        selectionAnchorSearchRef.current = draft.selectionAnchorSearch;
-        placeIdentityLiveRef.current = {
-          placeId: draft.placeId,
-          placeDisplayName: draft.buildingName,
-          buildingName: "",
-          landmarkName: "",
-          streetAddress: draft.streetAddress,
-          formattedAddress: draft.formattedAddress,
-          barangay: draft.barangay,
-          cityMunicipality: draft.cityMunicipality,
-          province: draft.province,
-          neighborhoodName: draft.neighborhoodName,
-          latitude: draft.latitude ?? NaN,
-          longitude: draft.longitude ?? NaN,
-        };
-        if (draft.latitude != null && draft.longitude != null) {
-          placeIdentityAnchorRef.current = {
-            placeId: draft.placeId,
-            placeDisplayName: draft.buildingName,
-            buildingName: "",
-            landmarkName: "",
-            latitude: draft.latitude,
-            longitude: draft.longitude,
-          };
-        }
-        setUseLife(draft.useLife);
-        setUseTrade(draft.useTrade);
-        setUseDel(draft.useDel);
-        setDefMaster(draft.defMaster);
-        setDefLife(draft.defLife);
-        setDefTrade(draft.defTrade);
-        setDefDel(draft.defDel);
-        setMapPinConfirmed(draft.mapPinConfirmed);
-        setPredictions([]);
-        setSearchStatus(null);
-      }
-      if (fineTune?.placeId) {
-        const { identity } = reconcileIdentityAfterPinMove({
-          previous: {
-            placeId: "",
-            placeDisplayName: "",
-            buildingName: "",
-            landmarkName: "",
-            streetAddress: "",
-            formattedAddress: "",
-            barangay: "",
-            cityMunicipality: "",
-            province: "",
-            neighborhoodName: "",
-            latitude: fineTune.latitude,
-            longitude: fineTune.longitude,
-          },
-          anchor: null,
-          reverse: fineTune,
-        });
-        applyIdentityToEditor(identity);
-        captureIdentityAnchor(identity);
-      }
-      return;
-    }
-
     selectionAnchorSearchRef.current = null;
+    storeGeoAppliedRef.current = false;
     if (mode === "edit" && initial) {
       setLabelPreset(deriveLabelPresetFromDto(initial));
       setSelectedStoreId(initial.linkedStoreId?.trim() ?? "");
@@ -504,40 +345,7 @@ export function AddressEditorSheet(props: {
         }
       }
       setLandmark(initial.landmark ?? "");
-      {
-        const savedId = identityFromSavedAddress(initial);
-        setPlaceDisplayName(savedId.placeDisplayName);
-        setBuildingName(savedId.buildingName);
-        if (
-          initial.latitude != null &&
-          initial.longitude != null &&
-          Number.isFinite(initial.latitude) &&
-          Number.isFinite(initial.longitude)
-        ) {
-          const live: EditorPlaceIdentity = {
-            ...savedId,
-            latitude: initial.latitude,
-            longitude: initial.longitude,
-            streetAddress: (initial.streetAddress ?? savedId.streetAddress).trim(),
-            formattedAddress:
-              (initial.formattedAddress ?? initial.fullAddress ?? savedId.formattedAddress).trim(),
-            barangay: (initial.barangay ?? "").trim(),
-            cityMunicipality: (initial.cityMunicipality ?? "").trim(),
-            province: (initial.province ?? "").trim(),
-            neighborhoodName: (initial.neighborhoodName ?? "").trim(),
-            placeId: (initial.placeId ?? "").trim(),
-          };
-          placeIdentityLiveRef.current = live;
-          placeIdentityAnchorRef.current = {
-            placeId: live.placeId,
-            placeDisplayName: live.placeDisplayName,
-            buildingName: live.buildingName,
-            landmarkName: live.landmarkName,
-            latitude: live.latitude,
-            longitude: live.longitude,
-          };
-        }
-      }
+      setBuildingName(initial.buildingName ?? "");
       if (mapBootstrap) {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
@@ -554,6 +362,7 @@ export function AddressEditorSheet(props: {
         setFullAddress(initial.fullAddress ?? initial.formattedAddress ?? "");
         setUnitFloorRoom(initial.detailAddress ?? initial.unitFloorRoom ?? "");
       }
+      setDeliveryNote(initial.deliveryNote ?? "");
       {
         const anchor = (initial.roadAddress ?? initial.formattedAddress ?? initial.fullAddress ?? "").trim();
         setSearch(anchor);
@@ -569,6 +378,7 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
+      setFineTuneOpen(false);
       setMapPinConfirmed(true);
     } else if (mode === "create") {
       storeCreateBootstrapRef.current = false;
@@ -586,9 +396,6 @@ export function AddressEditorSheet(props: {
       setUnitFloorRoom("");
       setLandmark("");
       setBuildingName("");
-      setPlaceDisplayName("");
-      placeIdentityAnchorRef.current = null;
-      placeIdentityLiveRef.current = null;
       if (mapBootstrap) {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
@@ -604,6 +411,7 @@ export function AddressEditorSheet(props: {
         setRoadAddress("");
         setFullAddress("");
       }
+      setDeliveryNote("");
       if (mapBootstrap?.fullAddress?.trim()) {
         const a = mapBootstrap.fullAddress.trim();
         setSearch(a);
@@ -619,6 +427,7 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
+      setFineTuneOpen(false);
       setMapPinConfirmed(Boolean(mapBootstrap));
       setGeoHint(null);
     }
@@ -631,7 +440,6 @@ export function AddressEditorSheet(props: {
       selectionAnchorSearchRef.current = null;
       setPredictions([]);
       setSearching(false);
-      setSearchStatus(null);
       return;
     }
     if (
@@ -642,24 +450,17 @@ export function AddressEditorSheet(props: {
     ) {
       setPredictions([]);
       setSearching(false);
-      setSearchStatus(null);
       return;
     }
     let cancelled = false;
     setSearching(true);
-    setSearchStatus(null);
     const t = window.setTimeout(() => {
       void (async () => {
         try {
-          const result = await fetchPlacePredictionsPhDetailed(q);
-          if (cancelled) return;
-          setPredictions(result.rows);
-          setSearchStatus(result.rows.length > 0 ? null : result.status);
+          const rows = await fetchPlacePredictionsPh(q);
+          if (!cancelled) setPredictions(rows);
         } catch {
-          if (!cancelled) {
-            setPredictions([]);
-            setSearchStatus("ERROR");
-          }
+          if (!cancelled) setPredictions([]);
         } finally {
           if (!cancelled) setSearching(false);
         }
@@ -736,193 +537,48 @@ export function AddressEditorSheet(props: {
     [],
   );
 
-  const applyIdentityToEditor = useCallback(
-    (id: EditorPlaceIdentity, opts?: { setSearchFromFormatted?: boolean }) => {
-      placeIdentityLiveRef.current = id;
-      setLatitude(id.latitude);
-      setLongitude(id.longitude);
-      setPlaceId(id.placeId);
-      setPlaceDisplayName(id.placeDisplayName);
-      setBuildingName(id.buildingName);
-      setFormattedAddress(id.formattedAddress);
-      setFullAddress(id.formattedAddress);
-      setRoadAddress(id.formattedAddress);
-      setStreetAddress(id.streetAddress);
-      setBarangay(id.barangay);
-      setCityMunicipality(id.cityMunicipality);
-      setProvince(id.province);
-      setNeighborhoodName(id.neighborhoodName);
-      if (opts?.setSearchFromFormatted !== false) {
-        const s = (id.placeDisplayName || id.formattedAddress || id.streetAddress).trim();
-        setSearch(s);
-        selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
-      }
-      setMapPinConfirmed(Boolean(id.placeId));
-      setPredictions([]);
-      setSearchStatus(null);
-      applyTaxonomyFromDraftFields({
-        buildingName: id.placeDisplayName || id.buildingName,
-        barangay: id.barangay,
-        cityMunicipality: id.cityMunicipality,
-        province: id.province,
-        streetAddress: id.streetAddress,
-        neighborhoodName: id.neighborhoodName,
-        formattedAddress: id.formattedAddress,
-        roadAddress: id.formattedAddress,
-        fullAddress: id.formattedAddress,
-      });
-    },
-    [applyTaxonomyFromDraftFields],
-  );
-
-  const captureIdentityAnchor = useCallback((id: EditorPlaceIdentity) => {
-    placeIdentityAnchorRef.current = {
-      placeId: id.placeId,
-      placeDisplayName: id.placeDisplayName,
-      buildingName: id.buildingName,
-      landmarkName: id.landmarkName,
-      latitude: id.latitude,
-      longitude: id.longitude,
-    };
-  }, []);
-
-  const applyReverseToEditorState = useCallback(
-    (r: ReverseGeocodePhResult) => {
-      const previous =
-        placeIdentityLiveRef.current ??
-        ({
-          placeId,
-          placeDisplayName,
-          buildingName,
-          landmarkName: "",
-          streetAddress,
-          formattedAddress,
-          barangay,
-          cityMunicipality,
-          province,
-          neighborhoodName,
-          latitude: latitude ?? r.latitude,
-          longitude: longitude ?? r.longitude,
-        } satisfies EditorPlaceIdentity);
-      const { identity } = reconcileIdentityAfterPinMove({
-        previous,
-        anchor: placeIdentityAnchorRef.current,
-        reverse: r,
-      });
-      applyIdentityToEditor(identity, { setSearchFromFormatted: true });
-    },
-    [
-      applyIdentityToEditor,
-      barangay,
-      buildingName,
-      cityMunicipality,
-      formattedAddress,
-      latitude,
-      longitude,
-      neighborhoodName,
-      placeDisplayName,
-      placeId,
-      province,
-      streetAddress,
-    ],
-  );
-
-  const runReverseForCoords = useCallback(
-    async (lat: number, lng: number, seq: number, opts?: { confirmOnSuccess?: boolean; asNewAnchor?: boolean }) => {
-      setMapReverseResolving(true);
-      setMapReverseErr(null);
-      try {
-        const r = await reverseGeocodeLatLngPh(lat, lng);
-        if (seq !== locationRequestSeqRef.current) return;
-        if (!r) {
-          setMapReverseErr(t("addr_ui_resolve_failed"));
-          if (opts?.confirmOnSuccess) setMapPinConfirmed(false);
-          return;
-        }
-        if (!r.placeId) {
-          setMapReverseErr(t("addr_ui_no_place_id_move"));
-          if (opts?.asNewAnchor) {
-            const id = reconcileIdentityAfterPinMove({
-              previous: {
-                placeId: "",
-                placeDisplayName: "",
-                buildingName: "",
-                landmarkName: "",
-                streetAddress: "",
-                formattedAddress: "",
-                barangay: "",
-                cityMunicipality: "",
-                province: "",
-                neighborhoodName: "",
-                latitude: lat,
-                longitude: lng,
-              },
-              anchor: null,
-              reverse: r,
-            }).identity;
-            applyIdentityToEditor(id);
-            captureIdentityAnchor(id);
-          } else {
-            applyReverseToEditorState(r);
-          }
-          if (opts?.confirmOnSuccess) setMapPinConfirmed(false);
-          return;
-        }
-        if (opts?.asNewAnchor) {
-          const id = reconcileIdentityAfterPinMove({
-            previous: {
-              placeId: "",
-              placeDisplayName: "",
-              buildingName: "",
-              landmarkName: "",
-              streetAddress: "",
-              formattedAddress: "",
-              barangay: "",
-              cityMunicipality: "",
-              province: "",
-              neighborhoodName: "",
-              latitude: lat,
-              longitude: lng,
-            },
-            anchor: null,
-            reverse: r,
-          }).identity;
-          applyIdentityToEditor(id);
-          captureIdentityAnchor(id);
-        } else {
-          applyReverseToEditorState(r);
-        }
-        setMapReverseErr(null);
-      } catch {
-        if (seq !== locationRequestSeqRef.current) return;
-        setMapReverseErr(t("addr_ui_resolve_failed_short"));
-      } finally {
-        if (seq === locationRequestSeqRef.current) setMapReverseResolving(false);
-      }
-    },
-    [applyIdentityToEditor, applyReverseToEditorState, captureIdentityAnchor, t],
-  );
-
-  const scheduleReverseFromPin = useCallback(
-    (lat: number, lng: number) => {
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      setLatitude(lat);
-      setLongitude(lng);
-      if (reverseDebounceRef.current != null) window.clearTimeout(reverseDebounceRef.current);
-      reverseDebounceRef.current = window.setTimeout(() => {
-        reverseDebounceRef.current = null;
-        const seq = ++locationRequestSeqRef.current;
-        void runReverseForCoords(lat, lng, seq);
-      }, 450);
-    },
-    [runReverseForCoords],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (reverseDebounceRef.current != null) window.clearTimeout(reverseDebounceRef.current);
-    };
-  }, []);
+  const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
+    if (!r.placeId) return;
+    setLatitude(r.latitude);
+    setLongitude(r.longitude);
+    setPlaceId(r.placeId);
+    setFormattedAddress(r.formattedAddress);
+    setFullAddress(r.formattedAddress);
+    setRoadAddress(r.formattedAddress);
+    const ph = r.parsed;
+    const headLine = r.formattedAddress.split(",")[0]?.trim() ?? "";
+    const nextStreet = ph.routeLine || headLine;
+    const nextBarangay = ph.barangay ?? "";
+    const nextCityMun = ph.cityMunicipality ?? "";
+    const nextProvince = ph.province ?? "";
+    const nextNeighborhood = ph.neighborhood ?? "";
+    const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+    setStreetAddress(nextStreet);
+    setBarangay(nextBarangay);
+    setCityMunicipality(nextCityMun);
+    setProvince(nextProvince);
+    setNeighborhoodName(nextNeighborhood);
+    setBuildingName(nextBuilding);
+    setUnitFloorRoom("");
+    applyTaxonomyFromDraftFields({
+      buildingName: nextBuilding,
+      barangay: nextBarangay,
+      cityMunicipality: nextCityMun,
+      province: nextProvince,
+      streetAddress: nextStreet,
+      neighborhoodName: nextNeighborhood,
+      formattedAddress: r.formattedAddress,
+      roadAddress: r.formattedAddress,
+      fullAddress: r.formattedAddress,
+    });
+    const s = r.formattedAddress.trim();
+    setSearch(s);
+    selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
+    setMapPinConfirmed(true);
+    window.setTimeout(() => {
+      document.getElementById("addr-editor-detail")?.focus();
+    }, 0);
+  }, [applyTaxonomyFromDraftFields]);
 
   const streetPreview = useMemo(() => {
     return formatPhDeliveryStreetSummary({
@@ -933,32 +589,6 @@ export function AddressEditorSheet(props: {
       fullAddress: fullAddress || null,
     } as UserAddressDTO);
   }, [roadAddress, formattedAddress, fullAddress]);
-
-  const placePreviewHeadline = useMemo(
-    () => editorPlacePreviewHeadline({ placeDisplayName, buildingName }),
-    [placeDisplayName, buildingName],
-  );
-  const placePreviewSubline = useMemo(
-    () =>
-      editorPlacePreviewSubline({
-        placeDisplayName,
-        buildingName,
-        streetAddress,
-        formattedAddress,
-        cityMunicipality,
-      }) ||
-      streetPreview ||
-      stripCountryFromAddressDisplayLine((formattedAddress || fullAddress).trim(), "Philippines"),
-    [
-      placeDisplayName,
-      buildingName,
-      streetAddress,
-      formattedAddress,
-      cityMunicipality,
-      streetPreview,
-      fullAddress,
-    ],
-  );
 
   const storeOptions = useMemo(
     () =>
@@ -1029,40 +659,44 @@ export function AddressEditorSheet(props: {
         setErr(t("addr_ui_coords_invalid"));
         return;
       }
-      const placeForIdentity = {
-        ...detail,
-        place_id: (detail?.place_id ?? row.placeId).trim(),
-        name: (detail?.name ?? row.mainText ?? "").trim() || detail?.name,
-        formatted_address: formatted,
-      } as google.maps.places.PlaceResult;
+      const ph = parsePhFromGooglePlaceResult(detail);
+      const label = (row.description || formatted).trim();
       storeGeoAppliedRef.current = false;
+      selectionAnchorSearchRef.current = label.length >= 2 ? label : null;
+      setPlaceId(row.placeId);
+      setFormattedAddress(formatted);
+      setRoadAddress(row.description || formatted);
+      setFullAddress(formatted);
+      const nextStreet = ph.routeLine || row.mainText || formatted;
+      const nextBarangay = ph.barangay ?? "";
+      const nextCityMun = ph.cityMunicipality ?? "";
+      const nextProvince = ph.province ?? "";
+      const nextNeighborhood = ph.neighborhood ?? "";
+      const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+      setStreetAddress(nextStreet);
+      setBarangay(nextBarangay);
+      setCityMunicipality(nextCityMun);
+      setProvince(nextProvince);
+      setNeighborhoodName(nextNeighborhood);
+      setBuildingName(nextBuilding);
+      setLatitude(lat);
+      setLongitude(lng);
       setUnitFloorRoom("");
-      setMapReverseErr(null);
-      locationRequestSeqRef.current += 1;
-      if (reverseDebounceRef.current != null) {
-        window.clearTimeout(reverseDebounceRef.current);
-        reverseDebounceRef.current = null;
-      }
-      const id = identityFromPlaceDetails(placeForIdentity, lat, lng);
-      applyIdentityToEditor(id);
-      captureIdentityAnchor(id);
-      const searchLabel = (id.placeDisplayName || row.description || formatted).trim();
-      setSearch(searchLabel);
-      selectionAnchorSearchRef.current = searchLabel.length >= 2 ? searchLabel : null;
-      /**
-       * Street search often lands the pin on a nearby POI (map label) without naming it.
-       * Run one reverse enrich so Villa Milagros-class names enter Editor state.
-       */
-      const streetOnlySelected =
-        !id.placeDisplayName.trim() ||
-        /^\d+[A-Za-z]?\s/.test(id.placeDisplayName.trim()) ||
-        /\b(street|st\.?|road|rd\.?|avenue|ave\.?|blvd\.?|boulevard|drive|dr\.?)\b/i.test(
-          id.placeDisplayName,
-        );
-      if (streetOnlySelected) {
-        const seq = locationRequestSeqRef.current;
-        void runReverseForCoords(lat, lng, seq);
-      }
+      applyTaxonomyFromDraftFields({
+        buildingName: nextBuilding,
+        barangay: nextBarangay,
+        cityMunicipality: nextCityMun,
+        province: nextProvince,
+        streetAddress: nextStreet,
+        neighborhoodName: nextNeighborhood,
+        formattedAddress: formatted,
+        roadAddress: row.description || formatted,
+        fullAddress: formatted,
+      });
+      setPredictions([]);
+      setSearch(label);
+      setMapPinConfirmed(false);
+      setFineTuneOpen(true);
     } finally {
       setResolvingPlaceId(null);
     }
@@ -1086,35 +720,18 @@ export function AddressEditorSheet(props: {
         return;
       }
       storeGeoAppliedRef.current = false;
-      const lat = res.position.latitude;
-      const lng = res.position.longitude;
-      setLatitude(lat);
-      setLongitude(lng);
+      setLatitude(res.position.latitude);
+      setLongitude(res.position.longitude);
       setPlaceId("");
-      setPlaceDisplayName("");
-      setBuildingName("");
       setFormattedAddress("");
       setMapPinConfirmed(false);
-      setMapReverseErr(null);
-      placeIdentityAnchorRef.current = null;
-      placeIdentityLiveRef.current = null;
-      if (reverseDebounceRef.current != null) {
-        window.clearTimeout(reverseDebounceRef.current);
-        reverseDebounceRef.current = null;
-      }
-      const seq = ++locationRequestSeqRef.current;
-      void runReverseForCoords(lat, lng, seq, { confirmOnSuccess: true, asNewAnchor: true });
+      setFineTuneOpen(true);
     } finally {
       setLocating(false);
     }
-  }, [t, runReverseForCoords]);
+  }, [t]);
 
-  async function saveAddress(opts?: {
-    skipDupCheck?: boolean;
-    skipShopAck?: boolean;
-    /** 구분 중복「변경 확인」후 — 저장과 함께 대표(master)로 지정 */
-    forceDefaultMaster?: boolean;
-  }) {
+  async function saveAddress(opts?: { skipDupCheck?: boolean; skipShopAck?: boolean }) {
     setBusy(true);
     setErr(null);
     setDetailAttempted(true);
@@ -1216,20 +833,12 @@ export function AddressEditorSheet(props: {
       }
       let resolvedRegionId = region.trim() || null;
       let resolvedCityId = city.trim() || null;
-      const writeIdentity = mapPlaceIdentityToWriteFields(
-        {
-          placeDisplayName,
-          buildingName,
-          landmarkName: "",
-        },
-        landmark,
-      );
       if (!resolvedRegionId || !resolvedCityId) {
         const hit = mapUserAddressToAppLocation({
           appRegionId: null,
           appCityId: null,
-          buildingName: writeIdentity.buildingName,
-          landmark: writeIdentity.landmark,
+          buildingName: buildingName.trim() || null,
+          landmark: landmark.trim() || null,
           barangay: barangay.trim() || null,
           district: null,
           cityMunicipality: cityMunicipality.trim() || null,
@@ -1259,22 +868,22 @@ export function AddressEditorSheet(props: {
         cityMunicipality: cityMunicipality.trim() || null,
         province: province.trim() || null,
         streetAddress: streetAddress.trim() || null,
-        buildingName: writeIdentity.buildingName,
+        buildingName: buildingName.trim() || null,
         unitFloorRoom: unitFloorRoom.trim() || null,
-        landmark: writeIdentity.landmark,
+        landmark: landmark.trim() || null,
         latitude,
         longitude,
         placeId: placeId.trim(),
         formattedAddress: formattedAddress.trim(),
         roadAddress: roadAddress.trim() || formattedAddress.trim(),
         detailAddress: unitFloorRoom.trim(),
-        deliveryNote: null,
+        deliveryNote: deliveryNote.trim() || null,
         fullAddress: formattedAddress.trim() || fullAddress.trim() || null,
         neighborhoodName: neighborhoodName.trim() || null,
         useForLife: useLife,
         useForTrade: useTrade,
         useForDelivery: useDel,
-        isDefaultMaster: opts?.forceDefaultMaster === true ? true : defMaster,
+        isDefaultMaster: defMaster,
         isDefaultLife: defLife,
         isDefaultTrade: defTrade,
         isDefaultDelivery: defDel,
@@ -1292,7 +901,6 @@ export function AddressEditorSheet(props: {
         return;
       }
       await Promise.resolve(onSaved());
-      clearAddressEditorSession();
       if (layout !== "page") onClose();
     } finally {
       setBusy(false);
@@ -1330,14 +938,7 @@ export function AddressEditorSheet(props: {
       }
     }
 
-    /** 구분 변경 확인 = 이 주소 저장 + 대표 주소로 지정 (매장 연결은 master 금지) */
-    const promoteMaster = Boolean(pending.conflict) && labelPreset !== "shop";
-    if (promoteMaster) setDefMaster(true);
-    await saveAddress({
-      skipDupCheck: true,
-      skipShopAck: true,
-      forceDefaultMaster: promoteMaster,
-    });
+    await saveAddress({ skipDupCheck: true, skipShopAck: true });
   }
 
   const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
@@ -1421,14 +1022,10 @@ export function AddressEditorSheet(props: {
             search={search}
             searching={searching}
             predictions={predictions}
-            searchStatus={searchStatus}
             resolvingPlaceId={resolvingPlaceId}
             onSearchChange={(value) => {
               setSearch(value);
               setErr(null);
-              if (mapPinConfirmed && value.trim() !== search.trim()) {
-                selectionAnchorSearchRef.current = null;
-              }
             }}
             onSearchFocus={handleSearchFocus}
             onSelectPrediction={(p) => void selectPrediction(p)}
@@ -1442,56 +1039,20 @@ export function AddressEditorSheet(props: {
             {locating ? t("addr_ui_locating") : t("addr_ui_find_current")}
           </button>
           {geoHint ? <p className="sam-text-body-secondary leading-snug text-red-700">{geoHint}</p> : null}
-          {latitude != null && longitude != null ? (
-            <div className="space-y-2">
-              <AddressFineTuneMapLazy
-                latitude={latitude}
-                longitude={longitude}
-                heightPx={280}
-                onPositionChange={scheduleReverseFromPin}
-              />
-              <div className="rounded-lg border border-sam-border bg-sam-app/60 px-3 py-2.5">
-                {mapReverseResolving ? (
-                  <p className="sam-text-helper text-sam-muted">{t("addr_ui_confirming_address")}</p>
-                ) : mapReverseErr ? (
-                  <p className="sam-text-helper font-medium text-sam-danger">{mapReverseErr}</p>
-                ) : placePreviewHeadline || placePreviewSubline ? (
-                  <div className="space-y-1.5">
-                    {placePreviewHeadline ? (
-                      <p className="sam-text-body font-semibold leading-snug text-sam-fg">{placePreviewHeadline}</p>
-                    ) : null}
-                    {placePreviewSubline ? (
-                      <p className="sam-text-body-secondary leading-relaxed text-sam-muted">{placePreviewSubline}</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="sam-text-helper text-sam-muted">{t("addr_ui_move_pin_hint")}</p>
-                )}
-              </div>
-            </div>
+          {latitude != null && longitude != null && !mapPinConfirmed ? (
+            <button
+              type="button"
+              onClick={() => setFineTuneOpen(true)}
+              className="flex w-full items-center justify-center rounded-lg border border-sam-primary bg-sam-primary-soft/40 py-3 sam-text-body font-semibold text-sam-primary"
+            >
+              {t("addr_ui_open_fine_tune")}
+            </button>
           ) : null}
         </OwnerStoreAdminDashSection>
 
         {showDetailSection ? (
           <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
-            {/* Place summary ABOVE detail input — keyboard must not cover selected place */}
-            <div>
-              <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
-              <div className="mt-1.5 flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
-                <div className="relative shrink-0">
-                  <AddressSummaryMapPreview lat={latitude!} lng={longitude!} sizePx={72} />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  {placePreviewHeadline ? (
-                    <p className="sam-text-body font-semibold leading-snug text-sam-fg">{placePreviewHeadline}</p>
-                  ) : null}
-                  <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
-                    {placePreviewSubline ||
-                      `${latitude!.toFixed(5)}, ${longitude!.toFixed(5)}`}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* PH order: Unit/detail first, then Google/street place summary */}
             <div>
               <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
                 {t("addr_ui_detail_required_label")}
@@ -1508,6 +1069,46 @@ export function AddressEditorSheet(props: {
               {detailViol ? (
                 <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
               ) : null}
+            </div>
+            <div>
+              <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
+              <div className="mt-1.5 flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
+                <div className="relative shrink-0">
+                  <AddressSummaryMapPreview lat={latitude!} lng={longitude!} sizePx={72} />
+                  <button
+                    type="button"
+                    className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
+                    aria-label={t("addr_ui_open_fine_tune")}
+                    onClick={() => setFineTuneOpen(true)}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  {buildingName.trim() ? (
+                    <p className="sam-text-body font-semibold leading-snug text-sam-fg">{buildingName.trim()}</p>
+                  ) : null}
+                  <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
+                    {streetPreview ||
+                      stripCountryFromAddressDisplayLine(
+                        (formattedAddress || fullAddress).trim(),
+                        "Philippines",
+                      ) ||
+                      `${latitude!.toFixed(5)}, ${longitude!.toFixed(5)}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="addr-editor-note" className={fieldLabelClass}>
+                {t("addr_ui_delivery_note")}
+              </label>
+              <AutoGrowTextarea
+                id="addr-editor-note"
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+                placeholder={t("addr_ui_delivery_ph")}
+                autoComplete="off"
+                className={fieldInputClass}
+              />
             </div>
           </OwnerStoreAdminDashSection>
         ) : null}
@@ -1613,6 +1214,17 @@ export function AddressEditorSheet(props: {
       </div>
     ) : null;
 
+  const fineTuneLayer =
+    fineTuneOpen && latitude != null && longitude != null ? (
+      <AddressFineTuneSheet
+        open={fineTuneOpen}
+        latitude={latitude}
+        longitude={longitude}
+        onClose={() => setFineTuneOpen(false)}
+        onApply={applyFineTuneResult}
+      />
+    ) : null;
+
   if (layout === "page") {
     const pageScrollClass = storesGreenHeader
       ? `mx-auto w-full min-w-0 max-w-[42rem] ${MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS} px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
@@ -1656,6 +1268,7 @@ export function AddressEditorSheet(props: {
             </div>
           </div>
         </div>
+        {fineTuneLayer}
         {designationDupModal}
         {preflightStoreSaveModal}
       </>
@@ -1719,6 +1332,7 @@ export function AddressEditorSheet(props: {
             {editorFooter}
           </div>
         </div>
+        {fineTuneLayer}
         {designationDupModal}
         {preflightStoreSaveModal}
       </>

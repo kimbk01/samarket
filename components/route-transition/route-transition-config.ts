@@ -30,11 +30,7 @@ export type RouteTransitionEnterKind =
   /** 내정보 → 프로필 수정 — 440ms 우→좌 80% */
   | "profile-edit-forward"
   /** 프로필 수정 → 내정보 — 360ms 좌→우 80% */
-  | "profile-edit-back"
-  /** 어디든 → 주소록 — 360ms 우→좌 */
-  | "address-book-forward"
-  /** 주소록 → 복귀 — 360ms 좌→우 */
-  | "address-book-back";
+  | "profile-edit-back";
 
 export function normalizePathForRouteTransition(pathname: string | null): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -117,13 +113,6 @@ export function routeTransitionPushAxisForKind(
       return "rtl";
     case "profile-edit-back":
       return "ltr";
-    case "address-book-forward":
-    case "address-book-back":
-      /**
-       * dual-panel push 는 entering 트리 마운트 → session consume → handoff remount 로
-       * fine-tune 반영이 증발한다. 주소 스택은 CSS enter only (단일 Surface).
-       */
-      return null;
     case "none":
     case "subtle":
       return null;
@@ -144,8 +133,6 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "store-owner-apply-route-enter-ltr-back",
   "profile-edit-route-enter-forward",
   "profile-edit-route-enter-back",
-  "address-book-route-enter-forward",
-  "address-book-route-enter-back",
 ] as const;
 
 export const ROUTE_TRANSITION_EXIT_CLASSES = [
@@ -177,10 +164,6 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "profile-edit-route-enter-forward";
     case "profile-edit-back":
       return "profile-edit-route-enter-back";
-    case "address-book-forward":
-      return "address-book-route-enter-forward";
-    case "address-book-back":
-      return "address-book-route-enter-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -203,8 +186,6 @@ export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind):
     case "subtle":
     case "profile-edit-forward":
     case "profile-edit-back":
-    case "address-book-forward":
-    case "address-book-back":
       return null;
     default: {
       const _exhaustive: never = kind;
@@ -232,8 +213,6 @@ export function ownerStackRouteTransitionClassForKind(
     case "store-apply-back":
     case "profile-edit-forward":
     case "profile-edit-back":
-    case "address-book-forward":
-    case "address-book-back":
       return null;
     default: {
       const _exhaustive: never = kind;

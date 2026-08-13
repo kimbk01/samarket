@@ -14,18 +14,6 @@ active `user_addresses` row AND `is_default_master === true`.
 
 NOT complete: region_name, profiles.full_address, profile geo, life/trade/delivery default, row without master.
 
-## FULL STORAGE / CONTEXTUAL DISPLAY
-
-`ONE user_addresses FULL row` → many formatters. STORAGE ≠ DISPLAY.
-
-- FULL: mypage / address book / delivery / checkout / orders / authorized store·admin
-- PUBLIC: trade / community / header → same row + `formatPublicAddress` only
-- No Trade/Community/Delivery/Public duplicate member address storage
-- Order `store_orders` delivery snapshot = order immutability, not second member SSOT
-- Store address stays on `stores` when that is authority
-- Google Place identity feeds the FULL row; do not invent caller-scoped place stores
-- `place_display_name` migration: **NOT APPROVED** until R2 runtime proves schema loss (MIGRATION REQUIRED: NOT PROVEN from R1 alone)
-
 ## DO NOT
 
 - GET list / address-defaults mutate flags
@@ -36,10 +24,7 @@ NOT complete: region_name, profiles.full_address, profile geo, life/trade/delive
 - Treat store address and member master as interchangeable
 - Patch store street/place without lat/lng in the same request
 - Return raw Postgres (`23505`) to member UI
-- Invent Trade/Community/Delivery/Public **duplicate** `user_addresses` storage, or truncate FULL row for PUBLIC display
-- Approve `place_display_name` (or similar) migration from R1 code audit without R2 save/list runtime loss proof
-- Restore standalone `/mypage/addresses/fine-tune` (or modal-only `AddressFineTuneSheet`) as the member pin-confirm path — pin adjust MUST stay inside `AddressEditorSheet` same lifecycle — or order-resync-after-member-edit
-- Reopen member add/edit as modal on `AddressManagementClient` (page stack `/mypage/addresses/edit` + entry SSOT `navigateToMemberAddress*` is authority)
+- Restore `AddressFineTuneSheet` or order-resync-after-member-edit
 - Invent member address history ledger (NOT_SUPPORTED BY DESIGN — order snapshot is dispute authority)
 - Trust client trade/service `region`/`city` private-detail tokens (`region_label_invalid`)
 - Declare HARD LOCK without current-tree Xiaomi + delivery + region runtime evidence

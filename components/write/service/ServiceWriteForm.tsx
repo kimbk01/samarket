@@ -6,7 +6,6 @@ import { useCallback, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { parseMarketTradeWriteReturnCategoryKey } from "@/lib/navigation/trade-meet-spot-return-to";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
@@ -210,14 +209,6 @@ export function ServiceWriteForm({
                 city={city}
                 onSyncRegionCity={syncTradeRegionCity}
                 error={errors.location}
-                tradeWriteRestore={{
-                  surfaceHref: getCategoryHref(category),
-                  categoryId: category.id,
-                  categoryKey:
-                    parseMarketTradeWriteReturnCategoryKey(getCategoryHref(category)) ??
-                    category.id,
-                  reopenSheet: false,
-                }}
               />
             )}
           </>

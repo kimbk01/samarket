@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -23,7 +23,6 @@ import {
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
-import { hasAddressEditorSessionRestore } from "@/lib/addresses/address-editor-page-draft";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
@@ -63,16 +62,11 @@ function AddressEditorPageInner() {
   const addressesListHref = buildMypageAddressesHref(returnTo);
   const headerTitleKey: MessageKey = idFromUrl ? "addr_ui_edit_title" : "addr_ui_add_title";
 
-  /**
-   * fine-tune 복귀·draft 가 있으면 목록 fetch 를 기다리지 않는다.
-   * (로딩 게이트가 push 애니를 덮어 흔들림·빈 폼 remount 를 유발함)
-   * SSR/클라 초기값은 동일하게 true — restore 는 layoutEffect 에서 즉시 해제.
-   */
-  const [bootstrapping, setBootstrapping] = useState(true);
   const [list, setList] = useState<UserAddressDTO[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
-  const [mode, setMode] = useState<"create" | "edit">(() => (idFromUrl ? "edit" : "create"));
+  const [bootstrapping, setBootstrapping] = useState(true);
+  const [mode, setMode] = useState<"create" | "edit">("create");
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
   const [mapBootstrap, setMapBootstrap] = useState<{
     latitude: number;
@@ -84,19 +78,11 @@ function AddressEditorPageInner() {
 
   const mapHandledRef = useRef(false);
 
-  useLayoutEffect(() => {
-    if (hasAddressEditorSessionRestore()) {
-      setBootstrapping(false);
-    }
-  }, []);
-
   useEffect(() => {
-    let cancelled = false;
     void (async () => {
       setLoadErr(null);
       setLoadErrMigrationHint(false);
       const result = await fetchMeAddressesListSingleFlight();
-      if (cancelled) return;
       if (!result.ok) {
         setLoadErr(describeMeAddressesListFailure(result, t));
         setLoadErrMigrationHint(shouldShowMeAddressesListMigrationHint(result));
@@ -150,9 +136,6 @@ function AddressEditorPageInner() {
 
       setBootstrapping(false);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [idFromUrl, mapBootstrapUrl, returnTo, router, t]);
 
   if (bootstrapping) {
@@ -165,7 +148,7 @@ function AddressEditorPageInner() {
     );
   }
 
-  if (loadErr && !hasAddressEditorSessionRestore()) {
+  if (loadErr) {
     return (
       <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref}>
         <div className="flex flex-col px-4 py-8">

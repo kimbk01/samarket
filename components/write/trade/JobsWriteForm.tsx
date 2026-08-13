@@ -10,8 +10,6 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getLocationLabelIfValid } from "@/lib/products/form-options";
 import {
   hrefTradeMeetSpotPick,
-  markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  parseMarketTradeWriteReturnCategoryKey,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -505,6 +503,14 @@ export function JobsWriteForm({
     return () => window.removeEventListener("pageshow", onPageShow);
   }, [applyMeetSpotPick]);
 
+  const karrotMeetSpotDisplayLine = useMemo(() => {
+    const fromMap = tradeMeetSpot?.displayLine?.trim();
+    if (fromMap) return fromMap;
+    const rep = representativeTradeMeetFallbackLine?.trim();
+    if (rep) return rep;
+    return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, effectiveTradeRegionId, effectiveTradeCityId]);
+
   const handleResumeJobsPersistedDraft = useCallback(() => {
     const staged = consumeJobsWriteMeetSpotStaging(category.id);
     if (!staged) return;
@@ -807,11 +813,21 @@ export function JobsWriteForm({
 
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
-    markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    /** Address restore: CallerContext pending_restore — not meet-spot reopen flags. */
     const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
     if (!ok) throw new Error("jobs-staging-aborted");
   }, [editPostId, persistJobsFormStagingIfNeeded]);
+
+  const handleBeforeMeetSpotPick = useCallback(async () => {
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
+      if (!ok) return;
+    }
+    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(hrefTradeMeetSpotPick(returnTo));
+  }, [editPostId, tradeWriteSheet, category, persistJobsFormStagingIfNeeded, tradeMeetSpot, router]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -851,6 +867,17 @@ export function JobsWriteForm({
         listingKind === "work"
           ? t("jobs_write_err_seek_region_read")
           : t("trade_write_err_region_read");
+    }
+    if (!tradeMeetSpot?.displayLine?.trim()) {
+      const fallbackLine =
+        representativeTradeMeetFallbackLine?.trim() ||
+        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
+      if (!fallbackLine) {
+        next.meetSpot =
+          listingKind === "work"
+            ? t("jobs_write_err_seek_region_confirm")
+            : t("trade_write_err_meet_spot");
+      }
     }
     if (!description.trim()) {
       next.description =
@@ -1237,20 +1264,15 @@ export function JobsWriteForm({
         region={region}
         city={city}
         onSyncRegionCity={syncTradeRegionCity}
+        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.region}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
-        tradeWriteRestore={
-          !editPostId
-            ? {
-                surfaceHref: getCategoryHref(category),
-                categoryId: category.id,
-                categoryKey:
-                  parseMarketTradeWriteReturnCategoryKey(getCategoryHref(category)) ?? category.id,
-                reopenSheet: Boolean(tradeWriteSheet),
-              }
-            : null
-        }
+        karrotMeetSpotUi={hasLocation}
+        meetSpotLine={karrotMeetSpotDisplayLine || null}
+        meetSpotError={errors.meetSpot}
+        onBeforeMeetSpotPick={!locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+        meetSpotHeading={isSeeker ? t("jobs_write_meet_seeker") : t("jobs_write_meet_hire")}
         denseLayout
       />
     </div>

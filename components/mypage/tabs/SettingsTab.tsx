@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { MemberAddressBookRedirect } from "@/components/addresses/MemberAddressBookRedirect";
+import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
@@ -24,7 +24,14 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 export function SettingsTab({ section }: { section: string }) {
   const { t } = useI18n();
   if (section === "address") {
-    return <MemberAddressBookRedirect />;
+    return (
+      <TabShell
+        title={t("mypage_comp_nav_sec_settings_address_label")}
+        description={t("mypage_comp_nav_sec_settings_address_desc")}
+      >
+        <AddressManagementClient embedded />
+      </TabShell>
+    );
   }
 
   if (section === "device-permissions") {
@@ -154,7 +161,14 @@ export function SettingsTab({ section }: { section: string }) {
     );
   }
 
-  return <MemberAddressBookRedirect />;
+  return (
+    <TabShell
+      title={t("mypage_comp_nav_sec_settings_address_label")}
+      description={t("mypage_comp_nav_sec_settings_address_desc")}
+    >
+      <AddressManagementClient embedded />
+    </TabShell>
+  );
 }
 
 function TabShell({

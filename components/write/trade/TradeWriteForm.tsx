@@ -191,8 +191,6 @@ import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "./trade-karrot-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import {
   hrefTradeMeetSpotPick,
-  markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  parseMarketTradeWriteReturnCategoryKey,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -996,14 +994,12 @@ export function TradeWriteForm({
   }, [tradeWriteSheet, editPostId, persistTradeWriteSnapshotBeforeLeaveAsync]);
 
   /**
-   * 주소 관리 화면으로 가기 직전: 초안 저장 + (마켓 시트면) MeetSpot과 동일 키로 시트 재오픈 예약.
+   * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
    */
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
-    markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    /** DO NOT scheduleTradeWriteSheetReopenAfterMeetSpot — address uses CallerContext pending_restore. */
     const workingImages = await uploadPendingTradeWriteImages();
     if (suppressDraftPersistenceRef.current) return;
     const payload = assembleTradeWriteFlushPayload(workingImages);
@@ -1011,12 +1007,7 @@ export function TradeWriteForm({
     const built = buildTradeWriteFormSessionDraft(payload);
     writeTradeWriteFormSessionDraft(built);
     persistTradeWriteMeetSpotStaging(category.id, built);
-  }, [
-    editPostId,
-    category,
-    uploadPendingTradeWriteImages,
-    assembleTradeWriteFlushPayload,
-  ]);
+  }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -1108,6 +1099,14 @@ export function TradeWriteForm({
     if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
       next.location = t("trade_write_err_region_read");
     }
+    if (hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
+      const fallbackLine =
+        representativeTradeMeetFallbackLine?.trim() ||
+        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
+      if (!fallbackLine) {
+        next.meetSpot = t("trade_write_err_meet_spot");
+      }
+    }
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = t("trade_write_err_building");
       if (!estateType.trim()) next.estateType = t("trade_write_err_estate_type");
@@ -1149,6 +1148,8 @@ export function TradeWriteForm({
     roomCount,
     bathroomCount,
     moveInDate,
+    tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
     t,
   ]);
 
@@ -1416,6 +1417,36 @@ export function TradeWriteForm({
    * `suppressDraftPersistenceRef`(폐기 이벤트 직후 등)가 켜져 있으면 주소/지도 저장 헬퍼가 조용히 빠져
    * 이미지·필드가 안 남을 수 있어, 지도 진입 직전에만 잠시 해제한다.
    */
+  const handleBeforeMeetSpotPick = useCallback(async () => {
+    /** 인라인 시트 상태에서는 거래 카테고리 경로로 복귀시키고 시트를 다시 열게 한다. */
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      const prevSuppress = suppressDraftPersistenceRef.current;
+      suppressDraftPersistenceRef.current = false;
+      try {
+        try {
+          await handleBeforeNavigateToAddresses();
+        } catch {
+          flushTradeWriteSessionDraftSync(true);
+        }
+      } finally {
+        suppressDraftPersistenceRef.current = prevSuppress;
+      }
+    }
+    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(hrefTradeMeetSpotPick(returnTo));
+  }, [
+    editPostId,
+    flushTradeWriteSessionDraftSync,
+    handleBeforeNavigateToAddresses,
+    router,
+    category,
+    tradeMeetSpot,
+    tradeWriteSheet,
+  ]);
+
   const pendingMeetSpotFocusRef = useRef(false);
 
   /** 시트 재오픈(`openEpoch`)·경로 변경 직후에도 1회 반영 — `useEffect`만 쓰면 시트 폼보다 늦을 수 있음 */
@@ -1478,6 +1509,24 @@ export function TradeWriteForm({
     t,
   ]);
 
+  /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
+  const karrotMeetSpotDisplayLine = useMemo(() => {
+    const fromMap = tradeMeetSpot?.displayLine?.trim();
+    if (fromMap) return fromMap;
+    const rep = representativeTradeMeetFallbackLine?.trim();
+    if (rep) return rep;
+    if (hasLocation) {
+      return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
+    }
+    return "";
+  }, [
+    tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
+    hasLocation,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
+  ]);
+
   const realEstateBuildingFields = (
     <div className="mt-2 border-t border-[#e4e6eb] pt-2">
       <label className={TRADE_WRITE_FB_FIELD_HEAD}>
@@ -1508,19 +1557,16 @@ export function TradeWriteForm({
         error={errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
-        tradeWriteRestore={
-          !editPostId
-            ? {
-                surfaceHref: getCategoryHref(category),
-                categoryId: category.id,
-                categoryKey:
-                  parseMarketTradeWriteReturnCategoryKey(getCategoryHref(category)) ?? category.id,
-                reopenSheet: Boolean(tradeWriteSheet),
-              }
-            : null
+        karrotMeetSpotUi={hasLocation}
+        meetSpotLine={karrotMeetSpotDisplayLine || null}
+        meetSpotError={errors.meetSpot}
+        onBeforeMeetSpotPick={
+          hasLocation && !locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
         }
-        belowRegionSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
+        meetSpotHeading={t("trade_write_location")}
+        belowMeetSpotSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
         denseLayout
+        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
       />
     </div>
   ) : null;

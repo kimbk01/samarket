@@ -122,11 +122,8 @@ export const addressesUiMessages = {
     addr_ui_saving: "저장 중…",
     addr_ui_search_first_hint: "위 검색창에서 건물·몰·도로·바랑가이를 검색한 뒤 결과를 선택해 주세요.",
     addr_ui_search_label: "검색어",
-    addr_ui_search_no_results: "검색 결과가 없습니다. 영어 건물명·도로명으로 다시 검색하거나 현재 위치로 찾아 주세요.",
     addr_ui_search_placeholder: "지번, 건물명, 호텔명으로 검색",
     addr_ui_search_section: "주소 검색",
-    addr_ui_search_unavailable:
-      "주소 검색을 불러오지 못했습니다. 네트워크·Google 지도 권한을 확인한 뒤 다시 시도하거나 현재 위치로 찾아 주세요.",
     addr_ui_searching: "검색 중…",
     addr_ui_selected_location: "선택한 위치",
     addr_ui_set_as_delivery: "배달 지정",
@@ -279,12 +276,8 @@ export const addressesUiMessages = {
     addr_ui_search_first_hint:
       "Search building, mall, road, or barangay in the box above, then choose a result.",
     addr_ui_search_label: "Search keyword",
-    addr_ui_search_no_results:
-      "No results. Try an English building or road name, or use Find current location.",
     addr_ui_search_placeholder: "Search by lot no., building, hotel name",
     addr_ui_search_section: "Address search",
-    addr_ui_search_unavailable:
-      "Address search could not load. Check network/Google Maps access, then retry or use Find current location.",
     addr_ui_searching: "Searching…",
     addr_ui_selected_location: "Selected location",
     addr_ui_set_as_delivery: "Set delivery",

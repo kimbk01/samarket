@@ -19,11 +19,6 @@ describe("routeTransitionPushAxisForKind", () => {
     expect(routeTransitionPushAxisForKind("rtl-forward")).toBe("rtl");
   });
 
-  it("주소록 스택 → dual-panel push 없음 (CSS enter only)", () => {
-    expect(routeTransitionPushAxisForKind("address-book-forward")).toBeNull();
-    expect(routeTransitionPushAxisForKind("address-book-back")).toBeNull();
-  });
-
   it("subtle·none → push 없음", () => {
     expect(routeTransitionPushAxisForKind("subtle")).toBeNull();
     expect(routeTransitionPushAxisForKind("none")).toBeNull();
@@ -190,54 +185,6 @@ describe("computeRouteTransitionEnterKind", () => {
       { popstateBack: false, lastForwardAxisRef },
     );
     expect(k).toBe("subtle");
-  });
-
-  it("any surface to address book uses address-book-forward", () => {
-    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/write", "/mypage/addresses", {
-      popstateBack: false,
-      lastForwardAxisRef,
-    });
-    expect(k).toBe("address-book-forward");
-    expect(lastForwardAxisRef.current).toBe("rtl");
-  });
-
-  it("address book back uses address-book-back", () => {
-    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/mypage/addresses", "/write", {
-      popstateBack: true,
-      lastForwardAxisRef,
-    });
-    expect(k).toBe("address-book-back");
-  });
-
-  it("address list → edit uses address-book-forward (stack depth)", () => {
-    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/mypage/addresses", "/mypage/addresses/edit", {
-      popstateBack: false,
-      lastForwardAxisRef,
-    });
-    expect(k).toBe("address-book-forward");
-  });
-
-  it("address edit → fine-tune uses address-book-forward", () => {
-    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind(
-      "/mypage/addresses/edit",
-      "/mypage/addresses/fine-tune",
-      { popstateBack: false, lastForwardAxisRef },
-    );
-    expect(k).toBe("address-book-forward");
-  });
-
-  it("address fine-tune → edit uses address-book-back", () => {
-    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind(
-      "/mypage/addresses/fine-tune",
-      "/mypage/addresses/edit",
-      { popstateBack: false, lastForwardAxisRef },
-    );
-    expect(k).toBe("address-book-back");
   });
 });
 
