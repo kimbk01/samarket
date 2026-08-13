@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
+import { MemberAddressBookRedirect } from "@/components/addresses/MemberAddressBookRedirect";
+import { resolveMemberAddressBookHref } from "@/lib/addresses/mypage-addresses-return-to";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
@@ -123,7 +124,7 @@ export function MyPageItemScreen(
 
   if (section === "settings") {
     if (item === "address") {
-      return <AddressManagementClient embedded />;
+      return <MemberAddressBookRedirect />;
     }
     if (item === "device-permissions") {
       return <DevicePermissionsSettingsContent />;
@@ -138,7 +139,7 @@ export function MyPageItemScreen(
       return (
         <div className="space-y-4">
           <Link
-            href="/mypage/addresses"
+            href={resolveMemberAddressBookHref({ pathname: "/mypage" })}
             className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
           >
             {t("mypage_comp_region_settings_open")}

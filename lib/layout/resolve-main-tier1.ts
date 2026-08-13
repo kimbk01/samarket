@@ -137,6 +137,13 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     });
   }
 
+  if (p === "/mypage/addresses/fine-tune") {
+    return backMypage({
+      titleText: "addr_ui_fine_tune_title",
+      showHubQuickActions: true,
+    });
+  }
+
   if (p === "/community-messenger") {
     return backHome({
       titleText: "tier1_messenger",

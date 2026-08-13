@@ -24,7 +24,8 @@ NOT complete: region_name, profiles.full_address, profile geo, life/trade/delive
 - Treat store address and member master as interchangeable
 - Patch store street/place without lat/lng in the same request
 - Return raw Postgres (`23505`) to member UI
-- Restore `AddressFineTuneSheet` or order-resync-after-member-edit
+- Restore modal-only `AddressFineTuneSheet` as the member pin-confirm path (page stack `/mypage/addresses/fine-tune` is authority) or order-resync-after-member-edit
+- Reopen member add/edit as modal on `AddressManagementClient` (page stack `/mypage/addresses/edit` + entry SSOT `navigateToMemberAddress*` is authority)
 - Invent member address history ledger (NOT_SUPPORTED BY DESIGN — order snapshot is dispute authority)
 - Trust client trade/service `region`/`city` private-detail tokens (`region_label_invalid`)
 - Declare HARD LOCK without current-tree Xiaomi + delivery + region runtime evidence

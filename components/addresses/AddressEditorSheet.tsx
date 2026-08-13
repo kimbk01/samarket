@@ -15,7 +15,6 @@ import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-displa
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
-import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
@@ -24,9 +23,23 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
-import { buildMypageAddressesHref, parseStoreIdFromReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  buildMypageAddressEditHref,
+  buildMypageAddressFineTuneHref,
+  buildMypageAddressesHref,
+  parseStoreIdFromReturnTo,
+} from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  consumeAddressEditorPageDraft,
+  consumeAddressFineTuneResult,
+  peekAddressEditorPageDraft,
+  writeAddressEditorPageDraft,
+  writeAddressFineTuneIntent,
+  clearAddressEditorPageDraft,
+  type AddressEditorPageDraftV1,
+} from "@/lib/addresses/address-editor-page-draft";
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
-import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
+import { useRouter } from "next/navigation";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
@@ -93,6 +106,7 @@ export function AddressEditorSheet(props: {
     returnTo = "",
   } = props;
   const { t } = useI18n();
+  const router = useRouter();
   const {
     effectiveBottomInset,
     keyboardOpen,
@@ -108,6 +122,7 @@ export function AddressEditorSheet(props: {
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const draftHydratedRef = useRef(false);
 
   const [nickname, setNickname] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -128,7 +143,6 @@ export function AddressEditorSheet(props: {
   const [fullAddress, setFullAddress] = useState("");
   const [neighborhoodName, setNeighborhoodName] = useState("");
   const [buildingName, setBuildingName] = useState("");
-  const [fineTuneOpen, setFineTuneOpen] = useState(false);
   const [mapPinConfirmed, setMapPinConfirmed] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geoHint, setGeoHint] = useState<string | null>(null);
@@ -191,7 +205,6 @@ export function AddressEditorSheet(props: {
     setSearch("");
     setPredictions([]);
     selectionAnchorSearchRef.current = null;
-    setFineTuneOpen(false);
     setMapPinConfirmed(false);
     setGeoHint(null);
   }, []);
@@ -238,7 +251,6 @@ export function AddressEditorSheet(props: {
       selectionAnchorSearchRef.current = null;
     }
     setPredictions([]);
-    setFineTuneOpen(false);
     setMapPinConfirmed(true);
   }, [initial, mapBootstrap, mode]);
 
@@ -289,7 +301,6 @@ export function AddressEditorSheet(props: {
     setFormattedAddress("");
     setFullAddress("");
     setMapPinConfirmed(false);
-    setFineTuneOpen(false);
   }, [search]);
 
   const returnToStoreId = useMemo(() => parseStoreIdFromReturnTo(returnTo), [returnTo]);
@@ -312,13 +323,102 @@ export function AddressEditorSheet(props: {
   }, [open, mode, labelPreset, returnToStoreId, meStores, applyStoreRow]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      draftHydratedRef.current = false;
+      return;
+    }
+    if (draftHydratedRef.current) return;
+
     setErr(null);
     setPreflightSave(null);
     setDetailAttempted(false);
     setShopListErr(null);
-    selectionAnchorSearchRef.current = null;
     storeGeoAppliedRef.current = false;
+
+    if (peekAddressEditorPageDraft()) {
+      draftHydratedRef.current = true;
+      const draft = consumeAddressEditorPageDraft();
+      const fineTune = consumeAddressFineTuneResult();
+      if (draft) {
+        setLabelPreset(draft.labelPreset);
+        setSelectedStoreId(draft.selectedStoreId);
+        setNickname(draft.nickname);
+        setRecipientName(draft.recipientName);
+        setPhoneNumber(draft.phoneNumber);
+        setRegion(draft.region);
+        setCity(draft.city);
+        setBarangay(draft.barangay);
+        setCityMunicipality(draft.cityMunicipality);
+        setProvince(draft.province);
+        setStreetAddress(draft.streetAddress);
+        setUnitFloorRoom(draft.unitFloorRoom);
+        setLandmark(draft.landmark);
+        setBuildingName(draft.buildingName);
+        setNeighborhoodName(draft.neighborhoodName);
+        setLatitude(draft.latitude);
+        setLongitude(draft.longitude);
+        setPlaceId(draft.placeId);
+        setFormattedAddress(draft.formattedAddress);
+        setRoadAddress(draft.roadAddress);
+        setFullAddress(draft.fullAddress);
+        setSearch(draft.search);
+        selectionAnchorSearchRef.current = draft.selectionAnchorSearch;
+        setUseLife(draft.useLife);
+        setUseTrade(draft.useTrade);
+        setUseDel(draft.useDel);
+        setDefMaster(draft.defMaster);
+        setDefLife(draft.defLife);
+        setDefTrade(draft.defTrade);
+        setDefDel(draft.defDel);
+        setMapPinConfirmed(draft.mapPinConfirmed);
+        setPredictions([]);
+      }
+      if (fineTune?.placeId) {
+        setLatitude(fineTune.latitude);
+        setLongitude(fineTune.longitude);
+        setPlaceId(fineTune.placeId);
+        setFormattedAddress(fineTune.formattedAddress);
+        setFullAddress(fineTune.formattedAddress);
+        setRoadAddress(fineTune.formattedAddress);
+        const ph = fineTune.parsed;
+        const headLine = fineTune.formattedAddress.split(",")[0]?.trim() ?? "";
+        const nextStreet = ph.routeLine || headLine;
+        const nextBarangay = ph.barangay ?? "";
+        const nextCityMun = ph.cityMunicipality ?? "";
+        const nextProvince = ph.province ?? "";
+        const nextNeighborhood = ph.neighborhood ?? "";
+        const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+        setStreetAddress(nextStreet);
+        setBarangay(nextBarangay);
+        setCityMunicipality(nextCityMun);
+        setProvince(nextProvince);
+        setNeighborhoodName(nextNeighborhood);
+        setBuildingName(nextBuilding);
+        setUnitFloorRoom("");
+        const s = fineTune.formattedAddress.trim();
+        setSearch(s);
+        selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
+        setMapPinConfirmed(true);
+        const hit = mapUserAddressToAppLocation({
+          buildingName: nextBuilding || null,
+          barangay: nextBarangay || null,
+          cityMunicipality: nextCityMun || null,
+          province: nextProvince || null,
+          streetAddress: nextStreet || null,
+          neighborhoodName: nextNeighborhood || null,
+          formattedAddress: fineTune.formattedAddress,
+          roadAddress: fineTune.formattedAddress,
+          fullAddress: fineTune.formattedAddress,
+        } as UserAddressDTO);
+        if (hit) {
+          setRegion(hit.regionId);
+          setCity(hit.cityId);
+        }
+      }
+      return;
+    }
+
+    selectionAnchorSearchRef.current = null;
     if (mode === "edit" && initial) {
       setLabelPreset(deriveLabelPresetFromDto(initial));
       setSelectedStoreId(initial.linkedStoreId?.trim() ?? "");
@@ -375,7 +475,6 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
-      setFineTuneOpen(false);
       setMapPinConfirmed(true);
     } else if (mode === "create") {
       storeCreateBootstrapRef.current = false;
@@ -423,7 +522,6 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
-      setFineTuneOpen(false);
       setMapPinConfirmed(Boolean(mapBootstrap));
       setGeoHint(null);
     }
@@ -533,48 +631,98 @@ export function AddressEditorSheet(props: {
     [],
   );
 
-  const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
-    if (!r.placeId) return;
-    setLatitude(r.latitude);
-    setLongitude(r.longitude);
-    setPlaceId(r.placeId);
-    setFormattedAddress(r.formattedAddress);
-    setFullAddress(r.formattedAddress);
-    setRoadAddress(r.formattedAddress);
-    const ph = r.parsed;
-    const headLine = r.formattedAddress.split(",")[0]?.trim() ?? "";
-    const nextStreet = ph.routeLine || headLine;
-    const nextBarangay = ph.barangay ?? "";
-    const nextCityMun = ph.cityMunicipality ?? "";
-    const nextProvince = ph.province ?? "";
-    const nextNeighborhood = ph.neighborhood ?? "";
-    const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
-    setStreetAddress(nextStreet);
-    setBarangay(nextBarangay);
-    setCityMunicipality(nextCityMun);
-    setProvince(nextProvince);
-    setNeighborhoodName(nextNeighborhood);
-    setBuildingName(nextBuilding);
-    setUnitFloorRoom("");
-    applyTaxonomyFromDraftFields({
-      buildingName: nextBuilding,
-      barangay: nextBarangay,
-      cityMunicipality: nextCityMun,
-      province: nextProvince,
-      streetAddress: nextStreet,
-      neighborhoodName: nextNeighborhood,
-      formattedAddress: r.formattedAddress,
-      roadAddress: r.formattedAddress,
-      fullAddress: r.formattedAddress,
-    });
-    const s = r.formattedAddress.trim();
-    setSearch(s);
-    selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
-    setMapPinConfirmed(true);
-    window.setTimeout(() => {
-      document.getElementById("addr-editor-detail")?.focus();
-    }, 0);
-  }, [applyTaxonomyFromDraftFields]);
+  const openFineTuneFlow = useCallback(
+    (lat: number, lng: number) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const editHref = buildMypageAddressEditHref({
+        returnTo,
+        id: mode === "edit" ? initial?.id ?? null : null,
+      });
+      const draft: AddressEditorPageDraftV1 = {
+        v: 1,
+        mode,
+        addressId: initial?.id ?? null,
+        returnTo,
+        nickname,
+        recipientName,
+        phoneNumber,
+        region,
+        city,
+        barangay,
+        cityMunicipality,
+        province,
+        streetAddress,
+        unitFloorRoom,
+        landmark,
+        latitude: lat,
+        longitude: lng,
+        placeId,
+        formattedAddress,
+        roadAddress,
+        fullAddress,
+        neighborhoodName,
+        buildingName,
+        mapPinConfirmed: false,
+        search,
+        useLife,
+        useTrade,
+        useDel,
+        defMaster,
+        defLife,
+        defTrade,
+        defDel,
+        labelPreset,
+        selectedStoreId,
+        selectionAnchorSearch: selectionAnchorSearchRef.current,
+      };
+      writeAddressEditorPageDraft(draft);
+      writeAddressFineTuneIntent({
+        v: 1,
+        latitude: lat,
+        longitude: lng,
+        editHref,
+      });
+      router.push(
+        buildMypageAddressFineTuneHref({
+          returnTo,
+          id: mode === "edit" ? initial?.id ?? null : null,
+        }),
+      );
+    },
+    [
+      returnTo,
+      mode,
+      initial?.id,
+      nickname,
+      recipientName,
+      phoneNumber,
+      region,
+      city,
+      barangay,
+      cityMunicipality,
+      province,
+      streetAddress,
+      unitFloorRoom,
+      landmark,
+      placeId,
+      formattedAddress,
+      roadAddress,
+      fullAddress,
+      neighborhoodName,
+      buildingName,
+      search,
+      useLife,
+      useTrade,
+      useDel,
+      defMaster,
+      defLife,
+      defTrade,
+      defDel,
+      labelPreset,
+      selectedStoreId,
+      router,
+    ],
+  );
 
   const streetPreview = useMemo(() => {
     return formatPhDeliveryStreetSummary({
@@ -692,7 +840,7 @@ export function AddressEditorSheet(props: {
       setPredictions([]);
       setSearch(label);
       setMapPinConfirmed(false);
-      setFineTuneOpen(true);
+      openFineTuneFlow(lat, lng);
     } finally {
       setResolvingPlaceId(null);
     }
@@ -721,11 +869,11 @@ export function AddressEditorSheet(props: {
       setPlaceId("");
       setFormattedAddress("");
       setMapPinConfirmed(false);
-      setFineTuneOpen(true);
+      openFineTuneFlow(res.position.latitude, res.position.longitude);
     } finally {
       setLocating(false);
     }
-  }, [t]);
+  }, [t, openFineTuneFlow]);
 
   async function saveAddress(opts?: { skipDupCheck?: boolean; skipShopAck?: boolean }) {
     setBusy(true);
@@ -897,6 +1045,7 @@ export function AddressEditorSheet(props: {
         return;
       }
       await Promise.resolve(onSaved());
+      clearAddressEditorPageDraft();
       if (layout !== "page") onClose();
     } finally {
       setBusy(false);
@@ -1038,7 +1187,7 @@ export function AddressEditorSheet(props: {
           {latitude != null && longitude != null && !mapPinConfirmed ? (
             <button
               type="button"
-              onClick={() => setFineTuneOpen(true)}
+              onClick={() => openFineTuneFlow(latitude, longitude)}
               className="flex w-full items-center justify-center rounded-lg border border-sam-primary bg-sam-primary-soft/40 py-3 sam-text-body font-semibold text-sam-primary"
             >
               {t("addr_ui_open_fine_tune")}
@@ -1073,9 +1222,9 @@ export function AddressEditorSheet(props: {
                   <AddressSummaryMapPreview lat={latitude!} lng={longitude!} sizePx={72} />
                   <button
                     type="button"
+                    onClick={() => openFineTuneFlow(latitude!, longitude!)}
                     className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
                     aria-label={t("addr_ui_open_fine_tune")}
-                    onClick={() => setFineTuneOpen(true)}
                   />
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
@@ -1197,17 +1346,6 @@ export function AddressEditorSheet(props: {
       </div>
     ) : null;
 
-  const fineTuneLayer =
-    fineTuneOpen && latitude != null && longitude != null ? (
-      <AddressFineTuneSheet
-        open={fineTuneOpen}
-        latitude={latitude}
-        longitude={longitude}
-        onClose={() => setFineTuneOpen(false)}
-        onApply={applyFineTuneResult}
-      />
-    ) : null;
-
   if (layout === "page") {
     const pageScrollClass = storesGreenHeader
       ? `mx-auto w-full min-w-0 max-w-[42rem] ${MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS} px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
@@ -1251,7 +1389,6 @@ export function AddressEditorSheet(props: {
             </div>
           </div>
         </div>
-        {fineTuneLayer}
         {designationDupModal}
         {preflightStoreSaveModal}
       </>
@@ -1315,7 +1452,6 @@ export function AddressEditorSheet(props: {
             {editorFooter}
           </div>
         </div>
-        {fineTuneLayer}
         {designationDupModal}
         {preflightStoreSaveModal}
       </>

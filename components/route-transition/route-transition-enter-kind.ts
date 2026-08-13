@@ -11,7 +11,7 @@ import {
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { isMypageAddressFlowPath, mypageAddressStackDepth } from "@/lib/addresses/mypage-addresses-return-to";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -134,6 +134,16 @@ export function computeRouteTransitionEnterKind(
     kind = "profile-edit-forward";
   } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {
     kind = "profile-edit-back";
+  } else if (isMypageAddressFlowPath(nextPath) && isMypageAddressFlowPath(prevPath)) {
+    const dPrev = mypageAddressStackDepth(prevPath);
+    const dNext = mypageAddressStackDepth(nextPath);
+    if (dNext > dPrev) {
+      kind = "address-book-forward";
+    } else if (dNext < dPrev) {
+      kind = "address-book-back";
+    } else {
+      kind = "subtle";
+    }
   } else if (isMypageAddressFlowPath(nextPath) && !isMypageAddressFlowPath(prevPath)) {
     kind = "address-book-forward";
   } else if (isMypageAddressFlowPath(prevPath) && !isMypageAddressFlowPath(nextPath)) {

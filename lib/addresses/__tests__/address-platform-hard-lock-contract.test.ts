@@ -126,22 +126,23 @@ describe("ADDR-005 public region no detail leak", () => {
 describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   it("owner list surfaces share AddressUserRowLineText + formatAddressBookLine", () => {
     const listBody = read("components/addresses/AddressListRowBody.tsx");
-    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
     const picker = read("components/addresses/AddressBookPickerList.tsx");
     expect(listBody).toContain("AddressUserRowLineText");
     expect(listBody).toContain("formatAddressBookLine");
-    expect(philife).toContain("AddressUserRowLineText");
     expect(cart).toContain("AddressUserRowLineText");
     expect(picker).toContain("AddressListRowBody");
     expect(read("lib/addresses/format-user-address-list-line.ts")).toContain("formatAddressBookLine");
     expect(read("lib/addresses/address-book-line.ts")).toContain("ADDRESS BOOK COMPACT FLOW SSOT");
+    // Philife header is entry-only (navigate to member book); not an owner list surface
+    expect(read("components/philife/PhilifeHeaderAddressMenuButton.tsx")).toContain(
+      "navigateToMemberAddressBook",
+    );
   });
 
   it("owner row UI forbids nowrap / truncate / line-clamp on address compact flow", () => {
     const phCard = read("components/addresses/AddressPhCardLineText.tsx");
     const listBody = read("components/addresses/AddressListRowBody.tsx");
-    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
     const classAttr = /className=(?:\{`[^`]*`|\{"[^"]*"|'[^']*'|"[^"]*")/g;
     for (const [name, src] of [
@@ -154,9 +155,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
         expect(a, name).not.toMatch(/\b(truncate|whitespace-nowrap|line-clamp-\d+)\b/);
       }
     }
-    // Philife picker row wrapping AddressUserRowLineText must not clamp/truncate the address body
-    expect(philife).not.toMatch(/line-clamp-\d+[\s\S]{0,120}AddressUserRowLineText/);
-    expect(philife).toContain("whitespace-normal break-words");
     expect(phCard).toContain("whitespace-normal");
     expect(phCard).toContain("break-words");
     expect(phCard).toMatch(/\binline\b/);
@@ -235,9 +233,48 @@ describe("ADDR-003 last delete", () => {
 });
 
 describe("ADDR-013 FineTune KEEP", () => {
-  it("editor uses AddressFineTuneSheet as map pin confirm", () => {
-    expect(read("components/addresses/AddressEditorSheet.tsx")).toContain("AddressFineTuneSheet");
+  it("editor opens fine-tune as mypage page stack (not modal overlay)", () => {
+    const editor = read("components/addresses/AddressEditorSheet.tsx");
+    expect(editor).toContain("buildMypageAddressFineTuneHref");
+    expect(editor).toContain("writeAddressFineTuneIntent");
+    expect(editor).not.toContain("AddressFineTuneSheet");
+    expect(read("app/(main)/mypage/addresses/fine-tune/page.tsx")).toContain(
+      "AddressFineTunePageClient",
+    );
+    expect(read("components/addresses/AddressFineTunePageClient.tsx")).toContain(
+      "AddressFineTuneSheet",
+    );
     expect(read("components/addresses/AddressEditorSheet.tsx")).toContain("fetchPlacePredictionsPh");
+  });
+});
+
+describe("member address book entry SSOT", () => {
+  it("management list has no modal AddressEditorSheet; edit is page navigate", () => {
+    const mgmt = read("components/addresses/AddressManagementClient.tsx");
+    expect(mgmt).not.toContain("AddressEditorSheet");
+    expect(mgmt).toContain("navigateToMemberAddressEdit");
+  });
+
+  it("entry helpers are the only member book navigate SSOT", () => {
+    const src = read("lib/addresses/mypage-addresses-return-to.ts");
+    expect(src).toContain("resolveMemberAddressBookHref");
+    expect(src).toContain("navigateToMemberAddressBook");
+    expect(src).toContain("navigateToMemberAddressEdit");
+  });
+
+  it("Philife header change goes to member address book (no inline picker)", () => {
+    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
+    expect(philife).toContain("navigateToMemberAddressBook");
+    expect(philife).not.toContain('setView("picker")');
+    expect(philife).not.toContain("setAsRepresentative");
+  });
+
+  it("mypage sheets/tabs redirect to address book page", () => {
+    expect(read("components/mypage/profile-settings/MypageAddressSheet.tsx")).toContain(
+      "navigateToMemberAddressBook",
+    );
+    expect(read("components/mypage/tabs/SettingsTab.tsx")).toContain("MemberAddressBookRedirect");
+    expect(read("components/mypage/tabs/StoreTab.tsx")).toContain("MemberAddressBookRedirect");
   });
 });
 

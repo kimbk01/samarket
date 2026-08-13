@@ -205,6 +205,35 @@ describe("computeRouteTransitionEnterKind", () => {
     });
     expect(k).toBe("address-book-back");
   });
+
+  it("address list → edit uses address-book-forward (stack depth)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage/addresses", "/mypage/addresses/edit", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-book-forward");
+  });
+
+  it("address edit → fine-tune uses address-book-forward", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind(
+      "/mypage/addresses/edit",
+      "/mypage/addresses/fine-tune",
+      { popstateBack: false, lastForwardAxisRef },
+    );
+    expect(k).toBe("address-book-forward");
+  });
+
+  it("address fine-tune → edit uses address-book-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind(
+      "/mypage/addresses/fine-tune",
+      "/mypage/addresses/edit",
+      { popstateBack: false, lastForwardAxisRef },
+    );
+    expect(k).toBe("address-book-back");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

@@ -18,19 +18,21 @@
  *
  * | Surface | Input | Storage | Picker | Formatter | Snapshot |
  * |---|---|---|---|---|---|
- * | /mypage/addresses | AddressEditorSheet | user_addresses | list (mgmt) | formatAddressBookLine | — |
- * | MypageAddressSheet | AddressEditorSheet | user_addresses | AddressListRowBody | formatAddressBookLine | — |
- * | /onboarding/address | AddressEditorSheet | user_addresses | — | formatAddressBookLine | — |
- * | Philife Header | — | user_addresses | list + set master | formatAddressBookLine (header PUBLIC via formatPublicAddress) | — |
- * | /stores header | — | user_addresses (delivery default) | DeliveryStyleAddressPickerSheet | formatAddressBookLine / delivery header | — |
- * | Cart / Checkout | — | user_addresses | cart radio + same row text | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
+ * | /mypage/addresses | AddressEditorSheet via `/edit` page | user_addresses | list (mgmt) | formatAddressBookLine | — |
+ * | MypageAddressSheet / Settings·Store tabs | redirect → `/mypage/addresses` | user_addresses | — | — | — |
+ * | /onboarding/address | AddressEditorSheet via `/edit` page | user_addresses | embedded list | formatAddressBookLine | — |
+ * | Philife Header | navigate → `/mypage/addresses` | user_addresses | — (PUBLIC line) | formatPublicAddress / rep line | — |
+ * | /stores header | — | user_addresses (delivery default) | DeliveryStyleAddressPickerSheet (select); manage → mypage | formatAddressBookLine / delivery header | — |
+ * | Cart / Checkout | manage → `/mypage/addresses?returnTo=` | user_addresses | cart radio | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
  * | Community Feed/Write | — | user_addresses → region label | — | formatPublicAddress | posts.region_label |
  * | Trade Write/Detail | — | user_addresses → taxonomy ids | `/mypage/addresses` page | formatPublicAddress | posts.region/city |
  * | Trade Meet Spot | meet-spot map (not address book) | posts.meta.trade_meet_spot | — | place label | post meta |
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
- * | Admin Member Address | admin tools | user_addresses | — | formatAddressBookLine | — |
+ * | Admin Member Address | admin tools (deferred unify) | user_addresses | — | formatAddressBookLine | — |
  *
+ * Entry SSOT: `resolveMemberAddressBookHref` / `navigateToMemberAddressBook` / `navigateToMemberAddressEdit`.
+ * Member add/edit: page stack only (`/mypage/addresses` → `/edit` → `/fine-tune`). No modal editor on management.
  * ## B. REGION / EXPLORATION (public presentation)
  * Authority: `formatPublicAddress` → City/Municipality ONLY
  * Aliases: `buildExplorationRegionSubtitleLine` / `buildTradePublicLine` (same city-only contract)

@@ -1,47 +1,24 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
-import {
-  invalidateMandatoryAddressGateClientCache,
-  readMandatoryAddressGateNeedsBlock,
-} from "@/lib/addresses/mandatory-address-gate-client";
-import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
+import { usePathname, useRouter } from "next/navigation";
+import { navigateToMemberAddressBook } from "@/lib/addresses/mypage-addresses-return-to";
 
-const AddressManagementClient = dynamic(
-  () =>
-    import("@/components/addresses/AddressManagementClient").then((m) => m.AddressManagementClient),
-  { ssr: false, loading: () => null },
-);
-
+/**
+ * 마이페이지 시트에서 주소 요청 시 — 바텀시트 대신 `/mypage/addresses` 페이지 스택.
+ */
 export function MypageAddressSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { safeT } = useI18n();
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
-    const handleAddressesUpdated = async () => {
-      invalidateMandatoryAddressGateClientCache();
-      const needsBlock = await readMandatoryAddressGateNeedsBlock();
-      if (!needsBlock) onClose();
-    };
-    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, handleAddressesUpdated);
-    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, handleAddressesUpdated);
-  }, [open, onClose]);
+    navigateToMemberAddressBook(router, {
+      pathname: pathname && !pathname.startsWith("/mypage/addresses") ? pathname : "/mypage",
+      replace: false,
+    });
+    onClose();
+  }, [open, onClose, router, pathname]);
 
-  return (
-    <MypageBottomSheetShell
-      open={open}
-      onClose={onClose}
-      title={safeT("mypage_settings_address", {
-        fallbackKo: "주소 관리",
-        fallbackEn: "Addresses",
-      })}
-    >
-      <div className="min-h-[50vh]">
-        <AddressManagementClient embedded />
-      </div>
-    </MypageBottomSheetShell>
-  );
+  return null;
 }

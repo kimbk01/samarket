@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
+import { MemberAddressBookRedirect } from "@/components/addresses/MemberAddressBookRedirect";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
@@ -84,14 +84,7 @@ export function StoreTab({
   }
 
   if (section === "address") {
-    return (
-      <TabShell
-        title={safeT("mypage_comp_nav_sec_store_address_label")}
-        description={t("mypage_comp_nav_sec_store_address_desc")}
-      >
-        <AddressManagementClient embedded />
-      </TabShell>
-    );
+    return <MemberAddressBookRedirect />;
   }
 
   if (section === "member") {

@@ -42,20 +42,15 @@ type TradeDefaultLocationBlockProps = {
   error?: string;
   readOnly?: boolean;
   onBeforeNavigateToAddresses?: () => void | Promise<void>;
-  karrotMeetSpotUi?: boolean;
-  meetSpotLine?: string | null;
-  meetSpotError?: string;
-  onBeforeMeetSpotPick?: () => void | Promise<void>;
-  meetSpotHeading?: string;
-  belowMeetSpotSlot?: ReactNode;
+  /** 거래 지역 아래 추가 필드(예: 부동산 건물명) */
+  belowRegionSlot?: ReactNode;
   denseLayout?: boolean;
-  suppressAddressBookRegionSync?: boolean;
 };
 
 /**
  * 거래 글쓰기 위치 — 회원 주소록 SSOT.
- * 거래 지역(City) 탭 → `/mypage/addresses` (입력·선택은 주소록만).
- * 만남장소는 주소록과 별도 지도 행.
+ * 「거래 지역」만 표시. 탭 → `/mypage/addresses` (입력·선택은 주소록만).
+ * 만남장소「위치」UI는 제품에서 제거됨.
  */
 export function TradeDefaultLocationBlock({
   editPostId,
@@ -65,17 +60,10 @@ export function TradeDefaultLocationBlock({
   error,
   readOnly = false,
   onBeforeNavigateToAddresses,
-  karrotMeetSpotUi = false,
-  meetSpotLine = null,
-  meetSpotError,
-  onBeforeMeetSpotPick,
-  meetSpotHeading,
-  belowMeetSpotSlot,
+  belowRegionSlot,
   denseLayout = false,
-  suppressAddressBookRegionSync = false,
 }: TradeDefaultLocationBlockProps) {
   const { t } = useI18n();
-  const heading = meetSpotHeading?.trim() || t("trade_write_meet_spot_default");
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -88,8 +76,6 @@ export function TradeDefaultLocationBlock({
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
-  const suppressAddressBookSyncRef = useRef(suppressAddressBookRegionSync);
-  suppressAddressBookSyncRef.current = suppressAddressBookRegionSync;
   const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameEffectFirstRef = useRef(true);
 
@@ -115,7 +101,7 @@ export function TradeDefaultLocationBlock({
         return;
       }
       const nextLine = applyAddressToTradeRegion(addr, (rid, cid) => {
-        if (!suppressAddressBookSyncRef.current) syncRef.current(rid, cid);
+        syncRef.current(rid, cid);
       });
       displayLineRef.current = nextLine;
       setDisplayLine(nextLine);
@@ -198,40 +184,6 @@ export function TradeDefaultLocationBlock({
     ? snapshotLabel ?? "…"
     : displayLine?.trim() || snapshotLabel || t("trade_write_no_rep_address");
 
-  const regionRow = (
-    <div className={denseLayout ? "mt-0" : "mt-0"}>
-      <p
-        className={
-          denseLayout
-            ? "text-[13px] font-semibold leading-tight text-[#65676B]"
-            : "mb-2 sam-text-body font-medium text-sam-fg"
-        }
-      >
-        {t("trade_write_trade_region")} {!readOnly ? <span className="text-red-500">*</span> : null}
-      </p>
-      {readOnly ? (
-        <p className="flex min-w-0 items-start gap-1.5 break-words sam-text-body leading-snug text-sam-fg">
-          <AddressKindHeadPin kind="master" className="mt-0.5" />
-          <span className="min-w-0">{currentAddressText}</span>
-        </p>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void handleNavigateToAddresses()}
-          className={
-            denseLayout
-              ? "mt-0.5 flex w-full min-w-0 items-start gap-1.5 rounded-ui-rect border border-[#ccd0d5] bg-white px-2.5 py-2 text-left text-[15px] font-medium leading-snug text-[#050505] transition-colors hover:bg-[#f2f3f5] active:bg-[#e4e6eb]"
-              : "mt-0 flex w-full min-w-0 items-start gap-1.5 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-left sam-text-body leading-snug text-sam-fg transition-colors hover:bg-sam-surface-muted active:bg-sam-surface-muted"
-          }
-          aria-label={t("layout_neighborhood_address_aria", { line: currentAddressText })}
-        >
-          <AddressKindHeadPin kind="master" className="mt-0.5" />
-          <span className="min-w-0 flex-1 break-words">{currentAddressText}</span>
-        </button>
-      )}
-    </div>
-  );
-
   return (
     <section
       className={
@@ -240,65 +192,38 @@ export function TradeDefaultLocationBlock({
           : "border-b border-sam-border-soft bg-sam-surface px-4 py-4"
       }
     >
-      {regionRow}
-      {karrotMeetSpotUi && !readOnly ? (
-        <div
+      <div className={denseLayout ? "mt-0" : "mt-0"}>
+        <p
           className={
             denseLayout
-              ? "mt-1.5 rounded-ui-rect border border-[#e4e6eb] bg-[#f7f8fa] px-2.5 py-2"
-              : "mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5"
+              ? "text-[13px] font-semibold leading-tight text-[#65676B]"
+              : "mb-2 sam-text-body font-medium text-sam-fg"
           }
         >
-          <p
-            className={
-              denseLayout
-                ? "text-[13px] font-semibold leading-tight text-[#65676B]"
-                : "sam-text-body font-semibold text-sam-fg"
-            }
-          >
-            {heading}
+          {t("trade_write_trade_region")} {!readOnly ? <span className="text-red-500">*</span> : null}
+        </p>
+        {readOnly ? (
+          <p className="flex min-w-0 items-start gap-1.5 break-words sam-text-body leading-snug text-sam-fg">
+            <AddressKindHeadPin kind="master" className="mt-0.5" />
+            <span className="min-w-0">{currentAddressText}</span>
           </p>
-          {meetSpotLine?.trim() ? (
-            <p
-              className={
-                denseLayout
-                  ? "mt-0.5 break-words text-[15px] font-medium leading-snug text-[#050505]"
-                  : "mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted"
-              }
-            >
-              {meetSpotLine.trim()}
-            </p>
-          ) : denseLayout ? null : (
-            <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
-              {t("trade_write_meet_spot_map_hint")}
-            </p>
-          )}
+        ) : (
           <button
             type="button"
-            disabled={!onBeforeMeetSpotPick}
-            title={!onBeforeMeetSpotPick ? t("trade_write_location_locked") : undefined}
+            onClick={() => void handleNavigateToAddresses()}
             className={
               denseLayout
-                ? "mt-1.5 inline-flex w-full items-center justify-center rounded-ui-rect border border-[#ccd0d5] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#050505] transition-colors hover:bg-[#f2f3f5] active:bg-[#e4e6eb] disabled:pointer-events-none disabled:opacity-50"
-                : "mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted disabled:pointer-events-none disabled:opacity-50"
+                ? "mt-0.5 flex w-full min-w-0 items-start gap-1.5 rounded-ui-rect border border-[#ccd0d5] bg-white px-2.5 py-2 text-left text-[15px] font-medium leading-snug text-[#050505] transition-colors hover:bg-[#f2f3f5] active:bg-[#e4e6eb]"
+                : "mt-0 flex w-full min-w-0 items-start gap-1.5 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-left sam-text-body leading-snug text-sam-fg transition-colors hover:bg-sam-surface-muted active:bg-sam-surface-muted"
             }
-            onClick={() => {
-              if (!onBeforeMeetSpotPick) return;
-              void (async () => {
-                try {
-                  await onBeforeMeetSpotPick();
-                } catch {
-                  /* parent may stage draft — user can retry */
-                }
-              })();
-            }}
+            aria-label={t("layout_neighborhood_address_aria", { line: currentAddressText })}
           >
-            {t("trade_write_pick_location")}
+            <AddressKindHeadPin kind="master" className="mt-0.5" />
+            <span className="min-w-0 flex-1 break-words">{currentAddressText}</span>
           </button>
-          {meetSpotError ? <p className="mt-1.5 text-[12px] text-red-500">{meetSpotError}</p> : null}
-        </div>
-      ) : null}
-      {belowMeetSpotSlot ? <div className="mt-0">{belowMeetSpotSlot}</div> : null}
+        )}
+      </div>
+      {belowRegionSlot ? <div className="mt-0">{belowRegionSlot}</div> : null}
       {error ? <p className="mt-2 sam-text-body-secondary text-red-500">{error}</p> : null}
     </section>
   );

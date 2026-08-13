@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
 import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
@@ -221,6 +222,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const addressesManageHref = useMemo(
+    () =>
+      buildMypageAddressesHrefFromPath(
+        pathname,
+        typeof window !== "undefined" ? window.location.search : "",
+      ),
+    [pathname],
+  );
   const requireAction = useRequireAuthAction();
   const goCartBack = useStoreCartBack(storeSlug);
   const cartFlowMountT0Ref = useRef(
@@ -1863,7 +1872,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sky-50/80`}>
                   <p className="sam-text-helper leading-snug text-sky-950">
                     {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
-                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                    <Link href={addressesManageHref} className="font-semibold text-signature underline">
                       {t("store_address_manage_link")}
                     </Link>
                     {t("store_cart_legacy_address_suffix")}
@@ -1876,7 +1885,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
                   <p className="sam-text-helper leading-snug text-amber-950">
                     {t("store_cart_pick_or_register_delivery")}{" "}
-                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                    <Link href={addressesManageHref} className="font-semibold text-signature underline">
                       {t("store_address_manage_link")}
                     </Link>
                   </p>
@@ -1977,7 +1986,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
-                href="/mypage/addresses"
+                href={addressesManageHref}
                 className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
                 {t("store_cart_save_from_address_manage")}
@@ -1993,7 +2002,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 {t("store_cart_address_too_short")}{" "}
-                <Link href="/mypage/addresses" className="font-semibold underline">
+                <Link href={addressesManageHref} className="font-semibold underline">
                   {t("store_cart_profile_address_manage")}
                 </Link>
                 {t("store_cart_address_add_suffix")}

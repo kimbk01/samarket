@@ -66,7 +66,8 @@ Canonical field mapper: `parsePhFromGooglePlaceResult` (+ `reverseGeocodeLatLngP
 | `profiles.full_address` / `region_name` | BRIDGE, DROP LATER |
 | `syncProfileRegionFromLifeDefault` | BRIDGE after writer |
 | `promoteAsLastSavedPrimary` payload | REMOVED |
-| `AddressFineTuneSheet` / `AddressFineTuneMapClient` | DELETED (importer=0) |
+| `AddressFineTuneSheet` / `AddressFineTuneMapClient` | KEEP — `/mypage/addresses/fine-tune` 전체 화면 스택 (모달 아님) |
+| Member add/edit entry | KEEP — `/mypage/addresses` → `/edit` page stack only (`navigateToMemberAddress*`); management 모달 에디터 금지 |
 | `refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated` | DELETED (caller=0) |
 | community `region_label` client body | REMOVED — `resolveCommunityPublicRegionLabelForUser` |
 | shop Korean throw | REMOVED — `shop_store_required` / `shop_owner_required` / `shop_place_required` / `shop_address_duplicate` |
