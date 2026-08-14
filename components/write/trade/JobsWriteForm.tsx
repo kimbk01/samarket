@@ -7,7 +7,6 @@ import { createPost } from "@/lib/posts/createPost";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { getLocationLabelIfValid } from "@/lib/products/form-options";
 import {
   hrefTradeMeetSpotPick,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -15,9 +14,7 @@ import {
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
-import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
 import {
-  pickPersistableMeetSpotCoords,
   tradeMeetSpotFromMetaSnapshot,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
@@ -96,7 +93,10 @@ import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
-import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
+import {
+  TradeDefaultLocationBlock,
+  type TradeWriteAddressSsotSnapshot,
+} from "../shared/TradeDefaultLocationBlock";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
@@ -270,21 +270,22 @@ export function JobsWriteForm({
   const [images, setImages] = useState<ImageUploadItem[]>([]);
   const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
   const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
-  const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
-    null
-  );
+  const [tradeAddressSsot, setTradeAddressSsot] = useState<TradeWriteAddressSsotSnapshot>({
+    ready: false,
+    missing: true,
+    displayLine: null,
+    regionId: "",
+    cityId: "",
+    submitMeta: null,
+  });
 
   const effectiveTradeRegionId = useMemo(() => {
-    const r = region.trim();
-    if (r) return r;
-    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.regionId ?? "";
-  }, [region, tradeMeetSpot]);
+    return region.trim();
+  }, [region]);
 
   const effectiveTradeCityId = useMemo(() => {
-    const c = city.trim();
-    if (c) return c;
-    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.cityId ?? "";
-  }, [city, tradeMeetSpot]);
+    return city.trim();
+  }, [city]);
 
   const applyMeetSpotPick = useCallback(
     (next: TradeMeetSpotValue) => {
@@ -372,17 +373,6 @@ export function JobsWriteForm({
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
   const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency, t) : "";
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const line = await fetchRepresentativeTradeMeetFallbackLine();
-      if (!cancelled) setRepresentativeTradeMeetFallbackLine(line);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const applyJobsStagingToForm = useCallback((staged: JobsWriteMeetSpotStagingV1) => {
     setListingKind(staged.listingKind === "work" ? "work" : "hire");
@@ -506,10 +496,8 @@ export function JobsWriteForm({
   const karrotMeetSpotDisplayLine = useMemo(() => {
     const fromMap = tradeMeetSpot?.displayLine?.trim();
     if (fromMap) return fromMap;
-    const rep = representativeTradeMeetFallbackLine?.trim();
-    if (rep) return rep;
-    return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
-  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, effectiveTradeRegionId, effectiveTradeCityId]);
+    return tradeAddressSsot.displayLine?.trim() ?? "";
+  }, [tradeMeetSpot, tradeAddressSsot.displayLine]);
 
   const handleResumeJobsPersistedDraft = useCallback(() => {
     const staged = consumeJobsWriteMeetSpotStaging(category.id);
@@ -868,16 +856,11 @@ export function JobsWriteForm({
           ? t("jobs_write_err_seek_region_read")
           : t("trade_write_err_region_read");
     }
-    if (!tradeMeetSpot?.displayLine?.trim()) {
-      const fallbackLine =
-        representativeTradeMeetFallbackLine?.trim() ||
-        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
-      if (!fallbackLine) {
-        next.meetSpot =
-          listingKind === "work"
-            ? t("jobs_write_err_seek_region_confirm")
-            : t("trade_write_err_meet_spot");
-      }
+    if (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta) {
+      next.meetSpot =
+        listingKind === "work"
+          ? t("jobs_write_err_seek_region_confirm")
+          : t("trade_write_err_meet_spot");
     }
     if (!description.trim()) {
       next.description =
@@ -942,8 +925,7 @@ export function JobsWriteForm({
     currency,
     hirePayNegotiable,
     coreLocked,
-    tradeMeetSpot,
-    representativeTradeMeetFallbackLine,
+    tradeAddressSsot,
     t,
   ]);
 
@@ -1146,23 +1128,7 @@ export function JobsWriteForm({
         let meta: Record<string, unknown> = buildMeta();
         const submitRegion = effectiveTradeRegionId.trim();
         const submitCity = effectiveTradeCityId.trim();
-        const lineFromMap = tradeMeetSpot?.displayLine?.trim();
-        const lineFallback =
-          representativeTradeMeetFallbackLine?.trim() ||
-          getLocationLabelIfValid(submitRegion, submitCity)?.trim() ||
-          "";
-        const line = lineFromMap || lineFallback;
-        if (line) {
-          const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
-          meta = {
-            ...meta,
-            trade_meet_spot: {
-              display_line: line,
-              ...(pin ? { lat: pin.lat, lng: pin.lng } : {}),
-              ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
-            },
-          };
-        }
+        if (tradeAddressSsot.submitMeta) meta = { ...meta, ...tradeAddressSsot.submitMeta };
         const priceNum = payNum ? Number(payNum) : null;
         const tradeJob = buildTradeJobPayload();
         if (editPostId) {
@@ -1243,8 +1209,7 @@ export function JobsWriteForm({
       hydratedEdit,
       showDescriptionAppend,
       descriptionAppend,
-      tradeMeetSpot,
-      representativeTradeMeetFallbackLine,
+      tradeAddressSsot,
     ]
   );
 
@@ -1260,14 +1225,15 @@ export function JobsWriteForm({
   const tradeLocationEl = (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
+        category={category}
         editPostId={editPostId}
         region={region}
         city={city}
         onSyncRegionCity={syncTradeRegionCity}
-        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.region}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+        onAddressResolved={setTradeAddressSsot}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}

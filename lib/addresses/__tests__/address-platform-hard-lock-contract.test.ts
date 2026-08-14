@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,6 +13,10 @@ const ROOT = process.cwd();
 
 function read(rel: string): string {
   return readFileSync(join(ROOT, rel), "utf8");
+}
+
+function expectMissing(rel: string): void {
+  expect(existsSync(join(ROOT, rel)), `${rel} must be removed`).toBe(false);
 }
 
 function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO {
@@ -96,7 +100,6 @@ describe("ADDR-003 / ADDR-014 master contract", () => {
     expect(createBody).toContain("ensureSomeoneDefaultIfFirst");
     expect(createBody).not.toContain("promoteLastSavedAddressAsPrimaryIfAllowed");
     expect(createBody).toContain("userAddressInsertPayloadWithoutDefaultFlags");
-    expect(read("components/addresses/AddressEditorSheet.tsx")).not.toContain("promoteAsLastSavedPrimary");
     expect(read("lib/addresses/user-address-types.ts")).not.toContain("promoteAsLastSavedPrimary");
     expect(read("lib/addresses/address-api-validation.ts")).not.toContain("promoteAsLastSavedPrimary");
   });
@@ -128,12 +131,10 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const listBody = read("components/addresses/AddressListRowBody.tsx");
     const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
-    const picker = read("components/addresses/AddressBookPickerList.tsx");
     expect(listBody).toContain("resolveCanonicalDisplayLines");
     expect(listBody).toContain("displayInputFromDto");
     expect(philife).toContain("buildMypageAddressesHrefFromPath");
     expect(cart).toContain("AddressUserRowLineText");
-    expect(picker).toContain("AddressListRowBody");
     expect(read("lib/addresses/format-user-address-list-line.ts")).toContain("formatAddressBookLine");
     expect(read("lib/addresses/address-book-line.ts")).toContain("ADDRESS BOOK COMPACT FLOW SSOT");
   });
@@ -190,8 +191,13 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
 
   it("trade write location uses master address SSOT, not local region pickers", () => {
     const tradeLocation = read("components/write/shared/TradeDefaultLocationBlock.tsx");
-    expect(tradeLocation).toContain("resolveCanonicalChipLineFromDto");
+    const tradeForm = read("components/write/trade/TradeWriteForm.tsx");
+    const jobsForm = read("components/write/trade/JobsWriteForm.tsx");
+    const exchangeForm = read("components/write/trade/ExchangeWriteForm.tsx");
+    expect(tradeLocation).toContain("formatUserAddressShort");
     expect(tradeLocation).toContain("buildMypageAddressesHrefFromPath");
+    expect(tradeLocation).toContain("buildMypageAddressesHref(addressReturnTo)");
+    expect(tradeLocation).toContain("scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo)");
     expect(tradeLocation).toContain("router.push(addressesHref)");
     expect(tradeLocation).toContain("defaults?.master");
     expect(tradeLocation).toContain("SAMARKET_ADDRESSES_UPDATED_EVENT");
@@ -202,6 +208,36 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     expect(tradeLocation).not.toContain("trade_write_location_select_region");
     expect(tradeLocation).not.toContain("trade_write_manage_addresses");
     expect(tradeLocation).not.toContain("createPortal");
+    expect(tradeLocation).not.toContain("suppressAddressBookRegionSync");
+    for (const [name, src] of [
+      ["TradeWriteForm", tradeForm],
+      ["JobsWriteForm", jobsForm],
+      ["ExchangeWriteForm", exchangeForm],
+    ] as const) {
+      expect(src, name).toContain("category={category}");
+      expect(src, name).not.toContain("scheduleTradeWriteSheetReopenAfterMeetSpot");
+      expect(src, name).not.toContain("addressReturnTo");
+      expect(src, name).not.toContain("suppressAddressBookRegionSync");
+      expect(src, name).not.toContain("representativeTradeMeetFallbackLine");
+      expect(src, name).not.toContain("fetchRepresentativeTradeMeetFallbackLine");
+      expect(src, name).not.toContain("getLocationLabelIfValid");
+      expect(src, name).not.toContain("pickPersistableMeetSpotCoords");
+    }
+  });
+
+  it("address consumers reject stale requests after address mutation generation changes", () => {
+    expect(read("hooks/use-representative-address-line.ts")).toContain("requestGenerationRef");
+    expect(read("hooks/use-delivery-home-header-address.ts")).toContain("requestGenerationRef");
+    expect(read("components/write/shared/TradeDefaultLocationBlock.tsx")).toContain("requestGenerationRef");
+    expect(read("lib/addresses/fetch-address-defaults-client.ts")).toContain("generation += 1");
+  });
+
+  it("legacy address picker/editor sheets are removed after caller audit", () => {
+    expectMissing("components/addresses/DeliveryStyleAddressPickerSheet.tsx");
+    expectMissing("components/addresses/AddressBookPickerList.tsx");
+    expectMissing("components/addresses/AddressEditorSheet.tsx");
+    expectMissing("components/addresses/AddressFineTuneSheet.tsx");
+    expectMissing("lib/addresses/representative-trade-meet-fallback-line.ts");
   });
 
   it("address book representative row pick closes to returnTo after broadcasting defaults", () => {
@@ -252,6 +288,20 @@ describe("ADDR-008 store vs member", () => {
     expect(src).toContain("stores");
     expect(src).toMatch(/Not a `user_addresses` row/);
   });
+
+  it("store initial fill may transform master canonically but not use trade public fallback", () => {
+    const src = read("lib/business/derive-store-address-from-user-address-master.ts");
+    expect(src).toContain("formatUserAddressFull");
+    expect(src).not.toContain("buildTradePublicLine");
+  });
+});
+
+describe("ADMIN MEMBER ADDRESS", () => {
+  it("admin member address list uses canonical full display for user_addresses rows", () => {
+    const src = read("components/admin/users/AdminMemberAddressPanel.tsx");
+    expect(src).toContain("formatUserAddressFull");
+    expect(src).not.toContain("addr.fullAddress || addr.formattedAddress");
+  });
 });
 
 describe("ADDR-011 error contract", () => {
@@ -291,6 +341,8 @@ describe("ADDR-013 Address Platform V2", () => {
     expect(read("components/addresses/AddressEditorPageClient.tsx")).toContain("AddressPlatformDetailClient");
     expect(read("components/addresses/AddressEditorPageClient.tsx")).not.toContain("AddressEditorSheet");
     expect(read("components/addresses/AddressPlatformDetailClient.tsx")).not.toContain("AddressFineTuneSheet");
+    expectMissing("components/addresses/AddressEditorSheet.tsx");
+    expectMissing("components/addresses/AddressFineTuneSheet.tsx");
   });
 
   it("reopen hydrates user detail from saved row even when a canonical draft exists", () => {

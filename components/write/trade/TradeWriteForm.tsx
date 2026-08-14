@@ -129,13 +129,16 @@ import {
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
-import { REGIONS, getLocationLabel, getLocationLabelIfValid } from "@/lib/products/form-options";
+import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
-import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
+import {
+  TradeDefaultLocationBlock,
+  type TradeWriteAddressSsotSnapshot,
+} from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
@@ -146,9 +149,7 @@ import {
   peekTradeMeetSpotPickResult,
   prepareTradeMeetSpotMapNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
-import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
 import {
-  pickPersistableMeetSpotCoords,
   tradeMeetSpotFromClientFields,
   tradeMeetSpotFromMetaSnapshot,
   type TradeMeetSpotValue,
@@ -294,10 +295,14 @@ export function TradeWriteForm({
   const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
   /** 당근형 일반 중고 — 거래 희망 장소(지도 선택, 주소록과 별도) */
   const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
-  /** 지도 미선택 시 표시·저장 — 대표 주소 `buildTradePublicLine` (주소록 대표→거래 기본) */
-  const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
-    null
-  );
+  const [tradeAddressSsot, setTradeAddressSsot] = useState<TradeWriteAddressSsotSnapshot>({
+    ready: false,
+    missing: true,
+    displayLine: null,
+    regionId: "",
+    cityId: "",
+    submitMeta: null,
+  });
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const locationLocked = Boolean(
     editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
@@ -358,33 +363,13 @@ export function TradeWriteForm({
     if (!editPostId) setTradeChatCallPolicy("none");
   }, [category.id, editPostId]);
 
-  useEffect(() => {
-    if (!hasLocation) {
-      setRepresentativeTradeMeetFallbackLine(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const line = await fetchRepresentativeTradeMeetFallbackLine();
-      if (!cancelled) setRepresentativeTradeMeetFallbackLine(line);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasLocation]);
-
-  /** 주소록 동기화 없이도 지도 한 줄에서 region/city 추론 — 검증·저장·헤더 라벨 공통 */
   const effectiveTradeRegionId = useMemo(() => {
-    const r = region.trim();
-    if (r) return r;
-    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.regionId ?? "";
-  }, [region, tradeMeetSpot]);
+    return region.trim();
+  }, [region]);
 
   const effectiveTradeCityId = useMemo(() => {
-    const c = city.trim();
-    if (c) return c;
-    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.cityId ?? "";
-  }, [city, tradeMeetSpot]);
+    return city.trim();
+  }, [city]);
 
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
   useEffect(() => {
@@ -1099,13 +1084,8 @@ export function TradeWriteForm({
     if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
       next.location = t("trade_write_err_region_read");
     }
-    if (hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
-      const fallbackLine =
-        representativeTradeMeetFallbackLine?.trim() ||
-        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
-      if (!fallbackLine) {
-        next.meetSpot = t("trade_write_err_meet_spot");
-      }
+    if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta)) {
+      next.meetSpot = t("trade_write_err_meet_spot");
     }
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = t("trade_write_err_building");
@@ -1148,8 +1128,7 @@ export function TradeWriteForm({
     roomCount,
     bathroomCount,
     moveInDate,
-    tradeMeetSpot,
-    representativeTradeMeetFallbackLine,
+    tradeAddressSsot,
     t,
   ]);
 
@@ -1258,25 +1237,7 @@ export function TradeWriteForm({
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
         meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
-        if (hasLocation) {
-          const lineFromMap = tradeMeetSpot?.displayLine?.trim();
-          const lineFallback =
-            representativeTradeMeetFallbackLine?.trim() ||
-            getLocationLabelIfValid(submitRegion, submitCity)?.trim() ||
-            "";
-          const line = lineFromMap || lineFallback;
-          if (line) {
-            const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
-            meta = {
-              ...meta,
-              trade_meet_spot: {
-                display_line: line,
-                ...(pin ? { lat: pin.lat, lng: pin.lng } : {}),
-                ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
-              },
-            };
-          }
-        }
+        if (hasLocation && tradeAddressSsot.submitMeta) meta = { ...meta, ...tradeAddressSsot.submitMeta };
         const usedCarPostTitle =
           usedCarTrade === "buy"
             ? t("trade_write_auto_title_buy", {
@@ -1405,8 +1366,7 @@ export function TradeWriteForm({
       descriptionAppend,
       tradeChatCallPolicy,
       hasLocation,
-      tradeMeetSpot,
-      representativeTradeMeetFallbackLine,
+      tradeAddressSsot,
       effectiveTradeRegionId,
       effectiveTradeCityId,
     ]
@@ -1509,23 +1469,11 @@ export function TradeWriteForm({
     t,
   ]);
 
-  /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
   const karrotMeetSpotDisplayLine = useMemo(() => {
     const fromMap = tradeMeetSpot?.displayLine?.trim();
     if (fromMap) return fromMap;
-    const rep = representativeTradeMeetFallbackLine?.trim();
-    if (rep) return rep;
-    if (hasLocation) {
-      return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
-    }
-    return "";
-  }, [
-    tradeMeetSpot,
-    representativeTradeMeetFallbackLine,
-    hasLocation,
-    effectiveTradeRegionId,
-    effectiveTradeCityId,
-  ]);
+    return tradeAddressSsot.displayLine?.trim() ?? "";
+  }, [tradeMeetSpot, tradeAddressSsot.displayLine]);
 
   const realEstateBuildingFields = (
     <div className="mt-2 border-t border-[#e4e6eb] pt-2">
@@ -1550,6 +1498,7 @@ export function TradeWriteForm({
   const tradeLocationEl = hasLocation ? (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
+        category={category}
         editPostId={editPostId}
         region={region}
         city={city}
@@ -1557,6 +1506,7 @@ export function TradeWriteForm({
         error={errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+        onAddressResolved={setTradeAddressSsot}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
@@ -1566,7 +1516,6 @@ export function TradeWriteForm({
         meetSpotHeading={t("trade_write_location")}
         belowMeetSpotSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
         denseLayout
-        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
       />
     </div>
   ) : null;

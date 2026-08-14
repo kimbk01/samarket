@@ -48,6 +48,7 @@ export function useRepresentativeAddressPresentation(opts?: {
 }): RepresentativeAddressPresentationState {
   const pathname = usePathname();
   const hasPresentationRef = useRef(false);
+  const requestGenerationRef = useRef(0);
   const [state, setState] = useState<RepresentativeAddressPresentationState>(() => {
     if (!canLoadRepresentativeAddress()) return { status: "ready", presentation: null };
     const snap = opts?.initialSnapshot ?? peekFreshAddressDefaultsSnapshot();
@@ -63,6 +64,7 @@ export function useRepresentativeAddressPresentation(opts?: {
   }, [opts?.initialSnapshot]);
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const requestGeneration = ++requestGenerationRef.current;
     if (!canLoadRepresentativeAddress()) {
       hasPresentationRef.current = false;
       setState({ status: "ready", presentation: null });
@@ -76,6 +78,7 @@ export function useRepresentativeAddressPresentation(opts?: {
         caller: "representative_address_presentation",
         reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
       });
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", presentation: null });
         return;
@@ -84,6 +87,7 @@ export function useRepresentativeAddressPresentation(opts?: {
       if (presentation) hasPresentationRef.current = true;
       setState({ status: "ready", presentation });
     } catch {
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (!silent) setState({ status: "ready", presentation: null });
     }
   }, []);
@@ -127,12 +131,13 @@ export function useRepresentativeAddressPresentation(opts?: {
 }
 
 /**
- * 대표(master) 주소 — 헤더 칩용 SHORT 한 줄(상호/건물명, 없으면 Subdivision/Village).
+ * 대표(master) 주소 — 헤더 칩용 SHORT 한 줄(상호/건물명, 없으면 Subdivision/Village, 없으면 주소 headline).
  * 경로 변경 시 **이전 줄을 유지한 채** 백그라운드 갱신(TTL 캐시·`silent` fetch) — 탭 전환마다「불러오는 중」깜빡임 방지.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
     if (!canLoadRepresentativeAddress()) return { status: "ready", line: null };
     const snap = peekFreshAddressDefaultsSnapshot();
@@ -143,6 +148,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const requestGeneration = ++requestGenerationRef.current;
     if (!canLoadRepresentativeAddress()) {
       lastLineRef.current = null;
       setState({ status: "ready", line: null });
@@ -156,6 +162,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
         caller: "representative_address_line",
         reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
       });
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", line: null });
         return;
@@ -164,6 +171,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
       if (next.line?.trim()) lastLineRef.current = next.line.trim();
       setState(next);
     } catch {
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (!silent) setState({ status: "ready", line: null });
     }
   }, []);
@@ -207,11 +215,12 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
 }
 
 /**
- * 대표(master) 주소 — 내정보용 FULL 한 줄(title + road/area + detail/landmark).
+ * 대표(master) 주소 — 내정보용 FULL 한 줄(detail/landmark first, then title + road/area).
  */
 export function useRepresentativeFullAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
     if (!canLoadRepresentativeAddress()) return { status: "ready", line: null };
     const snap = peekFreshAddressDefaultsSnapshot();
@@ -222,6 +231,7 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const requestGeneration = ++requestGenerationRef.current;
     if (!canLoadRepresentativeAddress()) {
       lastLineRef.current = null;
       setState({ status: "ready", line: null });
@@ -235,6 +245,7 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
         caller: "representative_full_address_line",
         reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
       });
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", line: null });
         return;
@@ -243,6 +254,7 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
       if (next.line?.trim()) lastLineRef.current = next.line.trim();
       setState(next);
     } catch {
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (!silent) setState({ status: "ready", line: null });
     }
   }, []);

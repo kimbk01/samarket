@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 
@@ -102,7 +103,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-[#344054]">{addr.fullAddress || addr.formattedAddress || empty}</p>
+            <p className="mt-1 text-sm text-[#344054]">{formatUserAddressFull(addr) || empty}</p>
             <p className="mt-1 text-xs text-[#667085]">
               {addr.recipientName || empty} · {addr.phoneNumber || empty}
             </p>

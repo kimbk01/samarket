@@ -24,6 +24,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
   const hasResolvedOnceRef = useRef(false);
+  const requestGenerationRef = useRef(0);
 
   const [state, setState] = useState<DeliveryHomeHeaderAddressState>(() => {
     const snap = peekFreshAddressDefaultsSnapshot();
@@ -50,6 +51,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
+      const requestGeneration = ++requestGenerationRef.current;
       const silent = opts?.silent === true;
       if (!silent && !lastLineRef.current && !hasResolvedOnceRef.current) {
         commitState({ status: "loading" });
@@ -61,6 +63,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
           caller: "delivery_home_header_address",
           reason: opts?.force === true ? "force_addresses_updated" : "header_address_load",
         });
+        if (requestGeneration !== requestGenerationRef.current) return;
         if (snapshot == null) {
           if (!silent || !hasResolvedOnceRef.current) {
             commitState({ status: "ready", line: null, hasLinkedAddress: false });
@@ -69,6 +72,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
         }
         commitState(resolveDeliveryHomeHeaderStateFromSnapshot(snapshot));
       } catch {
+        if (requestGeneration !== requestGenerationRef.current) return;
         if (!silent || !hasResolvedOnceRef.current) {
           commitState({ status: "ready", line: null, hasLinkedAddress: false });
         }

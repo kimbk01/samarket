@@ -4,14 +4,18 @@ import type { ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { CategoryWithSettings } from "@/lib/categories/types";
+import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { resolveCanonicalChipLineFromDto } from "@/lib/addresses/canonical-address-display";
+import { buildMypageAddressesHref, buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { formatUserAddressShort } from "@/lib/addresses/user-address-display-ssot";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { scheduleTradeWriteSheetReopenAfterMeetSpot } from "@/lib/navigation/trade-meet-spot-return-to";
 
 function pickAddressForTradeWrite(defaults: { master?: unknown } | undefined): UserAddressDTO | null {
   const master = coerceUserAddressDTO(defaults?.master ?? null);
@@ -22,14 +26,28 @@ function pickAddressForTradeWrite(defaults: { master?: unknown } | undefined): U
 function applyAddressToTradeRegion(
   addr: UserAddressDTO,
   sync: (regionId: string, cityId: string) => void,
-): string | null {
-  const line = resolveCanonicalChipLineFromDto(addr).trim();
+): { line: string | null; regionId: string; cityId: string } {
+  const line = formatUserAddressShort(addr)?.trim() ?? "";
   const inferred = mapUserAddressToAppLocation(addr);
   if (inferred) sync(inferred.regionId, inferred.cityId);
-  return line && line !== "—" ? line : null;
+  return {
+    line: line && line !== "—" ? line : null,
+    regionId: inferred?.regionId ?? "",
+    cityId: inferred?.cityId ?? "",
+  };
 }
 
+export type TradeWriteAddressSsotSnapshot = {
+  ready: boolean;
+  missing: boolean;
+  displayLine: string | null;
+  regionId: string;
+  cityId: string;
+  submitMeta: { trade_meet_spot: { display_line: string } } | null;
+};
+
 type TradeDefaultLocationBlockProps = {
+  category: CategoryWithSettings;
   editPostId?: string;
   region: string;
   city: string;
@@ -37,6 +55,7 @@ type TradeDefaultLocationBlockProps = {
   error?: string;
   readOnly?: boolean;
   onBeforeNavigateToAddresses?: () => void | Promise<void>;
+  onAddressResolved?: (snapshot: TradeWriteAddressSsotSnapshot) => void;
   karrotMeetSpotUi?: boolean;
   meetSpotLine?: string | null;
   meetSpotError?: string;
@@ -44,50 +63,67 @@ type TradeDefaultLocationBlockProps = {
   meetSpotHeading?: string;
   belowMeetSpotSlot?: ReactNode;
   denseLayout?: boolean;
-  suppressAddressBookRegionSync?: boolean;
 };
 
 export function TradeDefaultLocationBlock({
+  category,
+  editPostId,
   onSyncRegionCity,
   error,
   readOnly = false,
   onBeforeNavigateToAddresses,
+  onAddressResolved,
   karrotMeetSpotUi = false,
   meetSpotError,
   meetSpotHeading,
   belowMeetSpotSlot,
   denseLayout = false,
-  suppressAddressBookRegionSync = false,
 }: TradeDefaultLocationBlockProps) {
   const { t } = useI18n();
   const heading = meetSpotHeading?.trim() || t("trade_write_meet_spot_default");
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
-  const addressesHref = buildMypageAddressesHrefFromPath(
-    pathname,
-    searchParams?.toString() ? `?${searchParams.toString()}` : ""
-  );
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const addressReturnTo = !editPostId && tradeWriteSheet ? getCategoryHref(category) : null;
+  const addressesHref =
+    addressReturnTo?.trim()
+      ? buildMypageAddressesHref(addressReturnTo)
+      : buildMypageAddressesHrefFromPath(
+          pathname,
+          searchParams?.toString() ? `?${searchParams.toString()}` : ""
+        );
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
-  const suppressAddressBookSyncRef = useRef(suppressAddressBookRegionSync);
-  suppressAddressBookSyncRef.current = suppressAddressBookRegionSync;
+  const resolvedRef = useRef(onAddressResolved);
+  resolvedRef.current = onAddressResolved;
+  const requestGenerationRef = useRef(0);
   const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameEffectFirstRef = useRef(true);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
+    const requestGeneration = ++requestGenerationRef.current;
     try {
       const snapshot = await fetchAddressDefaultsSnapshot({
         force: opts?.force === true,
         caller: "trade_default_location_block",
         reason: opts?.force === true ? "force_addresses_updated" : "composer_default_location",
       });
+      if (requestGeneration !== requestGenerationRef.current) return;
       if (!snapshot?.ok || !snapshot.defaults) {
         displayLineRef.current = null;
         setDisplayLine(null);
+        resolvedRef.current?.({
+          ready: true,
+          missing: true,
+          displayLine: null,
+          regionId: "",
+          cityId: "",
+          submitMeta: null,
+        });
         setReady(true);
         return;
       }
@@ -95,19 +131,44 @@ export function TradeDefaultLocationBlock({
       if (!addr?.id) {
         displayLineRef.current = null;
         setDisplayLine(null);
+        resolvedRef.current?.({
+          ready: true,
+          missing: true,
+          displayLine: null,
+          regionId: "",
+          cityId: "",
+          submitMeta: null,
+        });
         setReady(true);
         return;
       }
-      const nextLine = applyAddressToTradeRegion(addr, (rid, cid) => {
-        if (!suppressAddressBookSyncRef.current) syncRef.current(rid, cid);
+      const next = applyAddressToTradeRegion(addr, (rid, cid) => {
+        syncRef.current(rid, cid);
       });
-      displayLineRef.current = nextLine;
-      setDisplayLine(nextLine);
+      displayLineRef.current = next.line;
+      setDisplayLine(next.line);
+      resolvedRef.current?.({
+        ready: true,
+        missing: !next.line || !next.regionId || !next.cityId,
+        displayLine: next.line,
+        regionId: next.regionId,
+        cityId: next.cityId,
+        submitMeta: next.line ? { trade_meet_spot: { display_line: next.line } } : null,
+      });
     } catch {
+      if (requestGeneration !== requestGenerationRef.current) return;
       displayLineRef.current = null;
       setDisplayLine(null);
+      resolvedRef.current?.({
+        ready: true,
+        missing: true,
+        displayLine: null,
+        regionId: "",
+        cityId: "",
+        submitMeta: null,
+      });
     } finally {
-      setReady(true);
+      if (requestGeneration === requestGenerationRef.current) setReady(true);
     }
   }, []);
 
@@ -167,8 +228,9 @@ export function TradeDefaultLocationBlock({
         return;
       }
     }
+    if (addressReturnTo) scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo);
     router.push(addressesHref);
-  }, [addressesHref, onBeforeNavigateToAddresses, router]);
+  }, [addressReturnTo, addressesHref, onBeforeNavigateToAddresses, router]);
 
   const currentAddressText = !ready
     ? "…"

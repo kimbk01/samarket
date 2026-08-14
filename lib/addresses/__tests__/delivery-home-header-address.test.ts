@@ -150,6 +150,19 @@ describe("resolveDeliveryHomeHeaderDisplayLine", () => {
     );
     expect(line).toBe("Malate");
   });
+
+  it("SHORT chip falls back to street/formatted headline instead of showing not-set", () => {
+    const line = resolveDeliveryHomeHeaderDisplayLine(
+      addr({
+        id: "a6",
+        buildingName: "Mabini Street",
+        streetAddress: "Mabini Street",
+        neighborhoodName: null,
+        formattedAddress: "Mabini Street, Manila, Metro Manila, Philippines",
+      }),
+    );
+    expect(line).toBe("Mabini Street");
+  });
 });
 
 describe("pickDeliveryHomeHeaderAddress", () => {

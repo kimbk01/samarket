@@ -1,8 +1,6 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import {
-  buildTradePublicLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
+import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
 import { REGIONS } from "@/lib/products/form-options";
 
@@ -43,9 +41,10 @@ export function deriveStoreAddressFieldsFromUserAddressMaster(
   if (!r || !c) return null;
 
   const streetRaw =
+    formatUserAddressFull(master) ||
     (master.fullAddress ?? "").trim() ||
     (master.streetAddress ?? "").trim() ||
-    buildTradePublicLine(master);
+    "";
   const streetNoCountry = stripCountryFromAddressDisplayLine(streetRaw, master.countryName).trim();
   const summary = stripTail(streetNoCountry, [c.name, r.name]).trim();
   const unit = [master.unitFloorRoom, master.buildingName]

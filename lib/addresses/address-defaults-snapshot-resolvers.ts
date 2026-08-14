@@ -3,9 +3,10 @@ import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import {
-  formatCanonicalFullLineFromDto,
-  resolveCanonicalChipLineFromDto,
-} from "@/lib/addresses/canonical-address-display";
+  formatUserAddressFull,
+  formatUserAddressShort,
+} from "@/lib/addresses/user-address-display-ssot";
+import { pickUserAddressMasterRow } from "@/lib/addresses/user-address-master-ssot";
 import {
   normalizeDeliveryHomeHeaderDisplayLine,
   pickDeliveryHomeHeaderAddress,
@@ -40,7 +41,7 @@ export function resolveExplorationAddressLineFromSnapshot(snapshot: AddressDefau
   if (!defaults) return null;
   const master = defaults.master;
   if (master?.id) {
-    const chip = resolveCanonicalChipLineFromDto(master).trim();
+    const chip = formatUserAddressShort(master)?.trim();
     if (chip) return chip;
   }
   return resolveNeighborhoodFromLifeLabel(snapshot);
@@ -52,7 +53,7 @@ export function resolveRepresentativeFullAddressLineFromSnapshot(
 ): string | null {
   const defaults = coerceDefaults(snapshot);
   if (!defaults?.master?.id) return null;
-  const masterLine = formatCanonicalFullLineFromDto(defaults.master).trim();
+  const masterLine = formatUserAddressFull(defaults.master)?.trim() ?? "";
   if (!isPlainAddressPlaceholder(masterLine)) return masterLine;
   return null;
 }
@@ -60,9 +61,9 @@ export function resolveRepresentativeFullAddressLineFromSnapshot(
 export function resolveAddressBookPresentationFromSnapshot(
   snapshot: AddressDefaultsSnapshot | null
 ): AddressBookCardPresentation | null {
-  const defaults = coerceDefaults(snapshot);
-  if (!defaults?.master?.id) return null;
-  return formatAddressBookCardPresentation(defaults.master);
+  const master = pickUserAddressMasterRow(snapshot?.defaults ?? null);
+  if (!master?.id) return null;
+  return formatAddressBookCardPresentation(master);
 }
 
 /** `/stores` 배달 홈 헤더 — routing pick + Baemin 줄 + 생활 동네 */

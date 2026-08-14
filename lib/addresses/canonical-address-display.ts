@@ -86,12 +86,15 @@ export function resolveAddressBookTitle(input: CanonicalDisplayInput): string {
 
 /**
  * SHORT chip — 상호/건물명, else Subdivision/Village.
- * Does not use city-only public labels, street, detail, or deliveryNote.
+ * Never return blank for a saved master row that has a street/formatted headline.
+ * Does not use city-only public labels, detail, or deliveryNote.
  */
 export function resolveCanonicalChipLine(input: CanonicalDisplayInput): string {
   const place = clean(input.placeName);
   if (place) return place;
-  return clean(input.neighborhoodName);
+  const neighborhood = clean(input.neighborhoodName);
+  if (neighborhood) return neighborhood;
+  return resolveAddressBookTitle(input);
 }
 
 /**

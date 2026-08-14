@@ -23,7 +23,7 @@ import {
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
 import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
-import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
+import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -53,8 +53,7 @@ export function MyAccountContent() {
   const { t } = useI18n();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [addressLine, setAddressLine] = useState<string | null>(null);
-  const [addressLoaded, setAddressLoaded] = useState(false);
+  const addressState = useRepresentativeFullAddressLine();
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
@@ -66,30 +65,6 @@ export function MyAccountContent() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    if (!profile) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/me/address-defaults", { credentials: "include", cache: "no-store" });
-        const json = (await res.json().catch(() => null)) as
-          | { ok?: boolean; defaults?: UserAddressDefaultsDTO }
-          | null;
-        if (cancelled) return;
-        const row = json?.ok ? json.defaults?.master ?? json.defaults?.delivery ?? null : null;
-        const line = row?.fullAddress || row?.formattedAddress || null;
-        setAddressLine(line);
-      } catch {
-        if (!cancelled) setAddressLine(null);
-      } finally {
-        if (!cancelled) setAddressLoaded(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [profile]);
 
   if (loading) {
     return <p className="py-4 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
@@ -145,6 +120,7 @@ export function MyAccountContent() {
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile);
   const profileCompleted = profile.profile_completed === true;
+  const addressLine = addressState.status === "ready" ? addressState.line?.trim() ?? "" : "";
   const addressDone = Boolean(addressLine?.trim());
 
   const essentials = [
@@ -172,8 +148,8 @@ export function MyAccountContent() {
       key: "address",
       title: t("profile_verification_address"),
       desc: addressDone
-        ? addressLine!
-        : addressLoaded
+        ? addressLine
+        : addressState.status === "ready"
           ? t("profile_verification_address_needed")
           : t("common_loading"),
       done: addressDone,

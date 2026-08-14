@@ -29,6 +29,7 @@ type Cached =
 type AddressDefaultsCanonical = {
   cached: Cached;
   flight: Promise<AddressDefaultsSnapshot> | null;
+  generation: number;
 };
 
 type GlobalHost = typeof globalThis & {
@@ -38,7 +39,7 @@ type GlobalHost = typeof globalThis & {
 function canonical(): AddressDefaultsCanonical {
   const g = globalThis as GlobalHost;
   if (!g[GLOBAL_KEY]) {
-    g[GLOBAL_KEY] = { cached: null, flight: null };
+    g[GLOBAL_KEY] = { cached: null, flight: null, generation: 0 };
   }
   return g[GLOBAL_KEY]!;
 }
@@ -54,6 +55,7 @@ function cloneSnapshot(value: AddressDefaultsSnapshot): AddressDefaultsSnapshot 
 
 export function invalidateAddressDefaultsSnapshotCache(): void {
   const c = canonical();
+  c.generation += 1;
   c.cached = null;
   c.flight = null;
 }
@@ -89,6 +91,7 @@ export async function fetchAddressDefaultsSnapshot(
   const force = opts?.force === true;
   const viewerId = getCurrentUser()?.id?.trim() ?? null;
   const store = canonical();
+  const generation = store.generation;
   const cacheAgeMs =
     store.cached != null ? Math.max(0, store.cached.expiresAt - Date.now()) : null;
 
@@ -211,7 +214,7 @@ export async function fetchAddressDefaultsSnapshot(
           json?.defaults && typeof json.defaults === "object" ? { ...json.defaults } : null,
         neighborhoodFromLife,
       };
-      if (value.ok && value.status === 200) {
+      if (value.ok && value.status === 200 && canonical().generation === generation) {
         store.cached = {
           value,
           expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,

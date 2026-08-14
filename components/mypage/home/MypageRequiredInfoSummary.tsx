@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { deriveMemberAccountStatus } from "@/lib/profile/member-account-status";
-import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
-import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import {
@@ -94,7 +93,7 @@ function ControlRow({
 
 /**
  * 계정·인증 컨트롤 센터 — @아이디 / 전화 / 주소 3행을 항상 표시.
- * 3/3 합산·필수완료 위저드 금지. DO NOT fetch address-defaults here.
+ * 3/3 합산·필수완료 위저드 금지. 주소 줄은 event-driven 대표주소 hook만 사용.
  */
 export function MypageRequiredInfoSummary({
   projection,
@@ -106,17 +105,17 @@ export function MypageRequiredInfoSummary({
   const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
   const profile = projection?.profile ?? null;
-  const addressRegistered = projection?.addressStatus === "complete";
+  const representativeAddressLine = useRepresentativeFullAddressLine();
+  const hookAddressLine =
+    representativeAddressLine.status === "ready" ? representativeAddressLine.line?.trim() ?? "" : "";
+  const addressRegistered = projection?.addressStatus === "complete" || Boolean(hookAddressLine);
 
   const status = useMemo(
     () => deriveMemberAccountStatus(profile, { hasDefaultAddress: addressRegistered }),
     [addressRegistered, profile],
   );
 
-  const addressLine = useMemo(() => {
-    const snap = peekFreshAddressDefaultsSnapshot();
-    return resolveRepresentativeFullAddressLineFromSnapshot(snap)?.trim() ?? "";
-  }, [projection?.addressStatus]);
+  const addressLine = hookAddressLine;
 
   if (!projection || projection.phoneStatus === "unknown" || projection.addressStatus === "unknown" || !profile) {
     return (

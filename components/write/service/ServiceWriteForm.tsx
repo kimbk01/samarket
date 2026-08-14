@@ -205,6 +205,7 @@ export function ServiceWriteForm({
             </section>
             {hasLocation && (
               <TradeDefaultLocationBlock
+                category={category}
                 region={region}
                 city={city}
                 onSyncRegionCity={syncTradeRegionCity}

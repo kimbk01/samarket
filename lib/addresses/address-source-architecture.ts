@@ -9,8 +9,10 @@
  *   (`components/map/AddressSearch` same engine for `/address/select`)
  * STORAGE: `user_addresses` only (`createUserAddress` / `updateUserAddress` / …)
  * PICK DATA: `GET /api/me/addresses` + `fetchMeAddressesListSingleFlight` / address-defaults
- * PICK UI row: `AddressListRowBody` → `AddressUserRowLineText` → `formatAddressBookLine*`
- * PUBLIC: `formatPublicAddress` (City/Municipality only)
+ * MASTER SSOT: `user-address-master-ssot.ts` (row selection / missing / app region-city)
+ * DISPLAY SSOT: `user-address-display-ssot.ts` (SHORT / FULL / PUBLIC)
+ * PICK UI row: `AddressListRowBody` → canonical display lines
+ * PUBLIC: `formatUserAddressPublic` → `formatPublicAddress` (City/Municipality only)
  * DELIVERY: `formatDeliveryAddress` (PH multi-line / full detail)
  * ADDRESS BOOK: `formatAddressBookLine` (compact continuous flow, country excluded, detail boldable, natural wrap)
  *
@@ -19,17 +21,18 @@
  * | Surface | Input | Storage | Picker | Formatter | Snapshot |
  * |---|---|---|---|---|---|
  * | /mypage/addresses | AddressPlatformSearchClient → AddressPlatformDetailClient | user_addresses | list (mgmt) | canonical FULL / SHORT | address-defaults.master |
- * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | formatAddressBookLine | — |
+ * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | canonical FULL / SHORT | address-defaults.master |
  * | Philife Header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
  * | /stores header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
  * | Cart / Checkout | — | user_addresses | cart radio + same row text | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
- * | Community Feed/Write | — | user_addresses → region label | — | formatPublicAddress | posts.region_label |
- * | Trade Write | — | user_addresses master → taxonomy ids | /mypage/addresses | canonical SHORT | address-defaults.master + posts.region/city |
+ * | Community Feed/Write | — | user_addresses master → public label | — | canonical PUBLIC | posts.region_label |
+ * | Trade Write | — | user_addresses master → taxonomy ids + submit meta | /mypage/addresses | canonical SHORT | address-defaults.master + posts.region/city/meta.trade_meet_spot |
  * | Trade Detail | — | posts snapshot | — | post region/city label | posts.region/city |
  * | Trade Meet Spot | legacy map snapshot only | posts.meta.trade_meet_spot | — | place label | post meta |
+ * | Store Application Initial Fill | user master allowed once | stores draft | — | canonical transform | stores row after save |
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
- * | Admin Member Address | admin tools | user_addresses | — | formatAddressBookLine | — |
+ * | Admin Member Address | admin tools | user_addresses | — | canonical FULL | user_addresses + legacy profile section |
  *
  * ## B. REGION / EXPLORATION (public presentation)
  * Authority: `formatPublicAddress` → City/Municipality ONLY
@@ -39,9 +42,17 @@
  *
  * ## C. DELIVERY ADDRESS
  * `formatDeliveryAddress` — PH full deliverable lines. Checkout copies into `store_orders` snapshot.
+ * `isDefaultDelivery` is checkout default selection only; it is not current-address display authority.
  *
  * ## D. STORE ADDRESS
  * Table: `stores` — Not a `user_addresses` row. Shop-linked user_addresses is a member book copy, not store authority.
+ * User master may seed store application fields, then `stores` becomes authority after save.
+ *
+ * ## D2. ADDRESS MUTATION CONSISTENCY HARD LOCK
+ * server mutation success → address list reconcile → defaults cache invalidate → generation increment
+ * → `samarket:addresses-updated`.
+ * Every address consumer fetch must be generation-aware. A request started before a mutation must not
+ * overwrite state after a newer request has resolved.
  *
  * ## E. ADDRESS BOOK COMPACT FLOW
  * `formatAddressBookLine` / `formatAddressBookLineSegments` — continuous compact string, no country,

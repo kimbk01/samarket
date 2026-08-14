@@ -128,7 +128,7 @@ describe("canonical address display SSOT", () => {
     expect(input.neighborhoodName).toBeNull();
   });
 
-  it("SHORT chip is place, else neighborhood, never city-only", () => {
+  it("SHORT chip is place, else neighborhood, else address headline; never city-only", () => {
     expect(
       resolveCanonicalChipLine({
         placeName: "SM Mall of Asia",
@@ -148,7 +148,8 @@ describe("canonical address display SSOT", () => {
         cityMunicipality: "Manila",
         streetAddress: "Mabini Street",
       }),
-    ).toBe("");
+    ).toBe("Mabini Street");
+    expect(resolveCanonicalChipLine({ cityMunicipality: "Manila" })).toBe("");
   });
 
   it("FULL line uses PH order: detail first, then title and road/area without deliveryNote", () => {

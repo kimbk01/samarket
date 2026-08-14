@@ -6,7 +6,7 @@
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { resolveCanonicalChipLineFromDto } from "@/lib/addresses/canonical-address-display";
+import { formatUserAddressShort } from "@/lib/addresses/user-address-display-ssot";
 
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
@@ -64,7 +64,7 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a?.id) return null;
-  return normalizeDeliveryHomeHeaderDisplayLine(resolveCanonicalChipLineFromDto(a));
+  return normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressShort(a));
 }
 
 function pickDefaultAddressRow(
