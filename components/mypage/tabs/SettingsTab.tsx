@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
@@ -29,7 +28,7 @@ export function SettingsTab({ section }: { section: string }) {
         title={t("mypage_comp_nav_sec_settings_address_label")}
         description={t("mypage_comp_nav_sec_settings_address_desc")}
       >
-        <AddressManagementClient embedded />
+        <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} />
       </TabShell>
     );
   }
@@ -166,8 +165,20 @@ export function SettingsTab({ section }: { section: string }) {
       title={t("mypage_comp_nav_sec_settings_address_label")}
       description={t("mypage_comp_nav_sec_settings_address_desc")}
     >
-      <AddressManagementClient embedded />
+      <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} />
     </TabShell>
+  );
+}
+
+function AddressBookLink({ label }: { label: string }) {
+  return (
+    <Link
+      href="/mypage/addresses"
+      className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
+    >
+      {label}
+      <span className="text-sam-meta">›</span>
+    </Link>
   );
 }
 

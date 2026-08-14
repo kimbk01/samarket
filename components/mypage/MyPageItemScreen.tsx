@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
@@ -34,6 +33,14 @@ function LogoutItemRedirectToHub() {
   const router = useRouter();
   useEffect(() => {
     router.replace(MYPAGE_DOMAIN_ROOT_PATH);
+  }, [router]);
+  return null;
+}
+
+function AddressItemRedirectToBook() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/mypage/addresses");
   }, [router]);
   return null;
 }
@@ -123,7 +130,7 @@ export function MyPageItemScreen(
 
   if (section === "settings") {
     if (item === "address") {
-      return <AddressManagementClient embedded />;
+      return <AddressItemRedirectToBook />;
     }
     if (item === "device-permissions") {
       return <DevicePermissionsSettingsContent />;

@@ -157,6 +157,36 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     expect(phCard).toContain("break-words");
     expect(phCard).toMatch(/\binline\b/);
   });
+
+  it("product address entry surfaces use the single /mypage/addresses book", () => {
+    const myInfo = read("components/mypage/myinfo/RequiredInfoList.tsx");
+    const mySummary = read("components/mypage/home/MypageRequiredInfoSummary.tsx");
+    const profileSettings = read("components/mypage/profile-settings/ProfileSettingsSheet.tsx");
+    const storesHome = read("components/stores/home/hub/StoresHomeHeaderChrome.tsx");
+    const storesBrowse = read("components/stores/browse/StoresBrowseHeaderChrome.tsx");
+    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
+    const myPageItem = read("components/mypage/MyPageItemScreen.tsx");
+    const storeTab = read("components/mypage/tabs/StoreTab.tsx");
+    const settingsTab = read("components/mypage/tabs/SettingsTab.tsx");
+
+    for (const [name, src] of [
+      ["RequiredInfoList", myInfo],
+      ["MypageRequiredInfoSummary", mySummary],
+      ["ProfileSettingsSheet", profileSettings],
+      ["StoresHomeHeaderChrome", storesHome],
+      ["StoresBrowseHeaderChrome", storesBrowse],
+      ["PhilifeHeaderAddressMenuButton", philife],
+      ["MyPageItemScreen", myPageItem],
+      ["StoreTab", storeTab],
+      ["SettingsTab", settingsTab],
+    ] as const) {
+      expect(src, name).toMatch(/buildMypageAddressesHref|\/mypage\/addresses/);
+      expect(src, name).not.toContain("openSheet(\"address\")");
+      expect(src, name).not.toContain("AddressManagementClient embedded");
+      expect(src, name).not.toContain("StoresHomeAddressSheet");
+      expect(src, name).not.toContain("MypageAddressSheet");
+    }
+  });
 });
 
 describe("ADDR-006 / ADDR-007 / ADDR-015 order snapshot", () => {

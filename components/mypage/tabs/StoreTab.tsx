@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
+import Link from "next/link";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
@@ -89,7 +89,13 @@ export function StoreTab({
         title={safeT("mypage_comp_nav_sec_store_address_label")}
         description={t("mypage_comp_nav_sec_store_address_desc")}
       >
-        <AddressManagementClient embedded />
+        <Link
+          href="/mypage/addresses"
+          className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
+        >
+          {safeT("mypage_comp_nav_sec_store_address_label")}
+          <span className="text-sam-meta">›</span>
+        </Link>
       </TabShell>
     );
   }

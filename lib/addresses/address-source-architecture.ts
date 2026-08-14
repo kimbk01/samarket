@@ -5,7 +5,7 @@
  * CURRENT ADDRESS ≠ PUBLIC REGION ≠ ORDER SNAPSHOT ≠ STORE ADDRESS ≠ TRADE MEET SPOT
  *
  * ## Member pipeline (ONE each)
- * INPUT: `AddressEditorSheet` + `AddressEditorLocationSearch` (AutocompleteService)
+ * INPUT: `/mypage/addresses/search` → `/mypage/addresses/edit` (AutocompleteService)
  *   (`components/map/AddressSearch` same engine for `/address/select`)
  * STORAGE: `user_addresses` only (`createUserAddress` / `updateUserAddress` / …)
  * PICK DATA: `GET /api/me/addresses` + `fetchMeAddressesListSingleFlight` / address-defaults
@@ -18,11 +18,10 @@
  *
  * | Surface | Input | Storage | Picker | Formatter | Snapshot |
  * |---|---|---|---|---|---|
- * | /mypage/addresses | AddressEditorSheet | user_addresses | list (mgmt) | formatAddressBookLine | — |
- * | MypageAddressSheet | AddressEditorSheet | user_addresses | AddressListRowBody | formatAddressBookLine | — |
- * | /onboarding/address | AddressEditorSheet | user_addresses | — | formatAddressBookLine | — |
- * | Philife Header | — | user_addresses | list + set master | formatAddressBookLine (header PUBLIC via formatPublicAddress) | — |
- * | /stores header | — | user_addresses (delivery default) | DeliveryStyleAddressPickerSheet | formatAddressBookLine / delivery header | — |
+ * | /mypage/addresses | AddressPlatformSearchClient → AddressPlatformDetailClient | user_addresses | list (mgmt) | canonical FULL / SHORT | address-defaults.master |
+ * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | formatAddressBookLine | — |
+ * | Philife Header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
+ * | /stores header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
  * | Cart / Checkout | — | user_addresses | cart radio + same row text | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
  * | Community Feed/Write | — | user_addresses → region label | — | formatPublicAddress | posts.region_label |
