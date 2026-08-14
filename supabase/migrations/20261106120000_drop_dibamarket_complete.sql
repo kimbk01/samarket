@@ -1,6 +1,10 @@
 -- COMPLETE REMOVE: Diba Market schema (rollback after product cancel).
 -- Safe to re-run. Does not touch Trade / CM / Address / non-dibamarket objects.
 -- PostGIS extension is left installed (may be used elsewhere).
+--
+-- NOTE: Do NOT DELETE FROM storage.objects / storage.buckets here.
+-- Supabase blocks direct storage table deletes (protect_delete).
+-- Remove the `dibamarket-images` bucket in Dashboard → Storage after this runs.
 
 BEGIN;
 
@@ -48,13 +52,10 @@ DROP FUNCTION IF EXISTS public.touch_dibamarket_threads_updated_at();
 DROP TABLE IF EXISTS public.dibamarket_listings CASCADE;
 DROP FUNCTION IF EXISTS public.touch_dibamarket_listings_updated_at();
 
--- Storage policies + bucket
+-- Storage policies only (bucket/objects: Dashboard Storage UI)
 DROP POLICY IF EXISTS dibamarket_images_select_public ON storage.objects;
 DROP POLICY IF EXISTS dibamarket_images_insert_own ON storage.objects;
 DROP POLICY IF EXISTS dibamarket_images_update_own ON storage.objects;
 DROP POLICY IF EXISTS dibamarket_images_delete_own ON storage.objects;
-
-DELETE FROM storage.objects WHERE bucket_id = 'dibamarket-images';
-DELETE FROM storage.buckets WHERE id = 'dibamarket-images';
 
 COMMIT;
