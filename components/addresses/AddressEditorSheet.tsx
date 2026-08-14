@@ -552,7 +552,9 @@ export function AddressEditorSheet(props: {
     const nextCityMun = ph.cityMunicipality ?? "";
     const nextProvince = ph.province ?? "";
     const nextNeighborhood = ph.neighborhood ?? "";
-    const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
+    /** Nearby/Details 에 상호가 없으면 검색으로 넣은 buildingName 유지 — 도로명으로 덮지 않음 */
+    const resolvedBuilding = (ph.buildingOrPlaceHeadline ?? "").trim();
+    const nextBuilding = resolvedBuilding || buildingName.trim();
     setStreetAddress(nextStreet);
     setBarangay(nextBarangay);
     setCityMunicipality(nextCityMun);
@@ -578,7 +580,7 @@ export function AddressEditorSheet(props: {
     window.setTimeout(() => {
       document.getElementById("addr-editor-detail")?.focus();
     }, 0);
-  }, [applyTaxonomyFromDraftFields]);
+  }, [applyTaxonomyFromDraftFields, buildingName]);
 
   const streetPreview = useMemo(() => {
     return formatPhDeliveryStreetSummary({

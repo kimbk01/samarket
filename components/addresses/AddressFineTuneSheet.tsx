@@ -112,10 +112,16 @@ export function AddressFineTuneSheet(props: Props) {
 
   if (!open) return null;
 
-  const previewLine =
+  const previewBuilding = preview?.parsed.buildingOrPlaceHeadline?.trim() || null;
+  const previewStreet =
     preview?.formattedAddress != null
       ? stripCountryFromAddressDisplayLine(preview.formattedAddress, "Philippines") || preview.formattedAddress
       : null;
+  const previewLine = previewBuilding
+    ? previewStreet
+      ? `${previewBuilding}\n${previewStreet}`
+      : previewBuilding
+    : previewStreet;
 
   const overlayStyle =
     visualViewportHeight > 0
@@ -179,7 +185,7 @@ export function AddressFineTuneSheet(props: Props) {
             {resolving ? (
               <p className="sam-text-helper text-sam-muted">{t("addr_ui_confirming_address")}</p>
             ) : previewLine ? (
-              <p className="sam-text-body-secondary leading-relaxed text-sam-fg">{previewLine}</p>
+              <p className="sam-text-body-secondary whitespace-pre-line leading-relaxed text-sam-fg">{previewLine}</p>
             ) : (
               <p className="sam-text-helper text-sam-muted">{t("addr_ui_move_pin_hint")}</p>
             )}
