@@ -48,6 +48,14 @@ function assertNotIncludes(source, needle, context) {
 
 
 
+function assertFileMissing(rel, context) {
+
+  if (fs.existsSync(path.join(root, rel))) fail(`${context}: legacy file must be removed (${rel})`);
+
+}
+
+
+
 const headerChrome = read("components/stores/home/hub/StoresHomeHeaderChrome.tsx");
 
 assertIncludes(
@@ -731,18 +739,9 @@ assertIncludes(
 
 
 
-const addressSheet = read("components/stores/home/hub/StoresHomeAddressSheet.tsx");
-
-assertIncludes(addressSheet, "AddressListRowBody", "address sheet must share mypage row body");
-
-assertNotIncludes(
-
-  addressSheet,
-
-  "rounded-full bg-[color:var(--delivery-primary)]",
-
-  "address sheet must not use pill current badge"
-
+assertFileMissing(
+  "components/stores/home/hub/StoresHomeAddressSheet.tsx",
+  "stores home address entry must use /mypage/addresses, not the legacy sheet"
 );
 
 
