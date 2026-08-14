@@ -552,24 +552,14 @@ export function AddressEditorSheet(props: {
     const nextCityMun = ph.cityMunicipality ?? "";
     const nextProvince = ph.province ?? "";
     const nextNeighborhood = ph.neighborhood ?? "";
-    const resolvedBuilding = (ph.buildingOrPlaceHeadline ?? "").trim();
-    /**
-     * same-place PIN: 검색 Place identity 유지 (tenant Nearby가 덮지 않음 — reverse 가 preferred 반환).
-     * 다른 장소로 이탈: street_only 면 building null OK (주택); POI면 새 name.
-     */
-    const nextBuilding = r.samePlaceAsPreferred
-      ? resolvedBuilding || buildingName.trim()
-      : resolvedBuilding;
+    const nextBuilding = ph.buildingOrPlaceHeadline ?? "";
     setStreetAddress(nextStreet);
     setBarangay(nextBarangay);
     setCityMunicipality(nextCityMun);
     setProvince(nextProvince);
     setNeighborhoodName(nextNeighborhood);
     setBuildingName(nextBuilding);
-    /** 동일 Place 내 좌표 보정만이면 상세(unit/house) 유지 */
-    if (!r.samePlaceAsPreferred) {
-      setUnitFloorRoom("");
-    }
+    setUnitFloorRoom("");
     applyTaxonomyFromDraftFields({
       buildingName: nextBuilding,
       barangay: nextBarangay,
@@ -588,7 +578,7 @@ export function AddressEditorSheet(props: {
     window.setTimeout(() => {
       document.getElementById("addr-editor-detail")?.focus();
     }, 0);
-  }, [applyTaxonomyFromDraftFields, buildingName]);
+  }, [applyTaxonomyFromDraftFields]);
 
   const streetPreview = useMemo(() => {
     return formatPhDeliveryStreetSummary({
@@ -1230,8 +1220,6 @@ export function AddressEditorSheet(props: {
         open={fineTuneOpen}
         latitude={latitude}
         longitude={longitude}
-        preferPlaceId={placeId || null}
-        preferBuildingName={buildingName.trim() || null}
         onClose={() => setFineTuneOpen(false)}
         onApply={applyFineTuneResult}
       />
