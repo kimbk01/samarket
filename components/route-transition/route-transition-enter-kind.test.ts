@@ -186,6 +186,50 @@ describe("computeRouteTransitionEnterKind", () => {
     );
     expect(k).toBe("subtle");
   });
+
+  it("any screen to address book uses address-platform-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores", "/mypage/addresses", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-platform-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+  });
+
+  it("mypage to address book uses address-platform-forward not subtle", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage", "/mypage/addresses", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-platform-forward");
+  });
+
+  it("address book to search to detail uses address-platform-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/mypage/addresses", "/mypage/addresses/search", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      }),
+    ).toBe("address-platform-forward");
+    expect(
+      computeRouteTransitionEnterKind("/mypage/addresses/search", "/mypage/addresses/edit", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      }),
+    ).toBe("address-platform-forward");
+  });
+
+  it("address detail back to origin uses address-platform-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage/addresses/edit", "/stores", {
+      popstateBack: true,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("address-platform-back");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

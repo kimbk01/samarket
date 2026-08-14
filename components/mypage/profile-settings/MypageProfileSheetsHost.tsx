@@ -21,10 +21,6 @@ const PhoneVerificationSheet = dynamic(
   () => import("./PhoneVerificationSheet").then((m) => m.PhoneVerificationSheet),
   { ssr: false },
 );
-const MypageAddressSheet = dynamic(
-  () => import("./MypageAddressSheet").then((m) => m.MypageAddressSheet),
-  { ssr: false },
-);
 
 function resolveMypagePhoneVerified(profile: ProfileRow | null): boolean {
   return hasVerifiedPhone(profile);
@@ -48,8 +44,6 @@ export function MypageProfileSheetsHost({ profile }: { profile: ProfileRow | nul
       return <EditDibayIdSheet open onClose={closeSheet} />;
     case "phone":
       return <PhoneVerificationSheet open onClose={closeSheet} />;
-    case "address":
-      return <MypageAddressSheet open onClose={closeSheet} />;
     default:
       return null;
   }

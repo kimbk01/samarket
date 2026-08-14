@@ -15,7 +15,6 @@ export type MypageProfileSheetId =
   | "profile-edit"
   | "dibay-id"
   | "phone"
-  | "address"
   | null;
 
 type MypageProfileSheetsContextValue = {

@@ -301,13 +301,12 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }, [requiredSlugs, loading]);
 
   useEffect(() => {
-    if (!setupMode) return;
     const onUpdated = () => {
       void load({ freshAddresses: true });
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
-  }, [setupMode, load]);
+  }, [load]);
 
   const handlePhoneRefreshProfile = useCallback(async () => {
     invalidateMandatoryAddressGateClientCache();

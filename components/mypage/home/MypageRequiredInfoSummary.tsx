@@ -2,11 +2,13 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { deriveMemberAccountStatus } from "@/lib/profile/member-account-status";
 import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import {
   MYPAGE_HOME_CARD_CLASS,
@@ -101,6 +103,7 @@ export function MypageRequiredInfoSummary({
   onProfileRefresh?: () => void;
 }) {
   const { safeT } = useI18n();
+  const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
   const profile = projection?.profile ?? null;
   const addressRegistered = projection?.addressStatus === "complete";
@@ -267,7 +270,7 @@ export function MypageRequiredInfoSummary({
               ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" })
               : safeT("mypage_required_cta_register", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
           }
-          onActivate={() => openSheet("address")}
+          onActivate={() => router.push(buildMypageAddressesHref("/mypage"))}
           tone={status.address.registered ? "neutral" : "action"}
         />
       </ul>

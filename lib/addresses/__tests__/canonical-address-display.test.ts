@@ -3,6 +3,8 @@ import {
   resolveAddressBookAddressLine,
   resolveAddressBookDetailLine,
   resolveAddressBookTitle,
+  resolveCanonicalChipLine,
+  formatCanonicalFullLine,
   realPlaceNameFromStoredBuilding,
   displayInputFromDto,
 } from "@/lib/addresses/canonical-address-display";
@@ -78,16 +80,26 @@ describe("canonical address display SSOT", () => {
     expect(resolveAddressBookAddressLine(input)).toBe("Barangay San Antonio, Pasig City");
   });
 
-  it("user label wins over place name, but address line keeps the place", () => {
+  it("place wins over custom nickname; address line keeps the street", () => {
     const input = {
       userLabel: "우리집",
       placeName: "SM Mall of Asia",
       streetAddress: "123 Sampaguita Street",
       cityMunicipality: "Pasig City",
     };
-    expect(resolveAddressBookTitle(input)).toBe("우리집");
-    expect(resolveAddressBookAddressLine(input)).toContain("SM Mall of Asia");
+    expect(resolveAddressBookTitle(input)).toBe("SM Mall of Asia");
     expect(resolveAddressBookAddressLine(input)).toContain("123 Sampaguita Street");
+    expect(resolveAddressBookAddressLine(input)).not.toContain("우리집");
+  });
+
+  it("NO PLACE → neighborhood is title before street", () => {
+    const input = {
+      neighborhoodName: "Malate",
+      streetAddress: "Mabini Street",
+      cityMunicipality: "Manila",
+    };
+    expect(resolveAddressBookTitle(input)).toBe("Malate");
+    expect(resolveAddressBookAddressLine(input)).toBe("Mabini Street, Manila");
   });
 
   it("null buildingName does not blank title when street exists", () => {
@@ -100,16 +112,56 @@ describe("canonical address display SSOT", () => {
     expect(realPlaceNameFromStoredBuilding("123 Sampaguita Street", "123 Sampaguita Street")).toBeNull();
   });
 
-  it("detail line keeps user detail separate", () => {
-    expect(resolveAddressBookDetailLine({ detail: "House 17", landmark: "Green gate" })).toBe(
-      "House 17, Green gate",
-    );
+  it("detail line keeps user detail + landmark and excludes deliveryNote", () => {
+    expect(
+      resolveAddressBookDetailLine({
+        detail: "House 17",
+        landmark: "Green gate",
+        deliveryNote: "Call on arrival",
+      }),
+    ).toBe("House 17, Green gate");
   });
 
-  it("home label from dto is title", () => {
+  it("home label from dto is not the FULL title — place is", () => {
     const input = displayInputFromDto(dto({ labelType: "home", buildingName: "SM Mall of Asia" }), labels);
-    expect(resolveAddressBookTitle(input)).toBe("집");
-    expect(resolveAddressBookAddressLine(input)).toContain("SM Mall of Asia");
+    expect(resolveAddressBookTitle(input)).toBe("SM Mall of Asia");
+    expect(input.neighborhoodName).toBeNull();
+  });
+
+  it("SHORT chip is place, else neighborhood, never city-only", () => {
+    expect(
+      resolveCanonicalChipLine({
+        placeName: "SM Mall of Asia",
+        neighborhoodName: "Malate",
+        cityMunicipality: "Pasay City",
+      }),
+    ).toBe("SM Mall of Asia");
+    expect(
+      resolveCanonicalChipLine({
+        neighborhoodName: "Malate",
+        cityMunicipality: "Manila",
+        streetAddress: "Mabini Street",
+      }),
+    ).toBe("Malate");
+    expect(
+      resolveCanonicalChipLine({
+        cityMunicipality: "Manila",
+        streetAddress: "Mabini Street",
+      }),
+    ).toBe("");
+  });
+
+  it("FULL line uses PH order: detail first, then title and road/area without deliveryNote", () => {
+    const line = formatCanonicalFullLine({
+      placeName: "SM Mall of Asia",
+      streetAddress: "Seaside Boulevard",
+      cityMunicipality: "Pasay City",
+      detail: "Unit 12B",
+      landmark: "Green gate",
+      deliveryNote: "Call on arrival",
+    });
+    expect(line).toBe("Unit 12B, Green gate, SM Mall of Asia, Seaside Boulevard, Pasay City");
+    expect(line).not.toContain("Call on arrival");
   });
 
   it("internal nickname + other keeps Google place as title", () => {

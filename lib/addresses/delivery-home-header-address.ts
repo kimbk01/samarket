@@ -1,11 +1,12 @@
 /**
- * CONTRACT — 배달 홈(`/stores`) 헤더·주소 시트 표시 줄.
- * DO NOT: Google `formattedAddress`/`roadAddress` 만으로 헤더 채우기 — `userEnteredDetailLine` 우선.
+ * CONTRACT — 배달 홈(`/stores`) 헤더 칩.
+ * 화면 칩은 대표 주소(`isDefaultMaster`) SHORT 줄.
+ * `isDefaultDelivery` 는 주문 결제 라디오 기본값 전용.
  * DO NOT: 헤더 버튼에 `store_address_manage_link` — `delivery-home-header-label.ts`.
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
+import { resolveCanonicalChipLineFromDto } from "@/lib/addresses/canonical-address-display";
 
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
@@ -59,29 +60,11 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
 }
 
 /**
- * 배달 홈 헤더·주소 시트 — 표시용 한 줄 (동일 규칙).
- * PH: `formatAddressBookLine` (`AddressListRowBody`·주소 시트) 우선.
- * 카드가 비어 있으면 Baemin형 동·상세 → detailAddress → plain fallback.
+ * 배달 홈 헤더 칩 — SHORT (상호/건물명, 없으면 Subdivision/Village).
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a?.id) return null;
-
-  const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
-  if (isPh) {
-    const phCard = normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressListPlainLine(a));
-    if (phCard) return phCard;
-  }
-
-  const primary = buildDeliveryHomeHeaderAddressLine(a);
-  if (primary?.trim()) return primary.trim();
-
-  const detail = a.detailAddress?.trim();
-  if (detail && !isDisplayNullish(detail)) return detail;
-
-  const plain = normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressListPlainLine(a));
-  if (plain) return plain;
-
-  return null;
+  return normalizeDeliveryHomeHeaderDisplayLine(resolveCanonicalChipLineFromDto(a));
 }
 
 function pickDefaultAddressRow(
@@ -90,12 +73,12 @@ function pickDefaultAddressRow(
   return row?.id ? row : null;
 }
 
-/** 배달 기본(`is_default_delivery`)만. master/trade/life 로 대체하지 않는다. */
+/** 화면 칩은 대표 주소(`isDefaultMaster`). delivery/trade/life 로 대체하지 않는다. */
 export function pickDeliveryHomeHeaderAddress(
   defaults: UserAddressDefaultsDTO | null | undefined
 ): UserAddressDTO | null {
   if (!defaults) return null;
-  return pickDefaultAddressRow(defaults.delivery);
+  return pickDefaultAddressRow(defaults.master);
 }
 
 function isHeaderDisplayPlaceholderLine(line: string | null | undefined): boolean {

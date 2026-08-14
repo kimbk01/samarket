@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Suspense, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { StoresBrowseHeaderScrollCollapse } from "@/components/stores/browse/StoresBrowseHeaderScrollCollapse";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
@@ -15,6 +15,7 @@ import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 import {
@@ -47,10 +48,6 @@ import {
 
 const StoresHomeSearchModal = dynamic(
   () => import("@/components/stores/home/hub/StoresHomeSearchModal").then((m) => m.StoresHomeSearchModal),
-  { ssr: false }
-);
-const StoresHomeAddressSheet = dynamic(
-  () => import("@/components/stores/home/hub/StoresHomeAddressSheet").then((m) => m.StoresHomeAddressSheet),
   { ssr: false }
 );
 
@@ -93,6 +90,8 @@ function SearchIcon() {
 export function StoresBrowseHeaderChrome() {
   const { t, language, safeT } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const browsePrimarySlug = useMemo(
     () => pathname?.match(/^\/stores\/browse\/([^/?]+)/)?.[1]?.trim().toLowerCase() ?? "",
     [pathname]
@@ -107,7 +106,6 @@ export function StoresBrowseHeaderChrome() {
   const extras = useMainTier1ExtrasOptional()?.extras;
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [addressOpen, setAddressOpen] = useState(false);
   const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const primaries = useBrowsePrimaryIndustries();
@@ -178,9 +176,14 @@ export function StoresBrowseHeaderChrome() {
                 type="button"
                 className={STORES_HOME_HEADER_BROWSE_ADDRESS_CHEVRON_BTN_CLASS}
                 aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
-                aria-haspopup="dialog"
-                aria-expanded={addressOpen}
-                onClick={() => setAddressOpen(true)}
+                onClick={() =>
+                  router.push(
+                    buildMypageAddressesHrefFromPath(
+                      pathname,
+                      searchParams?.toString() ? `?${searchParams.toString()}` : "",
+                    ),
+                  )
+                }
               >
                 <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
               </button>
@@ -230,9 +233,6 @@ export function StoresBrowseHeaderChrome() {
           onClose={() => setSearchOpen(false)}
           anchorRef={searchTriggerRef}
         />
-      : null}
-      {addressOpen ?
-        <StoresHomeAddressSheet open={addressOpen} onClose={() => setAddressOpen(false)} />
       : null}
     </>
   );

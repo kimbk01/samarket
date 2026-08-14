@@ -2,10 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
@@ -21,10 +23,6 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 const StoresHomeSearchModal = dynamic(
   () => import("@/components/stores/home/hub/StoresHomeSearchModal").then((m) => m.StoresHomeSearchModal),
-  { ssr: false }
-);
-const StoresHomeAddressSheet = dynamic(
-  () => import("@/components/stores/home/hub/StoresHomeAddressSheet").then((m) => m.StoresHomeAddressSheet),
   { ssr: false }
 );
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
@@ -74,8 +72,10 @@ function StoresHomePtrSpinner() {
 export function StoresHomeHeaderChrome() {
   const { t, language } = useI18n();
   const address = useDeliveryHomeHeaderAddress();
+  const router = useRouter();
+  const pathname = usePathname() ?? "/stores";
+  const searchParams = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [addressOpen, setAddressOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const headerLine = useMemo(
     () => resolveDeliveryHomeHeaderButtonLabel(address, language),
@@ -108,9 +108,14 @@ export function StoresHomeHeaderChrome() {
               type="button"
               className={STORES_HOME_HEADER_ADDRESS_BUTTON_CLASS}
               aria-label={t("layout_neighborhood_address_aria", { line: headerLine })}
-              aria-haspopup="dialog"
-              aria-expanded={addressOpen}
-              onClick={() => setAddressOpen(true)}
+              onClick={() =>
+                router.push(
+                  buildMypageAddressesHrefFromPath(
+                    pathname,
+                    searchParams?.toString() ? `?${searchParams.toString()}` : "",
+                  ),
+                )
+              }
             >
               <span className={STORES_HOME_HEADER_ADDRESS_LABEL_CLUSTER_CLASS}>
                 <AddressKindHeadPin kind="master" className={STORES_HOME_HEADER_ADDRESS_PIN_CLASS} />
@@ -166,9 +171,6 @@ export function StoresHomeHeaderChrome() {
           onClose={() => setSearchOpen(false)}
           anchorRef={searchTriggerRef}
         />
-      : null}
-      {addressOpen ?
-        <StoresHomeAddressSheet open={addressOpen} onClose={() => setAddressOpen(false)} />
       : null}
     </>
   );

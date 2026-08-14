@@ -6,6 +6,7 @@ import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-dr
 export type CanonicalDisplayInput = {
   userLabel?: string | null;
   placeName?: string | null;
+  neighborhoodName?: string | null;
   streetAddress?: string | null;
   route?: string | null;
   barangay?: string | null;
@@ -16,6 +17,13 @@ export type CanonicalDisplayInput = {
   landmark?: string | null;
   deliveryNote?: string | null;
 };
+
+/** Snapshot / header resolvers — title no longer uses 집/회사; labels stay for shop nickname helpers. */
+export const CANONICAL_DISPLAY_LABELS_FALLBACK = {
+  home: "집",
+  office: "회사",
+  shop: "매장",
+} as const;
 
 export type CanonicalDisplayLines = {
   title: string;
@@ -58,14 +66,15 @@ function areaLine(input: CanonicalDisplayInput): string {
 }
 
 /**
- * DISPLAY TITLE — not a DB field.
- * userLabel → real place name → street → route → formatted headline.
+ * FULL title — not a DB field.
+ * place/building → Subdivision/Village → street → route → formatted headline.
+ * Custom nicknames and 집/회사 stay as badges, not the title.
  */
 export function resolveAddressBookTitle(input: CanonicalDisplayInput): string {
-  const label = clean(input.userLabel);
-  if (label) return label;
   const place = clean(input.placeName);
   if (place) return place;
+  const neighborhood = clean(input.neighborhoodName);
+  if (neighborhood) return neighborhood;
   const street = clean(input.streetAddress);
   if (street) return street;
   const route = clean(input.route);
@@ -73,6 +82,16 @@ export function resolveAddressBookTitle(input: CanonicalDisplayInput): string {
   const head = formattedHeadline(input.formattedAddress);
   if (head) return head;
   return "";
+}
+
+/**
+ * SHORT chip — 상호/건물명, else Subdivision/Village.
+ * Does not use city-only public labels, street, detail, or deliveryNote.
+ */
+export function resolveCanonicalChipLine(input: CanonicalDisplayInput): string {
+  const place = clean(input.placeName);
+  if (place) return place;
+  return clean(input.neighborhoodName);
 }
 
 /**
@@ -104,7 +123,7 @@ export function resolveAddressBookAddressLine(input: CanonicalDisplayInput): str
 }
 
 export function resolveAddressBookDetailLine(input: CanonicalDisplayInput): string | null {
-  const line = uniqueJoin([input.detail, input.landmark, input.deliveryNote]);
+  const line = uniqueJoin([input.detail, input.landmark]);
   return line || null;
 }
 
@@ -116,6 +135,11 @@ export function resolveCanonicalDisplayLines(input: CanonicalDisplayInput): Cano
   };
 }
 
+export function formatCanonicalFullLine(input: CanonicalDisplayInput): string {
+  const lines = resolveCanonicalDisplayLines(input);
+  return uniqueJoin([lines.detailLine, lines.title, lines.addressLine]);
+}
+
 export function displayInputFromDraft(
   draft: CanonicalAddressDraft,
   extra?: { userLabel?: string | null; detail?: string | null; landmark?: string | null; deliveryNote?: string | null },
@@ -123,6 +147,7 @@ export function displayInputFromDraft(
   return {
     userLabel: extra?.userLabel ?? null,
     placeName: draft.placeName,
+    neighborhoodName: draft.neighborhoodName,
     streetAddress: draft.streetAddress,
     route: draft.route,
     barangay: draft.barangay,
@@ -177,6 +202,7 @@ export function displayInputFromDto(
   return {
     userLabel: userLabelFromDto(row, labels, storeName),
     placeName: realPlaceNameFromStoredBuilding(row.buildingName, row.streetAddress),
+    neighborhoodName: row.neighborhoodName,
     streetAddress: row.streetAddress,
     route: null,
     barangay: row.barangay,
@@ -187,6 +213,22 @@ export function displayInputFromDto(
     landmark: row.landmark,
     deliveryNote: row.deliveryNote,
   };
+}
+
+export function resolveCanonicalChipLineFromDto(
+  row: UserAddressDTO,
+  labels: { home: string; office: string; shop: string } = CANONICAL_DISPLAY_LABELS_FALLBACK,
+  storeName?: string | null,
+): string {
+  return resolveCanonicalChipLine(displayInputFromDto(row, labels, storeName));
+}
+
+export function formatCanonicalFullLineFromDto(
+  row: UserAddressDTO,
+  labels: { home: string; office: string; shop: string } = CANONICAL_DISPLAY_LABELS_FALLBACK,
+  storeName?: string | null,
+): string {
+  return formatCanonicalFullLine(displayInputFromDto(row, labels, storeName));
 }
 
 export function labelTypeFromPreset(preset: "home" | "office" | "other"): UserAddressLabelType {

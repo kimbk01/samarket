@@ -1,12 +1,14 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import type { ProfileRow } from "@/lib/profile/types";
+import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 
 function SettingsRow({
   label,
@@ -63,9 +65,10 @@ export function ProfileSettingsSheet({
   phoneVerified: boolean;
 }) {
   const { safeT } = useI18n();
+  const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
 
-  const openSub = (id: "profile-edit" | "dibay-id" | "phone" | "address") => {
+  const openSub = (id: "profile-edit" | "dibay-id" | "phone") => {
     onClose();
     openSheet(id);
   };
@@ -112,7 +115,10 @@ export function ProfileSettingsSheet({
             fallbackKo: "주소 관리",
             fallbackEn: "Addresses",
           })}
-          onClick={() => openSub("address")}
+          onClick={() => {
+            onClose();
+            router.push(buildMypageAddressesHref("/mypage"));
+          }}
         />
         <SettingsRow
           label={safeT("mypage_settings_account", {

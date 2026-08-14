@@ -120,7 +120,7 @@ export function AddressPlatformDetailClient(props: {
       setErr(t("addr_ui_detail_required"));
       return;
     }
-    const isShop = initial?.labelType === "shop";
+    const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
     const submitLabel: UserAddressLabelType = isShop
       ? "shop"
       : labelPreset === "home" || labelPreset === "office"
@@ -178,7 +178,6 @@ export function AddressPlatformDetailClient(props: {
           return;
         }
       }
-      const hasMaster = allAddresses.some((a) => a.isDefaultMaster && a.id !== initial?.id);
       const body = {
         labelType: submitLabel,
         linkedStoreId: isShop ? initial?.linkedStoreId ?? null : null,
@@ -204,7 +203,7 @@ export function AddressPlatformDetailClient(props: {
         useForLife: true,
         useForTrade: true,
         useForDelivery: true,
-        isDefaultMaster: mode === "create" ? !hasMaster : initial?.isDefaultMaster ?? false,
+        isDefaultMaster: isShop ? false : true,
         isDefaultLife: initial?.isDefaultLife ?? false,
         isDefaultTrade: initial?.isDefaultTrade ?? false,
         isDefaultDelivery: initial?.isDefaultDelivery ?? false,

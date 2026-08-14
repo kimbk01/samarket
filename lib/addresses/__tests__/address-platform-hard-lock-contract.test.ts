@@ -131,7 +131,7 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const picker = read("components/addresses/AddressBookPickerList.tsx");
     expect(listBody).toContain("resolveCanonicalDisplayLines");
     expect(listBody).toContain("displayInputFromDto");
-    expect(philife).toContain("AddressUserRowLineText");
+    expect(philife).toContain("buildMypageAddressesHrefFromPath");
     expect(cart).toContain("AddressUserRowLineText");
     expect(picker).toContain("AddressListRowBody");
     expect(read("lib/addresses/format-user-address-list-line.ts")).toContain("formatAddressBookLine");
@@ -141,7 +141,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   it("owner row UI forbids nowrap / truncate / line-clamp on address compact flow", () => {
     const phCard = read("components/addresses/AddressPhCardLineText.tsx");
     const listBody = read("components/addresses/AddressListRowBody.tsx");
-    const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
     const classAttr = /className=(?:\{`[^`]*`|\{"[^"]*"|'[^']*'|"[^"]*")/g;
     for (const [name, src] of [
@@ -154,9 +153,6 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
         expect(a, name).not.toMatch(/\b(truncate|whitespace-nowrap|line-clamp-\d+)\b/);
       }
     }
-    // Philife picker row wrapping AddressUserRowLineText must not clamp/truncate the address body
-    expect(philife).not.toMatch(/line-clamp-\d+[\s\S]{0,120}AddressUserRowLineText/);
-    expect(philife).toContain("whitespace-normal break-words");
     expect(phCard).toContain("whitespace-normal");
     expect(phCard).toContain("break-words");
     expect(phCard).toMatch(/\binline\b/);

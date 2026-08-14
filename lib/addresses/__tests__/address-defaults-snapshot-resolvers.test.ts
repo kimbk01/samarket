@@ -63,7 +63,7 @@ function snapshot(partial: Partial<AddressDefaultsSnapshot>): AddressDefaultsSna
 }
 
 describe("address-defaults-snapshot-resolvers", () => {
-  it("uses neighborhoodFromLife when exploration master line is empty", () => {
+  it("uses neighborhoodFromLife when exploration master SHORT chip is empty", () => {
     const line = resolveExplorationAddressLineFromSnapshot(
       snapshot({
         defaults: {
@@ -74,6 +74,8 @@ describe("address-defaults-snapshot-resolvers", () => {
             barangay: "",
             cityMunicipality: "",
             province: "",
+            buildingName: null,
+            neighborhoodName: null,
             fullAddress: null,
             formattedAddress: null,
           }),
@@ -84,14 +86,19 @@ describe("address-defaults-snapshot-resolvers", () => {
     expect(line).toBe("Quezon City · Diliman");
   });
 
-  it("picks delivery row for stores header", () => {
+  it("picks master row for stores header SHORT chip", () => {
     const state = resolveDeliveryHomeHeaderStateFromSnapshot(
       snapshot({
         defaults: {
-          delivery: addr({
-            id: "d1",
+          master: addr({
+            id: "m1",
             neighborhoodName: "Malate",
             buildingName: "12B",
+          }),
+          delivery: addr({
+            id: "d1",
+            neighborhoodName: "Ermita",
+            buildingName: "Other",
           }),
         },
       })
@@ -99,15 +106,15 @@ describe("address-defaults-snapshot-resolvers", () => {
     expect(state.status).toBe("ready");
     if (state.status !== "ready") throw new Error("expected ready");
     expect(state.hasLinkedAddress).toBe(true);
-    expect(state.line).toBeTruthy();
+    expect(state.line).toBe("12B");
   });
 
-  it("does not fall back to master or life neighborhood when delivery is missing", () => {
+  it("does not fall back to delivery or life neighborhood when master is missing", () => {
     const state = resolveDeliveryHomeHeaderStateFromSnapshot(
       snapshot({
         defaults: {
-          master: addr({
-            id: "m1",
+          delivery: addr({
+            id: "d1",
             neighborhoodName: "Malate",
             buildingName: "Tower",
           }),
@@ -122,7 +129,7 @@ describe("address-defaults-snapshot-resolvers", () => {
     });
   });
 
-  it("falls back to trade row for full address when master missing", () => {
+  it("FULL 내정보 line is master only — no trade fallback", () => {
     const line = resolveRepresentativeFullAddressLineFromSnapshot(
       snapshot({
         defaults: {
@@ -134,8 +141,7 @@ describe("address-defaults-snapshot-resolvers", () => {
         },
       })
     );
-    expect(line).toBeTruthy();
-    expect(line).toContain("Unit 5");
+    expect(line).toBeNull();
   });
 
   it("flags auth failures for boot retry", () => {

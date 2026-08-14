@@ -4,7 +4,7 @@
  * CONTRACT — 내정보 주소관리·배달 홈 주소 시트·마이페이지 시트 공통 본문.
  * PH 표기: `formatAddressBookLine` = compact continuous address string
  *   (detail bold + rest, country excluded, natural wrap — NOT forced single visual row)
- * 핀: `AddressKindHeadPin` gold teardrop 통일.
+ * 핀: `AddressKindHeadPin` signature green teardrop 통일.
  * DO NOT: nowrap / truncate / line-clamp / field별 `<br>` · 시트마다 별도 포맷.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -151,14 +151,16 @@ export function AddressListRowBody({
       <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
         <AddressKindHeadPin kind={headKind} className="pt-0.5" />
         <div className={`min-w-0 flex-1 break-words ${mainTextClass}`}>
+          {bookLines.detailLine ? (
+            <p className="font-semibold leading-snug text-sam-fg">{bookLines.detailLine}</p>
+          ) : null}
           {bookLines.title ? (
-            <p className="sam-text-body font-bold leading-snug text-sam-fg">{bookLines.title}</p>
+            <p className={`${bookLines.detailLine ? "mt-0.5" : ""} sam-text-body font-bold leading-snug text-sam-fg`}>
+              {bookLines.title}
+            </p>
           ) : null}
           {bookLines.addressLine ? (
             <p className="mt-0.5 leading-snug text-sam-muted">{bookLines.addressLine}</p>
-          ) : null}
-          {bookLines.detailLine ? (
-            <p className="mt-0.5 font-semibold leading-snug text-sam-fg">{bookLines.detailLine}</p>
           ) : null}
         </div>
       </div>

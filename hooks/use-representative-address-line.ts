@@ -127,7 +127,7 @@ export function useRepresentativeAddressPresentation(opts?: {
 }
 
 /**
- * 대표(master) 주소 — 탐색 헤더용 **지역 한 줄**(도로·번지 제외, `buildExplorationRegionSubtitleLine`).
+ * 대표(master) 주소 — 헤더 칩용 SHORT 한 줄(상호/건물명, 없으면 Subdivision/Village).
  * 경로 변경 시 **이전 줄을 유지한 채** 백그라운드 갱신(TTL 캐시·`silent` fetch) — 탭 전환마다「불러오는 중」깜빡임 방지.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
@@ -207,8 +207,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
 }
 
 /**
- * 대표(master) 주소 — 내정보 프로필용 **전체 주소**.
- * 탐색 헤더의 지역 축약 표시와 분리해, 주소 관리 카드와 같은 전체 주소 조합을 사용한다.
+ * 대표(master) 주소 — 내정보용 FULL 한 줄(title + road/area + detail/landmark).
  */
 export function useRepresentativeFullAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();

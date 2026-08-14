@@ -2,6 +2,7 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
@@ -10,11 +11,12 @@ import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/aut
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import type { ProfileRow } from "@/lib/profile/types";
-import { useRepresentativeAddressPresentation } from "@/hooks/use-representative-address-line";
+import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { invalidateMandatoryAddressGateClientCache, readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
+import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
 import { MYPAGE_HOME_CARD_CLASS, MYPAGE_HOME_SECTION_HEADER_CLASS, MYPAGE_HOME_SECTION_LABEL_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 
@@ -132,9 +134,10 @@ export function RequiredInfoList({
   onProfileRefresh?: () => void;
 }) {
   const { safeT } = useI18n();
+  const router = useRouter();
   const { openSheet } = useMypageProfileSheets();
   const [hasDefaultAddress, setHasDefaultAddress] = useState(completion.hasDefaultAddress);
-  const addressPresentationState = useRepresentativeAddressPresentation();
+  const addressLineState = useRepresentativeFullAddressLine();
 
   useEffect(() => {
     setHasDefaultAddress(completion.hasDefaultAddress);
@@ -179,13 +182,12 @@ export function RequiredInfoList({
       });
 
   const addressValueText = useMemo(() => {
-    if (addressPresentationState.status === "ready" && addressPresentationState.presentation) {
-      const p = addressPresentationState.presentation;
-      return [p.gatePrefix, p.streetBody].filter(Boolean).join(", ").trim();
+    if (addressLineState.status === "ready" && addressLineState.line?.trim()) {
+      return addressLineState.line.trim();
     }
     const snap = peekFreshAddressDefaultsSnapshot();
     return resolveRepresentativeFullAddressLineFromSnapshot(snap)?.trim() ?? "";
-  }, [addressPresentationState]);
+  }, [addressLineState]);
 
   const addressValue = addressValueText || safeT("mypage_comp_address_empty_required", {
     fallbackKo: "대표 주소를 입력 바랍니다",
@@ -246,9 +248,9 @@ export function RequiredInfoList({
             fallbackEn: "Please add your default address.",
           }),
       ctaLabel: hasDefaultAddress ? undefined : safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }),
-      onCtaClick: hasDefaultAddress ? undefined : () => openSheet("address"),
+      onCtaClick: hasDefaultAddress ? undefined : () => router.push(buildMypageAddressesHref("/mypage")),
       changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" }) : undefined,
-      onChangeClick: hasDefaultAddress ? () => openSheet("address") : undefined,
+      onChangeClick: hasDefaultAddress ? () => router.push(buildMypageAddressesHref("/mypage")) : undefined,
     },
   ];
 

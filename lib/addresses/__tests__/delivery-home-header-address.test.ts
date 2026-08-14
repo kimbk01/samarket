@@ -117,7 +117,7 @@ describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
   });
 });
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
-  it("uses PH address-book compact string matching address sheet (not barangay-prefixed baemin)", () => {
+  it("SHORT chip is building name, not the compact PH book string", () => {
     const row = addr({
       id: "office1",
       labelType: "office",
@@ -127,46 +127,44 @@ describe("resolveDeliveryHomeHeaderDisplayLine", () => {
       unitFloorRoom: "3/F Room",
       buildingName: "UP EEEI Smart Systems Laboratory",
       streetAddress: "310 P. Velasquez Street",
+      neighborhoodName: "Diliman",
       formattedAddress:
         "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
       fullAddress:
         "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
     });
     const line = resolveDeliveryHomeHeaderDisplayLine(row);
-    expect(line).not.toMatch(/^Diliman wwwww/);
-    expect(line).not.toMatch(/PHILIPPINES|Philippines/i);
-    expect(line).toContain("wwwww");
-    expect(line).toContain("3/F Room");
-    expect(line).toContain("UP EEEI Smart Systems Laboratory");
-    expect(line).toContain("310 P. Velasquez Street");
-    expect(line).toContain("Quezon City");
+    expect(line).toBe("UP EEEI Smart Systems Laboratory");
+    expect(line).not.toContain("wwwww");
+    expect(line).not.toContain("Quezon City");
   });
 
-  it("uses address-book compact string when only detail + city/province present", () => {
+  it("SHORT chip falls back to neighborhood when there is no building", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
       addr({
         id: "a5",
+        buildingName: null,
+        neighborhoodName: "Malate",
         detailAddress: "1003 - COD",
       }),
     );
-    expect(line).toBe("1003 - COD, Manila, Metro Manila");
-    expect(line).not.toMatch(/PHILIPPINES|Philippines/i);
+    expect(line).toBe("Malate");
   });
 });
 
 describe("pickDeliveryHomeHeaderAddress", () => {
-  it("prefers delivery default over master", () => {
+  it("prefers master over delivery", () => {
     const delivery = addr({ id: "d1", neighborhoodName: "A", buildingName: "1" });
     const master = addr({ id: "m1", neighborhoodName: "B", buildingName: "2" });
-    expect(pickDeliveryHomeHeaderAddress({ delivery, master, life: null, trade: null })?.id).toBe("d1");
+    expect(pickDeliveryHomeHeaderAddress({ delivery, master, life: null, trade: null })?.id).toBe("m1");
   });
 
-  it("does not fall back to master/trade/life when delivery is missing", () => {
+  it("does not fall back to delivery/trade/life when master is missing", () => {
     const trade = addr({ id: "t1", neighborhoodName: "Trade", buildingName: "1" });
     const life = addr({ id: "l1", neighborhoodName: "Life", buildingName: "2" });
-    const master = addr({ id: "m1", neighborhoodName: "Master", buildingName: "2" });
-    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master, trade, life })).toBeNull();
+    const delivery = addr({ id: "d1", neighborhoodName: "Delivery", buildingName: "2" });
+    expect(pickDeliveryHomeHeaderAddress({ delivery, master: null, trade, life })).toBeNull();
     expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade, life })).toBeNull();
-    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade: null, life })).toBeNull();
+    expect(pickDeliveryHomeHeaderAddress({ delivery, master: null, trade: null, life })).toBeNull();
   });
 });

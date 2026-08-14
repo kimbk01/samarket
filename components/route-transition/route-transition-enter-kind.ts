@@ -11,6 +11,11 @@ import {
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import {
+  isMypageAddressEditPath,
+  isMypageAddressListPath,
+  isMypageAddressSearchPath,
+} from "@/lib/addresses/mypage-addresses-return-to";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -34,6 +39,17 @@ function isMypageRootPath(path: string | null | undefined): boolean {
 function isProfileEditRoute(path: string | null | undefined): boolean {
   const p = normalizePathKey(path);
   return isProfileEditPath(p);
+}
+
+function isAddressPlatformRoute(path: string | null | undefined): boolean {
+  return isMypageAddressListPath(path) || isMypageAddressSearchPath(path) || isMypageAddressEditPath(path);
+}
+
+function addressPlatformDepth(path: string | null | undefined): number {
+  if (isMypageAddressEditPath(path)) return 2;
+  if (isMypageAddressSearchPath(path)) return 1;
+  if (isMypageAddressListPath(path)) return 0;
+  return -1;
 }
 
 function isStoreOwnerApplyPath(path: string | null | undefined): boolean {
@@ -64,6 +80,12 @@ function syncLastForwardAxisAfterKind(
     ref.current = "rtl";
   }
   if (kind === "profile-edit-back") {
+    ref.current = null;
+  }
+  if (kind === "address-platform-forward") {
+    ref.current = "rtl";
+  }
+  if (kind === "address-platform-back") {
     ref.current = null;
   }
 }
@@ -127,6 +149,16 @@ export function computeRouteTransitionEnterKind(
     kind = "profile-edit-forward";
   } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {
     kind = "profile-edit-back";
+  } else if (isAddressPlatformRoute(nextPath) && !isAddressPlatformRoute(prevPath)) {
+    kind = "address-platform-forward";
+  } else if (isAddressPlatformRoute(prevPath) && !isAddressPlatformRoute(nextPath)) {
+    kind = "address-platform-back";
+  } else if (isAddressPlatformRoute(prevPath) && isAddressPlatformRoute(nextPath)) {
+    const dPrev = addressPlatformDepth(prevPath);
+    const dNext = addressPlatformDepth(nextPath);
+    if (dNext > dPrev) kind = "address-platform-forward";
+    else if (dNext < dPrev) kind = "address-platform-back";
+    else kind = "subtle";
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";

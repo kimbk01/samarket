@@ -12,9 +12,8 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import {
   peekMapAddressPick,
 } from "@/lib/map/map-address-pick-storage";
-import { ADDR_ADD_CTA, ADDR_BOTTOM_INNER, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
+import { ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
 import {
-  MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS,
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
@@ -29,7 +28,6 @@ import {
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
 import {
-  broadcastUserAddressesChanged,
   commitUserAddressListAfterMutation,
   shouldSkipAddressListReloadFromEvent,
 } from "@/lib/addresses/user-addresses-sync";
@@ -45,11 +43,8 @@ import { writeAddressPlatformV2Draft } from "@/lib/addresses/canonical-address-d
 import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
-  resolveAddressManagementExitHref,
-  clearAddressFlowExitHref,
   writeAddressFlowExitHref,
 } from "@/lib/addresses/mypage-address-flow-exit";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
   STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
@@ -68,12 +63,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [pickedId, setPickedId] = useState<string>("");
-  const [confirming, setConfirming] = useState(false);
   /** 승인 매장 id → 표시명 (`Store Address` 뱃지·헤더 `매장 · …` 에 사용) */
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
-  const selectingForReturn = Boolean(returnTo);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
 
   useEffect(() => {
@@ -97,13 +89,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       ),
     [list],
   );
-
-  useEffect(() => {
-    if (!selectingForReturn) return;
-    if (pickedId) return;
-    const master = list.find((a) => a.isDefaultMaster);
-    if (master?.id) setPickedId(master.id);
-  }, [selectingForReturn, list, pickedId]);
 
   useEffect(() => {
     if (!pathname || pathname.startsWith("/address/select")) return;
@@ -264,40 +249,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     }
   }
 
-  async function handleConfirm() {
-    if (confirming) return;
-    setConfirming(true);
-    try {
-      if (selectingForReturn) {
-        const id = pickedId || list.find((a) => a.isDefaultMaster)?.id || "";
-        if (!id) {
-          alert(t("addr_ui_add_first"));
-          return;
-        }
-        /** 매장 설정 복귀 — 매장 주소 연결만 확인, 대표 주소 PATCH 금지(서버 400 방지) */
-        if (!isStoreOwnerAdminReturnTo(returnTo)) {
-          await setAsRepresentative(id);
-        } else {
-          broadcastUserAddressesChanged();
-        }
-      } else {
-        broadcastUserAddressesChanged();
-      }
-      if (embedded) {
-        return;
-      }
-      const exitHref = resolveAddressManagementExitHref(returnTo);
-      clearAddressFlowExitHref();
-      if (exitHref) {
-        router.replace(exitHref);
-        return;
-      }
-      runHistoryBackWithFallback(router, "/mypage");
-    } finally {
-      setConfirming(false);
-    }
-  }
-
   const addressListBody = (
     <>
       {loadErr ? (
@@ -329,13 +280,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
             {t("common_loading")}
           </p>
-        ) : list.length === 0 && !loadErr ? (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <button type="button" onClick={openCreate} className="rounded-full border border-sam-border bg-white px-5 py-2.5 sam-text-body font-semibold text-sam-fg">
-              {t("address_add")}
-            </button>
-          </div>
-        ) : (
+        ) : list.length === 0 && !loadErr ? null : (
           <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
             {list.map((row) => (
               <AddressRowCard
@@ -344,54 +289,19 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                 busyId={busyId}
                 approvedStoresById={approvedStoresById}
                 onSetAsRepresentative={
-                  selectingForReturn
-                    ? () => setPickedId(row.id)
-                    : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
-                      ? undefined
-                      : () => void setAsRepresentative(row.id)
+                  row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
+                    ? undefined
+                    : () => void setAsRepresentative(row.id)
                 }
-                onSetAsDelivery={
-                  selectingForReturn ? undefined : () => void setAsDelivery(row.id)
-                }
+                onSetAsDelivery={() => void setAsDelivery(row.id)}
                 onEdit={() => openEdit(row)}
                 onDelete={() => void removeRow(row.id)}
-                containerClassName={
-                  selectingForReturn && pickedId === row.id
-                    ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
-                    : ""
-                }
               />
             ))}
           </ul>
         )}
       </div>
     </>
-  );
-
-  const managementActionBar = (
-    <div
-      className={
-        storesGreenHeader && !embedded
-          ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] safe-area-pb"
-          : MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS
-      }
-    >
-      <div className={ADDR_BOTTOM_INNER}>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => void handleConfirm()}
-            disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
-            className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
-          >
-            {confirming ? t("common_processing") : t("common_confirm")}
-          </button>
-          <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-            {t("address_add")}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 
   const pageBodyColumn = (
@@ -413,7 +323,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           {addressListBody}
         </div>
       </div>
-      {list.length > 0 || selectingForReturn ? managementActionBar : null}
     </div>
   );
 
@@ -448,7 +357,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-0 py-0 pb-2">
             {addressListBody}
           </div>
-          {list.length > 0 || selectingForReturn ? managementActionBar : null}
         </div>
       ) : (
         pageBodyColumn

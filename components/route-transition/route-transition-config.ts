@@ -30,7 +30,11 @@ export type RouteTransitionEnterKind =
   /** 내정보 → 프로필 수정 — 440ms 우→좌 80% */
   | "profile-edit-forward"
   /** 프로필 수정 → 내정보 — 360ms 좌→우 80% */
-  | "profile-edit-back";
+  | "profile-edit-back"
+  /** 임의 화면 → 주소록/검색/상세 — 440ms 우→좌 80% */
+  | "address-platform-forward"
+  /** 주소록/검색/상세 복귀 — 360ms 좌→우 80% */
+  | "address-platform-back";
 
 export function normalizePathForRouteTransition(pathname: string | null): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -113,6 +117,10 @@ export function routeTransitionPushAxisForKind(
       return "rtl";
     case "profile-edit-back":
       return "ltr";
+    case "address-platform-forward":
+      return "rtl";
+    case "address-platform-back":
+      return "ltr";
     case "none":
     case "subtle":
       return null;
@@ -164,6 +172,10 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "profile-edit-route-enter-forward";
     case "profile-edit-back":
       return "profile-edit-route-enter-back";
+    case "address-platform-forward":
+      return "profile-edit-route-enter-forward";
+    case "address-platform-back":
+      return "profile-edit-route-enter-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -186,6 +198,8 @@ export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind):
     case "subtle":
     case "profile-edit-forward":
     case "profile-edit-back":
+    case "address-platform-forward":
+    case "address-platform-back":
       return null;
     default: {
       const _exhaustive: never = kind;
@@ -213,6 +227,8 @@ export function ownerStackRouteTransitionClassForKind(
     case "store-apply-back":
     case "profile-edit-forward":
     case "profile-edit-back":
+    case "address-platform-forward":
+    case "address-platform-back":
       return null;
     default: {
       const _exhaustive: never = kind;

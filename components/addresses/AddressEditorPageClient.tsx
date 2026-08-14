@@ -201,7 +201,7 @@ function AddressEditorPageInner() {
             await commitUserAddressListAfterMutation();
           } finally {
             if (returnTo) writeAddressFlowExitHref(returnTo);
-            router.replace(addressesListHref);
+            router.replace(returnTo || addressesListHref);
           }
         }}
       />
