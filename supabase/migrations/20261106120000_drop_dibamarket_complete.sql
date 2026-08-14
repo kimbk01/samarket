@@ -4,12 +4,12 @@
 
 BEGIN;
 
--- Realtime
+-- Realtime (ALTER PUBLICATION ... DROP TABLE does NOT support IF EXISTS)
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.dibamarket_messages;
+  ALTER PUBLICATION supabase_realtime DROP TABLE public.dibamarket_messages;
 EXCEPTION
-  WHEN undefined_object THEN NULL;
+  WHEN undefined_object THEN NULL; -- publication missing or table not in publication
   WHEN undefined_table THEN NULL;
 END $$;
 
