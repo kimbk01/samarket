@@ -175,6 +175,10 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     router.push(buildMypageAddressEditHref({ returnTo, id: row.id }));
   }
 
+  function closeAfterRepresentativePick() {
+    if (!embedded && returnTo) router.replace(returnTo);
+  }
+
   async function openCurrentLocation() {
     setBusyId("current");
     try {
@@ -197,7 +201,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   async function setAsRepresentative(id: string) {
     const row = list.find((a) => a.id === id);
-    if (!row || row.isDefaultMaster) return;
+    if (!row) return;
+    if (row.isDefaultMaster) {
+      closeAfterRepresentativePick();
+      return;
+    }
     if (isLinkedSamarketStoreAddressRow(row)) {
       alert(t("addr_ui_store_not_master"));
       return;
@@ -219,6 +227,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       const rows = await commitUserAddressListAfterMutation();
       setList(rows);
+      closeAfterRepresentativePick();
     } finally {
       setBusyId(null);
     }

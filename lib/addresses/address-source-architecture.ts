@@ -25,8 +25,9 @@
  * | Cart / Checkout | — | user_addresses | cart radio + same row text | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
  * | Community Feed/Write | — | user_addresses → region label | — | formatPublicAddress | posts.region_label |
- * | Trade Write/Detail | — | user_addresses → taxonomy ids | AddressBookPickerList | formatPublicAddress | posts.region/city |
- * | Trade Meet Spot | meet-spot map (not address book) | posts.meta.trade_meet_spot | — | place label | post meta |
+ * | Trade Write | — | user_addresses master → taxonomy ids | /mypage/addresses | canonical SHORT | address-defaults.master + posts.region/city |
+ * | Trade Detail | — | posts snapshot | — | post region/city label | posts.region/city |
+ * | Trade Meet Spot | legacy map snapshot only | posts.meta.trade_meet_spot | — | place label | post meta |
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
  * | Admin Member Address | admin tools | user_addresses | — | formatAddressBookLine | — |
  *

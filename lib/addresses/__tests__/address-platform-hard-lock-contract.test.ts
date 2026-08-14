@@ -203,6 +203,16 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     expect(tradeLocation).not.toContain("trade_write_manage_addresses");
     expect(tradeLocation).not.toContain("createPortal");
   });
+
+  it("address book representative row pick closes to returnTo after broadcasting defaults", () => {
+    const manager = read("components/addresses/AddressManagementClient.tsx");
+    expect(manager).toContain("function closeAfterRepresentativePick()");
+    expect(manager).toContain("router.replace(returnTo)");
+    expect(manager).toContain("if (row.isDefaultMaster)");
+    expect(manager).toContain("closeAfterRepresentativePick();");
+    expect(manager).toMatch(/commitUserAddressListAfterMutation\(\)[\s\S]*setList\(rows\);[\s\S]*closeAfterRepresentativePick\(\);/);
+    expect(manager).toContain("SAMARKET_ADDRESSES_UPDATED_EVENT");
+  });
 });
 
 describe("ADDR-006 / ADDR-007 / ADDR-015 order snapshot", () => {
