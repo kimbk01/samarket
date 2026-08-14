@@ -29,6 +29,9 @@ type Props = {
   open: boolean;
   latitude: number;
   longitude: number;
+  /** 검색으로 고른 place — 핀이 근처면 상호 유지 */
+  preferPlaceId?: string | null;
+  preferBuildingName?: string | null;
   onClose: () => void;
   /** 역지오코딩으로 채운 스냅샷을 폼에 반영 */
   onApply: (r: ReverseGeocodePhResult) => void;
@@ -36,7 +39,15 @@ type Props = {
 
 export function AddressFineTuneSheet(props: Props) {
   const { t } = useI18n();
-  const { open, latitude, longitude, onClose, onApply } = props;
+  const {
+    open,
+    latitude,
+    longitude,
+    preferPlaceId = null,
+    preferBuildingName = null,
+    onClose,
+    onApply,
+  } = props;
   const { effectiveBottomInset, keyboardOpen, visualViewportHeight, visualViewportOffsetTop } =
     useFormKeyboardViewport({ enabled: open });
   const [draftLat, setDraftLat] = useState(latitude);
@@ -46,6 +57,8 @@ export function AddressFineTuneSheet(props: Props) {
   const [preview, setPreview] = useState<ReverseGeocodePhResult | null>(null);
   const debounceRef = useRef<number | null>(null);
   const seqRef = useRef(0);
+  const preferRef = useRef({ preferPlaceId, preferBuildingName });
+  preferRef.current = { preferPlaceId, preferBuildingName };
 
   useEffect(() => {
     if (!open) return;
@@ -57,7 +70,7 @@ export function AddressFineTuneSheet(props: Props) {
     const seq = ++seqRef.current;
     void (async () => {
       try {
-        const r = await reverseGeocodeLatLngPh(latitude, longitude);
+        const r = await reverseGeocodeLatLngPh(latitude, longitude, preferRef.current);
         if (seq !== seqRef.current) return;
         setPreview(r);
         if (!r?.placeId) {
@@ -73,7 +86,7 @@ export function AddressFineTuneSheet(props: Props) {
         if (seq === seqRef.current) setResolving(false);
       }
     })();
-  }, [open, latitude, longitude]);
+  }, [open, latitude, longitude, t]);
 
   const scheduleReverse = useCallback((lat: number, lng: number) => {
     setDraftLat(lat);
@@ -85,7 +98,7 @@ export function AddressFineTuneSheet(props: Props) {
       setResolving(true);
       void (async () => {
         try {
-          const r = await reverseGeocodeLatLngPh(lat, lng);
+          const r = await reverseGeocodeLatLngPh(lat, lng, preferRef.current);
           if (seq !== seqRef.current) return;
           setPreview(r);
           if (!r?.placeId) {
@@ -102,7 +115,7 @@ export function AddressFineTuneSheet(props: Props) {
         }
       })();
     }, 450);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     return () => {
@@ -113,15 +126,11 @@ export function AddressFineTuneSheet(props: Props) {
   if (!open) return null;
 
   const previewBuilding = preview?.parsed.buildingOrPlaceHeadline?.trim() || null;
-  const previewStreet =
-    preview?.formattedAddress != null
-      ? stripCountryFromAddressDisplayLine(preview.formattedAddress, "Philippines") || preview.formattedAddress
-      : null;
-  const previewLine = previewBuilding
-    ? previewStreet
-      ? `${previewBuilding}\n${previewStreet}`
-      : previewBuilding
-    : previewStreet;
+  const previewStreet = preview?.formattedAddress?.trim()
+    ? stripCountryFromAddressDisplayLine(preview.formattedAddress, "Philippines") ||
+      preview.formattedAddress.trim()
+    : null;
+  const previewLine = [previewBuilding, previewStreet].filter(Boolean).join("\n");
 
   const overlayStyle =
     visualViewportHeight > 0

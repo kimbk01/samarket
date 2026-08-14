@@ -45,17 +45,41 @@ const NEARBY_RADIUS_METERS = 100;
 /** 근처 POI 후보·역지오 기반 핀 보정 허용 거리(m) — 클라 보정 상한과 동일 */
 export const TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS = 56;
 
-/** 도로·지번 줄에 쓸 지오코더 결과 — 첫 번째(랜드마크 전용)와 분리 */
+/** Google Plus Code 가 앞에 붙은 포맷 주소 (예: J3C3+F7G, …) */
+export function looksLikePlusCodeAddress(formatted: string | null | undefined): boolean {
+  const s = (formatted ?? "").trim();
+  if (!s) return false;
+  return /^[A-Z0-9]{2,}\+[A-Z0-9]{2,}\b/i.test(s);
+}
+
+/** 도로·지번 줄에 쓸 지오코더 결과 — Plus Code·랜드마크 단독보다 도로형 우선 */
 export function pickStreetLikeGeocoderResult(
   results: google.maps.GeocoderResult[]
 ): google.maps.GeocoderResult | null {
   if (!results?.length) return null;
   const preferred = ["street_address", "intersection", "route", "premise"];
   for (const t of preferred) {
+    const hit = results.find(
+      (r) =>
+        r.types?.includes(t) &&
+        !r.types.includes("plus_code") &&
+        !looksLikePlusCodeAddress(r.formatted_address)
+    );
+    if (hit) return hit;
+  }
+  for (const t of preferred) {
     const hit = results.find((r) => r.types?.includes(t));
     if (hit) return hit;
   }
-  return results[0] ?? null;
+  const nonPlus = results.find(
+    (r) => !r.types?.includes("plus_code") && !looksLikePlusCodeAddress(r.formatted_address)
+  );
+  return nonPlus ?? results[0] ?? null;
+}
+
+/** 포맷 주소 앞머리 Plus Code 토큰 제거 */
+export function stripLeadingPlusCodeFromFormatted(formatted: string): string {
+  return formatted.replace(/^[A-Z0-9]{2,}\+[A-Z0-9]{2,}\s*,\s*/i, "").trim() || formatted.trim();
 }
 
 /** 지오코더 다중 결과 중 상호·POI에 해당하는 place_id (첫 번째와 다를 수 있음) */
@@ -87,14 +111,16 @@ export function pickGeocoderPoiPlaceId(results: google.maps.GeocoderResult[]): s
   return pid || null;
 }
 
-/** 근접 POI 여러 개일 때 거리만으로 고르면 숙소가 음식점보다 가깝게 잡히는 경우가 있어 유형 가중치 사용 */
+/** 근접 POI 여러 개일 때 거리만으로 고르면 숙소·작은 매장이 몰보다 가깝게 잡히는 경우가 있어 유형 가중치 사용 */
 function poiBusinessScore(types: string[] | undefined): number {
   if (!types?.length) return 0;
   let s = 0;
   for (const t of types) {
-    if (["restaurant", "food", "meal_takeaway", "cafe", "bakery", "bar"].includes(t)) {
+    if (t === "shopping_mall") {
+      s = Math.max(s, 140);
+    } else if (["restaurant", "food", "meal_takeaway", "cafe", "bakery", "bar"].includes(t)) {
       s = Math.max(s, 120);
-    } else if (["store", "shopping_mall", "convenience_store", "supermarket", "pharmacy"].includes(t)) {
+    } else if (["store", "convenience_store", "supermarket", "pharmacy"].includes(t)) {
       s = Math.max(s, 95);
     } else if (["place_of_worship", "church", "mosque", "synagogue", "hindu_temple", "tourist_attraction"].includes(t)) {
       s = Math.max(s, 102);
@@ -107,7 +133,8 @@ function poiBusinessScore(types: string[] | undefined): number {
   return s;
 }
 
-function pickNearestPoiPlaceId(
+/** 거래 희망장소·회원 주소 핀 공통 — 몰/시설 가중 + 거리 */
+export function pickNearestPoiPlaceId(
   marker: google.maps.LatLngLiteral,
   results: google.maps.places.PlaceResult[],
   maxDistanceMeters: number

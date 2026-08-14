@@ -1222,6 +1222,8 @@ export function AddressEditorSheet(props: {
         open={fineTuneOpen}
         latitude={latitude}
         longitude={longitude}
+        preferPlaceId={placeId || null}
+        preferBuildingName={buildingName.trim() || null}
         onClose={() => setFineTuneOpen(false)}
         onApply={applyFineTuneResult}
       />
