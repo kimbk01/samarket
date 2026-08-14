@@ -187,6 +187,22 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       expect(src, name).not.toContain("MypageAddressSheet");
     }
   });
+
+  it("trade write location uses master address SSOT, not local region pickers", () => {
+    const tradeLocation = read("components/write/shared/TradeDefaultLocationBlock.tsx");
+    expect(tradeLocation).toContain("resolveCanonicalChipLineFromDto");
+    expect(tradeLocation).toContain("buildMypageAddressesHrefFromPath");
+    expect(tradeLocation).toContain("router.push(addressesHref)");
+    expect(tradeLocation).toContain("defaults?.master");
+    expect(tradeLocation).toContain("SAMARKET_ADDRESSES_UPDATED_EVENT");
+    expect(tradeLocation).not.toContain("defaults?.trade");
+    expect(tradeLocation).not.toContain("neighborhoodFromLife");
+    expect(tradeLocation).not.toContain("buildExplorationRegionSubtitleLine");
+    expect(tradeLocation).not.toContain("AddressBookPickerList");
+    expect(tradeLocation).not.toContain("trade_write_location_select_region");
+    expect(tradeLocation).not.toContain("trade_write_manage_addresses");
+    expect(tradeLocation).not.toContain("createPortal");
+  });
 });
 
 describe("ADDR-006 / ADDR-007 / ADDR-015 order snapshot", () => {
