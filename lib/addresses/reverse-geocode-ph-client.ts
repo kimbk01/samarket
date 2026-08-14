@@ -1,12 +1,13 @@
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
+import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import {
   buildPhFriendlyAddress,
   isSuitableEstablishmentDisplayName,
 } from "@/lib/map/ph-friendly-address";
 import {
-  PLACE_FIELDS_DISPLAY_DETAIL,
+  PLACE_FIELDS_POI_FULL,
   fetchPlaceDetailsAsLegacyPlaceResult,
   searchNearbyAsLegacyPlaceResults,
 } from "@/lib/map/places-new-api";
@@ -18,125 +19,192 @@ import {
   stripLeadingPlusCodeFromFormatted,
 } from "@/lib/map/resolve-trade-meet-spot-display-line";
 
+/** PLACE identity vs ADDRESS geocode — street place_id 와 POI place_id 를 섞지 않음 */
+export type ReverseGeocodeIdentitySource =
+  | "preferred"
+  | "geocoder_poi"
+  | "nearby"
+  | "street_only";
+
 export type ReverseGeocodePhResult = {
   latitude: number;
   longitude: number;
-  /** 저장·표시용 — Plus Code 제거 + 짧은 도로/지역 줄 (건물명은 parsed 쪽) */
+  /** 국가명 제외 PH 도로+지역 (건물명은 parsed 쪽) */
   formattedAddress: string;
-  /** Geocoder / 근접 POI place_id — 없으면 API 저장 불가이므로 호출부에서 처리 */
+  /**
+   * Place/POI identity place_id.
+   * street_only 일 때만 Geocoder street place_id (저장용).
+   * preferred/geocoder_poi/nearby 는 establishment identity.
+   */
   placeId: string | null;
   parsed: ReturnType<typeof parsePhFromGooglePlaceResult>;
+  identitySource: ReverseGeocodeIdentitySource;
+  /** 동일 Place 내 핀 보정 — 상세주소(unit) 유지 여부 */
+  samePlaceAsPreferred: boolean;
 };
 
 export type ReverseGeocodePhOptions = {
-  /** 검색으로 고른 place — 핀이 아직 근처면 이 상호 유지 (작은 매장 Nearby로 덮지 않음) */
   preferPlaceId?: string | null;
   preferBuildingName?: string | null;
 };
 
-const NEARBY_RADIUS_METERS = 100;
-/** 몰 부지·검색 장소 유지 반경 (핀이 몰 가장자리에 있어도 검색명 유지) */
-const PREFER_PLACE_MAX_METERS = 120;
+const NEARBY_SEARCH_RADIUS_METERS = 100;
 
+/** 일반 POI 동일-장소 허용 (centroid↔입구) */
+const SAME_PLACE_METERS_DEFAULT = 120;
+/** 몰·캠퍼스·병원·콘도 등 대형 — 18m magic 금지 */
+const SAME_PLACE_METERS_LARGE = 450;
+
+const LARGE_PLACE_TYPES = new Set([
+  "shopping_mall",
+  "hospital",
+  "university",
+  "school",
+  "lodging",
+  "premise",
+  "tourist_attraction",
+  "stadium",
+  "museum",
+  "park",
+  "airport",
+  "bus_station",
+  "train_station",
+  "subway_station",
+]);
+
+type DesignatedPlace = {
+  name: string;
+  placeId: string;
+  source: Exclude<ReverseGeocodeIdentitySource, "street_only">;
+};
+
+export function samePlaceToleranceMeters(types: string[] | undefined): number {
+  if (!types?.length) return SAME_PLACE_METERS_DEFAULT;
+  if (types.some((t) => LARGE_PLACE_TYPES.has(t))) return SAME_PLACE_METERS_LARGE;
+  return SAME_PLACE_METERS_DEFAULT;
+}
+
+/** preferred Place geometry 기준 동일 장소 여부 (viewport 우선, 없으면 type-aware 거리) */
+export function isPinWithinPreferredPlace(
+  marker: google.maps.LatLngLiteral,
+  place: google.maps.places.PlaceResult
+): boolean {
+  const loc = place.geometry?.location;
+  if (!loc) return false;
+  const pin = new google.maps.LatLng(marker.lat, marker.lng);
+  const viewport = place.geometry?.viewport;
+  if (viewport && typeof viewport.contains === "function" && viewport.contains(pin)) {
+    return true;
+  }
+  const dist = google.maps.geometry.spherical.computeDistanceBetween(loc, pin);
+  return dist <= samePlaceToleranceMeters(place.types);
+}
+
+function tryDetailsAsDesignated(
+  d: google.maps.places.PlaceResult | null,
+  fallbackPid: string | null,
+  streetComponents: google.maps.GeocoderAddressComponent[],
+  source: DesignatedPlace["source"]
+): DesignatedPlace | null {
+  const n = d?.name?.trim() ?? "";
+  if (!n || !isSuitableEstablishmentDisplayName(n, streetComponents)) return null;
+  const id = (d?.place_id ?? fallbackPid)?.trim() || null;
+  if (!id) return null;
+  return { name: n, placeId: id, source };
+}
+
+/**
+ * 사용자 검색 선택 Place — PIN fine-tune 최우선 identity.
+ * Details 에 geometry 필수 (없으면 prefer 폐기되던 ROOT CAUSE).
+ */
 async function tryPreferredEstablishment(
   marker: google.maps.LatLngLiteral,
   streetComponents: google.maps.GeocoderAddressComponent[],
   preferPlaceId: string | null | undefined,
   preferBuildingName: string | null | undefined
-): Promise<{ name: string; placeId: string } | null> {
+): Promise<DesignatedPlace | null> {
   const pid = (preferPlaceId ?? "").trim();
   if (!pid) return null;
-  const d = await fetchPlaceDetailsAsLegacyPlaceResult(pid, PLACE_FIELDS_DISPLAY_DETAIL);
-  const loc = d?.geometry?.location;
-  if (!loc) return null;
-  const dist = google.maps.geometry.spherical.computeDistanceBetween(
-    loc,
-    new google.maps.LatLng(marker.lat, marker.lng)
-  );
-  if (dist > PREFER_PLACE_MAX_METERS) return null;
-  const n = (d?.name?.trim() || (preferBuildingName ?? "").trim() || "").trim();
-  if (!n || !isSuitableEstablishmentDisplayName(n, streetComponents)) return null;
-  return { name: n, placeId: (d?.place_id ?? pid).trim() };
+
+  const d = await fetchPlaceDetailsAsLegacyPlaceResult(pid, PLACE_FIELDS_POI_FULL);
+  if (!d?.geometry?.location) return null;
+  if (!isPinWithinPreferredPlace(marker, d)) return null;
+
+  const fromDetails = tryDetailsAsDesignated(d, pid, streetComponents, "preferred");
+  if (fromDetails) return fromDetails;
+
+  const fallbackName = (preferBuildingName ?? "").trim();
+  if (!fallbackName || !isSuitableEstablishmentDisplayName(fallbackName, streetComponents)) {
+    return null;
+  }
+  return { name: fallbackName, placeId: pid, source: "preferred" };
 }
 
-async function resolveNearbyEstablishmentName(
+/**
+ * preferred 가 없을 때만 — Geocoder POI → Nearby(거래와 동일 가중, 18m sole authority 금지).
+ * street Geocoder place_id 를 POI identity 로 승격하지 않음.
+ */
+async function resolveNewPlaceIdentity(
   marker: google.maps.LatLngLiteral,
   streetComponents: google.maps.GeocoderAddressComponent[],
   geoResults: google.maps.GeocoderResult[]
-): Promise<{ name: string | null; placeId: string | null }> {
+): Promise<DesignatedPlace | null> {
   const poiGeoPlaceId = pickGeocoderPoiPlaceId(geoResults);
+  if (poiGeoPlaceId) {
+    const d = await fetchPlaceDetailsAsLegacyPlaceResult(poiGeoPlaceId, PLACE_FIELDS_POI_FULL);
+    const hit = tryDetailsAsDesignated(d, poiGeoPlaceId, streetComponents, "geocoder_poi");
+    if (hit) return hit;
+  }
 
-  let nearbyList = await searchNearbyAsLegacyPlaceResults(marker, NEARBY_RADIUS_METERS);
+  let nearbyList = await searchNearbyAsLegacyPlaceResults(marker, NEARBY_SEARCH_RADIUS_METERS);
   if (!nearbyList.length) {
-    nearbyList = await searchNearbyAsLegacyPlaceResults(marker, NEARBY_RADIUS_METERS, {
-      includedTypes: ["shopping_mall", "restaurant", "cafe", "store"],
+    nearbyList = await searchNearbyAsLegacyPlaceResults(marker, NEARBY_SEARCH_RADIUS_METERS, {
+      includedTypes: ["shopping_mall", "store", "premise", "lodging"],
     });
   }
 
+  /** 18m magic 제거 — 거래 meet-spot 상한 + 대형 타입 가중(pickNearestPoiPlaceId) */
   const nearbyPlaceId = pickNearestPoiPlaceId(
     marker,
     nearbyList,
-    TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS
+    Math.max(TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS, SAME_PLACE_METERS_DEFAULT)
   );
+  if (!nearbyPlaceId) return null;
 
-  const [detailsNearby, detailsPoiGeo] = await Promise.all([
-    nearbyPlaceId ? fetchPlaceDetailsAsLegacyPlaceResult(nearbyPlaceId, PLACE_FIELDS_DISPLAY_DETAIL) : null,
-    poiGeoPlaceId && poiGeoPlaceId !== nearbyPlaceId
-      ? fetchPlaceDetailsAsLegacyPlaceResult(poiGeoPlaceId, PLACE_FIELDS_DISPLAY_DETAIL)
-      : null,
-  ]);
-
-  const tryName = (
-    d: google.maps.places.PlaceResult | null,
-    candidatePid: string | null
-  ): { name: string; placeId: string } | null => {
-    const n = d?.name?.trim() ?? "";
-    if (!n || !isSuitableEstablishmentDisplayName(n, streetComponents)) return null;
-    const id = (d?.place_id ?? candidatePid)?.trim() || null;
-    if (!id) return null;
-    return { name: n, placeId: id };
-  };
-
-  const fromNearby = tryName(detailsNearby, nearbyPlaceId);
-  if (fromNearby) return fromNearby;
-
-  const fromGeoPoi = tryName(detailsPoiGeo, poiGeoPlaceId);
-  if (fromGeoPoi) return fromGeoPoi;
+  const d = await fetchPlaceDetailsAsLegacyPlaceResult(nearbyPlaceId, PLACE_FIELDS_POI_FULL);
+  const fromDetails = tryDetailsAsDesignated(d, nearbyPlaceId, streetComponents, "nearby");
+  if (fromDetails) return fromDetails;
 
   const inline = nearbyList.find((p) => (p.place_id ?? "").trim() === nearbyPlaceId);
   const inlineName = inline?.name?.trim() ?? "";
-  if (
-    inlineName &&
-    nearbyPlaceId &&
-    isSuitableEstablishmentDisplayName(inlineName, streetComponents)
-  ) {
-    return { name: inlineName, placeId: nearbyPlaceId };
+  if (inlineName && isSuitableEstablishmentDisplayName(inlineName, streetComponents)) {
+    return { name: inlineName, placeId: nearbyPlaceId, source: "nearby" };
   }
-
-  return { name: null, placeId: null };
+  return null;
 }
 
-function shortStreetFormatted(
-  streetComponents: google.maps.GeocoderAddressComponent[],
+function phStreetAreaLine(
+  components: google.maps.GeocoderAddressComponent[],
   fallbackFormatted: string
 ): string {
   const friendly = buildPhFriendlyAddress({
-    components: streetComponents,
+    components,
     placeName: null,
   })
     .split("\n")
     .map((x) => x.trim())
     .filter(Boolean)
     .join(", ");
-  if (friendly) return friendly;
-  return stripLeadingPlusCodeFromFormatted(fallbackFormatted);
+  const base = friendly || stripLeadingPlusCodeFromFormatted(fallbackFormatted);
+  return stripCountryFromAddressDisplayLine(base, "Philippines").trim() || base;
 }
 
 /**
- * 핀 이동 등 좌표 기준으로 주소·구성 필드를 채운다.
- * - 도로·행정: Geocoder (Plus Code 지양)
- * - 상호·건물: 검색 place 유지 → 아니면 거래와 동일 Nearby 가중(몰 우선)
- * - formattedAddress: 짧은 도로+지역 (건물명은 parsed.buildingOrPlaceHeadline)
+ * PIN → 주소 draft.
+ * CONTRACT: PLACE IDENTITY ≠ PIN POSITION ≠ STREET GEOCODE identity
+ * - preferred(검색 선택)가 동일 장소면 identity 유지, lat/lng만 새 핀
+ * - 이탈 시에만 새 POI resolve (tenant가 parent/선택 Place를 덮지 않음 — preferred 우선)
+ * - Geocoder street 는 도로/지역 줄 전용
  */
 export async function reverseGeocodeLatLngPh(
   latitude: number,
@@ -165,18 +233,21 @@ export async function reverseGeocodeLatLngPh(
     opts?.preferPlaceId,
     opts?.preferBuildingName
   );
-  const establishment =
-    preferred ?? (await resolveNearbyEstablishmentName(marker, streetComponents, geoResults));
+
+  const designated =
+    preferred ?? (await resolveNewPlaceIdentity(marker, streetComponents, geoResults));
 
   const placeForParse = {
     formatted_address: rawFormatted,
     address_components: streetComponents,
-    name: establishment.name ?? undefined,
+    name: designated?.name ?? undefined,
   } as google.maps.places.PlaceResult;
 
   const parsed = parsePhFromGooglePlaceResult(placeForParse);
-  const placeId = establishment.placeId || streetPlaceId;
-  const formattedAddress = shortStreetFormatted(streetComponents, rawFormatted);
+  const identitySource: ReverseGeocodeIdentitySource = designated?.source ?? "street_only";
+  const placeId = designated?.placeId || streetPlaceId;
+  const formattedAddress = phStreetAreaLine(streetComponents, rawFormatted);
+  const samePlaceAsPreferred = identitySource === "preferred";
 
   return {
     latitude,
@@ -184,5 +255,7 @@ export async function reverseGeocodeLatLngPh(
     formattedAddress,
     placeId,
     parsed,
+    identitySource,
+    samePlaceAsPreferred,
   };
 }

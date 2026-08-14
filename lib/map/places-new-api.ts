@@ -11,16 +11,23 @@ import {
   GOOGLE_MAPS_ADDRESS_REGION,
 } from "@/lib/map/google-maps-address-locale";
 
-/** getDetails 필드 힌트 — 레거시 `fields` 로 매핑한다 */
+/**
+ * getDetails 필드 힌트 — 레거시 `fields` 로 매핑한다.
+ * `location` 필수: PIN prefer / same-place 판정에 geometry.location·viewport 필요.
+ * (location 없으면 tryPreferredEstablishment 가 항상 !loc 로 identity 폐기됨)
+ */
 export const PLACE_FIELDS_DISPLAY_DETAIL = [
   "displayName",
   "addressComponents",
   "formattedAddress",
+  "location",
+  "types",
   "id",
 ] as const;
 
 export const PLACE_FIELDS_LOCATION = ["location", "id"] as const;
 
+/** 검색 선택·PIN prefer 공통 — name + geometry + components + types */
 export const PLACE_FIELDS_POI_FULL = [
   "displayName",
   "addressComponents",

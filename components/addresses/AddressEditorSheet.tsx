@@ -552,16 +552,24 @@ export function AddressEditorSheet(props: {
     const nextCityMun = ph.cityMunicipality ?? "";
     const nextProvince = ph.province ?? "";
     const nextNeighborhood = ph.neighborhood ?? "";
-    /** Nearby/Details 에 상호가 없으면 검색으로 넣은 buildingName 유지 — 도로명으로 덮지 않음 */
     const resolvedBuilding = (ph.buildingOrPlaceHeadline ?? "").trim();
-    const nextBuilding = resolvedBuilding || buildingName.trim();
+    /**
+     * same-place PIN: 검색 Place identity 유지 (tenant Nearby가 덮지 않음 — reverse 가 preferred 반환).
+     * 다른 장소로 이탈: street_only 면 building null OK (주택); POI면 새 name.
+     */
+    const nextBuilding = r.samePlaceAsPreferred
+      ? resolvedBuilding || buildingName.trim()
+      : resolvedBuilding;
     setStreetAddress(nextStreet);
     setBarangay(nextBarangay);
     setCityMunicipality(nextCityMun);
     setProvince(nextProvince);
     setNeighborhoodName(nextNeighborhood);
     setBuildingName(nextBuilding);
-    setUnitFloorRoom("");
+    /** 동일 Place 내 좌표 보정만이면 상세(unit/house) 유지 */
+    if (!r.samePlaceAsPreferred) {
+      setUnitFloorRoom("");
+    }
     applyTaxonomyFromDraftFields({
       buildingName: nextBuilding,
       barangay: nextBarangay,
