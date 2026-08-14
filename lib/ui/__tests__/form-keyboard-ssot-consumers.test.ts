@@ -62,16 +62,13 @@ describe("form-keyboard-ssot consumer contract", () => {
     expect(src).not.toMatch(/calc\(var\(--safe-bottom\)/);
   });
 
-  it("Address editor sheet footer uses Form SSOT", () => {
-    const src = read("components/addresses/AddressEditorSheet.tsx");
+  it("Address platform Detail V2 footer uses Form SSOT", () => {
+    const src = read("components/addresses/AddressPlatformDetailClient.tsx");
     expect(src).toContain("useFormKeyboardViewport");
     expect(src).toContain("effectiveBottomInset");
-    expect(src).toContain("useFormKeyboardFocusVisibility");
-    expect(src).toContain("BodyPortal");
-    expect(src).toContain("MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS");
+    expect(src).toContain("data-form-keyboard-footer");
     expect(src).not.toMatch(/safe-area-pb/);
     expect(src).not.toMatch(/Math\.max\(8, effectiveBottomInset\)/);
-    expect(src).not.toMatch(/fixed inset-0 z-\[80\]/);
   });
 
   it("Mypage bottom sheet shell uses Form SSOT inset, not stacked safe-area", () => {

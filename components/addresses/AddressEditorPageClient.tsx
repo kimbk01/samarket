@@ -2,12 +2,9 @@
 
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
+import { AddressPlatformDetailClient } from "@/components/addresses/AddressPlatformDetailClient";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import {
-  consumeMapAddressPick,
-  consumeMapAddressPickContext,
-} from "@/lib/map/map-address-pick-storage";
+import { consumeMapAddressPick, consumeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 import {
   describeMeAddressesListFailure,
   fetchMeAddressesListSingleFlight,
@@ -19,14 +16,20 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   buildMypageAddressEditHref,
+  buildMypageAddressSearchHref,
   buildMypageAddressesHref,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  clearAddressPlatformV2Draft,
+  readAddressPlatformV2Draft,
+  shouldRedirectCreateDetailToSearch,
+} from "@/lib/addresses/canonical-address-draft-storage";
+import { draftFromSavedRow, resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
+import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
 import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
-  MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
-  MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
 } from "@/lib/addresses/mypage-address-manage-layout";
 
 function AddressEditorPageChrome(props: {
@@ -45,9 +48,7 @@ function AddressEditorPageChrome(props: {
         hideCtaStrip
         showHubQuickActions
       />
-      <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS}>
-        <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS}>{children}</div>
-      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }
@@ -68,25 +69,32 @@ function AddressEditorPageInner() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
-  const [mapBootstrap, setMapBootstrap] = useState<{
-    latitude: number;
-    longitude: number;
-    fullAddress: string;
-    addressDetail?: string | null;
-    placeId?: string | null;
-  } | null>(null);
+  const [platformDraft, setPlatformDraft] = useState<CanonicalAddressDraft | null>(null);
 
   const mapHandledRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const incomingDraft =
+      !idFromUrl && !mapBootstrapUrl ? readAddressPlatformV2Draft()?.draft ?? null : null;
+    if (incomingDraft) {
+      setPlatformDraft(incomingDraft);
+      setMode("create");
+      setEditTarget(null);
+      setBootstrapping(false);
+    }
+
     void (async () => {
       setLoadErr(null);
       setLoadErrMigrationHint(false);
       const result = await fetchMeAddressesListSingleFlight();
+      if (cancelled) return;
       if (!result.ok) {
-        setLoadErr(describeMeAddressesListFailure(result, t));
-        setLoadErrMigrationHint(shouldShowMeAddressesListMigrationHint(result));
         setList([]);
+        if (!incomingDraft) {
+          setLoadErr(describeMeAddressesListFailure(result, t));
+          setLoadErrMigrationHint(shouldShowMeAddressesListMigrationHint(result));
+        }
         setBootstrapping(false);
         return;
       }
@@ -100,13 +108,13 @@ function AddressEditorPageInner() {
         const pick = consumeMapAddressPick();
         const ctx = consumeMapAddressPickContext();
         if (pick) {
-          setMapBootstrap({
-            latitude: pick.latitude,
-            longitude: pick.longitude,
-            fullAddress: pick.fullAddress,
-            addressDetail: pick.addressDetail ?? null,
-            placeId: pick.placeId ?? null,
-          });
+          const fromPick = await resolveCanonicalAddressFromLatLng(
+            pick.latitude,
+            pick.longitude,
+            pick.placeId ? { placeId: pick.placeId, placeName: null } : null,
+          );
+          if (cancelled) return;
+          setPlatformDraft(fromPick);
           if (ctx.source === "edit") {
             const row = rows.find((a) => a.id === ctx.addressId);
             setEditTarget(row ?? null);
@@ -128,14 +136,26 @@ function AddressEditorPageInner() {
           const row = rows.find((a) => a.id === idFromUrl);
           setEditTarget(row ?? null);
           setMode(row ? "edit" : "create");
+          if (row) setPlatformDraft(draftFromSavedRow(row));
         } else {
           setMode("create");
           setEditTarget(null);
+          const draft = incomingDraft ?? readAddressPlatformV2Draft()?.draft ?? null;
+          if (draft) {
+            setPlatformDraft(draft);
+          } else if (shouldRedirectCreateDetailToSearch(idFromUrl, mapBootstrapUrl, draft)) {
+            router.replace(buildMypageAddressSearchHref({ returnTo }));
+            return;
+          }
         }
       }
 
       setBootstrapping(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [idFromUrl, mapBootstrapUrl, returnTo, router, t]);
 
   if (bootstrapping) {
@@ -169,24 +189,23 @@ function AddressEditorPageInner() {
   }
 
   return (
-    <AddressEditorSheet
-      layout="page"
-      open
-      mode={mode}
-      initial={editTarget}
-      mapBootstrap={mapBootstrap}
-      allAddresses={list}
-      returnTo={returnTo}
-      onClose={() => router.replace(addressesListHref)}
-      onSaved={async () => {
-        try {
-          await commitUserAddressListAfterMutation();
-        } finally {
-          if (returnTo) writeAddressFlowExitHref(returnTo);
-          router.replace(addressesListHref);
-        }
-      }}
-    />
+    <AddressEditorPageChrome titleKey="addr_ui_address_detail_header" backHref={addressesListHref}>
+      <AddressPlatformDetailClient
+        mode={mode}
+        initial={editTarget}
+        draft={platformDraft}
+        allAddresses={list}
+        onSaved={async () => {
+          try {
+            clearAddressPlatformV2Draft();
+            await commitUserAddressListAfterMutation();
+          } finally {
+            if (returnTo) writeAddressFlowExitHref(returnTo);
+            router.replace(addressesListHref);
+          }
+        }}
+      />
+    </AddressEditorPageChrome>
   );
 }
 

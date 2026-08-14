@@ -9,7 +9,6 @@
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import { buildAddressListDetailLine } from "@/lib/addresses/user-address-format";
 import {
   formatUserAddressListPlainLine,
@@ -17,13 +16,15 @@ import {
 } from "@/lib/addresses/format-user-address-list-line";
 import { ADDR_BODY, ADDR_LIST_BADGE_BASE } from "@/lib/ui/address-flow-viber";
 import {
-  addressDesignationBadgeClass,
+  displayInputFromDto,
+  resolveCanonicalDisplayLines,
+} from "@/lib/addresses/canonical-address-display";
+import {
   addressMasterBadgeClass,
   addressStoreLinkedBadgeClass,
   addressTapRepresentativeBadgeClass,
 } from "@/lib/ui/address-list-starbucks-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
-import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 
 const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-muted`;
 
@@ -61,12 +62,19 @@ export function AddressListRowBody({
   };
 
   const sub = formatUserAddressListPlainLine(row, phOpts);
+  const bookLines = resolveCanonicalDisplayLines(
+    displayInputFromDto(
+      row,
+      {
+        home: t("addr_v2_label_home"),
+        office: t("addr_v2_label_office"),
+        shop: t("addr_ui_kind_shop"),
+      },
+      samarketStoreDisplayName || null,
+    ),
+  );
   const detailLine =
     preferFullAddressLine || isPh ? null : buildAddressListDetailLine(row, sub);
-
-  const designationPlain = getUserAddressDesignationPlainText(row, {
-    linkedSamarketStoreDisplayName: samarketStoreDisplayName || null,
-  });
 
   const recipientName = row.recipientName?.trim() ?? "";
   const phoneRaw = row.phoneNumber?.trim() ?? "";
@@ -75,10 +83,6 @@ export function AddressListRowBody({
   const headKind = isShopLinked ? "store" : row.isDefaultMaster ? "master" : "general";
   const mainTextClass = addressMainClassName ?? "text-sam-fg";
   const useStarbucksBadges = badgeStyle === "starbucks";
-
-  const designationBadgeClass = useStarbucksBadges
-    ? addressDesignationBadgeClass(row.labelType)
-    : `${ADDR_LIST_BADGE_BASE} border-sam-border bg-white text-sam-fg`;
 
   return (
     <>
@@ -94,9 +98,6 @@ export function AddressListRowBody({
       : null}
 
       <div className="flex min-h-[26px] flex-wrap items-center gap-1.5">
-        <span className={designationBadgeClass} translate="no">
-          {designationPlain}
-        </span>
         {showDefaultDeliveryBadge && row.isDefaultDelivery ?
           <span
             className={
@@ -118,7 +119,7 @@ export function AddressListRowBody({
             }
             translate="no"
           >
-            {t("addr_ui_badge_default_address")}
+            {t("addr_v2_current_address")}
           </span>
         : null}
         {isStoreAddress ?
@@ -150,12 +151,15 @@ export function AddressListRowBody({
       <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
         <AddressKindHeadPin kind={headKind} className="pt-0.5" />
         <div className={`min-w-0 flex-1 break-words ${mainTextClass}`}>
-          <AddressUserRowLineText
-            row={row}
-            opts={phOpts}
-            mainTextClassName={mainTextClass}
-            detailClassName="font-bold text-sam-fg"
-          />
+          {bookLines.title ? (
+            <p className="sam-text-body font-bold leading-snug text-sam-fg">{bookLines.title}</p>
+          ) : null}
+          {bookLines.addressLine ? (
+            <p className="mt-0.5 leading-snug text-sam-muted">{bookLines.addressLine}</p>
+          ) : null}
+          {bookLines.detailLine ? (
+            <p className="mt-0.5 font-semibold leading-snug text-sam-fg">{bookLines.detailLine}</p>
+          ) : null}
         </div>
       </div>
 

@@ -7,16 +7,12 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { AddressSearch } from "@/components/map/AddressSearch";
 import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
+import type { CanonicalAddressDraft, CanonicalPreferredPlace } from "@/lib/addresses/canonical-address-draft";
 import {
-  PLACE_FIELDS_DISPLAY_DETAIL,
-  fetchPlaceDetailsAsLegacyPlaceResult,
-  searchNearbyAsLegacyPlaceResults,
-} from "@/lib/map/places-new-api";
-import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
-import {
-  buildPhFriendlyAddress,
-  pickNearestEstablishmentByDistance,
-} from "@/lib/map/ph-friendly-address";
+  displayInputFromDraft,
+  resolveCanonicalDisplayLines,
+} from "@/lib/addresses/canonical-address-display";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
   hideMapAddressRecentRow,
@@ -46,7 +42,6 @@ import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-c
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 type LatLng = { lat: number; lng: number };
-const NEARBY_FALLBACK_MAX_DISTANCE_METERS = 20;
 
 type Step = "settings" | "map";
 
@@ -61,18 +56,10 @@ export type AddressLocationPickResult = {
   placeId: string | null;
 };
 
-function distMeters(a: LatLng, b: LatLng): number {
-  const R = 6371000;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const lat1 = (a.lat * Math.PI) / 180;
-  const lat2 = (b.lat * Math.PI) / 180;
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-function useReverseGeocode(marker: LatLng): { text: string; busy: boolean; placeId: string | null } {
+function useReverseGeocode(
+  marker: LatLng,
+  preferredRef: { current: CanonicalPreferredPlace | null },
+): { text: string; busy: boolean; placeId: string | null } {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -88,74 +75,47 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean; place
         }
         if (cancelled) return;
         setBusy(true);
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ location: marker, language: GOOGLE_MAPS_ADDRESS_LANGUAGE }, (results, status) => {
+        try {
+          const draft = await resolveCanonicalAddressFromLatLng(
+            marker.lat,
+            marker.lng,
+            preferredRef.current,
+          );
           if (cancelled) return;
-          if (status !== "OK" || !results?.[0]) {
-            setBusy(false);
+          if (!draft) {
             setText("");
             setPlaceId(null);
             return;
           }
-          void (async () => {
-            let placeDetails: google.maps.places.PlaceResult | null = null;
-            const primaryPlaceId = (results[0]?.place_id ?? "").trim();
-
-            if (primaryPlaceId) {
-              placeDetails = await fetchPlaceDetailsAsLegacyPlaceResult(
-                primaryPlaceId,
-                PLACE_FIELDS_DISPLAY_DETAIL
-              );
-            }
-
-            if (!placeDetails) {
-              let nearbyResults = await searchNearbyAsLegacyPlaceResults(marker, 50);
-              if (!nearbyResults.length) {
-                nearbyResults = await searchNearbyAsLegacyPlaceResults(marker, 50, {
-                  includedTypes: ["restaurant", "cafe", "store", "shopping_mall"],
-                });
-              }
-              const nearest = pickNearestEstablishmentByDistance(marker, nearbyResults);
-              if (nearest?.placeId && nearest.distanceMeters <= NEARBY_FALLBACK_MAX_DISTANCE_METERS) {
-                placeDetails = await fetchPlaceDetailsAsLegacyPlaceResult(
-                  nearest.placeId,
-                  PLACE_FIELDS_DISPLAY_DETAIL
-                );
-              }
-            }
-
-            if (cancelled) return;
-            const resolvedPlaceId = (
-              (placeDetails?.place_id ?? primaryPlaceId) ||
-              ""
-            ).trim() || null;
-            setPlaceId(resolvedPlaceId);
-            const geocodeComponents = results[0]?.address_components ?? [];
-            const byPlaceDetails = placeDetails
-              ? buildPhFriendlyAddress({
-                  components:
-                    placeDetails.address_components && placeDetails.address_components.length > 0
-                      ? placeDetails.address_components
-                      : geocodeComponents,
-                  placeName: placeDetails.name ?? null,
-                })
-              : "";
-            const byGeocoding = buildPhFriendlyAddress({
-              components: geocodeComponents,
-            });
-            setBusy(false);
-            setText((byPlaceDetails || byGeocoding).trim());
-          })();
-        });
+          if (!draft.samePlaceAsPreferred) {
+            preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName };
+          }
+          const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
+          setPlaceId(draft.placeId);
+          setText([lines.title, lines.addressLine].filter(Boolean).join("\n"));
+        } finally {
+          if (!cancelled) setBusy(false);
+        }
       })();
     }, 280);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [marker]);
+  }, [marker, preferredRef]);
 
   return { text, busy, placeId };
+}
+
+function distMeters(a: LatLng, b: LatLng): number {
+  const R = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 export function AddressSelectClient(props?: {
@@ -190,12 +150,16 @@ export function AddressSelectClient(props?: {
     placeId: string | null;
   } | null>(null);
   const searchPlaceIdRef = useRef<string | null>(null);
+  const preferredRef = useRef<CanonicalPreferredPlace | null>(null);
   /** localStorage 기반 최근 주소는 SSR·첫 페인트에서 제외 — hydration 불일치 방지 */
   const [recentLocalReady, setRecentLocalReady] = useState(false);
   /** 최근 목록에서 항목 삭제·숨김 후 재계산 */
   const [recentListVersion, setRecentListVersion] = useState(0);
 
-  const { text: geocodedAddress, busy: geocodeBusy, placeId: geocodedPlaceId } = useReverseGeocode(marker);
+  const { text: geocodedAddress, busy: geocodeBusy, placeId: geocodedPlaceId } = useReverseGeocode(
+    marker,
+    preferredRef,
+  );
   const displayAddress = geocodedAddress;
 
   const loadAddresses = useCallback(async () => {
@@ -230,6 +194,7 @@ export function AddressSelectClient(props?: {
 
   const goToMap = useCallback((next: LatLng) => {
     searchPlaceIdRef.current = null;
+    preferredRef.current = null;
     setMarker(next);
     setManualAddress(null);
     manualAnchorRef.current = null;
@@ -240,21 +205,20 @@ export function AddressSelectClient(props?: {
     setStep("map");
   }, []);
 
-  const onPlaceResolved = useCallback(
-    (lat: number, lng: number, formatted: string, placeId: string | null) => {
-      searchPlaceIdRef.current = placeId;
-      setMarker({ lat, lng });
-      const addr = formatted.trim();
-      setManualAddress(addr || null);
-      manualAnchorRef.current = addr ? { lat, lng } : null;
-      setDetailLine("");
-      setMapPhase("pin");
-      setPinSnapshot(null);
-      setGeoHint(null);
-      setStep("map");
-    },
-    [],
-  );
+  const onPlaceResolved = useCallback((draft: CanonicalAddressDraft) => {
+    searchPlaceIdRef.current = draft.placeId;
+    preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName };
+    setMarker({ lat: draft.latitude, lng: draft.longitude });
+    const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
+    const addr = [lines.title, lines.addressLine].filter(Boolean).join("\n").trim();
+    setManualAddress(addr || null);
+    manualAnchorRef.current = addr ? { lat: draft.latitude, lng: draft.longitude } : null;
+    setDetailLine("");
+    setMapPhase("pin");
+    setPinSnapshot(null);
+    setGeoHint(null);
+    setStep("map");
+  }, []);
 
   const onCurrentLocation = useCallback(async () => {
     setGeoHint(null);
@@ -296,6 +260,8 @@ export function AddressSelectClient(props?: {
         setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_map") : t("addr_ui_geo_failed"));
         return;
       }
+      searchPlaceIdRef.current = null;
+      preferredRef.current = null;
       setMarker({ lat: res.position.latitude, lng: res.position.longitude });
       setManualAddress(null);
       manualAnchorRef.current = null;

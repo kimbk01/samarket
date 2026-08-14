@@ -13,6 +13,7 @@ export function AddressEditorLocationSearch(props: {
   onSearchChange: (value: string) => void;
   onSearchFocus: () => void;
   onSelectPrediction: (row: PlacePredictionRow) => void;
+  placeholder?: string;
 }) {
   const { t } = useI18n();
   const {
@@ -23,6 +24,7 @@ export function AddressEditorLocationSearch(props: {
     onSearchChange,
     onSearchFocus,
     onSelectPrediction,
+    placeholder,
   } = props;
 
   return (
@@ -42,7 +44,7 @@ export function AddressEditorLocationSearch(props: {
           value={search}
           onFocus={onSearchFocus}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={t("addr_ui_search_placeholder")}
+          placeholder={placeholder || t("addr_ui_search_placeholder")}
           autoComplete="off"
           enterKeyHint="search"
           className={ADDR_SEARCH_INPUT}

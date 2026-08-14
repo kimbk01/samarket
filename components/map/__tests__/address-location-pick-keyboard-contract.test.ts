@@ -18,13 +18,18 @@ describe("address location pick keyboard / CTA contract", () => {
     expect(src).not.toMatch(/safe-area-pb/);
   });
 
-  it("AddressEditorSheet uses AutocompleteService search + footer save, not Autocomplete widget", () => {
-    const src = read("components/addresses/AddressEditorSheet.tsx");
+  it("Address Platform Search uses AutocompleteService, not Autocomplete widget", () => {
+    const src = read("components/addresses/AddressPlatformSearchClient.tsx");
     expect(src).toContain("AddressEditorLocationSearch");
-    expect(src).toContain("addr_ui_save_address");
     expect(src).toContain("fetchPlacePredictionsPh");
-    expect(src).toContain("mapUserAddressToAppLocation");
-    expect(src).not.toContain("editorPhase");
+    expect(src).not.toContain("new google.maps.places.Autocomplete");
+  });
+
+  it("Address Platform Detail saves with footer CTA and does not host FineTune sheet", () => {
+    const src = read("components/addresses/AddressPlatformDetailClient.tsx");
+    expect(src).toContain("addr_ui_save_address");
+    expect(src).toContain("useFormKeyboardViewport");
+    expect(src).not.toContain("AddressFineTuneSheet");
     expect(src).not.toContain("new google.maps.places.Autocomplete");
   });
 
@@ -35,14 +40,10 @@ describe("address location pick keyboard / CTA contract", () => {
     expect(src).not.toContain("new google.maps.places.Autocomplete");
   });
 
-  it("AddressEditorSheet modal portals above main sheet and pins to visual viewport", () => {
-    const src = read("components/addresses/AddressEditorSheet.tsx");
-    expect(src).toContain("BodyPortal");
-    expect(src).toContain("MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS");
-    expect(src).toContain("useFormKeyboardFocusVisibility");
-    expect(src).toContain("visualViewportHeight");
-    expect(src).toContain("visualViewportOffsetTop");
-    expect(src).toContain("data-form-keyboard-surface");
+  it("Address Platform Detail is a page surface, not a nested FineTune modal", () => {
+    const src = read("components/addresses/AddressPlatformDetailClient.tsx");
+    expect(src).toContain("AddressFineTuneMapLazy");
+    expect(src).not.toContain("AddressFineTuneSheet");
     expect(src).not.toMatch(/fixed inset-0 z-\[80\]/);
   });
 

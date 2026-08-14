@@ -8,11 +8,8 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
-import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
-  consumeMapAddressPick,
-  consumeMapAddressPickContext,
   peekMapAddressPick,
 } from "@/lib/map/map-address-pick-storage";
 import { ADDR_ADD_CTA, ADDR_BOTTOM_INNER, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
@@ -41,8 +38,12 @@ import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samar
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import {
   buildMypageAddressEditHref,
+  buildMypageAddressSearchHref,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
+import { writeAddressPlatformV2Draft } from "@/lib/addresses/canonical-address-draft-storage";
+import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
+import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
   resolveAddressManagementExitHref,
   clearAddressFlowExitHref,
@@ -67,20 +68,10 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
-  const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
   const [pickedId, setPickedId] = useState<string>("");
   const [confirming, setConfirming] = useState(false);
   /** 승인 매장 id → 표시명 (`Store Address` 뱃지·헤더 `매장 · …` 에 사용) */
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
-  /** `/address/select` 에서 돌아올 때 sessionStorage 픽을 부모가 소비해 시트에 넘김 (시트가 닫힌 채 복귀하면 기존 useEffect(open) 만으로는 픽이 반영되지 않음) */
-  const [mapBootstrap, setMapBootstrap] = useState<{
-    latitude: number;
-    longitude: number;
-    fullAddress: string;
-    addressDetail?: string | null;
-  } | null>(null);
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const selectingForReturn = Boolean(returnTo);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
@@ -117,62 +108,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   useEffect(() => {
     if (!pathname || pathname.startsWith("/address/select")) return;
     if (pathname.startsWith("/mypage/addresses/edit")) return;
-
-    if (!embedded) {
-      if (!pathname.startsWith("/mypage/addresses")) return;
-      if (peekMapAddressPick()) {
-        router.replace(buildMypageAddressEditHref({ returnTo, map: true }));
-      }
-      return;
+    if (pathname.startsWith("/mypage/addresses/search")) return;
+    if (!pathname.startsWith("/mypage/addresses") && !embedded) return;
+    if (peekMapAddressPick()) {
+      router.replace(buildMypageAddressEditHref({ returnTo, map: true }));
     }
-
-    const pick = consumeMapAddressPick();
-    const ctx = consumeMapAddressPickContext();
-    if (!pick) return;
-    const boot = {
-      latitude: pick.latitude,
-      longitude: pick.longitude,
-      fullAddress: pick.fullAddress,
-      addressDetail: pick.addressDetail ?? null,
-    };
-
-    const applyMapPickAsCreate = () => {
-      setMapBootstrap(boot);
-      setEditorMode("create");
-      setEditTarget(null);
-      setEditorOpen(true);
-    };
-
-    if (ctx.source === "edit") {
-      const row = list.find((a) => a.id === ctx.addressId);
-      if (row) {
-        setMapBootstrap(boot);
-        setEditorMode("edit");
-        setEditTarget(row);
-        setEditorOpen(true);
-        return;
-      }
-      void (async () => {
-        try {
-          const result = await fetchMeAddressesListSingleFlight();
-          const found = result.ok ? result.rows.find((a) => a.id === ctx.addressId) : undefined;
-          if (found) {
-            setMapBootstrap(boot);
-            setEditorMode("edit");
-            setEditTarget(found);
-            setEditorOpen(true);
-          } else {
-            applyMapPickAsCreate();
-          }
-        } catch {
-          applyMapPickAsCreate();
-        }
-      })();
-      return;
-    }
-
-    applyMapPickAsCreate();
-  }, [pathname, list, embedded, router]);
+  }, [pathname, embedded, returnTo, router]);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     setLoadErr(null);
@@ -242,25 +183,31 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   function openCreate() {
-    if (!embedded) {
-      router.replace(buildMypageAddressEditHref({ returnTo }));
-      return;
-    }
-    setMapBootstrap(null);
-    setEditorMode("create");
-    setEditTarget(null);
-    setEditorOpen(true);
+    router.push(buildMypageAddressSearchHref({ returnTo }));
   }
 
   function openEdit(row: UserAddressDTO) {
-    if (!embedded) {
-      router.replace(buildMypageAddressEditHref({ returnTo, id: row.id }));
-      return;
+    router.push(buildMypageAddressEditHref({ returnTo, id: row.id }));
+  }
+
+  async function openCurrentLocation() {
+    setBusyId("current");
+    try {
+      const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
+      if (!res.ok) {
+        if (res.reason !== "later") alert(t("addr_ui_geo_failed"));
+        return;
+      }
+      const draft = await resolveCanonicalAddressFromLatLng(res.position.latitude, res.position.longitude);
+      if (!draft) {
+        alert(t("addr_ui_resolve_failed"));
+        return;
+      }
+      writeAddressPlatformV2Draft({ draft, source: "current_location" });
+      router.push(buildMypageAddressEditHref({ returnTo }));
+    } finally {
+      setBusyId(null);
     }
-    setMapBootstrap(null);
-    setEditorMode("edit");
-    setEditTarget(row);
-    setEditorOpen(true);
   }
 
   async function setAsRepresentative(id: string) {
@@ -363,6 +310,21 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       ) : null}
 
       <div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="mb-2 flex min-h-[48px] w-full items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-left sam-text-body text-sam-muted"
+        >
+          {t("addr_v2_book_search_placeholder")}
+        </button>
+        <button
+          type="button"
+          onClick={() => void openCurrentLocation()}
+          disabled={busyId === "current"}
+          className="mb-4 flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-white py-2.5 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
+        >
+          {busyId === "current" ? t("addr_ui_locating") : t("addr_ui_find_current")}
+        </button>
         {list.length === 0 && !loadErr && listBootstrapping ? (
           <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
             {t("common_loading")}
@@ -475,7 +437,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <MySubpageHeader
           inlineChrome
           registerMainTier1={false}
-          titleKey="address_manage_title"
+          titleKey="addr_ui_settings_title"
           backHref={returnTo || "/mypage"}
           hideCtaStrip
           showHubQuickActions
@@ -491,24 +453,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       ) : (
         pageBodyColumn
       )}
-
-      {embedded ? (
-        <AddressEditorSheet
-          open={editorOpen}
-          mode={editorMode}
-          initial={editTarget}
-          mapBootstrap={mapBootstrap}
-          allAddresses={list}
-          onClose={() => {
-            setEditorOpen(false);
-            setMapBootstrap(null);
-          }}
-          onSaved={async () => {
-            const rows = await commitUserAddressListAfterMutation();
-            setList(rows);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

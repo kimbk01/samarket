@@ -4,15 +4,25 @@ export function isMypageAddressEditPath(pathname: string | null | undefined): bo
   return p === "/mypage/addresses/edit";
 }
 
+/** `/mypage/addresses/search` — 주소 검색 전용 페이지 */
+export function isMypageAddressSearchPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  return p === "/mypage/addresses/search";
+}
+
 /** `/mypage/addresses` — 주소 관리 목록(하단 탭 숨김) */
 export function isMypageAddressListPath(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
   return p === "/mypage/addresses";
 }
 
-/** 주소 관리 플로우 전체 — 목록·추가/수정 */
+/** 주소 관리 플로우 전체 — 목록·검색·추가/수정 */
 export function isMypageAddressFlowPath(pathname: string | null | undefined): boolean {
-  return isMypageAddressListPath(pathname) || isMypageAddressEditPath(pathname);
+  return (
+    isMypageAddressListPath(pathname) ||
+    isMypageAddressEditPath(pathname) ||
+    isMypageAddressSearchPath(pathname)
+  );
 }
 
 export function parseStoreIdFromReturnTo(raw: string | null | undefined): string {
@@ -73,4 +83,10 @@ export function buildMypageAddressEditHref(opts: {
   if (opts.map) params.set("map", "1");
   const q = params.toString();
   return q ? `/mypage/addresses/edit?${q}` : "/mypage/addresses/edit";
+}
+
+export function buildMypageAddressSearchHref(opts?: { returnTo?: string | null }): string {
+  const rt = parseSafeInternalReturnTo(opts?.returnTo);
+  if (!rt) return "/mypage/addresses/search";
+  return `/mypage/addresses/search?returnTo=${encodeURIComponent(rt)}`;
 }

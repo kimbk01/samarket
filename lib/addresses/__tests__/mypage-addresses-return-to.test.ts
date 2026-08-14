@@ -22,6 +22,7 @@ describe("mypage-addresses-return-to", () => {
   it("resolveAddressFlowEntryPath skips address routes", () => {
     expect(resolveAddressFlowEntryPath("/mypage/addresses/edit")).toBe("");
     expect(resolveAddressFlowEntryPath("/mypage/addresses")).toBe("");
+    expect(resolveAddressFlowEntryPath("/mypage/addresses/search")).toBe("");
   });
 
   it("parseSafeInternalReturnTo rejects external urls", () => {

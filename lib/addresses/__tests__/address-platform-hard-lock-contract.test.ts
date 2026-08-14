@@ -103,7 +103,7 @@ describe("ADDR-003 / ADDR-014 master contract", () => {
 
   it("management 대표 badge is isDefaultMaster only", () => {
     const src = read("components/addresses/AddressListRowBody.tsx");
-    expect(src).toContain("addr_ui_badge_default_address");
+    expect(src).toContain("addr_v2_current_address");
     expect(src).toMatch(/row\.isDefaultMaster \?/);
   });
 });
@@ -129,8 +129,8 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const philife = read("components/philife/PhilifeHeaderAddressMenuButton.tsx");
     const cart = read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx");
     const picker = read("components/addresses/AddressBookPickerList.tsx");
-    expect(listBody).toContain("AddressUserRowLineText");
-    expect(listBody).toContain("formatAddressBookLine");
+    expect(listBody).toContain("resolveCanonicalDisplayLines");
+    expect(listBody).toContain("displayInputFromDto");
     expect(philife).toContain("AddressUserRowLineText");
     expect(cart).toContain("AddressUserRowLineText");
     expect(picker).toContain("AddressListRowBody");
@@ -234,10 +234,43 @@ describe("ADDR-003 last delete", () => {
   });
 });
 
-describe("ADDR-013 FineTune KEEP", () => {
-  it("editor uses AddressFineTuneSheet as map pin confirm", () => {
-    expect(read("components/addresses/AddressEditorSheet.tsx")).toContain("AddressFineTuneSheet");
-    expect(read("components/addresses/AddressEditorSheet.tsx")).toContain("fetchPlacePredictionsPh");
+describe("ADDR-013 Address Platform V2", () => {
+  it("member edit page uses AddressPlatformDetailClient, not FineTune modal", () => {
+    expect(read("components/addresses/AddressEditorPageClient.tsx")).toContain("AddressPlatformDetailClient");
+    expect(read("components/addresses/AddressEditorPageClient.tsx")).not.toContain("AddressEditorSheet");
+    expect(read("components/addresses/AddressPlatformDetailClient.tsx")).not.toContain("AddressFineTuneSheet");
+  });
+
+  it("reopen hydrates user detail from saved row even when a canonical draft exists", () => {
+    const src = read("components/addresses/AddressPlatformDetailClient.tsx");
+    expect(src).toContain("userFieldsHydratedRef");
+    expect(src).toContain("initial.detailAddress ?? initial.unitFloorRoom");
+    const draftBlock = src.slice(src.indexOf("if (props.draft)"), src.indexOf("if (mode === \"edit\""));
+    expect(draftBlock).not.toContain("return;");
+  });
+
+  it("AddressSelect pin reverse-geocode keeps the selected Place as preferred", () => {
+    const src = read("components/map/AddressSelectClient.tsx");
+    expect(src).toContain("preferredRef");
+    expect(src).toContain("resolveCanonicalAddressFromLatLng");
+    expect(src).toContain("preferredRef.current");
+  });
+
+  it("Search → Detail draft is peeked, not consumed, before the address list fetch", () => {
+    const src = read("components/addresses/AddressEditorPageClient.tsx");
+    expect(src).toContain("readAddressPlatformV2Draft");
+    expect(src).toContain("clearAddressPlatformV2Draft");
+    expect(src).not.toContain("consumeAddressPlatformV2Draft");
+    expect(read("lib/addresses/canonical-address-draft-storage.ts")).not.toContain(
+      "export function consumeAddressPlatformV2Draft",
+    );
+    expect(src).toContain("shouldRedirectCreateDetailToSearch");
+    const effect = src.slice(src.indexOf("useEffect(() => {"));
+    expect(effect.indexOf("readAddressPlatformV2Draft")).toBeLessThan(
+      effect.indexOf("fetchMeAddressesListSingleFlight"),
+    );
+    const hydrate = effect.slice(0, effect.indexOf("fetchMeAddressesListSingleFlight"));
+    expect(hydrate).toContain("setBootstrapping(false)");
   });
 });
 

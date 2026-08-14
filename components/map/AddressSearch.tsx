@@ -4,11 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
 import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
-import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
-import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
+import { resolveCanonicalAddressFromPlaceId } from "@/lib/addresses/canonical-address-resolver";
+import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
+import {
+  displayInputFromDraft,
+  resolveCanonicalDisplayLines,
+} from "@/lib/addresses/canonical-address-display";
 
 type AddressSearchProps = {
-  onPlaceResolved: (lat: number, lng: number, formattedAddress: string, placeId: string | null) => void;
+  onPlaceResolved: (draft: CanonicalAddressDraft) => void;
   placeholder?: string;
   className?: string;
 };
@@ -60,17 +64,13 @@ export function AddressSearch({ onPlaceResolved, className }: AddressSearchProps
     if (!row.placeId.trim()) return;
     setResolvingPlaceId(row.placeId);
     try {
-      const detail = await fetchPlaceDetailsAsLegacyPlaceResultCached(row.placeId, PLACE_FIELDS_POI_FULL);
-      const loc = detail?.geometry?.location;
-      const lat = typeof loc?.lat === "function" ? loc.lat() : null;
-      const lng = typeof loc?.lng === "function" ? loc.lng() : null;
-      const formatted = (detail?.formatted_address ?? row.description ?? "").trim();
-      if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng) || !formatted) {
-        return;
-      }
+      const draft = await resolveCanonicalAddressFromPlaceId(row.placeId);
+      if (!draft) return;
+      const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
+      const formatted = [lines.title, lines.addressLine].filter(Boolean).join(", ") || draft.formattedAddress || row.description;
       setSearch(row.description || formatted);
       setPredictions([]);
-      cbRef.current(lat, lng, formatted, row.placeId);
+      cbRef.current(draft);
     } finally {
       setResolvingPlaceId(null);
     }
