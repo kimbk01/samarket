@@ -7,6 +7,10 @@ import { NotificationInboxCategoryIcon } from "@/components/notifications/Notifi
 import { resolveBellUnreadSequenceLabel } from "@/lib/notifications/bell-unread-sequence-label";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
+import {
+  classifyMemberNotificationDomain,
+  memberNotificationDomainLabelKey,
+} from "@/lib/notifications/member-notification-domain";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
 
 type Props = {
@@ -91,7 +95,16 @@ export function InboxGroupCardList({
             ? resolveBellUnreadSequenceLabel(index, items.length) || null
             : null;
         const timeLabel = formatRowClock(item.created_at, language);
-        const categoryLabel = item.surfaceBadge || kind || t("common_notifications");
+        const domain = classifyMemberNotificationDomain({
+          push_kind: item.push_kind,
+          notification_type: item.notification_type,
+          event_type: item.event_type,
+          bell_presentation_type: item.bell_presentation_type,
+          campaign_type: item.campaign_type,
+        });
+        const categoryLabel = domain
+          ? t(memberNotificationDomainLabelKey(domain))
+          : item.surfaceBadge || kind || t("common_notifications");
 
         return (
           <li

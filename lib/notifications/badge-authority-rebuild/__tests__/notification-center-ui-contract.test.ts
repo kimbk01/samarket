@@ -73,7 +73,9 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     expect(view.includes("notif_filter_unread")).toBe(false);
     expect(view.includes('key: "unread"')).toBe(false);
+    expect(view.includes('key: "notice"')).toBe(true);
     expect(view.includes('key: "trade"')).toBe(true);
+    expect(view.includes('key: "cs"')).toBe(false);
     expect(view.includes('key: "store"')).toBe(false);
     const actions = fs.readFileSync(
       path.join(root, "components/community-messenger/CommunityMessengerHeaderActions.tsx"),

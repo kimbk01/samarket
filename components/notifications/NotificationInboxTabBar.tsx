@@ -6,10 +6,10 @@ export type NotificationInboxTabKey =
   | "all"
   | "unread"
   | "read"
+  | "notice"
   | "trade"
   | "community"
   | "delivery"
-  | "cs"
   | "marketing"
   | "system";
 

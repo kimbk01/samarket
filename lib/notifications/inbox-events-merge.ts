@@ -17,6 +17,7 @@ import {
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
+import { classifyMemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
 
 export type InboxNotificationRow = {
   id: string;
@@ -176,20 +177,32 @@ export function isInboxDismissedNotificationEvent(event: NotificationEventInboxS
 function metaFromEvent(event: NotificationEventInboxSource): Record<string, unknown> | null {
   const payload = payloadRecord(event.display_payload);
   const legacyMeta = payload?.legacyMeta;
-  if (legacyMeta && typeof legacyMeta === "object") {
-    return legacyMeta as Record<string, unknown>;
-  }
-  const meta: Record<string, unknown> = {};
-  if (event.type === "missed_call") meta.kind = "missed_call";
+  const base: Record<string, unknown> =
+    legacyMeta && typeof legacyMeta === "object"
+      ? { ...(legacyMeta as Record<string, unknown>) }
+      : {};
+  if (event.type === "missed_call") base.kind = "missed_call";
   const roomKind = trimText(payload?.roomKind);
   if (roomKind) {
-    if (roomKind === "group") meta.kind = "group_chat";
-    else if (roomKind === "trade" || roomKind === "trade_legacy") meta.kind = "trade_chat";
-    else if (roomKind === "store_order") meta.kind = "store_order_message";
-    else meta.kind = "community_chat";
+    if (roomKind === "group") base.kind = "group_chat";
+    else if (roomKind === "trade" || roomKind === "trade_legacy") base.kind = "trade_chat";
+    else if (roomKind === "store_order") base.kind = "store_order_message";
+    else base.kind = "community_chat";
   }
-  if (event.room_id) meta.room_id = event.room_id;
-  return Object.keys(meta).length > 0 ? meta : null;
+  if (event.room_id) base.room_id = event.room_id;
+
+  // Preserve Customer Center content bind for destination activate (not notification-only).
+  const contentId = trimText(payload?.content_id ?? payload?.appNoticeId ?? payload?.app_notice_id);
+  if (contentId) {
+    base.content_id = contentId;
+    base.appNoticeId = contentId;
+  }
+  const contentType = trimText(payload?.content_type) || trimText(payload?.campaignType);
+  if (contentType) base.content_type = contentType;
+  const canonicalRoute = trimText(payload?.canonical_route);
+  if (canonicalRoute) base.canonical_route = canonicalRoute;
+
+  return Object.keys(base).length > 0 ? base : null;
 }
 
 function isOwnerOrderSide(event: NotificationEventInboxSource, meta: Record<string, unknown> | null): boolean {
@@ -526,25 +539,30 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
   if (pushKind === "all") return true;
   const pk = trimText(row.push_kind).toLowerCase();
   const nt = trimText(row.notification_type).toLowerCase();
-  const bell = trimText(row.bell_presentation_type).toLowerCase();
+  // Chat is not a member domain filter — keep explicit match.
   if (pushKind === "chat") return pk === "chat" || nt === "chat";
-  if (pushKind === "delivery") return pk === "delivery" || (pk === "" && nt === "commerce");
-  // Product 「시스템」 tab = persistent system + admin_notice (push_kind notice).
-  // community_activity presentation is community — never system_important.
-  if (pushKind === "system") {
+  // Member domain filters: ONE EVENT → ONE DOMAIN (notice ≠ system).
+  if (
+    pushKind === "notice" ||
+    pushKind === "delivery" ||
+    pushKind === "trade" ||
+    pushKind === "community" ||
+    pushKind === "marketing" ||
+    pushKind === "system"
+  ) {
     return (
-      pk === "system" ||
-      pk === "notice" ||
-      nt === "system" ||
-      bell === "admin_notice" ||
-      bell === "admin_system" ||
-      bell === "system_important"
+      classifyMemberNotificationDomain({
+        push_kind: row.push_kind,
+        notification_type: row.notification_type,
+        type: row.notification_type,
+        category: typeof row.meta?.category === "string" ? row.meta.category : null,
+        event_type: row.event_type,
+        bell_presentation_type: row.bell_presentation_type,
+        campaign_type: row.campaign_type,
+      }) === pushKind
     );
   }
-  if (pushKind === "notice") {
-    return pk === "notice" || bell === "admin_notice";
-  }
-  return pk === pushKind;
+  return false;
 }
 
 /**

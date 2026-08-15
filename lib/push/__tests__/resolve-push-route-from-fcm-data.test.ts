@@ -367,7 +367,7 @@ describe("P0 authority open/read", () => {
     expect(fields.schemaVersion).toBe("1");
     expect(fields.eventClass).toBe("admin_notice");
     expect(fields.campaignChannel).toBe("push_and_in_app");
-    expect(fields.targetTab).toBe("system");
+    expect(fields.targetTab).toBe("notice");
     expect(String(fields.badgeCount)).toMatch(/^\d+$/);
   });
 

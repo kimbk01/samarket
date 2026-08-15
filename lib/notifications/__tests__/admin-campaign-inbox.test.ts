@@ -143,8 +143,10 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     expect(isAdminNoticeOrSystemInboxItem(marketingRow)).toBe(false);
     expect(isAdminMarketingInboxItem(marketingRow)).toBe(true);
 
-    expect(matchesNotificationCenterMemberTab(noticeRow, "system")).toBe(true);
+    expect(matchesNotificationCenterMemberTab(noticeRow, "notice")).toBe(true);
+    expect(matchesNotificationCenterMemberTab(noticeRow, "system")).toBe(false);
     expect(matchesNotificationCenterMemberTab(systemRow, "system")).toBe(true);
+    expect(matchesNotificationCenterMemberTab(systemRow, "notice")).toBe(false);
     expect(matchesNotificationCenterMemberTab(marketingRow, "marketing")).toBe(true);
 
     expect(filterMarketingInboxDisplayRows([noticeRow, systemRow, marketingRow]).map((r) => r.id)).toEqual([

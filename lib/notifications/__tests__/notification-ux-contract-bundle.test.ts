@@ -40,6 +40,24 @@ describe("notification UX contract bundle (badge / CTA / row hint)", () => {
     expect(dest.kind).toBe("notification_detail");
   });
 
+  it("content-bound notice wins over bare notifications / notification-only", () => {
+    const dest = resolveNotificationDestination({
+      inboxRow: {
+        id: "notice-evt-bound",
+        notification_type: "system",
+        link_url: "/notifications",
+        campaign_type: "notice",
+        meta: {
+          content_id: "cc-notice-1",
+          content_type: "notice",
+          canonical_route: "/mypage/customer-center/notice/cc-notice-1",
+        },
+      },
+    });
+    expect(dest.href).toBe("/mypage/customer-center/notice/cc-notice-1");
+    expect(dest.kind).toBe("canonical");
+  });
+
   it("bare /notifications inbox rows without notification-only identity become fallback", () => {
     const dest = resolveNotificationDestination({
       inboxRow: {

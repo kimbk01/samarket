@@ -18,13 +18,12 @@ export function resolveCustomerCenterCampaignContentBind(input: {
 } | null {
   const contentId = typeof input.contentId === "string" ? input.contentId.trim() : "";
   if (!contentId) return null;
-  const contentType = isCustomerCenterContentType(input.contentType)
-    ? input.contentType
-    : "notice";
+  // NEVER default unknown type to "notice" — misroutes system/marketing.
+  if (!isCustomerCenterContentType(input.contentType)) return null;
   return {
     content_id: contentId,
-    content_type: contentType,
-    canonical_route: buildCustomerCenterBoardDetailPath(contentType, contentId),
+    content_type: input.contentType,
+    canonical_route: buildCustomerCenterBoardDetailPath(input.contentType, contentId),
     legacy_route: buildLegacyAppNoticeDetailPath(contentId),
   };
 }

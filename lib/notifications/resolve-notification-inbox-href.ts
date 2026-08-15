@@ -1,5 +1,7 @@
 import { tradeMessengerRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import type { ChatRoomSource } from "@/lib/types/chat";
+import { isCustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 
@@ -77,9 +79,47 @@ export function isBareNotificationsCenterHref(href: string | null | undefined): 
   }
 }
 
+/**
+ * Content-bound Customer Center board from inbox row meta / link.
+ * Priority over notification-only detail.
+ */
+export function resolveCustomerCenterBoardFromInboxRow(row: InboxHrefRow): string | null {
+  const meta =
+    row.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : null;
+  const canonical = trimText(meta?.canonical_route);
+  if (canonical.includes("/mypage/customer-center/")) {
+    return resolveSafeNotificationInternalRoute(canonical, defaultInboxFallbackHref());
+  }
+  const link = trimText(row.link_url);
+  if (link.includes("/mypage/customer-center/")) {
+    return resolveSafeNotificationInternalRoute(link, defaultInboxFallbackHref());
+  }
+  const contentId = trimText(
+    meta?.content_id ?? meta?.appNoticeId ?? meta?.app_notice_id
+  );
+  if (!contentId) return null;
+  const contentTypeRaw = trimText(meta?.content_type) || trimText(row.campaign_type);
+  if (!isCustomerCenterContentType(contentTypeRaw)) return null;
+  return buildCustomerCenterBoardDetailPath(contentTypeRaw, contentId);
+}
+
+/**
+ * True only when the notification itself is the destination
+ * (no content board bind, no domain-specific original route).
+ * Campaign type alone does NOT force notification-only.
+ */
 export function isNotificationOnlyInboxRow(row: InboxHrefRow): boolean {
   const id = trimText(row.id);
   if (!id) return false;
+  if (resolveCustomerCenterBoardFromInboxRow(row)) return false;
+  const link = trimText(row.link_url);
+  if (
+    link &&
+    !isBareNotificationsCenterHref(link) &&
+    !isNotificationOriginUnavailableFallback(link)
+  ) {
+    return false;
+  }
   const campaignType = trimText(row.campaign_type).toLowerCase();
   if (campaignType === "notice" || campaignType === "system" || campaignType === "marketing") {
     return true;
@@ -157,6 +197,9 @@ function resolveTradeOfferInboxHref(r: InboxHrefRow): string | null {
  * 구매자 매장 주문 알림: 주문 상세로 직행. 오너 commerce는 link_url 그대로.
  */
 export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
+  const board = resolveCustomerCenterBoardFromInboxRow(r);
+  if (board) return board;
+
   const trade = resolveTradeOfferInboxHref(r);
   if (trade != null && trade.length > 0) {
     return resolveSafeNotificationInternalRoute(

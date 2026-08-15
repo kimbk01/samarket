@@ -13,6 +13,7 @@ export const PUSH_SAFE_FALLBACK_ROUTE = "/notifications?fallback=origin_unavaila
 
 export type PushEventClassV1 =
   | "admin_notice"
+  | "admin_system"
   | "admin_marketing"
   | "owner_operation";
 
@@ -37,7 +38,7 @@ export type PushEnvelopeParseResult =
       operationType: string | null;
       entityId: string | null;
       targetNotificationId: string | null;
-      targetTab: "system" | "marketing" | null;
+      targetTab: "notice" | "system" | "marketing" | null;
       approvedRoute: string | null;
       routeKey: string | null;
     }
@@ -68,7 +69,12 @@ function isCampaignChannel(v: string): v is CampaignChannelWire {
 }
 
 function isEventClass(v: string): v is PushEventClassV1 {
-  return v === "admin_notice" || v === "admin_marketing" || v === "owner_operation";
+  return (
+    v === "admin_notice" ||
+    v === "admin_system" ||
+    v === "admin_marketing" ||
+    v === "owner_operation"
+  );
 }
 
 /** Envelope is "present" when schemaVersion and/or eventClass wire fields exist. */
@@ -117,7 +123,9 @@ export function parsePushEnvelopeV1(
     notificationEventId;
   const tabRaw = trim(data.targetTab) || trim(data.target_tab);
   const targetTab =
-    tabRaw === "system" || tabRaw === "marketing" ? (tabRaw as "system" | "marketing") : null;
+    tabRaw === "notice" || tabRaw === "system" || tabRaw === "marketing"
+      ? (tabRaw as "notice" | "system" | "marketing")
+      : null;
   const routeKey = trim(data.targetRouteKey) || trim(data.routeKey) || null;
   const approvedCandidate =
     trim(data.targetApprovedRoute) ||
@@ -131,7 +139,7 @@ export function parsePushEnvelopeV1(
 
   const hasApprovedInternalRoute = targetKind === "approved_internal_route" && !!approvedRoute;
 
-  if (eventClassRaw === "admin_notice") {
+  if (eventClassRaw === "admin_notice" || eventClassRaw === "admin_system") {
     if (!targetNotificationId && !hasApprovedInternalRoute) {
       return { present: true, valid: false, reason: "notice_missing_notification_id" };
     }
@@ -225,15 +233,19 @@ export function resolveRouteFromPushEnvelopeV1(
     };
   }
 
-  if (parsed.eventClass === "admin_notice") {
+  if (parsed.eventClass === "admin_notice" || parsed.eventClass === "admin_system") {
     const id = parsed.targetNotificationId!;
     if (parsed.targetKind === "approved_internal_route" && parsed.approvedRoute) {
-      return { path: parsed.approvedRoute, reason: "envelope", eventClass: "admin_notice" };
+      return {
+        path: parsed.approvedRoute,
+        reason: "envelope",
+        eventClass: parsed.eventClass,
+      };
     }
     return {
       path: buildNotificationDetailPath(id),
       reason: "envelope",
-      eventClass: "admin_notice",
+      eventClass: parsed.eventClass,
     };
   }
 
@@ -284,7 +296,7 @@ export function buildPushEnvelopeV1DataFields(input: {
   campaignId?: string | null;
   notificationEventId?: string | null;
   targetKind?: string | null;
-  targetTab?: "system" | "marketing" | null;
+  targetTab?: "notice" | "system" | "marketing" | null;
   targetNotificationId?: string | null;
   storeId?: string | null;
   operationType?: string | null;

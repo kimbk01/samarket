@@ -13,6 +13,10 @@ import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/cli
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
+import {
+  classifyMemberNotificationDomain,
+  memberNotificationDomainLabelKey,
+} from "@/lib/notifications/member-notification-domain";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
@@ -136,17 +140,14 @@ export default function NotificationDetailPage() {
 
   const categoryLabel = useMemo(() => {
     if (!row) return "";
-    const campaign = String(row.campaign_type ?? "").trim().toLowerCase();
-    if (campaign === "notice") return t("notif_filter_notice");
-    if (campaign === "system") return t("notif_filter_system");
-    if (campaign === "marketing") return t("notif_filter_marketing");
-    const push = String(row.push_kind ?? "").trim().toLowerCase();
-    if (push === "notice") return t("notif_filter_notice");
-    if (push === "system") return t("notif_filter_system");
-    if (push === "marketing") return t("notif_filter_marketing");
-    if (push === "trade") return t("notif_filter_trade");
-    if (push === "community") return t("notif_filter_community");
-    if (push === "delivery") return t("notif_filter_delivery");
+    const domain = classifyMemberNotificationDomain({
+      push_kind: row.push_kind,
+      notification_type: row.notification_type,
+      bell_presentation_type: row.bell_presentation_type,
+      event_type: row.event_type,
+      campaign_type: row.campaign_type,
+    });
+    if (domain) return t(memberNotificationDomainLabelKey(domain));
     return t("common_notifications");
   }, [row, t]);
 

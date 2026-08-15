@@ -144,7 +144,12 @@ export function buildAdminCampaignNotificationPresentation(
       : campaign.type === "system"
         ? "admin_system"
         : "admin_notice";
-  const targetTab = campaign.type === "marketing" ? "marketing" : "system";
+  const targetTab =
+    campaign.type === "marketing"
+      ? "marketing"
+      : campaign.type === "system"
+        ? "system"
+        : "notice";
   const channel = campaign.channel;
   const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
   const hasCanonicalOriginalRoute =

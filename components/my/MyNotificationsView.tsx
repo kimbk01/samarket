@@ -49,22 +49,25 @@ type Row = {
   domain?: string | null;
   push_kind?: string | null;
   bell_presentation_type?: BellPresentationType | null;
+  event_type?: string | null;
+  campaign_type?: string | null;
 };
 
 const INBOX_PAGE_SIZE = 40;
 
 const CATEGORY_TABS: NotificationCenterCategoryKey[] = [
   "all",
+  "notice",
+  "delivery",
   "trade",
   "community",
-  "delivery",
-  "cs",
   "marketing",
   "system",
 ];
 
 function parseCategoryTab(raw: string | null): NotificationCenterCategoryKey {
-  if (raw === "store") return "all";
+  // Legacy notification-center filter — not a member domain.
+  if (raw === "cs" || raw === "store") return "all";
   if (raw && (CATEGORY_TABS as string[]).includes(raw)) return raw as NotificationCenterCategoryKey;
   return "all";
 }
@@ -123,10 +126,10 @@ export function MyNotificationsView({
   const categoryChips = useMemo(
     (): { key: NotificationInboxTabKey; label: string }[] => [
       { key: "all", label: t("notif_filter_all") },
+      { key: "notice", label: t("notif_filter_notice") },
+      { key: "delivery", label: t("notif_filter_delivery") },
       { key: "trade", label: t("notif_filter_trade") },
       { key: "community", label: t("notif_filter_community") },
-      { key: "delivery", label: t("notif_filter_delivery") },
-      { key: "cs", label: t("notif_filter_cs") },
       { key: "marketing", label: t("notif_filter_marketing") },
       { key: "system", label: t("notif_filter_system") },
     ],
@@ -151,6 +154,16 @@ export function MyNotificationsView({
   useEffect(() => {
     setCategoryFilter(tabFromUrl);
   }, [tabFromUrl]);
+
+  // Legacy ?tab=cs is not a member domain — strip to bare /notifications.
+  useEffect(() => {
+    if (variant !== "notification_center") return;
+    if (searchParams?.get("tab") !== "cs") return;
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.delete("tab");
+    const q = sp.toString();
+    router.replace(q ? `/notifications?${q}` : "/notifications", { scroll: false });
+  }, [router, searchParams, variant]);
 
   const replaceCenterUrl = useCallback(
     (nextCategory: NotificationCenterCategoryKey) => {
