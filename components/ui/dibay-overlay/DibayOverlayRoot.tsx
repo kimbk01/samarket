@@ -15,8 +15,6 @@ import {
   type DibayOverlayZRole,
 } from "@/lib/ui/dibay-overlay-contract";
 
-const OVERLAY_HISTORY_KEY = "__dibayOverlay";
-
 export type DibayOverlayRootProps = {
   open: boolean;
   onClose?: () => void;
@@ -39,7 +37,11 @@ export type DibayOverlayRootProps = {
 };
 
 /**
- * Shared portal root — backdrop, z-index, scroll lock, Escape, system Back, a11y.
+ * Shared portal root — backdrop, z-index, scroll lock, Escape, a11y.
+ *
+ * Do NOT register Capacitor `backButton` or `history.pushState` here.
+ * A leaked/global backButton listener overrides Android default navigation
+ * and can freeze route changes after overlays open.
  */
 export function DibayOverlayRoot({
   open,
@@ -60,7 +62,6 @@ export function DibayOverlayRoot({
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
-  const historyTokenRef = useRef(`dibay-overlay-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     setMounted(true);
@@ -84,73 +85,6 @@ export function DibayOverlayRoot({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dismissible, onClose]);
-
-  /**
-   * System Back / history.back must close the overlay first (not pop the route).
-   * pushState while open; popstate → onClose. UI dismiss syncs with history.back().
-   */
-  useEffect(() => {
-    if (!open || !dismissible || !onClose) return;
-    if (typeof window === "undefined" || !window.history?.pushState) return;
-
-    const token = historyTokenRef.current;
-    const prev = window.history.state;
-    const nextState = {
-      ...(prev && typeof prev === "object" ? prev : {}),
-      [OVERLAY_HISTORY_KEY]: token,
-    };
-    window.history.pushState(nextState, "");
-
-    let settled = false;
-    const closeFromHistory = () => {
-      if (settled) return;
-      settled = true;
-      onClose();
-    };
-
-    const onPopState = () => {
-      closeFromHistory();
-    };
-    window.addEventListener("popstate", onPopState);
-
-    let removeCap: (() => void) | undefined;
-    void import("@capacitor/app")
-      .then(({ App }) =>
-        App.addListener("backButton", () => {
-          // Capacitor overrides default Back — sync via history so popstate closes once.
-          if (
-            window.history.state &&
-            typeof window.history.state === "object" &&
-            (window.history.state as Record<string, unknown>)[OVERLAY_HISTORY_KEY] === token
-          ) {
-            window.history.back();
-            return;
-          }
-          closeFromHistory();
-        })
-      )
-      .then((handle) => {
-        if (handle && typeof handle.remove === "function") {
-          removeCap = () => {
-            void handle.remove();
-          };
-        }
-      })
-      .catch(() => {
-        /* web / no capacitor */
-      });
-
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      removeCap?.();
-      if (settled) return;
-      const st = window.history.state;
-      if (st && typeof st === "object" && (st as Record<string, unknown>)[OVERLAY_HISTORY_KEY] === token) {
-        settled = true;
-        window.history.back();
-      }
-    };
   }, [open, dismissible, onClose]);
 
   useEffect(() => {
