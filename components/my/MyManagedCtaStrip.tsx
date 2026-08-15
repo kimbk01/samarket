@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ManagedMyCtaLink } from "@/lib/my/managed-my-section-ctas";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import { resolveManagedMyCtaActive } from "@/lib/my/resolve-managed-my-cta-active";
 import {
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TABS_CLASS,
@@ -39,7 +38,11 @@ export function MyManagedCtaStrip({ links, label }: Props) {
         ) : null}
         <div className={DIBAY_SECONDARY_TABS_CLASS} role="tablist" data-mypage-managed-section-nav="1">
           {links.map((item) => {
-            const active = resolveManagedMyCtaActive(pathname, item.href);
+            const active =
+              pathname === item.href ||
+              (item.href !== "/mypage" &&
+                item.href !== "/community" &&
+                pathname.startsWith(`${item.href}/`));
             return (
               <Link
                 key={item.href + item.label}

@@ -23,7 +23,6 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import { DIBAY_CHROME_SECONDARY_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   COMMUNITY_FEED_LIST_WRAP_CLASS,
@@ -1720,7 +1719,7 @@ export function CommunityFeed({
         stickyBelow={
           <>
             <PhilifePullRefreshHint />
-            <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS}>
+            <div className="min-w-0 overflow-x-hidden bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]">
               <div
                 className={`${APP_MAIN_HEADER_INNER_CLASS} flex min-w-0 items-center gap-1 border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] py-1.5`}
               >

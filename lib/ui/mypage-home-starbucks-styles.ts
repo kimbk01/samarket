@@ -16,22 +16,15 @@ export {
   ADDR_SB_MINT,
 };
 
-/**
- * 내정보 홈 page/shell surface — domain pale SSOT (`--dibay-domain-surface` = mypage #F3F2EB).
- * Do not use hard-coded #F2F0EB (creates cream band under Header).
- */
-export const MYPAGE_HOME_PAGE_BG_CLASS =
-  "min-h-0 bg-[color:var(--dibay-domain-surface,var(--sector-header-bg,#F3F2EB))]";
+/** 내정보 홈 — 프로필 편집과 동일 크림 배경 */
+export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-[#F2F0EB]";
 
 /** 내정보 홈 — 하단 탭 clearance(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`) re-export */
 export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
 
-/**
- * 모바일·태블릿 본문 — top inset authority = `pt-1` (feed stack parity).
- * DO NOT: negative margin / translateY to “close blank”.
- */
+/** 모바일·태블릿 본문 — 하단 여백은 clearance + 셸 `pb-0` 로 한 번만 */
 export const MYPAGE_HOME_BODY_CLASS =
-  `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4 pt-1 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`;
+  `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4 pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`;
 
 export const MYPAGE_HOME_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-[#00704A]/12 bg-white shadow-[0_1px_0_rgba(30,57,50,0.04)]";
