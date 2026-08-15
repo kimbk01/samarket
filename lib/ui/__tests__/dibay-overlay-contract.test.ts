@@ -53,10 +53,17 @@ describe("DIBAY Overlay SSOT contract", () => {
 
   it("overlay root must not hijack Capacitor backButton / history", () => {
     const src = read("components/ui/dibay-overlay/DibayOverlayRoot.tsx");
-    expect(src).toContain("sheetAnchor");
-    expect(src).not.toContain("pushState");
-    expect(src).not.toContain("backButton");
-    expect(src).not.toContain("@capacitor/app");
+    // Prohibit executable hijacks only — ban-list comments may name the APIs.
+    const executable = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(executable).toContain("sheetAnchor");
+    expect(executable).not.toContain("pushState");
+    expect(executable).not.toContain("replaceState");
+    expect(executable).not.toMatch(/\bpopstate\b/);
+    expect(executable).not.toContain("backButton");
+    expect(executable).not.toContain("@capacitor/app");
+    expect(executable).not.toContain("__dibayOverlay");
   });
 
   it("bottom sheet wires above-nav anchor into overlay root", () => {
