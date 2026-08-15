@@ -1719,9 +1719,9 @@ export function CommunityFeed({
         stickyBelow={
           <>
             <PhilifePullRefreshHint />
-            <div className="min-w-0 overflow-x-hidden bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]">
+            <div className="min-w-0 overflow-x-hidden bg-sam-surface">
               <div
-                className={`${APP_MAIN_HEADER_INNER_CLASS} flex min-w-0 items-center gap-1 border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] py-1.5`}
+                className={`${APP_MAIN_HEADER_INNER_CLASS} flex min-w-0 items-center gap-1 border-b border-sam-border bg-sam-surface py-1.5`}
               >
                 <button
                   type="button"

@@ -135,7 +135,7 @@ export function StoresHomeHeaderChrome() {
               >
                 <SearchIcon />
               </button>
-              <StoresHomeHeaderNotificationInboxLazy />
+              <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
             </div>
           </div>
           <div
@@ -153,11 +153,11 @@ export function StoresHomeHeaderChrome() {
               {pull.refreshing ?
                 <>
                   <StoresHomePtrSpinner />
-                  <p className="text-[13px] font-medium leading-snug text-[color:var(--sector-header-title-color,#243832)]">
+                  <p className="text-[13px] font-medium leading-snug text-white/92">
                     {t("store_home_pull_refreshing")}
                   </p>
                 </>
-              : <p className="text-[13px] font-medium leading-snug text-[color:var(--sector-header-title-color,#243832)]">
+              : <p className="text-[13px] font-medium leading-snug text-white/92">
                   {pullReady ? t("store_home_pull_release") : t("store_home_pull_hint")}
                 </p>
               }

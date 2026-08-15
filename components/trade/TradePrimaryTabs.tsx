@@ -8,7 +8,6 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
-  PHILIFE_TOPIC_TAB_PILL_ACTIVE,
   PHILIFE_TOPIC_TAB_PILL_IDLE,
   PHILIFE_TOPIC_TAB_ROW_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
@@ -260,7 +259,7 @@ function TradePrimaryTabsInner({
                 }}
                 className={
                   onAllTrade
-                    ? `${PHILIFE_TOPIC_TAB_PILL_ACTIVE} relative inline-flex items-center gap-1 overflow-hidden`
+                    ? "relative inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition-[color] duration-200 ease-out"
                     : `${PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`
                 }
               >
@@ -276,13 +275,13 @@ function TradePrimaryTabsInner({
                 <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
                 {allSortOpen ? (
                   <ChevronUp
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
                     strokeWidth={2.4}
                     aria-hidden
                   />
                 ) : (
                   <ChevronDown
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
                     strokeWidth={2.4}
                     aria-hidden
                   />
