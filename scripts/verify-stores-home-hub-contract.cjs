@@ -995,49 +995,45 @@ assertIncludes(
 const browsePrimaryTabs = read("components/stores/browse/StoresBrowseHeaderPrimaryTabs.tsx");
 assertIncludes(
   browsePrimaryTabs,
-  "delivery-category-chip",
-  "browse primary tabs must use delivery-category-chip pills"
+  "dibaySecondaryTabClass",
+  "browse primary tabs must use DIBAY secondary visual SSOT"
 );
 assertIncludes(
   browsePrimaryTabs,
-  "stores-browse-header-primary-tab--active",
-  "browse primary tabs must use dark filled active class"
+  "DIBAY_SECONDARY_TABS_CLASS",
+  "browse primary tabs scroll rail must use DIBAY secondary tabs class"
 );
 assertIncludes(
-  read("app/delivery-components.css"),
-  ".stores-browse-header-primary-tab--active",
-  "browse primary tab active must be styled in delivery-components"
+  read("app/dibay-chrome-ssot.css"),
+  ".dibay-secondary-tab--active",
+  "browse primary tab active must be styled in dibay-chrome-ssot"
 );
 assertIncludes(
-  read("app/delivery-components.css").slice(
-    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab.delivery-category-chip")
+  read("app/dibay-chrome-ssot.css").slice(
+    read("app/dibay-chrome-ssot.css").indexOf(".dibay-secondary-tab--active")
   ),
-  "border-radius: var(--delivery-radius)",
-  "browse primary tab must use rounded rect not pill radius"
-);
-assertIncludes(
-  read("app/delivery-components.css").slice(
-    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab--active")
-  ),
-  "background: #000",
-  "browse primary tab active must use black filled background"
+  "font-weight: 600",
+  "browse primary tab active must use SSOT active weight"
 );
 assertNotIncludes(
   browsePrimaryTabs,
   'classList.add("stores-browse-header-primary-tab--active")',
   "browse primary tabs must not imperatively add active class on click"
 );
-assertIncludes(
-  read("app/delivery-components.css").slice(
-    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab--active")
-  ),
-  "color: #fff",
-  "browse primary tab active must use white label"
-);
 assertNotIncludes(
   browsePrimaryTabs,
   "storeCategoryPillClass",
   "browse primary tabs must not use filled chip active helper"
+);
+assertIncludes(
+  browsePrimaryTabs,
+  "onMenuOpenChange",
+  "browse primary tabs must keep trailing ▼ menu control"
+);
+assertNotIncludes(
+  browsePrimaryTabs,
+  "delivery-category-chip",
+  "browse primary tabs must not keep legacy delivery-category-chip class"
 );
 
 const browsePrimaryView = read("components/stores/browse/StoresBrowsePrimaryView.tsx");
