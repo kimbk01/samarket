@@ -18,7 +18,7 @@ export const addressesUiMessages = {
     addr_ui_aria_store_linked: "매장 연결 주소",
     addr_ui_aria_tap_master: "탭하면 대표 주소로 지정",
     addr_ui_back_to_list: "주소 목록으로",
-    addr_ui_confirming_address: "주소 확인 중…",
+    addr_ui_confirming_address: "위치 확인 중…",
     addr_ui_conflict_hint:
       "기존 주소는 삭제하지 않고 구분만 해제됩니다. 변경을 확인하면 입력한 주소로 구분이 바뀝니다.",
     addr_ui_confirm_designation_change: "변경 확인",
@@ -194,7 +194,7 @@ export const addressesUiMessages = {
     addr_ui_aria_store_linked: "Store-linked address",
     addr_ui_aria_tap_master: "Tap to set as primary address",
     addr_ui_back_to_list: "Back to address list",
-    addr_ui_confirming_address: "Checking address…",
+    addr_ui_confirming_address: "Confirming location…",
     addr_ui_conflict_hint:
       "The existing address will be kept; only its designation will be removed. Confirm to apply the designation to the address you entered.",
     addr_ui_confirm_designation_change: "Confirm change",

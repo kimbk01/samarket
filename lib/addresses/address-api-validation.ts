@@ -109,9 +109,10 @@ export function parseUserAddressWritePayload(body: unknown, opts?: { partial?: b
 }
 
 /**
- * place_id = selected Google POI identity when the user selected a POI.
- * Location-only saves may omit place_id (default). Pass `requirePlace: true` only
- * when a caller still needs a hard Places identity.
+ * CURRENT PIN SSOT:
+ * - place_id optional when no current-pin POI/building identity (road/barangay fallback).
+ * - If buildingName is set as current-pin POI/building identity, place_id must also be set.
+ * - Pass `requirePlace: true` only when a caller still needs a hard Places identity.
  */
 export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>, opts?: { requirePlace?: boolean }): string | null {
   const placeId = p.placeId?.trim() ?? "";
@@ -121,7 +122,7 @@ export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>
   const lat = p.latitude;
   const lng = p.longitude;
   if (opts?.requirePlace === true && !placeId) return "place_id_required";
-  // Selected POI name without a POI place_id is an inconsistent identity unit.
+  // Current-pin POI/building name without place_id is an inconsistent identity unit.
   if (buildingName && !placeId) return "place_id_required";
   if (!formatted) return "formatted_address_required";
   if (lat == null || lng == null) return "coordinates_required";

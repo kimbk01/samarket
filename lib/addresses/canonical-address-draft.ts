@@ -1,15 +1,16 @@
 /**
  * Address Platform V2 — in-memory draft.
  * DB mapping (NO new columns):
- *   placeName     → building_name (selected Google Place / premise only)
+ *   placeName     → building_name (current-pin Google Place / premise only)
  *   streetAddress → street_address
  *   detail        → unit_floor_room + detail_address
  *   userLabel     → nickname (home/office may omit nickname)
- *   placeId       → place_id (selected POI identity only; never street geocode id)
+ *   placeId       → place_id (current-pin POI/building only; never street geocode id)
  *
- * A+C contract:
- *   SEARCH PLACE SELECT = explicit POI identity
- *   PIN DRAG = delivery location refinement
+ * CURRENT PIN SSOT:
+ *   SEARCH = initial pin placement only
+ *   CURRENT PIN = current address authority
+ *   SAVE = canonical address at the current pin
  *   city/barangay/province are location metadata only — never POI boundary authority
  */
 
@@ -39,7 +40,7 @@ export type CanonicalAddressDraft = {
   samePlaceAsPreferred: boolean;
 };
 
-/** Explicit search-selected POI identity. Admin areas are NOT identity fields. */
+/** @deprecated CURRENT PIN SSOT — search identity is not authority after pin move. */
 export type CanonicalPreferredPlace = {
   placeId: string | null;
   placeName: string | null;
@@ -48,6 +49,7 @@ export type CanonicalPreferredPlace = {
   originalLng?: number | null;
 };
 
+/** @deprecated Removed from pin path — CURRENT PIN resolver replaces A+C KEEP/USE. */
 export type PinIdentityResolution =
   | { kind: "auto_keep"; draft: CanonicalAddressDraft }
   | {
@@ -62,10 +64,7 @@ function cleanIdentityToken(value: string | null | undefined): string | null {
   return token || null;
 }
 
-/**
- * Search/explicit place selection is identity authority.
- * Only drafts with a real place name can seed selected POI identity.
- */
+/** @deprecated Prefer resolveCurrentPinCanonicalAddress — search identity is not pin authority. */
 export function selectedPlaceIdentityFromDraft(
   draft: CanonicalAddressDraft | null | undefined,
 ): CanonicalPreferredPlace | null {
@@ -81,7 +80,7 @@ export function selectedPlaceIdentityFromDraft(
   return identity;
 }
 
-/** Location-only form: no selected POI; never promote street geocode id to POI identity. */
+/** Location-only form: no POI; never promote street geocode id to POI identity. */
 export function stripSelectedPlaceIdentity(locationDraft: CanonicalAddressDraft): CanonicalAddressDraft {
   return {
     ...locationDraft,
@@ -93,7 +92,7 @@ export function stripSelectedPlaceIdentity(locationDraft: CanonicalAddressDraft)
   };
 }
 
-/** KEEP selected place: POI identity + refined pin location. */
+/** @deprecated CURRENT PIN SSOT — do not KEEP old search identity after pin move. */
 export function applySelectedPlaceIdentity(
   locationDraft: CanonicalAddressDraft,
   selectedIdentity: CanonicalPreferredPlace,
@@ -111,13 +110,8 @@ export function applySelectedPlaceIdentity(
 }
 
 /**
- * Central pin-move authority for Detail + AddressSelect.
- *
- * - no selected POI → location_only
- * - samePlaceAsPreferred (viewport / placeId signal from resolver) → auto_keep
- * - selected POI but trust not proven → needs_resolution (never auto-clear / never silent-keep)
- *
- * Admin-area continuity is intentionally NOT used.
+ * @deprecated CURRENT PIN SSOT — pin move always re-resolves at current pin.
+ * Kept only for legacy unit tests / migration window.
  */
 export function resolvePinMoveAgainstSelectedIdentity(
   locationDraft: CanonicalAddressDraft,
@@ -127,33 +121,16 @@ export function resolvePinMoveAgainstSelectedIdentity(
   if (!selectedIdentity || !placeName) {
     return { kind: "location_only", draft: stripSelectedPlaceIdentity(locationDraft) };
   }
-  const identity: CanonicalPreferredPlace = {
-    ...selectedIdentity,
-    placeName,
-    placeId: cleanIdentityToken(selectedIdentity.placeId),
-  };
-  if (locationDraft.samePlaceAsPreferred) {
-    return { kind: "auto_keep", draft: applySelectedPlaceIdentity(locationDraft, identity) };
-  }
   return {
-    kind: "needs_resolution",
-    locationDraft: stripSelectedPlaceIdentity(locationDraft),
-    selectedIdentity: identity,
+    kind: "location_only",
+    draft: stripSelectedPlaceIdentity(locationDraft),
   };
 }
 
-/**
- * @deprecated Prefer resolvePinMoveAgainstSelectedIdentity.
- * Legacy callers that expected a single draft: auto_keep merges identity;
- * trust-lost returns location-only preview without silently deleting the selectedIdentity ref
- * (callers must still handle needs_resolution for prompts).
- */
+/** @deprecated */
 export function preserveSelectedPlaceIdentity(
   locationDraft: CanonicalAddressDraft,
-  selectedIdentity: CanonicalPreferredPlace | null | undefined,
+  _selectedIdentity: CanonicalPreferredPlace | null | undefined,
 ): CanonicalAddressDraft {
-  const resolved = resolvePinMoveAgainstSelectedIdentity(locationDraft, selectedIdentity);
-  if (resolved.kind === "auto_keep") return resolved.draft;
-  if (resolved.kind === "location_only") return resolved.draft;
-  return resolved.locationDraft;
+  return stripSelectedPlaceIdentity(locationDraft);
 }

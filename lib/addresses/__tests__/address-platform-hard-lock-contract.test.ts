@@ -397,29 +397,31 @@ describe("ADDR-013 Address Platform V2", () => {
     expect(draftBlock).not.toContain("return;");
   });
 
-  it("AddressSelect pin reverse-geocode keeps the selected Place as preferred", () => {
+  it("AddressSelect pin reverse-geocode uses CURRENT PIN resolver only", () => {
     const src = read("components/map/AddressSelectClient.tsx");
-    expect(src).toContain("preferredRef");
-    expect(src).toContain("resolveCanonicalAddressFromLatLng");
-    expect(src).toContain("resolvePinMoveAgainstSelectedIdentity");
-    expect(src).toContain("selectedPlaceIdentityFromDraft");
-    expect(src).toContain("addr_v2_identity_keep_selected");
-    expect(src).not.toContain("preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName }");
+    expect(src).toContain("resolveCurrentPinCanonicalAddress");
+    expect(src).not.toContain("preferredRef");
+    expect(src).not.toContain("resolvePinMoveAgainstSelectedIdentity");
+    expect(src).not.toContain("addr_v2_identity_keep_selected");
+    expect(src).not.toContain("selectedPlaceIdentityFromDraft");
   });
 
-  it("pin drag refines location without replacing selected place identity", () => {
+  it("Detail pin drag re-resolves CURRENT PIN and never KEEP old search identity", () => {
     const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
     const draft = read("lib/addresses/canonical-address-draft.ts");
-    expect(detail).toContain("selectedPlaceIdentityRef");
-    expect(detail).toContain("resolvePinMoveAgainstSelectedIdentity");
-    expect(detail).toContain("addr_v2_identity_keep_selected");
-    expect(detail).not.toContain("preferRef.current = { placeId: next.placeId, placeName: next.placeName }");
-    expect(draft).toContain("Search/explicit place selection is identity authority");
-    expect(draft).toContain("export function resolvePinMoveAgainstSelectedIdentity");
-    expect(draft).not.toContain("isSelectedPlaceIdentityConsistentWithLocation");
-    expect(draft).not.toMatch(/distance\s*[><=]/i);
+    const currentPin = read("lib/addresses/resolve-current-pin-canonical-address.ts");
+    expect(detail).toContain("resolveCurrentPinCanonicalAddress");
+    expect(detail).not.toContain("selectedPlaceIdentityRef");
+    expect(detail).not.toContain("resolvePinMoveAgainstSelectedIdentity");
+    expect(detail).not.toContain("addr_v2_identity_keep_selected");
+    expect(draft).toContain("CURRENT PIN SSOT");
+    expect(draft).toContain("CURRENT PIN = current address authority");
+    expect(currentPin).toContain("rankCurrentPinIdentityCandidates");
+    expect(currentPin).toContain("HARD_REJECT_ALWAYS_TYPES");
+    expect(currentPin).not.toMatch(/SAME_PLACE_METERS|isPinInsidePreferredViewport/);
     const resolver = read("lib/addresses/canonical-address-resolver.ts");
-    expect(resolver).toContain("hasPreferredIdentity ? null : pickGeocoderPoiPlaceId");
+    expect(resolver).toContain("resolveCurrentPinCanonicalAddress");
+    expect(resolver).not.toContain("hasPreferredIdentity ? null : pickGeocoderPoiPlaceId");
   });
 
   it("Search → Detail draft is peeked, not consumed, before the address list fetch", () => {

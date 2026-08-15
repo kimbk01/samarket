@@ -1,17 +1,12 @@
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import type { CanonicalAddressDraft, CanonicalPreferredPlace } from "@/lib/addresses/canonical-address-draft";
-import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { isSuitableEstablishmentDisplayName } from "@/lib/map/ph-friendly-address";
 import {
   PLACE_FIELDS_POI_FULL,
   fetchPlaceDetailsAsLegacyPlaceResult,
 } from "@/lib/map/places-new-api";
-import {
-  pickGeocoderPoiPlaceId,
-  pickStreetLikeGeocoderResult,
-} from "@/lib/map/resolve-trade-meet-spot-display-line";
 
 function pickLongName(
   components: google.maps.GeocoderAddressComponent[] | undefined,
@@ -194,100 +189,25 @@ export async function resolveCanonicalAddressFromPlaceId(
   return { ...draft, placeId: draft.placeId || pid };
 }
 
+/**
+ * @deprecated Prefer `resolveCurrentPinCanonicalAddress` for MEMBER pin surfaces.
+ * Thin adapter so legacy call sites share CURRENT PIN SSOT.
+ * `preferred` is intentionally ignored — current pin is the only authority.
+ */
 export async function resolveCanonicalAddressFromLatLng(
   latitude: number,
   longitude: number,
-  preferred?: CanonicalPreferredPlace | null,
+  _preferred?: CanonicalPreferredPlace | null,
 ): Promise<CanonicalAddressDraft | null> {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  await loadGoogleMaps();
-  const geocoder = new google.maps.Geocoder();
-  const marker = { lat: latitude, lng: longitude };
-  const resp = await geocoder.geocode({
-    location: marker,
-    language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
-  });
-  const geoResults = resp.results ?? [];
-  const streetResult = pickStreetLikeGeocoderResult(geoResults) ?? geoResults[0];
-  if (!streetResult?.formatted_address) return null;
-  const streetComponents = streetResult.address_components ?? [];
-  const streetFormatted = streetResult.formatted_address.trim();
-  const streetPlaceId =
-    typeof streetResult.place_id === "string" ? streetResult.place_id.trim() || null : null;
-
-  const preferredId = (preferred?.placeId ?? "").trim();
-  const hasPreferredIdentity = Boolean(preferredId || (preferred?.placeName ?? "").trim());
-  if (preferredId) {
-    const preferredPlace = await fetchPlaceDetailsAsLegacyPlaceResult(preferredId, PLACE_FIELDS_POI_FULL);
-    const keepPreferred =
-      Boolean(preferredPlace) &&
-      (isPinInsidePreferredViewport(marker, preferredPlace!) ||
-        geocoderMentionsPlaceId(geoResults, preferredId));
-    if (keepPreferred && preferredPlace) {
-      const preferredComponents = preferredPlace.address_components ?? streetComponents;
-      const keptName =
-        realPlaceName(preferredPlace.name, preferredComponents) ||
-        realPlaceName(preferred?.placeName, preferredComponents) ||
-        ((preferred?.placeName ?? "").trim() || null);
-      return draftFromPlaceAndStreet({
-        latitude,
-        longitude,
-        place: { ...preferredPlace, name: keptName || preferredPlace.name },
-        fallbackPlaceId: preferredId,
-        streetComponents,
-        streetFormatted,
-        identitySource: "preferred_place",
-        samePlaceAsPreferred: true,
-      });
-    }
+  try {
+    const { resolveCurrentPinCanonicalAddress } = await import(
+      "@/lib/addresses/resolve-current-pin-canonical-address"
+    );
+    return await resolveCurrentPinCanonicalAddress(latitude, longitude);
+  } catch {
+    return null;
   }
-
-  const poiPlaceId = hasPreferredIdentity ? null : pickGeocoderPoiPlaceId(geoResults);
-  if (poiPlaceId) {
-    const poiPlace = await fetchPlaceDetailsAsLegacyPlaceResult(poiPlaceId, PLACE_FIELDS_POI_FULL);
-    const poiName = realPlaceName(poiPlace?.name, streetComponents);
-    if (poiName && poiPlace) {
-      const inside =
-        isPinInsidePreferredViewport(marker, poiPlace) ||
-        geocoderMentionsPlaceId(geoResults, poiPlaceId);
-      if (inside) {
-        return draftFromPlaceAndStreet({
-          latitude,
-          longitude,
-          place: poiPlace,
-          fallbackPlaceId: poiPlaceId,
-          streetComponents,
-          streetFormatted,
-          identitySource: "geocoder_poi",
-          samePlaceAsPreferred: false,
-        });
-      }
-    }
-  }
-
-  const parsedStreet = parsePhFromGooglePlaceResult({
-    address_components: streetComponents,
-    formatted_address: streetFormatted,
-  } as google.maps.places.PlaceResult);
-  const streetBits = streetLineFromComponents(streetComponents);
-  return {
-    latitude,
-    longitude,
-    placeId: streetPlaceId,
-    placeName: null,
-    placeTypes: [],
-    streetNumber: streetBits.streetNumber,
-    route: streetBits.route,
-    streetAddress: streetBits.streetAddress || parsedStreet.routeLine,
-    barangay: parsedStreet.barangay,
-    cityMunicipality: parsedStreet.cityMunicipality,
-    province: parsedStreet.province,
-    postalCode: pickLongName(streetComponents, "postal_code"),
-    neighborhoodName: parsedStreet.neighborhood,
-    formattedAddress: formattedFromStreet(streetComponents, streetFormatted),
-    identitySource: "address_only",
-    samePlaceAsPreferred: false,
-  };
 }
 
 export function draftFromSavedRow(row: {

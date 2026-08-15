@@ -3,19 +3,12 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  applySelectedPlaceIdentity,
-  resolvePinMoveAgainstSelectedIdentity,
-  selectedPlaceIdentityFromDraft,
-  stripSelectedPlaceIdentity,
-  type CanonicalAddressDraft,
-  type CanonicalPreferredPlace,
-} from "@/lib/addresses/canonical-address-draft";
+import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
 import {
   displayInputFromDraft,
   resolveCanonicalDisplayLines,
 } from "@/lib/addresses/canonical-address-display";
-import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
+import { resolveCurrentPinCanonicalAddress } from "@/lib/addresses/resolve-current-pin-canonical-address";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 import {
@@ -26,18 +19,13 @@ import {
 } from "@/lib/addresses/location-only-address-nickname";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { ADDR_BTN_PRIMARY_FULL, ADDR_BTN_TERTIARY_FULL } from "@/lib/ui/address-flow-viber";
+import { ADDR_BTN_PRIMARY_FULL } from "@/lib/ui/address-flow-viber";
 
 const AddressFineTuneMapLazy = dynamic(
   () =>
     import("@/components/addresses/AddressFineTuneMapClient").then((m) => m.AddressFineTuneMapClient),
   { ssr: false },
 );
-
-type PendingIdentityResolution = {
-  locationDraft: CanonicalAddressDraft;
-  selectedIdentity: CanonicalPreferredPlace;
-};
 
 export function AddressPlatformDetailClient(props: {
   mode: "create" | "edit";
@@ -57,17 +45,13 @@ export function AddressPlatformDetailClient(props: {
   const [resolving, setResolving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [pendingResolution, setPendingResolution] = useState<PendingIdentityResolution | null>(null);
   const seqRef = useRef(0);
   const pinTimerRef = useRef<number | null>(null);
   const userFieldsHydratedRef = useRef(false);
-  const selectedPlaceIdentityRef = useRef(selectedPlaceIdentityFromDraft(props.draft));
 
   useEffect(() => {
     if (props.draft) {
       setDraft(props.draft);
-      selectedPlaceIdentityRef.current = selectedPlaceIdentityFromDraft(props.draft);
-      setPendingResolution(null);
     }
     if (mode === "edit" && initial && !userFieldsHydratedRef.current) {
       userFieldsHydratedRef.current = true;
@@ -84,41 +68,34 @@ export function AddressPlatformDetailClient(props: {
     );
   }, [draft, detail, landmark, deliveryNote]);
 
-  const pendingPinLines = useMemo(() => {
-    if (!pendingResolution) return null;
-    return resolveCanonicalDisplayLines(displayInputFromDraft(pendingResolution.locationDraft));
-  }, [pendingResolution]);
-
   const onPinMove = useCallback(
     (lat: number, lng: number) => {
       if (pinTimerRef.current != null) window.clearTimeout(pinTimerRef.current);
       const seq = ++seqRef.current;
       setResolving(true);
+      setErr(null);
+      // Drop stale title immediately — current pin is authority, old search identity is not.
+      setDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              latitude: lat,
+              longitude: lng,
+              placeId: null,
+              placeName: null,
+              placeTypes: [],
+              identitySource: "address_only",
+              samePlaceAsPreferred: false,
+            }
+          : prev,
+      );
       pinTimerRef.current = window.setTimeout(() => {
         pinTimerRef.current = null;
         void (async () => {
           try {
-            const selectedIdentity = selectedPlaceIdentityRef.current;
-            const nextLocation = await resolveCanonicalAddressFromLatLng(lat, lng, selectedIdentity);
+            const next = await resolveCurrentPinCanonicalAddress(lat, lng);
             if (seq !== seqRef.current) return;
-            if (!nextLocation) return;
-            const resolved = resolvePinMoveAgainstSelectedIdentity(nextLocation, selectedIdentity);
-            if (resolved.kind === "auto_keep") {
-              setPendingResolution(null);
-              setDraft(resolved.draft);
-              return;
-            }
-            if (resolved.kind === "location_only") {
-              setPendingResolution(null);
-              selectedPlaceIdentityRef.current = null;
-              setDraft(resolved.draft);
-              return;
-            }
-            setPendingResolution({
-              locationDraft: resolved.locationDraft,
-              selectedIdentity: resolved.selectedIdentity,
-            });
-            setDraft(resolved.locationDraft);
+            setDraft(next);
           } catch {
             if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
           } finally {
@@ -130,34 +107,13 @@ export function AddressPlatformDetailClient(props: {
     [t],
   );
 
-  const keepSelectedPlace = useCallback(() => {
-    if (!pendingResolution) return;
-    const next = applySelectedPlaceIdentity(
-      pendingResolution.locationDraft,
-      pendingResolution.selectedIdentity,
-    );
-    selectedPlaceIdentityRef.current = selectedPlaceIdentityFromDraft(next);
-    setDraft(next);
-    setPendingResolution(null);
-    setErr(null);
-  }, [pendingResolution]);
-
-  const useCurrentPinLocation = useCallback(() => {
-    if (!pendingResolution) return;
-    const next = stripSelectedPlaceIdentity(pendingResolution.locationDraft);
-    selectedPlaceIdentityRef.current = null;
-    setDraft(next);
-    setPendingResolution(null);
-    setErr(null);
-  }, [pendingResolution]);
-
   async function save() {
     if (!draft) {
       setErr(t("addr_ui_pick_search_result"));
       return;
     }
-    if (pendingResolution) {
-      setErr(t("addr_v2_identity_resolve_required"));
+    if (resolving) {
+      setErr(t("addr_ui_confirming_address"));
       return;
     }
     if (!detail.trim()) {
@@ -271,7 +227,11 @@ export function AddressPlatformDetailClient(props: {
   }
 
   if (!draft) {
-    return <p className="px-4 py-8 text-center sam-text-body-secondary text-sam-muted">{t("addr_ui_pick_search_result")}</p>;
+    return (
+      <p className="px-4 py-8 text-center sam-text-body-secondary text-sam-muted">
+        {t("addr_ui_pick_search_result")}
+      </p>
+    );
   }
 
   return (
@@ -301,35 +261,6 @@ export function AddressPlatformDetailClient(props: {
             )}
           </div>
         </section>
-
-        {pendingResolution ? (
-          <section className="rounded-[24px] border border-signature/20 bg-white p-4 shadow-sm">
-            <p className="sam-text-body font-extrabold text-sam-fg">{t("addr_v2_identity_mismatch_title")}</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("addr_v2_identity_mismatch_lead")}</p>
-            <div className="mt-3 space-y-2 rounded-[18px] bg-sam-surface px-3 py-3">
-              <div>
-                <p className="sam-text-helper font-bold text-sam-muted">{t("addr_v2_identity_selected_place")}</p>
-                <p className="sam-text-body font-semibold text-sam-fg">
-                  {pendingResolution.selectedIdentity.placeName}
-                </p>
-              </div>
-              <div>
-                <p className="sam-text-helper font-bold text-sam-muted">{t("addr_v2_identity_current_pin")}</p>
-                <p className="sam-text-body font-semibold text-sam-fg">
-                  {[pendingPinLines?.title, pendingPinLines?.addressLine].filter(Boolean).join(", ")}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 space-y-2">
-              <button type="button" onClick={keepSelectedPlace} className={ADDR_BTN_PRIMARY_FULL}>
-                {t("addr_v2_identity_keep_selected")}
-              </button>
-              <button type="button" onClick={useCurrentPinLocation} className={ADDR_BTN_TERTIARY_FULL}>
-                {t("addr_v2_identity_use_pin")}
-              </button>
-            </div>
-          </section>
-        ) : null}
 
         <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
           <label className="block">
@@ -381,7 +312,7 @@ export function AddressPlatformDetailClient(props: {
       >
         <button
           type="button"
-          disabled={busy || resolving || Boolean(pendingResolution)}
+          disabled={busy || resolving}
           onClick={() => void save()}
           className={ADDR_BTN_PRIMARY_FULL}
         >

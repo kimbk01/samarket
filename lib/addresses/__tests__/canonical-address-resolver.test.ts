@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildCanonicalDraftFromPlaceResult } from "@/lib/addresses/canonical-address-resolver";
 import {
-  applySelectedPlaceIdentity,
   resolvePinMoveAgainstSelectedIdentity,
   selectedPlaceIdentityFromDraft,
   stripSelectedPlaceIdentity,
@@ -27,21 +26,22 @@ describe("canonical resolver hard bans", () => {
   it("does not invent placeName from formatted.split", () => {
     const src = read("lib/addresses/canonical-address-resolver.ts");
     expect(src).not.toMatch(/formatted\.split\s*\(\s*[\"'],[\"']\s*\)/);
-    expect(src).not.toContain("searchNearbyAsLegacyPlaceResults");
     expect(src).not.toContain("NEARBY_FALLBACK_MAX_DISTANCE_METERS");
     expect(src).not.toContain("SAME_PLACE_METERS");
   });
 
-  it("pin identity uses viewport or geocoder place_id, not magic meters", () => {
+  it("FromLatLng delegates to CURRENT PIN resolver and ignores preferred", () => {
     const src = read("lib/addresses/canonical-address-resolver.ts");
-    expect(src).toContain("isPinInsidePreferredViewport");
-    expect(src).toContain("geocoderMentionsPlaceId");
+    expect(src).toContain("resolveCurrentPinCanonicalAddress");
+    expect(src).toContain("_preferred");
+    expect(src).not.toContain("hasPreferredIdentity ? null : pickGeocoderPoiPlaceId");
   });
 
-  it("same-place pin keeps the selected Place name, not street-component filtering", () => {
-    const src = read("lib/addresses/canonical-address-resolver.ts");
-    expect(src).toContain('identitySource === "preferred_place"');
-    expect(src).toContain("preferred?.placeName");
+  it("Nearby + ranking live in CURRENT PIN module, not legacy preferred path", () => {
+    const pin = read("lib/addresses/resolve-current-pin-canonical-address.ts");
+    expect(pin).toContain("searchNearbyAsLegacyPlaceResults");
+    expect(pin).toContain("rankCurrentPinIdentityCandidates");
+    expect(pin).toContain("HARD_REJECT_ALWAYS_TYPES");
   });
 });
 
@@ -120,8 +120,8 @@ function draft(overrides: Partial<CanonicalAddressDraft>): CanonicalAddressDraft
   };
 }
 
-describe("A+C pin identity vs delivery location", () => {
-  it("1. Tycoon search select → title is POI", () => {
+describe("CURRENT PIN SSOT — pin move never keeps old search identity", () => {
+  it("search select draft still titles as POI before pin move", () => {
     const selected = draft({
       placeId: "ChIJ-tycoon",
       placeName: "Tycoon Center Bldg.",
@@ -131,13 +131,9 @@ describe("A+C pin identity vs delivery location", () => {
       identitySource: "place_details",
     });
     expect(resolveCanonicalDisplayLines(displayInputFromDraft(selected)).title).toBe("Tycoon Center Bldg.");
-    expect(selectedPlaceIdentityFromDraft(selected)).toMatchObject({
-      placeId: "ChIJ-tycoon",
-      placeName: "Tycoon Center Bldg.",
-    });
   });
 
-  it("2-3. small / repeated drag inside trusted context → auto_keep without prompt", () => {
+  it("legacy A+C helper now always returns location_only (old search is not authority)", () => {
     const selected = selectedPlaceIdentityFromDraft(
       draft({
         placeId: "ChIJ-tycoon",
@@ -145,229 +141,69 @@ describe("A+C pin identity vs delivery location", () => {
         identitySource: "place_details",
       }),
     );
-    const first = resolvePinMoveAgainstSelectedIdentity(
-      draft({
-        latitude: 14.5861,
-        longitude: 121.0611,
-        placeId: "street-pearl-1",
-        streetAddress: "Pearl Drive",
-        barangay: "San Antonio",
-        cityMunicipality: "Pasig",
-        samePlaceAsPreferred: true,
-      }),
-      selected,
-    );
-    const second = resolvePinMoveAgainstSelectedIdentity(
+    const moved = resolvePinMoveAgainstSelectedIdentity(
       draft({
         latitude: 14.5862,
         longitude: 121.0612,
         placeId: "street-pearl-2",
         streetAddress: "Pearl Drive",
-        barangay: "San Antonio",
-        cityMunicipality: "Pasig",
         samePlaceAsPreferred: true,
       }),
       selected,
     );
-
-    expect(first.kind).toBe("auto_keep");
-    expect(second.kind).toBe("auto_keep");
-    if (first.kind === "auto_keep" && second.kind === "auto_keep") {
-      expect(first.draft.placeName).toBe("Tycoon Center Bldg.");
-      expect(second.draft.placeName).toBe("Tycoon Center Bldg.");
-      expect(second.draft.placeId).toBe("ChIJ-tycoon");
-      expect(second.draft.latitude).toBe(14.5862);
+    expect(moved.kind).toBe("location_only");
+    if (moved.kind === "location_only") {
+      expect(moved.draft.placeName).toBeNull();
+      expect(moved.draft.placeId).toBeNull();
     }
   });
 
-  it("4. same barangay different building → not automatically same POI", () => {
-    const selected = {
-      placeId: "ChIJ-tycoon",
-      placeName: "Tycoon Center Bldg.",
-    };
-    const otherBuilding = resolvePinMoveAgainstSelectedIdentity(
+  it("strip clears POI; street reverse placeId is not promoted", () => {
+    const cleared = stripSelectedPlaceIdentity(
       draft({
-        placeId: "street-other",
-        placeName: null,
-        streetAddress: "1 Garden Way",
-        barangay: "San Antonio",
-        cityMunicipality: "Pasig",
-        samePlaceAsPreferred: false,
-      }),
-      selected,
-    );
-    expect(otherBuilding.kind).toBe("needs_resolution");
-  });
-
-  it("5-6. Pasig → Mandaluyong Ortigas: no city-based auto-clear; trust lost → resolution", () => {
-    const selected = {
-      placeId: "ChIJ-tycoon",
-      placeName: "Tycoon Center Bldg.",
-    };
-    const ortigas = resolvePinMoveAgainstSelectedIdentity(
-      draft({
-        latitude: 14.5895,
-        longitude: 121.0568,
         placeId: "street-garden-way",
-        placeName: null,
+        placeName: "Stale Name",
         streetAddress: "1 Garden Way",
-        barangay: "Wack Wack Greenhills",
         cityMunicipality: "Mandaluyong City",
-        province: "Metro Manila",
-        formattedAddress: "1 Garden Way, Ortigas Center, Mandaluyong City",
-        samePlaceAsPreferred: false,
       }),
-      selected,
     );
-
-    expect(ortigas.kind).toBe("needs_resolution");
-    if (ortigas.kind === "needs_resolution") {
-      expect(ortigas.selectedIdentity.placeName).toBe("Tycoon Center Bldg.");
-      expect(ortigas.locationDraft.placeName).toBeNull();
-      expect(ortigas.locationDraft.placeId).toBeNull();
-      expect(ortigas.locationDraft.streetAddress).toBe("1 Garden Way");
-      expect(ortigas.locationDraft.cityMunicipality).toBe("Mandaluyong City");
-    }
-  });
-
-  it("7. KEEP selected place → POI identity preserved with refined pin", () => {
-    const selected = {
-      placeId: "ChIJ-tycoon",
-      placeName: "Tycoon Center Bldg.",
-    };
-    const location = draft({
-      latitude: 14.5895,
-      longitude: 121.0568,
-      placeId: "street-garden-way",
-      streetAddress: "1 Garden Way",
-      barangay: "Wack Wack Greenhills",
-      cityMunicipality: "Mandaluyong City",
-      samePlaceAsPreferred: false,
-    });
-    const kept = applySelectedPlaceIdentity(stripSelectedPlaceIdentity(location), selected);
-    expect(kept.placeName).toBe("Tycoon Center Bldg.");
-    expect(kept.placeId).toBe("ChIJ-tycoon");
-    expect(kept.latitude).toBe(14.5895);
-    expect(kept.streetAddress).toBe("1 Garden Way");
-    expect(kept.cityMunicipality).toBe("Mandaluyong City");
-  });
-
-  it("8-9. USE pin location → POI cleared; street reverse placeId not promoted", () => {
-    const location = draft({
-      placeId: "street-garden-way",
-      streetAddress: "1 Garden Way",
-      cityMunicipality: "Mandaluyong City",
-    });
-    const cleared = stripSelectedPlaceIdentity(location);
     expect(cleared.placeName).toBeNull();
     expect(cleared.placeId).toBeNull();
-    expect(cleared.streetAddress).toBe("1 Garden Way");
     expect(resolveCanonicalDisplayLines(displayInputFromDraft(cleared)).title).toBe("1 Garden Way");
   });
 
-  it("10. explicit new POI search → identity replaced", () => {
-    const oldIdentity = selectedPlaceIdentityFromDraft(
-      draft({ placeId: "ChIJ-tycoon", placeName: "Tycoon Center Bldg.", identitySource: "place_details" }),
-    );
-    const newIdentity = selectedPlaceIdentityFromDraft(
-      draft({
-        placeId: "poi-mannmaru",
-        placeName: "Mannmaru Japanese Restaurant QC",
-        identitySource: "place_details",
-      }),
-    );
-    expect(oldIdentity?.placeName).toBe("Tycoon Center Bldg.");
-    expect(newIdentity).toMatchObject({
-      placeId: "poi-mannmaru",
-      placeName: "Mannmaru Japanese Restaurant QC",
-    });
+  it("road-only / barangay-only titles without inventing POI", () => {
+    expect(
+      resolveCanonicalDisplayLines(
+        displayInputFromDraft(
+          draft({
+            placeName: null,
+            streetAddress: "Sct. Limbaga Street",
+            barangay: "Diliman",
+          }),
+        ),
+      ).title,
+    ).toBe("Sct. Limbaga Street");
+    expect(
+      resolveCanonicalDisplayLines(
+        displayInputFromDraft(
+          draft({
+            placeName: null,
+            streetAddress: null,
+            route: null,
+            barangay: "Diliman",
+          }),
+        ),
+      ).title,
+    ).toBe("Barangay Diliman");
   });
 
-  it("11. placeName/placeId identity consistency on keep", () => {
-    const kept = applySelectedPlaceIdentity(
-      draft({ streetAddress: "1 Garden Way", placeId: "street-x" }),
-      { placeId: "ChIJ-tycoon", placeName: "Tycoon Center Bldg." },
-    );
-    expect(kept.placeName).toBe("Tycoon Center Bldg.");
-    expect(kept.placeId).toBe("ChIJ-tycoon");
-  });
-
-  it("12. save selected POI + refined pin payload", () => {
-    const kept = applySelectedPlaceIdentity(
-      draft({
-        latitude: 14.5895,
-        longitude: 121.0568,
-        streetAddress: "1 Garden Way",
-        barangay: "Wack Wack Greenhills",
-        cityMunicipality: "Mandaluyong City",
-        formattedAddress: "1 Garden Way, Ortigas Center, Mandaluyong City",
-      }),
-      { placeId: "ChIJ-tycoon", placeName: "Tycoon Center Bldg." },
-    );
-    expect({
-      buildingName: kept.placeName,
-      placeId: kept.placeId,
-      latitude: kept.latitude,
-      streetAddress: kept.streetAddress,
-    }).toEqual({
-      buildingName: "Tycoon Center Bldg.",
-      placeId: "ChIJ-tycoon",
-      latitude: 14.5895,
-      streetAddress: "1 Garden Way",
-    });
-  });
-
-  it("13. save location-only payload clears POI placeId", () => {
-    const only = stripSelectedPlaceIdentity(
-      draft({
-        placeId: "street-garden-way",
-        streetAddress: "1 Garden Way",
-        formattedAddress: "1 Garden Way, Ortigas Center, Mandaluyong City",
-      }),
-    );
-    expect(only.placeName).toBeNull();
-    expect(only.placeId).toBeNull();
-  });
-
-  it("road-only initial address creates no fake building identity", () => {
-    const roadOnly = draft({
-      placeId: "street-limbaga",
-      placeName: null,
-      streetAddress: "Sct. Limbaga Street",
-      barangay: "Diliman",
-    });
-    const identity = selectedPlaceIdentityFromDraft(roadOnly);
-    const resolved = resolvePinMoveAgainstSelectedIdentity(roadOnly, identity);
-    expect(identity).toBeNull();
-    expect(resolved.kind).toBe("location_only");
-    if (resolved.kind === "location_only") {
-      expect(resolved.draft.placeId).toBeNull();
-      expect(resolveCanonicalDisplayLines(displayInputFromDraft(resolved.draft)).title).toBe(
-        "Sct. Limbaga Street",
-      );
-    }
-  });
-
-  it("no road falls back to Barangay without inventing POI", () => {
-    const barangayOnly = draft({
-      placeId: "brgy-diliman",
-      placeName: null,
-      streetAddress: null,
-      route: null,
-      barangay: "Diliman",
-    });
-    expect(selectedPlaceIdentityFromDraft(barangayOnly)).toBeNull();
-    expect(resolveCanonicalDisplayLines(displayInputFromDraft(barangayOnly)).title).toBe(
-      "Barangay Diliman",
-    );
-  });
-
-  it("central helper does not use city/barangay as POI boundary authority", () => {
-    const src = read("lib/addresses/canonical-address-draft.ts");
-    expect(src).toContain("resolvePinMoveAgainstSelectedIdentity");
-    expect(src).not.toContain("isSelectedPlaceIdentityConsistentWithLocation");
-    expect(src).not.toMatch(/cityMunicipality.*preferred/i);
-    expect(src).not.toMatch(/same barangay/i);
-    expect(src).not.toMatch(/distance\s*[><=]/i);
+  it("Detail/Select wire CURRENT PIN resolver, not KEEP/USE", () => {
+    const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
+    const select = read("components/map/AddressSelectClient.tsx");
+    expect(detail).toContain("resolveCurrentPinCanonicalAddress");
+    expect(select).toContain("resolveCurrentPinCanonicalAddress");
+    expect(detail).not.toContain("addr_v2_identity_keep_selected");
+    expect(select).not.toContain("addr_v2_identity_keep_selected");
   });
 });
