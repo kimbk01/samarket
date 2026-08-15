@@ -12,7 +12,6 @@ import {
   PHILIFE_TOPIC_TAB_PILL_IDLE,
   PHILIFE_TOPIC_TAB_ROW_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
-import { DIBAY_CHROME_SECONDARY_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import {
   TRADE_PRIMARY_TAB_LABEL_ACTIVE,
@@ -37,9 +36,7 @@ interface TradePrimaryTabsProps {
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
   if (!embedInAppHeader) {
     return (
-      <div
-        className={`relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
-      >
+      <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
         <div className={APP_MAIN_HEADER_INNER_CLASS}>
           <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
             <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
@@ -50,7 +47,7 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
     );
   }
   return (
-    <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS}>
+    <div className="min-w-0 overflow-x-hidden bg-sam-surface">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
         <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
           <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
@@ -353,7 +350,7 @@ function TradePrimaryTabsInner({
 
   if (embedInAppHeader) {
     return (
-      <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS}>
+      <div className="min-w-0 overflow-x-hidden bg-sam-surface">
         <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
         {allSortOpen && allSortMenuPos && typeof document !== "undefined"
           ? createPortal(
@@ -386,9 +383,7 @@ function TradePrimaryTabsInner({
   }
 
   return (
-    <div
-      className={`relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
-    >
+    <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
     </div>
   );

@@ -84,7 +84,7 @@ export function AppStickyHeader() {
       }`}
     >
       {categorySticky ? (
-          <div className="border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]/95">
+          <div className="border-b border-sam-border bg-sam-surface/95">
             <RegionBar tier1RuleSet={topTier1RuleSet} />
             <CategoryListSubheader
               backHref={categorySticky.backHref}

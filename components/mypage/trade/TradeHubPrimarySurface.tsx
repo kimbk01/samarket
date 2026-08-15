@@ -1,12 +1,11 @@
 import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
-import { DIBAY_CHROME_SECONDARY_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 
 /**
- * 거래 허브 secondary host — domain pale continuity under MyPage chrome.
+ * 거래 허브 1단 — `TradeHubTopTabs` 만 담당(필라이프와 동일 `bg-sam-surface` 스트립은 탭 컴포넌트 내부).
  */
 export function TradeHubPrimarySurface() {
   return (
-    <section className={`shrink-0 ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`} data-trade-hub="primary">
+    <section className="shrink-0 overflow-x-hidden bg-sam-surface" data-trade-hub="primary">
       <TradeHubTopTabs />
     </section>
   );

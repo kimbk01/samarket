@@ -4,11 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ManagedMyCtaLink } from "@/lib/my/managed-my-section-ctas";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import {
-  DIBAY_CHROME_SECONDARY_HOST_CLASS,
-  DIBAY_SECONDARY_TABS_CLASS,
-  dibaySecondaryTabClass,
-} from "@/lib/ui/dibay-secondary-tabs";
 
 type Props = {
   links: ManagedMyCtaLink[];
@@ -16,11 +11,6 @@ type Props = {
   label?: string | null;
 };
 
-/**
- * MyPage section navigation strip — TRUE PAGE NAV (href section switch).
- * Visual authority: dibay-secondary-tabs + domain surface host.
- * Menu labels / hrefs remain caller responsibility (`getManagedSectionCtas`).
- */
 export function MyManagedCtaStrip({ links, label }: Props) {
   const pathname = usePathname() ?? "";
 
@@ -29,31 +19,29 @@ export function MyManagedCtaStrip({ links, label }: Props) {
   const labelText = typeof label === "string" ? label.trim() : "";
 
   return (
-    <div className={`${DIBAY_CHROME_SECONDARY_HOST_CLASS} w-full`}>
-      <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0`}>
+    <div className="w-full min-w-0 overflow-x-hidden border-b border-sam-border bg-sam-surface">
+      <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
         {labelText ? (
           <p className="mb-1.5 px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">
             {labelText}
           </p>
         ) : null}
-        <div className={DIBAY_SECONDARY_TABS_CLASS} role="tablist" data-mypage-managed-section-nav="1">
+        <div className="flex min-w-0 gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {links.map((item) => {
             const active =
               pathname === item.href ||
-              (item.href !== "/mypage" &&
-                item.href !== "/community" &&
-                pathname.startsWith(`${item.href}/`));
+              (item.href !== "/mypage" && item.href !== "/community" && pathname.startsWith(`${item.href}/`));
             return (
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                prefetch={false}
-                role="tab"
-                aria-selected={active}
-                aria-current={active ? "page" : undefined}
-                className={dibaySecondaryTabClass(active)}
+                className={`shrink-0 rounded-sam-sm border px-3 py-1.5 sam-text-helper font-semibold transition-colors ${
+                  active
+                    ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
+                    : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-primary-soft"
+                }`}
               >
-                <span className="max-w-[min(10rem,40vw)] truncate">{item.label}</span>
+                {item.label}
               </Link>
             );
           })}
