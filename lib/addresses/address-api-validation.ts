@@ -90,10 +90,10 @@ export function parseUserAddressWritePayload(body: unknown, opts?: { partial?: b
   bool("useForLife", "useForLife", "use_for_life");
   bool("useForTrade", "useForTrade", "use_for_trade");
   bool("useForDelivery", "useForDelivery", "use_for_delivery");
-  bool("isDefaultMaster", "isDefaultMaster", "is_default_master");
+  bool("isDefaultMaster", "isDefaultMaster", "is_default_master", "isDefault");
   bool("isDefaultLife", "isDefaultLife", "is_default_life");
   bool("isDefaultTrade", "isDefaultTrade", "is_default_trade");
-  bool("isDefaultDelivery", "isDefaultDelivery", "is_default_delivery", "isDefault");
+  bool("isDefaultDelivery", "isDefaultDelivery", "is_default_delivery");
 
   if (typeof o.sortOrder === "number") out.sortOrder = o.sortOrder;
   if (!opts?.partial) {

@@ -67,18 +67,20 @@ function areaLine(input: CanonicalDisplayInput): string {
 
 /**
  * FULL title — not a DB field.
- * place/building → Subdivision/Village → street → route → formatted headline.
+ * place/building → street/road → Barangay → Subdivision/Village → formatted headline.
  * Custom nicknames and 집/회사 stay as badges, not the title.
  */
 export function resolveAddressBookTitle(input: CanonicalDisplayInput): string {
   const place = clean(input.placeName);
   if (place) return place;
-  const neighborhood = clean(input.neighborhoodName);
-  if (neighborhood) return neighborhood;
   const street = clean(input.streetAddress);
   if (street) return street;
   const route = clean(input.route);
   if (route) return route;
+  const barangay = clean(input.barangay);
+  if (barangay) return /^(barangay|brgy\.?)\b/i.test(barangay) ? barangay : `Barangay ${barangay}`;
+  const neighborhood = clean(input.neighborhoodName);
+  if (neighborhood) return neighborhood;
   const head = formattedHeadline(input.formattedAddress);
   if (head) return head;
   return "";

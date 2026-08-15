@@ -204,9 +204,6 @@ export function AddressPlatformDetailClient(props: {
         useForTrade: true,
         useForDelivery: true,
         isDefaultMaster: isShop ? false : true,
-        isDefaultLife: initial?.isDefaultLife ?? false,
-        isDefaultTrade: initial?.isDefaultTrade ?? false,
-        isDefaultDelivery: initial?.isDefaultDelivery ?? false,
       };
       const url = mode === "create" ? "/api/me/addresses" : `/api/me/addresses/${initial?.id}`;
       const res = await fetch(url, {

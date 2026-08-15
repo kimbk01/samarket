@@ -20,7 +20,7 @@ const STORAGE_KEY = "kasama_checkout_delivery_address_book_v1";
 /** entries에 넣지 않는 마이페이지 주소를 라디오 선택값으로 쓸 때의 selectedId */
 export const PROFILE_DELIVERY_SELECTION_ID = "__kasama_profile_delivery__";
 
-/** 서버 `user_addresses` 기본 배달지 — 카트 라디오 값 `ua:<uuid>` */
+/** 서버 `user_addresses` 대표 주소 — 카트 라디오 값 `ua:<uuid>` */
 export const USER_ADDRESS_DELIVERY_PREFIX = "ua:";
 
 export function userAddressDeliverySelectionId(userAddressId: string): string {
@@ -44,21 +44,21 @@ export function isCartDeliverySelectionValid(
   if (!selectedId) return false;
   if (selectedId === PROFILE_DELIVERY_SELECTION_ID) return !!profileSnap;
   const uid = parseUserAddressIdFromDeliverySelection(selectedId);
-  return !!uid && savedAddresses.some((a) => a.id === uid);
+  return !!uid && savedAddresses.some((a) => a.id === uid && a.isDefaultMaster);
 }
 
 /**
- * 카트 배송지 라디오 기본값 — **배달 주소(`isDefaultDelivery`)만**.
- * master/첫 행/프로필로 몰래 대체하지 않는다.
+ * 카트 배송지 라디오 기본값 — current USER address authority인 master만.
+ * delivery/life/trade/profile legacy flags로 대체하지 않는다.
  */
 export function resolveCartDefaultDeliverySelectionId(
   savedAddresses: readonly UserAddressDTO[],
   profileSnap: CartDeliveryProfileSnap
 ): string | null {
-  const deliveryDefault = savedAddresses.find((x) => x.isDefaultDelivery);
-  if (deliveryDefault?.id) {
-    if (profileSnap?.userAddressId === deliveryDefault.id) return PROFILE_DELIVERY_SELECTION_ID;
-    return userAddressDeliverySelectionId(deliveryDefault.id);
+  const master = savedAddresses.find((x) => x.isDefaultMaster);
+  if (master?.id) {
+    if (profileSnap?.userAddressId === master.id) return PROFILE_DELIVERY_SELECTION_ID;
+    return userAddressDeliverySelectionId(master.id);
   }
   return null;
 }

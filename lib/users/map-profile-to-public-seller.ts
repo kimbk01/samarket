@@ -19,7 +19,7 @@ export type PublicSellerProfileDTO = {
   /** 배터리 UI 입력(0~100) — trust_score·매너 필드 통합 */
   trustScore: number;
   /**
-   * 기본 거래 주소에서 파생한 공개 동네 한 줄(주소록 `is_default_trade`).
+   * 대표 주소에서 파생한 TITLE 한 줄(주소록 `is_default_master`).
    * 글에 region/city 가 없거나 비정상일 때 물품 상세와 맞춤.
    */
   tradeLocationLine?: string | null;

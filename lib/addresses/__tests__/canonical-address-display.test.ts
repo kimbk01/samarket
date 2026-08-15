@@ -9,6 +9,7 @@ import {
   displayInputFromDto,
 } from "@/lib/addresses/canonical-address-display";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 
 const labels = { home: "집", office: "회사", shop: "매장" };
 
@@ -92,14 +93,23 @@ describe("canonical address display SSOT", () => {
     expect(resolveAddressBookAddressLine(input)).not.toContain("우리집");
   });
 
-  it("NO PLACE → neighborhood is title before street", () => {
+  it("NO PLACE → street is title before neighborhood", () => {
     const input = {
       neighborhoodName: "Malate",
       streetAddress: "Mabini Street",
       cityMunicipality: "Manila",
     };
-    expect(resolveAddressBookTitle(input)).toBe("Malate");
-    expect(resolveAddressBookAddressLine(input)).toBe("Mabini Street, Manila");
+    expect(resolveAddressBookTitle(input)).toBe("Mabini Street");
+    expect(resolveAddressBookAddressLine(input)).toBe("Manila");
+  });
+
+  it("NO PLACE/STREET → Barangay is title before neighborhood", () => {
+    expect(
+      resolveAddressBookTitle({
+        barangay: "Diliman",
+        neighborhoodName: "Quezon City",
+      }),
+    ).toBe("Barangay Diliman");
   });
 
   it("null buildingName does not blank title when street exists", () => {
@@ -128,7 +138,7 @@ describe("canonical address display SSOT", () => {
     expect(input.neighborhoodName).toBeNull();
   });
 
-  it("SHORT chip is place, else neighborhood, else address headline; never city-only", () => {
+  it("legacy chip is place, else address headline; never city-only", () => {
     expect(
       resolveCanonicalChipLine({
         placeName: "SM Mall of Asia",
@@ -175,5 +185,41 @@ describe("canonical address display SSOT", () => {
       labels,
     );
     expect(resolveAddressBookTitle(input)).toBe("SM Mall of Asia");
+  });
+
+  it("derived TITLE ignores nickname/detail and falls back place → street → barangay", () => {
+    expect(
+      resolveUserAddressTitle(
+        dto({
+          nickname: "House",
+          buildingName: "SM Mall of Asia",
+          streetAddress: "Seaside Boulevard",
+          unitFloorRoom: "Unit 9F",
+          detailAddress: "Door 2",
+          barangay: "Mall of Asia Complex",
+        }),
+      ),
+    ).toBe("SM Mall of Asia");
+    expect(
+      resolveUserAddressTitle(
+        dto({
+          nickname: "Office",
+          buildingName: "Tomas Morato Avenue",
+          streetAddress: "Tomas Morato Avenue",
+          barangay: "South Triangle",
+        }),
+      ),
+    ).toBe("Tomas Morato Avenue");
+    expect(
+      resolveUserAddressTitle(
+        dto({
+          nickname: "Home",
+          buildingName: null,
+          streetAddress: null,
+          barangay: "Diliman",
+          neighborhoodName: "UP Village",
+        }),
+      ),
+    ).toBe("Barangay Diliman");
   });
 });

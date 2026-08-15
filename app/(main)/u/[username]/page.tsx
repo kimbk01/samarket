@@ -4,7 +4,7 @@ import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-p
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +66,7 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   let tradeLocationLine: string | null = null;
   try {
     const defaults = await getUserAddressDefaults(sbAny, profile.id);
-    tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
+    tradeLocationLine = resolveUserAddressTitle(defaults.master);
   } catch {
     /* ignore */
   }

@@ -1,6 +1,5 @@
 import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
-import { summarizeLifeDefaultAppLocation } from "@/lib/addresses/life-default-location-summary";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
@@ -60,11 +59,11 @@ export async function loadMypageHubExtrasServer(
           .then((defaults) => ({
             addressDefaults: {
               master: defaults.master != null,
-              life: defaults.life != null,
-              trade: defaults.trade != null,
-              delivery: defaults.delivery != null,
+              life: false,
+              trade: false,
+              delivery: false,
             },
-            neighborhoodFromLife: summarizeLifeDefaultAppLocation(defaults.life ?? null),
+            neighborhoodFromLife: null,
           }))
           .catch(() => ({
             addressDefaults: null,

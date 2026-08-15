@@ -1871,7 +1871,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </li>
               ) : null}
               {checkoutContactReady &&
-              !savedAddresses.some((a) => a.isDefaultDelivery) &&
+              !savedAddresses.some((a) => a.isDefaultMaster) &&
               savedAddresses.length > 0 ? (
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
                   <p className="sam-text-helper leading-snug text-amber-950">
@@ -1933,7 +1933,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </li>
               ) : null}
               {savedAddresses
-                .filter((a) => a.id !== profileSnap?.userAddressId)
+                .filter((a) => a.isDefaultMaster && a.id !== profileSnap?.userAddressId)
                 .map((a, idx) => {
                   const selectionId = userAddressDeliverySelectionId(a.id);
                   const isSel = selectedAddressId === selectionId;

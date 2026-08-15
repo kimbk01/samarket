@@ -10,9 +10,9 @@
  * STORAGE: `user_addresses` only (`createUserAddress` / `updateUserAddress` / …)
  * PICK DATA: `GET /api/me/addresses` + `fetchMeAddressesListSingleFlight` / address-defaults
  * MASTER SSOT: `user-address-master-ssot.ts` (row selection / missing / app region-city)
- * DISPLAY SSOT: `user-address-display-ssot.ts` (SHORT / FULL / PUBLIC)
+ * DISPLAY SSOT: `user-address-display-ssot.ts` (TITLE / FULL; legacy SHORT aliases TITLE)
  * PICK UI row: `AddressListRowBody` → canonical display lines
- * PUBLIC: `formatUserAddressPublic` → `formatPublicAddress` (City/Municipality only)
+ * TITLE: `resolveUserAddressTitle` → place/building → street/road → Barangay
  * DELIVERY: `formatDeliveryAddress` (PH multi-line / full detail)
  * ADDRESS BOOK: `formatAddressBookLine` (compact continuous flow, country excluded, detail boldable, natural wrap)
  *
@@ -20,33 +20,32 @@
  *
  * | Surface | Input | Storage | Picker | Formatter | Snapshot |
  * |---|---|---|---|---|---|
- * | /mypage/addresses | AddressPlatformSearchClient → AddressPlatformDetailClient | user_addresses | list (mgmt) | canonical FULL / SHORT | address-defaults.master |
- * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | canonical FULL / SHORT | address-defaults.master |
- * | Philife Header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
- * | /stores header | — | user_addresses | /mypage/addresses | canonical SHORT | address-defaults.master |
- * | Cart / Checkout | — | user_addresses | cart radio + same row text | formatAddressBookLine (select) · formatDeliveryAddress (order) | store_orders.delivery_* |
+ * | /mypage/addresses | AddressPlatformSearchClient → AddressPlatformDetailClient | user_addresses | list (mgmt) | canonical FULL / TITLE | address-defaults.master |
+ * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | canonical FULL / TITLE | address-defaults.master |
+ * | Philife Header | — | user_addresses | /mypage/addresses | canonical TITLE | address-defaults.master |
+ * | /stores header | — | user_addresses | /mypage/addresses | canonical TITLE | address-defaults.master |
+ * | Cart / Checkout | — | user_addresses master | cart radio + same row text | FULL before order · store_orders snapshot after order | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
- * | Community Feed/Write | — | user_addresses master → public label | — | canonical PUBLIC | posts.region_label |
- * | Trade Write | — | user_addresses master → taxonomy ids + submit meta | /mypage/addresses | canonical SHORT | address-defaults.master + posts.region/city/meta.trade_meet_spot |
+ * | Community Feed/Write | — | user_addresses master → title label | — | canonical TITLE | posts.region_label |
+ * | Trade Write | — | user_addresses master → taxonomy ids + submit meta | /mypage/addresses | canonical TITLE | address-defaults.master + posts.region/city/meta.trade_meet_spot |
  * | Trade Detail | — | posts snapshot | — | post region/city label | posts.region/city |
  * | Trade Meet Spot | legacy map snapshot only | posts.meta.trade_meet_spot | — | place label | post meta |
- * | Store Application Initial Fill | user master allowed once | stores draft | — | canonical transform | stores row after save |
+ * | Store Application / Owner Physical Address | store form | stores | — | store formatters | stores row |
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
  * | Admin Member Address | admin tools | user_addresses | — | canonical FULL | user_addresses + legacy profile section |
  *
- * ## B. REGION / EXPLORATION (public presentation)
- * Authority: `formatPublicAddress` → City/Municipality ONLY
- * Aliases: `buildExplorationRegionSubtitleLine` / `buildTradePublicLine` (same city-only contract)
- * MUST NOT include detail_address / unit_floor_room.
+ * ## B. REGION / EXPLORATION (current user presentation)
+ * Authority: `resolveUserAddressTitle` from the master address only.
+ * MUST NOT include detail_address / unit_floor_room / nickname / labelType.
  * Taxonomy: `mapUserAddressToAppLocation` (ONE mapper)
  *
  * ## C. DELIVERY ADDRESS
- * `formatDeliveryAddress` — PH full deliverable lines. Checkout copies into `store_orders` snapshot.
- * `isDefaultDelivery` is checkout default selection only; it is not current-address display authority.
+ * `formatDeliveryAddress` / FULL — PH full deliverable lines. Checkout copies master into `store_orders` snapshot.
+ * `isDefaultDelivery` is legacy data only; it is not current-address authority.
  *
  * ## D. STORE ADDRESS
  * Table: `stores` — Not a `user_addresses` row. Shop-linked user_addresses is a member book copy, not store authority.
- * User master may seed store application fields, then `stores` becomes authority after save.
+ * User master must not seed, sync, or runtime-substitute store physical address.
  *
  * ## D2. ADDRESS MUTATION CONSISTENCY HARD LOCK
  * server mutation success → address list reconcile → defaults cache invalidate → generation increment
@@ -67,7 +66,7 @@ export const ADDRESS_SOURCE_ARCHITECTURE = "profiles | user_addresses | stores |
 
 export const ADDRESS_OBJECT_TYPES = [
   "MEMBER_MASTER",
-  "REGION_PUBLIC",
+  "USER_ADDRESS_TITLE",
   "DELIVERY",
   "STORE",
   "ORDER_SNAPSHOT",

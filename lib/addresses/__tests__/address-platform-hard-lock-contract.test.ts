@@ -194,7 +194,7 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const tradeForm = read("components/write/trade/TradeWriteForm.tsx");
     const jobsForm = read("components/write/trade/JobsWriteForm.tsx");
     const exchangeForm = read("components/write/trade/ExchangeWriteForm.tsx");
-    expect(tradeLocation).toContain("formatUserAddressShort");
+    expect(tradeLocation).toContain("formatUserAddressTitle");
     expect(tradeLocation).toContain("buildMypageAddressesHrefFromPath");
     expect(tradeLocation).toContain("buildMypageAddressesHref(addressReturnTo)");
     expect(tradeLocation).toContain("scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo)");
@@ -289,10 +289,20 @@ describe("ADDR-008 store vs member", () => {
     expect(src).toMatch(/Not a `user_addresses` row/);
   });
 
-  it("store initial fill may transform master canonically but not use trade public fallback", () => {
+  it("store list/ETA do not runtime-substitute store physical address from owner user_addresses", () => {
+    const src = read("lib/stores/store-list-delivery-origin.ts");
+    expect(src).toContain("Do not runtime-substitute stores.address_* with user_addresses");
+    expect(src).toMatch(/export async function loadOwnerDefaultAddressByUserId[\s\S]*return new Map\(\);/);
+    expect(src).toMatch(/export function resolveEffectiveStoreRouteAddress[\s\S]*return store;/);
+    expect(src).not.toContain("resolveEffectiveStoreRouteAddressLegacy");
+  });
+
+  it("store application helper does not derive physical store address from user master", () => {
     const src = read("lib/business/derive-store-address-from-user-address-master.ts");
-    expect(src).toContain("formatUserAddressFull");
-    expect(src).not.toContain("buildTradePublicLine");
+    expect(src).toContain("STORE DOMAIN EXCLUDED");
+    expect(src).toMatch(/deriveStoreAddressFieldsFromUserAddressMaster[\s\S]*return null;/);
+    expect(src).not.toContain("formatUserAddressFull");
+    expect(src).not.toContain("inferAppLocationIdsFromUserAddress");
   });
 });
 
@@ -382,19 +392,19 @@ describe("master ≠ delivery contract", () => {
   it("set-as-representative PATCH is isDefaultMaster only", () => {
     const mgmt = read("components/addresses/AddressManagementClient.tsx");
     const setAs = mgmt.slice(mgmt.indexOf("async function setAsRepresentative"));
-    const body = setAs.slice(0, setAs.indexOf("async function setAsDelivery"));
+    const body = setAs.slice(0, setAs.indexOf("const addressListBody"));
     expect(body).toContain("isDefaultMaster: true");
     expect(body).not.toContain("isDefaultLife: true");
     expect(body).not.toContain("isDefaultTrade: true");
     expect(body).not.toContain("isDefaultDelivery: true");
   });
 
-  it("pickAddressRowForDeliveryRouting is delivery only", () => {
+  it("pickAddressRowForDeliveryRouting is master only", () => {
     const src = read("lib/addresses/user-address-service.ts");
     const fn = src.slice(src.indexOf("export function pickAddressRowForDeliveryRouting"));
     const body = fn.slice(0, fn.indexOf("export type BulkRegionPatchResolvedLocation"));
-    expect(body).toContain("defs.delivery");
-    expect(body).not.toContain("defs.master");
+    expect(body).toContain("defs.master");
+    expect(body).not.toContain("defs.delivery?.id");
     expect(body).not.toContain("defs.trade");
     expect(body).not.toContain("defs.life");
   });

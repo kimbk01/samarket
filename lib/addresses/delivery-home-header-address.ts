@@ -1,12 +1,12 @@
 /**
  * CONTRACT — 배달 홈(`/stores`) 헤더 칩.
- * 화면 칩은 대표 주소(`isDefaultMaster`) SHORT 줄.
- * `isDefaultDelivery` 는 주문 결제 라디오 기본값 전용.
+ * 화면 칩은 대표 주소(`isDefaultMaster`) TITLE 줄.
+ * checkout/delivery current address도 master만 읽는다.
  * DO NOT: 헤더 버튼에 `store_address_manage_link` — `delivery-home-header-label.ts`.
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { formatUserAddressShort } from "@/lib/addresses/user-address-display-ssot";
+import { formatUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
@@ -60,11 +60,11 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
 }
 
 /**
- * 배달 홈 헤더 칩 — SHORT (상호/건물명, 없으면 Subdivision/Village).
+ * 배달 홈 헤더 칩 — TITLE (place/building → street/road → Barangay).
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a?.id) return null;
-  return normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressShort(a));
+  return normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressTitle(a));
 }
 
 function pickDefaultAddressRow(

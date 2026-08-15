@@ -123,16 +123,11 @@ export function useMypageHubModel(
       if (snapshot?.ok && snapshot.defaults) {
         setAddressDefaults({
           master: snapshot.defaults.master != null,
-          life: snapshot.defaults.life != null,
-          trade: snapshot.defaults.trade != null,
-          delivery: snapshot.defaults.delivery != null,
+          life: false,
+          trade: false,
+          delivery: false,
         });
-        const n = snapshot.neighborhoodFromLife;
-        setNeighborhoodFromLife(
-          n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
-            ? n
-            : null,
-        );
+        setNeighborhoodFromLife(null);
       } else {
         setAddressDefaults(null);
         setNeighborhoodFromLife(null);
@@ -192,16 +187,11 @@ export function useMypageHubModel(
     seedAddressDefaultsSnapshotCache(snap);
     setAddressDefaults({
       master: snap.defaults.master != null,
-      life: snap.defaults.life != null,
-      trade: snap.defaults.trade != null,
-      delivery: snap.defaults.delivery != null,
+      life: false,
+      trade: false,
+      delivery: false,
     });
-    const n = snap.neighborhoodFromLife;
-    setNeighborhoodFromLife(
-      n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
-        ? n
-        : null,
-    );
+    setNeighborhoodFromLife(null);
     skipInitialAddressFetchRef.current = true;
   }, [initialMyPageData?.addressDefaultsSnapshot]);
 

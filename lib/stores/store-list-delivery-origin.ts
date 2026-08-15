@@ -76,81 +76,23 @@ export function buildStoreAddressIdentity(store: StoreAddressIdentityInput): str
   );
 }
 
-function ownerAddressRank(a: OwnerDefaultAddressForStoreRouting): number {
-  if (a.is_default_delivery) return 0;
-  if (a.is_default_master) return 1;
-  if (a.is_default_trade) return 2;
-  if (a.is_default_life) return 3;
-  return 4;
-}
-
 export async function loadOwnerDefaultAddressByUserId(
   sb: SupabaseClient<any>,
   ownerUserIds: string[],
 ): Promise<Map<string, OwnerDefaultAddressForStoreRouting>> {
-  const ids = [...new Set(ownerUserIds.map((x) => x.trim()).filter(Boolean))];
-  if (ids.length === 0) return new Map();
-  const { data, error } = await sb
-    .from("user_addresses")
-    .select("user_id,place_id,formatted_address,road_address,full_address,detail_address,unit_floor_room,latitude,longitude,is_default_delivery,is_default_master,is_default_trade,is_default_life,last_used_at,updated_at")
-    .in("user_id", ids)
-    .eq("is_active", true);
-  if (error) return new Map();
-  const rows = (data ?? []) as OwnerDefaultAddressForStoreRouting[];
-  rows.sort((a, b) => {
-    const r = ownerAddressRank(a) - ownerAddressRank(b);
-    if (r !== 0) return r;
-    const bu = b.last_used_at ? Date.parse(b.last_used_at) : 0;
-    const au = a.last_used_at ? Date.parse(a.last_used_at) : 0;
-    if (bu !== au) return bu - au;
-    const bp = b.updated_at ? Date.parse(b.updated_at) : 0;
-    const ap = a.updated_at ? Date.parse(a.updated_at) : 0;
-    return bp - ap;
-  });
-  const out = new Map<string, OwnerDefaultAddressForStoreRouting>();
-  for (const row of rows) {
-    const uid = text(row.user_id);
-    if (!uid || out.has(uid)) continue;
-    const lat = parseFiniteLatitude(row.latitude);
-    const lng = parseFiniteLongitude(row.longitude);
-    if (lat == null || lng == null) continue;
-    out.set(uid, { ...row, latitude: lat, longitude: lng });
-  }
-  return out;
+  void sb;
+  void ownerUserIds;
+  // Store physical addresses are independent from user address book masters.
+  // Do not runtime-substitute stores.address_* with user_addresses.
+  return new Map();
 }
 
 export function resolveEffectiveStoreRouteAddress<T extends StoreAddressIdentityInput>(
   store: T,
   ownerDefault: OwnerDefaultAddressForStoreRouting | null | undefined,
 ): T & StoreAddressIdentityInput {
-  if (!ownerDefault) return store;
-  const storePlaceId = text(store.place_id);
-  const storeIdentity = buildStoreAddressIdentity(store);
-  const ownerIdentity = normalizeDeliveryAddressIdentity(
-    ownerDefault.formatted_address,
-    ownerDefault.road_address,
-    ownerDefault.full_address,
-    ownerDefault.detail_address,
-    ownerDefault.unit_floor_room,
-  );
-  const shouldUseOwnerDefault =
-    !storePlaceId ||
-    (!!storeIdentity &&
-      !!ownerIdentity &&
-      (storeIdentity === ownerIdentity ||
-        (Math.min(storeIdentity.length, ownerIdentity.length) >= 18 &&
-          (storeIdentity.includes(ownerIdentity) || ownerIdentity.includes(storeIdentity)))));
-  if (!shouldUseOwnerDefault) return store;
-  return {
-    ...store,
-    place_id: ownerDefault.place_id,
-    formatted_address: ownerDefault.formatted_address ?? ownerDefault.full_address,
-    detail_address: ownerDefault.detail_address ?? ownerDefault.unit_floor_room,
-    address_line1: ownerDefault.road_address ?? ownerDefault.formatted_address ?? ownerDefault.full_address,
-    address_line2: ownerDefault.detail_address ?? ownerDefault.unit_floor_room,
-    lat: ownerDefault.latitude,
-    lng: ownerDefault.longitude,
-  };
+  void ownerDefault;
+  return store;
 }
 
 export function isSameDeliveryAddressForList(

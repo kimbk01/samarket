@@ -20,7 +20,7 @@ import {
   resolveProfileLessAdminNickname,
 } from "@/lib/admin-users/admin-users-list-server";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
-import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { AdminUserDetail } from "@/lib/types/admin-user";
@@ -341,30 +341,15 @@ const AUTH_ONLY_ADDRESS_SELECT =
 
 function locationLineFromUserAddress(dto: UserAddressDTO | null | undefined): string {
   if (!dto) return "";
-  const main = buildTradePublicLine(dto).trim();
-  if (!main || main === "주소 미입력") return "";
-  const tail = buildAddressListDetailLine(dto, main);
-  return tail ? `${main} · ${tail}` : main;
+  return formatUserAddressFull(dto)?.trim() ?? "";
 }
 
 function pickAdminLocationAddressForUser(rows: UserAddressDTO[]): UserAddressDTO | null {
-  if (rows.length === 0) return null;
-  const score = (a: UserAddressDTO): number =>
-    (a.isDefaultMaster ? 1000 : 0) +
-    (a.isDefaultLife ? 100 : 0) +
-    (a.isDefaultTrade ? 10 : 0) +
-    (a.isDefaultDelivery ? 1 : 0);
-  let best = rows[0];
-  let bestScore = score(best);
-  for (let i = 1; i < rows.length; i += 1) {
+  for (let i = 0; i < rows.length; i += 1) {
     const cur = rows[i];
-    const s = score(cur);
-    if (s > bestScore) {
-      best = cur;
-      bestScore = s;
-    }
+    if (cur.isDefaultMaster) return cur;
   }
-  return best;
+  return null;
 }
 
 async function loadAuthOnlyContactAddress(

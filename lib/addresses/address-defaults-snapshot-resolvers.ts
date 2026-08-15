@@ -4,7 +4,7 @@ import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-s
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import {
   formatUserAddressFull,
-  formatUserAddressShort,
+  formatUserAddressTitle,
 } from "@/lib/addresses/user-address-display-ssot";
 import { pickUserAddressMasterRow } from "@/lib/addresses/user-address-master-ssot";
 import {
@@ -21,30 +21,26 @@ function isPlainAddressPlaceholder(line: string | null | undefined): boolean {
   return t === "—" || t === "-" || t === "주소 미입력";
 }
 
-export function resolveNeighborhoodFromLifeLabel(snapshot: AddressDefaultsSnapshot | null): string | null {
-  return snapshot?.neighborhoodFromLife?.label?.trim() || null;
-}
-
 function coerceDefaults(snapshot: AddressDefaultsSnapshot | null): UserAddressDefaultsDTO | null {
   if (!snapshot?.ok || !snapshot.defaults) return null;
   return {
-    delivery: coerceUserAddressDTO(snapshot.defaults.delivery),
+    delivery: null,
     master: coerceUserAddressDTO(snapshot.defaults.master),
-    trade: coerceUserAddressDTO(snapshot.defaults.trade),
-    life: coerceUserAddressDTO(snapshot.defaults.life),
+    trade: null,
+    life: null,
   };
 }
 
-/** Philife·거래 탐색 헤더 — master SHORT 칩 → 생활 동네 요약 */
+/** Philife·거래 탐색 헤더 — master TITLE only. */
 export function resolveExplorationAddressLineFromSnapshot(snapshot: AddressDefaultsSnapshot | null): string | null {
   const defaults = coerceDefaults(snapshot);
   if (!defaults) return null;
   const master = defaults.master;
   if (master?.id) {
-    const chip = formatUserAddressShort(master)?.trim();
+    const chip = formatUserAddressTitle(master)?.trim();
     if (chip) return chip;
   }
-  return resolveNeighborhoodFromLifeLabel(snapshot);
+  return null;
 }
 
 /** 내정보 — master FULL 한 줄만. 다른 기본지·생활 동네로 위장하지 않음. */
@@ -66,7 +62,7 @@ export function resolveAddressBookPresentationFromSnapshot(
   return formatAddressBookCardPresentation(master);
 }
 
-/** `/stores` 배달 홈 헤더 — routing pick + Baemin 줄 + 생활 동네 */
+/** `/stores` 배달 홈 헤더 — master TITLE only. */
 export function resolveDeliveryHomeHeaderStateFromSnapshot(
   snapshot: AddressDefaultsSnapshot | null
 ): DeliveryHomeHeaderAddressState {

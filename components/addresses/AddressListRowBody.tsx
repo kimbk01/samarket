@@ -22,7 +22,6 @@ import {
 import {
   addressMasterBadgeClass,
   addressStoreLinkedBadgeClass,
-  addressTapRepresentativeBadgeClass,
 } from "@/lib/ui/address-list-starbucks-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
@@ -31,16 +30,12 @@ const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-m
 export function AddressListRowBody({
   row,
   approvedStoresById,
-  showDefaultDeliveryBadge = false,
-  showTapRepresentative = false,
   addressMainClassName,
   preferFullAddressLine = false,
   badgeStyle = "legacy",
 }: {
   row: UserAddressDTO;
   approvedStoresById?: ReadonlyMap<string, string>;
-  showDefaultDeliveryBadge?: boolean;
-  showTapRepresentative?: boolean;
   addressMainClassName?: string;
   /** 비PH — 상세 줄을 본문에 합쳐 한 줄로 */
   preferFullAddressLine?: boolean;
@@ -98,18 +93,6 @@ export function AddressListRowBody({
       : null}
 
       <div className="flex min-h-[26px] flex-wrap items-center gap-1.5">
-        {showDefaultDeliveryBadge && row.isDefaultDelivery ?
-          <span
-            className={
-              useStarbucksBadges
-                ? `${ADDR_LIST_BADGE_BASE} border-[#00704A]/30 bg-[#D4E9E2] text-[#00704A]`
-                : `${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`
-            }
-            translate="no"
-          >
-            {t("addr_ui_default_delivery")}
-          </span>
-        : null}
         {row.isDefaultMaster ?
           <span
             className={
@@ -132,18 +115,6 @@ export function AddressListRowBody({
             translate="no"
           >
             {t("addr_ui_badge_store_address")}
-          </span>
-        : null}
-        {showTapRepresentative && !row.isDefaultMaster && !isStoreAddress ?
-          <span
-            className={
-              useStarbucksBadges
-                ? addressTapRepresentativeBadgeClass()
-                : `${ADDR_LIST_BADGE_BASE} border-dashed border-sam-border/90 bg-sam-app font-semibold text-sam-muted`
-            }
-            translate="no"
-          >
-            {t("addr_ui_tap_representative")}
           </span>
         : null}
       </div>

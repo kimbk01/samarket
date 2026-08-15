@@ -9,7 +9,7 @@ import {
   mapTestUserRowToPublicSeller,
 } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +69,7 @@ export async function GET(
       let tradeLocationLine: string | null = null;
       try {
         const defaults = await getUserAddressDefaults(sbAny, userId);
-        tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
+        tradeLocationLine = resolveUserAddressTitle(defaults.master);
       } catch {
         /* user_addresses 미구성·RLS 등 — 생략 */
       }

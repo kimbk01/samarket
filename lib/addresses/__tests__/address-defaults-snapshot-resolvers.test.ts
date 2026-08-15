@@ -63,7 +63,7 @@ function snapshot(partial: Partial<AddressDefaultsSnapshot>): AddressDefaultsSna
 }
 
 describe("address-defaults-snapshot-resolvers", () => {
-  it("uses neighborhoodFromLife when exploration master SHORT chip is empty", () => {
+  it("does not fall back to neighborhoodFromLife when master TITLE is empty", () => {
     const line = resolveExplorationAddressLineFromSnapshot(
       snapshot({
         defaults: {
@@ -83,10 +83,10 @@ describe("address-defaults-snapshot-resolvers", () => {
         neighborhoodFromLife: { complete: false, label: "Quezon City · Diliman" },
       })
     );
-    expect(line).toBe("Quezon City · Diliman");
+    expect(line).toBeNull();
   });
 
-  it("picks master row for stores header SHORT chip", () => {
+  it("picks master row for stores header TITLE chip", () => {
     const state = resolveDeliveryHomeHeaderStateFromSnapshot(
       snapshot({
         defaults: {

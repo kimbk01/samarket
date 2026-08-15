@@ -16,20 +16,14 @@ export function parseLatLngRow(row: unknown): { lat: number; lng: number } | nul
 }
 
 /**
- * 거래 희망 장소 지도 초기 핀 좌표 — 주소 기본값에서 `master`→`trade`→`life`→`delivery` 순
- * (첫 유효 위경도). (`TradeDefaultLocationBlock` 대표 문구는 master·trade 만 씀 — 용도가 다름.)
+ * 거래 희망 장소 지도 초기 핀 좌표 — current USER address authority인 master만.
  */
 export function pickTradeMeetSpotCenterFromAddressDefaults(
   snapshot: AddressDefaultsSnapshot | null | undefined
 ): { lat: number; lng: number } | null {
   if (!snapshot?.ok || !snapshot.defaults) return null;
   const defs = snapshot.defaults as Record<string, unknown>;
-  return (
-    parseLatLngRow(defs.master) ??
-    parseLatLngRow(defs.trade) ??
-    parseLatLngRow(defs.life) ??
-    parseLatLngRow(defs.delivery)
-  );
+  return parseLatLngRow(defs.master);
 }
 
 /** 프로필 지도 핀(위치 선택) — 주소록 좌표가 없을 때 보조 */

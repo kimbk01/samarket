@@ -10,7 +10,7 @@ import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { buildMypageAddressesHref, buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { formatUserAddressShort } from "@/lib/addresses/user-address-display-ssot";
+import { formatUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
@@ -27,7 +27,7 @@ function applyAddressToTradeRegion(
   addr: UserAddressDTO,
   sync: (regionId: string, cityId: string) => void,
 ): { line: string | null; regionId: string; cityId: string } {
-  const line = formatUserAddressShort(addr)?.trim() ?? "";
+  const line = formatUserAddressTitle(addr)?.trim() ?? "";
   const inferred = mapUserAddressToAppLocation(addr);
   if (inferred) sync(inferred.regionId, inferred.cityId);
   return {

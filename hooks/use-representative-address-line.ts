@@ -131,7 +131,7 @@ export function useRepresentativeAddressPresentation(opts?: {
 }
 
 /**
- * 대표(master) 주소 — 헤더 칩용 SHORT 한 줄(상호/건물명, 없으면 Subdivision/Village, 없으면 주소 headline).
+ * 대표(master) 주소 — 헤더 칩용 TITLE 한 줄(place/building → street/road → Barangay).
  * 경로 변경 시 **이전 줄을 유지한 채** 백그라운드 갱신(TTL 캐시·`silent` fetch) — 탭 전환마다「불러오는 중」깜빡임 방지.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {

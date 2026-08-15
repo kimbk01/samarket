@@ -117,7 +117,7 @@ describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
   });
 });
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
-  it("SHORT chip is building name, not the compact PH book string", () => {
+  it("TITLE chip is building name, not the compact PH book string", () => {
     const row = addr({
       id: "office1",
       labelType: "office",
@@ -139,19 +139,20 @@ describe("resolveDeliveryHomeHeaderDisplayLine", () => {
     expect(line).not.toContain("Quezon City");
   });
 
-  it("SHORT chip falls back to neighborhood when there is no building", () => {
+  it("TITLE chip falls back to Barangay before neighborhood", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
       addr({
         id: "a5",
         buildingName: null,
-        neighborhoodName: "Malate",
+        barangay: "Malate",
+        neighborhoodName: "Ermita",
         detailAddress: "1003 - COD",
       }),
     );
-    expect(line).toBe("Malate");
+    expect(line).toBe("Barangay Malate");
   });
 
-  it("SHORT chip falls back to street/formatted headline instead of showing not-set", () => {
+  it("TITLE chip falls back to street/formatted headline instead of showing not-set", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
       addr({
         id: "a6",

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ use
       let tradeLocationLine: string | null = null;
       try {
         const defaults = await getUserAddressDefaults(sbAny, profile.id);
-        tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
+        tradeLocationLine = resolveUserAddressTitle(defaults.master);
       } catch {
         /* ignore */
       }

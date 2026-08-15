@@ -21,14 +21,12 @@ export function AddressRowCard(props: {
   onDelete: () => void;
   /** 본문 탭 — 대표 주소(`isDefaultMaster`)만. 매장 연결 주소는 부모에서 넘기지 않는다. */
   onSetAsRepresentative?: () => void;
-  /** 배달 주소(`isDefaultDelivery`)만. 대표와 독립. */
-  onSetAsDelivery?: () => void;
   busyId: string | null;
   containerClassName?: string;
   /** 승인 매장 id → `store_name` (Store Address 뱃지·헤더 `매장 · …` 에 사용) */
   approvedStoresById?: ReadonlyMap<string, string>;
 }) {
-  const { row, onEdit, onDelete, onSetAsRepresentative, onSetAsDelivery, busyId: globalBusy, containerClassName, approvedStoresById } = props;
+  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName, approvedStoresById } = props;
   const { t } = useI18n();
   const rowBusy = globalBusy === row.id;
   const isPh = isPhUserAddressRow(row);
@@ -63,8 +61,6 @@ export function AddressRowCard(props: {
     <AddressListRowBody
       row={row}
       approvedStoresById={approvedStoresById}
-      showTapRepresentative={Boolean(onSetAsRepresentative)}
-      showDefaultDeliveryBadge
       badgeStyle="starbucks"
     />
   );
@@ -96,17 +92,6 @@ export function AddressRowCard(props: {
         </div>
       }
       <div className="flex shrink-0 items-start justify-end gap-0 self-start pt-0.5">
-        {onSetAsDelivery && !row.isDefaultDelivery ? (
-          <button
-            type="button"
-            onClick={onSetAsDelivery}
-            disabled={rowBusy}
-            className="sam-header-action flex h-10 max-w-[4.75rem] items-center justify-center px-1 text-center text-[10px] font-semibold leading-tight text-sam-muted hover:text-sam-primary disabled:opacity-40"
-            aria-label={t("addr_ui_set_as_delivery")}
-          >
-            {t("addr_ui_set_as_delivery")}
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={onEdit}

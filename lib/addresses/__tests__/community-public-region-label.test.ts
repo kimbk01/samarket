@@ -6,7 +6,7 @@ import {
   publicRegionLabelLeaksPrivateDetail,
   sanitizePublicRegionLabel,
 } from "@/lib/addresses/community-public-region-label";
-import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 
 function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO {
@@ -65,11 +65,12 @@ describe("community public region writer", () => {
     expect(COMMUNITY_PUBLIC_REGION_FALLBACK).toBe("동네");
   });
 
-  it("master exploration line does not include detail", () => {
-    const line = buildExplorationRegionSubtitleLine(
+  it("master TITLE does not include detail", () => {
+    const line = resolveUserAddressTitle(
       addr({ id: "m1", detailAddress: "Unit 1203 / Room 4", unitFloorRoom: "Unit 1203" }),
     );
     expect(line ?? "").not.toMatch(/Unit 1203|Room 4/i);
+    expect(line).toBe("Commonwealth Tower");
     expect(sanitizePublicRegionLabel(line)).toBeTruthy();
   });
 

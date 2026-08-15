@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { summarizeLifeDefaultAppLocation } from "@/lib/addresses/life-default-location-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 생활·거래·배달 기본지 — `user_addresses` 전용. `profiles` 위치와 자동 동기화되지 않음. @see `lib/addresses/address-source-architecture.ts` */
+/** USER current address snapshot — current authority is `user_addresses.is_default_master`. */
 
 export async function GET() {
   const userId = await getRouteUserId();
@@ -20,8 +19,16 @@ export async function GET() {
   }
   try {
     const defaults = await getUserAddressDefaults(sb, userId);
-    const neighborhoodFromLife = summarizeLifeDefaultAppLocation(defaults.life);
-    return NextResponse.json({ ok: true, defaults, neighborhoodFromLife });
+    return NextResponse.json({
+      ok: true,
+      defaults: {
+        master: defaults.master,
+        life: null,
+        trade: null,
+        delivery: null,
+      },
+      neighborhoodFromLife: null,
+    });
   } catch (e) {
     console.error("[address-defaults]", e);
     return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });

@@ -107,15 +107,6 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
             <p className="mt-1 text-xs text-[#667085]">
               {addr.recipientName || empty} · {addr.phoneNumber || empty}
             </p>
-            <p className="mt-1 text-xs text-[#667085]">
-              {[
-                addr.isDefaultLife ? safeT("admin_users_cc_address_life", { fallbackKo: "생활", fallbackEn: "Life" }) : null,
-                addr.isDefaultTrade ? safeT("admin_users_cc_address_trade", { fallbackKo: "거래", fallbackEn: "Trade" }) : null,
-                addr.isDefaultDelivery ? safeT("admin_users_cc_address_delivery", { fallbackKo: "배달", fallbackEn: "Delivery" }) : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || empty}
-            </p>
             <p className="mt-1 text-xs text-[#98a2b3]">
               {safeT("admin_users_lite_label_updated_at", { fallbackKo: "수정", fallbackEn: "Updated" })}: {fmt(addr.updatedAt)}
             </p>

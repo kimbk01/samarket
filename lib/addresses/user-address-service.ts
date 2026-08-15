@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getLocationLabel, getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
+import { REGIONS } from "@/lib/products/form-options";
 import {
   payloadToInsertRow,
   payloadToUpdatePatch,
@@ -13,7 +13,6 @@ import type {
 } from "@/lib/addresses/user-address-types";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { decodeLocationOnlyAddressNicknameId } from "@/lib/addresses/location-only-address-nickname";
-import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 import { validatePlacesAddressPayload } from "@/lib/addresses/address-api-validation";
 import {
   resolveUserAddressWritePayloadForShop,
@@ -27,11 +26,7 @@ const SEL =
 
 function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   return [...rows].sort((a, b) => {
-    const score = (x: UserAddressDTO) =>
-      (x.isDefaultMaster ? 0 : 4) +
-      (x.isDefaultLife ? 0 : 1) +
-      (x.isDefaultTrade ? 0 : 0.5) +
-      (x.isDefaultDelivery ? 0 : 0.25);
+    const score = (x: UserAddressDTO) => (x.isDefaultMaster ? 0 : 4);
     const d = score(a) - score(b);
     if (d !== 0) return d;
     const au = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
@@ -102,7 +97,7 @@ export function userAddressInsertPayloadWithoutDefaultFlags(
   };
 }
 
-/** 매장 연결 행이 대표인데 일반 주소가 있으면 대표·기본 플래그를 일반 주소 한 건으로 옮긴다(과거 자동 우선 로직으로 꼬인 데이터 보정). */
+/** 매장 연결 행이 대표인데 일반 주소가 있으면 대표 플래그만 일반 주소 한 건으로 옮긴다. */
 async function repairStoreLinkedMasterWhenGeneralAddressExists(
   sb: SupabaseClient<any>,
   userId: string,
@@ -120,21 +115,14 @@ async function repairStoreLinkedMasterWhenGeneralAddressExists(
   });
   const pick = ordered[0];
   await clearDefaultColumn(sb, userId, "is_default_master");
-  await clearDefaultColumn(sb, userId, "is_default_life");
-  await clearDefaultColumn(sb, userId, "is_default_trade");
-  await clearDefaultColumn(sb, userId, "is_default_delivery");
   const { error } = await sb
     .from("user_addresses")
     .update({
       is_default_master: true,
-      is_default_life: true,
-      is_default_trade: true,
-      is_default_delivery: true,
     })
     .eq("id", pick.id)
     .eq("user_id", userId);
   if (error) throwUserAddressWriteError(error, "address_set_master_failed");
-  await syncProfileRegionFromLifeDefault(sb, userId);
   return true;
 }
 
@@ -213,10 +201,10 @@ export async function getUserAddressDefaults(
 
 /**
  * 배달 ETA·checkout 자동 채움에 쓸 주소 한 건.
- * `is_default_delivery` 만. master/trade/life 로 몰래 대체하지 않는다.
+ * Current USER delivery address authority is the master row.
  */
 export function pickAddressRowForDeliveryRouting(defs: UserAddressDefaultsDTO): UserAddressDTO | null {
-  return defs.delivery?.id ? defs.delivery : null;
+  return defs.master?.id ? defs.master : null;
 }
 
 /** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
@@ -226,7 +214,7 @@ export type BulkRegionPatchResolvedLocation = {
   regionLabel: string;
   cityLabel: string;
   barangayLabel: string | null;
-  source: "master_address" | "trade_address" | "life_address" | "profile";
+  source: "master_address";
 };
 
 function resolveLocationFromUserAddressDto(
@@ -246,40 +234,14 @@ function resolveLocationFromUserAddressDto(
 
 /**
  * 내 거래 글 일괄 지역 패치·유사 배치용 좌표 한 벌.
- * 대표(master) → 거래 기본 → 생활 기본 → `profiles.region_*` (프로필 동네)
+ * Current USER address authority인 대표(master)에서만 derive한다.
  */
 export async function resolveBulkRegionPatchLocationForUser(
   sb: SupabaseClient<any>,
   userId: string,
 ): Promise<BulkRegionPatchResolvedLocation | null> {
   const defs = await getUserAddressDefaults(sb, userId);
-  const fromBook =
-    resolveLocationFromUserAddressDto(defs.master, "master_address") ??
-    resolveLocationFromUserAddressDto(defs.trade, "trade_address") ??
-    resolveLocationFromUserAddressDto(defs.life, "life_address");
-  if (fromBook) return fromBook;
-
-  const { data: profile } = await sb
-    .from("profiles")
-    .select("region_code, region_name")
-    .eq("id", userId)
-    .maybeSingle();
-  const profileLocation = decodeProfileAppLocationPair(
-    typeof profile?.region_code === "string" ? profile.region_code : null,
-    typeof profile?.region_name === "string" ? profile.region_name : null,
-  );
-  if (!profileLocation.regionId || !profileLocation.cityId) return null;
-  const regionId = profileLocation.regionId;
-  const cityId = profileLocation.cityId;
-  return {
-    regionId,
-    cityId,
-    regionLabel: REGIONS.find((x) => x.id === regionId)?.name ?? regionId,
-    cityLabel:
-      REGIONS.find((x) => x.id === regionId)?.cities.find((c) => c.id === cityId)?.name ?? cityId,
-    barangayLabel: null,
-    source: "profile",
-  };
+  return resolveLocationFromUserAddressDto(defs.master, "master_address");
 }
 
 /**
@@ -349,33 +311,6 @@ async function applyDefaultFlagsOnCreate(
       .eq("user_id", userId);
     if (error) throwUserAddressWriteError(error, "address_set_master_failed");
   }
-  if (p.isDefaultLife) {
-    await clearDefaultColumn(sb, userId, "is_default_life");
-    const { error } = await sb
-      .from("user_addresses")
-      .update({ is_default_life: true })
-      .eq("id", addressId)
-      .eq("user_id", userId);
-    if (error) throwUserAddressWriteError(error, "address_update_failed");
-  }
-  if (p.isDefaultTrade) {
-    await clearDefaultColumn(sb, userId, "is_default_trade");
-    const { error } = await sb
-      .from("user_addresses")
-      .update({ is_default_trade: true })
-      .eq("id", addressId)
-      .eq("user_id", userId);
-    if (error) throwUserAddressWriteError(error, "address_update_failed");
-  }
-  if (p.isDefaultDelivery) {
-    await clearDefaultColumn(sb, userId, "is_default_delivery");
-    const { error } = await sb
-      .from("user_addresses")
-      .update({ is_default_delivery: true })
-      .eq("id", addressId)
-      .eq("user_id", userId);
-    if (error) throwUserAddressWriteError(error, "address_update_failed");
-  }
 }
 
 /** 신규 주소에 기본 플래그가 하나도 없으면 첫 주소를 대표(`is_default_master`)만 지정 */
@@ -393,12 +328,7 @@ async function ensureSomeoneDefaultIfFirst(
   if (cErr) throwUserAddressWriteError(cErr, "address_create_failed");
   const n = count ?? 0;
   if (n !== 1) return;
-  const any =
-    p.isDefaultMaster ||
-    p.isDefaultLife ||
-    p.isDefaultTrade ||
-    p.isDefaultDelivery;
-  if (any) return;
+  if (p.isDefaultMaster) return;
   await sb
     .from("user_addresses")
     .update({
@@ -406,36 +336,6 @@ async function ensureSomeoneDefaultIfFirst(
     })
     .eq("id", addressId)
     .eq("user_id", userId);
-}
-
-export async function syncProfileRegionFromLifeDefault(
-  sb: SupabaseClient<any>,
-  userId: string
-): Promise<void> {
-  const { data, error } = await sb
-    .from("user_addresses")
-    .select("app_region_id,app_city_id,neighborhood_name")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .eq("is_default_life", true)
-    .maybeSingle();
-  if (error || !data) return;
-  const r = data as Record<string, unknown>;
-  const rid = typeof r.app_region_id === "string" ? r.app_region_id.trim() : "";
-  const cid = typeof r.app_city_id === "string" ? r.app_city_id.trim() : "";
-  const nn = typeof r.neighborhood_name === "string" ? r.neighborhood_name.trim() : "";
-  if (!rid) return;
-  const c = cid.trim();
-  const label =
-    nn ||
-    (c ? getLocationLabelIfValid(rid, c) : null) ||
-    (c ? getLocationLabel(rid, c) : REGIONS.find((x) => x.id === rid)?.name) ||
-    rid;
-  const code = c ? `${rid}|${c}` : rid;
-  await sb
-    .from("profiles")
-    .update({ region_code: code, region_name: label })
-    .eq("id", userId);
 }
 
 export async function markUserAddressUsed(
@@ -478,6 +378,9 @@ export async function setUserAddressAsDefault(
   if (!next.master && !next.life && !next.trade && !next.delivery) {
     next.master = true;
   }
+  if (next.life || next.trade || next.delivery) {
+    next.master = true;
+  }
   if (next.master) {
     await assertStoreAddressNotForcedAsMasterWhenGeneralExists(sb, userId, targetPick);
   }
@@ -485,18 +388,6 @@ export async function setUserAddressAsDefault(
   if (next.master) {
     await clearDefaultColumn(sb, userId, "is_default_master");
     patch.is_default_master = true;
-  }
-  if (next.life) {
-    await clearDefaultColumn(sb, userId, "is_default_life");
-    patch.is_default_life = true;
-  }
-  if (next.trade) {
-    await clearDefaultColumn(sb, userId, "is_default_trade");
-    patch.is_default_trade = true;
-  }
-  if (next.delivery) {
-    await clearDefaultColumn(sb, userId, "is_default_delivery");
-    patch.is_default_delivery = true;
   }
   const { data, error } = await sb
     .from("user_addresses")
@@ -507,7 +398,6 @@ export async function setUserAddressAsDefault(
     .single();
   if (error || !data) throwUserAddressWriteError(error, "address_set_master_failed");
   await repairStoreLinkedMasterAfterWrite(sb, userId);
-  await syncProfileRegionFromLifeDefault(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).maybeSingle();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
 }
@@ -537,7 +427,6 @@ export async function createUserAddress(
   await applyDefaultFlagsOnCreate(sb, userId, dto.id, pWithNick);
   await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, pWithNick);
   await repairStoreLinkedMasterAfterWrite(sb, userId);
-  await syncProfileRegionFromLifeDefault(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", dto.id).single();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
 }
@@ -609,35 +498,7 @@ export async function updateUserAddress(
       .eq("user_id", userId);
     if (eM) throwUserAddressWriteError(eM, "address_set_master_failed");
   }
-  if (p.isDefaultLife === true) {
-    await clearDefaultColumn(sb, userId, "is_default_life");
-    const { error: eL } = await sb
-      .from("user_addresses")
-      .update({ is_default_life: true })
-      .eq("id", id)
-      .eq("user_id", userId);
-    if (eL) throwUserAddressWriteError(eL, "address_update_failed");
-  }
-  if (p.isDefaultTrade === true) {
-    await clearDefaultColumn(sb, userId, "is_default_trade");
-    const { error: eT } = await sb
-      .from("user_addresses")
-      .update({ is_default_trade: true })
-      .eq("id", id)
-      .eq("user_id", userId);
-    if (eT) throwUserAddressWriteError(eT, "address_update_failed");
-  }
-  if (p.isDefaultDelivery === true) {
-    await clearDefaultColumn(sb, userId, "is_default_delivery");
-    const { error: eD } = await sb
-      .from("user_addresses")
-      .update({ is_default_delivery: true })
-      .eq("id", id)
-      .eq("user_id", userId);
-    if (eD) throwUserAddressWriteError(eD, "address_update_failed");
-  }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
-  await syncProfileRegionFromLifeDefault(sb, userId);
   const { data, error: e2 } = await sb.from("user_addresses").select(SEL).eq("id", id).single();
   if (e2 || !data) throw new Error("address_not_found");
   return rowToUserAddressDTO(data as Record<string, unknown>);
@@ -671,33 +532,15 @@ export async function deleteUserAddress(
   const next = rest?.[0] as Record<string, unknown> | undefined;
   if (!next) {
     await repairStoreLinkedMasterAfterWrite(sb, userId);
-    await syncProfileRegionFromLifeDefault(sb, userId);
     return;
   }
 
   const wasMaster = !!(cur as Record<string, unknown>).is_default_master;
-  const wasLife = !!(cur as Record<string, unknown>).is_default_life;
-  const wasTrade = !!(cur as Record<string, unknown>).is_default_trade;
-  const wasDel = !!(cur as Record<string, unknown>).is_default_delivery;
   const nid = String(next.id);
 
   if (wasMaster) {
     await clearDefaultColumn(sb, userId, "is_default_master");
     await sb.from("user_addresses").update({ is_default_master: true }).eq("id", nid).eq("user_id", userId);
   }
-  if (wasLife) {
-    await clearDefaultColumn(sb, userId, "is_default_life");
-    await sb.from("user_addresses").update({ is_default_life: true }).eq("id", nid).eq("user_id", userId);
-  }
-  if (wasTrade) {
-    await clearDefaultColumn(sb, userId, "is_default_trade");
-    await sb.from("user_addresses").update({ is_default_trade: true }).eq("id", nid).eq("user_id", userId);
-  }
-  if (wasDel) {
-    await clearDefaultColumn(sb, userId, "is_default_delivery");
-    await sb.from("user_addresses").update({ is_default_delivery: true }).eq("id", nid).eq("user_id", userId);
-  }
-
   await repairStoreLinkedMasterAfterWrite(sb, userId);
-  await syncProfileRegionFromLifeDefault(sb, userId);
 }

@@ -1,4 +1,3 @@
-import { summarizeLifeDefaultAppLocation } from "@/lib/addresses/life-default-location-summary";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -18,11 +17,11 @@ export async function loadAddressDefaultsSnapshotServer(
       status: 200,
       defaults: {
         master: defaults.master,
-        life: defaults.life,
-        trade: defaults.trade,
-        delivery: defaults.delivery,
+        life: null,
+        trade: null,
+        delivery: null,
       },
-      neighborhoodFromLife: summarizeLifeDefaultAppLocation(defaults.life ?? null),
+      neighborhoodFromLife: null,
     };
   } catch {
     return null;

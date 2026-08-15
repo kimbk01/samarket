@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCartDeliverySelectionValid,
   resolveCartDefaultDeliverySelectionId,
   userAddressDeliverySelectionId,
 } from "@/lib/store-commerce/delivery-address-book";
@@ -51,13 +52,22 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
 }
 
 describe("resolveCartDefaultDeliverySelectionId", () => {
-  it("uses isDefaultDelivery only and does not fall back to master", () => {
+  it("uses master even when a different legacy delivery default exists", () => {
     const master = addr({ id: "m1", isDefaultMaster: true });
     const delivery = addr({ id: "d1", isDefaultDelivery: true });
     expect(resolveCartDefaultDeliverySelectionId([master, delivery], null)).toBe(
-      userAddressDeliverySelectionId("d1"),
+      userAddressDeliverySelectionId("m1"),
     );
-    expect(resolveCartDefaultDeliverySelectionId([master], { userAddressId: "m1" })).toBeNull();
+    expect(resolveCartDefaultDeliverySelectionId([master], { userAddressId: "m1" })).toBe(
+      "__kasama_profile_delivery__",
+    );
     expect(resolveCartDefaultDeliverySelectionId([], { userAddressId: "m1" })).toBeNull();
+  });
+
+  it("rejects non-master user address selections", () => {
+    const master = addr({ id: "m1", isDefaultMaster: true });
+    const nonMaster = addr({ id: "d1", isDefaultDelivery: true });
+    expect(isCartDeliverySelectionValid(userAddressDeliverySelectionId("m1"), [master, nonMaster], null)).toBe(true);
+    expect(isCartDeliverySelectionValid(userAddressDeliverySelectionId("d1"), [master, nonMaster], null)).toBe(false);
   });
 });

@@ -233,31 +233,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     }
   }
 
-  async function setAsDelivery(id: string) {
-    const row = list.find((a) => a.id === id);
-    if (!row || row.isDefaultDelivery) return;
-    setBusyId(id);
-    try {
-      const res = await fetch(`/api/me/addresses/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isDefaultDelivery: true,
-        }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        alert(translateUserAddressApiError(j.error, t, "addr_ui_set_delivery_failed"));
-        return;
-      }
-      const rows = await commitUserAddressListAfterMutation();
-      setList(rows);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   const addressListBody = (
     <>
       {loadErr ? (
@@ -302,7 +277,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                     ? undefined
                     : () => void setAsRepresentative(row.id)
                 }
-                onSetAsDelivery={() => void setAsDelivery(row.id)}
                 onEdit={() => openEdit(row)}
                 onDelete={() => void removeRow(row.id)}
               />
