@@ -14,9 +14,13 @@ import {
   formatDeliveryAddress,
   formatPublicAddress,
 } from "@/lib/addresses/user-address-format";
+import { resolveUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 import { listUserAddresses, createUserAddress } from "@/lib/addresses/user-address-service";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
-import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/community-public-region-label";
+import {
+  publicRegionLabelLeaksPrivateDetail,
+  resolveCommunityPublicRegionLabelForUser,
+} from "@/lib/addresses/community-public-region-label";
 import { allowEditTradeLocationSnapshot } from "@/lib/trade/trade-lifecycle-policy";
 import type { UserAddressDTO, UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 
@@ -207,7 +211,7 @@ async function gateAddressAdd(sb: SupabaseClient, cookieHeader: string, userId: 
     useForLife: true,
     useForTrade: true,
     useForDelivery: true,
-    isDefaultMaster: false,
+    isDefaultMaster: true,
     isDefaultLife: false,
     isDefaultTrade: false,
     isDefaultDelivery: false,
@@ -241,7 +245,7 @@ async function gateAddressAdd(sb: SupabaseClient, cookieHeader: string, userId: 
     useForLife: true,
     useForTrade: true,
     useForDelivery: true,
-    isDefaultMaster: false,
+    isDefaultMaster: true,
     isDefaultDelivery: false,
   };
 
@@ -338,45 +342,38 @@ function asAddressDto(raw: any): UserAddressDTO | null {
 }
 
 async function gateCommunity(sb: SupabaseClient, userId: string, row: UserAddressDTO | null): Promise<Gate> {
-  // Prefer PUBLIC formatter on the QA Pasig row (product contract).
-  const pub = row ? formatPublicAddress(row) : null;
-  const leak = publicLeak(pub);
-  const cityOnly = Boolean(pub) && !leak && !/,/.test(pub || "");
+  const expectedTitle = resolveUserAddressTitle(row);
   const label = await resolveCommunityPublicRegionLabelForUser(sb, userId);
   return {
-    status: pf(cityOnly),
+    status: pf(Boolean(expectedTitle) && label === expectedTitle),
     detail: {
-      publicFromRow: pub,
+      expectedTitle,
       communityResolverLabel: label,
-      leak: Boolean(leak),
-      note: "PUBLIC authority = formatPublicAddress(row); resolver may lag until master set",
+      note: "Community current user address label = master TITLE",
     },
   };
 }
 
 async function gateTrade(cookieHeader: string, row: UserAddressDTO | null): Promise<Gate> {
   const defaults = await apiJson(cookieHeader, "GET", "/api/me/address-defaults");
-  const trade = asAddressDto(defaults.json?.defaults?.trade || defaults.json?.trade || null);
   const master = asAddressDto(defaults.json?.defaults?.master || defaults.json?.master || null);
-  const source = trade || master || row;
-  const pubFromQa = row ? formatPublicAddress(row) : null;
-  const pubFromSource = source ? formatPublicAddress(source) : null;
-  const pub = pubFromQa || pubFromSource;
+  const source = master || row;
+  const title = resolveUserAddressTitle(source);
   const mapped = source ? mapUserAddressToAppLocation(source) : null;
   const mappedQa = row ? mapUserAddressToAppLocation(row) : null;
   const regionId = source?.appRegionId || mapped?.regionId || mappedQa?.regionId || null;
   const cityId = source?.appCityId || mapped?.cityId || mappedQa?.cityId || null;
   const regionErrorRisk = !regionId || !cityId;
-  const leak = publicLeak(pub);
   return {
-    status: pf(Boolean(pub) && !leak && !regionErrorRisk),
+    status: pf(Boolean(title) && !regionErrorRisk),
     detail: {
-      public: pub,
-      publicFromQa: pubFromQa,
-      publicFromDefaults: pubFromSource,
+      title,
       appRegionId: regionId,
       appCityId: cityId,
       regionErrorRisk,
+      legacyTradeDefaultReturned: Boolean(defaults.json?.defaults?.trade),
+      legacyLifeDefaultReturned: Boolean(defaults.json?.defaults?.life),
+      legacyDeliveryDefaultReturned: Boolean(defaults.json?.defaults?.delivery),
       defaultsHttp: defaults.status,
     },
   };
@@ -415,12 +412,14 @@ function gateTradeMeetSpot(): Gate {
 async function gateDelivery(row: UserAddressDTO | null, cookieHeader: string): Promise<Gate> {
   const del = row ? formatDeliveryAddress(row) : "";
   const defaults = await apiJson(cookieHeader, "GET", "/api/me/address-defaults");
-  const delivery = defaults.json?.defaults?.delivery || defaults.json?.delivery || null;
+  const master = defaults.json?.defaults?.master || null;
   return {
-    status: pf(Boolean(row) && Boolean(del) && del.split("\n").length >= 4),
+    status: pf(Boolean(row?.id) && Boolean(del) && del.split("\n").length >= 4 && master?.id === row?.id),
     detail: {
       deliveryLines: del.split("\n"),
-      deliveryDefaultId: delivery?.id ?? null,
+      masterId: master?.id ?? null,
+      rowId: row?.id ?? null,
+      legacyDeliveryDefaultId: defaults.json?.defaults?.delivery?.id ?? null,
       bookCountryExcluded: row ? !countryLeak(formatAddressBookLine(row)) : null,
       fullDetailVisible: del.split("\n").length >= 4,
       defaultsHttp: defaults.status,
@@ -481,24 +480,18 @@ async function gateCheckout(
 }
 
 function gatePickerMatrix(): Gate {
-  const files = {
-    delivery: fs.readFileSync(path.join(ROOT, "components/addresses/DeliveryStyleAddressPickerSheet.tsx"), "utf8"),
-    trade: fs.readFileSync(path.join(ROOT, "components/write/shared/TradeDefaultLocationBlock.tsx"), "utf8"),
-    philife: fs.readFileSync(path.join(ROOT, "components/philife/PhilifeHeaderAddressMenuButton.tsx"), "utf8"),
-    cart: fs.readFileSync(path.join(ROOT, "components/stores/cart/StoreCartCheckoutAddressRowBody.tsx"), "utf8"),
-    list: fs.readFileSync(path.join(ROOT, "components/addresses/AddressBookPickerList.tsx"), "utf8"),
-    cache: fs.readFileSync(path.join(ROOT, "lib/addresses/address-list-client-cache.ts"), "utf8"),
-  };
-  const deliveryOk = files.delivery.includes("AddressBookPickerList");
-  const tradeOk = files.trade.includes("AddressBookPickerList");
-  const philifeOk =
-    files.philife.includes("fetchMeAddressesListSingleFlight") && files.philife.includes("AddressUserRowLineText");
-  const cartOk = files.cart.includes("AddressUserRowLineText");
-  const sharedList = files.list.includes("AddressListRowBody");
-  const sharedCache = files.cache.includes("fetchMeAddressesListSingleFlight");
+  const missing = (rel: string) => !fs.existsSync(path.join(ROOT, rel));
+  const trade = fs.readFileSync(path.join(ROOT, "components/write/shared/TradeDefaultLocationBlock.tsx"), "utf8");
+  const philife = fs.readFileSync(path.join(ROOT, "components/philife/PhilifeHeaderAddressMenuButton.tsx"), "utf8");
+  const deliveryOk = missing("components/addresses/DeliveryStyleAddressPickerSheet.tsx");
+  const listOk = missing("components/addresses/AddressBookPickerList.tsx");
+  const editorOk = missing("components/addresses/AddressEditorSheet.tsx");
+  const fineTuneOk = missing("components/addresses/AddressFineTuneSheet.tsx");
+  const tradeOk = trade.includes("formatUserAddressTitle") && !trade.includes("AddressBookPickerList");
+  const philifeOk = philife.includes("router.push(href)") && !philife.includes("fetchMeAddressesListSingleFlight");
   return {
-    status: pf(deliveryOk && tradeOk && philifeOk && cartOk && sharedList && sharedCache),
-    detail: { deliveryOk, tradeOk, philifeOk, cartOk, sharedList, sharedCache },
+    status: pf(deliveryOk && listOk && editorOk && fineTuneOk && tradeOk && philifeOk),
+    detail: { deliveryOk, listOk, editorOk, fineTuneOk, tradeOk, philifeOk },
   };
 }
 
@@ -611,9 +604,15 @@ async function main() {
 
   // PUBLIC / DELIVERY summary
   if (qaRow) {
+    const title = resolveUserAddressTitle(qaRow);
     report.public = {
       value: formatPublicAddress(qaRow),
       leak: publicLeak(formatPublicAddress(qaRow)),
+      note: "legacy public formatter retained for non-current public taxonomy, not current USER address authority",
+    };
+    report.title = {
+      value: title,
+      leaksDetail: publicRegionLabelLeaksPrivateDetail(title ?? ""),
     };
     report.delivery = {
       lines: formatDeliveryAddress(qaRow).split("\n"),
