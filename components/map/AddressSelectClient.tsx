@@ -9,8 +9,10 @@ import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import {
-  preserveSelectedPlaceIdentity,
+  applySelectedPlaceIdentity,
+  resolvePinMoveAgainstSelectedIdentity,
   selectedPlaceIdentityFromDraft,
+  stripSelectedPlaceIdentity,
   type CanonicalAddressDraft,
   type CanonicalPreferredPlace,
 } from "@/lib/addresses/canonical-address-draft";
@@ -61,13 +63,40 @@ export type AddressLocationPickResult = {
   placeId: string | null;
 };
 
+type ReverseGeocodeState = {
+  text: string;
+  busy: boolean;
+  /** Selected POI place_id only — never street geocode id. */
+  placeId: string | null;
+  needsResolution: boolean;
+  selectedPlaceName: string | null;
+  pinLocationText: string | null;
+  locationDraft: CanonicalAddressDraft | null;
+  selectedIdentity: CanonicalPreferredPlace | null;
+};
+
+const EMPTY_REVERSE: ReverseGeocodeState = {
+  text: "",
+  busy: false,
+  placeId: null,
+  needsResolution: false,
+  selectedPlaceName: null,
+  pinLocationText: null,
+  locationDraft: null,
+  selectedIdentity: null,
+};
+
+function draftDisplayText(draft: CanonicalAddressDraft): string {
+  const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
+  return [lines.title, lines.addressLine].filter(Boolean).join("\n");
+}
+
 function useReverseGeocode(
   marker: LatLng,
   preferredRef: { current: CanonicalPreferredPlace | null },
-): { text: string; busy: boolean; placeId: string | null } {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [placeId, setPlaceId] = useState<string | null>(null);
+  resolutionTick: number,
+): ReverseGeocodeState {
+  const [state, setState] = useState<ReverseGeocodeState>(EMPTY_REVERSE);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +108,7 @@ function useReverseGeocode(
           return;
         }
         if (cancelled) return;
-        setBusy(true);
+        setState((prev) => ({ ...prev, busy: true }));
         try {
           const selectedIdentity = preferredRef.current;
           const locationDraft = await resolveCanonicalAddressFromLatLng(
@@ -89,16 +118,51 @@ function useReverseGeocode(
           );
           if (cancelled) return;
           if (!locationDraft) {
-            setText("");
-            setPlaceId(null);
+            setState({ ...EMPTY_REVERSE, busy: false });
             return;
           }
-          const draft = preserveSelectedPlaceIdentity(locationDraft, selectedIdentity);
-          const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
-          setPlaceId(draft.placeId);
-          setText([lines.title, lines.addressLine].filter(Boolean).join("\n"));
+          const resolved = resolvePinMoveAgainstSelectedIdentity(locationDraft, selectedIdentity);
+          if (resolved.kind === "auto_keep") {
+            setState({
+              text: draftDisplayText(resolved.draft),
+              busy: false,
+              placeId: resolved.draft.placeId,
+              needsResolution: false,
+              selectedPlaceName: null,
+              pinLocationText: null,
+              locationDraft: resolved.draft,
+              selectedIdentity: selectedIdentity,
+            });
+            return;
+          }
+          if (resolved.kind === "location_only") {
+            preferredRef.current = null;
+            setState({
+              text: draftDisplayText(resolved.draft),
+              busy: false,
+              placeId: null,
+              needsResolution: false,
+              selectedPlaceName: null,
+              pinLocationText: null,
+              locationDraft: resolved.draft,
+              selectedIdentity: null,
+            });
+            return;
+          }
+          setState({
+            text: draftDisplayText(resolved.locationDraft),
+            busy: false,
+            placeId: null,
+            needsResolution: true,
+            selectedPlaceName: resolved.selectedIdentity.placeName,
+            pinLocationText: draftDisplayText(resolved.locationDraft),
+            locationDraft: resolved.locationDraft,
+            selectedIdentity: resolved.selectedIdentity,
+          });
         } finally {
-          if (!cancelled) setBusy(false);
+          if (!cancelled) {
+            setState((prev) => (prev.busy ? { ...prev, busy: false } : prev));
+          }
         }
       })();
     }, 280);
@@ -106,9 +170,9 @@ function useReverseGeocode(
       cancelled = true;
       clearTimeout(t);
     };
-  }, [marker, preferredRef]);
+  }, [marker, preferredRef, resolutionTick]);
 
-  return { text, busy, placeId };
+  return state;
 }
 
 function distMeters(a: LatLng, b: LatLng): number {
@@ -155,15 +219,20 @@ export function AddressSelectClient(props?: {
   } | null>(null);
   const searchPlaceIdRef = useRef<string | null>(null);
   const preferredRef = useRef<CanonicalPreferredPlace | null>(null);
+  const [resolutionTick, setResolutionTick] = useState(0);
+  const [resolvedDisplayOverride, setResolvedDisplayOverride] = useState<{
+    text: string;
+    placeId: string | null;
+  } | null>(null);
   /** localStorage 기반 최근 주소는 SSR·첫 페인트에서 제외 — hydration 불일치 방지 */
   const [recentLocalReady, setRecentLocalReady] = useState(false);
   /** 최근 목록에서 항목 삭제·숨김 후 재계산 */
   const [recentListVersion, setRecentListVersion] = useState(0);
 
-  const { text: geocodedAddress, busy: geocodeBusy, placeId: geocodedPlaceId } = useReverseGeocode(
-    marker,
-    preferredRef,
-  );
+  const reverse = useReverseGeocode(marker, preferredRef, resolutionTick);
+  const geocodedAddress = resolvedDisplayOverride?.text ?? reverse.text;
+  const geocodeBusy = reverse.busy;
+  const geocodedPlaceId = resolvedDisplayOverride?.placeId ?? reverse.placeId;
   const displayAddress = geocodedAddress;
 
   const loadAddresses = useCallback(async () => {
@@ -199,6 +268,8 @@ export function AddressSelectClient(props?: {
   const goToMap = useCallback((next: LatLng) => {
     searchPlaceIdRef.current = null;
     preferredRef.current = null;
+    setResolvedDisplayOverride(null);
+    setResolutionTick((v) => v + 1);
     setMarker(next);
     setManualAddress(null);
     manualAnchorRef.current = null;
@@ -212,6 +283,8 @@ export function AddressSelectClient(props?: {
   const onPlaceResolved = useCallback((draft: CanonicalAddressDraft) => {
     searchPlaceIdRef.current = draft.placeId;
     preferredRef.current = selectedPlaceIdentityFromDraft(draft);
+    setResolvedDisplayOverride(null);
+    setResolutionTick((v) => v + 1);
     setMarker({ lat: draft.latitude, lng: draft.longitude });
     const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
     const addr = [lines.title, lines.addressLine].filter(Boolean).join("\n").trim();
@@ -266,6 +339,8 @@ export function AddressSelectClient(props?: {
       }
       searchPlaceIdRef.current = null;
       preferredRef.current = null;
+      setResolvedDisplayOverride(null);
+      setResolutionTick((v) => v + 1);
       setMarker({ lat: res.position.latitude, lng: res.position.longitude });
       setManualAddress(null);
       manualAnchorRef.current = null;
@@ -311,22 +386,65 @@ export function AddressSelectClient(props?: {
     }
   }, [marker.lat, marker.lng, manualAddress]);
 
+  useEffect(() => {
+    setResolvedDisplayOverride(null);
+  }, [marker.lat, marker.lng]);
+
+  const keepSelectedPlaceOnMap = useCallback(() => {
+    if (!reverse.locationDraft || !reverse.selectedIdentity) return;
+    const next = applySelectedPlaceIdentity(reverse.locationDraft, reverse.selectedIdentity);
+    preferredRef.current = selectedPlaceIdentityFromDraft(next);
+    searchPlaceIdRef.current = next.placeId;
+    const text = draftDisplayText(next);
+    setResolvedDisplayOverride({ text, placeId: next.placeId });
+    setManualAddress(text);
+    manualAnchorRef.current = { lat: next.latitude, lng: next.longitude };
+  }, [reverse.locationDraft, reverse.selectedIdentity]);
+
+  const useCurrentPinOnMap = useCallback(() => {
+    if (!reverse.locationDraft) return;
+    const next = stripSelectedPlaceIdentity(reverse.locationDraft);
+    preferredRef.current = null;
+    searchPlaceIdRef.current = null;
+    const text = draftDisplayText(next);
+    setResolvedDisplayOverride({ text, placeId: null });
+    setManualAddress(text);
+    manualAnchorRef.current = { lat: next.latitude, lng: next.longitude };
+  }, [reverse.locationDraft]);
+
   const shownAddressPin = (manualAddress ?? displayAddress).trim();
+  const identityUnresolved = reverse.needsResolution && !resolvedDisplayOverride;
   const pinPrimaryDisabled =
-    !shownAddressPin || (geocodeBusy && !manualAddress) || Boolean(mapsError);
+    !shownAddressPin ||
+    (geocodeBusy && !manualAddress) ||
+    Boolean(mapsError) ||
+    identityUnresolved;
 
   const onPinConfirm = useCallback(() => {
     const addr = (manualAddress ?? displayAddress).trim();
-    if (!addr || mapsError) return;
+    if (!addr || mapsError || identityUnresolved) return;
+    const placeId =
+      (preferredRef.current?.placeId ?? "").trim() ||
+      (searchPlaceIdRef.current ?? "").trim() ||
+      (geocodedPlaceId ?? "").trim() ||
+      null;
     setPinSnapshot({
       lat: marker.lat,
       lng: marker.lng,
       baseAddress: addr,
-      placeId: searchPlaceIdRef.current || geocodedPlaceId,
+      placeId,
     });
     setMapPhase("detail");
     setDetailLine("");
-  }, [displayAddress, geocodedPlaceId, manualAddress, marker.lat, marker.lng, mapsError]);
+  }, [
+    displayAddress,
+    geocodedPlaceId,
+    identityUnresolved,
+    manualAddress,
+    marker.lat,
+    marker.lng,
+    mapsError,
+  ]);
 
   const onFinalConfirm = useCallback(() => {
     if (!pinSnapshot || mapsError) return;
@@ -564,6 +682,42 @@ export function AddressSelectClient(props?: {
                       </svg>
                     </button>
                   </div>
+                  {identityUnresolved ? (
+                    <div className="space-y-2 rounded-ui-rect border border-signature/20 bg-white px-3 py-3">
+                      <p className="sam-text-body font-extrabold text-sam-fg">
+                        {t("addr_v2_identity_mismatch_title")}
+                      </p>
+                      <p className="sam-text-helper text-sam-muted">{t("addr_v2_identity_mismatch_lead")}</p>
+                      <div className="space-y-1 rounded-ui-rect bg-sam-app px-3 py-2">
+                        <p className="sam-text-helper font-bold text-sam-muted">
+                          {t("addr_v2_identity_selected_place")}
+                        </p>
+                        <p className="sam-text-body font-semibold text-sam-fg">
+                          {reverse.selectedPlaceName}
+                        </p>
+                        <p className="mt-2 sam-text-helper font-bold text-sam-muted">
+                          {t("addr_v2_identity_current_pin")}
+                        </p>
+                        <p className="sam-text-body font-semibold text-sam-fg">
+                          {reverse.pinLocationText}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={keepSelectedPlaceOnMap}
+                        className={ADDR_BTN_PRIMARY_FULL}
+                      >
+                        {t("addr_v2_identity_keep_selected")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={useCurrentPinOnMap}
+                        className={ADDR_BTN_TERTIARY_FULL}
+                      >
+                        {t("addr_v2_identity_use_pin")}
+                      </button>
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     disabled={pinPrimaryDisabled}

@@ -401,8 +401,9 @@ describe("ADDR-013 Address Platform V2", () => {
     const src = read("components/map/AddressSelectClient.tsx");
     expect(src).toContain("preferredRef");
     expect(src).toContain("resolveCanonicalAddressFromLatLng");
-    expect(src).toContain("preserveSelectedPlaceIdentity");
+    expect(src).toContain("resolvePinMoveAgainstSelectedIdentity");
     expect(src).toContain("selectedPlaceIdentityFromDraft");
+    expect(src).toContain("addr_v2_identity_keep_selected");
     expect(src).not.toContain("preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName }");
   });
 
@@ -410,11 +411,12 @@ describe("ADDR-013 Address Platform V2", () => {
     const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
     const draft = read("lib/addresses/canonical-address-draft.ts");
     expect(detail).toContain("selectedPlaceIdentityRef");
-    expect(detail).toContain("preserveSelectedPlaceIdentity");
+    expect(detail).toContain("resolvePinMoveAgainstSelectedIdentity");
+    expect(detail).toContain("addr_v2_identity_keep_selected");
     expect(detail).not.toContain("preferRef.current = { placeId: next.placeId, placeName: next.placeName }");
     expect(draft).toContain("Search/explicit place selection is identity authority");
-    expect(draft).toContain("export function preserveSelectedPlaceIdentity");
-    expect(draft).toContain("isSelectedPlaceIdentityConsistentWithLocation");
+    expect(draft).toContain("export function resolvePinMoveAgainstSelectedIdentity");
+    expect(draft).not.toContain("isSelectedPlaceIdentityConsistentWithLocation");
     expect(draft).not.toMatch(/distance\s*[><=]/i);
     const resolver = read("lib/addresses/canonical-address-resolver.ts");
     expect(resolver).toContain("hasPreferredIdentity ? null : pickGeocoderPoiPlaceId");

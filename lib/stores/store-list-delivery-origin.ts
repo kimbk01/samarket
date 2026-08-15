@@ -99,9 +99,8 @@ export function isSameDeliveryAddressForList(
   origin: StoreListDeliveryOrigin,
   store: StoreAddressIdentityInput,
 ): boolean {
-  const storePlaceId = text(store.place_id);
-  if (origin.placeId && storePlaceId && origin.placeId === storePlaceId) return true;
-
+  // place_id alone is not address equality: user POI identity and store place_id
+  // can match while coordinates diverge (mixed place_id semantics). Require coords.
   const slat = parseFiniteLatitude(store.lat);
   const slng = parseFiniteLongitude(store.lng);
   if (origin.lat != null && origin.lng != null && slat != null && slng != null) {

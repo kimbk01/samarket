@@ -108,13 +108,21 @@ export function parseUserAddressWritePayload(body: unknown, opts?: { partial?: b
   return opts?.partial ? out : out as UserAddressWritePayload;
 }
 
+/**
+ * place_id = selected Google POI identity when the user selected a POI.
+ * Location-only saves may omit place_id (default). Pass `requirePlace: true` only
+ * when a caller still needs a hard Places identity.
+ */
 export function validatePlacesAddressPayload(p: Partial<UserAddressWritePayload>, opts?: { requirePlace?: boolean }): string | null {
   const placeId = p.placeId?.trim() ?? "";
+  const buildingName = (p.buildingName ?? "").trim();
   const formatted = (p.formattedAddress ?? p.fullAddress ?? "").trim();
   const detail = (p.detailAddress ?? p.unitFloorRoom ?? "").trim();
   const lat = p.latitude;
   const lng = p.longitude;
-  if (opts?.requirePlace !== false && !placeId) return "place_id_required";
+  if (opts?.requirePlace === true && !placeId) return "place_id_required";
+  // Selected POI name without a POI place_id is an inconsistent identity unit.
+  if (buildingName && !placeId) return "place_id_required";
   if (!formatted) return "formatted_address_required";
   if (lat == null || lng == null) return "coordinates_required";
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "coordinates_required";

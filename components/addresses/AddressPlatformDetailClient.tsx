@@ -4,9 +4,12 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  preserveSelectedPlaceIdentity,
+  applySelectedPlaceIdentity,
+  resolvePinMoveAgainstSelectedIdentity,
   selectedPlaceIdentityFromDraft,
+  stripSelectedPlaceIdentity,
   type CanonicalAddressDraft,
+  type CanonicalPreferredPlace,
 } from "@/lib/addresses/canonical-address-draft";
 import {
   displayInputFromDraft,
@@ -23,13 +26,19 @@ import {
 } from "@/lib/addresses/location-only-address-nickname";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { ADDR_BTN_PRIMARY_FULL } from "@/lib/ui/address-flow-viber";
+import { ADDR_BTN_PRIMARY_FULL, ADDR_BTN_TERTIARY_FULL } from "@/lib/ui/address-flow-viber";
 
 const AddressFineTuneMapLazy = dynamic(
   () =>
     import("@/components/addresses/AddressFineTuneMapClient").then((m) => m.AddressFineTuneMapClient),
   { ssr: false },
 );
+
+type PendingIdentityResolution = {
+  locationDraft: CanonicalAddressDraft;
+  selectedIdentity: CanonicalPreferredPlace;
+};
+
 export function AddressPlatformDetailClient(props: {
   mode: "create" | "edit";
   initial: UserAddressDTO | null;
@@ -38,7 +47,7 @@ export function AddressPlatformDetailClient(props: {
   onSaved: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const { mode, initial, allAddresses, onSaved } = props;
+  const { mode, initial, onSaved } = props;
   const { effectiveBottomInset } = useFormKeyboardViewport({ enabled: true });
 
   const [draft, setDraft] = useState<CanonicalAddressDraft | null>(props.draft);
@@ -48,6 +57,7 @@ export function AddressPlatformDetailClient(props: {
   const [resolving, setResolving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pendingResolution, setPendingResolution] = useState<PendingIdentityResolution | null>(null);
   const seqRef = useRef(0);
   const pinTimerRef = useRef<number | null>(null);
   const userFieldsHydratedRef = useRef(false);
@@ -57,6 +67,7 @@ export function AddressPlatformDetailClient(props: {
     if (props.draft) {
       setDraft(props.draft);
       selectedPlaceIdentityRef.current = selectedPlaceIdentityFromDraft(props.draft);
+      setPendingResolution(null);
     }
     if (mode === "edit" && initial && !userFieldsHydratedRef.current) {
       userFieldsHydratedRef.current = true;
@@ -73,43 +84,98 @@ export function AddressPlatformDetailClient(props: {
     );
   }, [draft, detail, landmark, deliveryNote]);
 
-  const onPinMove = useCallback((lat: number, lng: number) => {
-    if (pinTimerRef.current != null) window.clearTimeout(pinTimerRef.current);
-    const seq = ++seqRef.current;
-    setResolving(true);
-    pinTimerRef.current = window.setTimeout(() => {
-      pinTimerRef.current = null;
-      void (async () => {
-        try {
-          const selectedIdentity = selectedPlaceIdentityRef.current;
-          const nextLocation = await resolveCanonicalAddressFromLatLng(lat, lng, selectedIdentity);
-          if (seq !== seqRef.current) return;
-          if (nextLocation) {
-            const next = preserveSelectedPlaceIdentity(nextLocation, selectedIdentity);
-            setDraft(next);
+  const pendingPinLines = useMemo(() => {
+    if (!pendingResolution) return null;
+    return resolveCanonicalDisplayLines(displayInputFromDraft(pendingResolution.locationDraft));
+  }, [pendingResolution]);
+
+  const onPinMove = useCallback(
+    (lat: number, lng: number) => {
+      if (pinTimerRef.current != null) window.clearTimeout(pinTimerRef.current);
+      const seq = ++seqRef.current;
+      setResolving(true);
+      pinTimerRef.current = window.setTimeout(() => {
+        pinTimerRef.current = null;
+        void (async () => {
+          try {
+            const selectedIdentity = selectedPlaceIdentityRef.current;
+            const nextLocation = await resolveCanonicalAddressFromLatLng(lat, lng, selectedIdentity);
+            if (seq !== seqRef.current) return;
+            if (!nextLocation) return;
+            const resolved = resolvePinMoveAgainstSelectedIdentity(nextLocation, selectedIdentity);
+            if (resolved.kind === "auto_keep") {
+              setPendingResolution(null);
+              setDraft(resolved.draft);
+              return;
+            }
+            if (resolved.kind === "location_only") {
+              setPendingResolution(null);
+              selectedPlaceIdentityRef.current = null;
+              setDraft(resolved.draft);
+              return;
+            }
+            setPendingResolution({
+              locationDraft: resolved.locationDraft,
+              selectedIdentity: resolved.selectedIdentity,
+            });
+            setDraft(resolved.locationDraft);
+          } catch {
+            if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
+          } finally {
+            if (seq === seqRef.current) setResolving(false);
           }
-        } catch {
-          if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
-        } finally {
-          if (seq === seqRef.current) setResolving(false);
-        }
-      })();
-    }, 400);
-  }, [t]);
+        })();
+      }, 400);
+    },
+    [t],
+  );
+
+  const keepSelectedPlace = useCallback(() => {
+    if (!pendingResolution) return;
+    const next = applySelectedPlaceIdentity(
+      pendingResolution.locationDraft,
+      pendingResolution.selectedIdentity,
+    );
+    selectedPlaceIdentityRef.current = selectedPlaceIdentityFromDraft(next);
+    setDraft(next);
+    setPendingResolution(null);
+    setErr(null);
+  }, [pendingResolution]);
+
+  const useCurrentPinLocation = useCallback(() => {
+    if (!pendingResolution) return;
+    const next = stripSelectedPlaceIdentity(pendingResolution.locationDraft);
+    selectedPlaceIdentityRef.current = null;
+    setDraft(next);
+    setPendingResolution(null);
+    setErr(null);
+  }, [pendingResolution]);
 
   async function save() {
     if (!draft) {
       setErr(t("addr_ui_pick_search_result"));
       return;
     }
-    if (!draft.placeId) {
-      setErr(t("addr_ui_no_place_id"));
+    if (pendingResolution) {
+      setErr(t("addr_v2_identity_resolve_required"));
       return;
     }
     if (!detail.trim()) {
       setErr(t("addr_ui_detail_required"));
       return;
     }
+    const formatted = (draft.formattedAddress ?? draft.streetAddress ?? "").trim();
+    if (!formatted) {
+      setErr(t("addr_ui_resolve_failed_short"));
+      return;
+    }
+    const selectedPlaceName = (draft.placeName ?? "").trim() || null;
+    const selectedPlaceId = selectedPlaceName ? (draft.placeId ?? "").trim() || null : null;
+    if (selectedPlaceName && !selectedPlaceId) {
+      setErr(t("addr_ui_no_place_id"));
+      return;
+    }
+
     const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
     const submitLabel = isShop ? "shop" : "other";
     let resolvedNickname: string | null = null;
@@ -132,7 +198,7 @@ export function AddressPlatformDetailClient(props: {
       const taxonomy = mapUserAddressToAppLocation({
         appRegionId: initial?.appRegionId ?? null,
         appCityId: initial?.appCityId ?? null,
-        buildingName: draft.placeName,
+        buildingName: selectedPlaceName,
         landmark: landmark.trim() || null,
         barangay: draft.barangay,
         district: null,
@@ -152,12 +218,12 @@ export function AddressPlatformDetailClient(props: {
         cityMunicipality: draft.cityMunicipality,
         province: draft.province,
         streetAddress: draft.streetAddress,
-        buildingName: draft.placeName,
+        buildingName: selectedPlaceName,
         unitFloorRoom: detail.trim(),
         landmark: landmark.trim() || null,
         latitude: draft.latitude,
         longitude: draft.longitude,
-        placeId: draft.placeId,
+        placeId: selectedPlaceId,
         formattedAddress: draft.formattedAddress,
         roadAddress: draft.formattedAddress,
         detailAddress: detail.trim(),
@@ -236,6 +302,35 @@ export function AddressPlatformDetailClient(props: {
           </div>
         </section>
 
+        {pendingResolution ? (
+          <section className="rounded-[24px] border border-signature/20 bg-white p-4 shadow-sm">
+            <p className="sam-text-body font-extrabold text-sam-fg">{t("addr_v2_identity_mismatch_title")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("addr_v2_identity_mismatch_lead")}</p>
+            <div className="mt-3 space-y-2 rounded-[18px] bg-sam-surface px-3 py-3">
+              <div>
+                <p className="sam-text-helper font-bold text-sam-muted">{t("addr_v2_identity_selected_place")}</p>
+                <p className="sam-text-body font-semibold text-sam-fg">
+                  {pendingResolution.selectedIdentity.placeName}
+                </p>
+              </div>
+              <div>
+                <p className="sam-text-helper font-bold text-sam-muted">{t("addr_v2_identity_current_pin")}</p>
+                <p className="sam-text-body font-semibold text-sam-fg">
+                  {[pendingPinLines?.title, pendingPinLines?.addressLine].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              <button type="button" onClick={keepSelectedPlace} className={ADDR_BTN_PRIMARY_FULL}>
+                {t("addr_v2_identity_keep_selected")}
+              </button>
+              <button type="button" onClick={useCurrentPinLocation} className={ADDR_BTN_TERTIARY_FULL}>
+                {t("addr_v2_identity_use_pin")}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
           <label className="block">
             <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_ui_detail_address_label")}</span>
@@ -284,7 +379,12 @@ export function AddressPlatformDetailClient(props: {
         data-form-keyboard-footer=""
         style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
       >
-        <button type="button" disabled={busy || resolving} onClick={() => void save()} className={ADDR_BTN_PRIMARY_FULL}>
+        <button
+          type="button"
+          disabled={busy || resolving || Boolean(pendingResolution)}
+          onClick={() => void save()}
+          className={ADDR_BTN_PRIMARY_FULL}
+        >
           {busy ? t("addr_ui_saving") : t("addr_ui_save_address")}
         </button>
       </div>
