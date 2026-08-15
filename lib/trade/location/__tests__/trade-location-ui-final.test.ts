@@ -32,6 +32,12 @@ describe("Trade location UI national selector chain", () => {
     expect(resolveTradeFeedLocationConstraint(null).kind).toBe("all");
   });
 
+  it("search Baguio ranks City of Baguio above Ambaguio", () => {
+    const hits = searchTradeNationalLgu("Baguio", { limit: 10 });
+    expect(hits[0]?.canonicalId).toBe("1430300000");
+    expect(hits.some((h) => h.canonicalId === "1430300000")).toBe(true);
+  });
+
   it("search samples resolve to selectable/queryable canonical ids", () => {
     for (const s of SAMPLES) {
       const hits = searchTradeNationalLgu(s.q, { limit: 20 });

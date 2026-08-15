@@ -52,11 +52,21 @@ export function searchTradeNationalLgu(
   }
 
   hits.sort((a, b) => {
-    const an = normalizeTradeNationalLguName(a.displayName);
-    const bn = normalizeTradeNationalLguName(b.displayName);
-    const aExact = an === q ? 0 : an.startsWith(q) ? 1 : 2;
-    const bExact = bn === q ? 0 : bn.startsWith(q) ? 1 : 2;
-    if (aExact !== bExact) return aExact - bExact;
+    const qn = q;
+    const rank = (name: string) => {
+      const n = normalizeTradeNationalLguName(name);
+      if (n === qn) return 0;
+      if (n.startsWith(qn)) return 1;
+      if (n.startsWith(`city of ${qn}`) || n.startsWith(`${qn} city`)) return 1;
+      // Prefer query as a whole token (avoids Ambaguio beating Baguio for "baguio")
+      if (new RegExp(`(?:^|\\s)${qn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`).test(n)) {
+        return 2;
+      }
+      return 3;
+    };
+    const ar = rank(a.displayName);
+    const br = rank(b.displayName);
+    if (ar !== br) return ar - br;
     return a.displayName.localeCompare(b.displayName, "en");
   });
 
