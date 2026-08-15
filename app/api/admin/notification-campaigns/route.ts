@@ -4,6 +4,7 @@ import { createAdminNotificationCampaign } from "@/lib/admin/notification-campai
 import { CAMPAIGN_CHANNELS } from "@/lib/admin/notification-campaigns/campaign-types";
 import { CAMPAIGN_SEND_MODES } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { resolveCampaignTargetPayload } from "@/lib/admin/notification-campaigns/resolve-campaign-target-payload";
+import { validateOfficialCampaignSource } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -173,10 +174,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });
   }
 
-  const resolvedPayload = resolveCampaignTargetPayload({
+  const deeplink_url = optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url);
+  const web_url = optionalUrl(body.web_url);
+  const source = validateOfficialCampaignSource({
+    campaign_type: typ,
     app_notice_id: body.app_notice_id,
     target_payload: body.target_payload,
-    targetPayloadKeyPresent: Object.prototype.hasOwnProperty.call(body, "target_payload"),
+    deeplink_url,
+    web_url,
+    target_url: optionalUrl(body.target_url),
+  });
+  if (!source.ok) {
+    return NextResponse.json({ ok: false, error: source.error }, { status: 400 });
+  }
+
+  const resolvedPayload = resolveCampaignTargetPayload({
+    app_notice_id: source.mode === "content_bound" ? source.content_id : body.app_notice_id,
+    target_payload:
+      source.mode === "content_bound" ? source.target_payload : body.target_payload,
+    targetPayloadKeyPresent:
+      source.mode === "content_bound" ||
+      Object.prototype.hasOwnProperty.call(body, "target_payload"),
     campaign_type: typ,
   });
   if (!resolvedPayload.ok) {
@@ -196,8 +214,9 @@ export async function POST(req: NextRequest) {
     type: typ as "notice" | "marketing" | "system",
     target_type: targetType,
     channel,
-    deeplink_url: optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url),
-    web_url: optionalUrl(body.web_url),
+    deeplink_url:
+      source.mode === "approved_landing" ? source.approved_landing : deeplink_url,
+    web_url,
     push_image_url: optionalUrl(body.push_image_url) ?? optionalUrl(body.image_url),
     in_app_image_url: optionalUrl(body.in_app_image_url) ?? optionalUrl(body.image_url),
     segment_region_code:

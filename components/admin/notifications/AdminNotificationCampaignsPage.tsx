@@ -290,9 +290,9 @@ export function AdminNotificationCampaignsPage() {
                         </div>
                       ) : (
                         <span className="text-sam-muted">
-                          {safeT("admin_notif_pure_transport_short", {
-                            fallbackKo: "[단순 알림]",
-                            fallbackEn: "[Pure transport]",
+                          {safeT("admin_notif_legacy_unbound_short", {
+                            fallbackKo: "[레거시 unbound]",
+                            fallbackEn: "[Legacy unbound]",
                           })}
                         </span>
                       )}

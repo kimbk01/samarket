@@ -7,6 +7,7 @@ import {
   drainNotificationCampaignSendBatches,
   newCampaignSendClaimToken,
 } from "@/lib/admin/notification-campaigns/claim-scheduled-campaign";
+import { campaignRowHasOfficialSource } from "@/lib/admin/notification-campaigns/campaign-source-authority";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -36,6 +37,34 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
+  }
+
+  const { data: campaignRow, error: campaignErr } = await svc
+    .from("admin_notification_campaigns")
+    .select("id, type, target_payload, deeplink_url, web_url, target_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (campaignErr || !campaignRow) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  if (
+    !campaignRowHasOfficialSource({
+      type: (campaignRow as { type?: string }).type,
+      target_payload: (campaignRow as { target_payload?: unknown }).target_payload,
+      deeplink_url: (campaignRow as { deeplink_url?: string | null }).deeplink_url,
+      web_url: (campaignRow as { web_url?: string | null }).web_url,
+      target_url: (campaignRow as { target_url?: string | null }).target_url,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "campaign_source_required",
+        message:
+          "Official notice/system/marketing campaigns require content bind or approved landing. Legacy unbound campaigns cannot be sent.",
+      },
+      { status: 400 }
+    );
   }
 
   let body: { idempotency_key?: unknown; single_batch?: unknown; occurrence_id?: unknown; enqueue_only?: unknown } =

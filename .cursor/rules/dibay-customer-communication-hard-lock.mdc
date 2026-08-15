@@ -1,0 +1,59 @@
+---
+description: DIBAY Customer Communication SSOT — Campaign delivery vs content originals HARD LOCK
+globs: lib/admin/notification-campaigns/**/*,lib/notices/**/*,lib/notifications/member-admin-notes*.ts,lib/notifications/member-notification-domain.ts,app/api/admin/notification-campaigns/**/*,components/admin/notifications/**/*,components/admin/app/**/*
+alwaysApply: false
+---
+
+# DIBAY Customer Communication HARD LOCK
+
+Companion: `docs/customer-communication/dibay-customer-communication-ssot.md`  
+Authority: `lib/admin/notification-campaigns/campaign-source-authority.ts`
+
+## RULE 1
+Official Notice must have `app_notices` original with `content_type=notice` (`app_notice_id` required).
+
+## RULE 2
+System Bulletin must have `app_notices` original with `content_type=system` (`app_notice_id` required).
+
+## RULE 3
+Marketing must have content bind **OR** approved internal landing (not bare `/notifications`).
+
+## RULE 4
+Campaign is **delivery authority**, not original content authority.
+
+## RULE 5
+New title/body-only official campaign (CASE C / Pure transport) is **FORBIDDEN**.
+
+## RULE 6
+Bell / Push / Full Inbox must resolve to the **same original** for bound campaigns.
+
+## RULE 7
+Notification Detail must not be the original for **new** official notice/system/marketing campaigns.
+
+## RULE 8
+Transactional system events may use `/notifications/{eventId}`.
+
+## RULE 9
+Inquiry and Direct Message never use Campaign as original.
+
+## RULE 10
+Inquiry → `/mypage/inquiries/{threadId}`. Message → `/mypage/inbox/{threadId}`.
+
+## RULE 11
+Old unbound rows may remain readable. **New unbound writes are forbidden** (create/send/test-send).
+
+## RULE 12
+No migration/schema change without evidence and explicit approval.
+
+## RULE 13
+Do not merge notice and system bulletin member domains.
+
+## RULE 14
+Do not classify inquiry/message as `campaignType: "system"` for convenience. Prefer event types + `supportKind`.
+
+## Do not
+
+- Reintroduce `[Pure transport] No linked post` as an official send path
+- Weaken `validateOfficialCampaignSource` for “QA convenience”
+- Add inquiry/message/cs as Notification Center filter tabs
+- Treat `campaignType=system` alone as transactional

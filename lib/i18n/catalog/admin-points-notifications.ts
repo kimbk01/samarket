@@ -42,6 +42,13 @@ export const adminPointsNotificationsMessages = {
       "Push/Bell에 보이는 짧은 문구입니다. 게시판 원문은 연결된 콘텐츠입니다(자동 복사·축약 없음).",
     admin_notif_pure_transport_box: "[단순 알림] 연결된 게시물이 없습니다.",
     admin_notif_pure_transport_short: "[단순 알림]",
+    admin_notif_legacy_unbound_box:
+      "[레거시 unbound] 연결된 원본이 없습니다. 신규 발송은 차단됩니다. 기존 회원 알림은 읽기 호환만 유지됩니다.",
+    admin_notif_legacy_unbound_short: "[레거시 unbound]",
+    admin_notif_source_required_bulletin:
+      "공지/시스템 공식 발송은 고객센터 원본 연결이 필수입니다. 제목·본문만으로 발송할 수 없습니다.",
+    admin_notif_source_required_marketing:
+      "마케팅은 고객센터 원본을 연결하거나 승인된 내부 랜딩 URL이 필요합니다.",
     admin_notif_content_id_label: "콘텐츠 ID",
     admin_notif_btn_view_original: "원본 보기",
     admin_notif_btn_member_deeplink: "회원 딥링크",
@@ -482,6 +489,13 @@ export const adminPointsNotificationsMessages = {
       "Short Push/Bell copy. Board original is the linked content (no auto-copy or truncate).",
     admin_notif_pure_transport_box: "[Pure transport] No linked post.",
     admin_notif_pure_transport_short: "[Pure transport]",
+    admin_notif_legacy_unbound_box:
+      "[Legacy unbound] No linked original. New sends are blocked. Existing member notifications remain read-compatible only.",
+    admin_notif_legacy_unbound_short: "[Legacy unbound]",
+    admin_notif_source_required_bulletin:
+      "Official notice/system delivery requires a linked Customer Center original. Title/body-only send is blocked.",
+    admin_notif_source_required_marketing:
+      "Marketing requires a linked Customer Center original or an approved internal landing URL.",
     admin_notif_content_id_label: "Content ID",
     admin_notif_btn_view_original: "View original",
     admin_notif_btn_member_deeplink: "Member deeplink",

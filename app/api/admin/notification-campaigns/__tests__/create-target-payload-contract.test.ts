@@ -83,7 +83,7 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
     return inserted;
   }
 
-  it("omitted target_payload inserts {}", async () => {
+  it("omitted target_payload without content is rejected for system (CASE C blocked)", async () => {
     const inserted = mockInsertCapture();
     const { POST } = await import("@/app/api/admin/notification-campaigns/route");
     const res = await POST(
@@ -100,11 +100,41 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
         }),
       }) as never
     );
-    expect(res.status).toBe(200);
-    expect(inserted[0]?.target_payload).toEqual({});
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("system_bulletin_content_required");
+    expect(inserted).toHaveLength(0);
   });
 
-  it("preserves provided target_payload object", async () => {
+  it("notice with app_notice_id inserts content bind payload", async () => {
+    const inserted = mockInsertCapture();
+    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
+    const contentId = "a8c5996e-3259-4622-810e-679597987cd8";
+    const res = await POST(
+      new Request("http://localhost/api/admin/notification-campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "t",
+          body: "b",
+          type: "notice",
+          channel: "test_only",
+          target_type: "selected_users",
+          target_user_ids: ["u1"],
+          app_notice_id: contentId,
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(200);
+    expect(inserted[0]?.target_payload).toEqual({
+      appNoticeId: contentId,
+      content_id: contentId,
+      content_type: "notice",
+      canonical_route: `/mypage/customer-center/notice/${contentId}`,
+    });
+  });
+
+  it("marketing with approved landing and no content passes", async () => {
     const inserted = mockInsertCapture();
     const { POST } = await import("@/app/api/admin/notification-campaigns/route");
     const res = await POST(
@@ -114,13 +144,45 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
         body: JSON.stringify({
           title: "t",
           body: "b",
-          type: "system",
-          target_payload: { custom: true },
+          type: "marketing",
+          channel: "push_and_in_app",
+          target_type: "all",
+          deeplink_url: "/market",
         }),
       }) as never
     );
     expect(res.status).toBe(200);
-    expect(inserted[0]?.target_payload).toEqual({ custom: true });
+    expect(inserted[0]?.deeplink_url).toBe("/market");
+  });
+
+  it("preserves content-bound target_payload object", async () => {
+    const inserted = mockInsertCapture();
+    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
+    const contentId = "9f1ca605-04b1-4a16-9fb9-45712cb7fc8c";
+    const res = await POST(
+      new Request("http://localhost/api/admin/notification-campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "t",
+          body: "b",
+          type: "system",
+          app_notice_id: contentId,
+          target_payload: {
+            appNoticeId: contentId,
+            content_id: contentId,
+            content_type: "system",
+            custom: true,
+          },
+        }),
+      }) as never
+    );
+    expect(res.status).toBe(200);
+    expect(inserted[0]?.target_payload).toMatchObject({
+      appNoticeId: contentId,
+      content_id: contentId,
+      content_type: "system",
+    });
   });
 
   it("rejects explicit null target_payload with 400", async () => {
@@ -141,7 +203,8 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
     expect(res.status).toBe(400);
     expect(inserted).toHaveLength(0);
     const j = await res.json();
-    expect(j.error).toBe("invalid_target_payload");
+    // Source authority rejects before null payload parse when no content id.
+    expect(["invalid_target_payload", "system_bulletin_content_required"]).toContain(j.error);
   });
 
   it("maps app_notice_id into target_payload", async () => {

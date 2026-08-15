@@ -262,9 +262,11 @@ export function AdminNotificationCampaignDetailPage() {
               </div>
             ) : (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 px-3 py-2 text-sm text-sam-fg">
-                {safeT("admin_notif_pure_transport_box", {
-                  fallbackKo: "[단순 알림] 연결된 게시물이 없습니다.",
-                  fallbackEn: "[Pure transport] No linked post.",
+                {safeT("admin_notif_legacy_unbound_box", {
+                  fallbackKo:
+                    "[레거시 unbound] 연결된 원본이 없습니다. 신규 발송은 차단됩니다. 기존 회원 알림은 읽기 호환만 유지됩니다.",
+                  fallbackEn:
+                    "[Legacy unbound] No linked original. New sends are blocked. Existing member notifications remain read-compatible only.",
                 })}
               </p>
             )}

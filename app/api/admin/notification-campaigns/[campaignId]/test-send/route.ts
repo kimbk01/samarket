@@ -57,13 +57,36 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
   const { data: camp } = await svc
     .from("admin_notification_campaigns")
     .select(
-      "id, title, body, type, channel, target_type, deeplink_url, web_url, push_image_url, in_app_image_url, test_send_idempotency_key"
+      "id, title, body, type, channel, target_type, deeplink_url, web_url, target_url, target_payload, push_image_url, in_app_image_url, test_send_idempotency_key"
     )
     .eq("id", id)
     .maybeSingle();
 
   if (!camp) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const { campaignRowHasOfficialSource } = await import(
+    "@/lib/admin/notification-campaigns/campaign-source-authority"
+  );
+  if (
+    !campaignRowHasOfficialSource({
+      type: (camp as { type?: string }).type,
+      target_payload: (camp as { target_payload?: unknown }).target_payload,
+      deeplink_url: (camp as { deeplink_url?: string | null }).deeplink_url,
+      web_url: (camp as { web_url?: string | null }).web_url,
+      target_url: (camp as { target_url?: string | null }).target_url,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "campaign_source_required",
+        message:
+          "Official notice/system/marketing campaigns require content bind or approved landing.",
+      },
+      { status: 400 }
+    );
   }
 
   const prevKey = String((camp as { test_send_idempotency_key?: string | null }).test_send_idempotency_key ?? "");

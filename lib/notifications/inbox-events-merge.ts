@@ -134,8 +134,8 @@ function pushKindFromEvent(event: NotificationEventInboxSource): string | null {
   if (type === "community_activity" || category === "community_activity") return "community";
   if (type === "admin_marketing_banner") return "marketing";
   if (type === "admin_notice") return "notice";
-  // Phase 5 Slice 1 — Inquiry/Inbox typed events (same Bell system/notice tab as admin_notice).
-  if (type === "inquiry_answered" || type === "inbox_message_received") return "notice";
+  // Phase 5 Slice 1 — Inquiry/Inbox typed events (Customer Center threads — not notice tab filter).
+  if (type === "inquiry_answered" || type === "inbox_message_received") return "cs";
   // Phase 5 Slice 2 — Campaign notice/system typed event.
   if (type === "notice_published") {
     const campaignType = trimText(payload?.campaignType).toLowerCase();

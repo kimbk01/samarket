@@ -62,7 +62,17 @@ export function classifyMemberNotificationDomain(
   const bell = norm(row.bell_presentation_type);
   const event = norm(row.event_type) || norm(row.type);
 
+  // Inquiry / direct message are Customer Center threads — never system/notice campaign domains.
+  if (
+    event === "inquiry_answered" ||
+    event === "inbox_message_received" ||
+    hasAny(tokens, ["inquiry_answered", "inbox_message_received", "member_admin_note"])
+  ) {
+    return null;
+  }
+
   // Explicit campaign / push / presentation win first (notice ≠ system).
+  // Do not treat legacy inquiry payload campaignType=system as system bulletin.
   if (campaign === "marketing" || push === "marketing" || bell === "admin_marketing") {
     return "marketing";
   }
@@ -124,6 +134,27 @@ export function classifyMemberNotificationDomain(
   }
 
   return null;
+}
+
+/** Row label presentation — domain tabs + customer-support thread labels. */
+export function resolveMemberNotificationRowLabelKey(
+  row: MemberNotificationDomainRow
+):
+  | "notif_filter_notice"
+  | "notif_filter_delivery"
+  | "notif_filter_trade"
+  | "notif_filter_community"
+  | "notif_filter_marketing"
+  | "notif_filter_system"
+  | "notif_label_inquiry_reply"
+  | "notif_label_direct_message"
+  | null {
+  const event = norm(row.event_type) || norm(row.type);
+  if (event === "inquiry_answered") return "notif_label_inquiry_reply";
+  if (event === "inbox_message_received") return "notif_label_direct_message";
+  const domain = classifyMemberNotificationDomain(row);
+  if (!domain) return null;
+  return memberNotificationDomainLabelKey(domain);
 }
 
 export function matchesMemberNotificationDomain(

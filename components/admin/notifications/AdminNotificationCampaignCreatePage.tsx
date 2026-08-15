@@ -30,9 +30,11 @@ type LinkedContent = {
 type NoticePickRow = {
   id: string;
   title: string;
+  body?: string | null;
   content_type?: string | null;
   is_active?: boolean | null;
   created_at?: string | null;
+  hero_image_url?: string | null;
 };
 
 async function uploadCampaignImage(kind: "push" | "in_app", file: File): Promise<string | null> {
@@ -156,7 +158,11 @@ export function AdminNotificationCampaignCreatePage() {
     setAppNoticeId(row.id);
     setType(ct);
     setDeeplinkUrl(buildCustomerCenterBoardDetailPath(ct, row.id));
-    // NEVER auto-update campaign title/body from content.
+    // Delivery presentation snapshot hydrates from original (not a second original).
+    const nextTitle = String(row.title ?? "").trim();
+    const nextBody = String(row.body ?? "").trim();
+    if (nextTitle) setTitle(nextTitle.slice(0, 200));
+    if (nextBody) setBody(nextBody.slice(0, 2000));
     setPickerOpen(false);
     setPickerQ("");
   };
@@ -460,7 +466,16 @@ export function AdminNotificationCampaignCreatePage() {
           ? t("admin_notif_btn_send_all_members")
           : t("admin_notif_btn_send_now");
 
-  const formValid = Boolean(title.trim() && body.trim());
+  const formValid = (() => {
+    if (!title.trim() || !body.trim()) return false;
+    if (type === "notice" || type === "system") return Boolean(appNoticeId.trim());
+    // marketing: content OR non-bare landing
+    if (appNoticeId.trim()) return true;
+    const landing = deeplinkUrl.trim() || webUrl.trim();
+    if (!landing) return false;
+    if (landing === "/notifications" || landing.startsWith("/notifications?")) return false;
+    return true;
+  })();
   const linkedId = appNoticeId.trim();
   const linkedType: CustomerCenterContentType | null = linkedContent
     ? parseCustomerCenterContentType(linkedContent.content_type, type)
@@ -642,10 +657,19 @@ export function AdminNotificationCampaignCreatePage() {
         ) : (
           <div className="space-y-2 rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 p-3">
             <p className="text-sm text-sam-fg">
-              {safeT("admin_notif_pure_transport_box", {
-                fallbackKo: "[단순 알림] 연결된 게시물이 없습니다.",
-                fallbackEn: "[Pure transport] No linked post.",
-              })}
+              {type === "marketing"
+                ? safeT("admin_notif_source_required_marketing", {
+                    fallbackKo:
+                      "마케팅은 고객센터 원본을 연결하거나 승인된 내부 랜딩 URL이 필요합니다.",
+                    fallbackEn:
+                      "Marketing requires a linked Customer Center original or an approved internal landing URL.",
+                  })
+                : safeT("admin_notif_source_required_bulletin", {
+                    fallbackKo:
+                      "공지/시스템 공식 발송은 고객센터 원본 연결이 필수입니다. 제목·본문만으로 발송할 수 없습니다.",
+                    fallbackEn:
+                      "Official notice/system delivery requires a linked Customer Center original. Title/body-only send is blocked.",
+                  })}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <label className="block min-w-[140px] flex-1 text-sm">

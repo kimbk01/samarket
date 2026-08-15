@@ -8,8 +8,7 @@ import { resolveBellUnreadSequenceLabel } from "@/lib/notifications/bell-unread-
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
 import {
-  classifyMemberNotificationDomain,
-  memberNotificationDomainLabelKey,
+  resolveMemberNotificationRowLabelKey,
 } from "@/lib/notifications/member-notification-domain";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
 
@@ -95,15 +94,15 @@ export function InboxGroupCardList({
             ? resolveBellUnreadSequenceLabel(index, items.length) || null
             : null;
         const timeLabel = formatRowClock(item.created_at, language);
-        const domain = classifyMemberNotificationDomain({
+        const labelKey = resolveMemberNotificationRowLabelKey({
           push_kind: item.push_kind,
           notification_type: item.notification_type,
           event_type: item.event_type,
           bell_presentation_type: item.bell_presentation_type,
           campaign_type: item.campaign_type,
         });
-        const categoryLabel = domain
-          ? t(memberNotificationDomainLabelKey(domain))
+        const categoryLabel = labelKey
+          ? t(labelKey)
           : item.surfaceBadge || kind || t("common_notifications");
 
         return (

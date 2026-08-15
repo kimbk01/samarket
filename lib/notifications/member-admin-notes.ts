@@ -39,10 +39,10 @@ export function buildMemberAdminNoteNotificationPayload(input: {
   const routeUrl = buildMemberAdminNoteRoute(input.threadId, startedBy);
   return {
     routeUrl,
-    campaignType: "system",
     noteThreadId: input.threadId.trim(),
     startedBy,
     previewKind: "member_admin_note",
+    supportKind: kindFromStartedBy(startedBy) === "inbox" ? "direct_message" : "inquiry",
     subject: input.subject,
     bodyPreview: input.bodyPreview.slice(0, 200),
   };
