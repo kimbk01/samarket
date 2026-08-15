@@ -135,7 +135,6 @@ export function TradeHeaderLocationPinButton() {
   const [phase, setPhase] = useState<PanelPhase>("closed");
   const [view, setView] = useState<PanelView>("main");
   const [sector, setSector] = useState<SectorTab>("all");
-  const [origin, setOrigin] = useState<{ top: number; right: number } | null>(null);
   const [myCanonicalId, setMyCanonicalId] = useState<string | null>(null);
   const [myLguLabel, setMyLguLabel] = useState<string | null>(null);
   const [addressMissing, setAddressMissing] = useState(false);
@@ -187,13 +186,6 @@ export function TradeHeaderLocationPinButton() {
   );
 
   const openPanel = useCallback(() => {
-    const el = triggerRef.current;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setOrigin({ top: r.top, right: window.innerWidth - r.right });
-    } else {
-      setOrigin({ top: 8, right: 8 });
-    }
     setView("main");
     setSector(committed.mode === "city" ? "region" : "all");
     setPhase("open");
@@ -345,12 +337,9 @@ export function TradeHeaderLocationPinButton() {
   );
 
   const panelStyle: CSSProperties | undefined =
-    origin && phase !== "closed"
+    phase !== "closed"
       ? {
-          top: Math.max(0, origin.top),
-          right: Math.max(0, origin.right),
-          left: 0,
-          bottom: 0,
+          // Full visual viewport shell; diagonal reveal from top-right (MapPin corner).
           clipPath: clipOpen ? "inset(0 0 0 0)" : "inset(0 0 100% 100%)",
           transition: prefersReducedMotion()
             ? "opacity 120ms ease"
@@ -414,23 +403,16 @@ export function TradeHeaderLocationPinButton() {
 
       {phase !== "closed" && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[80]" role="presentation">
-              <button
-                type="button"
-                className="absolute inset-0 bg-black/35"
-                aria-label={t("trade_location_close")}
-                onClick={() => setPhase("closing")}
-              />
-              <div
-                ref={panelRef}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                tabIndex={-1}
-                className="absolute flex flex-col bg-sam-surface text-sam-fg shadow-lg outline-none"
-                style={panelStyle}
-              >
-                <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <div
+              ref={panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
+              className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] w-full max-w-[100dvw] flex-col overflow-hidden bg-sam-surface text-sam-fg outline-none"
+              style={panelStyle}
+            >
+                <div className="sticky top-0 z-10 shrink-0 border-b border-sam-border bg-sam-surface px-4 py-3 pt-[var(--safe-top)]">
                   <div className="flex items-center justify-between gap-2">
                     <h2 id={titleId} className="text-base font-semibold">
                       {view === "national-picker"
@@ -462,7 +444,7 @@ export function TradeHeaderLocationPinButton() {
                     onBack={() => setView("main")}
                   />
                 ) : (
-                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,var(--safe-bottom))]">
                     <p className="px-1 text-xs text-sam-fg-muted">
                       {t("trade_location_current")}:{" "}
                       <span className="font-medium text-sam-fg">{currentSummary}</span>
@@ -650,7 +632,6 @@ export function TradeHeaderLocationPinButton() {
                     ) : null}
                   </div>
                 )}
-              </div>
             </div>,
             document.body
           )
