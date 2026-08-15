@@ -26,7 +26,7 @@ import {
   CC_BODY_CLASS,
   CC_CATEGORY_CHIP_CLASS,
   CC_NOTE_CLASS,
-  CC_PAGE_BG_CLASS,
+  CC_SURFACE_PAGE_CLASS,
   CC_TITLE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 
@@ -160,7 +160,7 @@ function Inner({
 
   return (
     <div
-      className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_PAGE_BG_CLASS}`}
+      className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}
       data-testid={`cc-detail-${contentType}`}
     >
       <MySubpageHeader title={boardLabel} backHref={backHref} preferHistoryBack={false} hideCtaStrip />

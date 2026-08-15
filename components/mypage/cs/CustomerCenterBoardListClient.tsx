@@ -21,7 +21,7 @@ import {
   CC_CATEGORY_CHIP_CLASS,
   CC_HEADER_CLASS,
   CC_NOTE_CLASS,
-  CC_PAGE_BG_CLASS,
+  CC_SURFACE_PAGE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import {
   BOARD_LABEL,
@@ -134,7 +134,7 @@ export function CustomerCenterBoardListClient({
 
   return (
     <div
-      className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_PAGE_BG_CLASS}`}
+      className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}
       data-testid={`cc-board-${contentType}`}
     >
       <MySubpageHeader

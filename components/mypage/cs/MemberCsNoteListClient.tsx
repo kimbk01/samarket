@@ -19,8 +19,8 @@ import {
   CC_CARD_CLASS,
   CC_HEADER_CLASS,
   CC_NOTE_CLASS,
-  CC_PAGE_BG_CLASS,
   CC_PRIMARY_BTN_CLASS,
+  CC_SURFACE_PAGE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
@@ -202,7 +202,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
     "mt-2 min-h-11 w-full rounded-xl border border-[rgba(14,92,58,0.14)] bg-[#F5F7F6] px-3.5 py-2.5 text-[14px] text-[#1A2E24] outline-none ring-[#0E5C3A]/25 focus:ring-2";
 
   return (
-    <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_PAGE_BG_CLASS}`}>
+    <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
       <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>

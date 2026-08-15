@@ -28,9 +28,10 @@ import {
 import {
   CC_CARD_CLASS,
   CC_HEADER_CLASS,
+  CC_HERO_SECTION_CLASS,
   CC_ICON_WELL_CLASS,
   CC_NOTE_CLASS,
-  CC_PAGE_BG_CLASS,
+  CC_PAGE_WHITE_CLASS,
   CC_TITLE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
@@ -135,7 +136,7 @@ export function CustomerCenterHubClient() {
 
   return (
     <div
-      className={`flex min-h-screen min-w-0 flex-col ${CC_PAGE_BG_CLASS}`}
+      className={`flex min-h-screen min-w-0 flex-col ${CC_PAGE_WHITE_CLASS}`}
       data-testid="customer-center-hub"
     >
       <MySubpageHeader
@@ -157,7 +158,7 @@ export function CustomerCenterHubClient() {
       />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} px-3 sm:px-4`}>
-          <section className="rounded-2xl bg-[#E8F7EF] px-4 py-8 text-center">
+          <section className={CC_HERO_SECTION_CLASS}>
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-[0_1px_0_rgba(14,92,58,0.06)]">
               <Headphones className="h-7 w-7" strokeWidth={2} aria-hidden />
             </span>

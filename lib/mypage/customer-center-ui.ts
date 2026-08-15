@@ -12,6 +12,11 @@ export const CC_TEXT_SECONDARY = "#8F9D95";
 export const CC_BORDER = "rgba(14, 92, 58, 0.12)";
 
 export const CC_PAGE_BG_CLASS = "bg-[#E8F7EF]";
+/** Attachment 3 phone mockups use white page chrome; mint is section fill only. */
+export const CC_SURFACE_PAGE_CLASS = "bg-white";
+export const CC_PAGE_WHITE_CLASS = "bg-white";
+/** Attachment 3 hub hero section fill (Background token — not full-page). */
+export const CC_HERO_SECTION_CLASS = "rounded-2xl bg-[#E8F7EF] px-4 py-8 text-center";
 export const CC_CARD_CLASS =
   "overflow-hidden rounded-2xl border border-[rgba(14,92,58,0.12)] bg-white shadow-[0_1px_0_rgba(14,92,58,0.04)]";
 export const CC_TITLE_CLASS = "text-[18px] font-semibold leading-snug text-[#1A2E24]";
