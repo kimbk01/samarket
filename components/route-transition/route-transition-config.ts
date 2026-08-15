@@ -141,6 +141,8 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "store-owner-apply-route-enter-ltr-back",
   "profile-edit-route-enter-forward",
   "profile-edit-route-enter-back",
+  "address-platform-route-enter-forward",
+  "address-platform-route-enter-back",
 ] as const;
 
 export const ROUTE_TRANSITION_EXIT_CLASSES = [
@@ -173,9 +175,9 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
     case "profile-edit-back":
       return "profile-edit-route-enter-back";
     case "address-platform-forward":
-      return "profile-edit-route-enter-forward";
+      return "address-platform-route-enter-forward";
     case "address-platform-back":
-      return "profile-edit-route-enter-back";
+      return "address-platform-route-enter-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

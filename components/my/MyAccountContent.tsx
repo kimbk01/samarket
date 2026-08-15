@@ -2,6 +2,7 @@
 
 import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
@@ -26,6 +27,7 @@ import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 function statusBadgeClass(done: boolean): string {
   return done
@@ -51,6 +53,7 @@ function memberStatusMessageKey(status: StoreMemberStatus): MessageKey {
 
 export function MyAccountContent() {
   const { t } = useI18n();
+  const router = useRouter();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const addressState = useRepresentativeFullAddressLine();
@@ -194,21 +197,34 @@ export function MyAccountContent() {
           {t("account_essentials_desc")}
         </p>
         <div className="mt-3 divide-y divide-[#d9e5df]">
-          {essentials.map((row) => (
-            <Link
-              key={row.key}
-              href={row.href}
-              className="flex w-full items-center justify-between gap-3 py-3 text-left active:opacity-90"
-            >
-              <span className="min-w-0">
-                <span className="block sam-text-body font-semibold text-[#1e3932]">{row.title}</span>
-                <span className="mt-0.5 block truncate sam-text-body-secondary text-[#1e3932]/65">{row.desc}</span>
-              </span>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done)}`}>
-                {row.badge}
-              </span>
-            </Link>
-          ))}
+          {essentials.map((row) => {
+            const inner = (
+              <>
+                <span className="flex min-w-0 items-start gap-2">
+                  {row.key === "address" ? (
+                    <AddressKindHeadPin kind="master" className="mt-0.5 h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+                  ) : null}
+                  <span className="min-w-0">
+                    <span className="block sam-text-body font-semibold text-[#1e3932]">{row.title}</span>
+                    <span className="mt-0.5 block truncate sam-text-body-secondary text-[#1e3932]/65">{row.desc}</span>
+                  </span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold ${statusBadgeClass(row.done)}`}>
+                  {row.badge}
+                </span>
+              </>
+            );
+            const className = "flex w-full items-center justify-between gap-3 py-3 text-left active:opacity-90";
+            return row.key === "address" ? (
+              <button key={row.key} type="button" onClick={() => router.push(row.href)} className={className}>
+                {inner}
+              </button>
+            ) : (
+              <Link key={row.key} href={row.href} className={className}>
+                {inner}
+              </Link>
+            );
+          })}
         </div>
       </section>
 

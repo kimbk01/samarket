@@ -1863,9 +1863,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sky-50/80`}>
                   <p className="sam-text-helper leading-snug text-sky-950">
                     {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
-                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/mypage/addresses")}
+                      className="font-semibold text-signature underline"
+                    >
                       {t("store_address_manage_link")}
-                    </Link>
+                    </button>
                     {t("store_cart_legacy_address_suffix")}
                   </p>
                 </li>
@@ -1876,9 +1880,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
                   <p className="sam-text-helper leading-snug text-amber-950">
                     {t("store_cart_pick_or_register_delivery")}{" "}
-                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/mypage/addresses")}
+                      className="font-semibold text-signature underline"
+                    >
                       {t("store_address_manage_link")}
-                    </Link>
+                    </button>
                   </p>
                 </li>
               ) : null}
@@ -1976,12 +1984,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 })}
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link
-                href="/mypage/addresses"
+              <button
+                type="button"
+                onClick={() => router.push("/mypage/addresses")}
                 className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
                 {t("store_cart_save_from_address_manage")}
-              </Link>
+              </button>
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || savedAddresses.length > 0) ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
@@ -1993,9 +2002,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 {t("store_cart_address_too_short")}{" "}
-                <Link href="/mypage/addresses" className="font-semibold underline">
+                <button
+                  type="button"
+                  onClick={() => router.push("/mypage/addresses")}
+                  className="font-semibold underline"
+                >
                   {t("store_cart_profile_address_manage")}
-                </Link>
+                </button>
                 {t("store_cart_address_add_suffix")}
               </p>
             ) : null}

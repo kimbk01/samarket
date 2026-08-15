@@ -187,6 +187,37 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       expect(src, name).not.toContain("StoresHomeAddressSheet");
       expect(src, name).not.toContain("MypageAddressSheet");
     }
+    expect(myPageItem).not.toContain('router.replace("/mypage/addresses")');
+    expect(philife).toContain("router.push(href)");
+    expect(storesHome).toContain("router.push");
+    expect(storesBrowse).toContain("router.push");
+  });
+
+  it("address platform route transition is explicit 440ms RTL", () => {
+    const config = read("components/route-transition/route-transition-config.ts");
+    const css = read("app/globals.css");
+    expect(config).toContain("address-platform-route-enter-forward");
+    expect(config).toContain('case "address-platform-forward"');
+    expect(config).toContain('return "address-platform-route-enter-forward"');
+    expect(css).toContain(".address-platform-route-enter-forward");
+    expect(css).toContain("440ms");
+  });
+
+  it("current address surfaces render the green map pin affordance", () => {
+    for (const [name, src] of [
+      ["Tier1ExplorationTitleRow", read("components/layout/Tier1ExplorationTitleRow.tsx")],
+      ["UnifiedTier1AddressPillHeading", read("components/layout/UnifiedTier1AddressPillHeading.tsx")],
+      ["StoresHomeHeaderChrome", read("components/stores/home/hub/StoresHomeHeaderChrome.tsx")],
+      ["StoresBrowseHeaderChrome", read("components/stores/browse/StoresBrowseHeaderChrome.tsx")],
+      ["TradeDefaultLocationBlock", read("components/write/shared/TradeDefaultLocationBlock.tsx")],
+      ["RequiredInfoList", read("components/mypage/myinfo/RequiredInfoList.tsx")],
+      ["MypageRequiredInfoSummary", read("components/mypage/home/MypageRequiredInfoSummary.tsx")],
+      ["MyAccountContent", read("components/my/MyAccountContent.tsx")],
+      ["StoreCartCheckoutAddressRowBody", read("components/stores/cart/StoreCartCheckoutAddressRowBody.tsx")],
+    ] as const) {
+      expect(src, name).toMatch(/AddressKindHeadPin|renderMypageHomeMenuIcon/);
+    }
+    expect(read("components/mypage/myinfo/myinfo-menu-icon.tsx")).toContain("AddressKindHeadPin");
   });
 
   it("trade write location uses master address SSOT, not local region pickers", () => {

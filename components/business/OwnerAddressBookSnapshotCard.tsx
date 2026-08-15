@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   formatAddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressBookCardLine } from "@/components/addresses/AddressBookCardLine";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 export type OwnerAddressBookSnapshotMode = "representative" | "store_linked";
 
@@ -36,6 +37,7 @@ export function OwnerAddressBookSnapshotCard({
   listError?: string | null;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const presentation =
     addressDefault?.id != null ? formatAddressBookCardPresentation(addressDefault) : null;
 
@@ -66,13 +68,14 @@ export function OwnerAddressBookSnapshotCard({
           : t("common_loading")}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <Link
-          href={`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`}
-          prefetch={false}
+        <button
+          type="button"
+          onClick={() => router.push(`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`)}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
         >
+          <AddressKindHeadPin kind="master" className="mr-1 inline-flex h-4 w-4 align-[-2px] [&_svg]:h-4 [&_svg]:w-[0.85rem]" />
           {t("business_phase7_672")}
-        </Link>
+        </button>
       </div>
     </div>
   );

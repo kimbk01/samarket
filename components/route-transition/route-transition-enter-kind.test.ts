@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveCanonicalNavIndex,
+  routeTransitionClassForKind,
   routeTransitionPushAxisForKind,
 } from "@/components/route-transition/route-transition-config";
 import {
@@ -195,6 +196,8 @@ describe("computeRouteTransitionEnterKind", () => {
     });
     expect(k).toBe("address-platform-forward");
     expect(lastForwardAxisRef.current).toBe("rtl");
+    expect(routeTransitionPushAxisForKind(k)).toBe("rtl");
+    expect(routeTransitionClassForKind(k)).toBe("address-platform-route-enter-forward");
   });
 
   it("mypage to address book uses address-platform-forward not subtle", () => {
@@ -229,6 +232,7 @@ describe("computeRouteTransitionEnterKind", () => {
       lastForwardAxisRef,
     });
     expect(k).toBe("address-platform-back");
+    expect(routeTransitionClassForKind(k)).toBe("address-platform-route-enter-back");
   });
 });
 

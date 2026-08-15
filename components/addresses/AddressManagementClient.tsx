@@ -12,7 +12,6 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import {
   peekMapAddressPick,
 } from "@/lib/map/map-address-pick-storage";
-import { ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
 import {
   MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
   MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
@@ -244,28 +243,50 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         </div>
       ) : null}
 
-      <div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="mb-2 flex min-h-[48px] w-full items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-left sam-text-body text-sam-muted"
-        >
-          {t("addr_v2_book_search_placeholder")}
-        </button>
-        <button
-          type="button"
-          onClick={() => void openCurrentLocation()}
-          disabled={busyId === "current"}
-          className="mb-4 flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-white py-2.5 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
-        >
-          {busyId === "current" ? t("addr_ui_locating") : t("addr_ui_find_current")}
-        </button>
+      <div className="space-y-3">
+        <section className="rounded-[24px] border border-signature/10 bg-gradient-to-b from-white to-signature/[0.04] p-3 shadow-sm">
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-[18px] border border-sam-border bg-white px-3 text-left shadow-[0_1px_8px_rgba(15,23,42,0.04)] transition-colors active:bg-signature/[0.04]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-signature/10 text-signature">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM20 20l-3.5-3.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block sam-text-body font-semibold text-sam-fg">{t("addr_v2_book_search_placeholder")}</span>
+            </span>
+            <span className="text-sam-muted" aria-hidden>
+              ›
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void openCurrentLocation()}
+            disabled={busyId === "current"}
+            className="mt-2 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[18px] border border-signature/20 bg-signature/[0.06] px-3 sam-text-body font-bold text-signature transition-colors active:bg-signature/10 disabled:opacity-50"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-signature text-white" aria-hidden>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </span>
+            {busyId === "current" ? t("addr_ui_locating") : t("addr_ui_find_current")}
+          </button>
+        </section>
         {list.length === 0 && !loadErr && listBootstrapping ? (
           <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
             {t("common_loading")}
           </p>
         ) : list.length === 0 && !loadErr ? null : (
-          <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
+          <ul className="space-y-2">
             {list.map((row) => (
               <AddressRowCard
                 key={row.id}

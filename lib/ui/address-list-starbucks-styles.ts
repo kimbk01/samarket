@@ -24,7 +24,7 @@ export function addressListRowSurfaceClass(surface: AddressListRowSurface): stri
     case "store":
       return "rounded-ui-rect border border-[#6F4E37]/20 bg-[#F7F3ED] shadow-[inset_3px_0_0_0_#6F4E37]";
     default:
-      return "";
+      return "rounded-ui-rect border border-sam-border bg-white shadow-sm";
   }
 }
 

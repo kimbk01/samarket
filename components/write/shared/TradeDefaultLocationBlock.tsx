@@ -11,6 +11,7 @@ import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { buildMypageAddressesHref, buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { formatUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
@@ -266,15 +267,16 @@ export function TradeDefaultLocationBlock({
         >
           {locationLabel} <span className="text-red-500">*</span>
         </p>
-        <p
+        <div
           className={
             denseLayout
-              ? "mt-0.5 break-words text-[15px] font-medium leading-snug text-[#050505]"
-              : "mt-1 break-words text-[13px] leading-snug text-sam-muted"
+              ? "mt-0.5 flex min-w-0 items-start gap-1.5 text-[15px] font-medium leading-snug text-[#050505]"
+              : "mt-1 flex min-w-0 items-start gap-1.5 text-[13px] leading-snug text-sam-muted"
           }
         >
-          {currentAddressText}
-        </p>
+          <AddressKindHeadPin kind="master" className="mt-0.5 h-4 w-4 shrink-0 [&_svg]:h-4 [&_svg]:w-[0.85rem]" />
+          <span className="min-w-0 flex-1 break-words">{currentAddressText}</span>
+        </div>
       </button>
       {belowMeetSpotSlot ? <div className="mt-0">{belowMeetSpotSlot}</div> : null}
       {errorText ? <p className="mt-2 sam-text-body-secondary text-red-500">{errorText}</p> : null}

@@ -8,6 +8,7 @@ import { useMypageProfileSheets } from "@/components/mypage/profile-settings/myp
 import { deriveMemberAccountStatus } from "@/lib/profile/member-account-status";
 import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import {
   MYPAGE_HOME_CARD_CLASS,
@@ -37,6 +38,7 @@ function ControlRow({
   testId: string;
 }) {
   const clickable = Boolean(onActivate);
+  const isAddress = testId.includes("address");
   return (
     <li
       className={`rounded-ui-rect border ${
@@ -60,8 +62,14 @@ function ControlRow({
       tabIndex={clickable ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={`mt-0.5 ${tone === "action" ? "text-[#C62828]" : "text-[#00704A]"}`}>
-          {tone === "action" ? <span className="block h-5 w-5" aria-hidden /> : <CheckCircle2 className="h-5 w-5" aria-hidden />}
+        <span className={`mt-0.5 ${isAddress || tone !== "action" ? "text-[#00704A]" : "text-[#C62828]"}`}>
+          {isAddress ? (
+            <AddressKindHeadPin kind="master" className="[&_svg]:h-5 [&_svg]:w-[1rem]" />
+          ) : tone === "action" ? (
+            <span className="block h-5 w-5" aria-hidden />
+          ) : (
+            <CheckCircle2 className="h-5 w-5" aria-hidden />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

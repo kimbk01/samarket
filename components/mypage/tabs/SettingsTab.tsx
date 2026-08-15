@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
@@ -19,16 +20,18 @@ import { DevicePermissionsSettingsContent } from "@/components/my/settings/Devic
 import { MyPageMobileFold } from "@/components/mypage/MyPageMobileFold";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 export function SettingsTab({ section }: { section: string }) {
   const { t } = useI18n();
+  const router = useRouter();
   if (section === "address") {
     return (
       <TabShell
         title={t("mypage_comp_nav_sec_settings_address_label")}
         description={t("mypage_comp_nav_sec_settings_address_desc")}
       >
-        <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} />
+        <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} onOpen={() => router.push("/mypage/addresses")} />
       </TabShell>
     );
   }
@@ -165,20 +168,24 @@ export function SettingsTab({ section }: { section: string }) {
       title={t("mypage_comp_nav_sec_settings_address_label")}
       description={t("mypage_comp_nav_sec_settings_address_desc")}
     >
-      <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} />
+      <AddressBookLink label={t("mypage_comp_nav_sec_settings_address_label")} onOpen={() => router.push("/mypage/addresses")} />
     </TabShell>
   );
 }
 
-function AddressBookLink({ label }: { label: string }) {
+function AddressBookLink({ label, onOpen }: { label: string; onOpen: () => void }) {
   return (
-    <Link
-      href="/mypage/addresses"
+    <button
+      type="button"
+      onClick={onOpen}
       className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
     >
-      {label}
+      <span className="inline-flex min-w-0 items-center gap-2">
+        <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+        <span>{label}</span>
+      </span>
       <span className="text-sam-meta">›</span>
-    </Link>
+    </button>
   );
 }
 

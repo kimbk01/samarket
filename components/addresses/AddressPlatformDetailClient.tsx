@@ -17,8 +17,7 @@ import {
   encodePendingLocationOnlyNickname,
   encodeLocationOnlyAddressNickname,
 } from "@/lib/addresses/location-only-address-nickname";
-import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
-import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { ADDR_BTN_PRIMARY_FULL } from "@/lib/ui/address-flow-viber";
 
@@ -27,9 +26,6 @@ const AddressFineTuneMapLazy = dynamic(
     import("@/components/addresses/AddressFineTuneMapClient").then((m) => m.AddressFineTuneMapClient),
   { ssr: false },
 );
-
-type LabelPreset = "home" | "office" | "other";
-
 export function AddressPlatformDetailClient(props: {
   mode: "create" | "edit";
   initial: UserAddressDTO | null;
@@ -45,8 +41,6 @@ export function AddressPlatformDetailClient(props: {
   const [detail, setDetail] = useState("");
   const [landmark, setLandmark] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
-  const [labelPreset, setLabelPreset] = useState<LabelPreset | null>(null);
-  const [nickname, setNickname] = useState("");
   const [resolving, setResolving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -65,13 +59,6 @@ export function AddressPlatformDetailClient(props: {
       setDetail((initial.detailAddress ?? initial.unitFloorRoom ?? "").trim());
       setLandmark((initial.landmark ?? "").trim());
       setDeliveryNote((initial.deliveryNote ?? "").trim());
-      if (initial.labelType === "office") setLabelPreset("office");
-      else if (initial.labelType === "other" && !isLocationOnlyAddressNickname(initial.nickname)) {
-        setLabelPreset("other");
-      } else if (initial.labelType === "home") setLabelPreset("home");
-      else setLabelPreset(null);
-      const nick = (initial.nickname ?? "").trim();
-      setNickname(isLocationOnlyAddressNickname(nick) ? "" : nick);
     }
   }, [initial, mode, props.draft]);
 
@@ -121,24 +108,10 @@ export function AddressPlatformDetailClient(props: {
       return;
     }
     const isShop = initial?.labelType === "shop" || Boolean(initial?.linkedStoreId?.trim());
-    const submitLabel: UserAddressLabelType = isShop
-      ? "shop"
-      : labelPreset === "home" || labelPreset === "office"
-        ? labelPreset
-        : "other";
+    const submitLabel = isShop ? "shop" : "other";
     let resolvedNickname: string | null = null;
     if (isShop) {
       resolvedNickname = initial?.nickname ?? null;
-    } else if (labelPreset === "other") {
-      resolvedNickname = nickname.trim() || null;
-      if (!resolvedNickname) {
-        setErr(t("addr_ui_custom_name_required"));
-        return;
-      }
-      if (decodeLocationOnlyAddressNicknameId(resolvedNickname)) {
-        setErr(t("addr_ui_name_invalid"));
-        return;
-      }
     } else {
       const existing = (initial?.nickname ?? "").trim();
       if (existing && isLocationOnlyAddressNickname(existing)) {
@@ -168,16 +141,6 @@ export function AddressPlatformDetailClient(props: {
         roadAddress: draft.formattedAddress,
         fullAddress: draft.formattedAddress,
       });
-      const siblingRows = allAddresses.filter((a) => a.id !== initial?.id);
-      if (resolvedNickname) {
-        const nameKey = normalizeAddressNicknameKey(resolvedNickname);
-        const conflict = siblingRows.find((a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey);
-        if (conflict) {
-          setErr(t("addr_ui_api_nickname_duplicate"));
-          setBusy(false);
-          return;
-        }
-      }
       const body = {
         labelType: submitLabel,
         linkedStoreId: isShop ? initial?.linkedStoreId ?? null : null,
@@ -242,100 +205,79 @@ export function AddressPlatformDetailClient(props: {
     return <p className="px-4 py-8 text-center sam-text-body-secondary text-sam-muted">{t("addr_ui_pick_search_result")}</p>;
   }
 
-  const chip = (id: LabelPreset, label: string) => (
-    <button
-      key={id}
-      type="button"
-      onClick={() => setLabelPreset((cur) => (cur === id ? null : id))}
-      className={`min-h-[40px] flex-1 rounded-lg border px-3 py-2 sam-text-body font-semibold ${
-        labelPreset === id
-          ? "border-signature bg-signature/10 text-signature"
-          : "border-sam-border bg-sam-surface text-sam-fg"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
-        <div className="min-h-[220px]">
-          <AddressFineTuneMapLazy
-            latitude={draft.latitude}
-            longitude={draft.longitude}
-            onPositionChange={onPinMove}
-            heightPx={240}
-          />
-        </div>
-        {resolving ? (
-          <p className="sam-text-helper text-sam-muted">{t("addr_ui_confirming_address")}</p>
-        ) : (
-          <div>
-            {lines.title ? (
-              <p className="sam-text-body font-bold leading-snug text-sam-fg">{lines.title}</p>
-            ) : null}
-            {lines.addressLine ? (
-              <p className="mt-1 sam-text-body-secondary leading-snug text-sam-muted">{lines.addressLine}</p>
-            ) : null}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-[10px] py-3 pr-2">
+        <section className="overflow-hidden rounded-[24px] border border-signature/10 bg-white shadow-sm">
+          <div className="min-h-[220px] bg-sam-surface-muted">
+            <AddressFineTuneMapLazy
+              latitude={draft.latitude}
+              longitude={draft.longitude}
+              onPositionChange={onPinMove}
+              heightPx={240}
+            />
           </div>
-        )}
-
-        <label className="block">
-          <span className="mb-1 block sam-text-helper font-semibold text-sam-fg">{t("addr_ui_detail_address_label")}</span>
-          <textarea
-            id="addr-editor-detail"
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-            placeholder={t("addr_ui_detail_ph")}
-            rows={2}
-            className="w-full rounded-lg border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          />
-        </label>
-
-        {initial?.labelType === "shop" ? (
-          <p className="sam-text-helper text-sam-muted">{t("addr_ui_kind_shop")}</p>
-        ) : (
-          <div className="flex gap-2">
-            {chip("home", t("addr_v2_label_home"))}
-            {chip("office", t("addr_v2_label_office"))}
-            {chip("other", t("addr_v2_label_other"))}
+          <div className="border-t border-sam-border bg-gradient-to-b from-white to-signature/[0.04] px-4 py-3">
+            {resolving ? (
+              <p className="sam-text-helper font-semibold text-signature">{t("addr_ui_confirming_address")}</p>
+            ) : (
+              <>
+                {lines.title ? (
+                  <p className="sam-text-body font-extrabold leading-snug text-sam-fg">{lines.title}</p>
+                ) : null}
+                {lines.addressLine ? (
+                  <p className="mt-1 sam-text-body-secondary leading-snug text-sam-muted">{lines.addressLine}</p>
+                ) : null}
+              </>
+            )}
           </div>
-        )}
-        {labelPreset === "other" && initial?.labelType !== "shop" ? (
+        </section>
+
+        <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
           <label className="block">
-            <span className="mb-1 block sam-text-helper font-semibold text-sam-fg">{t("addr_ui_custom_name_label")}</span>
-            <input
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder={t("addr_v2_nickname_ph")}
-              className="w-full rounded-lg border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+            <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_ui_detail_address_label")}</span>
+            <textarea
+              id="addr-editor-detail"
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder={t("addr_ui_detail_ph")}
+              rows={2}
+              className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
             />
           </label>
-        ) : null}
+          {initial?.labelType === "shop" ? (
+            <p className="mt-2 rounded-[14px] bg-[#F7F3ED] px-3 py-2 sam-text-helper font-semibold text-[#6F4E37]">
+              {t("addr_ui_kind_shop")}
+            </p>
+          ) : null}
+        </section>
 
-        <label className="block">
-          <span className="mb-1 block sam-text-helper font-semibold text-sam-fg">{t("addr_v2_landmark_label")}</span>
-          <input
-            value={landmark}
-            onChange={(e) => setLandmark(e.target.value)}
-            placeholder={t("addr_v2_landmark_ph")}
-            className="w-full rounded-lg border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block sam-text-helper font-semibold text-sam-fg">{t("addr_ui_delivery_note")}</span>
-          <input
-            value={deliveryNote}
-            onChange={(e) => setDeliveryNote(e.target.value)}
-            placeholder={t("addr_ui_delivery_ph")}
-            className="w-full rounded-lg border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-          />
-        </label>
+        <section className="rounded-[24px] border border-sam-border bg-white p-4 shadow-sm">
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_v2_landmark_label")}</span>
+              <input
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+                placeholder={t("addr_v2_landmark_ph")}
+                className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block sam-text-helper font-bold text-sam-fg">{t("addr_ui_delivery_note")}</span>
+              <input
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+                placeholder={t("addr_ui_delivery_ph")}
+                className="w-full rounded-[18px] border border-sam-border bg-sam-surface px-3 py-3 sam-text-body text-sam-fg outline-none transition-colors focus:border-signature/50 focus:bg-white"
+              />
+            </label>
+          </div>
+        </section>
         {err ? <p className="sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
       </div>
       <div
-        className="shrink-0 border-t border-sam-border bg-sam-app/40 px-4 py-3"
+        className="shrink-0 border-t border-sam-border bg-white/95 px-[10px] py-3 pr-2 shadow-[0_-8px_20px_rgba(15,23,42,0.04)]"
         data-form-keyboard-footer=""
         style={{ paddingBottom: `${effectiveBottomInset + 12}px` }}
       >

@@ -28,6 +28,7 @@ import { MYPAGE_DOMAIN_ROOT_PATH } from "@/lib/mypage/mypage-authority-contract"
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { mannerBatteryAccentClass, mannerBatteryTier, mannerRawToPercent } from "@/lib/trust/manner-battery";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 function LogoutItemRedirectToHub() {
   const router = useRouter();
@@ -40,7 +41,7 @@ function LogoutItemRedirectToHub() {
 function AddressItemRedirectToBook() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/mypage/addresses");
+    router.push("/mypage/addresses");
   }, [router]);
   return null;
 }
@@ -49,6 +50,7 @@ export function MyPageItemScreen(
   props: MyPageConsoleProps & { section: string; item: string },
 ) {
   const { t } = useI18n();
+  const router = useRouter();
   const { section, item, ...hub } = props;
 
   if (section === "account") {
@@ -144,13 +146,17 @@ export function MyPageItemScreen(
     if (item === "region") {
       return (
         <div className="space-y-4">
-          <Link
-            href="/mypage/addresses"
+          <button
+            type="button"
+            onClick={() => router.push("/mypage/addresses")}
             className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
           >
-            {t("mypage_comp_region_settings_open")}
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+              <span>{t("mypage_comp_region_settings_open")}</span>
+            </span>
             <span className="text-sam-meta">›</span>
-          </Link>
+          </button>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <p className="mb-3 sam-text-body font-semibold text-sam-fg">{t("mypage_comp_bulk_region_change_title")}</p>
             <BulkRegionChangeContent />

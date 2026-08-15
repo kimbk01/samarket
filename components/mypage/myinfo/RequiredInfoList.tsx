@@ -89,8 +89,8 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
       tabIndex={isIncomplete ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={isDone ? "mt-0.5 text-[#00704A]" : "mt-0.5 text-[#C62828]"}>
-          {isDone ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : renderMypageHomeMenuIcon(row.icon)}
+        <span className={row.id === "address" || isDone ? "mt-0.5 text-[#00704A]" : "mt-0.5 text-[#C62828]"}>
+          {row.id === "address" ? renderMypageHomeMenuIcon(row.icon) : isDone ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : renderMypageHomeMenuIcon(row.icon)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

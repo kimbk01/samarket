@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RepresentativeAddressLineState } from "@/hooks/use-representative-address-line";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
@@ -12,6 +11,7 @@ import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-address
  */
 export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAddressLineState }) {
   const { t } = useI18n();
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const addressManagementHref = buildMypageAddressesHrefFromPath(
@@ -26,13 +26,14 @@ export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAdd
   const line = rep.line?.trim() || t("layout_region_default");
   const ariaLine = rep.line?.trim() || t("layout_region_fallback_short");
   return (
-    <Link
-      href={addressManagementHref}
+    <button
+      type="button"
+      onClick={() => router.push(addressManagementHref)}
       className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-sam-primary-soft px-3 py-1.5 text-[length:calc(13px-2pt)] font-semibold text-sam-primary"
       aria-label={t("layout_address_manage_aria", { line: ariaLine })}
     >
       <AddressKindHeadPin kind="master" className="h-4 w-4 shrink-0 [&_svg]:h-4 [&_svg]:w-[0.85rem]" />
       <span className="min-w-0 truncate">{line}</span>
-    </Link>
+    </button>
   );
 }

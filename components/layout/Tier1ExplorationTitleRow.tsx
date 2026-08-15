@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
@@ -12,6 +11,7 @@ import {
 } from "@/lib/neighborhood/location-key";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 /** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
 type Tier1ExplorationTitleRowProps = {
@@ -30,6 +30,7 @@ export function Tier1ExplorationTitleRow({
   align = "center",
 }: Tier1ExplorationTitleRowProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const addressManagementHref = buildMypageAddressesHrefFromPath(
@@ -60,13 +61,15 @@ export function Tier1ExplorationTitleRow({
           <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
             ·
           </span>
-          <Link
-            href={addressManagementHref}
-            className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
+          <button
+            type="button"
+            onClick={() => router.push(addressManagementHref)}
+            className="sam-text-body-secondary inline-flex min-w-0 flex-1 items-center gap-1 truncate text-left leading-none hover:text-sam-fg hover:underline"
             aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
           >
-            {addressLine}
-          </Link>
+            <AddressKindHeadPin kind="master" className="h-3.5 w-3.5 shrink-0 [&_svg]:h-3.5 [&_svg]:w-[0.75rem]" />
+            <span className="min-w-0 truncate">{addressLine}</span>
+          </button>
         </>
       ) : null}
     </span>

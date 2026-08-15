@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { MemberOrderChatList } from "@/components/member-orders/MemberOrderChatList";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 type Props = Pick<MyPageConsoleProps, "hasOwnerStore" | "ownerHubStoreId" | "storeAttentionSummary">;
 
@@ -18,6 +20,7 @@ export function StoreTab({
   storeAttentionSummary,
 }: Props & { section: string }) {
   const { t, safeT } = useI18n();
+  const router = useRouter();
   const businessHref = ownerHubStoreId?.trim()
     ? `/stores/owner?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
     : "/stores/owner";
@@ -89,13 +92,17 @@ export function StoreTab({
         title={safeT("mypage_comp_nav_sec_store_address_label")}
         description={t("mypage_comp_nav_sec_store_address_desc")}
       >
-        <Link
-          href="/mypage/addresses"
+        <button
+          type="button"
+          onClick={() => router.push("/mypage/addresses")}
           className="flex min-h-[52px] items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-medium text-sam-fg"
         >
-          {safeT("mypage_comp_nav_sec_store_address_label")}
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <AddressKindHeadPin kind="master" className="h-5 w-5 shrink-0 [&_svg]:h-5 [&_svg]:w-[1rem]" />
+            <span>{safeT("mypage_comp_nav_sec_store_address_label")}</span>
+          </span>
           <span className="text-sam-meta">›</span>
-        </Link>
+        </button>
       </TabShell>
     );
   }
