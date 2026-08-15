@@ -8,7 +8,12 @@ import { AddressSearch } from "@/components/map/AddressSearch";
 import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
-import type { CanonicalAddressDraft, CanonicalPreferredPlace } from "@/lib/addresses/canonical-address-draft";
+import {
+  preserveSelectedPlaceIdentity,
+  selectedPlaceIdentityFromDraft,
+  type CanonicalAddressDraft,
+  type CanonicalPreferredPlace,
+} from "@/lib/addresses/canonical-address-draft";
 import {
   displayInputFromDraft,
   resolveCanonicalDisplayLines,
@@ -76,20 +81,19 @@ function useReverseGeocode(
         if (cancelled) return;
         setBusy(true);
         try {
-          const draft = await resolveCanonicalAddressFromLatLng(
+          const selectedIdentity = preferredRef.current;
+          const locationDraft = await resolveCanonicalAddressFromLatLng(
             marker.lat,
             marker.lng,
-            preferredRef.current,
+            selectedIdentity,
           );
           if (cancelled) return;
-          if (!draft) {
+          if (!locationDraft) {
             setText("");
             setPlaceId(null);
             return;
           }
-          if (!draft.samePlaceAsPreferred) {
-            preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName };
-          }
+          const draft = preserveSelectedPlaceIdentity(locationDraft, selectedIdentity);
           const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
           setPlaceId(draft.placeId);
           setText([lines.title, lines.addressLine].filter(Boolean).join("\n"));
@@ -207,7 +211,7 @@ export function AddressSelectClient(props?: {
 
   const onPlaceResolved = useCallback((draft: CanonicalAddressDraft) => {
     searchPlaceIdRef.current = draft.placeId;
-    preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName };
+    preferredRef.current = selectedPlaceIdentityFromDraft(draft);
     setMarker({ lat: draft.latitude, lng: draft.longitude });
     const lines = resolveCanonicalDisplayLines(displayInputFromDraft(draft));
     const addr = [lines.title, lines.addressLine].filter(Boolean).join("\n").trim();

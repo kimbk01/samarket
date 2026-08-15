@@ -216,6 +216,7 @@ export async function resolveCanonicalAddressFromLatLng(
     typeof streetResult.place_id === "string" ? streetResult.place_id.trim() || null : null;
 
   const preferredId = (preferred?.placeId ?? "").trim();
+  const hasPreferredIdentity = Boolean(preferredId || (preferred?.placeName ?? "").trim());
   if (preferredId) {
     const preferredPlace = await fetchPlaceDetailsAsLegacyPlaceResult(preferredId, PLACE_FIELDS_POI_FULL);
     const keepPreferred =
@@ -241,7 +242,7 @@ export async function resolveCanonicalAddressFromLatLng(
     }
   }
 
-  const poiPlaceId = pickGeocoderPoiPlaceId(geoResults);
+  const poiPlaceId = hasPreferredIdentity ? null : pickGeocoderPoiPlaceId(geoResults);
   if (poiPlaceId) {
     const poiPlace = await fetchPlaceDetailsAsLegacyPlaceResult(poiPlaceId, PLACE_FIELDS_POI_FULL);
     const poiName = realPlaceName(poiPlace?.name, streetComponents);

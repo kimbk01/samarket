@@ -401,7 +401,23 @@ describe("ADDR-013 Address Platform V2", () => {
     const src = read("components/map/AddressSelectClient.tsx");
     expect(src).toContain("preferredRef");
     expect(src).toContain("resolveCanonicalAddressFromLatLng");
-    expect(src).toContain("preferredRef.current");
+    expect(src).toContain("preserveSelectedPlaceIdentity");
+    expect(src).toContain("selectedPlaceIdentityFromDraft");
+    expect(src).not.toContain("preferredRef.current = { placeId: draft.placeId, placeName: draft.placeName }");
+  });
+
+  it("pin drag refines location without replacing selected place identity", () => {
+    const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
+    const draft = read("lib/addresses/canonical-address-draft.ts");
+    expect(detail).toContain("selectedPlaceIdentityRef");
+    expect(detail).toContain("preserveSelectedPlaceIdentity");
+    expect(detail).not.toContain("preferRef.current = { placeId: next.placeId, placeName: next.placeName }");
+    expect(draft).toContain("Search/explicit place selection is identity authority");
+    expect(draft).toContain("export function preserveSelectedPlaceIdentity");
+    expect(draft).toContain("isSelectedPlaceIdentityConsistentWithLocation");
+    expect(draft).not.toMatch(/distance\s*[><=]/i);
+    const resolver = read("lib/addresses/canonical-address-resolver.ts");
+    expect(resolver).toContain("hasPreferredIdentity ? null : pickGeocoderPoiPlaceId");
   });
 
   it("Search → Detail draft is peeked, not consumed, before the address list fetch", () => {

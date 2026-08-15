@@ -3,7 +3,11 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
+import {
+  preserveSelectedPlaceIdentity,
+  selectedPlaceIdentityFromDraft,
+  type CanonicalAddressDraft,
+} from "@/lib/addresses/canonical-address-draft";
 import {
   displayInputFromDraft,
   resolveCanonicalDisplayLines,
@@ -47,12 +51,12 @@ export function AddressPlatformDetailClient(props: {
   const seqRef = useRef(0);
   const pinTimerRef = useRef<number | null>(null);
   const userFieldsHydratedRef = useRef(false);
-  const preferRef = useRef({ placeId: props.draft?.placeId ?? null, placeName: props.draft?.placeName ?? null });
+  const selectedPlaceIdentityRef = useRef(selectedPlaceIdentityFromDraft(props.draft));
 
   useEffect(() => {
     if (props.draft) {
       setDraft(props.draft);
-      preferRef.current = { placeId: props.draft.placeId, placeName: props.draft.placeName };
+      selectedPlaceIdentityRef.current = selectedPlaceIdentityFromDraft(props.draft);
     }
     if (mode === "edit" && initial && !userFieldsHydratedRef.current) {
       userFieldsHydratedRef.current = true;
@@ -77,13 +81,12 @@ export function AddressPlatformDetailClient(props: {
       pinTimerRef.current = null;
       void (async () => {
         try {
-          const next = await resolveCanonicalAddressFromLatLng(lat, lng, preferRef.current);
+          const selectedIdentity = selectedPlaceIdentityRef.current;
+          const nextLocation = await resolveCanonicalAddressFromLatLng(lat, lng, selectedIdentity);
           if (seq !== seqRef.current) return;
-          if (next) {
+          if (nextLocation) {
+            const next = preserveSelectedPlaceIdentity(nextLocation, selectedIdentity);
             setDraft(next);
-            if (!next.samePlaceAsPreferred) {
-              preferRef.current = { placeId: next.placeId, placeName: next.placeName };
-            }
           }
         } catch {
           if (seq === seqRef.current) setErr(t("addr_ui_resolve_failed_short"));
