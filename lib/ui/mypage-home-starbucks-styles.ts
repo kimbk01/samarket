@@ -17,11 +17,11 @@ export {
 };
 
 /**
- * 내정보 홈 page/shell surface — domain pale SSOT (`--dibay-domain-surface` = mypage #F3F2EB).
- * Do not use hard-coded #F2F0EB (creates cream band under Header).
+ * 내정보 홈 page/shell surface — must match `DIBAY_DOMAIN_CHROME.mypage.surface` (#F3F2EB).
+ * Do not use `--dibay-domain-surface` alone here: `:root` defaults to #F9F9F9 and
+ * layout/shell are outside `[data-dibay-domain]` (Header-only attribute today).
  */
-export const MYPAGE_HOME_PAGE_BG_CLASS =
-  "min-h-0 bg-[color:var(--dibay-domain-surface,var(--sector-header-bg,#F3F2EB))]";
+export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-[#F3F2EB]";
 
 /** 내정보 홈 — 하단 탭 clearance(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`) re-export */
 export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
