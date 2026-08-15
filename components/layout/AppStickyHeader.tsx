@@ -26,6 +26,8 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
+import { MypagePullRefreshHint } from "@/components/mypage/MypagePullRefreshHint";
+import { MypagePullRefreshHost } from "@/components/mypage/MypagePullRefreshHost";
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
@@ -37,15 +39,17 @@ export function AppStickyHeader() {
   const categorySticky = useCategoryListStickyConfig();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
-  const { topTier1RuleSet, isTradeMenuSurface, domainId, domainStyle } = useMemo(() => {
+  const { topTier1RuleSet, isTradeMenuSurface, isMypageHubRoot, domainId, domainStyle } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
     const isTradeMenuSurface =
       pathname === "/market" ||
       (pathname?.startsWith("/market/") ?? false);
+    const isMypageHubRoot = pathname === "/mypage" || pathname === "/my";
     const surface = resolveMainSurface(pathname);
     return {
       topTier1RuleSet,
       isTradeMenuSurface,
+      isMypageHubRoot,
       domainId: resolveDibayDomainChromeId(surface),
       domainStyle: dibayDomainChromeCssVars(surface),
     };
@@ -95,6 +99,12 @@ export function AppStickyHeader() {
         ) : (
           <>
             <RegionBar tier1RuleSet={topTier1RuleSet} />
+            {isMypageHubRoot ? (
+              <>
+                <MypagePullRefreshHost />
+                <MypagePullRefreshHint />
+              </>
+            ) : null}
             {ctaLinks.length > 0 ? <MyManagedCtaStrip links={ctaLinks} /> : null}
             {stickyBelow}
             {isTradeMenuSurface ? (

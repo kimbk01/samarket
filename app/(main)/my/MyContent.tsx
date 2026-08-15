@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
@@ -23,8 +23,10 @@ import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/netw
 import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
 import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/MypageProfileSheetsHost";
 import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
+import { MypagePullRefreshRegister } from "@/components/mypage/MypagePullRefreshRegister";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { clearMypageHomeCaches } from "@/lib/mypage/mypage-home-snapshot";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -66,6 +68,13 @@ export function MyContent() {
   const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
 
   const { projection, refresh, needsRelogin } = useMypageHomeModel(treatAsMember);
+
+  /** PTR authority — existing home model only (profile + address defaults). */
+  const onHubPullRefresh = useCallback(async () => {
+    if (!treatAsMember) return;
+    clearMypageHomeCaches();
+    await refresh({ forceAddress: true });
+  }, [treatAsMember, refresh]);
 
   useEffect(() => {
     if (!pathname) return;
@@ -133,6 +142,7 @@ export function MyContent() {
   if (isConfirmedGuest) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+        <MypagePullRefreshRegister onRefresh={onHubPullRefresh} />
         <MyPageHeader />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageGuestHomeDashboard />
@@ -144,6 +154,7 @@ export function MyContent() {
   /** member or checking-with-session: always show home shell (menus static; profile may skeleton) */
   return (
     <MypageProfileSheetsProvider>
+      <MypagePullRefreshRegister onRefresh={onHubPullRefresh} />
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`} data-mypage-home-shell="1">
         <MyPageHeader />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>

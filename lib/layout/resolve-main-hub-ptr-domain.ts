@@ -1,8 +1,9 @@
-export type MainHubPtrDomain = "trade" | "philife" | "stores" | "messenger";
+export type MainHubPtrDomain = "trade" | "philife" | "stores" | "messenger" | "mypage";
 
 /**
  * 메인 허브 PTR touch 리스너 — pathname 기준 단일 도메인.
  * 동시에 하나만 `preventDefault` 리스너를 붙여 스크롤 충돌을 막는다.
+ * MyPage: hub root only (`/mypage` · `/my`) — subpages keep page-local refresh authority.
  */
 export function resolveMainHubPtrDomain(pathname: string | null | undefined): MainHubPtrDomain | null {
   const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -18,5 +19,6 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
     if (/^\/community-messenger\/calls\/[^/]+$/.test(p)) return null;
     return "messenger";
   }
+  if (p === "/mypage" || p === "/my") return "mypage";
   return null;
 }

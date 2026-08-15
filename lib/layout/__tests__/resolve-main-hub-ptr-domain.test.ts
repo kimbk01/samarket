@@ -16,9 +16,15 @@ describe("resolveMainHubPtrDomain", () => {
     expect(resolveMainHubPtrDomain("/community-messenger/calls/abc")).toBe(null);
   });
 
+  it("returns mypage for hub roots only", () => {
+    expect(resolveMainHubPtrDomain("/mypage")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/my")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/mypage/trust")).toBe(null);
+    expect(resolveMainHubPtrDomain("/mypage/account")).toBe(null);
+  });
+
   it("returns null for browse and unsupported paths", () => {
     expect(resolveMainHubPtrDomain("/stores/browse/restaurant")).toBe(null);
     expect(resolveMainHubPtrDomain("/market/trade-meet-spot")).toBe(null);
-    expect(resolveMainHubPtrDomain("/mypage")).toBe(null);
   });
 });

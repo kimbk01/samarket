@@ -7,5 +7,10 @@ type MyLayoutProps = {
 };
 
 export default function MyLayout({ children }: MyLayoutProps) {
-  return <div className="sam-domain-shell">{children}</div>;
+  /** Same blank-band root as `/mypage` layout — domain pale, not cream shell. */
+  return (
+    <div className="sam-domain-shell bg-[color:var(--dibay-domain-surface,var(--sector-header-bg,#F3F2EB))]">
+      {children}
+    </div>
+  );
 }

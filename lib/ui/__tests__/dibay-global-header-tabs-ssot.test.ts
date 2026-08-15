@@ -67,4 +67,9 @@ describe("dibay global header + secondary tabs SSOT", () => {
       expect(withoutMenus).not.toMatch(/\bbg-sam-surface\b(?!-muted)/);
     }
   });
+
+  it("CommunityFeed secondary host uses domain host class SSOT", () => {
+    const src = readFileSync(join(process.cwd(), "components/community/CommunityFeed.tsx"), "utf8");
+    expect(src).toContain("DIBAY_CHROME_SECONDARY_HOST_CLASS");
+  });
 });

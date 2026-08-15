@@ -8,9 +8,10 @@
  * - stores home — useStoresHomePullRefresh / stores-home-pull-refresh-store
  * - stores browse — StoresBrowsePullRefresh*
  * - messenger home — MessengerPullRefresh* / runMessengerHomePullRefresh
+ * - mypage hub — MypagePullRefresh* / useMypageHomeModel.refresh (USER REQUIREMENT)
  *
  * HOLD (no proven safe refresh authority — no invented router.refresh/API):
- * - most mypage descendants
+ * - most mypage descendants (not hub root)
  * - read-only static/legal pages without existing reload handler
  * - immersive call / map / chat room (layout exceptions)
  *
@@ -24,6 +25,7 @@ export const DIBAY_PTR_ELIGIBLE_FAMILIES = [
   "stores_home",
   "stores_browse",
   "messenger",
+  "mypage",
 ] as const;
 
 export type DibayPtrEligibleFamily = (typeof DIBAY_PTR_ELIGIBLE_FAMILIES)[number];
