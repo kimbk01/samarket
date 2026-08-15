@@ -675,7 +675,7 @@ export function MyNotificationsView({
 
   return (
     <div className="space-y-3">
-      <div className="sticky top-0 z-10 -mx-1 space-y-2 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 -mx-1 space-y-2 bg-sam-surface/95 px-1 py-2 backdrop-blur-sm">
         <NotificationInboxTabBar
           chips={categoryChips}
           active={categoryFilter}
@@ -689,7 +689,7 @@ export function MyNotificationsView({
               disabled={busy || !rows.some((r) => !r.is_read)}
               title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
               onClick={() => void markAllRead()}
-              className="text-[13px] font-semibold text-sam-primary disabled:cursor-not-allowed disabled:opacity-40"
+              className="text-[12px] font-medium text-sam-muted hover:text-sam-fg disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? t("common_processing") : t("notif_tier1_mark_read")}
             </button>

@@ -4,22 +4,23 @@ import {
   Bell,
   Gift,
   Headphones,
+  Lock,
   Megaphone,
   MessageCircle,
   Package,
-  Rocket,
-  ShoppingBag,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import type { NotificationInboxVisualKind } from "@/lib/notifications/notification-inbox-visual";
 
+/** Icons aligned to DIBAY notification modal / full-inbox mockup. */
 const ICONS: Record<NotificationInboxVisualKind, LucideIcon> = {
   notice: Megaphone,
-  system: Rocket,
+  system: Lock,
   marketing: Gift,
   delivery: Package,
-  community: MessageCircle,
-  trade: ShoppingBag,
+  community: User,
+  trade: MessageCircle,
   cs: Headphones,
   chat: MessageCircle,
   default: Bell,

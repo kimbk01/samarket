@@ -5,11 +5,10 @@ import { ChevronRight, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationInboxCategoryIcon } from "@/components/notifications/NotificationInboxCategoryIcon";
 import { resolveBellUnreadSequenceLabel } from "@/lib/notifications/bell-unread-sequence-label";
+import { formatNotificationInboxTime } from "@/lib/notifications/format-notification-inbox-time";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
-import {
-  resolveMemberNotificationRowLabelKey,
-} from "@/lib/notifications/member-notification-domain";
+import { resolveMemberNotificationRowLabelKey } from "@/lib/notifications/member-notification-domain";
 import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
 
 type Props = {
@@ -35,16 +34,9 @@ type Props = {
   focusedNotificationId?: string | null;
 };
 
-function formatRowClock(iso: string, language: string): string {
-  return new Date(iso).toLocaleTimeString(language === "ko" ? "ko-KR" : "en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 /**
- * DIBAY notification cards — Bell modal + Full Inbox shared row chrome.
- * Unread: soft primary tint. Modal keeps descending sequence labels.
+ * DIBAY notification rows — Bell modal + Full Inbox shared chrome (mockup).
+ * Flat divider list, soft domain chips, circular icons. Bell keeps N…1 sequence.
  */
 export function InboxGroupCardList({
   items,
@@ -68,22 +60,17 @@ export function InboxGroupCardList({
   const hideDelete = summaryOnly || !onDelete || selectionMode;
 
   return (
-    <ul className={`min-w-0 ${summaryOnly ? "space-y-1.5" : "space-y-2"}`}>
+    <ul className="min-w-0 divide-y divide-sam-border/55">
       {items.map((item, index) => {
         const kind = item.kindLabel;
-        const hasUnread = item.unreadCount > 0;
         const isOrderGroup = item.isOrderGroup;
         const visual = resolveNotificationInboxVisual(item);
         const orderMetaLine =
           !summaryOnly && isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
         const snippet =
-          item.body && item.body !== item.displayTitle
+          item.body && item.body !== item.displayTitle && !(isOrderGroup && item.body === item.displayTitle)
             ? item.body
-            : summaryOnly
-              ? null
-              : item.body && !(isOrderGroup && item.body === item.displayTitle)
-                ? item.body
-                : null;
+            : null;
         const deleting = deleteBusyKey === item.key;
         const selected = selectionMode && (selectedKeys?.has(item.key) ?? false);
         const focused = Boolean(
@@ -93,7 +80,7 @@ export function InboxGroupCardList({
           showSequenceIndex && summaryOnly
             ? resolveBellUnreadSequenceLabel(index, items.length) || null
             : null;
-        const timeLabel = formatRowClock(item.created_at, language);
+        const timeLabel = formatNotificationInboxTime(item.created_at, language);
         const labelKey = resolveMemberNotificationRowLabelKey({
           push_kind: item.push_kind,
           notification_type: item.notification_type,
@@ -109,16 +96,11 @@ export function InboxGroupCardList({
           <li
             key={item.key}
             data-notification-focus-target={focused ? "1" : undefined}
+            className={`${focused ? "bg-sam-primary-soft/40" : "bg-sam-surface"} ${
+              selected ? "bg-sam-primary-soft/55" : ""
+            }`}
           >
-            <div
-              className={`flex min-w-0 overflow-hidden rounded-2xl border transition ${
-                hasUnread
-                  ? "border-sam-primary/15 bg-sam-primary-soft/70"
-                  : "border-sam-border/70 bg-sam-surface"
-              } ${selected ? "ring-2 ring-sam-primary/35" : ""} ${
-                focused ? "ring-2 ring-sam-primary/55" : ""
-              } ${!hasUnread && !summaryOnly ? "opacity-95" : ""}`}
-            >
+            <div className="flex min-w-0 items-stretch">
               {selectionMode ? (
                 <button
                   type="button"
@@ -154,7 +136,7 @@ export function InboxGroupCardList({
 
               {sequenceLabel ? (
                 <div
-                  className="flex w-8 shrink-0 items-start justify-center pt-3.5 tabular-nums text-[11px] font-bold leading-none text-sam-primary"
+                  className="flex w-7 shrink-0 items-start justify-center pt-[18px] tabular-nums text-[12px] font-semibold leading-none text-sam-fg/80"
                   aria-hidden
                 >
                   {sequenceLabel}
@@ -176,7 +158,7 @@ export function InboxGroupCardList({
                     onActivate(item);
                   }}
                   data-notification-row-action
-                  className="flex w-full min-w-0 items-start gap-3 px-3 py-3 text-left transition active:bg-black/[0.03] disabled:opacity-60"
+                  className="flex w-full min-w-0 items-start gap-2.5 px-2 py-3.5 text-left transition active:bg-black/[0.02] disabled:opacity-60"
                 >
                   <span
                     className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${visual.wellClassName}`}
@@ -189,12 +171,11 @@ export function InboxGroupCardList({
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-start justify-between gap-2">
-                      <span className="min-w-0 truncate text-[11px] font-medium leading-tight text-sam-meta">
+                    <span className="flex min-w-0 items-center justify-between gap-2">
+                      <span
+                        className={`inline-flex max-w-[70%] truncate rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium leading-tight ${visual.chipClassName}`}
+                      >
                         {categoryLabel}
-                        {kind && kind !== categoryLabel ? (
-                          <span className="text-sam-meta"> · {kind}</span>
-                        ) : null}
                       </span>
                       <span
                         className="shrink-0 text-[11px] leading-tight text-sam-meta tabular-nums"
@@ -205,18 +186,12 @@ export function InboxGroupCardList({
                     </span>
 
                     {orderMetaLine ? (
-                      <span className="mt-0.5 block truncate text-[11px] font-medium leading-snug text-sam-meta">
+                      <span className="mt-1 block truncate text-[11px] font-medium leading-snug text-sam-meta">
                         {orderMetaLine}
                       </span>
                     ) : null}
 
-                    <span
-                      className={`mt-0.5 block break-words leading-snug text-sam-fg ${
-                        summaryOnly
-                          ? "line-clamp-1 text-[13px] font-semibold"
-                          : "line-clamp-2 text-[14px] font-semibold"
-                      }`}
-                    >
+                    <span className="mt-1 block break-words text-[14px] font-bold leading-snug text-sam-fg line-clamp-1">
                       {item.displayTitle}
                     </span>
 
@@ -229,7 +204,7 @@ export function InboxGroupCardList({
 
                   {!selectionMode ? (
                     <ChevronRight
-                      className="mt-1 h-4 w-4 shrink-0 text-sam-meta"
+                      className="mt-2 h-4 w-4 shrink-0 text-sam-meta/80"
                       strokeWidth={2}
                       aria-hidden
                     />
@@ -242,7 +217,7 @@ export function InboxGroupCardList({
               </div>
 
               {!hideDelete ? (
-                <div className="flex shrink-0 flex-col items-center justify-start py-2 pr-2">
+                <div className="flex shrink-0 flex-col items-center justify-start py-2 pr-1.5">
                   <button
                     type="button"
                     disabled={deleting}

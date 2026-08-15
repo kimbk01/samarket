@@ -26,7 +26,7 @@ type Props = {
 };
 
 /**
- * Shared horizontal tab strip for Bell modal + Notification Center.
+ * Shared horizontal tab strip for Notification Center (mockup 7-domain IA).
  * Member A only — Owner store is not mixed into this bar.
  */
 export function NotificationInboxTabBar({
@@ -37,7 +37,7 @@ export function NotificationInboxTabBar({
   compact = false,
   className = "",
 }: Props) {
-  const pad = compact ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-1.5 text-[12px]";
+  const pad = compact ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-[7px] text-[12px]";
 
   return (
     <div
@@ -61,14 +61,14 @@ export function NotificationInboxTabBar({
               className={`inline-flex shrink-0 items-center rounded-full font-semibold transition-transform active:scale-[0.97] ${pad} ${
                 selected
                   ? "bg-sam-primary text-white shadow-sm"
-                  : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
+                  : "bg-[#EFE8DF] text-sam-fg hover:bg-[#E8E0D6] active:bg-[#E2D9CE]"
               }`}
             >
               <span>{label}</span>
               {showBadge ? (
                 <span
-                  className={`ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
-                    selected ? "bg-white/95 text-sam-danger" : "bg-sam-danger text-white"
+                  className={`ml-1.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
+                    selected ? "bg-sam-danger text-white" : "bg-sam-danger text-white"
                   }`}
                 >
                   {count > 99 ? "99+" : count}

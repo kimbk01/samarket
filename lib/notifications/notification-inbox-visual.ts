@@ -13,13 +13,15 @@ export type NotificationInboxVisualKind =
 
 export type NotificationInboxVisual = {
   kind: NotificationInboxVisualKind;
-  /** Tailwind-friendly icon well */
+  /** Soft circular icon well */
   wellClassName: string;
   iconClassName: string;
+  /** Soft domain chip behind row label (mockup) */
+  chipClassName: string;
 };
 
 /**
- * Category visual for DIBAY notification cards (Bell + Full Inbox).
+ * Category visual for DIBAY notification rows (Bell + Full Inbox).
  * Presentation only — does not change badge / destination authority.
  */
 export function resolveNotificationInboxVisual(
@@ -48,27 +50,33 @@ export function resolveNotificationInboxVisual(
   ) {
     return {
       kind: "marketing",
-      wellClassName: "bg-amber-100 text-amber-700",
-      iconClassName: "text-amber-700",
+      wellClassName: "bg-[#EEF6EF]",
+      iconClassName: "text-[#2F6B3A]",
+      chipClassName: "bg-[#F3E8E4] text-[#5C4A42]",
     };
   }
-  if (
-    campaign === "notice" ||
-    push === "notice" ||
-    bell === "admin_notice" ||
-    event === "notice_published"
-  ) {
+  if (campaign === "notice" || push === "notice" || bell === "admin_notice") {
     return {
       kind: "notice",
-      wellClassName: "bg-[color:var(--sam-primary-soft,#E8F2EC)] text-sam-primary",
+      wellClassName: "bg-[#E8F2EC]",
       iconClassName: "text-sam-primary",
+      chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
     };
   }
   if (campaign === "system" || push === "system" || bell === "admin_system" || type === "system") {
     return {
       kind: "system",
-      wellClassName: "bg-emerald-100 text-emerald-800",
-      iconClassName: "text-emerald-800",
+      wellClassName: "bg-[#ECECEA]",
+      iconClassName: "text-[#4A4A46]",
+      chipClassName: "bg-[#EFE8E0] text-[#5A534C]",
+    };
+  }
+  if (event === "notice_published") {
+    return {
+      kind: "notice",
+      wellClassName: "bg-[#E8F2EC]",
+      iconClassName: "text-sam-primary",
+      chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
     };
   }
   if (
@@ -79,41 +87,47 @@ export function resolveNotificationInboxVisual(
   ) {
     return {
       kind: "delivery",
-      wellClassName: "bg-teal-100 text-teal-800",
-      iconClassName: "text-teal-800",
+      wellClassName: "bg-[#F1E8DE]",
+      iconClassName: "text-[#8A5A32]",
+      chipClassName: "bg-[#F0E6DC] text-[#6A5340]",
     };
   }
   if (push === "community" || bell.includes("community") || type === "review") {
     return {
       kind: "community",
-      wellClassName: "bg-orange-100 text-orange-800",
-      iconClassName: "text-orange-800",
+      wellClassName: "bg-[#EAF3EC]",
+      iconClassName: "text-[#3D6B48]",
+      chipClassName: "bg-[#E8F0E6] text-[#4A5C48]",
     };
   }
   if (push === "trade" || type === "status" || bell === "trade_message") {
     return {
       kind: "trade",
-      wellClassName: "bg-lime-100 text-lime-800",
-      iconClassName: "text-lime-800",
+      wellClassName: "bg-[#EAF4EC]",
+      iconClassName: "text-[#2F6B3A]",
+      chipClassName: "bg-[#E7F0E6] text-[#3F5A42]",
     };
   }
   if (push === "chat" || type === "chat" || bell.includes("message")) {
     return {
       kind: "chat",
-      wellClassName: "bg-violet-100 text-violet-800",
-      iconClassName: "text-violet-800",
+      wellClassName: "bg-[#EAF4EC]",
+      iconClassName: "text-[#2F6B3A]",
+      chipClassName: "bg-[#E7F0E6] text-[#3F5A42]",
     };
   }
   if (push === "cs" || type === "report") {
     return {
       kind: "cs",
-      wellClassName: "bg-sky-100 text-sky-800",
-      iconClassName: "text-sky-800",
+      wellClassName: "bg-[#E8F0F4]",
+      iconClassName: "text-[#3A5F73]",
+      chipClassName: "bg-[#E8EEF0] text-[#465660]",
     };
   }
   return {
     kind: "default",
-    wellClassName: "bg-sam-primary-soft text-sam-primary",
+    wellClassName: "bg-[#E8F2EC]",
     iconClassName: "text-sam-primary",
+    chipClassName: "bg-[#EFE6DC] text-[#5C534A]",
   };
 }

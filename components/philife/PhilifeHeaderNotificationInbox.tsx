@@ -4,6 +4,8 @@
 
 import Link from "next/link";
 
+import { ChevronRight } from "lucide-react";
+
 import { useRouter, usePathname } from "next/navigation";
 
 import {
@@ -85,7 +87,6 @@ import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/cli
 import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
 import {
-  resolveTier1BellMarkAllReadBody,
   resolveTier1BellModalListFetchOpts,
   resolveTier1BellSurfaceFromPathname,
   type Tier1BellBadgeSurface,
@@ -323,8 +324,6 @@ export function PhilifeHeaderNotificationInbox({
   const [listSynced, setListSynced] = useState(false);
 
   const [rows, setRows] = useState<Row[]>([]);
-
-  const [markBusy, setMarkBusy] = useState(false);
 
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
 
@@ -818,42 +817,6 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-  const markAllRead = useCallback(async () => {
-    if (markBusy || totalUnread === 0) return;
-    setMarkBusy(true);
-    const previousRows = rows;
-    // Immediate modal UI — unread queue clears now; badge uses existing resync after ACK.
-    setRows((prev) => prev.map((x) => ({ ...x, is_read: true })));
-    invalidateMeNotificationsListDedupedCache();
-    try {
-      const markBody = resolveTier1BellMarkAllReadBody("tier1_inbox_bell", []);
-      const res = await fetch("/api/me/notifications", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(markBody),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (res.ok && j?.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
-        }
-        resyncBadgesAfterNotificationEventsRead("mark_all_read_cross_tab");
-        void loadInbox(true, { silent: true });
-      } else {
-        setRows(previousRows);
-        await loadInbox(true, { silent: true });
-      }
-    } catch {
-      setRows(previousRows);
-      await loadInbox(true, { silent: true });
-    } finally {
-      setMarkBusy(false);
-    }
-  }, [loadInbox, markBusy, rows, totalUnread]);
-
-
-
   const requestDeleteGroup = useCallback((item: InboxGroupItem) => {
 
     setPendingDelete(item);
@@ -995,11 +958,11 @@ export function PhilifeHeaderNotificationInbox({
 
             >
 
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/80 bg-sam-surface-muted px-3 py-2.5">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/70 bg-sam-surface px-3.5 py-3">
 
                 <div className="flex min-w-0 flex-1 items-center gap-2">
 
-                  <h2 id="philife-inbox-title" className="min-w-0 truncate text-[16px] font-bold leading-none text-sam-fg">
+                  <h2 id="philife-inbox-title" className="min-w-0 truncate text-[17px] font-bold leading-none text-sam-fg">
 
                     {t("notif_tier1_sheet_title")}
 
@@ -1007,9 +970,9 @@ export function PhilifeHeaderNotificationInbox({
 
                   {totalUnread > 0 ? (
 
-                    <span className="rounded-full bg-sam-danger px-2 py-0.5 sam-text-xxs font-semibold leading-none text-white">
+                    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums">
 
-                      {totalUnread}
+                      {totalUnread > 99 ? "99+" : totalUnread}
 
                     </span>
 
@@ -1093,42 +1056,15 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-sam-border/50 px-3 py-2.5">
-
-                {!showListLoading && (rows.length > 0 || totalUnread > 0) ? (
-
-                  <button
-
-                    type="button"
-
-                    disabled={markBusy || totalUnread === 0}
-
-                    title={totalUnread === 0 ? t("notif_inbox_mark_all_disabled_hint") : undefined}
-
-                    onClick={() => void markAllRead()}
-
-                    className="shrink-0 text-[13px] font-medium text-sam-muted underline-offset-2 hover:enabled:underline disabled:cursor-not-allowed disabled:opacity-45"
-
-                  >
-
-                    {markBusy ? t("common_processing") : t("notif_tier1_mark_read")}
-
-                  </button>
-
-                ) : (
-
-                  <span className="text-[13px] text-sam-muted" />
-
-                )}
-
+              <div className="flex shrink-0 border-t border-sam-border/55 px-3 py-3">
                 <button
                   type="button"
                   onClick={() => openNotificationsCenter()}
-                  className="ml-auto shrink-0 rounded-full bg-sam-primary px-3.5 py-2 text-[13px] font-semibold text-white transition active:scale-[0.98]"
+                  className="flex w-full items-center justify-center gap-1 rounded-full border-2 border-sam-primary bg-sam-surface px-3 py-2.5 text-[14px] font-semibold text-sam-primary transition active:scale-[0.99] active:bg-sam-primary-soft/40"
                 >
-                  {t("notif_tier1_see_all")}
+                  <span>{t("notif_tier1_see_all")}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
                 </button>
-
               </div>
 
             </div>

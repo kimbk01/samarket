@@ -14,7 +14,7 @@ type Props = CardListProps & {
 };
 
 /**
- * 날짜(오늘·어제·이전) 섹션으로 나눠 시각적 구분을 준다.
+ * Date sections (오늘·어제·이전) with mockup-aligned flat row list.
  */
 export function NotificationInboxByDateSections({ items, ...cardProps }: Props) {
   const { language } = useI18n();
@@ -25,12 +25,18 @@ export function NotificationInboxByDateSections({ items, ...cardProps }: Props) 
   }
 
   return (
-    <div className="space-y-5">
-      {sections.map((sec) => (
+    <div className="min-w-0 overflow-hidden rounded-xl border border-sam-border/55 bg-sam-surface">
+      {sections.map((sec, sectionIndex) => (
         <section key={sec.sectionKey} aria-label={sec.sectionLabel} className="min-w-0">
-          <h3 className="mb-2.5 px-0.5 text-[13px] font-bold tracking-tight text-sam-fg">
-            {sec.sectionLabel}
-          </h3>
+          {sections.length > 1 ? (
+            <h3
+              className={`px-3 text-[11px] font-semibold uppercase tracking-wide text-sam-meta ${
+                sectionIndex === 0 ? "pt-2.5 pb-1" : "border-t border-sam-border/45 pt-3 pb-1"
+              }`}
+            >
+              {sec.sectionLabel}
+            </h3>
+          ) : null}
           <InboxGroupCardList {...cardProps} items={sec.items} emptyLabel="" />
         </section>
       ))}
