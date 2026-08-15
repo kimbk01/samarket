@@ -1,7 +1,7 @@
 "use client";
 
 import type { NotificationCenterTabUnreadCounts } from "@/lib/notifications/notification-center-tab-unread";
-import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 export type NotificationInboxTabKey =
   | "all"
@@ -39,9 +39,10 @@ export function NotificationInboxTabBar({
 }: Props) {
   return (
     <div
-      className={`${DIBAY_SECONDARY_TABS_CLASS} ${className}`.trim()}
+      className={`${DIBAY_STATUS_TABS_CLASS} ${className}`.trim()}
       role="tablist"
       aria-label="notification tabs"
+      data-dibay-nav="status"
     >
       {chips.map(({ key, label }) => {
         const selected = active === key;

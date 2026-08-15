@@ -5,8 +5,12 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import { MYPAGE_OVAL_TABS_SCROLL_CLASS, mypageOvalTabClass } from "@/lib/ui/mypage-oval-tabs";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  DIBAY_CHROME_SECONDARY_HOST_CLASS,
+  DIBAY_SECONDARY_TABS_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** `/mypage/trade` 인덱스와 `/mypage/trade/purchases` 모두 구매 탭 활성 */
@@ -29,7 +33,7 @@ function linkActive(
 }
 
 /**
- * 거래 허브 1단 탭 — oval pill (구매/판매/찜/후기/채팅).
+ * 거래 허브 PRIMARY SECTION NAV — shared dibay secondary (oval parallel removed).
  */
 export function TradeHubTopTabs() {
   const { t } = useI18n();
@@ -71,11 +75,12 @@ export function TradeHubTopTabs() {
   return (
     <nav
       aria-label={t("nav_trade_hub_menu")}
-      className="min-w-0 w-full max-w-full overflow-x-hidden overflow-y-visible border-b border-sam-border bg-sam-surface"
-      data-mypage-tabs="oval"
+      className={`${DIBAY_CHROME_SECONDARY_HOST_CLASS} w-full max-w-full border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))]`}
+      data-dibay-primary-nav="trade-hub"
+      data-dibay-nav="secondary"
     >
-      <div className={`${APP_MAIN_HEADER_INNER_CLASS} overflow-y-visible`}>
-        <div className={MYPAGE_OVAL_TABS_SCROLL_CLASS} role="tablist">
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`}>
+        <div className={`${DIBAY_SECONDARY_TABS_CLASS} border-b-0 bg-transparent px-0`} role="tablist">
           {rows.map((row) => {
             const active =
               row.key === "purchases" ? isPurchasesHubPath(norm) : linkActive(norm, row);
@@ -86,7 +91,7 @@ export function TradeHubTopTabs() {
                 prefetch={row.key !== "chat"}
                 role="tab"
                 aria-selected={active}
-                className={mypageOvalTabClass(active)}
+                className={dibaySecondaryTabClass(active)}
               >
                 <span className="max-w-[min(10rem,40vw)] truncate">{row.label}</span>
               </Link>

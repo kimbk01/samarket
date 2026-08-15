@@ -19,7 +19,7 @@ export function MyManagedCtaStrip({ links, label }: Props) {
   const labelText = typeof label === "string" ? label.trim() : "";
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden border-b border-sam-border bg-sam-surface">
+    <div className="w-full min-w-0 border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]">
       <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
         {labelText ? (
           <p className="mb-1.5 px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">

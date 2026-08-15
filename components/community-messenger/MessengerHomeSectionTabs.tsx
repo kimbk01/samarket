@@ -12,7 +12,12 @@ import {
   MESSENGER_MAIN_SECTION_TAB_ORDER,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import {
+  DIBAY_SECONDARY_TABS_CLASS,
+  DIBAY_CHROME_SECONDARY_HOST_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 const SECTION_TAB_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
   friends: "cm_ia_messenger_tab_friends_list",
@@ -43,11 +48,12 @@ export function MessengerHomeSectionTabs({
     <div
       data-cm-primary-nav
       data-cm-messenger-section-tabs
-      className="min-w-0 w-full overflow-x-hidden bg-[color:var(--dibay-domain-surface,var(--messenger-bg))]"
+      data-dibay-nav="secondary"
+      className={`${DIBAY_CHROME_SECONDARY_HOST_CLASS} w-full`}
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex min-w-0 items-center gap-1`}>
         <HorizontalDragScroll
-          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0`}
+          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0 px-0`}
           style={{ WebkitOverflowScrolling: "touch" }}
           role="tablist"
           aria-label={t("cm_ui_messenger_section_aria")}

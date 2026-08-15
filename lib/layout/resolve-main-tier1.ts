@@ -43,7 +43,8 @@ function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTie
  */
 export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subpage | null {
   const raw = (pathname ?? "").split("?")[0]!.trim();
-  if (!raw) return { ...DEFAULT, titleText: "dibaY" };
+  /** Never brand-fallback — empty path is unavailable, not "dibaY". */
+  if (!raw) return { ...DEFAULT, titleText: "common_content_unavailable" };
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
@@ -67,6 +68,43 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       subtitle: "tier1_trade_hub_subtitle",
       showHubQuickActions: true,
     };
+  }
+
+  /** Trade hub children — never fall through to empty title / brand fallback. */
+  if (p === "/mypage/trade/purchases" || p.startsWith("/mypage/trade/purchases/")) {
+    return backMypage({
+      titleText: "nav_trade_hub_purchases",
+      subtitle: "tier1_trade_hub_subtitle",
+      showHubQuickActions: true,
+    });
+  }
+  if (p === "/mypage/trade/sales" || p.startsWith("/mypage/trade/sales/")) {
+    return backMypage({
+      titleText: "nav_trade_hub_sales",
+      subtitle: "tier1_trade_hub_subtitle",
+      showHubQuickActions: true,
+    });
+  }
+  if (p === "/mypage/trade/favorites" || p.startsWith("/mypage/trade/favorites/")) {
+    return backMypage({
+      titleText: "nav_trade_hub_favorites",
+      subtitle: "tier1_trade_hub_subtitle",
+      showHubQuickActions: true,
+    });
+  }
+  if (p === "/mypage/trade/reviews" || p.startsWith("/mypage/trade/reviews/")) {
+    return backMypage({
+      titleText: "nav_trade_hub_reviews",
+      subtitle: "tier1_trade_hub_subtitle",
+      showHubQuickActions: true,
+    });
+  }
+  if (p.startsWith("/mypage/trade/")) {
+    return backMypage({
+      titleText: "tier1_trade_hub_title",
+      subtitle: "tier1_trade_hub_subtitle",
+      showHubQuickActions: true,
+    });
   }
 
   /** 주문 허브 내 배달 주문 리뷰 — 전역 1단만 사용(페이지 `DetailHeader` 중복 방지) */
@@ -317,7 +355,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "tier1_order_notifications", subtitle: "tier1_order_notifications_sub", showHubQuickActions: false });
   }
 
-  if (p === "/my/trust") {
+  if (p === "/mypage/trust" || p === "/my/trust") {
     return backMypage({ titleText: "tier1_trust", subtitle: "tier1_trust_subtitle", showHubQuickActions: true });
   }
 

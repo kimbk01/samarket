@@ -6,17 +6,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import {
-  PHILIFE_TOPIC_TAB_PILL_IDLE,
-  PHILIFE_TOPIC_TAB_ROW_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_TOPIC_TAB_ROW_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
-import {
-  TRADE_PRIMARY_TAB_LABEL_ACTIVE,
-  TRADE_PRIMARY_TAB_LABEL_IDLE,
-  TRADE_PRIMARY_TAB_PILL_SHELL,
-} from "@/lib/trade/ui/trade-primary-tabs-classes";
+import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
+import { DIBAY_CHROME_SECONDARY_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
@@ -24,6 +18,9 @@ import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewar
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
+
+/** PRIMARY host inner — column + gutter; never `APP_MAIN_HEADER_INNER` (overflow-x-hidden). */
+const TRADE_PRIMARY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -35,8 +32,11 @@ interface TradePrimaryTabsProps {
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
   if (!embedInAppHeader) {
     return (
-      <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
-        <div className={APP_MAIN_HEADER_INNER_CLASS}>
+      <div
+        className={`relative flex min-w-0 flex-shrink-0 flex-col border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
+        data-dibay-nav="secondary"
+      >
+        <div className={TRADE_PRIMARY_INNER_CLASS}>
           <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
             <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
             <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
@@ -46,8 +46,8 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
     );
   }
   return (
-    <div className="min-w-0 overflow-x-hidden bg-sam-surface">
-      <div className={APP_MAIN_HEADER_INNER_CLASS}>
+    <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
+      <div className={TRADE_PRIMARY_INNER_CLASS}>
         <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
           <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
           <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
@@ -73,7 +73,7 @@ function TradePrimaryTabsInner({
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const { loading, error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(pathname);
+  const { loading: _loading, error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(pathname);
   const [allSortOpen, setAllSortOpen] = useState(false);
   const [allSortMenuPos, setAllSortMenuPos] = useState<{ top: number; left: number } | null>(null);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -138,39 +138,6 @@ function TradePrimaryTabsInner({
     [displayTabs]
   );
 
-  const prevActiveDisplayIdxRef = useRef<number | null>(null);
-  const skipTradePrimaryWipeOnceRef = useRef(true);
-  const [tradePrimaryWipe, setTradePrimaryWipe] = useState<{
-    generation: number;
-    direction: "ltr" | "rtl";
-  }>({ generation: 0, direction: "ltr" });
-
-  useLayoutEffect(() => {
-    const prev = prevActiveDisplayIdxRef.current;
-    const next = activeDisplayIndex;
-
-    if (next < 0) {
-      prevActiveDisplayIdxRef.current = null;
-      return;
-    }
-
-    if (skipTradePrimaryWipeOnceRef.current) {
-      skipTradePrimaryWipeOnceRef.current = false;
-      prevActiveDisplayIdxRef.current = next;
-      return;
-    }
-
-    if (prev !== null && prev >= 0 && next !== prev) {
-      const direction = next > prev ? "ltr" : "rtl";
-      setTradePrimaryWipe((w) => ({
-        generation: w.generation + 1,
-        direction,
-      }));
-    }
-
-    prevActiveDisplayIdxRef.current = next;
-  }, [activeDisplayIndex]);
-
   const updateAllSortMenuPos = useCallback(() => {
     const el = allSortButtonRef.current;
     if (!el) return;
@@ -228,7 +195,7 @@ function TradePrimaryTabsInner({
   const scrollBody =
     error ? errorBlock : (
       <HorizontalDragScroll
-        className={`${PHILIFE_TOPIC_TAB_ROW_CLASS} min-w-0 max-w-full`}
+        className={`${PHILIFE_TOPIC_TAB_ROW_CLASS} min-w-0 max-w-full border-b-0 bg-transparent px-0`}
         style={{ WebkitOverflowScrolling: "touch" }}
         role="tablist"
         aria-label={t("trade_138")}
@@ -257,31 +224,18 @@ function TradePrimaryTabsInner({
                     setAllSortOpen(true);
                   }
                 }}
-                className={
-                  onAllTrade
-                    ? "relative inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition-[color] duration-200 ease-out"
-                    : `${PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`
-                }
+                className={`${tradePrimaryTabClass(onAllTrade)} inline-flex items-center gap-1`}
               >
-                {onAllTrade ? (
-                  <span
-                    key={`trade-primary-wipe-${tradePrimaryWipe.generation}`}
-                    aria-hidden
-                    className={`sam-trade-primary-tab__wipe sam-trade-primary-tab__wipe--${tradePrimaryWipe.direction} ${
-                      tradePrimaryWipe.generation === 0 ? "sam-trade-primary-tab__wipe--instant" : ""
-                    }`}
-                  />
-                ) : null}
                 <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
                 {allSortOpen ? (
                   <ChevronUp
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
                     strokeWidth={2.4}
                     aria-hidden
                   />
                 ) : (
                   <ChevronDown
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
                     strokeWidth={2.4}
                     aria-hidden
                   />
@@ -299,9 +253,7 @@ function TradePrimaryTabsInner({
               role="tab"
               aria-selected={tab.isDisplayActive}
               prefetch
-              className={`${TRADE_PRIMARY_TAB_PILL_SHELL} ${
-                tab.isDisplayActive ? TRADE_PRIMARY_TAB_LABEL_ACTIVE : TRADE_PRIMARY_TAB_LABEL_IDLE
-              }`}
+              className={tradePrimaryTabClass(tab.isDisplayActive)}
               onPointerEnter={() => prewarmBottomNavMarketTab(tab.href)}
               onPointerDown={() => prewarmBottomNavMarketTab(tab.href)}
               onClick={(e) => {
@@ -331,15 +283,6 @@ function TradePrimaryTabsInner({
                 });
               }}
             >
-              {tab.isDisplayActive ? (
-                <span
-                  key={`trade-primary-wipe-${tradePrimaryWipe.generation}`}
-                  aria-hidden
-                  className={`sam-trade-primary-tab__wipe sam-trade-primary-tab__wipe--${tradePrimaryWipe.direction} ${
-                    tradePrimaryWipe.generation === 0 ? "sam-trade-primary-tab__wipe--instant" : ""
-                  }`}
-                />
-              ) : null}
               <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{tab.label}</span>
             </Link>
           );
@@ -349,8 +292,8 @@ function TradePrimaryTabsInner({
 
   if (embedInAppHeader) {
     return (
-      <div className="min-w-0 overflow-x-hidden bg-sam-surface">
-        <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
+      <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
+        <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
         {allSortOpen && allSortMenuPos && typeof document !== "undefined"
           ? createPortal(
               <ul
@@ -382,8 +325,11 @@ function TradePrimaryTabsInner({
   }
 
   return (
-    <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
-      <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
+    <div
+      className={`relative flex min-w-0 flex-shrink-0 flex-col border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
+      data-dibay-nav="secondary"
+    >
+      <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
     </div>
   );
 }

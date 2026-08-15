@@ -22,7 +22,12 @@ import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeti
 import { philifeAppPaths } from "@domain/philife/paths";
 import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
-import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  APP_MAIN_COLUMN_CLASS,
+  APP_MAIN_GUTTER_X_CLASS,
+  APP_MAIN_HEADER_INNER_CLASS,
+} from "@/lib/ui/app-content-layout";
+import { DIBAY_CATEGORY_RAIL_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
 import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   COMMUNITY_FEED_LIST_WRAP_CLASS,
@@ -1719,9 +1724,10 @@ export function CommunityFeed({
         stickyBelow={
           <>
             <PhilifePullRefreshHint />
-            <div className="min-w-0 overflow-x-hidden bg-sam-surface">
+            <div className={`min-w-0 ${DIBAY_CATEGORY_RAIL_HOST_CLASS}`}>
               <div
-                className={`${APP_MAIN_HEADER_INNER_CLASS} flex min-w-0 items-center gap-1 border-b border-sam-border bg-sam-surface py-1.5`}
+                className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} ${DIBAY_CATEGORY_RAIL_HOST_CLASS} flex min-w-0 items-center gap-1 border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] py-1.5`}
+                data-dibay-nav="category"
               >
                 <button
                   type="button"

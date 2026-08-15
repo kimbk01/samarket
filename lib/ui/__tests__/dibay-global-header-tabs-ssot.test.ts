@@ -5,8 +5,11 @@ import {
 } from "@/lib/ui/dibay-domain-chrome";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 import {
+  DIBAY_CATEGORY_RAIL_HOST_CLASS,
+  DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TAB_ACTIVE_CLASS,
   DIBAY_SECONDARY_TABS_CLASS,
+  DIBAY_STATUS_TABS_CLASS,
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 
@@ -39,5 +42,15 @@ describe("dibay global header + secondary tabs SSOT", () => {
     expect(dibaySecondaryTabClass(false)).toBe("dibay-secondary-tab");
     expect(dibaySecondaryTabClass(true)).toBe(DIBAY_SECONDARY_TAB_ACTIVE_CLASS);
     expect(DIBAY_SECONDARY_TAB_ACTIVE_CLASS).toContain("dibay-secondary-tab--active");
+    expect(DIBAY_CHROME_SECONDARY_HOST_CLASS).toContain("--dibay-domain-surface");
+    expect(DIBAY_STATUS_TABS_CLASS).toContain("dibay-status-tabs");
+    expect(DIBAY_CATEGORY_RAIL_HOST_CLASS).toContain("dibay-category-rail-host");
+    expect(DIBAY_CATEGORY_RAIL_HOST_CLASS).not.toMatch(/overflow-x-hidden/);
+  });
+
+  it("forbids trade wipe specialty class in trade-primary-tabs-classes", async () => {
+    const { TRADE_PRIMARY_TAB_PILL_SHELL } = await import("@/lib/trade/ui/trade-primary-tabs-classes");
+    expect(TRADE_PRIMARY_TAB_PILL_SHELL).toBe("dibay-secondary-tab");
+    expect(TRADE_PRIMARY_TAB_PILL_SHELL).not.toContain("overflow-hidden");
   });
 });

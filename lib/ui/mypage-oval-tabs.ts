@@ -1,9 +1,12 @@
 /**
- * MyPage trade hub / purchase·sales — oval tab strip → DIBAY secondary visual SSOT.
- * Handlers unchanged. Do not add tabs where page has none.
+ * MyPage oval alias → PRIMARY dibay secondary (no parallel visual system).
+ * STATUS consumers should import `DIBAY_STATUS_TABS_CLASS` + `dibaySecondaryTabClass`.
  */
 
-import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import {
+  DIBAY_SECONDARY_TABS_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
 
 export const MYPAGE_OVAL_TABS_SCROLL_CLASS = DIBAY_SECONDARY_TABS_CLASS;
 

@@ -10,7 +10,7 @@ import {
   isTradeFloatingMenuSurface,
   type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { resolveMainTabKeepAliveHub } from "@/lib/layout/resolve-main-surface";
 import {
   buildMessengerRoomListBackHref,
   shouldForceDirectDeliveryMessengerRoomBack,
@@ -23,18 +23,17 @@ import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { StoresBrowseHeaderChrome } from "@/components/stores/browse/StoresBrowseHeaderChrome";
 import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
-import { RegionBarExplorationTier1 } from "@/components/layout/RegionBarExplorationTier1";
+import { RegionBarMainHubTier1 } from "@/components/layout/RegionBarMainHubTier1";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
   isDeliveryConsumerPath,
   isStoresBrowseHeaderPath,
-  isStoresDeliveryHubChromePath,
 } from "@/lib/design/delivery-chrome";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import type { ReactNode } from "react";
 
-/** Main tier-1 chrome: 커뮤니티(`/philife`)·거래 탐색·배달 루트(`/stores`)는 `Tier1ExplorationTitleRow`(지역 한 줄·`/mypage/addresses`). */
+/** Main tier-1 chrome router — MAIN HUB / Delivery special / DetailHeader subpages. */
 export function RegionBar({
   /** When `AppStickyHeader` already computed rules, pass to avoid duplicate `getMobileTopTier1RuleSet` calls. */
   tier1RuleSet: tier1RuleSetProp,
@@ -70,19 +69,27 @@ export function RegionBar({
     return null;
   }
 
-  /** Trade market + Community home hubs share exploration tier-1 layout. */
-  const isUnifiedExplorationTier1 =
-    (isTradeFloatingMenuSurface(pathNoQuery) &&
-      ruleSet.showRegionPicker &&
-      !ruleSet.showTradeHubLeading) ||
-    isCommunityHomeSurfacePath(pathNoQuery);
-
-  if (isUnifiedExplorationTier1) {
-    /** SSR 포함 — `dynamic({ ssr:false })` 금지 (Cold Start 첫 HTML에 Header 없음 방지) */
-    return <RegionBarExplorationTier1 pathNoQuery={pathNoQuery} />;
+  /**
+   * MAIN HUB HEADER — Community / Trade / Chat / MyPage (keep-alive hubs).
+   * Delivery stays SPECIAL below. Trade floating menu surfaces that are not exact `/market`
+   * still use MAIN HUB when exploration rules match.
+   */
+  const keepAliveHub = resolveMainTabKeepAliveHub(pathNoQuery);
+  const isTradeExplorationSurface =
+    isTradeFloatingMenuSurface(pathNoQuery) &&
+    ruleSet.showRegionPicker &&
+    !ruleSet.showTradeHubLeading;
+  if (
+    (keepAliveHub === "community" ||
+      keepAliveHub === "trade" ||
+      keepAliveHub === "chat" ||
+      keepAliveHub === "mypage") ||
+    isTradeExplorationSurface
+  ) {
+    return <RegionBarMainHubTier1 pathNoQuery={pathNoQuery} />;
   }
 
-  if (pathNoQuery === "/stores") {
+  if (pathNoQuery === "/stores" || keepAliveHub === "delivery") {
     return <StoresHomeHeaderChrome />;
   }
   if (isStoresBrowseHeaderPath(pathNoQuery)) {
@@ -134,13 +141,20 @@ export function RegionBar({
     resolveTier1BarLabel(t, tt, base.titleText);
   const stringTitle = rawStringTitle?.trim() ? rawStringTitle : undefined;
 
+  /**
+   * Title coverage contract: never hide missing registration with brand fallback.
+   * Empty → user-visible unavailable copy (and coverage tests must keep chrome routes at 0 missing).
+   */
   const centerNode: ReactNode =
     centerFromExtras != null && typeof centerFromExtras !== "string" ? (
       centerFromExtras
     ) : stringTitle ? (
       stringTitle
     ) : (
-      "dibaY"
+      safeT("common_content_unavailable", {
+        fallbackKo: "내용을 표시할 수 없습니다",
+        fallbackEn: "Content unavailable",
+      })
     );
 
   const trailing =

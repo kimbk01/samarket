@@ -2,8 +2,9 @@
 
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MYPAGE_OVAL_TABS_SCROLL_CLASS, mypageOvalTabClass } from "@/lib/ui/mypage-oval-tabs";
+import { DIBAY_STATUS_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
+/** STATUS / FILTER nav — not PRIMARY route section nav. */
 export function TradeManagementTabBar<T extends string>({
   tabs,
   active,
@@ -14,12 +15,12 @@ export function TradeManagementTabBar<T extends string>({
   active: T;
   counts: Record<T, number>;
   onChange: (tab: T) => void;
-  /** @deprecated ignored — oval tabs are the SSOT for trade manage bars */
+  /** @deprecated ignored — STATUS variant is SSOT */
   tabBaseClassName?: string;
 }) {
   const { t, tt } = useI18n();
   return (
-    <div className={`${MYPAGE_OVAL_TABS_SCROLL_CLASS} mb-3`} data-mypage-tabs="oval">
+    <div className={`${DIBAY_STATUS_TABS_CLASS} mb-3`} data-dibay-nav="status">
       {tabs.map(({ id, label, labelKey }) => {
         const n = counts[id] ?? 0;
         const isActive = active === id;
@@ -28,10 +29,10 @@ export function TradeManagementTabBar<T extends string>({
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className={mypageOvalTabClass(isActive)}
+            className={dibaySecondaryTabClass(isActive)}
           >
             {labelKey ? t(labelKey) : tt(label)}
-            <span className={isActive ? "ml-1 opacity-90" : "ml-1 text-[#6F4E37]/80"}>({n})</span>
+            <span className={isActive ? "ml-1 opacity-90" : "ml-1 opacity-70"}>({n})</span>
           </button>
         );
       })}

@@ -168,3 +168,15 @@
     transition: none;
   }
 }
+
+/* STATUS / FILTER — same pill family; role marker for contracts */
+.dibay-status-tabs {
+  /* inherits .dibay-secondary-tabs geometry via dual class on host */
+}
+
+/* CATEGORY RAIL host — domain surface; scroll owned by child track */
+.dibay-category-rail-host {
+  background: var(--dibay-domain-surface, var(--sector-header-bg));
+  /* Contract: host must not clip the rail; child track owns overflow-x. */
+  overflow-x: visible;
+}
