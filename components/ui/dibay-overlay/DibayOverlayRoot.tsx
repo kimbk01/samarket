@@ -15,6 +15,8 @@ import {
   type DibayOverlayZRole,
 } from "@/lib/ui/dibay-overlay-contract";
 
+const OVERLAY_HISTORY_KEY = "__dibayOverlay";
+
 export type DibayOverlayRootProps = {
   open: boolean;
   onClose?: () => void;
@@ -32,10 +34,12 @@ export type DibayOverlayRootProps = {
   stageStyle?: CSSProperties;
   /** When false, skip body scroll lock (nested rare cases). */
   lockScroll?: boolean;
+  /** Sheet only — lifts root above main bottom nav (CSS SSOT). */
+  sheetAnchor?: "above-bottom-nav" | "device-bottom";
 };
 
 /**
- * Shared portal root — backdrop, z-index, scroll lock, Escape, a11y.
+ * Shared portal root — backdrop, z-index, scroll lock, Escape, system Back, a11y.
  */
 export function DibayOverlayRoot({
   open,
@@ -51,10 +55,12 @@ export function DibayOverlayRoot({
   stageClassName = "",
   stageStyle,
   lockScroll = true,
+  sheetAnchor,
 }: DibayOverlayRootProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const historyTokenRef = useRef(`dibay-overlay-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     setMounted(true);
@@ -78,6 +84,73 @@ export function DibayOverlayRoot({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [open, dismissible, onClose]);
+
+  /**
+   * System Back / history.back must close the overlay first (not pop the route).
+   * pushState while open; popstate → onClose. UI dismiss syncs with history.back().
+   */
+  useEffect(() => {
+    if (!open || !dismissible || !onClose) return;
+    if (typeof window === "undefined" || !window.history?.pushState) return;
+
+    const token = historyTokenRef.current;
+    const prev = window.history.state;
+    const nextState = {
+      ...(prev && typeof prev === "object" ? prev : {}),
+      [OVERLAY_HISTORY_KEY]: token,
+    };
+    window.history.pushState(nextState, "");
+
+    let settled = false;
+    const closeFromHistory = () => {
+      if (settled) return;
+      settled = true;
+      onClose();
+    };
+
+    const onPopState = () => {
+      closeFromHistory();
+    };
+    window.addEventListener("popstate", onPopState);
+
+    let removeCap: (() => void) | undefined;
+    void import("@capacitor/app")
+      .then(({ App }) =>
+        App.addListener("backButton", () => {
+          // Capacitor overrides default Back — sync via history so popstate closes once.
+          if (
+            window.history.state &&
+            typeof window.history.state === "object" &&
+            (window.history.state as Record<string, unknown>)[OVERLAY_HISTORY_KEY] === token
+          ) {
+            window.history.back();
+            return;
+          }
+          closeFromHistory();
+        })
+      )
+      .then((handle) => {
+        if (handle && typeof handle.remove === "function") {
+          removeCap = () => {
+            void handle.remove();
+          };
+        }
+      })
+      .catch(() => {
+        /* web / no capacitor */
+      });
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      removeCap?.();
+      if (settled) return;
+      const st = window.history.state;
+      if (st && typeof st === "object" && (st as Record<string, unknown>)[OVERLAY_HISTORY_KEY] === token) {
+        settled = true;
+        window.history.back();
+      }
+    };
   }, [open, dismissible, onClose]);
 
   useEffect(() => {
@@ -111,6 +184,8 @@ export function DibayOverlayRoot({
         : `${OverlayUi.root} dibay-overlay-root--sheet`;
 
   const zClass = zIndexClass ?? OVERLAY_Z_CLASS[zRole];
+  const anchorAttr =
+    placement === "sheet" && sheetAnchor ? { "data-sheet-anchor": sheetAnchor } : {};
 
   return createPortal(
     <div
@@ -118,6 +193,7 @@ export function DibayOverlayRoot({
       style={stageStyle}
       data-entered={entered ? "true" : "false"}
       role="presentation"
+      {...anchorAttr}
     >
       {dismissible && onClose ? (
         <button

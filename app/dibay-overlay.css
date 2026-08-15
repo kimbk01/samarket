@@ -55,8 +55,12 @@
 }
 
 .dibay-overlay-root {
+  /* Prefer longhands. The inset shorthand clobbers an explicit bottom offset. */
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   pointer-events: auto;
 }
@@ -72,6 +76,15 @@
 .dibay-overlay-root--sheet {
   align-items: flex-end;
   justify-content: center;
+}
+
+/**
+ * Sheet above main bottom nav — MAIN_BOTTOM_NAV_SHEET_* SSOT.
+ * Must live here (not only a Tailwind utility) so it wins over root bottom:0.
+ * Do not restore the inset shorthand on .dibay-overlay-root — it clobbers bottom.
+ */
+.dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
+  bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
 }
 
 .dibay-overlay-root--full {

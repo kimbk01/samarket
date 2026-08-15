@@ -44,6 +44,25 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(css).toContain("--overlay-press-scale: 0.98");
     expect(css).toContain(".dibay-overlay-btn--primary");
     expect(css).toContain(".dibay-overlay-btn--destructive");
+    expect(css).toContain('data-sheet-anchor="above-bottom-nav"');
+    expect(css).toContain("var(--app-bottom-nav-height, 60px)");
+    expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\btop:\s*0;/);
+    expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\bbottom:\s*0;/);
+    expect(css).not.toMatch(/\.dibay-overlay-root\s*\{[^}]*\binset:\s*0/);
+  });
+
+  it("overlay root traps system Back via history pushState", () => {
+    const src = read("components/ui/dibay-overlay/DibayOverlayRoot.tsx");
+    expect(src).toContain("pushState");
+    expect(src).toContain("popstate");
+    expect(src).toContain("backButton");
+    expect(src).toContain("sheetAnchor");
+  });
+
+  it("bottom sheet wires above-nav anchor into overlay root", () => {
+    const src = read("components/ui/dibay-overlay/DibayBottomSheet.tsx");
+    expect(src).toContain("sheetAnchor={anchor}");
+    expect(src).toContain("OVERLAY_SHEET_ABOVE_NAV.maxHClass");
   });
 
   it("confirm dialog enforces horizontal cancel|confirm order", () => {

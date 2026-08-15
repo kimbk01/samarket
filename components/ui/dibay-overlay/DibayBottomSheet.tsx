@@ -43,9 +43,7 @@ export function DibayBottomSheet({
   const { titleId } = useOverlayTitleIds("sheet");
   const aboveNav = anchor === "above-bottom-nav";
 
-  const stageClassName = aboveNav
-    ? `items-end ${OVERLAY_SHEET_ABOVE_NAV.bottomClass}`
-    : "items-end";
+  const stageClassName = "items-end";
 
   const panelStyle: CSSProperties | undefined = contentPaddingBottomPx
     ? { paddingBottom: contentPaddingBottomPx }
@@ -64,6 +62,7 @@ export function DibayBottomSheet({
       labelledBy={title ? titleId : undefined}
       ariaLabel={ariaLabel}
       stageClassName={stageClassName}
+      sheetAnchor={anchor}
     >
       <div
         className={`${OverlayUi.sheetPanel} ${aboveNav ? OVERLAY_SHEET_ABOVE_NAV.maxHClass : "max-h-[min(82dvh,560px)]"} overflow-y-auto overscroll-contain ${panelClassName}`.trim()}
