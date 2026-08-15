@@ -257,6 +257,9 @@ describe("ADDR-006 / ADDR-007 / ADDR-015 order snapshot", () => {
     expect(orders).toMatch(/delivery_detail_address_required/);
     expect(orders).toMatch(/delivery_detail_address/);
     expect(orders).toMatch(/delivery_formatted_address/);
+    expect(orders).toContain("getUserAddressDefaults");
+    expect(orders).toContain("pickAddressRowForDeliveryRouting");
+    expect(orders).toContain("delivery_user_address_not_master");
     expect(read("app/api/me/addresses/route.ts")).not.toContain("refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated");
     expect(read("app/api/me/addresses/[id]/route.ts")).not.toContain(
       "refreshStoreOrdersCheckoutGeoAfterUserAddressUpdated",

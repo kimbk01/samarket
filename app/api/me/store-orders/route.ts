@@ -39,7 +39,12 @@ import {
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
-import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
+import {
+  getUserAddressDefaults,
+  markUserAddressUsed,
+  pickAddressRowForDeliveryRouting,
+} from "@/lib/addresses/user-address-service";
+import { toCheckoutDeliveryPayload, type CheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { translate } from "@/lib/i18n/messages";
 import { createStoreOrderAtomic } from "@/lib/stores/create-store-order-atomic";
@@ -323,10 +328,24 @@ export async function POST(req: NextRequest) {
 
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
-  const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
-  const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
-  const delivery_region_raw = String(body.delivery_region ?? "").trim();
-  const delivery_city_raw = String(body.delivery_city ?? "").trim();
+  const requestedDeliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
+  let masterCheckoutPayload: CheckoutDeliveryPayload | null = null;
+
+  if (fulfillment === "local_delivery") {
+    const masterRow = pickAddressRowForDeliveryRouting(await getUserAddressDefaults(sb, buyerId));
+    if (!masterRow?.id) {
+      return NextResponse.json({ ok: false, error: "delivery_user_address_required" }, { status: 400 });
+    }
+    if (requestedDeliveryUserAddressId && requestedDeliveryUserAddressId !== masterRow.id) {
+      return NextResponse.json({ ok: false, error: "delivery_user_address_not_master" }, { status: 400 });
+    }
+    masterCheckoutPayload = toCheckoutDeliveryPayload(masterRow);
+  }
+
+  const addrSummaryRaw = String(masterCheckoutPayload?.summary_line ?? body.delivery_address_summary ?? "").trim();
+  const addrDetailRaw = String(masterCheckoutPayload?.address_detail ?? body.delivery_address_detail ?? "").trim();
+  const delivery_region_raw = String(masterCheckoutPayload?.app_region_id ?? body.delivery_region ?? "").trim();
+  const delivery_city_raw = String(masterCheckoutPayload?.app_city_id ?? body.delivery_city ?? "").trim();
 
   const normDeliveryAddr = normalizeStoreAddressPh({
     region: delivery_region_raw || null,
@@ -357,7 +376,7 @@ export async function POST(req: NextRequest) {
     storeRow.lat != null && Number.isFinite(Number(storeRow.lat)) ? Number(storeRow.lat) : null;
   const storeLng =
     storeRow.lng != null && Number.isFinite(Number(storeRow.lng)) ? Number(storeRow.lng) : null;
-  const deliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
+  const deliveryUserAddressId = masterCheckoutPayload?.user_address_id ?? requestedDeliveryUserAddressId;
 
   let deliveryAddressSnapshot: DeliveryAddressOrderSnapshot | null = null;
 
