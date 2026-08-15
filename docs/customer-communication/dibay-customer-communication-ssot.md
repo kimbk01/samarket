@@ -141,3 +141,37 @@ Bell / Full Inbox `link_url` and event `display_payload.routeUrl` / `canonical_r
 - Do not merge notice and system bulletin domains
 - Do not add CS/inquiry/message as 7th filter tab
 - No schema migration without evidence + approval
+
+## 15. Customer Center Board Presentation (HARD LOCK 2026-08-15)
+
+Presentation only. **Does not change** Original → Campaign → Event → Destination authority above.
+
+```text
+NOTICE / SYSTEM / MARKETING
+  = separate content domains
+  + shared Customer Center board presentation
+
+NO VALID IMAGE
+  = NO IMAGE DOM
+  = NO PLACEHOLDER
+  = NO RESERVED MEDIA SPACE
+
+VALID IMAGE
+  = CONTENT MEDIA ONLY
+  (product thumbnail fallback FORBIDDEN)
+```
+
+Code SSOT:
+
+- `lib/notices/customer-center-media.ts` — renderable URL gate + hero normalize
+- `components/notices/CustomerCenterContentMedia.tsx` — no fallback; `onError` → unmount
+- Board chrome: `lib/mypage/customer-center-ui.ts` + hub/list/detail clients
+
+Board list uses **board switcher only** (공지 | 시스템 | 마케팅). Never notification-domain 7-tabs.
+
+Runtime proof (unit tests are not a substitute):
+
+- Evidence: `.qa-logs/cc-board-ui-2026-08-15T09-24-02-446Z/REPORT.json`
+- Gate: `EXPECT_GIT_SHA=<sha> node scripts/qa/customer-center-board-ui-prod-runtime.mjs`
+- HEAD / ORIGIN / PRODUCTION: `79fa129b4`
+- Deployment: `dpl_DsLtbZtGxmgvufwnt6tLzT3SCGis` · `https://samarket.vercel.app`

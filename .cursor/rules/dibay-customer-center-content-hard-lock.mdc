@@ -1,0 +1,57 @@
+# DIBAY Customer Center Content HARD LOCK
+
+**HARD LOCK DECLARED.** Full doc: `docs/dibay-customer-center-content-hard-lock.md`.  
+Customer Communication SSOT: `docs/customer-communication/dibay-customer-communication-ssot.md` §15.
+
+## Content / destination baseline (2026-08-12)
+
+- **FINAL: CLOSED** · **HARD LOCK: DECLARED**
+- Evidence: `.qa-logs/customer-center-p7-rescore-1786543163007/REPORT.json`
+
+## Board Presentation baseline (2026-08-15)
+
+- **FINAL: DIBAY CUSTOMER CENTER BOARD UI HARD LOCKED**
+- HEAD / ORIGIN / PRODUCTION: `79fa129b4`
+- Deployment: `dpl_DsLtbZtGxmgvufwnt6tLzT3SCGis` · `https://samarket.vercel.app`
+- Evidence: `.qa-logs/cc-board-ui-2026-08-15T09-24-02-446Z/REPORT.json`
+- Gate: `EXPECT_GIT_SHA=<sha> node scripts/qa/customer-center-board-ui-prod-runtime.mjs`
+- Unit tests do **not** substitute for that runtime gate
+
+## Authority
+
+| Concern | Owner |
+|---|---|
+| Content original | `app_notices` ONE AUTHORITY (notice / system / marketing) |
+| Board copy | Content.title/body |
+| Delivery copy | Campaign.title/body |
+| Occurrence | Immutable snapshot + content bind |
+| Bell / Bell read | `notification_events` (`unread` / `read_at`) |
+| View / dedupe | `record_customer_center_content_view` · member/content/day |
+| Comment | Customer Center comment authority |
+| Push/Bell destination | Same canonical `/mypage/customer-center/{type}/{id}` |
+| Badge | Existing Notification / App Icon only |
+| MyPage | Single Customer Center support entry |
+| Board media | Content media only — `customer-center-media` + `CustomerCenterContentMedia` |
+
+## Board Presentation LOCK
+
+```text
+NOTICE / SYSTEM / MARKETING = separate domains + shared board presentation
+NO VALID IMAGE = NO IMAGE DOM = NO PLACEHOLDER = NO RESERVED MEDIA SPACE
+VALID IMAGE = CONTENT MEDIA ONLY (product thumbnail fallback FORBIDDEN)
+Original → Campaign → Event → Destination = UNCHANGED
+```
+
+## DO NOT (without reopen)
+
+- Re-apply Customer Center migrations / invent DB patches
+- Parallel Content table away from `app_notices`
+- Auto-truncate board → campaign copy
+- Split Push vs Bell destinations for content-bound campaigns
+- Equate Notification Read with Content View
+- Use `community_comments` for Customer Center
+- New badge writers for view/comment
+- Restore MyPage duplicate flat support rows
+- Treat `store-product-fallback` as content media / reserve empty hero boxes
+- Put notification 7-tabs on Customer Center boards
+- Change destination authority while editing presentation
