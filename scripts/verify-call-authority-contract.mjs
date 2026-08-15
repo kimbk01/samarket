@@ -153,6 +153,16 @@ mustNotContain(
 
 mustContain(
   "ios/App/App/Push/VoIPPushRegistry.swift",
+  "ios_voip_terminal_orphan_report_then_end",
+  "ios-cancel-orphan-report-then-end",
+);
+mustContain(
+  "ios/App/App/Push/VoIPPushRegistry.swift",
+  "fulfillOrphanTerminalVoipPush",
+  "ios-cancel-orphan-fulfill",
+);
+mustContain(
+  "ios/App/App/Push/CallKitProvider.swift",
   "endCallKitSessionIfUuidKnown",
   "ios-cancel-orphan-safe-end",
 );

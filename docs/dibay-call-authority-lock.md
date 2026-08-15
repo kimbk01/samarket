@@ -138,15 +138,15 @@ Contaminated rows (`peer_user_id = caller_user_id`) are backfilled only when
 | Track① Legacy Web Shutdown | No | Desktop CallV4 quarantine kept |
 | Track③ Dead code | No | No bulk delete this round |
 | Multi-device policy | No | answered_elsewhere completion(false) compile fix |
-| CallKit orphan invent ban | Extended | Untracked cancel: `markTerminalSuppressed` + UUID-safe end (no random UUID invent); late incoming report-then-end |
+| CallKit orphan invent ban | Extended | Untracked cancel VoIP: `markTerminalSuppressed` + `reportIncomingCall` (report-then-end, deterministic UUID); late incoming same path |
 
 ## iOS caller-cancel while ringing (LOCKED)
 
 ```text
 caller cancel → status=cancelled + call_canceled VoIP
 → tracked: reportCallEnded → CallKit dismiss + runtime cleanup
-→ untracked race: terminalSuppressed + endCallKitSessionIfUuidKnown
-→ late incoming: reportNewIncomingCall then immediate end (PushKit rule)
+→ untracked / cold orphan: markTerminalSuppressed + reportNewIncomingCall then immediate end (PushKit rule)
+→ late incoming after suppress: reportNewIncomingCall then immediate end (same path)
 → history: cancelled (not missed)
 → Member Bell: not created
 → room-bound terminal call_stub: Conversation B until room read

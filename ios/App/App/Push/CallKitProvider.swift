@@ -98,6 +98,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callUuidBySessionId[sessionId] = uuid
     hasVideoBySessionId[sessionId] = hasVideo
     let terminalAlreadySeen = isTerminalSuppressed(sessionId: sessionId)
+    DibayCallLog.infoCall(
+      "[voip] uuid resolved",
+      callId: sessionId,
+      detail: "uuid=\(DibayCallLog.mask(uuid.uuidString)) terminalSuppressed=\(terminalAlreadySeen)"
+    )
 
     // Phase 2 — voice only: register Native Voice Runtime before CallKit presents.
     if !hasVideo {
@@ -151,10 +156,28 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         detail: "will_report_then_end"
       )
     }
+    DibayCallLog.infoCall(
+      "[callkit] report start",
+      callId: sessionId,
+      detail: "uuid=\(DibayCallLog.mask(uuid.uuidString))"
+    )
     provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
       guard let self else {
         completion(error)
         return
+      }
+      if let error {
+        DibayCallLog.infoCall(
+          "[callkit] report failed",
+          callId: sessionId,
+          detail: "uuid=\(DibayCallLog.mask(uuid.uuidString)) err=\(error.localizedDescription)"
+        )
+      } else {
+        DibayCallLog.infoCall(
+          "[callkit] report success",
+          callId: sessionId,
+          detail: "uuid=\(DibayCallLog.mask(uuid.uuidString))"
+        )
       }
       if terminalAlreadySeen {
         // PushKit required an incoming CallKit report for this wake; dismiss immediately — no ghost ring.

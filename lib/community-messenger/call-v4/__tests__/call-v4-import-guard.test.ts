@@ -202,7 +202,7 @@ describe("call-v4 import isolation", () => {
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
   });
 
-  it("iOS VoIP orphan terminal is safe no-op (no invent / ghost redial)", () => {
+  it("iOS VoIP orphan terminal report-then-end (PushKit contract / no ghost redial)", () => {
     const voip = read("ios/App/App/Push/VoIPPushRegistry.swift");
     const callkit = read("ios/App/App/Push/CallKitProvider.swift");
 
@@ -214,19 +214,21 @@ describe("call-v4 import isolation", () => {
     expect(voip).toContain("reportCallEnded");
     expect(voip).toContain("hasTrackedCallKitSession");
 
-    // Orphan cancel race: suppress + UUID-safe end — never invent random CallKit UUID.
-    expect(voip).toContain("ios_voip_terminal_orphan_suppressed");
-    expect(voip).toContain("endCallKitSessionIfUuidKnown");
+    // Orphan cancel/cold VoIP: markTerminalSuppressed + reportIncomingCall (report-then-end).
+    // Never completion-only without CallKit; never invent a random CallKit UUID.
+    expect(voip).toContain("ios_voip_terminal_orphan_report_then_end");
+    expect(voip).toContain("fulfillOrphanTerminalVoipPush");
+    expect(voip).toContain("markTerminalSuppressed");
     expect(callkit).toContain("markTerminalSuppressed");
     expect(callkit).toContain("terminalSuppressedSessionIds");
     expect(callkit).toContain("ios_voip_terminal_safe_uuid_end");
     expect(callkit).toContain("ios_callkit_incoming_after_terminal_suppress");
+    expect(callkit).toContain("terminal_suppress_after_incoming");
+    expect(voip).not.toContain("ios_voip_terminal_orphan_suppressed");
     expect(voip).not.toContain("reportOrphanTerminalVoipPushAndEnd");
     expect(callkit).not.toContain("reportOrphanTerminalVoipPushAndEnd");
-    expect(callkit).not.toContain("ios_voip_terminal_orphan_reported_and_ended");
-    expect(callkit).not.toContain("ios_voip_terminal_orphan_dedup_end");
 
-    // reportNewIncomingCall remains only for real incoming (reportIncomingCall).
+    // reportNewIncomingCall remains only inside reportIncomingCall (incoming + orphan fulfill).
     const incomingIdx = callkit.indexOf("func reportIncomingCall");
     const reportIdx = callkit.indexOf("reportNewIncomingCall");
     expect(incomingIdx).toBeGreaterThanOrEqual(0);
