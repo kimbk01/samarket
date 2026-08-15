@@ -1,0 +1,21 @@
+---
+description: DIBAY Overlay / Modal / Bottom Sheet visual SSOT hard lock
+globs:
+  - "components/**/*.{tsx,ts}"
+  - "lib/ui/**/*.{ts,tsx}"
+  - "app/**/*.css"
+alwaysApply: false
+---
+
+# DIBAY OVERLAY HARD LOCK
+
+1. New app-owned modal MUST use DIBAY Overlay SSOT (`components/ui/dibay-overlay` + `app/dibay-overlay.css`).
+2. New `window.alert` / `confirm` / `prompt` is prohibited for app-owned UX.
+3. Feature-local modal visual systems are prohibited.
+4. Bottom sheets on bottom-nav routes MUST use `MAIN_BOTTOM_NAV_SHEET_*` geometry (not magic `bottom: 60px`).
+5. Overlay typography / colors / radius / backdrop MUST use `--overlay-*` tokens from the Overlay Design System attachment.
+6. Overlay action buttons MUST use `dibay-overlay-btn` roles (primary / secondary / destructive / text).
+7. Overlay pressed state MUST use scale 0.98 (shared).
+8. OS-owned prompts remain native (CallKit, mic/cam, APNs, browser permission).
+9. Business authority MUST NOT move into overlay components.
+10. Forbidden in outgoing call confirm: `#007AFF`.

@@ -95,8 +95,26 @@ export const DESIGN_SYSTEM_A11Y = {
 
 export const DESIGN_SYSTEM_FILE_SSOT = {
   tokensCss: "app/design-tokens.css",
+  overlayCss: "app/dibay-overlay.css",
+  overlayContract: "lib/ui/dibay-overlay-contract.ts",
+  overlayComponents: "components/ui/dibay-overlay/",
   componentsCss: "app/samarket-components.css",
   samClasses: "lib/ui/sam-component-classes.ts",
   motion: "lib/mypage/mypage-authority-contract.ts",
   doc: "docs/customer-platform/04-DESIGN-SYSTEM.md",
+  overlayInventory: "docs/ui/dibay-overlay-inventory.md",
 } as const;
+
+/**
+ * DIBAY OVERLAY HARD LOCK — app-owned modal/sheet/confirm SSOT.
+ */
+export const DIBAY_OVERLAY_HARD_LOCK_RULES = [
+  "NEW APP-OWNED OVERLAYS MUST USE DIBAY OVERLAY SSOT (components/ui/dibay-overlay)",
+  "FEATURE-LOCAL MODAL VISUAL SYSTEMS ARE PROHIBITED",
+  "APP-OWNED window.alert/confirm/prompt ARE PROHIBITED",
+  "BOTTOM SHEETS ON NAV ROUTES MUST USE MAIN_BOTTOM_NAV_SHEET GEOMETRY",
+  "OVERLAY ACTIONS MUST USE dibay-overlay-btn ROLES (primary/secondary/destructive/text)",
+  "OS-OWNED PROMPTS MUST REMAIN NATIVE (CallKit, mic/cam, APNs, browser permission)",
+  "FORBIDDEN CALL-CONFIRM HEX: #007AFF",
+  "BACKDROP AUTHORITY: --overlay-backdrop + blur (app/dibay-overlay.css)",
+] as const;

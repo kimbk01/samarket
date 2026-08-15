@@ -3,7 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import {
+  MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS,
+  MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS,
+  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
+} from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 export function MypageBottomSheetShell({
@@ -59,7 +64,7 @@ export function MypageBottomSheetShell({
           height: visualViewportHeight,
           left: 0,
           right: 0,
-          bottom: "auto",
+          bottom: "auto" as const,
         }
       : undefined;
 
@@ -68,11 +73,13 @@ export function MypageBottomSheetShell({
       className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
       style={hostStyle}
       data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+      data-dibay-overlay="mypage-sheet"
+      data-overlay-anchor="above-bottom-nav"
       role="presentation"
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/30"
+        className={`${OverlayUi.backdrop} !opacity-100`}
         aria-label={ariaLabel ?? title}
         onClick={onClose}
       />
@@ -81,23 +88,23 @@ export function MypageBottomSheetShell({
         aria-modal="true"
         aria-label={ariaLabel ?? title}
         data-form-keyboard-surface="1"
-        className={`absolute inset-x-0 bottom-0 flex max-h-full flex-col rounded-t-2xl bg-sam-surface shadow-xl transition-transform duration-200 ease-out ${
+        className={`${OverlayUi.sheetPanel} absolute inset-x-0 mx-auto flex ${MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS} ${MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS} flex-col overflow-hidden transition-transform duration-200 ease-out ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
         style={{ paddingBottom: `${effectiveBottomInset}px` }}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
-          <h2 className="truncate sam-text-body font-semibold text-sam-fg">{title}</h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-1 py-1">
+          <h2 className={`truncate ${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-muted hover:bg-sam-app"
+            className="dibay-overlay-btn dibay-overlay-btn--text !min-h-9 !w-9 !flex-none !p-0"
             aria-label="Close"
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-3">{children}</div>
       </div>
     </div>,
     document.body,

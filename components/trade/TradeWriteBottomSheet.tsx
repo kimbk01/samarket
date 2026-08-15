@@ -11,6 +11,10 @@ import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
+import {
+  MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS,
+  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
+} from "@/lib/main-menu/bottom-nav-config";
 
 const SHEET_EXIT_MS = 520;
 
@@ -166,33 +170,35 @@ export function TradeWriteBottomSheet() {
         confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleHeaderLeaveConfirm}
-        zIndexClass="z-[65]"
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         ariaLabel={t("ui_write_trade_exit_aria")}
         interactionMode="blocking"
       />
       <div
-      className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
+      className={`pointer-events-none fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} flex flex-col`}
       role="dialog"
       aria-modal
       aria-label={t("ui_write_trade_sheet_title")}
+      data-dibay-overlay="full-sheet"
+      data-overlay-nav-mode="fullscreen-workflow"
     >
       <div
         ref={panelRef}
         data-form-keyboard-surface="1"
-        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-sam-app pt-[var(--safe-top)] text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
-          panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
+        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[color:var(--overlay-surface)] pt-[var(--safe-top)] text-[color:var(--overlay-text-primary)] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+          panelOpen ? "translate-y-0 shadow-[var(--overlay-elevation-1)]" : "translate-y-full shadow-none"
         }`}
       >
         <div
           ref={stickyChromeRef}
           data-form-keyboard-sticky-chrome="1"
-          className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11"
+          className="relative shrink-0 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2.5 pr-11"
         >
-          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{t("ui_write_trade_sheet_title")}</h2>
+          <h2 className="dibay-overlay-title dibay-overlay-title--sheet">{t("ui_write_trade_sheet_title")}</h2>
           <button
             type="button"
             onClick={onHeaderClose}
-            className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-fg transition hover:bg-sam-surface-muted active:opacity-90"
+            className="dibay-overlay-btn dibay-overlay-btn--text absolute right-2 top-1/2 !min-h-9 !w-9 !flex-none !-translate-y-1/2 !p-0"
             aria-label={t("common_close")}
           >
             <span className="text-[22px] font-light leading-none" aria-hidden>

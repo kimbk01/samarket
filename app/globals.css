@@ -1,5 +1,6 @@
 /* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css·app-shell.css 에서만 정의) */
 @import "./design-tokens.css";
+@import "./dibay-overlay.css";
 @import "../lib/community/community-design-tokens.css";
 @import "./delivery-tokens.css";
 @import "./delivery-components.css";

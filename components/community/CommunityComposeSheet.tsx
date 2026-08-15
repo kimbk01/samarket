@@ -1,17 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { philifeAppPaths } from "@domain/philife/paths";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
-import {
-  COMMUNITY_BOTTOM_SHEET_PANEL_CLASS,
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
-  COMMUNITY_BUTTON_SECONDARY_CLASS,
-  COMMUNITY_OVERLAY_BACKDROP_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
+import { philifeAppPaths } from "@domain/philife/paths";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 
 export function CommunityComposeSheet({
   open,
@@ -25,86 +19,57 @@ export function CommunityComposeSheet({
   const router = useRouter();
   const requireAuth = useRequireAuthAction();
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   const writeHref = philifeAppPaths.write;
   const writeMeetingHref = philifeAppPaths.writeMeeting;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-modal="true">
-      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label={t("common_close")} onClick={onClose} />
-      <div className={`relative z-50 px-4 pb-8 pt-3 ${COMMUNITY_BOTTOM_SHEET_PANEL_CLASS}`}>
-        <div className="mx-auto mb-3 h-1 w-10 rounded-[4px] bg-[#E5E7EB]" />
-        <p className="mb-3 text-center text-[13px] font-normal text-[#6B7280]">{t("community_compose_prompt")}</p>
-        <ul className="space-y-2">
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                void requireAuth(
-                  "messenger_open",
-                  () => {
-                    router.push(TRADE_CHAT_SURFACE.messengerListHref);
-                  },
-                  { next: TRADE_CHAT_SURFACE.messengerListHref },
-                );
-              }}
-              className={`flex w-full items-center justify-center ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
-            >
-              {t("community_compose_ask_bot")}
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                void requireAuth(
-                  "community_write",
-                  () => {
-                    router.push(writeHref);
-                  },
-                  { next: writeHref },
-                );
-              }}
-              className={`flex w-full items-center justify-center ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
-            >
-              {t("community_compose_write")}
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                void requireAuth(
-                  "community_write",
-                  () => {
-                    router.push(writeMeetingHref);
-                  },
-                  { next: writeMeetingHref },
-                );
-              }}
-              className={`flex w-full items-center justify-center ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
-            >
-              {t("community_compose_create_meeting")}
-            </button>
-          </li>
-        </ul>
-        <button type="button" onClick={onClose} className="mt-4 w-full py-2 text-[14px] font-semibold text-[#6B7280]">
-          {t("community_compose_cancel")}
-        </button>
-      </div>
-    </div>
+    <DibayActionSheet
+      open={open}
+      onClose={onClose}
+      title={t("community_compose_prompt")}
+      cancelLabel={t("community_compose_cancel")}
+      anchor="above-bottom-nav"
+      items={[
+        {
+          key: "messenger",
+          label: t("community_compose_ask_bot"),
+          onClick: () => {
+            void requireAuth(
+              "messenger_open",
+              () => {
+                router.push(TRADE_CHAT_SURFACE.messengerListHref);
+              },
+              { next: TRADE_CHAT_SURFACE.messengerListHref },
+            );
+          },
+        },
+        {
+          key: "write",
+          label: t("community_compose_write"),
+          onClick: () => {
+            void requireAuth(
+              "community_write",
+              () => {
+                router.push(writeHref);
+              },
+              { next: writeHref },
+            );
+          },
+        },
+        {
+          key: "meeting",
+          label: t("community_compose_create_meeting"),
+          onClick: () => {
+            void requireAuth(
+              "community_write",
+              () => {
+                router.push(writeMeetingHref);
+              },
+              { next: writeMeetingHref },
+            );
+          },
+        },
+      ]}
+    />
   );
 }

@@ -11,6 +11,8 @@ import { CallKindBottomSheetActions } from "@/components/community-messenger/cal
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   profile: CommunityMessengerProfileLite;
@@ -80,12 +82,14 @@ export function MessengerFriendProfileSheet({
   const showFriendMenuActions = context === "default";
 
   return (
-    <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div
-        className="max-h-[82vh] w-full overflow-y-auto rounded-t-[24px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2 dark:border-white/10 dark:bg-[#121212]"
-      >
-        <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
+    <DibayBottomSheet
+      open
+      onClose={onClose}
+      anchor="above-bottom-nav"
+      ariaLabel={profile.label}
+      showHandle
+    >
+        <div className={OverlayUi.profileHeader}>
           <span className="relative inline-flex h-16 w-16 shrink-0">
             <SamarketThumbnail
               src={resolveUserAvatarImageSrc(avatarSrc)}
@@ -96,20 +100,20 @@ export function MessengerFriendProfileSheet({
             />
             {hasCustomUserAvatar(avatarSrc) ? (
               <span
-                className="absolute bottom-0 right-0 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 border-ui-surface bg-sam-primary"
+                className="absolute bottom-0 right-0 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 border-[color:var(--overlay-surface)] bg-[color:var(--overlay-primary)]"
                 aria-hidden
               >
-                <Check className="h-4 w-4 text-sam-on-primary" strokeWidth={3} />
+                <Check className="h-4 w-4 text-white" strokeWidth={3} />
               </span>
             ) : null}
           </span>
-          <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
+          <h2 id="messenger-friend-sheet-title" className={`mt-2 ${OverlayUi.title} ${OverlayUi.titleSheet}`}>
             {profile.label}
           </h2>
           {statusLine && !atUsername ? (
-            <p className="mt-0.5 line-clamp-2 sam-text-helper text-ui-muted">{statusLine}</p>
+            <p className={`mt-0.5 line-clamp-2 ${OverlayUi.bodySecondary}`}>{statusLine}</p>
           ) : null}
-          {atUsername ? <p className="mt-1 font-mono sam-text-xxs text-ui-muted tabular-nums">{atUsername}</p> : null}
+          {atUsername ? <p className={`mt-1 font-mono tabular-nums ${OverlayUi.caption}`}>{atUsername}</p> : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
             {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} /> : null}
             {profile.isFavoriteFriend ? <StatusChip label={t("cm_ui_favorite")} /> : null}
@@ -143,26 +147,24 @@ export function MessengerFriendProfileSheet({
         {showDirectChatAction ? (
           <>
             <div className={`mt-3 ${!canMessage ? "opacity-40" : ""}`}>
-              <button
-                type="button"
+              <DibayOverlayButton
+                roleTone="secondary"
                 onClick={onChat}
                 disabled={anyBusy || !canMessage || !onChat}
-                className="flex h-11 w-full items-center justify-center rounded-[18px] border border-ui-border bg-ui-page sam-text-body-secondary font-semibold text-ui-fg active:bg-ui-hover disabled:opacity-50"
+                loading={bChat}
+                className="!flex-none w-full"
               >
                 {t("cm_friend_cta_message")}
-                {bChat ? (
-                  <span className="ml-2 sam-text-xxs font-medium text-ui-muted">{t("cm_ui_opening")}</span>
-                ) : null}
-              </button>
+              </DibayOverlayButton>
             </div>
             {!canMessage ? (
-              <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
+              <p className={`mt-2 text-center ${OverlayUi.caption}`}>{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
             ) : null}
           </>
         ) : null}
 
         {showFriendMenuActions ? (
-        <div className="mt-3 divide-y divide-ui-border border-t border-ui-border">
+        <div className="mt-3 divide-y divide-[color:var(--overlay-border)] border-t border-[color:var(--overlay-border)]">
           {onToggleFavorite && profile.isFriend ? (
             <ActionRow
               label={bFav ? t("common_processing") : profile.isFavoriteFriend ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
@@ -199,11 +201,10 @@ export function MessengerFriendProfileSheet({
         </div>
         ) : null}
 
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2.5 sam-text-body-secondary font-medium text-ui-muted active:bg-ui-hover">
+        <DibayOverlayButton roleTone="text" onClick={onClose} className="mt-2">
           {t("nav_close")}
-        </button>
-      </div>
-    </div>
+        </DibayOverlayButton>
+    </DibayBottomSheet>
   );
 }
 
@@ -248,8 +249,10 @@ function renderFriendAddBlock(args: {
 function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" }) {
   return (
     <span
-      className={`rounded-ui-rect border px-1.5 py-0.5 sam-text-xxs font-semibold ${
-        tone === "danger" ? "border-ui-border bg-ui-page text-[var(--ui-danger)]" : "border-ui-border bg-ui-page text-ui-muted"
+      className={`rounded-[length:var(--overlay-radius-sm)] border px-1.5 py-0.5 text-[length:var(--overlay-caption-size)] font-semibold ${
+        tone === "danger"
+          ? "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-danger)]"
+          : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] text-[color:var(--overlay-text-secondary)]"
       }`}
     >
       {label}
@@ -273,12 +276,12 @@ function ActionRow({
       type="button"
       onClick={onClick}
       disabled={disabled || !onClick}
-      className={`flex min-h-[var(--ui-tap-min,44px)] w-full items-center justify-between px-0.5 text-left sam-text-body font-medium active:bg-ui-hover disabled:opacity-50 ${
-        danger ? "text-[var(--ui-danger)]" : "text-ui-fg"
+      className={`flex min-h-[48px] w-full items-center justify-between px-0.5 text-left text-[length:var(--overlay-body-1-size)] font-medium transition-transform duration-100 active:scale-[0.98] active:bg-[color:var(--overlay-secondary)] disabled:opacity-50 ${
+        danger ? "text-[color:var(--overlay-danger)]" : "text-[color:var(--overlay-text-primary)]"
       }`}
     >
       <span>{label}</span>
-      {!onClick ? <span className="sam-text-xxs text-ui-muted">...</span> : null}
+      {!onClick ? <span className={OverlayUi.caption}>...</span> : null}
     </button>
   );
 }

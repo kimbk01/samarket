@@ -73,10 +73,15 @@ export function MessengerHomeBottomSheetShell({
     : "";
 
   return createPortal(
-    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} bg-black/30`} role="presentation">
+    <div
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
+      role="presentation"
+      data-dibay-overlay="messenger-home-sheet"
+      data-overlay-anchor={anchor}
+    >
       <button
         type="button"
-        className="absolute inset-0 cursor-default"
+        className="dibay-overlay-backdrop absolute inset-0 !opacity-100"
         aria-label={closeAriaLabel}
         onClick={onClose}
       />
@@ -92,7 +97,7 @@ export function MessengerHomeBottomSheetShell({
             } as CSSProperties)
           : undefined
         }
-        className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden ${center ? "rounded-[var(--messenger-radius-md)]" : "rounded-t-[var(--messenger-radius-md)]"} border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
+        className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-3)] ${center ? "rounded-[length:var(--overlay-radius-lg)]" : "rounded-t-[length:var(--overlay-radius-xl)]"} ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
       >
         {children}
       </div>

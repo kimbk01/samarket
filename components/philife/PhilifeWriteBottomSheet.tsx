@@ -4,12 +4,15 @@ import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const SHEET_EXIT_MS = 520;
 
 /**
- * `/philife` 1단(+): 글쓰기 폼을 **스티키 헤더(h1 스택) 바로 아래 ~ 화면 하단**으로
- * **아래→위**로 올리며 표시한다. 닫을 때 **아래로** 내려가며 사라진다.
+ * `/philife` 1단(+): 글쓰기 폼 — DIBAY Full/Form Sheet visual SSOT.
+ * Intentional fullscreen workflow (covers bottom nav while open).
+ * Exit animation + draft business handlers preserved.
  */
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
@@ -119,24 +122,30 @@ export function PhilifeWriteBottomSheet() {
 
   return (
     <div
-      className="pointer-events-none fixed left-0 right-0 z-[50] flex flex-col"
+      className={`pointer-events-none fixed left-0 right-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} flex flex-col`}
       style={{ top: topOffsetPx, bottom: 0 }}
       role="dialog"
       aria-modal
       aria-label={sheetTitle}
+      data-dibay-overlay="full-sheet"
+      data-overlay-nav-mode="fullscreen-workflow"
     >
       <div
         ref={panelRef}
         data-form-keyboard-surface="1"
-        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-[#e4e6eb] bg-white text-[#050505] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
-          panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
+        className={`${OverlayUi.fullSheet} pointer-events-auto ${
+          panelOpen ? "translate-y-0" : "translate-y-full"
         }`}
+        style={{
+          transform: panelOpen ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 500ms cubic-bezier(0.25, 0.1, 0.2, 1)",
+        }}
       >
         <div
           data-form-keyboard-sticky-chrome="1"
-          className="shrink-0 border-b border-[#e4e6eb] bg-white px-3 py-2.5"
+          className="shrink-0 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2.5"
         >
-          <h2 className="text-center text-[16px] font-bold leading-tight text-[#050505]">{sheetTitle}</h2>
+          <h2 className={`${OverlayUi.title} ${OverlayUi.titleSheet}`}>{sheetTitle}</h2>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <PhilifeNeighborhoodWriteForm
