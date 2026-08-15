@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DIBAY_DOMAIN_CHROME,
@@ -5,6 +7,7 @@ import {
 } from "@/lib/ui/dibay-domain-chrome";
 import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 import {
+  DIBAY_CHROME_SECONDARY_HOST_CLASS,
   DIBAY_SECONDARY_TAB_ACTIVE_CLASS,
   DIBAY_SECONDARY_TABS_CLASS,
   dibaySecondaryTabClass,
@@ -39,5 +42,29 @@ describe("dibay global header + secondary tabs SSOT", () => {
     expect(dibaySecondaryTabClass(false)).toBe("dibay-secondary-tab");
     expect(dibaySecondaryTabClass(true)).toBe(DIBAY_SECONDARY_TAB_ACTIVE_CLASS);
     expect(DIBAY_SECONDARY_TAB_ACTIVE_CLASS).toContain("dibay-secondary-tab--active");
+  });
+
+  it("locks secondary chrome host to domain surface token (no white sam-surface break)", () => {
+    expect(DIBAY_CHROME_SECONDARY_HOST_CLASS).toContain("--dibay-domain-surface");
+    expect(DIBAY_CHROME_SECONDARY_HOST_CLASS).not.toContain("bg-sam-surface");
+  });
+
+  it("Trade / MyPage chrome secondary hosts use domain host class", () => {
+    const root = process.cwd();
+    for (const rel of [
+      "components/trade/TradePrimaryTabs.tsx",
+      "components/my/MyManagedCtaStrip.tsx",
+      "components/mypage/trade/TradeHubTopTabs.tsx",
+      "components/mypage/trade/TradeHubPrimarySurface.tsx",
+    ]) {
+      const src = readFileSync(join(root, rel), "utf8");
+      expect(src).toContain("DIBAY_CHROME_SECONDARY_HOST_CLASS");
+      // Portal menus may keep bg-sam-surface; strip those lines for host check
+      const withoutMenus = src
+        .split("\n")
+        .filter((line) => !line.includes("shadow-sam-elevated") && !line.includes("role=\"listbox\""))
+        .join("\n");
+      expect(withoutMenus).not.toMatch(/\bbg-sam-surface\b(?!-muted)/);
+    }
   });
 });
