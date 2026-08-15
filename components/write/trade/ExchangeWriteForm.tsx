@@ -183,6 +183,8 @@ export function ExchangeWriteForm({
     displayLine: null,
     regionId: "",
     cityId: "",
+    tradeLguId: null,
+    nationalStatus: "pending",
     submitMeta: null,
   });
   const effectiveTradeRegionId = useMemo(() => {
@@ -609,7 +611,10 @@ export function ExchangeWriteForm({
     } else if (sellerPrep.length === 0 || buyerPrep.length === 0) {
       next.prep = t("exchange_write_err_both_prep");
     }
-    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
+    if (
+      hasLocation &&
+      (tradeAddressSsot.nationalStatus !== "resolved" || !tradeAddressSsot.tradeLguId)
+    ) {
       next.location = t("trade_write_err_region_read");
     }
     if (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta) {
@@ -680,6 +685,7 @@ export function ExchangeWriteForm({
           imageUrls: mergedImageUrls.length > 0 ? mergedImageUrls : undefined,
           region: submitRegion || undefined,
           city: submitCity || undefined,
+          tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
           meta,
         };
         if (editPostId) {

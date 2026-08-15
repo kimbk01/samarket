@@ -239,6 +239,7 @@ export type FlatPostShape = {
   price: number | null;
   region: string | null;
   city: string | null;
+  trade_lgu_id: string | null;
   barangay: string | null;
   content: string;
   images: string[] | null;
@@ -257,6 +258,7 @@ export function flattenPostForTradeCompare(row: Record<string, unknown>): FlatPo
     price: row.price != null ? Number(row.price) : null,
     region: row.region != null ? String(row.region) : null,
     city: row.city != null ? String(row.city) : null,
+    trade_lgu_id: row.trade_lgu_id != null ? String(row.trade_lgu_id) : null,
     barangay: row.barangay != null ? String(row.barangay) : null,
     content: String(row.content ?? ""),
     images: Array.isArray(row.images) ? (row.images as string[]) : null,
@@ -419,6 +421,7 @@ export function mergeTradePostFromPatch(
     price?: number | null;
     region?: string;
     city?: string;
+    tradeLguId?: string;
     barangay?: string;
     imageUrls?: string[] | null;
     meta?: Record<string, unknown> | null;
@@ -455,6 +458,8 @@ export function mergeTradePostFromPatch(
     price: body.price !== undefined ? body.price : before.price,
     region: body.region !== undefined ? body.region : before.region,
     city: body.city !== undefined ? body.city : before.city,
+    trade_lgu_id:
+      body.tradeLguId !== undefined ? body.tradeLguId : before.trade_lgu_id,
     barangay: body.barangay !== undefined ? body.barangay : before.barangay,
     content,
     images,

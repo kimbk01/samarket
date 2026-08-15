@@ -52,6 +52,7 @@ import { uiFinishPagesMessages } from "./catalog/ui-finish-pages";
 import { addressesUiMessages } from "./catalog/addresses-ui";
 import { pointsUiMessages } from "./catalog/points-ui";
 import { permissionEducationMessages } from "./catalog/permission-education";
+import { tradeLocationScopeMessages } from "./catalog/trade-location-scope";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -109,6 +110,7 @@ export const MESSAGES = {
     ...addressesUiMessages.ko,
     ...pointsUiMessages.ko,
     ...permissionEducationMessages.ko,
+    ...tradeLocationScopeMessages.ko,
     ...adminMessages.ko,
     ...koJson,
   },
@@ -165,6 +167,7 @@ export const MESSAGES = {
     ...addressesUiMessages.en,
     ...pointsUiMessages.en,
     ...permissionEducationMessages.en,
+    ...tradeLocationScopeMessages.en,
     ...adminMessages.en,
     ...enJson,
   },

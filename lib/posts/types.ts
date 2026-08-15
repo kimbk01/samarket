@@ -20,6 +20,8 @@ export interface CreatePostPayloadTrade extends CreatePostPayloadBase {
   isFreeShare?: boolean;
   region?: string;
   city?: string;
+  /** National PSGC LGU snapshot — N3 write cutover; typed for N2 plumbing only */
+  tradeLguId?: string;
   barangay?: string;
   /** 업로드 후 받은 이미지 URL (첫 URL이 썸네일) */
   imageUrls?: string[];

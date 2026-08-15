@@ -21,6 +21,13 @@ import { HiddenPostCard } from "./HiddenPostCard";
 import { NotInterestedCard } from "./NotInterestedCard";
 import type { PostListMenuAction } from "./PostListMenuBottomSheet";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
+import {
+  buildTradeLocationHref,
+  parseTradeLocationScopeFromSearchParams,
+  peekTradeLguDisplayLabel,
+} from "@/lib/trade/location/trade-location-scope";
+import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const ReportReasonModal = dynamic(
   () => import("./ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -92,6 +99,7 @@ export function PostListByCategory({
   jobIndustrySlug,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -100,6 +108,17 @@ export function PostListByCategory({
     tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
       ? tradeStateRaw
       : "latest";
+  const locationScope = useMemo(
+    () => parseTradeLocationScopeFromSearchParams(searchParams),
+    [searchParams]
+  );
+  const locationInvalid = locationScope.mode === "invalid";
+  const lguCityId =
+    locationScope.mode === "city"
+      ? locationScope.lguId
+      : locationInvalid
+        ? locationScope.raw || "invalid"
+        : undefined;
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -113,8 +132,9 @@ export function PostListByCategory({
       jobRegionSlug: jobRegionSlug?.trim() || undefined,
       jobIndustrySlug: jobIndustrySlug?.trim() || undefined,
       tradeState,
+      lguCityId,
     }),
-    [jobEmploymentType, todayAvailable, jobRegionSlug, jobIndustrySlug, tradeState]
+    [jobEmploymentType, todayAvailable, jobRegionSlug, jobIndustrySlug, tradeState, lguCityId]
   );
 
   /**
@@ -130,6 +150,7 @@ export function PostListByCategory({
         jobRegionSlug: feedExtras.jobRegionSlug,
         jobIndustrySlug: feedExtras.jobIndustrySlug,
         tradeState: feedExtras.tradeState,
+        lguCityId: feedExtras.lguCityId,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };
@@ -321,6 +342,11 @@ export function PostListByCategory({
     const marketSurfacePath = category ? tradeMarketPath(category) : pathname;
     return resolveTradeMarketPullRefreshRouteKey(marketSurfacePath, searchParams);
   }, [category, pathname, searchParams]);
+
+  useEffect(() => {
+    const q = searchParams.toString();
+    rememberTradeListReturnHref(q ? `${pathname}?${q}` : pathname);
+  }, [pathname, searchParams]);
 
   const onPullRefresh = useCallback(async () => {
     invalidateHomePostsCache({ notifyListReload: false });
@@ -596,6 +622,29 @@ export function PostListByCategory({
   const skinKey = category?.icon_key ?? undefined;
 
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
+  if (locationInvalid) {
+    return (
+      <>
+        {tradePullRefreshRegister}
+        <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+          <p className="text-[14px] text-sam-muted">{t("trade_location_invalid")}</p>
+          <button
+            type="button"
+            className="text-[14px] font-medium text-signature"
+            onClick={() => {
+              router.replace(
+                buildTradeLocationHref(pathname, searchParams.toString(), { mode: "all" }),
+                { scroll: false }
+              );
+            }}
+          >
+            {t("trade_location_view_all")}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   if (loading && posts.length === 0) {
     return (
       <>
@@ -608,6 +657,34 @@ export function PostListByCategory({
   }
 
   if (posts.length === 0) {
+    const cityLabel =
+      locationScope.mode === "city"
+        ? peekTradeLguDisplayLabel(locationScope.canonicalId)
+        : null;
+    if (cityLabel) {
+      return (
+        <>
+          {tradePullRefreshRegister}
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <p className="text-[14px] text-sam-muted">
+              {t("trade_location_empty", { city: cityLabel })}
+            </p>
+            <button
+              type="button"
+              className="text-[14px] font-medium text-signature"
+              onClick={() => {
+                router.replace(
+                  buildTradeLocationHref(pathname, searchParams.toString(), { mode: "all" }),
+                  { scroll: false }
+                );
+              }}
+            >
+              {t("trade_location_view_all")}
+            </button>
+          </div>
+        </>
+      );
+    }
     return (
       <>
         {tradePullRefreshRegister}

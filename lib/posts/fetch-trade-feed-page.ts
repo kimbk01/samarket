@@ -14,6 +14,8 @@ import {
   type TradePostSort,
 } from "@/lib/posts/trade-posts-range-query";
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
+import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 
 export type TradeFeedPageSort = TradePostSort;
 
@@ -28,6 +30,8 @@ export type TradeFeedPageOptions = {
   jobIndustrySlug?: JobListIndustrySlug;
   /** `resolveHomePostsStatusOrByTradeState` 결과 */
   statusOr?: string;
+  /** Trade LGU City scope (`?location=city&lgu=`) — alias or PSGC */
+  lguCityId?: string;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -37,7 +41,21 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const jr = opts.jobRegionSlug;
   const jc = opts.jobIndustrySlug;
   const statusOr = opts.statusOr?.trim();
-  if (!restrictTradeTypeJob && !je && !todayAvailable && !jr && !jc && !statusOr) return undefined;
+  const lguCityId = opts.lguCityId?.trim();
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId);
+  const tradeFeedLocation = tradeFeedLocationToQueryExtras(feedConstraint);
+
+  if (
+    !restrictTradeTypeJob &&
+    !je &&
+    !todayAvailable &&
+    !jr &&
+    !jc &&
+    !statusOr &&
+    !tradeFeedLocation
+  ) {
+    return undefined;
+  }
   return {
     restrictTradeTypeJob: restrictTradeTypeJob || undefined,
     jobEmploymentType: je || undefined,
@@ -45,6 +63,7 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
     jobRegionSlug: jr || undefined,
     jobIndustrySlug: jc || undefined,
     statusOr: statusOr || undefined,
+    tradeFeedLocation,
   };
 }
 
@@ -55,6 +74,11 @@ export async function fetchTradeFeedPage(
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean }> {
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))];
   if (!supabase || ids.length === 0) {
+    return { posts: [], hasMore: false };
+  }
+
+  const feedConstraint = resolveTradeFeedLocationConstraint(options.lguCityId);
+  if (feedConstraint.kind === "invalid") {
     return { posts: [], hasMore: false };
   }
 

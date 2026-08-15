@@ -13,6 +13,7 @@ export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "business_apply_form",
   "browse_list_user_origin",
   "trade_meet_fallback_line",
+  "trade_location_scope",
   "unknown",
 ] as const;
 
@@ -32,4 +33,6 @@ export type AddressDefaultsFetchReason =
   | "apply_form_seed"
   | "browse_origin"
   | "fallback_line"
+  | "trade_location_panel"
+  | "trade_location_seed"
   | "unspecified";

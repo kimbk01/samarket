@@ -276,6 +276,8 @@ export function JobsWriteForm({
     displayLine: null,
     regionId: "",
     cityId: "",
+    tradeLguId: null,
+    nationalStatus: "pending",
     submitMeta: null,
   });
 
@@ -850,7 +852,10 @@ export function JobsWriteForm({
         }
       }
     }
-    if (!effectiveTradeRegionId || !effectiveTradeCityId) {
+    if (
+      tradeAddressSsot.nationalStatus !== "resolved" ||
+      !tradeAddressSsot.tradeLguId
+    ) {
       next.region =
         listingKind === "work"
           ? t("jobs_write_err_seek_region_read")
@@ -1144,6 +1149,7 @@ export function JobsWriteForm({
               isFreeShare: false,
               region: submitRegion || undefined,
               city: submitCity || undefined,
+              tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
               barangay: undefined,
               imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
               meta: Object.keys(meta).length > 0 ? meta : undefined,
@@ -1172,6 +1178,7 @@ export function JobsWriteForm({
           isFreeShare: false,
           region: submitRegion || undefined,
           city: submitCity || undefined,
+          tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
           barangay: undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           meta: Object.keys(meta).length > 0 ? meta : undefined,

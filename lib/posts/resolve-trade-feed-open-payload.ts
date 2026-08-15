@@ -21,6 +21,7 @@ export type TradeFeedOpenRequestOptions = {
   jobRegionSlug?: JobListRegionSlug;
   jobIndustrySlug?: JobListIndustrySlug;
   statusOr?: string;
+  lguCityId?: string;
 };
 
 export type TradeFeedOpenPayload = {
@@ -51,6 +52,7 @@ export async function resolveTradeFeedOpenPayload(
     jobRegionSlug: opts.jobRegionSlug,
     jobIndustrySlug: opts.jobIndustrySlug,
     statusOr: opts.statusOr,
+    lguCityId: opts.lguCityId,
   });
   if (
     result.posts.length === 0 &&
@@ -67,6 +69,7 @@ export async function resolveTradeFeedOpenPayload(
       jobRegionSlug: opts.jobRegionSlug,
       jobIndustrySlug: opts.jobIndustrySlug,
       statusOr: opts.statusOr,
+      lguCityId: opts.lguCityId,
     });
     if (alt.posts.length > 0) {
       result = alt;

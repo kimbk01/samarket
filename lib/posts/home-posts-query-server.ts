@@ -11,7 +11,12 @@ import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
 import { buildTradePostsStatusAndCategoryAndFilter } from "@/lib/posts/trade-posts-category-filter";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
-import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
+import {
+  POST_TRADE_LIST_SELECT,
+  applyResolvedTradeFeedLocationToQuery,
+} from "@/lib/posts/trade-posts-range-query";
+import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -23,7 +28,7 @@ export const HOME_POSTS_SELECT_TIERS = [
   `${POST_TRADE_LIST_SELECT},community_topic_id,is_deleted`,
   `${POST_TRADE_LIST_SELECT},community_topic_id`,
   POST_TRADE_LIST_SELECT,
-  "id, user_id, type, trade_category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer",
+  "id, user_id, type, trade_category_id, title, price, status, view_count, thumbnail_url, images, region, city, trade_lgu_id, created_at, updated_at, meta, is_free_share, is_price_offer",
   "*",
 ] as const;
 
@@ -92,9 +97,15 @@ export async function loadHomePostsPage(
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
   tradeCategoryIds: string[] | null,
-  statusOr: string
+  statusOr: string,
+  lguCityId?: string | null
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId);
+  if (feedConstraint.kind === "invalid") {
+    return { posts: [], hasMore: false };
+  }
+  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
 
   outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
     let q = sb.from(table).select(selectFields);
@@ -115,6 +126,9 @@ export async function loadHomePostsPage(
       q = q.eq("type", "service");
     } else if (type === "feature") {
       // no-op
+    }
+    if (feedLocExtras) {
+      q = applyResolvedTradeFeedLocationToQuery(q as any, feedLocExtras) as typeof q;
     }
     if (sort === "latest") {
       q = q.order("created_at", { ascending: false });
@@ -145,9 +159,19 @@ export async function resolveHomePostsPayload(
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
   tradeCategoryIds: string[] | null,
-  statusOr: string
+  statusOr: string,
+  lguCityId?: string | null
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-  const fromMaskedRead = await loadHomePostsPage(readSb, POSTS_TABLE_READ, from, sort, type, tradeCategoryIds, statusOr);
+  const fromMaskedRead = await loadHomePostsPage(
+    readSb,
+    POSTS_TABLE_READ,
+    from,
+    sort,
+    type,
+    tradeCategoryIds,
+    statusOr,
+    lguCityId
+  );
   if (fromMaskedRead) return fromMaskedRead;
 
   if (serviceSb && serviceSb !== readSb) {
@@ -158,13 +182,23 @@ export async function resolveHomePostsPayload(
       sort,
       type,
       tradeCategoryIds,
-      statusOr
+      statusOr,
+      lguCityId
     );
     if (fromMaskedService) return fromMaskedService;
   }
 
   if (serviceSb) {
-    return loadHomePostsPage(serviceSb, "posts", from, sort, type, tradeCategoryIds, statusOr);
+    return loadHomePostsPage(
+      serviceSb,
+      "posts",
+      from,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      lguCityId
+    );
   }
 
   return null;

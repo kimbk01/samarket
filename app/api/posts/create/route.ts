@@ -17,6 +17,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
 import { publicRegionLabelLeaksPrivateDetail } from "@/lib/addresses/community-public-region-label";
+import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
 
 const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
@@ -43,6 +44,7 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
   if (type === "trade") {
     const region = typeof raw.region === "string" ? raw.region : undefined;
     const city = typeof raw.city === "string" ? raw.city : undefined;
+    const tradeLguId = typeof raw.tradeLguId === "string" ? raw.tradeLguId.trim() : undefined;
     const barangay = typeof raw.barangay === "string" ? raw.barangay : undefined;
     if (
       publicRegionLabelLeaksPrivateDetail(region ?? "") ||
@@ -59,6 +61,7 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
       isFreeShare: raw.isFreeShare === true,
       region,
       city,
+      tradeLguId: tradeLguId || undefined,
       barangay,
       imageUrls: Array.isArray(raw.imageUrls)
         ? raw.imageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
@@ -117,6 +120,20 @@ export async function POST(req: NextRequest) {
   const parsed = parseCreatePayload(body);
   if ("error" in parsed) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+  }
+
+  if (parsed.type === "trade") {
+    const tradeLguId =
+      "tradeLguId" in parsed && typeof parsed.tradeLguId === "string"
+        ? parsed.tradeLguId.trim()
+        : "";
+    const lguGate = assertActiveTradeNationalLgu(tradeLguId);
+    if (!lguGate.ok) {
+      return NextResponse.json(
+        { ok: false, error: lguGate.error, code: "trade_lgu_id_invalid" },
+        { status: 400 }
+      );
+    }
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;

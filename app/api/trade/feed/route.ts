@@ -20,6 +20,7 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
+import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,6 +123,13 @@ export async function GET(req: NextRequest) {
 
   const tradeState = parseTradeState(searchParams.get("tradeState"));
   const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
+  const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
+  const lguCityId =
+    locationScope.mode === "city"
+      ? locationScope.lguId
+      : locationScope.mode === "invalid"
+        ? locationScope.raw || "invalid"
+        : undefined;
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
@@ -137,6 +145,7 @@ export async function GET(req: NextRequest) {
       jobRegionSlug,
       jobIndustrySlug,
       statusOr,
+      lguCityId,
     },
     viewerId
   );

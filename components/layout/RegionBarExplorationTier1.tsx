@@ -2,11 +2,11 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
-import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
-/** Community tier1: compose + address + bell only (no header messenger). Trade keeps messenger. */
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
+/** Community tier1: compose + address + bell. Trade: compose + location pin + bell (messenger header entry removed). */
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
@@ -52,7 +52,7 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
               </>
             : <>
                 <TradeHeaderComposeButton />
-                <PhilifeHeaderMessengerButton />
+                <TradeHeaderLocationPinButton />
                 <Tier1NotificationAnchor surface="bottom_nav_my" />
               </>
             }

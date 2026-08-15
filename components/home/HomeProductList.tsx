@@ -38,6 +38,13 @@ import {
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
+import {
+  buildTradeLocationHref,
+  parseTradeLocationScopeFromSearchParams,
+  peekTradeLguDisplayLabel,
+  rememberTradeLguDisplayLabel,
+} from "@/lib/trade/location/trade-location-scope";
+import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { TRADE_CHAT_LIST_PAGE_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
@@ -137,12 +144,57 @@ export function HomeProductList({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
+  const locationScope = useMemo(
+    () => parseTradeLocationScopeFromSearchParams(searchParams),
+    [searchParams]
+  );
+  const locationInvalid = locationScope.mode === "invalid";
+  const lguCityId = locationScope.mode === "city" ? locationScope.lguId : null;
+  const [cityEmptyLabel, setCityEmptyLabel] = useState<string | null>(() =>
+    locationScope.mode === "city" ? peekTradeLguDisplayLabel(locationScope.canonicalId) : null
+  );
+  useEffect(() => {
+    if (locationScope.mode !== "city") {
+      setCityEmptyLabel(null);
+      return;
+    }
+    const peek = peekTradeLguDisplayLabel(locationScope.canonicalId);
+    if (peek) {
+      setCityEmptyLabel(peek);
+      return;
+    }
+    let cancelled = false;
+    void fetch(
+      `/api/trade/national-lgu?id=${encodeURIComponent(locationScope.canonicalId)}`,
+      { credentials: "same-origin", cache: "no-store" }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { item?: { displayName?: string } } | null) => {
+        if (cancelled) return;
+        const name = json?.item?.displayName?.trim() ?? "";
+        if (!name) return;
+        rememberTradeLguDisplayLabel(locationScope.canonicalId, name);
+        setCityEmptyLabel(name);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [locationScope]);
   const homePostListOptions = useMemo<GetPostsForHomeOptions>(
-    () => ({ sort: "latest", type: null, tradeState }),
-    [tradeState]
+    () => ({
+      sort: "latest",
+      type: null,
+      tradeState,
+      lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
+    }),
+    [tradeState, lguCityId, locationInvalid, locationScope]
   );
   const { tt } = useI18n();
-  const hydrationSeed = getHydrationSafeBoot(tradeState, initialHomeTradeFeed);
+  const hydrationSeed =
+    !locationInvalid && lguCityId == null
+      ? getHydrationSafeBoot(tradeState, initialHomeTradeFeed)
+      : null;
   const clientBoot =
     typeof window !== "undefined" &&
     tradeState === "latest" &&
@@ -172,8 +224,15 @@ export function HomeProductList({
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
 
   const load = useCallback(async () => {
+    if (locationInvalid) {
+      setPosts([]);
+      setFavoriteMap({});
+      setListState("empty");
+      lastLoadedAtRef.current = Date.now();
+      return;
+    }
     const requestId = ++latestRequestIdRef.current;
-    const listOpts: GetPostsForHomeOptions = { sort: "latest", type: null, tradeState };
+    const listOpts = homePostListOptions;
     /**
      * `getPostsForHome` 는 signal 없이 호출해야 `home-posts-fetch:${cacheKey}` 단일 비행에 합류한다.
      * signal 분기는 이 단일 비행을 우회해, BottomNav·MarketContent prewarm 과 **이중 fetch**가 났다.
@@ -225,7 +284,7 @@ export function HomeProductList({
         allowRscHomeListSeedRef.current = true;
       }
     }
-  }, [tradeState]);
+  }, [homePostListOptions, locationInvalid]);
 
   const pullRefreshRouteKey = useMemo(
     () => resolveTradeMarketPullRefreshRouteKey(pathname, searchParams),
@@ -248,15 +307,23 @@ export function HomeProductList({
    * 첫 렌더는 `hydrationSeed`만 사용해 서버 HTML과 일치시킨다.
    */
   useLayoutEffect(() => {
-    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current) {
+    if (locationInvalid) {
+      setPosts([]);
+      setFavoriteMap({});
+      setListState("empty");
+      lastLoadedAtRef.current = Date.now();
+      return;
+    }
+
+    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && lguCityId == null) {
       primeHomePostsCache({ sort: "latest", type: null, tradeState }, initialHomeTradeFeed);
     }
 
     const boot =
-      tradeState === "latest" && allowRscHomeListSeedRef.current
+      tradeState === "latest" && allowRscHomeListSeedRef.current && lguCityId == null
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
         : peekCachedPostsForHome(homePostListOptions);
-    const merged = boot ?? peekRecentHomePostsFallback();
+    const merged = boot ?? (lguCityId == null ? peekRecentHomePostsFallback() : null);
 
     if (merged) {
       setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
@@ -267,7 +334,12 @@ export function HomeProductList({
     }
 
     void load();
-  }, [tradeState, initialHomeTradeFeed, load]);
+  }, [tradeState, lguCityId, initialHomeTradeFeed, load, homePostListOptions, locationInvalid]);
+
+  useEffect(() => {
+    const q = searchParams.toString();
+    rememberTradeListReturnHref(q ? `${pathname}?${q}` : pathname);
+  }, [pathname, searchParams]);
 
   /** 글쓰기 완료 등으로 캐시만 비울 때 — 동일 URL에 머물러도 즉시 재요청 */
   useEffect(() => {
@@ -320,12 +392,13 @@ export function HomeProductList({
   );
 
   const refreshSilent = useCallback(async () => {
+    if (locationInvalid) return;
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
       return;
     }
     const requestId = ++silentRequestIdRef.current;
     try {
-      const res = await getPostsForHome({ sort: "latest", type: null, tradeState });
+      const res = await getPostsForHome(homePostListOptions);
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
@@ -334,7 +407,7 @@ export function HomeProductList({
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       /* 기존 목록 유지 */
     }
-  }, [tradeState]);
+  }, [homePostListOptions, locationInvalid]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
@@ -432,9 +505,9 @@ export function HomeProductList({
     setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
   }, []);
 
-  const showEmpty = listState === "empty" || posts.length === 0;
+  const showEmpty = locationInvalid || listState === "empty" || posts.length === 0;
   const showError = listState === "error";
-  const showLoading = listState === "loading";
+  const showLoading = !locationInvalid && listState === "loading";
   const rootClass = "min-w-0 w-full max-w-full";
   /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
   const listClass = TRADE_FEED_LIST_WRAP_CLASS;
@@ -486,11 +559,56 @@ export function HomeProductList({
   }
 
   if (showEmpty) {
+    const cityLabel = cityEmptyLabel;
+    if (locationInvalid) {
+      return (
+        <>
+          {tradePullRefreshRegister}
+          <div className={rootClass}>
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <p className="text-[14px] text-sam-muted">{t("trade_location_invalid")}</p>
+              <button
+                type="button"
+                className="text-[14px] font-medium text-signature"
+                onClick={() => {
+                  router.replace(
+                    buildTradeLocationHref(pathname, searchParams.toString(), { mode: "all" }),
+                    { scroll: false }
+                  );
+                }}
+              >
+                {t("trade_location_view_all")}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
     return (
       <>
         {tradePullRefreshRegister}
         <div className={rootClass}>
-          <EmptyState />
+          {cityLabel ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <p className="text-[14px] text-sam-muted">
+                {t("trade_location_empty", { city: cityLabel })}
+              </p>
+              <button
+                type="button"
+                className="text-[14px] font-medium text-signature"
+                onClick={() => {
+                  router.replace(
+                    buildTradeLocationHref(pathname, searchParams.toString(), { mode: "all" }),
+                    { scroll: false }
+                  );
+                }}
+              >
+                {t("trade_location_view_all")}
+              </button>
+            </div>
+          ) : (
+            <EmptyState />
+          )}
         </div>
       </>
     );

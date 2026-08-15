@@ -25,6 +25,7 @@ import {
 } from "@/lib/trade/trade-lifecycle-policy";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { tradeJobColumnsForInsert } from "@/lib/posts/trade-job-db-fields";
+import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
 
 type PatchBody = {
   categoryId?: string;
@@ -33,6 +34,7 @@ type PatchBody = {
   price?: number | null;
   region?: string;
   city?: string;
+  tradeLguId?: string;
   barangay?: string;
   imageUrls?: string[] | null;
   meta?: Record<string, unknown> | null;
@@ -80,7 +82,7 @@ export async function PATCH(
   let { data: row, error: fetchErr } = await sbAny
     .from(POSTS_TABLE_READ)
     .select(
-      "id, user_id, trade_category_id, title, content, price, region, city, images, thumbnail_url, meta, status, seller_listing_state, is_free_share, is_price_offer"
+      "id, user_id, trade_category_id, title, content, price, region, city, trade_lgu_id, images, thumbnail_url, meta, status, seller_listing_state, is_free_share, is_price_offer"
     )
     .eq("id", id)
     .maybeSingle();
@@ -89,7 +91,7 @@ export async function PATCH(
     const r2 = await sbAny
       .from(POSTS_TABLE_READ)
       .select(
-        "id, user_id, trade_category_id, title, content, price, region, city, images, thumbnail_url, meta, status, is_free_share, is_price_offer"
+        "id, user_id, trade_category_id, title, content, price, region, city, trade_lgu_id, images, thumbnail_url, meta, status, is_free_share, is_price_offer"
       )
       .eq("id", id)
       .maybeSingle();
@@ -152,8 +154,17 @@ export async function PATCH(
         ...proposed,
         region: before.region,
         city: before.city,
+        trade_lgu_id: before.trade_lgu_id,
         meta: proposedMeta,
       };
+    } else if (proposed.trade_lgu_id) {
+      const lguGate = assertActiveTradeNationalLgu(proposed.trade_lgu_id);
+      if (!lguGate.ok) {
+        return NextResponse.json(
+          { ok: false, error: lguGate.error, code: "trade_lgu_id_invalid" },
+          { status: 400 }
+        );
+      }
     }
   } else if (allowsRestrictedPartialEdit(lifecycle) || allowsCancelledPartialEdit(lifecycle)) {
     const v = validateRestrictedMetaPatch(tradeKind, before, proposed);
@@ -172,6 +183,7 @@ export async function PATCH(
     price: proposed.price,
     region: proposed.region,
     city: proposed.city,
+    trade_lgu_id: proposed.trade_lgu_id,
     images: proposed.images,
     thumbnail_url: proposed.thumbnail_url,
     meta: proposed.meta,

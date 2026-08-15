@@ -8,6 +8,7 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { formatPrice, formatTimeAgo, parseMetaAmount, sqToPyeong } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { getUserProfile } from "@/lib/users/getUserProfile";
@@ -1069,7 +1070,8 @@ export function PostDetailView({
     getCategoryBySlugOrId(post.category_id).then((c) => {
       if (c) {
         setCategory(c);
-        setBackHref(getCategoryHref(c));
+        const remembered = peekTradeListReturnHref();
+        setBackHref(remembered || getCategoryHref(c));
       }
     });
   }, [post.category_id]);

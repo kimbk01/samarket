@@ -20,6 +20,8 @@ export interface PostRow {
   is_free_share: boolean;
   region: string | null;
   city: string | null;
+  /** National Trade discovery LGU (PSGC). Independent of region/city local Area. */
+  trade_lgu_id?: string | null;
   barangay: string | null;
   contact_method: string | null;
   status: PostStatus;

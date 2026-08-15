@@ -6,6 +6,7 @@ import { forgetSingleFlightsWhere } from "@/lib/http/run-single-flight";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
+import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
 
 export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -21,6 +22,8 @@ export type TradeFeedClientOptions = {
   jobIndustrySlug?: string;
   /** 거래 상태 필터 — 홈 `tradeState` 와 동일 */
   tradeState?: "latest" | "active" | "reserved" | "sold";
+  /** LGU City scope id (`pasig`, `quezon-city`, …) */
+  lguCityId?: string;
 };
 
 export type TradeFeedClientResult = {
@@ -71,6 +74,13 @@ export function buildTradeFeedClientCacheKey(
     options.tradeState === "sold"
       ? options.tradeState
       : "latest";
+  const loc = (() => {
+    const raw = options.lguCityId?.trim();
+    if (!raw) return "loc:all";
+    const cid = resolveTradeLguUrlTokenToCanonical(raw);
+    if (!cid) return `loc:invalid:${raw}`;
+    return `loc:lgu:${cid}`;
+  })();
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -78,14 +88,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|p:${page}|u:${u}:v4`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|p:${page}|u:${u}:v5`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|p:${page}|u:${u}:v4`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|p:${page}|u:${u}:v5`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */
@@ -99,7 +109,7 @@ export function invalidateAllTradeFeedClientCache(): void {
 export function invalidateTradeFeedClientCacheForViewer(viewerUserId: string): void {
   const u = viewerUserId.trim();
   if (!u) return;
-  const suffix = `|u:${u}:v4`;
+  const suffix = `|u:${u}:v5`;
   for (const k of [...tradeFeedClientCache.keys()]) {
     if (k.endsWith(suffix)) tradeFeedClientCache.delete(k);
   }

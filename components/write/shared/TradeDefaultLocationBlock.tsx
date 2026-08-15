@@ -30,11 +30,63 @@ function applyAddressToTradeRegion(
 ): { line: string | null; regionId: string; cityId: string } {
   const line = formatUserAddressTitle(addr)?.trim() ?? "";
   const inferred = mapUserAddressToAppLocation(addr);
-  if (inferred) sync(inferred.regionId, inferred.cityId);
+  // Local Area is optional enrichment — clear when not in catalog (e.g. Davao).
+  sync(inferred?.regionId ?? "", inferred?.cityId ?? "");
   return {
     line: line && line !== "—" ? line : null,
     regionId: inferred?.regionId ?? "",
     cityId: inferred?.cityId ?? "",
+  };
+}
+
+async function resolveNationalLguFromAddress(addr: UserAddressDTO): Promise<{
+  status: "resolved" | "ambiguous" | "unresolved";
+  tradeLguId: string | null;
+}> {
+  const cityMunicipality = (addr.cityMunicipality ?? "").trim();
+  const province = (addr.province ?? "").trim();
+  if (!cityMunicipality) {
+    return { status: "unresolved", tradeLguId: null };
+  }
+  try {
+    const sp = new URLSearchParams({
+      mode: "resolve",
+      cityMunicipality,
+    });
+    if (province) sp.set("province", province);
+    const res = await fetch(`/api/trade/national-lgu?${sp.toString()}`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!res.ok) return { status: "unresolved", tradeLguId: null };
+    const json = (await res.json()) as {
+      resolution?: {
+        status?: string;
+        canonicalId?: string;
+      };
+    };
+    const st = json.resolution?.status;
+    if (st === "resolved" && typeof json.resolution?.canonicalId === "string") {
+      return { status: "resolved", tradeLguId: json.resolution.canonicalId };
+    }
+    if (st === "ambiguous") return { status: "ambiguous", tradeLguId: null };
+    return { status: "unresolved", tradeLguId: null };
+  } catch {
+    return { status: "unresolved", tradeLguId: null };
+  }
+}
+
+function emptySsot(): TradeWriteAddressSsotSnapshot {
+  return {
+    ready: true,
+    missing: true,
+    displayLine: null,
+    regionId: "",
+    cityId: "",
+    tradeLguId: null,
+    nationalStatus: "unresolved",
+    submitMeta: null,
   };
 }
 
@@ -44,6 +96,9 @@ export type TradeWriteAddressSsotSnapshot = {
   displayLine: string | null;
   regionId: string;
   cityId: string;
+  /** National PSGC LGU — required for Trade location validity (N3) */
+  tradeLguId: string | null;
+  nationalStatus: "resolved" | "ambiguous" | "unresolved" | "pending";
   submitMeta: { trade_meet_spot: { display_line: string } } | null;
 };
 
@@ -117,14 +172,7 @@ export function TradeDefaultLocationBlock({
       if (!snapshot?.ok || !snapshot.defaults) {
         displayLineRef.current = null;
         setDisplayLine(null);
-        resolvedRef.current?.({
-          ready: true,
-          missing: true,
-          displayLine: null,
-          regionId: "",
-          cityId: "",
-          submitMeta: null,
-        });
+        resolvedRef.current?.(emptySsot());
         setReady(true);
         return;
       }
@@ -132,42 +180,34 @@ export function TradeDefaultLocationBlock({
       if (!addr?.id) {
         displayLineRef.current = null;
         setDisplayLine(null);
-        resolvedRef.current?.({
-          ready: true,
-          missing: true,
-          displayLine: null,
-          regionId: "",
-          cityId: "",
-          submitMeta: null,
-        });
+        resolvedRef.current?.(emptySsot());
         setReady(true);
         return;
       }
       const next = applyAddressToTradeRegion(addr, (rid, cid) => {
         syncRef.current(rid, cid);
       });
+      const national = await resolveNationalLguFromAddress(addr);
+      if (requestGeneration !== requestGenerationRef.current) return;
       displayLineRef.current = next.line;
       setDisplayLine(next.line);
+      const nationalOk = national.status === "resolved" && !!national.tradeLguId;
       resolvedRef.current?.({
         ready: true,
-        missing: !next.line || !next.regionId || !next.cityId,
+        // National LGU is location validity; local Area optional.
+        missing: !next.line || !nationalOk,
         displayLine: next.line,
         regionId: next.regionId,
         cityId: next.cityId,
+        tradeLguId: national.tradeLguId,
+        nationalStatus: national.status,
         submitMeta: next.line ? { trade_meet_spot: { display_line: next.line } } : null,
       });
     } catch {
       if (requestGeneration !== requestGenerationRef.current) return;
       displayLineRef.current = null;
       setDisplayLine(null);
-      resolvedRef.current?.({
-        ready: true,
-        missing: true,
-        displayLine: null,
-        regionId: "",
-        cityId: "",
-        submitMeta: null,
-      });
+      resolvedRef.current?.(emptySsot());
     } finally {
       if (requestGeneration === requestGenerationRef.current) setReady(true);
     }

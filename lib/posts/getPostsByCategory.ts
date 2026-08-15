@@ -117,6 +117,11 @@ export async function getPostsByTradeCategoryIds(
     ) {
       params.set("tradeState", options.tradeState);
     }
+    const lgu = options.lguCityId?.trim();
+    if (lgu) {
+      params.set("location", "city");
+      params.set("lgu", lgu);
+    }
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {

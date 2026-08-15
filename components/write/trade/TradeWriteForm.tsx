@@ -301,6 +301,8 @@ export function TradeWriteForm({
     displayLine: null,
     regionId: "",
     cityId: "",
+    tradeLguId: null,
+    nationalStatus: "pending",
     submitMeta: null,
   });
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
@@ -1081,7 +1083,10 @@ export function TradeWriteForm({
         next.price = isRealEstateSale ? t("trade_write_err_sale_price") : t("trade_write_err_price");
       }
     }
-    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
+    if (
+      hasLocation &&
+      (tradeAddressSsot.nationalStatus !== "resolved" || !tradeAddressSsot.tradeLguId)
+    ) {
       next.location = t("trade_write_err_region_read");
     }
     if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta)) {
@@ -1275,6 +1280,7 @@ export function TradeWriteForm({
           isFreeShare: submitFreeShare,
           region: submitRegion || undefined,
           city: submitCity || undefined,
+          tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
           barangay: undefined,
           imageUrls: imageUrlsForSave,
           meta,

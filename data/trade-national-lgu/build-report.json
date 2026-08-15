@@ -1,0 +1,63 @@
+{
+  "dataset_version": "PSGC-2025-2Q",
+  "provenance": {
+    "dataset_version": "PSGC-2025-2Q",
+    "publication_date": "2025-06-30",
+    "source_originator": "Philippine Statistics Authority (PSA)",
+    "source_url": "https://psa.gov.ph/classification/psgc/",
+    "packaging": "@jobuntux/psgc@0.2.1 data/2025-2Q (PSA-derived; barangays omitted from vendored source)",
+    "packaging_url": "https://www.npmjs.com/package/@jobuntux/psgc",
+    "imported_at_utc": "2026-08-15T10:42:13Z",
+    "grain": "city_or_municipality_only",
+    "excludes": [
+      "barangay",
+      "sub_municipality"
+    ],
+    "source_files": {
+      "muncities.json": {
+        "sha256": "ff2fe4421659b80a1714a06d01748a71cd89673d49a1c1eee425279bb6f33607",
+        "bytes": 208686
+      },
+      "provinces.json": {
+        "sha256": "707531ecf920c44207be30a4797bad614f2a24e33a564cb96b3105519351703d",
+        "bytes": 13656
+      },
+      "regions.json": {
+        "sha256": "cd7bdafde8844cca471e038d1438b57728e791d42d66c46e7c35a52ca068e942",
+        "bytes": 1525
+      }
+    }
+  },
+  "totals": {
+    "selectable_lgu": 1642,
+    "city": 147,
+    "municipality": 1495,
+    "excluded_sub_municipality": 14,
+    "aliases": 1795,
+    "local_area_mapped": 143,
+    "local_area_unmapped": 0,
+    "legacy_lgu": 29,
+    "legacy_mapped": 29
+  },
+  "gates": {
+    "duplicate_canonical": 0,
+    "legacy_29": true,
+    "local_143": true,
+    "errors": []
+  },
+  "source_checksums": {
+    "muncities.json": {
+      "sha256": "ff2fe4421659b80a1714a06d01748a71cd89673d49a1c1eee425279bb6f33607",
+      "bytes": 208686
+    },
+    "provinces.json": {
+      "sha256": "707531ecf920c44207be30a4797bad614f2a24e33a564cb96b3105519351703d",
+      "bytes": 13656
+    },
+    "regions.json": {
+      "sha256": "cd7bdafde8844cca471e038d1438b57728e791d42d66c46e7c35a52ca068e942",
+      "bytes": 1525
+    }
+  },
+  "projection_sha256": "3a7087cd8ab43871bcf4a2a5ddbbb38456f1e5ada5935635d2d46948d8e4f470"
+}

@@ -5,6 +5,7 @@ import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single
 import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics";
+import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular";
@@ -22,6 +23,8 @@ export interface GetPostsForHomeOptions {
   tradeMarketParentId?: string | null;
   /** 전체 거래 정렬/상태 필터 */
   tradeState?: HomeTradeStateFilter;
+  /** Trade LGU City scope (`pasig`, …). Omit / empty = ALL */
+  lguCityId?: string | null;
 }
 
 export interface GetPostsForHomeResult {
@@ -167,10 +170,17 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const typeFilter = options.type ?? null;
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
   const tradeState = options.tradeState ?? "latest";
-  /** 서버 정책 A(구성된 거래 루트 합집합)와 캐시 일치 — 키 버전 올리면 브라우저 구 캐시 무효 */
+  const lguCityId = options.lguCityId?.trim() || null;
   const marketKey = tradeMarketParent ?? "all";
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:v4`;
-  return { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey };
+  /** N4: cache by canonical LGU so pasig ≡ 1381200000 share one namespace (v5) */
+  const loc = (() => {
+    if (!lguCityId) return "loc:all";
+    const cid = resolveTradeLguUrlTokenToCanonical(lguCityId);
+    if (!cid) return `loc:invalid:${lguCityId}`;
+    return `loc:lgu:${cid}`;
+  })();
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:v5`;
+  return { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, cacheKey };
 }
 
 function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {
@@ -317,7 +327,8 @@ export async function getPostsForHome(
   options: GetPostsForHomeOptions = {},
   opts: { signal?: AbortSignal } = {}
 ): Promise<GetPostsForHomeResult> {
-  const { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey } = normalizeOptions(options);
+  const { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, cacheKey } =
+    normalizeOptions(options);
   const genAtEnter = homePostsInvalidationGeneration;
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -366,6 +377,10 @@ export async function getPostsForHome(
       }
       if (tradeState && tradeState !== "latest") {
         params.set("tradeState", tradeState);
+      }
+      if (lguCityId) {
+        params.set("location", "city");
+        params.set("lgu", lguCityId);
       }
 
       const dbg = samarketRuntimeDebugEnabled();
@@ -445,6 +460,10 @@ export async function getPostsForHome(
       }
       if (tradeState && tradeState !== "latest") {
         params.set("tradeState", tradeState);
+      }
+      if (lguCityId) {
+        params.set("location", "city");
+        params.set("lgu", lguCityId);
       }
 
       const dbg = samarketRuntimeDebugEnabled();

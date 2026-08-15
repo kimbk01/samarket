@@ -1,0 +1,863 @@
+{
+  "dataset_version": "PSGC-2025-2Q",
+  "rows": [
+    {
+      "region_id": "angeles",
+      "city_id": "a1",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a10",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a11",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a12",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a13",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a14",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a15",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a16",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a17",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a18",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a19",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a2",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a20",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a21",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a22",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a23",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a24",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a25",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a26",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a27",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a28",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a3",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a4",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a5",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a6",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a7",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a8",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "angeles",
+      "city_id": "a9",
+      "legacy_lgu_alias": "angeles",
+      "canonical_id": "0330100000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c1",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c10",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c11",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c12",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c13",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c14",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c15",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c16",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c17",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c18",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c19",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c2",
+      "legacy_lgu_alias": "mandaue",
+      "canonical_id": "0731300000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c20",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c21",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c22",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c23",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c24",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c25",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c26",
+      "legacy_lgu_alias": "consolacion",
+      "canonical_id": "0702219000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c27",
+      "legacy_lgu_alias": "liloan",
+      "canonical_id": "0702227000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c28",
+      "legacy_lgu_alias": "lapu-lapu",
+      "canonical_id": "0731100000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c29",
+      "legacy_lgu_alias": "lapu-lapu",
+      "canonical_id": "0731100000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c3",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c30",
+      "legacy_lgu_alias": "talisay",
+      "canonical_id": "0702250000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c31",
+      "legacy_lgu_alias": "minglanilla",
+      "canonical_id": "0702232000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c32",
+      "legacy_lgu_alias": "naga-cebu",
+      "canonical_id": "0702234000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c33",
+      "legacy_lgu_alias": "toledo",
+      "canonical_id": "0702251000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c34",
+      "legacy_lgu_alias": "carcar",
+      "canonical_id": "0702214000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c35",
+      "legacy_lgu_alias": "cordova",
+      "canonical_id": "0702220000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c4",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c5",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c6",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c7",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c8",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "cebu",
+      "city_id": "c9",
+      "legacy_lgu_alias": "cebu-city",
+      "canonical_id": "0730600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m1",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m10",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m11",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m12",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m13",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m14",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m15",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m16",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m17",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m18",
+      "legacy_lgu_alias": "taguig",
+      "canonical_id": "1381500000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m19",
+      "legacy_lgu_alias": "taguig",
+      "canonical_id": "1381500000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m2",
+      "legacy_lgu_alias": "makati",
+      "canonical_id": "1380300000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m20",
+      "legacy_lgu_alias": "pasig",
+      "canonical_id": "1381200000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m21",
+      "legacy_lgu_alias": "pasig",
+      "canonical_id": "1381200000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m22",
+      "legacy_lgu_alias": "pasig",
+      "canonical_id": "1381200000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m23",
+      "legacy_lgu_alias": "mandaluyong",
+      "canonical_id": "1380500000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m24",
+      "legacy_lgu_alias": "mandaluyong",
+      "canonical_id": "1380500000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m25",
+      "legacy_lgu_alias": "paranaque",
+      "canonical_id": "1381000000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m26",
+      "legacy_lgu_alias": "paranaque",
+      "canonical_id": "1381000000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m27",
+      "legacy_lgu_alias": "las-pinas",
+      "canonical_id": "1380200000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m28",
+      "legacy_lgu_alias": "muntinlupa",
+      "canonical_id": "1380800000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m29",
+      "legacy_lgu_alias": "marikina",
+      "canonical_id": "1380700000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m3",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m30",
+      "legacy_lgu_alias": "caloocan",
+      "canonical_id": "1380100000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m31",
+      "legacy_lgu_alias": "caloocan",
+      "canonical_id": "1380100000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m32",
+      "legacy_lgu_alias": "valenzuela",
+      "canonical_id": "1381600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m33",
+      "legacy_lgu_alias": "malabon",
+      "canonical_id": "1380400000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m34",
+      "legacy_lgu_alias": "navotas",
+      "canonical_id": "1380900000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m35",
+      "legacy_lgu_alias": "san-juan",
+      "canonical_id": "1381400000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m36",
+      "legacy_lgu_alias": "pasay",
+      "canonical_id": "1381100000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m37",
+      "legacy_lgu_alias": "pasay",
+      "canonical_id": "1381100000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m38",
+      "legacy_lgu_alias": "pateros",
+      "canonical_id": "1381701000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m39",
+      "legacy_lgu_alias": "makati",
+      "canonical_id": "1380300000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m4",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m40",
+      "legacy_lgu_alias": "makati",
+      "canonical_id": "1380300000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m5",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m6",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m7",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m8",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "manila",
+      "city_id": "m9",
+      "legacy_lgu_alias": "manila-city",
+      "canonical_id": "1380600000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q1",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q10",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q11",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q12",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q13",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q14",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q15",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q16",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q17",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q18",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q19",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q2",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q20",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q21",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q22",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q23",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q24",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q25",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q26",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q27",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q28",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q29",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q3",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q30",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q31",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q32",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q33",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q34",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q35",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q36",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q37",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q38",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q39",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q4",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q40",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q5",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q6",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q7",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q8",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    },
+    {
+      "region_id": "quezon",
+      "city_id": "q9",
+      "legacy_lgu_alias": "quezon-city",
+      "canonical_id": "1381300000"
+    }
+  ]
+}

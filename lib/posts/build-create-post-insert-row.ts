@@ -51,6 +51,14 @@ export function buildCreatePostInsertRow(
   }
   if (
     payload.type === "trade" &&
+    "tradeLguId" in payload &&
+    payload.tradeLguId != null &&
+    String(payload.tradeLguId).trim()
+  ) {
+    row.trade_lgu_id = String(payload.tradeLguId).trim();
+  }
+  if (
+    payload.type === "trade" &&
     "meta" in payload &&
     payload.meta != null &&
     typeof payload.meta === "object" &&

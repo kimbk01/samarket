@@ -24,6 +24,7 @@ import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
 import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
+import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
@@ -79,9 +80,10 @@ function buildHomePostsCacheKey(
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
   marketSegment: string,
-  tradeState: HomePostsTradeStateFilter
+  tradeState: HomePostsTradeStateFilter,
+  locSegment: string
 ): string {
-  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}:ts:${tradeState}`;
+  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}:ts:${tradeState}:${locSegment}`;
 }
 
 function buildHomePostsFavoriteCacheKey(
@@ -90,9 +92,10 @@ function buildHomePostsFavoriteCacheKey(
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
   marketSegment: string,
-  tradeState: HomePostsTradeStateFilter
+  tradeState: HomePostsTradeStateFilter,
+  locSegment: string
 ): string {
-  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment, tradeState)}`;
+  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment, tradeState, locSegment)}`;
 }
 
 function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
@@ -175,7 +178,8 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
 
   const marketSegment =
     tradeCategoryIds && tradeCategoryIds.length > 0 ? "configured_trade_union" : "all";
-  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState);
+  const locSegment = "loc:all";
+  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState, locSegment);
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -200,7 +204,8 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
         sort,
         effectiveType,
         tradeCategoryIds,
-        resolveHomePostsStatusOrByTradeState(tradeState)
+        resolveHomePostsStatusOrByTradeState(tradeState),
+        undefined
       );
       if (!pack) {
         return null;
@@ -241,7 +246,8 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
       sort,
       effectiveType,
       marketSegment,
-      tradeState
+      tradeState,
+      locSegment
     );
     const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
@@ -333,6 +339,19 @@ export async function resolveHomePostsGetData(
   const type = normalizeType(searchParams.get("type"));
   const tradeState = normalizeTradeState(searchParams.get("tradeState"));
   const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
+  const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
+  const lguCityId =
+    locationScope.mode === "city"
+      ? locationScope.lguId
+      : locationScope.mode === "invalid"
+        ? locationScope.raw || "invalid"
+        : undefined;
+  const locSegment =
+    locationScope.mode === "city"
+      ? `loc:lgu:${locationScope.canonicalId}`
+      : locationScope.mode === "invalid"
+        ? `loc:invalid:${locationScope.raw || "_"}`
+        : "loc:all";
   const tradeMarketParent = await resolveTradeMarketParentParam(
     readSb as SupabaseClient<any>,
     searchParams.get("tradeMarketParent")
@@ -364,7 +383,7 @@ export async function resolveHomePostsGetData(
       ? "configured_trade_union"
       : "all";
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
-  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState);
+  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState, locSegment);
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -390,7 +409,8 @@ export async function resolveHomePostsGetData(
         sort,
         effectiveType,
         tradeCategoryIds,
-        statusOr
+        statusOr,
+        lguCityId
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
@@ -437,7 +457,8 @@ export async function resolveHomePostsGetData(
       sort,
       effectiveType,
       marketSegment,
-      tradeState
+      tradeState,
+      locSegment
     );
     const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);

@@ -79,6 +79,7 @@ export async function GET(
       price: postRow.price != null ? Number(postRow.price) : null,
       region: (postRow.region as string) ?? "",
       city: (postRow.city as string) ?? "",
+      trade_lgu_id: (postRow.trade_lgu_id as string) ?? "",
       barangay: (postRow.barangay as string) ?? "",
       images: Array.isArray(postRow.images) ? (postRow.images as string[]) : [],
       meta: postRow.meta && typeof postRow.meta === "object" ? (postRow.meta as Record<string, unknown>) : null,

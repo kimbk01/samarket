@@ -17,6 +17,10 @@ import {
 import { jobRegionConstraintForSlug } from "@/lib/jobs/job-list-region-db-filter";
 import { jobCategoryValuesForIndustrySlug } from "@/lib/jobs/job-list-industry-db-filter";
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
+import {
+  resolveTradeLguCityQueryConstraint,
+  type TradeLguCityQueryConstraint,
+} from "@/lib/trade/location/trade-lgu-city-rollup";
 
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(getPostsByCategory 와 동일) */
 export const MAX_JOB_LISTING_KIND_CHUNKS = 120;
@@ -34,7 +38,7 @@ export const PAGE_SIZE_TRADE_FEED = 20;
  */
 /** `author_id` 는 일부 Supabase `posts` 스키마에 없음 — 없으면 PostgREST 전체 select 실패. 앱에서는 `user_id`로 `author_id` 보강 */
 export const POST_TRADE_LIST_SELECT =
-  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, status, seller_listing_state, reserved_buyer_id, sold_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, chat_count, trade_type, job_employment_type, job_category, pay_type, pay_amount, work_start_date, work_end_date, work_days, work_start_time, work_end_time, headcount, experience_required, application_count";
+  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, trade_lgu_id, status, seller_listing_state, reserved_buyer_id, sold_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, chat_count, trade_type, job_employment_type, job_category, pay_type, pay_amount, work_start_date, work_end_date, work_days, work_start_time, work_end_time, headcount, experience_required, application_count";
 
 export function looksLikeMissingColumnOrSchemaError(message: string | undefined | null): boolean {
   const m = String(message ?? "").toLowerCase();
@@ -129,7 +133,46 @@ export type TradeFeedQueryExtras = {
    * 미지정 시 기본(hidden/sold 제외).
    */
   statusOr?: string;
+  /** Trade discovery LGU City — `region` + `city IN (…)` rollup. */
+  lguCityId?: string;
+  /**
+   * N4 national feed filter — pre-resolved by server caller (no fs in this module).
+   * Prefer over legacy `lguCityId` rollup when set.
+   * - `eq`: nationwide LGU with no legacy members
+   * - `or`: PostgREST `.or()` body (national OR null-gated legacy)
+   * - `empty`: invalid scope → caller should short-circuit; if passed, yields no rows via impossible filter
+   */
+  tradeFeedLocation?:
+    | { type: "eq"; canonicalId: string }
+    | { type: "or"; orBody: string }
+    | { type: "none" };
 };
+
+export function applyTradeLguCityConstraintToQuery(
+  q: { eq: (c: string, v: string) => unknown; in: (c: string, v: string[]) => unknown },
+  constraint: TradeLguCityQueryConstraint
+): unknown {
+  return (q.eq("region", constraint.regionId) as typeof q).in("city", constraint.cityIds);
+}
+
+/** Apply pre-resolved N4 national location filter (server callers). */
+export function applyResolvedTradeFeedLocationToQuery(
+  q: {
+    eq: (c: string, v: string) => unknown;
+    or: (filters: string) => unknown;
+    filter?: (col: string, op: string, val: string) => unknown;
+  },
+  loc: NonNullable<TradeFeedQueryExtras["tradeFeedLocation"]>
+): unknown {
+  if (loc.type === "none") {
+    // Impossible match — prefer caller short-circuit; keep as safety net.
+    return q.eq("id", "00000000-0000-4000-8000-000000000000");
+  }
+  if (loc.type === "eq") {
+    return q.eq("trade_lgu_id", loc.canonicalId);
+  }
+  return q.or(loc.orBody);
+}
 
 function buildTradeFeedAndFilter(ids: string[], statusOr?: string): string {
   return buildTradePostsStatusAndCategoryAndFilter(ids, statusOr);
@@ -192,6 +235,16 @@ export async function fetchPostsRangeForTradeCategories(
       const cats = jobCategoryValuesForIndustrySlug(jind);
       if (cats.length > 0) {
         q2 = q2.eq("trade_type", "job").in("job_category", cats);
+      }
+    }
+
+    const feedLoc = extras?.tradeFeedLocation;
+    if (feedLoc) {
+      q2 = applyResolvedTradeFeedLocationToQuery(q2, feedLoc);
+    } else {
+      const lguConstraint = resolveTradeLguCityQueryConstraint(extras?.lguCityId);
+      if (lguConstraint) {
+        q2 = applyTradeLguCityConstraintToQuery(q2, lguConstraint);
       }
     }
 

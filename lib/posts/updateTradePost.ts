@@ -13,6 +13,7 @@ type TradeUpdateBody = {
   price: number | null;
   region?: string;
   city?: string;
+  tradeLguId?: string;
   barangay?: string;
   imageUrls?: string[];
   meta?: Record<string, unknown> | null;
@@ -49,6 +50,7 @@ export async function updateTradePost(postId: string, body: TradeUpdateBody): Pr
         price: body.price,
         region: body.region,
         city: body.city,
+        tradeLguId: body.tradeLguId,
         barangay: body.barangay,
         imageUrls: body.imageUrls,
         meta: body.meta ?? undefined,
@@ -81,6 +83,7 @@ export async function updateTradePostFromCreatePayload(
     price: payload.price != null ? Number(payload.price) : null,
     region: payload.region,
     city: payload.city,
+    tradeLguId: payload.tradeLguId,
     barangay: payload.barangay,
     imageUrls: payload.imageUrls,
     meta: payload.meta ?? undefined,
