@@ -7,6 +7,10 @@ type MypageLayoutProps = {
 };
 
 export default function MypageLayout({ children }: MypageLayoutProps) {
-  /** Match Header mypage pale (#F3F2EB) — not `:root` #F9F9F9 / cream shell. */
-  return <div className="sam-domain-shell bg-[#F3F2EB]">{children}</div>;
+  /** Override `.sam-domain-shell` cream (`bg-sam-app`) with domain pale — blank-band root. */
+  return (
+    <div className="sam-domain-shell bg-[color:var(--dibay-domain-surface,var(--sector-header-bg,#F3F2EB))]">
+      {children}
+    </div>
+  );
 }
