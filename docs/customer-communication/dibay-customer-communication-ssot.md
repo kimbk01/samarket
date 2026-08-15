@@ -1,6 +1,6 @@
 # DIBAY Customer Communication SSOT
 
-**Status:** Writer lock + destination contracts implemented. HARD LOCK declaration requires Production runtime proof of NEW bound campaigns.
+**Status:** HARD LOCKED (Production runtime proven 2026-08-15 on `ecee72f0e`).
 
 **Authority helper:** `lib/admin/notification-campaigns/campaign-source-authority.ts`
 
@@ -119,11 +119,20 @@ No forced backfill in this cutover.
 
 ## 13. Runtime proof
 
-Must prove with **NEW** campaigns (not legacy rows):
+Proven on Production with **NEW** campaigns/events (not legacy rows):
 
-Admin original = Bell destination = Push destination = Customer Center original.
+| Proof | Result |
+|-------|--------|
+| Unbound notice/system/marketing create | `400` `*_content_required` / `marketing_source_required` |
+| Bound notice send | event `69ba8bba-…` → `/mypage/customer-center/notice/a8c5996e-…` |
+| Bound system send | event `c4e7e616-…` → `/mypage/customer-center/system/9f1ca605-…` |
+| Bound marketing send | event `e0b4e6e1-…` → `/mypage/customer-center/marketing/aba6335a-…` |
+| Marketing landing create | campaign `14da9157-…` allowed |
+| Inquiry reply | event `2e4b2bca-…` → `/mypage/inquiries/f4811816-…`, no `campaignType` |
+| Direct message | event `16bbfee9-…` → `/mypage/inbox/cf60e8be-…`, no `campaignType` |
+| Transactional sample | `order_status` / `trade_message` / `community_activity` → domain routes |
 
-Until Production proof: do not declare HARD LOCKED.
+Bell / Full Inbox `link_url` and event `display_payload.routeUrl` / `canonical_route` match the same Customer Center (or thread) original.
 
 ## 14. Regression prohibitions
 
