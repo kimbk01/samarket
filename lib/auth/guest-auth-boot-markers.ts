@@ -29,7 +29,12 @@ export function logGuestAuthBootMarker(
     | "push_register_skipped_terminal_guest"
     | "user_device_active_after_login"
     | "terminal_guest_after_explicit_logout"
-    | "push_register_skipped_guest",
+    | "push_register_skipped_guest"
+    | "signed_out_terminal_guest"
+    | "signed_out_unexpected_recovering"
+    | "signed_out_unexpected_no_wipe"
+    | "signed_out_unexpected_deduped"
+    | "signed_out_unexpected_converged",
   detail?: Record<string, unknown>,
 ): void {
   if (typeof console === "undefined" || typeof console.info !== "function") return;

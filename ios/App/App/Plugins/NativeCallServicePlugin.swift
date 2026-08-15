@@ -34,6 +34,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "requestCallMediaPermissions", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "checkCallMediaPermissions", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "persistCanonicalDeviceId", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "setMemberCallEligible", returnType: CAPPluginReturnPromise),
   ]
 
   public override func load() {
@@ -470,5 +471,13 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     }
     DibayCanonicalDeviceIdStore.save(deviceId)
     call.resolve(["ok": true])
+  }
+
+  /// Member event eligibility projection — logout/guest must set false before VoIP presents CallKit.
+  @objc func setMemberCallEligible(_ call: CAPPluginCall) {
+    let eligible = call.getBool("eligible") ?? false
+    let reason = (call.getString("reason") ?? "js_bridge").trimmingCharacters(in: .whitespacesAndNewlines)
+    DibayMemberEventEligibilityStore.setEligible(eligible, reason: reason.isEmpty ? "js_bridge" : reason)
+    call.resolve(["ok": true, "eligible": eligible])
   }
 }

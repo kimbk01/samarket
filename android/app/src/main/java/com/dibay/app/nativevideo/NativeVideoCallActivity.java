@@ -286,6 +286,15 @@ public class NativeVideoCallActivity extends Activity {
       finish();
       return;
     }
+    if (UI_MODE_INCOMING.equals(uiMode)
+        && !com.dibay.app.DibayCallAuthEligibilityStore.isMemberCallEligible(this)) {
+      NativeVideoCallLog.warn(
+          "incoming_activity_blocked_guest_ineligible",
+          callId,
+          "reason=member_call_not_eligible");
+      finish();
+      return;
+    }
     if (!claimVisibleSurface()) {
       finish();
       return;

@@ -40,6 +40,7 @@
 		C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */; };
 		C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCL0012FED79650016851F /* DibayCallLog.swift */; };
 		C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */; };
+		C7MEL0022FED79650016851F /* DibayMemberEventEligibilityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */; };
 		C7MIC0022FED79650016851F /* DibayVoiceMicrophonePermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */; };
 		C7VID0C22FED79650016851F /* DibayVideoMediaPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0C12FED79650016851F /* DibayVideoMediaPermission.swift */; };
 		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
@@ -107,6 +108,7 @@
 		C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallViewController.swift; sourceTree = "<group>"; };
 		C7DCL0012FED79650016851F /* DibayCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallLog.swift; sourceTree = "<group>"; };
 		C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCanonicalDeviceIdStore.swift; sourceTree = "<group>"; };
+		C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayMemberEventEligibilityStore.swift; sourceTree = "<group>"; };
 		C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoiceMicrophonePermission.swift; sourceTree = "<group>"; };
 		C7VID0C12FED79650016851F /* DibayVideoMediaPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVideoMediaPermission.swift; sourceTree = "<group>"; };
 		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 				C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */,
 				C7DCL0012FED79650016851F /* DibayCallLog.swift */,
 				C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */,
+				C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */,
 				C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */,
 				C7VID0C12FED79650016851F /* DibayVideoMediaPermission.swift */,
 				C7VID0032FED79650016851F /* Video */,
@@ -471,6 +474,7 @@
 				C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */,
 				C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */,
 				C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */,
+				C7MEL0022FED79650016851F /* DibayMemberEventEligibilityStore.swift in Sources */,
 				C7MIC0022FED79650016851F /* DibayVoiceMicrophonePermission.swift in Sources */,
 				C7VID0C22FED79650016851F /* DibayVideoMediaPermission.swift in Sources */,
 				C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */,

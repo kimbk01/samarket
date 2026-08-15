@@ -47,27 +47,37 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
   }
-  const { applyImmediateLogoutClientState } = await import("@/lib/auth/auth-session-immediate.client");
-  const { wipeClientSessionState, markExplicitLogoutWipeDone } = await import("@/lib/auth/client-session-wipe");
-  const { establishGuestAuthState } = await import("@/lib/auth/guest-auth-state");
-  const { markSessionTerminalGuestFromClient } = await import("@/lib/auth/dibay-session-manager");
-  const { getSupabaseClient } = await import("@/lib/supabase/client");
+  const { beginExplicitLogoutIntent, clearExplicitLogoutIntent } = await import(
+    "@/lib/auth/explicit-logout-intent"
+  );
+  beginExplicitLogoutIntent("corrupt_session_clear");
+  try {
+    const { applyImmediateLogoutClientState } = await import("@/lib/auth/auth-session-immediate.client");
+    const { wipeClientSessionState, markExplicitLogoutWipeDone } = await import(
+      "@/lib/auth/client-session-wipe"
+    );
+    const { establishGuestAuthState } = await import("@/lib/auth/guest-auth-state");
+    const { markSessionTerminalGuestFromClient } = await import("@/lib/auth/dibay-session-manager");
+    const { getSupabaseClient } = await import("@/lib/supabase/client");
 
-  markExplicitLogoutWipeDone();
-  const sb = getSupabaseClient();
-  await disconnectWebPushSubscriptionsForLogout().catch(() => undefined);
-  await disconnectNativeDevicesForLogout().catch(() => undefined);
-  await sb?.auth.signOut({ scope: "local" }).catch(() => undefined);
-  await wipeClientSessionState("user_logout");
-  establishGuestAuthState("corrupt_session_clear");
-  markSessionTerminalGuestFromClient("corrupt_session_clear");
-  applyImmediateLogoutClientState();
-  const { awaitLogoutNativeBadgeDurableClear } = await import("@/lib/auth/explicit-logout-flow");
-  await awaitLogoutNativeBadgeDurableClear({
-    reason: "corrupt_session_clear",
-    previousViewerId: null,
-  });
-  return { ok: true, serverWarning: null };
+    markExplicitLogoutWipeDone();
+    const sb = getSupabaseClient();
+    await disconnectWebPushSubscriptionsForLogout().catch(() => undefined);
+    await disconnectNativeDevicesForLogout().catch(() => undefined);
+    await sb?.auth.signOut({ scope: "local" }).catch(() => undefined);
+    await wipeClientSessionState("user_logout");
+    establishGuestAuthState("corrupt_session_clear");
+    markSessionTerminalGuestFromClient("corrupt_session_clear");
+    applyImmediateLogoutClientState();
+    const { awaitLogoutNativeBadgeDurableClear } = await import("@/lib/auth/explicit-logout-flow");
+    await awaitLogoutNativeBadgeDurableClear({
+      reason: "corrupt_session_clear",
+      previousViewerId: null,
+    });
+    return { ok: true, serverWarning: null };
+  } finally {
+    clearExplicitLogoutIntent();
+  }
 }
 
 /** @deprecated `logoutCurrentDevice` 사용 */

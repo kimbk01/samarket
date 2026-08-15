@@ -135,6 +135,17 @@ async function postDeviceRegistration(
   if (typeof body.device_id === "string") {
     void persistCanonicalDeviceIdToNative(body.device_id);
   }
+  if (typeof body.push_token === "string" && body.push_token.trim()) {
+    const { cacheDeviceUnbindPushToken } = await import("@/lib/push/device-unbind-token-cache");
+    const provider =
+      typeof body.push_provider === "string" && body.push_provider.trim()
+        ? body.push_provider.trim()
+        : "fcm";
+    cacheDeviceUnbindPushToken(body.push_token, provider);
+  }
+  void import("@/lib/push/native/member-call-eligibility-bridge").then(({ setNativeMemberCallEligible }) =>
+    setNativeMemberCallEligible(true, "device_register_success"),
+  );
   if (orchestrationSettled) {
     logPushRegister("api_post_late_after_timeout", {
       ...baseDetail,
@@ -201,6 +212,12 @@ async function postDeviceRegistrationWithNativeFirst(
         }
         markDeviceRegisterNativeSuccess(id, callsite);
         void persistCanonicalDeviceIdToNative(id.deviceId);
+        const { cacheDeviceUnbindPushToken } = await import("@/lib/push/device-unbind-token-cache");
+        cacheDeviceUnbindPushToken(id.pushToken, id.pushProvider);
+        void import("@/lib/push/native/member-call-eligibility-bridge").then(
+          ({ setNativeMemberCallEligible }) =>
+            setNativeMemberCallEligible(true, "native_device_register_success"),
+        );
         logPushRegister("success", {
           http_status: nativeResult.http_status ?? 200,
           device_row_id: nativeResult.device_row_id ?? null,

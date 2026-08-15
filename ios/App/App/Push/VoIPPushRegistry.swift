@@ -205,6 +205,30 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     data: [AnyHashable: Any],
     completion: @escaping () -> Void
   ) {
+    guard DibayMemberEventEligibilityStore.isMemberEventEligible() else {
+      DibayCallLog.infoCall(
+        "[voip] incoming_blocked_guest_ineligible",
+        callId: sessionId,
+        detail: "reason=member_event_not_eligible"
+      )
+      // PushKit requires CallKit report — reuse terminal-suppress → report → immediate end.
+      callProvider.markTerminalSuppressed(sessionId: sessionId, reason: "guest_ineligible")
+      let identity = IncomingCallCallerIdentity.resolve(from: data)
+      callProvider.reportIncomingCall(
+        uuidString: sessionId,
+        callerDisplayName: identity.displayName,
+        remoteHandle: identity.remoteHandle,
+        hasVideo: identity.hasVideo,
+        roomId: stringField(data, keys: ["roomId", "room_id"]),
+        callerId: stringField(data, keys: ["callerId", "caller_id"]),
+        iosSoundName: nil,
+        ringtonePolicy: "silent"
+      ) { _ in
+        completion()
+      }
+      return
+    }
+
     let identity = IncomingCallCallerIdentity.resolve(from: data)
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])

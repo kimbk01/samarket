@@ -93,13 +93,20 @@ async function reportServerLogout(
   deviceId: string,
 ): Promise<string | null> {
   try {
+    const { readDeviceUnbindPushToken } = await import("@/lib/push/device-unbind-token-cache");
+    const cached = readDeviceUnbindPushToken();
+    const body: Record<string, unknown> = { device_id: deviceId };
+    if (cached?.pushToken) {
+      body.push_token = cached.pushToken;
+      body.push_provider = cached.pushProvider || "fcm";
+    }
     const res = await fetchWithTimeout(path, {
       method: "POST",
       credentials: "include",
       keepalive: true,
       timeoutMs: SERVER_LOGOUT_TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: deviceId }),
+      body: JSON.stringify(body),
     });
     const payload = (await res.json().catch(() => null)) as
       | { ok?: boolean; error?: string }
@@ -238,54 +245,62 @@ export type ExplicitLogoutFlowResult = {
 export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise<ExplicitLogoutFlowResult> {
   logExplicitLogoutAudit("explicit_logout_start", { scope });
 
-  const deviceId = ensureClientInstanceId();
-  const userId = getBoundAuthUserId();
-  logExplicitLogoutAudit("explicit_logout_context", {
-    scope,
-    device_id: deviceId,
-    user_id: userId ?? null,
-  });
+  const { beginExplicitLogoutIntent, clearExplicitLogoutIntent } = await import(
+    "@/lib/auth/explicit-logout-intent"
+  );
+  beginExplicitLogoutIntent(`explicit_logout:${scope}`);
 
-  void disconnectWebPushSubscriptionsForLogout();
-
-  logExplicitLogoutAudit("logout_device_deactivate_start", { device_id: deviceId });
   try {
-    await disconnectNativeDevicesForLogout();
-    logExplicitLogoutAudit("logout_device_deactivate_done", { device_id: deviceId });
-  } catch (error) {
-    logExplicitLogoutAudit("logout_device_deactivate_failed", {
+    const deviceId = ensureClientInstanceId();
+    const userId = getBoundAuthUserId();
+    logExplicitLogoutAudit("explicit_logout_context", {
+      scope,
       device_id: deviceId,
-      error: error instanceof Error ? error.message : String(error),
+      user_id: userId ?? null,
     });
+
+    void disconnectWebPushSubscriptionsForLogout();
+
+    logExplicitLogoutAudit("logout_device_deactivate_start", { device_id: deviceId });
+    try {
+      await disconnectNativeDevicesForLogout();
+      logExplicitLogoutAudit("logout_device_deactivate_done", { device_id: deviceId });
+    } catch (error) {
+      logExplicitLogoutAudit("logout_device_deactivate_failed", {
+        device_id: deviceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const serverPath = scope === "all_devices" ? "/api/auth/logout-all" : "/api/auth/logout";
+    logExplicitLogoutAudit("auth_logout_server_start", { path: serverPath });
+    const serverWarning = await reportServerLogout(serverPath, deviceId);
+    logExplicitLogoutAudit("auth_logout_server_done", {
+      path: serverPath,
+      serverWarning: serverWarning ?? null,
+    });
+
+    const localSignOutOk =
+      scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
+
+    const previousViewerId = getBoundAuthUserId() ?? userId;
+
+    markExplicitLogoutWipeDone();
+    logExplicitLogoutAudit("client_session_wipe_after_logout", { scope });
+    await wipeClientSessionState("user_logout");
+
+    establishGuestAuthState(`explicit_logout:${scope}`);
+    markSessionTerminalGuestFromClient(`explicit_logout:${scope}`);
+    applyImmediateLogoutClientState();
+    logExplicitLogoutAudit("terminal_guest_after_explicit_logout", { scope });
+
+    await awaitLogoutNativeBadgeDurableClear({
+      reason: `explicit_logout:${scope}`,
+      previousViewerId,
+    });
+
+    return { localSignOutOk, serverWarning };
+  } finally {
+    clearExplicitLogoutIntent();
   }
-
-  const serverPath = scope === "all_devices" ? "/api/auth/logout-all" : "/api/auth/logout";
-  logExplicitLogoutAudit("auth_logout_server_start", { path: serverPath });
-  const serverWarning = await reportServerLogout(serverPath, deviceId);
-  logExplicitLogoutAudit("auth_logout_server_done", {
-    path: serverPath,
-    serverWarning: serverWarning ?? null,
-  });
-
-  const localSignOutOk =
-    scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
-
-  const previousViewerId = getBoundAuthUserId() ?? userId;
-
-  markExplicitLogoutWipeDone();
-  logExplicitLogoutAudit("client_session_wipe_after_logout", { scope });
-  await wipeClientSessionState("user_logout");
-
-  establishGuestAuthState(`explicit_logout:${scope}`);
-  markSessionTerminalGuestFromClient(`explicit_logout:${scope}`);
-  applyImmediateLogoutClientState();
-  logExplicitLogoutAudit("terminal_guest_after_explicit_logout", { scope });
-
-  // Durable clear transaction — pending survives navigate if execute times out / fails.
-  await awaitLogoutNativeBadgeDurableClear({
-    reason: `explicit_logout:${scope}`,
-    previousViewerId,
-  });
-
-  return { localSignOutOk, serverWarning };
 }

@@ -26,6 +26,14 @@ import {
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import { registerRecoverableGuestRecoveryBootstrap } from "@/lib/auth/guest-auth-recovery";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
+import { isExplicitLogoutIntentActive } from "@/lib/auth/explicit-logout-intent";
+import { shouldSkipSignedOutEventWipe } from "@/lib/auth/client-session-wipe";
+import {
+  beginUnexpectedSignedOutRecovery,
+  convergeUnexpectedSignedOutHealth,
+  settleUnexpectedSignedOutRecovery,
+  resetUnexpectedSignedOutRecoveryForTests,
+} from "@/lib/auth/unexpected-signed-out-recovery";
 
 const AUTH_BC_NAME = "dibay:auth";
 const ENSURE_HEALTH_FLIGHT = "dibay:ensure-session-healthy";
@@ -53,6 +61,25 @@ function setSessionPhase(next: DibaySessionPhase): void {
   phaseListeners.forEach((l) => l(next));
 }
 
+function projectMemberEventEligibility(eligible: boolean, reason: string): void {
+  void import("@/lib/push/native/member-call-eligibility-bridge").then(
+    ({ setNativeMemberCallEligible }) => setNativeMemberCallEligible(eligible, reason),
+  );
+}
+
+function applyAuthenticatedPhase(source: string): void {
+  clearGuestAuthState();
+  setSessionPhase("authenticated");
+  logGuestAuthBootMarker("session_authenticated", { source });
+  projectMemberEventEligibility(true, `session_authenticated:${source}`);
+}
+
+function applyTerminalGuestPhase(source: string): void {
+  establishGuestAuthState(source);
+  setSessionPhase("terminal_guest");
+  projectMemberEventEligibility(false, `terminal_guest:${source}`);
+}
+
 function shouldSkipEnsureHealthyForTerminalGuestGate(): boolean {
   return isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished();
 }
@@ -61,17 +88,14 @@ export function getSessionPhase(): DibaySessionPhase {
   return sessionPhase;
 }
 
-/** Supabase session prime / recovery success — SSOT for authenticated phase + guest clear. */
-export function markSessionAuthenticatedFromClient(source: string): void {
-  clearGuestAuthState();
-  setSessionPhase("authenticated");
-  logGuestAuthBootMarker("session_authenticated", { source });
-}
-
 /** Explicit logout / confirmed terminal guest — never auto-called from boot races. */
 export function markSessionTerminalGuestFromClient(source: string): void {
-  void source;
-  setSessionPhase("terminal_guest");
+  applyTerminalGuestPhase(source);
+}
+
+/** Supabase session prime / recovery success — SSOT for authenticated phase + guest clear. */
+export function markSessionAuthenticatedFromClient(source: string): void {
+  applyAuthenticatedPhase(source);
 }
 
 /** Boot/cookie race — recovering without wipe/deactivate. */
@@ -118,8 +142,8 @@ function getAuthBroadcastChannel(): BroadcastChannel | null {
       if (msg.type === "refresh_lock") remoteRefreshLock = true;
       if (msg.type === "refresh_done") remoteRefreshLock = false;
       if (msg.type === "signed_out") {
-        establishGuestAuthState("auth_bc:signed_out");
-        setSessionPhase("terminal_guest");
+        // Only explicit tabs broadcast signed_out — treat as terminal.
+        applyTerminalGuestPhase("auth_bc:signed_out");
       }
     };
     return authBc;
@@ -169,9 +193,7 @@ async function confirmAuthenticatedWithRegistry(
 > {
   const registry = await validateRegistryMatchesSupabaseSession(source);
   if (registry.ok) {
-    clearGuestAuthState();
-    setSessionPhase("authenticated");
-    logGuestAuthBootMarker("session_authenticated", { source });
+    applyAuthenticatedPhase(source);
     return { ok: true, phase: "authenticated" };
   }
   if (registry.phase === "recovering") {
@@ -272,9 +294,7 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
     try {
       const res = await fetchAuthSessionNoStore(source);
       if (res.ok) {
-        clearGuestAuthState();
-        setSessionPhase("authenticated");
-        logGuestAuthBootMarker("session_authenticated", { source });
+        applyAuthenticatedPhase(source);
         const result = { ok: true as const, phase: "authenticated" as const };
         logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
         return result;
@@ -332,9 +352,59 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
   if (event === "SIGNED_OUT") {
-    establishGuestAuthState(`auth_event:${event}`);
-    setSessionPhase("terminal_guest");
-    postAuthBc({ type: "signed_out" });
+    const explicit =
+      isExplicitLogoutIntentActive() || shouldSkipSignedOutEventWipe();
+    if (explicit) {
+      applyTerminalGuestPhase("auth_event:SIGNED_OUT:explicit");
+      postAuthBc({ type: "signed_out" });
+      logGuestAuthBootMarker("signed_out_terminal_guest", { source: "explicit" });
+      return;
+    }
+
+    const { generation, skipped } = beginUnexpectedSignedOutRecovery();
+    if (skipped) {
+      logGuestAuthBootMarker("signed_out_unexpected_deduped", {
+        source: "auth_event:SIGNED_OUT",
+        generation,
+      });
+      return;
+    }
+
+    // Unexpected SIGNED_OUT (tab race / transient clear) ≠ product logout.
+    establishRecoverableGuestAuthState("auth_event:SIGNED_OUT:unexpected");
+    setSessionPhase("recovering");
+    logGuestAuthBootMarker("signed_out_unexpected_recovering", {
+      source: "auth_event:SIGNED_OUT",
+      generation,
+    });
+    void ensureSessionHealthy("auth_event:SIGNED_OUT:unexpected")
+      .then((result) => {
+        const outcome = convergeUnexpectedSignedOutHealth(result);
+        logGuestAuthBootMarker("signed_out_unexpected_converged", {
+          generation,
+          outcome,
+          phase: result.phase,
+          ok: result.ok,
+          terminal: "terminal" in result ? result.terminal : false,
+        });
+        if (outcome === "authenticated") {
+          return;
+        }
+        if (outcome === "transient_recovering") {
+          setSessionPhase("recovering");
+          return;
+        }
+        if (outcome === "corrupt") {
+          setSessionPhase("corrupt");
+          projectMemberEventEligibility(false, "signed_out_converged:corrupt");
+          return;
+        }
+        // terminal_guest — server/local session confirmed absent after health check
+        applyTerminalGuestPhase("auth_event:SIGNED_OUT:converged_terminal");
+      })
+      .finally(() => {
+        settleUnexpectedSignedOutRecovery(generation);
+      });
     return;
   }
   if (!session?.user?.id && event === "INITIAL_SESSION") {
@@ -344,9 +414,7 @@ function handleAuthStateChange(event: AuthChangeEvent, session: Session | null):
     return;
   }
   if (session?.user?.id) {
-    clearGuestAuthState();
-    setSessionPhase("authenticated");
-    logGuestAuthBootMarker("session_authenticated", { source: `auth_event:${event}` });
+    applyAuthenticatedPhase(`auth_event:${event}`);
   }
 }
 
@@ -388,6 +456,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
 export function resetDibaySessionManagerForTests(): void {
   sessionPhase = "loading";
   resetGuestAuthStateForTests();
+  resetUnexpectedSignedOutRecoveryForTests();
   authListenerBound = false;
   authSubscription = null;
   authEventHandlers.clear();

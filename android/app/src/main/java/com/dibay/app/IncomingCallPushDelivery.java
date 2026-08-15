@@ -25,6 +25,17 @@ public final class IncomingCallPushDelivery {
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
 
+    if (!DibayCallAuthEligibilityStore.isMemberCallEligible(app)) {
+      android.util.Log.w(
+          "DIBAY_FCM",
+          "[call-push] incoming_blocked_guest_ineligible callId=" + callId);
+      DibayCallPushLog.warn(
+          "incoming_blocked_guest_ineligible",
+          callId,
+          "reason=member_call_not_eligible");
+      return;
+    }
+
     NotificationReceiveGate.Snapshot notifGate = NotificationReceiveGate.snapshot(app);
     if (!notifGate.receiveReady) {
       android.util.Log.w(

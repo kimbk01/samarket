@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/auth-exit-coordinator";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -21,6 +22,7 @@ type Props = {
 /**
  * account-dependent 경로 — membership resolve 완료 전까지 private UI 렌더 금지.
  * guest 는 auth_required, corrupt 만 session_expired.
+ * recovering/loading ≠ guest — login exit 금지.
  */
 export function AuthSessionBoundary({ children }: Props) {
   const { t } = useI18n();
@@ -41,8 +43,13 @@ export function AuthSessionBoundary({ children }: Props) {
     if (membership.status === "checking") return;
     if (isAuthExitNavigateStarted()) return;
 
-    if (getSessionPhase() === "corrupt") {
+    const phase = getSessionPhase();
+    if (phase === "corrupt") {
       void runAuthSessionExpiredExit();
+      return;
+    }
+    // Hydration / unexpected SIGNED_OUT recovery — never flash login.
+    if (isRecoveringPhase(phase) || phase === "authenticated") {
       return;
     }
 
@@ -62,7 +69,13 @@ export function AuthSessionBoundary({ children }: Props) {
     return <>{children}</>;
   }
 
-  if (membership.status === "checking" || membership.status === "guest" || isAuthExitNavigateStarted()) {
+  const phase = getSessionPhase();
+  const holdForRecovery =
+    membership.status === "checking" ||
+    isRecoveringPhase(phase) ||
+    (membership.status === "guest" && phase !== "terminal_guest" && phase !== "corrupt");
+
+  if (holdForRecovery || membership.status === "guest" || isAuthExitNavigateStarted()) {
     return (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"

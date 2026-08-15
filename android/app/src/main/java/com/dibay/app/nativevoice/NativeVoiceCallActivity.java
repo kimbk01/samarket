@@ -100,6 +100,15 @@ public class NativeVoiceCallActivity extends Activity {
       finish();
       return;
     }
+    if (UI_MODE_INCOMING.equals(uiMode)
+        && !com.dibay.app.DibayCallAuthEligibilityStore.isMemberCallEligible(this)) {
+      NativeVoiceCallLog.warn(
+          "incoming_activity_blocked_guest_ineligible",
+          callId,
+          "reason=member_call_not_eligible");
+      finish();
+      return;
+    }
     if (NativeVoiceCallRuntime.getSession(callId) == null) {
       NativeVoiceCallLog.info("stale_activity_finish", callId, "reason=no_session");
       finish();

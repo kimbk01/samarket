@@ -259,6 +259,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   @Override
   public void onNewToken(String token) {
     Log.i(TAG, "[fcm] token_refresh length=" + (token != null ? token.length() : 0));
+    if (token != null && !token.trim().isEmpty()) {
+      DibayBoundPushTokenStore.save(this, token.trim(), "fcm");
+    }
   }
 
   private static String firstNonEmpty(String... values) {

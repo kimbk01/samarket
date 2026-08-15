@@ -5,7 +5,9 @@ import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { requireAuth } from "@/lib/auth/server-guards";
 import { invalidateUserSessionRegistry } from "@/lib/auth/user-session-registry";
 import { parseJsonBody } from "@/lib/http/api-route";
+import { deactivateBoundDeviceByTokenProof } from "@/lib/push/dispatch/deactivate-bound-device-by-token-proof";
 import { deactivateAllUserDevicesForLogout } from "@/lib/push/dispatch/deactivate-failed-token";
+import { resolvePushEnvironment } from "@/lib/push/push-environment";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -15,7 +17,43 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 type LogoutBody = {
   device_id?: unknown;
+  push_token?: unknown;
+  push_provider?: unknown;
 };
+
+async function cleanupTrustedDeviceBindingFromLogoutBody(
+  body: LogoutBody | null | undefined,
+): Promise<string | null> {
+  const deviceId = typeof body?.device_id === "string" ? body.device_id.trim() : "";
+  const pushToken = typeof body?.push_token === "string" ? body.push_token.trim() : "";
+  const pushProvider =
+    typeof body?.push_provider === "string" ? body.push_provider.trim().toLowerCase() : "fcm";
+  if (!deviceId || !pushToken) return null;
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) return "server_misconfigured";
+
+  try {
+    const result = await deactivateBoundDeviceByTokenProof(sb, {
+      deviceId,
+      pushToken,
+      pushProvider: pushProvider || "fcm",
+      environment: resolvePushEnvironment(),
+    });
+    if (!result.ok) {
+      console.warn("[auth/logout] already_guest_device_unbind_miss", {
+        deviceId,
+        error: result.error,
+      });
+      return result.error;
+    }
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "logout_device_unbind_failed";
+    console.warn("[auth/logout] already_guest_device_unbind_failed", { deviceId, error: message });
+    return message;
+  }
+}
 
 function requestSupabaseAuthCookieNames(request: NextRequest): string[] {
   return request.cookies
@@ -153,13 +191,41 @@ export async function POST(request: NextRequest) {
     error: userError,
   } = await routeSb.auth.getUser();
 
+  const parsed = await parseJsonBody<LogoutBody>(request);
+  const logoutBody = parsed.ok ? parsed.value : {};
+  const deviceId = typeof logoutBody.device_id === "string" ? logoutBody.device_id.trim() : "";
+  const pushToken = typeof logoutBody.push_token === "string" ? logoutBody.push_token.trim() : "";
+  const pushProvider =
+    typeof logoutBody.push_provider === "string" ? logoutBody.push_provider.trim().toLowerCase() : "";
+
   if (userError || !user?.id) {
-    return buildLogoutClearCookieResponse(request, { ok: true, already_logged_out: true }, 200, cookieSecure);
+    // AUTH ALREADY GUEST — still unbind this install when trusted token proof is present.
+    const unbindWarning = await cleanupTrustedDeviceBindingFromLogoutBody(logoutBody);
+    return buildLogoutClearCookieResponse(
+      request,
+      {
+        ok: true,
+        already_logged_out: true,
+        device_unbind_warning: unbindWarning,
+      },
+      200,
+      cookieSecure,
+    );
   }
 
   const auth = await requireAuth();
   if (!auth.ok) {
-    return buildLogoutClearCookieResponse(request, { ok: true, already_logged_out: true }, 200, cookieSecure);
+    const unbindWarning = await cleanupTrustedDeviceBindingFromLogoutBody(logoutBody);
+    return buildLogoutClearCookieResponse(
+      request,
+      {
+        ok: true,
+        already_logged_out: true,
+        device_unbind_warning: unbindWarning,
+      },
+      200,
+      cookieSecure,
+    );
   }
 
   const sb = tryCreateSupabaseServiceClient();
@@ -167,13 +233,17 @@ export async function POST(request: NextRequest) {
   let registryError: string | null = null;
   let deviceDeactivateError: string | null = null;
 
-  const parsed = await parseJsonBody<LogoutBody>(request);
-  const deviceId =
-    parsed.ok && typeof parsed.value.device_id === "string" ? parsed.value.device_id.trim() : "";
-
   if (sb && auth.userId) {
     try {
       await deactivateAllUserDevicesForLogout(sb, auth.userId, deviceId || null);
+      if (deviceId && pushToken) {
+        await deactivateBoundDeviceByTokenProof(sb, {
+          deviceId,
+          pushToken,
+          pushProvider: pushProvider || "fcm",
+          environment: resolvePushEnvironment(),
+        });
+      }
     } catch (error) {
       deviceDeactivateError =
         error instanceof Error ? error.message : "logout_device_deactivate_failed";

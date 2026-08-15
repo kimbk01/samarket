@@ -362,4 +362,13 @@ public class NativeCallServicePlugin extends Plugin {
     DibayCanonicalDeviceIdStore.save(getContext(), deviceId);
     call.resolve(new JSObject().put("ok", true));
   }
+
+  /** Member incoming-call eligibility — logout/guest must set false before FCM can present UI. */
+  @PluginMethod
+  public void setMemberCallEligible(PluginCall call) {
+    boolean eligible = Boolean.TRUE.equals(call.getBoolean("eligible", false));
+    String reason = call.getString("reason", "js_bridge");
+    com.dibay.app.DibayCallAuthEligibilityStore.setEligible(getContext(), eligible, reason);
+    call.resolve(new JSObject().put("ok", true).put("eligible", eligible));
+  }
 }

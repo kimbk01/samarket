@@ -3,6 +3,8 @@ package com.dibay.app.nativepush;
 import android.content.Context;
 import android.util.Log;
 import android.webkit.CookieManager;
+import com.dibay.app.DibayBoundPushTokenStore;
+import com.dibay.app.DibayCallAuthEligibilityStore;
 import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.DibayServerOrigin;
 import java.io.BufferedReader;
@@ -157,6 +159,8 @@ public final class NativePushRegisterHelper {
 
       boolean ok = status >= 200 && status < 300 && responseOk;
       if (ok) {
+        DibayBoundPushTokenStore.save(context, request.pushToken, request.pushProvider);
+        DibayCallAuthEligibilityStore.setEligible(context, true, "native_register_success");
         logStep(
             "native_register_post_done",
             request,

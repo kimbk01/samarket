@@ -1,12 +1,14 @@
 package com.dibay.app.nativepush;
 
+import com.dibay.app.DibayBoundPushTokenStore;
+import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-/** B-0: Capacitor bridge — JS triggers native HTTP device register. */
+/** B-0: Capacitor bridge — JS triggers native HTTP device register / logout unbind. */
 @CapacitorPlugin(name = "NativePushRegister")
 public class NativePushRegisterPlugin extends Plugin {
 
@@ -27,6 +29,10 @@ public class NativePushRegisterPlugin extends Plugin {
       return;
     }
 
+    // Persist proof locally even before HTTP completes — logout needs token if session dies mid-flight.
+    DibayCanonicalDeviceIdStore.save(getContext(), deviceId);
+    DibayBoundPushTokenStore.save(getContext(), pushToken, pushProvider);
+
     NativePushRegisterHelper.RegisterRequest request =
         new NativePushRegisterHelper.RegisterRequest(
             platform, deviceId, pushToken, pushProvider, appVersion, userId);
@@ -43,6 +49,30 @@ public class NativePushRegisterPlugin extends Plugin {
               }
               if (result.deviceRowId != null) {
                 ret.put("device_row_id", result.deviceRowId);
+              }
+              android.app.Activity activity = getActivity();
+              if (activity == null) {
+                call.resolve(ret);
+                return;
+              }
+              activity.runOnUiThread(() -> call.resolve(ret));
+            })
+        .start();
+  }
+
+  @PluginMethod
+  public void deactivateBoundPushDevice(PluginCall call) {
+    String reason = call.getString("reason", "logout");
+    new Thread(
+            () -> {
+              NativePushDeactivateHelper.DeactivateResult result =
+                  NativePushDeactivateHelper.deactivate(getContext(), reason);
+              JSObject ret = new JSObject();
+              ret.put("ok", result.ok);
+              ret.put("http_status", result.httpStatus);
+              ret.put("deactivated", result.deactivated);
+              if (result.error != null) {
+                ret.put("error", result.error);
               }
               android.app.Activity activity = getActivity();
               if (activity == null) {

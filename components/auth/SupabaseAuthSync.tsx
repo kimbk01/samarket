@@ -15,6 +15,7 @@ import {
   syncSignedOutClientCaches,
   shouldSkipSignedOutEventWipe,
 } from "@/lib/auth/client-session-wipe";
+import { isExplicitLogoutIntentActive } from "@/lib/auth/explicit-logout-intent";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
@@ -111,10 +112,12 @@ export function SupabaseAuthSync() {
     const unsubAuthEvents = subscribeDibayAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         lastKnownAuthUserId = null;
-        if (shouldSkipSignedOutEventWipe()) {
+        // Explicit logout owns wipe. Unexpected SIGNED_OUT must not clear persisted session.
+        if (shouldSkipSignedOutEventWipe() || isExplicitLogoutIntentActive()) {
           return;
         }
-        void wipeClientSessionState("user_logout");
+        logGuestAuthBootMarker("signed_out_unexpected_no_wipe", {});
+        syncSignedOutClientCaches();
         return;
       }
 
