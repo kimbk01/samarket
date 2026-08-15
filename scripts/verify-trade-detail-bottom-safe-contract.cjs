@@ -72,8 +72,13 @@ if (/\bpb-8\b/.test(sheet)) {
 if (/env\(safe-area-inset-bottom/.test(sheet)) {
   fail("MemberPostPromoteSheet must not use raw env(safe-area-inset-bottom)");
 }
-if (!/pb-\[max\(0\.75rem,var\(--safe-bottom\)\)\]/.test(sheet)) {
-  fail("MemberPostPromoteSheet must use pb-[max(0.75rem,var(--safe-bottom))]");
+const sheetHasLegacySafePad = /pb-\[max\(0\.75rem,var\(--safe-bottom\)\)\]/.test(sheet);
+const sheetUsesDibayAboveNav =
+  /DibayBottomSheet/.test(sheet) && /anchor=["']above-bottom-nav["']/.test(sheet);
+if (!sheetHasLegacySafePad && !sheetUsesDibayAboveNav) {
+  fail(
+    "MemberPostPromoteSheet must use pb-[max(0.75rem,var(--safe-bottom))] or DibayBottomSheet anchor=above-bottom-nav (MAIN_BOTTOM_NAV_SHEET_* safe geometry)"
+  );
 }
 
 console.log("verify-trade-detail-bottom-safe-contract: ok");
