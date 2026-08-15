@@ -94,6 +94,7 @@
     "verify:deploy-imports": "node scripts/verify-deploy-imports.mjs",
     "verify:deploy-imports:staged": "node scripts/verify-deploy-imports.mjs --staged",
     "verify:vercel-deploy-excludes": "node scripts/verify-vercel-deploy-excludes.mjs",
+    "vercel:ignore-build": "node scripts/vercel-ignored-build-step.mjs",
     "verify:i18n-staged-catalog:staged": "node scripts/verify-i18n-staged-catalog.mjs --staged",
     "verify:pre-commit": "node scripts/verify-pre-commit.mjs",
     "verify:index-tsc": "node scripts/verify-index-tsc.mjs",

@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["bom1"],
+  "ignoreCommand": "node scripts/vercel-ignored-build-step.mjs",
   "env": {
     "SAMARKET_PROD_PERF_MEASURE": "1",
     "NEXT_PUBLIC_SAMARKET_PROD_PERF_MEASURE": "1",
