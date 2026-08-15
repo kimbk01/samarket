@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -311,30 +312,33 @@ export function AdminMemberDetail({
   }, [onSendMessage, router, user.id]);
 
   const handleDelete = useCallback(async () => {
-    const reason = window.prompt(
-      safeT("admin_users_delete_reason_prompt", {
+    const reason = await dibayPrompt({
+      title: safeT("admin_users_delete_reason_prompt", {
         fallbackKo: "삭제 사유를 입력해 주세요.",
         fallbackEn: "Enter a reason for deletion.",
       }),
-    );
+      required: true,
+    });
     if (!reason?.trim()) return;
 
     const display = displayNameForDetailUser(user);
-    const typed = window.prompt(
-      safeT("admin_users_delete_confirm_nickname_prompt", {
+    const typed = await dibayPrompt({
+      title: safeT("admin_users_delete_confirm_nickname_prompt", {
         fallbackKo: `확인을 위해 닉네임「${display}」을 입력해 주세요.`,
         fallbackEn: `Type nickname「${display}」 to confirm.`,
       }),
-    );
+      required: true,
+    });
     if (!typed?.trim() || typed.trim() !== display) return;
 
     if (
-      !window.confirm(
-        safeT("admin_users_lite_delete_confirm", {
+      !(await dibayConfirm({
+        title: safeT("admin_users_lite_delete_confirm", {
           fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
           fallbackEn: "Withdraw this member and anonymize their personal data?",
         }),
-      )
+        confirmTone: "destructive",
+      }))
     ) {
       return;
     }
@@ -349,7 +353,7 @@ export function AdminMemberDetail({
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.message ?? data.error ?? t("admin_users_action_failed"));
+        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
         return;
       }
       if (presentation === "modal") {
@@ -358,7 +362,7 @@ export function AdminMemberDetail({
       }
       window.location.href = "/admin/users";
     } catch {
-      window.alert(t("admin_users_error_network"));
+      await dibayAlert({ title: t("admin_users_error_network") });
     } finally {
       setDeleting(false);
     }

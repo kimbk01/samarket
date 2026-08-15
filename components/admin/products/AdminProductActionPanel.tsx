@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import type { Product, ProductStatus } from "@/lib/types/product";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -68,7 +69,7 @@ export function AdminProductActionPanel({
       const res = await updatePostBumpAdmin(product.id);
       setLoading(null);
       if (res.ok) onActionSuccess();
-      else alert(res.ok === false ? res.error : t("admin_products_action_failed"));
+      else await dibayAlert({ title: res.ok === false ? res.error : t("admin_products_action_failed") });
       return;
     }
     let toStatus: string;
@@ -98,7 +99,7 @@ export function AdminProductActionPanel({
     const res = await updatePostStatusAdmin(product.id, toStatus as any);
     setLoading(null);
     if (res.ok) onActionSuccess();
-    else alert(res.ok === false ? res.error : t("admin_products_action_failed"));
+    else await dibayAlert({ title: res.ok === false ? res.error : t("admin_products_action_failed") });
   };
 
   if (actions.length === 0) {

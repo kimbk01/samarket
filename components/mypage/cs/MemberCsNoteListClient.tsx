@@ -23,6 +23,7 @@ import {
   CC_SURFACE_PAGE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 
 type Thread = {
   id: string;
@@ -339,46 +340,24 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
         }}
       />
 
-      {meta.allowCreate && typeSheetOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setTypeSheetOpen(false);
-          }}
-        >
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl sm:rounded-ui-rect">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-sam-border" />
-            <p className="mb-2 text-[15px] font-semibold text-sam-fg">
-              {safeT("mypage_cs_inquiry_pick_type", {
-                fallbackKo: "문의 유형 선택",
-                fallbackEn: "Choose inquiry type",
-              })}
-            </p>
-            <ul className="space-y-1">
-              {inquiryTypes.map((item) => (
-                <li key={item.label}>
-                  <button
-                    type="button"
-                    className="min-h-11 w-full rounded-ui-rect px-3 py-3 text-left text-[14px] text-sam-fg hover:bg-sam-app"
-                    onClick={() => {
-                      setSubject(item.label);
-                      setTypeSheetOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="mt-2 min-h-11 w-full rounded-ui-rect border border-sam-border py-2.5 text-[14px]"
-              onClick={() => setTypeSheetOpen(false)}
-            >
-              {t("common_close")}
-            </button>
-          </div>
-        </div>
+      {meta.allowCreate ? (
+        <DibayActionSheet
+          open={typeSheetOpen}
+          onClose={() => setTypeSheetOpen(false)}
+          title={safeT("mypage_cs_inquiry_pick_type", {
+            fallbackKo: "문의 유형 선택",
+            fallbackEn: "Choose inquiry type",
+          })}
+          cancelLabel={t("common_close")}
+          anchor="above-bottom-nav"
+          items={inquiryTypes.map((item) => ({
+            key: item.label,
+            label: item.label,
+            onClick: () => {
+              setSubject(item.label);
+            },
+          }))}
+        />
       ) : null}
     </div>
   );

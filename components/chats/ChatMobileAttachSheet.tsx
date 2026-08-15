@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
@@ -25,35 +24,11 @@ export function ChatMobileAttachSheet({
   onPickGallery: () => void;
 }) {
   const { t } = useI18n();
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
 
-  const onKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!open) return;
-      if (e.key === "Escape") onClose();
-    },
-    [open, onClose]
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onKeyDown]);
-
-  if (!open || typeof document === "undefined") return null;
-
-  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-ui-rect px-4 py-3.5 text-left sam-text-body font-medium transition active:scale-[0.99] disabled:opacity-45 ${
+  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-4 py-3.5 text-left text-[length:var(--overlay-body-1-size)] font-medium transition active:scale-[var(--overlay-press-scale)] disabled:opacity-45 ${
     instagram
-      ? "text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
-      : "text-foreground hover:bg-sam-primary-soft active:bg-sam-primary-soft"
+      ? "text-[color:var(--overlay-text-primary)] hover:bg-black/[0.04] active:bg-black/[0.06]"
+      : "text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:bg-[color:var(--overlay-secondary)]"
   }`;
 
   const runThenPick = (pick: () => void) => {
@@ -61,66 +36,46 @@ export function ChatMobileAttachSheet({
     window.setTimeout(() => pick(), 0);
   };
 
-  return createPortal(
-    <div
-      className={`fixed inset-x-0 top-0 z-[100] flex flex-col justify-end ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
-      role="dialog"
-      aria-modal
-      aria-labelledby="chat-attach-sheet-title"
+  return (
+    <DibayBottomSheet
+      open={open}
+      onClose={onClose}
+      title={t("chats_attach_sheet_title")}
+      anchor="above-bottom-nav"
+      showHandle
+      ariaLabel={t("chats_attach_sheet_title")}
     >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
-        aria-label={t("common_close")}
-        onClick={onClose}
-      />
-      <div
-        className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-3.5rem-var(--safe-bottom)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
-          instagram ? "border-t border-sam-border bg-sam-surface" : "border-t border-sam-border bg-sam-surface"
-        }`}
-        style={{
-          paddingBottom: "max(1.25rem, calc(12px + var(--safe-bottom)))",
-        }}
-      >
-        <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-sam-fg/[0.06] bg-sam-surface px-3 py-3">
-          <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 sam-text-body-lg font-semibold text-sam-fg">
-            {t("chats_attach_sheet_title")}
-          </h2>
+      <nav className="flex flex-col px-1 pb-2 pt-1" aria-label={t("chats_attach_methods_aria")}>
+        <button
+          type="button"
+          className={rowClass}
+          disabled={disabled}
+          onClick={() => runThenPick(onPickCamera)}
+        >
+          <CameraGlyph className="h-6 w-6 shrink-0 opacity-85" />
+          {t("common_take_photo")}
+        </button>
+        <button
+          type="button"
+          className={rowClass}
+          disabled={disabled}
+          onClick={() => runThenPick(onPickGallery)}
+        >
+          <GalleryGlyph className="h-6 w-6 shrink-0 opacity-85" />
+          {t("common_choose_from_album")}
+        </button>
+        <div className="mt-2">
           <button
             type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-black/5"
-            aria-label={t("common_close")}
+            className={OverlayUi.btn.secondary}
             disabled={disabled}
             onClick={onClose}
           >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            {t("common_close")}
           </button>
-        </header>
-        <nav className="flex flex-col px-2 pb-5 pt-2" aria-label={t("chats_attach_methods_aria")}>
-          <button
-            type="button"
-            className={rowClass}
-            disabled={disabled}
-            onClick={() => runThenPick(onPickCamera)}
-          >
-            <CameraGlyph className="h-6 w-6 shrink-0 opacity-85" />
-            {t("common_take_photo")}
-          </button>
-          <button
-            type="button"
-            className={rowClass}
-            disabled={disabled}
-            onClick={() => runThenPick(onPickGallery)}
-          >
-            <GalleryGlyph className="h-6 w-6 shrink-0 opacity-85" />
-            {t("common_choose_from_album")}
-          </button>
-        </nav>
-      </div>
-    </div>,
-    document.body
+        </div>
+      </nav>
+    </DibayBottomSheet>
   );
 }
 

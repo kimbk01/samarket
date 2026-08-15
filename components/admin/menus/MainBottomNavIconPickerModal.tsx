@@ -19,6 +19,8 @@ import {
   resolveLucideBottomNavIcon,
   type LucideBottomNavIconCategory,
 } from "@/lib/main-menu/lucide-bottom-nav-icon-registry";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type MainBottomNavIconPickerValue = {
   icon: BottomNavIconKey;
@@ -86,38 +88,30 @@ export function MainBottomNavIconPickerModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-3"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-    >
+    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="nested">
       <div
-        className="relative z-[101] flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-sam-elevated"
+        className={`${OverlayUi.dialogPanel} !max-w-2xl flex max-h-[88vh] w-full flex-col overflow-hidden !p-0`}
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="main-bottom-nav-icon-picker-title"
       >
-        <div className="border-b border-sam-border px-4 py-3">
+        <div className="border-b border-[color:var(--overlay-border)] px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 id="main-bottom-nav-icon-picker-title" className="sam-text-body font-semibold text-sam-fg">
+              <h2 id="main-bottom-nav-icon-picker-title" className={OverlayUi.title}>
                 {t("admin_menu_bottom_icon_picker_title")}
               </h2>
-              <p className="mt-0.5 sam-text-helper text-sam-muted">
+              <p className={`mt-0.5 ${OverlayUi.caption}`}>
                 {t("admin_menu_bottom_icon_picker_desc", { name: menuLabel })}
               </p>
             </div>
-            <button
-              type="button"
+            <DibayOverlayButton
+              roleTone="text"
               onClick={onClose}
-              className="shrink-0 rounded-ui-rect border border-sam-border px-2 py-0.5 sam-text-helper text-sam-muted hover:bg-sam-app"
+              className="!min-h-9 !w-9 !flex-none !p-0"
               aria-label={t("admin_menu_close_aria")}
             >
               ✕
-            </button>
+            </DibayOverlayButton>
           </div>
 
           <div className="mt-3 flex items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
@@ -268,29 +262,23 @@ export function MainBottomNavIconPickerModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-sam-border px-4 py-3">
-          <p className="sam-text-xxs text-sam-muted">{t("admin_menu_bottom_icon_picker_apply_hint")}</p>
-          <div className="flex shrink-0 gap-2">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onClose}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg hover:bg-sam-app"
-            >
+        <div className="flex items-center justify-between gap-2 border-t border-[color:var(--overlay-border)] px-4 py-3">
+          <p className={OverlayUi.caption}>{t("admin_menu_bottom_icon_picker_apply_hint")}</p>
+          <div className={`${OverlayUi.actionsRow} !mt-0 shrink-0`}>
+            <DibayOverlayButton roleTone="secondary" disabled={disabled} onClick={onClose}>
               {t("common_cancel")}
-            </button>
-            <button
-              type="button"
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
               disabled={disabled || !draftChanged}
               onClick={handleApply}
-              className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white hover:bg-signature/90 disabled:opacity-40"
             >
               {t("admin_menu_bottom_icon_apply")}
-            </button>
+            </DibayOverlayButton>
           </div>
         </div>
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }
 

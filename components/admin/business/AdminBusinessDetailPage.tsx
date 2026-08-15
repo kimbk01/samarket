@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import type { BusinessProfile, BusinessProfileLog, BusinessProfileLogActionType } from "@/lib/types/business";
 import type { BusinessProfileStatus } from "@/lib/types/business";
@@ -114,7 +115,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     });
     const j = (await res.json()) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      alert(j.error ?? t("common_content_unavailable"));
+      await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
       return;
     }
     setMemoInput("");

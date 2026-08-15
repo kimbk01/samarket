@@ -14,6 +14,7 @@ import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -281,12 +282,13 @@ export function StoreOrderBuyerChatTop({
     mounted && typeof document !== "undefined"
       ? createPortal(
           <>
-            <div
-              role="presentation"
-              className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 ease-out ${
-                drawerOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            <button
+              type="button"
+              className={`${OverlayUi.backdrop} !fixed z-[60] transition-opacity duration-300 ease-out ${
+                drawerOpen ? "pointer-events-auto !opacity-100" : "pointer-events-none !opacity-0"
               }`}
               onClick={() => setDrawerOpen(false)}
+              aria-label={t("common_close")}
               aria-hidden={!drawerOpen}
             />
             <div

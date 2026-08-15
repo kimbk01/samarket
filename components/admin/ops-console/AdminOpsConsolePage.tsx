@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   parseDeliveryOperationsPayload,
   type DeliveryOperationsPayload,
@@ -264,20 +266,34 @@ function ModalShell(props: {
 }) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
-      <div className={`${Sam.card.base} w-full max-w-lg ${Sam.card.pad}`}>
+    <DibayOverlayRoot
+      open
+      onClose={props.busy ? undefined : props.onClose}
+      dismissible={!props.busy}
+      placement="center"
+      zRole="dialog"
+    >
+      <div
+        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-base font-semibold text-sam-fg">{t(props.titleKey)}</div>
-            <div className="mt-1 text-xs text-sam-muted">{t("admin_ops_console_modal_hint")}</div>
+            <h2 className={OverlayUi.title}>{t(props.titleKey)}</h2>
+            <p className={`mt-1 ${OverlayUi.caption}`}>{t("admin_ops_console_modal_hint")}</p>
           </div>
-          <button className={Sam.btn.secondary} onClick={props.onClose} disabled={props.busy} type="button">
+          <DibayOverlayButton
+            roleTone="secondary"
+            className="!min-h-9 !flex-none !px-3"
+            onClick={props.onClose}
+            disabled={props.busy}
+          >
             {t("admin_ops_console_btn_close")}
-          </button>
+          </DibayOverlayButton>
         </div>
         <div className="mt-4">{props.children}</div>
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }
 

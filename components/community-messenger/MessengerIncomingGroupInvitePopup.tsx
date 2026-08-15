@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { IncomingGroupInvitePopupEntry } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
 type Props = {
@@ -11,9 +12,6 @@ type Props = {
   onOpen: () => void;
   layout?: "viewport" | "stack";
 };
-
-const MOBILE_PRESS =
-  "touch-manipulation select-none transition-[transform,opacity] duration-100 will-change-transform active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100";
 
 export function MessengerIncomingGroupInvitePopup({
   invite,
@@ -33,9 +31,6 @@ export function MessengerIncomingGroupInvitePopup({
       ? "pointer-events-auto relative w-full max-w-lg shrink-0 self-center"
       : `pointer-events-auto fixed inset-x-0 z-[94] px-3 sm:px-4 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`;
 
-  const panelClass =
-    "relative mx-auto w-full max-w-[min(100%,22rem)] overflow-hidden rounded-2xl border border-sam-border bg-sam-surface text-sam-fg shadow-[0_12px_48px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.05] sm:max-w-lg";
-
   return (
     <div
       className={outerClass}
@@ -43,12 +38,13 @@ export function MessengerIncomingGroupInvitePopup({
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={subtitleId}
+      data-dibay-overlay="incoming-group-invite"
     >
-      <div className={panelClass}>
+      <div className={`${OverlayUi.dialogPanel} !max-w-[min(100%,22rem)] sm:!max-w-lg !opacity-100 !scale-100`}>
         <button
           type="button"
           onClick={onDismiss}
-          className={`${Sam.btn.base} ${Sam.btn.ghostCombo} absolute right-2 top-2 z-[1] !h-11 !min-h-11 !w-11 !max-w-none shrink-0 rounded-full !border-0 !px-0 !py-0 text-sam-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary ${MOBILE_PRESS}`}
+          className="dibay-overlay-btn dibay-overlay-btn--text absolute right-2 top-2 z-[1] !min-h-11 !w-11 !flex-none !p-0"
           aria-label={t("nav_close")}
         >
           <svg className="h-6 w-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -56,41 +52,35 @@ export function MessengerIncomingGroupInvitePopup({
           </svg>
         </button>
 
-        <div className="flex gap-3 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+        <div className="flex gap-3 px-1 pb-1 pt-1">
           <div
-            className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-sam-primary-soft ring-2 ring-sam-surface shadow-md sam-text-body-lg font-semibold text-sam-primary"
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[length:var(--overlay-radius-lg)] bg-[color:var(--overlay-secondary)] text-[length:var(--overlay-body-1-size)] font-semibold text-[color:var(--overlay-primary)]"
             aria-hidden
           >
             {initial}
           </div>
           <div className="min-w-0 flex-1 pr-10 pt-0.5">
-            <div className="mb-1 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-1.5 py-0.5 sam-text-xxs font-semibold text-sam-fg/70">
+            <div
+              className={`mb-1 inline-flex rounded-[length:var(--overlay-radius-sm)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-1.5 py-0.5 ${OverlayUi.caption} font-semibold`}
+            >
               {t("cm_ui_group_invite")}
             </div>
-            <p id={titleId} className={`${Sam.text.bodyLg} truncate font-semibold leading-snug text-sam-fg`}>
+            <p id={titleId} className={`${OverlayUi.titleSheet} !text-left truncate`}>
               {roomTitle}
             </p>
-            <p id={subtitleId} className={`${Sam.text.bodySecondary} mt-1 leading-snug text-sam-fg/75`}>
+            <p id={subtitleId} className={`mt-1 ${OverlayUi.bodySecondary} !text-left`}>
               {t("cm_ui_group_invite_added_by", { name: inviterLabel })}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-sam-border px-4 py-3 sm:px-5">
-          <button
-            type="button"
-            onClick={onOpen}
-            className={`${Sam.btn.base} ${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[44px] rounded-xl px-4 font-semibold ${MOBILE_PRESS}`}
-          >
+        <div className="mt-3 flex flex-col gap-2">
+          <DibayOverlayButton roleTone="primary" onClick={onOpen} className="!flex-none w-full">
             {t("cm_ui_open_group_room")}
-          </button>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className={`${Sam.btn.base} ${Sam.btn.outlineCombo} ${Sam.btn.block} min-h-[44px] rounded-xl px-4 font-semibold ${MOBILE_PRESS}`}
-          >
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="secondary" onClick={onDismiss} className="!flex-none w-full">
             {t("nav_close")}
-          </button>
+          </DibayOverlayButton>
         </div>
       </div>
     </div>

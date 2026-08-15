@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
@@ -373,7 +374,7 @@ export function AdminUserListPage() {
   }, []);
 
   const handleCleanup = useCallback(async () => {
-    if (!adminUserId || !confirm(t("admin_users_cleanup_confirm"))) return;
+    if (!adminUserId || !(await dibayConfirm({ title: t("admin_users_cleanup_confirm"), confirmTone: "destructive" }))) return;
     setCleanupLoading(true);
     try {
       const res = await fetch("/api/admin/users/cleanup", {
@@ -386,10 +387,10 @@ export function AdminUserListPage() {
       if (data.ok) {
         refreshMembers();
       } else {
-        alert(data.error || t("admin_users_cleanup_failed"));
+        await dibayAlert({ title: data.error || t("admin_users_cleanup_failed") });
       }
     } catch {
-      alert(t("admin_users_request_failed"));
+      await dibayAlert({ title: t("admin_users_request_failed") });
     } finally {
       setCleanupLoading(false);
     }

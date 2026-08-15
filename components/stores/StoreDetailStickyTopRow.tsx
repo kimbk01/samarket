@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
@@ -104,7 +105,7 @@ export function StoreDetailStickyTopRow({
         await navigator.share({ title: storeName, text: storeName, url });
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        window.alert(t("store_link_copied"));
+        await dibayAlert({ title: t("store_link_copied") });
       }
     } catch {
       /* 사용자 취소 등 */

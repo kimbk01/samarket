@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function DeliveryReasonModal({
   open,
@@ -23,45 +25,37 @@ export function DeliveryReasonModal({
   const { t } = useI18n();
   const [text, setText] = useState("");
 
-  if (!open) return null;
+  const handleClose = () => {
+    setText("");
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 sm:items-center">
-      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect">
-        <h2 className="text-base font-bold text-sam-fg">{title}</h2>
-        <label className="mt-3 block text-xs font-medium text-sam-muted">{label}</label>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={4}
-          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-          placeholder={required ? t("admin_do_common_required_input") : t("admin_do_common_optional_input")}
-        />
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setText("");
-              onClose();
-            }}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg"
-          >
-            {t("admin_do_common_cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (required && !text.trim()) return;
-              onConfirm(text.trim());
-              setText("");
-              onClose();
-            }}
-            className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-semibold text-white"
-          >
-            {confirmLabel}
-          </button>
-        </div>
+    <DibayDialog open={open} onClose={handleClose} dismissible title={title}>
+      <label className={`mt-1 block ${OverlayUi.caption}`}>{label}</label>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={4}
+        className="mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-2 text-sm"
+        placeholder={required ? t("admin_do_common_required_input") : t("admin_do_common_optional_input")}
+      />
+      <div className={`${OverlayUi.actionsRow} mt-4`}>
+        <DibayOverlayButton roleTone="secondary" onClick={handleClose}>
+          {t("admin_do_common_cancel")}
+        </DibayOverlayButton>
+        <DibayOverlayButton
+          roleTone="primary"
+          onClick={() => {
+            if (required && !text.trim()) return;
+            onConfirm(text.trim());
+            setText("");
+            onClose();
+          }}
+        >
+          {confirmLabel}
+        </DibayOverlayButton>
       </div>
-    </div>
+    </DibayDialog>
   );
 }

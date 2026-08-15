@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -230,7 +231,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   const deleteSelectedFromDb = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const ids = [...selectedIds];
-    if (!window.confirm(t("admin_stores_orders_confirm_delete", { count: ids.length }))) {
+    if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_delete", { count: ids.length }), confirmTone: "destructive" }))) {
       return;
     }
     setBulkBusy(true);
@@ -283,7 +284,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
 
   const approveRefund = useCallback(
     async (id: string) => {
-      if (!window.confirm(t("admin_stores_orders_confirm_refund"))) return;
+      if (!(await dibayConfirm({ title: t("admin_stores_orders_confirm_refund"), confirmTone: "destructive" }))) return;
       setBusyId(id);
       setError(null);
       try {

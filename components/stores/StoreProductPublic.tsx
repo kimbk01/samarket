@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -266,7 +267,7 @@ export function StoreProductPublic({
           await navigator.share({ title, text: title, url });
         } else if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(url);
-          window.alert(t("store_link_copied"));
+          await dibayAlert({ title: t("store_link_copied") });
         }
       } catch {
         /* noop */

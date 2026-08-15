@@ -197,6 +197,7 @@ import {
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import {
   TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
@@ -649,14 +650,14 @@ export function TradeWriteForm({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length === 0) return workingImages;
     if (!user?.id) {
-      window.alert(t("trade_056"));
+      await dibayAlert({ title: t("trade_056") });
       throw new Error("no-user");
     }
     const uploaded = await uploadPostImages(files, user.id);
     if (uploaded.length !== files.length) {
-      window.alert(
-        t("trade_write_err_upload_partial", { total: files.length, uploaded: uploaded.length })
-      );
+      await dibayAlert({
+        title: t("trade_write_err_upload_partial", { total: files.length, uploaded: uploaded.length }),
+      });
       throw new Error("partial-upload");
     }
     let idx = 0;

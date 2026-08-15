@@ -68,6 +68,8 @@ import {
 } from "@/lib/trade/post-detail-i18n";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
@@ -1431,14 +1433,14 @@ export function PostDetailView({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.error ?? t("trade_detail_owner_action_failed"));
+        await dibayAlert({ title: data.error ?? t("trade_detail_owner_action_failed") });
         return;
       }
       setSellerMoreOpen(false);
       router.push("/my/products");
       router.refresh();
     } catch {
-      window.alert(t("mypage_comp_product_network_error_short"));
+      await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
     } finally {
       setSellerSheetBusy(false);
     }
@@ -1460,14 +1462,14 @@ export function PostDetailView({
       );
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.error ?? t("trade_detail_delete_failed"));
+        await dibayAlert({ title: data.error ?? t("trade_detail_delete_failed") });
         return;
       }
       setSellerMoreOpen(false);
       router.push(backHref || "/my/products");
       router.refresh();
     } catch {
-      window.alert(t("ui_post_delete_network_error"));
+      await dibayAlert({ title: t("ui_post_delete_network_error") });
     } finally {
       setSellerSheetBusy(false);
     }
@@ -1942,42 +1944,37 @@ export function PostDetailView({
         productTitle={post.title ?? null}
         listPrice={typeof post.price === "number" ? post.price : null}
       />
-      {reportOpen ? (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
-          <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
+      <DibayBottomSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title={t("ui_report_submit")}
+        anchor="above-bottom-nav"
+      >
+        <input
+          type="text"
+          value={reportReason}
+          onChange={(e) => setReportReason(e.target.value)}
+          placeholder={t("ui_report_reason_title")}
+          className={OverlayUi.input}
+        />
+        {reportError ? (
+          <p className={`mt-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportError}</p>
+        ) : null}
+        <div className={`${OverlayUi.actionsRow} mt-3`}>
+          <DibayOverlayButton roleTone="secondary" type="button" onClick={() => setReportOpen(false)}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone="destructive"
+            type="button"
+            onClick={handleReport}
+            disabled={!reportReason.trim() || reportSubmitting}
+            loading={reportSubmitting}
           >
-            <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("ui_report_submit")}</h2>
-            <input
-              type="text"
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value)}
-              placeholder={t("ui_report_reason_title")}
-              className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-            />
-            {reportError ? (
-              <p className="mt-2 sam-text-body-secondary text-red-600">{reportError}</p>
-            ) : null}
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setReportOpen(false)}
-                className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg"
-              >
-                {t("common_cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={handleReport}
-                disabled={!reportReason.trim() || reportSubmitting}
-                className="flex-1 rounded-ui-rect bg-red-600 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-              >
-                {t("trade_detail_report_submit")}
-              </button>
-            </div>
-          </div>
+            {t("trade_detail_report_submit")}
+          </DibayOverlayButton>
         </div>
-      ) : null}
+      </DibayBottomSheet>
     </>
   );
 

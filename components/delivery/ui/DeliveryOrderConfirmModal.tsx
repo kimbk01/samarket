@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { DeliveryButton } from "./DeliveryButton";
 import { DeliveryInfoCard } from "./DeliveryInfoCard";
+import { DibayOverlayRoot, DibayOverlayButton, useOverlayTitleIds } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
-const ARIA_CLOSE = "\uB2EB\uAE30";
 const TITLE = "\uC8FC\uBB38 \uB0B4\uC6A9\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694";
 const LABEL_CONTACT = "\uC5F0\uB77D\uCC98";
 const LABEL_ADDRESS = "\uC8FC\uC18C";
@@ -29,8 +27,8 @@ export type DeliveryOrderConfirmModalProps = {
 };
 
 /**
- * Checkout order-confirm popup — fixed layout per dibaY delivery UI spec.
- * Styles: app/delivery-order-confirm-modal.css (unlayered).
+ * Checkout order-confirm — Dibay Overlay SSOT shell; delivery info cards preserved.
+ * Content chrome: app/delivery-order-confirm-modal.css (tokens → --overlay-*).
  */
 export function DeliveryOrderConfirmModal({
   open,
@@ -43,65 +41,46 @@ export function DeliveryOrderConfirmModal({
   onCancel,
   onConfirm,
 }: DeliveryOrderConfirmModalProps) {
-  const [portalReady, setPortalReady] = useState(false);
+  const { titleId } = useOverlayTitleIds("delivery-ocm");
 
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
+  return (
+    <DibayOverlayRoot
+      open={open}
+      onClose={busy ? undefined : onCancel}
+      dismissible={!busy}
+      placement="center"
+      zRole="dialog"
+      labelledBy={titleId}
+    >
+      <div
+        className={`${OverlayUi.dialogPanel} delivery-ui dibaY-ocm-card !max-w-[min(22.5rem,calc(100%-32px))] !p-0`}
+        data-delivery-ocm
+        data-dibay-overlay="delivery-order-confirm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="dibaY-ocm-header">
+          <h2 id={titleId} className={`${OverlayUi.title} dibaY-ocm-title`}>
+            {TITLE}
+          </h2>
+        </header>
 
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!open || !portalReady) return null;
-
-  const node = (
-    <div className="dibaY-ocm-root delivery-ui" data-delivery-ocm role="presentation">
-      <button
-        type="button"
-        className="dibaY-ocm-backdrop"
-        aria-label={ARIA_CLOSE}
-        disabled={busy}
-        onClick={onCancel}
-      />
-      <div className="dibaY-ocm-stage">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="dibaY-ocm-title"
-          className="dibaY-ocm-card"
-        >
-          <header className="dibaY-ocm-header">
-            <h2 id="dibaY-ocm-title" className="dibaY-ocm-title">
-              {TITLE}
-            </h2>
-          </header>
-
-          <div className="dibaY-ocm-body">
-            <DeliveryInfoCard label={LABEL_CONTACT} value={phoneLabel} />
-            <DeliveryInfoCard label={LABEL_ADDRESS} value={addressLabel} multiline />
-            <DeliveryInfoCard label={LABEL_PAYMENT} value={paymentLabel} />
-            <DeliveryInfoCard label={LABEL_ORDER_ITEMS} value={orderSummaryLabel} multiline />
-            <DeliveryInfoCard label={LABEL_REQUEST} value={requestLabel} multiline />
-          </div>
-
-          <footer className="dibaY-ocm-footer">
-            <DeliveryButton variant="primary" size="full" disabled={busy} onClick={onConfirm}>
-              {busy ? BTN_CONFIRM_BUSY : BTN_CONFIRM}
-            </DeliveryButton>
-            <DeliveryButton variant="ghost" size="full" disabled={busy} onClick={onCancel}>
-              {BTN_CANCEL}
-            </DeliveryButton>
-          </footer>
+        <div className="dibaY-ocm-body">
+          <DeliveryInfoCard label={LABEL_CONTACT} value={phoneLabel} />
+          <DeliveryInfoCard label={LABEL_ADDRESS} value={addressLabel} multiline />
+          <DeliveryInfoCard label={LABEL_PAYMENT} value={paymentLabel} />
+          <DeliveryInfoCard label={LABEL_ORDER_ITEMS} value={orderSummaryLabel} multiline />
+          <DeliveryInfoCard label={LABEL_REQUEST} value={requestLabel} multiline />
         </div>
-      </div>
-    </div>
-  );
 
-  return createPortal(node, document.body);
+        <footer className={`${OverlayUi.actionsStack} dibaY-ocm-footer !mt-0`}>
+          <DibayOverlayButton roleTone="primary" disabled={busy} onClick={onConfirm}>
+            {busy ? BTN_CONFIRM_BUSY : BTN_CONFIRM}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="text" disabled={busy} onClick={onCancel}>
+            {BTN_CANCEL}
+          </DibayOverlayButton>
+        </footer>
+      </div>
+    </DibayOverlayRoot>
+  );
 }

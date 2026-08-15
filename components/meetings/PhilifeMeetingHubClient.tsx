@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -80,7 +81,7 @@ export function PhilifeMeetingHubClient({
   };
 
   const onLeave = async () => {
-    if (!window.confirm(t("meeting_confirm_leave"))) return;
+    if (!(await dibayConfirm({ title: t("meeting_confirm_leave"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setLeaving(true);
     try {
       const res = await fetch(philifeMeetingApi(meeting.id).leave(), { method: "POST" });

@@ -3,6 +3,10 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
+import {
+  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
+} from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** ASCII-only source; avoids broken encoding in tooling */
 const ARIA_CLOSE = "\uB2EB\uAE30";
@@ -30,17 +34,27 @@ export function DeliveryModal({
   onBackdropClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  /** `row` ? cancel/confirm buttons on one line */
+  /** `row` — cancel/confirm buttons on one line */
   footerLayout?: "stack" | "row";
   placement?: DeliveryModalPlacement;
 }) {
   const [portalReady, setPortalReady] = useState(false);
+  const [entered, setEntered] = useState(false);
   const titleFallbackId = useId();
   const resolvedTitleId = titleId || titleFallbackId;
 
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setEntered(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,25 +74,29 @@ export function DeliveryModal({
 
   const node = (
     <div
-      className="delivery-ui"
+      className={`delivery-ui ${OverlayUi.root} dibay-overlay-root--center ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
       data-delivery-modal-root
-      style={{ position: "fixed", inset: 0, zIndex: 200 }}
+      data-entered={entered ? "true" : "false"}
+      data-dibay-overlay="delivery-modal"
     >
       <button
         type="button"
-        className="delivery-modal-backdrop"
+        className={`${OverlayUi.backdrop} !opacity-100`}
         aria-label={ARIA_CLOSE}
         disabled={busy}
-        onClick={onBackdropClose}
+        onClick={() => {
+          if (!busy) onBackdropClose();
+        }}
       />
-      <div className={`delivery-modal-stage flex ${stageAlign}`}>
+      <div className={`relative z-[1] flex w-full max-w-full justify-center ${stageAlign}`}>
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby={resolvedTitleId}
-          className={DeliveryTheme.modal.panel}
+          className={`${OverlayUi.dialogPanel} !max-w-[min(92vw,24rem)] ${DeliveryTheme.modal.panel}`}
+          onClick={(e) => e.stopPropagation()}
         >
-          <h2 id={resolvedTitleId} className={DeliveryTheme.modal.title}>
+          <h2 id={resolvedTitleId} className={`${OverlayUi.title} ${DeliveryTheme.modal.title}`}>
             {title}
           </h2>
           <div className="delivery-modal-body">{children}</div>

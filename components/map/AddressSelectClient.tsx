@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { AddressSearch } from "@/components/map/AddressSearch";
@@ -404,15 +405,18 @@ export function AddressSelectClient(props?: {
       ? { lat: pinSnapshot.lat, lng: pinSnapshot.lng }
       : marker;
 
-  const openAddressEdit = useCallback(() => {
-    const v = window.prompt(t("addr_ui_edit_address_prompt"), shownAddressPin || displayAddress.trim());
+  const openAddressEdit = useCallback(async () => {
+    const v = await dibayPrompt({
+      title: t("addr_ui_edit_address_prompt"),
+      defaultValue: shownAddressPin || displayAddress.trim(),
+    });
     if (v == null) return;
     const edited = v.trim();
     if (edited) {
       setManualAddress(edited);
       manualAnchorRef.current = marker;
     }
-  }, [displayAddress, marker, shownAddressPin]);
+  }, [displayAddress, marker, shownAddressPin, t]);
 
   return (
     <div className={ADDR_FLOW_MIN_VIEWPORT}>

@@ -1,30 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
-/** 프로필·게이트 알림 팝업 공통 — 상하 중앙, 동일 카드·버튼 스타일 */
+/** Press feedback — overlay SSOT scale 0.98 (kept for external callers). */
 export const PROFILE_GATE_PRESS =
   "touch-manipulation select-none transition-[transform,opacity] duration-100 will-change-transform active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100";
 
-export const profileGatePrimaryBtnClass = [
-  Sam.btn.base,
-  Sam.btn.primaryCombo,
-  Sam.btn.block,
-  Sam.btn.pill,
-  "min-h-[48px] py-3 sam-text-body font-semibold",
-  PROFILE_GATE_PRESS,
-].join(" ");
-
-export const profileGateSecondaryBtnClass = [
-  Sam.btn.base,
-  Sam.btn.outlineCombo,
-  Sam.btn.block,
-  Sam.btn.pill,
-  "min-h-[48px] py-3 sam-text-body font-semibold",
-  PROFILE_GATE_PRESS,
-].join(" ");
+export const profileGatePrimaryBtnClass = OverlayUi.btn.primary;
+export const profileGateSecondaryBtnClass = OverlayUi.btn.secondary;
 
 type ProfileGateAlertDialogProps = {
   open: boolean;
@@ -40,8 +25,8 @@ type ProfileGateAlertDialogProps = {
 
 export function ProfileGateAlertDialog({
   open,
-  titleId,
-  descId,
+  titleId: _titleId,
+  descId: _descId,
   title,
   description,
   primaryLabel,
@@ -50,26 +35,15 @@ export function ProfileGateAlertDialog({
   onSecondary,
 }: ProfileGateAlertDialogProps) {
   return (
-    <AuthGateOverlay
-      open={open}
-      role="alertdialog"
-      labelledBy={titleId}
-      describedBy={descId}
-    >
-      <h2 id={titleId} className="text-center text-lg font-semibold text-[#1e3932]">
-        {title}
-      </h2>
-      <p id={descId} className="mt-2 text-center sam-text-body leading-relaxed text-[#1e3932]/75">
-        {description}
-      </p>
-      <div className="mt-5 flex flex-col gap-2">
-        <button type="button" onClick={onPrimary} className={profileGatePrimaryBtnClass}>
+    <DibayDialog open={open} onClose={onSecondary} dismissible title={title} description={description}>
+      <div className={OverlayUi.actionsStack}>
+        <DibayOverlayButton roleTone="primary" onClick={onPrimary}>
           {primaryLabel}
-        </button>
-        <button type="button" onClick={onSecondary} className={profileGateSecondaryBtnClass}>
+        </DibayOverlayButton>
+        <DibayOverlayButton roleTone="secondary" onClick={onSecondary}>
           {secondaryLabel}
-        </button>
+        </DibayOverlayButton>
       </div>
-    </AuthGateOverlay>
+    </DibayDialog>
   );
 }

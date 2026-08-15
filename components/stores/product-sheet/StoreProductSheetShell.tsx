@@ -1,8 +1,9 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OVERLAY_SHEET_ABOVE_NAV, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function StoreProductSheetShell({
   children,
@@ -11,26 +12,23 @@ export function StoreProductSheetShell({
   children: ReactNode;
   onBackdropClose: () => void;
 }) {
-  const { t } = useI18n();
   return (
-    <div
-      className="pointer-events-none fixed inset-0 z-[100] flex items-end justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="store-add-sheet-title"
+    <DibayOverlayRoot
+      open
+      onClose={onBackdropClose}
+      dismissible
+      placement="sheet"
+      zRole="sheet"
+      labelledBy="store-add-sheet-title"
+      stageClassName={`items-end ${OVERLAY_SHEET_ABOVE_NAV.bottomClass}`}
     >
-      <button
-        type="button"
-        className="pointer-events-auto absolute inset-0 cursor-default bg-transparent"
-        aria-label={t("store_sheet_close_aria")}
-        tabIndex={-1}
-        onClick={onBackdropClose}
-      />
       <div
-        className={`pointer-events-auto relative z-[1] mx-auto flex max-h-[min(92dvh,720px)] w-full min-w-0 flex-col overflow-hidden rounded-t-[18px] bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+        className={`${OverlayUi.sheetPanel} ${OVERLAY_SHEET_ABOVE_NAV.maxHClass} pointer-events-auto relative z-[1] mx-auto flex w-full min-w-0 flex-col overflow-hidden !p-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+        data-dibay-overlay="store-product-sheet"
+        onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }

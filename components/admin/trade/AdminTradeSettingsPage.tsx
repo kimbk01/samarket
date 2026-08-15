@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -83,12 +84,12 @@ export function AdminTradeSettingsPage() {
         error?: string;
       };
       if (!data.ok || !data.settings) {
-        alert(data.error ?? t("admin_trade_settings_save_failed"));
+        await dibayAlert({ title: data.error ?? t("admin_trade_settings_save_failed") });
         return;
       }
       setSettings(data.settings);
       setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
-      alert(t("admin_stores_saved"));
+      await dibayAlert({ title: t("admin_stores_saved") });
     } finally {
       setSaving(false);
     }

@@ -54,6 +54,7 @@ function mapHttpStatusToResolveErrorCode(status: number): string {
 }
 
 export function AuthModal({ open, detail, onClose }: Props) {
+  /** Auth flow chrome via AuthGateOverlay → DibayOverlayRoot (OAuth untouched). */
   const { t } = useI18n();
   const router = useRouter();
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);

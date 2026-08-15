@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -53,14 +54,14 @@ export function AdminCommunityFeedSettingsPage() {
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error ?? tr("admin_topics_err_save"));
+        await dibayAlert({ title: j.error ?? tr("admin_topics_err_save") });
         return;
       }
       if (j.settings) {
         setOps(j.settings);
         setBannedText((j.settings as CommunityFeedOps).banned_words.join("\n"));
       }
-      alert(tr("admin_feed_settings_saved_ok"));
+      await dibayAlert({ title: tr("admin_feed_settings_saved_ok") });
     } finally {
       setSaving(false);
     }

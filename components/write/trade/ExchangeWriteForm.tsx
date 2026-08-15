@@ -87,6 +87,7 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 interface ExchangeWriteFormProps {
@@ -504,17 +505,17 @@ export function ExchangeWriteForm({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length > 0) {
       if (!user?.id) {
-        window.alert(t("trade_056"));
+        await dibayAlert({ title: t("trade_056") });
         return false;
       }
       const uploaded = await uploadPostImages(files, user.id);
       if (uploaded.length !== files.length) {
-        window.alert(
-          t("trade_write_err_upload_partial", {
+        await dibayAlert({
+          title: t("trade_write_err_upload_partial", {
             total: String(files.length),
             uploaded: String(uploaded.length),
-          })
-        );
+          }),
+        });
         return false;
       }
       let idx = 0;

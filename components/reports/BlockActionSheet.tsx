@@ -3,6 +3,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
+import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface BlockActionSheetProps {
   targetUserId: string;
@@ -11,6 +13,7 @@ interface BlockActionSheetProps {
   /** 당근형 chat_room일 때 서버에 차단 반영 (POST /api/chat/rooms/:roomId/block) */
   roomSource?: "product_chat" | "chat_room";
   currentUserId?: string;
+  title?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -21,6 +24,7 @@ export function BlockActionSheet({
   roomId,
   roomSource,
   currentUserId,
+  title,
   onClose,
   onSuccess,
 }: BlockActionSheetProps) {
@@ -29,7 +33,13 @@ export function BlockActionSheet({
   const [error, setError] = useState("");
 
   const handleBlock = async () => {
-    if (!confirm(t("ui_report_block_chat_confirm", { label: targetLabel }))) return;
+    const ok = await dibayConfirm({
+      title: t("ui_report_block_chat_confirm", { label: targetLabel }),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("ui_report_block_action"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
     setLoading(true);
     setError("");
     const res = await blockUserDaangn(targetUserId, { roomId });
@@ -63,28 +73,33 @@ export function BlockActionSheet({
   };
 
   return (
-    <div className="p-4">
-      <p className="sam-text-body text-sam-muted">
-        {t("ui_report_block_chat_desc", { label: targetLabel })}
-      </p>
-      {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
-        >
-          {t("common_cancel")}
-        </button>
-        <button
-          type="button"
-          onClick={handleBlock}
-          disabled={loading}
-          className="flex-1 rounded-ui-rect bg-red-600 py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
-        >
-          {loading ? t("ui_report_block_submitting") : t("ui_report_block_action")}
-        </button>
+    <DibayBottomSheet
+      open
+      onClose={() => {
+        if (!loading) onClose();
+      }}
+      title={title ?? t("common_block")}
+      anchor="above-bottom-nav"
+      ariaLabel={title ?? t("common_block")}
+    >
+      <div className="px-1 pb-2">
+        <p className={OverlayUi.bodySecondary}>
+          {t("ui_report_block_chat_desc", { label: targetLabel })}
+        </p>
+        {error ? <p className={`mt-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{error}</p> : null}
+        <div className="mt-4 flex gap-2">
+          <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone="destructive"
+            disabled={loading}
+            onClick={() => void handleBlock()}
+          >
+            {loading ? t("ui_report_block_submitting") : t("ui_report_block_action")}
+          </DibayOverlayButton>
+        </div>
       </div>
-    </div>
+    </DibayBottomSheet>
   );
 }

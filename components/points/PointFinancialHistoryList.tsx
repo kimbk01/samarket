@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import { pointFinancialDayKey } from "@/lib/points/point-financial-history";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function formatSignedAmount(signed: number): string {
   const abs = Math.abs(signed).toLocaleString();
@@ -159,94 +161,82 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
     language === "en" ? item.promotion?.productLabelEn : item.promotion?.productLabelKo;
 
   return (
-    <div className="fixed inset-0 z-[46] flex items-end justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-label={t("ui_sheet_close_aria")}
-      />
-      <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl">
-        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-1 sam-text-body-lg font-semibold text-sam-fg">{title}</h2>
-        <p
-          className={`mb-4 sam-text-page-title font-bold ${
-            item.direction === "credit" ? "text-emerald-700" : "text-red-600"
-          }`}
-        >
-          {formatSignedAmount(item.signedAmount)}
-        </p>
-        <dl className="space-y-2 sam-text-body-secondary text-sam-fg">
+    <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title} anchor="above-bottom-nav">
+      <p
+        className={`mb-4 text-[length:var(--overlay-title-1-size,20px)] font-bold ${
+          item.direction === "credit" ? "text-emerald-700" : "text-[color:var(--overlay-danger)]"
+        }`}
+      >
+        {formatSignedAmount(item.signedAmount)}
+      </p>
+      <dl className={`space-y-2 ${OverlayUi.body}`}>
+        <div className="flex justify-between gap-3">
+          <dt className={OverlayUi.bodySecondary}>
+            {safeT("point_fin_detail_time", { fallbackKo: "거래 일시", fallbackEn: "Time" })}
+          </dt>
+          <dd>{new Date(item.occurredAt).toLocaleString(locale)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className={OverlayUi.bodySecondary}>
+            {safeT("point_fin_detail_balance", { fallbackKo: "이후 잔액", fallbackEn: "Balance after" })}
+          </dt>
+          <dd>{item.balanceAfter.toLocaleString()}P</dd>
+        </div>
+        {item.subtitle ? (
           <div className="flex justify-between gap-3">
-            <dt className="text-sam-muted">
-              {safeT("point_fin_detail_time", { fallbackKo: "거래 일시", fallbackEn: "Time" })}
+            <dt className={OverlayUi.bodySecondary}>
+              {safeT("point_fin_detail_usage", { fallbackKo: "사용처", fallbackEn: "Usage" })}
             </dt>
-            <dd>{new Date(item.occurredAt).toLocaleString(locale)}</dd>
+            <dd className="text-right">{item.subtitle}</dd>
           </div>
+        ) : null}
+        {item.promotion ? (
+          <>
+            <div className="flex justify-between gap-3">
+              <dt className={OverlayUi.bodySecondary}>
+                {safeT("point_fin_detail_product", { fallbackKo: "홍보 상품", fallbackEn: "Product" })}
+              </dt>
+              <dd>{promoLabel}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className={OverlayUi.bodySecondary}>
+                {safeT("point_fin_detail_period", { fallbackKo: "홍보 기간", fallbackEn: "Period" })}
+              </dt>
+              <dd className="text-right">
+                {formatRange(item.promotion.startAt, item.promotion.endAt, locale)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className={OverlayUi.bodySecondary}>
+                {safeT("point_fin_detail_status", { fallbackKo: "상태", fallbackEn: "Status" })}
+              </dt>
+              <dd>{item.promotion.orderStatus}</dd>
+            </div>
+          </>
+        ) : null}
+        {item.deposit ? (
           <div className="flex justify-between gap-3">
-            <dt className="text-sam-muted">
-              {safeT("point_fin_detail_balance", { fallbackKo: "이후 잔액", fallbackEn: "Balance after" })}
+            <dt className={OverlayUi.bodySecondary}>
+              {safeT("point_fin_detail_deposit", { fallbackKo: "입금", fallbackEn: "Deposit" })}
             </dt>
-            <dd>{item.balanceAfter.toLocaleString()}P</dd>
+            <dd className="text-right">{item.deposit.planName || item.deposit.requestStatus}</dd>
           </div>
-          {item.subtitle ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">
-                {safeT("point_fin_detail_usage", { fallbackKo: "사용처", fallbackEn: "Usage" })}
-              </dt>
-              <dd className="text-right">{item.subtitle}</dd>
-            </div>
-          ) : null}
-          {item.promotion ? (
-            <>
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">
-                  {safeT("point_fin_detail_product", { fallbackKo: "홍보 상품", fallbackEn: "Product" })}
-                </dt>
-                <dd>{promoLabel}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">
-                  {safeT("point_fin_detail_period", { fallbackKo: "홍보 기간", fallbackEn: "Period" })}
-                </dt>
-                <dd className="text-right">
-                  {formatRange(item.promotion.startAt, item.promotion.endAt, locale)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">
-                  {safeT("point_fin_detail_status", { fallbackKo: "상태", fallbackEn: "Status" })}
-                </dt>
-                <dd>{item.promotion.orderStatus}</dd>
-              </div>
-            </>
-          ) : null}
-          {item.deposit ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">
-                {safeT("point_fin_detail_deposit", { fallbackKo: "입금", fallbackEn: "Deposit" })}
-              </dt>
-              <dd className="text-right">{item.deposit.planName || item.deposit.requestStatus}</dd>
-            </div>
-          ) : null}
-          {item.adjustment?.reason ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">
-                {safeT("point_fin_detail_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}
-              </dt>
-              <dd className="text-right">{item.adjustment.reason}</dd>
-            </div>
-          ) : null}
-        </dl>
-        <button
-          type="button"
-          className="mt-6 w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-sam-fg"
-          onClick={onClose}
-        >
+        ) : null}
+        {item.adjustment?.reason ? (
+          <div className="flex justify-between gap-3">
+            <dt className={OverlayUi.bodySecondary}>
+              {safeT("point_fin_detail_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}
+            </dt>
+            <dd className="text-right">{item.adjustment.reason}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <div className="mt-6">
+        <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose} className="w-full">
           {t("common_confirm")}
-        </button>
+        </DibayOverlayButton>
       </div>
-    </div>
+    </DibayBottomSheet>
   );
 }
 

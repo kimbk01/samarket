@@ -1,7 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useState } from "react";
+import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function IconPencil({ className }: { className?: string }) {
   return (
@@ -27,6 +28,9 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
+const rowClass =
+  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-2.5 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-surface)] active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:opacity-45";
+
 export function PostDetailSellerMoreSheet({
   open,
   onClose,
@@ -51,100 +55,91 @@ export function PostDetailSellerMoreSheet({
   deleteLockHint?: string;
 }) {
   const { t } = useI18n();
-  const [slideIn, setSlideIn] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setSlideIn((prev) => (prev ? false : prev));
-      return;
-    }
-    const id = requestAnimationFrame(() => setSlideIn((prev) => (prev ? prev : true)));
-    return () => cancelAnimationFrame(id);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [open, onClose]);
-
-  if (!open) return null;
 
   const eLocked = !!editLocked;
   const dLocked = !!deleteLocked;
   const showLockBanner =
     (eLocked || dLocked) && ((editLockHint ?? "").trim() || (deleteLockHint ?? "").trim());
 
+  const handleDelete = async () => {
+    if (busy || dLocked) return;
+    const ok = await dibayConfirm({
+      title: t("ui_post_delete_confirm_feed"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_delete"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
+    onDelete();
+  };
+
+  const handleCancelSale = async () => {
+    if (busy) return;
+    const ok = await dibayConfirm({
+      title: t("mypage_comp_product_cancel_sale_confirm"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("mypage_comp_product_cancel_sale"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
+    onCancelSale();
+  };
+
   return (
-    <div className="fixed inset-0 z-[45] flex items-end justify-center">
-      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label={t("ui_sheet_close_aria")} />
-      <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
-          slideIn ? "translate-y-0" : "translate-y-full"
-        }`}
-      >
-        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-3 px-1 sam-text-body-lg font-semibold text-sam-fg">{t("ui_post_my_listing_title")}</h2>
-        {busy ? (
-          <p className="mb-2 text-center sam-text-body-secondary text-sam-muted">{t("community_meeting_join_processing")}</p>
+    <DibayBottomSheet
+      open={open}
+      onClose={onClose}
+      title={t("ui_post_my_listing_title")}
+      anchor="above-bottom-nav"
+      ariaLabel={t("ui_sheet_close_aria")}
+    >
+      {busy ? (
+        <p className={`mb-2 text-center ${OverlayUi.bodySecondary}`}>{t("community_meeting_join_processing")}</p>
+      ) : null}
+      <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+        {showLockBanner ? (
+          <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-amber-800">
+            {eLocked ? <p>{editLockHint}</p> : null}
+            {dLocked ? <p>{deleteLockHint}</p> : null}
+          </div>
         ) : null}
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
-          {showLockBanner ? (
-            <div className="space-y-1 px-3 py-2 sam-text-helper leading-snug text-amber-800">
-              {eLocked ? <p>{editLockHint}</p> : null}
-              {dLocked ? <p>{deleteLockHint}</p> : null}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy || eLocked}
-            title={eLocked ? editLockHint : undefined}
-            onClick={() => {
-              if (busy || eLocked) return;
-              onClose();
-              onEdit();
-            }}
-            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <IconPencil className="h-5 w-5 text-sam-muted" />
-            {t("common_edit")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || dLocked}
-            title={dLocked ? deleteLockHint : undefined}
-            onClick={() => {
-              if (busy || dLocked) return;
-              if (!window.confirm(t("ui_post_delete_confirm_feed"))) return;
-              onDelete();
-            }}
-            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <IconTrash className="h-5 w-5 text-red-500" />
-            {t("common_delete")}
-          </button>
-          <button
-            type="button"
+        <button
+          type="button"
+          disabled={busy || eLocked}
+          title={eLocked ? editLockHint : undefined}
+          onClick={() => {
+            if (busy || eLocked) return;
+            onClose();
+            onEdit();
+          }}
+          className={rowClass}
+        >
+          <IconPencil className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+          {t("common_edit")}
+        </button>
+        <button
+          type="button"
+          disabled={busy || dLocked}
+          title={dLocked ? deleteLockHint : undefined}
+          onClick={() => void handleDelete()}
+          className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
+        >
+          <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
+          {t("common_delete")}
+        </button>
+        <div className="mt-2 space-y-2">
+          <DibayOverlayButton
+            roleTone="destructive"
             disabled={busy}
-            onClick={() => {
-              if (!window.confirm(t("mypage_comp_product_cancel_sale_confirm"))) return;
-              onCancelSale();
-            }}
-            className="mt-2 flex w-full items-center justify-center rounded-ui-rect bg-red-600 px-3 py-3 sam-text-body font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            onClick={() => void handleCancelSale()}
           >
             {t("mypage_comp_product_cancel_sale")}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
-          >
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
             {t("common_close")}
-          </button>
+          </DibayOverlayButton>
         </div>
       </div>
-    </div>
+    </DibayBottomSheet>
   );
 }

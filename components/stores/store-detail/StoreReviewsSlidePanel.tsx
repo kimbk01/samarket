@@ -8,6 +8,7 @@ import { StoreReviewsSection } from "@/components/stores/StoreReviewsSection";
 import { STORE_REVIEW_PREVIEW_CAROUSEL_MS } from "@/lib/stores/store-review-preview-slides";
 import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 
 export function StoreReviewsSlidePanel({
   open,
@@ -64,13 +65,19 @@ export function StoreReviewsSlidePanel({
   return (
     <BodyPortal>
       <div
-        className="delivery-ui fixed inset-0 z-[120] flex justify-center bg-black/25"
+        className={`delivery-ui fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-center`}
         role="dialog"
         aria-modal
         aria-label={t("store_reviews_title")}
       >
+        <button
+          type="button"
+          className={`${OverlayUi.backdrop} !opacity-50`}
+          aria-label={t("common_close")}
+          onClick={onRequestClose}
+        />
         <div
-          className={`flex h-[100dvh] w-full min-w-0 flex-col bg-white ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${
+          className={`relative z-[1] flex h-[100dvh] w-full min-w-0 flex-col bg-white ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${
             exiting ? "store-reviews-panel-slide-out" : "store-reviews-panel-slide-in"
           }`}
         >

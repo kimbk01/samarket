@@ -1,14 +1,9 @@
 "use client";
+
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 
-import {
-  CART_POPUP_BTN_DANGER,
-  CART_POPUP_BTN_GHOST,
-  StoreCommerceCartAlert,
-  StoreCommerceCartCenterPopup,
-} from "@/components/stores/cart/StoreCommerceCartCenterPopup";
-
-/** 장바구니 비우기 — 가운데 팝업 */
+/** 장바구니 비우기 — 가운데 확인 [취소 | 비우기] */
 export function StoreCartClearConfirmDialog({
   open,
   storeName,
@@ -26,26 +21,20 @@ export function StoreCartClearConfirmDialog({
   const label = storeName.trim() || t("store_this_store");
 
   return (
-    <StoreCommerceCartCenterPopup
+    <DibayConfirmDialog
       open={open}
       title={t("store_cart_clear_title")}
-      titleId="store-cart-clear-title"
-      busy={busy}
-      onBackdropClose={onCancel}
-      footer={
+      description={
         <>
-          <button type="button" onClick={onConfirm} disabled={busy} className={CART_POPUP_BTN_DANGER}>
-            {busy ? t("store_cart_clearing") : t("store_cart_clear_confirm")}
-          </button>
-          <button type="button" onClick={onCancel} disabled={busy} className={CART_POPUP_BTN_GHOST}>
-            {t("common_cancel")}
-          </button>
+          <strong>{label}</strong> {t("store_cart_clear_body")}
         </>
       }
-    >
-      <StoreCommerceCartAlert>
-        <span className="font-bold">{label}</span> {t("store_cart_clear_body")}
-      </StoreCommerceCartAlert>
-    </StoreCommerceCartCenterPopup>
+      cancelLabel={t("common_cancel")}
+      confirmLabel={busy ? t("store_cart_clearing") : t("store_cart_clear_confirm")}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+      confirmTone="destructive"
+      busy={busy}
+    />
   );
 }

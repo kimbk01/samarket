@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayPrompt, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type RiderSnap = {
@@ -472,13 +474,22 @@ export function AdminDeliveryRidersPage() {
       )}
 
       {detailOrderId ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-3 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-lg">
+        <DibayOverlayRoot
+          open
+          onClose={() => setDetailOrderId(null)}
+          dismissible
+          placement="center"
+          zRole="dialog"
+        >
+          <div
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between gap-2">
-              <h2 className="sam-text-body font-medium text-sam-fg">{t("admin_del_detail_title")}</h2>
-              <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={() => setDetailOrderId(null)}>
+              <h2 className={OverlayUi.title}>{t("admin_del_detail_title")}</h2>
+              <DibayOverlayButton roleTone="secondary" className="!min-h-9 !flex-none !px-3" onClick={() => setDetailOrderId(null)}>
                 {t("common_close")}
-              </button>
+              </DibayOverlayButton>
             </div>
             <p className="mt-2 font-mono text-[11px] text-sam-muted">{detailOrderId}</p>
             {detailLoading ? (
@@ -622,7 +633,7 @@ export function AdminDeliveryRidersPage() {
               <p className="mt-4 text-sam-warning sam-text-xxs">{t("admin_del_no_delivery_row")}</p>
             )}
 
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-sam-border pt-3">
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--overlay-border)] pt-3">
               <select
                 className="sam-input h-8 flex-1 min-w-[160px] text-[11px]"
                 value={reassignPick}
@@ -661,11 +672,11 @@ export function AdminDeliveryRidersPage() {
                 type="button"
                 className="sam-btn sam-btn--outline sam-btn--sm text-[11px]"
                 disabled={!detailOrderId || busyOrder === detailOrderId}
-                onClick={() => {
-                  const reason = window.prompt(
-                    t("admin_del_prompt_failure_reason"),
-                    t("admin_del_prompt_failure_default")
-                  );
+                onClick={async () => {
+                  const reason = await dibayPrompt({
+                    title: t("admin_del_prompt_failure_reason"),
+                    defaultValue: t("admin_del_prompt_failure_default"),
+                  });
                   if (reason == null) return;
                   void patchDelivery(detailOrderId, {
                     set_delivery_status: "delivery_failed",
@@ -691,7 +702,7 @@ export function AdminDeliveryRidersPage() {
               </Link>
             </div>
           </div>
-        </div>
+        </DibayOverlayRoot>
       ) : null}
     </div>
   );

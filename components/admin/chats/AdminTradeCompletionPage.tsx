@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
@@ -58,7 +59,7 @@ export function AdminTradeCompletionPage() {
   }, [load]);
 
   const confirmBuyer = async (roomId: string) => {
-    if (!window.confirm(t("admin_trade_completion_admin_confirm_question"))) return;
+    if (!(await dibayConfirm({ title: t("admin_trade_completion_admin_confirm_question") }))) return;
     setBusyId(roomId);
     setError(null);
     logAdminMutation("trade-completion:confirm-buyer", "start", { roomId });

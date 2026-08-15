@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useState, useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
@@ -256,7 +257,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
     });
     const j = (await res.json()) as { ok?: boolean; adminMemo?: string; error?: string };
     if (!res.ok || !j.ok) {
-      alert(j.error ?? t("admin_chat_action_failed"));
+      await dibayAlert({ title: j.error ?? t("admin_chat_action_failed") });
       return;
     }
     setAdminMemo(j.adminMemo ?? memoInput);

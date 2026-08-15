@@ -10,7 +10,7 @@ import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenge
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
@@ -60,6 +60,7 @@ import { GroupBlockedMembersSection } from "@/components/community-messenger/gro
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
+import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -67,27 +68,39 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   const isAttachMenuSheet = vm.activeSheet === "attach";
+  const dismissSheet = () => {
+    if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
+    else vm.dismissRoomSheet();
+  };
   return (
     <>
       {vm.activeSheet ? (
         <div
           className={
             isGroupMenuDrawer
-              ? "fixed inset-0 z-[40] flex justify-end bg-black/30"
+              ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-end`
               : isAttachMenuSheet
-                ? "fixed inset-0 z-[40] flex items-center justify-center bg-transparent px-4 py-[max(1rem,var(--safe-top))]"
-                : "fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+var(--safe-bottom))]"
+                ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex items-center justify-center px-4 py-[max(1rem,var(--safe-top))]`
+                : `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex flex-col justify-end ${MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS}`
           }
-          onClick={() => {
-            if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
-            else vm.dismissRoomSheet();
-          }}
+          data-dibay-overlay="cm-room-phase2-sheets"
         >
+          {isAttachMenuSheet ? null : (
+            <button
+              type="button"
+              className={`${OverlayUi.backdrop} !opacity-100`}
+              aria-label={vm.t("nav_close")}
+              onClick={dismissSheet}
+            />
+          )}
+          {isAttachMenuSheet ? (
+            <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label={vm.t("nav_close")} onClick={dismissSheet} />
+          ) : null}
           <div
             className={
               isGroupMenuDrawer
-                ? "flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
-                : `overflow-y-auto ${
+                ? "relative z-[1] flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+                : `relative z-[1] overflow-y-auto ${
                     vm.activeSheet === "attach"
                       ? "max-h-[min(80dvh,32rem)] w-[80%] max-w-[360px] rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_10px_28px_rgba(0,0,0,0.10)]"
                       : vm.activeSheet === "attach-confirm" ||

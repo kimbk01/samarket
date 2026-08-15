@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { previewStoreDeliveryBuiltinSound } from "@/lib/business/store-order-alert-sound";
@@ -96,7 +97,7 @@ export function AdminGlobalAlertSoundSection({
   );
 
   const deleteGlobalSound = useCallback(async () => {
-    if (!window.confirm(t("admin_stores_alert_delete_confirm"))) return;
+    if (!(await dibayConfirm({ title: t("admin_stores_alert_delete_confirm"), confirmTone: "destructive" }))) return;
     setSoundSaving(true);
     setSoundError(null);
     setSoundMsg(null);
@@ -318,10 +319,10 @@ export function AdminGlobalAlertSoundSection({
                     const a = new Audio(STORE_DELIVERY_NOTIFICATION_MP3_PATH);
                     a.volume = 0.55;
                     void a.play().catch(() => {
-                      window.alert(t("admin_stores_alert_preview_fail"));
+                      void dibayAlert({ title: t("admin_stores_alert_preview_fail") });
                     });
                   } catch {
-                    window.alert(t("admin_stores_alert_preview_start_fail"));
+                    void dibayAlert({ title: t("admin_stores_alert_preview_start_fail") });
                   }
                   return;
                 }
@@ -329,9 +330,11 @@ export function AdminGlobalAlertSoundSection({
                   try {
                     const a = new Audio(soundLegacyUrl);
                     a.volume = 0.55;
-                    void a.play().catch(() => window.alert(t("admin_stores_alert_preview_url_fail")));
+                    void a.play().catch(() => {
+                      void dibayAlert({ title: t("admin_stores_alert_preview_url_fail") });
+                    });
                   } catch {
-                    window.alert(t("admin_stores_alert_preview_start_fail"));
+                    void dibayAlert({ title: t("admin_stores_alert_preview_start_fail") });
                   }
                 }
               }}

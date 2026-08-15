@@ -2,7 +2,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BodyPortal } from "@/components/layout/BodyPortal";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { hhmm24ToWheelParts, wheelPartsToHHmm24 } from "@/lib/utils/tumbler-time";
 
 const ROW_PX = 40;
@@ -135,17 +136,6 @@ export function TumblerTimePickerDialog({
     setPm(p.pm);
   }, [open, valueHHmm]);
 
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!open) return null;
-
   const hourIndex = h12 - 1;
   const minuteIndex = minute;
   const ampmIndex = pm ? 1 : 0;
@@ -156,61 +146,35 @@ export function TumblerTimePickerDialog({
   };
 
   return (
-    <BodyPortal>
-      <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-transparent px-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tumbler-time-title"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div
-          className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-2xl ring-1 ring-black/5"
-          onClick={(e) => e.stopPropagation()}
-        >
-        <div className="border-b border-sky-200/80 px-4 py-3">
-          <h2 id="tumbler-time-title" className="sam-text-body font-medium text-sky-500">
-            {resolvedTitle}
-          </h2>
-        </div>
-
-        <div className="flex items-center justify-center gap-0.5 px-3 py-5 sm:gap-1">
-          <WheelColumn
-            labels={HOURS}
-            selectedIndex={hourIndex}
-            onChangeIndex={(i) => setH12(i + 1)}
-            widthClass="w-11"
-          />
-          <span className="mb-0.5 self-center px-0.5 sam-text-page-title font-semibold text-sam-fg" aria-hidden>
-            :
-          </span>
-          <WheelColumn
-            labels={MINUTES}
-            selectedIndex={minuteIndex}
-            onChangeIndex={setMinute}
-            widthClass="w-12"
-          />
-          <WheelColumn
-            labels={AMPM_LABELS}
-            selectedIndex={ampmIndex}
-            onChangeIndex={(i) => setPm(i === 1)}
-            widthClass="w-14"
-          />
-        </div>
-
-        <div className="border-t border-sam-border">
-          <button
-            type="button"
-            onClick={done}
-            className="w-full py-3.5 sam-text-body-lg font-bold text-sam-fg active:bg-sam-app"
-          >
-            {t("ui_time_picker_done")}
-          </button>
-        </div>
+    <DibayDialog open={open} onClose={onClose} dismissible title={resolvedTitle}>
+      <div className="mt-2 flex items-center justify-center gap-0.5 py-2 sm:gap-1">
+        <WheelColumn
+          labels={HOURS}
+          selectedIndex={hourIndex}
+          onChangeIndex={(i) => setH12(i + 1)}
+          widthClass="w-11"
+        />
+        <span className="mb-0.5 self-center px-0.5 sam-text-page-title font-semibold text-sam-fg" aria-hidden>
+          :
+        </span>
+        <WheelColumn
+          labels={MINUTES}
+          selectedIndex={minuteIndex}
+          onChangeIndex={setMinute}
+          widthClass="w-12"
+        />
+        <WheelColumn
+          labels={AMPM_LABELS}
+          selectedIndex={ampmIndex}
+          onChangeIndex={(i) => setPm(i === 1)}
+          widthClass="w-14"
+        />
       </div>
+      <div className={`${OverlayUi.actionsRow} !mt-3`}>
+        <DibayOverlayButton roleTone="primary" onClick={done}>
+          {t("ui_time_picker_done")}
+        </DibayOverlayButton>
       </div>
-    </BodyPortal>
+    </DibayDialog>
   );
 }

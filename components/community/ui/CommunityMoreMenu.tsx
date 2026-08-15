@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -91,8 +92,22 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
       return;
     }
     const nextBlocked = !blocked;
-    if (nextBlocked && !window.confirm(t("community_confirm_block_neighbor"))) return;
-    if (!nextBlocked && !window.confirm(t("community_confirm_unblock_neighbor"))) return;
+    if (nextBlocked) {
+      const ok = await dibayConfirm({
+        title: t("community_confirm_block_neighbor"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    } else {
+      const ok = await dibayConfirm({
+        title: t("community_confirm_unblock_neighbor"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/community/block-relations", {

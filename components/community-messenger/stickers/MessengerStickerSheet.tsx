@@ -6,9 +6,14 @@ import { readRecentStickerUrls } from "@/lib/stickers/recent-stickers-client";
 import { MessengerStickerLazyImage } from "@/components/community-messenger/stickers/MessengerStickerLazyImage";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const RECENT_PACK_ID = "__recent__";
 
+/**
+ * Sticker picker panel — hosted inside CM room sheet shell (already overlay-backed).
+ * Uses OverlayUi tokens; do not wrap DibayBottomSheet (would double-portal).
+ */
 export function MessengerStickerSheet({
   open,
   onClose,
@@ -129,34 +134,39 @@ export function MessengerStickerSheet({
 
   return (
     <div
-      className="flex max-h-[min(52dvh,420px)] min-h-0 w-full flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-[0_-8px_28px_rgba(17,24,39,0.12)]"
+      className="flex max-h-[min(52dvh,420px)] min-h-0 w-full flex-col overflow-hidden rounded-t-[length:var(--overlay-radius-xl)] bg-[color:var(--overlay-surface)]"
       role="dialog"
       aria-modal="true"
       aria-label={t("cm_ui_sticker")}
+      data-dibay-overlay="messenger-sticker-panel"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-3 py-2">
-        <span className="sam-text-body font-semibold text-sam-fg">{t("cm_ui_sticker")}</span>
+      <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-3 py-2">
+        <span className={`${OverlayUi.title} ${OverlayUi.titleSheet} !text-left`}>{t("cm_ui_sticker")}</span>
         <button
           type="button"
-          className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
+          className="rounded-[length:var(--overlay-radius-sm)] px-2 py-1 text-[color:var(--overlay-text-secondary)] hover:bg-[color:var(--overlay-secondary)]"
           onClick={onClose}
         >
           {t("nav_close")}
         </button>
       </div>
-      {packErr ? <p className="px-3 py-2 sam-text-body-secondary text-red-600">{packErr}</p> : null}
+      {packErr ? <p className={`px-3 py-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{packErr}</p> : null}
       {allItemsBroken ? (
-        <p className="px-3 py-2 sam-text-body-secondary text-red-600">{t("cm_ui_sticker_assets_missing")}</p>
+        <p className={`px-3 py-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>
+          {t("cm_ui_sticker_assets_missing")}
+        </p>
       ) : null}
-      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-sam-border-soft px-2 py-2">
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[color:var(--overlay-border)] px-2 py-2">
         {packRow.map((p) => (
           <button
             key={p.id}
             type="button"
             onClick={() => setActivePackId(p.id)}
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition ${
-              activePackId === p.id ? "border-[color:var(--cm-room-primary)] bg-[color:var(--cm-room-primary-soft)]" : "border-transparent bg-sam-surface-muted/70"
+              activePackId === p.id
+                ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)]"
+                : "border-transparent bg-[color:var(--overlay-secondary)]"
             }`}
             aria-label={p.name}
             title={p.name}
@@ -168,9 +178,9 @@ export function MessengerStickerSheet({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
         {itemsBusy ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+          <p className={`py-6 text-center ${OverlayUi.caption}`}>{t("common_loading")}</p>
         ) : !items?.length ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">
+          <p className={`py-6 text-center ${OverlayUi.caption}`}>
             {activePackId === RECENT_PACK_ID ? t("cm_ui_no_recent_stickers") : t("cm_ui_no_stickers")}
           </p>
         ) : allItemsBroken ? null : (

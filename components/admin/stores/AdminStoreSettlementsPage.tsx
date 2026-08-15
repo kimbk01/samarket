@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -657,20 +659,19 @@ export function AdminStoreSettlementsPage() {
       )}
 
       {detailRow ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDetailRow(null);
-          }}
+        <DibayOverlayRoot
+          open
+          onClose={() => setDetailRow(null)}
+          dismissible
+          placement="center"
+          zRole="dialog"
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl"
-            role="dialog"
-            aria-modal="true"
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
             aria-labelledby="settlement-detail-title"
           >
-            <h2 id="settlement-detail-title" className="text-base font-bold text-sam-fg">
+            <h2 id="settlement-detail-title" className={OverlayUi.title}>
               {t("admin_stores_settlements_detail_title")}
             </h2>
             <dl className="mt-3 space-y-2 sam-text-body-secondary">
@@ -728,32 +729,29 @@ export function AdminStoreSettlementsPage() {
                 <dd className="whitespace-pre-wrap break-words">{detailRow.payout_note ?? "—"}</dd>
               </div>
             </dl>
-            <button
-              type="button"
-              className="mt-4 w-full rounded border border-sam-border py-2 text-sm font-medium text-sam-fg"
-              onClick={() => setDetailRow(null)}
-            >
-              {t("common_close")}
-            </button>
+            <div className={`${OverlayUi.actionsStack} mt-4`}>
+              <DibayOverlayButton roleTone="secondary" onClick={() => setDetailRow(null)}>
+                {t("common_close")}
+              </DibayOverlayButton>
+            </div>
           </div>
-        </div>
+        </DibayOverlayRoot>
       ) : null}
 
       {opsRow ? (
-        <div
-          className="fixed inset-0 z-[210] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !busyId) closeOps();
-          }}
+        <DibayOverlayRoot
+          open
+          onClose={busyId ? undefined : closeOps}
+          dismissible={!busyId}
+          placement="center"
+          zRole="nested"
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl"
-            role="dialog"
-            aria-modal="true"
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold text-sam-fg">{t("admin_stores_settlements_payout_modal_title")}</h2>
-            <p className="mt-2 sam-text-helper text-sam-muted">
+            <h2 className={OverlayUi.title}>{t("admin_stores_settlements_payout_modal_title")}</h2>
+            <p className={`mt-2 ${OverlayUi.caption}`}>
               {t("admin_stores_settlements_payout_modal_summary", {
                 store: opsRow.store_name,
                 order: opsRow.order_no || opsRow.order_id.slice(0, 12),
@@ -882,26 +880,21 @@ export function AdminStoreSettlementsPage() {
               </p>
             ) : null}
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={Boolean(busyId)}
-                onClick={() => closeOps()}
-                className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
-              >
+            <div className={`${OverlayUi.actionsRow} mt-4`}>
+              <DibayOverlayButton roleTone="secondary" disabled={Boolean(busyId)} onClick={() => closeOps()}>
                 {t("common_cancel")}
-              </button>
-              <button
-                type="button"
+              </DibayOverlayButton>
+              <DibayOverlayButton
+                roleTone="primary"
                 disabled={Boolean(busyId)}
+                loading={Boolean(busyId)}
                 onClick={() => void submitOps()}
-                className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
                 {t("common_confirm")}
-              </button>
+              </DibayOverlayButton>
             </div>
           </div>
-        </div>
+        </DibayOverlayRoot>
       ) : null}
     </div>
   );

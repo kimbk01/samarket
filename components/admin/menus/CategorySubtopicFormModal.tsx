@@ -10,6 +10,8 @@ import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
 import { validateSlugFormat } from "@/lib/categories/validateSlug";
 import { checkSlugAvailable } from "@/lib/categories/admin/checkSlugAvailable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OVERLAY_Z_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function settingsPayloadFrom(cat: CategoryWithSettings): CreateCategorySettingsPayload {
   const s = cat.settings;
@@ -138,93 +140,83 @@ export function CategorySubtopicFormModal({
     [name, name_en, slug, sort_order, is_active, category, parent, onDone, onClose]
   );
 
+  const formTitle = category ? t("admin_menu_subtopic_form_edit") : t("admin_menu_subtopic_form_add");
+
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
-        onClick={(ev) => ev.stopPropagation()}
-      >
-        <h2 className="mb-1 sam-text-section-title font-semibold text-sam-fg">
-          {category ? t("admin_menu_subtopic_form_edit") : t("admin_menu_subtopic_form_add")}
-        </h2>
-        <p className="mb-4 sam-text-body-secondary text-sam-muted">
-          {t("admin_menu_subtopic_form_parent", { name: parent.name })}
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-3">
+    <DibayDialog
+      open
+      onClose={onClose}
+      dismissible
+      title={formTitle}
+      description={t("admin_menu_subtopic_form_parent", { name: parent.name })}
+      zIndexClass={OVERLAY_Z_CLASS.nested}
+    >
+      <form onSubmit={handleSubmit} className="mt-2 max-h-[min(70vh,520px)] space-y-3 overflow-y-auto">
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_name")}</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+            required
+          />
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">
+            {t("admin_stores_app_taxonomy_ph_name_en")}
+          </label>
+          <input
+            type="text"
+            value={name_en}
+            onChange={(e) => setNameEn(e.target.value)}
+            placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_slug")}</label>
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => {
+              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+              setSlugError(null);
+            }}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+            required
+          />
+          {slugError ? <p className="mt-1 sam-text-helper text-red-600">{slugError}</p> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_name")}</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_sort")}</label>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-              required
+              type="number"
+              value={sort_order}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+              className="mt-1 w-24 rounded border border-sam-border px-2 py-1.5 sam-text-body"
             />
           </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">
-              {t("admin_stores_app_taxonomy_ph_name_en")}
-            </label>
+          <label className="mt-6 flex cursor-pointer items-center gap-2 sam-text-body text-sam-fg">
             <input
-              type="text"
-              value={name_en}
-              onChange={(e) => setNameEn(e.target.value)}
-              placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+              type="checkbox"
+              checked={is_active}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="rounded border-sam-border"
             />
-          </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_slug")}</label>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => {
-                setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-                setSlugError(null);
-              }}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-              required
-            />
-            {slugError ? <p className="mt-1 sam-text-helper text-red-600">{slugError}</p> : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <div>
-              <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_sort")}</label>
-              <input
-                type="number"
-                value={sort_order}
-                onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-                className="mt-1 w-24 rounded border border-sam-border px-2 py-1.5 sam-text-body"
-              />
-            </div>
-            <label className="mt-6 flex cursor-pointer items-center gap-2 sam-text-body text-sam-fg">
-              <input
-                type="checkbox"
-                checked={is_active}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="rounded border-sam-border"
-              />
-              {t("admin_menu_status_active")}
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-            >
-              {t("common_cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
-            >
-              {submitting ? t("admin_menu_saving") : t("common_save")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {t("admin_menu_status_active")}
+          </label>
+        </div>
+        <div className={`${OverlayUi.actionsRow} pt-2`}>
+          <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="primary" type="submit" disabled={submitting} loading={submitting}>
+            {submitting ? t("admin_menu_saving") : t("common_save")}
+          </DibayOverlayButton>
+        </div>
+      </form>
+    </DibayDialog>
   );
 }

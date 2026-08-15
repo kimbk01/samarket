@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { findCommentById, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { fetchPhilifePostCommentTree } from "@/lib/neighborhood/philife-post-comments.client";
@@ -258,7 +259,7 @@ export function usePhilifePostComments(postId: string) {
 
   const deleteComment = useCallback(
     async (commentId: string) => {
-      if (!window.confirm(t("community_confirm_delete_comment"))) return;
+      if (!(await dibayConfirm({ title: t("community_confirm_delete_comment"), confirmTone: "destructive" }))) return;
       setActionBusy(true);
       try {
         const res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE" });

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -357,7 +358,7 @@ export function AdminPostsPageContent() {
   const bulkDeleteCommunity = useCallback(async () => {
     const ids = [...selectedCommunity];
     if (ids.length === 0) return;
-    if (!window.confirm(tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }))) {
+    if (!(await dibayConfirm({ title: tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }), confirmTone: "destructive" }))) {
       return;
     }
     setBulkBusy(true);
@@ -400,7 +401,7 @@ export function AdminPostsPageContent() {
   const bulkDeleteTrade = useCallback(async () => {
     const ids = [...selectedTrade];
     if (ids.length === 0) return;
-    if (!window.confirm(tr("admin_posts_confirm_bulk_delete_trade", { count: ids.length }))) {
+    if (!(await dibayConfirm({ title: tr("admin_posts_confirm_bulk_delete_trade", { count: ids.length }), confirmTone: "destructive" }))) {
       return;
     }
     setBulkBusy(true);

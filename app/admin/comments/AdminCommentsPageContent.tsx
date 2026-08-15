@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -29,7 +30,7 @@ export function AdminCommentsPageContent() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      if (!window.confirm(tr("admin_comments_confirm_delete"))) return;
+      if (!(await dibayConfirm({ title: tr("admin_comments_confirm_delete"), confirmTone: "destructive" }))) return;
       const res = await deleteCommentAdmin(id);
       if (res.ok) load();
     },

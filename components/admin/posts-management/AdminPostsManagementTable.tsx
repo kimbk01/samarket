@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { forwardRef, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
@@ -51,12 +52,10 @@ export const AdminPostsManagementTable = forwardRef<
         : t("admin_posts_mgmt_confirm_force_complete_label");
     const titleSnippet = `${p.title.slice(0, 48)}${p.title.length > 48 ? "…" : ""}`;
     if (
-      !window.confirm(
-        t("admin_posts_mgmt_confirm_trade_override", {
+      !(await dibayConfirm({ title: t("admin_posts_mgmt_confirm_trade_override", {
           title: titleSnippet,
           action: actionLabel,
-        })
-      )
+        }) }))
     ) {
       return;
     }
@@ -69,13 +68,13 @@ export const AdminPostsManagementTable = forwardRef<
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        alert(data.error ?? t("admin_posts_mgmt_action_failed"));
+        await dibayAlert({ title: data.error ?? t("admin_posts_mgmt_action_failed") });
         return;
       }
       setActionRowId(null);
       onActionSuccess?.();
     } catch (e) {
-      alert((e as Error)?.message ?? t("admin_posts_mgmt_action_failed"));
+      await dibayAlert({ title: (e as Error)?.message ?? t("admin_posts_mgmt_action_failed") });
     }
   };
 
@@ -91,13 +90,13 @@ export const AdminPostsManagementTable = forwardRef<
       }
 
       if (!res.ok) {
-        alert(res.error ?? t("admin_posts_mgmt_action_failed"));
+        await dibayAlert({ title: res.error ?? t("admin_posts_mgmt_action_failed") });
         return;
       }
       setActionRowId(null);
       onActionSuccess?.();
     } catch (e) {
-      alert((e as Error)?.message ?? t("admin_posts_mgmt_action_failed"));
+      await dibayAlert({ title: (e as Error)?.message ?? t("admin_posts_mgmt_action_failed") });
     }
   };
 

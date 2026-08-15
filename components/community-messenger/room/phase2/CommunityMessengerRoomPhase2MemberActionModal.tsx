@@ -50,6 +50,8 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function CommunityMessengerRoomPhase2MemberActionModal() {
   const vm = useMessengerRoomPhase2View();
@@ -77,14 +79,14 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
         />
       ) : null}
       {memberActionTarget ? (
-        <div className="fixed inset-0 z-[25] flex items-end justify-center bg-black/30 px-4 pb-6" onClick={() => vm.setMemberActionTarget(null)}>
-          <div
-            className="w-full max-w-[520px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_10px_30px_rgba(17,24,39,0.08)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_member_actions")}</p>
-            <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{memberActionTarget.label}</h2>
-            <p className="mt-1 sam-text-helper text-sam-muted">
+        <DibayBottomSheet
+          open
+          onClose={() => vm.setMemberActionTarget(null)}
+          title={memberActionTarget.label}
+          anchor="above-bottom-nav"
+        >
+            <p className={OverlayUi.caption}>{vm.t("cm_ui_member_actions")}</p>
+            <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
               {memberActionTarget.memberRole === "admin"
                 ? vm.t("nav_messenger_admin")
                 : vm.snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)
@@ -94,40 +96,39 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
             </p>
             {vm.isPrivateGroupRoom ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_change_role")}</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canManageMemberRoles ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
+                <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
+                  <p className={OverlayUi.caption}>{vm.t("cm_ui_change_role")}</p>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.canManageMemberRoles ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_remove")}</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canKickGroupMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
+                <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
+                  <p className={OverlayUi.caption}>{vm.t("cm_ui_remove")}</p>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.canKickGroupMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_delegate_owner")}</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.isOwner ? vm.t("cm_ui_possible") : vm.t("cm_ui_not_possible")}</p>
+                <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
+                  <p className={OverlayUi.caption}>{vm.t("cm_ui_delegate_owner")}</p>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--overlay-text-primary)]">{vm.isOwner ? vm.t("cm_ui_possible") : vm.t("cm_ui_not_possible")}</p>
                 </div>
               </div>
             ) : null}
             <div className="mt-4 grid gap-2">
-              <div className="border-b border-sam-border-soft pb-1 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_conversation")}</div>
+              <div className={`border-b border-[color:var(--overlay-border)] pb-1 font-semibold ${OverlayUi.caption}`}>{vm.t("cm_ui_conversation")}</div>
               <button
                 type="button"
                 onClick={() => void vm.startDirectChatWithMember(memberActionTarget.id)}
                 disabled={vm.busy === `member-chat:${memberActionTarget.id}`}
-                className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
+                className={OverlayUi.actionSheetItem}
               >
                 <div>
-                  <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_start_direct_chat")}</p>
-                  <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_open_separate_chat_with_member")}</p>
+                  <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_start_direct_chat")}</p>
+                  <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_open_separate_chat_with_member")}</p>
                 </div>
-                <span className="sam-text-page-title text-sam-meta">›</span>
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setOutCallKind("voice")}
                   disabled={vm.outgoingDialLocked}
-                  className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:opacity-40"
                 >
                   {vm.t("cm_ui_voice_call")}
                 </button>
@@ -135,7 +136,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   type="button"
                   onClick={() => setOutCallKind("video")}
                   disabled={vm.outgoingDialLocked}
-                  className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                  className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4 text-left text-sm font-semibold text-[color:var(--overlay-text-primary)] disabled:opacity-40"
                 >
                   {vm.t("cm_ui_video_call")}
                 </button>
@@ -147,7 +148,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   vm.snapshot?.room.ownerUserId &&
                   !messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId) &&
                   !(vm.snapshot.myRole !== "owner" && memberActionTarget.memberRole === "admin"))) ? (
-                <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_operations")}</div>
+                <div className={`border-b border-[color:var(--overlay-border)] pb-1 pt-2 font-semibold ${OverlayUi.caption}`}>{vm.t("cm_ui_operations")}</div>
               ) : null}
               {vm.canManageMemberRoles &&
               vm.snapshot?.room.ownerUserId &&
@@ -158,13 +159,12 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                       type="button"
                       onClick={() => void vm.transferGroupOwner(memberActionTarget.id, memberActionTarget.label)}
                       disabled={vm.busy === `group-owner:${memberActionTarget.id}`}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
+                      className={OverlayUi.actionSheetItem}
                     >
                       <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_delegate_owner")}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_change_member_to_new_owner")}</p>
+                        <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_delegate_owner")}</p>
+                        <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_change_member_to_new_owner")}</p>
                       </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
                     </button>
                   ) : null}
                 </>
@@ -176,15 +176,14 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   type="button"
                   onClick={() => void vm.updateGroupMemberRole(memberActionTarget.id, memberActionTarget.memberRole === "admin" ? "member" : "admin")}
                   disabled={vm.busy === `group-role:${memberActionTarget.id}`}
-                  className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
+                  className={OverlayUi.actionSheetItem}
                 >
                   <div>
-                    <p className="sam-text-body font-semibold text-sam-fg">
+                    <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
                       {memberActionTarget.memberRole === "admin" ? vm.t("cm_ui_remove_admin") : vm.t("cm_ui_assign_admin")}
                     </p>
-                    <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_adjust_staff_permissions")}</p>
+                    <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_adjust_staff_permissions")}</p>
                   </div>
-                  <span className="sam-text-page-title text-sam-meta">›</span>
                 </button>
               ) : null}
               {vm.canKickGroupMembers &&
@@ -196,35 +195,33 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                     type="button"
                     onClick={() => void vm.removeGroupMember(memberActionTarget.id, memberActionTarget.label)}
                     disabled={vm.busy === `group-remove:${memberActionTarget.id}`}
-                    className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
+                    className={OverlayUi.actionSheetItemDanger}
                   >
                     <div>
-                      <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_remove_from_group")}</p>
-                      <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_end_current_group_participation")}</p>
+                      <p className="text-sm font-semibold">{vm.t("cm_ui_remove_from_group")}</p>
+                      <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_end_current_group_participation")}</p>
                     </div>
-                    <span className="sam-text-page-title text-red-300">›</span>
                   </button>
                   {vm.isPrivateGroupRoom ? (
                     <button
                       type="button"
                       onClick={() => void vm.banGroupMember(memberActionTarget.id, memberActionTarget.label)}
                       disabled={vm.busy === `group-ban:${memberActionTarget.id}`}
-                      className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
+                      className={OverlayUi.actionSheetItemDanger}
                     >
                       <div>
-                        <p className="sam-text-body font-semibold text-red-700">
+                        <p className="text-sm font-semibold">
                           {vm.t("cm_ui_ban_from_group")}
                         </p>
-                        <p className="mt-1 sam-text-helper text-red-600/80">
+                        <p className={`mt-1 ${OverlayUi.caption}`}>
                           {vm.t("cm_ui_ban_from_group_desc")}
                         </p>
                       </div>
-                      <span className="sam-text-page-title text-red-300">›</span>
                     </button>
                   ) : null}
                 </>
               ) : null}
-              <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_protection")}</div>
+              <div className={`border-b border-[color:var(--overlay-border)] pb-1 pt-2 font-semibold ${OverlayUi.caption}`}>{vm.t("cm_ui_protection")}</div>
               <button
                 type="button"
                 onClick={() =>
@@ -233,17 +230,15 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                     reportedUserId: memberActionTarget.id,
                   })
                 }
-                className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left"
+                className={OverlayUi.actionSheetItemDanger}
               >
                 <div>
-                  <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_report_user")}</p>
-                  <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_report_problematic_user")}</p>
+                  <p className="text-sm font-semibold">{vm.t("cm_ui_report_user")}</p>
+                  <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_report_problematic_user")}</p>
                 </div>
-                <span className="sam-text-page-title text-red-300">›</span>
               </button>
             </div>
-          </div>
-        </div>
+        </DibayBottomSheet>
       ) : null}
     </>
   );

@@ -21,7 +21,7 @@ function read(rel: string) {
 
 describe("DIBAY Overlay SSOT contract", () => {
   it("locks attachment primary / danger / backdrop colors", () => {
-    expect(OVERLAY_COLOR.primary).toBe("#0B5C3F");
+    expect(OVERLAY_COLOR.primary).toBe("#085C3F");
     expect(OVERLAY_COLOR.primaryDark).toBe("#084732");
     expect(OVERLAY_COLOR.danger).toBe("#E53935");
     expect(OVERLAY_COLOR.backdrop).toBe("rgba(0, 0, 0, 0.5)");
@@ -38,7 +38,7 @@ describe("DIBAY Overlay SSOT contract", () => {
 
   it("CSS tokens match attachment SSOT", () => {
     const css = read("app/dibay-overlay.css");
-    expect(css).toContain("--overlay-primary: #0b5c3f");
+    expect(css).toContain("--overlay-primary: #085c3f");
     expect(css).toContain("--overlay-backdrop: rgba(0, 0, 0, 0.5)");
     expect(css).toContain("--overlay-backdrop-blur: 4px");
     expect(css).toContain("--overlay-press-scale: 0.98");
@@ -85,5 +85,16 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(OverlayUi.btn.secondary).toContain("dibay-overlay-btn--secondary");
     expect(OverlayUi.btn.destructive).toContain("dibay-overlay-btn--destructive");
     expect(OverlayUi.btn.text).toContain("dibay-overlay-btn--text");
+  });
+
+  it("prompt dialog is part of app dialog host", () => {
+    const provider = read("components/ui/dibay-overlay/DibayAppDialogProvider.tsx");
+    const prompt = read("components/ui/dibay-overlay/DibayPromptDialog.tsx");
+    expect(provider).toContain("dibayPrompt");
+    expect(provider).toContain("DibayPromptDialog");
+    expect(prompt).toContain("OverlayUi.input");
+    expect(OverlayUi.input).toContain("dibay-overlay-input");
+    const css = read("app/dibay-overlay.css");
+    expect(css).toContain(".dibay-overlay-input");
   });
 });

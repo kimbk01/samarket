@@ -9,6 +9,8 @@ import {
   ADMIN_BOARD_SKIN_TYPES,
   normalizeBoardSlug,
 } from "@/lib/admin-boards/parse-create-board-body";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const BOARD_CREATE_ERROR_KEYS: Record<string, MessageKey> = {
   duplicate_slug: "admin_board_err_duplicate_slug",
@@ -146,28 +148,25 @@ export function AdminBoardCreateForm({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <DibayOverlayRoot open={open} onClose={onClose} dismissible placement="center" zRole="dialog">
       <div
-        role="dialog"
-        aria-modal="true"
+        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto !p-0`}
+        onClick={(e) => e.stopPropagation()}
         aria-labelledby="admin-board-create-title"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-xl"
       >
-        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 id="admin-board-create-title" className="sam-text-body-lg font-semibold text-sam-fg">
+        <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3">
+          <h2 id="admin-board-create-title" className={OverlayUi.title}>
             {t("admin_board_create_title")}
           </h2>
-          <button
-            type="button"
+          <DibayOverlayButton
+            roleTone="text"
             onClick={onClose}
-            className="rounded-ui-rect px-2 py-1 sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
+            className="!min-h-9 !w-9 !flex-none !p-0"
             aria-label={t("admin_board_close_aria")}
           >
             ×
-          </button>
+          </DibayOverlayButton>
         </div>
 
         <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4 sam-text-body">
@@ -286,24 +285,21 @@ export function AdminBoardCreateForm({
 
           {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{error}</p> : null}
 
-          <div className="flex justify-end gap-2 border-t border-sam-border-soft pt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-            >
+          <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-3`}>
+            <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
               {t("common_cancel")}
-            </button>
-            <button
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
               type="submit"
               disabled={submitting || loadingSvc || services.length === 0}
-              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+              loading={submitting}
             >
               {submitting ? t("admin_board_saving") : t("admin_board_submit_add")}
-            </button>
+            </DibayOverlayButton>
           </div>
         </form>
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }

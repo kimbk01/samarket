@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -79,7 +80,8 @@ export function AdminStoreProductsPage() {
   const run = async (id: string, action: string) => {
     const memo =
       action === "block" || action === "hide"
-        ? window.prompt(t("admin_stores_prompt_memo_optional"), "")?.trim() || null
+        ? (await dibayPrompt({ title: t("admin_stores_prompt_memo_optional"), defaultValue: "" }))?.trim() ||
+          null
         : null;
     setBusyId(id);
     setError(null);

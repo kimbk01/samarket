@@ -10,7 +10,6 @@ import {
 } from "@/lib/stores/use-store-commerce-cart-selector";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import {
   STORE_COMMERCE_ACTION_CAPTION_CLASS,
   STORE_COMMERCE_ACTION_PRICE_HERO_CLASS,
@@ -19,6 +18,7 @@ import {
   storeCommerceActionSideCtaClass,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 
 export function StoreCartPreviewSheet({
   open,
@@ -68,73 +68,55 @@ export function StoreCartPreviewSheet({
     [commerceCart]
   );
 
-  if (!open) return null;
-
   const cartHref = `/stores/${encodeURIComponent(storeSlug)}/cart`;
   const hasLines = lines.length > 0;
 
   return (
-    <div className="fixed inset-0 z-[110]" role="dialog" aria-modal aria-labelledby="store-cart-preview-title">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45 transition-opacity duration-[220ms]"
-        aria-label={t("common_close")}
-        onClick={onClose}
-      />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[18dvh] flex justify-center p-0 sm:p-3">
-        <div
-          className={`pointer-events-auto flex h-full w-full min-w-0 flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl transition-transform duration-[220ms] ease-out ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
-        >
-          <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
-            <span className="h-1 w-10 rounded-full bg-neutral-300" aria-hidden />
-            <h2 id="store-cart-preview-title" className="mt-2 px-4 text-center text-[16px] font-bold text-neutral-900">
-              {t("store_cart_page_title")}
-            </h2>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 [-webkit-overflow-scrolling:touch]">
-            {lines.length === 0 ? (
-              <p className="py-10 text-center text-[14px] text-neutral-500">{t("store_cart_preview_empty")}</p>
-            ) : (
-              <ul className="divide-y divide-neutral-100 pb-2">
-                {lines.map((ln) => (
-                  <StoreCartPreviewLineRow
-                    key={ln.lineId}
-                    line={ln}
-                    hydrated={hydrated}
-                    onDecrease={() => handleDecrease(ln)}
-                    onIncrease={() => handleIncrease(ln)}
-                    onRemove={() => handleRemove(ln.lineId)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="store-commerce-action-plane shrink-0 border-t border-[rgba(15,23,42,0.14)]">
-            <div className={storeCommerceActionRowClass("menu-cart-idle")}>
-              <div className="min-w-0 flex-1 py-0.5">
-                <p className={STORE_COMMERCE_ACTION_CAPTION_CLASS}>{t("store_cart_total")}</p>
-                <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}`}>
-                  {formatMoneyPhp(subtotal)}
-                </p>
-              </div>
-              <Link
-                href={cartHref}
-                className={storeCommerceActionSideCtaClass(!hasLines)}
-                aria-disabled={!hasLines}
-                onClick={(e) => {
-                  if (!hasLines) e.preventDefault();
-                }}
-              >
-                <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-                  {t("store_cart_view")}
-                </span>
-              </Link>
+    <DibayBottomSheet
+      open={open}
+      onClose={onClose}
+      title={t("store_cart_page_title")}
+      anchor="above-bottom-nav"
+      panelClassName="!max-h-[min(82dvh,640px)]"
+      footer={
+        <div className="store-commerce-action-plane mt-2 border-t border-[color:var(--overlay-border)]">
+          <div className={storeCommerceActionRowClass("menu-cart-idle")}>
+            <div className="min-w-0 flex-1 py-0.5">
+              <p className={STORE_COMMERCE_ACTION_CAPTION_CLASS}>{t("store_cart_total")}</p>
+              <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}`}>{formatMoneyPhp(subtotal)}</p>
             </div>
+            <Link
+              href={cartHref}
+              className={storeCommerceActionSideCtaClass(!hasLines)}
+              aria-disabled={!hasLines}
+              onClick={(e) => {
+                if (!hasLines) e.preventDefault();
+              }}
+            >
+              <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>{t("store_cart_view")}</span>
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+      }
+    >
+      {lines.length === 0 ? (
+        <p className="py-10 text-center text-sm text-[color:var(--overlay-text-secondary)]">
+          {t("store_cart_preview_empty")}
+        </p>
+      ) : (
+        <ul className="divide-y divide-[color:var(--overlay-border)] pb-2">
+          {lines.map((ln) => (
+            <StoreCartPreviewLineRow
+              key={ln.lineId}
+              line={ln}
+              hydrated={hydrated}
+              onDecrease={() => handleDecrease(ln)}
+              onIncrease={() => handleIncrease(ln)}
+              onRemove={() => handleRemove(ln.lineId)}
+            />
+          ))}
+        </ul>
+      )}
+    </DibayBottomSheet>
   );
 }

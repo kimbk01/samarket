@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/require-auth-action";
 
 export function LoginRequiredSheet() {
+  /** Host only — AuthModal → AuthGateOverlay (Dibay Overlay SSOT). */
   const pathname = usePathname();
   const [detail, setDetail] = useState<LoginRequiredDetail | null>(null);
   const prevPathnameRef = useRef<string | null>(null);

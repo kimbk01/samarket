@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useEffect, useMemo, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
@@ -241,11 +242,15 @@ export function TradeFlowBanner({
               disabled={!!loading || listingSaving}
               onPickListing={(next) => void onPersistListing(next)}
               onCompleteTrade={() => {
-                if (typeof window !== "undefined") {
-                  const ok = window.confirm(t("trade_flow_seller_complete_confirm"));
+                void (async () => {
+                  const ok = await dibayConfirm({
+                    title: t("trade_flow_seller_complete_confirm"),
+                    cancelLabel: t("common_cancel"),
+                    confirmLabel: t("common_confirm"),
+                  });
                   if (!ok) return;
-                }
-                void post(`${base}/seller-complete`, {});
+                  void post(`${base}/seller-complete`, {});
+                })();
               }}
             />
             {compact && diagramExpanded ? (

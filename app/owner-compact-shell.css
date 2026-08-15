@@ -157,7 +157,10 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   max-width: 100%;
   min-height: 100dvh;
   min-height: 100svh;
-  background: rgb(0 0 0 / 0.45);
+  /* Overlay SSOT backdrop token — side drawer geometry remains owner-ops. */
+  background: var(--overlay-backdrop);
+  -webkit-backdrop-filter: blur(var(--overlay-backdrop-blur));
+  backdrop-filter: blur(var(--overlay-backdrop-blur));
   transition: opacity 270ms ease-out;
   touch-action: none;
   overscroll-behavior: none;

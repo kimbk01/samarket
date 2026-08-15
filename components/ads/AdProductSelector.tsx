@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import type { AdProduct, AdPaymentMethod } from "@/lib/ads/types";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface AdProductSelectorProps {
   boardKey?: string;
@@ -87,46 +89,30 @@ export function AdProductSelector({
   };
 
   return (
-    /* 모달 오버레이 */
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <DibayBottomSheet
+      open
+      onClose={onClose}
+      title={safeT("community_top_fix_apply_title", {
+        fallbackKo: "상단에 올리기",
+        fallbackEn: "Pin to top",
+      })}
+      anchor="above-bottom-nav"
     >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
-        {/* 헤더 */}
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="sam-text-section-title font-bold text-sam-fg">
-            {safeT("community_top_fix_apply_title", {
-              fallbackKo: "상단에 올리기",
-              fallbackEn: "Pin to top",
-            })}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="sam-text-body-secondary text-sam-muted hover:text-sam-fg"
-          >
-            닫기
-          </button>
-        </div>
-
-        <p className="mb-3 truncate sam-text-body-secondary text-sam-muted">
-          {t("ui_ad_post_label")} <span className="font-medium text-sam-fg">{postTitle}</span>
+        <p className={`mb-3 truncate ${OverlayUi.bodySecondary}`}>
+          {t("ui_ad_post_label")} <span className="font-medium text-[color:var(--overlay-text-primary)]">{postTitle}</span>
         </p>
 
         {/* 포인트 잔액 */}
-        <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-3 py-2.5 sam-text-body-secondary">
+        <div className="mb-4 flex items-center justify-between rounded-[length:var(--overlay-radius-md)] bg-sky-50 px-3 py-2.5">
           <span className="text-sky-800">{t("ui_ad_my_points")}</span>
           <span className="font-bold text-sky-900">{userPointBalance.toLocaleString()}P</span>
         </div>
 
         {/* 상품 목록 */}
         {loading ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+          <p className={`py-6 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
         ) : products.length === 0 ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("ui_ad_no_board_products")}</p>
+          <p className={`py-6 text-center ${OverlayUi.bodySecondary}`}>{t("ui_ad_no_board_products")}</p>
         ) : (
           <div className="mb-4 space-y-2">
             {products.map((p) => {
@@ -137,28 +123,28 @@ export function AdProductSelector({
                   key={p.id}
                   type="button"
                   onClick={() => setSelected(p)}
-                  className={`w-full rounded-ui-rect border px-3 py-3 text-left transition-colors ${
+                  className={`w-full rounded-[length:var(--overlay-radius-md)] border px-3 py-3 text-left transition-colors ${
                     isSelected
                       ? "border-emerald-400 bg-emerald-50"
-                      : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                      : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="sam-text-body font-semibold text-sam-fg">{p.name}</p>
-                      <p className="mt-0.5 sam-text-helper text-sam-muted">
+                      <p className="font-semibold text-[color:var(--overlay-text-primary)]">{p.name}</p>
+                      <p className={`mt-0.5 ${OverlayUi.caption}`}>
                         {postAdTypeLabel(t, p.adType)} · {t("philife_write_ad_duration_days", { days: p.durationDays })}
                       </p>
                       {p.description ? (
-                        <p className="mt-0.5 sam-text-helper text-sam-muted">{p.description}</p>
+                        <p className={`mt-0.5 ${OverlayUi.caption}`}>{p.description}</p>
                       ) : null}
                     </div>
                     <div className="text-right">
-                      <p className="sam-text-body font-bold text-sam-fg">{p.pointCost.toLocaleString()}P</p>
+                      <p className="font-bold text-[color:var(--overlay-text-primary)]">{p.pointCost.toLocaleString()}P</p>
                       {lacking > 0 ? (
-                        <p className="sam-text-xxs text-red-500">{t("ui_ad_points_short", { amount: lacking.toLocaleString() })}</p>
+                        <p className={`${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{t("ui_ad_points_short", { amount: lacking.toLocaleString() })}</p>
                       ) : (
-                        <p className="sam-text-xxs text-emerald-600">{t("ui_ad_points_available")}</p>
+                        <p className={`${OverlayUi.caption} text-emerald-600`}>{t("ui_ad_points_available")}</p>
                       )}
                     </div>
                   </div>
@@ -171,17 +157,17 @@ export function AdProductSelector({
         {/* 결제 방법 선택 (포인트 vs 입금) */}
         {selected !== null && (
           <div className="mb-4">
-            <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("philife_write_payment_method")}</p>
+            <p className="mb-2 font-semibold text-[color:var(--overlay-text-primary)]">{t("philife_write_payment_method")}</p>
             <div className="flex gap-2">
               {(["points", "bank_transfer"] as AdPaymentMethod[]).map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setPaymentMethod(m)}
-                  className={`flex-1 rounded-ui-rect border py-2 sam-text-body-secondary font-medium ${
+                  className={`flex-1 rounded-[length:var(--overlay-radius-md)] border py-2 font-medium ${
                     paymentMethod === m
                       ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                      : "border-sam-border bg-sam-surface text-sam-fg"
+                      : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)]"
                   }`}
                 >
                   {m === "points" ? t("ui_ad_payment_points") : t("ui_ad_payment_bank")}
@@ -191,7 +177,7 @@ export function AdProductSelector({
 
             {/* 포인트 방식: 부족 시 안내 */}
             {paymentMethod === "points" && shortfall > 0 && (
-              <div className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2.5 sam-text-helper text-red-700">
+              <div className="mt-2 rounded-[length:var(--overlay-radius-md)] bg-red-50 px-3 py-2.5 text-[color:var(--overlay-danger)]">
                 <p className="font-semibold">{t("ui_ad_points_short_title", { amount: shortfall.toLocaleString() })}</p>
                 <p className="mt-1">{t("ui_ad_points_short_hint")}</p>
               </div>
@@ -205,16 +191,16 @@ export function AdProductSelector({
                   value={depositorName}
                   onChange={(e) => setDepositorName(e.target.value)}
                   placeholder={t("ui_ad_depositor_required_ph")}
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+                  className={OverlayUi.input}
                 />
                 <input
                   type="text"
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
                   placeholder={t("ui_ad_memo_optional_ph")}
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+                  className={OverlayUi.input}
                 />
-                <div className="rounded-ui-rect bg-sky-50 px-3 py-2 sam-text-helper text-sky-800">
+                <div className="rounded-[length:var(--overlay-radius-md)] bg-sky-50 px-3 py-2 text-sky-800">
                   <p className="font-semibold">{t("ui_ad_deposit_guide_title")}</p>
                   <p>{t("ui_ad_deposit_guide_body")}</p>
                 </div>
@@ -223,21 +209,22 @@ export function AdProductSelector({
           </div>
         )}
 
-        {err ? <p className="mb-3 sam-text-helper text-red-600">{err}</p> : null}
+        {err ? <p className={`mb-3 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{err}</p> : null}
 
-        <button
+        <DibayOverlayButton
+          roleTone="primary"
           type="button"
           onClick={() => void submit()}
           disabled={!canSubmit || submitting}
-          className="w-full rounded-ui-rect bg-emerald-600 py-3.5 sam-text-body font-bold text-white shadow-md disabled:opacity-40"
+          loading={submitting}
+          className="w-full"
         >
           {submitting
             ? t("community_meeting_join_processing")
             : paymentMethod === "bank_transfer"
               ? t("ui_ad_submit_bank")
               : t("ui_ad_submit_points")}
-        </button>
-      </div>
-    </div>
+        </DibayOverlayButton>
+    </DibayBottomSheet>
   );
 }

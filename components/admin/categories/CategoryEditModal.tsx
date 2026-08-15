@@ -8,6 +8,8 @@ import {
   adminPostTypeLabelKey,
 } from "@/lib/admin/categories/admin-category-label-keys";
 import { POST_TYPE_OPTIONS } from "@/lib/types/category";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface CategoryEditModalProps {
   category?: CategoryWithSettings | null;
@@ -65,108 +67,101 @@ export function CategoryEditModal({
   );
 
   const isCreate = !category;
+  const formTitle = isCreate ? t("admin_cat_form_add") : t("admin_cat_form_edit");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-4 sam-text-section-title font-semibold text-sam-fg">
-          {isCreate ? t("admin_cat_form_add") : t("admin_cat_form_edit")}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_name_short")}</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-              required
-            />
-          </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">slug *</label>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-              required
-            />
-          </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_icon_key")}</label>
-            <input
-              type="text"
-              value={icon_key}
-              onChange={(e) => setIconKey(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-            />
-          </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_type")}</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as CategoryType)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-            >
-              {(["trade", "service", "community", "feature"] as const).map((typ) => (
-                <option key={typ} value={typ}>
-                  {t(adminCategoryTypeLabelKey(typ))}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_desc")}</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-            />
-          </div>
-          <div className="border-t border-sam-border-soft pt-4">
-            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_features_toggle")}</p>
-            <div className="space-y-2">
-              <LabelCheck checked={can_write} onChange={setCanWrite} label={t("admin_cat_feat_write_alt")} />
-              <LabelCheck checked={has_price} onChange={setHasPrice} label={t("admin_cat_feat_price")} />
-              <LabelCheck checked={has_chat} onChange={setHasChat} label={t("admin_cat_feat_chat")} />
-              <LabelCheck checked={has_location} onChange={setHasLocation} label={t("admin_cat_feat_location")} />
-              <div>
-                <label className="block sam-text-helper text-sam-muted">post_type</label>
-                <select
-                  value={post_type}
-                  onChange={(e) => setPostType(e.target.value)}
-                  className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                >
-                  {POST_TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {t(adminPostTypeLabelKey(o.value))}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    <DibayDialog open onClose={onClose} dismissible title={formTitle}>
+      <form onSubmit={handleSubmit} className="mt-2 max-h-[min(70vh,520px)] space-y-4 overflow-y-auto">
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_name_short")}</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+            required
+          />
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">slug *</label>
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+            required
+          />
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_icon_key")}</label>
+          <input
+            type="text"
+            value={icon_key}
+            onChange={(e) => setIconKey(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_type")}</label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as CategoryType)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+          >
+            {(["trade", "service", "community", "feature"] as const).map((typ) => (
+              <option key={typ} value={typ}>
+                {t(adminCategoryTypeLabelKey(typ))}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_desc")}</label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+          />
+        </div>
+        <div className="border-t border-sam-border-soft pt-4">
+          <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_features_toggle")}</p>
+          <div className="space-y-2">
+            <LabelCheck checked={can_write} onChange={setCanWrite} label={t("admin_cat_feat_write_alt")} />
+            <LabelCheck checked={has_price} onChange={setHasPrice} label={t("admin_cat_feat_price")} />
+            <LabelCheck checked={has_chat} onChange={setHasChat} label={t("admin_cat_feat_chat")} />
+            <LabelCheck checked={has_location} onChange={setHasLocation} label={t("admin_cat_feat_location")} />
+            <div>
+              <label className="block sam-text-helper text-sam-muted">post_type</label>
+              <select
+                value={post_type}
+                onChange={(e) => setPostType(e.target.value)}
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+              >
+                {POST_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {t(adminPostTypeLabelKey(o.value))}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-4">
-            <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white">
-              {t("common_save")}
-            </button>
-            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg">
-              {t("common_cancel")}
-            </button>
-            {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body text-red-700">
-                {t("admin_cat_delete")}
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+        <div className={`${OverlayUi.actionsRow} flex-wrap pt-4`}>
+          <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          {!isCreate && onDelete ? (
+            <DibayOverlayButton roleTone="destructive" type="button" onClick={onDelete}>
+              {t("admin_cat_delete")}
+            </DibayOverlayButton>
+          ) : null}
+          <DibayOverlayButton roleTone="primary" type="submit">
+            {t("common_save")}
+          </DibayOverlayButton>
+        </div>
+      </form>
+    </DibayDialog>
   );
 }
 

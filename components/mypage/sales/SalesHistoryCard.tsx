@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -87,11 +88,15 @@ export function SalesHistoryCard({
 
   const persistListing = async (next: SellerListingState) => {
     const label = SELLER_LISTING_LABEL[next];
-    if (typeof window !== "undefined" && !window.confirm(t("mypage_comp_sales_listing_change_confirm", { label }))) {
+    if (!(await dibayConfirm({
+      title: t("mypage_comp_sales_listing_change_confirm", { label }),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_confirm"),
+    }))) {
       return;
     }
     if (next === "reserved" && !row.buyerId?.trim()) {
-      window.alert(t("mypage_comp_product_reserve_inquiry_only"));
+      await dibayAlert({ title: t("mypage_comp_product_reserve_inquiry_only") });
       return;
     }
     setActionBusy("listing");
@@ -109,7 +114,7 @@ export function SalesHistoryCard({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) onReload();
-      else if (data.error) window.alert(data.error);
+      else if (data.error) await dibayAlert({ title: data.error });
     } catch {
       /* ignore */
     } finally {
@@ -119,7 +124,12 @@ export function SalesHistoryCard({
   };
 
   const runCancelSale = async () => {
-    if (typeof window !== "undefined" && !window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) {
+    if (!(await dibayConfirm({
+      title: SELLER_CANCEL_SALE_CONFIRM_MESSAGE,
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("mypage_comp_product_cancel_sale"),
+      confirmTone: "destructive",
+    }))) {
       return;
     }
     setActionBusy("cancel");
@@ -132,7 +142,7 @@ export function SalesHistoryCard({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) onReload();
-      else if (data.error) window.alert(data.error);
+      else if (data.error) await dibayAlert({ title: data.error });
     } catch {
       /* ignore */
     } finally {
@@ -143,7 +153,11 @@ export function SalesHistoryCard({
 
   const runSellerComplete = async () => {
     if (!hasChat) return;
-    if (typeof window !== "undefined" && !window.confirm(t("mypage_comp_sales_complete_confirm"))) {
+    if (!(await dibayConfirm({
+      title: t("mypage_comp_sales_complete_confirm"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_confirm"),
+    }))) {
       return;
     }
     setActionBusy("complete");
@@ -155,7 +169,7 @@ export function SalesHistoryCard({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) onReload();
-      else if (data.error) window.alert(data.error);
+      else if (data.error) await dibayAlert({ title: data.error });
     } catch {
       /* ignore */
     } finally {
@@ -392,20 +406,16 @@ export function SalesHistoryCard({
       ) : null}
 
       {reportOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface">
-            <ReportActionSheet
-              targetType="user"
-              targetId={row.buyerId}
-              targetUserId={row.buyerId}
-              targetLabel={row.buyerNickname}
-              roomId={row.chatId}
-              productId={row.postId}
-              onClose={() => setReportOpen(false)}
-              onSuccess={() => setReportOpen(false)}
-            />
-          </div>
-        </div>
+        <ReportActionSheet
+          targetType="user"
+          targetId={row.buyerId}
+          targetUserId={row.buyerId}
+          targetLabel={row.buyerNickname}
+          roomId={row.chatId}
+          productId={row.postId}
+          onClose={() => setReportOpen(false)}
+          onSuccess={() => setReportOpen(false)}
+        />
       ) : null}
     </li>
   );

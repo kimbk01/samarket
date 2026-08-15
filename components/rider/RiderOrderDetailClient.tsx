@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -255,8 +256,8 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
             <button
               type="button"
               className={Sam.btn.secondary}
-              onClick={() => {
-                const reason = window.prompt(t("ui_rider_decline_reason_prompt")) ?? "";
+              onClick={async () => {
+                const reason = (await dibayPrompt({ title: t("ui_rider_decline_reason_prompt") })) ?? "";
                 void patchOrder({ action: "decline", reason: reason.trim() || undefined });
               }}
             >

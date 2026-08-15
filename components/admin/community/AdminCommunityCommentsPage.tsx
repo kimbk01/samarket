@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -121,7 +122,7 @@ export function AdminCommunityCommentsPage() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? tr("admin_topics_err_save"));
+        await dibayAlert({ title: j.error ?? tr("admin_topics_err_save") });
         return;
       }
       await load();

@@ -24,6 +24,8 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const ACCOUNT_TYPE_OPTIONS: {
   value: "development_member" | "operations_member";
@@ -244,11 +246,14 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
-        <div className="border-b border-sam-border px-5 py-4">
-          <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_create_member_title")}</h2>
-          <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_users_form_create_member_subtitle")}</p>
+    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="dialog">
+      <div
+        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto !p-0`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-[color:var(--overlay-border)] px-5 py-4">
+          <h2 className={OverlayUi.title}>{t("admin_users_form_create_member_title")}</h2>
+          <p className={`mt-1 ${OverlayUi.caption}`}>{t("admin_users_form_create_member_subtitle")}</p>
         </div>
         {createdLoginId ? (
           <div className="space-y-4 p-5">
@@ -256,20 +261,16 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               {t("admin_users_created_success", { loginId: createdLoginId })}{" "}
               <code className="rounded bg-sam-surface-muted px-1">{createdLoginEmail}</code>
             </p>
-            <div className="flex flex-wrap gap-2 border-t border-sam-border pt-4">
+            <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-4`}>
               <Link
                 href="/login"
-                className="rounded bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
+                className="dibay-overlay-btn dibay-overlay-btn--primary"
               >
                 {t("admin_users_go_login")}
               </Link>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-              >
+              <DibayOverlayButton roleTone="secondary" onClick={onClose}>
                 {t("common_close")}
-              </button>
+              </DibayOverlayButton>
             </div>
           </div>
         ) : (
@@ -438,26 +439,18 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 {formError ?? resolvedFieldMessages.form}
               </p>
             ) : null}
-            <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-              >
+            <div className={`${OverlayUi.actionsRow} border-t border-[color:var(--overlay-border)] pt-4`}>
+              <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
                 {t("common_cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
-              >
+              </DibayOverlayButton>
+              <DibayOverlayButton roleTone="primary" type="submit" disabled={submitting} loading={submitting}>
                 {submitting ? t("admin_users_creating") : t("admin_users_add")}
-              </button>
+              </DibayOverlayButton>
             </div>
           </form>
         )}
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }
 

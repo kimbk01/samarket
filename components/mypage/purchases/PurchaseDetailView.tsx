@@ -307,20 +307,16 @@ export function PurchaseDetailView({
       ) : null}
 
       {reportOpen ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface">
-            <ReportActionSheet
-              targetType="user"
-              targetId={row.sellerId}
-              targetUserId={row.sellerId}
-              targetLabel={row.sellerNickname}
-              roomId={row.chatId}
-              productId={row.postId}
-              onClose={() => setReportOpen(false)}
-              onSuccess={() => setReportOpen(false)}
-            />
-          </div>
-        </div>
+        <ReportActionSheet
+          targetType="user"
+          targetId={row.sellerId}
+          targetUserId={row.sellerId}
+          targetLabel={row.sellerNickname}
+          roomId={row.chatId}
+          productId={row.postId}
+          onClose={() => setReportOpen(false)}
+          onSuccess={() => setReportOpen(false)}
+        />
       ) : null}
     </div>
   );

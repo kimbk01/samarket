@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
@@ -877,10 +878,11 @@ export function PhilifeNeighborhoodWriteForm({
       }
 
       if (promoFailed) {
-        window.alert(
-          t("philife_write_promo_failed") ||
-            "게시물은 등록됐지만 상위 노출 결제에 실패했습니다. 글 상세에서 다시 홍보해 주세요."
-        );
+        await dibayAlert({
+          title:
+            t("philife_write_promo_failed") ||
+            "게시물은 등록됐지만 상위 노출 결제에 실패했습니다. 글 상세에서 다시 홍보해 주세요.",
+        });
       }
 
       /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
@@ -973,7 +975,12 @@ export function PhilifeNeighborhoodWriteForm({
   const handleSheetCancel = useCallback(async () => {
     if (!onSheetClose) return;
     if (sheetHasDraft()) {
-      if (!window.confirm(t("philife_write_discard_confirm"))) return;
+      if (!(await dibayConfirm({
+        title: t("philife_write_discard_confirm"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      }))) return;
     }
     try {
       await Promise.resolve(onSheetClose());
@@ -982,9 +989,14 @@ export function PhilifeNeighborhoodWriteForm({
     }
   }, [onSheetClose, sheetHasDraft, t]);
 
-  const handlePageCancel = useCallback(() => {
+  const handlePageCancel = useCallback(async () => {
     if (sheetHasDraft()) {
-      if (!window.confirm(t("philife_write_discard_confirm"))) return;
+      if (!(await dibayConfirm({
+        title: t("philife_write_discard_confirm"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      }))) return;
     }
     router.push(philifeAppPaths.home);
   }, [router, sheetHasDraft, t]);

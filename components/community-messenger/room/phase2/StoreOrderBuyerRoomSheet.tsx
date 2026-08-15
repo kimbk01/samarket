@@ -35,6 +35,7 @@ import {
   STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS,
   STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS,
 } from "@/lib/store-order-chat/store-order-delivery-detail-drawer-layout";
+import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 
 export type StoreOrderBuyerRoomSheetVariant = "bottom_sheet" | "peek";
 
@@ -149,15 +150,21 @@ export function StoreOrderBuyerRoomSheet({
   return createPortal(
     <>
       <div
-        role="presentation"
-        className={`fixed inset-0 z-[260] bg-black/40 ${
-          peekDrawer
-            ? STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS
-            : "transition-opacity duration-300 ease-out"
-        } ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
-        onClick={() => onOpenChange(false)}
+        className={`fixed inset-0 ${OVERLAY_Z_CLASS.sheet} ${open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!open}
-      />
+      >
+        <button
+          type="button"
+          className={`${OverlayUi.backdrop} ${
+            peekDrawer
+              ? STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS
+              : "transition-opacity duration-300 ease-out"
+          } ${open ? "!opacity-100" : "!opacity-0"}`}
+          onClick={() => onOpenChange(false)}
+          aria-label={t("common_close")}
+          tabIndex={open ? 0 : -1}
+        />
+      </div>
       <BuyerOrderDrawerShell
         t={t}
         open={open}
@@ -219,10 +226,10 @@ function BuyerOrderDrawerShell({
     <div
       className={
         peekDrawer
-          ? `fixed top-0 right-0 z-[270] flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
+          ? `fixed top-0 right-0 ${OVERLAY_Z_CLASS.nested} flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
               open ? "translate-x-0" : "pointer-events-none translate-x-full"
             }`
-          : `delivery-ui fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
+          : `delivery-ui fixed inset-x-0 bottom-0 ${OVERLAY_Z_CLASS.nested} mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
               open
                 ? "translate-y-0 sm:translate-x-0"
                 : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"

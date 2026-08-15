@@ -4,7 +4,7 @@
  */
 
 :root {
-  --overlay-primary: #0b5c3f;
+  --overlay-primary: #085c3f;
   --overlay-primary-dark: #084732;
   --overlay-secondary: #f5f7f6;
   --overlay-text-primary: #111111;
@@ -200,6 +200,32 @@
   font-size: var(--overlay-caption-size);
   font-weight: var(--overlay-caption-weight);
   line-height: var(--overlay-caption-lh);
+}
+
+.dibay-overlay-input {
+  display: block;
+  width: 100%;
+  margin-top: var(--overlay-space-3);
+  min-height: var(--overlay-btn-height);
+  padding: 0 var(--overlay-space-3);
+  border-radius: var(--overlay-radius-md);
+  border: 1px solid var(--overlay-border);
+  background: var(--overlay-surface);
+  color: var(--overlay-text-primary);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  outline: none;
+}
+
+.dibay-overlay-input:focus-visible {
+  border-color: var(--overlay-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--overlay-primary) 28%, transparent);
+}
+
+.dibay-overlay-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .dibay-overlay-actions {

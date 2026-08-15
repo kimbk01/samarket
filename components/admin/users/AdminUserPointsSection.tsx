@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { PointChargeBadge } from "@/components/points/PointChargeBadge";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { PointChargeRequest } from "@/lib/types/point";
 import type {
   PointFinancialFilter,
@@ -344,10 +346,12 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       )}
 
       {selected ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="relative max-h-[80vh] w-full max-w-lg overflow-auto rounded-ui-rect bg-sam-surface p-4 shadow-xl">
-            <h3 className="sam-text-body-lg font-semibold">
+        <DibayOverlayRoot open onClose={() => setSelected(null)} dismissible placement="center" zRole="dialog">
+          <div
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-auto`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className={OverlayUi.title}>
               {language === "en" ? selected.fallbackTitleEn : selected.fallbackTitleKo}
             </h3>
             <p
@@ -414,15 +418,13 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                 </div>
               ) : null}
             </dl>
-            <button
-              type="button"
-              className="mt-4 w-full rounded-ui-rect border border-sam-border py-2"
-              onClick={() => setSelected(null)}
-            >
-              {t("common_confirm")}
-            </button>
+            <div className={`${OverlayUi.actionsStack} mt-4`}>
+              <DibayOverlayButton roleTone="primary" onClick={() => setSelected(null)}>
+                {t("common_confirm")}
+              </DibayOverlayButton>
+            </div>
           </div>
-        </div>
+        </DibayOverlayRoot>
       ) : null}
     </AdminCard>
   );

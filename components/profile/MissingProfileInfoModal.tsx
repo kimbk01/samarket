@@ -28,6 +28,7 @@ function hasAddressMissing(fields: ProfileRequirementField[]): boolean {
 
 /**
  * ACTION 미충족 안내. @아이디는 목록에 넣지 않는다.
+ * Overlay SSOT via ProfileGateAlertDialog → DibayDialog (no local modal chrome).
  */
 export function MissingProfileInfoModal() {
   const { safeT } = useI18n();

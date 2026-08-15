@@ -1,4 +1,5 @@
 "use client";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useState } from "react";
@@ -47,15 +48,15 @@ export function UserBlockButton({
           await unblockUser(currentUserId, userId);
           setBlocked(false);
         } else {
-          if (
-            !confirm(
-              t("ui_report_block_user_confirm", {
-                nickname: nickname ?? t("ui_report_user_fallback", { id: "" }),
-              })
-            )
-          ) {
-            return;
-          }
+          const ok = await dibayConfirm({
+            title: t("ui_report_block_user_confirm", {
+              nickname: nickname ?? t("ui_report_user_fallback", { id: "" }),
+            }),
+            cancelLabel: t("common_cancel"),
+            confirmLabel: t("ui_report_block"),
+            confirmTone: "destructive",
+          });
+          if (!ok) return;
           await blockUser(currentUserId, userId, nickname);
           setBlocked(true);
         }

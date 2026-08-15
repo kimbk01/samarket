@@ -21,6 +21,8 @@ import {
   adminTradeSubtypeLabelKey,
 } from "@/lib/admin/categories/admin-category-label-keys";
 import { CategoryMenuIconPicker } from "@/components/admin/categories/CategoryMenuIconPicker";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function slugifyForIconKey(s: string): string {
   const v = s
@@ -288,22 +290,17 @@ export function CategoryFormModal({
 
   const isCreate = !category;
 
+  const formTitle = isCreate
+    ? isMenuMode
+      ? t("admin_cat_menu_add")
+      : t("admin_cat_form_add")
+    : isMenuMode
+      ? t("admin_cat_menu_edit")
+      : t("admin_cat_form_edit");
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-4 sam-text-section-title font-semibold text-sam-fg">
-          {isCreate
-            ? isMenuMode
-              ? t("admin_cat_menu_add")
-              : t("admin_cat_form_add")
-            : isMenuMode
-              ? t("admin_cat_menu_edit")
-              : t("admin_cat_form_edit")}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <DibayDialog open onClose={onClose} dismissible title={formTitle}>
+        <form onSubmit={handleSubmit} className="mt-2 max-h-[min(70vh,520px)] space-y-4 overflow-y-auto">
           <div>
             <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_name")}</label>
             <input
@@ -563,26 +560,21 @@ export function CategoryFormModal({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-4">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-            >
-              {submitting ? t("admin_cat_saving") : t("common_save")}
-            </button>
-            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg">
+          <div className={`${OverlayUi.actionsRow} flex-wrap pt-4`}>
+            <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
               {t("common_cancel")}
-            </button>
-            {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body text-red-700">
+            </DibayOverlayButton>
+            {!isCreate && onDelete ? (
+              <DibayOverlayButton roleTone="destructive" type="button" onClick={onDelete}>
                 {t("admin_cat_delete")}
-              </button>
-            )}
+              </DibayOverlayButton>
+            ) : null}
+            <DibayOverlayButton roleTone="primary" type="submit" disabled={submitting} loading={submitting}>
+              {submitting ? t("admin_cat_saving") : t("common_save")}
+            </DibayOverlayButton>
           </div>
         </form>
-      </div>
-    </div>
+    </DibayDialog>
   );
 }
 

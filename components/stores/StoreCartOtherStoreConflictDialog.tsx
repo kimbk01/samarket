@@ -4,13 +4,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
-  CART_POPUP_BTN_DANGER,
-  CART_POPUP_BTN_GHOST,
-  CART_POPUP_BTN_SECONDARY,
   CART_POPUP_RADIUS_CLASS,
   StoreCommerceCartAlert,
   StoreCommerceCartCenterPopup,
 } from "@/components/stores/cart/StoreCommerceCartCenterPopup";
+import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 
 export type StoreCartConflictPendingAdd = {
   title: string;
@@ -192,25 +190,15 @@ export function StoreCartOtherStoreConflictDialog({
       onBackdropClose={onCancel}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onViewCart}
-            disabled={replaceBusy}
-            className={CART_POPUP_BTN_SECONDARY}
-          >
+          <DibayOverlayButton roleTone="secondary" onClick={onViewCart} disabled={replaceBusy}>
             {t("store_cart_view")}
-          </button>
-          <button
-            type="button"
-            onClick={onClearAndAdd}
-            disabled={replaceBusy}
-            className={CART_POPUP_BTN_DANGER}
-          >
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="destructive" onClick={onClearAndAdd} disabled={replaceBusy}>
             {replaceBusy ? t("store_cart_conflict_processing") : t("store_cart_replace_confirm")}
-          </button>
-          <button type="button" onClick={onCancel} disabled={replaceBusy} className={CART_POPUP_BTN_GHOST}>
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="text" onClick={onCancel} disabled={replaceBusy}>
             {t("common_cancel")}
-          </button>
+          </DibayOverlayButton>
         </>
       }
     >

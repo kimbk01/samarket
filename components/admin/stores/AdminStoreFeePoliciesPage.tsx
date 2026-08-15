@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
@@ -997,144 +999,116 @@ export function AdminStoreFeePoliciesPage() {
       )}
 
       {archiveModalRow ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !busy) closeArchiveModal();
-          }}
+        <DibayOverlayRoot
+          open
+          onClose={busy ? undefined : closeArchiveModal}
+          dismissible={!busy}
+          placement="center"
+          zRole="dialog"
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="fee-policy-archive-title"
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="fee-policy-archive-title" className="text-base font-bold text-sam-fg">
-              {t("admin_stores_fee_archive_modal_title")}
-            </h2>
-            <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_stores_fee_archive_modal_desc")}</p>
-            <dl className="mt-4 space-y-2 sam-text-body-secondary">
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
-                <dd className="font-medium text-sam-fg">{archiveModalRow.policy_name}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-                <dd>{targetScopeDescription(archiveModalRow, stores, categories, topics, t)}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
-                <dd>{feeSummary(archiveModalRow)}</dd>
-              </div>
-            </dl>
-            <label className="mt-4 block text-xs font-medium text-sam-muted">
-              {t("admin_stores_fee_archive_reason_ph")}
-            </label>
-            <textarea
-              value={archiveReasonDraft}
-              onChange={(e) => setArchiveReasonDraft(e.target.value)}
-              rows={4}
-              disabled={busy}
-              maxLength={2000}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
-              placeholder={t("admin_stores_fee_archive_reason_ph")}
-            />
-            {archiveModalError ? (
-              <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
-                {archiveModalError}
-              </p>
-            ) : null}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => closeArchiveModal()}
-                className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
-              >
-                {t("common_cancel")}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void confirmArchive()}
-                className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                {t("admin_stores_fee_archive")}
-              </button>
+            <h2 className={OverlayUi.title}>{t("admin_stores_fee_archive_modal_title")}</h2>
+            <p className={`mt-2 ${OverlayUi.caption}`}>{t("admin_stores_fee_archive_modal_desc")}</p>
+          <dl className="mt-4 space-y-2 sam-text-body-secondary">
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
+              <dd className="font-medium text-sam-fg">{archiveModalRow.policy_name}</dd>
             </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
+              <dd>{targetScopeDescription(archiveModalRow, stores, categories, topics, t)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
+              <dd>{feeSummary(archiveModalRow)}</dd>
+            </div>
+          </dl>
+          <label className={`mt-4 block ${OverlayUi.caption}`}>
+            {t("admin_stores_fee_archive_reason_ph")}
+          </label>
+          <textarea
+            value={archiveReasonDraft}
+            onChange={(e) => setArchiveReasonDraft(e.target.value)}
+            rows={4}
+            disabled={busy}
+            maxLength={2000}
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
+            placeholder={t("admin_stores_fee_archive_reason_ph")}
+          />
+          {archiveModalError ? (
+            <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
+              {archiveModalError}
+            </p>
+          ) : null}
+          <div className={`${OverlayUi.actionsRow} mt-4`}>
+            <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={() => closeArchiveModal()}>
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void confirmArchive()}>
+              {t("admin_stores_fee_archive")}
+            </DibayOverlayButton>
           </div>
-        </div>
+          </div>
+        </DibayOverlayRoot>
       ) : null}
 
       {restoreModalRow ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !busy) closeRestoreModal();
-          }}
+        <DibayOverlayRoot
+          open
+          onClose={busy ? undefined : closeRestoreModal}
+          dismissible={!busy}
+          placement="center"
+          zRole="dialog"
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="fee-policy-restore-title"
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="fee-policy-restore-title" className="text-base font-bold text-sam-fg">
-              {t("admin_stores_fee_restore_modal_title")}
-            </h2>
-            <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_stores_fee_restore_modal_desc")}</p>
-            <div className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-              {t("admin_stores_fee_restore_warn")}
-            </div>
-            <dl className="mt-4 space-y-2 sam-text-body-secondary">
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
-                <dd className="font-medium text-sam-fg">{restoreModalRow.policy_name}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-                <dd>{targetScopeDescription(restoreModalRow, stores, categories, topics, t)}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
-                <dd>{feeSummary(restoreModalRow)}</dd>
-              </div>
-              <div>
-                <dt className="text-sam-muted">{t("admin_stores_fee_th_active")}</dt>
-                <dd>
-                  {restoreModalRow.is_active
-                    ? t("admin_stores_fee_restore_active_on")
-                    : t("admin_stores_fee_restore_active_off")}
-                </dd>
-              </div>
-            </dl>
-            {restoreModalError ? (
-              <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
-                {restoreModalError}
-              </p>
-            ) : null}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => closeRestoreModal()}
-                className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
-              >
-                {t("common_cancel")}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void confirmRestore()}
-                className="rounded-ui-rect bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                {t("admin_stores_fee_restore")}
-              </button>
-            </div>
+            <h2 className={OverlayUi.title}>{t("admin_stores_fee_restore_modal_title")}</h2>
+            <p className={`mt-2 ${OverlayUi.caption}`}>{t("admin_stores_fee_restore_modal_desc")}</p>
+          <div className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
+            {t("admin_stores_fee_restore_warn")}
           </div>
-        </div>
+          <dl className="mt-4 space-y-2 sam-text-body-secondary">
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
+              <dd className="font-medium text-sam-fg">{restoreModalRow.policy_name}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
+              <dd>{targetScopeDescription(restoreModalRow, stores, categories, topics, t)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
+              <dd>{feeSummary(restoreModalRow)}</dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{t("admin_stores_fee_th_active")}</dt>
+              <dd>
+                {restoreModalRow.is_active
+                  ? t("admin_stores_fee_restore_active_on")
+                  : t("admin_stores_fee_restore_active_off")}
+              </dd>
+            </div>
+          </dl>
+          {restoreModalError ? (
+            <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
+              {restoreModalError}
+            </p>
+          ) : null}
+          <div className={`${OverlayUi.actionsRow} mt-4`}>
+            <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={() => closeRestoreModal()}>
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void confirmRestore()}>
+              {t("admin_stores_fee_restore")}
+            </DibayOverlayButton>
+          </div>
+          </div>
+        </DibayOverlayRoot>
       ) : null}
     </div>
   );

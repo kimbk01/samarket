@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -47,17 +48,21 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     }
     if (!targetUserId || me.id === targetUserId) return;
     const nextBlocked = !blocked;
-    if (
-      nextBlocked &&
-      !window.confirm(t("community_confirm_block_neighbor"))
-    ) {
-      return;
-    }
-    if (
-      !nextBlocked &&
-      !window.confirm(t("community_confirm_unblock_neighbor"))
-    ) {
-      return;
+    if (nextBlocked) {
+      const ok = await dibayConfirm({
+        title: t("community_confirm_block_neighbor"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    } else {
+      const ok = await dibayConfirm({
+        title: t("community_confirm_unblock_neighbor"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+      });
+      if (!ok) return;
     }
     setBusy((prev) => (prev ? prev : true));
     try {

@@ -12,6 +12,7 @@ import {
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
 import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
 
@@ -364,12 +365,13 @@ export function StoreOrderSellerOrderPanel({
     mounted && typeof document !== "undefined"
       ? createPortal(
           <>
-            <div
-              role="presentation"
-              className={`fixed inset-0 ${dimZ} bg-black/40 transition-opacity duration-300 ease-out ${
-                open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            <button
+              type="button"
+              className={`${OverlayUi.backdrop} !fixed ${dimZ} transition-opacity duration-300 ease-out ${
+                open ? "pointer-events-auto !opacity-100" : "pointer-events-none !opacity-0"
               }`}
               onClick={() => onOpenChange(false)}
+              aria-label={t("common_close")}
               aria-hidden={!open}
             />
             {presentation === "drawer" ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -51,9 +52,7 @@ export function DeliveryRefundsClient() {
 
   const approve = async (orderId: string) => {
     if (
-      !window.confirm(
-        t("admin_do_refunds_confirm")
-      )
+      !(await dibayConfirm({ title: t("admin_do_refunds_confirm"), confirmTone: "destructive" }))
     ) {
       return;
     }

@@ -7,6 +7,10 @@ import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
+import {
+  DibayAppDialogImperativeBridge,
+  DibayAppDialogProvider,
+} from "@/components/ui/dibay-overlay";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChromeRoot } from "@/components/layout/providers/CallIncomingChromeRoot";
 import { DeferredMainShellMessengerParticipantBridge } from "@/components/layout/DeferredMainShellMessengerParticipantBridge";
@@ -90,7 +94,9 @@ export default async function RootLayout({
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Web Startup Intro = 0 — Native splash is the only cold branded surface. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
-          <AppBootProvider>
+          <DibayAppDialogProvider>
+            <DibayAppDialogImperativeBridge />
+            <AppBootProvider>
             <DibayStartupIntroController />
             <InitialSurfaceBootstrap />
             <AppTitle />
@@ -102,6 +108,7 @@ export default async function RootLayout({
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
             {children}
           </AppBootProvider>
+          </DibayAppDialogProvider>
         </AppLanguageProvider>
       </body>
     </html>

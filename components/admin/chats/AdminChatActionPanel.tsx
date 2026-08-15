@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
@@ -31,11 +32,10 @@ export function AdminChatActionPanel({
   const runBulkMessages = async (kind: BulkMsgAction) => {
     const isHide = kind === "bulk_hide";
     if (
-      !confirm(
-        isHide
-          ? t("admin_chat_bulk_hide_confirm")
-          : t("admin_chat_bulk_unhide_confirm"),
-      )
+      !(await dibayConfirm({
+        title: isHide ? t("admin_chat_bulk_hide_confirm") : t("admin_chat_bulk_unhide_confirm"),
+        confirmTone: "destructive",
+      }))
     ) {
       return;
     }
@@ -60,12 +60,12 @@ export function AdminChatActionPanel({
         unhidden_count?: number;
       };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? t("admin_chat_action_failed"));
+        await dibayAlert({ title: j.error ?? t("admin_chat_action_failed") });
         return;
       }
       const n = isHide ? j.hidden_count : j.unhidden_count;
       if (typeof n === "number") {
-        alert(isHide ? t("admin_chat_hide_done_count", { count: n }) : t("admin_chat_unhide_done_count", { count: n }));
+        await dibayAlert({ title: isHide ? t("admin_chat_hide_done_count", { count: n }) : t("admin_chat_unhide_done_count", { count: n }) });
       }
       onActionSuccess();
     } finally {
@@ -84,7 +84,7 @@ export function AdminChatActionPanel({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? t("admin_chat_action_failed"));
+        await dibayAlert({ title: j.error ?? t("admin_chat_action_failed") });
         return;
       }
       setNote("");

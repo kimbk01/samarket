@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { formatAppDate, formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
@@ -508,8 +509,11 @@ export function StoreReviewsSection({
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      const reason = window.prompt(t("store_review_report_prompt") ?? "신고 사유를 입력해주세요");
+                    onClick={async () => {
+                      const reason = await dibayPrompt({
+                        title: t("store_review_report_prompt") ?? "신고 사유를 입력해주세요",
+                        required: true,
+                      });
                       if (reason && reason.trim()) {
                         fetch("/api/me/store-reviews/report", {
                           method: "POST",
@@ -517,7 +521,7 @@ export function StoreReviewsSection({
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
                         }).catch(() => null);
-                        alert(t("store_review_report_submitted") ?? "신고가 접수되었습니다.");
+                        void dibayAlert({ title: t("store_review_report_submitted") ?? "신고가 접수되었습니다." });
                       }
                     }}
                     className="text-[11px]"
@@ -697,8 +701,11 @@ export function StoreReviewsSection({
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    const reason = window.prompt(t("store_review_report_prompt") ?? "신고 사유를 입력해주세요");
+                  onClick={async () => {
+                    const reason = await dibayPrompt({
+                      title: t("store_review_report_prompt") ?? "신고 사유를 입력해주세요",
+                      required: true,
+                    });
                     if (reason && reason.trim()) {
                       fetch("/api/me/store-reviews/report", {
                         method: "POST",
@@ -706,7 +713,7 @@ export function StoreReviewsSection({
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
                       }).catch(() => null);
-                      alert(t("store_review_report_submitted") ?? "신고가 접수되었습니다.");
+                      void dibayAlert({ title: t("store_review_report_submitted") ?? "신고가 접수되었습니다." });
                     }
                   }}
                   className={`text-sam-meta hover:text-sam-muted ${Sam.text.xxs}`}

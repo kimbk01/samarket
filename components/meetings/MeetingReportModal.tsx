@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export type ReportTargetType =
   | "meeting"
@@ -90,87 +92,72 @@ export function MeetingReportModal({
     }
   };
 
+  const sheetTitle = done
+    ? t("meeting_report_submitted_title")
+    : t("meeting_report_title", { target: targetLabels[targetType] });
+
   return (
-    /* 배경 오버레이 */
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {/* 바텀 시트 */}
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-4 shadow-xl">
-        {/* 핸들 */}
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-sam-border-soft" />
-
-        {done ? (
-          /* 완료 화면 */
-          <div className="py-6 text-center">
-            <p className="sam-text-hero">✅</p>
-            <p className="mt-3 sam-text-body-lg font-semibold text-sam-fg">{t("meeting_report_submitted_title")}</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("meeting_report_submitted_body")}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-5 w-full rounded-ui-rect bg-sam-ink py-3 sam-text-body font-semibold text-white"
-            >
+    <DibayBottomSheet open onClose={onClose} title={sheetTitle} anchor="above-bottom-nav">
+      {done ? (
+        <div className="py-4 text-center">
+          <p className={OverlayUi.bodySecondary}>{t("meeting_report_submitted_body")}</p>
+          <div className="mt-5">
+            <DibayOverlayButton roleTone="primary" onClick={onClose}>
               {t("common_close")}
-            </button>
+            </DibayOverlayButton>
           </div>
-        ) : (
-          /* 신고 폼 */
-          <>
-            <h2 className="sam-text-body-lg font-semibold text-sam-fg">
-              {t("meeting_report_title", { target: targetLabels[targetType] })}
-            </h2>
-            <p className="mt-0.5 sam-text-helper text-sam-muted">{t("meeting_report_pick_reason")}</p>
+        </div>
+      ) : (
+        <>
+          <p className={OverlayUi.bodySecondary}>{t("meeting_report_pick_reason")}</p>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {reasonOptions.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setReasonType(r.value)}
-                  className={`rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
-                    reasonType === r.value
-                      ? "border-red-400 bg-red-50 text-red-700"
-                      : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
-            <textarea
-              value={detail}
-              onChange={(e) => setDetail(e.target.value)}
-              rows={3}
-              maxLength={500}
-              placeholder={t("meeting_report_detail_placeholder")}
-              className="mt-3 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body-secondary text-sam-fg placeholder-sam-meta outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
-            />
-
-            {err && <p className="mt-2 sam-text-helper text-red-500">{err}</p>}
-
-            <div className="mt-4 flex gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {reasonOptions.map((r) => (
               <button
+                key={r.value}
                 type="button"
-                onClick={onClose}
-                className="flex-1 rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-sam-muted"
+                onClick={() => setReasonType(r.value)}
+                className={`rounded-[length:var(--overlay-radius-md)] border py-2.5 text-sm font-medium transition-colors ${
+                  reasonType === r.value
+                    ? "border-[color:var(--overlay-danger)] bg-red-50 text-[color:var(--overlay-danger)]"
+                    : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)]"
+                }`}
               >
-                {t("common_cancel")}
+                {r.label}
               </button>
-              <button
-                type="button"
-                disabled={submitting || !reasonType}
-                onClick={() => void onSubmit()}
-                className="flex-1 rounded-ui-rect bg-red-500 py-3 sam-text-body font-semibold text-white disabled:opacity-50"
-              >
-                {submitting ? t("meeting_report_submitting") : t("meeting_report_submit")}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+            ))}
+          </div>
+
+          <textarea
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder={t("meeting_report_detail_placeholder")}
+            className="mt-3 w-full resize-none rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-2.5 text-sm outline-none"
+          />
+
+          {err ? (
+            <p className={`mt-2 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>
+              {err}
+            </p>
+          ) : null}
+
+          <div className={`${OverlayUi.actionsRow} mt-4`}>
+            <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="destructive"
+              disabled={submitting || !reasonType}
+              loading={submitting}
+              onClick={() => void onSubmit()}
+            >
+              {submitting ? t("meeting_report_submitting") : t("meeting_report_submit")}
+            </DibayOverlayButton>
+          </div>
+        </>
+      )}
+    </DibayBottomSheet>
   );
 }

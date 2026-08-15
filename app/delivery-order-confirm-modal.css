@@ -1,71 +1,29 @@
 /**
- * dibaY order-confirm modal — dedicated chrome (header / scroll body / fixed footer).
- * Unlayered: wins over Tailwind preflight and generic delivery components.
+ * dibaY order-confirm modal — content chrome only.
+ * Shell/backdrop/z from Dibay Overlay SSOT (`DibayOverlayRoot` + `--overlay-*`).
  */
 
-.dibaY-ocm-root {
-  position: fixed;
-  inset: 0;
-  z-index: 250;
-  pointer-events: none;
-}
-
-.dibaY-ocm-backdrop {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  cursor: pointer;
-  pointer-events: auto;
-  background: var(--delivery-backdrop);
-}
-
-.dibaY-ocm-backdrop:disabled {
-  cursor: default;
-}
-
-.dibaY-ocm-stage {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--delivery-page-x);
-  pointer-events: none;
-  box-sizing: border-box;
-}
-
 .dibaY-ocm-card {
-  pointer-events: auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  /* overlay host is viewport-sized — prefer % over 100vw */
-  width: min(22.5rem, calc(100% - 32px));
-  max-width: 22.5rem;
-  margin-inline: auto;
   max-height: min(90vh, 560px);
   overflow: hidden;
-  border-radius: var(--delivery-radius-modal);
-  background: var(--delivery-bg-card);
-  box-shadow: var(--delivery-shadow-order-confirm);
-  color: var(--delivery-text-main);
+  border-radius: var(--overlay-radius-lg);
+  background: var(--overlay-surface);
+  box-shadow: var(--overlay-elevation-3);
+  color: var(--overlay-text-primary);
   font-family: inherit;
 }
 
 .dibaY-ocm-header {
   flex-shrink: 0;
   padding: 18px 16px 14px;
-  border-bottom: 1px solid var(--delivery-border-soft);
+  border-bottom: 1px solid var(--overlay-border);
 }
 
 .dibaY-ocm-title {
   margin: 0;
-  font-size: var(--delivery-fs-modal-title);
-  font-weight: 700;
-  line-height: var(--delivery-lh-modal-title);
-  color: var(--delivery-text-main);
   letter-spacing: -0.02em;
 }
 
@@ -74,8 +32,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--delivery-row-gap);
-  padding: var(--delivery-card-pad);
+  gap: var(--overlay-space-2);
+  padding: var(--overlay-space-3);
   max-height: min(60vh, 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -84,39 +42,7 @@
 
 .dibaY-ocm-footer {
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   padding: 12px 16px 16px;
-  border-top: 1px solid var(--delivery-border-soft);
-  background: var(--delivery-bg-card);
-}
-
-[data-delivery-ocm] .dibaY-ocm-footer .delivery-btn-primary {
-  min-height: var(--delivery-btn-h);
-  border-radius: var(--delivery-radius);
-  background-color: var(--delivery-primary) !important;
-  color: var(--dibay-cream) !important;
-  font-size: var(--delivery-fs-button);
-  font-weight: 700;
-  box-shadow: none;
-}
-
-[data-delivery-ocm] .dibaY-ocm-footer .delivery-btn-primary:hover:not(:disabled) {
-  background-color: var(--delivery-primary-hover) !important;
-}
-
-[data-delivery-ocm] .dibaY-ocm-footer .delivery-btn-primary:disabled {
-  background-color: var(--delivery-btn-disabled) !important;
-  opacity: 1;
-}
-
-[data-delivery-ocm] .dibaY-ocm-footer .delivery-btn-ghost {
-  min-height: var(--delivery-touch-min);
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: var(--delivery-text-sub) !important;
-  font-size: 14px;
-  font-weight: 500;
+  border-top: 1px solid var(--overlay-border);
+  background: var(--overlay-surface);
 }

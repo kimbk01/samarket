@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -305,7 +306,7 @@ export function AdminMainBottomNavPage() {
   };
 
   const reset = async () => {
-    if (!confirm(t("admin_menu_bottom_reset_confirm"))) return;
+    if (!(await dibayConfirm({ title: t("admin_menu_bottom_reset_confirm"), confirmTone: "destructive" }))) return;
     setSavingAll(true);
     setMessage(null);
     try {

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS,
@@ -48,11 +49,12 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
     setRefresh((r) => r + 1);
   };
 
-  const handleAbort = () => {
-    if (typeof window !== "undefined" && window.confirm(t("admin_ops_tools_runbook_confirm_abort"))) {
-      abortRunbookExecution(executionId, ADMIN_ID, adminNickname, t("admin_ops_tools_runbook_abort_reason"));
-      setRefresh((r) => r + 1);
+  const handleAbort = async () => {
+    if (!(await dibayConfirm({ title: t("admin_ops_tools_runbook_confirm_abort"), confirmTone: "destructive" }))) {
+      return;
     }
+    abortRunbookExecution(executionId, ADMIN_ID, adminNickname, t("admin_ops_tools_runbook_abort_reason"));
+    setRefresh((r) => r + 1);
   };
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [

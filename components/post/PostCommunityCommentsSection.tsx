@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatTimeAgo } from "@/lib/utils/format";
@@ -164,7 +165,10 @@ export function PostCommunityCommentsSection({
       await requireAction("community_report", () => onReportComment(commentId));
       return;
     }
-    const reason = window.prompt("댓글 신고 사유를 짧게 입력해 주세요.");
+    const reason = await dibayPrompt({
+      title: "댓글 신고 사유를 짧게 입력해 주세요.",
+      required: true,
+    });
     if (reason == null) return;
     const text = reason.trim();
     if (!text) return;
@@ -172,7 +176,7 @@ export function PostCommunityCommentsSection({
     setError((prev) => (prev === "" ? prev : ""));
     const res = await createCommunityCommentReport(commentId, text);
     setReportBusyId((prev) => (prev === null ? prev : null));
-    if (res.ok) alert(t("cm_ui_report_submitted"));
+    if (res.ok) await dibayAlert({ title: t("cm_ui_report_submitted") });
     else setError(res.error);
   };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -54,11 +55,9 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(
-          j.error === "unknown_or_inactive_section"
+        await dibayAlert({ title: j.error === "unknown_or_inactive_section"
             ? tr("admin_sections_err_unknown_inactive_section")
-            : j.error ?? tr("admin_topics_err_save")
-        );
+            : j.error ?? tr("admin_topics_err_save") });
         return;
       }
       await refresh();
@@ -84,7 +83,7 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save"));
+        await dibayAlert({ title: j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
         return;
       }
       setName("");
@@ -114,7 +113,7 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save"));
+        await dibayAlert({ title: j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
         return;
       }
       setEdit(null);
@@ -125,7 +124,7 @@ export function AdminCommunitySectionsPage({
   }
 
   async function removeRow(id: string) {
-    if (!confirm(tr("admin_sections_confirm_delete"))) return;
+    if (!(await dibayConfirm({ title: tr("admin_sections_confirm_delete"), confirmTone: "destructive" }))) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/sections/${id}`, {
@@ -134,9 +133,7 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(
-          j.error === "section_has_posts" ? tr("admin_sections_err_has_posts") : j.error ?? tr("admin_sections_err_delete")
-        );
+        await dibayAlert({ title: j.error === "section_has_posts" ? tr("admin_sections_err_has_posts") : j.error ?? tr("admin_sections_err_delete") });
         return;
       }
       await refresh();

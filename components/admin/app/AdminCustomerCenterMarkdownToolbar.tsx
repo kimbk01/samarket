@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -52,14 +53,14 @@ export function AdminCustomerCenterMarkdownToolbar({
     });
   };
 
-  const onLink = () => {
-    const raw = window.prompt(
-      safeT("admin_cc_md_link_prompt", {
+  const onLink = async () => {
+    const raw = await dibayPrompt({
+      title: safeT("admin_cc_md_link_prompt", {
         fallbackKo: "링크 URL (https://… 또는 /경로)",
         fallbackEn: "Link URL (https://… or /path)",
       }),
-      "https://"
-    );
+      defaultValue: "https://",
+    });
     if (raw == null) return;
     apply("link", { url: raw });
   };
@@ -70,12 +71,10 @@ export function AdminCustomerCenterMarkdownToolbar({
     try {
       const url = await uploadBodyImage(file);
       if (!url) {
-        window.alert(
-          safeT("admin_cc_upload_failed", {
+        await dibayAlert({ title: safeT("admin_cc_upload_failed", {
             fallbackKo: "이미지 업로드에 실패했습니다",
             fallbackEn: "Image upload failed",
-          })
-        );
+          }) });
         return;
       }
       apply("image", { url, alt: file.name.replace(/\.[^.]+$/, "") || "이미지" });

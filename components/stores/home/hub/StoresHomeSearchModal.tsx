@@ -81,7 +81,10 @@ function computeStoresHomeSearchPopupLayout(anchorRect: DOMRect): PopupLayout {
   return { top, left: pageX, right, maxHeight };
 }
 
-/** `/stores` 홈 — 돋보기 기준 우상단에서 좌하로 펼쳐지는 검색 팝업 */
+/** `/stores` 홈 — 돋보기 기준 우상단에서 좌하로 펼쳐지는 검색 팝업.
+ * Intentional tier1 header anchored overlay (not DibayDialog center).
+ * Backdrop SSOT: `TIER1_HEADER_OVERLAY_*` / `--delivery-backdrop` (shared with notifications).
+ */
 export function StoresHomeSearchModal({
   open,
   onClose,

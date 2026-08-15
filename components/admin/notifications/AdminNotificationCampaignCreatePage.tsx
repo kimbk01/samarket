@@ -14,6 +14,8 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -1172,22 +1174,27 @@ export function AdminNotificationCampaignCreatePage() {
       </div>
 
       {pickerOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg">
-            <div className="flex items-center justify-between border-b border-sam-border px-4 py-3">
-              <h3 className="text-sm font-semibold text-sam-fg">
+        <DibayOverlayRoot
+          open
+          onClose={() => setPickerOpen(false)}
+          dismissible
+          placement="center"
+          zRole="dialog"
+        >
+          <div
+            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-hidden !p-0`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3">
+              <h3 className={OverlayUi.title}>
                 {safeT("admin_notif_picker_title", {
                   fallbackKo: "원본 콘텐츠 선택",
                   fallbackEn: "Select original content",
                 })}
               </h3>
-              <button
-                type="button"
-                onClick={() => setPickerOpen(false)}
-                className="text-sm text-sam-muted"
-              >
+              <DibayOverlayButton roleTone="text" className="!min-h-9 !flex-none !px-2" onClick={() => setPickerOpen(false)}>
                 {t("admin_notif_btn_cancel")}
-              </button>
+              </DibayOverlayButton>
             </div>
             <div className="space-y-2 p-4">
               <input
@@ -1232,7 +1239,7 @@ export function AdminNotificationCampaignCreatePage() {
               )}
             </div>
           </div>
-        </div>
+        </DibayOverlayRoot>
       ) : null}
     </div>
   );

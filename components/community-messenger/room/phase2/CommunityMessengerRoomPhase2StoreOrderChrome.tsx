@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -109,26 +110,30 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
 
   const handleCancel = useCallback(async () => {
     if (!storeOrderId || !snapshot?.buyerOrder) return;
-    if (typeof window !== "undefined" && !window.confirm(t("chats_store_order_cancel_confirm"))) return;
+    if (!(await dibayConfirm({
+      title: t("chats_store_order_cancel_confirm"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_confirm"),
+      confirmTone: "destructive",
+    }))) return;
     setCancelBusy(true);
     try {
       const { status, json: raw } = await patchMeStoreOrder(storeOrderId, { cancel: true });
       const json = raw as { ok?: boolean; error?: string };
       if (status < 200 || status >= 300 || !json?.ok) {
         const code = typeof json?.error === "string" ? json.error : "";
-        if (typeof window !== "undefined") {
-          window.alert(
+        await dibayAlert({
+          title:
             code === "cannot_cancel_after_accepted"
               ? t("mypage_comp_orders_cancel_err_short")
-              : t("store_messenger_cancel_failed")
-          );
-        }
+              : t("store_messenger_cancel_failed"),
+        });
         return;
       }
       await refresh();
       onRoomReload();
     } catch {
-      if (typeof window !== "undefined") window.alert(t("store_owner_err_network"));
+      await dibayAlert({ title: t("store_owner_err_network") });
     } finally {
       setCancelBusy(false);
     }

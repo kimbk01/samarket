@@ -1,5 +1,7 @@
 "use client";
 
+import { dibayConfirm, DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -43,12 +45,9 @@ import { CommunityShareSheet } from "./share/CommunityShareSheet";
 import { useCommunityPostShare } from "@/lib/community/share/use-community-post-share";
 import {
   COMMUNITY_BUTTON_SECONDARY_CLASS,
-  COMMUNITY_MODAL_PANEL_CLASS,
-  COMMUNITY_OVERLAY_BACKDROP_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { CommunityCard } from "./ui/CommunityCard";
 import { CommunityNeighborPrompt } from "./ui/CommunityNeighborPrompt";
-import { CM_INPUT_CLASS, CM_BTN_PRIMARY_CLASS } from "@/lib/community/community-ui-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
@@ -349,7 +348,7 @@ export function CommunityDetail({
 
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
-    if (!window.confirm(t("community_confirm_delete_post"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_delete_post"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusy((prev) => (prev ? prev : true));
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
@@ -606,43 +605,34 @@ export function CommunityDetail({
         </div>
       </article>
 
-      {reportOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog">
-          <button
+      <DibayDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title={t("community_report_post")}
+      >
+        <textarea
+          value={reportText}
+          onChange={(e) => setReportText(e.target.value)}
+          rows={4}
+          className={`mt-1 min-h-[96px] w-full ${OverlayUi.input}`}
+        />
+        {reportErr ? (
+          <p className={`mt-1 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportErr}</p>
+        ) : null}
+        <div className={`${OverlayUi.actionsRow} mt-3`}>
+          <DibayOverlayButton roleTone="secondary" type="button" onClick={() => setReportOpen(false)}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone="destructive"
             type="button"
-            className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
-            aria-label={t("common_close")}
-            onClick={() => setReportOpen(false)}
-          />
-          <div className={`${COMMUNITY_MODAL_PANEL_CLASS} relative z-50`}>
-            <p className="text-[16px] font-bold leading-[1.35] text-[var(--cm-text)]">{t("community_report_post")}</p>
-            <textarea
-              value={reportText}
-              onChange={(e) => setReportText(e.target.value)}
-              rows={4}
-              className={`mt-3 min-h-[96px] w-full ${CM_INPUT_CLASS}`}
-            />
-            {reportErr ? <p className="mt-1 text-[12px] text-[var(--cm-danger)]">{reportErr}</p> : null}
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setReportOpen(false)}
-                className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
-              >
-                {t("common_cancel")}
-              </button>
-              <button
-                type="button"
-                disabled={busy || !reportText.trim()}
-                onClick={() => void onReport()}
-                className={`flex-1 ${CM_BTN_PRIMARY_CLASS}`}
-              >
-                {t("community_receive")}
-              </button>
-            </div>
-          </div>
+            disabled={busy || !reportText.trim()}
+            onClick={() => void onReport()}
+          >
+            {t("community_receive")}
+          </DibayOverlayButton>
         </div>
-      ) : null}
+      </DibayDialog>
       <CommunityShareSheet {...communityShare} />
       {actionToast ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,var(--safe-bottom))] z-[1400] flex justify-center px-4">

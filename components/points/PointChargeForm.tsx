@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointPlan, PointPaymentMethod } from "@/lib/types/point";
 import { CUSTOMER_CENTER_FORM_COLUMN_CLASS } from "@/lib/mypage/customer-center-layout";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
@@ -62,19 +64,6 @@ export function PointChargeForm({
 
   const body = (
     <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-10 pt-2` : undefined}>
-      {layout === "sheet" ? (
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="sam-text-section-title font-bold text-sam-fg">
-            {t("points_ui_charge_modal_title")}
-          </h2>
-          {onClose ? (
-            <button type="button" onClick={onClose} className="sam-text-body-secondary text-sam-muted">
-              {t("common_close")}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
       {plans.length === 0 ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
           {t("common_content_unavailable")}
@@ -147,35 +136,37 @@ export function PointChargeForm({
                 value={depositorName}
                 onChange={(e) => setDepositorName(e.target.value)}
                 placeholder={t("points_ui_depositor_required")}
-                className="min-h-11 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+                className={`min-h-11 w-full ${OverlayUi.input}`}
               />
               <input
                 type="text"
                 value={userMemo}
                 onChange={(e) => setUserMemo(e.target.value)}
                 placeholder={t("points_ui_memo_optional")}
-                className="min-h-11 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
+                className={`min-h-11 w-full ${OverlayUi.input}`}
               />
             </div>
           )}
 
           {selectedPlan && (
-            <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sam-app px-3 py-2.5 sam-text-body-secondary">
-              <span className="text-sam-fg">{t("points_ui_charge_points_label")}</span>
-              <span className="sam-text-body-lg font-bold text-sky-700">{totalPoint.toLocaleString()}P</span>
+            <div className="mb-4 flex items-center justify-between rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] px-3 py-2.5">
+              <span className="text-[color:var(--overlay-text-primary)]">{t("points_ui_charge_points_label")}</span>
+              <span className="font-bold text-[color:var(--overlay-primary)]">{totalPoint.toLocaleString()}P</span>
             </div>
           )}
 
-          {err ? <p className="mb-3 sam-text-helper text-red-600">{err}</p> : null}
+          {err ? <p className={`mb-3 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{err}</p> : null}
 
-          <button
+          <DibayOverlayButton
+            roleTone="primary"
             type="button"
             onClick={() => void submit()}
             disabled={submitting || !selectedPlanId}
-            className="min-h-11 w-full rounded-ui-rect bg-sky-600 py-3.5 sam-text-body font-bold text-white shadow-md disabled:opacity-40"
+            loading={submitting}
+            className="w-full"
           >
             {submitting ? t("common_processing") : t("points_ui_submit_charge")}
-          </button>
+          </DibayOverlayButton>
         </>
       )}
     </div>
@@ -186,15 +177,13 @@ export function PointChargeForm({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose?.();
-      }}
+    <DibayBottomSheet
+      open
+      onClose={() => onClose?.()}
+      title={t("points_ui_charge_modal_title")}
+      anchor="above-bottom-nav"
     >
-      <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-ui-rect">
-        {body}
-      </div>
-    </div>
+      {body}
+    </DibayBottomSheet>
   );
 }

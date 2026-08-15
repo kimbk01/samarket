@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 
 type OrderRow = {
   id: string;
@@ -54,13 +55,14 @@ export function AdminCommunityPromotionQueue() {
     let reason = "";
     if (action === "reject") {
       reason =
-        window.prompt(
-          safeT("admin_comm_promo_reject_prompt", {
+        (await dibayPrompt({
+          title: safeT("admin_comm_promo_reject_prompt", {
             fallbackKo: "거절 사유 (필수)",
             fallbackEn: "Reject reason (required)",
           }),
-          ""
-        ) ?? "";
+          defaultValue: "",
+          required: true,
+        })) ?? "";
       if (!reason.trim()) return;
     }
     setBusyId(id);

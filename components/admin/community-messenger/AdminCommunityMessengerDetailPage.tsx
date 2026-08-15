@@ -1,5 +1,7 @@
 "use client";
 
+import { dibayAlert, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -169,7 +171,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? t("admin_cm_err_action_failed"));
+          await dibayAlert({ title: json.error ?? t("admin_cm_err_action_failed") });
           return;
         }
         setNote("");
@@ -196,7 +198,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? t("admin_cm_err_message_action_failed"));
+          await dibayAlert({ title: json.error ?? t("admin_cm_err_message_action_failed") });
           return;
         }
         await refresh();
@@ -219,13 +221,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(
-            json.error === "admin_note_required"
+          await dibayAlert({ title: json.error === "admin_note_required"
               ? t("admin_cm_err_force_end_note_required")
               : json.error === "reason_code_required"
                 ? t("admin_cm_err_force_end_reason_required")
-                : (json.error ?? t("admin_cm_err_call_action_failed"))
-          );
+                : (json.error ?? t("admin_cm_err_call_action_failed")) });
           return;
         }
         setForceEndReasonCode("");
@@ -240,13 +240,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   );
 
   const openForceEndConfirm = useCallback(
-    (call: PendingForceEndCall) => {
+    async (call: PendingForceEndCall) => {
       if (!forceEndReasonCode) {
-        alert(t("admin_cm_err_force_end_reason_required"));
+        await dibayAlert({ title: t("admin_cm_err_force_end_reason_required") });
         return;
       }
       if (!note.trim()) {
-        alert(t("admin_cm_err_force_end_note_input_required"));
+        await dibayAlert({ title: t("admin_cm_err_force_end_note_input_required") });
         return;
       }
       setPendingForceEndCall(call);
@@ -266,7 +266,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? t("admin_cm_err_report_failed"));
+          await dibayAlert({ title: json.error ?? t("admin_cm_err_report_failed") });
           return;
         }
         await refresh();
@@ -552,7 +552,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                   <button
                     type="button"
                     disabled={busy === `call:${call.id}:force_end`}
-                    onClick={() => openForceEndConfirm(call)}
+                    onClick={() => void openForceEndConfirm(call)}
                     className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-helper font-medium text-red-700"
                   >
                     {busy === `call:${call.id}:force_end` ? t("admin_cm_common_ending") : t("admin_cm_action_force_end")}
@@ -820,71 +820,66 @@ function ForceEndConfirmModal({
   onConfirm: () => void;
 }) {
   const { t, forceEndReasonLabel } = useCmAdminLabels();
-  if (!open || !call) return null;
+  if (!call) return null;
 
   const reasonLabel =
     reasonCode ? forceEndReasonLabel(reasonCode) : t("admin_cm_force_end_reason_unselected");
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
+    <DibayOverlayRoot
+      open={open}
+      onClose={busy ? undefined : onClose}
+      dismissible={!busy}
+      placement="center"
+      zRole="dialog"
+    >
       <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect"
+        className={`${OverlayUi.dialogPanel} !max-w-lg`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-bold text-sam-fg">{t("admin_cm_modal_force_end_title")}</h2>
-        <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
-          {t("admin_cm_modal_force_end_warning")}
-        </p>
-        <div className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm text-sam-fg">
-          <div>
-            <span className="text-sam-muted">{t("admin_cm_modal_target_call")}</span>
-            <div className="mt-1 font-medium text-sam-fg">
-              {call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · {call.callKind}
-            </div>
-          </div>
-          <div>
-            <span className="text-sam-muted">{t("admin_cm_modal_initiator")}</span>
-            <div className="mt-1">{call.initiatorLabel}</div>
-          </div>
-          <div>
-            <span className="text-sam-muted">{t("admin_cm_modal_participants")}</span>
-            <div className="mt-1">
-              {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
-            </div>
-          </div>
-          <div>
-            <span className="text-sam-muted">{t("admin_cm_modal_reason_code")}</span>
-            <div className="mt-1 text-sky-700">
-              {reasonLabel}
-              {reasonCode ? ` (${reasonCode})` : ""}
-            </div>
-          </div>
-          <div>
-            <span className="text-sam-muted">{t("admin_cm_modal_detail_note")}</span>
-            <div className="mt-1 whitespace-pre-wrap">{note.trim()}</div>
+        <h2 className={OverlayUi.title}>{t("admin_cm_modal_force_end_title")}</h2>
+      <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
+        {t("admin_cm_modal_force_end_warning")}
+      </p>
+      <div className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm text-sam-fg">
+        <div>
+          <span className="text-sam-muted">{t("admin_cm_modal_target_call")}</span>
+          <div className="mt-1 font-medium text-sam-fg">
+            {call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · {call.callKind}
           </div>
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-50"
-          >
-            {t("admin_cm_common_cancel")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onConfirm}
-            className="rounded-ui-rect bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {busy ? t("admin_cm_action_force_end_in_progress") : t("admin_cm_action_force_end_confirm")}
-          </button>
+        <div>
+          <span className="text-sam-muted">{t("admin_cm_modal_initiator")}</span>
+          <div className="mt-1">{call.initiatorLabel}</div>
+        </div>
+        <div>
+          <span className="text-sam-muted">{t("admin_cm_modal_participants")}</span>
+          <div className="mt-1">
+            {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
+          </div>
+        </div>
+        <div>
+          <span className="text-sam-muted">{t("admin_cm_modal_reason_code")}</span>
+          <div className="mt-1 text-sky-700">
+            {reasonLabel}
+            {reasonCode ? ` (${reasonCode})` : ""}
+          </div>
+        </div>
+        <div>
+          <span className="text-sam-muted">{t("admin_cm_modal_detail_note")}</span>
+          <div className="mt-1 whitespace-pre-wrap">{note.trim()}</div>
         </div>
       </div>
-    </div>
+      <div className={`${OverlayUi.actionsRow} mt-4`}>
+        <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={onClose}>
+          {t("admin_cm_common_cancel")}
+        </DibayOverlayButton>
+        <DibayOverlayButton roleTone="destructive" disabled={busy} loading={busy} onClick={onConfirm}>
+          {busy ? t("admin_cm_action_force_end_in_progress") : t("admin_cm_action_force_end_confirm")}
+        </DibayOverlayButton>
+      </div>
+      </div>
+    </DibayOverlayRoot>
   );
 }
 

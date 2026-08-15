@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -785,7 +786,7 @@ export function MyStoreOrdersView({
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {
-      if (!confirm(t("mypage_comp_orders_list_confirm_cancel"))) return;
+      if (!(await dibayConfirm({ title: t("mypage_comp_orders_list_confirm_cancel"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
       setCancelBusyId(orderId);
       try {
         const { status, json } = await patchMeStoreOrder(orderId, { cancel: true });
@@ -815,7 +816,7 @@ export function MyStoreOrdersView({
 
   const requestHideOrder = useCallback(
     async (orderId: string) => {
-      if (!confirm(t("mypage_comp_orders_list_confirm_hide"))) return;
+      if (!(await dibayConfirm({ title: t("mypage_comp_orders_list_confirm_hide"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm") }))) return;
       setDeleteBusyId(orderId);
       try {
         const { status, json } = await deleteMeStoreOrder(orderId);

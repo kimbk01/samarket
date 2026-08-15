@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState, useCallback, useEffect } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -133,12 +134,12 @@ export function MyProductsView() {
           error?: string;
         };
         if (!res.ok || !data.ok) {
-          window.alert(data.error ?? "상태 변경에 실패했습니다.");
+          await dibayAlert({ title: data.error ?? "상태 변경에 실패했습니다." });
           return;
         }
         refresh();
       } catch {
-        window.alert(t("mypage_comp_product_network_change_failed"));
+        await dibayAlert({ title: t("mypage_comp_product_network_change_failed") });
       }
     },
     [currentUserId, refresh, t]
@@ -163,12 +164,12 @@ export function MyProductsView() {
           error?: string;
         };
         if (!res.ok || !data.ok) {
-          window.alert(data.error ?? t("mypage_comp_product_network_change_failed"));
+          await dibayAlert({ title: data.error ?? t("mypage_comp_product_network_change_failed") });
           return;
         }
         refresh();
       } catch {
-        window.alert(t("mypage_comp_product_network_change_failed"));
+        await dibayAlert({ title: t("mypage_comp_product_network_change_failed") });
       }
     },
     [currentUserId, refresh, t]
@@ -188,13 +189,19 @@ export function MyProductsView() {
       if (typeof window === "undefined") return;
 
       if (state === "completed") {
-        if (
-          !window.confirm(t("mypage_comp_product_complete_confirm"))
-        ) {
-          return;
-        }
-      } else if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) {
-        return;
+        const ok = await dibayConfirm({
+          title: t("mypage_comp_product_complete_confirm"),
+          cancelLabel: t("common_cancel"),
+          confirmLabel: t("common_confirm"),
+        });
+        if (!ok) return;
+      } else {
+        const ok = await dibayConfirm({
+          title: t("mypage_comp_product_listing_change_confirm", { label }),
+          cancelLabel: t("common_cancel"),
+          confirmLabel: t("common_confirm"),
+        });
+        if (!ok) return;
       }
 
       setSavingListingId(productId);
@@ -204,7 +211,7 @@ export function MyProductsView() {
         if (state === "completed") {
           const data = await fetchPostBuyerChats(productId);
           if (data.error) {
-            window.alert(data.error);
+            await dibayAlert({ title: data.error });
             return;
           }
           const items = (data.items ?? []).filter(isActiveTradeChat);
@@ -216,12 +223,12 @@ export function MyProductsView() {
           if (listingIsReserved && reservedId) {
             const row = items.find((i) => i.buyerId === reservedId);
             if (!row?.chatId) {
-              window.alert(t("mypage_comp_product_reserved_chat_missing"));
+              await dibayAlert({ title: t("mypage_comp_product_reserved_chat_missing") });
               return;
             }
             const done = await postSellerCompleteRequest(row.chatId);
             if (!done.ok) {
-              window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+              await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
               return;
             }
             refresh();
@@ -230,13 +237,13 @@ export function MyProductsView() {
 
           const candidates = dedupeBuyerCandidates(items);
           if (candidates.length === 0) {
-            window.alert(t("mypage_comp_product_no_inquiry_for_complete"));
+            await dibayAlert({ title: t("mypage_comp_product_no_inquiry_for_complete") });
             return;
           }
           if (candidates.length === 1) {
             const done = await postSellerCompleteRequest(candidates[0].chatId);
             if (!done.ok) {
-              window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+              await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
               return;
             }
             refresh();
@@ -249,22 +256,22 @@ export function MyProductsView() {
         if (state === "reserved") {
           const data = await fetchPostBuyerChats(productId);
           if (data.error) {
-            window.alert(data.error);
+            await dibayAlert({ title: data.error });
             return;
           }
           const items = (data.items ?? []).filter(isActiveTradeChat);
           const candidates = dedupeBuyerCandidates(items);
           if (candidates.length === 0) {
-            window.alert(t("mypage_comp_product_reserve_inquiry_only"));
+            await dibayAlert({ title: t("mypage_comp_product_reserve_inquiry_only") });
             return;
           }
           if (candidates.length === 1) {
             const saved = await postSellerListingStateRequest(productId, "reserved", candidates[0].buyerId);
             if (!saved.ok) {
-              window.alert(saved.error ?? "저장에 실패했습니다.");
+              await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
               return;
             }
-            if (saved.warning) window.alert(saved.warning);
+            if (saved.warning) await dibayAlert({ title: saved.warning });
             refresh();
             return;
           }
@@ -274,13 +281,13 @@ export function MyProductsView() {
 
         const saved = await postSellerListingStateRequest(productId, state);
         if (!saved.ok) {
-          window.alert(saved.error ?? "저장에 실패했습니다.");
+          await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
           return;
         }
-        if (saved.warning) window.alert(saved.warning);
+        if (saved.warning) await dibayAlert({ title: saved.warning });
         refresh();
       } catch {
-        window.alert(t("mypage_comp_product_network_save_failed"));
+        await dibayAlert({ title: t("mypage_comp_product_network_save_failed") });
       } finally {
         setSavingListingId(null);
       }
@@ -298,20 +305,20 @@ export function MyProductsView() {
         if (mode === "reserve") {
           const saved = await postSellerListingStateRequest(productId, "reserved", c.buyerId);
           if (!saved.ok) {
-            window.alert(saved.error ?? "저장에 실패했습니다.");
+            await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
             return;
           }
-          if (saved.warning) window.alert(saved.warning);
+          if (saved.warning) await dibayAlert({ title: saved.warning });
         } else {
           const done = await postSellerCompleteRequest(c.chatId);
           if (!done.ok) {
-            window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+            await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
             return;
           }
         }
         refresh();
       } catch {
-        window.alert(t("mypage_comp_product_network_error_short"));
+        await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
       } finally {
         setSavingListingId(null);
       }

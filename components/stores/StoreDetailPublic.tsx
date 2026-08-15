@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 
 import type { ReactNode } from "react";
 import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
@@ -1458,7 +1459,7 @@ export function StoreDetailPublic({
           await navigator.share({ title: store.store_name, text: store.store_name, url });
         } else if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(url);
-          window.alert(t("store_link_copied"));
+          await dibayAlert({ title: t("store_link_copied") });
         }
       } catch {
         /* 사용자 취소 등 */
@@ -1479,7 +1480,7 @@ export function StoreDetailPublic({
           await navigator.share({ title, text: title, url });
         } else if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(url);
-          window.alert(t("store_link_copied"));
+          await dibayAlert({ title: t("store_link_copied") });
         }
       } catch {
         /* noop */

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
@@ -260,12 +261,21 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                         <button
                           type="button"
                           onClick={() => {
-                            const nextActive = !row.is_active;
-                            const label = nextActive
-                              ? t("admin_stores_app_taxonomy_confirm_show")
-                              : t("admin_stores_app_taxonomy_confirm_hide");
-                            if (!window.confirm(label)) return;
-                            onToggleActive(row.id, nextActive);
+                            void (async () => {
+                              const nextActive = !row.is_active;
+                              const label = nextActive
+                                ? t("admin_stores_app_taxonomy_confirm_show")
+                                : t("admin_stores_app_taxonomy_confirm_hide");
+                              if (
+                                !(await dibayConfirm({
+                                  title: label,
+                                  confirmTone: nextActive ? "primary" : "destructive",
+                                }))
+                              ) {
+                                return;
+                              }
+                              onToggleActive(row.id, nextActive);
+                            })();
                           }}
                           className="sam-text-xxs font-semibold text-red-600 underline"
                         >
@@ -481,7 +491,7 @@ export function AdminStoreTaxonomyManager({
           url?: string;
         };
         if (!res.ok || !j?.ok) {
-          window.alert(j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload"));
+          await dibayAlert({ title: j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload") });
           return false;
         }
         const url = typeof j.url === "string" ? j.url.trim() : "";
@@ -494,7 +504,7 @@ export function AdminStoreTaxonomyManager({
         }
         return true;
       } catch {
-        window.alert("network_error");
+        await dibayAlert({ title: "network_error" });
         return false;
       } finally {
         setImageUploading((prev) => (prev === key ? null : prev));
@@ -517,7 +527,7 @@ export function AdminStoreTaxonomyManager({
         row?: StoreTaxonomyCategory | StoreTaxonomyTopic | StoreTaxonomySubtopic;
       };
       if (!res.ok || !j.ok) {
-        window.alert(j.error ?? t("admin_stores_app_taxonomy_err_save"));
+        await dibayAlert({ title: j.error ?? t("admin_stores_app_taxonomy_err_save") });
         return false;
       }
       const row = j.row;
@@ -568,7 +578,7 @@ export function AdminStoreTaxonomyManager({
   );
 
   const seedDefaults = useCallback(async () => {
-    if (!window.confirm(t("admin_stores_app_taxonomy_confirm_seed"))) return;
+    if (!(await dibayConfirm({ title: t("admin_stores_app_taxonomy_confirm_seed"), confirmTone: "destructive" }))) return;
     setSeeding(true);
     try {
       const res = await fetch("/api/admin/stores/taxonomy", {
@@ -584,7 +594,7 @@ export function AdminStoreTaxonomyManager({
         seeded?: { categories?: number; topics?: number };
       };
       if (!res.ok || !j.ok) {
-        window.alert(j.error ?? t("admin_stores_app_taxonomy_err_seed"));
+        await dibayAlert({ title: j.error ?? t("admin_stores_app_taxonomy_err_seed") });
         return;
       }
       onMessage(
@@ -617,9 +627,9 @@ export function AdminStoreTaxonomyManager({
       if (!res.ok || !j.ok) {
         const err = j.error ?? "";
         if (err === "store_subtopics_table_missing") {
-          window.alert(t("admin_stores_app_taxonomy_err_subtopics_migration"));
+          await dibayAlert({ title: t("admin_stores_app_taxonomy_err_subtopics_migration") });
         } else {
-          window.alert(j.message ?? err ?? t("admin_stores_app_taxonomy_err_create"));
+          await dibayAlert({ title: j.message ?? err ?? t("admin_stores_app_taxonomy_err_create") });
         }
         return null;
       }

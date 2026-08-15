@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { philifeMeetingApi } from "@domain/philife/api";
@@ -131,7 +132,7 @@ export function MeetingHostControls({
 
   const onCloseMeeting = async () => {
     if (!isHost) return;
-    if (!window.confirm(t("community_confirm_end_meeting"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_end_meeting"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setBusy((prev) => (prev ? prev : true));
     setErr((prev) => (prev === "" ? prev : ""));
     try {
@@ -146,7 +147,7 @@ export function MeetingHostControls({
 
   const onKick = async (userId: string) => {
     if (!isHost) return;
-    if (!window.confirm(t("community_confirm_kick_member"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_kick_member"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {
@@ -229,7 +230,7 @@ export function MeetingHostControls({
 
   const onDeleteNotice = async (noticeId: string) => {
     if (!canManage) return;
-    if (!window.confirm(t("community_confirm_delete_notice"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_delete_notice"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {
@@ -364,7 +365,7 @@ export function MeetingHostControls({
 
   const onBan = async (userId: string) => {
     if (!isHost) return;
-    if (!window.confirm(t("community_confirm_block_member"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_block_member"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setBusy(true);
     setErr("");
     try {

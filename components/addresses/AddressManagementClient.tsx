@@ -1,8 +1,10 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
@@ -150,13 +152,13 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }, [linkedStoreIdsInList]);
 
   async function removeRow(id: string) {
-    if (!confirm(t("address_delete_confirm"))) return;
+    if (!(await dibayConfirm({ title: t("address_delete_confirm"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusyId(id);
     try {
       const res = await fetch(`/api/me/addresses/${id}`, { method: "DELETE", credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(translateUserAddressApiError(j.error, t, "address_delete_failed"));
+        await dibayAlert({ title: translateUserAddressApiError(j.error, t, "address_delete_failed") });
         return;
       }
       const rows = await commitUserAddressListAfterMutation();
@@ -183,12 +185,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     try {
       const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
       if (!res.ok) {
-        if (res.reason !== "later") alert(t("addr_ui_geo_failed"));
+        if (res.reason !== "later") await dibayAlert({ title: t("addr_ui_geo_failed") });
         return;
       }
       const draft = await resolveCanonicalAddressFromLatLng(res.position.latitude, res.position.longitude);
       if (!draft) {
-        alert(t("addr_ui_resolve_failed"));
+        await dibayAlert({ title: t("addr_ui_resolve_failed") });
         return;
       }
       writeAddressPlatformV2Draft({ draft, source: "current_location" });
@@ -206,7 +208,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       return;
     }
     if (isLinkedSamarketStoreAddressRow(row)) {
-      alert(t("addr_ui_store_not_master"));
+      await dibayAlert({ title: t("addr_ui_store_not_master") });
       return;
     }
     setBusyId(id);
@@ -221,7 +223,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed"));
+        await dibayAlert({ title: translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed") });
         return;
       }
       const rows = await commitUserAddressListAfterMutation();

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -103,7 +104,7 @@ export function useCategoryAdmin() {
 
   const handleDelete = useCallback(
     async (id: string): Promise<boolean> => {
-      if (!confirm(t("admin_cat_confirm_delete"))) return false;
+      if (!(await dibayConfirm({ title: t("admin_cat_confirm_delete"), confirmTone: "destructive" }))) return false;
       const res = await deleteCategory(id);
       if (!res.ok) {
         showError(res.error);

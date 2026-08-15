@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -314,12 +315,12 @@ export const PostCard = memo(function PostCard({
                     error?: string;
                   };
                   if (!res.ok || !data.ok) {
-                    window.alert(data.error ?? "삭제하지 못했습니다.");
+                    await dibayAlert({ title: data.error ?? "삭제하지 못했습니다." });
                     return;
                   }
                   onMenuAction?.(post.id, "delete_own");
                 } catch {
-                  window.alert(t("ui_post_delete_network_error"));
+                  await dibayAlert({ title: t("ui_post_delete_network_error") });
                 }
               })();
               return;

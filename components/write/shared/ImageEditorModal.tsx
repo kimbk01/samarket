@@ -2,8 +2,9 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { Crop, Pencil, RotateCw, Sparkles, X } from "lucide-react";
+import { DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   blobToFile,
   canvasToBlob,
@@ -321,20 +322,15 @@ export function ImageEditorModal({
     else if (tool === "draw") handlePointerUpDraw(e);
   };
 
-  if (!open) return null;
-
-  const portalTarget = typeof document !== "undefined" ? document.body : null;
-  if (!portalTarget) return null;
-
-  const toolBtn = (t: EditTool, icon: ReactNode, label: string) => (
+  const toolBtn = (toolKey: EditTool, icon: ReactNode, label: string) => (
     <button
       type="button"
       onClick={() => {
         setCropDrag(null);
-        setTool((prev) => (prev === t ? "none" : t));
+        setTool((prev) => (prev === toolKey ? "none" : toolKey));
       }}
-      className={`flex min-w-[64px] flex-col items-center gap-1 rounded-ui-rect px-2 py-2 sam-text-xxs ${
-        tool === t ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10"
+      className={`flex min-w-[64px] flex-col items-center gap-1 rounded-[length:var(--overlay-radius-sm)] px-2 py-2 sam-text-xxs ${
+        tool === toolKey ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10"
       }`}
     >
       <span className="[&_svg]:h-6 [&_svg]:w-6">{icon}</span>
@@ -342,90 +338,105 @@ export function ImageEditorModal({
     </button>
   );
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex flex-col bg-black"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="image-editor-title"
+  /**
+   * Intentional dark full editor — DibayOverlayRoot for portal/scroll-lock/Escape;
+   * keeps black editor chrome (not white OverlayUi.fullSheet).
+   */
+  return (
+    <DibayOverlayRoot
+      open={open}
+      onClose={onClose}
+      dismissible={false}
+      placement="full"
+      zRole="sheet"
+      zIndexClass={MAIN_BOTTOM_NAV_SHEET_Z_CLASS}
+      ariaLabel={t("trade_write_image_editor_title")}
+      stageClassName="!p-0"
+      stageStyle={{ height: "100dvh", maxHeight: "100dvh" }}
     >
-      <header className="flex shrink-0 items-center justify-between px-3 py-3 text-white">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full p-2 hover:bg-white/10"
-          aria-label={t("common_close")}
-        >
-          <X className="h-6 w-6" />
-        </button>
-        <span id="image-editor-title" className="sr-only">
-          {t("trade_write_image_editor_title")}
-        </span>
-        <button
-          type="button"
-          onClick={handleDone}
-          disabled={loading || !!error}
-          className="sam-text-body font-semibold text-white hover:underline disabled:opacity-40"
-        >
-          {t("trade_write_image_editor_done")}
-        </button>
-      </header>
-
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
-        {loading ? (
-          <p className="text-white/70">{t("common_loading")}</p>
-        ) : error ? (
-          <p className="text-red-300">{error}</p>
-        ) : (
-          <canvas
-            ref={viewRef}
-            className={`max-h-[62vh] max-w-full touch-none ${
-              tool === "bg" ? "cursor-crosshair" : tool === "draw" ? "cursor-crosshair" : tool === "crop" ? "cursor-crosshair" : ""
-            }`}
-            onPointerDown={onCanvasPointerDown}
-            onPointerMove={onCanvasPointerMove}
-            onPointerUp={onCanvasPointerUp}
-            onPointerCancel={onCanvasPointerUp}
-          />
-        )}
-      </div>
-
-      {tool === "bg" ? (
-        <div className="shrink-0 border-t border-white/10 px-4 py-2 text-white/90">
-          <label className="flex items-center gap-3 sam-text-body-secondary">
-            {t("trade_write_image_editor_bg_tolerance")}
-            <input
-              type="range"
-              min={12}
-              max={96}
-              value={bgTolerance}
-              onChange={(e) => setBgTolerance(Number(e.target.value))}
-              className="min-w-0 flex-1 accent-white"
-            />
-            <span className="w-8 tabular-nums">{bgTolerance}</span>
-          </label>
-          <p className="mt-1 sam-text-xxs text-white/50">
-            {t("trade_write_image_editor_bg_hint")}
-          </p>
-        </div>
-      ) : null}
-
-      <footer className="shrink-0 border-t border-white/10 bg-neutral-950 pb-[max(0.75rem,var(--safe-bottom))]">
-        <div className="flex justify-around gap-1 px-2 pt-2">
-          {toolBtn("crop", <Crop className="stroke-[1.5]" />, t("trade_write_image_editor_crop"))}
+      <div
+        className="relative z-[1] flex h-full min-h-0 w-full flex-col bg-black text-white"
+        data-dibay-overlay="image-editor-full"
+        style={{
+          paddingTop: "var(--safe-top)",
+          backgroundColor: "#000",
+        }}
+      >
+        <header className="flex shrink-0 items-center justify-between px-3 py-3 text-white">
           <button
             type="button"
-            onClick={handleRotate}
-            className="flex min-w-[64px] flex-col items-center gap-1 rounded-ui-rect px-2 py-2 sam-text-xxs text-white/80 hover:bg-white/10"
+            onClick={onClose}
+            className="rounded-full p-2 hover:bg-white/10"
+            aria-label={t("common_close")}
           >
-            <RotateCw className="h-6 w-6 stroke-[1.5]" />
-            <span>{t("ui_write_image_rotate")}</span>
+            <X className="h-6 w-6" />
           </button>
-          {toolBtn("draw", <Pencil className="stroke-[1.5]" />, t("trade_write_image_editor_draw"))}
-          {toolBtn("bg", <Sparkles className="stroke-[1.5]" />, t("trade_write_image_editor_bg_remove"))}
+          <span id="image-editor-title" className="sr-only">
+            {t("trade_write_image_editor_title")}
+          </span>
+          <button
+            type="button"
+            onClick={handleDone}
+            disabled={loading || !!error}
+            className="sam-text-body font-semibold text-white hover:underline disabled:opacity-40"
+          >
+            {t("trade_write_image_editor_done")}
+          </button>
+        </header>
+
+        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
+          {loading ? (
+            <p className="text-white/70">{t("common_loading")}</p>
+          ) : error ? (
+            <p className="text-red-300">{error}</p>
+          ) : (
+            <canvas
+              ref={viewRef}
+              className={`max-h-[62vh] max-w-full touch-none ${
+                tool === "bg" || tool === "draw" || tool === "crop" ? "cursor-crosshair" : ""
+              }`}
+              onPointerDown={onCanvasPointerDown}
+              onPointerMove={onCanvasPointerMove}
+              onPointerUp={onCanvasPointerUp}
+              onPointerCancel={onCanvasPointerUp}
+            />
+          )}
         </div>
-      </footer>
-    </div>,
-    portalTarget
+
+        {tool === "bg" ? (
+          <div className="shrink-0 border-t border-white/10 px-4 py-2 text-white/90">
+            <label className="flex items-center gap-3 sam-text-body-secondary">
+              {t("trade_write_image_editor_bg_tolerance")}
+              <input
+                type="range"
+                min={12}
+                max={96}
+                value={bgTolerance}
+                onChange={(e) => setBgTolerance(Number(e.target.value))}
+                className="min-w-0 flex-1 accent-white"
+              />
+              <span className="w-8 tabular-nums">{bgTolerance}</span>
+            </label>
+            <p className="mt-1 sam-text-xxs text-white/50">{t("trade_write_image_editor_bg_hint")}</p>
+          </div>
+        ) : null}
+
+        <footer className="shrink-0 border-t border-white/10 bg-neutral-950 pb-[max(0.75rem,var(--safe-bottom))]">
+          <div className="flex justify-around gap-1 px-2 pt-2">
+            {toolBtn("crop", <Crop className="stroke-[1.5]" />, t("trade_write_image_editor_crop"))}
+            <button
+              type="button"
+              onClick={handleRotate}
+              className="flex min-w-[64px] flex-col items-center gap-1 rounded-[length:var(--overlay-radius-sm)] px-2 py-2 sam-text-xxs text-white/80 hover:bg-white/10"
+            >
+              <RotateCw className="h-6 w-6 stroke-[1.5]" />
+              <span>{t("ui_write_image_rotate")}</span>
+            </button>
+            {toolBtn("draw", <Pencil className="stroke-[1.5]" />, t("trade_write_image_editor_draw"))}
+            {toolBtn("bg", <Sparkles className="stroke-[1.5]" />, t("trade_write_image_editor_bg_remove"))}
+          </div>
+        </footer>
+      </div>
+    </DibayOverlayRoot>
   );
 }

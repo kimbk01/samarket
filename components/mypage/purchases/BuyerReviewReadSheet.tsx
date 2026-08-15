@@ -9,6 +9,8 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface ReviewPayload {
   public_review_type: string;
@@ -65,75 +67,63 @@ export function BuyerReviewReadSheet({
     perspective === "buyer_self" ? t("mypage_comp_purchase_card_review_prompt_p2") : t("mypage_comp_review_buy_heading");
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:rounded-ui-rect">
-        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{title}</h2>
-          <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">
-            {t("mypage_comp_close")}
-          </button>
-        </div>
-        <div className="max-h-[calc(85vh-52px)] overflow-y-auto p-4">
-          {loading ? (
-            <p className="py-8 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
-          ) : err ? (
-            <p className="py-8 text-center sam-text-body text-red-600">{err}</p>
-          ) : rev ? (
-            <div className="space-y-3 sam-text-body text-sam-fg">
-              <p>
-                <span className="text-sam-muted">{t("mypage_comp_review_overall")}</span>{" "}
-                <span className="font-medium">
-                  {rev.public_review_type === "good"
-                    ? t("mypage_comp_review_positive")
-                    : rev.public_review_type === "bad"
-                      ? t("mypage_comp_review_negative")
-                      : t("mypage_comp_review_none")}
-                </span>
-              </p>
-              {(rev.positive_tag_keys?.length ?? 0) > 0 ? (
-                <div>
-                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">{t("mypage_comp_review_positive")}</p>
-                  <ul className="flex flex-wrap gap-1">
-                    {(rev.positive_tag_keys ?? []).map((k) => (
-                      <li
-                        key={k}
-                        className="rounded-full bg-signature/5 px-2 py-0.5 sam-text-xxs text-sam-fg"
-                      >
-                        {tradeReviewTagLabel(t, "buyer_to_seller", k)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {(rev.negative_tag_keys?.length ?? 0) > 0 ? (
-                <div>
-                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">{t("mypage_comp_review_negative")}</p>
-                  <ul className="flex flex-wrap gap-1">
-                    {(rev.negative_tag_keys ?? []).map((k) => (
-                      <li
-                        key={k}
-                        className="rounded-full bg-amber-50 px-2 py-0.5 sam-text-xxs text-amber-900"
-                      >
-                        {tradeReviewTagLabel(t, "buyer_to_seller", k)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {rev.review_comment ? (
-                <p className="whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{rev.review_comment}</p>
-              ) : null}
-              <p className="sam-text-xxs text-sam-meta">
-                {rev.created_at
-                  ? new Date(rev.created_at).toLocaleString()
-                  : ""}
-              </p>
+    <DibayBottomSheet open onClose={onClose} title={title} anchor="above-bottom-nav">
+      {loading ? (
+        <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("mypage_comp_loading_short")}</p>
+      ) : err ? (
+        <p className="py-8 text-center text-sm text-[color:var(--overlay-danger)]">{err}</p>
+      ) : rev ? (
+        <div className={`space-y-3 ${OverlayUi.body}`}>
+          <p>
+            <span className={OverlayUi.caption}>{t("mypage_comp_review_overall")}</span>{" "}
+            <span className="font-medium">
+              {rev.public_review_type === "good"
+                ? t("mypage_comp_review_positive")
+                : rev.public_review_type === "bad"
+                  ? t("mypage_comp_review_negative")
+                  : t("mypage_comp_review_none")}
+            </span>
+          </p>
+          {(rev.positive_tag_keys?.length ?? 0) > 0 ? (
+            <div>
+              <p className={`mb-1 font-medium ${OverlayUi.caption}`}>{t("mypage_comp_review_positive")}</p>
+              <ul className="flex flex-wrap gap-1">
+                {(rev.positive_tag_keys ?? []).map((k) => (
+                  <li
+                    key={k}
+                    className="rounded-full bg-[color:var(--overlay-secondary)] px-2 py-0.5 text-[11px] text-[color:var(--overlay-text-primary)]"
+                  >
+                    {tradeReviewTagLabel(t, "buyer_to_seller", k)}
+                  </li>
+                ))}
+              </ul>
             </div>
-          ) : (
-            <p className="py-8 text-center text-sam-muted">{t("mypage_comp_review_none")}</p>
-          )}
+          ) : null}
+          {(rev.negative_tag_keys?.length ?? 0) > 0 ? (
+            <div>
+              <p className={`mb-1 font-medium ${OverlayUi.caption}`}>{t("mypage_comp_review_negative")}</p>
+              <ul className="flex flex-wrap gap-1">
+                {(rev.negative_tag_keys ?? []).map((k) => (
+                  <li
+                    key={k}
+                    className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900"
+                  >
+                    {tradeReviewTagLabel(t, "buyer_to_seller", k)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {rev.review_comment ? (
+            <p className={`whitespace-pre-wrap ${OverlayUi.bodySecondary}`}>{rev.review_comment}</p>
+          ) : null}
+          <p className={OverlayUi.caption}>
+            {rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}
+          </p>
         </div>
-      </div>
-    </div>
+      ) : (
+        <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("mypage_comp_review_none")}</p>
+      )}
+    </DibayBottomSheet>
   );
 }

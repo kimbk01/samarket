@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 function trimCmText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -1521,7 +1522,12 @@ export function useMessengerRoomPhase2Controller() {
 
   const deleteRoomMessageForEveryone = useCallback(
     async (messageId: string) => {
-      if (!window.confirm(t("cm_ui_confirm_delete_for_everyone"))) return;
+      if (!(await dibayConfirm({
+        title: t("cm_ui_confirm_delete_for_everyone"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_delete"),
+        confirmTone: "destructive",
+      }))) return;
       setBusy("delete-for-everyone");
       try {
         const res = await fetch(
@@ -1594,7 +1600,12 @@ export function useMessengerRoomPhase2Controller() {
     async (messageId: string) => {
       const row = roomMessagesRef.current.find((x) => x.id === messageId);
       if (row?.messageType !== "voice") return;
-      if (!window.confirm(t("cm_ui_confirm_delete_voice_message"))) return;
+      if (!(await dibayConfirm({
+        title: t("cm_ui_confirm_delete_voice_message"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_delete"),
+        confirmTone: "destructive",
+      }))) return;
       setBusy("delete-message");
       try {
         const res = await fetch(
@@ -1619,8 +1630,13 @@ export function useMessengerRoomPhase2Controller() {
 
   const blockPeerFromMessage = useCallback(
     async (targetUserId: string) => {
-      const confirmBody = `${t("cm_social_block_confirm_title")}\n\n${t("cm_social_block_confirm_body")}`;
-      if (!window.confirm(confirmBody)) return;
+      if (!(await dibayConfirm({
+        title: t("cm_social_block_confirm_title"),
+        description: t("cm_social_block_confirm_body"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("cm_social_block"),
+        confirmTone: "destructive",
+      }))) return;
       setBusy("block-peer");
       try {
         const res = await fetch("/api/community-messenger/relations/block", {
@@ -1764,7 +1780,11 @@ export function useMessengerRoomPhase2Controller() {
 
   const transferGroupOwner = useCallback(
     async (targetUserId: string, label: string) => {
-      if (!window.confirm(t("cm_ui_confirm_transfer_group_owner", { name: label }))) return;
+      if (!(await dibayConfirm({
+        title: t("cm_ui_confirm_transfer_group_owner", { name: label }),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+      }))) return;
       setBusy(`group-owner:${targetUserId}`);
       try {
         const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
@@ -2037,7 +2057,12 @@ export function useMessengerRoomPhase2Controller() {
 
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
-      if (!window.confirm(t("cm_ui_confirm_remove_group_member", { name: label }))) return;
+      if (!(await dibayConfirm({
+        title: t("cm_ui_confirm_remove_group_member", { name: label }),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      }))) return;
       setBusy(`group-remove:${targetUserId}`);
       try {
         const endpoint = isPrivateGroupRoom
@@ -2068,9 +2093,12 @@ export function useMessengerRoomPhase2Controller() {
   const banGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
       if (!isPrivateGroupRoom) return;
-      if (
-        !window.confirm(t("cm_ui_confirm_ban_group_member", { name: label }))
-      ) {
+      if (!(await dibayConfirm({
+        title: t("cm_ui_confirm_ban_group_member", { name: label }),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_confirm"),
+        confirmTone: "destructive",
+      }))) {
         return;
       }
       setBusy(`group-ban:${targetUserId}`);
@@ -2100,9 +2128,13 @@ export function useMessengerRoomPhase2Controller() {
 
   const deletePrivateGroupRoom = useCallback(async () => {
     if (!isPrivateGroupRoom || !isOwner) return;
-    const confirmed = window.confirm(
-      `${t("cm_ui_delete_group_confirm_title")}\n\n${t("cm_ui_delete_group_confirm_body")}`
-    );
+    const confirmed = await dibayConfirm({
+      title: t("cm_ui_delete_group_confirm_title"),
+      description: t("cm_ui_delete_group_confirm_body"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_delete"),
+      confirmTone: "destructive",
+    });
     if (!confirmed) return;
     setBusy("group-delete");
     try {
@@ -2177,7 +2209,10 @@ export function useMessengerRoomPhase2Controller() {
 
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
-      const reasonDetail = window.prompt(translateCmUi("cm_ui_report_reason_prompt"));
+      const reasonDetail = await dibayPrompt({
+        title: translateCmUi("cm_ui_report_reason_prompt"),
+        required: true,
+      });
       if (!reasonDetail || !reasonDetail.trim()) return;
       const res = await fetch("/api/community-messenger/reports", {
         method: "POST",

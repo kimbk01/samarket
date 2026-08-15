@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
@@ -32,7 +33,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         kind === "leave"
           ? t("nav_trade_leave_confirm")
           : t("nav_trade_hide_confirm");
-      if (typeof window !== "undefined" && !window.confirm(msg)) return;
+      if (!(await dibayConfirm({ title: msg, cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
       setBusy(true);
       try {
         const path = kind === "leave" ? "leave" : "hide";
@@ -44,7 +45,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          window.alert(j.error ?? t("nav_trade_action_failed"));
+          await dibayAlert({ title: j.error ?? t("nav_trade_action_failed") });
           return;
         }
         setOpen(false);
@@ -54,7 +55,7 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
         });
         onAfterAction?.();
       } catch {
-        window.alert(t("nav_trade_network_error"));
+        await dibayAlert({ title: t("nav_trade_network_error") });
       } finally {
         setBusy(false);
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -131,7 +132,7 @@ export function AdminTradeFlowPage() {
   const revertTrade = useCallback(
     async (roomId: string) => {
       if (
-        !window.confirm(t("admin_trade_flow_revert_confirm"))
+        !(await dibayConfirm({ title: t("admin_trade_flow_revert_confirm") }))
       ) {
         return;
       }

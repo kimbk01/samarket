@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -115,9 +116,16 @@ export function AdminTradePostAdsPage() {
   };
 
   const activateWithManualPeriod = async (row: TradePostAdRow) => {
-    const start = window.prompt(t("admin_trade_post_ads_prompt_start"), new Date().toISOString());
+    const start = await dibayPrompt({
+      title: t("admin_trade_post_ads_prompt_start"),
+      defaultValue: new Date().toISOString(),
+    });
     if (start === null) return;
-    const end = window.prompt(t("admin_trade_post_ads_prompt_end"), "");
+    const end = await dibayPrompt({
+      title: t("admin_trade_post_ads_prompt_end"),
+      defaultValue: "",
+      required: true,
+    });
     if (end === null || !end.trim()) {
       setErr(t("admin_trade_post_ads_end_required"));
       return;

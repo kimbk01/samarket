@@ -1,10 +1,10 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { blockUser } from "@/lib/reports/user-blocks-client";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 
 function IconEyeSlash({ className }: { className?: string }) {
   return (
@@ -30,6 +30,9 @@ function IconReportAlert({ className }: { className?: string }) {
   );
 }
 
+const rowClass =
+  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-3 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-surface)] active:scale-[var(--overlay-press-scale)]";
+
 export function PostDetailMoreBottomSheet({
   open,
   onClose,
@@ -49,25 +52,6 @@ export function PostDetailMoreBottomSheet({
 }) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const [slideIn, setSlideIn] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setSlideIn((prev) => (prev ? false : prev));
-      return;
-    }
-    const id = requestAnimationFrame(() => setSlideIn((prev) => (prev ? prev : true)));
-    return () => cancelAnimationFrame(id);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [open, onClose]);
-
-  if (!open) return null;
 
   const handleHideAuthor = () => {
     const u = getCurrentUser();
@@ -75,9 +59,9 @@ export function PostDetailMoreBottomSheet({
       void requireAction("community_bookmark", handleHideAuthor);
       return;
     }
-    void blockUser(u.id, authorUserId, authorNickname ?? undefined).then(() => {
+    void blockUser(u.id, authorUserId, authorNickname ?? undefined).then(async () => {
       onClose();
-      window.alert(t("ui_post_user_hidden_alert"));
+      await dibayAlert({ title: t("ui_post_user_hidden_alert") });
     });
   };
 
@@ -92,49 +76,29 @@ export function PostDetailMoreBottomSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[45] flex items-end justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-label={t("ui_sheet_close_aria")}
-      />
-      <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
-          slideIn ? "translate-y-0" : "translate-y-full"
-        }`}
-      >
-        <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
+    <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
+      <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+        <button type="button" onClick={handleHideAuthor} className={rowClass}>
+          <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
+          이 사용자의 글 보지 않기
+        </button>
+        {reportEnabled ? (
           <button
             type="button"
-            onClick={handleHideAuthor}
-            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
+            onClick={handleReport}
+            className={`${rowClass} font-medium text-[color:var(--overlay-danger)] hover:bg-red-50`}
           >
-            <IconEyeSlash className="h-5 w-5 shrink-0 text-sam-muted" />
-            이 사용자의 글 보지 않기
+            <IconReportAlert className="h-5 w-5 shrink-0 text-[color:var(--overlay-danger)]" />
+            신고하기
           </button>
-          {reportEnabled ? (
-            <button
-              type="button"
-              onClick={handleReport}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left sam-text-body font-medium text-red-600 hover:bg-red-50"
-            >
-              <IconReportAlert className="h-5 w-5 shrink-0 text-red-500" />
-              신고하기
-            </button>
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-3 w-full rounded-ui-rect bg-sam-surface-muted py-3.5 sam-text-body font-medium text-sam-fg hover:bg-sam-border-soft"
-        >
-          닫기
-        </button>
+        ) : null}
       </div>
-    </div>
+
+      <div className="mt-3">
+        <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+          닫기
+        </DibayOverlayButton>
+      </div>
+    </DibayBottomSheet>
   );
 }

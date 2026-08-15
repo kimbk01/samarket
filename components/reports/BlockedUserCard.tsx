@@ -1,4 +1,5 @@
 "use client";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
@@ -16,9 +17,9 @@ export function BlockedUserCard({ blocked, onUnblock }: BlockedUserCardProps) {
   const userId = getViewerUserId();
   const [busy, setBusy] = useState(false);
 
-  const handleUnblock = () => {
+  const handleUnblock = async () => {
     if (!userId || busy) return;
-    if (!confirm(t("ui_report_unblock_confirm"))) return;
+    if (!(await dibayConfirm({ title: t("ui_report_unblock_confirm"), cancelLabel: t("common_cancel"), confirmLabel: t("ui_report_unblock") }))) return;
     void (async () => {
       setBusy(true);
       try {

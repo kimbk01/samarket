@@ -9,6 +9,7 @@ import {
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { communityMessengerRoomIsInboxHidden } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 
@@ -154,11 +155,18 @@ export function MessengerChatRoomActionSheet({
   return (
     <div
       data-messenger-chat-sheet="true"
+      data-dibay-overlay="messenger-chat-room-action-sheet"
       className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
       role="dialog"
       aria-modal="true"
     >
-      <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label={t("nav_close")} onClick={onClose} />
+      {/* Anchored menu: invisible click-catcher (no dim) — OverlayUi.backdrop token class kept for SSOT */}
+      <button
+        type="button"
+        className={`${OverlayUi.backdrop} !bg-transparent ![backdrop-filter:none] !opacity-100`}
+        aria-label={t("nav_close")}
+        onClick={onClose}
+      />
       <div
         ref={panelRef}
         className="absolute overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"

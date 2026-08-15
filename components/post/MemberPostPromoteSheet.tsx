@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 function clientIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -190,8 +192,6 @@ export function MemberPostPromoteSheet({
     }
   };
 
-  if (!open) return null;
-
   const langEn = language === "en";
   const sheetTitle =
     domain === "community"
@@ -205,248 +205,233 @@ export function MemberPostPromoteSheet({
         });
 
   return (
-    <div className="fixed inset-0 z-[46] flex items-end justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        aria-label={t("ui_sheet_close_aria")}
-      />
-      <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(0.75rem,var(--safe-bottom))] pt-2 shadow-xl">
-        <div className="mx-auto mb-2 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-1 px-1 sam-text-body-lg font-semibold text-sam-fg">{sheetTitle}</h2>
-        <p className="mb-2 line-clamp-2 px-1 sam-text-body-secondary text-sam-muted">{postTitle}</p>
+    <DibayBottomSheet open={open} onClose={onClose} title={sheetTitle} anchor="above-bottom-nav">
+      <p className={`mb-2 line-clamp-2 ${OverlayUi.bodySecondary}`}>{postTitle}</p>
 
-        {successEndAt ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-            <p className="sam-text-body font-semibold text-sam-fg">
-              {pendingReview
-                ? safeT("promo_sheet_pending_success", {
-                    fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
-                    fallbackEn: "Promotion request submitted. It goes live after admin approval.",
-                  })
-                : safeT("promo_sheet_success", {
-                    fallbackKo: "홍보가 시작되었습니다.",
-                    fallbackEn: "Promotion started.",
-                  })}
-            </p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
-              {pendingReview
-                ? safeT("promo_sheet_pending_period", {
-                    fallbackKo: "승인 시 적용 기간",
-                    fallbackEn: "Period after approval",
-                  })
-                : safeT("promo_sheet_ends_at", {
-                    fallbackKo: "종료일",
-                    fallbackEn: "Ends",
-                  })}
-              {": "}
-              {new Date(successEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
-            </p>
-            {balance != null ? (
-              <p className="mt-1 sam-text-body-secondary text-sam-muted">
-                {safeT("promo_sheet_balance_after", {
-                  fallbackKo: "결제 후 잔액",
-                  fallbackEn: "Balance after",
+      {successEndAt ? (
+        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
+          <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+            {pendingReview
+              ? safeT("promo_sheet_pending_success", {
+                  fallbackKo: "홍보 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
+                  fallbackEn: "Promotion request submitted. It goes live after admin approval.",
+                })
+              : safeT("promo_sheet_success", {
+                  fallbackKo: "홍보가 시작되었습니다.",
+                  fallbackEn: "Promotion started.",
                 })}
-                {": "}
-                {balance.toLocaleString()}P
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="mt-4 w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white"
-              onClick={onClose}
-            >
-              {t("common_confirm")}
-            </button>
-          </div>
-        ) : loading ? (
-          <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
-        ) : activeEndAt || pendingExisting ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-            <p className="sam-text-body font-semibold text-sam-fg">
-              {pendingExisting
-                ? safeT("promo_sheet_pending_existing", {
-                    fallbackKo: "심사 중",
-                    fallbackEn: "Under review",
-                  })
-                : safeT("promo_sheet_already_active", {
-                    fallbackKo: "홍보 중",
-                    fallbackEn: "Promotion active",
-                  })}
-            </p>
-            {activeEndAt ? (
-              <p className="mt-1 sam-text-body-secondary text-sam-muted">
-                {safeT("promo_sheet_ends_at", {
-                  fallbackKo: "종료",
+          </p>
+          <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+            {pendingReview
+              ? safeT("promo_sheet_pending_period", {
+                  fallbackKo: "승인 시 적용 기간",
+                  fallbackEn: "Period after approval",
+                })
+              : safeT("promo_sheet_ends_at", {
+                  fallbackKo: "종료일",
                   fallbackEn: "Ends",
                 })}
+            {": "}
+            {new Date(successEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+          </p>
+          {balance != null ? (
+            <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+              {safeT("promo_sheet_balance_after", {
+                fallbackKo: "결제 후 잔액",
+                fallbackEn: "Balance after",
+              })}
+              {": "}
+              {balance.toLocaleString()}P
+            </p>
+          ) : null}
+          <div className="mt-4">
+            <DibayOverlayButton roleTone="primary" onClick={onClose}>
+              {t("common_confirm")}
+            </DibayOverlayButton>
+          </div>
+        </div>
+      ) : loading ? (
+        <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
+      ) : activeEndAt || pendingExisting ? (
+        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
+          <p className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+            {pendingExisting
+              ? safeT("promo_sheet_pending_existing", {
+                  fallbackKo: "심사 중",
+                  fallbackEn: "Under review",
+                })
+              : safeT("promo_sheet_already_active", {
+                  fallbackKo: "홍보 중",
+                  fallbackEn: "Promotion active",
+                })}
+          </p>
+          {activeEndAt ? (
+            <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+              {safeT("promo_sheet_ends_at", {
+                fallbackKo: "종료",
+                fallbackEn: "Ends",
+              })}
+              {": "}
+              {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+            </p>
+          ) : null}
+          <p className={`mt-2 ${OverlayUi.caption}`}>
+            {safeT("promo_sheet_no_stack", {
+              fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
+              fallbackEn: "You can apply again after the current promotion ends or is decided.",
+            })}
+          </p>
+          <div className="mt-4">
+            <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+              {t("common_confirm")}
+            </DibayOverlayButton>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {catalog.map((item) => {
+              const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
+              const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
+              const selectedNow = item.id === (selected?.id ?? productId);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setProductId(item.id)}
+                  className={`w-full rounded-[length:var(--overlay-radius-md)] border px-3 py-3 text-left ${
+                    selectedNow
+                      ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-primary)]/5"
+                      : "border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{title}</span>
+                    <span className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+                      {item.pointCost.toLocaleString()}P
+                    </span>
+                  </div>
+                  <p className={`mt-1 ${OverlayUi.caption}`}>{desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <ul
+            className={`mt-3 space-y-1 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-2.5 ${OverlayUi.caption}`}
+          >
+            <li>
+              {safeT("promo_sheet_surfaces_intro", {
+                fallbackKo: "적용 위치",
+                fallbackEn: "Where it appears",
+              })}
+            </li>
+            {domain === "community" ? (
+              <>
+                <li>
+                  ·{" "}
+                  {safeT("promo_sheet_surface_community_home", {
+                    fallbackKo: "커뮤니티 홈 피드 상단",
+                    fallbackEn: "Community home feed top",
+                  })}
+                </li>
+                <li>
+                  ·{" "}
+                  {safeT("promo_sheet_surface_community_topic", {
+                    fallbackKo: "이 게시물 주제(토픽) 피드 상단",
+                    fallbackEn: "This post's topic feed top",
+                  })}
+                </li>
+                <li className="pt-1 opacity-80">
+                  {safeT("promo_sheet_community_immediate_note", {
+                    fallbackKo: "D-Point 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
+                    fallbackEn: "Goes live at the top of the feed immediately with D-Point. No admin approval.",
+                  })}
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  ·{" "}
+                  {safeT("promo_sheet_surface_trade_home", {
+                    fallbackKo: "거래 홈 목록",
+                    fallbackEn: "Trade home list",
+                  })}
+                </li>
+                <li>
+                  ·{" "}
+                  {safeT("promo_sheet_surface_trade_category", {
+                    fallbackKo: "이 게시물의 카테고리 목록",
+                    fallbackEn: "This post's category list",
+                  })}
+                </li>
+                <li className="pt-1 opacity-80">
+                  {safeT("promo_sheet_not_top_pin", {
+                    fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
+                    fallbackEn: "Different from Community top-pin and Feed ads.",
+                  })}
+                </li>
+              </>
+            )}
+          </ul>
+
+          <div className="mt-4 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3">
+            <p className={OverlayUi.bodySecondary}>
+              {safeT("promo_sheet_balance", {
+                fallbackKo: "보유 D-Point",
+                fallbackEn: "Your D-Point",
+              })}
+              {": "}
+              <span className="font-semibold text-[color:var(--overlay-text-primary)]">
+                {balance == null ? "—" : `${balance.toLocaleString()}P`}
+              </span>
+            </p>
+            {selected && balance != null && !insufficient ? (
+              <p className={`mt-1 ${OverlayUi.caption}`}>
+                {safeT("promo_sheet_balance_remain", {
+                  fallbackKo: "결제 후 예상 잔액",
+                  fallbackEn: "Estimated balance after",
+                })}
                 {": "}
-                {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+                {(balance - cost).toLocaleString()}P
               </p>
             ) : null}
-            <p className="mt-2 sam-text-helper text-sam-muted">
-              {safeT("promo_sheet_no_stack", {
-                fallbackKo: "활성·심사 중인 홍보가 끝나면 다시 신청할 수 있습니다.",
-                fallbackEn: "You can apply again after the current promotion ends or is decided.",
-              })}
-            </p>
-            <button
-              type="button"
-              className="mt-4 w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-sam-fg"
-              onClick={onClose}
-            >
-              {t("common_confirm")}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-2">
-              {catalog.map((item) => {
-                const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
-                const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
-                const selectedNow = item.id === (selected?.id ?? productId);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setProductId(item.id)}
-                    className={`w-full rounded-ui-rect border px-3 py-3 text-left ${
-                      selectedNow
-                        ? "border-sam-primary bg-sam-primary/5"
-                        : "border-sam-border bg-sam-app"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="sam-text-body font-semibold text-sam-fg">{title}</span>
-                      <span className="sam-text-body font-semibold text-sam-fg">
-                        {item.pointCost.toLocaleString()}P
-                      </span>
-                    </div>
-                    <p className="mt-1 sam-text-helper text-sam-muted">{desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-
-            <ul className="mt-3 space-y-1 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 sam-text-helper text-sam-muted">
-              <li>
-                {safeT("promo_sheet_surfaces_intro", {
-                  fallbackKo: "적용 위치",
-                  fallbackEn: "Where it appears",
+            {insufficient ? (
+              <p className="mt-2 text-sm font-medium text-[color:var(--overlay-danger)]">
+                {safeT("points_ui_insufficient", {
+                  fallbackKo: "D-Point가 부족합니다.",
+                  fallbackEn: "Not enough D-Point.",
                 })}
-              </li>
-              {domain === "community" ? (
-                <>
-                  <li>
-                    ·{" "}
-                    {safeT("promo_sheet_surface_community_home", {
-                      fallbackKo: "커뮤니티 홈 피드 상단",
-                      fallbackEn: "Community home feed top",
-                    })}
-                  </li>
-                  <li>
-                    ·{" "}
-                    {safeT("promo_sheet_surface_community_topic", {
-                      fallbackKo: "이 게시물 주제(토픽) 피드 상단",
-                      fallbackEn: "This post's topic feed top",
-                    })}
-                  </li>
-                  <li className="pt-1 text-sam-meta">
-                    {safeT("promo_sheet_community_immediate_note", {
-                      fallbackKo: "D-Point 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
-                      fallbackEn: "Goes live at the top of the feed immediately with D-Point. No admin approval.",
-                    })}
-                  </li>
-                </>
-              ) : (
-                <>
-                  <li>
-                    ·{" "}
-                    {safeT("promo_sheet_surface_trade_home", {
-                      fallbackKo: "거래 홈 목록",
-                      fallbackEn: "Trade home list",
-                    })}
-                  </li>
-                  <li>
-                    ·{" "}
-                    {safeT("promo_sheet_surface_trade_category", {
-                      fallbackKo: "이 게시물의 카테고리 목록",
-                      fallbackEn: "This post's category list",
-                    })}
-                  </li>
-                  <li className="pt-1 text-sam-meta">
-                    {safeT("promo_sheet_not_top_pin", {
-                      fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
-                      fallbackEn: "Different from Community top-pin and Feed ads.",
-                    })}
-                  </li>
-                </>
-              )}
-            </ul>
-
-            <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app p-3">
-              <p className="sam-text-body-secondary text-sam-muted">
-                {safeT("promo_sheet_balance", {
-                  fallbackKo: "보유 D-Point",
-                  fallbackEn: "Your D-Point",
-                })}
-                {": "}
-                <span className="font-semibold text-sam-fg">
-                  {balance == null ? "—" : `${balance.toLocaleString()}P`}
-                </span>
               </p>
-              {selected && balance != null && !insufficient ? (
-                <p className="mt-1 sam-text-helper text-sam-muted">
-                  {safeT("promo_sheet_balance_remain", {
-                    fallbackKo: "결제 후 예상 잔액",
-                    fallbackEn: "Estimated balance after",
-                  })}
-                  {": "}
-                  {(balance - cost).toLocaleString()}P
-                </p>
-              ) : null}
-              {insufficient ? (
-                <p className="mt-2 sam-text-body-secondary font-medium text-red-600">
-                  {safeT("points_ui_insufficient", {
-                    fallbackKo: "D-Point가 부족합니다.",
-                    fallbackEn: "Not enough D-Point.",
-                  })}
-                </p>
-              ) : null}
-              {err ? <p className="mt-2 sam-text-body-secondary text-red-600">{err}</p> : null}
-            </div>
+            ) : null}
+            {err ? <p className="mt-2 text-sm text-[color:var(--overlay-danger)]">{err}</p> : null}
+          </div>
 
-            <div className="mt-2 flex gap-2">
-              {insufficient ? (
-                <a
-                  href="/mypage/points"
-                  className="flex-1 rounded-ui-rect border border-sam-border py-3 text-center sam-text-body font-medium text-sam-fg"
-                >
-                  {safeT("promo_sheet_go_points", {
-                    fallbackKo: "D-Point 충전",
-                    fallbackEn: "Add D-Point",
+          <div className={`${OverlayUi.actionsRow} mt-2`}>
+            {insufficient ? (
+              <a href="/mypage/points" className={`${OverlayUi.btn.secondary} text-center`}>
+                {safeT("promo_sheet_go_points", {
+                  fallbackKo: "D-Point 충전",
+                  fallbackEn: "Add D-Point",
+                })}
+              </a>
+            ) : null}
+            <DibayOverlayButton
+              roleTone="primary"
+              disabled={busy || !selected || insufficient || catalog.length === 0}
+              loading={busy}
+              onClick={() => void purchase()}
+            >
+              {busy
+                ? t("common_loading")
+                : safeT("promo_sheet_cta", {
+                    fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
+                    fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
                   })}
-                </a>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy || !selected || insufficient || catalog.length === 0}
-                onClick={() => void purchase()}
-                className="flex-1 rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white disabled:opacity-50"
-              >
-                {busy
-                  ? t("common_loading")
-                  : safeT("promo_sheet_cta", {
-                      fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
-                      fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
-                    })}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+            </DibayOverlayButton>
+          </div>
+        </>
+      )}
+    </DibayBottomSheet>
   );
 }

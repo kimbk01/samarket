@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -85,7 +86,7 @@ export function AdminMemberOpsPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || data.ok === false) {
-        window.alert(data.error ?? t("admin_users_action_failed"));
+        await dibayAlert({ title: data.error ?? t("admin_users_action_failed") });
         return;
       }
       setSubject("");
@@ -97,8 +98,8 @@ export function AdminMemberOpsPanel({
 
   const runModeration = async (action: MemberModerationAction) => {
     const stamp = new Date().toISOString();
-    const confirmed = window.confirm(
-      [
+    const confirmed = await dibayConfirm({
+      title: [
         safeT("admin_users_cc_moderation_confirm", {
           fallbackKo: "이 조치를 실행할까요?",
           fallbackEn: "Run this moderation action?",
@@ -108,14 +109,16 @@ export function AdminMemberOpsPanel({
         `actor=${actorId || "—"}`,
         `time=${stamp}`,
       ].join("\n"),
-    );
+      confirmTone: "destructive",
+    });
     if (!confirmed) return;
-    const reason = window.prompt(
-      safeT("admin_users_moderation_reason_prompt", {
+    const reason = await dibayPrompt({
+      title: safeT("admin_users_moderation_reason_prompt", {
         fallbackKo: "처리 사유를 입력해 주세요.",
         fallbackEn: "Enter a reason for this action.",
       }),
-    );
+      required: true,
+    });
     if (!reason?.trim()) return;
     setModBusy(action);
     try {
@@ -127,7 +130,7 @@ export function AdminMemberOpsPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || data.ok === false) {
-        window.alert(data.message ?? data.error ?? t("admin_users_action_failed"));
+        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
         return;
       }
       onUpdated?.();

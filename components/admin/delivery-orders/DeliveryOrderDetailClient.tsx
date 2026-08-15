@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -119,7 +120,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         });
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!j?.ok) {
-          window.alert(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+          await dibayAlert({ title: typeof j?.error === "string" ? j.error : `HTTP ${res.status}` });
           return;
         }
         await reload({ silent: true });
@@ -342,8 +343,10 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             type="button"
             disabled={opBusy}
             onClick={() => {
-              if (!confirm(t("admin_do_confirm_force_cancel"))) return;
-              void runAdminPatch({ force_cancel: true });
+              void (async () => {
+                if (!(await dibayConfirm({ title: t("admin_do_confirm_force_cancel"), confirmTone: "destructive" }))) return;
+                void runAdminPatch({ force_cancel: true });
+              })();
             }}
             className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900 disabled:opacity-50"
           >
@@ -353,8 +356,10 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             type="button"
             disabled={opBusy}
             onClick={() => {
-              if (!confirm(t("admin_do_confirm_refund_request"))) return;
-              void runAdminPatch({ set_order_status: "refund_requested" });
+              void (async () => {
+                if (!(await dibayConfirm({ title: t("admin_do_confirm_refund_request"), confirmTone: "destructive" }))) return;
+                void runAdminPatch({ set_order_status: "refund_requested" });
+              })();
             }}
             className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950 disabled:opacity-50"
           >
@@ -364,8 +369,10 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             type="button"
             disabled={opBusy}
             onClick={() => {
-              if (!confirm(t("admin_do_confirm_refund_complete"))) return;
-              void runAdminPatch({ complete_refund: true });
+              void (async () => {
+                if (!(await dibayConfirm({ title: t("admin_do_confirm_refund_complete"), confirmTone: "destructive" }))) return;
+                void runAdminPatch({ complete_refund: true });
+              })();
             }}
             className="rounded-ui-rect bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >

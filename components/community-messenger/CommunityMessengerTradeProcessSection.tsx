@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,7 +27,6 @@ import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function bustTradeCachesAfterReview(productChatId: string) {
@@ -219,7 +219,7 @@ export function CommunityMessengerTradeProcessSection({
       if (!room || !postId || state === displayListing) return;
       if (amISeller) {
         const label = t(sellerListingStateMessageKey(state));
-        if (typeof window !== "undefined" && !window.confirm(t("cm_ui_confirm_change_item_status", { label }))) {
+        if (!(await dibayConfirm({ title: t("cm_ui_confirm_change_item_status", { label }), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm") }))) {
           return;
         }
       }
@@ -371,39 +371,30 @@ export function CommunityMessengerTradeProcessSection({
         </div>
       ) : null}
 
-      {reviewSheetOpen && room ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-var(--safe-bottom)))] sm:rounded-ui-rect`}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_write_review")}</h2>
-              <button
-                type="button"
-                onClick={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
-                className="sam-text-body text-sam-muted"
-              >
-                {t("nav_close")}
-              </button>
-            </div>
-            <TradeReviewForm
-              effectiveProductChatId={effectiveProductChatId}
-              productId={room.productId}
-              revieweeId={partnerId}
-              revieweeLabel={partnerLabel}
-              roleType="buyer_to_seller"
-              onSuccess={() => {
-                setReviewSheetOpen((prev) => (prev ? false : prev));
-                bustTradeCachesAfterReview(effectiveProductChatId);
-                void reload();
-                onTradeMetaChanged?.();
-                router.refresh();
-              }}
-              onCancel={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
-            />
-          </div>
-        </div>
-      ) : null}
+      <DibayBottomSheet
+        open={Boolean(reviewSheetOpen && room)}
+        onClose={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
+        title={t("cm_ui_write_review")}
+        anchor="above-bottom-nav"
+      >
+        {room ? (
+          <TradeReviewForm
+            effectiveProductChatId={effectiveProductChatId}
+            productId={room.productId}
+            revieweeId={partnerId}
+            revieweeLabel={partnerLabel}
+            roleType="buyer_to_seller"
+            onSuccess={() => {
+              setReviewSheetOpen((prev) => (prev ? false : prev));
+              bustTradeCachesAfterReview(effectiveProductChatId);
+              void reload();
+              onTradeMetaChanged?.();
+              router.refresh();
+            }}
+            onCancel={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
+          />
+        ) : null}
+      </DibayBottomSheet>
     </div>
   );
 }

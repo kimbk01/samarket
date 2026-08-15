@@ -16,7 +16,7 @@ export const DIBAY_OVERLAY_SYSTEM_VERSION = "1.0.0" as const;
 
 /** Attachment SSOT colors — overlay scope only (do not invent alternate hex). */
 export const OVERLAY_COLOR = {
-  primary: "#0B5C3F",
+  primary: "#085C3F",
   primaryDark: "#084732",
   secondary: "#F5F7F6",
   textPrimary: "#111111",
@@ -102,6 +102,7 @@ export const OverlayUi = {
   actionSheetItem: "dibay-overlay-action-item",
   actionSheetItemDanger: "dibay-overlay-action-item dibay-overlay-action-item--danger",
   profileHeader: "dibay-overlay-profile-header",
+  input: "dibay-overlay-input",
 } as const;
 
 export const DIBAY_OVERLAY_HARD_LOCK = {

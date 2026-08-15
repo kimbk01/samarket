@@ -8,6 +8,7 @@ import {
   type CompletedOrderReorderPayload,
 } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 
 export function StoreOrderReorderAgainButton({
   payload,
@@ -25,7 +26,7 @@ export function StoreOrderReorderAgainButton({
 
   const onClick = useCallback(async () => {
     if (!payload?.storeSlug?.trim() || !payload.storeId?.trim()) {
-      window.alert(t("mypage_comp_store_reorder_store_missing"));
+      await dibayAlert({ title: t("mypage_comp_store_reorder_store_missing") });
       return;
     }
     if (!cart?.hydrated) return;
@@ -42,7 +43,7 @@ export function StoreOrderReorderAgainButton({
       );
       if (!r.ok) {
         if (r.error === "cancelled") return;
-        window.alert(r.error);
+        await dibayAlert({ title: r.error });
         return;
       }
       router.push(`/stores/${encodeURIComponent(payload.storeSlug.trim())}`);

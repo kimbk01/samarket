@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -447,7 +448,7 @@ export function AdminDeliveryBottomNavPage() {
                             <button
                               type="button"
                               onClick={async () => {
-                                if (!confirm(t("admin_del_confirm_delete"))) return;
+                                if (!(await dibayConfirm({ title: t("admin_del_confirm_delete"), confirmTone: "destructive" }))) return;
                                 await apiDelete(r.id);
                                 if (editingId === r.id) cancelEdit();
                                 await load();

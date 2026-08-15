@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -137,9 +138,7 @@ export function DeliveryOrdersDashboardClient() {
     if (selectedIds.size === 0) return;
     const ids = [...selectedIds];
     if (
-      !window.confirm(
-        t("admin_do_msg_delete_confirm", { count: ids.length })
-      )
+      !(await dibayConfirm({ title: t("admin_do_msg_delete_confirm", { count: ids.length }), confirmTone: "destructive" }))
     ) {
       return;
     }

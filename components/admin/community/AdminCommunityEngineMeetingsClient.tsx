@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -142,7 +143,7 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const bulkHideRoomMessages = async (meetingId: string, roomId: string) => {
-    if (!confirm(t("admin_meeting_engine_confirm_bulk_hide"))) return;
+    if (!(await dibayConfirm({ title: t("admin_meeting_engine_confirm_bulk_hide"), confirmTone: "destructive" }))) return;
     setRoomBusyKey(`${meetingId}:bulkhide:${roomId}`);
     setInsightErr("");
     try {
@@ -165,7 +166,7 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const bulkUnhideRoomMessages = async (meetingId: string, roomId: string) => {
-    if (!confirm(t("admin_meeting_engine_confirm_bulk_unhide"))) return;
+    if (!(await dibayConfirm({ title: t("admin_meeting_engine_confirm_bulk_unhide") }))) return;
     setRoomBusyKey(`${meetingId}:bulkunhide:${roomId}`);
     setInsightErr("");
     try {
@@ -188,7 +189,7 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const deleteExtraMeetingChat = async (meetingId: string, mcrId: string) => {
-    if (!confirm(t("admin_meeting_engine_confirm_delete_extra"))) return;
+    if (!(await dibayConfirm({ title: t("admin_meeting_engine_confirm_delete_extra"), confirmTone: "destructive" }))) return;
     setRoomBusyKey(`${meetingId}:del:${mcrId}`);
     setInsightErr("");
     try {

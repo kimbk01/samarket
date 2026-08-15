@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
 import type { ServiceCategory, ServiceSubcategory } from "@/lib/types/admin-category";
 import {
@@ -81,17 +82,17 @@ export function AdminCategoryManagement() {
 
   const handleSave = useCallback(() => {
     void persistServiceCategoriesToServer().then((res) => {
-      if (res.ok) alert(t("admin_settings_saved"));
+      if (res.ok) void dibayAlert({ title: t("admin_settings_saved") });
     });
   }, [t]);
 
-  const handleReset = useCallback(() => {
-    if (!confirm(t("admin_settings_reset_confirm_categories"))) return;
+  const handleReset = useCallback(async () => {
+    if (!(await dibayConfirm({ title: t("admin_settings_reset_confirm_categories"), confirmTone: "destructive" }))) return;
     resetServiceCategories();
     void persistServiceCategoriesToServer().then(() => {
       setCategories(getServiceCategories());
       setSubcategories(getServiceSubcategories(parentFilterId || undefined));
-      alert(t("admin_settings_reset_done"));
+      void dibayAlert({ title: t("admin_settings_reset_done") });
     });
   }, [parentFilterId, t]);
 

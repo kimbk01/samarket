@@ -1,9 +1,11 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatPrice, formatPriceInput } from "@/lib/utils/format";
 import type { PriceOfferListItem } from "@/lib/offers/types";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type Props = {
   open: boolean;
@@ -26,7 +28,6 @@ export function OfferModal({
   onSubmitted,
 }: Props) {
   const { t } = useI18n();
-  const titleId = useId();
   const [offeredPrice, setOfferedPrice] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,17 +40,6 @@ export function OfferModal({
     setError("");
     setBusy(false);
   }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onClose]);
-
-  if (!open) return null;
 
   const minAllowed = Math.ceil(originalPrice * 0.5);
   const titleTrim = typeof productTitle === "string" ? productTitle.trim() : "";
@@ -97,124 +87,88 @@ export function OfferModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[45] flex flex-col justify-end sm:items-center sm:justify-center sm:p-4">
-      <button
-        type="button"
-        aria-label={t("ui_sheet_close_aria")}
-        disabled={busy}
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px] transition-opacity sm:bg-black/40"
-        onClick={() => {
-          if (!busy) onClose();
-        }}
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative z-[1] flex max-h-[min(92vh,680px)] w-full flex-col overflow-hidden rounded-t-[20px] border border-sam-border border-b-0 bg-sam-surface shadow-[0_-8px_32px_rgba(0,0,0,0.12)] sm:max-w-[480px] sm:rounded-2xl sm:border-b sm:shadow-2xl"
-      >
-        {/* 모바일: 상단 핸들 (Marketplace 스타일) */}
-        <div className="flex shrink-0 justify-center pt-2 sm:hidden" aria-hidden>
-          <div className="h-1 w-10 rounded-full bg-sam-border" />
-        </div>
-
-        {/* 헤더 */}
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-sam-border px-4 pb-3 pt-1 sm:pt-3">
-          <h2 id={titleId} className="min-w-0 flex-1 text-[17px] font-bold leading-snug text-sam-fg">
-            {t("ui_offer_submit_label")}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-sam-muted transition-colors hover:bg-sam-surface-muted disabled:opacity-50"
-            aria-label={t("ui_sheet_close_aria")}
-          >
-            ×
-          </button>
-        </header>
-
-        {/* 상품 맥락 (FB 마켓플레이스 상단 카드) */}
-        {titleTrim.length > 0 ? (
-          <div className="shrink-0 border-b border-sam-border bg-sam-surface-muted/80 px-4 py-3">
-            <p className="truncate text-[15px] font-semibold text-sam-fg">{titleTrim}</p>
-            <p className="mt-0.5 text-[13px] text-sam-muted">
-              {t("ui_offer_sale_label")}{" "}
-              <span className="font-semibold text-sam-fg">{formatPrice(originalPrice, currency)}</span>
-              {" · "}
-              {t("ui_offer_min_offer_label")} {formatPrice(minAllowed, currency)}
-            </p>
-          </div>
-        ) : (
-          <p className="shrink-0 border-b border-sam-border px-4 py-3 text-[13px] leading-relaxed text-sam-muted">
-            {t("ui_offer_context_line_long", {
-              sale: formatPrice(originalPrice, currency),
-              min: formatPrice(minAllowed, currency),
-            })}
-          </p>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-          <p className="mb-4 text-[12px] leading-relaxed text-sam-muted">
-            {t("ui_offer_limit_rules")}
-          </p>
-
-          <div className="space-y-4">
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">{t("ui_offer_price_label")}</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={offeredPrice}
-                onChange={(e) => setOfferedPrice(formatPriceInput(e.target.value))}
-                placeholder={formatPriceInput(String(minAllowed))}
-                className="w-full rounded-xl border border-sam-border bg-sam-app px-3.5 py-3 text-[15px] text-sam-fg outline-none ring-sam-primary/25 placeholder:text-sam-muted focus:border-sam-primary focus:ring-2"
-                disabled={busy}
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">{t("ui_offer_message_optional")}</span>
-              <textarea
-                rows={4}
-                maxLength={500}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={t("ui_offer_message_ph")}
-                className="w-full resize-none rounded-xl border border-sam-border bg-sam-app px-3.5 py-3 text-[15px] text-sam-fg outline-none ring-sam-primary/25 placeholder:text-sam-muted focus:border-sam-primary focus:ring-2"
-                disabled={busy}
-              />
-              <span className="mt-1 block text-right text-[12px] text-sam-muted">{message.length}/500</span>
-            </label>
-
-            {error ? (
-              <p className="rounded-xl bg-red-50 px-3 py-2 text-[13px] text-sam-danger dark:bg-red-950/40">{error}</p>
-            ) : null}
-          </div>
-        </div>
-
-        {/* 하단 고정 액션 — FB식 전폭 프라이머리 + 텍스트 취소 */}
-        <footer className="shrink-0 border-t border-sam-border bg-sam-surface px-4 pb-[max(12px,var(--safe-bottom))] pt-3">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void submit()}
-            className="w-full rounded-[10px] bg-sam-primary py-3.5 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-sam-primary-hover disabled:opacity-50"
-          >
+    <DibayBottomSheet
+      open={open}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      title={t("ui_offer_submit_label")}
+      anchor="above-bottom-nav"
+      footer={
+        <div className="mt-2 border-t border-[color:var(--overlay-border)] pt-3">
+          <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void submit()}>
             {busy ? t("ui_offer_submitting") : t("ui_offer_send_action")}
-          </button>
-          <button
-            type="button"
+          </DibayOverlayButton>
+          <div className="mt-2">
+            <DibayOverlayButton roleTone="text" disabled={busy} onClick={onClose}>
+              {t("common_cancel")}
+            </DibayOverlayButton>
+          </div>
+        </div>
+      }
+    >
+      {titleTrim.length > 0 ? (
+        <div className="mb-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-2.5">
+          <p className="truncate text-sm font-semibold text-[color:var(--overlay-text-primary)]">{titleTrim}</p>
+          <p className={`mt-0.5 ${OverlayUi.caption}`}>
+            {t("ui_offer_sale_label")}{" "}
+            <span className="font-semibold text-[color:var(--overlay-text-primary)]">
+              {formatPrice(originalPrice, currency)}
+            </span>
+            {" · "}
+            {t("ui_offer_min_offer_label")} {formatPrice(minAllowed, currency)}
+          </p>
+        </div>
+      ) : (
+        <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
+          {t("ui_offer_context_line_long", {
+            sale: formatPrice(originalPrice, currency),
+            min: formatPrice(minAllowed, currency),
+          })}
+        </p>
+      )}
+
+      <p className={`mb-4 ${OverlayUi.caption}`}>{t("ui_offer_limit_rules")}</p>
+
+      <div className="space-y-4">
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+            {t("ui_offer_price_label")}
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={offeredPrice}
+            onChange={(e) => setOfferedPrice(formatPriceInput(e.target.value))}
+            placeholder={formatPriceInput(String(minAllowed))}
+            className="w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3.5 py-3 text-[15px] outline-none"
             disabled={busy}
-            onClick={onClose}
-            className="mt-2 w-full py-2 text-center text-[15px] font-semibold text-sam-muted hover:text-sam-fg disabled:opacity-50"
-          >
-            {t("common_cancel")}
-          </button>
-        </footer>
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold text-[color:var(--overlay-text-primary)]">
+            {t("ui_offer_message_optional")}
+          </span>
+          <textarea
+            rows={4}
+            maxLength={500}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={t("ui_offer_message_ph")}
+            className="w-full resize-none rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3.5 py-3 text-[15px] outline-none"
+            disabled={busy}
+          />
+          <span className={`mt-1 block text-right ${OverlayUi.caption}`}>{message.length}/500</span>
+        </label>
+
+        {error ? (
+          <p className="rounded-[length:var(--overlay-radius-md)] bg-red-50 px-3 py-2 text-sm text-[color:var(--overlay-danger)]">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </div>
+    </DibayBottomSheet>
   );
 }

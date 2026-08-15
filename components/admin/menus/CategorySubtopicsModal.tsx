@@ -1,6 +1,8 @@
 "use client";
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { TradeSubtopicsPanel } from "./TradeSubtopicsPanel";
 
 interface CategorySubtopicsModalProps {
@@ -19,9 +21,9 @@ export function CategorySubtopicsModal({
   onDelete,
 }: CategorySubtopicsModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="nested">
       <div
-        className="relative z-[101] max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
+        className={`${OverlayUi.dialogPanel} !max-w-2xl max-h-[90vh] overflow-y-auto p-4`}
         onClick={(e) => e.stopPropagation()}
       >
         <TradeSubtopicsPanel
@@ -32,6 +34,6 @@ export function CategorySubtopicsModal({
           onClose={onClose}
         />
       </div>
-    </div>
+    </DibayOverlayRoot>
   );
 }

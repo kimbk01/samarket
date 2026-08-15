@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
@@ -224,7 +225,7 @@ export function AdminMenusPage() {
           category={editing}
           onSave={handleSaveEdit}
           onDelete={async () => {
-            if (!confirm(t("admin_cat_confirm_delete"))) return;
+            if (!(await dibayConfirm({ title: t("admin_cat_confirm_delete"), confirmTone: "destructive" }))) return;
             const ok = await handleDelete(editing.id);
             if (ok) void syncTradeMenuToStoredBottomNav();
             if (ok) setEditingId(null);

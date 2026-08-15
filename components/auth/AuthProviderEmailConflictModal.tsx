@@ -10,11 +10,8 @@ import {
 } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { resolveProviderDisplayName } from "@/lib/auth/provider-identity/provider-display";
 import { buildMyPageHref } from "@/components/mypage/mypage-nav";
-import {
-  MYPAGE_HOME_CARD_CLASS,
-  MYPAGE_HOME_GHOST_BTN_CLASS,
-  MYPAGE_HOME_OUTLINE_BTN_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type AuthProviderEmailConflictModalProps = {
   open: boolean;
@@ -36,7 +33,7 @@ export function AuthProviderEmailConflictModal({
     onDismiss();
   }, [onDismiss]);
 
-  if (!open || !conflict) return null;
+  if (!conflict) return null;
 
   const existingProvider = conflict.existingProviders[0] ?? "google";
   const existingLabel = resolveProviderDisplayName(existingProvider, language);
@@ -48,37 +45,30 @@ export function AuthProviderEmailConflictModal({
   });
 
   return (
-    <div
-      className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/45 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-provider-conflict-title"
+    <DibayDialog
+      open={open}
+      onClose={handleDismiss}
+      title={t("auth_provider_email_conflict_title")}
+      description={body}
     >
-      <div className={`w-full max-w-sm p-5 ${MYPAGE_HOME_CARD_CLASS}`}>
-        <p id="auth-provider-conflict-title" className="text-[17px] font-bold leading-tight text-[#1E3932]">
-          {t("auth_provider_email_conflict_title")}
-        </p>
-        <p className="mt-2 text-[14px] leading-snug text-[#6F4E37]">{body}</p>
-        <div className="mt-4 flex flex-col gap-2">
-          <button
-            type="button"
-            className={MYPAGE_HOME_GHOST_BTN_CLASS}
-            onClick={() => onLoginWithExisting(existingProvider as OAuthProvider)}
-          >
-            {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
-          </button>
-          <button type="button" className={MYPAGE_HOME_OUTLINE_BTN_CLASS} onClick={handleDismiss}>
-            {t("auth_provider_email_conflict_continue_other")}
-          </button>
-          <Link
-            href={buildMyPageHref("settings", "support")}
-            className={`${MYPAGE_HOME_OUTLINE_BTN_CLASS} text-center`}
-            onClick={handleDismiss}
-          >
-            {t("auth_provider_email_conflict_support")}
-          </Link>
-        </div>
+      <div className={OverlayUi.actionsStack}>
+        <DibayOverlayButton
+          roleTone="primary"
+          onClick={() => onLoginWithExisting(existingProvider as OAuthProvider)}
+        >
+          {t("auth_provider_email_conflict_login_existing", { provider: existingLabel })}
+        </DibayOverlayButton>
+        <DibayOverlayButton roleTone="secondary" onClick={handleDismiss}>
+          {t("auth_provider_email_conflict_continue_other")}
+        </DibayOverlayButton>
+        <Link
+          href={buildMyPageHref("settings", "support")}
+          className={`${OverlayUi.btn.secondary} text-center`}
+          onClick={handleDismiss}
+        >
+          {t("auth_provider_email_conflict_support")}
+        </Link>
       </div>
-    </div>
+    </DibayDialog>
   );
 }

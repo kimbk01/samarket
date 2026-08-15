@@ -1,7 +1,8 @@
 "use client";
 
-import { BodyPortal } from "@/components/layout/BodyPortal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayDialog } from "@/components/ui/dibay-overlay";
+import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
 
 export type OwnerStoreAdminConfirmTone = "primary" | "danger";
 
@@ -11,7 +12,7 @@ export type OwnerStoreAdminConfirmTone = "primary" | "danger";
  */
 export function OwnerStoreAdminConfirmModal({
   open,
-  titleId,
+  titleId: _titleId,
   title,
   description,
   cancelLabel,
@@ -41,54 +42,34 @@ export function OwnerStoreAdminConfirmModal({
   const resolvedCancelLabel = cancelLabel ?? t("common_cancel");
   const resolvedConfirmLabel = confirmLabel ?? t("common_confirm");
   const resolvedConfirmBusyLabel = confirmBusyLabel ?? t("common_processing");
-
-  if (!open) return null;
-
-  const confirmCls =
-    confirmTone === "danger"
-      ? "min-h-[44px] flex-1 rounded-ui-rect bg-red-600 sam-text-body font-medium text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50"
-      : "min-h-[44px] flex-1 rounded-ui-rect bg-signature sam-text-body font-medium text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50";
-
   const disabled = disableActions || busy;
-  const confirmText = busy ? resolvedConfirmBusyLabel : resolvedConfirmLabel;
+
+  const actions: DibayOverlayAction[] = [
+    {
+      key: "cancel",
+      label: resolvedCancelLabel,
+      roleTone: "secondary",
+      onClick: onCancel,
+      disabled,
+    },
+    {
+      key: "confirm",
+      label: busy ? resolvedConfirmBusyLabel : resolvedConfirmLabel,
+      roleTone: confirmTone === "danger" ? "destructive" : "primary",
+      onClick: () => void onConfirm(),
+      disabled,
+    },
+  ];
 
   return (
-    <BodyPortal>
-      <div
-        className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[1px]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-xl">
-          <p id={titleId} className="sam-text-body font-semibold text-sam-fg">
-            {title}
-          </p>
-          {description ?
-            <p className="mt-2 whitespace-pre-wrap sam-text-body-secondary leading-snug text-sam-fg">
-              {description}
-            </p>
-          : null}
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              className="min-h-[44px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface sam-text-body font-medium text-sam-fg"
-              onClick={onCancel}
-              disabled={disabled}
-            >
-              {resolvedCancelLabel}
-            </button>
-            <button
-              type="button"
-              className={confirmCls}
-              onClick={() => void onConfirm()}
-              disabled={disabled}
-            >
-              {confirmText}
-            </button>
-          </div>
-        </div>
-      </div>
-    </BodyPortal>
+    <DibayDialog
+      open={open}
+      onClose={disabled ? undefined : onCancel}
+      dismissible={!disabled}
+      title={title}
+      description={description ?? undefined}
+      actions={actions}
+      actionsLayout="row"
+    />
   );
 }

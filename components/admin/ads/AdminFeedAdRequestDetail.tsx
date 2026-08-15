@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -148,23 +149,24 @@ export function AdminFeedAdRequestDetail({
     let reason = "";
     if (action === "reject") {
       reason =
-        window.prompt(
-          safeT("admin_feed_req_reject_prompt", {
-            fallbackKo: "거절 사유 (필수)",
-            fallbackEn: "Rejection reason (required)",
+        (
+          await dibayPrompt({
+            title: safeT("admin_feed_req_reject_prompt", {
+              fallbackKo: "거절 사유 (필수)",
+              fallbackEn: "Rejection reason (required)",
+            }),
+            required: true,
           })
         )?.trim() ?? "";
       if (!reason) return;
     }
     if (action === "end") {
-      const ok = window.confirm(
-        safeT("admin_feed_req_end_confirm", {
+      const ok = await dibayConfirm({ title: safeT("admin_feed_req_end_confirm", {
           fallbackKo:
             "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 D-Point는 자동 환불되지 않습니다.",
           fallbackEn:
             "End this ad? It leaves the feed immediately. Captured D-Points are not auto-refunded.",
-        })
-      );
+        }), confirmTone: "destructive" });
       if (!ok) return;
       reason = "admin_ended";
     }

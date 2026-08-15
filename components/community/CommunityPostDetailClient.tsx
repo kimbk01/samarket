@@ -33,6 +33,8 @@ import {
   PHILIFE_DETAIL_TITLE_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function CommunityPostDetailClient({
   post,
@@ -291,39 +293,40 @@ export function CommunityPostDetailClient({
           </div>
         </div>
 
-        {reportOpen ? (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4 ring-1 ring-black/[0.08]">
-              <p className="sam-text-body font-semibold text-sam-fg">{t("community_report_post")}</p>
-              <p className="mt-1 sam-text-helper text-sam-muted">{t("community_report_intro")}</p>
-              <textarea
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                rows={4}
-                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                placeholder={t("community_report_placeholder")}
-              />
-              {reportErr ? <p className="mt-1 sam-text-helper text-red-600">{reportErr}</p> : null}
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setReportOpen((prev) => (prev ? false : prev))}
-                  className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
-                >
-                  {t("common_cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || !reportText.trim()}
-                  onClick={() => void onReport()}
-                  className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-40"
-                >
-                  {t("community_receive")}
-                </button>
-              </div>
-            </div>
+        <DibayDialog
+          open={reportOpen}
+          onClose={() => setReportOpen((prev) => (prev ? false : prev))}
+          title={t("community_report_post")}
+          description={t("community_report_intro")}
+        >
+          <textarea
+            value={reportText}
+            onChange={(e) => setReportText(e.target.value)}
+            rows={4}
+            className={`mt-1 min-h-[96px] w-full ${OverlayUi.input}`}
+            placeholder={t("community_report_placeholder")}
+          />
+          {reportErr ? (
+            <p className={`mt-1 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportErr}</p>
+          ) : null}
+          <div className={`${OverlayUi.actionsRow} mt-3`}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              type="button"
+              onClick={() => setReportOpen((prev) => (prev ? false : prev))}
+            >
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="destructive"
+              type="button"
+              disabled={busy || !reportText.trim()}
+              onClick={() => void onReport()}
+            >
+              {t("community_receive")}
+            </DibayOverlayButton>
           </div>
-        ) : null}
+        </DibayDialog>
 
         <section className={`${PHILIFE_DETAIL_COMMENTS_WRAP_CLASS} mt-4`} id="comments">
           <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_comments_title", { count: comments.length })}</h2>

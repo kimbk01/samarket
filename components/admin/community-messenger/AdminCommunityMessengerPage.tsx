@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1481,7 +1482,7 @@ function ReportRow({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(json.error ?? t("admin_cm_err_report_action_failed"));
+        await dibayAlert({ title: json.error ?? t("admin_cm_err_report_action_failed") });
         return;
       }
       await onRefresh();

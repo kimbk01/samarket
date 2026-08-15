@@ -12,6 +12,7 @@ import {
   OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS,
   OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS,
 } from "@/lib/store-order-chat/owner-order-chat-slide-layout";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type SlidePhase = "enter-from-right" | "open" | "exit-to-right";
 
@@ -72,7 +73,7 @@ export function BuyerStoreOrderReviewSlidePanel({
       >
         <button
           type="button"
-          className="min-w-0 flex-1 bg-black/30 transition-opacity"
+          className={OverlayUi.backdrop}
           style={{
             opacity: backdropVisible ? 1 : 0,
             transitionDuration: `${OWNER_ORDER_CHAT_SLIDE_MS}ms`,
@@ -85,7 +86,7 @@ export function BuyerStoreOrderReviewSlidePanel({
           role="dialog"
           aria-modal="true"
           aria-label={t("tier1_review_write")}
-          className={`delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[var(--safe-top)]`}
+          className={`relative z-[1] delivery-ui flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[var(--safe-top)]`}
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
             transition: `transform ${OWNER_ORDER_CHAT_SLIDE_MS}ms ${OWNER_ORDER_CHAT_SLIDE_EASING}`,

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import type { BusinessProfile } from "@/lib/types/business";
 import { storeApprovalToBusinessAction } from "@/lib/admin-business/map-admin-store-to-business";
@@ -30,7 +31,7 @@ export function AdminBusinessActionPanel({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? t("common_content_unavailable"));
+        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
         return;
       }
       onActionSuccess();

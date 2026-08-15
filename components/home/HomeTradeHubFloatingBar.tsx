@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
@@ -27,9 +28,6 @@ const LABEL_BOX_CLASS =
 
 const SLIDE_MS = 320;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
-/** 시트 슬라이드 — 너무 길면 ‘불러오기’처럼 느껴짐 */
-const SHEET_MS = 200;
-const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 const ROW_FROM_Y = 28;
 const ROW_STAGGER_MS = 45;
 
@@ -62,7 +60,6 @@ export function HomeTradeHubFloatingBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialEntered, setDialEntered] = useState(false);
   const [hubSheet, setHubSheet] = useState<HomeTradeHubSheet | null>(null);
-  const [hubSheetEntered, setHubSheetEntered] = useState(false);
   const skipEnterAnimRef = useRef(true);
 
   useEffect(() => {
@@ -135,23 +132,9 @@ export function HomeTradeHubFloatingBar() {
     setMenuOpen((v) => !v);
   }, []);
 
-  const closeAll = useCallback(() => {
-    setMenuOpen(false);
-    setHubSheet(null);
-  }, []);
-
   const onBackdropClick = useCallback(() => {
     setMenuOpen(false);
   }, []);
-
-  /** 이중 rAF 제거 — 페인트 전에 열린 상태로 맞춰 바로 확인 가능하게 */
-  useLayoutEffect(() => {
-    if (!hubSheet) {
-      setHubSheetEntered(false);
-      return;
-    }
-    setHubSheetEntered(true);
-  }, [hubSheet]);
 
   /** 다이얼이 열리면 거래내역·거래채팅에 쓰는 데이터를 미리 받아 두어 탭 선택 시 체감 대기 단축 (세션 쿠키만 있으면 됨) */
   useEffect(() => {
@@ -160,29 +143,6 @@ export function HomeTradeHubFloatingBar() {
     void fetchTradeHistoryPurchasesBySession().catch(() => {});
     void fetchTradeHistorySalesBySession().catch(() => {});
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (!hubSheet) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [hubSheet]);
-
-  useEffect(() => {
-    if (!hubSheet) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (hubSheet) {
-        closeHubSheet();
-        return;
-      }
-      setMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [hubSheet, closeHubSheet]);
 
   const pathNoQueryFab = pathname.split("?")[0] ?? "";
   if (
@@ -205,44 +165,18 @@ export function HomeTradeHubFloatingBar() {
         />
       ) : null}
 
-      {hubSheet ? (
-        <div
-          className="fixed inset-0 z-[50] flex flex-col justify-end pointer-events-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="home-trade-history-sheet-title"
-        >
-          <button
-            type="button"
-            className={`absolute inset-0 bg-sam-ink/28 transition-opacity duration-200 ${hubSheetEntered ? "opacity-100" : "opacity-0"}`}
-            aria-label={`${t("nav_trade_history_title")} ${t("nav_close")}`}
-            onClick={closeHubSheet}
-          />
-          <div
-            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-sam-md border border-sam-border border-b-0 bg-sam-surface shadow-sam-elevated transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
-            style={{ transitionDuration: `${SHEET_MS}ms`, transitionTimingFunction: SHEET_EASE }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 flex-col border-b border-sam-border pt-2 pb-1">
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
-              <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex items-center justify-between pb-3 pt-0`}>
-                <h2 id="home-trade-history-sheet-title" className="sam-text-section-title font-semibold text-sam-fg">
-                  {t("nav_trade_history_title")}
-                </h2>
-                <HubSheetCloseButton
-                  onClick={closeHubSheet}
-                  ariaLabel={`${t("nav_trade_history_title")} ${t("nav_close")}`}
-                />
-              </div>
-            </div>
-            <div
-              className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,var(--safe-bottom))] pt-2`}
-            >
-              <HomeTradeHistorySheetContent />
-            </div>
-          </div>
+      <DibayBottomSheet
+        open={Boolean(hubSheet)}
+        onClose={closeHubSheet}
+        title={t("nav_trade_history_title")}
+        anchor="above-bottom-nav"
+        ariaLabel={t("nav_trade_history_title")}
+        panelClassName="max-h-[min(88dvh,900px)]"
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-2 pt-1">
+          <HomeTradeHistorySheetContent />
         </div>
-      ) : null}
+      </DibayBottomSheet>
 
       <div
         className={`pointer-events-none fixed inset-x-0 ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} ${shellZ}`}
@@ -342,27 +276,6 @@ function DialRow({
     >
       {children}
     </div>
-  );
-}
-
-/** 바텀 시트 헤더 닫기 — 모바일: 원형 ✕(유니코드), md↑: 「닫기」 */
-function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; ariaLabel: string }) {
-  const { t } = useI18n();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className="sam-header-action flex h-11 w-11 shrink-0 items-center justify-center text-sam-fg transition-[transform,background-color] active:scale-95 md:h-10 md:min-w-[44px] md:px-2 md:text-sam-primary"
-    >
-      <span
-        className="flex h-[26px] w-[26px] items-center justify-center sam-text-hero font-light leading-none md:hidden"
-        aria-hidden
-      >
-        ✕
-      </span>
-      <span className="hidden sam-text-body font-medium md:inline">{t("nav_close")}</span>
-    </button>
   );
 }
 

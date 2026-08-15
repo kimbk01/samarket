@@ -1,5 +1,7 @@
 "use client";
 
+import { dibayConfirm, dibayAlert, DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -989,10 +991,11 @@ export function ChatDetailView({
       if (!postId || state === displayListing) return;
       if (amISeller) {
         const label = t(sellerListingStateMessageKey(state));
-        if (
-          typeof window !== "undefined" &&
-          !window.confirm(t("chats_change_item_status_confirm", { label }))
-        ) {
+        if (!(await dibayConfirm({
+          title: t("chats_change_item_status_confirm", { label }),
+          cancelLabel: t("common_cancel"),
+          confirmLabel: t("common_confirm"),
+        }))) {
           return;
         }
       }
@@ -1726,27 +1729,31 @@ export function ChatDetailView({
 
   const handleCancelStoreOrder = useCallback(async () => {
     if (!storeOrderId || !storeOrderTop) return;
-    if (typeof window !== "undefined" && !window.confirm(t("chats_store_order_cancel_confirm"))) return;
+    if (!(await dibayConfirm({
+      title: t("chats_store_order_cancel_confirm"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_confirm"),
+      confirmTone: "destructive",
+    }))) return;
     setStoreOrderCancelBusy(true);
     try {
       const { status, json: raw } = await patchMeStoreOrder(storeOrderId, { cancel: true });
       const json = raw as { ok?: boolean; error?: string };
       if (status < 200 || status >= 300 || !json?.ok) {
         const code = typeof json?.error === "string" ? json.error : "";
-        if (typeof window !== "undefined") {
-          window.alert(
+        await dibayAlert({
+          title:
             code === "cannot_cancel_after_accepted"
               ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
-              : "취소에 실패했습니다."
-          );
-        }
+              : "취소에 실패했습니다.",
+        });
         return;
       }
       await loadStoreOrderDetail();
       onRoomReload?.();
       router.refresh();
     } catch {
-      if (typeof window !== "undefined") window.alert(t("common_network_error"));
+      await dibayAlert({ title: t("common_network_error") });
     } finally {
       setStoreOrderCancelBusy(false);
     }
@@ -2334,105 +2341,74 @@ export function ChatDetailView({
         />
       ) : null}
 
-      {roomInfoSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[90vh] sm:rounded-ui-rect`}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <div>
-                <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("common_chat_info")}</h2>
-                <p className="mt-1 sam-text-helper text-sam-muted">{t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}</p>
+      <DibayBottomSheet
+        open={roomInfoSheetOpen}
+        onClose={() => setRoomInfoSheetOpen(false)}
+        title={t("common_chat_info")}
+        anchor="above-bottom-nav"
+      >
+        <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
+          {t("nav_trade_chat_info_desc", { nickname: partnerDisplayNickname })}
+        </p>
+        <div className="space-y-4 pb-2">
+          <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-4 py-4">
+            <p className="font-semibold text-[color:var(--overlay-text-primary)]">{partnerDisplayNickname}</p>
+            <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+              {isStoreOrderChat && !isStoreOrderBuyer
+                ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
+                : room.product
+                  ? amISeller
+                    ? t("nav_trade_partner_buyer")
+                    : t("nav_trade_partner_seller_of_post")
+                  : t("nav_trade_direct_chat")}
+            </p>
+            {partnerTrustSummary ? (
+              <div className="mt-3">
+                <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
               </div>
-              <button type="button" onClick={() => setRoomInfoSheetOpen(false)} className="sam-text-body text-sam-muted">
-                {t("common_close")}
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <section className="rounded-ui-rect border border-sam-border px-4 py-4">
-                <p className="sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
-                <p className="mt-1 sam-text-body-secondary text-sam-muted">
-                  {isStoreOrderChat && !isStoreOrderBuyer
-                    ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
-                    : room.product
-                      ? amISeller
-                        ? t("nav_trade_partner_buyer")
-                        : t("nav_trade_partner_seller_of_post")
-                      : t("nav_trade_direct_chat")}
-                </p>
-                {partnerTrustSummary ? (
-                  <div className="mt-3">
-                    <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
-                  </div>
-                ) : null}
-              </section>
-              {room.product ? (
-                <section className="rounded-ui-rect border border-sam-border bg-[#F8FAF9] p-3">
-                  <p className="mb-3 sam-text-body font-semibold text-sam-fg">{t("nav_trade_connected_product")}</p>
-                  <ChatProductSummary
-                    product={room.product}
-                    hideFavorite={amISeller}
-                    sellerUserId={room.sellerId}
-                    productStatusOverride={displayProductStatus}
-                    sellerListingStateOverride={postId ? displayListing : undefined}
-                  />
-                </section>
-              ) : null}
-            </div>
-          </div>
+            ) : null}
+          </section>
+          {room.product ? (
+            <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3">
+              <p className="mb-3 font-semibold text-[color:var(--overlay-text-primary)]">{t("nav_trade_connected_product")}</p>
+              <ChatProductSummary
+                product={room.product}
+                hideFavorite={amISeller}
+                sellerUserId={room.sellerId}
+                productStatusOverride={displayProductStatus}
+                sellerListingStateOverride={postId ? displayListing : undefined}
+              />
+            </section>
+          ) : null}
         </div>
-      )}
+      </DibayBottomSheet>
 
       {reportSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
-          >
-            <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_report")}</h2>
-              <button type="button" onClick={() => setReportSheetOpen(false)} className="sam-text-body text-sam-muted">
-                {t("common_close")}
-              </button>
-            </div>
-            <ReportActionSheet
-              targetType="chat"
-              targetId={room.id}
-              targetUserId={partnerId}
-              targetLabel={partnerDisplayNickname}
-              roomId={room.id}
-              productId={room.productId}
-              onClose={() => setReportSheetOpen(false)}
-              onSuccess={() => setReportSheetOpen(false)}
-            />
-          </div>
-        </div>
+        <ReportActionSheet
+          targetType="chat"
+          targetId={room.id}
+          targetUserId={partnerId}
+          targetLabel={partnerDisplayNickname}
+          roomId={room.id}
+          productId={room.productId}
+          onClose={() => setReportSheetOpen(false)}
+          onSuccess={() => setReportSheetOpen(false)}
+        />
       )}
 
       {blockSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div
-            className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
-          >
-            <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("common_block")}</h2>
-              <button type="button" onClick={() => setBlockSheetOpen(false)} className="sam-text-body text-sam-muted">
-                {t("common_close")}
-              </button>
-            </div>
-            <BlockActionSheet
-              targetUserId={partnerId}
-              targetLabel={partnerDisplayNickname}
-              roomId={room.id}
-              roomSource={room.source}
-              currentUserId={currentUserId}
-              onClose={() => setBlockSheetOpen(false)}
-              onSuccess={() => {
-                setBlockSheetOpen(false);
-                router.refresh();
-              }}
-            />
-          </div>
-        </div>
+        <BlockActionSheet
+          targetUserId={partnerId}
+          targetLabel={partnerDisplayNickname}
+          roomId={room.id}
+          roomSource={room.source}
+          currentUserId={currentUserId}
+          onClose={() => setBlockSheetOpen(false)}
+          onSuccess={() => {
+            setBlockSheetOpen(false);
+            router.refresh();
+          }}
+        />
       )}
 
       {messengerTradeToast ? (
@@ -2441,34 +2417,27 @@ export function ChatDetailView({
         </p>
       ) : null}
 
-      {reviewSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-var(--safe-bottom)))] sm:rounded-ui-rect`}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("chats_write_review_title")}</h2>
-              <button type="button" onClick={() => setReviewSheetOpen(false)} className="sam-text-body text-sam-muted">
-                닫기
-              </button>
-            </div>
-            <TradeReviewForm
-              effectiveProductChatId={effectiveProductChatId}
-              productId={room.productId}
-              revieweeId={partnerId}
-              revieweeLabel={partnerDisplayNickname}
-              roleType="buyer_to_seller"
-              onSuccess={() => {
-                setReviewSheetOpen(false);
-                bustRoomClientCachesAfterTradeMutation(room.id);
-                onRoomReload?.();
-                router.refresh();
-              }}
-              onCancel={() => setReviewSheetOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+      <DibayBottomSheet
+        open={reviewSheetOpen}
+        onClose={() => setReviewSheetOpen(false)}
+        title={t("chats_write_review_title")}
+        anchor="above-bottom-nav"
+      >
+        <TradeReviewForm
+          effectiveProductChatId={effectiveProductChatId}
+          productId={room.productId}
+          revieweeId={partnerId}
+          revieweeLabel={partnerDisplayNickname}
+          roleType="buyer_to_seller"
+          onSuccess={() => {
+            setReviewSheetOpen(false);
+            bustRoomClientCachesAfterTradeMutation(room.id);
+            onRoomReload?.();
+            router.refresh();
+          }}
+          onCancel={() => setReviewSheetOpen(false)}
+        />
+      </DibayBottomSheet>
     </div>
   );
 }

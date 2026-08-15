@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -117,12 +118,13 @@ export function AdminMemberMasterHeader({
 
   const runModeration = useCallback(
     async (action: MemberModerationAction) => {
-      const reason = window.prompt(
-        safeT("admin_users_cc_moderation_confirm", {
+      const reason = await dibayPrompt({
+        title: safeT("admin_users_cc_moderation_confirm", {
           fallbackKo: "이 조치를 실행할까요? 사유를 입력하세요.",
           fallbackEn: "Run this action? Enter a reason.",
         }),
-      );
+        required: true,
+      });
       if (!reason?.trim()) return;
       setBusy(true);
       try {
@@ -137,7 +139,7 @@ export function AdminMemberMasterHeader({
         });
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || data.ok === false) {
-          window.alert(data.error ?? t("admin_users_action_failed"));
+          await dibayAlert({ title: data.error ?? t("admin_users_action_failed") });
           return;
         }
         onUpdated?.();
@@ -150,27 +152,30 @@ export function AdminMemberMasterHeader({
   );
 
   const runWithdraw = useCallback(async () => {
-    const reason = window.prompt(
-      safeT("admin_users_delete_reason_prompt", {
+    const reason = await dibayPrompt({
+      title: safeT("admin_users_delete_reason_prompt", {
         fallbackKo: "삭제 사유를 입력해 주세요.",
         fallbackEn: "Enter a reason for deletion.",
       }),
-    );
+      required: true,
+    });
     if (!reason?.trim()) return;
-    const typed = window.prompt(
-      safeT("admin_users_delete_confirm_nickname_prompt", {
+    const typed = await dibayPrompt({
+      title: safeT("admin_users_delete_confirm_nickname_prompt", {
         fallbackKo: `확인을 위해 「${display}」을 입력해 주세요.`,
         fallbackEn: `Type「${display}」 to confirm.`,
       }),
-    );
+      required: true,
+    });
     if (!typed?.trim() || typed.trim() !== display) return;
     if (
-      !window.confirm(
-        safeT("admin_users_lite_delete_confirm", {
+      !(await dibayConfirm({
+        title: safeT("admin_users_lite_delete_confirm", {
           fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
           fallbackEn: "Withdraw this member and anonymize their personal data?",
         }),
-      )
+        confirmTone: "destructive",
+      }))
     ) {
       return;
     }
@@ -184,7 +189,7 @@ export function AdminMemberMasterHeader({
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.message ?? data.error ?? t("admin_users_action_failed"));
+        await dibayAlert({ title: data.message ?? data.error ?? t("admin_users_action_failed") });
         return;
       }
       window.location.href = "/admin/users";

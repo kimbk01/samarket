@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -47,7 +48,7 @@ export function MeetingAlbumTab({
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm(t("meeting_album_confirm_delete"))) return;
+    if (!(await dibayConfirm({ title: t("meeting_album_confirm_delete"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setDeletingId(itemId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/album/${itemId}`, {

@@ -2,8 +2,9 @@
 
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 export function PurchaseReviewSheet({
   chatId,
@@ -26,41 +27,37 @@ export function PurchaseReviewSheet({
 }) {
   const { t } = useI18n();
   return (
-    <div
-      className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
+    <DibayBottomSheet
+      open
+      onClose={onClose}
+      title={t("mypage_comp_purchase_review_sheet_title")}
+      anchor="above-bottom-nav"
+      panelClassName="!max-h-[min(90dvh,640px)]"
     >
-      <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:max-h-[min(90vh,calc(100dvh-3.5rem-var(--safe-bottom)))] sm:rounded-ui-rect">
-        <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("mypage_comp_purchase_review_sheet_title")}</h2>
-          <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">
-            {t("mypage_comp_close")}
-          </button>
-        </div>
-        <div className="shrink-0 border-b border-sam-border-soft bg-sam-app/80 px-4 py-3">
-          <p className="sam-text-helper text-sam-muted">{t("mypage_comp_purchase_review_sheet_subtitle")}</p>
-          <div className="mt-2 flex gap-3">
-            <SamarketThumbnail
-              src={thumbnail}
-              size={56}
-              roundedClassName="rounded-ui-rect"
-              className="bg-sam-border-soft"
-            />
-            <div className="min-w-0">
-              <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{productTitle}</p>
-              <p className="mt-0.5 sam-text-helper text-sam-muted">{sellerNickname}</p>
-            </div>
+      <div className="mb-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3">
+        <p className={OverlayUi.caption}>{t("mypage_comp_purchase_review_sheet_subtitle")}</p>
+        <div className="mt-2 flex gap-3">
+          <SamarketThumbnail
+            src={thumbnail}
+            size={56}
+            roundedClassName="rounded-[length:var(--overlay-radius-md)]"
+            className="bg-[color:var(--overlay-border)]"
+          />
+          <div className="min-w-0">
+            <p className="line-clamp-2 text-sm font-medium text-[color:var(--overlay-text-primary)]">{productTitle}</p>
+            <p className={`mt-0.5 ${OverlayUi.caption}`}>{sellerNickname}</p>
           </div>
         </div>
-        <TradeReviewForm
-          effectiveProductChatId={chatId}
-          productId={postId}
-          revieweeId={sellerId}
-          revieweeLabel={sellerNickname}
-          roleType="buyer_to_seller"
-          onSuccess={onSuccess}
-          onCancel={onClose}
-        />
       </div>
-    </div>
+      <TradeReviewForm
+        effectiveProductChatId={chatId}
+        productId={postId}
+        revieweeId={sellerId}
+        revieweeLabel={sellerNickname}
+        roleType="buyer_to_seller"
+        onSuccess={onSuccess}
+        onCancel={onClose}
+      />
+    </DibayBottomSheet>
   );
 }

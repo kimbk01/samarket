@@ -13,10 +13,11 @@ import {
   OWNER_ADMIN_FIELD_INPUT_CLASS,
   OWNER_ADMIN_FIELD_LABEL_CLASS,
   OWNER_ADMIN_LIST_CARD_CLASS,
-  OWNER_ADMIN_MODAL_PANEL_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
   OWNER_ADMIN_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type BannerRow = {
   id: string;
@@ -401,12 +402,31 @@ export function OwnerStoreBannersView() {
       </OwnerStoreAdminDashSection>
 
       {editor ? (
-        <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/45 p-3 sm:items-center">
-          <div className={OWNER_ADMIN_MODAL_PANEL_CLASS}>
-            <h2 className="sam-text-body font-semibold text-sam-fg">
-              {editor.mode === "new" ? t("business_phase7_453") : t("business_phase7_454")}
-            </h2>
-            <div className="mt-4 space-y-5">
+        <DibayBottomSheet
+          open
+          onClose={() => {
+            if (!busy) setEditor(null);
+          }}
+          title={editor.mode === "new" ? t("business_phase7_453") : t("business_phase7_454")}
+          anchor="device-bottom"
+          footer={
+            <div className={`${OverlayUi.actionsRow} mt-4 border-t border-[color:var(--overlay-border)] pt-4`}>
+              <DibayOverlayButton roleTone="secondary" type="button" disabled={busy} onClick={() => setEditor(null)}>
+                {t("common_close")}
+              </DibayOverlayButton>
+              <DibayOverlayButton
+                roleTone="primary"
+                type="button"
+                disabled={busy}
+                loading={busy}
+                onClick={() => void saveEditor()}
+              >
+                {busy ? t("business_phase7_384") : t("business_phase7_385")}
+              </DibayOverlayButton>
+            </div>
+          }
+        >
+            <div className="space-y-5">
               <input
                 ref={bannerFileRef}
                 type="file"
@@ -643,16 +663,7 @@ export function OwnerStoreBannersView() {
                 </label>
               </div>
             </div>
-            <div className="mt-5 flex gap-2 border-t border-sam-border pt-4">
-              <button type="button" disabled={busy} onClick={() => setEditor(null)} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_OUTLINE_BTN_CLASS}`}>
-                {t("common_close")}
-              </button>
-              <button type="button" disabled={busy} onClick={() => void saveEditor()} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}>
-                {busy ? t("business_phase7_384") : t("business_phase7_385")}
-              </button>
-            </div>
-          </div>
-        </div>
+        </DibayBottomSheet>
       ) : null}
 
       <OwnerStoreAdminConfirmModal

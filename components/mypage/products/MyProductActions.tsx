@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
@@ -54,9 +55,14 @@ export function MyProductActions({
     return () => document.removeEventListener("click", close);
   }, [open]);
 
-  const handleStatusChange = (newStatus: ProductStatus) => {
+  const handleStatusChange = async (newStatus: ProductStatus) => {
     const statusLabel = productStatusLabel(t, newStatus);
-    if (confirm(t("mypage_comp_product_status_confirm", { status: statusLabel }))) {
+    const ok = await dibayConfirm({
+      title: t("mypage_comp_product_status_confirm", { status: statusLabel }),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_confirm"),
+    });
+    if (ok) {
       onStatusChange(product.id, newStatus);
       setOpen(false);
     }
@@ -67,8 +73,14 @@ export function MyProductActions({
     setOpen(false);
   };
 
-  const handleDelete = () => {
-    if (confirm(t("mypage_comp_product_delete_confirm"))) {
+  const handleDelete = async () => {
+    const ok = await dibayConfirm({
+      title: t("mypage_comp_product_delete_confirm"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_delete"),
+      confirmTone: "destructive",
+    });
+    if (ok) {
       onDelete(product.id);
       setOpen(false);
     }
@@ -152,9 +164,17 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => {
-                if (!window.confirm(t("mypage_comp_product_cancel_sale_confirm"))) return;
-                onStatusChange(product.id, "hidden");
-                setOpen(false);
+                void (async () => {
+                  const ok = await dibayConfirm({
+                    title: t("mypage_comp_product_cancel_sale_confirm"),
+                    cancelLabel: t("common_cancel"),
+                    confirmLabel: t("mypage_comp_product_cancel_sale"),
+                    confirmTone: "destructive",
+                  });
+                  if (!ok) return;
+                  onStatusChange(product.id, "hidden");
+                  setOpen(false);
+                })();
               }}
               className="w-full px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50"
             >

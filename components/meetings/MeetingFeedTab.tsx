@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
@@ -140,7 +141,7 @@ export function MeetingFeedTab({
   const typeOptions = isHost ? hostTypes : writableTypes;
 
   const handleDelete = async (postId: string) => {
-    if (!confirm(t("meeting_feed_confirm_delete"))) return;
+    if (!(await dibayConfirm({ title: t("meeting_feed_confirm_delete"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setDeletingId(postId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/feed/${postId}`, {

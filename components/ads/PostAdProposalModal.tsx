@@ -1,11 +1,13 @@
 "use client";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { AdProductSelector } from "./AdProductSelector";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface PostAdProposalModalProps {
   postId: string;
@@ -28,40 +30,28 @@ export function PostAdProposalModal({
   const { t } = useI18n();
   const me = getCurrentUser();
   const [step, setStep] = useState<"propose" | "select" | "done">("propose");
-  const [adId, setAdId] = useState<string>("");
 
   const { balance } = useUserPointBalance(me?.id);
 
   if (step === "done") {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-        <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-12 pt-6 shadow-2xl">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <span className="sam-text-hero">✅</span>
-            </div>
-            <h2 className="sam-text-page-title font-bold text-sam-fg">{t("ui_ad_apply_complete_title")}</h2>
-            <p className="sam-text-body-secondary text-sam-muted">
-              관리자 검토 후 승인되면 피드 상단에 노출됩니다.
-              <br />
-              신청 내역은 마이페이지 &gt; 광고 관리에서 확인할 수 있어요.
-            </p>
-            <button
-              type="button"
-              onClick={onSkip}
-              className="mt-4 w-full rounded-ui-rect bg-sam-ink py-3.5 sam-text-body font-bold text-white"
-            >
+      <DibayBottomSheet open onClose={onSkip} title={t("ui_ad_apply_complete_title")} anchor="above-bottom-nav">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className={OverlayUi.bodySecondary}>
+            관리자 검토 후 승인되면 피드 상단에 노출됩니다.
+            <br />
+            신청 내역은 마이페이지 &gt; 광고 관리에서 확인할 수 있어요.
+          </p>
+          <div className={`${OverlayUi.actionsStack} mt-4 w-full`}>
+            <DibayOverlayButton roleTone="primary" onClick={onSkip}>
               게시글 보기
-            </button>
-            <Link
-              href="/mypage/ads"
-              className="sam-text-body-secondary text-sky-700 underline"
-            >
+            </DibayOverlayButton>
+            <Link href="/mypage/ads" className={`${OverlayUi.btn.text} text-center`}>
               광고 관리 페이지 바로가기
             </Link>
           </div>
         </div>
-      </div>
+      </DibayBottomSheet>
     );
   }
 
@@ -73,83 +63,62 @@ export function PostAdProposalModal({
         postTitle={postTitle}
         userPointBalance={balance}
         onClose={() => setStep("propose")}
-        onSuccess={(id) => {
-          setAdId(id);
+        onSuccess={() => {
           setStep("done");
         }}
       />
     );
   }
 
-  // step === "propose"
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
-        {/* 헤더 */}
-        <div className="mb-1 flex items-center justify-between">
-          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 sam-text-xxs font-bold text-amber-800">
-            광고
-          </span>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="sam-text-body-secondary text-sam-meta hover:text-sam-muted"
-          >
-            건너뛰기
-          </button>
-        </div>
-
-        <div className="mt-3 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
-            <span className="sam-text-hero">📢</span>
-          </div>
-          <h2 className="sam-text-page-title font-bold text-sam-fg">{t("ui_ad_promote_confirm_title")}</h2>
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">
-            포인트를 사용해 커뮤니티 피드 상단에 내 글을 노출시켜 보세요.
-            <br />더 많은 이웃이 볼 수 있어요.
-          </p>
-        </div>
-
-        {/* 포인트 잔액 */}
-        <div className="mt-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-3 py-2.5">
-          <span className="sam-text-body-secondary text-sky-700">{t("ui_ad_my_points_balance")}</span>
-          <span className="sam-text-body-lg font-bold text-sky-800">{balance.toLocaleString()}P</span>
-        </div>
-
-        {/* 간단 상품 미리보기 */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {[
-            { label: "상단고정 3일", point: "10,000P" },
-            { label: "상단고정 7일", point: "20,000P" },
-          ].map(({ label, point }) => (
-            <div
-              key={label}
-              className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-center"
-            >
-              <p className="sam-text-helper font-medium text-sam-fg">{label}</p>
-              <p className="sam-text-body-secondary font-bold text-sky-700">{point}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* 액션 버튼 */}
-        <div className="mt-5 space-y-2">
-          <button
-            type="button"
-            onClick={() => setStep("select")}
-            className="w-full rounded-ui-rect bg-amber-500 py-3.5 sam-text-body font-bold text-white shadow-md hover:bg-amber-600"
-          >
-            광고 상품 선택하기
-          </button>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-medium text-sam-muted hover:bg-sam-app"
-          >
-            나중에 할게요
-          </button>
-        </div>
+    <DibayBottomSheet
+      open
+      onClose={onSkip}
+      title={t("ui_ad_promote_confirm_title")}
+      anchor="above-bottom-nav"
+    >
+      <div className="mb-1 flex items-center justify-between">
+        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+          광고
+        </span>
+        <button type="button" onClick={onSkip} className={OverlayUi.btn.text}>
+          건너뛰기
+        </button>
       </div>
-    </div>
+
+      <p className={`mt-2 text-center ${OverlayUi.bodySecondary}`}>
+        포인트를 사용해 커뮤니티 피드 상단에 내 글을 노출시켜 보세요.
+        <br />더 많은 이웃이 볼 수 있어요.
+      </p>
+
+      <div className="mt-4 flex items-center justify-between rounded-[length:var(--overlay-radius-md)] bg-sky-50 px-3 py-2.5">
+        <span className="text-sm text-sky-700">{t("ui_ad_my_points_balance")}</span>
+        <span className="text-base font-bold text-sky-800">{balance.toLocaleString()}P</span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {[
+          { label: "상단고정 3일", point: "10,000P" },
+          { label: "상단고정 7일", point: "20,000P" },
+        ].map(({ label, point }) => (
+          <div
+            key={label}
+            className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-2 text-center"
+          >
+            <p className={`font-medium text-[color:var(--overlay-text-primary)] ${OverlayUi.caption}`}>{label}</p>
+            <p className="text-sm font-bold text-sky-700">{point}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className={`${OverlayUi.actionsStack} mt-5`}>
+        <DibayOverlayButton roleTone="primary" onClick={() => setStep("select")}>
+          광고 상품 선택하기
+        </DibayOverlayButton>
+        <DibayOverlayButton roleTone="secondary" onClick={onSkip}>
+          나중에 할게요
+        </DibayOverlayButton>
+      </div>
+    </DibayBottomSheet>
   );
 }

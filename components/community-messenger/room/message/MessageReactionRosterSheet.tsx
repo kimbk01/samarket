@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerMessageActionAnchorRect } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export type MessageReactionRosterSheetProps = {
   open: { messageId: string; reactionKey: string; anchor: CommunityMessengerMessageActionAnchorRect } | null;
@@ -13,7 +15,10 @@ export type MessageReactionRosterSheetProps = {
   onClose: () => void;
 };
 
-/** 이모티콘 pill 근처에 붙는 가벼운 ‘반응한 사람’ 팝오버 */
+/**
+ * Anchored reaction roster popover — OverlayUi backdrop/surface tokens.
+ * Not a bottom sheet (positioned near emoji pill).
+ */
 export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProps) {
   const { t } = useI18n();
   const { open, streamRoomId, onClose } = props;
@@ -104,11 +109,15 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <>
-      <div
-        className="fixed inset-0 z-[340] bg-black/15"
-        role="presentation"
-        aria-hidden
+    <div
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}`}
+      role="presentation"
+      data-dibay-overlay="message-reaction-roster"
+    >
+      <button
+        type="button"
+        className={`${OverlayUi.backdrop} !opacity-100`}
+        aria-label={t("common_close")}
         onClick={onClose}
       />
       <div
@@ -116,25 +125,25 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
         role="dialog"
         aria-modal="true"
         aria-label={t("cm_ui_reacted_people")}
-        className="fixed z-[341] w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-white/50 bg-white/90 shadow-lg backdrop-blur-md"
+        className="absolute z-[1] w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] shadow-[var(--overlay-elevation-2)]"
         style={{ top: pos.top, left: pos.left }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-black/5 px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-[color:var(--overlay-border)] px-3 py-2">
           <span className="text-base leading-none">{open.reactionKey}</span>
-          <span className="sam-text-xxs font-semibold text-[color:var(--cm-room-text-muted)]">{t("cm_ui_reacted_people")}</span>
+          <span className={OverlayUi.caption}>{t("cm_ui_reacted_people")}</span>
         </div>
         <div className="max-h-[min(220px,40vh)] overflow-y-auto px-2 py-1.5">
           {loading ? (
-            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("common_loading")}</p>
+            <p className={`px-2 py-4 text-center ${OverlayUi.caption}`}>{t("common_loading")}</p>
           ) : users.length === 0 ? (
-            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("cm_ui_nothing_yet")}</p>
+            <p className={`px-2 py-4 text-center ${OverlayUi.caption}`}>{t("cm_ui_nothing_yet")}</p>
           ) : (
             <ul className="space-y-0.5">
               {users.map((u) => (
                 <li
                   key={u.userId}
-                  className="rounded-lg px-2.5 py-1.5 sam-text-xxs text-[color:var(--cm-room-text)]"
+                  className="rounded-[length:var(--overlay-radius-sm)] px-2.5 py-1.5 text-[12px] text-[color:var(--overlay-text-primary)]"
                 >
                   {u.label}
                 </li>
@@ -143,7 +152,7 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
           )}
         </div>
       </div>
-    </>,
+    </div>,
     document.body
   );
 }

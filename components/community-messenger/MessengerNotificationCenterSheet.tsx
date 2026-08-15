@@ -14,6 +14,7 @@ import {
   formatConversationTimestamp,
   getRoomTypeBadgeLabel,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 
 export type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
 export { resolveImportantRoomHighlightReason } from "@/lib/community-messenger/messenger-notification-center-model";
@@ -49,33 +50,20 @@ function RowActionSheet({
 }) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
-        <p className="px-1 pb-2 text-center sam-text-helper font-medium text-ui-muted">{title}</p>
-        <div className="flex flex-col gap-1">
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              disabled={action.disabled}
-              onClick={() => {
-                onClose();
-                action.onClick();
-              }}
-              className={`rounded-ui-rect py-2.5 sam-text-body font-medium ${
-                action.destructive ? "text-red-600" : "text-ui-fg"
-              } disabled:opacity-50`}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-        <button type="button" className="mt-1 w-full py-2 sam-text-body-secondary text-ui-muted" onClick={onClose}>
-          {t("common_cancel")}
-        </button>
-      </div>
-    </div>
+    <DibayActionSheet
+      open
+      onClose={onClose}
+      title={title}
+      cancelLabel={t("common_cancel")}
+      anchor="above-bottom-nav"
+      items={actions.map((action) => ({
+        key: action.label,
+        label: action.label,
+        disabled: action.disabled,
+        danger: action.destructive,
+        onClick: action.onClick,
+      }))}
+    />
   );
 }
 

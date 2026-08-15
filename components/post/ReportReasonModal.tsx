@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { POST_REPORT_REASONS } from "@/lib/reports/report-utils";
 import { createReport } from "@/lib/reports/createReport";
-import { DetailHeader } from "@/components/layout/sector-header";
+import { DibayFullSheet } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface ReportReasonModalProps {
   postId: string;
@@ -52,50 +53,38 @@ export function ReportReasonModal({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-sam-surface">
-      <DetailHeader
-        flat
-        title={t("common_report")}
-        onBack={onClose}
-        backVariant="close"
-        backAriaLabel={t("common_close")}
-      />
+    <DibayFullSheet open={open} onClose={onClose} title={t("common_report")} hideBottomNav>
+      <h2 className={`${OverlayUi.title} !text-left`}>
+        게시글을 신고하는 이유를 선택해주세요.
+      </h2>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="sam-text-page-title font-bold text-sam-fg">
-          게시글을 신고하는 이유를 선택해주세요.
-        </h2>
+      {error ? (
+        <p className="mt-2 text-sm text-[color:var(--overlay-danger)]">{error}</p>
+      ) : null}
 
-        {error && (
-          <p className="mt-2 sam-text-body text-red-600">{error}</p>
-        )}
-
-        <ul className="mt-4 divide-y divide-sam-border-soft">
-          {POST_REPORT_REASONS.map((r) => (
-            <li key={r.code}>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => handleSelect(r.label, r.code)}
-                className={`flex w-full items-center justify-between gap-2 py-4 text-left disabled:opacity-50 ${
-                  r.isAuthor ? "text-sam-primary" : "text-sam-fg"
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="sam-text-body font-medium">{r.label}</p>
-                  {r.subLabel && (
-                    <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{r.subLabel}</p>
-                  )}
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-sam-meta" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+      <ul className="mt-4 divide-y divide-[color:var(--overlay-border)]">
+        {POST_REPORT_REASONS.map((r) => (
+          <li key={r.code}>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => void handleSelect(r.label, r.code)}
+              className={`flex w-full items-center justify-between gap-2 py-4 text-left disabled:opacity-50 ${
+                r.isAuthor ? "text-[color:var(--overlay-primary)]" : "text-[color:var(--overlay-text-primary)]"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{r.label}</p>
+                {r.subLabel ? (
+                  <p className={`mt-0.5 ${OverlayUi.bodySecondary}`}>{r.subLabel}</p>
+                ) : null}
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-40" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </DibayFullSheet>
   );
 }

@@ -27,6 +27,8 @@ import { validateStoreProductRequiredOptions } from "@/lib/stores/product-sheet/
 import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store-product-sheet-detail";
 import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
 import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
+import type { DibayBottomSheetProps } from "@/components/ui/dibay-overlay";
+type _ProductSheetOverlaySsot = DibayBottomSheetProps;
 import { StoreProductSheetAddToCartBar } from "@/components/stores/product-sheet/StoreProductSheetAddToCartBar";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import {

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState } from "react";
 import type { AdminReview } from "@/lib/types/admin-review";
 
@@ -27,7 +28,7 @@ export function AdminReviewActionPanel({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? "처리에 실패했습니다.");
+        await dibayAlert({ title: j.error ?? "처리에 실패했습니다." });
         return;
       }
       onActionSuccess();

@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   memo,
@@ -2690,7 +2691,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const removeFriend = useCallback(
     async (friendUserId: string, options?: { confirm?: boolean }) => {
       const shouldConfirm = options?.confirm !== false;
-      if (shouldConfirm && !window.confirm(t("cm_ui_confirm_remove_friend_keep_chat"))) {
+      if (shouldConfirm && !(await dibayConfirm({ title: t("cm_ui_confirm_remove_friend_keep_chat"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) {
         return;
       }
       setBusyId(`remove-friend:${friendUserId}`);
@@ -2728,7 +2729,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const reportCommunityUser = useCallback(async (userId: string) => {
-    const detail = window.prompt(t("cm_ui_prompt_report_detail"))?.trim() ?? "";
+    const detail = (await dibayPrompt({ title: t("cm_ui_prompt_report_detail"), required: true }))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report:${userId}`);
     try {
@@ -2755,7 +2756,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [t]);
 
   const reportCommunityRoom = useCallback(async (roomId: string) => {
-    const detail = window.prompt(t("cm_ui_prompt_report_detail"))?.trim() ?? "";
+    const detail = (await dibayPrompt({ title: t("cm_ui_prompt_report_detail"), required: true }))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report-room:${roomId}`);
     try {

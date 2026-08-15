@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -97,7 +98,7 @@ export function AdminCommunityTopicsPage({
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!defaultPhilifeSectionId) {
-      alert(tr("admin_topics_alert_select_section"));
+      await dibayAlert({ title: tr("admin_topics_alert_select_section") });
       return;
     }
     const finalSlug = normalizeFeedSlug(name) || normalizeFeedSlug(nameEn);
@@ -125,9 +126,7 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(
-          j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save")
-        );
+        await dibayAlert({ title: j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
         return;
       }
       setName("");
@@ -169,9 +168,7 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(
-          j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save")
-        );
+        await dibayAlert({ title: j.error === "slug_duplicate_in_section" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save") });
         return;
       }
       setEdit(null);
@@ -182,7 +179,7 @@ export function AdminCommunityTopicsPage({
   }
 
   async function removeRow(id: string) {
-    if (!confirm(tr("admin_topics_confirm_delete"))) return;
+    if (!(await dibayConfirm({ title: tr("admin_topics_confirm_delete"), confirmTone: "destructive" }))) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/topics/${id}`, {
@@ -191,7 +188,7 @@ export function AdminCommunityTopicsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error === "topic_has_posts" ? tr("admin_topics_err_has_posts") : j.error ?? tr("admin_topics_err_delete"));
+        await dibayAlert({ title: j.error === "topic_has_posts" ? tr("admin_topics_err_has_posts") : j.error ?? tr("admin_topics_err_delete") });
         return;
       }
       await refresh();
@@ -236,7 +233,7 @@ export function AdminCommunityTopicsPage({
       const j1 = await patch(topic, bOrder);
       const j2 = await patch(swapWith, aOrder);
       if (!j1.ok || !j2.ok) {
-        alert(tr("admin_topics_err_save"));
+        await dibayAlert({ title: tr("admin_topics_err_save") });
         return;
       }
       await refresh();

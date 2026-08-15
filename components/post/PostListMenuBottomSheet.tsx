@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect } from "react";
+import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 
 export type PostListMenuAction =
   | "interest"
@@ -92,6 +92,9 @@ function IconTrash({ className }: { className?: string }) {
   );
 }
 
+const rowClass =
+  "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-2.5 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)] active:scale-[var(--overlay-press-scale)] disabled:cursor-not-allowed disabled:opacity-45";
+
 export function PostListMenuBottomSheet({
   open,
   onClose,
@@ -105,14 +108,6 @@ export function PostListMenuBottomSheet({
   ownerDeleteLockHint = "",
 }: PostListMenuBottomSheetProps) {
   const { t } = useI18n();
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [open, onClose]);
-
-  if (!open) return null;
 
   const editLocked = ownerEditLocked ?? ownerEditDeleteLocked;
   const deleteLocked = ownerDeleteLocked ?? ownerEditDeleteLocked;
@@ -125,112 +120,84 @@ export function PostListMenuBottomSheet({
     onClose();
   };
 
-  const confirmDeleteOwn = () => {
+  const confirmDeleteOwn = async () => {
     if (deleteLocked) return;
-    if (typeof window !== "undefined" && !window.confirm(t("ui_post_delete_confirm_feed"))) {
-      return;
-    }
+    const ok = await dibayConfirm({
+      title: t("ui_post_delete_confirm_feed"),
+      cancelLabel: t("common_cancel"),
+      confirmLabel: t("common_delete"),
+      confirmTone: "destructive",
+    });
+    if (!ok) return;
     handle("delete_own");
   };
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-        onKeyDown={(e) => e.key === "Enter" && onClose()}
-        role="button"
-        tabIndex={0}
-        aria-label={t("ui_sheet_close_aria")}
-      />
-      <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl">
-        <div className="mb-2 h-1 w-10 shrink-0 self-center rounded-full bg-sam-border-soft" aria-hidden />
-
-        <div className="mt-4 space-y-2">
-          {showOwnerTradeActions ? (
-            <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 p-2">
-              {showLockBanner ? (
-                <div className="space-y-1 px-3 py-2 sam-text-helper leading-snug text-amber-800">
-                  {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
-                  {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                disabled={editLocked}
-                onClick={() => !editLocked && handle("edit_own")}
-                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <IconPencil className="h-5 w-5 text-sam-muted" />
-                수정
-              </button>
-              <button
-                type="button"
-                disabled={deleteLocked}
-                onClick={confirmDeleteOwn}
-                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <IconTrash className="h-5 w-5 text-red-500" />
-                삭제
-              </button>
-            </div>
-          ) : null}
-
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 p-2">
+    <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
+      <div className="mt-1 space-y-2 px-1 pb-2">
+        {showOwnerTradeActions ? (
+          <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+            {showLockBanner ? (
+              <div className="space-y-1 px-3 py-2 text-[length:var(--overlay-caption-size)] leading-snug text-amber-800">
+                {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
+                {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
+              </div>
+            ) : null}
             <button
               type="button"
-              onClick={() => handle("interest")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
+              disabled={editLocked}
+              onClick={() => !editLocked && handle("edit_own")}
+              className={rowClass}
             >
-              <IconPlusCircle className="h-5 w-5 text-sam-muted" />
-              관심 있음
+              <IconPencil className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+              수정
             </button>
             <button
               type="button"
-              onClick={() => handle("not_interest")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
+              disabled={deleteLocked}
+              onClick={() => void confirmDeleteOwn()}
+              className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
             >
-              <IconMinusCircle className="h-5 w-5 text-sam-muted" />
-              관심 없음
+              <IconTrash className="h-5 w-5 text-[color:var(--overlay-danger)]" />
+              삭제
             </button>
           </div>
+        ) : null}
 
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 p-2">
-            <button
-              type="button"
-              onClick={() => handle("hide")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
-            >
-              <IconEyeSlash className="h-5 w-5 text-sam-muted" />
-              이 글 숨기기
-            </button>
-            <button
-              type="button"
-              onClick={() => handle("exposure_criteria")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
-            >
-              <IconQuestionCircle className="h-5 w-5 text-sam-muted" />
-              게시글 노출 기준
-            </button>
-            <button
-              type="button"
-              onClick={() => handle("report")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50"
-            >
-              <IconReport className="h-5 w-5 text-red-500" />
-              신고하기
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-ui-rect bg-sam-surface-muted py-3.5 sam-text-body font-medium text-sam-fg hover:bg-sam-border-soft"
-          >
-            닫기
+        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+          <button type="button" onClick={() => handle("interest")} className={rowClass}>
+            <IconPlusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+            관심 있음
+          </button>
+          <button type="button" onClick={() => handle("not_interest")} className={rowClass}>
+            <IconMinusCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+            관심 없음
           </button>
         </div>
+
+        <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+          <button type="button" onClick={() => handle("hide")} className={rowClass}>
+            <IconEyeSlash className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+            이 글 숨기기
+          </button>
+          <button type="button" onClick={() => handle("exposure_criteria")} className={rowClass}>
+            <IconQuestionCircle className="h-5 w-5 text-[color:var(--overlay-text-secondary)]" />
+            게시글 노출 기준
+          </button>
+          <button
+            type="button"
+            onClick={() => handle("report")}
+            className={`${rowClass} text-[color:var(--overlay-danger)] hover:bg-red-50`}
+          >
+            <IconReport className="h-5 w-5 text-[color:var(--overlay-danger)]" />
+            신고하기
+          </button>
+        </div>
+
+        <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+          닫기
+        </DibayOverlayButton>
       </div>
-    </div>
+    </DibayBottomSheet>
   );
 }

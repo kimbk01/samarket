@@ -17,6 +17,8 @@ import { feedAdOpsStatusLabel } from "@/lib/ads/feed-ad-ops-presentation";
 import { isFeedAdDisplayStatusBlockingNewCreate } from "@/lib/ads/feed-ad-member-limit";
 import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
+import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 type FeedRequestRow = {
   id: string;
@@ -564,70 +566,71 @@ export default function MyAdsPageClient() {
         </section>
       </div>
 
-      {renewTarget ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <div
-            className="w-full max-w-md space-y-3 rounded-ui-rect bg-sam-surface p-4 shadow-lg"
-            role="dialog"
-            data-testid="feed-ad-renew-sheet"
-          >
-            <h3 className="sam-text-body font-semibold">
-              {safeT("feed_ad_renew_title", {
-                fallbackKo: "광고 연장",
-                fallbackEn: "Renew ad",
-              })}
-            </h3>
-            <p className="sam-text-helper text-sam-muted">
-              {safeT("feed_ad_renew_hint", {
-                fallbackKo: "동일 이미지·연결로 기간을 연장합니다. D-Point가 즉시 사용됩니다.",
-                fallbackEn: "Extends the same creative and destination. D-Point is charged now.",
-              })}
-            </p>
-            <div className="space-y-2">
-              {renewCatalog.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setRenewProductId(p.id)}
-                  className={`w-full rounded-ui-rect border px-3 py-2 text-left ${
-                    renewProductId === p.id
-                      ? "border-sam-primary bg-sam-primary/5"
-                      : "border-sam-border"
-                  }`}
-                >
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium">{en ? p.titleEn : p.titleKo}</span>
-                    <span className="font-semibold">{p.pointCost.toLocaleString()}P</span>
-                  </div>
-                  <p className="sam-text-helper text-sam-muted">
-                    {p.durationDays}
-                    {en ? " days" : "일"}
-                  </p>
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
+      <DibayBottomSheet
+        open={Boolean(renewTarget)}
+        onClose={() => setRenewTarget(null)}
+        title={safeT("feed_ad_renew_title", {
+          fallbackKo: "광고 연장",
+          fallbackEn: "Renew ad",
+        })}
+        anchor="above-bottom-nav"
+        ariaLabel={safeT("feed_ad_renew_title", {
+          fallbackKo: "광고 연장",
+          fallbackEn: "Renew ad",
+        })}
+      >
+        <div data-testid="feed-ad-renew-sheet">
+          <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
+            {safeT("feed_ad_renew_hint", {
+              fallbackKo: "동일 이미지·연결로 기간을 연장합니다. D-Point가 즉시 사용됩니다.",
+              fallbackEn: "Extends the same creative and destination. D-Point is charged now.",
+            })}
+          </p>
+          <div className="space-y-2">
+            {renewCatalog.map((p) => (
               <button
+                key={p.id}
                 type="button"
-                className="flex-1 rounded-ui-rect border border-sam-border py-2"
-                onClick={() => setRenewTarget(null)}
-                disabled={renewBusy}
+                onClick={() => setRenewProductId(p.id)}
+                className={`w-full rounded-[length:var(--overlay-radius-md)] border px-3 py-2 text-left ${
+                  renewProductId === p.id
+                    ? "border-[color:var(--overlay-primary)] bg-[color:var(--overlay-secondary)]"
+                    : "border-[color:var(--overlay-border)]"
+                }`}
               >
-                {t("common_cancel")}
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">{en ? p.titleEn : p.titleKo}</span>
+                  <span className="font-semibold">{p.pointCost.toLocaleString()}P</span>
+                </div>
+                <p className={OverlayUi.caption}>
+                  {p.durationDays}
+                  {en ? " days" : "일"}
+                </p>
               </button>
-              <button
-                type="button"
-                data-testid="feed-ad-renew-confirm"
-                className="flex-1 rounded-ui-rect bg-signature py-2 font-medium text-white disabled:opacity-50"
-                disabled={renewBusy || !renewProductId}
-                onClick={() => void submitRenew()}
-              >
-                {renewBusy ? t("common_loading") : en ? "Pay & renew" : "결제하고 연장"}
-              </button>
-            </div>
+            ))}
+          </div>
+          <div className={`${OverlayUi.actionsRow} mt-3`}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              type="button"
+              onClick={() => setRenewTarget(null)}
+              disabled={renewBusy}
+            >
+              {t("common_cancel")}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="primary"
+              type="button"
+              data-testid="feed-ad-renew-confirm"
+              disabled={renewBusy || !renewProductId}
+              loading={renewBusy}
+              onClick={() => void submitRenew()}
+            >
+              {renewBusy ? t("common_loading") : en ? "Pay & renew" : "결제하고 연장"}
+            </DibayOverlayButton>
           </div>
         </div>
-      ) : null}
+      </DibayBottomSheet>
     </div>
   );
 }

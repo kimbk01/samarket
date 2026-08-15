@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -115,7 +116,7 @@ export function MeetingRoomHero({
 
   const onEndMeeting = async () => {
     if (!isHostUser) return;
-    if (!window.confirm(t("community_confirm_end_meeting"))) return;
+    if (!(await dibayConfirm({ title: t("community_confirm_end_meeting"), cancelLabel: t("common_cancel"), confirmLabel: t("common_confirm"), confirmTone: "destructive" }))) return;
     setMenuOpen(false);
     const res = await fetch(philifeMeetingApi(meetingId).close(), { method: "POST" });
     const j = (await res.json()) as { ok?: boolean };

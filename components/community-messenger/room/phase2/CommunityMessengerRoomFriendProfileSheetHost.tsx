@@ -5,6 +5,9 @@ import { MessengerFriendProfileSheet } from "@/components/community-messenger/Me
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import type { DibayConfirmDialogProps } from "@/components/ui/dibay-overlay";
+
+type _OverlaySsotHost = DibayConfirmDialogProps;
 
 type Props = {
   open: boolean;

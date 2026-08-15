@@ -16,6 +16,7 @@ import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 
 /**
  * `/stores` 트리 최상단에 1회 마운트 — sheet state 변경이 `StoreDetailPublic` 에 전파되지 않음.
+ * Overlay shell lives in StoreProductSheetShell (DibayOverlayRoot + MAIN_BOTTOM_NAV_SHEET geometry).
  */
 export function StoreProductSheetPortal() {
   const { t } = useI18n();

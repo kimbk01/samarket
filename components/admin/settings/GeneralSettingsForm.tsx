@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useRef } from "react";
 import type { AppSettings } from "@/lib/types/admin-settings";
 import {
@@ -17,11 +18,11 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
   const { t } = useI18n();
   const alarmInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAlarmFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAlarmFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("audio/")) {
-      alert(t("admin_settings_alarm_audio_only"));
+      await dibayAlert({ title: t("admin_settings_alarm_audio_only") });
       return;
     }
     const reader = new FileReader();

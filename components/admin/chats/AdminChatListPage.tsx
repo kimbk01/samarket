@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -296,9 +297,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     }
 
     if (
-      !window.confirm(
-        t("admin_chat_delete_confirm", { count: items.length })
-      )
+      !(await dibayConfirm({ title: t("admin_chat_delete_confirm", { count: items.length }), confirmTone: "destructive" }))
     ) {
       return;
     }
@@ -352,9 +351,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const blockSelectedTradeRooms = useCallback(async () => {
     if (selectedIds.size === 0 || mode !== "trade") return;
     if (
-      !window.confirm(
-        t("admin_chat_block_confirm", { count: selectedIds.size })
-      )
+      !(await dibayConfirm({ title: t("admin_chat_block_confirm", { count: selectedIds.size }), confirmTone: "destructive" }))
     ) {
       return;
     }

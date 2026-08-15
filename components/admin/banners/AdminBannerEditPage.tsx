@@ -1,5 +1,6 @@
 "use client";
 
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -89,7 +90,7 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(j.error ?? t("common_content_unavailable"));
+        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
         return;
       }
       router.push(`/admin/banners/${bannerId}`);

@@ -6,6 +6,8 @@ import {
   MainBottomNavIconPickerModal,
   MainBottomNavIconPickerTrigger,
 } from "@/components/admin/menus/MainBottomNavIconPickerModal";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MainBottomNavAdminRow } from "@/lib/main-menu/main-bottom-nav-types";
 import {
   applyMainBottomNavFabIconPatch,
@@ -114,42 +116,34 @@ export function MainBottomNavFabEditor({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-3"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-    >
+    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="nested">
       <div
-        className="relative z-[101] flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-sam-elevated"
+        className={`${OverlayUi.dialogPanel} !max-w-3xl flex max-h-[90vh] w-full flex-col overflow-hidden !p-0`}
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="main-bottom-nav-fab-editor-title"
       >
-        <div className="border-b border-sam-border px-4 py-3">
+        <div className="border-b border-[color:var(--overlay-border)] px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 id="main-bottom-nav-fab-editor-title" className="sam-text-body font-semibold text-sam-fg">
+              <h2 id="main-bottom-nav-fab-editor-title" className={OverlayUi.title}>
                 {t("admin_menu_bottom_fab_title")}
               </h2>
-              <p className="mt-0.5 sam-text-helper text-sam-muted">
+              <p className={`mt-0.5 ${OverlayUi.caption}`}>
                 {t("admin_menu_bottom_fab_desc", { name: menuLabel })}
               </p>
             </div>
-            <button
-              type="button"
+            <DibayOverlayButton
+              roleTone="text"
               onClick={onClose}
-              className="shrink-0 rounded-ui-rect border border-sam-border px-2 py-0.5 sam-text-helper text-sam-muted hover:bg-sam-app"
+              className="!min-h-9 !w-9 !flex-none !p-0"
               aria-label={t("admin_menu_close_aria")}
             >
               ✕
-            </button>
+            </DibayOverlayButton>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-b border-sam-border px-4 py-2">
+        <div className="flex flex-wrap items-center gap-3 border-b border-[color:var(--overlay-border)] px-4 py-2">
           <label className="flex items-center gap-2 sam-text-body text-sam-fg">
             <input
               type="checkbox"
@@ -283,14 +277,10 @@ export function MainBottomNavFabEditor({
           )}
         </div>
 
-        <div className="border-t border-sam-border px-4 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
-          >
+        <div className="border-t border-[color:var(--overlay-border)] px-4 py-3">
+          <DibayOverlayButton roleTone="primary" onClick={onClose}>
             {t("admin_menu_bottom_icon_apply")}
-          </button>
+          </DibayOverlayButton>
         </div>
       </div>
 
@@ -312,6 +302,6 @@ export function MainBottomNavFabEditor({
           onClose={() => setIconPickerItemId(null)}
         />
       ) : null}
-    </div>
+    </DibayOverlayRoot>
   );
 }

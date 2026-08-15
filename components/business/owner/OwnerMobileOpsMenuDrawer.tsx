@@ -4,9 +4,10 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "
 import { createPortal } from "react-dom";
 
 /**
- * 모바일·태블릿(≤1024px) 운영 메뉴 드로어 — `document.body` 포털.
- * Tailwind `max-[1024px]:*` 는 `${OWNER_COMPACT_SHELL_MAX_TW}:` 조합 시 빌드에서 누락될 수 있어
- * 위치·슬라이드는 `app/owner-compact-shell.css` 의 `.owner-ops-drawer-*` 가 단일 권한.
+ * 모바일·태블릿(≤1024px) 운영 메뉴 사이드 드로어 — `document.body` 포털.
+ * Intentional side drawer (not DibayBottomSheet): ops nav from hamburger.
+ * Scrim uses `--overlay-backdrop` via `app/owner-compact-shell.css`.
+ * 위치·슬라이드는 `.owner-ops-drawer-*` 가 단일 권한.
  */
 export function OwnerMobileOpsMenuDrawer({
   open,
@@ -56,7 +57,13 @@ export function OwnerMobileOpsMenuDrawer({
   const dataOpen = open ? "true" : "false";
 
   return createPortal(
-    <div ref={rootRef} data-biz="1" data-owner-ops-drawer-root inert={!open}>
+    <div
+      ref={rootRef}
+      data-biz="1"
+      data-owner-ops-drawer-root
+      data-dibay-overlay="owner-ops-side-drawer"
+      inert={!open}
+    >
       <button
         type="button"
         className="owner-ops-drawer-scrim"

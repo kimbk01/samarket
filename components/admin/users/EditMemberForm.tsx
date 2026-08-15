@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser, MemberType } from "@/lib/types/admin-user";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const MEMBER_LABEL_KEYS: Record<MemberType, MessageKey> = {
   normal: "admin_users_member_type_normal_short",
@@ -61,13 +63,6 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     setMemberType(user.memberType);
     setPhoneStatus(inferPhoneValue(user));
   }, [user]);
-
-  const handleBackdrop = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) onClose();
-    },
-    [onClose]
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,19 +137,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
-      onClick={handleBackdrop}
-      onKeyDown={(e) => e.key === "Escape" && onClose()}
-      role="presentation"
-    >
+    <DibayOverlayRoot open onClose={onClose} dismissible placement="center" zRole="dialog">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-lg rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-xl"
+        className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_edit_member_title")}</h2>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">
+        <h2 className={OverlayUi.title}>{t("admin_users_form_edit_member_title")}</h2>
+        <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
           {user.nickname}
           {showMemberUuid ? (
             <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername ?? user.id}</span>
@@ -278,23 +268,20 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
         {error ? <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p> : null}
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-          >
+        <div className={`${OverlayUi.actionsRow} mt-6`}>
+          <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
             {t("common_cancel")}
-          </button>
-          <button
+          </DibayOverlayButton>
+          <DibayOverlayButton
+            roleTone="primary"
             type="submit"
             disabled={submitting || isReadOnly}
-            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+            loading={submitting}
           >
             {submitting ? t("admin_users_saving") : t("common_save")}
-          </button>
+          </DibayOverlayButton>
         </div>
       </form>
-    </div>
+    </DibayOverlayRoot>
   );
 }
