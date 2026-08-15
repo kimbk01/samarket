@@ -51,6 +51,18 @@ describe("customer-center-safe-markdown", () => {
     expect(ex.includes("bold")).toBe(true);
   });
 
+  it("excerpt strips doubled heading markers and orphan asterisks", () => {
+    const ex = excerptCustomerCenterMarkdown("**\n## ## OPSUX heading\nmore");
+    expect(ex.includes("##")).toBe(false);
+    expect(ex.includes("**")).toBe(false);
+    expect(ex.includes("OPSUX")).toBe(true);
+  });
+
+  it("h2 strips leftover leading hashes in title text", () => {
+    const blocks = parseCustomerCenterSafeMarkdown("## ## OPSUX heading");
+    expect(blocks[0]).toEqual({ type: "h2", text: "OPSUX heading" });
+  });
+
   it("insert wraps selection", () => {
     const r = insertCustomerCenterMarkdown("abc", 0, 3, "bold");
     expect(r.next).toBe("**abc**");

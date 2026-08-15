@@ -131,17 +131,18 @@ export function CustomerCenterCommentsPanel({
   };
 
   return (
-    <section className="space-y-3 border-t border-sam-border pt-4" data-testid="cc-comments">
-      <h2 className="text-sm font-semibold text-sam-fg">
+    <section className="space-y-3 border-t border-[rgba(14,92,58,0.1)] pt-4" data-testid="cc-comments">
+      <h2 className="text-[14px] font-semibold text-[#1A2E24]">
         {safeT("cc_comments_title", { fallbackKo: "댓글", fallbackEn: "Comments" })}
-        {comments.length > 0 ? ` · ${comments.length}` : ""}
+        {` ${comments.length}`}
       </h2>
 
-      <div className="flex gap-2">
+      <div className="flex items-end gap-2">
         <textarea
-          className="min-h-[72px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
+          className="min-h-[44px] flex-1 rounded-xl border border-[rgba(14,92,58,0.14)] bg-[#F5F7F6] px-3 py-2.5 text-[14px] text-[#1A2E24] outline-none ring-[#0E5C3A]/25 focus:ring-2"
           value={draft}
           maxLength={2000}
+          rows={2}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={safeT("cc_comments_placeholder", {
             fallbackKo: "의견을 남겨 주세요",
@@ -152,34 +153,37 @@ export function CustomerCenterCommentsPanel({
           type="button"
           disabled={busy || !draft.trim()}
           onClick={() => void onSubmit()}
-          className="self-end rounded-ui-rect bg-signature px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="shrink-0 rounded-full bg-[#0E5C3A] px-3.5 py-2.5 text-[13px] font-semibold text-white disabled:opacity-45"
         >
           {safeT("cc_comments_submit", { fallbackKo: "등록", fallbackEn: "Post" })}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-sam-muted">
+        <p className="text-[13px] text-[#8F9D95]">
           {safeT("settings_notices_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
         </p>
       ) : error ? (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-[13px] text-red-600">{error}</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-sam-muted">
+        <p className="text-[13px] text-[#8F9D95]">
           {safeT("cc_comments_empty", { fallbackKo: "아직 댓글이 없습니다", fallbackEn: "No comments yet" })}
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {comments.map((c) => (
-            <li key={c.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2">
-              <p className="whitespace-pre-wrap break-words text-sm text-sam-fg">{c.body}</p>
-              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-sam-meta">
+            <li
+              key={c.id}
+              className="rounded-xl border border-[rgba(14,92,58,0.08)] bg-[#F5F7F6] px-3 py-2.5"
+            >
+              <p className="whitespace-pre-wrap break-words text-[14px] text-[#1A2E24]">{c.body}</p>
+              <div className="mt-1.5 flex items-center justify-between gap-2 text-[12px] text-[#8F9D95]">
                 <span>{formatDate(c.createdAt)}</span>
                 {c.mine ? (
                   <button
                     type="button"
                     disabled={busy}
-                    className="text-red-600 disabled:opacity-50"
+                    className="font-medium text-red-600 disabled:opacity-50"
                     onClick={() => void onDelete(c.id)}
                   >
                     {safeT("common_delete", { fallbackKo: "삭제", fallbackEn: "Delete" })}

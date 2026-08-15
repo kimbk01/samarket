@@ -8,6 +8,7 @@ import {
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
@@ -83,10 +84,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (typeof body.body === "string") patch.body = body.body.trim().slice(0, 20000);
   if (isCustomerCenterContentType(body.content_type)) patch.content_type = body.content_type;
   if (body.hero_image_url !== undefined) {
-    patch.hero_image_url =
-      typeof body.hero_image_url === "string" && body.hero_image_url.trim()
-        ? body.hero_image_url.trim()
-        : null;
+    patch.hero_image_url = normalizeCustomerCenterHeroImageUrl(body.hero_image_url);
   }
   if (body.author_label !== undefined) {
     patch.author_label =

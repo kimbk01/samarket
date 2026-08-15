@@ -14,6 +14,14 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import {
+  CC_BODY_CLASS,
+  CC_CARD_CLASS,
+  CC_HEADER_CLASS,
+  CC_NOTE_CLASS,
+  CC_PAGE_BG_CLASS,
+  CC_PRIMARY_BTN_CLASS,
+} from "@/lib/mypage/customer-center-ui";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
 type Thread = {
@@ -190,23 +198,26 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
     },
   ];
 
+  const fieldClass =
+    "mt-2 min-h-11 w-full rounded-xl border border-[rgba(14,92,58,0.14)] bg-[#F5F7F6] px-3.5 py-2.5 text-[14px] text-[#1A2E24] outline-none ring-[#0E5C3A]/25 focus:ring-2";
+
   return (
-    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
+    <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_PAGE_BG_CLASS}`}>
       <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4`}>
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
           {meta.allowCreate ? (
-            <section className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} rounded-ui-rect border border-sam-border bg-sam-surface p-3 !px-3`}>
-              <h2 className="text-[13px] font-semibold text-sam-fg">
+            <section className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} ${CC_CARD_CLASS} space-y-1 p-4 !px-4`}>
+              <h2 className={CC_HEADER_CLASS}>
                 {safeT("mypage_cs_inquiry_new", {
-                  fallbackKo: "새 문의",
-                  fallbackEn: "New inquiry",
+                  fallbackKo: "1:1 문의 작성",
+                  fallbackEn: "Write 1:1 inquiry",
                 })}
               </h2>
               <button
                 type="button"
                 onClick={() => setTypeSheetOpen(true)}
-                className="mt-2 min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-left text-[14px] text-sam-fg"
+                className={`${fieldClass} text-left ${subject.trim() ? "text-[#1A2E24]" : "text-[#8F9D95]"}`}
               >
                 {subject.trim()
                   ? subject
@@ -218,53 +229,65 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder={t("notif_admin_notes_subject_ph")}
-                className="mt-2 min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[14px]"
+                placeholder={safeT("notif_admin_notes_subject_ph", {
+                  fallbackKo: "제목",
+                  fallbackEn: "Title",
+                })}
+                className={fieldClass}
               />
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder={t("notif_admin_notes_body_ph")}
-                rows={4}
-                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[14px]"
+                placeholder={safeT("notif_admin_notes_body_ph", {
+                  fallbackKo: "문의 내용을 입력하세요",
+                  fallbackEn: "Enter your inquiry",
+                })}
+                rows={6}
+                className={`${fieldClass} min-h-[9rem] resize-y`}
               />
               <button
                 type="button"
                 disabled={busy || !subject.trim() || !body.trim()}
                 onClick={() => void submit()}
-                className="mt-2 min-h-11 w-full rounded-ui-rect bg-signature px-3 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
+                className={`mt-3 ${CC_PRIMARY_BTN_CLASS}`}
               >
-                {t("notif_admin_notes_send")}
+                {safeT("notif_admin_notes_send", {
+                  fallbackKo: "보내기",
+                  fallbackEn: "Send",
+                })}
               </button>
             </section>
           ) : null}
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p> : null}
           {loading ? (
-            <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+            <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
           ) : threads.length === 0 ? (
-            <p className="text-sm text-sam-muted">
+            <p className={CC_NOTE_CLASS}>
               {safeT("mypage_cs_notes_empty", {
                 fallbackKo: "내역이 없습니다",
                 fallbackEn: "No messages yet",
               })}
             </p>
           ) : (
-            <ul className="space-y-2">
-              {threads.map((th) => (
-                <li key={th.id} className="flex items-stretch gap-2">
+            <ul className={CC_CARD_CLASS}>
+              {threads.map((th, index) => (
+                <li
+                  key={th.id}
+                  className={`flex items-stretch gap-2 px-3 py-2 ${
+                    index === 0 ? "" : "border-t border-[rgba(14,92,58,0.08)]"
+                  }`}
+                >
                   <Link
                     href={withCustomerCenterFrom(
                       `${meta.listHref}/${encodeURIComponent(th.id)}`,
                       from,
                     )}
-                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3"
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-2"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold text-sam-fg">
-                        {th.subject}
-                      </span>
-                      <span className="block text-[11px] text-sam-meta">
+                      <span className={`block truncate ${CC_HEADER_CLASS}`}>{th.subject}</span>
+                      <span className={`mt-0.5 block ${CC_NOTE_CLASS}`}>
                         {new Date(th.last_message_at).toLocaleString(
                           language === "ko" ? "ko-KR" : "en-US",
                         )}
@@ -272,7 +295,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
                       </span>
                     </span>
                     {th.member_unread_count > 0 ? (
-                      <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-sam-danger px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-[#F57F76] px-1.5 py-0.5 text-[10px] font-bold text-white">
                         {th.member_unread_count > 99 ? "99+" : th.member_unread_count}
                       </span>
                     ) : null}
@@ -281,7 +304,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
                     type="button"
                     disabled={busy}
                     onClick={() => setArchiveId(th.id)}
-                    className="min-h-11 rounded-ui-rect border border-sam-border px-2 text-[11px] text-sam-muted disabled:opacity-50"
+                    className="min-h-11 shrink-0 rounded-xl border border-[rgba(14,92,58,0.14)] px-2.5 text-[11px] text-[#8F9D95] disabled:opacity-50"
                   >
                     {safeT("mypage_cs_archive", {
                       fallbackKo: "보관",

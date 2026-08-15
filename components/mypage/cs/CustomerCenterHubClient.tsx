@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronRight, Headphones, MessageCircle, MessageSquare, Coins, Wallet } from "lucide-react";
+import {
+  ChevronRight,
+  Coins,
+  Gift,
+  Headphones,
+  Megaphone,
+  MessageCircle,
+  MessageSquare,
+  Settings2,
+  Wallet,
+} from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
@@ -15,21 +25,25 @@ import {
   CUSTOMER_CENTER_LIST_COLUMN_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import {
+  CC_CARD_CLASS,
+  CC_HEADER_CLASS,
+  CC_ICON_WELL_CLASS,
+  CC_NOTE_CLASS,
+  CC_PAGE_BG_CLASS,
+  CC_TITLE_CLASS,
+} from "@/lib/mypage/customer-center-ui";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
-import {
-  MYPAGE_HOME_CARD_CLASS,
-  MYPAGE_HOME_CHEVRON_CLASS,
-  MYPAGE_HOME_ICON_WRAP_CLASS,
-  MYPAGE_HOME_MENU_TITLE_CLASS,
-  MYPAGE_HOME_META_TEXT_CLASS,
-  MYPAGE_HOME_ROW_CLASS,
-  MYPAGE_HOME_ROW_DIVIDER_CLASS,
-  MYPAGE_HOME_SECTION_HEADER_CLASS,
-  MYPAGE_HOME_SECTION_LABEL_CLASS,
-} from "@/lib/ui/mypage-home-starbucks-styles";
 
-const BOARD_TABS: CustomerCenterContentType[] = ["notice", "system", "marketing"];
+const BOARD_TABS: {
+  type: CustomerCenterContentType;
+  icon: ReactNode;
+}[] = [
+  { type: "notice", icon: <Megaphone className="h-6 w-6" strokeWidth={2} aria-hidden /> },
+  { type: "system", icon: <Settings2 className="h-6 w-6" strokeWidth={2} aria-hidden /> },
+  { type: "marketing", icon: <Gift className="h-6 w-6" strokeWidth={2} aria-hidden /> },
+];
 
 type HubEntry = {
   href: string;
@@ -56,21 +70,22 @@ function HubRow({
   return (
     <Link
       href={href}
-      className={`${MYPAGE_HOME_ROW_CLASS} ${first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
+      className={`flex min-h-[3.25rem] items-center gap-3 px-4 py-3 transition active:bg-[#E8F7EF]/70 ${
+        first ? "" : "border-t border-[rgba(14,92,58,0.08)]"
+      }`}
     >
-      <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>{icon}</span>
-      <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{title}</span>
+      <span className={CC_ICON_WELL_CLASS}>{icon}</span>
+      <span className={`min-w-0 flex-1 ${CC_HEADER_CLASS}`}>{title}</span>
       {accessory ? (
-        <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{accessory}</span>
+        <span className={`shrink-0 tabular-nums ${CC_NOTE_CLASS}`}>{accessory}</span>
       ) : null}
-      <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#8F9D95]" strokeWidth={2} aria-hidden />
     </Link>
   );
 }
 
 /**
- * `/mypage/customer-center` — Karrot-style full-page CS hub.
- * Entries navigate to existing originals (inquiry / inbox / points / charge / notices).
+ * `/mypage/customer-center` — DIBAY CC hub (design board parity).
  */
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
@@ -119,7 +134,10 @@ export function CustomerCenterHubClient() {
   ];
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app" data-testid="customer-center-hub">
+    <div
+      className={`flex min-h-screen min-w-0 flex-col ${CC_PAGE_BG_CLASS}`}
+      data-testid="customer-center-hub"
+    >
       <MySubpageHeader
         title={safeT("mypage_comp_menu_support_cs_title", {
           fallbackKo: "고객센터",
@@ -131,62 +149,45 @@ export function CustomerCenterHubClient() {
         rightSlot={
           <Link
             href={customerCenterChildHref("/mypage/inquiries")}
-            className="sam-text-helper font-semibold text-[#00704A]"
+            className="text-[13px] font-semibold text-[#0E5C3A]"
           >
             {historyTitle}
           </Link>
         }
       />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={CUSTOMER_CENTER_LIST_COLUMN_CLASS}>
-          <section className={`${MYPAGE_HOME_CARD_CLASS} px-4 py-6 text-center`}>
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F3EE] text-[#00704A]">
-              <Headphones className="h-6 w-6" aria-hidden />
+        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} px-3 sm:px-4`}>
+          <section className="rounded-2xl bg-[#E8F7EF] px-4 py-8 text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-[0_1px_0_rgba(14,92,58,0.06)]">
+              <Headphones className="h-7 w-7" strokeWidth={2} aria-hidden />
             </span>
-            <p className="mt-3 text-[17px] font-semibold leading-snug text-[#1E3932]">{greeting}</p>
-            <p className="mt-1 sam-text-helper text-[#6F4E37]">
-              {safeT("mypage_cs_hub_greeting_sub", {
-                fallbackKo: "공지·시스템·마케팅과 문의·쪽지·D-Point를 한곳에서 확인하세요.",
-                fallbackEn: "Boards, inquiries, inbox, and D-Point in one place.",
-              })}
-            </p>
+            <p className={`mt-3 ${CC_TITLE_CLASS}`}>{greeting}</p>
           </section>
 
-          <section className={`${MYPAGE_HOME_CARD_CLASS} p-3`} data-testid="customer-center-boards">
-            <div className={MYPAGE_HOME_SECTION_HEADER_CLASS}>
-              <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-                {safeT("mypage_cs_hub_boards_title", {
-                  fallbackKo: "고객센터",
-                  fallbackEn: "Customer Center",
-                })}
-              </h2>
-            </div>
-            <div className="grid grid-cols-3 gap-2 px-3 pb-3">
-              {BOARD_TABS.map((type) => {
-                const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
-                return (
-                  <Link
-                    key={type}
-                    href={buildCustomerCenterBoardListPath(type)}
-                    className="flex min-h-11 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-center text-sm font-semibold text-sam-fg transition hover:bg-sam-muted/10"
-                    data-testid={`cc-board-tab-${type}`}
-                  >
+          <section
+            className="grid grid-cols-3 gap-2 sm:gap-3"
+            data-testid="customer-center-boards"
+            data-route={CUSTOMER_CENTER_HREF}
+          >
+            {BOARD_TABS.map(({ type, icon }) => {
+              const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
+              return (
+                <Link
+                  key={type}
+                  href={buildCustomerCenterBoardListPath(type)}
+                  className="flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-2xl border border-[rgba(14,92,58,0.12)] bg-white px-2 py-3 text-center shadow-[0_1px_0_rgba(14,92,58,0.04)] transition active:scale-[0.98] sm:min-h-[6.25rem]"
+                  data-testid={`cc-board-tab-${type}`}
+                >
+                  <span className="text-[#0E5C3A]">{icon}</span>
+                  <span className="text-[13px] font-semibold text-[#0E5C3A] sm:text-[14px]">
                     {label}
-                  </Link>
-                );
-              })}
-            </div>
+                  </span>
+                </Link>
+              );
+            })}
           </section>
 
-          <section className={MYPAGE_HOME_CARD_CLASS}>
-            <div className={MYPAGE_HOME_SECTION_HEADER_CLASS}>
-              <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-                {safeT("mypage_cs_hub_entries_title", {
-                  fallbackKo: "바로가기",
-                  fallbackEn: "Shortcuts",
-                })}
-              </h2>
-            </div>
+          <section className={`${CC_CARD_CLASS} mb-4`}>
             {entries.map((entry, index) => (
               <HubRow
                 key={entry.href}
@@ -201,13 +202,6 @@ export function CustomerCenterHubClient() {
               />
             ))}
           </section>
-
-          <p className="px-1 pb-4 text-center text-[11px] text-sam-muted" data-route={CUSTOMER_CENTER_HREF}>
-            {safeT("mypage_cs_hub_footnote", {
-              fallbackKo: "게시판은 고객센터 보드로, 바로가기는 기존 화면으로 이동합니다.",
-              fallbackEn: "Boards open Customer Center; shortcuts open existing screens.",
-            })}
-          </p>
         </div>
       </div>
     </div>

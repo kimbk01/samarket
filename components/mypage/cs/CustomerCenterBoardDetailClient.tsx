@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CustomerCenterSafeMarkdownBody } from "@/components/notices/CustomerCenterSafeMarkdownBody";
+import { CustomerCenterContentMedia } from "@/components/notices/CustomerCenterContentMedia";
 import { CustomerCenterCommentsPanel } from "@/components/mypage/cs/CustomerCenterCommentsPanel";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
@@ -14,6 +14,7 @@ import {
   customerCenterContentUnavailableFallback,
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
+import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { resolveNotificationAwareDetailBackHref } from "@/lib/notifications/notification-entry-from";
 import {
@@ -21,6 +22,13 @@ import {
   CUSTOMER_CENTER_READING_COLUMN_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
+import {
+  CC_BODY_CLASS,
+  CC_CATEGORY_CHIP_CLASS,
+  CC_NOTE_CLASS,
+  CC_PAGE_BG_CLASS,
+  CC_TITLE_CLASS,
+} from "@/lib/mypage/customer-center-ui";
 
 type DetailNotice = {
   id: string;
@@ -151,48 +159,48 @@ function Inner({
   })();
 
   return (
-    <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS} data-testid={`cc-detail-${contentType}`}>
+    <div
+      className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_PAGE_BG_CLASS}`}
+      data-testid={`cc-detail-${contentType}`}
+    >
       <MySubpageHeader title={boardLabel} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={CUSTOMER_CENTER_READING_COLUMN_CLASS}>
+        <div className={`${CUSTOMER_CENTER_READING_COLUMN_CLASS} pb-6`}>
           {loading ? (
-            <p className="py-12 text-center text-sam-muted">
+            <p className={`py-12 text-center ${CC_NOTE_CLASS}`}>
               {safeT("settings_notices_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
             </p>
           ) : error ? (
             <p className="py-12 text-center text-red-600">{error}</p>
           ) : notice ? (
-            <article className="space-y-4">
-              <header className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-sam-muted">{boardLabel}</p>
-                <h1 className="text-xl font-semibold text-sam-fg break-words">{notice.title}</h1>
-                <p className="text-xs text-sam-meta">
+            <article className="space-y-4 rounded-2xl border border-[rgba(14,92,58,0.12)] bg-white px-4 py-5 sm:px-5 sm:py-6">
+              <header className="space-y-2">
+                <span className={CC_CATEGORY_CHIP_CLASS}>{boardLabel}</span>
+                <h1 className={`${CC_TITLE_CLASS} break-words`}>{notice.title}</h1>
+                <p className={CC_NOTE_CLASS}>
                   {[
                     notice.authorLabel,
                     dateLabel,
                     typeof (viewCount ?? notice.viewCount) === "number"
-                      ? `조회 ${viewCount ?? notice.viewCount}`
+                      ? safeT("cc_detail_views", {
+                          fallbackKo: `조회 ${viewCount ?? notice.viewCount}`,
+                          fallbackEn: `Views ${viewCount ?? notice.viewCount}`,
+                          vars: { count: viewCount ?? notice.viewCount ?? 0 },
+                        })
                       : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
               </header>
-              {notice.heroImageUrl && !unavailable ? (
-                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-ui-rect border border-sam-border">
-                  <SamarketThumbnail
-                    src={notice.heroImageUrl}
-                    alt=""
-                    fill
-                    fetchDisplayPx={800}
-                    className="h-full w-full"
-                    imageClassName="object-cover"
-                    roundedClassName="rounded-ui-rect"
-                  />
-                </div>
+              {!unavailable ? (
+                <CustomerCenterContentMedia
+                  src={normalizeCustomerCenterHeroImageUrl(notice.heroImageUrl)}
+                  alt=""
+                />
               ) : null}
               {unavailable ? (
-                <div className="break-words sam-text-body text-sam-fg">
+                <div className={`break-words ${CC_BODY_CLASS}`}>
                   {language === "en"
                     ? customerCenterContentUnavailableFallback("en")
                     : customerCenterContentUnavailableFallback("ko")}

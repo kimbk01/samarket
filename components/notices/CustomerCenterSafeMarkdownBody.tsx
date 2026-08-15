@@ -1,6 +1,6 @@
 "use client";
 
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { CustomerCenterContentMedia } from "@/components/notices/CustomerCenterContentMedia";
 import {
   parseCustomerCenterSafeMarkdown,
   safeInlineNodes,
@@ -37,19 +37,19 @@ export function CustomerCenterSafeMarkdownBody({ body }: { body: string }) {
     return <p className="sam-text-body text-sam-muted">—</p>;
   }
   return (
-    <div className="space-y-3 break-words sam-text-body text-sam-fg [overflow-wrap:anywhere]">
+    <div className="space-y-3 break-words text-[14px] leading-relaxed text-[#1A2E24] [overflow-wrap:anywhere]">
       {blocks.map((b, idx) => {
         const key = `${b.type}-${idx}`;
         if (b.type === "h2") {
           return (
-            <h2 key={key} className="text-lg font-semibold text-sam-fg">
+            <h2 key={key} className="text-[16px] font-semibold text-[#1A2E24]">
               <Inline text={b.text} />
             </h2>
           );
         }
         if (b.type === "h3") {
           return (
-            <h3 key={key} className="text-base font-semibold text-sam-fg">
+            <h3 key={key} className="text-[15px] font-semibold text-[#1A2E24]">
               <Inline text={b.text} />
             </h3>
           );
@@ -58,7 +58,7 @@ export function CustomerCenterSafeMarkdownBody({ body }: { body: string }) {
           return (
             <blockquote
               key={key}
-              className="border-l-2 border-sam-border pl-3 text-sam-muted"
+              className="border-l-2 border-[#0E5C3A]/35 pl-3 text-[#8F9D95]"
             >
               <Inline text={b.text} />
             </blockquote>
@@ -87,22 +87,7 @@ export function CustomerCenterSafeMarkdownBody({ body }: { body: string }) {
           );
         }
         if (b.type === "image") {
-          return (
-            <div
-              key={key}
-              className="relative aspect-[16/9] w-full max-w-full overflow-hidden rounded-ui-rect border border-sam-border"
-            >
-              <SamarketThumbnail
-                src={b.src}
-                alt={b.alt || ""}
-                fill
-                fetchDisplayPx={800}
-                className="h-full w-full"
-                imageClassName="object-cover"
-                roundedClassName="rounded-ui-rect"
-              />
-            </div>
-          );
+          return <CustomerCenterContentMedia key={key} src={b.src} alt={b.alt || ""} />;
         }
         if (b.type === "html_blocked") {
           return (

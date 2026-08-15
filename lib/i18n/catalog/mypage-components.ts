@@ -230,6 +230,8 @@ export const mypageComponentsMessages = {
     cc_comments_empty: "아직 댓글이 없습니다",
     cc_comments_load_failed: "댓글을 불러오지 못했습니다",
     cc_comments_post_failed: "댓글 등록에 실패했습니다",
+    cc_board_search_placeholder: "제목·내용 검색",
+    cc_detail_views: "조회 {count}",
     mypage_comp_asset_summary_title: "내 자산",
 
     // MypageInfoHubSheet / SidePanel
@@ -1083,6 +1085,8 @@ export const mypageComponentsMessages = {
     cc_comments_empty: "No comments yet",
     cc_comments_load_failed: "Could not load comments",
     cc_comments_post_failed: "Could not post comment",
+    cc_board_search_placeholder: "Search title or body",
+    cc_detail_views: "Views {count}",
     mypage_comp_asset_summary_title: "My assets",
 
     mypage_comp_close: "Close",

@@ -3,6 +3,8 @@
  * Plain text ⊂ markdown. No HTML authority. No TipTap/JSON.
  */
 
+import { isCustomerCenterRenderableMediaUrl } from "@/lib/notices/customer-center-media";
+
 export type MarkdownWrapKind =
   | "h2"
   | "h3"
@@ -92,7 +94,7 @@ export function insertCustomerCenterMarkdown(
     }
     case "image": {
       const url = (extras?.url ?? "").trim();
-      if (!isAllowedHref(url)) {
+      if (!isCustomerCenterRenderableMediaUrl(url)) {
         return { next: value, selectionStart: start, selectionEnd: end };
       }
       const alt = (extras?.alt ?? "이미지").replace(/[\[\]]/g, "");
@@ -114,12 +116,18 @@ export function excerptCustomerCenterMarkdown(body: string, maxLen = 120): strin
   let s = String(body ?? "");
   s = s.replace(/!\[[^\]]*]\([^)]+\)/g, " ");
   s = s.replace(/\[([^\]]*)]\([^)]+\)/g, "$1");
-  s = s.replace(/^#{1,6}\s+/gm, "");
+  // Strip heading markers repeatedly (e.g. "## ## Title").
+  for (let i = 0; i < 4; i += 1) {
+    const next = s.replace(/^#{1,6}\s*/gm, "");
+    if (next === s) break;
+    s = next;
+  }
   s = s.replace(/^\s*>\s?/gm, "");
   s = s.replace(/^\s*[-*+]\s+/gm, "");
   s = s.replace(/^\s*\d+\.\s+/gm, "");
   s = s.replace(/(\*\*|__)(.*?)\1/g, "$2");
   s = s.replace(/(\*|_)(.*?)\1/g, "$2");
+  s = s.replace(/\*{1,2}/g, "");
   s = s.replace(/`+/g, "");
   s = s.replace(/<\/?[a-zA-Z][^>]*>/g, " ");
   s = s.replace(/\s+/g, " ").trim();
@@ -178,17 +186,19 @@ export function parseCustomerCenterSafeMarkdown(body: string): SafeMarkdownBlock
     const img = trimmed.match(/^!\[([^\]]*)]\(([^)]+)\)$/);
     if (img) {
       const src = (img[2] ?? "").trim();
-      if (isAllowedHref(src)) blocks.push({ type: "image", src, alt: img[1] ?? "" });
+      if (isCustomerCenterRenderableMediaUrl(src)) {
+        blocks.push({ type: "image", src, alt: img[1] ?? "" });
+      }
       i += 1;
       continue;
     }
     if (trimmed.startsWith("## ")) {
-      blocks.push({ type: "h2", text: trimmed.slice(3) });
+      blocks.push({ type: "h2", text: trimmed.slice(3).replace(/^#+\s*/, "") });
       i += 1;
       continue;
     }
     if (trimmed.startsWith("### ")) {
-      blocks.push({ type: "h3", text: trimmed.slice(4) });
+      blocks.push({ type: "h3", text: trimmed.slice(4).replace(/^#+\s*/, "") });
       i += 1;
       continue;
     }
@@ -236,7 +246,12 @@ export function parseCustomerCenterSafeMarkdown(body: string): SafeMarkdownBlock
     }
     blocks.push({ type: "p", text: para.join(" ") });
   }
-  return blocks;
+  return blocks.filter((b) => {
+    if (b.type !== "p") return true;
+    const t = b.text.trim();
+    // Drop orphan emphasis markers left by bad fixtures (e.g. lone "**").
+    return t.length > 0 && !/^\*{1,2}$/.test(t);
+  });
 }
 
 /** Body renderer uses text nodes only — never HTML strings. */

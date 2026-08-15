@@ -10,6 +10,7 @@ import {
   resolveCustomerCenterAuthorLabel,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       contentType,
       title: String(row.title ?? ""),
       body: String(row.body ?? ""),
-      heroImageUrl: row.hero_image_url ? String(row.hero_image_url) : null,
+      heroImageUrl: normalizeCustomerCenterHeroImageUrl(row.hero_image_url),
       authorLabel: resolveCustomerCenterAuthorLabel({
         contentType,
         authorLabel: row.author_label,

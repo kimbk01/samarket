@@ -13,17 +13,17 @@ import {
 
 /** Hub / list / shortcut rows — full main column (phone → tablet → desktop). */
 export const CUSTOMER_CENTER_LIST_COLUMN_CLASS =
-  "mx-auto w-full min-w-0 max-w-full flex flex-col gap-3 py-3";
+  "mx-auto w-full min-w-0 max-w-full flex flex-col gap-3 py-3 sm:max-w-2xl md:max-w-3xl lg:max-w-4xl";
 
 /** Inquiry / charge forms — readable form width inside main column. */
 export const CUSTOMER_CENTER_FORM_COLUMN_CLASS = `mx-auto w-full min-w-0 max-w-[36rem] md:max-w-[40rem] ${APP_MAIN_GUTTER_X_COMFY_CLASS}`;
 
-/** Notice / terms reading — slightly wider than form, still capped. */
-export const CUSTOMER_CENTER_READING_COLUMN_CLASS = `mx-auto w-full min-w-0 max-w-[40rem] md:max-w-[48rem] ${APP_MAIN_GUTTER_X_COMFY_CLASS}`;
+/** Notice / terms reading — fluid on tablet, capped on large desktop. */
+export const CUSTOMER_CENTER_READING_COLUMN_CLASS = `mx-auto w-full min-w-0 max-w-full px-3 sm:max-w-2xl sm:px-4 md:max-w-3xl lg:max-w-4xl`;
 
-/** Desktop/tablet outer shell for CS full pages (header + scroll). */
+/** Desktop/tablet outer shell for CS full pages (header + scroll). Tint via CC_PAGE_BG_CLASS. */
 export const CUSTOMER_CENTER_PAGE_SHELL_CLASS =
-  "flex min-h-screen min-w-0 flex-col overflow-x-clip bg-sam-app";
+  "flex min-h-screen min-w-0 flex-col overflow-x-clip";
 
 /** Scroll body under MySubpageHeader — same token as mypage stack. */
 export const CUSTOMER_CENTER_SCROLL_BODY_CLASS = APP_MAIN_TAB_SCROLL_BODY_CLASS;

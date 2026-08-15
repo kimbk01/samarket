@@ -8,6 +8,7 @@ import {
   parseCustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
+import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 
 export const runtime = "nodejs";
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   const contentType = parseCustomerCenterContentType(body.content_type, "notice");
-  const hero = typeof body.hero_image_url === "string" ? body.hero_image_url.trim() : "";
+  const hero = normalizeCustomerCenterHeroImageUrl(body.hero_image_url);
   const authorOverride = typeof body.author_label === "string" ? body.author_label.trim() : "";
   const now = new Date().toISOString();
   const { data, error } = await sb
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       title,
       body: text,
       content_type: contentType,
-      hero_image_url: hero || null,
+      hero_image_url: hero,
       author_label: authorOverride || null,
       comment_enabled: body.comment_enabled !== false,
       is_active: body.is_active !== false,
