@@ -107,7 +107,7 @@ describe("resolvePushRouteFromFcmData — legacy", () => {
 });
 
 describe("P0 push envelope resolver", () => {
-  it("1. admin_notice + valid notificationId → system tab", () => {
+  it("1. admin_notice notification-only + valid notificationId → notification detail", () => {
     const data = buildPushEnvelopeV1DataFields({
       eventClass: "admin_notice",
       notificationEventId: "n-notice-1",
@@ -115,12 +115,10 @@ describe("P0 push envelope resolver", () => {
       targetTab: "system",
       targetNotificationId: "n-notice-1",
     });
-    expect(resolvePushRouteFromFcmData(data)).toBe(
-      "/notifications?tab=system&notificationId=n-notice-1"
-    );
+    expect(resolvePushRouteFromFcmData(data)).toBe("/notifications/n-notice-1");
   });
 
-  it("2. admin_marketing + push_and_in_app → marketing tab", () => {
+  it("2. admin_marketing notification-only + push_and_in_app → notification detail", () => {
     const data = buildPushEnvelopeV1DataFields({
       eventClass: "admin_marketing",
       campaignChannel: "push_and_in_app",
@@ -129,12 +127,10 @@ describe("P0 push envelope resolver", () => {
       targetTab: "marketing",
       targetNotificationId: "n-mkt-1",
     });
-    expect(resolvePushRouteFromFcmData(data)).toBe(
-      "/notifications?tab=marketing&notificationId=n-mkt-1"
-    );
+    expect(resolvePushRouteFromFcmData(data)).toBe("/notifications/n-mkt-1");
   });
 
-  it("3. admin_marketing + in_app_only → inbox canonical", () => {
+  it("3. admin_marketing + in_app_only notification-only → notification detail", () => {
     const data = buildPushEnvelopeV1DataFields({
       eventClass: "admin_marketing",
       campaignChannel: "in_app_only",
@@ -142,9 +138,17 @@ describe("P0 push envelope resolver", () => {
       targetKind: "notification",
       targetNotificationId: "n-mkt-2",
     });
-    expect(resolvePushRouteFromFcmData(data)).toBe(
-      "/notifications?tab=marketing&notificationId=n-mkt-2"
-    );
+    expect(resolvePushRouteFromFcmData(data)).toBe("/notifications/n-mkt-2");
+  });
+
+  it("3b. admin_notice with approved original route opens original route", () => {
+    const data = buildPushEnvelopeV1DataFields({
+      eventClass: "admin_notice",
+      campaignChannel: "push_and_in_app",
+      targetKind: "approved_internal_route",
+      approvedRoute: "/mypage/customer-center/notice/content-1",
+    });
+    expect(resolvePushRouteFromFcmData(data)).toBe("/mypage/customer-center/notice/content-1");
   });
 
   it("4. admin_marketing + push_only + approved route", () => {
@@ -239,6 +243,41 @@ describe("P0 push envelope resolver", () => {
         routeUrl: "/notifications",
       })
     ).toBe("/notifications");
+  });
+
+  it("13. notification_inbox resolver key + notificationId → detail (not bare hub)", () => {
+    expect(
+      resolvePushRouteFromFcmData({
+        deeplinkResolverKey: "notification_inbox",
+        notificationId: "evt-inbox-1",
+        routeUrl: "/notifications",
+      })
+    ).toBe("/notifications/evt-inbox-1");
+  });
+
+  it("14. legacy tab+notificationId focus URL upgrades to detail when identity present", () => {
+    expect(
+      resolvePushRouteFromFcmData({
+        type: "notification",
+        routeUrl: "/notifications?tab=system&notificationId=legacy-evt-9",
+        notificationId: "legacy-evt-9",
+      })
+    ).toBe("/notifications/legacy-evt-9");
+  });
+
+  it("15. canonical original route stays direct (no notifications hub)", () => {
+    expect(
+      resolvePushRouteFromFcmData({
+        type: "community_comment",
+        postId: "post-77",
+      })
+    ).toBe("/community/posts/post-77");
+    expect(
+      resolvePushRouteFromFcmData({
+        deeplinkResolverKey: "trade_room",
+        roomId: "trade-room-1",
+      })
+    ).toBe("/community-messenger/rooms/trade-room-1");
   });
 });
 

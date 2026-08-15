@@ -6,20 +6,28 @@ import {
 } from "@/lib/notifications/policy/notification-deeplink-paths";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import {
+  buildNotificationDetailHref,
   defaultInboxFallbackHref,
+  isBareNotificationsCenterHref,
+  isNotificationOriginUnavailableFallback,
   type InboxHrefRow,
   resolveNotificationInboxHref as resolveInboxHrefImpl,
 } from "@/lib/notifications/resolve-notification-inbox-href";
+
+export type NotificationDestinationKind = "canonical" | "notification_detail" | "inbox_fallback";
 
 export type NotificationDestination = {
   href: string;
   fallbackHref: string;
   destinationType: string;
   isExternal: boolean;
+  kind: NotificationDestinationKind;
+  fallbackReason?: string;
 };
 
 export type ResolveNotificationDestinationInput = {
   resolverKey?: NotificationDeepLinkResolverKey | null;
+  notificationId?: string | null;
   roomId?: string | null;
   callSessionId?: string | null;
   displayRoute?: string | null;
@@ -35,19 +43,49 @@ function isBareNotificationsCenterPath(href: string): boolean {
   return q === "" || q === "?";
 }
 
+function classifyHrefKind(href: string, fallbackHref: string): Pick<NotificationDestination, "kind" | "fallbackReason"> {
+  if (isNotificationOriginUnavailableFallback(href) || href === fallbackHref) {
+    return { kind: "inbox_fallback", fallbackReason: "origin_unavailable" };
+  }
+  if (/^\/notifications\/[^/?#]+/.test(href)) {
+    return { kind: "notification_detail" };
+  }
+  return { kind: "canonical" };
+}
+
 function resolveByRegistryKey(
   resolverKey: NotificationDeepLinkResolverKey,
-  context: { roomId?: string | null; callSessionId?: string | null; displayRoute?: string | null },
+  context: {
+    notificationId?: string | null;
+    roomId?: string | null;
+    callSessionId?: string | null;
+    displayRoute?: string | null;
+  },
   fallbackHref: string
 ): NotificationDestination {
   const displayRoute = resolveSafeNotificationInternalRoute(context.displayRoute, null);
   if (displayRoute && resolverKey !== "call_authority") {
     if (isBareNotificationsCenterPath(displayRoute)) {
+      const detailHref =
+        resolverKey === "notification_inbox"
+          ? buildNotificationDetailHref(context.notificationId)
+          : null;
+      if (detailHref) {
+        return {
+          href: detailHref,
+          fallbackHref,
+          destinationType: "notification_inbox",
+          isExternal: false,
+          kind: "notification_detail",
+        };
+      }
       return {
         href: fallbackHref,
         fallbackHref,
         destinationType: "origin_unavailable",
         isExternal: false,
+        kind: "inbox_fallback",
+        fallbackReason: "bare_notifications_center",
       };
     }
     return {
@@ -55,6 +93,7 @@ function resolveByRegistryKey(
       fallbackHref,
       destinationType: "display_route",
       isExternal: false,
+      kind: "canonical",
     };
   }
 
@@ -84,8 +123,8 @@ function resolveByRegistryKey(
       destinationType = "origin_unavailable";
       break;
     case "notification_inbox":
-      href = fallbackHref;
-      destinationType = "notification_inbox";
+      href = buildNotificationDetailHref(context.notificationId) ?? fallbackHref;
+      destinationType = href === fallbackHref ? "origin_unavailable" : "notification_inbox";
       break;
     case "call_authority":
       href = "/community-messenger";
@@ -101,6 +140,7 @@ function resolveByRegistryKey(
     fallbackHref,
     destinationType,
     isExternal: false,
+    ...classifyHrefKind(safe, fallbackHref),
   };
 }
 
@@ -115,14 +155,18 @@ export function resolveNotificationDestination(
   if (input.inboxRow) {
     const fromInbox = resolveInboxHrefImpl(input.inboxRow);
     const href =
-      resolveSafeNotificationInternalRoute(fromInbox, fallbackHref) ??
-      resolveSafeNotificationInternalRoute(input.inboxRow.link_url, fallbackHref) ??
+      resolveSafeNotificationInternalRoute(fromInbox, null) ??
+      (isBareNotificationsCenterHref(input.inboxRow.link_url)
+        ? null
+        : resolveSafeNotificationInternalRoute(input.inboxRow.link_url, null)) ??
       fallbackHref;
+    const semantic = classifyHrefKind(href, fallbackHref);
     return {
       href,
       fallbackHref,
-      destinationType: href === fallbackHref ? "origin_unavailable" : "inbox_row",
+      destinationType: semantic.kind === "inbox_fallback" ? "origin_unavailable" : "inbox_row",
       isExternal: false,
+      ...semantic,
     };
   }
 
@@ -132,6 +176,7 @@ export function resolveNotificationDestination(
       {
         roomId: input.roomId,
         callSessionId: input.callSessionId,
+        notificationId: input.notificationId,
         displayRoute: input.displayRoute,
       },
       fallbackHref
@@ -146,12 +191,16 @@ export function resolveNotificationDestination(
       fallbackHref,
       destinationType: "origin_unavailable",
       isExternal: false,
+      kind: "inbox_fallback",
+      fallbackReason: "bare_notifications_center",
     };
   }
+  const semantic = classifyHrefKind(fromDisplay, fallbackHref);
   return {
     href: fromDisplay,
     fallbackHref,
-    destinationType: fromDisplay === fallbackHref ? "origin_unavailable" : "display_route",
+    destinationType: semantic.kind === "inbox_fallback" ? "origin_unavailable" : "display_route",
     isExternal: false,
+    ...semantic,
   };
 }

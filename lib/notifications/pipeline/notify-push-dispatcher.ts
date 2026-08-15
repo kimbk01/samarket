@@ -31,6 +31,7 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
   const definition = getNotificationEventDefinition(row.type);
   const dest = resolveNotificationDestination({
     resolverKey: definition.deepLinkResolverKey,
+    notificationId: row.id,
     roomId,
     callSessionId: row.call_session_id,
     displayRoute: routeFromDisplay,

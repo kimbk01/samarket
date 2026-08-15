@@ -36,6 +36,13 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(src.includes("modalTabCounts")).toBe(false);
     expect(src.includes("CommunityMessengerBellPinnedAlerts")).toBe(false);
     expect(src.includes('href="/mypage/notifications#notification-inbox"')).toBe(false);
+
+    const listSrc = fs.readFileSync(
+      path.join(root, "components/notifications/InboxGroupCardList.tsx"),
+      "utf8"
+    );
+    expect(listSrc.includes("resolveBellUnreadSequenceLabel")).toBe(true);
+    expect(listSrc.includes("String(index + 1)")).toBe(false);
   });
 
   it("Notification Center excludes write FAB and does not stack OwnerLite above title", () => {
@@ -58,7 +65,8 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     );
     // OwnerLite strip removed — store ops via right-side 「매장」 tab.
     expect(page.includes("OwnerLiteStoreBar")).toBe(false);
-    expect(page.includes("notif_center_more_label")).toBe(true);
+    expect(page.includes("notif_center_more_menu")).toBe(true);
+    expect(page.includes("notif_tier1_to_settings")).toBe(true);
     const view = fs.readFileSync(
       path.join(root, "components/my/MyNotificationsView.tsx"),
       "utf8"
@@ -265,6 +273,46 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
     expect(
       fs.existsSync(path.join(root, "app/(main)/notifications/[notificationId]/page.tsx"))
     ).toBe(true);
+  });
+
+  it("detail CTA / auto-redirect uses canonical activator, not direct link_url navigation", () => {
+    const detail = fs.readFileSync(
+      path.join(root, "app/(main)/notifications/[notificationId]/page.tsx"),
+      "utf8"
+    );
+    expect(detail.includes("activateNotificationDestination")).toBe(true);
+    expect(detail.includes('ctaDestination?.kind !== "canonical"')).toBe(true);
+    expect(detail).not.toContain("router.push(row.link_url");
+    expect(detail).not.toContain("window.location");
+    expect(detail).not.toContain("location.href");
+  });
+
+  it("Bell see-all opens only Notification Center while row click uses activator", () => {
+    const bell = fs.readFileSync(
+      path.join(root, "components/philife/PhilifeHeaderNotificationInbox.tsx"),
+      "utf8"
+    );
+    expect(bell).toContain('pushNotificationDestination(router, "/notifications")');
+    expect(bell).toContain("activateNotificationDestination");
+    expect(bell).not.toContain("notificationId=");
+  });
+
+  it("Notification Center consumes notificationId query for row focus", () => {
+    const view = fs.readFileSync(
+      path.join(root, "components/my/MyNotificationsView.tsx"),
+      "utf8"
+    );
+    const cards = fs.readFileSync(
+      path.join(root, "components/notifications/InboxGroupCardList.tsx"),
+      "utf8"
+    );
+    expect(view).toContain('searchParams?.get("notificationId")');
+    expect(view).toContain("scrollIntoView");
+    expect(view).toContain("shouldShowNotificationCenterRowForTarget");
+    expect(view).toContain("findNotificationCenterTargetRow");
+    expect(view).toContain("Target may sit past the first page");
+    expect(cards).toContain("data-notification-focus-target");
+    expect(view).not.toContain("showSequenceIndex");
   });
 
   it("mutation failure does not remove rows; success path reconciles A (no local digit invent)", () => {

@@ -28,7 +28,7 @@ export function NotificationInboxByDateSections({ items, ...cardProps }: Props) 
     <div className="space-y-5">
       {sections.map((sec) => (
         <section key={sec.sectionKey} aria-label={sec.sectionLabel} className="min-w-0">
-          <h3 className="mb-2 px-0.5 text-[12px] font-semibold tracking-wide text-sam-muted">
+          <h3 className="mb-2.5 px-0.5 text-[13px] font-bold tracking-tight text-sam-fg">
             {sec.sectionLabel}
           </h3>
           <InboxGroupCardList {...cardProps} items={sec.items} emptyLabel="" />

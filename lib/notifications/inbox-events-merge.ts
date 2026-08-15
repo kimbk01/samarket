@@ -4,7 +4,11 @@ import { buildChatRoomWebPath, buildGroupChatWebPath } from "@/lib/notifications
 import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
-import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
+import {
+  buildNotificationDetailHref,
+  defaultInboxFallbackHref,
+  isBareNotificationsCenterHref,
+} from "@/lib/notifications/resolve-notification-inbox-href";
 import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import {
@@ -314,6 +318,21 @@ function resolveCustomerCenterBoardHrefFromEvent(
   return buildCustomerCenterBoardDetailPath(contentType, contentId);
 }
 
+function isNotificationOnlyEvent(event: NotificationEventInboxSource): boolean {
+  const payload = payloadRecord(event.display_payload);
+  const campaignType = trimText(payload?.campaignType).toLowerCase();
+  if (campaignType === "notice" || campaignType === "system" || campaignType === "marketing") {
+    return true;
+  }
+  const type = trimText(event.type);
+  return type === "notice_published" || type === "admin_marketing_banner";
+}
+
+function notificationOnlyDetailOrFallback(event: NotificationEventInboxSource): string {
+  if (!isNotificationOnlyEvent(event)) return defaultInboxFallbackHref();
+  return buildNotificationDetailHref(event.id) ?? defaultInboxFallbackHref();
+}
+
 export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): string {
   const payload = payloadRecord(event.display_payload);
   const boardHref = resolveCustomerCenterBoardHrefFromEvent(event);
@@ -328,6 +347,9 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   }
   const routeUrl = trimText(payload?.routeUrl);
   if (routeUrl) {
+    if (isBareNotificationsCenterHref(routeUrl)) {
+      return notificationOnlyDetailOrFallback(event);
+    }
     return resolveSafeNotificationInternalRoute(
       routeUrl,
       defaultInboxFallbackHref()
@@ -335,6 +357,9 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   }
   const linkUrl = trimText(payload?.link_url);
   if (linkUrl) {
+    if (isBareNotificationsCenterHref(linkUrl)) {
+      return notificationOnlyDetailOrFallback(event);
+    }
     return resolveSafeNotificationInternalRoute(
       linkUrl,
       defaultInboxFallbackHref()
@@ -397,6 +422,10 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
         defaultInboxFallbackHref()
       )!;
     }
+  }
+
+  if (isNotificationOnlyEvent(event)) {
+    return notificationOnlyDetailOrFallback(event);
   }
 
   // Content-bound notice/system/marketing without content id → explicit unavailable (not list hub).

@@ -16,6 +16,10 @@ import { resolveNotificationSoundForEvent } from "@/lib/notifications/notificati
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { resolveCustomerCenterCampaignContentBind } from "@/lib/notices/customer-center-campaign-bind";
+import {
+  isBareNotificationsCenterHref,
+  isNotificationOriginUnavailableFallback,
+} from "@/lib/notifications/resolve-notification-inbox-href";
 
 export type AdminCampaignPresentationInput = {
   title: string;
@@ -143,6 +147,8 @@ export function buildAdminCampaignNotificationPresentation(
   const targetTab = campaign.type === "marketing" ? "marketing" : "system";
   const channel = campaign.channel;
   const isPushOnlyMarketing = eventClass === "admin_marketing" && channel === "push_only";
+  const hasCanonicalOriginalRoute =
+    !isBareNotificationsCenterHref(link) && !isNotificationOriginUnavailableFallback(link);
   const pushKind =
     campaign.type === "marketing" ? "marketing" : campaign.type === "system" ? "system" : "notice";
   const pushNotificationType =
@@ -177,10 +183,14 @@ export function buildAdminCampaignNotificationPresentation(
       schemaVersion: "1",
       eventClass,
       campaignChannel: channel,
-      targetKind: isPushOnlyMarketing ? "approved_internal_route" : "notification",
+      targetKind: hasCanonicalOriginalRoute
+        ? "approved_internal_route"
+        : isPushOnlyMarketing
+          ? "approved_internal_route"
+          : "notification",
       targetTab: isPushOnlyMarketing ? undefined : targetTab,
       targetNotificationId: isPushOnlyMarketing ? undefined : eventId,
-      targetApprovedRoute: isPushOnlyMarketing ? link : undefined,
+      targetApprovedRoute: hasCanonicalOriginalRoute ? link : undefined,
     },
   };
 

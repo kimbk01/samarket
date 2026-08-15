@@ -17,6 +17,10 @@ import {
   buildGroupChatWebPath,
 } from "@/lib/notifications/policy/notification-deeplink-paths";
 import {
+  buildNotificationDetailHref,
+  isBareNotificationsCenterHref,
+} from "@/lib/notifications/resolve-notification-inbox-href";
+import {
   isPushEnvelopeV1Present,
   parsePushEnvelopeV1,
   resolveRouteFromPushEnvelopeV1,
@@ -140,26 +144,44 @@ export function resolvePushRouteDecisionFromFcmData(data: FcmRouteData): PushRou
   ]);
   const callId = firstNonEmpty(data.callId, data.sessionId, data.session_id);
   const roomId = firstNonEmpty(data.roomId, data.room_id);
-  if (resolverKeys.has(resolverKey)) {
-    const href = resolveNotificationDestination({
-      resolverKey: resolverKey as NotificationDeepLinkResolverKey,
-      roomId,
-      callSessionId: callId,
-      fallbackHref: PUSH_SAFE_FALLBACK_ROUTE,
-    }).href;
-    return { path: href, source: "legacy_resolver_key" };
-  }
-
-  const url = firstNonEmpty(
+  const notificationId = firstNonEmpty(
+    data.notificationId,
+    data.notification_id,
+    data.notificationEventId,
+    data.notification_event_id,
+    data.targetNotificationId,
+    data.target_notification_id
+  );
+  const displayRoute = firstNonEmpty(
     data.routeUrl,
     data.route_url,
     data.url,
     data.link_url,
     data.link_url_absolute
   );
-  if (url) {
-    const safe = resolveSafeNotificationInternalRoute(url);
-    if (safe) return { path: safe, source: "legacy_url" };
+  if (resolverKeys.has(resolverKey)) {
+    const href = resolveNotificationDestination({
+      resolverKey: resolverKey as NotificationDeepLinkResolverKey,
+      roomId,
+      callSessionId: callId,
+      notificationId: notificationId || null,
+      displayRoute: displayRoute || null,
+      fallbackHref: PUSH_SAFE_FALLBACK_ROUTE,
+    }).href;
+    return { path: href, source: "legacy_resolver_key" };
+  }
+
+  if (displayRoute) {
+    const safe = resolveSafeNotificationInternalRoute(displayRoute);
+    if (safe) {
+      // Legacy production URLs often used /notifications?tab=…&notificationId=…
+      // Prefer detail when identity exists and route is still bare inbox center.
+      if (notificationId && isBareNotificationsCenterHref(safe)) {
+        const detail = buildNotificationDetailHref(notificationId);
+        if (detail) return { path: detail, source: "legacy_url" };
+      }
+      return { path: safe, source: "legacy_url" };
+    }
   }
 
   const legacyType = resolveLegacyTypeRoute(data);

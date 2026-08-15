@@ -117,9 +117,11 @@ describe("admin-campaign-inbox Phase1 contracts", () => {
     });
 
     expect(noticeRow.push_kind).toBe("notice");
+    expect(noticeRow.link_url).toBe("/notifications/e1");
     expect(noticeRow.campaign_type).toBe("notice");
     expect(noticeRow.bell_presentation_type).toBe("admin_notice");
     expect(systemRow.push_kind).toBe("system");
+    expect(systemRow.link_url).toBe("/notifications/e2");
     expect(systemRow.bell_presentation_type).toBe("admin_system");
     expect(legacyNoticeRow.bell_presentation_type).toBe("admin_notice");
     expect(marketingRow.push_kind).toBe("marketing");

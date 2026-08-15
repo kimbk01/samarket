@@ -129,8 +129,10 @@ export function parsePushEnvelopeV1(
     ? resolveSafeNotificationInternalRoute(approvedCandidate)
     : null;
 
+  const hasApprovedInternalRoute = targetKind === "approved_internal_route" && !!approvedRoute;
+
   if (eventClassRaw === "admin_notice") {
-    if (!targetNotificationId) {
+    if (!targetNotificationId && !hasApprovedInternalRoute) {
       return { present: true, valid: false, reason: "notice_missing_notification_id" };
     }
   }
@@ -141,7 +143,7 @@ export function parsePushEnvelopeV1(
       if (targetKind === "approved_internal_route" && !approvedRoute && !routeKey) {
         return { present: true, valid: false, reason: "marketing_push_only_missing_approved_route" };
       }
-    } else if (!targetNotificationId) {
+    } else if (!targetNotificationId && !hasApprovedInternalRoute) {
       return { present: true, valid: false, reason: "marketing_inbox_missing_notification_id" };
     }
   }
@@ -205,13 +207,8 @@ export function resolveOwnerOperationCanonicalRoute(input: {
   return buildStoreOrdersHref({ storeId, freshList: true });
 }
 
-function buildNotificationCenterPath(
-  tab: "system" | "marketing",
-  notificationId: string
-): string {
-  // Exact NC row focus — not the origin-unavailable fallback.
-  const q = new URLSearchParams({ tab, notificationId });
-  return `/notifications?${q.toString()}`;
+function buildNotificationDetailPath(notificationId: string): string {
+  return `/notifications/${encodeURIComponent(notificationId.trim())}`;
 }
 
 /**
@@ -234,7 +231,7 @@ export function resolveRouteFromPushEnvelopeV1(
       return { path: parsed.approvedRoute, reason: "envelope", eventClass: "admin_notice" };
     }
     return {
-      path: buildNotificationCenterPath(parsed.targetTab === "system" ? "system" : "system", id),
+      path: buildNotificationDetailPath(id),
       reason: "envelope",
       eventClass: "admin_notice",
     };
@@ -262,7 +259,7 @@ export function resolveRouteFromPushEnvelopeV1(
       return { path: parsed.approvedRoute, reason: "envelope", eventClass: "admin_marketing" };
     }
     return {
-      path: buildNotificationCenterPath("marketing", id),
+      path: buildNotificationDetailPath(id),
       reason: "envelope",
       eventClass: "admin_marketing",
     };

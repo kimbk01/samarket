@@ -4,9 +4,14 @@ import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-s
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 
 export type InboxHrefRow = {
+  id?: string | null;
   notification_type: string;
   link_url: string | null;
   meta?: Record<string, unknown> | null;
+  push_kind?: string | null;
+  bell_presentation_type?: string | null;
+  event_type?: string | null;
+  campaign_type?: string | null;
 };
 
 /** 헤더 알림 「가격 제안 도착」→ 상세 진입 시 받은 제안 모달 (`PostDetailView`) */
@@ -48,6 +53,57 @@ function tradeOfferMessengerHref(roomId: string, roomSource: unknown): string {
       ? (roomSource as ChatRoomSource)
       : null;
   return tradeMessengerRoomHref(roomId, src);
+}
+
+function trimText(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+export function buildNotificationDetailHref(notificationId: string | null | undefined): `/notifications/${string}` | null {
+  const id = trimText(notificationId);
+  return id ? `/notifications/${encodeURIComponent(id)}` : null;
+}
+
+export function isBareNotificationsCenterHref(href: string | null | undefined): boolean {
+  const raw = trimText(href);
+  if (!raw) return false;
+  try {
+    const u = new URL(raw, "https://samarket.local");
+    if (u.pathname !== "/notifications") return false;
+    return u.searchParams.get("fallback") !== "origin_unavailable";
+  } catch {
+    const pathOnly = raw.split("?")[0] ?? raw;
+    return pathOnly === "/notifications" && !raw.includes("fallback=origin_unavailable");
+  }
+}
+
+export function isNotificationOnlyInboxRow(row: InboxHrefRow): boolean {
+  const id = trimText(row.id);
+  if (!id) return false;
+  const campaignType = trimText(row.campaign_type).toLowerCase();
+  if (campaignType === "notice" || campaignType === "system" || campaignType === "marketing") {
+    return true;
+  }
+  const eventType = trimText(row.event_type).toLowerCase();
+  if (eventType === "notice_published" || eventType === "admin_marketing_banner") {
+    return true;
+  }
+  const pushKind = trimText(row.push_kind).toLowerCase();
+  const bell = trimText(row.bell_presentation_type).toLowerCase();
+  if (
+    eventType === "admin_notice" &&
+    (pushKind === "notice" ||
+      pushKind === "system" ||
+      bell === "admin_notice" ||
+      bell === "admin_system")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function resolveNotificationOnlyDetailHref(row: InboxHrefRow): `/notifications/${string}` | null {
+  return isNotificationOnlyInboxRow(row) ? buildNotificationDetailHref(row.id) : null;
 }
 
 /** `meta.kind === trade_offer` 인 알림: 레거시·누락 `link_url` 보정 및 수락 시 채팅 우선 */
@@ -110,7 +166,15 @@ export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
   }
 
   const u = r.link_url?.trim();
-  if (!u) return null;
+  if (!u) {
+    return resolveNotificationOnlyDetailHref(r);
+  }
+  if (isNotificationOriginUnavailableFallback(u)) {
+    return defaultInboxFallbackHref();
+  }
+  if (isBareNotificationsCenterHref(u)) {
+    return resolveNotificationOnlyDetailHref(r) ?? defaultInboxFallbackHref();
+  }
   if (r.notification_type !== "commerce") {
     return resolveSafeNotificationInternalRoute(
       u,

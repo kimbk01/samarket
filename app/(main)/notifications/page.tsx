@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { MoreHorizontal, Settings } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -124,7 +125,7 @@ export default function NotificationsCenterPage() {
         backHref="/"
         hideCtaStrip
         rightSlot={
-          <div className="flex items-center gap-1 pr-[max(0.25rem,env(safe-area-inset-right))]">
+          <div className="flex items-center gap-0.5 pr-[max(0.25rem,env(safe-area-inset-right))]">
             {selectionMode ? (
               <>
                 <button
@@ -148,40 +149,39 @@ export default function NotificationsCenterPage() {
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setSelectionMode(true)}
-                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
-                  aria-pressed={false}
-                  aria-label={t("notif_center_select")}
+                <Link
+                  href="/mypage/section/settings/notifications"
+                  className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
+                  aria-label={t("notif_tier1_to_settings")}
                 >
-                  {t("notif_center_select")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void markAllRef.current?.()}
-                  className="sam-header-action min-h-11 min-w-11 px-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
-                  aria-label={t("notif_tier1_mark_read")}
-                >
-                  {t("notif_tier1_mark_read")}
-                </button>
+                  <Settings className="h-5 w-5" strokeWidth={2} aria-hidden />
+                </Link>
                 <div className="relative">
                   <button
                     type="button"
-                    className="sam-header-action flex min-h-11 min-w-[44px] items-center justify-center px-2 text-[13px] font-medium text-sam-fg"
+                    className="sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-fg"
                     aria-label={t("notif_center_more_menu")}
                     aria-expanded={menuOpen}
                     onClick={() => setMenuOpen((v) => !v)}
                   >
-                    {t("notif_center_more_label")}
+                    <MoreHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden />
                   </button>
                   {menuOpen ? (
                     <div
                       role="menu"
-                      className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md"
+                      className="absolute right-0 z-40 mt-1 min-w-[11rem] rounded-2xl border border-sam-border bg-sam-surface py-1 shadow-md"
                     >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setSelectionMode(true);
+                        }}
+                      >
+                        {t("notif_center_select")}
+                      </button>
                       <button
                         type="button"
                         role="menuitem"
@@ -204,14 +204,6 @@ export default function NotificationsCenterPage() {
                       >
                         {t("notif_center_delete_all")}
                       </button>
-                      <Link
-                        href="/mypage/section/settings/notifications"
-                        role="menuitem"
-                        className="block w-full px-3 py-2.5 text-left text-[13px] text-sam-fg hover:bg-sam-surface-muted"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        {t("notifications_settings_title")}
-                      </Link>
                     </div>
                   ) : null}
                 </div>

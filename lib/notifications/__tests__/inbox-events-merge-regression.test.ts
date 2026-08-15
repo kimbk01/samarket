@@ -156,6 +156,23 @@ describe("inbox-events-merge-regression", () => {
     expect(href).toBe("/notifications?fallback=origin_unavailable");
   });
 
+  it("notification-only campaign with bare notifications route opens notification detail", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        id: "evt-notice-only",
+        type: "notice_published",
+        category: "notice_published",
+        display_payload: {
+          campaignType: "notice",
+          routeUrl: "/notifications",
+          previewKind: "admin_campaign",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/notifications/evt-notice-only");
+  });
+
   it("system campaignType + appNoticeId maps to system board Detail", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({

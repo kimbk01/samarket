@@ -101,6 +101,7 @@ import {
   hasOwnerBellOperationRows,
   OwnerBellOperationSummary,
 } from "@/components/notifications/OwnerBellOperationSummary";
+import { NotificationInboxEmptyState } from "@/components/notifications/NotificationInboxEmptyState";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 
@@ -785,9 +786,14 @@ export function PhilifeHeaderNotificationInbox({
       router,
       resolveInput: {
         inboxRow: {
+          id: item.notification_id,
           notification_type: item.notification_type,
           link_url: item.href,
           meta: item.meta,
+          push_kind: item.push_kind ?? null,
+          bell_presentation_type: item.bell_presentation_type ?? null,
+          event_type: item.event_type ?? null,
+          campaign_type: item.campaign_type ?? null,
         },
         fallbackHref: defaultInboxFallbackHref(),
       },
@@ -1066,12 +1072,12 @@ export function PhilifeHeaderNotificationInbox({
                         onItemWarm={onItemWarm}
                         onActivate={(item) => onActivate(item)}
                       />
-                    ) : (
-                      <p className="px-2 py-3 text-center text-[13px] leading-snug text-sam-muted">
-                        {totalUnread > 0
-                          ? t("notif_tier1_empty_with_digit_hint")
-                          : t("notif_tier1_empty")}
+                    ) : totalUnread > 0 ? (
+                      <p className="px-2 py-6 text-center text-[13px] leading-snug text-sam-muted">
+                        {t("notif_tier1_empty_with_digit_hint")}
                       </p>
+                    ) : (
+                      <NotificationInboxEmptyState kind="all_read" />
                     )}
                     {hasOPreview ? (
                       <OwnerBellOperationSummary
@@ -1118,7 +1124,7 @@ export function PhilifeHeaderNotificationInbox({
                 <button
                   type="button"
                   onClick={() => openNotificationsCenter()}
-                  className="ml-auto shrink-0 text-[14px] font-semibold text-sam-primary underline-offset-2 hover:underline"
+                  className="ml-auto shrink-0 rounded-full bg-sam-primary px-3.5 py-2 text-[13px] font-semibold text-white transition active:scale-[0.98]"
                 >
                   {t("notif_tier1_see_all")}
                 </button>

@@ -39,6 +39,8 @@ export type InboxRowInput = {
 
 export type InboxGroupItem = {
   key: string;
+  /** Latest notification event id in this presentation group. */
+  notification_id: string;
   ids: string[];
   /** 같은 채팅방/스레드로 합쳐진 그룹 */
   isThread: boolean;
@@ -185,9 +187,14 @@ export function buildInboxGroupItems(
     const rawHref =
       resolveNotificationDestination({
         inboxRow: {
+          id: latest.id,
           notification_type: latest.notification_type,
           link_url: latest.link_url,
           meta: latest.meta ?? null,
+          push_kind: latest.push_kind ?? null,
+          bell_presentation_type: latest.bell_presentation_type ?? null,
+          event_type: latest.event_type ?? null,
+          campaign_type: latest.campaign_type ?? null,
         },
         fallbackHref: defaultInboxFallbackHref(),
       }).href ||
@@ -233,6 +240,7 @@ export function buildInboxGroupItems(
     });
     out.push({
       key: `${key}:${ids[0]}`,
+      notification_id: latest.id,
       ids,
       isThread,
       isOrderGroup,

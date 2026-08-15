@@ -23,7 +23,34 @@ describe("notification UX contract bundle (badge / CTA / row hint)", () => {
       displayRoute: "/notifications",
     });
     expect(dest.href).toBe(defaultInboxFallbackHref());
+    expect(dest.kind).toBe("inbox_fallback");
     expect(dest.destinationType).toBe("origin_unavailable");
+  });
+
+  it("notification-only inbox rows open notification detail", () => {
+    const dest = resolveNotificationDestination({
+      inboxRow: {
+        id: "notice-evt-1",
+        notification_type: "system",
+        link_url: "/notifications",
+        campaign_type: "notice",
+      },
+    });
+    expect(dest.href).toBe("/notifications/notice-evt-1");
+    expect(dest.kind).toBe("notification_detail");
+  });
+
+  it("bare /notifications inbox rows without notification-only identity become fallback", () => {
+    const dest = resolveNotificationDestination({
+      inboxRow: {
+        id: "legacy-1",
+        notification_type: "system",
+        link_url: "/notifications",
+        meta: null,
+      },
+    });
+    expect(dest.href).toBe(defaultInboxFallbackHref());
+    expect(dest.kind).toBe("inbox_fallback");
   });
 
   it("exact trade post CTA stays exact", () => {
@@ -35,7 +62,14 @@ describe("notification UX contract bundle (badge / CTA / row hint)", () => {
       },
     });
     expect(dest.href).toBe("/post/abc");
+    expect(dest.kind).toBe("canonical");
     expect(resolveNotificationDestinationHint(dest.href, "ko")).toContain("거래");
+  });
+
+  it("intentional Notification Center hub is not classified as origin-unavailable fallback", () => {
+    // See-all uses bare /notifications intentionally — distinct from fallback query.
+    expect(defaultInboxFallbackHref()).toBe("/notifications?fallback=origin_unavailable");
+    expect(defaultInboxFallbackHref()).not.toBe("/notifications");
   });
 
   it("origin-unavailable hint is explicit", () => {

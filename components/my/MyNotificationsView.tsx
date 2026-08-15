@@ -2,7 +2,6 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -15,6 +14,7 @@ import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-in
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
+import { NotificationInboxEmptyState } from "@/components/notifications/NotificationInboxEmptyState";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
@@ -29,9 +29,13 @@ import {
   type NotificationCenterCategoryKey,
   type NotificationCenterTabUnreadCounts,
 } from "@/lib/notifications/notification-center-tab-unread";
-import { matchesNotificationCenterMemberTab } from "@/lib/notifications/notification-center-tab-match";
 import { activateNotificationDestination } from "@/lib/notifications/navigate-notification-destination";
 import { defaultInboxFallbackHref } from "@/lib/notifications/resolve-notification-inbox-href";
+import {
+  findNotificationCenterTargetRow,
+  normalizeNotificationCenterTargetId,
+  shouldShowNotificationCenterRowForTarget,
+} from "@/lib/notifications/notification-center-target";
 
 type Row = {
   id: string;
@@ -138,6 +142,11 @@ export function MyNotificationsView({
   const [busy, setBusy] = useState(false);
   const tabFromUrl = parseCategoryTab(searchParams?.get("tab") ?? null);
   const [categoryFilter, setCategoryFilter] = useState<NotificationCenterCategoryKey>(tabFromUrl);
+  const targetNotificationId = useMemo(
+    () => normalizeNotificationCenterTargetId(searchParams?.get("notificationId") ?? null),
+    [searchParams]
+  );
+  const [focusedNotificationId, setFocusedNotificationId] = useState<string | null>(null);
 
   useEffect(() => {
     setCategoryFilter(tabFromUrl);
@@ -215,6 +224,8 @@ export function MyNotificationsView({
         silent && !append && rowsLengthRef.current > INBOX_PAGE_SIZE;
       const requestLimit = append
         ? INBOX_PAGE_SIZE
+        : targetNotificationId
+          ? 100
         : expandedSilent
           ? Math.min(rowsLengthRef.current, 100)
           : INBOX_PAGE_SIZE;
@@ -269,7 +280,7 @@ export function MyNotificationsView({
         if (append) setLoadMoreBusy(false);
       }
     },
-    [refreshTabCounts]
+    [refreshTabCounts, targetNotificationId]
   );
 
   useEffect(() => {
@@ -431,14 +442,57 @@ export function MyNotificationsView({
 
   const visibleRows = useMemo(() => {
     return rows.filter((r) => {
-      if (categoryFilter !== "all" && !matchesNotificationCenterMemberTab(r, categoryFilter)) {
+      if (
+        !shouldShowNotificationCenterRowForTarget(r, categoryFilter, targetNotificationId)
+      ) {
         return false;
       }
       return true;
     });
-  }, [categoryFilter, rows]);
+  }, [categoryFilter, rows, targetNotificationId]);
 
   const grouped = useMemo(() => buildInboxGroupItems(visibleRows, language), [language, visibleRows]);
+
+  const targetRow = useMemo(
+    () => findNotificationCenterTargetRow(rows, targetNotificationId),
+    [rows, targetNotificationId]
+  );
+
+  // Target may sit past the first page — chase pages until found or exhausted.
+  // Missing / deleted / other-user ids: exhaust safely with no focus (no crash).
+  useEffect(() => {
+    if (!targetNotificationId || loading || loadMoreBusy) return;
+    if (targetRow) return;
+    if (!hasMore) return;
+    void load(true, false, true, rows.length);
+  }, [
+    hasMore,
+    load,
+    loadMoreBusy,
+    loading,
+    rows.length,
+    targetNotificationId,
+    targetRow,
+  ]);
+
+  useEffect(() => {
+    if (!targetNotificationId || !targetRow) return;
+    setFocusedNotificationId(targetNotificationId);
+    const raf = window.requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[data-notification-focus-target="1"]');
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      const btn = el.querySelector<HTMLButtonElement>("[data-notification-row-action]");
+      btn?.focus({ preventScroll: true });
+    });
+    const clear = window.setTimeout(() => {
+      setFocusedNotificationId((prev) => (prev === targetNotificationId ? null : prev));
+    }, 2500);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(clear);
+    };
+  }, [targetNotificationId, targetRow]);
 
   const toggleSelectItem = useCallback((item: InboxGroupItem) => {
     setSelectedKeys((prev) => {
@@ -545,9 +599,14 @@ export function MyNotificationsView({
       router,
       resolveInput: {
         inboxRow: {
+          id: item.notification_id,
           notification_type: item.notification_type,
           link_url: item.href,
           meta: item.meta,
+          push_kind: item.push_kind ?? null,
+          bell_presentation_type: item.bell_presentation_type ?? null,
+          event_type: item.event_type ?? null,
+          campaign_type: item.campaign_type ?? null,
         },
         fallbackHref: defaultInboxFallbackHref(),
       },
@@ -602,22 +661,25 @@ export function MyNotificationsView({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="sticky top-0 z-10 -mx-1 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
+    <div className="space-y-3">
+      <div className="sticky top-0 z-10 -mx-1 space-y-2 bg-sam-app/95 px-1 py-2 backdrop-blur-sm">
         <NotificationInboxTabBar
           chips={categoryChips}
           active={categoryFilter}
           counts={tabCounts}
           onSelect={selectCategoryFilter}
         />
-        {variant === "notification_center" ? (
-          <div className="mt-2 flex justify-end px-0.5">
-            <Link
-              href="/mypage/inquiries"
-              className="inline-flex min-h-9 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-semibold text-sam-fg transition active:scale-[0.97] active:bg-sam-surface-muted"
+        {variant === "notification_center" && !selectionMode ? (
+          <div className="flex items-center justify-end px-0.5">
+            <button
+              type="button"
+              disabled={busy || !rows.some((r) => !r.is_read)}
+              title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
+              onClick={() => void markAllRead()}
+              className="text-[13px] font-semibold text-sam-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {t("notif_admin_notes_entry")}
-            </Link>
+              {busy ? t("common_processing") : t("notif_tier1_mark_read")}
+            </button>
           </div>
         ) : null}
       </div>
@@ -679,7 +741,7 @@ export function MyNotificationsView({
             disabled={busy || !rows.some((r) => !r.is_read)}
             title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
             onClick={() => void markAllRead()}
-            className="shrink-0 rounded-ui-rect border-0 bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
+            className="shrink-0 text-[13px] font-semibold text-sam-primary disabled:opacity-40"
           >
             {busy ? t("common_processing") : t("notif_tier1_mark_read")}
           </button>
@@ -693,10 +755,20 @@ export function MyNotificationsView({
           })()}
         </p>
       ) : null}
+      {grouped.length === 0 && !error ? (
+        rows.length === 0 ? (
+          <NotificationInboxEmptyState kind="empty" />
+        ) : (
+          <p className="px-1 py-10 text-center text-[13px] text-sam-muted">
+            {categoryFilter !== "all" ? t("notif_category_empty") : t("notif_full_inbox_empty")}
+          </p>
+        )
+      ) : (
       <NotificationInboxByDateSections
         items={grouped}
         onItemWarm={onItemWarm}
         onActivate={(item) => onActivate(item)}
+        focusedNotificationId={focusedNotificationId}
         selectionMode={variant === "notification_center" && selectionMode}
         selectedKeys={selectedKeys}
         onToggleSelect={toggleSelectItem}
@@ -714,7 +786,7 @@ export function MyNotificationsView({
                   e.preventDefault();
                   void actOnTradeOffer(item, "accept");
                 }}
-                className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
+                className="rounded-full bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
               >
                 {t("common_accept")}
               </button>
@@ -725,7 +797,7 @@ export function MyNotificationsView({
                   e.preventDefault();
                   void actOnTradeOffer(item, "reject");
                 }}
-                className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
+                className="rounded-full border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
               >
                 {t("common_reject")}
               </button>
@@ -746,13 +818,14 @@ export function MyNotificationsView({
               : t("common_notifications_empty")
         }
       />
-      {hasMore ? (
+      )}
+      {hasMore && grouped.length > 0 ? (
         <div className="flex justify-center pb-2">
           <button
             type="button"
             disabled={loadMoreBusy}
             onClick={() => void loadMore()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+            className="rounded-full border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
           >
             {loadMoreBusy ? t("common_loading") : t("notif_inbox_load_more")}
           </button>

@@ -58,9 +58,9 @@ export function NotificationInboxTabBar({
               role="tab"
               aria-selected={selected}
               onClick={() => onSelect(key)}
-              className={`inline-flex shrink-0 items-center rounded-full font-medium transition-transform active:scale-[0.97] ${pad} ${
+              className={`inline-flex shrink-0 items-center rounded-full font-semibold transition-transform active:scale-[0.97] ${pad} ${
                 selected
-                  ? "bg-signature text-white"
+                  ? "bg-sam-primary text-white shadow-sm"
                   : "bg-sam-surface-muted text-sam-fg hover:bg-sam-muted/20 active:bg-sam-muted/25"
               }`}
             >
@@ -68,7 +68,7 @@ export function NotificationInboxTabBar({
               {showBadge ? (
                 <span
                   className={`ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums ${
-                    selected ? "bg-white text-sam-danger" : "bg-sam-danger text-white"
+                    selected ? "bg-white/95 text-sam-danger" : "bg-sam-danger text-white"
                   }`}
                 >
                   {count > 99 ? "99+" : count}

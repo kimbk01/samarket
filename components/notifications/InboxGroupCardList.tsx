@@ -1,52 +1,47 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { NotificationInboxCategoryIcon } from "@/components/notifications/NotificationInboxCategoryIcon";
+import { resolveBellUnreadSequenceLabel } from "@/lib/notifications/bell-unread-sequence-label";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
-import { TRADE_HUB_LIST_ITEM_CARD_CLASS } from "@/lib/ui/app-content-layout";
-
-const CHAT_UNREAD_BADGE =
-  "inline-flex min-w-[1.125rem] items-center justify-center rounded-md bg-violet-500/15 px-1 py-0.5 text-[10px] font-bold leading-none text-violet-800";
-const ORDER_STATUS_CHIP =
-  "inline-flex shrink-0 items-center rounded-md bg-[color:var(--delivery-primary,#0B421A)]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-[color:var(--delivery-primary,#0B421A)]";
-const SURFACE_BADGE =
-  "inline-flex max-w-[min(100%,14rem)] shrink-0 items-center truncate rounded-md bg-sam-surface-muted px-1 py-0.5 text-[10px] font-semibold leading-tight text-sam-fg";
+import { resolveNotificationInboxVisual } from "@/lib/notifications/notification-inbox-visual";
 
 type Props = {
   items: InboxGroupItem[];
   onActivate: (item: InboxGroupItem) => void;
-  /** 행 호버·터치 전에 채팅 부트스트랩 선기동 */
   onItemWarm?: (item: InboxGroupItem) => void;
   renderActions?: (item: InboxGroupItem) => ReactNode;
-  /** 항목 삭제(그룹이면 묶인 id 전부). 없으면 삭제 버튼 미표시 */
   onDelete?: (item: InboxGroupItem) => void | Promise<void>;
-  /** 삭제 요청 중인 그룹 `item.key` — 해당 행만 버튼 비활성 */
   deleteBusyKey?: string | null;
-  /** 필라이프 드롭다운 — 살짝 촘촘 */
   compact?: boolean;
   /**
    * Bell unread quick inbox — sequence + category + title + summary + time.
-   * Full inbox shows history cards (no destination-hint CTA).
    */
   summaryOnly?: boolean;
   /**
-   * When `summaryOnly`, show presentation index 1..N (not DB id).
-   * Index is 1-based position in `items`.
+   * When `summaryOnly`, show Bell unread presentation numbers N…1 (not DB id).
    */
   showSequenceIndex?: boolean;
-  /** 비어 있을 때 */
   emptyLabel: string;
-  /** Notification Center — multi-select with checkbox controls */
   selectionMode?: boolean;
   selectedKeys?: ReadonlySet<string>;
   onToggleSelect?: (item: InboxGroupItem) => void;
+  focusedNotificationId?: string | null;
 };
 
+function formatRowClock(iso: string, language: string): string {
+  return new Date(iso).toLocaleTimeString(language === "ko" ? "ko-KR" : "en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 /**
- * 그룹화된 인앱 알림 — 본문은 클릭 시 `onActivate`, 삭제는 별도 버튼.
- * `selectionMode` 에서는 체크박스로 개별 선택(전체 선택·읽음·삭제는 상위 툴바).
+ * DIBAY notification cards — Bell modal + Full Inbox shared row chrome.
+ * Unread: soft primary tint. Modal keeps descending sequence labels.
  */
 export function InboxGroupCardList({
   items,
@@ -55,61 +50,62 @@ export function InboxGroupCardList({
   renderActions,
   onDelete,
   deleteBusyKey,
-  compact,
   summaryOnly = false,
   showSequenceIndex = false,
   emptyLabel,
   selectionMode = false,
   selectedKeys,
   onToggleSelect,
+  focusedNotificationId,
 }: Props) {
   const { t, language } = useI18n();
   if (items.length === 0) {
-    return <p className="text-[12px] leading-snug text-sam-muted">{emptyLabel}</p>;
+    return <p className="px-1 py-6 text-center text-[13px] leading-snug text-sam-muted">{emptyLabel}</p>;
   }
-  const pad = compact || summaryOnly ? "px-2.5 py-2" : "sam-card-pad";
-  const railPad = compact || summaryOnly ? "px-2 py-2" : "sam-card-pad-x py-3";
   const hideDelete = summaryOnly || !onDelete || selectionMode;
+
   return (
-    <ul className={`min-w-0 ${summaryOnly ? "space-y-1" : "space-y-2"}`}>
+    <ul className={`min-w-0 ${summaryOnly ? "space-y-1.5" : "space-y-2"}`}>
       {items.map((item, index) => {
         const kind = item.kindLabel;
         const hasUnread = item.unreadCount > 0;
-        const isChat = item.notification_type === "chat";
         const isOrderGroup = item.isOrderGroup;
+        const visual = resolveNotificationInboxVisual(item);
         const orderMetaLine =
           !summaryOnly && isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
-        const showBody =
-          Boolean(item.body) &&
-          !(isOrderGroup && item.body === item.displayTitle) &&
-          (summaryOnly || !isOrderGroup || Boolean(item.body));
-        const summaryBody =
-          summaryOnly && item.body && item.body !== item.displayTitle ? item.body : null;
+        const snippet =
+          item.body && item.body !== item.displayTitle
+            ? item.body
+            : summaryOnly
+              ? null
+              : item.body && !(isOrderGroup && item.body === item.displayTitle)
+                ? item.body
+                : null;
         const deleting = deleteBusyKey === item.key;
         const selected = selectionMode && (selectedKeys?.has(item.key) ?? false);
+        const focused = Boolean(
+          focusedNotificationId && item.ids.includes(focusedNotificationId)
+        );
         const sequenceLabel =
           showSequenceIndex && summaryOnly
-            ? String(index + 1).padStart(2, "0")
+            ? resolveBellUnreadSequenceLabel(index, items.length) || null
             : null;
-        const timeLabel = new Date(item.created_at).toLocaleString(
-          language === "ko" ? "ko-KR" : "en-US",
-          {
-            month: "numeric",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }
-        );
+        const timeLabel = formatRowClock(item.created_at, language);
+        const categoryLabel = item.surfaceBadge || kind || t("common_notifications");
+
         return (
-          <li key={item.key}>
+          <li
+            key={item.key}
+            data-notification-focus-target={focused ? "1" : undefined}
+          >
             <div
-              className={`flex ${
-                summaryOnly
-                  ? "min-w-0 rounded-ui-rect hover:bg-sam-muted/10 active:bg-sam-muted/15"
-                  : TRADE_HUB_LIST_ITEM_CARD_CLASS
-              } ${selected ? "ring-1 ring-signature/40" : ""} ${
-                !summaryOnly && hasUnread ? "bg-sam-surface" : ""
-              } ${!summaryOnly && !hasUnread ? "opacity-90" : ""}`}
+              className={`flex min-w-0 overflow-hidden rounded-2xl border transition ${
+                hasUnread
+                  ? "border-sam-primary/15 bg-sam-primary-soft/70"
+                  : "border-sam-border/70 bg-sam-surface"
+              } ${selected ? "ring-2 ring-sam-primary/35" : ""} ${
+                focused ? "ring-2 ring-sam-primary/55" : ""
+              } ${!hasUnread && !summaryOnly ? "opacity-95" : ""}`}
             >
               {selectionMode ? (
                 <button
@@ -119,13 +115,13 @@ export function InboxGroupCardList({
                   aria-label={t("notif_center_select_row_aria")}
                   disabled={deleting}
                   onClick={() => onToggleSelect?.(item)}
-                  className={`flex shrink-0 items-center justify-center ${railPad} disabled:opacity-50`}
+                  className="flex shrink-0 items-center justify-center px-2.5 py-3 disabled:opacity-50"
                 >
                   <span
                     aria-hidden
                     className={`flex h-5 w-5 items-center justify-center rounded-[4px] border-2 ${
                       selected
-                        ? "border-signature bg-signature text-white"
+                        ? "border-sam-primary bg-sam-primary text-white"
                         : "border-sam-border bg-sam-surface"
                     }`}
                   >
@@ -143,14 +139,16 @@ export function InboxGroupCardList({
                   </span>
                 </button>
               ) : null}
+
               {sequenceLabel ? (
                 <div
-                  className={`flex shrink-0 items-start justify-center pt-2.5 tabular-nums text-[11px] font-bold leading-none text-sam-muted ${railPad}`}
+                  className="flex w-8 shrink-0 items-start justify-center pt-3.5 tabular-nums text-[11px] font-bold leading-none text-sam-primary"
                   aria-hidden
                 >
                   {sequenceLabel}
                 </div>
               ) : null}
+
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
@@ -165,101 +163,88 @@ export function InboxGroupCardList({
                     }
                     onActivate(item);
                   }}
-                  className={`min-w-0 w-full text-left transition active:bg-sam-surface-muted disabled:opacity-60 ${pad}`}
+                  data-notification-row-action
+                  className="flex w-full min-w-0 items-start gap-3 px-3 py-3 text-left transition active:bg-black/[0.03] disabled:opacity-60"
                 >
-                  <div className="flex min-w-0 items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight text-sam-meta">
-                        <span className={SURFACE_BADGE} title={item.surfaceBadge}>
-                          {item.surfaceBadge}
-                        </span>
-                        {!summaryOnly && kind && isOrderGroup ? (
-                          <span className={ORDER_STATUS_CHIP}>{kind}</span>
+                  <span
+                    className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${visual.wellClassName}`}
+                    aria-hidden
+                  >
+                    <NotificationInboxCategoryIcon
+                      kind={visual.kind}
+                      className={`h-[18px] w-[18px] ${visual.iconClassName}`}
+                    />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-start justify-between gap-2">
+                      <span className="min-w-0 truncate text-[11px] font-medium leading-tight text-sam-meta">
+                        {categoryLabel}
+                        {kind && kind !== categoryLabel ? (
+                          <span className="text-sam-meta"> · {kind}</span>
                         ) : null}
-                        {!summaryOnly && kind && !isOrderGroup ? (
-                          <span className="truncate text-sam-meta">· {kind}</span>
-                        ) : null}
-                        {summaryOnly && kind && kind !== item.surfaceBadge ? (
-                          <span className="truncate text-sam-meta">· {kind}</span>
-                        ) : null}
-                      </div>
-                      {orderMetaLine ? (
-                        <p className="mt-0.5 truncate text-[11px] font-medium leading-snug text-sam-meta">
-                          {orderMetaLine}
-                        </p>
-                      ) : null}
-                      <p
-                        className={`mt-0.5 break-words leading-snug text-sam-fg ${
-                          summaryOnly
-                            ? "line-clamp-1 text-[13px] font-semibold"
-                            : hasUnread
-                              ? "line-clamp-2 text-[14px] font-semibold"
-                              : "line-clamp-2 text-[14px] font-medium"
-                        }`}
-                      >
-                        {item.displayTitle}
-                      </p>
-                      {summaryBody ? (
-                        <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-muted">
-                          {summaryBody}
-                        </p>
-                      ) : null}
-                      {!summaryOnly && showBody && item.body ? (
-                        <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
-                          {item.body}
-                        </p>
-                      ) : null}
-                      {summaryOnly ? (
-                        <p className="mt-1 text-[10px] leading-tight text-sam-meta" suppressHydrationWarning>
-                          {timeLabel}
-                        </p>
-                      ) : null}
-                    </div>
-                    {!summaryOnly && hasUnread && isChat ? (
+                      </span>
                       <span
-                        className={CHAT_UNREAD_BADGE}
-                        title={t("notif_inbox_unread_n", { n: item.unreadCount })}
+                        className="shrink-0 text-[11px] leading-tight text-sam-meta tabular-nums"
+                        suppressHydrationWarning
                       >
-                        {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                        {timeLabel}
+                      </span>
+                    </span>
+
+                    {orderMetaLine ? (
+                      <span className="mt-0.5 block truncate text-[11px] font-medium leading-snug text-sam-meta">
+                        {orderMetaLine}
                       </span>
                     ) : null}
-                    {!summaryOnly && hasUnread && !isChat ? (
-                      <span
-                        className="mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full bg-sam-danger"
-                        aria-hidden
-                      />
+
+                    <span
+                      className={`mt-0.5 block break-words leading-snug text-sam-fg ${
+                        summaryOnly
+                          ? "line-clamp-1 text-[13px] font-semibold"
+                          : "line-clamp-2 text-[14px] font-semibold"
+                      }`}
+                    >
+                      {item.displayTitle}
+                    </span>
+
+                    {snippet ? (
+                      <span className="mt-0.5 block line-clamp-1 break-words text-[12px] leading-snug text-sam-muted">
+                        {snippet}
+                      </span>
                     ) : null}
-                  </div>
+                  </span>
+
+                  {!selectionMode ? (
+                    <ChevronRight
+                      className="mt-1 h-4 w-4 shrink-0 text-sam-meta"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  ) : null}
                 </button>
+
                 {renderActions && !selectionMode && !summaryOnly ? (
                   <div className="px-3 pb-3">{renderActions(item)}</div>
                 ) : null}
               </div>
-              {!summaryOnly ? (
-                <div
-                  className={`flex shrink-0 flex-col items-end gap-0.5 bg-transparent ${railPad} ${
-                    !hideDelete ? "justify-between" : "justify-end"
-                  }`}
-                >
-                  {!hideDelete ? (
-                    <button
-                      type="button"
-                      disabled={deleting}
-                      aria-label={t("notif_inbox_delete_aria")}
-                      title={t("notif_inbox_delete_aria")}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void onDelete?.(item);
-                      }}
-                      className="touch-manipulation flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-sam-muted shadow-none outline-none ring-0 [-webkit-tap-highlight-color:transparent] transition hover:bg-sam-surface-muted/80 hover:text-red-600 focus:outline-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-40"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                    </button>
-                  ) : null}
-                  <span className="text-[10px] leading-tight text-sam-meta" suppressHydrationWarning>
-                    {timeLabel}
-                  </span>
+
+              {!hideDelete ? (
+                <div className="flex shrink-0 flex-col items-center justify-start py-2 pr-2">
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    aria-label={t("notif_inbox_delete_aria")}
+                    title={t("notif_inbox_delete_aria")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void onDelete?.(item);
+                    }}
+                    className="touch-manipulation flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sam-muted transition hover:bg-sam-surface-muted hover:text-red-600 disabled:opacity-40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                  </button>
                 </div>
               ) : null}
             </div>
