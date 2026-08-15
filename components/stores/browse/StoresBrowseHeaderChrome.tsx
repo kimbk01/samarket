@@ -163,7 +163,7 @@ export function StoresBrowseHeaderChrome() {
               >
                 <SearchIcon />
               </button>
-              <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
+              <StoresHomeHeaderNotificationInboxLazy />
             </div>
           </div>
           <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS}>

@@ -592,8 +592,9 @@
     inset: 0;
     z-index: 0;
     border-radius: 9999px;
-    border: 1px solid var(--sam-primary-border);
-    background-color: var(--sam-primary-soft);
+    border: 0;
+    /* Animation only — final fill matches dibay-secondary-tab--active accent (not soft green). */
+    background-color: var(--dibay-domain-accent, var(--sam-primary));
     pointer-events: none;
     backface-visibility: hidden;
     transform: translateZ(0);
