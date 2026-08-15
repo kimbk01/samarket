@@ -93,7 +93,7 @@
   /** 1단 헤더 아이콘 히트 — sector-header 와 동기 */
   --delivery-header-action: 36px;
   /** 1단 헤더 아이콘 간 flex gap — 배민·당근형 밀착 */
-  --delivery-header-action-gap: 0px;
+  --delivery-header-action-gap: 8px;
   /** 제목 앵커: 헤더 행 좌측에서 20% (← 유무와 무관) */
   --delivery-header-title-anchor-from-left: 20%;
   /** 아이콘 버튼 내부 글리프 크기 */
@@ -159,7 +159,7 @@
   --delivery-browse-primary-tab-weight-idle: 400;
   --delivery-browse-primary-tab-weight-active: 700;
   --delivery-browse-primary-tab-min-w: 3rem;
-  --delivery-home-header-bg: var(--delivery-primary);
+  --delivery-home-header-bg: var(--dibay-domain-surface, #f1f7ee);
   --delivery-home-search-bg: var(--dibay-card);
   --delivery-home-search-h: 36px;
   /** PTR 힌트 — 배민형 상하 여백 */
@@ -196,5 +196,5 @@
   --signature: var(--delivery-bridge-primary);
   /** 소비자 배달 전 페이지 — 1단 헤더 우측·뒤로 아이콘 (36px · gap 0) */
   --delivery-header-action: 36px;
-  --delivery-header-action-gap: 0px;
+  --delivery-header-action-gap: 8px;
 }

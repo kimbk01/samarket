@@ -12,6 +12,8 @@ import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS } from "@/lib/layout/delivery-locked-subpage-chrome";
 import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
+import { getDibayDomainChromeElementProps } from "@/lib/ui/dibay-domain-chrome";
+import { usePathname } from "next/navigation";
 
 export type MySubpageHeaderProps = {
   /** `registerMainTier1={false}` 일 때 생략 가능 */
@@ -72,6 +74,8 @@ export function MySubpageHeader({
   leftSlot,
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
+  const pathname = usePathname();
+  const domainChrome = getDibayDomainChromeElementProps(pathname);
   const tier1Provider = useMainTier1ExtrasOptional();
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
   const resolvedAriaLabel = tt(ariaLabel ?? t("common_back_to_mypage"));
@@ -148,7 +152,11 @@ export function MySubpageHeader({
 
     if (inlineChrome) {
       return (
-        <header className={DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS}>
+        <header
+          className={DELIVERY_LOCKED_SUBPAGE_HEADER_CLASS}
+          data-dibay-domain={domainChrome["data-dibay-domain"]}
+          style={domainChrome.style}
+        >
           {/**
            * Safe-top stays on the outer header. DO NOT put `sector-header-shell` on the
            * same node — shell resets padding and cancels `pt-[var(--safe-top)]`.
@@ -159,7 +167,11 @@ export function MySubpageHeader({
     }
 
     return (
-      <div className={`sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden ${SECTOR_HEADER_SHELL_CLASS}`}>
+      <div
+        className={`sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden ${SECTOR_HEADER_SHELL_CLASS}`}
+        data-dibay-domain={domainChrome["data-dibay-domain"]}
+        style={domainChrome.style}
+      >
         {detailHeader}
       </div>
     );

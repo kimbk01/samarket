@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { useRegion } from "@/contexts/RegionContext";
+import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 export type AppSegmentTabItem = {
   key: string;
@@ -24,9 +24,10 @@ export type AppSegmentTabsProps = {
 };
 
 /**
- * 2단 세그먼트 탭 — `sam-tabs` / `sam-tab` 단일 규칙(밑줄 활성).
+ * 2단 세그먼트 탭 — DIBAY secondary visual SSOT (pill).
+ * Props/match/prewarm handlers unchanged. EXISTING ELEMENTS ONLY.
  */
-export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTabsProps) {
+export function AppSegmentTabs({ tabs, className, scroll: _scroll = false }: AppSegmentTabsProps) {
   const pathname = usePathname() ?? "";
   const { primaryRegion } = useRegion();
   const primaryRegionRef = useRef(primaryRegion);
@@ -50,7 +51,10 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
   };
 
   return (
-    <div className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
+    <div
+      className={`${DIBAY_SECONDARY_TABS_CLASS} ${className ?? ""}`.trim()}
+      role="tablist"
+    >
       {tabs.map((t) => {
         const hrefPath = (t.href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
         const prefix = (t.matchPrefix ?? hrefPath).replace(/\/+$/, "") || "/";
@@ -76,7 +80,7 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
             onTouchStart={() => {
               prewarmHref(t.href, active);
             }}
-            className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
+            className={dibaySecondaryTabClass(active)}
           >
             {t.label}
           </Link>

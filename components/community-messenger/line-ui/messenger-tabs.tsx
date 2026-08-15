@@ -10,9 +10,9 @@ import {
   APP_MAIN_GUTTER_NEG_X_CLASS,
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 const SECTIONS = MESSENGER_MAIN_SECTION_TAB_ORDER;
 
@@ -29,17 +29,17 @@ export type MessengerTabsProps = {
   onChange: (next: MessengerMainSection) => void;
 };
 
-/** 메신저 1차 탭 — `TradePrimaryTabs` embed 와 동일 셸·`sam-tab` 밑줄 활성. */
+/** 메신저 1차 탭 — DIBAY secondary visual SSOT. Handlers unchanged. */
 export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
   const { t } = useI18n();
   return (
     <div
       data-cm-primary-nav
-      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface`}
+      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} min-w-0 overflow-x-hidden bg-[color:var(--dibay-domain-surface,var(--sam-bg-surface))]`}
     >
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
         <HorizontalDragScroll
-          className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 max-w-full border-b-0 bg-transparent px-0`}
           style={{ WebkitOverflowScrolling: "touch" }}
           role="tablist"
           aria-label={t("cm_ui_messenger_section_aria")}
@@ -53,7 +53,7 @@ export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
                 role="tab"
                 aria-selected={active}
                 onClick={() => onChange(id)}
-                className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
+                className={dibaySecondaryTabClass(active)}
               >
                 <span className={I18N_COMPACT_CHIP_LABEL}>{t(SECTION_LABEL_KEYS[id])}</span>
               </button>

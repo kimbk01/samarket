@@ -5,16 +5,16 @@
   --sector-header-max-width: 768px;
   --sector-header-pad-x: 12px;
   --sector-header-col-gap: 6px;
-  /** 우측 아이콘 클러스터 — 배민·당근형 밀착(0px) */
-  --sector-header-icon-cluster-gap: 0px;
+  /** Image SSOT — action gap 6px */
+  --sector-header-icon-cluster-gap: 8px;
   --sector-header-bg: color-mix(in srgb, var(--dibay-cream) 96%, transparent);
-  --sector-header-border: color-mix(in srgb, var(--dibay-brown) 8%, transparent);
-  --sector-header-shadow: 0 2px 10px color-mix(in srgb, var(--dibay-brown) 4%, transparent);
-  --sector-header-title-color: var(--dibay-brown);
+  --sector-header-border: #e5e5e5;
+  --sector-header-shadow: none;
+  --sector-header-title-color: #243832;
   --sector-header-subtitle-color: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
-  --sector-header-icon-color: var(--dibay-muted);
-  --sector-header-icon-active-color: var(--dibay-green);
-  --sector-header-back-color: var(--dibay-brown);
+  --sector-header-icon-color: #243832;
+  --sector-header-icon-active-color: #296044;
+  --sector-header-back-color: #243832;
   --sector-header-accent-hover: color-mix(in srgb, var(--dibay-gold) 14%, transparent);
   --sector-header-back-size: 40px;
   --sector-header-back-icon: 24px;

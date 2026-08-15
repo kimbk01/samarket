@@ -49,25 +49,20 @@ export const PHILIFE_FEED_INSET_X_CLASS = "pl-[10px] pr-2";
 export const PHILIFE_FEED_INSET_NEG_X_CLASS = "-ml-[10px] -mr-2";
 
 /**
- * Philife 2단 주제 — 알약 탭 한 줄.
- * `justify-start` + 가로 스크롤로, 선택 변경 시 탭을 뷰포트 **좌측**으로 맞추는 동작과 맞는다.
- * 탭 사이는 `gap-1`(4px).
+ * Philife 2단 주제 — DIBAY secondary tab SSOT (pill · row 44 · item 36).
+ * Handlers unchanged.
  */
-export const PHILIFE_TOPIC_TAB_ROW_CLASS = [
-  "flex min-h-10 w-full max-w-full min-w-0 flex-nowrap items-center justify-start gap-1",
-  "overflow-x-auto border-b border-sam-border bg-sam-surface py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-].join(" ");
+export const PHILIFE_TOPIC_TAB_ROW_CLASS = "dibay-secondary-tabs" as const;
 
-/** 전역 정렬(최신순·인기순) 드롭다운 칩 — `kind=all` 선택 시 `PILL_ACTIVE`(sam-primary / 브랜드 그린). */
-export const PHILIFE_TOPIC_TAB_PILL_IDLE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-muted transition-colors";
+/** @deprecated — use dibay-secondary-tab */
+export const PHILIFE_TOPIC_TAB_PILL_IDLE = "dibay-secondary-tab" as const;
 
+/** @deprecated */
 export const PHILIFE_TOPIC_TAB_PILL_ACTIVE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-primary-border bg-sam-primary-soft px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition-colors";
+  "dibay-secondary-tab dibay-secondary-tab--active" as const;
 
-/** 그 외 주제 탭 — 비선택: 테두리 없음 / 선택: 알약(위 `PILL_ACTIVE`와 동일 시각) */
-export const PHILIFE_TOPIC_TAB_SUBJECT_IDLE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border-0 bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-fg transition-colors";
+/** 그 외 주제 탭 */
+export const PHILIFE_TOPIC_TAB_SUBJECT_IDLE = "dibay-secondary-tab" as const;
 
 export const PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE = PHILIFE_TOPIC_TAB_PILL_ACTIVE;
 

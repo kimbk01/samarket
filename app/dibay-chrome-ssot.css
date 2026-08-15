@@ -1,0 +1,170 @@
+/**
+ * DIBAY GLOBAL HEADER + SECONDARY TAB UI SSOT
+ * Image lock — visual only. Feature composition unchanged.
+ */
+
+:root {
+  --dibay-chrome-title: #243832;
+  --dibay-chrome-accent: #296044;
+  --dibay-chrome-divider: #e5e5e5;
+  --dibay-secondary-tab-row-h: 44px;
+  --dibay-secondary-tab-item-h: 36px;
+  --dibay-secondary-tab-pad-x: 16px;
+  --dibay-secondary-tab-pad-y: 4px;
+  --dibay-secondary-tab-gap: 8px;
+  --dibay-secondary-tab-radius: 18px;
+  --dibay-domain-surface: #f9f9f9;
+  --dibay-domain-accent: #243832;
+  --dibay-domain-accent-text: #ffffff;
+  --dibay-domain-tab-idle-bg: #f2f0eb;
+  --dibay-domain-tab-idle-fg: #243832;
+  --dibay-domain-divider: #e5e5e5;
+}
+
+[data-dibay-domain="community"] {
+  --dibay-domain-surface: #ebf2ed;
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #f4f8f6;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="trade"] {
+  --dibay-domain-surface: #eaf3ee;
+  --dibay-domain-accent: #32734e;
+  --dibay-domain-tab-idle-bg: #f3f8f5;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="delivery"] {
+  --dibay-domain-surface: #f1f7ee;
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #f6faf4;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="chat"] {
+  --dibay-domain-surface: #ebf2fb;
+  --dibay-domain-accent: #296044;
+  --dibay-domain-tab-idle-bg: #f2f7fc;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+[data-dibay-domain="mypage"] {
+  --dibay-domain-surface: #f3f2eb;
+  --dibay-domain-accent: #243832;
+  --dibay-domain-tab-idle-bg: #f7f6f2;
+  --dibay-domain-divider: color-mix(in srgb, #243832 10%, transparent);
+  --sector-header-bg: var(--dibay-domain-surface);
+  --sector-header-border: var(--dibay-domain-divider);
+  --sector-header-title-color: #243832;
+  --sector-header-icon-color: #243832;
+  --sector-header-back-color: #243832;
+  --sector-header-icon-active-color: var(--dibay-domain-accent);
+}
+
+/* Secondary page-nav — pill language · row 44 · item 36 */
+.dibay-secondary-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--dibay-secondary-tab-gap);
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--dibay-secondary-tab-row-h);
+  min-height: var(--dibay-secondary-tab-row-h);
+  max-height: var(--dibay-secondary-tab-row-h);
+  padding: var(--dibay-secondary-tab-pad-y) var(--dibay-secondary-tab-pad-x);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  background: var(--dibay-domain-surface, var(--sector-header-bg));
+  border-bottom: 1px solid var(--dibay-domain-divider, var(--dibay-chrome-divider));
+}
+
+.dibay-secondary-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.dibay-secondary-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--dibay-secondary-tab-item-h);
+  min-height: var(--dibay-secondary-tab-item-h);
+  max-width: min(12rem, 70vw);
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--dibay-secondary-tab-radius);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--dibay-domain-tab-idle-fg);
+  background: var(--dibay-domain-tab-idle-bg);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 100ms ease-out,
+    opacity 100ms ease-out;
+}
+
+.dibay-secondary-tab:active:not([aria-selected="true"]):not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.88;
+}
+
+.dibay-secondary-tab[aria-selected="true"],
+.dibay-secondary-tab--active {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dibay-domain-accent-text, #ffffff);
+  background: var(--dibay-domain-accent);
+}
+
+.dibay-secondary-tab:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dibay-secondary-tab {
+    transition: none;
+  }
+}

@@ -267,19 +267,17 @@ describe("messenger presentation contract", () => {
     expect(src).toContain("return null");
   });
 
-  it("section tabs use underline + Starbucks primary, not pill chips", () => {
+  it("section tabs use DIBAY secondary pill SSOT; trailing group create preserved", () => {
     const src = readFileSync(
       resolve(root, "components/community-messenger/MessengerHomeSectionTabs.tsx"),
       "utf8"
     );
-    expect(src).toContain("rounded-ui-rect");
-    expect(src).toContain("border-b-2");
-    expect(src).toContain("border-sam-primary");
-    expect(src).toContain("font-bold");
+    expect(src).toContain("dibaySecondaryTabClass");
+    expect(src).toContain("DIBAY_SECONDARY_TABS_CLASS");
     expect(src).toContain('mainSection === "chats"');
-    expect(src).not.toMatch(/SECTION_TAB_PILL|알약 탭/);
-    expect(src).not.toMatch(/SECTION_TAB_UNDERLINE_FRAME[\s\S]*rounded-full/);
-    expect(src).not.toContain("bg-sam-primary-soft font-bold text-sam-primary");
+    expect(src).toContain("onOpenGroupCreate");
+    expect(src).not.toContain("border-b-2");
+    expect(src).not.toContain("border-sam-primary");
   });
 
   it("section transition does not remount children via key=generation", () => {

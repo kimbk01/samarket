@@ -17,6 +17,11 @@ import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
+import { resolveMainSurface } from "@/lib/layout/resolve-main-surface";
+import {
+  dibayDomainChromeCssVars,
+  resolveDibayDomainChromeId,
+} from "@/lib/ui/dibay-domain-chrome";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
@@ -24,7 +29,7 @@ import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRe
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
- * 메인 1단 단일 출처·용어: `lib/layout/main-tier1.ts`
+ * Domain pale surface via resolveMainSurface (visual only — no feature add).
  */
 export function AppStickyHeader() {
   const pathname = usePathname();
@@ -32,12 +37,18 @@ export function AppStickyHeader() {
   const categorySticky = useCategoryListStickyConfig();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
-  const { topTier1RuleSet, isTradeMenuSurface } = useMemo(() => {
+  const { topTier1RuleSet, isTradeMenuSurface, domainId, domainStyle } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
     const isTradeMenuSurface =
       pathname === "/market" ||
       (pathname?.startsWith("/market/") ?? false);
-    return { topTier1RuleSet, isTradeMenuSurface };
+    const surface = resolveMainSurface(pathname);
+    return {
+      topTier1RuleSet,
+      isTradeMenuSurface,
+      domainId: resolveDibayDomainChromeId(surface),
+      domainStyle: dibayDomainChromeCssVars(surface),
+    };
   }, [pathname]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
@@ -61,13 +72,15 @@ export function AppStickyHeader() {
   return (
     <div
       data-app-sticky-header
+      data-dibay-domain={domainId}
+      style={domainStyle}
       /**
        * `pt-[var(--safe-top)]`: status bar / notch — SSOT `app/app-shell.css` `--safe-top`.
        */
       className={`relative z-20 w-full min-w-0 max-w-full shrink-0 overflow-x-clip pt-[var(--safe-top)] ${
         deliveryChrome
-          ? "delivery-ui bg-[color:var(--sector-header-bg,var(--delivery-header-bar-bg))]"
-          : "bg-[color:var(--sector-header-bg)] backdrop-blur-[10px] border-b border-[color:var(--sector-header-border)]"
+          ? "delivery-ui bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]"
+          : "bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))] backdrop-blur-[10px] border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))]"
       }`}
     >
       {categorySticky ? (

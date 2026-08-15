@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
-import { CC_PILL_ACTIVE_CLASS, CC_PILL_IDLE_CLASS } from "@/lib/mypage/customer-center-ui";
+import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 const BOARDS: CustomerCenterContentType[] = ["notice", "system", "marketing"];
 
-/** Board family switcher only — never notification-domain tabs. */
+/** Board family switcher only — never notification-domain tabs. Visual SSOT only. */
 export function CustomerCenterBoardSwitcher({
   active,
   language,
@@ -16,11 +16,7 @@ export function CustomerCenterBoardSwitcher({
   language: "ko" | "en";
 }) {
   return (
-    <div
-      className="flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      role="tablist"
-      aria-label="customer center boards"
-    >
+    <div className={DIBAY_SECONDARY_TABS_CLASS} role="tablist" aria-label="customer center boards">
       {BOARDS.map((type) => {
         const selected = type === active;
         return (
@@ -29,9 +25,7 @@ export function CustomerCenterBoardSwitcher({
             href={buildCustomerCenterBoardListPath(type)}
             role="tab"
             aria-selected={selected}
-            className={`shrink-0 transition active:scale-[0.98] ${
-              selected ? CC_PILL_ACTIVE_CLASS : CC_PILL_IDLE_CLASS
-            }`}
+            className={dibaySecondaryTabClass(selected)}
           >
             {BOARD_LABEL[type][language === "en" ? "en" : "ko"]}
           </Link>

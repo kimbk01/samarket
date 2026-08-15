@@ -20,17 +20,7 @@ import {
   onBrowsePrimaryTaxonomyCommit,
   onBrowsePrimaryTaxonomyPointerDown,
 } from "@/lib/stores/stores-browse-taxonomy-interaction";
-
-function browsePrimaryTabClass(active: boolean, pending: boolean): string {
-  return [
-    "stores-browse-header-primary-tab",
-    "delivery-category-chip",
-    active ? "stores-browse-header-primary-tab--active" : "",
-    pending ? "stores-browse-header-primary-tab--pending" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
+import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 
 function MenuExpandIcon({ open }: { open: boolean }) {
   return (
@@ -46,8 +36,8 @@ function MenuExpandIcon({ open }: { open: boolean }) {
 }
 
 /**
- * browse 헤더 3단 — 1차 업종 rounded rect tab + ▼
- * CONTRACT: `primaries` 는 부모 `StoresBrowseHeaderChrome` 단일 `useBrowsePrimaryIndustries` 만 사용.
+ * browse page-nav — 1차 업종 tabs (DIBAY secondary visual SSOT).
+ * Handlers/navigation unchanged. Trailing ▼ remains supplement overlay.
  */
 export function StoresBrowseHeaderPrimaryTabs({
   primaries,
@@ -92,14 +82,14 @@ export function StoresBrowseHeaderPrimaryTabs({
   }, [activeSlug, primaries.length]);
 
   return (
-    <div className="stores-browse-header-primary-tabs">
+    <div className="flex min-w-0 flex-1 items-center gap-1">
       <HorizontalDragScroll
-        className="stores-browse-header-primary-tabs__scroll"
+        className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0 bg-transparent px-0`}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div
           ref={trackRef}
-          className="stores-browse-header-primary-tabs__track"
+          className="flex min-w-0 flex-nowrap items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
           role="tablist"
           aria-label={t("store_primary_industry_aria")}
         >
@@ -115,7 +105,8 @@ export function StoresBrowseHeaderPrimaryTabs({
                 scroll={false}
                 role="tab"
                 aria-selected={on}
-                className={browsePrimaryTabClass(on, pending)}
+                aria-busy={pending || undefined}
+                className={dibaySecondaryTabClass(on)}
                 onPointerDown={(e) => {
                   onBrowsePrimaryTaxonomyPointerDown({
                     ev: e,
@@ -129,14 +120,12 @@ export function StoresBrowseHeaderPrimaryTabs({
                   onMenuOpenChange(false);
                 }}
               >
-                <span className="stores-browse-header-primary-tab__label">
-                  {resolveStorePrimaryIndustryLabel(
-                    language,
-                    p.slug,
-                    p.nameKo,
-                    p.name_en ?? p.nameEn,
-                  )}
-                </span>
+                {resolveStorePrimaryIndustryLabel(
+                  language,
+                  p.slug,
+                  p.nameKo,
+                  p.name_en ?? p.nameEn,
+                )}
               </Link>
             );
           })}
@@ -144,7 +133,7 @@ export function StoresBrowseHeaderPrimaryTabs({
       </HorizontalDragScroll>
       <button
         type="button"
-        className="stores-browse-header-primary-tab-menu-btn"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[color:var(--sector-header-title-color,#243832)] hover:bg-black/5"
         aria-label={t("store_browse_primary_menu_all")}
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
