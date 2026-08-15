@@ -72,7 +72,11 @@ describe("POST /api/auth/logout", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({ ok: true, already_logged_out: true });
+    expect(body).toEqual({
+      ok: true,
+      already_logged_out: true,
+      device_unbind_warning: null,
+    });
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(res.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
     expect(res.cookies.get("sb-proj-auth-token")?.value).toBe("");
