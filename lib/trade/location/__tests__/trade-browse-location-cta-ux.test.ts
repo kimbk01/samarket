@@ -36,6 +36,12 @@ describe("trade browse location page stack CTA / scroll contract", () => {
     expect(dist).toContain("trade_location_see_items");
     expect(dist).toContain("TRADE_BROWSE_LOCATION_PATH");
     expect(dist).not.toContain("DibayBottomSheet");
+    // Do not persist ALL into session when distance opens without city draft
+    expect(dist).toContain("hasCityDraft");
+    expect(dist).toContain("DISTANCE_PRESET_KM_EXCLUDING_RECOMMENDED");
+    expect(dist).not.toMatch(
+      /writeTradeBrowseLocationDraftSession\([\s\S]*kind: "all"/
+    );
   });
 
   it("header pin seeds draft and pushes location page", () => {

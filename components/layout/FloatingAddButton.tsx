@@ -28,6 +28,11 @@ export function FloatingAddButton() {
     return null;
   }
 
+  /** 구매자 위치·거리 페이지 스택 — sticky CTA 옆 글로벌 + FAB 제거 */
+  if (pathNoQuery === "/market/location" || pathNoQuery.startsWith("/market/location/")) {
+    return null;
+  }
+
   /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김 */
   if (!launcherCategoriesLoading && !hasLauncherTopics) {
     return null;

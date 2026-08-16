@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -125,7 +125,6 @@ export function TradeHeaderLocationPinButton({
   const pathname = usePathname() ?? "/market";
   const searchParams = useSearchParams();
   const router = useRouter();
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [myRegion, setMyRegion] = useState<{
     canonicalId: string;
     displayName: string;
@@ -222,7 +221,6 @@ export function TradeHeaderLocationPinButton({
 
   return (
     <button
-      ref={triggerRef}
       type="button"
       className={
         besideTitle

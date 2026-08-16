@@ -44,9 +44,14 @@ function draftMapCenter(draft: TradeBrowseLocation): { lat: number; lng: number 
   return MAP_PICKER_DEFAULT_CENTER;
 }
 
+/** Preset rows exclude recommended km so UI does not list 64km twice. */
+const DISTANCE_PRESET_KM_EXCLUDING_RECOMMENDED = TRADE_BROWSE_RADIUS_PRESET_KM.filter(
+  (km) => km !== TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+);
+
 /**
  * Distance page — full viewport scroll for radius; sticky 품목 보기.
- * Back keeps draft (session).
+ * Back keeps draft (session). Never writes ALL into session.
  */
 export function TradeBrowseLocationDistancePage() {
   const { t } = useI18n();
@@ -54,22 +59,34 @@ export function TradeBrowseLocationDistancePage() {
   const searchParams = useSearchParams();
 
   const session = useMemo(() => readTradeBrowseLocationDraftSession(), []);
-  const [draft, setDraft] = useState<TradeBrowseLocation>(() =>
-    cloneTradeBrowseLocation(session?.location ?? { kind: "all" })
+  const hasCityDraft = session?.location.kind === "city";
+
+  const locationBackHref = useMemo(() => {
+    const q = searchParams.toString();
+    return q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!hasCityDraft) {
+      router.replace(locationBackHref);
+    }
+  }, [hasCityDraft, locationBackHref, router]);
+
+  const cityDraft = hasCityDraft
+    ? (session!.location as Extract<TradeBrowseLocation, { kind: "city" }>)
+    : null;
+
+  const [draft, setDraft] = useState<TradeBrowseLocation | null>(() =>
+    cityDraft ? cloneTradeBrowseLocation(cityDraft) : null
   );
   const [draftRadius, setDraftRadius] = useState<TradeBrowseRadiusSelection>(() =>
     cloneTradeBrowseRadiusSelection(session?.radius ?? defaultTradeBrowseRadiusSelection())
   );
-  const [mapPin, setMapPin] = useState(() => draftMapCenter(session?.location ?? { kind: "all" }));
+  const [mapPin, setMapPin] = useState(() =>
+    cityDraft ? draftMapCenter(cityDraft) : MAP_PICKER_DEFAULT_CENTER
+  );
   const [mapReady, setMapReady] = useState(false);
   const mapMountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!session || session.location.kind !== "city") {
-      const q = searchParams.toString();
-      router.replace(q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH);
-    }
-  }, [router, searchParams, session]);
 
   useEffect(() => {
     mapMountTimer.current = setTimeout(() => setMapReady(true), 0);
@@ -79,13 +96,14 @@ export function TradeBrowseLocationDistancePage() {
   }, []);
 
   useEffect(() => {
+    if (!draft || draft.kind !== "city") return;
     writeTradeBrowseLocationDraftSession(
       createTradeBrowseLocationDraftSession(draft, draftRadius)
     );
   }, [draft, draftRadius]);
 
   useEffect(() => {
-    if (draft.kind !== "city") return;
+    if (!draft || draft.kind !== "city") return;
     if (typeof draft.lat === "number" && typeof draft.lng === "number") return;
     const name = draft.displayName;
     let cancelled = false;
@@ -93,7 +111,7 @@ export function TradeBrowseLocationDistancePage() {
       const hit = await geocodeDisplayLineToLatLng(`${name}, Philippines`);
       if (cancelled || !hit) return;
       setDraft((prev) => {
-        if (prev.kind !== "city" || prev.displayName !== name) return prev;
+        if (!prev || prev.kind !== "city" || prev.displayName !== name) return prev;
         if (typeof prev.lat === "number" && typeof prev.lng === "number") return prev;
         return { ...prev, lat: hit.lat, lng: hit.lng };
       });
@@ -104,20 +122,18 @@ export function TradeBrowseLocationDistancePage() {
     };
   }, [draft]);
 
-  const locationBackHref = useMemo(() => {
-    const q = searchParams.toString();
-    return q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
-  }, [searchParams]);
-
   const canCommit =
-    draft.kind === "city" && !!draft.canonicalId.trim() && !!draft.displayName.trim();
+    !!draft &&
+    draft.kind === "city" &&
+    !!draft.canonicalId.trim() &&
+    !!draft.displayName.trim();
 
   const onResetRadius = useCallback(() => {
     setDraftRadius(defaultTradeBrowseRadiusSelection());
   }, []);
 
   const onCommitItems = useCallback(() => {
-    if (draft.kind !== "city") return;
+    if (!draft || draft.kind !== "city") return;
     const next = cloneTradeBrowseLocation(draft);
     if (next.kind !== "city") return;
     const withRadius: TradeBrowseLocation = {
@@ -130,6 +146,14 @@ export function TradeBrowseLocationDistancePage() {
     const href = buildTradeLocationHref("/market", searchParams.toString(), scope);
     router.replace(href, { scroll: false });
   }, [draft, draftRadius.km, router, searchParams]);
+
+  if (!draft || draft.kind !== "city") {
+    return (
+      <div className="flex min-h-[40dvh] items-center justify-center bg-sam-app text-sm text-sam-fg-muted">
+        …
+      </div>
+    );
+  }
 
   const customActive = draftRadius.mode === "custom";
 
@@ -195,7 +219,7 @@ export function TradeBrowseLocationDistancePage() {
               {t("trade_location_radius_recommended")} ({TRADE_BROWSE_RECOMMENDED_RADIUS_KM}km)
             </span>
           </label>
-          {TRADE_BROWSE_RADIUS_PRESET_KM.map((km) => (
+          {DISTANCE_PRESET_KM_EXCLUDING_RECOMMENDED.map((km) => (
             <label
               key={km}
               className="flex min-h-10 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-1.5"

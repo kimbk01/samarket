@@ -290,6 +290,7 @@ export function resolveConditionalAppShellFlags(
     !isOrdersHub &&
     !isTradeFloatingSurface &&
     !isTradeMeetSpotPickRoute &&
+    !isTradeBrowseLocationRoute &&
     !isLegalPublicPage;
   /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
   const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
