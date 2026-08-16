@@ -147,6 +147,13 @@ export interface PostListBodyBlock {
   jobsPayRow?: { label: string; amount: string | null };
 }
 
+/**
+ * 거래 피드 PostCard 썸네일 우측 **고정 6행 SSOT** (카테고리 공통).
+ * 1 유형칩 · 2 제목 · 3 금액 · 4 지역+작성자 · 5 진행사항 · 6 작성일·조회·찜·⋮
+ * 스펙·환율 등 여분은 이후 지시 전까지 피드 6행에 넣지 않는다.
+ */
+export type PostListFeedPriceKind = "plain" | "real_estate" | "jobs_pay";
+
 export interface PostListPreviewModel {
   thumbnailMode: PostListThumbMode;
   listKind: PostListPreviewListKind;
@@ -157,6 +164,12 @@ export interface PostListPreviewModel {
   /** 칩·파이프 다음 같은 줄 — 중고차 삽니다 차종 등(칩 스타일 없음) */
   listingRowBoldText?: string | null;
   bodyBlocks: PostListBodyBlock[];
+  /** 피드 6행 SSOT — 2행 제목 */
+  feedTitle: string | null;
+  /** 피드 6행 SSOT — 3행 금액 평문(부동산·알바는 kind로 렌더) */
+  feedPrice: string | null;
+  feedPriceKind: PostListFeedPriceKind;
+  feedJobsPay?: { label: string; amount: string | null };
   /**
    * PostCard 하단 — 환전만 null.
    * `sellerLine`: 주소·시간 줄(ul) **위** — `profiles`/author_nickname 기반 **닉네임만**(숫자 ID 미표시).
@@ -423,6 +436,9 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
+      feedTitle: row1Headline || null,
+      feedPrice: row2Price || postPreviewT(locale, "post_preview_price_inquiry"),
+      feedPriceKind: "real_estate",
       listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
@@ -476,6 +492,9 @@ export function buildPostListPreviewModel(
       listingRowBoldText:
         meta.car_trade === "buy" && bodyTypeLabel ? bodyTypeLabel : null,
       bodyBlocks: blocks,
+      feedTitle: carSpecLine || null,
+      feedPrice: usedCarPriceLabel ?? postPreviewT(locale, "post_preview_price_inquiry"),
+      feedPriceKind: "plain",
       listFooter: buildListFooter(post, "uc", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
@@ -595,6 +614,20 @@ export function buildPostListPreviewModel(
       }
     }
 
+    const jobsFeedPay = (() => {
+      const payBlock = blocks.find((b) => b.row === "jobs_pay_row");
+      if (!payBlock) {
+        return {
+          feedPrice: postPreviewT(locale, "post_preview_price_inquiry"),
+          feedJobsPay: undefined as { label: string; amount: string | null } | undefined,
+        };
+      }
+      return {
+        feedPrice: payBlock.text,
+        feedJobsPay: payBlock.jobsPayRow,
+      };
+    })();
+
     return {
       thumbnailMode: "none",
       listKind: "jobs",
@@ -602,6 +635,10 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
+      feedTitle: titleLine,
+      feedPrice: jobsFeedPay.feedPrice,
+      feedPriceKind: "jobs_pay",
+      feedJobsPay: jobsFeedPay.feedJobsPay,
       listFooter: buildListFooter(
         post,
         "trade",
@@ -654,6 +691,9 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
+      feedTitle: str(post.title) || null,
+      feedPrice: phpText,
+      feedPriceKind: "plain",
       listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: true,
     };
@@ -697,6 +737,9 @@ export function buildPostListPreviewModel(
     listingChips,
     listingBold: null,
     bodyBlocks: blocks,
+    feedTitle: str(post.title) || postPreviewT(locale, "post_preview_product_default"),
+    feedPrice: tradePriceLabel ?? postPreviewT(locale, "post_preview_price_inquiry"),
+    feedPriceKind: "plain",
     listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
   };
 }

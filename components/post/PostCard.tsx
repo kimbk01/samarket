@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MapPin } from "lucide-react";
+import { Fragment, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -13,10 +14,19 @@ import {
   PostListMenuBottomSheet,
   type PostListMenuAction,
 } from "@/components/post/PostListMenuBottomSheet";
-import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
+import {
+  buildPostListPreviewModel,
+  POST_LIST_META_LINE_CLASS,
+  POST_LIST_PRICE_TEXT_CLASS,
+  POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS,
+  POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS,
+  POST_LIST_TRADE_PRICE_CLASS,
+  POST_LIST_TRADE_TITLE_CLASS,
+  POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
+  stripPostListBlockTopMargin,
+} from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   imageSanitizeViewerMediaUrl,
@@ -40,6 +50,46 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
+
+/** 피드 카드 6행 SSOT — 부동산 금액 토큰 렌더 */
+function FeedRealEstatePriceLine({ text }: { text: string }) {
+  const src = text.trim();
+  if (!src) return null;
+  const parts = src.split("|").map((s) => s.trim()).filter(Boolean);
+  const tokenRe = /^(보증금|월세|매매)\s+(.+)$/;
+  return (
+    <>
+      {parts.map((part, idx) => {
+        const m = part.match(tokenRe);
+        if (!m) {
+          return (
+            <Fragment key={`plain-${idx}`}>
+              {idx > 0 ? (
+                <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+                  |
+                </span>
+              ) : null}
+              <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{part}</span>
+            </Fragment>
+          );
+        }
+        return (
+          <Fragment key={`tok-${idx}`}>
+            {idx > 0 ? (
+              <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+                |
+              </span>
+            ) : null}
+            <span className="inline-flex items-baseline gap-1">
+              <span className={POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS}>{m[1]}</span>
+              <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{m[2]}</span>
+            </span>
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -218,47 +268,105 @@ export const PostCard = memo(function PostCard({
             )}
           </div>
           <div className="flex min-h-full min-w-0 flex-1 flex-col justify-end">
-            {listPreview ? (
-              <PostListPreviewColumn
-                listingPost={post}
-                preview={listPreview}
-                omitListingBadge
-                matchThumbnailHeight
-                omitListFooter
-                stretchPreviewToThumbnailColumn={false}
-                compactSpacing
-              />
-            ) : null}
-              <div className="mt-0 flex min-w-0 flex-col gap-0.5">
-              {locationLine || timeLabel || isPromotedContent ? (
+            {/**
+             * 거래 피드 썸네일 우측 고정 6행 SSOT
+             * 1 유형 · 2 제목 · 3 금액 · 4 지역+작성자 · 5 진행 · 6 작성일·조회·찜·⋮
+             */}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              {/* 1 — 유형 칩 */}
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {isPromotedContent ? (
+                  <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[11px] font-medium text-sam-muted">
+                    {safeT("trade_promo_badge", {
+                      fallbackKo: "홍보",
+                      fallbackEn: "Promoted",
+                    })}
+                  </span>
+                ) : null}
+                {listPreview?.listingChips.map((c, i) => (
+                  <span key={`${c.text}-${i}`} className={c.className}>
+                    {c.text}
+                  </span>
+                ))}
+                {listPreview?.listingRowBoldText?.trim() ? (
+                  <span className={POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS}>
+                    {listPreview.listingRowBoldText.trim()}
+                  </span>
+                ) : null}
+              </div>
+
+              {/* 2 — 제목 */}
+              {listPreview?.feedTitle?.trim() ? (
                 <p
-                  className="min-w-0 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-                  title={[locationLine ?? "", timeLabel].filter(Boolean).join(" · ")}
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} line-clamp-2`}
+                  title={listPreview.feedTitle.trim()}
                 >
-                  {isPromotedContent ? (
-                    <span className="mr-1 inline-block rounded bg-sam-app px-1 py-0.5 text-[11px] font-medium text-sam-muted">
-                      {safeT("trade_promo_badge", {
-                        fallbackKo: "홍보",
-                        fallbackEn: "Promoted",
-                      })}
+                  {listPreview.feedTitle.trim()}
+                </p>
+              ) : (
+                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} min-h-[1.25rem]`} aria-hidden>
+                  {"\u00A0"}
+                </p>
+              )}
+
+              {/* 3 — 금액 */}
+              {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
+                <p
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex flex-wrap items-baseline gap-x-1`}
+                >
+                  <FeedRealEstatePriceLine text={listPreview.feedPrice} />
+                </p>
+              ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
+                <p
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex flex-wrap items-baseline gap-x-1`}
+                >
+                  <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
+                    {listPreview.feedJobsPay.label}
+                  </span>
+                  {listPreview.feedJobsPay.amount ? (
+                    <span className={`shrink-0 ${POST_LIST_PRICE_TEXT_CLASS}`}>
+                      {listPreview.feedJobsPay.amount}
                     </span>
                   ) : null}
-                  {[locationLine, timeLabel].filter(Boolean).join(" · ")}
                 </p>
-              ) : null}
+              ) : listPreview?.feedPrice?.trim() ? (
+                <p className={stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)}>
+                  {listPreview.feedPrice.trim()}
+                </p>
+              ) : (
+                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} min-h-[1.25rem]`} aria-hidden>
+                  {"\u00A0"}
+                </p>
+              )}
+
+              {/* 4 — 지역 + 작성자 */}
+              <p
+                className="flex min-w-0 items-center gap-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                title={[locationLine ?? "", authorDisplay].filter(Boolean).join(" · ")}
+              >
+                {locationLine ? (
+                  <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
+                    <MapPin className="h-3 w-3 shrink-0 text-[#6B7280]" strokeWidth={2} aria-hidden />
+                    <span className="truncate">{locationLine}</span>
+                  </span>
+                ) : null}
+                {locationLine ? <span className="shrink-0" aria-hidden>·</span> : null}
+                <span className="truncate font-semibold text-[#1F2430]">{authorDisplay}</span>
+              </p>
+
+              {/* 5 — 진행사항 */}
+              <div className="flex min-w-0 items-center">
+                <TradeListingStatusBadge post={post} className="shrink-0" />
+              </div>
+
+              {/* 6 — 작성일 · 조회 · 찜 · ⋮ */}
               <div className="flex min-w-0 items-center justify-between gap-1.5">
-                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                  {listKind !== "jobs" ? (
-                    <TradeListingStatusBadge post={post} className="shrink-0" />
-                  ) : null}
-                  <p
-                    className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-                    title={[authorDisplay, `조회 ${viewCount}`].join(" · ")}
-                  >
-                    <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
-                    <> · </>조회 {viewCount}
-                  </p>
-                </div>
+                <p
+                  className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                  title={[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+                >
+                  {[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+                </p>
                 <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
                   <PostFavoriteButton
                     postId={post.id}

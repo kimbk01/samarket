@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MapPin } from "lucide-react";
 import { OPEN_RECEIVED_OFFERS_SEARCH_PARAM } from "@/lib/notifications/resolve-notification-inbox-href";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
@@ -118,7 +119,6 @@ import {
 import { recordTradeDetailTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { formatAtUsername } from "@/lib/users/user-label";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_BLOCK_TITLE,
@@ -511,10 +511,9 @@ function PostDetailSellerProfileRow({
   regionLine: React.ReactNode;
 }) {
   const { t } = useI18n();
-  /** Member Identity: nickname display + @dibay_id (DTO.username carries dibay_id) */
+  /** Member Identity: nickname only (no @dibay_id on trade detail) */
   const displayName =
     author?.nickname?.trim() || t("trade_detail_seller_fallback");
-  const atUsername = formatAtUsername(author?.username ?? null);
   const label = displayName;
   const initial = label.charAt(0).toUpperCase() || "?";
   return (
@@ -530,11 +529,6 @@ function PostDetailSellerProfileRow({
         />
         <div className="min-w-0 flex-1">
           <p className={TRADE_FB_DETAIL_SELLER_NAME}>{displayName}</p>
-          {atUsername ? (
-            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
-              {atUsername}
-            </p>
-          ) : null}
           {regionLine}
         </div>
       </div>
@@ -2052,8 +2046,9 @@ export function PostDetailView({
               author={author}
               regionLine={
                 listingLocationLine ? (
-                  <p className={`max-w-[190px] truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
-                    {listingLocationLine}
+                  <p className={`mt-0.5 flex max-w-[190px] items-center gap-0.5 truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
+                    <MapPin className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                    <span className="truncate">{listingLocationLine}</span>
                   </p>
                 ) : null
               }
@@ -2287,8 +2282,9 @@ export function PostDetailView({
             author={author}
             regionLine={
               listingLocationLine ? (
-                <p className={`max-w-[190px] truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
-                  {listingLocationLine}
+                <p className={`mt-0.5 flex max-w-[190px] items-center gap-0.5 truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
+                  <MapPin className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
+                  <span className="truncate">{listingLocationLine}</span>
                 </p>
               ) : null
             }
