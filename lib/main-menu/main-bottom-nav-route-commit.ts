@@ -28,6 +28,7 @@ import {
 } from "@/lib/navigation/nav-perf-browser";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 import { isDeepRouteNavigationLockActive } from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { playMainBottomNavTransitionSound } from "@/lib/navigation/main-bottom-nav-transition-sound";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -142,6 +143,7 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     ...(crossGroup ? { mainShellCrossGroupPush: true } : {}),
   });
 
+  playMainBottomNavTransitionSound();
   commitMainBottomNavRouteNavigateSync(args);
   return "navigated";
 }

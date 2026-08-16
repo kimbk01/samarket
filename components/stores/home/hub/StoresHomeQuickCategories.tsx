@@ -27,7 +27,6 @@ import {
   setStoresHomeCategoryChromeHandlers,
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
-import { useStoresHomePullRefresh } from "@/lib/stores/use-stores-home-pull-refresh";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 
@@ -82,8 +81,6 @@ export function StoresHomeQuickCategories() {
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [activeSlug, setActiveSlug] = useState(RESTAURANT_SLUG);
   const cacheAppliedRef = useRef(false);
-
-  useStoresHomePullRefresh(isStoresHubRoot);
 
   useLayoutEffect(() => {
     if (!isStoresHubRoot) return;

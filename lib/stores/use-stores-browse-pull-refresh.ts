@@ -32,7 +32,7 @@ function isVerticalPullDown(dy: number, dx: number): boolean {
 
 /**
  * CONTRACT — `/stores/browse/*` PTR: `/stores` 홈과 동일 touch·임계값.
- * 힌트 UI는 4·5단 사이 `#eac784` 슬롯(`StoresBrowsePullRefreshHint`).
+ * 리스너: scroll body + sticky header. 힌트 UI는 4·5단 사이 `#eac784` 슬롯.
  */
 export function useStoresBrowsePullRefresh(enabled: boolean): void {
   const pullRef = useRef(0);
@@ -131,34 +131,44 @@ export function useStoresBrowsePullRefresh(enabled: boolean): void {
       resetPull();
     };
 
-    const bindRoot = (): (() => void) | null => {
-      const root = getMainAppScrollRootCached();
-      if (!(root instanceof HTMLElement)) return null;
-
+    const bindEl = (el: HTMLElement): (() => void) => {
       const optsCapture = { capture: true } as const;
-      root.addEventListener("touchstart", onTouchStart, { passive: true, ...optsCapture });
-      root.addEventListener("touchmove", onTouchMove, { passive: false, ...optsCapture });
-      root.addEventListener("touchend", onTouchEnd, optsCapture);
-      root.addEventListener("touchcancel", onTouchEnd, optsCapture);
-      root.addEventListener("click", onClickCapture, { capture: true });
+      el.addEventListener("touchstart", onTouchStart, { passive: true, ...optsCapture });
+      el.addEventListener("touchmove", onTouchMove, { passive: false, ...optsCapture });
+      el.addEventListener("touchend", onTouchEnd, optsCapture);
+      el.addEventListener("touchcancel", onTouchEnd, optsCapture);
+      el.addEventListener("click", onClickCapture, { capture: true });
 
       return () => {
-        root.removeEventListener("touchstart", onTouchStart, optsCapture);
-        root.removeEventListener("touchmove", onTouchMove, optsCapture);
-        root.removeEventListener("touchend", onTouchEnd, optsCapture);
-        root.removeEventListener("touchcancel", onTouchEnd, optsCapture);
-        root.removeEventListener("click", onClickCapture, optsCapture);
+        el.removeEventListener("touchstart", onTouchStart, optsCapture);
+        el.removeEventListener("touchmove", onTouchMove, optsCapture);
+        el.removeEventListener("touchend", onTouchEnd, optsCapture);
+        el.removeEventListener("touchcancel", onTouchEnd, optsCapture);
+        el.removeEventListener("click", onClickCapture, optsCapture);
       };
     };
 
-    let unbind = bindRoot();
+    const bindAll = (): (() => void) | null => {
+      const root = getMainAppScrollRootCached();
+      if (!(root instanceof HTMLElement)) return null;
+      const unbinds: Array<() => void> = [bindEl(root)];
+      const sticky = document.querySelector("[data-app-sticky-header]");
+      if (sticky instanceof HTMLElement && sticky !== root) {
+        unbinds.push(bindEl(sticky));
+      }
+      return () => {
+        for (const u of unbinds) u();
+      };
+    };
+
+    let unbind = bindAll();
     const root = getMainAppScrollRootCached();
     if (root instanceof HTMLElement) {
       root.dataset.storesBrowsePtrRoot = "1";
     }
     const retryId = window.setTimeout(() => {
       unbind?.();
-      unbind = bindRoot();
+      unbind = bindAll();
       const retryRoot = getMainAppScrollRootCached();
       if (retryRoot instanceof HTMLElement) {
         retryRoot.dataset.storesBrowsePtrRoot = "1";

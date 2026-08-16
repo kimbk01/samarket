@@ -39,7 +39,6 @@ import {
 } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
-import { useStoresBrowsePullRefresh } from "@/lib/stores/use-stores-browse-pull-refresh";
 import {
   fetchStoresBrowseDeduped,
   forgetStoresBrowseFetchSingleFlight,
@@ -636,7 +635,6 @@ export function StoresBrowsePrimaryView({
   );
 
   const browseListReady = !!primary;
-  useStoresBrowsePullRefresh(browseListReady);
 
   const onBrowsePullRefresh = useCallback(async () => {
     invalidateStoresBrowseMemoryCache(primarySlug);

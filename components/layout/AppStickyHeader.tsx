@@ -26,6 +26,8 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
+import { StoresHomePullRefreshHost } from "@/components/stores/home/hub/StoresHomePullRefreshHost";
+import { StoresBrowsePullRefreshHost } from "@/components/stores/browse/StoresBrowsePullRefreshHost";
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
@@ -68,6 +70,9 @@ export function AppStickyHeader() {
   const ctaLinks = extras?.ctaLinks ?? [];
   const stickyBelow = extras?.stickyBelow ?? null;
   const deliveryChrome = isDeliveryConsumerPath(pathname);
+  const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";
+  const isStoresHubRoot = pathNoQuery === "/stores" || pathNoQuery === "/stores/";
+  const isStoresBrowse = pathNoQuery.startsWith("/stores/browse/");
 
   return (
     <div
@@ -105,6 +110,8 @@ export function AppStickyHeader() {
                 {tradeSecondaryTabs}
               </>
             ) : null}
+            {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
+            {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
           </>
         )}
     </div>

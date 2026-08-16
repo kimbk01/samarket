@@ -253,7 +253,11 @@ export function AppRouteTransition({
         pendingMenuIntent?.source === "bottom-nav" ||
         pendingMenuIntent?.source === "trade-primary";
 
-      /** Hub keep-alive: no dual-panel clone of Surface tree (would remount Feed). */
+      /**
+       * Hub keep-alive / bottom-nav: dual-panel clone 금지 (Feed remount).
+       * 단, 슬라이드를 끄면 하단 탭 이동이 “액션 없음”이 됨 — 단일 surface CSS enter 만 적용.
+       * ROOT CAUSE FIX: 예전 early-return 이 kind=none + class strip 으로 440ms 우→좌를 전부 차단했음.
+       */
       if (hubKeepAliveTransition) {
         lastPushAxisRef.current = null;
         pushSessionActiveRef.current = false;
@@ -262,6 +266,32 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
+
+        const axis: MainShellRoutePushAxis | null =
+          axisFromIntent ??
+          (pendingMenuIntent?.source === "bottom-nav" ? "rtl" : routeTransitionPushAxisForKind(kind));
+
+        if (axis && !prefersReducedMotion() && el) {
+          const enterClass =
+            axis === "rtl"
+              ? "main-shell-route-enter-rtl-forward"
+              : "main-shell-route-enter-ltr-forward";
+          if (el.dataset) {
+            el.dataset.routeTransitionKind = axis === "rtl" ? "rtl-forward" : "ltr-forward";
+            el.dataset.routePushAxis = axis;
+          }
+          try {
+            el.getAnimations().forEach((a) => a.cancel());
+          } catch {
+            /* ignore */
+          }
+          void el.offsetWidth;
+          const raf = requestAnimationFrame(() => {
+            subtleEnterRef.current?.classList.add(enterClass);
+          });
+          return () => cancelAnimationFrame(raf);
+        }
+
         if (el?.dataset) {
           el.dataset.routeTransitionKind = "none";
         }

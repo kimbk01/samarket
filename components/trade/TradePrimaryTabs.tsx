@@ -7,10 +7,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { PHILIFE_TOPIC_TAB_ROW_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
-import { DIBAY_CHROME_SECONDARY_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
+import {
+  DIBAY_CHROME_SECONDARY_HOST_CLASS,
+  DIBAY_SECONDARY_TABS_CLASS,
+} from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
@@ -30,29 +32,31 @@ interface TradePrimaryTabsProps {
 }
 
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
+  const skeleton = (
+    <div
+      className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
+      aria-hidden
+    >
+      <span className="inline-flex min-h-8 min-w-16 shrink-0 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
+      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+        <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
+        <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
+      </div>
+    </div>
+  );
   if (!embedInAppHeader) {
     return (
       <div
         className={`relative flex min-w-0 flex-shrink-0 flex-col border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
         data-dibay-nav="secondary"
       >
-        <div className={TRADE_PRIMARY_INNER_CLASS}>
-          <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
-            <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-            <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-          </div>
-        </div>
+        <div className={TRADE_PRIMARY_INNER_CLASS}>{skeleton}</div>
       </div>
     );
   }
   return (
     <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
-      <div className={TRADE_PRIMARY_INNER_CLASS}>
-        <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
-          <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-          <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-        </div>
-      </div>
+      <div className={TRADE_PRIMARY_INNER_CLASS}>{skeleton}</div>
     </div>
   );
 }
@@ -192,58 +196,84 @@ function TradePrimaryTabsInner({
     </p>
   );
 
+  const onAllTrade =
+    pendingMenuIntent?.source === "trade-primary"
+      ? menuHrefMatchesIntent(allTradeHref, pendingMenuIntent)
+      : menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
+
+  const categoryTabs = displayTabs.filter((tab) => tab.key !== "all");
+
+  const allSortChip = (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={onAllTrade}
+      aria-haspopup="listbox"
+      aria-expanded={allSortOpen}
+      aria-label={t("trade_market_sort_chip_aria", { label: allSortLabel })}
+      ref={allSortButtonRef}
+      onClick={onTradeAllSortChipClick}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          updateAllSortMenuPos();
+          setAllSortOpen(true);
+        }
+      }}
+      className={`${tradePrimaryTabClass(onAllTrade)} inline-flex shrink-0 items-center gap-1`}
+    >
+      <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
+      {allSortOpen ? (
+        <ChevronUp className="relative z-[1] h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+      ) : (
+        <ChevronDown className="relative z-[1] h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+      )}
+    </button>
+  );
+
+  const allSortMenuPortal =
+    allSortOpen && allSortMenuPos && typeof document !== "undefined"
+      ? createPortal(
+          <ul
+            ref={allSortMenuRef}
+            role="listbox"
+            aria-label={t("trade_015")}
+            className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+            style={{ position: "fixed", top: allSortMenuPos.top, left: allSortMenuPos.left, zIndex: 200 }}
+          >
+            {tradeSortOptions.map((opt) => (
+              <li key={opt.key} role="none">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={tradeState === opt.key}
+                  onClick={() => setTradeState(opt.key as "latest" | "active" | "reserved" | "sold")}
+                  className="block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                >
+                  {opt.label}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )
+      : null;
+
+  /** Community parity: sort chip fixed; category strip scrolls alone. */
   const scrollBody =
     error ? errorBlock : (
-      <HorizontalDragScroll
-        className={`${PHILIFE_TOPIC_TAB_ROW_CLASS} min-w-0 max-w-full border-b-0 bg-transparent px-0`}
-        style={{ WebkitOverflowScrolling: "touch" }}
+      <div
+        className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
         role="tablist"
         aria-label={t("trade_138")}
       >
-        {displayTabs.map((tab) => {
-          if (tab.key === "all") {
-            const onAllTrade =
-              pendingMenuIntent?.source === "trade-primary"
-                ? menuHrefMatchesIntent(allTradeHref, pendingMenuIntent)
-                : menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={onAllTrade}
-                aria-haspopup="listbox"
-                aria-expanded={allSortOpen}
-                aria-label={t("trade_market_sort_chip_aria", { label: allSortLabel })}
-                ref={allSortButtonRef}
-                onClick={onTradeAllSortChipClick}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    updateAllSortMenuPos();
-                    setAllSortOpen(true);
-                  }
-                }}
-                className={`${tradePrimaryTabClass(onAllTrade)} inline-flex items-center gap-1`}
-              >
-                <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
-                {allSortOpen ? (
-                  <ChevronUp
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
-                    strokeWidth={2.4}
-                    aria-hidden
-                  />
-                ) : (
-                  <ChevronDown
-                    className="relative z-[1] h-3.5 w-3.5 shrink-0"
-                    strokeWidth={2.4}
-                    aria-hidden
-                  />
-                )}
-              </button>
-            );
-          }
-          return (
+        {allSortChip}
+        <HorizontalDragScroll
+          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0 bg-transparent px-0`}
+          style={{ WebkitOverflowScrolling: "touch" }}
+          role="presentation"
+        >
+          {categoryTabs.map((tab) => (
             <Link
               key={tab.key}
               href={tab.href}
@@ -285,41 +315,16 @@ function TradePrimaryTabsInner({
             >
               <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{tab.label}</span>
             </Link>
-          );
-        })}
-      </HorizontalDragScroll>
+          ))}
+        </HorizontalDragScroll>
+      </div>
     );
 
   if (embedInAppHeader) {
     return (
       <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
         <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
-        {allSortOpen && allSortMenuPos && typeof document !== "undefined"
-          ? createPortal(
-              <ul
-                ref={allSortMenuRef}
-                role="listbox"
-                aria-label={t("trade_015")}
-                className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
-                style={{ position: "fixed", top: allSortMenuPos.top, left: allSortMenuPos.left, zIndex: 200 }}
-              >
-                {tradeSortOptions.map((opt) => (
-                  <li key={opt.key} role="none">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={tradeState === opt.key}
-                      onClick={() => setTradeState(opt.key as "latest" | "active" | "reserved" | "sold")}
-                      className="block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>,
-              document.body
-            )
-          : null}
+        {allSortMenuPortal}
       </div>
     );
   }
@@ -330,6 +335,7 @@ function TradePrimaryTabsInner({
       data-dibay-nav="secondary"
     >
       <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
+      {allSortMenuPortal}
     </div>
   );
 }
