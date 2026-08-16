@@ -295,8 +295,9 @@ export function TradeBrowseLocationSheet({
   const mapCenter = mapPin;
   const showRadiusOnMap = (view === "distance" || view === "main") && !mapEdit;
   const tradeSheetPanelClass = "flex min-h-0 flex-col";
+  // shrink-0: flex column scroll parent otherwise collapses absolute MapPicker to ~0 height
   const mapFrameClass =
-    "relative mt-2 h-[clamp(9rem,22vh,11.5rem)] overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]";
+    "relative mt-2 h-[clamp(9rem,22vh,11.5rem)] min-h-[9rem] shrink-0 overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]";
 
   if (view === "search") {
     return (
@@ -342,8 +343,8 @@ export function TradeBrowseLocationSheet({
           </div>
         }
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-[var(--overlay-space-3)]">
-          <div className="flex items-center justify-between gap-2 py-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+          <div className="flex shrink-0 items-center justify-between gap-2 py-1">
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-[color:var(--overlay-text-primary)]"
@@ -385,7 +386,7 @@ export function TradeBrowseLocationSheet({
             )}
           </div>
 
-          <fieldset className="mt-4 space-y-1">
+          <fieldset className="mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain border-0 p-0 pb-[var(--overlay-space-3)]">
             <legend className="sr-only">{t("trade_location_distance_title")}</legend>
             <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-2">
               <input
@@ -501,8 +502,8 @@ export function TradeBrowseLocationSheet({
         </div>
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-[var(--overlay-space-3)]">
-        <div className="flex items-center justify-between gap-2 py-1">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+        <div className="flex shrink-0 items-center justify-between gap-2 py-1">
           <h2 id={titleId} className="text-[18px] font-semibold text-[color:var(--overlay-text-primary)]">
             {t("trade_location_sheet_title")}
           </h2>
@@ -550,7 +551,7 @@ export function TradeBrowseLocationSheet({
         </div>
 
         {mapEdit ? (
-          <div className="mt-3">
+          <div className="mt-3 shrink-0">
             <DibayOverlayButton
               roleTone="primary"
               className="min-h-[var(--overlay-btn-height)] w-full"
@@ -563,93 +564,95 @@ export function TradeBrowseLocationSheet({
           </div>
         ) : null}
 
-        <p className="mt-3 text-[18px] font-semibold text-[color:var(--overlay-text-primary)]">
-          {draftLabel(draft, t("trade_location_all"))}
-          {mapEdit ? (
-            <span className="ml-1 text-sm font-medium text-[color:var(--overlay-text-secondary)]">
-              ({t("trade_location_draft_pending")})
-            </span>
-          ) : null}
-        </p>
-        {pinBusy ? (
-          <p className="mt-1 text-sm text-[color:var(--overlay-text-secondary)]">
-            {t("trade_location_resolving_city")}
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[var(--overlay-space-3)]">
+          <p className="text-[18px] font-semibold text-[color:var(--overlay-text-primary)]">
+            {draftLabel(draft, t("trade_location_all"))}
+            {mapEdit ? (
+              <span className="ml-1 text-sm font-medium text-[color:var(--overlay-text-secondary)]">
+                ({t("trade_location_draft_pending")})
+              </span>
+            ) : null}
           </p>
-        ) : null}
-        {geoError ? (
-          <p className="mt-1 text-sm text-[color:var(--overlay-danger)]">{geoError}</p>
-        ) : null}
-
-        <div className="mt-3 flex gap-2">
-          <DibayOverlayButton
-            roleTone="primary"
-            className="min-h-11 flex-1 gap-1.5"
-            loading={geoBusy}
-            disabled={mapEdit}
-            onClick={() => void onDeviceLocation()}
-          >
-            <LocateFixed className="h-4 w-4" aria-hidden />
-            {t("trade_location_search_my_location")}
-          </DibayOverlayButton>
-          <DibayOverlayButton
-            roleTone="secondary"
-            className="min-h-11 flex-1 gap-1.5"
-            onClick={onToggleMapEdit}
-          >
-            <Pencil className="h-4 w-4" aria-hidden />
-            {mapEdit ? t("trade_location_editing") : t("trade_location_edit")}
-          </DibayOverlayButton>
-        </div>
-
-        <button
-          type="button"
-          className="mt-4 min-h-11 w-full rounded-ui-rect border border-[color:var(--overlay-border)] px-3 py-2.5 text-left text-sm font-semibold text-[color:var(--overlay-primary)]"
-          onClick={onViewAll}
-        >
-          {t("trade_location_view_all_products")}
-        </button>
-
-        <section className="mt-4">
-          <p className="text-xs font-medium text-[color:var(--overlay-text-secondary)]">
-            {t("trade_location_my_region")}
-          </p>
-          {myRegionLoading ? (
-            <p className="mt-2 text-sm text-[color:var(--overlay-text-secondary)]">…</p>
-          ) : myRegion ? (
-            <button
-              type="button"
-              className="mt-1 flex min-h-11 w-full items-center rounded-ui-rect px-1 py-2 text-left font-medium text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)]"
-              onClick={onMyRegion}
-            >
-              {myRegion.displayName}
-            </button>
-          ) : (
-            <p className="mt-2 text-sm text-[color:var(--overlay-text-secondary)]">
-              {t("trade_location_my_region_missing")}
+          {pinBusy ? (
+            <p className="mt-1 text-sm text-[color:var(--overlay-text-secondary)]">
+              {t("trade_location_resolving_city")}
             </p>
-          )}
-        </section>
+          ) : null}
+          {geoError ? (
+            <p className="mt-1 text-sm text-[color:var(--overlay-danger)]">{geoError}</p>
+          ) : null}
 
-        {nearby.length > 0 ? (
+          <div className="mt-3 flex gap-2">
+            <DibayOverlayButton
+              roleTone="primary"
+              className="min-h-11 flex-1 gap-1.5"
+              loading={geoBusy}
+              disabled={mapEdit}
+              onClick={() => void onDeviceLocation()}
+            >
+              <LocateFixed className="h-4 w-4" aria-hidden />
+              {t("trade_location_search_my_location")}
+            </DibayOverlayButton>
+            <DibayOverlayButton
+              roleTone="secondary"
+              className="min-h-11 flex-1 gap-1.5"
+              onClick={onToggleMapEdit}
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              {mapEdit ? t("trade_location_editing") : t("trade_location_edit")}
+            </DibayOverlayButton>
+          </div>
+
+          <button
+            type="button"
+            className="mt-4 min-h-11 w-full rounded-ui-rect border border-[color:var(--overlay-border)] px-3 py-2.5 text-left text-sm font-semibold text-[color:var(--overlay-primary)]"
+            onClick={onViewAll}
+          >
+            {t("trade_location_view_all_products")}
+          </button>
+
           <section className="mt-4">
             <p className="text-xs font-medium text-[color:var(--overlay-text-secondary)]">
-              {t("trade_location_nearby")}
+              {t("trade_location_my_region")}
             </p>
-            <ul className="mt-1 space-y-0.5">
-              {nearby.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    className="flex min-h-11 w-full items-center rounded-ui-rect px-1 py-2 text-left font-medium text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)]"
-                    onClick={() => onPickNearby(c.id, c.displayName)}
-                  >
-                    {c.displayName}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {myRegionLoading ? (
+              <p className="mt-2 text-sm text-[color:var(--overlay-text-secondary)]">…</p>
+            ) : myRegion ? (
+              <button
+                type="button"
+                className="mt-1 flex min-h-11 w-full items-center rounded-ui-rect px-1 py-2 text-left font-medium text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)]"
+                onClick={onMyRegion}
+              >
+                {myRegion.displayName}
+              </button>
+            ) : (
+              <p className="mt-2 text-sm text-[color:var(--overlay-text-secondary)]">
+                {t("trade_location_my_region_missing")}
+              </p>
+            )}
           </section>
-        ) : null}
+
+          {nearby.length > 0 ? (
+            <section className="mt-4">
+              <p className="text-xs font-medium text-[color:var(--overlay-text-secondary)]">
+                {t("trade_location_nearby")}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {nearby.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className="flex min-h-11 w-full items-center rounded-ui-rect px-1 py-2 text-left font-medium text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-secondary)]"
+                      onClick={() => onPickNearby(c.id, c.displayName)}
+                    >
+                      {c.displayName}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       </div>
     </DibayBottomSheet>
   );

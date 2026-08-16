@@ -8,6 +8,7 @@ import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
   SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
+  samTier1HeaderIconMicro,
 } from "@/lib/ui/tier1-header-icon";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
@@ -87,11 +88,18 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
   }
 }
 
+export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title";
+
 /**
- * Trade header MapPin — Marketplace buyer browse location (Phase 2).
- * DibayBottomSheet + draft/committed. No 3-tab / full-screen / address mutation.
+ * Trade header MapPin — Marketplace buyer browse location.
+ * `beside-title`: 거래 제목 우측 (아이콘 + City · km)
+ * `icon-cluster`: 우측 아이콘 열 (레거시)
  */
-export function TradeHeaderLocationPinButton() {
+export function TradeHeaderLocationPinButton({
+  placement = "icon-cluster",
+}: {
+  placement?: TradeHeaderLocationPinPlacement;
+} = {}) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "/market";
   const searchParams = useSearchParams();
@@ -214,19 +222,27 @@ export function TradeHeaderLocationPinButton() {
         })()
       : null;
 
+  const ariaLabel = headerHint
+    ? `${t("trade_location_pin_aria")}: ${headerHint}`
+    : t("trade_location_pin_aria");
+
+  const besideTitle = placement === "beside-title";
+
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
-          isFiltered ? "text-sam-primary" : ""
-        }`}
-        aria-label={
-          headerHint
-            ? `${t("trade_location_pin_aria")}: ${headerHint}`
-            : t("trade_location_pin_aria")
+        className={
+          besideTitle
+            ? `inline-flex h-[length:var(--delivery-header-action)] max-w-[min(52vw,12.5rem)] min-w-0 shrink items-center gap-1 rounded-ui-rect px-1 text-left ${samTier1HeaderIconMicro} ${
+                isFiltered ? "text-sam-primary" : "text-sam-fg"
+              }`
+            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
+                isFiltered ? "text-sam-primary" : ""
+              }`
         }
+        aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => {
@@ -235,11 +251,21 @@ export function TradeHeaderLocationPinButton() {
         }}
       >
         <MapPin
-          className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+          className={besideTitle ? "h-4 w-4 shrink-0" : SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
           strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
           aria-hidden
         />
-        {headerHint ? (
+        {besideTitle ? (
+          headerHint ? (
+            <span className="min-w-0 truncate text-[11px] font-semibold leading-tight">
+              {headerHint}
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold leading-tight text-sam-fg-muted">
+              {t("trade_location_all")}
+            </span>
+          )
+        ) : headerHint ? (
           <span className="absolute -bottom-0.5 left-1/2 max-w-[5.5rem] -translate-x-1/2 truncate text-[9px] font-semibold leading-none text-sam-primary">
             {headerHint}
           </span>
