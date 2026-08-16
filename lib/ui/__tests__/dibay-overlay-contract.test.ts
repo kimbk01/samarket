@@ -94,10 +94,12 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(src).not.toContain("bg-black/25");
   });
 
-  it("domain transition uses DibayConfirmDialog", () => {
-    const src = read("lib/navigation/main-bottom-nav-domain-transition-dialog.tsx");
-    expect(src).toContain("DibayConfirmDialog");
-    expect(src).not.toContain("bg-black/50");
+  it("BottomNav MAIN domain confirm dialog removed — no DibayConfirmDialog path", () => {
+    expect(() => read("lib/navigation/main-bottom-nav-domain-transition-dialog.tsx")).toThrow();
+    const bottomNav = read("components/layout/BottomNav.tsx");
+    expect(bottomNav).not.toContain("resolveBottomNavTransitionConfirmCopy");
+    expect(bottomNav).not.toContain("MainBottomNavDomainTransitionDialog");
+    expect(bottomNav).not.toContain("nav_cross_domain_confirm");
   });
 
   it("MobileConfirm absorbs into DibayConfirmDialog", () => {

@@ -45,37 +45,6 @@ export function isMainBottomNavHubEmphasisTab(
   return resolveBuiltinTabHubDomain(tabId) === currentHubDomain;
 }
 
-/** 하단 탭 교차 확인 팝업 면제 — my·비허브 커스텀 탭 (chat·메신저 슬롯은 별도 확인) */
-export function isMainBottomNavCrossDomainConfirmExemptTabId(tabId: string): boolean {
-  if (tabId === "my") return true;
-  if (tabId === "delivery-my" || tabId === "philife-my" || tabId === "trade-my") return true;
-  if (
-    tabId === "chat" ||
-    tabId === "delivery-order-chat" ||
-    tabId === "philife-messenger" ||
-    tabId === "trade-order-chat"
-  ) {
-    return true;
-  }
-  return resolveBuiltinTabHubDomain(tabId) == null;
-}
-
-/** 3대 허브 탭 간 이동 시 확인 팝업 — chat·my·동일 도메인·비허브 탭은 false */
-export function requiresCrossDomainConfirm(
-  pathname: string | null | undefined,
-  targetTabId: string
-): boolean {
-  if (isMainBottomNavCrossDomainConfirmExemptTabId(targetTabId)) return false;
-
-  const targetHub = resolveBuiltinTabHubDomain(targetTabId);
-  if (targetHub == null) return false;
-
-  const fromHub = resolveMainBottomNavHubDomain(pathname);
-  if (fromHub === targetHub) return false;
-
-  return true;
-}
-
 const HUB_DOMAIN_LABEL_KEYS: Record<MainBottomNavHubDomain, MessageKey> = {
   philife: "nav_bottom_community",
   trade: "nav_bottom_trade",
@@ -84,29 +53,4 @@ const HUB_DOMAIN_LABEL_KEYS: Record<MainBottomNavHubDomain, MessageKey> = {
 
 export function resolveHubDomainLabelKey(domain: MainBottomNavHubDomain): MessageKey {
   return HUB_DOMAIN_LABEL_KEYS[domain];
-}
-
-export type CrossDomainConfirmCopy =
-  | { kind: "from_to"; fromLabelKey: MessageKey; toLabelKey: MessageKey }
-  | { kind: "to_only"; toLabelKey: MessageKey };
-
-/** 확인 모달 문구용 i18n key·파라미터 조합 */
-export function resolveCrossDomainConfirmCopy(
-  pathname: string | null | undefined,
-  targetTabId: string
-): CrossDomainConfirmCopy | null {
-  if (!requiresCrossDomainConfirm(pathname, targetTabId)) return null;
-  const toHub = resolveBuiltinTabHubDomain(targetTabId);
-  if (toHub == null) return null;
-
-  const fromHub = resolveMainBottomNavHubDomain(pathname);
-  const toLabelKey = resolveHubDomainLabelKey(toHub);
-  if (fromHub == null) {
-    return { kind: "to_only", toLabelKey };
-  }
-  return {
-    kind: "from_to",
-    fromLabelKey: resolveHubDomainLabelKey(fromHub),
-    toLabelKey,
-  };
 }

@@ -2,15 +2,21 @@ import { describe, expect, it } from "vitest";
 import { computeMainBottomNavPushAxis } from "@/lib/navigation/compute-main-bottom-nav-push-axis";
 
 describe("computeMainBottomNavPushAxis", () => {
-  it("배달→메신저 — rtl (우측 탭, 우→좌)", () => {
+  it("다른 MAIN DOMAIN — 항상 rtl (index 무관)", () => {
     expect(computeMainBottomNavPushAxis("/stores", "/community-messenger?section=chats")).toBe("rtl");
-  });
-
-  it("메신저→배달 — ltr (좌측 탭, 좌→우)", () => {
-    expect(computeMainBottomNavPushAxis("/community-messenger", "/stores")).toBe("ltr");
+    expect(computeMainBottomNavPushAxis("/community-messenger", "/stores")).toBe("rtl");
+    expect(computeMainBottomNavPushAxis("/philife", "/market")).toBe("rtl");
+    expect(computeMainBottomNavPushAxis("/market", "/philife")).toBe("rtl");
+    expect(computeMainBottomNavPushAxis("/mypage", "/philife")).toBe("rtl");
+    expect(computeMainBottomNavPushAxis("/philife", "/mypage")).toBe("rtl");
   });
 
   it("동일 경로 — null", () => {
     expect(computeMainBottomNavPushAxis("/stores", "/stores")).toBeNull();
+  });
+
+  it("동일 MainSurface — null", () => {
+    expect(computeMainBottomNavPushAxis("/philife", "/community")).toBeNull();
+    expect(computeMainBottomNavPushAxis("/mypage", "/my")).toBeNull();
   });
 });

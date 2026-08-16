@@ -29,10 +29,18 @@ import {
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 import { isDeepRouteNavigationLockActive } from "@/lib/navigation/cm-deep-route-navigation-lock";
 
-/** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
-export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHref: string): boolean {
-  if (!pathname) return true;
-  if (pathname === "/market" && targetHref !== "/market") return false;
+/**
+ * BottomNav MAIN DOMAIN history SSOT.
+ * Back contract (`cm-kakao-telegram-navigation-contract`): hub tabs = same-layer **replace**;
+ * room/call = stack **push**. DO NOT push hub↔hub (history tangle / Back ≠ hub).
+ */
+export const BOTTOM_NAV_HISTORY_MODE = "replace" as const;
+
+/** @deprecated use BOTTOM_NAV_HISTORY_MODE — always replace for hub tabs */
+export function mainBottomNavRouteUsesReplace(
+  _pathname: string | null,
+  _targetHref: string
+): boolean {
   return true;
 }
 

@@ -174,7 +174,8 @@ describe("commitMainBottomNavRoute", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("/market 에서 다른 탭 — push", () => {
+  it("/market 에서 다른 탭 — replace (hub history SSOT)", () => {
+    const replace = vi.fn();
     const push = vi.fn();
     commitMainBottomNavRoute({
       pathname: "/market",
@@ -185,10 +186,11 @@ describe("commitMainBottomNavRoute", () => {
       onNavigationIntent: vi.fn(),
       guardBeforeNavigate: () => true,
       push,
-      replace: vi.fn(),
+      replace,
       skipPerfMark: true,
     });
-    expect(push).toHaveBeenCalledWith("/stores");
+    expect(replace).toHaveBeenCalledWith("/stores");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("하단 탭은 모두 (main) 셸 — cross-group enter session·intent 없음(Provider remount 제거)", () => {
@@ -253,8 +255,9 @@ describe("commitMainBottomNavRoute", () => {
 });
 
 describe("mainBottomNavRouteUsesReplace", () => {
-  it("/market 탈출은 push", () => {
-    expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(false);
+  it("BottomNav hub history = always replace", () => {
+    expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(true);
+    expect(mainBottomNavRouteUsesReplace("/philife", "/mypage")).toBe(true);
   });
 });
 

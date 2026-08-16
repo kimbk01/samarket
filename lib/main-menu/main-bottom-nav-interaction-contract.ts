@@ -1,9 +1,10 @@
 /**
  * CONTRACT — 하단 탭·배달 다이얼 상호작용 (제품 3규칙).
  *
- * 1. **모든 일반 하단 탭** (주문내역·장바구니·주문채팅·내정보·분할탭 community/home/stores 등)
- *    → 탭 선택 즉시 `commitMainBottomNavRoute` (push/replace). 이미 동일 URL이면 맨 위 스크롤.
- *    → hub 교차·메신저 진입: **교육용 Confirm** (`resolveBottomNavTransitionConfirmCopy` → 확인 후 commit). 데이터 보호는 write/cart/checkout guard.
+ * 1. **모든 일반 하단 탭** (community/trade/delivery/chat/my 등)
+ *    → 탭 선택 즉시 `commitMainBottomNavRoute` (history = replace). 이미 동일 URL이면 맨 위 스크롤.
+ *    → Chat: `requireAuthAction` gate 후 **동일** `commitMainBottomNavRoute` (bare router.push 금지).
+ *    → BottomNav MAIN confirm popup 없음. 데이터 보호는 write/cart/checkout guard.
  *
  * 2. **다이얼 있는 배달 5탭 셸** (`isDeliveryBottomNavRail`)
  *    - **홈 짧은 탭** → 도메인 다이얼 열기/닫기 (`runDeliveryHomeHubShortTap`) — 이동 없음
