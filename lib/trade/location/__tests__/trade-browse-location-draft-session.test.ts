@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearTradeBrowseLocationDraftSession,
   createTradeBrowseLocationDraftSession,
@@ -9,9 +9,37 @@ import {
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { TRADE_BROWSE_RECOMMENDED_RADIUS_KM } from "@/lib/trade/location/trade-browse-radius";
 
+/** Vitest `environment: "node"` — stub sessionStorage (CI has no browser Storage). */
+function installSessionStorageStub() {
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => (map.has(k) ? map.get(k)! : null),
+    setItem: (k: string, v: string) => {
+      map.set(k, String(v));
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+    clear: () => {
+      map.clear();
+    },
+    key: (i: number) => Array.from(map.keys())[i] ?? null,
+    get length() {
+      return map.size;
+    },
+  };
+  vi.stubGlobal("sessionStorage", storage);
+  return storage;
+}
+
 describe("trade browse location draft session", () => {
+  beforeEach(() => {
+    installSessionStorageStub();
+  });
+
   afterEach(() => {
     clearTradeBrowseLocationDraftSession();
+    vi.unstubAllGlobals();
   });
 
   it("round-trips city draft + radius", () => {
