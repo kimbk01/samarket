@@ -2,9 +2,88 @@
  * Product option catalogs referenced by Field Library optionCatalogId.
  * Values match existing posts.meta / form-options storage tokens.
  */
+import {
+  USED_CAR_BODY_TYPES,
+  USED_CAR_BRANDS,
+  USED_CAR_BRAND_OTHER_KEY,
+  USED_CAR_MILEAGE_PRESETS,
+} from "@/lib/trade/used-car-form-catalog";
+
 export type TradeOptionEntry = { value: string; labelKo: string; labelEn: string };
 
+const USED_CAR_BODY_TYPE_LABELS: Record<string, { labelKo: string; labelEn: string }> = {
+  sedan: { labelKo: "승용차", labelEn: "Sedan" },
+  suv: { labelKo: "SUV", labelEn: "SUV" },
+  rv: { labelKo: "RV·승합", labelEn: "RV / van" },
+  van: { labelKo: "밴", labelEn: "Van" },
+  truck: { labelKo: "트럭", labelEn: "Truck" },
+  sports: { labelKo: "스포츠카", labelEn: "Sports car" },
+  kei: { labelKo: "경차", labelEn: "Kei car" },
+  other: { labelKo: "기타", labelEn: "Other" },
+};
+
+const USED_CAR_MILEAGE_PRESET_LABELS: Record<string, { labelKo: string; labelEn: string }> = {
+  "5000": { labelKo: "5,000 km 미만", labelEn: "Under 5,000 km" },
+  "10000": { labelKo: "약 1만 km", labelEn: "About 10,000 km" },
+  "20000": { labelKo: "약 2만 km", labelEn: "About 20,000 km" },
+  "50000": { labelKo: "약 5만 km", labelEn: "About 50,000 km" },
+  "80000": { labelKo: "약 8만 km", labelEn: "About 80,000 km" },
+  "100000": { labelKo: "약 10만 km", labelEn: "About 100,000 km" },
+  "150000": { labelKo: "약 15만 km", labelEn: "About 150,000 km" },
+  "200000": { labelKo: "20만 km 이상", labelEn: "200,000 km or more" },
+};
+
+function buildUsedCarBrandCatalog(): TradeOptionEntry[] {
+  return USED_CAR_BRANDS.map((b) => ({
+    value: b.key,
+    labelKo: b.key === USED_CAR_BRAND_OTHER_KEY ? "기타" : b.label,
+    labelEn: b.key === USED_CAR_BRAND_OTHER_KEY ? "Other" : b.label,
+  }));
+}
+
+function buildUsedCarModelCatalog(): TradeOptionEntry[] {
+  const seen = new Set<string>();
+  const out: TradeOptionEntry[] = [];
+  for (const brand of USED_CAR_BRANDS) {
+    for (const model of brand.models) {
+      if (seen.has(model.key)) continue;
+      seen.add(model.key);
+      const isOther = model.label === "__other_model__";
+      out.push({
+        value: model.key,
+        labelKo: isOther ? "기타 모델" : model.label,
+        labelEn: isOther ? "Other model" : model.label,
+      });
+    }
+  }
+  return out;
+}
+
+function buildUsedCarBodyTypeCatalog(): TradeOptionEntry[] {
+  return USED_CAR_BODY_TYPES.map((entry) => {
+    const labels = USED_CAR_BODY_TYPE_LABELS[entry.key] ?? {
+      labelKo: entry.key,
+      labelEn: entry.key,
+    };
+    return { value: entry.key, ...labels };
+  });
+}
+
+function buildUsedCarMileagePresetCatalog(): TradeOptionEntry[] {
+  return USED_CAR_MILEAGE_PRESETS.map((preset) => {
+    const labels = USED_CAR_MILEAGE_PRESET_LABELS[preset.key] ?? {
+      labelKo: `${preset.digits} km`,
+      labelEn: `${preset.digits} km`,
+    };
+    return { value: preset.digits, ...labels };
+  });
+}
+
 export const TRADE_OPTION_CATALOGS: Record<string, readonly TradeOptionEntry[]> = {
+  used_car_brands: buildUsedCarBrandCatalog(),
+  used_car_models: buildUsedCarModelCatalog(),
+  used_car_body_types: buildUsedCarBodyTypeCatalog(),
+  used_car_mileage_presets: buildUsedCarMileagePresetCatalog(),
   vehicle_transmission: [
     { value: "automatic", labelKo: "자동", labelEn: "Automatic" },
     { value: "manual", labelKo: "수동", labelEn: "Manual" },

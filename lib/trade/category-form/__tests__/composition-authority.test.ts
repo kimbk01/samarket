@@ -11,6 +11,10 @@ import {
 import { buildCompositionListAttributes } from "@/lib/trade/category-form/list-attributes";
 import { buildCompositionDetailAttributes } from "@/lib/trade/category-form/detail-attributes";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
+import {
+  TRADE_OPTION_CATALOGS,
+  labelForTradeOption,
+} from "@/lib/trade/category-form/option-catalogs";
 
 describe("trade category-form composition authority", () => {
   it("seeds five profiles and rejects rent-car", () => {
@@ -62,6 +66,25 @@ describe("trade category-form composition authority", () => {
         expect(TRADE_FIELD_LIBRARY[row.id]).toBeTruthy();
       }
     }
+  });
+
+  it("every Field Library optionCatalogId exists in TRADE_OPTION_CATALOGS", () => {
+    for (const field of Object.values(TRADE_FIELD_LIBRARY)) {
+      const catalogId = field.optionCatalogId;
+      if (!catalogId) continue;
+      expect(TRADE_OPTION_CATALOGS[catalogId]?.length, catalogId).toBeGreaterThan(0);
+    }
+  });
+
+  it("list attributes label used-car body_type via option catalog", () => {
+    const composition = resolveTradeComposition({ icon_key: "used-car" });
+    const attrs = buildCompositionListAttributes({
+      composition,
+      meta: { car_trade: "buy", car_body_type: "sedan" },
+      lang: "ko",
+    });
+    expect(attrs.some((a) => a.fieldId === "body_type" && a.text === "승용차")).toBe(true);
+    expect(labelForTradeOption("used_car_body_types", "sedan", "en")).toBe("Sedan");
   });
 
   it("list attributes format mileage from meta without skin if", () => {
