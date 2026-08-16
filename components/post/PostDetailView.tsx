@@ -1813,11 +1813,16 @@ export function PostDetailView({
       post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
         ? (post.meta as Record<string, unknown>)
         : undefined;
-    const fromPost = resolveTradePostListingLocationLine(re, post.region, post.city);
+    const fromPost = resolveTradePostListingLocationLine(
+      re,
+      post.region,
+      post.city,
+      post.trade_lgu_id
+    );
     if (fromPost) return fromPost;
     const t = sellerTradeLocationLine?.trim();
     return t || null;
-  }, [post.region, post.city, post.meta, sellerTradeLocationLine]);
+  }, [post.region, post.city, post.trade_lgu_id, post.meta, sellerTradeLocationLine]);
 
   const showLocation =
     (category == null || category.settings?.has_location !== false) && !!listingLocationLine;

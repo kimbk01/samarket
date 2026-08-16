@@ -16,6 +16,7 @@ import {
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import {
   tradeMeetSpotFromMetaSnapshot,
+  buildTradeMeetSpotMetaForPersist,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
 import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
@@ -279,7 +280,6 @@ export function JobsWriteForm({
     cityId: "",
     tradeLguId: null,
     nationalStatus: "pending",
-    submitMeta: null,
   });
 
   const effectiveTradeRegionId = useMemo(() => {
@@ -862,11 +862,11 @@ export function JobsWriteForm({
           ? t("jobs_write_err_seek_region_read")
           : t("trade_write_err_region_read");
     }
-    if (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta) {
-      next.meetSpot =
+    if (!tradeAddressSsot.ready || tradeAddressSsot.missing) {
+      next.region =
         listingKind === "work"
           ? t("jobs_write_err_seek_region_confirm")
-          : t("trade_write_err_meet_spot");
+          : t("trade_write_err_region_read");
     }
     if (!description.trim()) {
       next.description =
@@ -1134,7 +1134,10 @@ export function JobsWriteForm({
         let meta: Record<string, unknown> = buildMeta();
         const submitRegion = effectiveTradeRegionId.trim();
         const submitCity = effectiveTradeCityId.trim();
-        if (tradeAddressSsot.submitMeta) meta = { ...meta, ...tradeAddressSsot.submitMeta };
+        if (tradeMeetSpot) {
+          const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
+          if (meetMeta) meta = { ...meta, ...meetMeta };
+        }
         const priceNum = payNum ? Number(payNum) : null;
         const tradeJob = buildTradeJobPayload();
         if (editPostId) {
@@ -1218,6 +1221,7 @@ export function JobsWriteForm({
       showDescriptionAppend,
       descriptionAppend,
       tradeAddressSsot,
+      tradeMeetSpot,
     ]
   );
 

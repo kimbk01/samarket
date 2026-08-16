@@ -622,7 +622,8 @@ export function AdminPostsPageContent() {
                       ? (p.meta as Record<string, unknown>)
                       : undefined;
                   const listingLocLine =
-                    resolveTradePostListingLocationLine(metaRec, p.region, p.city) ?? dash;
+                    resolveTradePostListingLocationLine(metaRec, p.region, p.city, p.trade_lgu_id) ??
+                    dash;
                   return (
                     <tr key={p.id} className="border-b border-sam-border-soft">
                       <td className="px-2 py-2 text-center">

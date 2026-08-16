@@ -19,6 +19,7 @@ import {
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import {
   tradeMeetSpotFromMetaSnapshot,
+  buildTradeMeetSpotMetaForPersist,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
 import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
@@ -186,7 +187,6 @@ export function ExchangeWriteForm({
     cityId: "",
     tradeLguId: null,
     nationalStatus: "pending",
-    submitMeta: null,
   });
   const effectiveTradeRegionId = useMemo(() => {
     return region.trim();
@@ -618,8 +618,8 @@ export function ExchangeWriteForm({
     ) {
       next.location = t("trade_write_err_region_read");
     }
-    if (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta) {
-      next.meetSpot = t("trade_write_err_meet_spot");
+    if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing)) {
+      next.location = t("trade_write_err_region_read");
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -676,7 +676,10 @@ export function ExchangeWriteForm({
         };
         const submitRegion = effectiveTradeRegionId.trim();
         const submitCity = effectiveTradeCityId.trim();
-        if (tradeAddressSsot.submitMeta) meta = { ...meta, ...tradeAddressSsot.submitMeta };
+        if (hasLocation) {
+          const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
+          if (meetMeta) meta = { ...meta, ...meetMeta };
+        }
         const payload = {
           type: "trade" as const,
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
@@ -745,6 +748,7 @@ export function ExchangeWriteForm({
       descriptionAppend,
       images,
       tradeAddressSsot,
+      tradeMeetSpot,
     ]
   );
 

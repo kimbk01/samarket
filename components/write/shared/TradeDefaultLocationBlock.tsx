@@ -86,10 +86,13 @@ function emptySsot(): TradeWriteAddressSsotSnapshot {
     cityId: "",
     tradeLguId: null,
     nationalStatus: "unresolved",
-    submitMeta: null,
   };
 }
 
+/**
+ * Listing location seed from master address — NOT meet spot.
+ * `tradeLguId` is the listing City snapshot authority for submit.
+ */
 export type TradeWriteAddressSsotSnapshot = {
   ready: boolean;
   missing: boolean;
@@ -99,7 +102,6 @@ export type TradeWriteAddressSsotSnapshot = {
   /** National PSGC LGU — required for Trade location validity (N3) */
   tradeLguId: string | null;
   nationalStatus: "resolved" | "ambiguous" | "unresolved" | "pending";
-  submitMeta: { trade_meet_spot: { display_line: string } } | null;
 };
 
 type TradeDefaultLocationBlockProps = {
@@ -194,14 +196,14 @@ export function TradeDefaultLocationBlock({
       const nationalOk = national.status === "resolved" && !!national.tradeLguId;
       resolvedRef.current?.({
         ready: true,
-        // National LGU is location validity; local Area optional.
+        // National LGU is listing City validity; local Area optional.
+        // Meet spot is NOT seeded from master TITLE.
         missing: !next.line || !nationalOk,
         displayLine: next.line,
         regionId: next.regionId,
         cityId: next.cityId,
         tradeLguId: national.tradeLguId,
         nationalStatus: national.status,
-        submitMeta: next.line ? { trade_meet_spot: { display_line: next.line } } : null,
       });
     } catch {
       if (requestGeneration !== requestGenerationRef.current) return;

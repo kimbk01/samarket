@@ -152,6 +152,7 @@ import {
 import {
   tradeMeetSpotFromClientFields,
   tradeMeetSpotFromMetaSnapshot,
+  buildTradeMeetSpotMetaForPersist,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
 import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
@@ -304,7 +305,6 @@ export function TradeWriteForm({
     cityId: "",
     tradeLguId: null,
     nationalStatus: "pending",
-    submitMeta: null,
   });
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const locationLocked = Boolean(
@@ -1090,8 +1090,8 @@ export function TradeWriteForm({
     ) {
       next.location = t("trade_write_err_region_read");
     }
-    if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing || !tradeAddressSsot.submitMeta)) {
-      next.meetSpot = t("trade_write_err_meet_spot");
+    if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing)) {
+      next.location = t("trade_write_err_region_read");
     }
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = t("trade_write_err_building");
@@ -1243,7 +1243,10 @@ export function TradeWriteForm({
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
         meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
-        if (hasLocation && tradeAddressSsot.submitMeta) meta = { ...meta, ...tradeAddressSsot.submitMeta };
+        if (hasLocation) {
+          const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
+          if (meetMeta) meta = { ...meta, ...meetMeta };
+        }
         const usedCarPostTitle =
           usedCarTrade === "buy"
             ? t("trade_write_auto_title_buy", {
@@ -1374,6 +1377,7 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       hasLocation,
       tradeAddressSsot,
+      tradeMeetSpot,
       effectiveTradeRegionId,
       effectiveTradeCityId,
     ]

@@ -353,7 +353,12 @@ export function buildPostListPreviewModel(
 
   const region = str(post.region);
   const city = str(post.city);
-  const locationLabel = resolveTradePostListingLocationLine(meta, region || undefined, city || undefined);
+  const locationLabel = resolveTradePostListingLocationLine(
+    meta,
+    region || undefined,
+    city || undefined,
+    str(post.trade_lgu_id) || null
+  );
   const currency = opts.currency || "KRW";
   const locale = opts.locale || "ko-KR";
   const createdAt = str(post.created_at) || str(post.updated_at);

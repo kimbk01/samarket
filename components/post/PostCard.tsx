@@ -107,7 +107,12 @@ export const PostCard = memo(function PostCard({
       ? (post.meta as Record<string, unknown>)
       : undefined;
   const isPromotedContent = metaRecord?.promotion_projection === "promoted_content";
-  const locationLine = resolveTradePostListingLocationLine(metaRecord, post.region, post.city);
+  const locationLine = resolveTradePostListingLocationLine(
+    metaRecord,
+    post.region,
+    post.city,
+    post.trade_lgu_id
+  );
   const timeLabel =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at)

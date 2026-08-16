@@ -27,9 +27,9 @@
  * | Cart / Checkout | — | user_addresses master | cart radio + same row text | FULL before order · store_orders snapshot after order | store_orders.delivery_* |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
  * | Community Feed/Write | — | user_addresses master → title label | — | canonical TITLE | posts.region_label |
- * | Trade Write | — | user_addresses master → taxonomy ids + submit meta | /mypage/addresses | canonical TITLE | address-defaults.master + posts.region/city/meta.trade_meet_spot |
- * | Trade Detail | — | posts snapshot | — | post region/city label | posts.region/city |
- * | Trade Meet Spot | legacy map snapshot only | posts.meta.trade_meet_spot | — | place label | post meta |
+ * | Trade Write | — | user_addresses master → trade_lgu_id listing City seed + optional local Area | /mypage/addresses | canonical TITLE (seed UI) | posts.trade_lgu_id (+ optional region/city); meet_spot only if user picks |
+ * | Trade Detail | — | posts snapshot | — | trade_lgu_id City label | posts.trade_lgu_id |
+ * | Trade Meet Spot | map pick only | posts.meta.trade_meet_spot | — | place label | post meta (not card City) |
  * | Store Application / Owner Physical Address | store form | stores | — | store formatters | stores row |
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
  * | Admin Member Address | admin tools | user_addresses | — | canonical FULL | user_addresses + legacy profile section |

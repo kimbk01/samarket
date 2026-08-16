@@ -82,3 +82,24 @@ export function tradeMeetSpotFromClientFields(
     appCityId,
   };
 }
+
+/**
+ * Persist meet spot only when the writer explicitly picked one.
+ * Do NOT invent meet_spot from master address TITLE (listing City ≠ meet spot).
+ */
+export function buildTradeMeetSpotMetaForPersist(
+  spot: TradeMeetSpotValue | null | undefined
+): { trade_meet_spot: Record<string, unknown> } | null {
+  const dl = spot?.displayLine?.trim() ?? "";
+  if (!dl) return null;
+  const row: Record<string, unknown> = { display_line: dl };
+  const coords = pickPersistableMeetSpotCoords(spot);
+  if (coords) {
+    row.lat = coords.lat;
+    row.lng = coords.lng;
+  }
+  if (spot?.placeId?.trim()) row.place_id = spot.placeId.trim();
+  if (spot?.appRegionId?.trim()) row.app_region_id = spot.appRegionId.trim();
+  if (spot?.appCityId?.trim()) row.app_city_id = spot.appCityId.trim();
+  return { trade_meet_spot: row };
+}
