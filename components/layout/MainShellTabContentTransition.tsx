@@ -14,10 +14,13 @@ type Props = {
 /**
  * Bottom-nav transition host.
  *
- * CONTRACT — No temporary Feed/List enter panel (InstantMainTabEnterPanel removed).
- * Hub routes render the single route `children` Surface only.
- * DO NOT: dual-panel temporary Community/Trade/Delivery/Chat/Mypage entry.
- * DO NOT: keep-alive multi-hub host that runs inactive URL sync (breaks bottom-nav).
+ * CONTRACT — Hub tab visual (product):
+ * - History: replace (unchanged SSOT)
+ * - Visual: NEW only enters right→left (`from-rtl` → `enter-rtl`)
+ * - OLD does not translate (no TRUE PUSH)
+ * - No frozen-DOM / body overlay clone (previous COVER approach abandoned)
+ * Hub routes: single route `children` Surface only.
+ * DO NOT: dual-panel Feed clone · KeepAlive multi-hub · View Transition · OLD exit translate
  */
 export function MainShellTabContentTransition({
   children,

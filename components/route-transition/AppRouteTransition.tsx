@@ -93,6 +93,73 @@ function normalizePathKeyForPush(pathname: string | null | undefined): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
 }
 
+/**
+ * Hub tab: NEW surface only slides right→left.
+ * No frozen OLD clone, no OLD exit translate (not TRUE PUSH / not abandoned COVER overlay).
+ */
+function beginHubNewOnlyRtlEnter(
+  el: HTMLDivElement,
+  axis: MainShellRoutePushAxis
+): (() => void) | undefined {
+  if (prefersReducedMotion()) {
+    stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+    el.dataset.routeTransitionKind = "none";
+    return undefined;
+  }
+
+  const fromClass = mainShellPushFromClassForAxis(axis);
+  const enterClass = mainShellPushEnterClassForAxis(axis);
+
+  const ensureCleanup = () => {
+    if ((el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer != null) return;
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      const pending = (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+      if (pending != null) {
+        window.clearTimeout(pending);
+        delete (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+      }
+      el.removeEventListener("transitionend", onEnd);
+      stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+      if (el.dataset.routeTransitionKind === "cover") {
+        el.dataset.routeTransitionKind = "none";
+      }
+    };
+
+    const onEnd = (ev: TransitionEvent) => {
+      if (ev.target !== el) return;
+      if (ev.propertyName && ev.propertyName !== "transform") return;
+      cleanup();
+    };
+
+    el.addEventListener("transitionend", onEnd);
+    (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer = window.setTimeout(
+      cleanup,
+      MAIN_SHELL_ROUTE_TRANSITION_MS + 48
+    );
+  };
+
+  /** Already animating (Strict Mode remount) — do not restart; keep cleanup armed. */
+  if (el.dataset.routeTransitionKind === "cover") {
+    ensureCleanup();
+    return undefined;
+  }
+
+  stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+  el.classList.add(fromClass);
+  void el.offsetWidth;
+  el.classList.remove(fromClass);
+  el.classList.add(enterClass);
+  el.dataset.routeTransitionKind = "cover";
+  el.dataset.routePushAxis = axis;
+  ensureCleanup();
+
+  return undefined;
+}
+
 function beginPushTrackAnimation(setPushSession: Dispatch<SetStateAction<PushSession | null>>) {
   return requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -253,15 +320,24 @@ export function AppRouteTransition({
         pendingMenuIntent?.source === "bottom-nav" ||
         pendingMenuIntent?.source === "trade-primary";
 
-      /** Hub keep-alive: no dual-panel clone of Surface tree (would remount Feed). */
+      /** Hub: NEW-only rtl cover-enter (no dual-panel, no frozen overlay, no OLD exit). */
       if (hubKeepAliveTransition) {
+        const hubAxis =
+          axisFromIntent ??
+          lastPushAxisRef.current ??
+          (pushAxis === "rtl" || pushAxis === "ltr" ? pushAxis : null);
         lastPushAxisRef.current = null;
         pushSessionActiveRef.current = false;
         setPushSession(null);
         setPushHandoff(null);
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
-        stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
+
+        if (el && hubAxis && !prefersReducedMotion()) {
+          return beginHubNewOnlyRtlEnter(el, hubAxis);
+        }
+
+        stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
         if (el?.dataset) {
           el.dataset.routeTransitionKind = "none";
         }

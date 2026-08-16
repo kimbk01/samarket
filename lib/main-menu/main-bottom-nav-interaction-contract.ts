@@ -1,6 +1,10 @@
 /**
  * CONTRACT — 하단 탭·배달 다이얼 상호작용 (제품 3규칙).
  *
+ * Hub tab transition visual (separate from history SSOT):
+ * - History = replace
+ * - Visual = NEW only right→left cover-enter (no OLD push, no frozen clone overlay)
+ *
  * 1. **모든 일반 하단 탭** (community/trade/delivery/chat/my 등)
  *    → 탭 선택 즉시 `commitMainBottomNavRoute` (history = replace). 이미 동일 URL이면 맨 위 스크롤.
  *    → Chat: `requireAuthAction` gate 후 **동일** `commitMainBottomNavRoute` (bare router.push 금지).
@@ -18,7 +22,7 @@
  *    - 이동 커밋 → `commitMainBottomNavRoute` (`onNavigationIntent` 동기)
  *
  * DO NOT: 홈 짧은 탭으로 `/stores` push · 다이얼 칩 Link+preventDefault · tab.href orbit 분기 복제.
- * verify: `npm run verify:delivery-dial-navigation-contract`
+ * VERIFY: `npm run verify:delivery-dial-navigation-contract`
  */
 export const MAIN_BOTTOM_NAV_INTERACTION_CONTRACT_VERSION = 1 as const;
 
