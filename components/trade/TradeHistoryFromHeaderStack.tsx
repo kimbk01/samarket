@@ -98,22 +98,24 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
     };
   }, [lock]);
 
-  if (!onPath) {
-    return <>{children}</>;
-  }
-
+  /**
+   * CONTRACT — shell child tree identity must stay stable across hub routes.
+   * DO NOT: `!onPath` early-return Fragment (remounts AppRouteTransition → hub cover dies).
+   */
   const panelX = (() => {
+    if (!onPath) return "translate3d(0,0,0)";
     if (exiting) return "translate3d(-100%,0,0)";
     if (enterDraw) return "translate3d(0,0,0)";
     return "translate3d(-100%,0,0)";
   })();
   const shellX = (() => {
+    if (!onPath) return "translate3d(0,0,0)";
     if (exiting) return "translate3d(0,0,0)";
     if (enterDraw) return `translate3d(${SHELL_PUSH_X},0,0)`;
     return "translate3d(0,0,0)";
   })();
 
-  const showPortal = (isOpen || exiting) && domReady && typeof document !== "undefined";
+  const showPortal = onPath && (isOpen || exiting) && domReady && typeof document !== "undefined";
 
   const panel = showPortal
     ? createPortal(
@@ -152,7 +154,7 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
         className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden transition-transform"
         style={{
           transform: shellX,
-          transition: `transform ${PANEL_MS}ms ${PANEL_EASE}`,
+          transition: onPath ? `transform ${PANEL_MS}ms ${PANEL_EASE}` : undefined,
           willChange: lock ? "transform" : undefined,
         }}
       >
