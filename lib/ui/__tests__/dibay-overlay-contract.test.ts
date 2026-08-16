@@ -70,6 +70,8 @@ describe("DIBAY Overlay SSOT contract", () => {
     const src = read("components/ui/dibay-overlay/DibayBottomSheet.tsx");
     expect(src).toContain("sheetAnchor={anchor}");
     expect(src).toContain("OVERLAY_SHEET_ABOVE_NAV.maxHClass");
+    expect(src).toContain("hasFooter");
+    expect(src).toContain("overflow-hidden");
   });
 
   it("confirm dialog enforces horizontal cancel|confirm order", () => {

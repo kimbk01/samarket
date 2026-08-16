@@ -227,11 +227,6 @@ export function TradeBrowseLocationSheet({
       if (!resolved.ok) {
         setGeoError(t("trade_location_geo_city_unresolved"));
         setMapPin({ lat: pos.latitude, lng: pos.longitude });
-        setDraft((prev) =>
-          prev.kind === "city"
-            ? { ...prev, lat: pos.latitude, lng: pos.longitude }
-            : prev
-        );
         setMapEdit(true);
         return;
       }
@@ -239,36 +234,46 @@ export function TradeBrowseLocationSheet({
         lat: resolved.lat,
         lng: resolved.lng,
       });
+      setMapEdit(false);
     } finally {
       setGeoBusy(false);
     }
   }, [setCityDraft, t]);
 
-  const onMapPinChange = useCallback(
-    async (pos: { lat: number; lng: number }) => {
-      setMapPin(pos);
-      setDraft((prev) => {
-        if (prev.kind !== "city") return prev;
-        return { ...prev, lat: pos.lat, lng: pos.lng };
-      });
-      setPinBusy(true);
-      setGeoError(null);
-      try {
-        const resolved = await resolveBrowseLguFromLatLng(pos.lat, pos.lng);
-        if (!resolved.ok) {
-          setGeoError(t("trade_location_geo_city_unresolved"));
-          return;
-        }
-        setCityDraft(resolved.canonicalId, resolved.displayName, {
-          lat: resolved.lat,
-          lng: resolved.lng,
-        });
-      } finally {
-        setPinBusy(false);
+  /** EDIT: pan updates center only — no LGU resolve until explicit 여기로 선택. */
+  const onEditMapPan = useCallback((pos: { lat: number; lng: number }) => {
+    setMapPin(pos);
+  }, []);
+
+  const onConfirmMapCenter = useCallback(async () => {
+    setPinBusy(true);
+    setGeoError(null);
+    try {
+      const resolved = await resolveBrowseLguFromLatLng(mapPin.lat, mapPin.lng);
+      if (!resolved.ok) {
+        setGeoError(t("trade_location_geo_city_unresolved"));
+        return;
       }
-    },
-    [setCityDraft, t]
-  );
+      setCityDraft(resolved.canonicalId, resolved.displayName, {
+        lat: resolved.lat,
+        lng: resolved.lng,
+      });
+      setMapEdit(false);
+    } finally {
+      setPinBusy(false);
+    }
+  }, [mapPin.lat, mapPin.lng, setCityDraft, t]);
+
+  const onToggleMapEdit = useCallback(() => {
+    setMapEdit((prev) => {
+      if (prev) {
+        setMapPin(draftMapCenter(draft));
+        setGeoError(null);
+        return false;
+      }
+      return true;
+    });
+  }, [draft]);
 
   const canContinueToDistance =
     draft.kind === "city" && !!draft.canonicalId.trim() && !!draft.displayName.trim();
@@ -288,7 +293,10 @@ export function TradeBrowseLocationSheet({
   }, [draft, draftRadius.km, onApply]);
 
   const mapCenter = mapPin;
-  const showRadiusOnMap = view === "distance" || view === "main";
+  const showRadiusOnMap = (view === "distance" || view === "main") && !mapEdit;
+  const tradeSheetPanelClass = "flex min-h-0 flex-col";
+  const mapFrameClass =
+    "relative mt-2 h-[clamp(9rem,22vh,11.5rem)] overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]";
 
   if (view === "search") {
     return (
@@ -297,7 +305,7 @@ export function TradeBrowseLocationSheet({
         onClose={onClose}
         anchor="above-bottom-nav"
         ariaLabel={t("trade_location_sheet_title")}
-        panelClassName="flex max-h-[min(90dvh,640px)] flex-col"
+        panelClassName={tradeSheetPanelClass}
       >
         <TradeLocationNationalPicker
           selectedCanonicalId={draft.kind === "city" ? draft.canonicalId : null}
@@ -316,7 +324,7 @@ export function TradeBrowseLocationSheet({
         onClose={onClose}
         anchor="above-bottom-nav"
         ariaLabel={t("trade_location_distance_title")}
-        panelClassName="flex max-h-[min(90dvh,640px)] flex-col"
+        panelClassName={tradeSheetPanelClass}
         footer={
           <div className="shrink-0 border-t border-[color:var(--overlay-border)] px-4 pb-3 pt-2">
             <DibayOverlayActions
@@ -334,7 +342,7 @@ export function TradeBrowseLocationSheet({
           </div>
         }
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-2">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-[var(--overlay-space-3)]">
           <div className="flex items-center justify-between gap-2 py-1">
             <button
               type="button"
@@ -359,12 +367,13 @@ export function TradeBrowseLocationSheet({
             </button>
           </div>
 
-          <div className="relative mt-2 h-[160px] overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]">
+          <div className={mapFrameClass}>
             {mapReady ? (
               <MapPicker
                 marker={mapCenter}
                 mode="center"
                 interactionLocked
+                centerChrome="none"
                 radiusKm={draftRadius.km}
                 onMarkerPositionChange={() => {}}
                 className="h-full w-full"
@@ -463,7 +472,7 @@ export function TradeBrowseLocationSheet({
       onClose={onClose}
       anchor="above-bottom-nav"
       ariaLabel={t("trade_location_sheet_title")}
-      panelClassName="flex max-h-[min(90dvh,640px)] flex-col"
+      panelClassName={tradeSheetPanelClass}
       footer={
         <div className="shrink-0 border-t border-[color:var(--overlay-border)] px-4 pb-3 pt-2">
           <DibayOverlayActions
@@ -473,9 +482,9 @@ export function TradeBrowseLocationSheet({
                 key: "distance",
                 label: t("trade_location_continue_distance"),
                 roleTone: "primary",
-                disabled: !canContinueToDistance || pinBusy,
+                disabled: !canContinueToDistance || pinBusy || mapEdit,
                 onClick: () => {
-                  if (!canContinueToDistance) return;
+                  if (!canContinueToDistance || mapEdit) return;
                   setDraftRadius(
                     cloneTradeBrowseRadiusSelection(
                       radiusFromDraft({
@@ -492,7 +501,7 @@ export function TradeBrowseLocationSheet({
         </div>
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-[var(--overlay-space-3)]">
         <div className="flex items-center justify-between gap-2 py-1">
           <h2 id={titleId} className="text-[18px] font-semibold text-[color:var(--overlay-text-primary)]">
             {t("trade_location_sheet_title")}
@@ -501,22 +510,30 @@ export function TradeBrowseLocationSheet({
             type="button"
             className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-[color:var(--overlay-text-primary)]"
             aria-label={t("trade_location_search_aria")}
-            onClick={() => setView("search")}
+            onClick={() => {
+              setMapEdit(false);
+              setView("search");
+            }}
           >
             <Search className="h-5 w-5" aria-hidden />
           </button>
         </div>
 
-        <div className="relative mt-2 h-[160px] overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]">
+        <div
+          className={`${mapFrameClass}${
+            mapEdit ? " ring-2 ring-[color:var(--overlay-primary)] ring-offset-1" : ""
+          }`}
+        >
           {mapReady ? (
             <MapPicker
               marker={mapCenter}
               mode="center"
               interactionLocked={!mapEdit}
+              centerChrome="none"
               radiusKm={showRadiusOnMap && draft.kind === "city" ? draftRadius.km : null}
               onMarkerPositionChange={(pos) => {
                 if (!mapEdit) return;
-                void onMapPinChange(pos);
+                onEditMapPan(pos);
               }}
               className="h-full w-full"
             />
@@ -525,10 +542,34 @@ export function TradeBrowseLocationSheet({
               {t("trade_location_map_loading")}
             </div>
           )}
+          {mapEdit ? (
+            <p className="pointer-events-none absolute inset-x-2 top-2 z-20 rounded-ui-rect bg-[color:var(--overlay-surface)]/90 px-2 py-1.5 text-center text-xs font-medium text-[color:var(--overlay-text-primary)] shadow-sm">
+              {t("trade_location_map_edit_hint")}
+            </p>
+          ) : null}
         </div>
+
+        {mapEdit ? (
+          <div className="mt-3">
+            <DibayOverlayButton
+              roleTone="primary"
+              className="min-h-[var(--overlay-btn-height)] w-full"
+              loading={pinBusy}
+              disabled={pinBusy}
+              onClick={() => void onConfirmMapCenter()}
+            >
+              {t("trade_location_select_here")}
+            </DibayOverlayButton>
+          </div>
+        ) : null}
 
         <p className="mt-3 text-[18px] font-semibold text-[color:var(--overlay-text-primary)]">
           {draftLabel(draft, t("trade_location_all"))}
+          {mapEdit ? (
+            <span className="ml-1 text-sm font-medium text-[color:var(--overlay-text-secondary)]">
+              ({t("trade_location_draft_pending")})
+            </span>
+          ) : null}
         </p>
         {pinBusy ? (
           <p className="mt-1 text-sm text-[color:var(--overlay-text-secondary)]">
@@ -544,6 +585,7 @@ export function TradeBrowseLocationSheet({
             roleTone="primary"
             className="min-h-11 flex-1 gap-1.5"
             loading={geoBusy}
+            disabled={mapEdit}
             onClick={() => void onDeviceLocation()}
           >
             <LocateFixed className="h-4 w-4" aria-hidden />
@@ -552,10 +594,10 @@ export function TradeBrowseLocationSheet({
           <DibayOverlayButton
             roleTone="secondary"
             className="min-h-11 flex-1 gap-1.5"
-            onClick={() => setMapEdit(true)}
+            onClick={onToggleMapEdit}
           >
             <Pencil className="h-4 w-4" aria-hidden />
-            {t("trade_location_edit")}
+            {mapEdit ? t("trade_location_editing") : t("trade_location_edit")}
           </DibayOverlayButton>
         </div>
 

@@ -27,6 +27,11 @@ type MapPickerProps = {
    * Visual only — not navigation precision.
    */
   radiusKm?: number | null;
+  /**
+   * Center-mode pin chrome. Default `hint` keeps legacy “여기로 선택” decoration
+   * (non-interactive). Browse sheets pass `none` and own a real confirm CTA.
+   */
+  centerChrome?: "hint" | "none";
   className?: string;
 };
 
@@ -64,6 +69,7 @@ export function MapPicker({
   mode = "marker",
   interactionLocked = false,
   radiusKm = null,
+  centerChrome = "hint",
   className,
 }: MapPickerProps) {
   const elRef = useRef<HTMLDivElement>(null);
@@ -328,9 +334,11 @@ export function MapPicker({
           aria-hidden
         >
           <div className="relative flex flex-col items-center">
-            <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 sam-text-helper font-medium text-white shadow-md">
-              여기로 선택
-            </span>
+            {centerChrome === "hint" ? (
+              <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 sam-text-helper font-medium text-white shadow-md">
+                여기로 선택
+              </span>
+            ) : null}
             <svg width="40" height="48" viewBox="0 0 40 48" className={`${ADDRESS_MAP_PIN_TEXT_CLASS} drop-shadow-md`} aria-hidden>
               <path
                 d="M20 0C12.3 0 6 6.1 6 13.6c0 10.2 14 22.9 14 22.9s14-12.7 14-22.9C34 6.1 27.7 0 20 0z"

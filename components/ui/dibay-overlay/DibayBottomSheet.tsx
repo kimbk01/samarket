@@ -42,6 +42,7 @@ export function DibayBottomSheet({
 }: DibayBottomSheetProps) {
   const { titleId } = useOverlayTitleIds("sheet");
   const aboveNav = anchor === "above-bottom-nav";
+  const hasFooter = footer != null;
 
   const stageClassName = "items-end";
 
@@ -50,6 +51,12 @@ export function DibayBottomSheet({
     : aboveNav
       ? undefined
       : { paddingBottom: "max(1rem, var(--safe-bottom))" };
+
+  // Footer present: outer must not scroll — body scrolls, footer stays as flex sibling.
+  // Footer absent: keep legacy overflow-y-auto panel scroll.
+  const overflowClass = hasFooter
+    ? "flex flex-col overflow-hidden overscroll-contain"
+    : "overflow-y-auto overscroll-contain";
 
   return (
     <DibayOverlayRoot
@@ -65,7 +72,7 @@ export function DibayBottomSheet({
       sheetAnchor={anchor}
     >
       <div
-        className={`${OverlayUi.sheetPanel} ${aboveNav ? OVERLAY_SHEET_ABOVE_NAV.maxHClass : "max-h-[min(82dvh,560px)]"} overflow-y-auto overscroll-contain ${panelClassName}`.trim()}
+        className={`${OverlayUi.sheetPanel} ${aboveNav ? OVERLAY_SHEET_ABOVE_NAV.maxHClass : "max-h-[min(82dvh,560px)]"} ${overflowClass} ${panelClassName}`.trim()}
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -75,8 +82,8 @@ export function DibayBottomSheet({
             {title}
           </h2>
         ) : null}
-        <div className="min-h-0 flex-1">{children}</div>
-        {footer}
+        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        {hasFooter ? <div className="shrink-0">{footer}</div> : null}
       </div>
     </DibayOverlayRoot>
   );
