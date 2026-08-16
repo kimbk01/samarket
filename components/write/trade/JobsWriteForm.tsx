@@ -111,13 +111,16 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
-import { validateAdaptedCompositionValues } from "@/components/write/trade/generic/GenericTradeWriteFields";
+import {
+  GenericTradeWriteFields,
+  validateAdaptedCompositionValues,
+} from "@/components/write/trade/generic/GenericTradeWriteFields";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -325,8 +328,15 @@ export function JobsWriteForm({
     [category]
   );
   const jobsAdaptedFields = useMemo(
-    () => applyTradeBehaviorAdapter(jobsComposition, { listingKind }),
-    [jobsComposition, listingKind]
+    () => applyTradeBehaviorAdapter(jobsComposition, { listingKind, workCategory }),
+    [jobsComposition, listingKind, workCategory]
+  );
+  const jobsGenericFields = useMemo(
+    () =>
+      jobsAdaptedFields.filter(
+        (f) => f.id === "company_name" || f.id === "work_category_other"
+      ),
+    [jobsAdaptedFields]
   );
   const jobsFieldValues = useMemo((): TradeFieldValueBag => {
     return {
@@ -1426,13 +1436,16 @@ export function JobsWriteForm({
           <section
             className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
           >
-            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_085")}</h4>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder={t("trade_003")}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
+            <GenericTradeWriteFields
+              fields={jobsGenericFields.filter((f) => f.id === "company_name")}
+              values={jobsFieldValues}
+              onChange={(fieldId, value) => {
+                if (fieldId === "company_name") setCompanyName(String(value));
+              }}
+              errors={{
+                company_name: errors.companyName ?? "",
+              }}
+              disabled={coreLocked}
             />
           </section>
         ) : null}
@@ -1473,17 +1486,18 @@ export function JobsWriteForm({
               </select>
               {workCategory === WORK_CATEGORY_OTHER && (
                 <div className="mt-3">
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    {t("jobs_wc_other_detail_label")}
-                  </label>
-                  <input
-                    type="text"
-                    value={workCategoryOther}
-                    onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
-                    placeholder={t("trade_090")}
-                    className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
-                      errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-sam-border"
-                    }`}
+                  <GenericTradeWriteFields
+                    fields={jobsGenericFields.filter((f) => f.id === "work_category_other")}
+                    values={jobsFieldValues}
+                    onChange={(fieldId, value) => {
+                      if (fieldId === "work_category_other") {
+                        setWorkCategoryOther(String(value).slice(0, WORK_CATEGORY_OTHER_MAX));
+                      }
+                    }}
+                    errors={{
+                      work_category_other: errors.workCategoryOther ?? "",
+                    }}
+                    disabled={coreLocked}
                   />
                   <p className="mt-1 sam-text-helper text-sam-muted">
                     {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · {t("jobs_write_category_other_hint")}
@@ -1830,17 +1844,18 @@ export function JobsWriteForm({
               </select>
               {workCategory === WORK_CATEGORY_OTHER && (
                 <div className="mt-3">
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    {t("jobs_wc_other_detail_label")}
-                  </label>
-                  <input
-                    type="text"
-                    value={workCategoryOther}
-                    onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
-                    placeholder={t("trade_091")}
-                    className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
-                      errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-sam-border"
-                    }`}
+                  <GenericTradeWriteFields
+                    fields={jobsGenericFields.filter((f) => f.id === "work_category_other")}
+                    values={jobsFieldValues}
+                    onChange={(fieldId, value) => {
+                      if (fieldId === "work_category_other") {
+                        setWorkCategoryOther(String(value).slice(0, WORK_CATEGORY_OTHER_MAX));
+                      }
+                    }}
+                    errors={{
+                      work_category_other: errors.workCategoryOther ?? "",
+                    }}
+                    disabled={coreLocked}
                   />
                   <p className="mt-1 sam-text-helper text-sam-muted">
                     {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX}

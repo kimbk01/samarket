@@ -8,6 +8,11 @@ import type { AdaptedCompositionField } from "./behavior-adapters";
 
 function str(v: unknown): string {
   if (v == null) return "";
+  if (Array.isArray(v)) {
+    return v
+      .filter((x): x is string => typeof x === "string" && x.trim() !== "" && x !== "identity_confirm")
+      .join(", ");
+  }
   return String(v).trim();
 }
 
@@ -48,6 +53,8 @@ export function buildCompositionDetailAttributes(input: {
   /** Prefer adapted visibility list over detail surface defaults */
   adaptedFields?: readonly AdaptedCompositionField[];
   formatMoney?: (raw: string) => string;
+  /** Optional per-field display override (e.g. exchange rate line) */
+  formatField?: (fieldId: string, rawValue: string, meta: Record<string, unknown>) => string | null;
   /** Skip these field ids (e.g. hero already shows price/deal) */
   skipFieldIds?: readonly string[];
 }): CompositionDetailAttribute[] {
@@ -99,6 +106,12 @@ export function buildCompositionDetailAttributes(input: {
       value = `${Number(value.replace(/,/g, "")).toLocaleString()} km`;
     }
     if (def.unit === "sqm") value = `${value} sq`;
+    if (input.formatField) {
+      const formatted = input.formatField(field.id, value, input.meta);
+      if (formatted == null) continue;
+      value = formatted;
+    }
+    if (!value) continue;
     out.push({ fieldId: field.id, value });
   }
   return out;

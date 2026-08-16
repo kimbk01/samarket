@@ -91,6 +91,7 @@ import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
+import { TradeCompositionDetailSection } from "@/components/post/TradeCompositionDetailSection";
 import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OfferButton } from "@/components/offers/OfferButton";
@@ -222,74 +223,87 @@ function ExchangeMetaBlock({
   meta,
   amount,
   currency,
+  fieldComposition,
 }: {
   meta: Record<string, unknown>;
   amount?: number | null;
   currency: string;
+  fieldComposition?: unknown;
 }) {
   const { t } = useI18n();
-  const direction =
-    (meta.exchange_direction as string) === "buy" ? t("trade_071") : t("trade_126");
+  const direction = String(meta.exchange_direction ?? "sell").trim();
   const rateBaseRaw = meta.exchange_rate_base != null ? Number(meta.exchange_rate_base) : null;
   const ratePlus = meta.exchange_rate_plus != null ? Number(meta.exchange_rate_plus) : null;
   const rateSum = meta.exchange_rate != null ? Number(meta.exchange_rate) : null;
-  const rateBase = rateBaseRaw != null && !Number.isNaN(rateBaseRaw) && rateBaseRaw > 0 ? rateBaseRaw : (rateSum != null && !Number.isNaN(rateSum) && rateSum > 0 ? rateSum : null);
-  const rateCriteriaAt = (meta.rate_criteria_at as string) || null;
-  const amountVal = amount ?? (meta.amount != null ? Number(meta.amount) : null);
-  const converted = meta.converted_amount != null ? Number(meta.converted_amount) : null;
-  const sellerPrepStr = formatPrepKeysForDisplay(meta.seller_prep);
-  const buyerPrepStr = formatPrepKeysForDisplay(meta.buyer_prep);
+  const rateBase =
+    rateBaseRaw != null && !Number.isNaN(rateBaseRaw) && rateBaseRaw > 0
+      ? rateBaseRaw
+      : rateSum != null && !Number.isNaN(rateSum) && rateSum > 0
+        ? rateSum
+        : null;
 
-  /** 환율: 1 PHP = (기준) KRW, 가산 있으면 +N 표기만. 기준이 따로 있을 때만 + 표기 */
-  const rateDisplay =
-    rateBase != null && rateBase > 0
-      ? rateBaseRaw != null && rateBaseRaw > 0 && ratePlus != null && !Number.isNaN(ratePlus) && ratePlus !== 0
-        ? <>1 PHP = {rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW <span className="font-bold text-sam-fg">+{ratePlus}</span></>
-        : <>1 PHP = {rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW</>
-      : null;
-
-  const rows: { label: string; value: React.ReactNode }[] = [];
-  rows.push({ label: t("ui_exchange_trade"), value: direction });
-  if (rateCriteriaAt)
-    rows.push({
-      label: t("ui_exchange_criteria"),
-      value: t("ui_exchange_criteria_rate", { date: rateCriteriaAt }),
-    });
-  rows.push({ label: t("ui_exchange_hold_currency"), value: `PHP ${CURRENCY_SYMBOLS.PHP ?? ""}` });
-  rows.push({ label: t("ui_exchange_receive_currency"), value: `KRW ${CURRENCY_SYMBOLS.KRW ?? ""}` });
-  if (rateDisplay) rows.push({ label: t("ui_exchange_rate"), value: rateDisplay });
-  if (amountVal != null && !Number.isNaN(amountVal)) {
-    rows.push({
-      label: t("ui_exchange_amount"),
-      value: `${CURRENCY_SYMBOLS.PHP ?? ""} ${amountVal.toLocaleString()}`,
-    });
-  }
-  if (converted != null && !Number.isNaN(converted))
-    rows.push({
-      label: t("ui_exchange_converted"),
-      value: `${CURRENCY_SYMBOLS.KRW ?? ""} ${converted.toLocaleString()}`,
-    });
-  if ((meta.exchange_direction as string) === "buy") {
-    rows.push({ label: t("ui_exchange_seller_prep"), value: sellerPrepStr || "—" });
-    rows.push({ label: t("ui_exchange_buyer_prep"), value: buyerPrepStr || "—" });
-  } else {
-    rows.push({ label: t("ui_exchange_buyer_prep"), value: buyerPrepStr || "—" });
-  }
-
-  if (rows.length === 0) return null;
+  const formatField = (fieldId: string, rawValue: string, m: Record<string, unknown>): string | null => {
+    if (fieldId === "exchange_direction") {
+      return (m.exchange_direction as string) === "buy" ? t("trade_071") : t("trade_126");
+    }
+    if (fieldId === "from_currency") return `PHP ${CURRENCY_SYMBOLS.PHP ?? ""}`;
+    if (fieldId === "to_currency") return `KRW ${CURRENCY_SYMBOLS.KRW ?? ""}`;
+    if (fieldId === "exchange_rate" || fieldId === "exchange_rate_base") {
+      if (rateBase == null || rateBase <= 0) return null;
+      if (
+        fieldId === "exchange_rate_base" &&
+        rateBaseRaw != null &&
+        ratePlus != null &&
+        !Number.isNaN(ratePlus) &&
+        ratePlus !== 0
+      ) {
+        return null;
+      }
+      if (
+        fieldId === "exchange_rate" &&
+        rateBaseRaw != null &&
+        rateBaseRaw > 0 &&
+        ratePlus != null &&
+        !Number.isNaN(ratePlus) &&
+        ratePlus !== 0
+      ) {
+        return `1 PHP = ${rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW +${ratePlus}`;
+      }
+      return `1 PHP = ${rateBase.toLocaleString(undefined, { maximumFractionDigits: 2 })} KRW`;
+    }
+    if (fieldId === "exchange_rate_plus") return null;
+    if (fieldId === "amount") {
+      const amountVal = amount ?? (m.amount != null ? Number(m.amount) : null);
+      if (amountVal == null || Number.isNaN(amountVal)) return null;
+      return `${CURRENCY_SYMBOLS.PHP ?? ""} ${amountVal.toLocaleString()}`;
+    }
+    if (fieldId === "converted_amount") {
+      const converted = m.converted_amount != null ? Number(m.converted_amount) : null;
+      if (converted == null || Number.isNaN(converted)) return null;
+      return `${CURRENCY_SYMBOLS.KRW ?? ""} ${converted.toLocaleString()}`;
+    }
+    if (fieldId === "seller_prep" || fieldId === "buyer_prep") {
+      const prep = formatPrepKeysForDisplay(m[fieldId]);
+      return prep || "—";
+    }
+    if (fieldId === "rate_criteria_at") {
+      return rawValue ? t("ui_exchange_criteria_rate", { date: rawValue }) : null;
+    }
+    return rawValue;
+  };
 
   return (
-    <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_132")}</h3>
-      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
-        {rows.map(({ label, value }) => (
-          <div key={label} className={`${TRADE_FB_DETAIL_META_ROW} items-center`}>
-            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
-            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </>
+    <TradeCompositionDetailSection
+      iconKey="exchange"
+      fieldComposition={fieldComposition}
+      title={t("trade_132")}
+      meta={meta}
+      post={amount != null ? { price: amount } : undefined}
+      currency={currency}
+      adapterCtx={{ exchangeDirection: direction }}
+      formatField={formatField}
+      skipFieldIds={direction === "sell" ? ["seller_prep"] : []}
+    />
   );
 }
 
@@ -297,10 +311,12 @@ function UsedCarMetaBlock({
   meta,
   salePrice,
   currency,
+  fieldComposition,
 }: {
   meta: Record<string, unknown>;
   salePrice?: number | null;
   currency?: string;
+  fieldComposition?: unknown;
 }) {
   const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -317,7 +333,7 @@ function UsedCarMetaBlock({
         label: t("ui_meta_price_max"),
         value: t("ui_meta_year_suffix", { year: formatPrice(salePrice, currency) }),
       });
-    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: null });
+    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: fieldComposition ?? null });
     const adapted = applyTradeBehaviorAdapter(composition, { carTrade: "buy" });
     const attrs = buildCompositionDetailAttributes({
       composition,
@@ -359,7 +375,7 @@ function UsedCarMetaBlock({
         label: t("ui_meta_has_accident"),
         value: meta.has_accident ? t("ui_car_accident_yes") : t("ui_car_accident_no"),
       });
-    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: null });
+    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: fieldComposition ?? null });
     const adapted = applyTradeBehaviorAdapter(composition, {
       carTrade: ct === "buy" ? "buy" : "sell",
     });
@@ -416,6 +432,7 @@ function RealEstateMetaBlock({
   currency,
   regionId,
   cityId,
+  fieldComposition,
   /** 상단 헤더에 건물명·지역·거래·금액을 이미 노출한 경우 테이블 중복 제거 */
   detailHeroDedup = false,
 }: {
@@ -424,6 +441,7 @@ function RealEstateMetaBlock({
   currency: string;
   regionId?: string | null;
   cityId?: string | null;
+  fieldComposition?: unknown;
   detailHeroDedup?: boolean;
 }) {
   const { t, language } = useI18n();
@@ -431,7 +449,7 @@ function RealEstateMetaBlock({
   const dealType = (meta.deal_type as string | undefined)?.trim();
   const regionLabel = regionId && cityId ? getLocationLabel(regionId, cityId) : null;
 
-  const composition = resolveTradeComposition({ icon_key: "real-estate", fieldComposition: null });
+  const composition = resolveTradeComposition({ icon_key: "real-estate", fieldComposition: fieldComposition ?? null });
   const adapted = applyTradeBehaviorAdapter(composition, { dealType });
   const skipHero = detailHeroDedup
     ? ([
@@ -500,11 +518,13 @@ function TradeMetaBlock({
   meta,
   post,
   defaultCurrency,
+  fieldComposition,
 }: {
   skinKey: string;
   meta: Record<string, unknown>;
   post?: { price?: number | null; region?: string | null; city?: string | null };
   defaultCurrency?: string;
+  fieldComposition?: unknown;
 }) {
   const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -516,10 +536,11 @@ function TradeMetaBlock({
         currency={defaultCurrency ?? "KRW"}
         regionId={post?.region ?? undefined}
         cityId={post?.city ?? undefined}
+        fieldComposition={fieldComposition}
       />
     );
   }
-  const composition = resolveTradeComposition({ icon_key: skinKey, fieldComposition: null });
+  const composition = resolveTradeComposition({ icon_key: skinKey, fieldComposition: fieldComposition ?? null });
   const attrs = buildCompositionDetailAttributes({
     composition,
     meta,
@@ -2393,6 +2414,7 @@ export function PostDetailView({
                     meta={meta}
                     salePrice={post.price ?? null}
                     currency={defaultCurrency}
+                    fieldComposition={category?.settings?.field_composition}
                   />
                 );
               }
@@ -2423,6 +2445,7 @@ export function PostDetailView({
                     meta={(post.meta as Record<string, unknown>) ?? {}}
                     amount={post.price ?? null}
                     currency={defaultCurrency}
+                    fieldComposition={category?.settings?.field_composition}
                   />
                 )}
                 {category?.icon_key &&
@@ -2437,6 +2460,7 @@ export function PostDetailView({
                       meta={post.meta as Record<string, unknown>}
                       post={post}
                       defaultCurrency={defaultCurrency}
+                      fieldComposition={category.settings?.field_composition}
                     />
                   )}
 

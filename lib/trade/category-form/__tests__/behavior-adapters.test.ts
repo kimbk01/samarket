@@ -21,4 +21,19 @@ describe("trade behavior adapters", () => {
     expect(adapted.find((f) => f.id === "deposit")?.effectiveRequired).toBe(true);
     expect(adapted.find((f) => f.id === "monthly")?.effectiveRequired).toBe(true);
   });
+
+  it("jobs work_category_other visible only when category is 기타", () => {
+    const c = resolveTradeComposition({ icon_key: "jobs" });
+    const hidden = applyTradeBehaviorAdapter(c, {
+      listingKind: "hire",
+      workCategory: "서빙",
+    });
+    expect(hidden.find((f) => f.id === "work_category_other")?.visible).toBe(false);
+    const shown = applyTradeBehaviorAdapter(c, {
+      listingKind: "hire",
+      workCategory: "기타",
+    });
+    expect(shown.find((f) => f.id === "work_category_other")?.visible).toBe(true);
+    expect(shown.find((f) => f.id === "work_category_other")?.effectiveRequired).toBe(true);
+  });
 });

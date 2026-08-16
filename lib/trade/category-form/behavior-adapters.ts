@@ -10,6 +10,8 @@ export type TradeBehaviorContext = {
   dealType?: string | null;
   /** jobs */
   listingKind?: "hire" | "work" | string | null;
+  /** jobs — when "기타", show work_category_other */
+  workCategory?: string | null;
   /** exchange */
   exchangeDirection?: "buy" | "sell" | string | null;
 };
@@ -95,6 +97,10 @@ function adaptJobs(
     if (f.id === "company_name") {
       visible = isHire;
       effectiveRequired = false;
+    }
+    if (f.id === "work_category_other") {
+      visible = String(ctx.workCategory ?? "").trim() === "기타";
+      effectiveRequired = visible;
     }
     if (f.id === "experience_level" || f.id === "available_time") {
       visible = isSeek || !kind;
