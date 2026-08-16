@@ -94,6 +94,12 @@ import {
   resolveMainBottomNavTabTapHref,
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
+import { resolveBottomNavTransitionConfirmCopy } from "@/lib/navigation/main-bottom-nav-transition-copy";
+import {
+  MainBottomNavDomainTransitionDialog,
+  useMainBottomNavDomainTransition,
+} from "@/lib/navigation/main-bottom-nav-domain-transition-dialog";
+import { isSamarketNavPerfConsoleEnabled } from "@/lib/debug/samarket-client-console-flags";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -1200,6 +1206,7 @@ export function BottomNav({
   }, [clearPendingActiveReset]);
 
   const [portalToBody, setPortalToBody] = useState(false);
+  const confirmIntentStartRef = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (bodyPortal) setPortalToBody(true);
   }, [bodyPortal]);
@@ -1207,14 +1214,65 @@ export function BottomNav({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const { t } = useI18n();
   const hubDomain = useMemo(() => resolveMainBottomNavHubDomain(pathname ?? null), [pathname]);
+  const {
+    pendingTransition,
+    requestTransition,
+    confirmTransition,
+    cancelTransition,
+  } = useMainBottomNavDomainTransition(pathname ?? null);
 
-  /** 전환 확인 팝업 제거 — 탭 탭 즉시 커밋 (우→좌 440ms + 전환음은 commit 경로). */
   const commitTabRouteWithConfirm = useCallback(
-    (_tabId: string, commitOpts: BottomNavTabCommitOpts) => {
-      commitBottomNavTabRoute(commitOpts);
+    (tabId: string, commitOpts: BottomNavTabCommitOpts) => {
+      const copy = resolveBottomNavTransitionConfirmCopy(pathname ?? null, tabId);
+      if (copy != null) {
+        /**
+         * 확인 모달 노출 시점부터 목적지 prewarm을 선행해,
+         * 확인 클릭 직후 route commit 체감 지연을 줄인다.
+         * (탭 이동은 여전히 confirmTransition 이후에만 수행)
+         */
+        try {
+          if (commitOpts.onPrewarm) {
+            commitOpts.onPrewarm();
+          } else {
+            prewarmBottomNavTapTargetClientCache(commitOpts.href, { source: "route_commit" });
+          }
+        } catch {
+          /* noop */
+        }
+      }
+      if (copy != null) {
+        confirmIntentStartRef.current = performance.now();
+      } else {
+        confirmIntentStartRef.current = null;
+      }
+      requestTransition(copy, () => {
+        commitBottomNavTabRoute({
+          ...commitOpts,
+          prewarmedBeforeCommit: copy != null || commitOpts.prewarmedBeforeCommit === true,
+        });
+      });
     },
-    []
+    [pathname, requestTransition]
   );
+
+  const confirmTransitionWithPerf = useCallback(() => {
+    const t0 = confirmIntentStartRef.current;
+    confirmIntentStartRef.current = null;
+    if (t0 != null && isSamarketNavPerfConsoleEnabled()) {
+      const ms = Math.round(performance.now() - t0);
+      if (typeof window !== "undefined") {
+        const w = window as Window & {
+          __SAMARKET_CONFIRM_NAV_EVENTS?: Array<{ at: number; confirm_to_commit_ms: number }>;
+        };
+        if (!Array.isArray(w.__SAMARKET_CONFIRM_NAV_EVENTS)) {
+          w.__SAMARKET_CONFIRM_NAV_EVENTS = [];
+        }
+        w.__SAMARKET_CONFIRM_NAV_EVENTS.push({ at: Date.now(), confirm_to_commit_ms: ms });
+      }
+      console.debug("[nav-perf]", { phase: "confirm_to_commit", ms });
+    }
+    confirmTransition();
+  }, [confirmTransition]);
 
   const effectiveOuterExtra = extraOuterClassName;
 
@@ -1345,6 +1403,11 @@ export function BottomNav({
           </div>
         </div>
       </nav>
+      <MainBottomNavDomainTransitionDialog
+        pending={pendingTransition}
+        onCancel={cancelTransition}
+        onConfirm={confirmTransitionWithPerf}
+      />
     </>
   );
 

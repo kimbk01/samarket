@@ -23,10 +23,6 @@ import {
   consumeNotificationDestinationEnterSession,
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
-import {
-  armPathnameSingleSurfaceEnter,
-  cancelPathnameSingleSurfaceEnterArm,
-} from "@/lib/navigation/pathname-single-surface-enter-arm";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 
 type Props = {
@@ -131,19 +127,11 @@ export function AppRouteTransition({
   const renderedRef = useRef<{ pathname: string; node: ReactNode } | null>(null);
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
-  /** Pathname-owned single-surface enter rAF — not cancelled by intent/children metadata reruns. */
-  const singleSurfaceEnterArmRef = useRef<{ pathKey: string; rafId: number } | null>(null);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
   const [pushHandoff, setPushHandoff] = useState<PushHandoff | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
   refBag.current.subtleEnterRef = subtleEnterRef;
   refBag.current.pushSurfaceRef = pushSurfaceRef;
-
-  useLayoutEffect(() => {
-    return () => {
-      cancelPathnameSingleSurfaceEnterArm(singleSurfaceEnterArmRef);
-    };
-  }, []);
 
   const bindPushSurfaceRef = (node: HTMLDivElement | null) => {
     refBag.current.subtleEnterRef.current = node;
@@ -250,12 +238,6 @@ export function AppRouteTransition({
     const el = subtleEnterRef.current;
 
     if (prev != null && prev.pathname !== pathKey) {
-      /**
-       * New pathname transition supersedes any pending single-surface enter arm.
-       * Metadata-only reruns (intent clear / children) never reach here.
-       */
-      cancelPathnameSingleSurfaceEnterArm(singleSurfaceEnterArmRef);
-
       const kind: RouteTransitionEnterKind = kindRef.current;
       const axisFromIntent =
         pendingMenuIntent?.mainShellPushAxis ?? consumeMainShellPushAxisIntent(pathKey) ?? null;
@@ -271,13 +253,7 @@ export function AppRouteTransition({
         pendingMenuIntent?.source === "bottom-nav" ||
         pendingMenuIntent?.source === "trade-primary";
 
-      /**
-       * Hub keep-alive / bottom-nav: dual-panel clone 금지 (Feed remount).
-       * 단, 슬라이드를 끄면 하단 탭 이동이 “액션 없음”이 됨 — 단일 surface CSS enter 만 적용.
-       * ROOT CAUSE FIX: 예전 early-return 이 kind=none + class strip 으로 440ms 우→좌를 전부 차단했음.
-       * ARM OWNERSHIP: pathname transition rAF must NOT be cancelled by intent/children effect cleanup.
-       * DO NOT: always-on transform track (breaks sticky secondary tabs — incident 02b30021a).
-       */
+      /** Hub keep-alive: no dual-panel clone of Surface tree (would remount Feed). */
       if (hubKeepAliveTransition) {
         lastPushAxisRef.current = null;
         pushSessionActiveRef.current = false;
@@ -286,36 +262,6 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
-
-        const axis: MainShellRoutePushAxis | null =
-          axisFromIntent ??
-          (pendingMenuIntent?.source === "bottom-nav" ? "rtl" : routeTransitionPushAxisForKind(kind));
-
-        if (axis && !prefersReducedMotion() && el) {
-          const hubEnterClass =
-            axis === "rtl"
-              ? "main-shell-route-enter-rtl-forward"
-              : "main-shell-route-enter-ltr-forward";
-          if (el.dataset) {
-            el.dataset.routeTransitionKind = axis === "rtl" ? "rtl-forward" : "ltr-forward";
-            el.dataset.routePushAxis = axis;
-          }
-          try {
-            el.getAnimations().forEach((a) => a.cancel());
-          } catch {
-            /* ignore */
-          }
-          void el.offsetWidth;
-          armPathnameSingleSurfaceEnter(singleSurfaceEnterArmRef, {
-            pathKey,
-            onFrame: () => {
-              subtleEnterRef.current?.classList.add(hubEnterClass);
-            },
-          });
-          // DO NOT return cancelAnimationFrame — intent clear / children deps must not kill this arm.
-          return undefined;
-        }
-
         if (el?.dataset) {
           el.dataset.routeTransitionKind = "none";
         }
@@ -379,15 +325,11 @@ export function AppRouteTransition({
 
       if (enterClass) {
         void el?.offsetWidth;
-        armPathnameSingleSurfaceEnter(singleSurfaceEnterArmRef, {
-          pathKey,
-          onFrame: () => {
-            subtleEnterRef.current?.classList.add(enterClass);
-          },
+        const raf = requestAnimationFrame(() => {
+          subtleEnterRef.current?.classList.add(enterClass);
         });
         renderedRef.current = { pathname: pathKey, node: children };
-        // Same ownership as hub enter — metadata reruns must not cancelAnimationFrame.
-        return undefined;
+        return () => cancelAnimationFrame(raf);
       }
     } else if (prev == null && el?.dataset) {
       el.dataset.routeTransitionKind = "none";

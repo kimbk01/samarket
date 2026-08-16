@@ -1,5 +1,9 @@
-import type { MainShellRoutePushAxis } from "@/components/route-transition/route-transition-config";
-import { resolveCanonicalNavIndex } from "@/components/route-transition/route-transition-config";
+import {
+  resolveCanonicalNavIndex,
+  routeTransitionPushAxisForKind,
+  type MainShellRoutePushAxis,
+} from "@/components/route-transition/route-transition-config";
+import { computeRouteTransitionEnterKind } from "@/components/route-transition/route-transition-enter-kind";
 import type { CanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 
 function normalizePathKey(pathname: string | null | undefined): string {
@@ -13,8 +17,8 @@ function pathFromHref(href: string): string {
 }
 
 /**
- * 하단 탭 이동 push 축 — 항상 우→좌(`rtl`), 440ms enter 와 짝.
- * `resolveIndex` 는 호출 시그니처 호환용(미사용).
+ * 하단 탭 이동 push 축 — canonical 인덱스 단일 소스.
+ * 우측 탭(rtl): 새 화면이 오른쪽에서 밀고 들어옴 / 좌측 탭(ltr): 왼쪽에서 밀고 들어옴.
  */
 export function computeMainBottomNavPushAxis(
   fromPathname: string | null | undefined,
@@ -24,6 +28,11 @@ export function computeMainBottomNavPushAxis(
   const from = normalizePathKey(fromPathname);
   const to = pathFromHref(targetHref);
   if (!from || !to || from === to) return null;
-  void resolveIndex;
-  return "rtl";
+
+  const kind = computeRouteTransitionEnterKind(from, to, {
+    popstateBack: false,
+    lastForwardAxisRef: { current: null },
+    resolveIndex,
+  });
+  return routeTransitionPushAxisForKind(kind);
 }
