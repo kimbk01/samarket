@@ -88,11 +88,32 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
   }
 }
 
+/** Header hint: `{place} · {전체|Nkm}` — place truncates; suffix must never clip. */
+export function buildTradeHeaderLocationHintParts(input: {
+  mode: "all" | "city";
+  cityLabel: string | null;
+  radiusKm: number | null;
+  userPlaceLabel: string | null;
+  allLabel: string;
+  fallbackPlaceLabel: string;
+}): { place: string | null; suffix: string } {
+  if (input.mode === "city") {
+    const place = (input.cityLabel ?? "").trim() || input.fallbackPlaceLabel;
+    const km =
+      typeof input.radiusKm === "number" && Number.isFinite(input.radiusKm)
+        ? Math.round(input.radiusKm)
+        : null;
+    return { place, suffix: km != null ? `${km}km` : input.allLabel };
+  }
+  const place = (input.userPlaceLabel ?? "").trim() || null;
+  return { place, suffix: input.allLabel };
+}
+
 export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title";
 
 /**
  * Trade header MapPin — Marketplace buyer browse location.
- * `beside-title`: 거래 제목 우측 (아이콘 + City · km)
+ * `beside-title`: 거래 제목 우측 (녹색 핀 + 주소 · 전체|Nkm)
  * `icon-cluster`: 우측 아이콘 열 (레거시)
  */
 export function TradeHeaderLocationPinButton({
@@ -167,6 +188,11 @@ export function TradeHeaderLocationPinButton({
     }
   }, []);
 
+  /** Header needs master place for `주소 · 전체` even before sheet open. */
+  useEffect(() => {
+    void loadMyRegion();
+  }, [loadMyRegion]);
+
   const openSheet = useCallback(() => {
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark("trade_browse_loc_pin_tap");
@@ -214,19 +240,25 @@ export function TradeHeaderLocationPinButton({
     commitScope({ mode: "all" });
   }, [commitScope]);
 
-  const headerHint =
-    committedScope.mode === "city"
-      ? (() => {
-          const city = committedLabel ?? t("trade_location_section_region");
-          return `${city} · ${committedScope.radiusKm}km`;
-        })()
-      : null;
+  const hintParts = buildTradeHeaderLocationHintParts({
+    mode: committedScope.mode === "city" ? "city" : "all",
+    cityLabel: committedLabel,
+    radiusKm: committedScope.mode === "city" ? committedScope.radiusKm : null,
+    userPlaceLabel: myRegion?.displayName ?? null,
+    allLabel: t("trade_location_all"),
+    fallbackPlaceLabel: t("trade_location_section_region"),
+  });
 
-  const ariaLabel = headerHint
-    ? `${t("trade_location_pin_aria")}: ${headerHint}`
-    : t("trade_location_pin_aria");
+  const headerHintAria = hintParts.place
+    ? `${hintParts.place} · ${hintParts.suffix}`
+    : hintParts.suffix;
+
+  const ariaLabel = `${t("trade_location_pin_aria")}: ${headerHintAria}`;
 
   const besideTitle = placement === "beside-title";
+
+  const hintTextClass =
+    "text-[11px] font-semibold leading-[22px] text-sam-fg";
 
   return (
     <>
@@ -235,9 +267,7 @@ export function TradeHeaderLocationPinButton({
         type="button"
         className={
           besideTitle
-            ? `inline-flex h-[length:var(--delivery-header-action)] max-w-[min(52vw,12.5rem)] min-w-0 shrink items-center gap-1 rounded-ui-rect px-1 text-left ${samTier1HeaderIconMicro} ${
-                isFiltered ? "text-sam-primary" : "text-sam-fg"
-              }`
+            ? `inline-flex max-w-[min(62vw,15.5rem)] min-w-0 shrink items-center gap-1 self-center rounded-ui-rect px-1 py-0 text-left ${samTier1HeaderIconMicro}`
             : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
                 isFiltered ? "text-sam-primary" : ""
               }`
@@ -251,23 +281,40 @@ export function TradeHeaderLocationPinButton({
         }}
       >
         <MapPin
-          className={besideTitle ? "h-4 w-4 shrink-0" : SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+          className={
+            besideTitle
+              ? "h-[18px] w-[18px] shrink-0 text-sam-primary"
+              : `${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} text-sam-primary`
+          }
           strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+          fill="currentColor"
+          fillOpacity={0.18}
           aria-hidden
         />
         {besideTitle ? (
-          headerHint ? (
-            <span className="min-w-0 truncate text-[11px] font-semibold leading-tight">
-              {headerHint}
-            </span>
-          ) : (
-            <span className="text-[11px] font-semibold leading-tight text-sam-fg-muted">
-              {t("trade_location_all")}
-            </span>
-          )
-        ) : headerHint ? (
-          <span className="absolute -bottom-0.5 left-1/2 max-w-[5.5rem] -translate-x-1/2 truncate text-[9px] font-semibold leading-none text-sam-primary">
-            {headerHint}
+          <span className={`flex min-w-0 items-center gap-1 ${hintTextClass}`}>
+            {hintParts.place ? (
+              <>
+                <span className="min-w-0 truncate">{hintParts.place}</span>
+                <span className="shrink-0 text-sam-fg-muted" aria-hidden>
+                  ·
+                </span>
+                <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
+              </>
+            ) : (
+              <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
+            )}
+          </span>
+        ) : hintParts.place || isFiltered ? (
+          <span className="absolute -bottom-0.5 left-1/2 flex max-w-[7.5rem] -translate-x-1/2 items-center gap-0.5 text-[9px] font-semibold leading-none text-sam-primary">
+            {hintParts.place ? (
+              <>
+                <span className="min-w-0 truncate">{hintParts.place}</span>
+                <span className="shrink-0">· {hintParts.suffix}</span>
+              </>
+            ) : (
+              <span className="shrink-0">{hintParts.suffix}</span>
+            )}
           </span>
         ) : null}
       </button>

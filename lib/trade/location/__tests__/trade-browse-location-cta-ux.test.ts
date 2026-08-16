@@ -71,4 +71,19 @@ describe("trade browse location CTA / sticky CASE A contract", () => {
     expect(tradeRightBlock).toContain("TradeHeaderComposeButton");
     expect(tradeRightBlock).not.toContain("TradeHeaderLocationPinButton");
   });
+
+  it("header pin is green and keeps suffix (전체|Nkm) untruncated", () => {
+    const pin = read("components/trade/TradeHeaderLocationPinButton.tsx");
+    expect(pin).toContain("buildTradeHeaderLocationHintParts");
+    expect(pin).toContain("text-sam-primary");
+    expect(pin).toContain("shrink-0 text-sam-primary");
+    expect(pin).toContain("min-w-0 truncate");
+    expect(pin).not.toMatch(/truncate text-\[11px\][\s\S]*headerHint/);
+  });
+
+  it("distance sheet title catalog is 거리 설정", () => {
+    const src = read("lib/i18n/catalog/trade-location-scope.ts");
+    expect(src).toContain('trade_location_distance_title: "거리 설정"');
+    expect(src).toContain('trade_location_distance_title: "Set distance"');
+  });
 });

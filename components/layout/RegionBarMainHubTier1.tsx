@@ -88,11 +88,11 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
     return null;
   }
 
-  /** Trade: map pin + City · km sits immediately right of 「거래」 (not in right icon cluster). */
+  /** Trade: green pin + `주소 · 전체|Nkm` immediately right of 「거래」. */
   const title: ReactNode =
     hub === "trade" ? (
       <span className="flex min-w-0 max-w-full items-center gap-1.5 whitespace-normal">
-        <span className="min-w-0 shrink truncate">{t(hubTitleKey(hub))}</span>
+        <span className="shrink-0">{t(hubTitleKey(hub))}</span>
         <TradeHeaderLocationPinButton placement="beside-title" />
       </span>
     ) : (
