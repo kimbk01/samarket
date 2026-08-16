@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 
 const PhilifeMessengerFromHeaderStack = dynamic(
@@ -17,19 +16,14 @@ const TradeHistoryFromHeaderStack = dynamic(
   { ssr: false }
 );
 
-function isStoresHubRootPath(pathname: string): boolean {
-  const p = pathname.split("?")[0] ?? "";
-  return p === "/stores" || p === "/stores/";
-}
-
 /**
- * `/stores` 홈 — 헤더 메신저·거래내역 풀스택 UI 미사용 → 래퍼 청크를 첫 진입에서 제외.
+ * 헤더 메신저·거래내역 풀스택 래퍼.
+ *
+ * CONTRACT — 하단 메인 허브 간 래퍼 트리 고정 (AppRouteTransition remount 금지).
+ * `/stores` 에서도 동일 래퍼를 유지한다. 패널 활성은 각 스택의 `onPath` 게이트.
+ * DO NOT: `/stores` 에서 Fragment 로 바꿔 셸을 remount.
  */
 export function MainAppHeaderStackWrap({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "";
-  if (isStoresHubRootPath(pathname)) {
-    return <>{children}</>;
-  }
   return (
     <PhilifeMessengerFromHeaderStack>
       <TradeHistoryFromHeaderStack>{children}</TradeHistoryFromHeaderStack>
