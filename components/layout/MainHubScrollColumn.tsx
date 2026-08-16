@@ -8,7 +8,8 @@ import {
 
 /**
  * 허브 화면 전용 — 헤더(고정) + 본문 슬롯.
- * push 전환(`MainShellTabContentTransition`)은 `body` 안에서 `MainHubScrollBody` 와 함께 구성한다.
+ * MAIN hub transition: Header는 `AppRouteTransition` surface 안 `hubChromeHeader` 로 이동.
+ * 본 컴포넌트는 비-transition / 레거시 조합용으로 유지.
  */
 export function MainHubScrollColumn({
   header,

@@ -40,10 +40,11 @@ import {
   resolvesMainScrollInMainColumn,
 } from "@/lib/layout/main-shell-viewport";
 import {
+  MAIN_HUB_SCROLL_HEADER_CLASS,
   MAIN_HUB_SCROLL_SHELL_ROOT_CLASS,
   resolvesMainHubScrollColumn,
 } from "@/lib/layout/main-hub-scroll-column";
-import { MainHubScrollColumn, MainHubScrollBody } from "./MainHubScrollColumn";
+import { MainHubScrollBody } from "./MainHubScrollColumn";
 import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
@@ -295,6 +296,13 @@ export function ConditionalAppShell({
     <MainShellTabContentTransition
       initialNavItems={initialMainBottomNavItems}
       contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      hubChromeHeader={
+        hubScrollColumn ? (
+          <div className={MAIN_HUB_SCROLL_HEADER_CLASS}>
+            <AppStickyHeader />
+          </div>
+        ) : null
+      }
     >
       {hubScrollColumn ? (
         <MainHubScrollBody
@@ -345,7 +353,12 @@ export function ConditionalAppShell({
       {f.showRegionBar ? <RegionBar /> : null}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       {hubScrollColumn ? (
-        <MainHubScrollColumn header={<AppStickyHeader />} body={mainBodyTransition} />
+        /**
+         * MAIN hub: Header+Body share ONE push-surface transform authority
+         * (`hubChromeHeader` inside `MainShellTabContentTransition`).
+         * BottomNav stays outside (tx=0).
+         */
+        mainBodyTransition
       ) : (
         <main className={`${mainSurfaceClass} ${mainBodyLockedClass} flex min-h-0 flex-1 flex-col`}>
           {mainBodyTransition}

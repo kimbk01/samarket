@@ -20,6 +20,10 @@ import {
   navPerfMarkInitialHydrated,
   type BottomNavPerfPendingSlice,
 } from "@/lib/navigation/nav-perf-browser";
+import {
+  beginMainHubTransitionFromIntent,
+  shouldArmMainHubIntentTransition,
+} from "@/lib/navigation/main-hub-transition-authority";
 
 export type MenuNavigationSource =
   | "bottom-nav"
@@ -202,6 +206,28 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
       latestNavigationIdRef.current = nextIntent.id;
       setLatestNavigationId(nextIntent.id);
       setPendingMenuIntent(nextIntent);
+
+      /**
+       * MAIN hub shell transition START authority = BottomNav intent (sync).
+       * Pathname commit only settles — see `main-hub-transition-authority`.
+       */
+      if (
+        shouldArmMainHubIntentTransition({
+          source,
+          targetPath: nextIntent.pathname,
+          fromPath: pathname,
+          axis: options?.mainShellPushAxis ?? null,
+          crossGroup: Boolean(options?.mainShellCrossGroupPush),
+        }) &&
+        options?.mainShellPushAxis
+      ) {
+        beginMainHubTransitionFromIntent({
+          intentId: nextIntent.id,
+          axis: options.mainShellPushAxis,
+          targetPath: nextIntent.pathname,
+        });
+      }
+
       const intentCommitMs = Math.round(performance.now() - perfStart);
 
       if (source === "bottom-nav" && process.env.NODE_ENV === "development" && isSamarketNavPerfConsoleEnabled()) {

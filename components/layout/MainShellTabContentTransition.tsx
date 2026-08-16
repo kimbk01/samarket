@@ -2,6 +2,7 @@
 
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import type { ReactNode } from "react";
 
 type Props = {
   children: React.ReactNode;
@@ -9,29 +10,42 @@ type Props = {
   initialNavItems?: BottomNavItemConfig[] | null;
   /** `ConditionalAppShell` 채팅 상세 등에서 본문 컬럼과 동일한 flex 연장 */
   contentStretchClass?: string;
+  /**
+   * MAIN hub: Header slot rendered **inside** the single push surface
+   * (ONE transform authority with body). Null on non-hub shells.
+   */
+  hubChromeHeader?: ReactNode;
 };
 
 /**
  * Bottom-nav transition host.
  *
- * CONTRACT — Hub tab visual (product):
+ * CONTRACT — MAIN hub shell transition (product):
  * - History: replace (unchanged SSOT)
- * - Visual: NEW only enters right→left (`from-rtl` → `enter-rtl`)
- * - Duration: 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`) — same as legacy main-tab policy
+ * - START: BottomNav MAIN intent → transition (pathname is settle only)
+ * - Visual: Header + Body = ONE transform surface; BottomNav fixed
+ * - Duration: 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`)
  * - OLD does not translate (no TRUE PUSH)
- * - No frozen-DOM / body overlay clone (previous COVER approach abandoned)
+ * - No frozen-DOM / body overlay clone (COVER abandoned)
  * Hub routes: single route `children` Surface only.
  * DO NOT: dual-panel Feed clone · KeepAlive multi-hub · View Transition · OLD exit translate
+ * DO NOT: separate header/body animations
  */
 export function MainShellTabContentTransition({
   children,
   initialNavItems: _initialNavItems = null,
   contentStretchClass = "min-w-0",
+  hubChromeHeader = null,
 }: Props) {
   void _initialNavItems;
 
   return (
-    <AppRouteTransition contentStretchClass={contentStretchClass} overlay={null} pendingPushNode={null}>
+    <AppRouteTransition
+      contentStretchClass={contentStretchClass}
+      overlay={null}
+      pendingPushNode={null}
+      hubChromeHeader={hubChromeHeader}
+    >
       {children}
     </AppRouteTransition>
   );

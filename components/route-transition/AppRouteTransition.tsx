@@ -24,6 +24,17 @@ import {
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
+import {
+  finalizeMainHubTransition,
+  isMainHubTransitionGenerationActive,
+  markMainHubTransitionEntering,
+  markMainHubTransitionFirstFrame,
+  peekMainHubTransition,
+  registerMainHubTransitionSurfaceApplier,
+  settleMainHubTransitionOnPathname,
+  subscribeMainHubTransition,
+  type MainHubTransitionSession,
+} from "@/lib/navigation/main-hub-transition-authority";
 
 type Props = {
   children: ReactNode;
@@ -34,6 +45,11 @@ type Props = {
   pendingPushNode?: ReactNode;
   /** `ConditionalAppShell` — push 호스트 flex 연장 */
   contentStretchClass?: string;
+  /**
+   * MAIN hub Header slot — rendered inside the single push surface
+   * so Header+Body share ONE transform authority. BottomNav stays outside.
+   */
+  hubChromeHeader?: ReactNode;
 };
 
 type PushSession = {
@@ -63,6 +79,9 @@ const PUSH_SURFACE_CLASSES = [
 
 const MAX_PENDING_PUSH_HOLD_MS = 12_000;
 const PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS = 1_200;
+
+/** Surface kind for MAIN hub intent transition (COVER abandoned — do not reuse "cover"). */
+const MAIN_HUB_TRANSITION_KIND = "main-hub";
 
 /**
  * Dual-panel temporary enter — DISABLED for bottom-nav / trade-primary.
@@ -94,47 +113,156 @@ function normalizePathKeyForPush(pathname: string | null | undefined): string {
 }
 
 /**
- * Suppress hub cover restart for the same dest within one transition window.
- * mypage/chat → philife intermittently aborted+restarted (cover→none→cover).
+ * Suppress fallback hub enter restart for the same dest within one transition window
+ * (browser back / non-intent path changes only).
  */
-let lastHubCoverDestPath = "";
-let lastHubCoverStartedAt = 0;
-const HUB_COVER_RESTART_GUARD_MS = MAIN_SHELL_ROUTE_TRANSITION_MS + 80;
+let lastHubFallbackDestPath = "";
+let lastHubFallbackStartedAt = 0;
+const HUB_FALLBACK_RESTART_GUARD_MS = MAIN_SHELL_ROUTE_TRANSITION_MS + 80;
 
-function forceHubCoverCleanup(el: HTMLDivElement | null) {
+function forceMainHubSurfaceCleanup(el: HTMLDivElement | null) {
   if (!el) return;
-  const pending = (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+  const pending = (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer;
   if (pending != null) {
     window.clearTimeout(pending);
-    delete (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+    delete (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer;
   }
   stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
-  if (el.dataset.routeTransitionKind === "cover") {
+  if (
+    el.dataset.routeTransitionKind === MAIN_HUB_TRANSITION_KIND ||
+    el.dataset.routeTransitionKind === "cover"
+  ) {
     el.dataset.routeTransitionKind = "none";
   }
+  delete el.dataset.mainHubTransitionFirstFrame;
+  delete el.dataset.mainHubTransitionGeneration;
+}
+
+function ensureMainHubEnterCleanup(el: HTMLDivElement, generation: number | null) {
+  if ((el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer != null) return;
+
+  let cleaned = false;
+  const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    const pending = (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer;
+    if (pending != null) {
+      window.clearTimeout(pending);
+      delete (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer;
+    }
+    el.removeEventListener("transitionend", onEnd);
+    stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+    if (
+      el.dataset.routeTransitionKind === MAIN_HUB_TRANSITION_KIND ||
+      el.dataset.routeTransitionKind === "cover"
+    ) {
+      el.dataset.routeTransitionKind = "none";
+    }
+    if (generation != null) {
+      finalizeMainHubTransition(generation);
+    }
+  };
+
+  const onEnd = (ev: TransitionEvent) => {
+    if (ev.target !== el) return;
+    if (ev.propertyName && ev.propertyName !== "transform") return;
+    const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt;
+    if (elapsed < 120) return;
+    if (generation != null && !isMainHubTransitionGenerationActive(generation)) {
+      cleanup();
+      return;
+    }
+    cleanup();
+  };
+
+  el.addEventListener("transitionend", onEnd);
+  (el as HTMLElement & { __hubTransitionTimer?: number }).__hubTransitionTimer = window.setTimeout(
+    cleanup,
+    MAIN_SHELL_ROUTE_TRANSITION_MS + 48
+  );
 }
 
 /**
- * Hub tab: NEW surface only slides right→left.
- * No frozen OLD clone, no OLD exit translate (not TRUE PUSH / not abandoned COVER overlay).
- * Duration SSOT: `MAIN_SHELL_ROUTE_TRANSITION_MS` (440) — same as legacy main-tab slide.
+ * Intent-first: park surface at from-* immediately (transition_first_frame).
+ * Destination children may still be old — off-screen until pathname settle → enter.
  */
-function beginHubNewOnlyRtlEnter(
+function applyMainHubPendingExit(
+  el: HTMLDivElement,
+  session: MainHubTransitionSession
+): void {
+  if (prefersReducedMotion()) {
+    forceMainHubSurfaceCleanup(el);
+    finalizeMainHubTransition(session.generation);
+    return;
+  }
+  const fromClass = mainShellPushFromClassForAxis(session.axis);
+  forceMainHubSurfaceCleanup(el);
+  el.classList.add(fromClass);
+  el.dataset.routeTransitionKind = MAIN_HUB_TRANSITION_KIND;
+  el.dataset.routePushAxis = session.axis;
+  el.dataset.mainHubTransitionGeneration = String(session.generation);
+  el.dataset.mainHubTransitionFirstFrame = "1";
+  markMainHubTransitionFirstFrame(session.generation);
+}
+
+/**
+ * Pathname confirmed (or fallback start): run enter on the same surface — no second arm.
+ */
+function applyMainHubEnter(
+  el: HTMLDivElement,
+  axis: MainShellRoutePushAxis,
+  generation: number | null
+): void {
+  if (prefersReducedMotion()) {
+    forceMainHubSurfaceCleanup(el);
+    if (generation != null) finalizeMainHubTransition(generation);
+    return;
+  }
+  const fromClass = mainShellPushFromClassForAxis(axis);
+  const enterClass = mainShellPushEnterClassForAxis(axis);
+
+  if (el.classList.contains(enterClass) && el.dataset.routeTransitionKind === MAIN_HUB_TRANSITION_KIND) {
+    if (generation != null) markMainHubTransitionEntering(generation);
+    ensureMainHubEnterCleanup(el, generation);
+    return;
+  }
+
+  if (!el.classList.contains(fromClass)) {
+    stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+    el.classList.add(fromClass);
+    void el.offsetWidth;
+  }
+  el.classList.remove(fromClass);
+  el.classList.add(enterClass);
+  el.dataset.routeTransitionKind = MAIN_HUB_TRANSITION_KIND;
+  el.dataset.routePushAxis = axis;
+  if (generation != null) {
+    el.dataset.mainHubTransitionGeneration = String(generation);
+    markMainHubTransitionEntering(generation);
+  }
+  ensureMainHubEnterCleanup(el, generation);
+}
+
+/**
+ * Non-intent hub path change (back/forward/programmatic): pathname may still START enter.
+ * Intent-active generations must not double-start here.
+ */
+function beginHubFallbackEnter(
   el: HTMLDivElement,
   axis: MainShellRoutePushAxis,
   destPath: string
 ): (() => void) | undefined {
   if (prefersReducedMotion()) {
-    forceHubCoverCleanup(el);
+    forceMainHubSurfaceCleanup(el);
     return undefined;
   }
 
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   const dest = normalizePathKeyForPush(destPath).replace(/\/+$/, "") || "/";
   const enterClass = mainShellPushEnterClassForAxis(axis);
-  const fromClass = mainShellPushFromClassForAxis(axis);
   const withinGuard =
-    lastHubCoverDestPath === dest && now - lastHubCoverStartedAt < HUB_COVER_RESTART_GUARD_MS;
+    lastHubFallbackDestPath === dest && now - lastHubFallbackStartedAt < HUB_FALLBACK_RESTART_GUARD_MS;
 
   const transform = typeof window !== "undefined" ? window.getComputedStyle(el).transform : "none";
   const atRest =
@@ -143,63 +271,16 @@ function beginHubNewOnlyRtlEnter(
     transform.startsWith("matrix(1, 0, 0, 1") ||
     transform === "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)";
 
-  /** Same dest still sliding — do not restart. Stuck kind=cover at rest → recover below. */
-  if (withinGuard && !atRest && el.dataset.routeTransitionKind === "cover") {
+  if (withinGuard && !atRest && el.dataset.routeTransitionKind === MAIN_HUB_TRANSITION_KIND) {
     return undefined;
   }
   if (withinGuard && !atRest && el.classList.contains(enterClass)) {
     return undefined;
   }
 
-  /** Different dest, stale leftover, or stuck cover — clear before a single fresh enter. */
-  forceHubCoverCleanup(el);
-
-  lastHubCoverDestPath = dest;
-  lastHubCoverStartedAt = now;
-
-  const ensureCleanup = () => {
-    if ((el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer != null) return;
-
-    let cleaned = false;
-    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      const pending = (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
-      if (pending != null) {
-        window.clearTimeout(pending);
-        delete (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
-      }
-      el.removeEventListener("transitionend", onEnd);
-      stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
-      if (el.dataset.routeTransitionKind === "cover") {
-        el.dataset.routeTransitionKind = "none";
-      }
-    };
-
-    const onEnd = (ev: TransitionEvent) => {
-      if (ev.target !== el) return;
-      if (ev.propertyName && ev.propertyName !== "transform") return;
-      const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt;
-      if (elapsed < 120) return;
-      cleanup();
-    };
-
-    el.addEventListener("transitionend", onEnd);
-    (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer = window.setTimeout(
-      cleanup,
-      MAIN_SHELL_ROUTE_TRANSITION_MS + 48
-    );
-  };
-
-  el.classList.add(fromClass);
-  void el.offsetWidth;
-  el.classList.remove(fromClass);
-  el.classList.add(enterClass);
-  el.dataset.routeTransitionKind = "cover";
-  el.dataset.routePushAxis = axis;
-  ensureCleanup();
-
+  lastHubFallbackDestPath = dest;
+  lastHubFallbackStartedAt = now;
+  applyMainHubEnter(el, axis, null);
   return undefined;
 }
 
@@ -228,6 +309,7 @@ export function AppRouteTransition({
   overlay,
   pendingPushNode = null,
   contentStretchClass = "min-w-0",
+  hubChromeHeader = null,
 }: Props) {
   const pathname = usePathname();
   const kindRef = useRouteTransitionKindRef(pathname);
@@ -237,6 +319,7 @@ export function AppRouteTransition({
   const renderedRef = useRef<{ pathname: string; node: ReactNode } | null>(null);
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
+  const appliedHubGenerationRef = useRef<number>(0);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
   const [pushHandoff, setPushHandoff] = useState<PushHandoff | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
@@ -247,6 +330,45 @@ export function AppRouteTransition({
     refBag.current.subtleEnterRef.current = node;
     refBag.current.pushSurfaceRef.current = node;
   };
+
+  /** Sync intent applier — same turn as BottomNav tap (not pathname). */
+  useLayoutEffect(() => {
+    const applyArmed = (session: MainHubTransitionSession) => {
+      const el = pushSurfaceRef.current;
+      if (!el || prefersReducedMotion()) return;
+      if (session.phase !== "armed" && session.phase !== "pending_exit") return;
+      if (appliedHubGenerationRef.current === session.generation && session.firstFrameAt != null) {
+        return;
+      }
+      appliedHubGenerationRef.current = session.generation;
+      applyMainHubPendingExit(el, session);
+    };
+    registerMainHubTransitionSurfaceApplier(applyArmed);
+    const unsub = subscribeMainHubTransition(() => {
+      const session = peekMainHubTransition();
+      if (!session) return;
+      applyArmed(session);
+    });
+    const existing = peekMainHubTransition();
+    if (existing) applyArmed(existing);
+    return () => {
+      registerMainHubTransitionSurfaceApplier(null);
+      unsub();
+    };
+  }, []);
+
+  /** Intent id change — ensure pending_exit if applier missed. */
+  useLayoutEffect(() => {
+    const session = peekMainHubTransition();
+    const el = pushSurfaceRef.current;
+    if (!session || !el || prefersReducedMotion()) return;
+    if (session.phase !== "armed" && session.phase !== "pending_exit") return;
+    if (appliedHubGenerationRef.current === session.generation && session.firstFrameAt != null) {
+      return;
+    }
+    appliedHubGenerationRef.current = session.generation;
+    applyMainHubPendingExit(el, session);
+  }, [pendingMenuIntent?.id]);
 
   /** `(stores)` ↔ `(main)` remount 후 sessionStorage 진입 push */
   useLayoutEffect(() => {
@@ -346,11 +468,11 @@ export function AppRouteTransition({
     const pathKey = pathname ?? "";
     let prev = renderedRef.current;
     const el = subtleEnterRef.current;
+    const activeHub = peekMainHubTransition();
 
     /**
      * Stale renderedRef (e.g. still /philife while pathname is already /mypage) + new
-     * bottom-nav intent → false "path change" cover on the old screen, then a second
-     * cover on the real destination. Sync without animating.
+     * bottom-nav intent → false path-change enter on the old screen. Sync without animating.
      */
     if (
       prev != null &&
@@ -359,14 +481,15 @@ export function AppRouteTransition({
       pendingMenuIntent.pathname !== pathKey &&
       (pendingMenuIntent.source === "bottom-nav" || pendingMenuIntent.source === "trade-primary")
     ) {
-      forceHubCoverCleanup(el);
+      if (!activeHub || activeHub.phase === "done") {
+        forceMainHubSurfaceCleanup(el);
+      }
       renderedRef.current = { pathname: pathKey, node: children };
       prev = renderedRef.current;
     }
 
     if (prev != null && prev.pathname !== pathKey) {
       const kind: RouteTransitionEnterKind = kindRef.current;
-      /** Peek first — do not consume until we actually start hub cover (StrictMode/remount safe). */
       const axisFromIntent =
         pendingMenuIntent?.mainShellPushAxis ?? peekMainShellPushAxisIntent() ?? null;
       if (axisFromIntent) {
@@ -381,12 +504,8 @@ export function AppRouteTransition({
         pendingMenuIntent?.source === "bottom-nav" ||
         pendingMenuIntent?.source === "trade-primary";
 
-      /** Hub: NEW-only rtl cover-enter (no dual-panel, no frozen overlay, no OLD exit). */
+      /** Hub: intent session settles here — do NOT restart enter for active generation. */
       if (hubKeepAliveTransition) {
-        /**
-         * Product contract: hub↔hub bottom-nav = always rtl.
-         * First cold entry often loses axis (intent cleared / consume race) → felt like "no cover".
-         */
         const hubAxis: MainShellRoutePushAxis =
           axisFromIntent ??
           lastPushAxisRef.current ??
@@ -398,27 +517,30 @@ export function AppRouteTransition({
         setPushHandoff(null);
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
+        consumeMainShellPushAxisIntent(pathKey);
 
         if (el && !prefersReducedMotion()) {
-          consumeMainShellPushAxisIntent(pathKey);
-          return beginHubNewOnlyRtlEnter(el, hubAxis, pathKey);
+          if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {
+            const settle = settleMainHubTransitionOnPathname(activeHub.generation, pathKey);
+            if (settle === "settled") {
+              applyMainHubEnter(el, activeHub.axis, activeHub.generation);
+              return undefined;
+            }
+            if (settle === "stale" || settle === "mismatch") {
+              return undefined;
+            }
+          }
+          /** Fallback: browser back / programmatic hub change without BottomNav intent. */
+          return beginHubFallbackEnter(el, hubAxis, pathKey);
         }
 
-        stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
-        if (el?.dataset) {
-          el.dataset.routeTransitionKind = "none";
-        }
+        forceMainHubSurfaceCleanup(el);
         return undefined;
       }
 
       if (pushAxis && !prefersReducedMotion() && !pendingMenuIntent?.mainShellCrossGroupPush) {
         if (pushSessionActiveRef.current) {
           renderedRef.current = { pathname: pathKey, node: children };
-          /**
-           * pathname/RSC 가 먼저 도착해도 들어오는 패널을 `children`(Suspense·스켈레톤)으로
-           * 바꾸지 않는다 — 440ms 슬라이드 안에 CommunityFeedSkeleton 이 끼는 회귀 방지.
-           * 최종 본문은 push 종료 후 단일 surface `children` 로 전환.
-           */
           if (el?.dataset) {
             el.dataset.routeTransitionKind = kind;
             el.dataset.routePushAxis = pushAxis;
@@ -476,10 +598,22 @@ export function AppRouteTransition({
       }
     } else if (prev == null) {
       /**
-       * Remount mid-hub-nav: recover NEW-only cover from push-axis intent
-       * instead of forcing kind=none (drops the only enter animation).
-       * Default rtl when bottom-nav/trade-primary intent is present but axis was cleared.
+       * Remount mid-hub-nav: if intent session armed, apply pending_exit / enter;
+       * else recover fallback enter from axis intent.
        */
+      const active = peekMainHubTransition();
+      if (el && active && isMainHubTransitionGenerationActive(active.generation) && !prefersReducedMotion()) {
+        if (active.firstFrameAt == null) {
+          appliedHubGenerationRef.current = active.generation;
+          applyMainHubPendingExit(el, active);
+        }
+        const settle = settleMainHubTransitionOnPathname(active.generation, pathKey);
+        if (settle === "settled") {
+          applyMainHubEnter(el, active.axis, active.generation);
+        }
+        renderedRef.current = { pathname: pathKey, node: children };
+        return undefined;
+      }
       const axisFromIntent =
         pendingMenuIntent?.mainShellPushAxis ?? peekMainShellPushAxisIntent() ?? null;
       const recoverAxis: MainShellRoutePushAxis | null =
@@ -495,10 +629,20 @@ export function AppRouteTransition({
       ) {
         consumeMainShellPushAxisIntent(pathKey);
         renderedRef.current = { pathname: pathKey, node: children };
-        return beginHubNewOnlyRtlEnter(el, recoverAxis, pathKey);
+        return beginHubFallbackEnter(el, recoverAxis, pathKey);
       }
       if (el?.dataset) {
         el.dataset.routeTransitionKind = "none";
+      }
+    } else if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation) && el) {
+      /** Same pathname render while intent pending — still apply first frame if missed. */
+      if (activeHub.firstFrameAt == null && (activeHub.phase === "armed" || activeHub.phase === "pending_exit")) {
+        appliedHubGenerationRef.current = activeHub.generation;
+        applyMainHubPendingExit(el, activeHub);
+      }
+      const settle = settleMainHubTransitionOnPathname(activeHub.generation, pathKey);
+      if (settle === "settled" && activeHub.phase !== "done") {
+        applyMainHubEnter(el, activeHub.axis, activeHub.generation);
       }
     }
 
@@ -682,12 +826,16 @@ export function AppRouteTransition({
         <div
           ref={bindPushSurfaceRef}
           data-main-shell-push-surface
-          className="main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col"
+          data-main-hub-transition-surface={hubChromeHeader ? "1" : undefined}
+          className={`main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col${
+            hubChromeHeader ? " main-hub-transition-surface" : ""
+          }`}
           onAnimationEnd={(e) => {
             if (e.target !== e.currentTarget) return;
             stripTransitionClasses(subtleEnterRef.current, ROUTE_TRANSITION_ENTER_CLASSES);
           }}
         >
+          {hubChromeHeader}
           {children}
         </div>
       )}

@@ -2,6 +2,8 @@
  * 메인 허브(`/stores` · `/philife` · `/market` · `/mypage` 등) — 단일 스크롤 계약.
  *
  * - 1단·업종 탭: 스크롤 **밖** `shrink-0` (구조적으로 상단 고정)
+ * - MAIN hub transition: Header는 push surface **안**에 두어 Body와 ONE transform authority 공유
+ *   (`ConditionalAppShell` `hubChromeHeader` → `AppRouteTransition`)
  * - 본문: `<main>` 단일 `overflow-y-auto` (`flex-1 basis-0 min-h-0`)
  * - `position: sticky`·문서(body) 스크롤·`min-h-[100dvh]` on flex child 금지
  * - `PhilifeMessengerFromHeaderStack` · `TradeHistoryFromHeaderStack` 래퍼는

@@ -3,15 +3,17 @@
  *
  * Hub tab transition visual (separate from history SSOT):
  * - History = replace
- * - Visual = NEW only right→left cover-enter (no OLD push, no frozen clone overlay)
+ * - START = BottomNav MAIN intent → MAIN hub shell transition (pathname settles only)
+ * - Header + Body = ONE transform surface; BottomNav fixed (tx=0)
  * - Duration = 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`) — legacy main-tab slide SSOT
  * - Community entry href = last hub selection (`resolveCommunityBottomNavEntryHref`) — no bare /philife → All flash
- * - Hub cover axis: always `rtl` when bottom-nav/trade-primary (axis-intent race must not drop first enter)
+ * - Hub axis: always `rtl` when bottom-nav/trade-primary (axis-intent race must not drop first enter)
  * - Chat already-authed: sync `commitMainBottomNavRoute` (no await before beginMenuNavigation / axis)
  * - Inactive MAIN hub Link `prefetch` on (first-enter RSC warm)
- * - DO NOT restart cover for the same hub dest within one transition window
- * - DO NOT defer community hub URL restore past cover (entry URL must already be fixed)
- * - DO NOT park hub cover behind requireAuthAction await when session/boot profile is ready
+ * - DO NOT restart enter for the same hub dest generation (stale pathname settle ignored)
+ * - DO NOT defer community hub URL restore past transition (entry URL must already be fixed)
+ * - DO NOT park hub transition behind requireAuthAction await when session/boot profile is ready
+ * - DO NOT revive COVER overlay / TRUE PUSH / frozen-DOM / dual-panel Feed
  *
  * 1. **모든 일반 하단 탭** (community/trade/delivery/chat/my 등)
  *    → 탭 선택 즉시 `commitMainBottomNavRoute` (history = replace). 이미 동일 URL이면 맨 위 스크롤.
