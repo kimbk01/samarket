@@ -101,6 +101,19 @@ let lastHubCoverDestPath = "";
 let lastHubCoverStartedAt = 0;
 const HUB_COVER_RESTART_GUARD_MS = MAIN_SHELL_ROUTE_TRANSITION_MS + 80;
 
+function forceHubCoverCleanup(el: HTMLDivElement | null) {
+  if (!el) return;
+  const pending = (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+  if (pending != null) {
+    window.clearTimeout(pending);
+    delete (el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer;
+  }
+  stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+  if (el.dataset.routeTransitionKind === "cover") {
+    el.dataset.routeTransitionKind = "none";
+  }
+}
+
 /**
  * Hub tab: NEW surface only slides right→left.
  * No frozen OLD clone, no OLD exit translate (not TRUE PUSH / not abandoned COVER overlay).
@@ -112,15 +125,30 @@ function beginHubNewOnlyRtlEnter(
   destPath: string
 ): (() => void) | undefined {
   if (prefersReducedMotion()) {
-    stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
-    el.dataset.routeTransitionKind = "none";
+    forceHubCoverCleanup(el);
     return undefined;
   }
 
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   const dest = normalizePathKeyForPush(destPath).replace(/\/+$/, "") || "/";
+  const enterClass = mainShellPushEnterClassForAxis(axis);
+  const fromClass = mainShellPushFromClassForAxis(axis);
   const withinGuard =
     lastHubCoverDestPath === dest && now - lastHubCoverStartedAt < HUB_COVER_RESTART_GUARD_MS;
+
+  /** Same dest still sliding — do not restart. */
+  if (withinGuard && el.dataset.routeTransitionKind === "cover") {
+    return undefined;
+  }
+  if (withinGuard && el.classList.contains(enterClass)) {
+    return undefined;
+  }
+
+  /** Different dest or stale leftover cover — clear before a single fresh enter. */
+  forceHubCoverCleanup(el);
+
+  lastHubCoverDestPath = dest;
+  lastHubCoverStartedAt = now;
 
   const ensureCleanup = () => {
     if ((el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer != null) return;
@@ -145,7 +173,6 @@ function beginHubNewOnlyRtlEnter(
     const onEnd = (ev: TransitionEvent) => {
       if (ev.target !== el) return;
       if (ev.propertyName && ev.propertyName !== "transform") return;
-      /** Ignore spurious early ends (header-stack CSS transition churn). */
       const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt;
       if (elapsed < 120) return;
       cleanup();
@@ -158,26 +185,6 @@ function beginHubNewOnlyRtlEnter(
     );
   };
 
-  /** Already animating — do not restart; keep cleanup armed. */
-  if (el.dataset.routeTransitionKind === "cover") {
-    ensureCleanup();
-    return undefined;
-  }
-
-  /**
-   * Same dest within window AND enter class still applied — suppress double.
-   * If the first attempt was aborted (kind none, classes stripped), allow one recover.
-   */
-  const enterClass = mainShellPushEnterClassForAxis(axis);
-  const fromClass = mainShellPushFromClassForAxis(axis);
-  if (withinGuard && el.classList.contains(enterClass)) {
-    return undefined;
-  }
-
-  lastHubCoverDestPath = dest;
-  lastHubCoverStartedAt = now;
-
-  stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
   el.classList.add(fromClass);
   void el.offsetWidth;
   el.classList.remove(fromClass);
@@ -330,8 +337,25 @@ export function AppRouteTransition({
 
   useLayoutEffect(() => {
     const pathKey = pathname ?? "";
-    const prev = renderedRef.current;
+    let prev = renderedRef.current;
     const el = subtleEnterRef.current;
+
+    /**
+     * Stale renderedRef (e.g. still /philife while pathname is already /mypage) + new
+     * bottom-nav intent → false "path change" cover on the old screen, then a second
+     * cover on the real destination. Sync without animating.
+     */
+    if (
+      prev != null &&
+      prev.pathname !== pathKey &&
+      pendingMenuIntent?.pathname &&
+      pendingMenuIntent.pathname !== pathKey &&
+      (pendingMenuIntent.source === "bottom-nav" || pendingMenuIntent.source === "trade-primary")
+    ) {
+      forceHubCoverCleanup(el);
+      renderedRef.current = { pathname: pathKey, node: children };
+      prev = renderedRef.current;
+    }
 
     if (prev != null && prev.pathname !== pathKey) {
       const kind: RouteTransitionEnterKind = kindRef.current;
@@ -466,6 +490,8 @@ export function AppRouteTransition({
     pendingMenuIntent?.mainShellCrossGroupPush,
     pendingMenuIntent?.mainShellPushAxis,
     pendingMenuIntent?.id,
+    pendingMenuIntent?.pathname,
+    pendingMenuIntent?.source,
     pendingPushNode,
   ]);
 
