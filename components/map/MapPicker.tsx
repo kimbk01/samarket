@@ -22,6 +22,11 @@ type MapPickerProps = {
   mode?: MapPickerMode;
   /** `true`면 지도 드래그·줌을 막고, idle 로 좌표를 올리지 않음(상세 입력 단계 등) */
   interactionLocked?: boolean;
+  /**
+   * Optional browse-radius circle (meters = km * 1000).
+   * Visual only — not navigation precision.
+   */
+  radiusKm?: number | null;
   className?: string;
 };
 
@@ -58,11 +63,13 @@ export function MapPicker({
   onPoiClick,
   mode = "marker",
   interactionLocked = false,
+  radiusKm = null,
   className,
 }: MapPickerProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerHandleRef = useRef<MarkerHandle | null>(null);
+  const circleRef = useRef<google.maps.Circle | null>(null);
   const onMoveRef = useRef(onMarkerPositionChange);
   const onPoiRef = useRef(onPoiClick);
   const idleListenerRef = useRef<google.maps.MapsEventListener | null>(null);
@@ -236,10 +243,56 @@ export function MapPicker({
         idleListenerRef.current = null;
       }
       detachMarker();
+      if (circleRef.current) {
+        circleRef.current.setMap(null);
+        circleRef.current = null;
+      }
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 맵 인스턴스는 1회만 생성
   }, [mode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || typeof google === "undefined" || !google.maps) return;
+    const km =
+      typeof radiusKm === "number" && Number.isFinite(radiusKm) && radiusKm > 0
+        ? radiusKm
+        : null;
+    if (km == null) {
+      if (circleRef.current) {
+        circleRef.current.setMap(null);
+        circleRef.current = null;
+      }
+      return;
+    }
+    const radiusMeters = km * 1000;
+    if (!circleRef.current) {
+      circleRef.current = new google.maps.Circle({
+        map,
+        center: marker,
+        radius: radiusMeters,
+        strokeColor: "#7C3AED",
+        strokeOpacity: 0.85,
+        strokeWeight: 2,
+        fillColor: "#7C3AED",
+        fillOpacity: 0.12,
+        clickable: false,
+      });
+    } else {
+      circleRef.current.setCenter(marker);
+      circleRef.current.setRadius(radiusMeters);
+      if (!circleRef.current.getMap()) circleRef.current.setMap(map);
+    }
+    const bounds = circleRef.current.getBounds();
+    if (bounds) {
+      suppressIdleRef.current = true;
+      map.fitBounds(bounds, 24);
+      window.requestAnimationFrame(() => {
+        suppressIdleRef.current = false;
+      });
+    }
+  }, [radiusKm, marker.lat, marker.lng]);
 
   useEffect(() => {
     const map = mapRef.current;

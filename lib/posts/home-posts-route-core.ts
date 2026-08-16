@@ -346,9 +346,10 @@ export async function resolveHomePostsGetData(
       : locationScope.mode === "invalid"
         ? locationScope.raw || "invalid"
         : undefined;
+  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
   const locSegment =
     locationScope.mode === "city"
-      ? `loc:lgu:${locationScope.canonicalId}`
+      ? `loc:lgu:${locationScope.canonicalId}:r:${locationScope.radiusKm}`
       : locationScope.mode === "invalid"
         ? `loc:invalid:${locationScope.raw || "_"}`
         : "loc:all";
@@ -410,7 +411,8 @@ export async function resolveHomePostsGetData(
         effectiveType,
         tradeCategoryIds,
         statusOr,
-        lguCityId
+        lguCityId,
+        radiusKm
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {

@@ -121,6 +121,9 @@ export async function getPostsByTradeCategoryIds(
     if (lgu) {
       params.set("location", "city");
       params.set("lgu", lgu);
+      if (options.radiusKm != null && Number.isFinite(Number(options.radiusKm))) {
+        params.set("radius", String(Math.round(Number(options.radiusKm))));
+      }
     }
 
     try {

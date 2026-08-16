@@ -12,8 +12,12 @@ export function tradeFeedLocationToQueryExtras(
 ): TradeFeedQueryExtras["tradeFeedLocation"] {
   if (constraint.kind === "all") return undefined;
   if (constraint.kind === "invalid") return { type: "none" };
+  const ids = [...new Set(constraint.matchingCanonicalIds)].sort();
   if (constraint.legacyMembers.length === 0) {
-    return { type: "eq", canonicalId: constraint.canonicalId };
+    if (ids.length <= 1) {
+      return { type: "eq", canonicalId: ids[0] ?? constraint.canonicalId };
+    }
+    return { type: "in", canonicalIds: ids };
   }
   return { type: "or", orBody: buildTradeFeedLocationOrFilter(constraint) };
 }

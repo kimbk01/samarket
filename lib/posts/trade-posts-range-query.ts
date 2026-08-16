@@ -144,6 +144,7 @@ export type TradeFeedQueryExtras = {
    */
   tradeFeedLocation?:
     | { type: "eq"; canonicalId: string }
+    | { type: "in"; canonicalIds: string[] }
     | { type: "or"; orBody: string }
     | { type: "none" };
 };
@@ -159,6 +160,7 @@ export function applyTradeLguCityConstraintToQuery(
 export function applyResolvedTradeFeedLocationToQuery(
   q: {
     eq: (c: string, v: string) => unknown;
+    in: (c: string, v: string[]) => unknown;
     or: (filters: string) => unknown;
     filter?: (col: string, op: string, val: string) => unknown;
   },
@@ -170,6 +172,9 @@ export function applyResolvedTradeFeedLocationToQuery(
   }
   if (loc.type === "eq") {
     return q.eq("trade_lgu_id", loc.canonicalId);
+  }
+  if (loc.type === "in") {
+    return q.in("trade_lgu_id", loc.canonicalIds);
   }
   return q.or(loc.orBody);
 }

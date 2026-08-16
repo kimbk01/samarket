@@ -130,6 +130,7 @@ export async function GET(req: NextRequest) {
       : locationScope.mode === "invalid"
         ? locationScope.raw || "invalid"
         : undefined;
+  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
@@ -146,6 +147,7 @@ export async function GET(req: NextRequest) {
       jobIndustrySlug,
       statusOr,
       lguCityId,
+      radiusKm,
     },
     viewerId
   );

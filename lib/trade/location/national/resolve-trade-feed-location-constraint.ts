@@ -1,10 +1,10 @@
 /**
  * Trade feed CITY/LGU discovery filter — shared Home + Category authority.
  *
- * NEW: trade_lgu_id = canonical
- * LEGACY: trade_lgu_id IS NULL AND region/city ∈ local members of canonical
+ * NEW: trade_lgu_id = canonical (single or radius-matched set)
+ * LEGACY: trade_lgu_id IS NULL AND region/city ∈ local members of matching canonicals
  *
- * Server-side only (loads local-area map). Do not import from client bundles.
+ * Server-side only (loads local-area map + centroids). Do not import from client bundles.
  */
 
 import {
@@ -15,6 +15,15 @@ import {
   getTradeNationalLguById,
   loadTradeNationalLguDataset,
 } from "@/lib/trade/location/national/load-national-lgu-dataset";
+import {
+  matchTradeLguIdsInRadius,
+  resolveTradeBrowseCenterForCanonical,
+} from "@/lib/trade/location/national/lgu-centroids";
+import {
+  sanitizeTradeBrowseRadiusKm,
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  tradeBrowseRadiusCacheSegment,
+} from "@/lib/trade/location/trade-browse-radius";
 
 export type TradeFeedLegacyRegionMembers = {
   regionId: string;
@@ -26,30 +35,21 @@ export type TradeFeedLocationConstraint =
   | { kind: "invalid"; raw: string }
   | {
       kind: "lgu";
+      /** Browse anchor City */
       canonicalId: string;
+      radiusKm: number;
+      /** City-grain radius match set (includes anchor) */
+      matchingCanonicalIds: string[];
       legacyMembers: TradeFeedLegacyRegionMembers[];
     };
 
-export function resolveTradeFeedLocationConstraint(
-  rawLguToken: string | null | undefined
-): TradeFeedLocationConstraint {
-  const raw = (rawLguToken ?? "").trim();
-  if (!raw) return { kind: "all" };
-
-  const canonicalId = resolveTradeLguUrlTokenToCanonical(raw);
-  if (!canonicalId) return { kind: "invalid", raw };
-
-  const lgu = getTradeNationalLguById(canonicalId);
-  if (!lgu?.isActive) return { kind: "invalid", raw };
-
-  // PSGC token that is not City/Municipality selectable (shouldn't happen for 10-digit city codes)
-  if (!isTradeNationalPsgcCanonicalId(canonicalId)) return { kind: "invalid", raw };
-
-  const members = loadTradeNationalLguDataset().localAreaMap.filter(
-    (r) => r.canonicalId === canonicalId
-  );
+function legacyMembersForCanonicalIds(
+  canonicalIds: string[]
+): TradeFeedLegacyRegionMembers[] {
+  const idSet = new Set(canonicalIds);
   const byRegion = new Map<string, string[]>();
-  for (const m of members) {
+  for (const m of loadTradeNationalLguDataset().localAreaMap) {
+    if (!idSet.has(m.canonicalId)) continue;
     const list = byRegion.get(m.regionId) ?? [];
     list.push(m.cityId);
     byRegion.set(m.regionId, list);
@@ -61,18 +61,62 @@ export function resolveTradeFeedLocationConstraint(
     })
   );
   legacyMembers.sort((a, b) => a.regionId.localeCompare(b.regionId));
+  return legacyMembers;
+}
 
-  return { kind: "lgu", canonicalId, legacyMembers };
+export function resolveTradeFeedLocationConstraint(
+  rawLguToken: string | null | undefined,
+  radiusKm?: number | null
+): TradeFeedLocationConstraint {
+  const raw = (rawLguToken ?? "").trim();
+  if (!raw) return { kind: "all" };
+
+  const canonicalId = resolveTradeLguUrlTokenToCanonical(raw);
+  if (!canonicalId) return { kind: "invalid", raw };
+
+  const lgu = getTradeNationalLguById(canonicalId);
+  if (!lgu?.isActive) return { kind: "invalid", raw };
+
+  if (!isTradeNationalPsgcCanonicalId(canonicalId)) return { kind: "invalid", raw };
+
+  const radius =
+    radiusKm == null
+      ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+      : sanitizeTradeBrowseRadiusKm(radiusKm);
+
+  const center = resolveTradeBrowseCenterForCanonical(canonicalId);
+  const matchingCanonicalIds = center
+    ? matchTradeLguIdsInRadius({
+        centerLat: center.lat,
+        centerLng: center.lng,
+        radiusKm: radius,
+        centerCanonicalId: canonicalId,
+      })
+    : [canonicalId];
+
+  const legacyMembers = legacyMembersForCanonicalIds(matchingCanonicalIds);
+
+  return {
+    kind: "lgu",
+    canonicalId,
+    radiusKm: radius,
+    matchingCanonicalIds,
+    legacyMembers,
+  };
 }
 
 /**
  * PostgREST `.or(...)` body (no `or=` prefix).
- * Single branch when no legacy members (nationwide LGU with empty local taxonomy).
+ * Radius: trade_lgu_id IN matching set (+ optional null-gated legacy).
  */
 export function buildTradeFeedLocationOrFilter(
   constraint: Extract<TradeFeedLocationConstraint, { kind: "lgu" }>
 ): string {
-  const national = `trade_lgu_id.eq.${constraint.canonicalId}`;
+  const ids = [...new Set(constraint.matchingCanonicalIds)].sort();
+  const national =
+    ids.length <= 1
+      ? `trade_lgu_id.eq.${ids[0] ?? constraint.canonicalId}`
+      : `trade_lgu_id.in.(${ids.join(",")})`;
   if (constraint.legacyMembers.length === 0) {
     return national;
   }
@@ -86,16 +130,20 @@ export function buildTradeFeedLocationOrFilter(
 export function applyTradeFeedLocationConstraintToQuery(
   q: {
     eq: (c: string, v: string) => unknown;
+    in: (c: string, v: string[]) => unknown;
     or: (filters: string) => unknown;
   },
   constraint: TradeFeedLocationConstraint
 ): unknown {
   if (constraint.kind !== "lgu") return q;
-  const orBody = buildTradeFeedLocationOrFilter(constraint);
+  const ids = [...new Set(constraint.matchingCanonicalIds)].sort();
   if (constraint.legacyMembers.length === 0) {
-    return q.eq("trade_lgu_id", constraint.canonicalId);
+    if (ids.length <= 1) {
+      return q.eq("trade_lgu_id", ids[0] ?? constraint.canonicalId);
+    }
+    return q.in("trade_lgu_id", ids);
   }
-  return q.or(orBody);
+  return q.or(buildTradeFeedLocationOrFilter(constraint));
 }
 
 /** Pure match — unit tests / conflict proof (same equation as SQL). */
@@ -109,7 +157,7 @@ export function listingMatchesTradeFeedLocation(
 ): boolean {
   const tid = (listing.trade_lgu_id ?? "").trim();
   if (tid) {
-    return tid === constraint.canonicalId;
+    return constraint.matchingCanonicalIds.includes(tid);
   }
   const region = (listing.region ?? "").trim();
   const city = (listing.city ?? "").trim();
@@ -124,5 +172,5 @@ export function tradeFeedLocationCacheSegment(
 ): string {
   if (constraint.kind === "all") return "loc:all";
   if (constraint.kind === "invalid") return `loc:invalid:${constraint.raw}`;
-  return `loc:lgu:${constraint.canonicalId}`;
+  return `loc:lgu:${constraint.canonicalId}:${tradeBrowseRadiusCacheSegment(constraint.radiusKm)}`;
 }

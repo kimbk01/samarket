@@ -32,6 +32,8 @@ export type TradeFeedPageOptions = {
   statusOr?: string;
   /** Trade LGU City scope (`?location=city&lgu=`) — alias or PSGC */
   lguCityId?: string;
+  /** Browse radius km (`?radius=`) — only meaningful with lguCityId */
+  radiusKm?: number | null;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -42,7 +44,7 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const jc = opts.jobIndustrySlug;
   const statusOr = opts.statusOr?.trim();
   const lguCityId = opts.lguCityId?.trim();
-  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId);
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, opts.radiusKm);
   const tradeFeedLocation = tradeFeedLocationToQueryExtras(feedConstraint);
 
   if (
@@ -77,7 +79,10 @@ export async function fetchTradeFeedPage(
     return { posts: [], hasMore: false };
   }
 
-  const feedConstraint = resolveTradeFeedLocationConstraint(options.lguCityId);
+  const feedConstraint = resolveTradeFeedLocationConstraint(
+    options.lguCityId,
+    options.radiusKm
+  );
   if (feedConstraint.kind === "invalid") {
     return { posts: [], hasMore: false };
   }

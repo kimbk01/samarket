@@ -150,6 +150,7 @@ export function HomeProductList({
   );
   const locationInvalid = locationScope.mode === "invalid";
   const lguCityId = locationScope.mode === "city" ? locationScope.lguId : null;
+  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : null;
   const [cityEmptyLabel, setCityEmptyLabel] = useState<string | null>(() =>
     locationScope.mode === "city" ? peekTradeLguDisplayLabel(locationScope.canonicalId) : null
   );
@@ -187,8 +188,9 @@ export function HomeProductList({
       type: null,
       tradeState,
       lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
+      radiusKm: locationInvalid ? null : radiusKm,
     }),
-    [tradeState, lguCityId, locationInvalid, locationScope]
+    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope]
   );
   const { tt } = useI18n();
   const hydrationSeed =

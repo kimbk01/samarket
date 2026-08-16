@@ -17,14 +17,24 @@ import {
   resolveCanonicalToLegacyProductAlias,
   resolveTradeLguUrlTokenToCanonical,
 } from "@/lib/trade/location/national/legacy-product-alias-canonical";
+import {
+  applyTradeBrowseRadiusToSearchParams,
+  parseTradeBrowseRadiusKmFromSearchParams,
+  sanitizeTradeBrowseRadiusKm,
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  TRADE_LOCATION_RADIUS_PARAM,
+  tradeBrowseRadiusCacheSegment,
+} from "@/lib/trade/location/trade-browse-radius";
 
 export type TradeLocationScope =
   | { mode: "all" }
-  | { mode: "city"; lguId: string; canonicalId: string }
+  | { mode: "city"; lguId: string; canonicalId: string; radiusKm: number }
   | { mode: "invalid"; raw: string };
 
 export const TRADE_LOCATION_URL_PARAM = "location" as const;
 export const TRADE_LOCATION_LGU_PARAM = "lgu" as const;
+/** Re-export for callers that already import scope helpers */
+export { TRADE_LOCATION_RADIUS_PARAM };
 /** Address-book return: seed City from master once then strip */
 export const TRADE_LOCATION_SEED_PARAM = "tradeLocSeed" as const;
 
@@ -32,7 +42,12 @@ export function tradeLocationScopeEquals(a: TradeLocationScope, b: TradeLocation
   if (a.mode !== b.mode) return false;
   if (a.mode === "all") return true;
   if (a.mode === "invalid" && b.mode === "invalid") return a.raw === b.raw;
-  return a.mode === "city" && b.mode === "city" && a.canonicalId === b.canonicalId;
+  return (
+    a.mode === "city" &&
+    b.mode === "city" &&
+    a.canonicalId === b.canonicalId &&
+    a.radiusKm === b.radiusKm
+  );
 }
 
 export function parseTradeLocationScopeFromSearchParams(
@@ -48,25 +63,34 @@ export function parseTradeLocationScopeFromSearchParams(
 
   const legacyAlias = resolveCanonicalToLegacyProductAlias(canonicalId);
   const lguId = legacyAlias ?? canonicalId;
+  const radiusKm =
+    parseTradeBrowseRadiusKmFromSearchParams(params, true) ??
+    TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
 
-  return { mode: "city", lguId, canonicalId };
+  return { mode: "city", lguId, canonicalId, radiusKm };
 }
 
 export function applyTradeLocationScopeToSearchParams(
   params: URLSearchParams,
   scope: TradeLocationScope
 ): URLSearchParams {
-  const next = new URLSearchParams(params.toString());
+  let next = new URLSearchParams(params.toString());
   next.delete(TRADE_LOCATION_SEED_PARAM);
   if (scope.mode === "all") {
     next.delete(TRADE_LOCATION_URL_PARAM);
     next.delete(TRADE_LOCATION_LGU_PARAM);
+    next = applyTradeBrowseRadiusToSearchParams(next, null);
   } else if (scope.mode === "invalid") {
     next.set(TRADE_LOCATION_URL_PARAM, "city");
     next.set(TRADE_LOCATION_LGU_PARAM, scope.raw || "invalid");
+    next = applyTradeBrowseRadiusToSearchParams(next, null);
   } else {
     next.set(TRADE_LOCATION_URL_PARAM, "city");
     next.set(TRADE_LOCATION_LGU_PARAM, scope.lguId);
+    next = applyTradeBrowseRadiusToSearchParams(
+      next,
+      sanitizeTradeBrowseRadiusKm(scope.radiusKm)
+    );
   }
   return next;
 }
@@ -74,7 +98,7 @@ export function applyTradeLocationScopeToSearchParams(
 export function tradeLocationScopeCacheSegment(scope: TradeLocationScope): string {
   if (scope.mode === "all") return "loc:all";
   if (scope.mode === "invalid") return `loc:invalid:${scope.raw || "_"}`;
-  return `loc:lgu:${scope.canonicalId}`;
+  return `loc:lgu:${scope.canonicalId}:${tradeBrowseRadiusCacheSegment(scope.radiusKm)}`;
 }
 
 export function tradeLocationScopeDisplayLabel(scope: TradeLocationScope): string | null {
@@ -87,12 +111,18 @@ export function tradeLocationScopeDisplayLabel(scope: TradeLocationScope): strin
 
 /** Build CITY scope from canonical PSGC (legacy alias kept in URL when available). */
 export function buildTradeCityScopeFromCanonical(
-  canonicalId: string
+  canonicalId: string,
+  radiusKm: number = TRADE_BROWSE_RECOMMENDED_RADIUS_KM
 ): Extract<TradeLocationScope, { mode: "city" }> | null {
   const cid = resolveTradeLguUrlTokenToCanonical(canonicalId);
   if (!cid) return null;
   const legacyAlias = resolveCanonicalToLegacyProductAlias(cid);
-  return { mode: "city", lguId: legacyAlias ?? cid, canonicalId: cid };
+  return {
+    mode: "city",
+    lguId: legacyAlias ?? cid,
+    canonicalId: cid,
+    radiusKm: sanitizeTradeBrowseRadiusKm(radiusKm),
+  };
 }
 
 const TRADE_LGU_LABEL_PREFIX = "samarket:trade-lgu-label:v1:";

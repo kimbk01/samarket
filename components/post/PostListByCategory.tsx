@@ -119,6 +119,7 @@ export function PostListByCategory({
       : locationInvalid
         ? locationScope.raw || "invalid"
         : undefined;
+  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -133,8 +134,17 @@ export function PostListByCategory({
       jobIndustrySlug: jobIndustrySlug?.trim() || undefined,
       tradeState,
       lguCityId,
+      radiusKm,
     }),
-    [jobEmploymentType, todayAvailable, jobRegionSlug, jobIndustrySlug, tradeState, lguCityId]
+    [
+      jobEmploymentType,
+      todayAvailable,
+      jobRegionSlug,
+      jobIndustrySlug,
+      tradeState,
+      lguCityId,
+      radiusKm,
+    ]
   );
 
   /**
@@ -151,6 +161,7 @@ export function PostListByCategory({
         jobIndustrySlug: feedExtras.jobIndustrySlug,
         tradeState: feedExtras.tradeState,
         lguCityId: feedExtras.lguCityId,
+        radiusKm: feedExtras.radiusKm,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };

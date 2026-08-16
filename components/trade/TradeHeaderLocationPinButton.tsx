@@ -208,7 +208,10 @@ export function TradeHeaderLocationPinButton() {
 
   const headerHint =
     committedScope.mode === "city"
-      ? committedLabel ?? t("trade_location_section_region")
+      ? (() => {
+          const city = committedLabel ?? t("trade_location_section_region");
+          return `${city} · ${committedScope.radiusKm}km`;
+        })()
       : null;
 
   return (
@@ -237,7 +240,7 @@ export function TradeHeaderLocationPinButton() {
           aria-hidden
         />
         {headerHint ? (
-          <span className="absolute -bottom-0.5 left-1/2 max-w-[4.5rem] -translate-x-1/2 truncate text-[9px] font-semibold leading-none text-sam-primary">
+          <span className="absolute -bottom-0.5 left-1/2 max-w-[5.5rem] -translate-x-1/2 truncate text-[9px] font-semibold leading-none text-sam-primary">
             {headerHint}
           </span>
         ) : null}

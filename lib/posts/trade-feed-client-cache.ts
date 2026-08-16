@@ -7,6 +7,11 @@ import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
+import {
+  sanitizeTradeBrowseRadiusKm,
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  tradeBrowseRadiusCacheSegment,
+} from "@/lib/trade/location/trade-browse-radius";
 
 export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -24,6 +29,8 @@ export type TradeFeedClientOptions = {
   tradeState?: "latest" | "active" | "reserved" | "sold";
   /** LGU City scope id (`pasig`, `quezon-city`, …) */
   lguCityId?: string;
+  /** Browse radius km */
+  radiusKm?: number | null;
 };
 
 export type TradeFeedClientResult = {
@@ -79,7 +86,11 @@ export function buildTradeFeedClientCacheKey(
     if (!raw) return "loc:all";
     const cid = resolveTradeLguUrlTokenToCanonical(raw);
     if (!cid) return `loc:invalid:${raw}`;
-    return `loc:lgu:${cid}`;
+    const r =
+      options.radiusKm == null
+        ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+        : sanitizeTradeBrowseRadiusKm(options.radiusKm);
+    return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(r)}`;
   })();
   const parent = options.tradeMarketParent?.trim();
   if (parent) {

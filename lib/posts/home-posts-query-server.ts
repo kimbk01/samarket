@@ -98,10 +98,11 @@ export async function loadHomePostsPage(
   type: HomePostsQueryType,
   tradeCategoryIds: string[] | null,
   statusOr: string,
-  lguCityId?: string | null
+  lguCityId?: string | null,
+  radiusKm?: number | null
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
-  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId);
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
   if (feedConstraint.kind === "invalid") {
     return { posts: [], hasMore: false };
   }
@@ -160,7 +161,8 @@ export async function resolveHomePostsPayload(
   type: HomePostsQueryType,
   tradeCategoryIds: string[] | null,
   statusOr: string,
-  lguCityId?: string | null
+  lguCityId?: string | null,
+  radiusKm?: number | null
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const fromMaskedRead = await loadHomePostsPage(
     readSb,
@@ -170,7 +172,8 @@ export async function resolveHomePostsPayload(
     type,
     tradeCategoryIds,
     statusOr,
-    lguCityId
+    lguCityId,
+    radiusKm
   );
   if (fromMaskedRead) return fromMaskedRead;
 
@@ -183,7 +186,8 @@ export async function resolveHomePostsPayload(
       type,
       tradeCategoryIds,
       statusOr,
-      lguCityId
+      lguCityId,
+      radiusKm
     );
     if (fromMaskedService) return fromMaskedService;
   }
@@ -197,7 +201,8 @@ export async function resolveHomePostsPayload(
       type,
       tradeCategoryIds,
       statusOr,
-      lguCityId
+      lguCityId,
+      radiusKm
     );
   }
 

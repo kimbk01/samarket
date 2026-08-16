@@ -47,10 +47,11 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("Pasig constraint includes null-gated legacy members matching rollup", () => {
-    const c = resolveTradeFeedLocationConstraint("pasig");
+    const c = resolveTradeFeedLocationConstraint("pasig", 1);
     expect(c.kind).toBe("lgu");
     if (c.kind !== "lgu") return;
     expect(c.canonicalId).toBe(PASIG);
+    expect(c.matchingCanonicalIds).toEqual([PASIG]);
     expect(c.legacyMembers).toEqual([{ regionId: "manila", cityIds: ["m20", "m21", "m22"] }]);
     const rollup = resolveTradeLguCityQueryConstraint("pasig");
     expect(rollup).toEqual({ regionId: "manila", cityIds: ["m20", "m21", "m22"] });
@@ -58,7 +59,7 @@ describe("N4 trade feed national location filter", () => {
 
   it("all 29 rollup LGUs agree with national local-area map members", () => {
     for (const city of listTradeLguCities()) {
-      const c = resolveTradeFeedLocationConstraint(city.id);
+      const c = resolveTradeFeedLocationConstraint(city.id, 1);
       expect(c.kind).toBe("lgu");
       if (c.kind !== "lgu") continue;
       const rollup = resolveTradeLguCityQueryConstraint(city.id);
@@ -70,16 +71,17 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("Davao has national-only filter (empty legacy members)", () => {
-    const c = resolveTradeFeedLocationConstraint(DAVAO);
+    const c = resolveTradeFeedLocationConstraint(DAVAO, 1);
     expect(c.kind).toBe("lgu");
     if (c.kind !== "lgu") return;
+    expect(c.matchingCanonicalIds).toEqual([DAVAO]);
     expect(c.legacyMembers).toEqual([]);
     expect(buildTradeFeedLocationOrFilter(c)).toBe(`trade_lgu_id.eq.${DAVAO}`);
     expect(tradeFeedLocationToQueryExtras(c)).toEqual({ type: "eq", canonicalId: DAVAO });
   });
 
   it("Cainta municipality uses same contract as city", () => {
-    const c = resolveTradeFeedLocationConstraint(CAINTA);
+    const c = resolveTradeFeedLocationConstraint(CAINTA, 1);
     expect(c.kind).toBe("lgu");
     if (c.kind !== "lgu") return;
     expect(c.canonicalId).toBe(CAINTA);
@@ -88,7 +90,7 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("PostgREST OR body nests and() for multi-city legacy Pasig", () => {
-    const c = resolveTradeFeedLocationConstraint("pasig");
+    const c = resolveTradeFeedLocationConstraint("pasig", 1);
     expect(c.kind).toBe("lgu");
     if (c.kind !== "lgu") return;
     const orBody = buildTradeFeedLocationOrFilter(c);
@@ -115,19 +117,19 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("LEGACY PASIG null national matches Pasig only", () => {
-    const pasig = resolveTradeFeedLocationConstraint("pasig");
+    const pasig = resolveTradeFeedLocationConstraint("pasig", 1);
     expect(pasig.kind).toBe("lgu");
     if (pasig.kind !== "lgu") return;
     const row = { trade_lgu_id: null, region: "manila", city: "m20" };
     expect(listingMatchesTradeFeedLocation(row, pasig)).toBe(true);
-    const davao = resolveTradeFeedLocationConstraint(DAVAO);
+    const davao = resolveTradeFeedLocationConstraint(DAVAO, 1);
     expect(davao.kind).toBe("lgu");
     if (davao.kind !== "lgu") return;
     expect(listingMatchesTradeFeedLocation(row, davao)).toBe(false);
   });
 
   it("NEW PASIG canonical matches once; legacy alone does not double-count equation", () => {
-    const pasig = resolveTradeFeedLocationConstraint(PASIG);
+    const pasig = resolveTradeFeedLocationConstraint(PASIG, 1);
     expect(pasig.kind).toBe("lgu");
     if (pasig.kind !== "lgu") return;
     const row = { trade_lgu_id: PASIG, region: "manila", city: "m20" };
@@ -140,8 +142,8 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("NEW DAVAO matches Davao only", () => {
-    const davao = resolveTradeFeedLocationConstraint(DAVAO);
-    const pasig = resolveTradeFeedLocationConstraint("pasig");
+    const davao = resolveTradeFeedLocationConstraint(DAVAO, 1);
+    const pasig = resolveTradeFeedLocationConstraint("pasig", 1);
     expect(davao.kind).toBe("lgu");
     expect(pasig.kind).toBe("lgu");
     if (davao.kind !== "lgu" || pasig.kind !== "lgu") return;
@@ -156,8 +158,8 @@ describe("N4 trade feed national location filter", () => {
       region: "manila",
       city: "m20",
     };
-    const pasig = resolveTradeFeedLocationConstraint("pasig");
-    const davao = resolveTradeFeedLocationConstraint(DAVAO);
+    const pasig = resolveTradeFeedLocationConstraint("pasig", 1);
+    const davao = resolveTradeFeedLocationConstraint(DAVAO, 1);
     expect(pasig.kind).toBe("lgu");
     expect(davao.kind).toBe("lgu");
     if (pasig.kind !== "lgu" || davao.kind !== "lgu") return;
@@ -166,18 +168,18 @@ describe("N4 trade feed national location filter", () => {
   });
 
   it("cache segment collapses alias and canonical to one namespace", () => {
-    const a = resolveTradeFeedLocationConstraint("pasig");
-    const b = resolveTradeFeedLocationConstraint(PASIG);
-    expect(tradeFeedLocationCacheSegment(a)).toBe(`loc:lgu:${PASIG}`);
-    expect(tradeFeedLocationCacheSegment(b)).toBe(`loc:lgu:${PASIG}`);
+    const a = resolveTradeFeedLocationConstraint("pasig", 64);
+    const b = resolveTradeFeedLocationConstraint(PASIG, 64);
+    expect(tradeFeedLocationCacheSegment(a)).toBe(`loc:lgu:${PASIG}:r:64`);
+    expect(tradeFeedLocationCacheSegment(b)).toBe(`loc:lgu:${PASIG}:r:64`);
     const scopeA = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams("location=city&lgu=pasig")
     );
     const scopeB = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams(`location=city&lgu=${PASIG}`)
     );
-    expect(tradeLocationScopeCacheSegment(scopeA)).toBe(`loc:lgu:${PASIG}`);
-    expect(tradeLocationScopeCacheSegment(scopeB)).toBe(`loc:lgu:${PASIG}`);
+    expect(tradeLocationScopeCacheSegment(scopeA)).toBe(`loc:lgu:${PASIG}:r:64`);
+    expect(tradeLocationScopeCacheSegment(scopeB)).toBe(`loc:lgu:${PASIG}:r:64`);
   });
 
   it("local-area map covers 143 rows for national bridge", () => {

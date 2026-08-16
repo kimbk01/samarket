@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { LocateFixed, Pencil, Search } from "lucide-react";
+import { LocateFixed, Pencil, Search, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DibayBottomSheet,
@@ -25,9 +25,20 @@ import {
   cloneTradeBrowseLocation,
   type TradeBrowseLocation,
 } from "@/lib/trade/location/trade-browse-location";
+import {
+  cloneTradeBrowseRadiusSelection,
+  defaultTradeBrowseRadiusSelection,
+  sanitizeTradeBrowseRadiusKm,
+  TRADE_BROWSE_RADIUS_MAX_KM,
+  TRADE_BROWSE_RADIUS_MIN_KM,
+  TRADE_BROWSE_RADIUS_PRESET_KM,
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  tradeBrowseRadiusSelectionFromKm,
+  type TradeBrowseRadiusSelection,
+} from "@/lib/trade/location/trade-browse-radius";
 import { getTradeLguCityDef } from "@/lib/trade/location/trade-lgu-city-rollup";
 
-type SheetView = "main" | "search";
+type SheetView = "main" | "search" | "distance";
 
 export type TradeBrowseLocationSheetProps = {
   open: boolean;
@@ -60,9 +71,16 @@ function nearbyAnchorLegacyId(draft: TradeBrowseLocation, myCanonicalId: string 
   return null;
 }
 
+function radiusFromDraft(draft: TradeBrowseLocation): TradeBrowseRadiusSelection {
+  if (draft.kind === "city" && typeof draft.radiusKm === "number") {
+    return tradeBrowseRadiusSelectionFromKm(draft.radiusKm);
+  }
+  return defaultTradeBrowseRadiusSelection();
+}
+
 /**
- * Marketplace-style buyer browse location sheet (Phase 2).
- * Draft-only selections until Apply / 전체 상품 보기. No radius.
+ * Marketplace-style buyer browse location + radius (Phase 3).
+ * Draft-only until 품목 보기 / 전체 상품 보기.
  */
 export function TradeBrowseLocationSheet({
   open,
@@ -77,6 +95,9 @@ export function TradeBrowseLocationSheet({
   const titleId = useId();
   const [view, setView] = useState<SheetView>("main");
   const [draft, setDraft] = useState<TradeBrowseLocation>(() => cloneTradeBrowseLocation(initialDraft));
+  const [draftRadius, setDraftRadius] = useState<TradeBrowseRadiusSelection>(() =>
+    radiusFromDraft(initialDraft)
+  );
   const [mapPin, setMapPin] = useState(MAP_PICKER_DEFAULT_CENTER);
   const [mapReady, setMapReady] = useState(false);
   const [mapEdit, setMapEdit] = useState(false);
@@ -103,12 +124,12 @@ export function TradeBrowseLocationSheet({
     openGen.current += 1;
     const gen = openGen.current;
     setDraft(cloneTradeBrowseLocation(initialDraft));
+    setDraftRadius(radiusFromDraft(initialDraft));
     setMapPin(draftMapCenter(initialDraft));
     setView("main");
     setMapEdit(false);
     setGeoError(null);
     setMapReady(false);
-    // Shell first — map hydrates after paint (do not block open).
     mapMountTimer.current = setTimeout(() => {
       if (gen === openGen.current) setMapReady(true);
     }, 0);
@@ -120,7 +141,6 @@ export function TradeBrowseLocationSheet({
     };
   }, [open, initialDraft]);
 
-  // Geocode city label → map center when coords missing (async, non-blocking).
   useEffect(() => {
     if (!open || draft.kind !== "city") return;
     if (typeof draft.lat === "number" && typeof draft.lng === "number") return;
@@ -152,16 +172,20 @@ export function TradeBrowseLocationSheet({
 
   const setCityDraft = useCallback(
     (canonicalId: string, displayName: string, coords?: { lat: number; lng: number }) => {
-      setDraft({
+      setDraft((prev) => ({
         kind: "city",
         canonicalId,
         displayName,
+        radiusKm:
+          prev.kind === "city" && typeof prev.radiusKm === "number"
+            ? prev.radiusKm
+            : draftRadius.km,
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-      });
+      }));
       if (coords) setMapPin(coords);
       setGeoError(null);
     },
-    []
+    [draftRadius.km]
   );
 
   const onNationalSelect = useCallback(
@@ -246,10 +270,25 @@ export function TradeBrowseLocationSheet({
     [setCityDraft, t]
   );
 
-  const canApply =
+  const canContinueToDistance =
     draft.kind === "city" && !!draft.canonicalId.trim() && !!draft.displayName.trim();
 
+  const onResetRadius = useCallback(() => {
+    setDraftRadius(defaultTradeBrowseRadiusSelection());
+  }, []);
+
+  const onCommitItems = useCallback(() => {
+    if (draft.kind !== "city") return;
+    const next = cloneTradeBrowseLocation(draft);
+    if (next.kind !== "city") return;
+    onApply({
+      ...next,
+      radiusKm: sanitizeTradeBrowseRadiusKm(draftRadius.km),
+    });
+  }, [draft, draftRadius.km, onApply]);
+
   const mapCenter = mapPin;
+  const showRadiusOnMap = view === "distance" || view === "main";
 
   if (view === "search") {
     return (
@@ -269,6 +308,155 @@ export function TradeBrowseLocationSheet({
     );
   }
 
+  if (view === "distance") {
+    const customActive = draftRadius.mode === "custom";
+    return (
+      <DibayBottomSheet
+        open={open}
+        onClose={onClose}
+        anchor="above-bottom-nav"
+        ariaLabel={t("trade_location_distance_title")}
+        panelClassName="flex max-h-[min(90dvh,640px)] flex-col"
+        footer={
+          <div className="shrink-0 border-t border-[color:var(--overlay-border)] px-4 pb-3 pt-2">
+            <DibayOverlayActions
+              layout="stack"
+              actions={[
+                {
+                  key: "see-items",
+                  label: t("trade_location_see_items"),
+                  roleTone: "primary",
+                  disabled: !canContinueToDistance,
+                  onClick: onCommitItems,
+                },
+              ]}
+            />
+          </div>
+        }
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-2">
+          <div className="flex items-center justify-between gap-2 py-1">
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center rounded-ui-rect text-[color:var(--overlay-text-primary)]"
+              aria-label={t("trade_location_close")}
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+            <h2
+              id={titleId}
+              className="text-[18px] font-semibold text-[color:var(--overlay-text-primary)]"
+            >
+              {t("trade_location_distance_title")}
+            </h2>
+            <button
+              type="button"
+              className="min-h-11 px-2 text-sm font-semibold text-[color:var(--overlay-primary)]"
+              onClick={onResetRadius}
+            >
+              {t("trade_location_distance_reset")}
+            </button>
+          </div>
+
+          <div className="relative mt-2 h-[160px] overflow-hidden rounded-ui-rect border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]">
+            {mapReady ? (
+              <MapPicker
+                marker={mapCenter}
+                mode="center"
+                interactionLocked
+                radiusKm={draftRadius.km}
+                onMarkerPositionChange={() => {}}
+                className="h-full w-full"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-[color:var(--overlay-text-secondary)]">
+                {t("trade_location_map_loading")}
+              </div>
+            )}
+          </div>
+
+          <fieldset className="mt-4 space-y-1">
+            <legend className="sr-only">{t("trade_location_distance_title")}</legend>
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-2">
+              <input
+                type="radio"
+                name="trade-browse-radius"
+                className="h-5 w-5 accent-[color:var(--overlay-primary)]"
+                checked={draftRadius.mode === "recommended"}
+                onChange={() =>
+                  setDraftRadius({
+                    mode: "recommended",
+                    km: TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+                  })
+                }
+              />
+              <span className="text-[15px] font-medium text-[color:var(--overlay-text-primary)]">
+                {t("trade_location_radius_recommended")}
+              </span>
+            </label>
+            {TRADE_BROWSE_RADIUS_PRESET_KM.map((km) => (
+              <label
+                key={km}
+                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-2"
+              >
+                <input
+                  type="radio"
+                  name="trade-browse-radius"
+                  className="h-5 w-5 accent-[color:var(--overlay-primary)]"
+                  checked={draftRadius.mode === "preset" && draftRadius.km === km}
+                  onChange={() => setDraftRadius({ mode: "preset", km })}
+                />
+                <span className="text-[15px] font-medium text-[color:var(--overlay-text-primary)]">
+                  {km}km
+                </span>
+              </label>
+            ))}
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-2">
+              <input
+                type="radio"
+                name="trade-browse-radius"
+                className="h-5 w-5 accent-[color:var(--overlay-primary)]"
+                checked={customActive}
+                onChange={() =>
+                  setDraftRadius({
+                    mode: "custom",
+                    km: sanitizeTradeBrowseRadiusKm(draftRadius.km),
+                  })
+                }
+              />
+              <span className="text-[15px] font-medium text-[color:var(--overlay-text-primary)]">
+                {t("trade_location_radius_custom")}
+              </span>
+            </label>
+            {customActive ? (
+              <div className="px-1 pb-2 pt-1">
+                <input
+                  type="range"
+                  min={TRADE_BROWSE_RADIUS_MIN_KM}
+                  max={TRADE_BROWSE_RADIUS_MAX_KM}
+                  step={1}
+                  value={sanitizeTradeBrowseRadiusKm(draftRadius.km)}
+                  onChange={(e) =>
+                    setDraftRadius({
+                      mode: "custom",
+                      km: sanitizeTradeBrowseRadiusKm(Number(e.target.value)),
+                    })
+                  }
+                  className="w-full accent-[color:var(--overlay-primary)]"
+                  aria-label={t("trade_location_radius_custom")}
+                />
+                <p className="mt-1 text-sm text-[color:var(--overlay-text-secondary)]">
+                  {sanitizeTradeBrowseRadiusKm(draftRadius.km)}km
+                </p>
+              </div>
+            ) : null}
+          </fieldset>
+        </div>
+      </DibayBottomSheet>
+    );
+  }
+
   return (
     <DibayBottomSheet
       open={open}
@@ -282,13 +470,21 @@ export function TradeBrowseLocationSheet({
             layout="stack"
             actions={[
               {
-                key: "apply",
-                label: t("trade_location_apply"),
+                key: "distance",
+                label: t("trade_location_continue_distance"),
                 roleTone: "primary",
-                disabled: !canApply || pinBusy,
+                disabled: !canContinueToDistance || pinBusy,
                 onClick: () => {
-                  if (!canApply) return;
-                  onApply(draft);
+                  if (!canContinueToDistance) return;
+                  setDraftRadius(
+                    cloneTradeBrowseRadiusSelection(
+                      radiusFromDraft({
+                        ...draft,
+                        radiusKm: draftRadius.km,
+                      } as TradeBrowseLocation)
+                    )
+                  );
+                  setView("distance");
                 },
               },
             ]}
@@ -317,6 +513,7 @@ export function TradeBrowseLocationSheet({
               marker={mapCenter}
               mode="center"
               interactionLocked={!mapEdit}
+              radiusKm={showRadiusOnMap && draft.kind === "city" ? draftRadius.km : null}
               onMarkerPositionChange={(pos) => {
                 if (!mapEdit) return;
                 void onMapPinChange(pos);

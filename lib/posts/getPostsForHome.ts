@@ -6,6 +6,11 @@ import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics";
 import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
+import {
+  sanitizeTradeBrowseRadiusKm,
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  tradeBrowseRadiusCacheSegment,
+} from "@/lib/trade/location/trade-browse-radius";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular";
@@ -25,6 +30,8 @@ export interface GetPostsForHomeOptions {
   tradeState?: HomeTradeStateFilter;
   /** Trade LGU City scope (`pasig`, …). Omit / empty = ALL */
   lguCityId?: string | null;
+  /** Browse radius km — only with lguCityId */
+  radiusKm?: number | null;
 }
 
 export interface GetPostsForHomeResult {
@@ -171,16 +178,21 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
   const tradeState = options.tradeState ?? "latest";
   const lguCityId = options.lguCityId?.trim() || null;
+  const radiusKm = lguCityId
+    ? sanitizeTradeBrowseRadiusKm(
+        options.radiusKm ?? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+      )
+    : null;
   const marketKey = tradeMarketParent ?? "all";
-  /** N4: cache by canonical LGU so pasig ≡ 1381200000 share one namespace (v5) */
+  /** N4: cache by canonical LGU + radius so radius changes never reuse feed */
   const loc = (() => {
     if (!lguCityId) return "loc:all";
     const cid = resolveTradeLguUrlTokenToCanonical(lguCityId);
     if (!cid) return `loc:invalid:${lguCityId}`;
-    return `loc:lgu:${cid}`;
+    return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(radiusKm)}`;
   })();
   const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:v5`;
-  return { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, cacheKey };
+  return { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, radiusKm, cacheKey };
 }
 
 function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {
@@ -327,7 +339,7 @@ export async function getPostsForHome(
   options: GetPostsForHomeOptions = {},
   opts: { signal?: AbortSignal } = {}
 ): Promise<GetPostsForHomeResult> {
-  const { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, cacheKey } =
+  const { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, radiusKm, cacheKey } =
     normalizeOptions(options);
   const genAtEnter = homePostsInvalidationGeneration;
   const cached = homePostsCache.get(cacheKey);
@@ -381,6 +393,7 @@ export async function getPostsForHome(
       if (lguCityId) {
         params.set("location", "city");
         params.set("lgu", lguCityId);
+        if (radiusKm != null) params.set("radius", String(radiusKm));
       }
 
       const dbg = samarketRuntimeDebugEnabled();
@@ -464,6 +477,7 @@ export async function getPostsForHome(
       if (lguCityId) {
         params.set("location", "city");
         params.set("lgu", lguCityId);
+        if (radiusKm != null) params.set("radius", String(radiusKm));
       }
 
       const dbg = samarketRuntimeDebugEnabled();

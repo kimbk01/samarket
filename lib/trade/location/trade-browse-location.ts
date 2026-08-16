@@ -17,7 +17,9 @@ export type TradeBrowseLocation =
       kind: "city";
       canonicalId: string;
       displayName: string;
-      /** Optional map center — not used for feed query in Phase 2 */
+      /** Browse radius km (draft/committed). Default recommended when omitted. */
+      radiusKm?: number;
+      /** Optional map center — browse query uses LGU centroid on server */
       lat?: number;
       lng?: number;
     };
@@ -32,7 +34,8 @@ export function tradeBrowseLocationEquals(
     a.kind === "city" &&
     b.kind === "city" &&
     a.canonicalId === b.canonicalId &&
-    a.displayName === b.displayName
+    a.displayName === b.displayName &&
+    (a.radiusKm ?? null) === (b.radiusKm ?? null)
   );
 }
 
@@ -47,6 +50,7 @@ export function tradeBrowseLocationFromScope(
       kind: "city",
       canonicalId: scope.canonicalId,
       displayName: name,
+      radiusKm: scope.radiusKm,
     };
   }
   return { kind: "all" };
@@ -57,7 +61,7 @@ export function tradeBrowseLocationToScope(
 ): TradeLocationScope {
   if (loc.kind === "all") return { mode: "all" };
   return (
-    buildTradeCityScopeFromCanonical(loc.canonicalId) ?? {
+    buildTradeCityScopeFromCanonical(loc.canonicalId, loc.radiusKm) ?? {
       mode: "invalid",
       raw: loc.canonicalId,
     }
@@ -70,6 +74,7 @@ export function cloneTradeBrowseLocation(loc: TradeBrowseLocation): TradeBrowseL
     kind: "city",
     canonicalId: loc.canonicalId,
     displayName: loc.displayName,
+    ...(typeof loc.radiusKm === "number" ? { radiusKm: loc.radiusKm } : {}),
     ...(typeof loc.lat === "number" ? { lat: loc.lat } : {}),
     ...(typeof loc.lng === "number" ? { lng: loc.lng } : {}),
   };

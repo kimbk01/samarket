@@ -23,6 +23,7 @@ Outputs:
 - `legacy-alias-map.json` (includes legacy 29 + display aliases)
 - `local-area-map.json` (143 local Area → PSGC)
 - `build-report.json`
+- `lgu-centroids.json` (browse radius LGU centers only; `scripts/trade/build-lgu-centroids-from-geonames.mjs`)
 
 ## DB import (after schema migration; not production-applied in N0-N2 gate)
 
