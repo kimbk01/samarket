@@ -20,11 +20,11 @@ describe("first-html + single snapshot boot", () => {
     expect(read("components/community/PhilifeFeedClientEntry.tsx")).not.toContain("CommunityUiScope");
   });
 
-  it("RegionBar statically imports ExplorationTier1 (no ssr:false)", () => {
+  it("RegionBar statically imports MainHubTier1 (no ssr:false)", () => {
     const rb = read("components/layout/RegionBar.tsx")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\/\/.*$/gm, "");
-    expect(rb).toContain("import { RegionBarExplorationTier1 }");
+    expect(rb).toContain("import { RegionBarMainHubTier1 }");
     expect(rb).not.toMatch(/ssr:\s*false/);
   });
 
