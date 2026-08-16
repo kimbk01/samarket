@@ -2,12 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import {
   MEMBER_IDENTITY_PROFILE_SELECT,
-  memberCompactLabelFromRow,
+  memberDisplayLabelFromRow,
   type MemberIdentityProfileFields,
 } from "@/lib/users/public-member-identity";
 
 /**
- * Trade list/detail — `author_nickname` = Member compact label (`nickname (@dibay_id)`).
+ * Trade list/detail — `author_nickname` = Member **displayLabel** (nickname only; no `(@dibay_id)`).
  * Always refreshes from profiles (never keep contaminated display_name-based cache).
  * Never uses profiles.display_name / username / store fields.
  */
@@ -36,7 +36,7 @@ export async function enrichPostsAuthorNicknamesFromProfiles(
     const row = raw as Record<string, unknown>;
     const id = typeof row.id === "string" ? row.id.trim() : "";
     if (!id) continue;
-    map.set(id, memberCompactLabelFromRow(row as MemberIdentityProfileFields, { userId: id }));
+    map.set(id, memberDisplayLabelFromRow(row as MemberIdentityProfileFields, { userId: id }));
   }
 
   for (const p of posts) {

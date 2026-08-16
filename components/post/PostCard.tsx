@@ -32,7 +32,11 @@ import {
   imageSanitizeViewerMediaUrl,
   loadTradeFeedThumbnailFetchUrl,
 } from "@/lib/image";
-import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
+import {
+  TRADE_FEED_META_COLUMN_CLASS,
+  TRADE_FEED_META_ROW_CLASS,
+  TRADE_FEED_THUMB_BOX_CLASS,
+} from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
   bumpTradeListProductCardRenderCount,
@@ -50,6 +54,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 /** 피드 카드 6행 SSOT — 부동산 금액 토큰 렌더 */
 function FeedRealEstatePriceLine({ text }: { text: string }) {
@@ -151,7 +156,8 @@ export const PostCard = memo(function PostCard({
     return loadTradeFeedThumbnailFetchUrl(thumbnailUrl) ?? thumbnailUrl;
   }, [thumbnailUrl]);
 
-  const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
+  const authorDisplay =
+    incomingCallPeerNicknameLabel(post.author_nickname) || "판매자";
   const metaRecord =
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
       ? (post.meta as Record<string, unknown>)
@@ -267,58 +273,61 @@ export const PostCard = memo(function PostCard({
               <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
             )}
           </div>
-          <div className="flex min-h-full min-w-0 flex-1 flex-col justify-end">
+          <div className={TRADE_FEED_META_COLUMN_CLASS}>
             {/**
-             * 거래 피드 썸네일 우측 고정 6행 SSOT
-             * 1 유형 · 2 제목 · 3 금액 · 4 지역+작성자 · 5 진행 · 6 작성일·조회·찜·⋮
+             * 거래 피드 썸네일 우측 고정 6행 SSOT — 썸네일과 동일 높이·행 균등
+             * 1 유형+진행 · 2 제목 · 3 금액 · 4 지역+닉네임 · 5 작성일·조회 · 6 찜·⋮
              */}
-            <div className="flex min-w-0 flex-col gap-0.5">
-              {/* 1 — 유형 칩 */}
-              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                {isPromotedContent ? (
-                  <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[11px] font-medium text-sam-muted">
-                    {safeT("trade_promo_badge", {
-                      fallbackKo: "홍보",
-                      fallbackEn: "Promoted",
-                    })}
-                  </span>
-                ) : null}
-                {listPreview?.listingChips.map((c, i) => (
-                  <span key={`${c.text}-${i}`} className={c.className}>
-                    {c.text}
-                  </span>
-                ))}
-                {listPreview?.listingRowBoldText?.trim() ? (
-                  <span className={POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS}>
-                    {listPreview.listingRowBoldText.trim()}
-                  </span>
-                ) : null}
-              </div>
+            {/* 1 — 유형 + 진행 */}
+            <div className={`${TRADE_FEED_META_ROW_CLASS} gap-1`}>
+              {isPromotedContent ? (
+                <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
+                  {safeT("trade_promo_badge", {
+                    fallbackKo: "홍보",
+                    fallbackEn: "Promoted",
+                  })}
+                </span>
+              ) : null}
+              {listPreview?.listingChips.map((c, i) => (
+                <span key={`${c.text}-${i}`} className={`${c.className} shrink-0`}>
+                  {c.text}
+                </span>
+              ))}
+              {listPreview?.listingRowBoldText?.trim() ? (
+                <span className={`${POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS} shrink-0 truncate`}>
+                  {listPreview.listingRowBoldText.trim()}
+                </span>
+              ) : null}
+              <TradeListingStatusBadge post={post} className="shrink-0" />
+            </div>
 
-              {/* 2 — 제목 */}
+            {/* 2 — 제목 */}
+            <div className={TRADE_FEED_META_ROW_CLASS}>
               {listPreview?.feedTitle?.trim() ? (
                 <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} line-clamp-2`}
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} w-full truncate`}
                   title={listPreview.feedTitle.trim()}
                 >
                   {listPreview.feedTitle.trim()}
                 </p>
               ) : (
-                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} min-h-[1.25rem]`} aria-hidden>
+                <p className="w-full" aria-hidden>
                   {"\u00A0"}
                 </p>
               )}
+            </div>
 
-              {/* 3 — 금액 */}
+            {/* 3 — 금액 */}
+            <div className={TRADE_FEED_META_ROW_CLASS}>
               {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
                 <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex flex-wrap items-baseline gap-x-1`}
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1 truncate`}
                 >
                   <FeedRealEstatePriceLine text={listPreview.feedPrice} />
                 </p>
               ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
                 <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex flex-wrap items-baseline gap-x-1`}
+                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1 truncate`}
                 >
                   <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
                     {listPreview.feedJobsPay.label}
@@ -330,18 +339,20 @@ export const PostCard = memo(function PostCard({
                   ) : null}
                 </p>
               ) : listPreview?.feedPrice?.trim() ? (
-                <p className={stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)}>
+                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
                   {listPreview.feedPrice.trim()}
                 </p>
               ) : (
-                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} min-h-[1.25rem]`} aria-hidden>
+                <p className="w-full" aria-hidden>
                   {"\u00A0"}
                 </p>
               )}
+            </div>
 
-              {/* 4 — 지역 + 작성자 */}
+            {/* 4 — 지역 + 닉네임 */}
+            <div className={TRADE_FEED_META_ROW_CLASS}>
               <p
-                className="flex min-w-0 items-center gap-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                className="flex min-w-0 w-full items-center gap-1 truncate text-[11px] font-normal leading-none text-[#6B7280]"
                 title={[locationLine ?? "", authorDisplay].filter(Boolean).join(" · ")}
               >
                 {locationLine ? (
@@ -353,44 +364,42 @@ export const PostCard = memo(function PostCard({
                 {locationLine ? <span className="shrink-0" aria-hidden>·</span> : null}
                 <span className="truncate font-semibold text-[#1F2430]">{authorDisplay}</span>
               </p>
+            </div>
 
-              {/* 5 — 진행사항 */}
-              <div className="flex min-w-0 items-center">
-                <TradeListingStatusBadge post={post} className="shrink-0" />
-              </div>
+            {/* 5 — 작성일 · 조회 */}
+            <div className={TRADE_FEED_META_ROW_CLASS}>
+              <p
+                className="min-w-0 w-full truncate text-[11px] font-normal leading-none text-[#6B7280]"
+                title={[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+              >
+                {[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+              </p>
+            </div>
 
-              {/* 6 — 작성일 · 조회 · 찜 · ⋮ */}
-              <div className="flex min-w-0 items-center justify-between gap-1.5">
-                <p
-                  className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-                  title={[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-                >
-                  {[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-                </p>
-                <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
-                  <PostFavoriteButton
-                    postId={post.id}
-                    authorUserId={post.author_id}
-                    favorited={!!isFavorite}
-                    onFavoriteChange={
-                      onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
-                    }
-                    iconClassName="h-4 w-4"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setMenuOpen((prev) => (prev ? prev : true));
-                    }}
-                    className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
-                    aria-label={t("ui_home_rail_menu_open")}
-                  >
-                    <span className="text-[18px] leading-none">⋮</span>
-                  </button>
-                </div>
-              </div>
+            {/* 6 — 찜 · ⋮ */}
+            <div className={`${TRADE_FEED_META_ROW_CLASS} justify-end gap-1`}>
+              <PostFavoriteButton
+                postId={post.id}
+                authorUserId={post.author_id}
+                favorited={!!isFavorite}
+                onFavoriteChange={
+                  onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
+                }
+                iconClassName="h-3.5 w-3.5"
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setMenuOpen((prev) => (prev ? prev : true));
+                }}
+                className="sam-header-action relative flex h-full min-h-0 w-7 shrink-0 items-center justify-center text-sam-muted"
+                aria-label={t("ui_home_rail_menu_open")}
+              >
+                <span className="pointer-events-none absolute -inset-y-1 -inset-x-2" aria-hidden />
+                <span className="text-[14px] leading-none">⋮</span>
+              </button>
             </div>
           </div>
         </Link>

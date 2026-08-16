@@ -82,6 +82,7 @@ import {
 } from "@/lib/posts/post-list-owner-menu";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
@@ -513,7 +514,7 @@ function PostDetailSellerProfileRow({
   const { t } = useI18n();
   /** Member Identity: nickname only (no @dibay_id on trade detail) */
   const displayName =
-    author?.nickname?.trim() || t("trade_detail_seller_fallback");
+    incomingCallPeerNicknameLabel(author?.nickname) || t("trade_detail_seller_fallback");
   const label = displayName;
   const initial = label.charAt(0).toUpperCase() || "?";
   return (
