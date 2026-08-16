@@ -7,6 +7,10 @@
  */
 import type { CategorySettingsUpdatePayload } from "./types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  parseTradeFieldCompositionPayload,
+  serializeTradeFieldCompositionPayload,
+} from "@/lib/trade/category-form/parse-field-composition";
 
 export type UpsertCategorySettingsResult = { ok: true } | { ok: false; error: string };
 
@@ -26,10 +30,31 @@ export async function upsertCategorySettings(
 ): Promise<UpsertCategorySettingsResult> {
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { ok: false, error: "Supabase를 사용할 수 없습니다. .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요." };
+    return {
+      ok: false,
+      error:
+        "Supabase를 사용할 수 없습니다. .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.",
+    };
   }
 
-  const row = { ...DEFAULTS, ...payload, category_id: categoryId, updated_at: new Date().toISOString() };
+  const row: Record<string, unknown> = {
+    ...DEFAULTS,
+    ...payload,
+    category_id: categoryId,
+    updated_at: new Date().toISOString(),
+  };
+
+  if ("field_composition" in payload) {
+    if (payload.field_composition == null) {
+      row.field_composition = null;
+    } else {
+      const parsed = parseTradeFieldCompositionPayload(payload.field_composition);
+      if (!parsed) {
+        return { ok: false, error: "Invalid field_composition payload." };
+      }
+      row.field_composition = serializeTradeFieldCompositionPayload(parsed);
+    }
+  }
 
   try {
      

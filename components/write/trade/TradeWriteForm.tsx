@@ -13,6 +13,14 @@ import {
 import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 import { UsedCarSellFields } from "./UsedCarSellFields";
 import { UsedCarBuyFields } from "./UsedCarBuyFields";
+import {
+  GenericTradeWriteFields,
+  validateAdaptedCompositionValues,
+} from "./generic/GenericTradeWriteFields";
+import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
+import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
+import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
+import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
@@ -60,6 +68,8 @@ function buildTradeMeta(
     carTrade: "buy" | "sell" | null;
     usedCarBodyTypeKey: string;
     carHasAccident: boolean;
+    transmission: string;
+    fuelType: string;
     salary: string;
     workPlace: string;
     workType: string;
@@ -88,11 +98,13 @@ function buildTradeMeta(
     if (v.carTrade === "buy" || v.carTrade === "sell") o.car_trade = v.carTrade;
     if (v.carTrade === "buy" && v.usedCarBodyTypeKey.trim()) o.car_body_type = v.usedCarBodyTypeKey.trim();
     if (v.carModel.trim()) o.car_model = v.carModel.trim();
-    if (v.carTrade === "sell") {
+      if (v.carTrade === "sell") {
       if (v.carYear.trim()) o.car_year = v.carYear.replace(/\D/g, "").slice(0, 4);
       const mileageDigits = v.mileage.replace(/,/g, "").replace(/\D/g, "");
       if (mileageDigits) o.mileage = mileageDigits;
       o.has_accident = v.carHasAccident === true;
+      if (v.transmission.trim()) o.transmission = v.transmission.trim();
+      if (v.fuelType.trim()) o.fuel_type = v.fuelType.trim();
     }
     if (v.carTrade === "buy" && v.carYear.trim()) {
       o.car_year_max = v.carYear.replace(/\D/g, "").slice(0, 4);
@@ -243,34 +255,8 @@ export function TradeWriteForm({
     () => resolveWriteCategoryUILabel(language, category),
     [language, category]
   );
-  const realEstateTypes = useMemo(
-    () => [
-      { value: "", label: t("trade_075") },
-      { value: "상가", label: t("trade_write_estate_commercial") },
-      { value: "주택", label: t("trade_write_estate_house") },
-      { value: "콘도", label: t("trade_write_estate_condo") },
-      { value: "주차장", label: t("trade_write_estate_parking") },
-    ],
-    [t]
-  );
-  const realEstateDealTypes = useMemo(
-    () => [
-      { value: "임대", label: t("trade_write_deal_rent") },
-      { value: "판매", label: t("trade_write_deal_sale") },
-    ],
-    [t]
-  );
-  const moveInOptions = useMemo(
-    () => [
-      { value: "", label: t("trade_075") },
-      { value: "협의 가능", label: t("trade_write_move_negotiable") },
-      { value: "즉시입주", label: t("trade_write_move_immediate") },
-    ],
-    [t]
-  );
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
-  const perMonthSuffix = `${currencyUnit}/month`;
   const settings = category.settings;
   const hasPrice = settings?.has_price ?? true;
   const hasDirectDeal = settings?.has_direct_deal ?? true;
@@ -349,12 +335,149 @@ export function TradeWriteForm({
   const prevUsedCarTradeRef = useRef<"buy" | "sell" | null>(usedCarTrade);
   /** 팝니다: 사고 이력 있음 */
   const [carHasAccident, setCarHasAccident] = useState(false);
+  const [transmission, setTransmission] = useState("");
+  const [fuelType, setFuelType] = useState("");
   const [salary, setSalary] = useState("");
   const [workPlace, setWorkPlace] = useState("");
   const [workType, setWorkType] = useState("");
   const [currency, setCurrency] = useState("");
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
+
+  const tradeComposition = useMemo(
+    () => resolveTradeCompositionForCategory(category),
+    [category]
+  );
+  const realEstateAdaptedFields = useMemo(() => {
+    if (skinKey !== "real-estate") return [];
+    return applyTradeBehaviorAdapter(tradeComposition, { dealType });
+  }, [skinKey, tradeComposition, dealType]);
+  const usedCarAdaptedFields = useMemo(() => {
+    if (skinKey !== "used-car") return [];
+    return applyTradeBehaviorAdapter(tradeComposition, { carTrade: usedCarTrade });
+  }, [skinKey, tradeComposition, usedCarTrade]);
+  const generalAdaptedFields = useMemo(() => {
+    if (skinKey === "real-estate" || skinKey === "used-car") return [];
+    return applyTradeBehaviorAdapter(tradeComposition, {});
+  }, [skinKey, tradeComposition]);
+  const realEstateFieldValues = useMemo((): TradeFieldValueBag => {
+    if (skinKey !== "real-estate") return {};
+    return {
+      deal_type: dealType,
+      estate_type: estateType,
+      price,
+      deposit,
+      monthly,
+      management_fee: managementFee,
+      has_premium: hasPremium,
+      floor_area: areaSqm,
+      bedrooms: roomCount,
+      bathrooms: bathroomCount,
+      move_in_date: moveInDate,
+      neighborhood,
+      building_name: buildingName,
+    };
+  }, [
+    skinKey,
+    dealType,
+    estateType,
+    price,
+    deposit,
+    monthly,
+    managementFee,
+    hasPremium,
+    areaSqm,
+    roomCount,
+    bathroomCount,
+    moveInDate,
+    neighborhood,
+    buildingName,
+  ]);
+  const usedCarFieldValues = useMemo((): TradeFieldValueBag => {
+    if (skinKey !== "used-car") return {};
+    return {
+      car_trade: usedCarTrade ?? "",
+      make: carModel,
+      model: carModel,
+      year: carYear,
+      mileage,
+      body_type: usedCarBodyTypeKey,
+      has_accident: carHasAccident,
+      transmission,
+      fuel_type: fuelType,
+      price,
+      title,
+      description,
+    };
+  }, [
+    skinKey,
+    usedCarTrade,
+    carModel,
+    carYear,
+    mileage,
+    usedCarBodyTypeKey,
+    carHasAccident,
+    transmission,
+    fuelType,
+    price,
+    title,
+    description,
+  ]);
+  const generalFieldValues = useMemo((): TradeFieldValueBag => {
+    if (skinKey === "real-estate" || skinKey === "used-car") return {};
+    return {
+      title,
+      price,
+      description,
+      is_free_share: isFreeShare,
+      is_price_offer: isPriceOfferEnabled,
+    };
+  }, [skinKey, title, price, description, isFreeShare, isPriceOfferEnabled]);
+  const onRealEstateCompositionChange = useCallback((fieldId: string, value: string | boolean) => {
+    switch (fieldId) {
+      case "deal_type":
+        setDealType(value === "판매" ? "판매" : "임대");
+        break;
+      case "estate_type":
+        setEstateType(String(value));
+        break;
+      case "price":
+        setPrice(String(value));
+        break;
+      case "deposit":
+        setDeposit(String(value));
+        break;
+      case "monthly":
+        setMonthly(String(value));
+        break;
+      case "management_fee":
+        setManagementFee(String(value));
+        break;
+      case "has_premium":
+        setHasPremium(value === true);
+        break;
+      case "floor_area":
+        setAreaSqm(String(value));
+        break;
+      case "bedrooms":
+        setRoomCount(String(value).replace(/[^0-9]/g, ""));
+        break;
+      case "bathrooms":
+        setBathroomCount(String(value).replace(/[^0-9]/g, ""));
+        break;
+      case "move_in_date":
+        setMoveInDate(String(value));
+        break;
+      case "neighborhood":
+        setNeighborhood(String(value));
+        break;
+      case "building_name":
+        setBuildingName(String(value));
+        break;
+      default:
+        break;
+    }
+  }, []);
 
   const prevWriteCategoryIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -783,6 +906,8 @@ export function TradeWriteForm({
     setUsedCarBodyTypeKey("");
     setUsedCarTrade(isUsedCarSkin ? "sell" : null);
     setCarHasAccident(false);
+    setTransmission("");
+    setFuelType("");
     setSalary("");
     setWorkPlace("");
     setWorkType("");
@@ -1030,6 +1155,8 @@ export function TradeWriteForm({
     }
     setUsedCarTrade(h.usedCarTrade);
     setCarHasAccident(h.carHasAccident);
+    setTransmission(h.transmission ?? "");
+    setFuelType(h.fuelType ?? "");
     if (skinKey === "used-car" && h.usedCarTrade === "sell") {
       setUsedCarBrandKey(h.usedCarBrandKey ?? "");
       setUsedCarModelKey(h.usedCarModelKey ?? "");
@@ -1094,16 +1221,53 @@ export function TradeWriteForm({
       next.location = t("trade_write_err_region_read");
     }
     if (skinKey === "real-estate") {
-      if (!buildingName.trim()) next.buildingName = t("trade_write_err_building");
-      if (!estateType.trim()) next.estateType = t("trade_write_err_estate_type");
-      if (dealType === "임대") {
-        if (!deposit.replace(/,/g, "").trim()) next.deposit = t("trade_write_err_deposit");
-        if (!monthly.replace(/,/g, "").trim()) next.monthly = t("trade_write_err_monthly");
+      const compErrs = validateAdaptedCompositionValues(
+        realEstateAdaptedFields,
+        realEstateFieldValues,
+        (fieldId) => {
+          const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        }
+      );
+      Object.assign(next, compErrs);
+      if (compErrs.price) next.price = compErrs.price;
+    }
+    if (skinKey === "used-car") {
+      const compErrs = validateAdaptedCompositionValues(
+        usedCarAdaptedFields,
+        usedCarFieldValues,
+        (fieldId) => {
+          const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        }
+      );
+      const UC_MAP: Record<string, string> = {
+        car_trade: "usedCarTrade",
+        make: "carModel",
+        model: "carModel",
+        year: "carYear",
+        mileage: "mileage",
+        body_type: "usedCarBodyType",
+        price: "price",
+        description: "description",
+      };
+      for (const [id, msg] of Object.entries(compErrs)) {
+        const k = UC_MAP[id] ?? id;
+        if (!next[k]) next[k] = msg;
       }
-      if (!areaSqm.trim()) next.areaSqm = t("trade_write_err_area");
-      if (!roomCount.trim()) next.roomCount = t("trade_write_err_rooms");
-      if (!bathroomCount.trim()) next.bathroomCount = t("trade_write_err_bathrooms");
-      if (!moveInDate.trim()) next.moveInDate = t("trade_write_err_move_in");
+    }
+    if (skinKey !== "real-estate" && skinKey !== "used-car") {
+      const compErrs = validateAdaptedCompositionValues(
+        generalAdaptedFields,
+        generalFieldValues,
+        (fieldId) => {
+          const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        }
+      );
+      if (compErrs.title && !next.title) next.title = compErrs.title;
+      if (compErrs.price && !next.price) next.price = compErrs.price;
+      if (compErrs.description && !next.description) next.description = compErrs.description;
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -1126,14 +1290,13 @@ export function TradeWriteForm({
     effectiveTradeCityId,
     skinKey,
     dealType,
-    buildingName,
-    estateType,
-    deposit,
-    monthly,
-    areaSqm,
-    roomCount,
-    bathroomCount,
-    moveInDate,
+    realEstateAdaptedFields,
+    realEstateFieldValues,
+    usedCarAdaptedFields,
+    usedCarFieldValues,
+    generalAdaptedFields,
+    generalFieldValues,
+    language,
     tradeAddressSsot,
     t,
   ]);
@@ -1235,6 +1398,8 @@ export function TradeWriteForm({
           carTrade: usedCarTrade,
           usedCarBodyTypeKey,
           carHasAccident,
+          transmission,
+          fuelType,
           salary,
           workPlace,
           workType,
@@ -1362,6 +1527,8 @@ export function TradeWriteForm({
       mileage,
       usedCarBodyTypeKey,
       carHasAccident,
+      transmission,
+      fuelType,
       salary,
       workPlace,
       workType,
@@ -1380,6 +1547,7 @@ export function TradeWriteForm({
       tradeMeetSpot,
       effectiveTradeRegionId,
       effectiveTradeCityId,
+      t,
     ]
   );
 
@@ -1486,26 +1654,6 @@ export function TradeWriteForm({
     return tradeAddressSsot.displayLine?.trim() ?? "";
   }, [tradeMeetSpot, tradeAddressSsot.displayLine]);
 
-  const realEstateBuildingFields = (
-    <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-      <label className={TRADE_WRITE_FB_FIELD_HEAD}>
-        {t("trade_write_building_name")} <span className="text-sam-danger">*</span>
-      </label>
-      <input
-        type="text"
-        value={buildingName}
-        onChange={(e) => setBuildingName(e.target.value)}
-        readOnly={coreLocked}
-        className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
-        placeholder={t("trade_053")}
-        aria-invalid={!!errors.buildingName}
-      />
-      {errors.buildingName ? (
-        <p className="mt-1 text-[12px] text-red-600">{errors.buildingName}</p>
-      ) : null}
-    </div>
-  );
-
   const tradeLocationEl = hasLocation ? (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
@@ -1525,7 +1673,7 @@ export function TradeWriteForm({
           hasLocation && !locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
         }
         meetSpotHeading={t("trade_write_location")}
-        belowMeetSpotSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
+        belowMeetSpotSlot={undefined}
         denseLayout
       />
     </div>
@@ -1589,30 +1737,6 @@ export function TradeWriteForm({
           />
         </div>
         {skinKey === "real-estate" && hasLocation ? tradeLocationEl : null}
-        {skinKey === "real-estate" && !hasLocation ? (
-          <section
-            className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-          >
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_128")}</h4>
-            <div>
-              <label className={TRADE_WRITE_FB_FIELD_HEAD}>
-                {t("trade_write_building_name")} <span className="text-sam-danger">*</span>
-              </label>
-              <input
-                type="text"
-                value={buildingName}
-                onChange={(e) => setBuildingName(e.target.value)}
-                readOnly={coreLocked}
-                className={`mt-0.5 ${TRADE_WRITE_FB_CONTROL}`}
-                placeholder={t("trade_053")}
-                aria-invalid={!!errors.buildingName}
-              />
-              {errors.buildingName ? (
-                <p className="mt-1 text-[12px] text-red-600">{errors.buildingName}</p>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
         {skinKey === "used-car" ? (
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -1853,216 +1977,17 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "real-estate" && (
-          <>
-            <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-              <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_021")}</h4>
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_estate_type_label")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <select
-                      value={estateType}
-                      onChange={(e) => setEstateType(e.target.value)}
-                      className={TRADE_WRITE_FB_CONTROL}
-                      aria-invalid={!!errors.estateType}
-                    >
-                      {realEstateTypes.map((opt) => (
-                        <option key={opt.value || "empty"} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    {errors.estateType && (
-                      <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.estateType}</p>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_deal_type_label")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <select
-                      value={dealType}
-                      onChange={(e) => setDealType(e.target.value as "임대" | "판매")}
-                      className={TRADE_WRITE_FB_CONTROL}
-                    >
-                      {realEstateDealTypes.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {dealType === "판매" && (
-                  <div>
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_123")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
-                      <span className="shrink-0 sam-text-body font-medium text-sam-muted">
-                        {currencyUnit}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={price}
-                        onChange={(e) => setPrice(formatPriceInput(e.target.value))}
-                        placeholder={t("trade_124")}
-                        className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
-                        aria-invalid={!!errors.price}
-                      />
-                    </div>
-                    {errors.price && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>}
-                  </div>
-                )}
-                {dealType === "임대" && (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div className="min-w-0">
-                      <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                        {t("trade_write_deposit_label")} <span className="text-sam-danger">*</span>
-                      </label>
-                      <div className={TRADE_WRITE_FB_CONTROL_ROW}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={deposit}
-                          onChange={(e) => setDeposit(formatPriceInput(e.target.value))}
-                          className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
-                          aria-invalid={!!errors.deposit}
-                        />
-                        <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-helper">{currencyUnit}</span>
-                      </div>
-                      {errors.deposit && (
-                        <p className="mt-1 sam-text-helper text-sam-danger">{errors.deposit}</p>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                        {t("trade_write_monthly_rent_label")} <span className="text-sam-danger">*</span>
-                      </label>
-                      <div className={TRADE_WRITE_FB_CONTROL_ROW}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={monthly}
-                          onChange={(e) => setMonthly(formatPriceInput(e.target.value))}
-                          className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
-                          aria-invalid={!!errors.monthly}
-                        />
-                        <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-xxs">{perMonthSuffix}</span>
-                      </div>
-                      {errors.monthly && (
-                        <p className="mt-1 sam-text-helper text-sam-danger">{errors.monthly}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_area_sq_label")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={areaSqm}
-                      onChange={(e) => setAreaSqm(e.target.value)}
-                      className={TRADE_WRITE_FB_CONTROL}
-                      aria-invalid={!!errors.areaSqm}
-                    />
-                    {errors.areaSqm && (
-                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.areaSqm}</p>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_rooms_label")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={roomCount}
-                      onChange={(e) => setRoomCount(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="0"
-                      className={TRADE_WRITE_FB_CONTROL}
-                      aria-invalid={!!errors.roomCount}
-                    />
-                    {errors.roomCount && (
-                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.roomCount}</p>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_bathrooms_label")} <span className="text-sam-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={bathroomCount}
-                      onChange={(e) => setBathroomCount(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="0"
-                      className={TRADE_WRITE_FB_CONTROL}
-                      aria-invalid={!!errors.bathroomCount}
-                    />
-                    {errors.bathroomCount && (
-                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.bathroomCount}</p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                    {t("trade_write_move_in_label")} <span className="text-sam-danger">*</span>
-                  </label>
-                  <select
-                    value={moveInDate}
-                    onChange={(e) => setMoveInDate(e.target.value)}
-                    className={TRADE_WRITE_FB_CONTROL}
-                    aria-invalid={!!errors.moveInDate}
-                  >
-                    {moveInOptions.map((opt) => (
-                      <option key={opt.value || "empty"} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.moveInDate && (
-                    <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.moveInDate}</p>
-                  )}
-                </div>
-              </div>
-            </section>
-            {dealType === "임대" ? (
-              <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-                <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_076")}</h4>
-                <div className="space-y-2">
-                  <div className="min-w-0">
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      {t("trade_write_mgmt_fee")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
-                    </label>
-                    <div className={TRADE_WRITE_FB_CONTROL_ROW}>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={managementFee}
-                        onChange={(e) => setManagementFee(formatPriceInput(e.target.value))}
-                        className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
-                      />
-                      <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-xxs">{perMonthSuffix}</span>
-                    </div>
-                  </div>
-                  <label className="flex min-h-[44px] cursor-pointer items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={hasPremium}
-                      onChange={(e) => setHasPremium(e.target.checked)}
-                      className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
-                    />
-                    <span className="sam-text-body-secondary text-sam-fg">
-                      {t("trade_write_premium")} <span className="font-normal text-sam-muted sam-text-body-secondary">{t("trade_001")}</span>
-                    </span>
-                  </label>
-                </div>
-              </section>
-            ) : null}
-          </>
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_021")}</h4>
+            <GenericTradeWriteFields
+              fields={realEstateAdaptedFields}
+              values={realEstateFieldValues}
+              onChange={onRealEstateCompositionChange}
+              errors={errors}
+              disabled={coreLocked}
+              currencyUnit={currencyUnit}
+            />
+          </section>
         )}
         {skinKey === "used-car" && (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -2101,6 +2026,10 @@ export function TradeWriteForm({
                   setModelKey={setUsedCarModelKey}
                   mileagePresetKey={usedCarMileagePresetKey}
                   setMileagePresetKey={setUsedCarMileagePresetKey}
+                  transmission={transmission}
+                  setTransmission={setTransmission}
+                  fuelType={fuelType}
+                  setFuelType={setFuelType}
                   errors={{
                     carYear: errors.carYear,
                     carModel: errors.carModel,

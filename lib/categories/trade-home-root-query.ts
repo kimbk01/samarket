@@ -37,8 +37,18 @@ function mapTradeHomeRootRow(row: TradeHomeRootDbRow): CategoryWithSettings {
         has_direct_deal?: boolean;
         has_free_share?: boolean;
         post_type: string;
+        field_composition?: unknown | null;
       } | null)
-    : null;
+    : (row.category_settings as {
+        can_write: boolean;
+        has_price: boolean;
+        has_chat: boolean;
+        has_location: boolean;
+        has_direct_deal?: boolean;
+        has_free_share?: boolean;
+        post_type: string;
+        field_composition?: unknown | null;
+      } | null);
   return {
     id: row.id,
     name: row.name,
@@ -65,6 +75,7 @@ function mapTradeHomeRootRow(row: TradeHomeRootDbRow): CategoryWithSettings {
           has_direct_deal: raw.has_direct_deal ?? true,
           has_free_share: raw.has_free_share ?? true,
           post_type: raw.post_type,
+          field_composition: raw.field_composition ?? null,
         }
       : null,
   };

@@ -90,6 +90,11 @@ import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
+import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
+import { validateAdaptedCompositionValues } from "@/components/write/trade/generic/GenericTradeWriteFields";
+import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
+import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -212,6 +217,15 @@ export function ExchangeWriteForm({
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
   const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
   const [memo, setMemo] = useState("");
+
+  const exchangeComposition = useMemo(
+    () => resolveTradeCompositionForCategory(category),
+    [category]
+  );
+  const exchangeAdaptedFields = useMemo(
+    () => applyTradeBehaviorAdapter(exchangeComposition, { exchangeDirection: direction }),
+    [exchangeComposition, direction]
+  );
 
   useEffect(() => {
     const prev = prevExchangeCategoryIdRef.current;
@@ -411,6 +425,32 @@ export function ExchangeWriteForm({
   const rateValue = baseRateValue + ratePlusValue;
   const amountValue = amountNum ? Number(amountNum) : 0;
   const converted = rateValue > 0 && amountValue > 0 ? amountValue * rateValue : 0;
+
+  const exchangeFieldValues = useMemo((): TradeFieldValueBag => {
+    return {
+      exchange_direction: direction,
+      from_currency: "PHP",
+      to_currency: "KRW",
+      exchange_rate_base: String(baseRateValue),
+      exchange_rate_plus: ratePlus,
+      exchange_rate: String(rateValue),
+      amount,
+      converted_amount: String(converted),
+      seller_prep: sellerPrep.length > 0 ? "1" : "",
+      buyer_prep: buyerPrep.length > 0 ? "1" : "",
+      description: memo,
+    };
+  }, [
+    direction,
+    baseRateValue,
+    ratePlus,
+    rateValue,
+    amount,
+    converted,
+    sellerPrep,
+    buyerPrep,
+    memo,
+  ]);
 
   const IDENTITY_NOT_REQUIRED = "identity_not_required";
 
@@ -621,6 +661,25 @@ export function ExchangeWriteForm({
     if (hasLocation && (!tradeAddressSsot.ready || tradeAddressSsot.missing)) {
       next.location = t("trade_write_err_region_read");
     }
+    const compErrs = validateAdaptedCompositionValues(
+      exchangeAdaptedFields,
+      exchangeFieldValues,
+      (fieldId) => {
+        const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+        return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+      }
+    );
+    const EX_COMP_TO_FORM: Record<string, string> = {
+      exchange_rate: "rate",
+      amount: "amount",
+      buyer_prep: "prep",
+      seller_prep: "prep",
+      description: "memo",
+    };
+    for (const [fieldId, msg] of Object.entries(compErrs)) {
+      const formKey = EX_COMP_TO_FORM[fieldId] ?? fieldId;
+      if (!next[formKey]) next[formKey] = msg;
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }, [
@@ -633,6 +692,9 @@ export function ExchangeWriteForm({
     effectiveTradeRegionId,
     effectiveTradeCityId,
     tradeAddressSsot,
+    exchangeAdaptedFields,
+    exchangeFieldValues,
+    language,
     t,
   ]);
 

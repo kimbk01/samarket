@@ -68,6 +68,11 @@ import {
   tradeDetailViewsLine,
 } from "@/lib/trade/post-detail-i18n";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
+import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
+import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
+import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
+import { buildCompositionDetailAttributes } from "@/lib/trade/category-form/detail-attributes";
+import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -177,6 +182,8 @@ const META_LABEL_KEYS: Record<string, Record<string, MessageKey>> = {
     car_year_max: "ui_meta_car_year_max",
     mileage: "ui_meta_mileage",
     has_accident: "ui_meta_has_accident",
+    transmission: "ui_meta_transmission",
+    fuel_type: "ui_meta_fuel_type",
   },
   jobs: {
     salary: "ui_meta_jobs_salary",
@@ -295,7 +302,8 @@ function UsedCarMetaBlock({
   salePrice?: number | null;
   currency?: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const rows: { label: string; value: string }[] = [];
   const ct = meta.car_trade;
   if (ct === "buy" || ct === "sell")
@@ -304,23 +312,43 @@ function UsedCarMetaBlock({
       value: ct === "buy" ? t("trade_071") : t("trade_126"),
     });
   if (ct === "buy") {
-    if (meta.car_body_type != null && String(meta.car_body_type).trim())
-      rows.push({
-        label: t("ui_meta_car_body_type"),
-        value: labelForUsedCarBodyTypeKey(String(meta.car_body_type).trim(), t),
-      });
-    if (meta.car_model != null && String(meta.car_model).trim())
-      rows.push({ label: t("ui_meta_car_model_wish"), value: String(meta.car_model).trim() });
-    if (meta.car_year_max != null && String(meta.car_year_max).trim())
-      rows.push({
-        label: t("ui_meta_car_year_max"),
-        value: t("ui_meta_year_suffix", { year: String(meta.car_year_max).trim() }),
-      });
     if (salePrice != null && currency)
       rows.push({
         label: t("ui_meta_price_max"),
         value: t("ui_meta_year_suffix", { year: formatPrice(salePrice, currency) }),
       });
+    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: null });
+    const adapted = applyTradeBehaviorAdapter(composition, { carTrade: "buy" });
+    const attrs = buildCompositionDetailAttributes({
+      composition,
+      adaptedFields: adapted,
+      meta,
+      post: salePrice != null ? { price: salePrice } : undefined,
+      lang,
+      skipFieldIds: ["car_trade", "price", "make", "model", "mileage", "has_accident", "transmission", "fuel_type"],
+    });
+    for (const a of attrs) {
+      if (a.fieldId === "body_type") {
+        rows.push({
+          label: t("ui_meta_car_body_type"),
+          value: labelForUsedCarBodyTypeKey(a.value, t) || a.value,
+        });
+        continue;
+      }
+      if (a.fieldId === "year") {
+        rows.push({
+          label: t("ui_meta_car_year_max"),
+          value: t("ui_meta_year_suffix", { year: a.value }),
+        });
+        continue;
+      }
+      rows.push({
+        label: tradeFieldAdminLabel(a.fieldId, lang) || a.fieldId,
+        value: a.fieldId === "make" || a.fieldId === "model" ? a.value : a.value,
+      });
+    }
+    if (meta.car_model != null && String(meta.car_model).trim() && !attrs.some((a) => a.fieldId === "make"))
+      rows.push({ label: t("ui_meta_car_model_wish"), value: String(meta.car_model).trim() });
   } else {
     if (salePrice != null && currency)
       rows.push({ label: t("ui_meta_price"), value: formatPrice(salePrice, currency) });
@@ -331,10 +359,27 @@ function UsedCarMetaBlock({
         label: t("ui_meta_has_accident"),
         value: meta.has_accident ? t("ui_car_accident_yes") : t("ui_car_accident_no"),
       });
-    if (meta.car_year != null && String(meta.car_year).trim())
-      rows.push({ label: t("ui_meta_car_year"), value: String(meta.car_year).trim() });
-    if (meta.mileage != null && String(meta.mileage).trim())
-      rows.push({ label: t("ui_meta_mileage"), value: String(meta.mileage).trim() });
+    const composition = resolveTradeComposition({ icon_key: "used-car", fieldComposition: null });
+    const adapted = applyTradeBehaviorAdapter(composition, {
+      carTrade: ct === "buy" ? "buy" : "sell",
+    });
+    const attrs = buildCompositionDetailAttributes({
+      composition,
+      adaptedFields: adapted,
+      meta,
+      post: salePrice != null ? { price: salePrice } : undefined,
+      lang,
+      skipFieldIds: ["car_trade", "price", "make", "model", "body_type", "has_accident"],
+      formatMoney: currency
+        ? (raw) => formatPrice(parseMetaAmount(raw), currency)
+        : undefined,
+    });
+    for (const a of attrs) {
+      rows.push({
+        label: tradeFieldAdminLabel(a.fieldId, lang) || a.fieldId,
+        value: a.value,
+      });
+    }
   }
   if (rows.length === 0) return null;
   return (
@@ -382,50 +427,54 @@ function RealEstateMetaBlock({
   detailHeroDedup?: boolean;
 }) {
   const { t, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const dealType = (meta.deal_type as string | undefined)?.trim();
   const regionLabel = regionId && cityId ? getLocationLabel(regionId, cityId) : null;
 
+  const composition = resolveTradeComposition({ icon_key: "real-estate", fieldComposition: null });
+  const adapted = applyTradeBehaviorAdapter(composition, { dealType });
+  const skipHero = detailHeroDedup
+    ? ([
+        "neighborhood",
+        "building_name",
+        "estate_type",
+        "deal_type",
+        "price",
+        "deposit",
+        "monthly",
+      ] as const)
+    : ([] as const);
+
+  const attrs = buildCompositionDetailAttributes({
+    composition,
+    adaptedFields: adapted,
+    meta: {
+      ...meta,
+      ...(salePrice != null ? { price: String(salePrice) } : {}),
+    },
+    post: salePrice != null ? { price: salePrice } : undefined,
+    lang,
+    skipFieldIds: [...skipHero],
+    formatMoney: (raw) => formatPrice(parseMetaAmount(raw), currency),
+  });
+
   const rows: { label: string; value: string }[] = [];
-
-  if (!detailHeroDedup && regionLabel) rows.push({ label: t("ui_meta_neighborhood"), value: regionLabel });
-  if (!detailHeroDedup && meta.neighborhood != null && String(meta.neighborhood).trim())
-    rows.push({ label: t("ui_meta_neighborhood"), value: String(meta.neighborhood).trim() });
-  if (!detailHeroDedup && meta.building_name != null && String(meta.building_name).trim())
-    rows.push({ label: t("ui_meta_building_name"), value: String(meta.building_name).trim() });
-  if (!detailHeroDedup && meta.estate_type != null && String(meta.estate_type).trim())
-    rows.push({ label: t("ui_meta_estate_type"), value: String(meta.estate_type).trim() });
-  if (!detailHeroDedup && meta.deal_type != null && String(meta.deal_type).trim())
-    rows.push({ label: t("ui_meta_deal_type"), value: String(meta.deal_type).trim() });
-
-  if (!detailHeroDedup && isReDealTypeSale(dealType) && salePrice != null)
-    rows.push({ label: t("ui_meta_price"), value: formatPrice(salePrice, currency) });
-  if (!detailHeroDedup && isReDealTypeRent(dealType)) {
-    if (meta.deposit != null && String(meta.deposit).trim())
-      rows.push({ label: t("ui_meta_deposit"), value: formatPrice(parseMetaAmount(meta.deposit), currency) });
-    if (meta.monthly != null && String(meta.monthly).trim())
-      rows.push({ label: t("ui_meta_monthly"), value: formatPrice(parseMetaAmount(meta.monthly), currency) });
+  if (!detailHeroDedup && regionLabel) {
+    rows.push({ label: t("ui_meta_neighborhood"), value: regionLabel });
   }
-  if (isReDealTypeRent(dealType)) {
-    if (meta.management_fee != null && String(meta.management_fee).trim())
-      rows.push({
-        label: t("ui_meta_management_fee"),
-        value: formatPrice(parseMetaAmount(meta.management_fee), currency),
-      });
-    if (meta.has_premium === true) rows.push({ label: t("ui_meta_deposit"), value: "—" });
-  }
-
-  const sizeSq = meta.size_sq ?? meta.area_sqm;
-  if (sizeSq != null && String(sizeSq).trim())
-    rows.push({ label: t("ui_meta_size_sq"), value: String(sizeSq) });
-  if (meta.room_count != null && String(meta.room_count).trim())
-    rows.push({ label: t("ui_meta_room_count"), value: String(meta.room_count) });
-  if (meta.bathroom_count != null && String(meta.bathroom_count).trim())
-    rows.push({ label: t("ui_meta_bathroom_count"), value: String(meta.bathroom_count) });
-  if (meta.move_in_date != null && String(meta.move_in_date).trim())
+  for (const a of attrs) {
+    if (a.fieldId === "has_premium" && a.value) {
+      rows.push({ label: t("ui_meta_deposit"), value: "—" });
+      continue;
+    }
     rows.push({
-      label: t("ui_meta_move_in_date"),
-      value: formatMoveInDate(String(meta.move_in_date), language),
+      label: tradeFieldAdminLabel(a.fieldId, lang) || a.fieldId,
+      value:
+        a.fieldId === "move_in_date"
+          ? formatMoveInDate(a.value, lang)
+          : a.value,
     });
+  }
 
   if (rows.length === 0) return null;
 
@@ -457,7 +506,8 @@ function TradeMetaBlock({
   post?: { price?: number | null; region?: string | null; city?: string | null };
   defaultCurrency?: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   if (skinKey === "real-estate") {
     return (
       <RealEstateMetaBlock
@@ -469,25 +519,52 @@ function TradeMetaBlock({
       />
     );
   }
-  const labelKeys = META_LABEL_KEYS[skinKey];
-  if (!labelKeys || Object.keys(meta).length === 0) return null;
-  const entries = Object.entries(meta)
-    .filter(([, v]) => v != null && String(v).trim() !== "")
-    .map(([k, v]) => {
-      const key = labelKeys[k];
-      return [k, key ? t(key) : k, String(v)] as const;
-    });
-  if (entries.length === 0) return null;
+  const composition = resolveTradeComposition({ icon_key: skinKey, fieldComposition: null });
+  const attrs = buildCompositionDetailAttributes({
+    composition,
+    meta,
+    post: post as Record<string, unknown> | undefined,
+    lang,
+    formatMoney: defaultCurrency
+      ? (raw) => formatPrice(parseMetaAmount(raw), defaultCurrency)
+      : undefined,
+  });
+  if (attrs.length === 0) {
+    const labelKeys = META_LABEL_KEYS[skinKey];
+    if (!labelKeys || Object.keys(meta).length === 0) return null;
+    const entries = Object.entries(meta)
+      .filter(([, v]) => v != null && String(v).trim() !== "")
+      .map(([k, v]) => {
+        const key = labelKeys[k];
+        return [k, key ? t(key) : k, String(v)] as const;
+      });
+    if (entries.length === 0) return null;
+    return (
+      <>
+        <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>
+          {TRADE_SKIN_MESSAGE_KEYS[skinKey] ? t(TRADE_SKIN_MESSAGE_KEYS[skinKey]) : skinKey}
+        </h3>
+        <dl className="mt-2 space-y-2 text-[15px] leading-snug">
+          {entries.map(([key, label, value]) => (
+            <div key={key} className={TRADE_FB_DETAIL_META_ROW}>
+              <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+              <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </>
+    );
+  }
   return (
     <>
       <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>
         {TRADE_SKIN_MESSAGE_KEYS[skinKey] ? t(TRADE_SKIN_MESSAGE_KEYS[skinKey]) : skinKey}
       </h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
-        {entries.map(([key, label, value]) => (
-          <div key={key} className={TRADE_FB_DETAIL_META_ROW}>
-            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
-            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
+        {attrs.map((a) => (
+          <div key={a.fieldId} className={TRADE_FB_DETAIL_META_ROW}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{tradeFieldAdminLabel(a.fieldId, lang)}</dt>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{a.value}</dd>
           </div>
         ))}
       </dl>
@@ -1548,12 +1625,7 @@ export function PostDetailView({
     (!buyerPrimaryOffer ||
       buyerPrimaryOffer.status === "rejected" ||
       buyerPrimaryOffer.status === "expired");
-  const uiTradeChatEnabled =
-    showChat &&
-    (!buyerPriceOfferFlowActive ||
-      (resolvedViewerId != null && buyerPrimaryOffer?.status === "accepted"));
   const bottomBarHasOfferBtn = showBuyerOfferPrimaryButton;
-  const bottomBarHasChatBtn = uiTradeChatEnabled;
 
   const detailMetaJob =
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
@@ -1568,6 +1640,27 @@ export function PostDetailView({
     category?.icon_key === "jobs" ||
     category?.icon_key === "job" ||
     hasJobsMeta(detailMetaJob);
+  const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
+
+  const ctaPolicy = resolveTradeDetailCtaPolicy({
+    isOwnPost,
+    postStatusLower,
+    categoryHasChat: showChat,
+    buyerPriceOfferFlowActive,
+    hasAcceptedOffer:
+      resolvedViewerId != null && buyerPrimaryOffer?.status === "accepted",
+    isJobsDetailUi,
+    jobDirection: jobDetailDirection,
+    listingKind: listingKindJob,
+    existingTradeRoomId,
+    priceOfferGatesChat: buyerPriceOfferFlowActive,
+  });
+  const uiTradeChatEnabled = ctaPolicy.uiTradeChatEnabled;
+  const bottomBarHasChatBtn = ctaPolicy.bottomBarHasChatBtn;
+  const showJobApplyBtn = ctaPolicy.showJobApplyBtn;
+  const showJobSeekContactBtn = ctaPolicy.showJobSeekContactBtn;
+  const showJobHireMergedApplyChatBtn = ctaPolicy.jobHireMergedApplyChatBtn;
+  const bottomBarHasSeparateChatBtn = bottomBarHasChatBtn && !showJobHireMergedApplyChatBtn;
 
   /** 알림(가격 제안 도착) 진입 — 판매자만 받은 제안 모달 오픈 후 쿼리 제거 (`useLayoutEffect`: 네비 직후 깜빡임·타이밍 이슈 완화) */
   useLayoutEffect(() => {
@@ -1735,30 +1828,18 @@ export function PostDetailView({
   const jobTypeForChatCta = String(detailMetaJob.job_type ?? "").trim();
   const isJobSeekForChatCta =
     isJobTradePost && (listingKindJob === "work" || jobTypeForChatCta === "seek");
-  const chatCtaLabel = isJobSeekForChatCta
-    ? t("trade_detail_chat_cta")
-    : isJobTradePost
-      ? t("trade_detail_inquire_cta")
-      : t("trade_detail_chat_cta");
-  const tradeChatCtaLabel = existingTradeRoomId ? t("trade_detail_chat_continue") : chatCtaLabel;
-
-  const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
-  const showJobApplyBtn =
-    isJobsDetailUi &&
-    jobDetailDirection === "hiring" &&
-    String(detailMetaJob.listing_kind ?? "").trim() === "hire" &&
-    !isOwnPost &&
-    postStatusLower === "active";
-  const showJobSeekContactBtn =
-    isJobsDetailUi &&
-    jobDetailDirection === "seeking" &&
-    !isOwnPost &&
-    bottomBarHasChatBtn &&
-    !existingTradeRoomId;
-
-  /** 구인 글: 지원 API 후 곧바로 동일 거래 채팅으로 이동하므로 별도 「문의하기」 버튼은 두지 않음 */
-  const showJobHireMergedApplyChatBtn = showJobApplyBtn;
-  const bottomBarHasSeparateChatBtn = bottomBarHasChatBtn && !showJobHireMergedApplyChatBtn;
+  const chatCtaLabel =
+    ctaPolicy.primary.labelKey !== "none"
+      ? t(ctaPolicy.primary.labelKey)
+      : isJobSeekForChatCta
+        ? t("trade_detail_chat_cta")
+        : isJobTradePost
+          ? t("trade_detail_inquire_cta")
+          : t("trade_detail_chat_cta");
+  const tradeChatCtaLabel =
+    existingTradeRoomId && ctaPolicy.primary.labelKey !== "trade_detail_chat_continue"
+      ? t("trade_detail_chat_continue")
+      : chatCtaLabel;
 
   const buyerActionsCount =
     Number(bottomBarHasOfferBtn) +

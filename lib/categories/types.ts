@@ -46,6 +46,12 @@ export interface CategorySettingsRow {
   /** 나눔 선택 허용 (쓰기 폼, 무료나눔) */
   has_free_share: boolean;
   post_type: string;
+  /**
+   * Trade Field Composition overlay (Admin V1).
+   * Shape: `{ v: 1, fields: [{ id, active, required, order }] }` — Field Library ids only.
+   * null → Product seed composition.
+   */
+  field_composition?: unknown | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,7 +60,14 @@ export interface CategorySettingsRow {
 export interface CategoryWithSettings extends CategoryRow {
   settings: Pick<
     CategorySettingsRow,
-    "can_write" | "has_price" | "has_chat" | "has_location" | "has_direct_deal" | "has_free_share" | "post_type"
+    | "can_write"
+    | "has_price"
+    | "has_chat"
+    | "has_location"
+    | "has_direct_deal"
+    | "has_free_share"
+    | "post_type"
+    | "field_composition"
   > | null;
 }
 
@@ -78,5 +91,15 @@ export type CategoryUpdatePayload = Partial<
 >;
 
 export type CategorySettingsUpdatePayload = Partial<
-  Pick<CategorySettingsRow, "can_write" | "has_price" | "has_chat" | "has_location" | "has_direct_deal" | "has_free_share" | "post_type">
+  Pick<
+    CategorySettingsRow,
+    | "can_write"
+    | "has_price"
+    | "has_chat"
+    | "has_location"
+    | "has_direct_deal"
+    | "has_free_share"
+    | "post_type"
+    | "field_composition"
+  >
 >;

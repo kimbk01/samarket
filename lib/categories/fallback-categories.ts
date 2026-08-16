@@ -21,6 +21,7 @@ function settings(_categoryId: string, overrides: Partial<FallbackSettings> = {}
     has_direct_deal: false,
     has_free_share: false,
     post_type: "post",
+    field_composition: null,
     ...overrides,
   };
 }
@@ -147,6 +148,7 @@ export function addCategoryFallback(row: Omit<CategoryRow, "id" | "created_at" |
       has_direct_deal: settingsRow.has_direct_deal,
       has_free_share: settingsRow.has_free_share,
       post_type: settingsRow.post_type,
+      field_composition: settingsRow.field_composition ?? null,
     },
   };
   _categories.push(newCat);

@@ -7,6 +7,7 @@ import {
   findMileagePresetKeyForDigits,
   resolveUsedCarSellKeysFromStoredCarModel,
 } from "@/lib/trade/used-car-form-catalog";
+import { hydrateTradeCategoryFieldsFromSnapshot } from "@/lib/trade/category-form/edit-hydrator";
 
 export type TradeWriteHydratedFields = {
   title: string;
@@ -36,6 +37,8 @@ export type TradeWriteHydratedFields = {
   mileage: string;
   usedCarTrade: "buy" | "sell" | null;
   carHasAccident: boolean;
+  transmission: string;
+  fuelType: string;
   salary: string;
   workPlace: string;
   workType: string;
@@ -54,7 +57,7 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : v != null ? String(v) : "";
 }
 
-/** 스킨별 meta → TradeWriteForm 상태 초기값 */
+/** CREATE == EDIT — Field Library storage authority for category fields */
 export function hydrateTradeWriteFormFromSnapshot(
   skinKey: string,
   snap: OwnerEditPostSnapshot
@@ -64,6 +67,16 @@ export function hydrateTradeWriteFormFromSnapshot(
     snap.price != null && Number.isFinite(Number(snap.price))
       ? formatPriceInput(String(snap.price))
       : "";
+
+  const categoryFields = hydrateTradeCategoryFieldsFromSnapshot({
+    meta: m,
+    post: {
+      price: snap.price,
+      region: snap.region,
+      city: snap.city,
+      is_free_share: snap.is_free_share,
+    },
+  });
 
   const base: TradeWriteHydratedFields = {
     title: skinKey === "real-estate" ? "" : snap.title,
@@ -76,26 +89,7 @@ export function hydrateTradeWriteFormFromSnapshot(
     isPriceOfferEnabled: snap.is_price_offer === true,
     isDirectDeal: m.direct_deal === true,
     tradeTopicChildId: "",
-    neighborhood: str(m.neighborhood),
-    buildingName: str(m.building_name),
-    estateType: str(m.estate_type),
-    dealType: m.deal_type === "판매" ? "판매" : "임대",
-    deposit: formatPriceInput(str(m.deposit).replace(/,/g, "")),
-    monthly: formatPriceInput(str(m.monthly).replace(/,/g, "")),
-    managementFee: formatPriceInput(str(m.management_fee).replace(/,/g, "")),
-    hasPremium: m.has_premium === true,
-    areaSqm: str(m.size_sq || m.area_sqm),
-    roomCount: str(m.room_count),
-    bathroomCount: str(m.bathroom_count),
-    moveInDate: str(m.move_in_date),
-    carModel: str(m.car_model),
-    carYear: str(m.car_year || m.car_year_max),
-    mileage: str(m.mileage),
-    usedCarTrade:
-      m.car_trade === "buy" || m.car_trade === "sell"
-        ? (m.car_trade as "buy" | "sell")
-        : null,
-    carHasAccident: m.has_accident === true,
+    ...categoryFields,
     salary: str(m.salary),
     workPlace: str(m.work_place),
     workType: str(m.work_type),
@@ -118,7 +112,7 @@ export function hydrateTradeWriteFormFromSnapshot(
   if (skinKey === "used-car" && base.usedCarTrade === "buy") {
     return {
       ...base,
-      usedCarBodyTypeKey: str(m.car_body_type),
+      usedCarBodyTypeKey: categoryFields.usedCarBodyTypeKey,
     };
   }
 

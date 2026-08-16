@@ -21,6 +21,7 @@ import {
   adminTradeSubtypeLabelKey,
 } from "@/lib/admin/categories/admin-category-label-keys";
 import { CategoryMenuIconPicker } from "@/components/admin/categories/CategoryMenuIconPicker";
+import { CategoryFieldCompositionEditor } from "@/components/admin/categories/CategoryFieldCompositionEditor";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -58,6 +59,8 @@ export interface CategoryFormSettingsPayload {
   has_direct_deal: boolean;
   has_free_share: boolean;
   post_type: string;
+  /** null = use Product seed; object = Admin overlay */
+  field_composition?: unknown | null;
 }
 
 /** "menu" = 메뉴 관리용. forceType = 중고/동네생활 메뉴 페이지에서 해당 타입만 고정 */
@@ -116,6 +119,9 @@ export function CategoryFormModal({
   const [has_direct_deal, setHasDirectDeal] = useState(category?.settings?.has_direct_deal ?? true);
   const [has_free_share, setHasFreeShare] = useState(category?.settings?.has_free_share ?? true);
   const [post_type, setPostType] = useState(category?.settings?.post_type ?? "normal");
+  const [fieldComposition, setFieldComposition] = useState<unknown | null>(
+    category?.settings?.field_composition ?? null
+  );
   /** 신규 최상위 메뉴는 기본으로 플로팅 글쓰기 런처에 포함(어드민에서 따로 켤 필요 없음). */
   const [quick_create_enabled, setQuickCreateEnabled] = useState(
     category ? (category.quick_create_enabled ?? false) : true
@@ -143,6 +149,7 @@ export function CategoryFormModal({
       setHasDirectDeal(category.settings?.has_direct_deal ?? true);
       setHasFreeShare(category.settings?.has_free_share ?? true);
       setPostType(category.settings?.post_type ?? "normal");
+      setFieldComposition(category.settings?.field_composition ?? null);
       setQuickCreateEnabled(category.quick_create_enabled ?? false);
       setQuickCreateGroup(category.quick_create_group ?? null);
       setQuickCreateOrder(category.quick_create_order ?? 0);
@@ -249,7 +256,7 @@ export function CategoryFormModal({
             quick_create_order,
             show_in_home_chips,
           },
-          { can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type }
+          { can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type, field_composition: fieldComposition }
         );
         onClose();
       } finally {
@@ -276,6 +283,7 @@ export function CategoryFormModal({
       has_direct_deal,
       has_free_share,
       post_type,
+      fieldComposition,
       category?.id,
       onSave,
       onClose,
@@ -285,6 +293,7 @@ export function CategoryFormModal({
       tradeSubtype,
       customTradeSubtype,
       communitySkin,
+      t,
     ]
   );
 
@@ -560,6 +569,22 @@ export function CategoryFormModal({
               </div>
             </div>
           </div>
+          {(fixedType === "trade" || type === "trade") && (
+            <div className="border-t border-sam-border-soft pt-4">
+              <CategoryFieldCompositionEditor
+                iconKey={
+                  isMenuMode
+                    ? tradeSubtype === "__custom__"
+                      ? slugifyForIconKey(customTradeSubtype.trim() || "custom")
+                      : tradeSubtype
+                    : icon_key
+                }
+                slug={slug}
+                value={fieldComposition}
+                onChange={setFieldComposition}
+              />
+            </div>
+          )}
           <div className={`${OverlayUi.actionsRow} flex-wrap pt-4`}>
             <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
               {t("common_cancel")}

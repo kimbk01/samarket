@@ -28,8 +28,15 @@
 | has_chat | boolean | 채팅 가능 |
 | has_location | boolean | 위치 필드 사용 |
 | post_type | text | post, request, link (글쓰기 분기) |
+| field_composition | jsonb null | Trade Field Composition overlay (`{v:1,fields:[{id,active,required,order}]}`). null → Product seed |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
+
+## Trade Field Composition (FINAL DESIGN)
+
+- Field Library / surfaces / storage: Product code (`lib/trade/category-form`)
+- Category ↔ Field 연결·Required·Order·Active: `category_settings.field_composition`
+- Admin must not store storagePath / widget / validator / CTA in this JSON
 
 ## 글쓰기 분기
 

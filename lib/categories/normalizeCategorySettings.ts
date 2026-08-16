@@ -10,6 +10,7 @@ export type CategorySettingsRaw =
       has_direct_deal?: boolean;
       has_free_share?: boolean;
       post_type?: string;
+      field_composition?: unknown | null;
     }
   | Array<{
       can_write?: boolean;
@@ -19,6 +20,7 @@ export type CategorySettingsRaw =
       has_direct_deal?: boolean;
       has_free_share?: boolean;
       post_type?: string;
+      field_composition?: unknown | null;
     }>
   | null
   | undefined;
@@ -31,6 +33,7 @@ const DEFAULTS: NonNullable<CategoryWithSettings["settings"]> = {
   has_direct_deal: true,
   has_free_share: true,
   post_type: "normal",
+  field_composition: null,
 };
 
 /**
@@ -51,5 +54,7 @@ export function normalizeCategorySettings(
     has_direct_deal: one.has_direct_deal ?? DEFAULTS.has_direct_deal,
     has_free_share: one.has_free_share ?? DEFAULTS.has_free_share,
     post_type: one.post_type ?? DEFAULTS.post_type,
+    field_composition:
+      one.field_composition === undefined ? null : one.field_composition,
   };
 }

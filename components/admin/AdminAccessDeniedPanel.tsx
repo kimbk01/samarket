@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 관리자 미인증 시 안내 — `AdminGuard`(클라)와 `app/admin/layout`(서버 게이트) 공통.
+ * Must be a Client Component: layout may render this from the server tree.
  */
 export function AdminAccessDeniedPanel() {
   const { t } = useI18n();

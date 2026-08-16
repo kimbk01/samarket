@@ -6,6 +6,10 @@
  */
 import type { CategoryType, QuickCreateGroup } from "@/lib/categories/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  parseTradeFieldCompositionPayload,
+  serializeTradeFieldCompositionPayload,
+} from "@/lib/trade/category-form/parse-field-composition";
 
 export interface CreateCategoryPayload {
   name: string;
@@ -32,6 +36,7 @@ export interface CreateCategorySettingsPayload {
   has_direct_deal: boolean;
   has_free_share: boolean;
   post_type: string;
+  field_composition?: unknown | null;
 }
 
 export type CreateCategoryResult = { ok: true; id: string } | { ok: false; error: string };
@@ -74,18 +79,30 @@ export async function createCategory(
       return { ok: false, error: (catError as { message?: string })?.message ?? "카테고리 생성에 실패했습니다." };
     }
 
+    const settingsInsert: Record<string, unknown> = {
+      category_id: cat.id,
+      can_write: settings.can_write,
+      has_price: settings.has_price,
+      has_chat: settings.has_chat,
+      has_location: settings.has_location,
+      has_direct_deal: settings.has_direct_deal ?? true,
+      has_free_share: settings.has_free_share ?? true,
+      post_type: settings.post_type,
+    };
+    if ("field_composition" in settings) {
+      if (settings.field_composition == null) {
+        settingsInsert.field_composition = null;
+      } else {
+        const parsed = parseTradeFieldCompositionPayload(settings.field_composition);
+        if (parsed) {
+          settingsInsert.field_composition = serializeTradeFieldCompositionPayload(parsed);
+        }
+      }
+    }
+
     const { error: setError } = await (supabase as any)
       .from("category_settings")
-      .insert({
-        category_id: cat.id,
-        can_write: settings.can_write,
-        has_price: settings.has_price,
-        has_chat: settings.has_chat,
-        has_location: settings.has_location,
-        has_direct_deal: settings.has_direct_deal ?? true,
-        has_free_share: settings.has_free_share ?? true,
-        post_type: settings.post_type,
-      });
+      .insert(settingsInsert);
 
     if (setError) {
       return { ok: false, error: (setError as { message?: string })?.message ?? "기능 설정 저장에 실패했습니다." };

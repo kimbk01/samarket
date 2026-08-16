@@ -30,6 +30,12 @@ import {
   hasExchangeMeta,
 } from "@/lib/posts/post-variant";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
+import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
+import {
+  buildCompositionListAttributes,
+  joinCompositionListAttributeLine,
+} from "@/lib/trade/category-form/list-attributes";
+import { labelForTradeOption } from "@/lib/trade/category-form/option-catalogs";
 import { APP_FEED_LIST_ROW1_PILL_LIST } from "@/lib/ui/app-feed-list-row1";
 
 export type PostListThumbMode = "exchange" | "generic" | "none";
@@ -390,22 +396,62 @@ export function buildPostListPreviewModel(
   const priceOk = price != null && !Number.isNaN(price) ? price : null;
   const isFree = post.is_free_share === true;
 
-  const isRealEstate = skinKey === "real-estate" || (!skinKey && hasRealEstateMeta(meta));
-  const isUsedCar = skinKey === "used-car" || (!skinKey && hasUsedCarMeta(meta));
-  const isJobs = skinKey === "jobs" || skinKey === "job" || (!skinKey && hasJobsMeta(meta));
-  const isExchange = skinKey === "exchange" || (!skinKey && hasExchangeMeta(meta));
+  const listLang = locale.toLowerCase().startsWith("en") ? "en" : "ko";
+  const inferredIcon =
+    skinKey ||
+    (hasRealEstateMeta(meta)
+      ? "real-estate"
+      : hasUsedCarMeta(meta)
+        ? "used-car"
+        : hasJobsMeta(meta)
+          ? "jobs"
+          : hasExchangeMeta(meta)
+            ? "exchange"
+            : "general");
+  const listComposition = resolveTradeComposition({
+    icon_key: inferredIcon,
+    fieldComposition: null,
+  });
+  const layoutVariant = listComposition.layoutVariant;
+  const listAttrs = buildCompositionListAttributes({
+    composition: listComposition,
+    meta,
+    post,
+    lang: listLang,
+  });
+
+  const isRealEstate =
+    layoutVariant === "property-card" ||
+    ((!skinKey || skinKey === "real-estate") && hasRealEstateMeta(meta));
+  const isUsedCar =
+    layoutVariant === "vehicle-card" ||
+    ((!skinKey || skinKey === "used-car") && hasUsedCarMeta(meta));
+  const isJobs =
+    layoutVariant === "job-card" ||
+    skinKey === "jobs" ||
+    skinKey === "job" ||
+    (!skinKey && hasJobsMeta(meta));
+  const isExchange =
+    layoutVariant === "exchange-card" ||
+    skinKey === "exchange" ||
+    (!skinKey && hasExchangeMeta(meta));
 
   /** PostCard와 동일: 부동산 스킨이어도 meta 비어 있으면 일반 거래 블록으로 */
   if (isRealEstate && Object.keys(meta).length > 0) {
-    const dealType = str(meta.deal_type);
+    const dealType =
+      labelForTradeOption("real_estate_deal_type", str(meta.deal_type), listLang) ||
+      str(meta.deal_type);
     const row1Headline = realEstateListingHeadline(meta, post, region, city);
     const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency, locale);
-    const estateType = str(meta.estate_type);
-    const sizeSq = meta.size_sq ?? meta.area_sqm;
-    const sizeSqStr =
-      sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
-    const parts3 = [estateType, sizeSqStr].filter(Boolean);
-    const row3 = parts3.join(" · ");
+    const row3 =
+      joinCompositionListAttributeLine(listAttrs, ["estate_type", "floor_area", "bedrooms"]) ||
+      (() => {
+        const estateType = str(meta.estate_type);
+        const sizeSq = meta.size_sq ?? meta.area_sqm;
+        const sizeSqStr =
+          sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
+        return [estateType, sizeSqStr].filter(Boolean).join(" · ");
+      })();
 
     const listingChips: ListingChip[] = [];
     if (dealType) {
@@ -448,14 +494,27 @@ export function buildPostListPreviewModel(
     const carModel = str(meta.car_model);
     const bodyTypeRaw = str(meta.car_body_type);
     const bodyTypeLabel =
-      meta.car_trade === "buy" && bodyTypeRaw ? labelForUsedCarBodyTypeKey(bodyTypeRaw) : "";
+      meta.car_trade === "buy" && bodyTypeRaw
+        ? labelForUsedCarBodyTypeKey(bodyTypeRaw) ||
+          joinCompositionListAttributeLine(listAttrs, ["body_type"])
+        : "";
     const yearRaw = str(meta.car_year_max) || str(meta.car_year);
     const yearPart =
       yearRaw && /^\d{4}$/.test(yearRaw)
         ? postPreviewT(locale, "post_preview_year_suffix", { year: yearRaw })
         : yearRaw;
-    /** 삽니다: 차종은 `listingChips` 줄 — 여기서는 모델·연식만 (팝니다도 동일) */
+    const fromComposition =
+      joinCompositionListAttributeLine(listAttrs, ["make", "model", "year", "mileage"]) ||
+      joinCompositionListAttributeLine(listAttrs, ["year", "mileage"]);
+    /** 삽니다: 차종은 `listingChips` 줄 — 여기서는 모델·연식·주행 */
     const carSpecLine = [carModel, yearPart].filter(Boolean).join(" · ");
+    const mileageRaw = str(meta.mileage).replace(/,/g, "");
+    const mileagePart =
+      mileageRaw && /^\d+$/.test(mileageRaw)
+        ? `${Number(mileageRaw).toLocaleString(locale)} km`
+        : "";
+    const carSpecWithMileage =
+      fromComposition || [carSpecLine, mileagePart].filter(Boolean).join(" · ");
     const usedCarPriceLabel = isFree
       ? postPreviewT(locale, "post_preview_free_share")
       : priceOk != null
@@ -467,15 +526,15 @@ export function buildPostListPreviewModel(
         ? postPreviewT(locale, "post_preview_wanted")
         : meta.car_trade === "sell"
           ? postPreviewT(locale, "post_preview_for_sale")
-          : null;
+          : labelForTradeOption("used_car_trade", str(meta.car_trade), listLang) || null;
     const listingChips: ListingChip[] = [];
     if (tradeLabel) listingChips.push({ text: tradeLabel, className: POST_LIST_TYPE_CHIP });
 
     const blocks: PostListBodyBlock[] = [];
-    if (carSpecLine) {
+    if (carSpecWithMileage) {
       blocks.push({
         className: POST_LIST_USED_CAR_SPEC_CLASS,
-        text: carSpecLine,
+        text: carSpecWithMileage,
       });
     }
     blocks.push({
@@ -492,7 +551,7 @@ export function buildPostListPreviewModel(
       listingRowBoldText:
         meta.car_trade === "buy" && bodyTypeLabel ? bodyTypeLabel : null,
       bodyBlocks: blocks,
-      feedTitle: carSpecLine || null,
+      feedTitle: carSpecWithMileage || null,
       feedPrice: usedCarPriceLabel ?? postPreviewT(locale, "post_preview_price_inquiry"),
       feedPriceKind: "plain",
       listFooter: buildListFooter(post, "uc", locationLabel, locale, createdAt),

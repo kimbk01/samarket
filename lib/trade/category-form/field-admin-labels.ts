@@ -1,0 +1,63 @@
+/**
+ * Human labels for Field Library ids in Admin (ko/en via caller).
+ * Not storage authority — display only.
+ */
+export const TRADE_FIELD_ADMIN_LABELS: Record<string, { ko: string; en: string }> = {
+  images: { ko: "이미지", en: "Images" },
+  title: { ko: "제목", en: "Title" },
+  description: { ko: "설명", en: "Description" },
+  price: { ko: "가격", en: "Price" },
+  is_free_share: { ko: "나눔", en: "Free share" },
+  is_price_offer: { ko: "가격제안", en: "Price offer" },
+  location: { ko: "위치", en: "Location" },
+  trade_meet_spot: { ko: "거래 희망 장소", en: "Meet spot" },
+  car_trade: { ko: "삽니다/팝니다", en: "Buy/Sell" },
+  make: { ko: "제조사", en: "Make" },
+  model: { ko: "모델", en: "Model" },
+  year: { ko: "연식", en: "Year" },
+  mileage: { ko: "주행거리", en: "Mileage" },
+  body_type: { ko: "차종", en: "Body type" },
+  has_accident: { ko: "사고 여부", en: "Accident history" },
+  transmission: { ko: "변속기", en: "Transmission" },
+  fuel_type: { ko: "연료", en: "Fuel type" },
+  deal_type: { ko: "거래 유형", en: "Deal type" },
+  estate_type: { ko: "부동산 유형", en: "Property type" },
+  deposit: { ko: "보증금", en: "Deposit" },
+  monthly: { ko: "월세", en: "Monthly rent" },
+  management_fee: { ko: "관리비", en: "Management fee" },
+  has_premium: { ko: "권리금", en: "Key money" },
+  floor_area: { ko: "면적", en: "Floor area" },
+  bedrooms: { ko: "방", en: "Bedrooms" },
+  bathrooms: { ko: "욕실", en: "Bathrooms" },
+  move_in_date: { ko: "입주", en: "Move-in" },
+  neighborhood: { ko: "동네", en: "Neighborhood" },
+  building_name: { ko: "건물명", en: "Building" },
+  listing_kind: { ko: "구인/구직", en: "Listing kind" },
+  work_category: { ko: "업종", en: "Work category" },
+  work_category_other: { ko: "업종(기타)", en: "Work category other" },
+  work_term: { ko: "근무 형태", en: "Work term" },
+  pay_type: { ko: "급여 유형", en: "Pay type" },
+  pay_amount: { ko: "급여", en: "Pay amount" },
+  company_name: { ko: "상호", en: "Company" },
+  experience_level: { ko: "경력", en: "Experience" },
+  available_time: { ko: "가능 시간", en: "Available time" },
+  work_date_start: { ko: "시작일", en: "Start date" },
+  work_date_end: { ko: "종료일", en: "End date" },
+  exchange_direction: { ko: "환전 방향", en: "Exchange direction" },
+  from_currency: { ko: "보유 통화", en: "From currency" },
+  to_currency: { ko: "희망 통화", en: "To currency" },
+  exchange_rate_base: { ko: "기준 환율", en: "Base rate" },
+  exchange_rate_plus: { ko: "가산", en: "Rate plus" },
+  exchange_rate: { ko: "적용 환율", en: "Exchange rate" },
+  amount: { ko: "금액", en: "Amount" },
+  converted_amount: { ko: "환산 금액", en: "Converted" },
+  seller_prep: { ko: "판매자 준비", en: "Seller prep" },
+  buyer_prep: { ko: "구매자 준비", en: "Buyer prep" },
+  rate_criteria_at: { ko: "환율 기준 시각", en: "Rate criteria" },
+};
+
+export function tradeFieldAdminLabel(id: string, lang: "ko" | "en"): string {
+  const hit = TRADE_FIELD_ADMIN_LABELS[id];
+  if (!hit) return id;
+  return lang === "en" ? hit.en : hit.ko;
+}

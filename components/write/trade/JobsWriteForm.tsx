@@ -111,6 +111,11 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
+import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
+import { validateAdaptedCompositionValues } from "@/components/write/trade/generic/GenericTradeWriteFields";
+import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
+import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
@@ -314,6 +319,46 @@ export function JobsWriteForm({
   );
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const isSeeker = listingKind === "work";
+
+  const jobsComposition = useMemo(
+    () => resolveTradeCompositionForCategory(category),
+    [category]
+  );
+  const jobsAdaptedFields = useMemo(
+    () => applyTradeBehaviorAdapter(jobsComposition, { listingKind }),
+    [jobsComposition, listingKind]
+  );
+  const jobsFieldValues = useMemo((): TradeFieldValueBag => {
+    return {
+      listing_kind: listingKind,
+      title,
+      work_category: workCategory,
+      work_category_other: workCategoryOther,
+      work_term: workTerm,
+      pay_type: payType,
+      pay_amount: payAmount,
+      description,
+      work_date_start: workDate,
+      work_date_end: workDateEnd,
+      company_name: companyName,
+      experience_level: experienceLevel,
+      available_time: seekTimeSlots.join(","),
+    };
+  }, [
+    listingKind,
+    title,
+    workCategory,
+    workCategoryOther,
+    workTerm,
+    payType,
+    payAmount,
+    description,
+    workDate,
+    workDateEnd,
+    companyName,
+    experienceLevel,
+    seekTimeSlots,
+  ]);
 
   const toggleSeekTimeSlot = useCallback((slot: string) => {
     setSeekTimeSlots((prev) => (prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot]));
@@ -912,6 +957,34 @@ export function JobsWriteForm({
         next.workDateEnd = t("jobs_write_err_work_date_order");
       }
     }
+    const compErrs = validateAdaptedCompositionValues(
+      jobsAdaptedFields,
+      jobsFieldValues,
+      (fieldId) => {
+        const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+        return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+      }
+    );
+    if (skipPayAmount) delete compErrs.pay_amount;
+    const JOBS_COMP_TO_FORM: Record<string, string> = {
+      work_category: "workCategory",
+      work_category_other: "workCategoryOther",
+      pay_amount: "payAmount",
+      work_date_start: "workDate",
+      work_date_end: "workDateEnd",
+      company_name: "companyName",
+      experience_level: "experienceLevel",
+      available_time: "seekTimeSlots",
+      listing_kind: "listingKind",
+      work_term: "workTerm",
+      pay_type: "payType",
+      title: "title",
+      description: "description",
+    };
+    for (const [fieldId, msg] of Object.entries(compErrs)) {
+      const formKey = JOBS_COMP_TO_FORM[fieldId] ?? fieldId;
+      if (!next[formKey]) next[formKey] = msg;
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }, [
@@ -932,6 +1005,9 @@ export function JobsWriteForm({
     hirePayNegotiable,
     coreLocked,
     tradeAddressSsot,
+    jobsAdaptedFields,
+    jobsFieldValues,
+    language,
     t,
   ]);
 

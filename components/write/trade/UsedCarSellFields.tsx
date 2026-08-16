@@ -13,6 +13,7 @@ import {
   usedCarBrandOptionLabel,
   usedCarModelOptionLabel,
 } from "@/lib/trade/used-car-form-catalog";
+import { getTradeOptionCatalog } from "@/lib/trade/category-form/option-catalogs";
 import { TRADE_WRITE_FB_CONTROL, TRADE_WRITE_FB_FIELD_LABEL } from "@/lib/ui/trade-write-fb-ui";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -35,6 +36,10 @@ type UsedCarSellFieldsProps = {
   setModelKey: (v: string) => void;
   mileagePresetKey: string;
   setMileagePresetKey: (v: string) => void;
+  transmission: string;
+  setTransmission: (v: string) => void;
+  fuelType: string;
+  setFuelType: (v: string) => void;
   errors: UsedCarSellFieldsErrors;
 };
 
@@ -51,12 +56,19 @@ export function UsedCarSellFields({
   setModelKey,
   mileagePresetKey,
   setMileagePresetKey,
+  transmission,
+  setTransmission,
+  fuelType,
+  setFuelType,
   errors,
 }: UsedCarSellFieldsProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(), []);
   const brand = USED_CAR_BRANDS.find((b) => b.key === brandKey);
   const models = brand?.models ?? [];
+  const transmissionOpts = getTradeOptionCatalog("vehicle_transmission");
+  const fuelOpts = getTradeOptionCatalog("vehicle_fuel_type");
 
   return (
     <div className="space-y-2">
@@ -183,6 +195,35 @@ export function UsedCarSellFields({
             />
           ) : null}
           {errors.mileage ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.mileage}</p> : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="min-w-0">
+          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_transmission")}</label>
+          <select
+            value={transmission}
+            onChange={(e) => setTransmission(e.target.value)}
+            className={TRADE_WRITE_FB_CONTROL}
+          >
+            <option value="">{t("trade_075")}</option>
+            {transmissionOpts.map((o) => (
+              <option key={o.value} value={o.value}>
+                {lang === "en" ? o.labelEn : o.labelKo}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_fuel_type")}</label>
+          <select value={fuelType} onChange={(e) => setFuelType(e.target.value)} className={TRADE_WRITE_FB_CONTROL}>
+            <option value="">{t("trade_075")}</option>
+            {fuelOpts.map((o) => (
+              <option key={o.value} value={o.value}>
+                {lang === "en" ? o.labelEn : o.labelKo}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

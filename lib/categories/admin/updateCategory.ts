@@ -35,6 +35,8 @@ export interface UpdateCategorySettingsPayload {
   has_direct_deal: boolean;
   has_free_share: boolean;
   post_type: string;
+  /** Admin V1 Field Composition overlay — approved Field Library ids only */
+  field_composition?: unknown | null;
 }
 
 export type UpdateCategoryResult = { ok: true } | { ok: false; error: string };
