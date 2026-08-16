@@ -199,6 +199,17 @@ describe("App Icon runtime authority (Option A + Phase 3-1 atomic)", () => {
     expect(src).not.toContain("subscribeOwnerHubBadge");
   });
 
+  it("NativeBadgeSync Android background reaffirm bypasses skip_same", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "components/push/NativeBadgeSync.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("android_background_reaffirm");
+    expect(src).toContain("forceReaffirm");
+    expect(src).toContain('Capacitor.getPlatform() === "android"');
+    expect(src).toContain('App.addListener("appStateChange"');
+  });
+
   it("bridge uses complete snapshot only (no split shell/missedCall product path)", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "lib/messenger/contracts/domain-badge-authority-product-bridge.ts"),

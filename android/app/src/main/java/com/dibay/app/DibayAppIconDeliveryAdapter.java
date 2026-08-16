@@ -22,6 +22,7 @@ import androidx.core.app.NotificationManagerCompat;
  *   <li>Domain tray notifications never carry launcher badge authority
  *   <li>Domain tray present → keep/update summary (do not cancel)
  *   <li>total == 0 → cancel summary only (do not cancel domain children)
+ *   <li>AutoCancel false — tap/open must not drop carrier while Authority &gt; 0
  *   <li>Never writes notification_events / Bell
  * </ul>
  */
@@ -138,7 +139,8 @@ public final class DibayAppIconDeliveryAdapter {
             .setNumber(total)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setAutoCancel(true)
+            // Carrier must survive tap/open; only apply(0) cancels (Authority clear).
+            .setAutoCancel(false)
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_LOW)

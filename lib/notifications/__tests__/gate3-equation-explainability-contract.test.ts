@@ -372,7 +372,8 @@ describe("native-no-second-writer", () => {
     const ios = read("ios/App/App/Plugins/DibayAppIconDeliveryAdapter.swift");
     const push = read("components/push/PushRouteListener.tsx");
     const mark = read("lib/community-messenger/room/community-messenger-mark-read-fetch.ts");
-    expect(android).toContain("setAutoCancel(true)");
+    expect(android).toContain("setAutoCancel(false)");
+    expect(android).not.toContain("setAutoCancel(true)");
     expect(android).toContain("fcm_hint_ignored");
     expect(fcm).toContain("setNumber(0)");
     expect(ios).toContain("apns_fcm_badge_hint_ignored");

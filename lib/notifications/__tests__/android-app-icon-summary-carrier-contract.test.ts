@@ -38,6 +38,12 @@ describe("Android App Icon summary single-carrier contract", () => {
     expect(setNumberHits.length).toBe(1);
   });
 
+  it("summary carrier survives tap/open (AutoCancel false; only apply(0) clears)", () => {
+    expect(adapter).toContain("setAutoCancel(false)");
+    expect(adapter).not.toContain("setAutoCancel(true)");
+    expect(adapter).toContain("summary_cleared total=0");
+  });
+
   it("domain tray must not cancel summary (no domain_tray_present early exit)", () => {
     expect(adapter).not.toContain("domain_tray_present");
     expect(adapter).not.toMatch(

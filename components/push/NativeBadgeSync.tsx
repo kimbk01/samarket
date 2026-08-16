@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSyncExternalStore } from "react";
+import { Capacitor } from "@capacitor/core";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
@@ -34,6 +35,11 @@ import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
  * - pending logout badge clear tx → recover before hold (ROOT FIX)
  * - terminal_guest only → defensive clear (not primary gate)
  * - Cap resume cache never final authority
+ *
+ * Android delivery durability:
+ * - Launcher badge = summary carrier setNumber; OEM/tray may drop carrier while Authority stays N.
+ * - On background, force reaffirm (bypass skip_same) so home glyph matches Authority.
+ * - iOS SpringBoard absolute badge does not need this reaffirm.
  */
 function readAppIconTotal(): number {
   const surface = getDomainBadgeSurfaceSnapshot();
@@ -65,7 +71,7 @@ export function NativeBadgeSync() {
       return;
     }
 
-    const apply = (reason: string) => {
+    const apply = (reason: string, opts?: { forceReaffirm?: boolean }) => {
       const phase = getSessionPhase();
       const proj = getProjectionAuthorityState();
       const n = readAppIconTotal();
@@ -102,6 +108,7 @@ export function NativeBadgeSync() {
         decisionReason: decision.reason,
         surfaceAppIcon: n,
         pendingLogoutClear,
+        forceReaffirm: Boolean(opts?.forceReaffirm),
         prev_count: lastAppliedRef.current?.count ?? null,
       });
       console.log("[dibay-delivery-trace]", {
@@ -112,6 +119,7 @@ export function NativeBadgeSync() {
         decision: decision.kind,
         surfaceAppIcon: n,
         pendingLogoutClear,
+        forceReaffirm: Boolean(opts?.forceReaffirm),
         prev: lastAppliedRef.current,
         t: Date.now(),
       });
@@ -157,6 +165,7 @@ export function NativeBadgeSync() {
       }
       const prev = lastAppliedRef.current;
       if (
+        !opts?.forceReaffirm &&
         prev?.phase === "authenticated" &&
         prev.projection === "COMPLETE" &&
         prev.count === n
@@ -170,12 +179,23 @@ export function NativeBadgeSync() {
       }
       lastAppliedRef.current = { phase: "authenticated", projection: "COMPLETE", count: n };
       console.log("[dibay-delivery-trace]", {
-        step: "NativeBadgeSync→syncNativeBadgeCount",
+        step: opts?.forceReaffirm
+          ? "NativeBadgeSync.background_reaffirm"
+          : "NativeBadgeSync→syncNativeBadgeCount",
         count: n,
         t: Date.now(),
       });
       void syncNativeBadgeCount(n);
-      logNotifyBadge("native_set", { count: n, source: "app_icon_projection" });
+      logNotifyBadge("native_set", {
+        count: n,
+        source: opts?.forceReaffirm ? "android_background_reaffirm" : "app_icon_projection",
+      });
+      if (opts?.forceReaffirm) {
+        logBadgeFdProbe("NativeBadgeSync.background_reaffirm", {
+          count: n,
+          platform: Capacitor.getPlatform(),
+        });
+      }
     };
 
     apply("effect_mount_or_total");
@@ -196,10 +216,24 @@ export function NativeBadgeSync() {
     window.addEventListener("pageshow", onPageShow);
     const unsubPhase = subscribeSessionPhase(() => apply("session_phase"));
     const unsubProj = subscribeProjectionAuthorityState(() => apply("projection_state"));
+
+    let appStateHandle: { remove: () => void } | null = null;
+    if (Capacitor.getPlatform() === "android") {
+      void import("@capacitor/app").then(({ App }) =>
+        App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) return;
+          apply("android_background_reaffirm", { forceReaffirm: true });
+        }).then((handle) => {
+          appStateHandle = handle;
+        })
+      );
+    }
+
     return () => {
       window.removeEventListener("pageshow", onPageShow);
       unsubPhase();
       unsubProj();
+      appStateHandle?.remove();
     };
   }, [total, projectionState]);
 
