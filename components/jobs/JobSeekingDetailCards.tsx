@@ -2,22 +2,15 @@
 
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getLocationLabel } from "@/lib/products/form-options";
-import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  EXPERIENCE_LEVEL_LABELS,
   JOB_SEEKER_START_OPTIONS,
   JOB_SEEKER_VISA_OPTIONS,
-  jobWorkCategoryDisplay,
   type JobSeekerStartValue,
 } from "@/lib/jobs/form-options";
-import {
-  jobListingKindLabel,
-  jobOptionLabel,
-  jobPayTypeLabel,
-  jobWorkTermLabel,
-} from "@/lib/jobs/job-label-keys";
+import { jobOptionLabel } from "@/lib/jobs/job-label-keys";
 import { formatSeekTimeSlotsPipe, formatSeekerLanguagesPipe } from "@/lib/jobs/job-detail-format";
+import { buildJobsCompositionDetailRows } from "@/lib/jobs/job-detail-composition-rows";
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
 import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
 
@@ -39,21 +32,30 @@ function seekerStartLabel(t: ReturnType<typeof useI18n>["t"], meta: Record<strin
   return base || "";
 }
 
+const COMPOSITION_LABEL_KEYS: Record<string, string> = {
+  listing_kind: "ui_jobs_row_listing_kind",
+  work_category: "ui_jobs_row_hope_industry",
+  work_term: "ui_jobs_row_hope_work_term",
+  pay_type: "ui_jobs_row_hope_pay",
+  pay_amount: "ui_jobs_row_hope_pay",
+  experience_level: "ui_jobs_row_experience",
+  available_time: "ui_jobs_row_available_time",
+};
+
 export function JobSeekingDetailCards({
   post,
   meta,
   currency,
+  fieldComposition,
 }: {
   post: PostWithMeta;
   meta: Record<string, unknown>;
   currency: string;
+  fieldComposition?: unknown;
 }) {
   const { t, language } = useI18n();
-  const workCategory = jobWorkCategoryDisplay(meta, language);
-  const workTerm = String(meta.work_term ?? "").trim();
-  const experienceLevel = String(meta.experience_level ?? "").trim();
-  const payType = String(meta.pay_type ?? "").trim();
-  const payAmount = meta.pay_amount != null ? Number(meta.pay_amount) : post.price ?? null;
+  const lang = language === "en" ? "en" : "ko";
+
   const availableTime = String(meta.available_time ?? "").trim();
   const slotsLine = formatSeekTimeSlotsPipe(meta);
   const timeLine = [slotsLine, availableTime].filter(Boolean).join(", ");
@@ -64,27 +66,31 @@ export function JobSeekingDetailCards({
   const meetLine = tradeMeetDisplayLine(meta);
   const hopeWorkRegion = geoLine || meetLine || "";
 
-  const payLabel =
-    payAmount != null && !Number.isNaN(payAmount)
-      ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
-      : payType === "negotiate"
-        ? t("jobs_pay_negotiate")
-        : "";
+  const compositionRows = buildJobsCompositionDetailRows({
+    listingKind: "work",
+    meta,
+    post: post as unknown as Record<string, unknown>,
+    currency,
+    lang,
+    fieldComposition,
+    labelForField: (fieldId, fallback) => {
+      const key = COMPOSITION_LABEL_KEYS[fieldId];
+      return key ? t(key as Parameters<typeof t>[0]) : fallback;
+    },
+  });
 
   const seekRows: { label: string; value: string }[] = [];
-  seekRows.push({ label: t("ui_jobs_row_listing_kind"), value: jobListingKindLabel(t, "work") });
-  if (workCategory) seekRows.push({ label: t("ui_jobs_row_hope_industry"), value: workCategory });
-  if (workTerm) seekRows.push({ label: t("ui_jobs_row_hope_work_term"), value: jobWorkTermLabel(t, workTerm) });
-
-  if (timeLine) seekRows.push({ label: t("ui_jobs_row_available_time"), value: timeLine });
-  if (payLabel) seekRows.push({ label: t("ui_jobs_row_hope_pay"), value: payLabel });
-  if (experienceLevel) {
-    seekRows.push({
-      label: t("ui_jobs_row_experience"),
-      value: EXPERIENCE_LEVEL_LABELS[experienceLevel]
-        ? t(EXPERIENCE_LEVEL_LABELS[experienceLevel])
-        : experienceLevel,
-    });
+  const used = new Set<string>();
+  for (const row of compositionRows) {
+    if (row.fieldId === "pay_type") continue;
+    if (row.fieldId === "available_time" && timeLine) {
+      seekRows.push({ label: t("ui_jobs_row_available_time"), value: timeLine });
+      used.add("ui_jobs_row_available_time");
+      continue;
+    }
+    if (used.has(row.label)) continue;
+    used.add(row.label);
+    seekRows.push({ label: row.label, value: row.value });
   }
   if (hopeWorkRegion) seekRows.push({ label: t("ui_jobs_row_hope_region"), value: hopeWorkRegion });
 

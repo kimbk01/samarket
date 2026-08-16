@@ -96,6 +96,11 @@ import { validateAdaptedCompositionValues } from "@/components/write/trade/gener
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 
+/**
+ * Exchange Write — rate card / prep / memo stay shell (derived UX + multi-select).
+ * Composition still owns validation via exchangeAdaptedFields + exchangeFieldValues.
+ */
+
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;

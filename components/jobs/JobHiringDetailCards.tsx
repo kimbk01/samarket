@@ -2,21 +2,16 @@
 
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getLocationLabel } from "@/lib/products/form-options";
-import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { EXPERIENCE_LEVEL_LABELS, jobWorkCategoryDisplay } from "@/lib/jobs/form-options";
-import {
-  jobListingKindLabel,
-  jobOptionLabel,
-  jobPayTypeLabel,
-  jobWorkTermLabel,
-} from "@/lib/jobs/job-label-keys";
+import { EXPERIENCE_LEVEL_LABELS } from "@/lib/jobs/form-options";
 import { JOB_SEEKER_LANGUAGE_OPTIONS } from "@/lib/jobs/form-options";
+import { jobOptionLabel } from "@/lib/jobs/job-label-keys";
 import {
   formatJobHireTimeSlotsPipe,
   formatJobHireWeekDays,
   shouldShowJobHireWorkDates,
 } from "@/lib/jobs/job-detail-format";
+import { buildJobsCompositionDetailRows } from "@/lib/jobs/job-detail-composition-rows";
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
 import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
 
@@ -36,17 +31,30 @@ function formatHireLanguagesPipe(
     .join(", ");
 }
 
+const COMPOSITION_LABEL_KEYS: Record<string, string> = {
+  listing_kind: "ui_jobs_row_listing_kind",
+  work_category: "ui_jobs_row_industry",
+  work_term: "ui_jobs_row_work_term",
+  work_date_start: "ui_jobs_row_work_dates",
+  work_date_end: "ui_jobs_row_work_dates",
+  pay_type: "ui_jobs_row_pay",
+  pay_amount: "ui_jobs_row_pay",
+};
+
 export function JobHiringDetailCards({
   post,
   meta,
   currency,
+  fieldComposition,
 }: {
   post: PostWithMeta;
   meta: Record<string, unknown>;
   currency: string;
+  fieldComposition?: unknown;
 }) {
   const { t, language } = useI18n();
-  const workCategory = jobWorkCategoryDisplay(meta, language);
+  const lang = language === "en" ? "en" : "ko";
+
   const workTerm = String(meta.work_term ?? "").trim();
   const workDateStart = String(meta.work_date_start ?? "").trim();
   const workDateEnd = String(meta.work_date_end ?? "").trim();
@@ -54,9 +62,6 @@ export function JobHiringDetailCards({
   const workTimeEnd = String(meta.work_time_end ?? "").trim();
   const hireTimeNegotiable = meta.hire_time_negotiable === true;
   const workNegotiable = meta.work_negotiable === true;
-  const payType = String(meta.pay_type ?? "").trim();
-  const payAmount = meta.pay_amount != null ? Number(meta.pay_amount) : post.price ?? null;
-  const hirePayNegotiable = meta.hire_pay_negotiable === true || payType === "negotiate";
   const sameDayPay = meta.same_day_pay === true;
   const workAddress = String(meta.work_address ?? "").trim();
   const headcountRaw = meta.hire_headcount != null ? String(meta.hire_headcount).trim() : "";
@@ -66,13 +71,6 @@ export function JobHiringDetailCards({
   const experienceRequired =
     post.experience_required != null ? String(post.experience_required).trim() : "";
   const availableTime = String(meta.available_time ?? "").trim();
-
-  const payAmountLabel =
-    payAmount != null && !Number.isNaN(payAmount)
-      ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
-      : hirePayNegotiable
-        ? t("jobs_pay_negotiate")
-        : "";
 
   const dateRange =
     workDateStart && workDateEnd
@@ -89,7 +87,6 @@ export function JobHiringDetailCards({
 
   const hireSlotsLabel = formatJobHireTimeSlotsPipe(meta);
   const hireDaysLabel = formatJobHireWeekDays(meta);
-
   const showDates = shouldShowJobHireWorkDates(workTerm) && dateRange;
 
   const workTimeParts: string[] = [];
@@ -101,17 +98,39 @@ export function JobHiringDetailCards({
   if (hireSlotsLabel) workTimeParts.push(hireSlotsLabel);
   if (!hireSlotsLabel && availableTime) workTimeParts.push(availableTime);
   const workTimeCombined = workTimeParts.join(" · ");
-
   const locLine = [workAddress, geoLine].filter(Boolean).join(" · ");
 
+  const compositionRows = buildJobsCompositionDetailRows({
+    listingKind: "hire",
+    meta,
+    post: post as unknown as Record<string, unknown>,
+    currency,
+    lang,
+    fieldComposition,
+    labelForField: (fieldId, fallback) => {
+      const key = COMPOSITION_LABEL_KEYS[fieldId];
+      return key ? t(key as Parameters<typeof t>[0]) : fallback;
+    },
+  });
+
   const recruitRows: { label: string; value: string }[] = [];
-  recruitRows.push({ label: t("ui_jobs_row_listing_kind"), value: jobListingKindLabel(t, "hire") });
-  if (workCategory) recruitRows.push({ label: t("ui_jobs_row_industry"), value: workCategory });
-  if (workTerm) recruitRows.push({ label: t("ui_jobs_row_work_term"), value: jobWorkTermLabel(t, workTerm) });
-  if (showDates) recruitRows.push({ label: t("ui_jobs_row_work_dates"), value: dateRange ?? "" });
+  const usedLabels = new Set<string>();
+  for (const row of compositionRows) {
+    if (row.fieldId === "work_date_end") continue;
+    if (row.fieldId === "work_date_start") {
+      if (showDates && dateRange) {
+        recruitRows.push({ label: t("ui_jobs_row_work_dates"), value: dateRange });
+        usedLabels.add("ui_jobs_row_work_dates");
+      }
+      continue;
+    }
+    if (row.fieldId === "pay_type") continue;
+    if (usedLabels.has(row.label)) continue;
+    usedLabels.add(row.label);
+    recruitRows.push({ label: row.label, value: row.value });
+  }
   if (hireDaysLabel) recruitRows.push({ label: t("ui_jobs_row_work_days"), value: hireDaysLabel });
   if (workTimeCombined) recruitRows.push({ label: t("ui_jobs_row_work_hours"), value: workTimeCombined });
-  if (payAmountLabel) recruitRows.push({ label: t("ui_jobs_row_pay"), value: payAmountLabel });
   if (headcount) recruitRows.push({ label: t("ui_jobs_row_headcount"), value: headcount });
   if (experienceRequired) {
     recruitRows.push({

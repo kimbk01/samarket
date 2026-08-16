@@ -2428,12 +2428,14 @@ export function PostDetailView({
                     post={post}
                     meta={(post.meta as Record<string, unknown>) ?? {}}
                     currency={defaultCurrency}
+                    fieldComposition={category?.settings?.field_composition}
                   />
                 ) : (
                   <JobSeekingDetailCards
                     post={post}
                     meta={(post.meta as Record<string, unknown>) ?? {}}
                     currency={defaultCurrency}
+                    fieldComposition={category?.settings?.field_composition}
                   />
                 )}
               </>

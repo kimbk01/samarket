@@ -106,4 +106,31 @@ describe("trade category-form composition authority", () => {
     expect(attrs.some((a) => a.fieldId === "price")).toBe(false);
     expect(attrs.some((a) => a.fieldId === "floor_area")).toBe(true);
   });
+
+  it("FILTER contract matches Phase 0B surface flags (no filter UI)", () => {
+    const expectFilter = (id: string, expected: boolean | "partial" | "weak" | "range") => {
+      const surf = TRADE_FIELD_LIBRARY[id]?.surfaces.filter;
+      expect(surf, id).toBe(expected);
+    };
+    expectFilter("mileage", "range");
+    expectFilter("year", true);
+    expectFilter("make", true);
+    expectFilter("model", true);
+    expectFilter("transmission", true);
+    expectFilter("fuel_type", true);
+    expectFilter("car_trade", false);
+    expectFilter("has_accident", false);
+    expectFilter("listing_kind", true);
+    expectFilter("work_category", "partial");
+    expectFilter("pay_type", "partial");
+    expectFilter("exchange_direction", "weak");
+    expectFilter("amount", "weak");
+    expectFilter("location", true);
+    expectFilter("description", false);
+
+    const usedCar = resolveTradeComposition({ icon_key: "used-car" });
+    const filterable = compositionFieldsForSurface(usedCar, "filter");
+    expect(filterable.some((f) => f.id === "mileage")).toBe(true);
+    expect(filterable.some((f) => f.id === "has_accident")).toBe(false);
+  });
 });
