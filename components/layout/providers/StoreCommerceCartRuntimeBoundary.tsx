@@ -19,8 +19,17 @@ const StoreCommerceCartPortalsLazy = dynamic(
   { ssr: false }
 );
 
+function isStoreOwnerAdminPath(pathname: string): boolean {
+  const p = pathname.split("?")[0]?.trim() ?? "";
+  return p === "/stores/owner" || p.startsWith("/stores/owner/");
+}
+
 /**
  * 장바구니 컨텍스트 — sheet portal 은 idle·첫 상호작용 후 별도 청크.
+ *
+ * CONTRACT — 하단 메인 허브 간 Provider 트리 고정 (AppRouteTransition remount 금지).
+ * DO NOT: mountCart false 일 때 Fragment 로 바꿔 셸을 remount.
+ * DO NOT: `/stores/owner` 에서 Customer cart Provider 마운트.
  */
 export function StoreCommerceCartRuntimeBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -40,11 +49,11 @@ export function StoreCommerceCartRuntimeBoundary({ children }: { children: React
     return () => window.clearTimeout(t);
   }, [mountCart]);
 
-  if (!mountCart) {
+  if (isStoreOwnerAdminPath(pathname)) {
     return <>{children}</>;
   }
 
-  const mountPortals = idlePortalsReady || !!productId || previewOpen || conflictOpen;
+  const mountPortals = mountCart && (idlePortalsReady || !!productId || previewOpen || conflictOpen);
 
   return (
     <StoreCommerceCartProvider>
