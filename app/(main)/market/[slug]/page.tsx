@@ -1,17 +1,6 @@
-import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import { MarketCategoryRouteFallback } from "@/components/market/MarketCategoryRouteFallback";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
-import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
-import { loadMarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
-import { tradeServerSeedFromBootstrapPayload } from "@/lib/market/trade-category-server-seed";
-import {
-  toCategoryWithSettings,
-  type CategoryDbRow,
-} from "@/lib/categories/to-category-with-settings";
-import { getCategoryPathForRedirect } from "@/lib/categories/category-href-server";
-import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
+import { buildTradeMarketFeedHref } from "@/lib/trade/tabs/trade-market-feed-href";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -24,71 +13,38 @@ function firstString(v: string | string[] | undefined): string {
   return "";
 }
 
-async function MarketCategoryPageBody({
-  paramsPromise,
-  searchParamsPromise,
-}: {
-  paramsPromise: PageProps["params"];
-  searchParamsPromise: PageProps["searchParams"];
-}) {
-  const { slug } = await paramsPromise;
-  const sp = await searchParamsPromise;
+/**
+ * 레거시 `/market/[slug]` → 커뮤니티 패리티 `/market?category=` 로 통일.
+ * 카테고리별 피드는 `MarketContent` 가 같은 표면에서 렌더한다.
+ */
+export default async function MarketCategoryPage({ params, searchParams }: PageProps) {
+  const { slug } = await params;
+  const sp = await searchParams;
   const slugOrId = normalizeMarketSlugParam(slug);
   if (!slugOrId.trim()) {
     notFound();
   }
 
   const topicRaw = firstString(sp.topic);
-  const jkRaw = firstString(sp.jk);
+  const tradeStateRaw = firstString(sp.tradeState);
   const fsRaw = firstString(sp.fs);
-  const jeRaw = firstString(sp.je);
-  const availRaw = firstString(sp.avail);
-  const jrRaw = firstString(sp.jr);
-  const jcRaw = firstString(sp.jc);
+  const sortRaw = firstString(sp.sort);
 
-  let tradeServerSeed: ReturnType<typeof tradeServerSeedFromBootstrapPayload> | null = null;
+  const target = buildTradeMarketFeedHref({
+    categoryId: slugOrId,
+    topic: topicRaw || null,
+    tradeState:
+      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+        ? tradeStateRaw
+        : null,
+    baseSearch:
+      fsRaw || sortRaw
+        ? new URLSearchParams({
+            ...(fsRaw ? { fs: fsRaw } : {}),
+            ...(sortRaw ? { sort: sortRaw } : {}),
+          }).toString()
+        : null,
+  });
 
-  const postsClients = await resolvePostsReadClientsForServerComponent();
-
-  if (postsClients) {
-    const viewerUserId = await getOptionalAuthenticatedUserId();
-    const result = await loadMarketBootstrapPayload(postsClients, {
-      q: slugOrId,
-      topic: topicRaw,
-      jkParam: jkRaw || null,
-      includePosts: true,
-      viewerUserId,
-      fsParam: fsRaw || null,
-      jeParam: jeRaw || null,
-      availParam: availRaw || null,
-      jrParam: jrRaw || null,
-      jcParam: jcRaw || null,
-    });
-
-    if (result.ok) {
-      const cat = toCategoryWithSettings(result.data.category as unknown as CategoryDbRow);
-      if (cat.type !== "trade") {
-        redirect(getCategoryPathForRedirect(cat));
-      }
-      tradeServerSeed = tradeServerSeedFromBootstrapPayload(slugOrId, topicRaw, jkRaw || null, result.data, {
-        fs: fsRaw || null,
-        je: jeRaw || null,
-        avail: availRaw || null,
-        jr: jrRaw || null,
-        jc: jcRaw || null,
-      });
-    } else if (result.httpStatus === 404) {
-      notFound();
-    }
-  }
-
-  return <MarketCategoryPageClient tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />;
-}
-
-export default function MarketCategoryPage({ params, searchParams }: PageProps) {
-  return (
-    <Suspense fallback={<MarketCategoryRouteFallback />}>
-      <MarketCategoryPageBody paramsPromise={params} searchParamsPromise={searchParams} />
-    </Suspense>
-  );
+  redirect(target);
 }

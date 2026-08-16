@@ -5,24 +5,29 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
+  DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
-  DIBAY_SECONDARY_TABS_CLASS,
+  DIBAY_SECONDARY_TAB_CHEVRON_CLASS,
+  DIBAY_SECONDARY_TAB_INNER_CLASS,
+  DIBAY_SECONDARY_TAB_LABEL_CLASS,
+  DIBAY_SECONDARY_TAB_ROW_CLASS,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
+import { scrollTradePrimaryTabStrip } from "@/lib/trade/tabs/scroll-trade-primary-tab-strip";
+import {
+  buildTradeMarketFeedHref,
+  parseTradeMarketCategoryFromSearch,
+} from "@/lib/trade/tabs/trade-market-feed-href";
+import { isTradeMarketAllRouteActive } from "@/lib/categories/tradeMarketPath";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
-
-/** PRIMARY host inner — column + gutter; never `APP_MAIN_HEADER_INNER` (overflow-x-hidden). */
-const TRADE_PRIMARY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -33,36 +38,26 @@ interface TradePrimaryTabsProps {
 
 function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
   const skeleton = (
-    <div
-      className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
-      aria-hidden
-    >
+    <div className={DIBAY_SECONDARY_TAB_ROW_CLASS} aria-hidden>
       <span className="inline-flex min-h-8 min-w-16 shrink-0 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
-      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-[length:var(--dibay-secondary-tab-gap,8px)] overflow-hidden">
         <span className="inline-flex min-h-8 min-w-20 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
         <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
       </div>
     </div>
   );
-  if (!embedInAppHeader) {
-    return (
-      <div
-        className={`relative flex min-w-0 flex-shrink-0 flex-col border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
-        data-dibay-nav="secondary"
-      >
-        <div className={TRADE_PRIMARY_INNER_CLASS}>{skeleton}</div>
-      </div>
-    );
-  }
+  const host = embedInAppHeader
+    ? DIBAY_CHROME_SECONDARY_HOST_CLASS
+    : DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS;
   return (
-    <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
-      <div className={TRADE_PRIMARY_INNER_CLASS}>{skeleton}</div>
+    <div className={host} data-dibay-nav="secondary">
+      <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>{skeleton}</div>
     </div>
   );
 }
 
 /**
- * TRADE 메뉴 탭(전체·카테고리…) — `RegionBar` 아래. `sam-tabs` / `sam-tabs--scroll` 단일 시각.
+ * TRADE 메뉴 탭 — Community / Chat 과 동일 `DibaySecondaryTabRow` SSOT.
  * `useSearchParams()` — Next 정적 생성용 `Suspense` 경계.
  */
 function TradePrimaryTabsInner({
@@ -77,7 +72,13 @@ function TradePrimaryTabsInner({
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const { loading: _loading, error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(pathname);
+  const categoryStripRef = useRef<HTMLDivElement | null>(null);
+  const topicTabScrollGenRef = useRef(0);
+  const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
+  const { loading: _loading, error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(
+    pathname,
+    categoryQuery
+  );
   const [allSortOpen, setAllSortOpen] = useState(false);
   const [allSortMenuPos, setAllSortMenuPos] = useState<{ top: number; left: number } | null>(null);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -104,27 +105,25 @@ function TradePrimaryTabsInner({
       ],
     [safeT]
   );
-  const allTradeHref = tradeState === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(tradeState)}`;
+  const allTradeHref = buildTradeMarketFeedHref({
+    tradeState: tradeState === "latest" ? null : tradeState,
+  });
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
-      const sp = new URLSearchParams(searchParams.toString());
-      if (next === "latest") sp.delete("tradeState");
-      else sp.set("tradeState", next);
-      const qs = sp.toString();
-      /** 현재 1차 카테고리 경로·topic 등 유지 — 해당 카테고리 전체 목록에 tradeState 적용 */
-      const nextHref = qs ? `${pathname}?${qs}` : pathname;
-      if (next === tradeState) {
+      const nextHref = buildTradeMarketFeedHref({
+        tradeState: next === "latest" ? null : next,
+      });
+      if (next === tradeState && isTradeMarketAllRouteActive(pathname, categoryQuery)) {
         setAllSortOpen(false);
         return;
       }
       if (!guardBeforeNavigate(nextHref)) return;
-      beginMenuNavigation(nextHref, "trade-primary");
+      beginMenuNavigation(nextHref, "trade-primary", { mainShellPushAxis: null });
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
-    [beginMenuNavigation, router, searchParams, pathname, tradeState, guardBeforeNavigate]
+    [beginMenuNavigation, router, pathname, categoryQuery, tradeState, guardBeforeNavigate]
   );
-  /** navigation 중에는 pathname 기반 `isActive`와 intent 기반 하이라이트가 동시에 켜져 옆 탭까지 선택처럼 보임 → trade-primary pending 일 때는 intent만 신뢰 */
   const displayTabs = useMemo(
     () =>
       tabs.map((tab) => ({
@@ -150,21 +149,63 @@ function TradePrimaryTabsInner({
   }, []);
 
   const onTradeAllSortChipClick = useCallback(() => {
+    const onAll = isTradeMarketAllRouteActive(pathname, categoryQuery);
+    if (!onAll) {
+      const href = buildTradeMarketFeedHref({
+        tradeState: tradeState === "latest" ? null : tradeState,
+      });
+      if (guardBeforeNavigate(href)) {
+        beginMenuNavigation(href, "trade-primary", { mainShellPushAxis: null });
+        void router.replace(href, { scroll: false });
+      }
+    }
     if (allSortOpen) {
       setAllSortOpen(false);
     } else {
       updateAllSortMenuPos();
       setAllSortOpen(true);
     }
-  }, [allSortOpen, updateAllSortMenuPos]);
+  }, [
+    allSortOpen,
+    beginMenuNavigation,
+    categoryQuery,
+    guardBeforeNavigate,
+    pathname,
+    router,
+    tradeState,
+    updateAllSortMenuPos,
+  ]);
+
+  const categoryTabs = useMemo(
+    () => displayTabs.filter((tab) => tab.key !== "all"),
+    [displayTabs]
+  );
 
   useLayoutEffect(() => {
-    const activeTab = displayTabs.find((t) => t.isDisplayActive);
-    const el = activeTab ? tabRefs.current[activeTab.key] : null;
-    if (el) {
-      el.scrollIntoView({ inline: "center", block: "nearest" });
-    }
-  }, [displayTabs]);
+    const myGen = ++topicTabScrollGenRef.current;
+    const toCancel: number[] = [];
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => {
+        if (topicTabScrollGenRef.current !== myGen) return;
+        const root = categoryStripRef.current;
+        if (!root) return;
+        const stripActiveIndex = categoryTabs.findIndex((t) => t.isDisplayActive);
+        if (stripActiveIndex < 0) {
+          if (root.scrollLeft !== 0) root.scrollTo({ left: 0, behavior: "auto" });
+          return;
+        }
+        const sel = root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+        if (!sel) return;
+        scrollTradePrimaryTabStrip(root, sel, stripActiveIndex, 6);
+      });
+      toCancel.push(r2);
+    });
+    toCancel.push(r1);
+    return () => {
+      topicTabScrollGenRef.current += 1;
+      for (const id of toCancel) cancelAnimationFrame(id);
+    };
+  }, [categoryTabs]);
 
   useEffect(() => {
     if (!allSortOpen) return;
@@ -190,18 +231,11 @@ function TradePrimaryTabsInner({
     };
   }, [allSortOpen, updateAllSortMenuPos]);
 
-  const errorBlock = (
-    <p className={`${Sam.text.bodySecondary} py-3 text-sam-danger`} role="alert">
-      {error}
-    </p>
-  );
-
   const onAllTrade =
     pendingMenuIntent?.source === "trade-primary"
       ? menuHrefMatchesIntent(allTradeHref, pendingMenuIntent)
-      : menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
-
-  const categoryTabs = displayTabs.filter((tab) => tab.key !== "all");
+      : menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) ||
+        isTradeMarketAllRouteActive(pathname, categoryQuery);
 
   const allSortChip = (
     <button
@@ -220,13 +254,13 @@ function TradePrimaryTabsInner({
           setAllSortOpen(true);
         }
       }}
-      className={`${tradePrimaryTabClass(onAllTrade)} inline-flex shrink-0 items-center gap-1`}
+      className={`${tradePrimaryTabClass(onAllTrade)} inline-flex shrink-0 items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]`}
     >
-      <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
+      <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{allSortLabel}</span>
       {allSortOpen ? (
-        <ChevronUp className="relative z-[1] h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+        <ChevronUp className={DIBAY_SECONDARY_TAB_CHEVRON_CLASS} strokeWidth={2.4} aria-hidden />
       ) : (
-        <ChevronDown className="relative z-[1] h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+        <ChevronDown className={DIBAY_SECONDARY_TAB_CHEVRON_CLASS} strokeWidth={2.4} aria-hidden />
       )}
     </button>
   );
@@ -259,84 +293,82 @@ function TradePrimaryTabsInner({
         )
       : null;
 
-  /** Community parity: sort chip fixed; category strip scrolls alone. */
-  const scrollBody =
-    error ? errorBlock : (
-      <div
-        className="flex h-[length:var(--dibay-secondary-tab-row-h,44px)] min-w-0 max-w-full items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
-        role="tablist"
-        aria-label={t("trade_138")}
-      >
-        {allSortChip}
-        <HorizontalDragScroll
-          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0 bg-transparent px-0`}
-          style={{ WebkitOverflowScrolling: "touch" }}
-          role="presentation"
-        >
-          {categoryTabs.map((tab) => (
-            <Link
-              key={tab.key}
-              href={tab.href}
-              ref={(el) => {
-                tabRefs.current[tab.key] = el;
-              }}
-              role="tab"
-              aria-selected={tab.isDisplayActive}
-              prefetch
-              className={tradePrimaryTabClass(tab.isDisplayActive)}
-              onPointerEnter={() => prewarmBottomNavMarketTab(tab.href)}
-              onPointerDown={() => prewarmBottomNavMarketTab(tab.href)}
-              onClick={(e) => {
-                e.preventDefault();
-                if (tab.isDisplayActive) {
-                  if (
-                    !isPendingMenuBlockingContent ||
-                    menuHrefMatchesIntent(tab.href, pendingMenuIntent)
-                  ) {
-                    return;
-                  }
-                }
-                if (!guardBeforeNavigate(tab.href)) return;
-                prewarmBottomNavMarketTab(tab.href);
-                const toIdx = displayTabs.findIndex((t) => t.key === tab.key);
-                if (toIdx < 0) return;
-                const fromIdx =
-                  activeDisplayIndex >= 0 ? activeDisplayIndex : pathnameActiveIndex;
-                commitTradePrimaryTabRoute({
-                  href: tab.href,
-                  fromTabIndex: fromIdx,
-                  toTabIndex: toIdx,
-                  beginMenuNavigation,
-                  guardBeforeNavigate,
-                  router,
-                  skipPrewarm: true,
-                });
-              }}
-            >
-              <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{tab.label}</span>
-            </Link>
-          ))}
-        </HorizontalDragScroll>
-      </div>
-    );
-
-  if (embedInAppHeader) {
+  if (error) {
     return (
-      <div className={DIBAY_CHROME_SECONDARY_HOST_CLASS} data-dibay-nav="secondary">
-        <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
+      <div
+        className={
+          embedInAppHeader
+            ? DIBAY_CHROME_SECONDARY_HOST_CLASS
+            : DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS
+        }
+        data-dibay-nav="secondary"
+      >
+        <div className={DIBAY_SECONDARY_TAB_INNER_CLASS}>
+          <p className={`${Sam.text.bodySecondary} py-3 text-sam-danger`} role="alert">
+            {error}
+          </p>
+        </div>
         {allSortMenuPortal}
       </div>
     );
   }
 
   return (
-    <div
-      className={`relative flex min-w-0 flex-shrink-0 flex-col border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] ${DIBAY_CHROME_SECONDARY_HOST_CLASS}`}
-      data-dibay-nav="secondary"
-    >
-      <div className={TRADE_PRIMARY_INNER_CLASS}>{scrollBody}</div>
+    <>
+      <DibaySecondaryTabRow
+        ref={categoryStripRef}
+        leading={allSortChip}
+        trackRole="presentation"
+        trackAriaLabel={t("trade_138")}
+        bordered={!embedInAppHeader}
+      >
+        {categoryTabs.map((tab) => (
+          <Link
+            key={tab.key}
+            href={tab.href}
+            ref={(el) => {
+              tabRefs.current[tab.key] = el;
+            }}
+            role="tab"
+            aria-selected={tab.isDisplayActive}
+            prefetch
+            className={tradePrimaryTabClass(tab.isDisplayActive)}
+            onPointerEnter={() => prewarmBottomNavMarketTab(tab.href)}
+            onPointerDown={() => prewarmBottomNavMarketTab(tab.href)}
+            onClick={(e) => {
+              e.preventDefault();
+              if (tab.isDisplayActive) {
+                if (
+                  !isPendingMenuBlockingContent ||
+                  menuHrefMatchesIntent(tab.href, pendingMenuIntent)
+                ) {
+                  return;
+                }
+              }
+              if (!guardBeforeNavigate(tab.href)) return;
+              prewarmBottomNavMarketTab(tab.href);
+              const toIdx = displayTabs.findIndex((t) => t.key === tab.key);
+              if (toIdx < 0) return;
+              const fromIdx =
+                activeDisplayIndex >= 0 ? activeDisplayIndex : pathnameActiveIndex;
+              commitTradePrimaryTabRoute({
+                href: tab.href,
+                fromTabIndex: fromIdx,
+                toTabIndex: toIdx,
+                beginMenuNavigation,
+                guardBeforeNavigate,
+                router,
+                skipPrewarm: true,
+                fromPathname: pathname,
+              });
+            }}
+          >
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{tab.label}</span>
+          </Link>
+        ))}
+      </DibaySecondaryTabRow>
       {allSortMenuPortal}
-    </div>
+    </>
   );
 }
 

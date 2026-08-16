@@ -1,9 +1,13 @@
 /**
- * /market/[slug] 링크·활성 상태·Supabase 조회용 공통 처리
+ * /market 링크·활성 상태·Supabase 조회용 공통 처리
  * (퍼센트 인코딩·NFC 정규화 불일치로 일부 메뉴만 동작하는 문제 방지)
+ *
+ * 거래 1차 표면 URL SSOT: `/market?category={id}` (커뮤니티 topic 과 동일 모델).
+ * 레거시 `/market/{id}` 는 리다이렉트·활성 판별로만 인정.
  */
 
 import type { CategoryWithSettings } from "./types";
+import { buildTradeMarketFeedHref } from "@/lib/trade/tabs/trade-market-feed-href";
 
 /**
  * URL 단일 세그먼트용 퍼센트 인코딩.
@@ -27,6 +31,9 @@ export function tradeMarketPath(
     type?: CategoryWithSettings["type"];
   }
 ): string {
+  if (category.type === "trade") {
+    return buildTradeMarketFeedHref({ categoryId: category.id });
+  }
   return `/market/${encodedTradeMarketSegment(category)}`;
 }
 
@@ -50,13 +57,26 @@ export function normalizeMarketSlugParam(
 }
 
 /**
- * pathname(쿼리 제외)이 해당 거래 카테고리 마켓 목록인지 — slug 또는 id 세그먼트 일치
+ * pathname(+ optional `?category=`)이 해당 거래 카테고리 마켓 목록인지.
+ * - 신규: `/market?category={id|slug}`
+ * - 레거시: `/market/{id|slug}`
  */
 export function isTradeMarketRouteActive(
   pathname: string,
-  category: Pick<CategoryWithSettings, "slug" | "id">
+  category: Pick<CategoryWithSettings, "slug" | "id">,
+  categoryQuery?: string | null
 ): boolean {
-  const clean = (pathname.split("?")[0] ?? "").trim();
+  const clean = (pathname.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "";
+  const q = (categoryQuery ?? "").trim().normalize("NFC");
+  const slug = category.slug?.trim().normalize("NFC") ?? "";
+
+  if (clean === "/market") {
+    if (!q) return false;
+    if (q === category.id) return true;
+    if (slug && q === slug) return true;
+    return false;
+  }
+
   const m = clean.match(/^\/market\/([^/]+)$/);
   if (!m) return false;
   let seg: string;
@@ -66,8 +86,17 @@ export function isTradeMarketRouteActive(
     seg = m[1]!;
   }
   seg = seg.normalize("NFC");
-  const slug = category.slug?.trim();
-  if (slug && seg === slug.normalize("NFC")) return true;
+  if (slug && seg === slug) return true;
   if (seg === category.id) return true;
   return false;
+}
+
+/** 거래 「전체」탭 — `/market` 이고 category 쿼리 없음 */
+export function isTradeMarketAllRouteActive(
+  pathname: string,
+  categoryQuery?: string | null
+): boolean {
+  const clean = (pathname.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "";
+  if (clean !== "/market") return false;
+  return !(categoryQuery ?? "").trim();
 }

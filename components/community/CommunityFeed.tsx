@@ -5,8 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import {
   fetchPhilifeNeighborhoodTopicOptions,
   invalidatePhilifeNeighborhoodTopicOptionsCache,
@@ -22,20 +21,16 @@ import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeti
 import { philifeAppPaths } from "@domain/philife/paths";
 import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
+import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
-  APP_MAIN_COLUMN_CLASS,
-  APP_MAIN_GUTTER_X_CLASS,
-  APP_MAIN_HEADER_INNER_CLASS,
-} from "@/lib/ui/app-content-layout";
-import { DIBAY_CATEGORY_RAIL_HOST_CLASS } from "@/lib/ui/dibay-secondary-tabs";
+  DIBAY_SECONDARY_TAB_CHEVRON_CLASS,
+  DIBAY_SECONDARY_TAB_LABEL_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
 import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   COMMUNITY_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
-  PHILIFE_TOPIC_TAB_PILL_ACTIVE,
-  PHILIFE_TOPIC_TAB_PILL_IDLE,
-  PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE,
-  PHILIFE_TOPIC_TAB_SUBJECT_IDLE,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { PhilifePullRefreshHint } from "@/components/philife/PhilifePullRefreshHint";
@@ -1671,11 +1666,11 @@ export function CommunityFeed({
         stickyBelow={
           <>
             <PhilifePullRefreshHint />
-            <div className={`min-w-0 ${DIBAY_CATEGORY_RAIL_HOST_CLASS}`}>
-              <div
-                className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} ${DIBAY_CATEGORY_RAIL_HOST_CLASS} flex min-w-0 items-center gap-1 border-b border-[color:var(--dibay-domain-divider,var(--sector-header-border))] py-1.5`}
-                data-dibay-nav="category"
-              >
+            <DibaySecondaryTabRow
+              ref={topicTablistRef}
+              navRole="category"
+              bordered
+              leading={
                 <button
                   type="button"
                   role="tab"
@@ -1692,146 +1687,141 @@ export function CommunityFeed({
                       setAllSortOpen(true);
                     }
                   }}
-                  className={
-                    allSortOn
-                      ? `${PHILIFE_TOPIC_TAB_PILL_ACTIVE} inline-flex items-center gap-1`
-                      : `${PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`
-                  }
+                  className={`${dibaySecondaryTabClass(allSortOn)} inline-flex shrink-0 items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]`}
                 >
-                  <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
+                  <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{allSortLabel}</span>
                   {allSortOpen ? (
                     <ChevronUp
-                      className={`relative z-[1] h-3.5 w-3.5 shrink-0 ${allSortOn ? "text-sam-primary" : "text-sam-muted"}`}
+                      className={DIBAY_SECONDARY_TAB_CHEVRON_CLASS}
                       strokeWidth={2.4}
                       aria-hidden
                     />
                   ) : (
                     <ChevronDown
-                      className={`relative z-[1] h-3.5 w-3.5 shrink-0 ${allSortOn ? "text-sam-primary" : "text-sam-muted"}`}
+                      className={DIBAY_SECONDARY_TAB_CHEVRON_CLASS}
                       strokeWidth={2.4}
                       aria-hidden
                     />
                   )}
                 </button>
-                <HorizontalDragScroll
-                  ref={topicTablistRef}
-                  allowDragFromInteractive
-                  className="flex min-h-10 min-w-0 max-w-full flex-1 flex-nowrap items-center justify-start gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                  style={{ WebkitOverflowScrolling: "touch" }}
-                  role="tablist"
-                  aria-label={t("community_feed_topic_aria")}
+              }
+              trackAriaLabel={t("community_feed_topic_aria")}
+            >
+              {leadingNavItems.map((item) => {
+                const on = navSelection.kind === "topic" && navSelection.topicSlug === item.slug;
+                const chipLabel = resolveCommunityTopicUILabel(
+                  language,
+                  item.label,
+                  item.name_en,
+                  item.slug
+                );
+                return (
+                  <button
+                    key={item.slug}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() =>
+                      applyNavSelection({ kind: "topic", topicSlug: item.slug, allSort: "latest" })
+                    }
+                    onMouseEnter={() => prefetchNavItemByIntent(item)}
+                    onTouchStart={() => prefetchNavItemByIntent(item)}
+                    onPointerDown={() => prefetchNavItemByIntent(item)}
+                    onFocus={() => prefetchNavItemByIntent(item)}
+                    className={dibaySecondaryTabClass(on)}
+                  >
+                    <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{chipLabel}</span>
+                  </button>
+                );
+              })}
+              {!chipsLoadDone ? (
+                <span
+                  className="flex shrink-0 items-center gap-[length:var(--dibay-secondary-tab-gap,8px)]"
+                  aria-hidden
                 >
-                  {leadingNavItems.map((item) => {
-                      const on = navSelection.kind === "topic" && navSelection.topicSlug === item.slug;
-                      const chipLabel = resolveCommunityTopicUILabel(language, item.label, item.name_en, item.slug);
+                  <span className="h-8 w-14 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                  <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                </span>
+              ) : null}
+              {trailingNavItems.map((item) => {
+                const on = navSelection.kind === "local";
+                const label = safeT("community_feed_mode_local", {
+                  fallbackKo: "동네",
+                  fallbackEn: "Local",
+                });
+                return (
+                  <button
+                    key={item.kind}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => applyNavSelection(communityNavComposeItemToSelection(item))}
+                    onMouseEnter={() => prefetchNavItemByIntent(item)}
+                    onTouchStart={() => prefetchNavItemByIntent(item)}
+                    onPointerDown={() => prefetchNavItemByIntent(item)}
+                    onFocus={() => prefetchNavItemByIntent(item)}
+                    className={dibaySecondaryTabClass(on)}
+                  >
+                    <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{label}</span>
+                  </button>
+                );
+              })}
+            </DibaySecondaryTabRow>
+            {allSortOpen && allSortMenuPos && typeof document !== "undefined"
+              ? createPortal(
+                  <ul
+                    ref={allSortMenuRef}
+                    role="listbox"
+                    aria-label={t("community_feed_all_sort_menu_aria")}
+                    className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+                    style={{
+                      position: "fixed",
+                      top: allSortMenuPos.top,
+                      left: allSortMenuPos.left,
+                      zIndex: 200,
+                    }}
+                  >
+                    {(
+                      [
+                        {
+                          key: "latest" as const,
+                          label: safeT("community_sort_latest", {
+                            fallbackKo: "최신순",
+                            fallbackEn: "Latest",
+                          }),
+                        },
+                        {
+                          key: "popular" as const,
+                          label: safeT("community_sort_popular", {
+                            fallbackKo: "인기순",
+                            fallbackEn: "Popular",
+                          }),
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const selected = displayAllSort === opt.key && allSortOn;
                       return (
-                        <button
-                          key={item.slug}
-                          type="button"
-                          role="tab"
-                          aria-selected={on}
-                          onClick={() => applyNavSelection({ kind: "topic", topicSlug: item.slug, allSort: "latest" })}
-                          onMouseEnter={() => prefetchNavItemByIntent(item)}
-                          onTouchStart={() => prefetchNavItemByIntent(item)}
-                          onPointerDown={() => prefetchNavItemByIntent(item)}
-                          onFocus={() => prefetchNavItemByIntent(item)}
-                          className={on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
-                        >
-                          <span className={`block min-w-0 max-w-[min(12rem,40vw)] truncate ${I18N_COMPACT_CHIP_LABEL}`}>
-                            {chipLabel}
-                          </span>
-                        </button>
+                        <li key={opt.key} role="none">
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            onClick={() => applyAllSort(opt.key)}
+                            className={
+                              selected
+                                ? "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
+                                : "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                            }
+                          >
+                            {opt.label}
+                          </button>
+                        </li>
                       );
-                  })}
-                  {!chipsLoadDone ? (
-                    <span className="flex shrink-0 items-center gap-1" aria-hidden>
-                      <span className="h-8 w-14 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
-                      <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
-                    </span>
-                  ) : null}
-                  {trailingNavItems.map((item) => {
-                    const on = navSelection.kind === "local";
-                    const label = safeT("community_feed_mode_local", {
-                      fallbackKo: "동네",
-                      fallbackEn: "Local",
-                    });
-                    return (
-                      <button
-                        key={item.kind}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => applyNavSelection(communityNavComposeItemToSelection(item))}
-                        onMouseEnter={() => prefetchNavItemByIntent(item)}
-                        onTouchStart={() => prefetchNavItemByIntent(item)}
-                        onPointerDown={() => prefetchNavItemByIntent(item)}
-                        onFocus={() => prefetchNavItemByIntent(item)}
-                        className={on ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
-                      >
-                        <span className={`block min-w-0 max-w-[min(12rem,40vw)] truncate ${I18N_COMPACT_CHIP_LABEL}`}>
-                          {label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </HorizontalDragScroll>
-              </div>
-              {allSortOpen && allSortMenuPos && typeof document !== "undefined"
-                ? createPortal(
-                    <ul
-                      ref={allSortMenuRef}
-                      role="listbox"
-                      aria-label={t("community_feed_all_sort_menu_aria")}
-                      className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
-                      style={{
-                        position: "fixed",
-                        top: allSortMenuPos.top,
-                        left: allSortMenuPos.left,
-                        zIndex: 200,
-                      }}
-                    >
-                      {(
-                        [
-                          {
-                            key: "latest" as const,
-                            label: safeT("community_sort_latest", {
-                              fallbackKo: "최신순",
-                              fallbackEn: "Latest",
-                            }),
-                          },
-                          {
-                            key: "popular" as const,
-                            label: safeT("community_sort_popular", {
-                              fallbackKo: "인기순",
-                              fallbackEn: "Popular",
-                            }),
-                          },
-                        ] as const
-                      ).map((opt) => {
-                        const selected = displayAllSort === opt.key && allSortOn;
-                        return (
-                          <li key={opt.key} role="none">
-                            <button
-                              type="button"
-                              role="option"
-                              aria-selected={selected}
-                              onClick={() => applyAllSort(opt.key)}
-                              className={
-                                selected
-                                  ? "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition hover:bg-sam-primary-soft"
-                                  : "block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
-                              }
-                            >
-                              {opt.label}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>,
-                    document.body
-                  )
-                : null}
-            </div>
+                    })}
+                  </ul>,
+                  document.body
+                )
+              : null}
             {showNeighborOnlyStrip ? (
               <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
                 <div className={`min-w-0 space-y-1 ${APP_MAIN_HEADER_INNER_CLASS}`}>

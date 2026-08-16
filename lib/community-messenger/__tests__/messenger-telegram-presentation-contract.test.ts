@@ -273,7 +273,7 @@ describe("messenger presentation contract", () => {
       "utf8"
     );
     expect(src).toContain("dibaySecondaryTabClass");
-    expect(src).toContain("DIBAY_SECONDARY_TABS_CLASS");
+    expect(src).toContain("DibaySecondaryTabRow");
     expect(src).toContain('mainSection === "chats"');
     expect(src).toContain("onOpenGroupCreate");
     expect(src).not.toContain("border-b-2");

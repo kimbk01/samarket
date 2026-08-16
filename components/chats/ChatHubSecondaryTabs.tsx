@@ -3,7 +3,11 @@
 import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DIBAY_SECONDARY_TABS_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
+import {
+  DIBAY_SECONDARY_TAB_LABEL_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
 
 export type ChatHubSecondaryTabItem = {
   href: string;
@@ -15,12 +19,12 @@ export type ChatHubSecondaryTabItem = {
 };
 
 /**
- * Purchases / Sales — visual SSOT only. Existing href/active unchanged.
+ * Purchases / Sales — Community / Trade / Chat 2단 SSOT.
  */
 export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem[] }) {
   const { t, tt } = useI18n();
   return (
-    <div className={DIBAY_SECONDARY_TABS_CLASS} role="tablist">
+    <DibaySecondaryTabRow bordered>
       {items.map((item) => (
         <Link
           key={`${item.href}-${item.label}`}
@@ -32,9 +36,11 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
           role="tab"
           className={dibaySecondaryTabClass(item.active)}
         >
-          {item.labelKey ? t(item.labelKey) : tt(item.label)}
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
+            {item.labelKey ? t(item.labelKey) : tt(item.label)}
+          </span>
         </Link>
       ))}
-    </div>
+    </DibaySecondaryTabRow>
   );
 }

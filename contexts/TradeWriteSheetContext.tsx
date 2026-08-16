@@ -117,7 +117,6 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   /** 거래 희망 장소 지도에서 돌아온 뒤 같은 마켓 카테고리 URL이면 글쓰기 시트 자동 오픈(페인트 전) */
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
-    const base = pathname.split("?")[0] ?? "";
     let flag: string | null = null;
     let cat: string | null = null;
     try {
@@ -128,8 +127,25 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     }
     if (flag !== "1" || !cat?.trim()) return;
     const key = cat.trim();
-    const expected = `/market/${key}`;
-    if (base !== expected) return;
+    const pathOnly = (pathname.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "";
+    let categoryFromQuery = "";
+    try {
+      categoryFromQuery = new URLSearchParams(window.location.search).get("category")?.trim() ?? "";
+    } catch {
+      categoryFromQuery = "";
+    }
+    const legacyMatch = pathOnly.match(/^\/market\/([^/]+)$/);
+    let legacySeg = "";
+    if (legacyMatch?.[1]) {
+      try {
+        legacySeg = decodeURIComponent(legacyMatch[1]);
+      } catch {
+        legacySeg = legacyMatch[1];
+      }
+    }
+    const onMatchingCategory =
+      (pathOnly === "/market" && categoryFromQuery === key) || legacySeg === key;
+    if (!onMatchingCategory) return;
     try {
       sessionStorage.removeItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY);
       sessionStorage.removeItem(TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY);

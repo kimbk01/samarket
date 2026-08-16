@@ -41,9 +41,11 @@ describe("dibay chrome device-evidence contract", () => {
 
   it("Chat PRIMARY MessengerHomeSectionTabs uses shared dibay secondary", () => {
     const src = readFileSync(join(root, "components/community-messenger/MessengerHomeSectionTabs.tsx"), "utf8");
-    expect(src).toMatch(/DIBAY_SECONDARY_TABS_CLASS/);
+    expect(src).toMatch(/DibaySecondaryTabRow/);
     expect(src).toMatch(/dibaySecondaryTabClass/);
-    expect(src).toMatch(/data-dibay-nav=["']secondary["']/);
+    const row = readFileSync(join(root, "components/ui/DibaySecondaryTabRow.tsx"), "utf8");
+    expect(row).toMatch(/DIBAY_SECONDARY_TAB_TRACK_CLASS/);
+    expect(row).toMatch(/data-dibay-nav/);
   });
 
   it("trade subroute titles never resolve to dibaY", () => {

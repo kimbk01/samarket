@@ -4,7 +4,7 @@ import { useLayoutEffect } from "react";
 import { ChatHubTopTabs } from "@/components/chats/ChatHubTopTabs";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 
-/** 제거된 커뮤니티 허브 자리도 거래/주문 탭만 유지 */
+/** 제거된 커뮤니티 허브 자리도 거래/주문 탭만 유지 — 2단 SSOT 는 ChatHubTopTabs 호스트가 담당 */
 export function ChatsPhilifeHubMainTier1Sync() {
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
@@ -12,7 +12,7 @@ export function ChatsPhilifeHubMainTier1Sync() {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       stickyBelow: (
-        <div className="w-full min-w-0 shrink-0 border-b border-sam-border bg-[var(--sub-bg)]">
+        <div className="w-full min-w-0 shrink-0">
           <ChatHubTopTabs active="trade" />
         </div>
       ),

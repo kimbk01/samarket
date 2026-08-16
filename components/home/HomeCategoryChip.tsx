@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
+import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import {
@@ -34,6 +35,7 @@ export function HomeCategoryChip({
 }: HomeCategoryChipProps) {
   const { language } = useI18n();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const href = getCategoryHref(category);
@@ -52,9 +54,10 @@ export function HomeCategoryChip({
       return s;
     }
   };
+  const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const activeFromPath =
     category.type === "trade"
-      ? isTradeMarketRouteActive(pathname, category)
+      ? isTradeMarketRouteActive(pathname, category, categoryQuery)
       : (() => {
           const decodedPath = safeDec(pathNoQuery);
           const decodedHref = safeDec(href.split("?")[0] ?? "");

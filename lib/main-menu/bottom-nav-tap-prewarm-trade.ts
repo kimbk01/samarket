@@ -22,7 +22,16 @@ const MARKET_PREWARM_DEDUPE_MS = 800;
 let lastMarketPrewarmAt = 0;
 
 export function prewarmBottomNavMarketTab(path: string): void {
-  if (path === "/market") {
+  let url: URL;
+  try {
+    url = new URL(path, "http://localhost");
+  } catch {
+    return;
+  }
+  const pathOnly = url.pathname.trim().replace(/\/+$/, "") || "";
+  const categoryQuery = (url.searchParams.get("category") ?? "").trim();
+
+  if (pathOnly === "/market" && !categoryQuery) {
     const opts = { sort: "latest" as const, type: null, tradeState: "latest" as const };
     if (peekCachedPostsForHome(opts)?.posts?.length) return;
     const now = Date.now();
@@ -34,9 +43,15 @@ export function prewarmBottomNavMarketTab(path: string): void {
     return;
   }
 
-  const m = path.match(/^\/market\/([^/]+)$/);
-  if (!m) return;
-  const parent = decodeSegment(m[1]!);
+  let parent = categoryQuery;
+  if (!parent) {
+    const m = pathOnly.match(/^\/market\/([^/]+)$/);
+    if (!m) return;
+    parent = decodeSegment(m[1]!);
+  } else {
+    parent = decodeSegment(parent);
+  }
+
   const opts = {
     page: 1,
     sort: "latest" as const,

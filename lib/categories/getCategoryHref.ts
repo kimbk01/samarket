@@ -1,7 +1,7 @@
 "use client";
 
 import type { CategoryWithSettings } from "./types";
-import { encodedTradeMarketSegment } from "./tradeMarketPath";
+import { encodedTradeMarketSegment, tradeMarketPath } from "./tradeMarketPath";
 import { philifeAppPaths } from "@/lib/philife/paths";
 
 /**
@@ -22,7 +22,7 @@ export function getCanonicalCommunityWriteHref(): string {
 /**
  * 글쓰기 단일 진입점: /write/[slug 또는 id]
  * **거래(trade)** 는 항상 **UUID** 로 연결해, 슬러그 중복·유사 문자로 `getCategoryBySlugOrId` 가
- * 다른 행을 집는 경우를 막는다. 마켓 목록도 동일하게 `getCategoryHref` → `/market/{uuid}`.
+ * 다른 행을 집는 경우를 막는다. 마켓 목록은 `getCategoryHref` → `/market?category={uuid}`.
  * **community** 는 canonical `/philife/write` (legacy posts create 격리).
  */
 export function getWriteHref(category: CategoryWithSettings): string {
@@ -53,7 +53,7 @@ export function getCategoryHref(category: CategoryWithSettings): string {
   const seg = segment(category);
   switch (category.type) {
     case "trade":
-      return `/market/${seg}`;
+      return tradeMarketPath(category);
     case "community":
       return `/community`;
     case "service":
@@ -61,6 +61,6 @@ export function getCategoryHref(category: CategoryWithSettings): string {
     case "feature":
       return `/features/${seg}`;
     default:
-      return `/market/${seg}`;
+      return tradeMarketPath({ ...category, type: "trade" });
   }
 }

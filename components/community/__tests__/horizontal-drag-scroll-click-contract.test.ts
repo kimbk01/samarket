@@ -19,9 +19,14 @@ describe("HorizontalDragScroll click vs drag contract", () => {
     expect(src).toMatch(/el\.setPointerCapture\(/);
   });
 
-  it("CommunityFeed topic strip enables allowDragFromInteractive", () => {
+  it("CommunityFeed topic strip enables allowDragFromInteractive via DibaySecondaryTabRow", () => {
     const feed = readFileSync(join(__dirname, "../CommunityFeed.tsx"), "utf8");
-    expect(feed).toContain("allowDragFromInteractive");
+    expect(feed).toContain("DibaySecondaryTabRow");
     expect(feed).toContain("applyNavSelection");
+    const row = readFileSync(
+      join(__dirname, "../../ui/DibaySecondaryTabRow.tsx"),
+      "utf8"
+    );
+    expect(row).toContain("allowDragFromInteractive");
   });
 });

@@ -25,9 +25,11 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
+import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 
 /**
- * `/market/[slug]?…` 인접 탭 프리웜 — 목록은 일자리 URL 필터 없음(`jk` 등 무시), 주제·정렬만 반영.
+ * `/market` | `/market?category=…` 인접 탭 프리웜 — 목록은 일자리 URL 필터 없음(`jk` 등 무시), 주제·정렬만 반영.
  */
 function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
@@ -37,10 +39,16 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
   } catch {
     return;
   }
-  const pathOnly = url.pathname.trim();
-  const m = pathOnly.match(/^\/market\/([^/]+)$/);
-  if (!m) return;
-  let parent = m[1]!;
+  const pathOnly = url.pathname.trim().replace(/\/+$/, "") || "";
+  let parent = "";
+  if (pathOnly === "/market") {
+    parent = (url.searchParams.get("category") ?? "").trim();
+  } else {
+    const m = pathOnly.match(/^\/market\/([^/]+)$/);
+    if (!m) return;
+    parent = m[1]!;
+  }
+  if (!parent) return;
   try {
     parent = decodeURIComponent(parent);
   } catch {
@@ -101,7 +109,8 @@ export function MarketContent({
   const { beginMenuNavigation } = useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tradeState = searchParams.get("tradeState") ?? "";
-  const { tabs, activeIndex } = useTradeTabs(pathname);
+  const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
+  const { tabs, activeIndex } = useTradeTabs(pathname, categoryQuery);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
@@ -174,9 +183,18 @@ export function MarketContent({
     if (targets.size === 0) return;
 
     const prewarmTradeSurfaceHref = (href: string) => {
-      const pathOnly = (href.split("?")[0] ?? "").trim();
-      if (!pathOnly) return;
+      const pathOnly = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "";
       if (pathOnly === "/market") {
+        let cat = "";
+        try {
+          cat = new URL(href, "http://localhost").searchParams.get("category")?.trim() ?? "";
+        } catch {
+          cat = "";
+        }
+        if (cat) {
+          peekOrWarmMarketCategoryFeedFromHref(href);
+          return;
+        }
         const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
         if (!hit?.posts?.length) {
           void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
@@ -210,13 +228,21 @@ export function MarketContent({
 
   return (
     <div className="min-w-0 w-full max-w-full">
-      <div ref={setMarketFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
-        <MarketTradeFeedBody
-          key={`home-feed:${tradeState || "latest"}`}
-          initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
-          clientFeedInstantBoot={clientFeedInstantBoot}
+      {categoryQuery ? (
+        <MarketCategoryPageClient
+          key={categoryQuery}
+          tradeServerSeed={null}
+          slugOrId={categoryQuery}
         />
-      </div>
+      ) : (
+        <div ref={setMarketFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
+          <MarketTradeFeedBody
+            key={`home-feed:${tradeState || "latest"}`}
+            initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+            clientFeedInstantBoot={clientFeedInstantBoot}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -47,6 +47,7 @@ export function commitTradeSwipeTabRoute(args: CommitTradeSwipeTabRouteArgs): bo
         beginMenuNavigation: args.beginMenuNavigation,
         guardBeforeNavigate: args.guardBeforeNavigate,
         router: args.router,
+        fromPathname: typeof window !== "undefined" ? window.location.pathname : null,
       }) !== "blocked"
     );
   }

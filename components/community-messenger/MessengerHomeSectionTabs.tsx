@@ -1,7 +1,7 @@
 "use client";
 
 import { UserPlus2 } from "lucide-react";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
+import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -13,11 +13,9 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 import {
-  DIBAY_SECONDARY_TABS_CLASS,
-  DIBAY_CHROME_SECONDARY_HOST_CLASS,
+  DIBAY_SECONDARY_TAB_LABEL_CLASS,
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
-import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 const SECTION_TAB_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
   friends: "cm_ia_messenger_tab_friends_list",
@@ -34,8 +32,7 @@ type Props = {
 };
 
 /**
- * Messenger home section tabs — visual SSOT pill rail.
- * Existing section handlers + trailing group create preserved.
+ * Messenger home section tabs — Community / Trade 와 동일 DibaySecondaryTabRow SSOT.
  */
 export function MessengerHomeSectionTabs({
   mainSection,
@@ -45,44 +42,17 @@ export function MessengerHomeSectionTabs({
   const { t } = useI18n();
 
   return (
-    <div
+    <DibaySecondaryTabRow
       data-cm-primary-nav
       data-cm-messenger-section-tabs
-      data-dibay-nav="secondary"
-      className={`${DIBAY_CHROME_SECONDARY_HOST_CLASS} w-full`}
-    >
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex min-w-0 items-center gap-1`}>
-        <HorizontalDragScroll
-          className={`${DIBAY_SECONDARY_TABS_CLASS} min-w-0 flex-1 border-b-0 px-0`}
-          style={{ WebkitOverflowScrolling: "touch" }}
-          role="tablist"
-          aria-label={t("cm_ui_messenger_section_aria")}
-        >
-          {MESSENGER_MAIN_SECTION_TAB_ORDER.map((section) => {
-            const active = mainSection === section;
-            return (
-              <button
-                key={section}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                aria-current={active ? "page" : undefined}
-                data-active={active ? "true" : "false"}
-                className={dibaySecondaryTabClass(active)}
-                onClick={() => onPrimarySectionChange(section)}
-              >
-                <span className="min-w-0 max-w-[min(9rem,38vw)] truncate">
-                  {t(SECTION_TAB_LABEL_KEYS[section])}
-                </span>
-              </button>
-            );
-          })}
-        </HorizontalDragScroll>
-        {mainSection === "chats" ? (
+      bordered
+      trackAriaLabel={t("cm_ui_messenger_section_aria")}
+      trailing={
+        mainSection === "chats" ? (
           <button
             type="button"
             onClick={onOpenGroupCreate}
-            className="mr-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-sam-fg transition active:scale-[0.98]"
+            className="inline-flex h-[length:var(--dibay-secondary-tab-item-h,36px)] w-[length:var(--dibay-secondary-tab-item-h,36px)] shrink-0 items-center justify-center rounded-ui-rect border border-[color:var(--dibay-domain-divider,var(--sam-border))] bg-[color:var(--dibay-domain-tab-idle-bg,var(--sam-surface))] text-[color:var(--dibay-domain-tab-idle-fg,var(--sam-fg))] transition active:scale-[0.98]"
             aria-label={t("cm_ui_create_group")}
           >
             <UserPlus2
@@ -91,8 +61,28 @@ export function MessengerHomeSectionTabs({
               aria-hidden
             />
           </button>
-        ) : null}
-      </div>
-    </div>
+        ) : null
+      }
+    >
+      {MESSENGER_MAIN_SECTION_TAB_ORDER.map((section) => {
+        const active = mainSection === section;
+        return (
+          <button
+            key={section}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-current={active ? "page" : undefined}
+            data-active={active ? "true" : "false"}
+            className={dibaySecondaryTabClass(active)}
+            onClick={() => onPrimarySectionChange(section)}
+          >
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
+              {t(SECTION_TAB_LABEL_KEYS[section])}
+            </span>
+          </button>
+        );
+      })}
+    </DibaySecondaryTabRow>
   );
 }

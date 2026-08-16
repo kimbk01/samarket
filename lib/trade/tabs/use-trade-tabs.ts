@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getHomeChipCategories } from "@/lib/categories/getHomeChipCategories";
-import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
+import {
+  isTradeMarketAllRouteActive,
+  isTradeMarketRouteActive,
+} from "@/lib/categories/tradeMarketPath";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { hydrateTradeMarketCategoryPeekCache } from "@/lib/market/peek-trade-market-client-shell";
+import { buildTradeMarketFeedHref } from "@/lib/trade/tabs/trade-market-feed-href";
 import type { TradePrimaryTab } from "./types";
 
 let cachedTradePrimaryCategories: CategoryWithSettings[] | null = null;
@@ -50,7 +53,7 @@ async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
   return tradePrimaryCategoriesFlight;
 }
 
-export function useTradeTabs(pathname: string) {
+export function useTradeTabs(pathname: string, categoryQuery: string | null = null) {
   const { language, safeT } = useI18n();
   const [tradeCategories, setTradeCategories] = useState<CategoryWithSettings[]>(
     cachedTradePrimaryCategories ?? []
@@ -89,8 +92,8 @@ export function useTradeTabs(pathname: string) {
       {
         key: "all",
         label: safeT("trade_market_tab_all"),
-        href: "/market",
-        isActive: pathname === "/market",
+        href: buildTradeMarketFeedHref(),
+        isActive: isTradeMarketAllRouteActive(pathname, categoryQuery),
       },
       ...tradeCategories.map((category) => ({
         key: category.id,
@@ -101,11 +104,11 @@ export function useTradeTabs(pathname: string) {
           category.slug,
           category.icon_key
         ),
-        href: getCategoryHref(category),
-        isActive: isTradeMarketRouteActive(pathname, category),
+        href: buildTradeMarketFeedHref({ categoryId: category.id }),
+        isActive: isTradeMarketRouteActive(pathname, category, categoryQuery),
       })),
     ],
-    [pathname, tradeCategories, language, safeT]
+    [pathname, categoryQuery, tradeCategories, language, safeT]
   );
 
   const activeIndex = tabs.findIndex((tab) => tab.isActive);

@@ -24,6 +24,7 @@ import {
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
+import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
 import {
   finalizeMainHubTransition,
   isMainHubTransitionGenerationActive,
@@ -506,6 +507,15 @@ export function AppRouteTransition({
 
       /** Hub: intent session settles here — do NOT restart enter for active generation. */
       if (hubKeepAliveTransition) {
+        /**
+         * 거래 1차 탭: 같은 `/market` 허브 안 카테고리 전환은 커뮤니티 topic 과 같이
+         * 셸 슬라이드 없이 children 만 교체.
+         */
+        const skipTradeCategoryEnter =
+          pendingMenuIntent?.source === "trade-primary" &&
+          isTradeMarketHubPathname(prev.pathname) &&
+          isTradeMarketHubPathname(pathKey);
+
         const hubAxis: MainShellRoutePushAxis =
           axisFromIntent ??
           lastPushAxisRef.current ??
@@ -518,6 +528,11 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
         consumeMainShellPushAxisIntent(pathKey);
+
+        if (skipTradeCategoryEnter) {
+          forceMainHubSurfaceCleanup(el);
+          return undefined;
+        }
 
         if (el && !prefersReducedMotion()) {
           if (activeHub && isMainHubTransitionGenerationActive(activeHub.generation)) {

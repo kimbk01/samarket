@@ -22,6 +22,7 @@ interface TradeTopicChipsRowProps {
 
 /**
  * 마켓 2행 주제 — 커뮤니티 피드 주제 탭과 동일 `sam-tab` / 밑줄 활성.
+ * `marketBasePath` 는 `/market` (카테고리는 `extraQuery.category`).
  */
 export function TradeTopicChipsRow({
   marketBasePath,

@@ -10,7 +10,6 @@ import { TradeTopicChipsRow } from "@/components/home/TradeTopicChipsRow";
 import { PostListByCategory } from "@/components/post/PostListByCategory";
 import type { TradeFeedClientSort } from "@/lib/posts/trade-feed-client-cache";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
-import { encodedTradeMarketSegment } from "@/lib/categories/tradeMarketPath";
 import {
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
@@ -86,7 +85,7 @@ export function MarketCategoryFeed({
   const topicPrefetchAtRef = useRef<Record<string, number>>({});
   /** 선두 3칩 프리워밍은 카테고리 id 단위로만 1회(Strict Mode 이중 마운트·불리언 플래그 누락 방지) */
   const headTopicPrewarmedCategoryIdRef = useRef<string | null>(null);
-  const { tabs, activeIndex } = useTradeTabs(pathname);
+  const { tabs, activeIndex } = useTradeTabs(pathname, category.id);
   const { beginMenuNavigation } = useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
 
@@ -170,7 +169,7 @@ export function MarketCategoryFeed({
     return match ? topicRaw : null;
   }, [filterRows, topicRaw]);
 
-  const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
+  const marketBase = "/market";
 
   const postSort: TradeFeedClientSort = parseTradeFeedSortQuery(
     searchParams.get("sort") ?? searchParams.get("fs")
@@ -421,6 +420,7 @@ export function MarketCategoryFeed({
               marketBasePath={marketBase}
               topics={children}
               selectedTopicKey={topicKeyForChips}
+              extraQuery={{ category: category.id }}
               onTopicIntent={prefetchTopicFeed}
             />
           </HorizontalDragScroll>
@@ -434,7 +434,7 @@ export function MarketCategoryFeed({
         <div className="flex w-full min-w-0 flex-col">{topicBlock}</div>
       </div>
     );
-  }, [children, marketBase, topicKeyForChips, prefetchTopicFeed]);
+  }, [children, marketBase, topicKeyForChips, prefetchTopicFeed, category.id]);
 
   const tradeSecondaryTabsSyncKey = useMemo(
     () =>

@@ -6,7 +6,7 @@ export function getCategoryPathForRedirect(category: CategoryWithSettings): stri
   const seg = encodedTradeMarketSegment(category);
   switch (category.type) {
     case "trade":
-      return `/market/${seg}`;
+      return `/market?category=${encodeURIComponent(category.id)}`;
     case "community":
       return "/community";
     case "service":
@@ -14,6 +14,6 @@ export function getCategoryPathForRedirect(category: CategoryWithSettings): stri
     case "feature":
       return `/features/${seg}`;
     default:
-      return `/market/${seg}`;
+      return `/market?category=${encodeURIComponent(category.id)}`;
   }
 }

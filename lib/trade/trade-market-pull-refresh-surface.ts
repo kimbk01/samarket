@@ -35,6 +35,9 @@ export function normalizeTradeMarketPullRefreshQuery(
   const topic = (params.get("topic") ?? "").trim().normalize("NFC");
   if (topic) out.set("topic", topic);
 
+  const category = (params.get("category") ?? "").trim().normalize("NFC");
+  if (category) out.set("category", category);
+
   const fsRaw = (params.get("fs") ?? params.get("sort") ?? "").trim().toLowerCase();
   if (fsRaw === "popular" || fsRaw === "pay_desc" || fsRaw === "chat_desc" || fsRaw === "near") {
     out.set("fs", fsRaw);
