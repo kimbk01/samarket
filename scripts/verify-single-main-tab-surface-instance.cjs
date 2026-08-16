@@ -48,29 +48,16 @@ if (fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx
 }
 
 const appRoute = read("components/route-transition/AppRouteTransition.tsx");
-if (!appRoute.includes("shouldArmMainDomainTruePush")) {
-  fail("AppRouteTransition must arm MAIN DOMAIN true push via shouldArmMainDomainTruePush");
-}
-if (!appRoute.includes("data-main-domain-previous") || !appRoute.includes("data-main-domain-current")) {
-  fail("AppRouteTransition must expose previous+current domain panels for true push");
-}
-if (!appRoute.includes("liveChildren")) {
-  fail("AppRouteTransition must keep live route children on the current panel (no Instant Feed clone)");
+if (!appRoute.includes("isMainTabKeepAliveHubPath") && !appRoute.includes("isKeepAliveHubRouteTransition")) {
+  fail("AppRouteTransition must skip dual-panel for hub transitions");
 }
 if (/MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES\s*=\s*new Set\(\s*\[\s*["']bottom-nav["']/.test(appRoute)) {
-  fail("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES must not include bottom-nav (Instant path); use pathname-owned true push");
-}
-if (/\bfunction\s+InstantMainTabEnterPanel\b/.test(appRoute)) {
-  fail("AppRouteTransition must not define InstantMainTabEnterPanel");
+  fail("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES must not include bottom-nav");
 }
 
 const ssot = read("lib/layout/resolve-main-surface.ts");
 if (!ssot.includes("resolveMainTabKeepAliveHub") || !ssot.includes("isMainTabKeepAliveHubPath")) {
-  fail("resolve-main-surface must export hub helpers");
-}
-const cross = read("lib/navigation/main-domain-cross-push.ts");
-if (!cross.includes("shouldArmMainDomainTruePush") || !cross.includes("isMainDomainCrossPush")) {
-  fail("main-domain-cross-push must own MAIN DOMAIN push arm authority");
+  fail("resolve-main-surface must export hub helpers for dual-panel skip");
 }
 
 if (failed) process.exit(1);

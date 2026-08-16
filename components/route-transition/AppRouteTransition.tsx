@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import {
@@ -35,8 +27,6 @@ import {
   armPathnameSingleSurfaceEnter,
   cancelPathnameSingleSurfaceEnterArm,
 } from "@/lib/navigation/pathname-single-surface-enter-arm";
-import { shouldArmMainDomainTruePush, isMainDomainCrossPush } from "@/lib/navigation/main-domain-cross-push";
-import { consumeMainDomainCrossPushIntent } from "@/lib/navigation/main-domain-cross-push-intent-ref";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 
 type Props = {
@@ -50,21 +40,14 @@ type Props = {
   contentStretchClass?: string;
 };
 
-/**
- * MAIN DOMAIN true push — previous snapshot + live route children in a stable current panel.
- * `liveChildren: true` → current panel renders props.children (no frozen entering clone / no Instant Feed).
- */
 type PushSession = {
-  previousNode: ReactNode;
-  /** Legacy frozen entering only — unused while MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES empty */
-  frozenEntering: ReactNode | null;
-  liveChildren: boolean;
+  exiting: ReactNode;
+  entering: ReactNode;
   axis: MainShellRoutePushAxis;
   animate: boolean;
   startedAt: number;
   targetPath?: string;
   durationMs: number;
-  mode: "main-domain" | "legacy";
 };
 
 type PushHandoff = {
@@ -86,8 +69,8 @@ const MAX_PENDING_PUSH_HOLD_MS = 12_000;
 const PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS = 1_200;
 
 /**
- * Legacy Instant/temporary enter dual-panel sources — MUST stay empty.
- * MAIN DOMAIN true push is pathname-owned (previous snapshot + live children), not Instant Feed.
+ * Dual-panel temporary enter — DISABLED for bottom-nav / trade-primary.
+ * Instant enter panels created a second Feed that remounted on push end.
  */
 const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set<string>();
 
@@ -130,10 +113,9 @@ function pushTargetReached(pathname: string | null | undefined, targetPath: stri
 }
 
 /**
- * CONTRACT — MAIN DOMAIN bottom-nav true push.
- * - Cross-domain bottom-nav: previous surface retained + live next children on one track (RTL 440ms).
- * - DO NOT: InstantMainTabEnterPanel / frozen duplicate Feed as entering authority.
- * - Live route `children` stay on data-main-domain-current for the whole transition (remount guard).
+ * CONTRACT — 메인 5탭 push surface.
+ * Hub↔hub (bottom-nav): dual-panel / InstantMainTabEnterPanel temporary Surface 금지.
+ * Route children 가 단일 Surface — push session 으로 Feed 를 복제하지 않음.
  */
 export function AppRouteTransition({
   children,
@@ -149,9 +131,8 @@ export function AppRouteTransition({
   const renderedRef = useRef<{ pathname: string; node: ReactNode } | null>(null);
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
+  /** Pathname-owned single-surface enter rAF — not cancelled by intent/children metadata reruns. */
   const singleSurfaceEnterArmRef = useRef<{ pathKey: string; rafId: number } | null>(null);
-  /** Pathname-owned animate arm — not cancelled by intent/children metadata reruns. */
-  const domainPushAnimateRafRef = useRef<number | null>(null);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
   const [pushHandoff, setPushHandoff] = useState<PushHandoff | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
@@ -161,28 +142,12 @@ export function AppRouteTransition({
   useLayoutEffect(() => {
     return () => {
       cancelPathnameSingleSurfaceEnterArm(singleSurfaceEnterArmRef);
-      if (domainPushAnimateRafRef.current != null) {
-        cancelAnimationFrame(domainPushAnimateRafRef.current);
-        domainPushAnimateRafRef.current = null;
-      }
     };
   }, []);
 
   const bindPushSurfaceRef = (node: HTMLDivElement | null) => {
     refBag.current.subtleEnterRef.current = node;
     refBag.current.pushSurfaceRef.current = node;
-  };
-
-  const cancelDomainPushAnimateArm = () => {
-    if (domainPushAnimateRafRef.current != null) {
-      cancelAnimationFrame(domainPushAnimateRafRef.current);
-      domainPushAnimateRafRef.current = null;
-    }
-  };
-
-  const armDomainPushAnimate = () => {
-    cancelDomainPushAnimateArm();
-    domainPushAnimateRafRef.current = beginPushTrackAnimation(setPushSession);
   };
 
   /** `(stores)` ↔ `(main)` remount 후 sessionStorage 진입 push */
@@ -228,8 +193,8 @@ export function AppRouteTransition({
   }, [pushSession]);
 
   /**
-   * Legacy Instant dual-panel arm — only when MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES non-empty.
-   * Kept for contract (Set must stay empty); MAIN DOMAIN push is pathname-owned below.
+   * Legacy dual-panel arm — only when MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES non-empty.
+   * Bottom-nav hubs: keep-alive visibility; do not clone children into entering/exiting panels.
    */
   useLayoutEffect(() => {
     const intent = pendingMenuIntent;
@@ -259,15 +224,13 @@ export function AppRouteTransition({
       reducedMotion: prefersReducedMotion(),
     });
     setPushSession({
-      previousNode: prev.node,
-      frozenEntering: pendingPushNode ?? children,
-      liveChildren: false,
+      exiting: prev.node,
+      entering: pendingPushNode ?? children,
       axis,
       animate: false,
       startedAt: performance.now(),
       targetPath,
       durationMs,
-      mode: "legacy",
     });
     const raf = beginPushTrackAnimation(setPushSession);
     return () => cancelAnimationFrame(raf);
@@ -287,8 +250,11 @@ export function AppRouteTransition({
     const el = subtleEnterRef.current;
 
     if (prev != null && prev.pathname !== pathKey) {
+      /**
+       * New pathname transition supersedes any pending single-surface enter arm.
+       * Metadata-only reruns (intent clear / children) never reach here.
+       */
       cancelPathnameSingleSurfaceEnterArm(singleSurfaceEnterArmRef);
-      cancelDomainPushAnimateArm();
 
       const kind: RouteTransitionEnterKind = kindRef.current;
       const axisFromIntent =
@@ -300,55 +266,17 @@ export function AppRouteTransition({
         axisFromIntent ?? lastPushAxisRef.current ?? routeTransitionPushAxisForKind(kind);
       const enterClass = routeTransitionClassForKind(kind);
 
-      const reducedMotion = prefersReducedMotion();
-      const crossPushIntent = consumeMainDomainCrossPushIntent();
-      const armMainDomain =
-        shouldArmMainDomainTruePush({
-          fromPathname: prev.pathname,
-          toPathname: pathKey,
-          intentSource: pendingMenuIntent?.source,
-          reducedMotion,
-        }) ||
-        (!reducedMotion &&
-          crossPushIntent &&
-          isMainDomainCrossPush(prev.pathname, pathKey));
-
-      /**
-       * MAIN DOMAIN true push — retain previous React node + live next children on one track.
-       * Intent clear / children RSC must not tear down this session (pathname ownership).
-       */
-      if (armMainDomain) {
-        const axis: MainShellRoutePushAxis = axisFromIntent ?? "rtl";
-        lastPushAxisRef.current = axis;
-        setPushHandoff(null);
-        const durationMs = resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
-          reducedMotion,
-        });
-        pushSessionActiveRef.current = true;
-        setPushSession({
-          previousNode: prev.node,
-          frozenEntering: null,
-          liveChildren: true,
-          axis,
-          animate: false,
-          startedAt: performance.now(),
-          targetPath: pathKey,
-          durationMs,
-          mode: "main-domain",
-        });
-        renderedRef.current = { pathname: pathKey, node: children };
-        armDomainPushAnimate();
-        return undefined;
-      }
-
       const hubKeepAliveTransition =
         isKeepAliveHubRouteTransition(prev.pathname, pathKey) ||
         pendingMenuIntent?.source === "bottom-nav" ||
         pendingMenuIntent?.source === "trade-primary";
 
       /**
-       * Same-domain / non-cross bottom-nav: single-surface enter only (not MAIN DOMAIN true push).
-       * ARM OWNERSHIP: pathname rAF must NOT be cancelled by intent/children effect cleanup.
+       * Hub keep-alive / bottom-nav: dual-panel clone 금지 (Feed remount).
+       * 단, 슬라이드를 끄면 하단 탭 이동이 “액션 없음”이 됨 — 단일 surface CSS enter 만 적용.
+       * ROOT CAUSE FIX: 예전 early-return 이 kind=none + class strip 으로 440ms 우→좌를 전부 차단했음.
+       * ARM OWNERSHIP: pathname transition rAF must NOT be cancelled by intent/children effect cleanup.
+       * DO NOT: always-on transform track (breaks sticky secondary tabs — incident 02b30021a).
        */
       if (hubKeepAliveTransition) {
         lastPushAxisRef.current = null;
@@ -363,7 +291,7 @@ export function AppRouteTransition({
           axisFromIntent ??
           (pendingMenuIntent?.source === "bottom-nav" ? "rtl" : routeTransitionPushAxisForKind(kind));
 
-        if (axis && !reducedMotion && el) {
+        if (axis && !prefersReducedMotion() && el) {
           const hubEnterClass =
             axis === "rtl"
               ? "main-shell-route-enter-rtl-forward"
@@ -384,6 +312,7 @@ export function AppRouteTransition({
               subtleEnterRef.current?.classList.add(hubEnterClass);
             },
           });
+          // DO NOT return cancelAnimationFrame — intent clear / children deps must not kill this arm.
           return undefined;
         }
 
@@ -393,9 +322,14 @@ export function AppRouteTransition({
         return undefined;
       }
 
-      if (pushAxis && !reducedMotion && !pendingMenuIntent?.mainShellCrossGroupPush) {
+      if (pushAxis && !prefersReducedMotion() && !pendingMenuIntent?.mainShellCrossGroupPush) {
         if (pushSessionActiveRef.current) {
           renderedRef.current = { pathname: pathKey, node: children };
+          /**
+           * pathname/RSC 가 먼저 도착해도 들어오는 패널을 `children`(Suspense·스켈레톤)으로
+           * 바꾸지 않는다 — 440ms 슬라이드 안에 CommunityFeedSkeleton 이 끼는 회귀 방지.
+           * 최종 본문은 push 종료 후 단일 surface `children` 로 전환.
+           */
           if (el?.dataset) {
             el.dataset.routeTransitionKind = kind;
             el.dataset.routePushAxis = pushAxis;
@@ -405,18 +339,16 @@ export function AppRouteTransition({
 
         setPushHandoff(null);
         const durationMs = resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
-          reducedMotion,
+          reducedMotion: prefersReducedMotion(),
         });
         setPushSession({
-          previousNode: prev.node,
-          frozenEntering: pendingPushNode ?? children,
-          liveChildren: false,
+          exiting: prev.node,
+          entering: pendingPushNode ?? children,
           axis: pushAxis,
           animate: false,
           startedAt: performance.now(),
           targetPath: pathKey,
           durationMs,
-          mode: "legacy",
         });
         pushSessionActiveRef.current = true;
         renderedRef.current = { pathname: pathKey, node: children };
@@ -454,14 +386,11 @@ export function AppRouteTransition({
           },
         });
         renderedRef.current = { pathname: pathKey, node: children };
+        // Same ownership as hub enter — metadata reruns must not cancelAnimationFrame.
         return undefined;
       }
     } else if (prev == null && el?.dataset) {
       el.dataset.routeTransitionKind = "none";
-    } else if (prev != null && prev.pathname === pathKey && pushSessionActiveRef.current) {
-      /** RSC / children refresh during MAIN DOMAIN push — keep session, refresh live authority. */
-      renderedRef.current = { pathname: pathKey, node: children };
-      return undefined;
     }
 
     renderedRef.current = { pathname: pathKey, node: children };
@@ -473,7 +402,6 @@ export function AppRouteTransition({
     pendingMenuIntent?.mainShellCrossGroupPush,
     pendingMenuIntent?.mainShellPushAxis,
     pendingMenuIntent?.id,
-    pendingMenuIntent?.source,
     pendingPushNode,
   ]);
 
@@ -482,8 +410,8 @@ export function AppRouteTransition({
     const durationMs = pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS;
     const timer = window.setTimeout(() => {
       if (!pushTargetReached(pathname, pushSession.targetPath)) return;
-      if (pushSession.frozenEntering && !pushSession.liveChildren) {
-        beginPushHandoffIfNeeded(pushSession.frozenEntering, pushSession.targetPath);
+      if (pushSession.entering) {
+        beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -499,8 +427,8 @@ export function AppRouteTransition({
     const elapsed = performance.now() - pushSession.startedAt;
     const remaining = Math.max(40, durationMs + 64 - elapsed);
     const timer = window.setTimeout(() => {
-      if (pushSession.frozenEntering && !pushSession.liveChildren) {
-        beginPushHandoffIfNeeded(pushSession.frozenEntering, pushSession.targetPath);
+      if (pushSession.entering) {
+        beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -521,8 +449,8 @@ export function AppRouteTransition({
 
   const finishPushSession = () => {
     if (!pushTargetReached(pathname, pushSession?.targetPath)) return;
-    if (pushSession?.frozenEntering && !pushSession.liveChildren) {
-      beginPushHandoffIfNeeded(pushSession.frozenEntering, pushSession.targetPath);
+    if (pushSession?.entering) {
+      beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
     }
     pushSessionActiveRef.current = false;
     setPushSession(null);
@@ -534,7 +462,7 @@ export function AppRouteTransition({
     return key === "/community-messenger" || key.startsWith("/community-messenger/");
   }
 
-  /** 슬라이드 종료 후 overlay — legacy frozen entering only */
+  /** 슬라이드 종료 후 overlay — RSC 미도착 시에만 pending 패널 유지, 도착 즉시 children 노출 */
   function beginPushHandoffIfNeeded(entering: ReactNode, targetPath: string | undefined) {
     if (isMessengerHandoffTarget(targetPath) || !pushTargetReached(pathname, targetPath)) {
       setPushHandoff({
@@ -595,98 +523,63 @@ export function AppRouteTransition({
 
   const hostClass = [contentStretchClass, "relative isolate"].filter(Boolean).join(" ");
 
-  const axis = pushSession?.axis ?? "rtl";
-  const pushTrackClass = [
-    "main-shell-push-track",
-    pushSession?.animate ? "main-shell-push-track--animate" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const pushTrackClass = pushSession
+    ? ["main-shell-push-track", pushSession.animate ? "main-shell-push-track--animate" : ""]
+        .filter(Boolean)
+        .join(" ")
+    : "";
 
-  /**
-   * Stable current-panel host: route `children` always mount here (idle + push).
-   * Previous slot stays mounted (hidden when idle) so current panel index does not shift (remount guard).
-   */
-  const currentPanelNode =
-    pushSession && !pushSession.liveChildren && pushSession.frozenEntering != null
-      ? pushSession.frozenEntering
-      : children;
-
-  const previousPanel = (
-    <div
-      className="main-shell-push-panel"
-      data-main-domain-previous={pushSession ? "true" : "false"}
-      hidden={!pushSession}
-      aria-hidden={!pushSession}
-    >
-      {pushSession?.previousNode ?? null}
-    </div>
-  );
-
-  const currentPanel = (
-    <div
-      ref={bindPushSurfaceRef}
-      data-main-shell-push-surface
-      data-main-domain-current
-      data-main-domain-next={pushSession ? "true" : undefined}
-      className={
-        pushSession
-          ? "main-shell-push-panel"
-          : "main-shell-push-panel main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col"
-      }
-      onAnimationEnd={(e) => {
-        if (e.target !== e.currentTarget) return;
-        stripTransitionClasses(subtleEnterRef.current, ROUTE_TRANSITION_ENTER_CLASSES);
-      }}
-    >
-      {currentPanelNode}
-    </div>
-  );
-
-  /** Product default RTL: [previous | current]. LTR legacy: [current | previous]. */
-  const trackChildren =
-    axis === "ltr" ? (
+  const pushPanels =
+    pushSession?.axis === "ltr" ? (
       <>
-        {currentPanel}
-        {previousPanel}
+        <div className="main-shell-push-panel">{pushSession.entering}</div>
+        <div className="main-shell-push-panel">{pushSession.exiting}</div>
       </>
-    ) : (
+    ) : pushSession?.axis === "rtl" ? (
       <>
-        {previousPanel}
-        {currentPanel}
+        <div className="main-shell-push-panel">{pushSession.exiting}</div>
+        <div className="main-shell-push-panel">{pushSession.entering}</div>
       </>
-    );
+    ) : null;
 
   return (
     <div className={hostClass}>
-      <div
-        className="main-shell-push-viewport"
-        data-main-domain-transition={pushSession ? "running" : "idle"}
-        data-main-domain-transition-mode={pushSession?.mode}
-        data-route-transition-kind={pushSession ? kindRef.current : "none"}
-        data-route-push-axis={pushSession?.axis}
-      >
+      {pushSession ? (
         <div
-          className={pushTrackClass}
-          data-axis={axis}
-          data-main-domain-track-idle={pushSession ? "false" : "true"}
-          style={
-            pushSession
-              ? ({
-                  "--main-shell-push-ms": `${pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS}ms`,
-                } as CSSProperties)
-              : undefined
-          }
-          onTransitionEnd={(e) => {
-            if (!pushSession) return;
+          className="main-shell-push-viewport"
+          data-route-transition-kind={kindRef.current}
+          data-route-push-axis={pushSession.axis}
+        >
+          <div
+            className={pushTrackClass}
+            data-axis={pushSession.axis}
+            style={
+              {
+                "--main-shell-push-ms": `${pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS}ms`,
+              } as CSSProperties
+            }
+            onTransitionEnd={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.propertyName !== "transform") return;
+              finishPushSession();
+            }}
+          >
+            {pushPanels}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={bindPushSurfaceRef}
+          data-main-shell-push-surface
+          className="main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col"
+          onAnimationEnd={(e) => {
             if (e.target !== e.currentTarget) return;
-            if (e.propertyName !== "transform") return;
-            finishPushSession();
+            stripTransitionClasses(subtleEnterRef.current, ROUTE_TRANSITION_ENTER_CLASSES);
           }}
         >
-          {trackChildren}
+          {children}
         </div>
-      </div>
+      )}
       {!pushSession && pushHandoff ? (
         <div
           className="pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-sam-app"
