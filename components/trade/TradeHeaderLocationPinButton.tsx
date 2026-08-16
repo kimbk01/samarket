@@ -1,20 +1,9 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
-import { createPortal } from "react-dom";
-import { MapPin, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
@@ -23,11 +12,7 @@ import {
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { resolveCanonicalToLegacyProductAlias } from "@/lib/trade/location/national/legacy-product-alias-canonical";
-import { resolveTradeLguNearbyCities } from "@/lib/trade/location/trade-lgu-adjacency";
 import {
-  TRADE_LOCATION_SEED_PARAM,
-  buildTradeCityScopeFromCanonical,
   buildTradeLocationHref,
   parseTradeLocationScopeFromSearchParams,
   peekTradeLguDisplayLabel,
@@ -36,31 +21,12 @@ import {
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 import {
-  TradeLocationNationalPicker,
-  type TradeNationalPickerHit,
-} from "@/components/trade/TradeLocationNationalPicker";
-
-type PanelPhase = "closed" | "open" | "closing";
-type PanelView = "main" | "national-picker";
-type SectorTab = "all" | "region" | "distance";
-
-const DISTANCE_PRESETS_KM = [5, 10, 20, 30, 50] as const;
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return true;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function RadioDot({ on }: { on: boolean }) {
-  return (
-    <span
-      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-        on ? "border-sam-primary bg-sam-primary" : "border-sam-border"
-      }`}
-      aria-hidden
-    />
-  );
-}
+  cloneTradeBrowseLocation,
+  tradeBrowseLocationFromScope,
+  tradeBrowseLocationToScope,
+  type TradeBrowseLocation,
+} from "@/lib/trade/location/trade-browse-location";
+import { TradeBrowseLocationSheet } from "@/components/trade/TradeBrowseLocationSheet";
 
 async function resolveMasterNationalLgu(addr: UserAddressDTO): Promise<{
   canonicalId: string;
@@ -105,10 +71,11 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
   const cached = peekTradeLguDisplayLabel(canonicalId);
   if (cached) return cached;
   try {
-    const res = await fetch(
-      `/api/trade/national-lgu?id=${encodeURIComponent(canonicalId)}`,
-      { method: "GET", credentials: "same-origin", cache: "no-store" }
-    );
+    const res = await fetch(`/api/trade/national-lgu?id=${encodeURIComponent(canonicalId)}`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
     if (!res.ok) return null;
     const json = (await res.json()) as { item?: { displayName?: string } };
     const name = json.item?.displayName?.trim() ?? "";
@@ -121,8 +88,8 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
 }
 
 /**
- * Trade header MapPin — 3-sector panel: ALL / REGION / DISTANCE(disabled).
- * Immediate commit; Philippines-wide search uses national LGU SSOT (N0–N4).
+ * Trade header MapPin — Marketplace buyer browse location (Phase 2).
+ * DibayBottomSheet + draft/committed. No 3-tab / full-screen / address mutation.
  */
 export function TradeHeaderLocationPinButton() {
   const { t } = useI18n();
@@ -130,133 +97,44 @@ export function TradeHeaderLocationPinButton() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const titleId = useId();
-  const [phase, setPhase] = useState<PanelPhase>("closed");
-  const [view, setView] = useState<PanelView>("main");
-  const [sector, setSector] = useState<SectorTab>("all");
-  const [myCanonicalId, setMyCanonicalId] = useState<string | null>(null);
-  const [myLguLabel, setMyLguLabel] = useState<string | null>(null);
-  const [addressMissing, setAddressMissing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [sheetSeed, setSheetSeed] = useState<TradeBrowseLocation>({ kind: "all" });
+  const [myRegion, setMyRegion] = useState<{
+    canonicalId: string;
+    displayName: string;
+  } | null>(null);
+  const [myRegionLoading, setMyRegionLoading] = useState(false);
   const [committedLabel, setCommittedLabel] = useState<string | null>(null);
-  const [clipOpen, setClipOpen] = useState(false);
 
-  const committed = parseTradeLocationScopeFromSearchParams(searchParams);
-  const isFiltered = committed.mode === "city";
+  const committedScope = parseTradeLocationScopeFromSearchParams(searchParams);
+  const isFiltered = committedScope.mode === "city";
 
-  const myLegacyAlias = useMemo(
-    () => (myCanonicalId ? resolveCanonicalToLegacyProductAlias(myCanonicalId) : null),
-    [myCanonicalId]
+  const committedBrowse = useMemo(
+    () => tradeBrowseLocationFromScope(committedScope, committedLabel),
+    [committedScope, committedLabel]
   );
 
-  const nearby = useMemo(
-    () =>
-      resolveTradeLguNearbyCities(myLegacyAlias, {
-        excludeLguId: myLegacyAlias,
-        limit: 4,
-      }),
-    [myLegacyAlias]
-  );
-
-  const commitScope = useCallback(
-    (next: TradeLocationScope, label?: string | null) => {
-      if (next.mode === "city" && label) {
-        rememberTradeLguDisplayLabel(next.canonicalId, label);
-      }
-      if (tradeLocationScopeEquals(next, committed)) {
-        setView("main");
-        setPhase("closing");
-        return;
-      }
-      const href = buildTradeLocationHref(pathname, searchParams.toString(), next);
-      router.replace(href, { scroll: false });
-      setView("main");
-      setPhase("closing");
-    },
-    [committed, pathname, router, searchParams]
-  );
-
-  const commitCanonical = useCallback(
-    (canonicalId: string, displayName?: string | null) => {
-      const scope = buildTradeCityScopeFromCanonical(canonicalId);
-      if (!scope) return;
-      commitScope(scope, displayName ?? null);
-    },
-    [commitScope]
-  );
-
-  const openPanel = useCallback(() => {
-    setView("main");
-    setSector(committed.mode === "city" ? "region" : "all");
-    setPhase("open");
-    setClipOpen(false);
-  }, [committed.mode]);
-
-  useLayoutEffect(() => {
-    if (phase !== "open") return;
-    if (prefersReducedMotion()) {
-      setClipOpen(true);
-      return;
-    }
-    const id = requestAnimationFrame(() => setClipOpen(true));
-    return () => cancelAnimationFrame(id);
-  }, [phase]);
-
   useEffect(() => {
-    if (phase !== "closing") return;
-    if (prefersReducedMotion()) {
-      setPhase("closed");
-      setClipOpen(false);
-      setView("main");
-      return;
-    }
-    setClipOpen(false);
-    const tmr = window.setTimeout(() => {
-      setPhase("closed");
-      setView("main");
-    }, 280);
-    return () => window.clearTimeout(tmr);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === "closed") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (view === "national-picker") setView("main");
-      else setPhase("closing");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [phase, view]);
-
-  useEffect(() => {
-    if (phase !== "open") return;
-    panelRef.current?.focus();
-    return () => {
-      triggerRef.current?.focus?.();
-    };
-  }, [phase, view]);
-
-  useEffect(() => {
-    if (committed.mode !== "city") {
+    if (committedScope.mode !== "city") {
       setCommittedLabel(null);
       return;
     }
-    const peek = peekTradeLguDisplayLabel(committed.canonicalId);
+    const peek = peekTradeLguDisplayLabel(committedScope.canonicalId);
     if (peek) {
       setCommittedLabel(peek);
       return;
     }
     let cancelled = false;
-    void fetchNationalLguLabel(committed.canonicalId).then((name) => {
+    void fetchNationalLguLabel(committedScope.canonicalId).then((name) => {
       if (!cancelled) setCommittedLabel(name);
     });
     return () => {
       cancelled = true;
     };
-  }, [committed]);
+  }, [committedScope]);
 
-  const loadMyArea = useCallback(async () => {
+  const loadMyRegion = useCallback(async () => {
+    setMyRegionLoading(true);
     try {
       const snapshot = await fetchAddressDefaultsSnapshot({
         caller: "trade_location_scope",
@@ -264,119 +142,74 @@ export function TradeHeaderLocationPinButton() {
       });
       const master = coerceUserAddressDTO(snapshot?.defaults?.master ?? null);
       if (!master?.id) {
-        setAddressMissing(true);
-        setMyCanonicalId(null);
-        setMyLguLabel(null);
+        setMyRegion(null);
         return;
       }
       const national = await resolveMasterNationalLgu(master);
       if (!national) {
-        // Master exists but national LGU unresolved — still not "missing address".
-        setAddressMissing(false);
-        setMyCanonicalId(null);
-        setMyLguLabel(null);
+        setMyRegion(null);
         return;
       }
-      setAddressMissing(false);
-      setMyCanonicalId(national.canonicalId);
-      setMyLguLabel(national.displayName);
       rememberTradeLguDisplayLabel(national.canonicalId, national.displayName);
+      setMyRegion(national);
     } catch {
-      setAddressMissing(true);
-      setMyCanonicalId(null);
-      setMyLguLabel(null);
+      setMyRegion(null);
+    } finally {
+      setMyRegionLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (phase === "open") void loadMyArea();
-  }, [phase, loadMyArea]);
+  const openSheet = useCallback(() => {
+    if (typeof performance !== "undefined" && performance.mark) {
+      performance.mark("trade_browse_loc_pin_tap");
+    }
+    setSheetSeed(cloneTradeBrowseLocation(committedBrowse));
+    setOpen(true);
+    if (typeof performance !== "undefined" && performance.mark) {
+      performance.mark("trade_browse_loc_sheet_mount");
+    }
+    void loadMyRegion();
+  }, [committedBrowse, loadMyRegion]);
 
-  useEffect(() => {
-    if (searchParams.get(TRADE_LOCATION_SEED_PARAM) !== "1") return;
-    let cancelled = false;
-    void (async () => {
-      const snapshot = await fetchAddressDefaultsSnapshot({
-        force: true,
-        caller: "trade_location_scope",
-        reason: "trade_location_seed",
-      });
-      if (cancelled) return;
-      const master = coerceUserAddressDTO(snapshot?.defaults?.master ?? null);
-      const national = master ? await resolveMasterNationalLgu(master) : null;
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete(TRADE_LOCATION_SEED_PARAM);
-      const nextScope: TradeLocationScope = national
-        ? buildTradeCityScopeFromCanonical(national.canonicalId) ?? { mode: "all" }
-        : { mode: "all" };
-      if (national && nextScope.mode === "city") {
-        rememberTradeLguDisplayLabel(national.canonicalId, national.displayName);
+  const closeSheet = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus?.();
+  }, []);
+
+  const commitScope = useCallback(
+    (next: TradeLocationScope, label?: string | null) => {
+      if (next.mode === "city" && label) {
+        rememberTradeLguDisplayLabel(next.canonicalId, label);
+        setCommittedLabel(label);
       }
-      router.replace(buildTradeLocationHref(pathname, params.toString(), nextScope), {
-        scroll: false,
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname, router, searchParams]);
-
-  const goChangeAddress = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set(TRADE_LOCATION_SEED_PARAM, "1");
-    const returnPath = `${pathname}?${params.toString()}`;
-    setPhase("closed");
-    router.push(`/mypage/addresses?returnTo=${encodeURIComponent(returnPath)}`);
-  }, [pathname, router, searchParams]);
-
-  const onNationalSelect = useCallback(
-    (hit: TradeNationalPickerHit) => {
-      commitCanonical(hit.canonicalId, hit.displayName);
+      if (tradeLocationScopeEquals(next, committedScope)) {
+        closeSheet();
+        return;
+      }
+      const href = buildTradeLocationHref(pathname, searchParams.toString(), next);
+      router.replace(href, { scroll: false });
+      closeSheet();
     },
-    [commitCanonical]
+    [closeSheet, committedScope, pathname, router, searchParams]
   );
 
-  const panelStyle: CSSProperties | undefined =
-    phase !== "closed"
-      ? {
-          // Full visual viewport shell; diagonal reveal from top-right (MapPin corner).
-          clipPath: clipOpen ? "inset(0 0 0 0)" : "inset(0 0 100% 100%)",
-          transition: prefersReducedMotion()
-            ? "opacity 120ms ease"
-            : "clip-path 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-          opacity: clipOpen || prefersReducedMotion() ? 1 : 0.96,
-        }
-      : undefined;
+  const onApply = useCallback(
+    (draft: TradeBrowseLocation) => {
+      if (draft.kind !== "city") return;
+      const scope = tradeBrowseLocationToScope(draft);
+      commitScope(scope, draft.displayName);
+    },
+    [commitScope]
+  );
 
-  const currentSummary =
-    committed.mode === "all"
-      ? t("trade_location_all")
-      : committed.mode === "invalid"
-        ? t("trade_location_invalid")
-        : committedLabel ?? t("trade_location_section_region");
+  const onViewAll = useCallback(() => {
+    commitScope({ mode: "all" });
+  }, [commitScope]);
 
-  const sectorBtn = (id: SectorTab, label: string) => {
-    const active = sector === id;
-    return (
-      <button
-        type="button"
-        aria-pressed={active}
-        className={`min-h-11 flex-1 rounded-lg px-2 py-2 text-sm font-semibold ${
-          active ? "bg-sam-primary text-white" : "bg-sam-surface-muted text-sam-fg"
-        }`}
-        onClick={() => {
-          if (id === "all") {
-            setSector("all");
-            commitScope({ mode: "all" });
-            return;
-          }
-          setSector(id);
-        }}
-      >
-        {label}
-      </button>
-    );
-  };
+  const headerHint =
+    committedScope.mode === "city"
+      ? committedLabel ?? t("trade_location_section_region")
+      : null;
 
   return (
     <>
@@ -386,12 +219,16 @@ export function TradeHeaderLocationPinButton() {
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
           isFiltered ? "text-sam-primary" : ""
         }`}
-        aria-label={t("trade_location_pin_aria")}
-        aria-expanded={phase === "open"}
+        aria-label={
+          headerHint
+            ? `${t("trade_location_pin_aria")}: ${headerHint}`
+            : t("trade_location_pin_aria")
+        }
+        aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => {
-          if (phase === "open") setPhase("closing");
-          else openPanel();
+          if (open) closeSheet();
+          else openSheet();
         }}
       >
         <MapPin
@@ -399,243 +236,22 @@ export function TradeHeaderLocationPinButton() {
           strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
           aria-hidden
         />
+        {headerHint ? (
+          <span className="absolute -bottom-0.5 left-1/2 max-w-[4.5rem] -translate-x-1/2 truncate text-[9px] font-semibold leading-none text-sam-primary">
+            {headerHint}
+          </span>
+        ) : null}
       </button>
 
-      {phase !== "closed" && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              ref={panelRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              tabIndex={-1}
-              className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] w-full max-w-[100dvw] flex-col overflow-hidden bg-sam-surface text-sam-fg outline-none"
-              style={panelStyle}
-            >
-                <div className="sticky top-0 z-10 shrink-0 border-b border-sam-border bg-sam-surface px-4 py-3 pt-[var(--safe-top)]">
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 id={titleId} className="text-base font-semibold">
-                      {view === "national-picker"
-                        ? t("trade_location_ph_full")
-                        : t("trade_location_panel_title")}
-                    </h2>
-                    <button
-                      type="button"
-                      className={`${Sam.headerAction} text-sam-fg`}
-                      aria-label={t("trade_location_close")}
-                      onClick={() => setPhase("closing")}
-                    >
-                      <X className="h-5 w-5" aria-hidden />
-                    </button>
-                  </div>
-                  {view === "main" ? (
-                    <p className="mt-1 text-sm text-sam-fg-muted">
-                      {t("trade_location_panel_subtitle")}
-                    </p>
-                  ) : null}
-                </div>
-
-                {view === "national-picker" ? (
-                  <TradeLocationNationalPicker
-                    selectedCanonicalId={
-                      committed.mode === "city" ? committed.canonicalId : null
-                    }
-                    onSelect={onNationalSelect}
-                    onBack={() => setView("main")}
-                  />
-                ) : (
-                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,var(--safe-bottom))]">
-                    <p className="px-1 text-xs text-sam-fg-muted">
-                      {t("trade_location_current")}:{" "}
-                      <span className="font-medium text-sam-fg">{currentSummary}</span>
-                    </p>
-
-                    <div
-                      className="mt-3 flex gap-2"
-                      role="tablist"
-                      aria-label={t("trade_location_panel_title")}
-                    >
-                      {sectorBtn("all", t("trade_location_section_all"))}
-                      {sectorBtn("region", t("trade_location_section_region"))}
-                      {sectorBtn("distance", t("trade_location_section_distance"))}
-                    </div>
-
-                    {sector === "all" ? (
-                      <section className="mt-4">
-                        <button
-                          type="button"
-                          className="flex min-h-11 w-full items-start gap-3 rounded-lg px-2 py-3 text-left hover:bg-sam-surface-muted"
-                          onClick={() => commitScope({ mode: "all" })}
-                        >
-                          <RadioDot on={committed.mode === "all"} />
-                          <span>
-                            <span className="block font-medium">{t("trade_location_all")}</span>
-                            <span className="mt-0.5 block text-sm text-sam-fg-muted">
-                              {t("trade_location_all_hint")}
-                            </span>
-                          </span>
-                        </button>
-                      </section>
-                    ) : null}
-
-                    {sector === "region" ? (
-                      <section className="mt-4">
-                        <p className="px-1 text-xs font-medium text-sam-fg-muted">
-                          {t("trade_location_my_address")}
-                        </p>
-                        {addressMissing ? (
-                          <div className="mt-1 space-y-2 px-1">
-                            <p className="text-sm text-sam-fg-muted">
-                              {t("trade_location_need_address")}
-                            </p>
-                            <button
-                              type="button"
-                              className={`${Sam.sm.btnSecondary} min-h-11 w-full`}
-                              onClick={goChangeAddress}
-                            >
-                              {t("trade_location_set_address")}
-                            </button>
-                          </div>
-                        ) : myCanonicalId && myLguLabel ? (
-                          <div className="mt-1">
-                            <button
-                              type="button"
-                              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-sam-surface-muted"
-                              onClick={() => commitCanonical(myCanonicalId, myLguLabel)}
-                            >
-                              <RadioDot
-                                on={
-                                  committed.mode === "city" &&
-                                  committed.canonicalId === myCanonicalId
-                                }
-                              />
-                              <span className="font-medium">{myLguLabel}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="mt-1 min-h-11 px-2 text-sm font-medium text-sam-primary"
-                              onClick={goChangeAddress}
-                            >
-                              {t("trade_location_change_address")}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="mt-1 space-y-2 px-1">
-                            <p className="text-sm text-sam-fg-muted">
-                              {t("trade_location_my_address_unresolved")}
-                            </p>
-                            <button
-                              type="button"
-                              className="min-h-11 px-1 text-sm font-medium text-sam-primary"
-                              onClick={goChangeAddress}
-                            >
-                              {t("trade_location_change_address")}
-                            </button>
-                          </div>
-                        )}
-
-                        {nearby.length > 0 ? (
-                          <>
-                            <p className="mt-4 px-1 text-xs font-medium text-sam-fg-muted">
-                              {t("trade_location_nearby")}
-                            </p>
-                            <ul className="mt-1 space-y-0.5">
-                              {nearby.map((c) => {
-                                const scope = buildTradeCityScopeFromCanonical(c.id);
-                                const on =
-                                  committed.mode === "city" &&
-                                  scope != null &&
-                                  committed.canonicalId === scope.canonicalId;
-                                return (
-                                  <li key={c.id}>
-                                    <button
-                                      type="button"
-                                      className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-sam-surface-muted"
-                                      onClick={() => {
-                                        if (!scope) return;
-                                        commitScope(scope, c.displayName);
-                                      }}
-                                    >
-                                      <RadioDot on={on} />
-                                      <span className="font-medium">{c.displayName}</span>
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </>
-                        ) : null}
-
-                        {committed.mode === "city" &&
-                        committedLabel &&
-                        committed.canonicalId !== myCanonicalId &&
-                        !nearby.some((n) => {
-                          const s = buildTradeCityScopeFromCanonical(n.id);
-                          return s?.canonicalId === committed.canonicalId;
-                        }) ? (
-                          <div className="mt-4">
-                            <p className="px-1 text-xs font-medium text-sam-fg-muted">
-                              {t("trade_location_current")}
-                            </p>
-                            <button
-                              type="button"
-                              className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-sam-surface-muted"
-                              onClick={() =>
-                                commitCanonical(committed.canonicalId, committedLabel)
-                              }
-                            >
-                              <RadioDot on />
-                              <span className="font-medium">{committedLabel}</span>
-                            </button>
-                          </div>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          className={`${Sam.sm.btnPrimary} mt-4 min-h-11 w-full`}
-                          onClick={() => setView("national-picker")}
-                        >
-                          {t("trade_location_ph_full")}
-                        </button>
-                      </section>
-                    ) : null}
-
-                    {sector === "distance" ? (
-                      <section className="mt-4" aria-disabled="true">
-                        <p className="px-1 text-sm font-medium text-sam-fg">
-                          {t("trade_location_distance_soon")}
-                        </p>
-                        <p className="mt-1 px-1 text-sm text-sam-fg-muted">
-                          {t("trade_location_distance_hint")}
-                        </p>
-                        <ul className="mt-3 space-y-1 opacity-50">
-                          {DISTANCE_PRESETS_KM.map((n) => (
-                            <li key={n}>
-                              <div className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2.5">
-                                <RadioDot on={false} />
-                                <span className="text-sm">
-                                  {t("trade_location_distance_km", { n: String(n) })}
-                                </span>
-                              </div>
-                            </li>
-                          ))}
-                          <li>
-                            <div className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2.5">
-                              <RadioDot on={false} />
-                              <span className="text-sm">
-                                {t("trade_location_distance_custom")}
-                              </span>
-                            </div>
-                          </li>
-                        </ul>
-                      </section>
-                    ) : null}
-                  </div>
-                )}
-            </div>,
-            document.body
-          )
-        : null}
+      <TradeBrowseLocationSheet
+        open={open}
+        onClose={closeSheet}
+        initialDraft={sheetSeed}
+        myRegion={myRegion}
+        myRegionLoading={myRegionLoading}
+        onApply={onApply}
+        onViewAll={onViewAll}
+      />
     </>
   );
 }
