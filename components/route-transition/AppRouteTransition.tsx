@@ -94,12 +94,22 @@ function normalizePathKeyForPush(pathname: string | null | undefined): string {
 }
 
 /**
+ * Suppress hub cover restart for the same dest within one transition window.
+ * mypage/chat → philife intermittently aborted+restarted (cover→none→cover).
+ */
+let lastHubCoverDestPath = "";
+let lastHubCoverStartedAt = 0;
+const HUB_COVER_RESTART_GUARD_MS = MAIN_SHELL_ROUTE_TRANSITION_MS + 80;
+
+/**
  * Hub tab: NEW surface only slides right→left.
  * No frozen OLD clone, no OLD exit translate (not TRUE PUSH / not abandoned COVER overlay).
+ * Duration SSOT: `MAIN_SHELL_ROUTE_TRANSITION_MS` (440) — same as legacy main-tab slide.
  */
 function beginHubNewOnlyRtlEnter(
   el: HTMLDivElement,
-  axis: MainShellRoutePushAxis
+  axis: MainShellRoutePushAxis,
+  destPath: string
 ): (() => void) | undefined {
   if (prefersReducedMotion()) {
     stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
@@ -107,8 +117,10 @@ function beginHubNewOnlyRtlEnter(
     return undefined;
   }
 
-  const fromClass = mainShellPushFromClassForAxis(axis);
-  const enterClass = mainShellPushEnterClassForAxis(axis);
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const dest = normalizePathKeyForPush(destPath).replace(/\/+$/, "") || "/";
+  const withinGuard =
+    lastHubCoverDestPath === dest && now - lastHubCoverStartedAt < HUB_COVER_RESTART_GUARD_MS;
 
   const ensureCleanup = () => {
     if ((el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer != null) return;
@@ -142,11 +154,22 @@ function beginHubNewOnlyRtlEnter(
     );
   };
 
-  /** Already animating (Strict Mode remount) — do not restart; keep cleanup armed. */
+  /** Already animating — do not restart; keep cleanup armed. */
   if (el.dataset.routeTransitionKind === "cover") {
     ensureCleanup();
     return undefined;
   }
+
+  /** Same hub landing still inside duration window — suppress double enter. */
+  if (withinGuard) {
+    return undefined;
+  }
+
+  lastHubCoverDestPath = dest;
+  lastHubCoverStartedAt = now;
+
+  const fromClass = mainShellPushFromClassForAxis(axis);
+  const enterClass = mainShellPushEnterClassForAxis(axis);
 
   stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
   el.classList.add(fromClass);
@@ -334,7 +357,7 @@ export function AppRouteTransition({
         renderedRef.current = { pathname: pathKey, node: children };
 
         if (el && hubAxis && !prefersReducedMotion()) {
-          return beginHubNewOnlyRtlEnter(el, hubAxis);
+          return beginHubNewOnlyRtlEnter(el, hubAxis, pathKey);
         }
 
         stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
@@ -407,8 +430,25 @@ export function AppRouteTransition({
         renderedRef.current = { pathname: pathKey, node: children };
         return () => cancelAnimationFrame(raf);
       }
-    } else if (prev == null && el?.dataset) {
-      el.dataset.routeTransitionKind = "none";
+    } else if (prev == null) {
+      /**
+       * Remount mid-hub-nav: recover NEW-only cover from push-axis intent
+       * instead of forcing kind=none (drops the only enter animation).
+       */
+      const axisFromIntent =
+        pendingMenuIntent?.mainShellPushAxis ?? consumeMainShellPushAxisIntent(pathKey) ?? null;
+      if (
+        el &&
+        axisFromIntent &&
+        isMainTabKeepAliveHubPath(pathKey) &&
+        !prefersReducedMotion()
+      ) {
+        renderedRef.current = { pathname: pathKey, node: children };
+        return beginHubNewOnlyRtlEnter(el, axisFromIntent, pathKey);
+      }
+      if (el?.dataset) {
+        el.dataset.routeTransitionKind = "none";
+      }
     }
 
     renderedRef.current = { pathname: pathKey, node: children };

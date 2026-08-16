@@ -151,10 +151,11 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
   return (
     <>
       <div
-        className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden transition-transform"
+        className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden"
         style={{
           transform: shellX,
-          transition: onPath ? `transform ${PANEL_MS}ms ${PANEL_EASE}` : undefined,
+          /** Only while panel open — hub tab cover must not fight a newly-enabled shell transition. */
+          transition: lock ? `transform ${PANEL_MS}ms ${PANEL_EASE}` : undefined,
           willChange: lock ? "transform" : undefined,
         }}
       >

@@ -17,6 +17,7 @@ type Props = {
  * CONTRACT — Hub tab visual (product):
  * - History: replace (unchanged SSOT)
  * - Visual: NEW only enters right→left (`from-rtl` → `enter-rtl`)
+ * - Duration: 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`) — same as legacy main-tab policy
  * - OLD does not translate (no TRUE PUSH)
  * - No frozen-DOM / body overlay clone (previous COVER approach abandoned)
  * Hub routes: single route `children` Surface only.

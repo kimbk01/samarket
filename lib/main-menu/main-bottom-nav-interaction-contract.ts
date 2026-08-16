@@ -4,6 +4,8 @@
  * Hub tab transition visual (separate from history SSOT):
  * - History = replace
  * - Visual = NEW only right→left cover-enter (no OLD push, no frozen clone overlay)
+ * - Duration = 440ms (`MAIN_SHELL_ROUTE_TRANSITION_MS`) — legacy main-tab slide SSOT
+ * - DO NOT restart cover for the same hub dest within one transition window
  *
  * 1. **모든 일반 하단 탭** (community/trade/delivery/chat/my 등)
  *    → 탭 선택 즉시 `commitMainBottomNavRoute` (history = replace). 이미 동일 URL이면 맨 위 스크롤.

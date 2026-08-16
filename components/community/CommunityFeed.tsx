@@ -44,6 +44,7 @@ import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { whenAppShellReady } from "@/lib/startup/startup-metrics";
+import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
@@ -551,7 +552,7 @@ export function CommunityFeed({
     router,
   ]);
 
-  /** Hub remount without params — restore last nav selection */
+  /** Hub remount without params — restore last nav selection (after hub cover window). */
   useLayoutEffect(() => {
     if (hubStateRestoredRef.current) return;
     if (!isCommunityHubPath(pathname)) return;
@@ -571,7 +572,11 @@ export function CommunityFeed({
     if (isSameCommunityNavSelection(selection, defaultCommunityNavSelection())) return;
     const target = buildCommunityFeedHref(pathname, { selection });
     if (target === pathname) return;
-    void router.replace(target, { scroll: false });
+    const delayMs = MAIN_SHELL_ROUTE_TRANSITION_MS + 40;
+    const timer = window.setTimeout(() => {
+      void router.replace(target, { scroll: false });
+    }, delayMs);
+    return () => window.clearTimeout(timer);
   }, [pathname, searchParams, router]);
 
   /** Persist hub state for detail-back / tab remount */
