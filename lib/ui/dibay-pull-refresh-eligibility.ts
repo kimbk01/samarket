@@ -5,8 +5,8 @@
  * ELIGIBLE (existing gesture/store already present):
  * - community feed — philife PTR hosts
  * - trade market — TradeMarketPullRefresh*
- * - stores home — useStoresHomePullRefresh / stores-home-pull-refresh-store
- * - stores browse — StoresBrowsePullRefresh*
+ * - stores home — StoresHomePullRefreshHost / useStoresHomePullRefresh / stores-home-pull-refresh-store
+ * - stores browse — StoresBrowsePullRefreshHost / StoresBrowsePullRefresh*
  * - messenger home — MessengerPullRefresh* / runMessengerHomePullRefresh
  *
  * HOLD (no proven safe refresh authority — no invented router.refresh/API):

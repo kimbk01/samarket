@@ -358,6 +358,24 @@ assertIncludes(
 
 );
 
+/** PTR gesture — Trade parity host in AppStickyHeader (not QuickCategories). */
+const storesHomePtrHost = read("components/stores/home/hub/StoresHomePullRefreshHost.tsx");
+assertIncludes(
+  storesHomePtrHost,
+  "useStoresHomePullRefresh",
+  "stores home PTR host must enable pull-to-refresh gesture"
+);
+assertIncludes(
+  read("components/layout/AppStickyHeader.tsx"),
+  "StoresHomePullRefreshHost",
+  "AppStickyHeader must mount stores home PTR host on /stores"
+);
+assertIncludes(
+  read("lib/stores/use-stores-home-pull-refresh.ts"),
+  "data-app-sticky-header",
+  "pull refresh must bind sticky header as well as scroll body (delivery chrome)"
+);
+
 const deliveryLayoutShell = read("components/delivery/navigation/StoresDeliveryLayoutShell.tsx");
 
 assertIncludes(
@@ -461,16 +479,6 @@ assertIncludes(
   "<StoresHomePrimaryCategoryPanel />",
 
   "category bridge render order must mount 1st category after 2nd"
-
-);
-
-assertIncludes(
-
-  quickCategories,
-
-  "useStoresHomePullRefresh",
-
-  "home categories must enable pull-to-refresh"
 
 );
 
