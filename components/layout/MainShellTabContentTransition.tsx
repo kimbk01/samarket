@@ -14,10 +14,10 @@ type Props = {
 /**
  * Bottom-nav transition host.
  *
- * CONTRACT — No temporary Feed/List enter panel (InstantMainTabEnterPanel removed).
- * Hub routes render the single route `children` Surface only.
- * DO NOT: dual-panel temporary Community/Trade/Delivery/Chat/Mypage entry.
+ * CONTRACT — MAIN DOMAIN true push lives in AppRouteTransition (previous snapshot + live children).
+ * DO NOT: InstantMainTabEnterPanel / temporary Feed enter panel here.
  * DO NOT: keep-alive multi-hub host that runs inactive URL sync (breaks bottom-nav).
+ * pendingPushNode must stay null (no Instant Surface).
  */
 export function MainShellTabContentTransition({
   children,

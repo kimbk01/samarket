@@ -9,6 +9,8 @@ import {
   pathFromHref,
 } from "@/lib/navigation/main-shell-push-session";
 import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { setMainDomainCrossPushIntent } from "@/lib/navigation/main-domain-cross-push-intent-ref";
+import { isMainDomainCrossPush } from "@/lib/navigation/main-domain-cross-push";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import {
   parseMessengerEntryOrigin,
@@ -132,6 +134,7 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
   }
   const crossGroup = Boolean(pushAxis && isCrossMainShellRouteGroup(fromPath, targetPath));
   setMainShellPushAxisIntent(pushAxis, targetPath);
+  setMainDomainCrossPushIntent(isMainDomainCrossPush(fromPath, normalizedTargetPath));
 
   if (crossGroup) {
     armMainShellPushEnterSession(pushAxis!, fromPath, targetPath);

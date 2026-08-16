@@ -650,6 +650,28 @@ a,
   will-change: transform;
 }
 
+/** Idle — single current panel (stable children host; no remount on push start/end). */
+.main-shell-push-track[data-main-domain-track-idle="true"] {
+  width: 100%;
+  transform: none;
+  will-change: auto;
+}
+
+.main-shell-push-track[data-main-domain-track-idle="true"] > .main-shell-push-panel {
+  width: 100%;
+  flex: 1 1 100%;
+}
+
+.main-shell-push-track[data-main-domain-track-idle="true"] > .main-shell-push-panel[data-main-domain-previous="false"],
+.main-shell-push-track[data-main-domain-track-idle="true"] > .main-shell-push-panel[hidden] {
+  display: none;
+  width: 0;
+  flex: 0 0 0;
+  min-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .main-shell-push-panel {
   display: flex;
   width: 50%;
