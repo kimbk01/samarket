@@ -14,20 +14,22 @@ import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defa
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
-  buildTradeLocationHref,
   parseTradeLocationScopeFromSearchParams,
   peekTradeLguDisplayLabel,
   rememberTradeLguDisplayLabel,
-  tradeLocationScopeEquals,
-  type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 import {
-  cloneTradeBrowseLocation,
   tradeBrowseLocationFromScope,
-  tradeBrowseLocationToScope,
-  type TradeBrowseLocation,
 } from "@/lib/trade/location/trade-browse-location";
-import { TradeBrowseLocationSheet } from "@/components/trade/TradeBrowseLocationSheet";
+import {
+  defaultTradeBrowseRadiusSelection,
+  tradeBrowseRadiusSelectionFromKm,
+} from "@/lib/trade/location/trade-browse-radius";
+import { seedTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
+import {
+  TRADE_BROWSE_LOCATION_PATH,
+  isTradeBrowseLocationPath,
+} from "@/lib/trade/location/trade-browse-location-paths";
 
 async function resolveMasterNationalLgu(addr: UserAddressDTO): Promise<{
   canonicalId: string;
@@ -112,9 +114,7 @@ export function buildTradeHeaderLocationHintParts(input: {
 export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title";
 
 /**
- * Trade header MapPin — Marketplace buyer browse location.
- * `beside-title`: 거래 제목 우측 (녹색 핀 + 주소 · 전체|Nkm)
- * `icon-cluster`: 우측 아이콘 열 (레거시)
+ * Trade header MapPin — opens `/market/location` page stack (not bottom sheet).
  */
 export function TradeHeaderLocationPinButton({
   placement = "icon-cluster",
@@ -126,17 +126,15 @@ export function TradeHeaderLocationPinButton({
   const searchParams = useSearchParams();
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [open, setOpen] = useState(false);
-  const [sheetSeed, setSheetSeed] = useState<TradeBrowseLocation>({ kind: "all" });
   const [myRegion, setMyRegion] = useState<{
     canonicalId: string;
     displayName: string;
   } | null>(null);
-  const [myRegionLoading, setMyRegionLoading] = useState(false);
   const [committedLabel, setCommittedLabel] = useState<string | null>(null);
 
   const committedScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const isFiltered = committedScope.mode === "city";
+  const onLocationStack = isTradeBrowseLocationPath(pathname);
 
   const committedBrowse = useMemo(
     () => tradeBrowseLocationFromScope(committedScope, committedLabel),
@@ -163,7 +161,6 @@ export function TradeHeaderLocationPinButton({
   }, [committedScope]);
 
   const loadMyRegion = useCallback(async () => {
-    setMyRegionLoading(true);
     try {
       const snapshot = await fetchAddressDefaultsSnapshot({
         caller: "trade_location_scope",
@@ -183,62 +180,26 @@ export function TradeHeaderLocationPinButton({
       setMyRegion(national);
     } catch {
       setMyRegion(null);
-    } finally {
-      setMyRegionLoading(false);
     }
   }, []);
 
-  /** Header needs master place for `주소 · 전체` even before sheet open. */
   useEffect(() => {
     void loadMyRegion();
   }, [loadMyRegion]);
 
-  const openSheet = useCallback(() => {
+  const openLocationPage = useCallback(() => {
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark("trade_browse_loc_pin_tap");
     }
-    setSheetSeed(cloneTradeBrowseLocation(committedBrowse));
-    setOpen(true);
-    if (typeof performance !== "undefined" && performance.mark) {
-      performance.mark("trade_browse_loc_sheet_mount");
-    }
-    void loadMyRegion();
-  }, [committedBrowse, loadMyRegion]);
-
-  const closeSheet = useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus?.();
-  }, []);
-
-  const commitScope = useCallback(
-    (next: TradeLocationScope, label?: string | null) => {
-      if (next.mode === "city" && label) {
-        rememberTradeLguDisplayLabel(next.canonicalId, label);
-        setCommittedLabel(label);
-      }
-      if (tradeLocationScopeEquals(next, committedScope)) {
-        closeSheet();
-        return;
-      }
-      const href = buildTradeLocationHref(pathname, searchParams.toString(), next);
-      router.replace(href, { scroll: false });
-      closeSheet();
-    },
-    [closeSheet, committedScope, pathname, router, searchParams]
-  );
-
-  const onApply = useCallback(
-    (draft: TradeBrowseLocation) => {
-      if (draft.kind !== "city") return;
-      const scope = tradeBrowseLocationToScope(draft);
-      commitScope(scope, draft.displayName);
-    },
-    [commitScope]
-  );
-
-  const onViewAll = useCallback(() => {
-    commitScope({ mode: "all" });
-  }, [commitScope]);
+    const radius =
+      committedBrowse.kind === "city" && typeof committedBrowse.radiusKm === "number"
+        ? tradeBrowseRadiusSelectionFromKm(committedBrowse.radiusKm)
+        : defaultTradeBrowseRadiusSelection();
+    seedTradeBrowseLocationDraftSession(committedBrowse, radius);
+    const q = searchParams.toString();
+    const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
+    router.push(href);
+  }, [committedBrowse, router, searchParams]);
 
   const hintParts = buildTradeHeaderLocationHintParts({
     mode: committedScope.mode === "city" ? "city" : "all",
@@ -257,77 +218,60 @@ export function TradeHeaderLocationPinButton({
 
   const besideTitle = placement === "beside-title";
 
-  const hintTextClass =
-    "text-[11px] font-semibold leading-[22px] text-sam-fg";
+  const hintTextClass = "text-[11px] font-semibold leading-[22px] text-sam-fg";
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
+    <button
+      ref={triggerRef}
+      type="button"
+      className={
+        besideTitle
+          ? `inline-flex max-w-[min(62vw,15.5rem)] min-w-0 shrink items-center gap-1 self-center rounded-ui-rect px-1 py-0 text-left ${samTier1HeaderIconMicro}`
+          : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
+              isFiltered ? "text-sam-primary" : ""
+            }`
+      }
+      aria-label={ariaLabel}
+      aria-current={onLocationStack ? "page" : undefined}
+      onClick={openLocationPage}
+    >
+      <MapPin
         className={
           besideTitle
-            ? `inline-flex max-w-[min(62vw,15.5rem)] min-w-0 shrink items-center gap-1 self-center rounded-ui-rect px-1 py-0 text-left ${samTier1HeaderIconMicro}`
-            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
-                isFiltered ? "text-sam-primary" : ""
-              }`
+            ? "h-[18px] w-[18px] shrink-0 text-sam-primary"
+            : `${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} text-sam-primary`
         }
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => {
-          if (open) closeSheet();
-          else openSheet();
-        }}
-      >
-        <MapPin
-          className={
-            besideTitle
-              ? "h-[18px] w-[18px] shrink-0 text-sam-primary"
-              : `${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} text-sam-primary`
-          }
-          strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-          fill="currentColor"
-          fillOpacity={0.18}
-          aria-hidden
-        />
-        {besideTitle ? (
-          <span className={`flex min-w-0 items-center gap-1 ${hintTextClass}`}>
-            {hintParts.place ? (
-              <>
-                <span className="min-w-0 truncate">{hintParts.place}</span>
-                <span className="shrink-0 text-sam-fg-muted" aria-hidden>
-                  ·
-                </span>
-                <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
-              </>
-            ) : (
-              <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
-            )}
-          </span>
-        ) : hintParts.place || isFiltered ? (
-          <span className="absolute -bottom-0.5 left-1/2 flex max-w-[7.5rem] -translate-x-1/2 items-center gap-0.5 text-[9px] font-semibold leading-none text-sam-primary">
-            {hintParts.place ? (
-              <>
-                <span className="min-w-0 truncate">{hintParts.place}</span>
-                <span className="shrink-0">· {hintParts.suffix}</span>
-              </>
-            ) : (
-              <span className="shrink-0">{hintParts.suffix}</span>
-            )}
-          </span>
-        ) : null}
-      </button>
-
-      <TradeBrowseLocationSheet
-        open={open}
-        onClose={closeSheet}
-        initialDraft={sheetSeed}
-        myRegion={myRegion}
-        myRegionLoading={myRegionLoading}
-        onApply={onApply}
-        onViewAll={onViewAll}
+        strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+        fill="currentColor"
+        fillOpacity={0.18}
+        aria-hidden
       />
-    </>
+      {besideTitle ? (
+        <span className={`flex min-w-0 items-center gap-1 ${hintTextClass}`}>
+          {hintParts.place ? (
+            <>
+              <span className="min-w-0 truncate">{hintParts.place}</span>
+              <span className="shrink-0 text-sam-fg-muted" aria-hidden>
+                ·
+              </span>
+              <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
+            </>
+          ) : (
+            <span className="shrink-0 text-sam-primary">{hintParts.suffix}</span>
+          )}
+        </span>
+      ) : hintParts.place || isFiltered ? (
+        <span className="absolute -bottom-0.5 left-1/2 flex max-w-[7.5rem] -translate-x-1/2 items-center gap-0.5 text-[9px] font-semibold leading-none text-sam-primary">
+          {hintParts.place ? (
+            <>
+              <span className="min-w-0 truncate">{hintParts.place}</span>
+              <span className="shrink-0">· {hintParts.suffix}</span>
+            </>
+          ) : (
+            <span className="shrink-0">{hintParts.suffix}</span>
+          )}
+        </span>
+      ) : null}
+    </button>
   );
 }

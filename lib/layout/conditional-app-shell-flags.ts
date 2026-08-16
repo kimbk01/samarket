@@ -91,6 +91,7 @@ export function isMarketTradeFeedHubPath(pathname: string | null | undefined): b
   const p = (pathname ?? "").split("?")[0]!.trim();
   if (!p) return false;
   if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return false;
+  if (p === "/market/location" || p.startsWith("/market/location/")) return false;
   return p === "/market" || p.startsWith("/market/");
 }
 
@@ -253,6 +254,9 @@ export function resolveConditionalAppShellFlags(
   const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
   /** 거래 희망 장소 풀페이지 — 하단 탭·거래 허브 FAB 가 지도·확인 버튼을 가리지 않게 숨김 */
   const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
+  /** 구매자 위치·거리 페이지 스택 — 셸 pb-0, 본문 sticky CTA 가 nav clearance 소유 */
+  const isTradeBrowseLocationRoute =
+    pathname === "/market/location" || (pathname?.startsWith("/market/location/") ?? false);
   const showMainBottomNavFabSector =
     isMainBottomNavFabDeliverySurface(normalizedStorePath) &&
     !isOrdersHub &&
@@ -349,7 +353,7 @@ export function resolveConditionalAppShellFlags(
         ? "pb-0"
         : isCommunityMessengerSurface
           ? MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-          : isTradeMeetSpotPickRoute
+          : isTradeMeetSpotPickRoute || isTradeBrowseLocationRoute
             ? "pb-0"
             : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
               ? "pb-0"

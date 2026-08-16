@@ -3,7 +3,7 @@
  * member master address, and meet spot.
  *
  * URL commit still uses TradeLocationScope (`?location=city&lgu=…`).
- * Draft lives only in the location sheet until Apply / 전체 상품 보기.
+ * Draft lives in sessionStorage on `/market/location` until 품목 보기 / 전체 상품 보기.
  */
 
 import {

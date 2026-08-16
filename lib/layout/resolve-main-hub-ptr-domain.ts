@@ -9,6 +9,7 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
   if (p === "/market") return "trade";
   if (p.startsWith("/market/")) {
     if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return null;
+    if (p === "/market/location" || p.startsWith("/market/location/")) return null;
     return "trade";
   }
   if (p === "/" || p === "/philife") return "philife";

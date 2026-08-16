@@ -21,6 +21,9 @@ function isMarketTradeFeedHubPath(pathname: string): boolean {
   if (pathname === "/market/trade-meet-spot" || pathname.startsWith("/market/trade-meet-spot/")) {
     return false;
   }
+  if (pathname === "/market/location" || pathname.startsWith("/market/location/")) {
+    return false;
+  }
   return pathname === "/market" || pathname.startsWith("/market/");
 }
 
