@@ -126,6 +126,7 @@ function beginHubNewOnlyRtlEnter(
     if ((el as HTMLElement & { __hubCoverTimer?: number }).__hubCoverTimer != null) return;
 
     let cleaned = false;
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     const cleanup = () => {
       if (cleaned) return;
       cleaned = true;
@@ -144,6 +145,9 @@ function beginHubNewOnlyRtlEnter(
     const onEnd = (ev: TransitionEvent) => {
       if (ev.target !== el) return;
       if (ev.propertyName && ev.propertyName !== "transform") return;
+      /** Ignore spurious early ends (header-stack CSS transition churn). */
+      const elapsed = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt;
+      if (elapsed < 120) return;
       cleanup();
     };
 
@@ -160,16 +164,18 @@ function beginHubNewOnlyRtlEnter(
     return undefined;
   }
 
-  /** Same hub landing still inside duration window — suppress double enter. */
-  if (withinGuard) {
+  /**
+   * Same dest within window AND enter class still applied — suppress double.
+   * If the first attempt was aborted (kind none, classes stripped), allow one recover.
+   */
+  const enterClass = mainShellPushEnterClassForAxis(axis);
+  const fromClass = mainShellPushFromClassForAxis(axis);
+  if (withinGuard && el.classList.contains(enterClass)) {
     return undefined;
   }
 
   lastHubCoverDestPath = dest;
   lastHubCoverStartedAt = now;
-
-  const fromClass = mainShellPushFromClassForAxis(axis);
-  const enterClass = mainShellPushEnterClassForAxis(axis);
 
   stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
   el.classList.add(fromClass);
