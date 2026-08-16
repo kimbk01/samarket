@@ -22,7 +22,7 @@ import {
   applyNotificationDestinationEnterOnSurface,
   consumeNotificationDestinationEnterSession,
 } from "@/lib/notifications/notification-destination-enter-session";
-import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 
 type Props = {
@@ -136,15 +136,22 @@ function beginHubNewOnlyRtlEnter(
   const withinGuard =
     lastHubCoverDestPath === dest && now - lastHubCoverStartedAt < HUB_COVER_RESTART_GUARD_MS;
 
-  /** Same dest still sliding — do not restart. */
-  if (withinGuard && el.dataset.routeTransitionKind === "cover") {
+  const transform = typeof window !== "undefined" ? window.getComputedStyle(el).transform : "none";
+  const atRest =
+    !transform ||
+    transform === "none" ||
+    transform.startsWith("matrix(1, 0, 0, 1") ||
+    transform === "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)";
+
+  /** Same dest still sliding — do not restart. Stuck kind=cover at rest → recover below. */
+  if (withinGuard && !atRest && el.dataset.routeTransitionKind === "cover") {
     return undefined;
   }
-  if (withinGuard && el.classList.contains(enterClass)) {
+  if (withinGuard && !atRest && el.classList.contains(enterClass)) {
     return undefined;
   }
 
-  /** Different dest or stale leftover cover — clear before a single fresh enter. */
+  /** Different dest, stale leftover, or stuck cover — clear before a single fresh enter. */
   forceHubCoverCleanup(el);
 
   lastHubCoverDestPath = dest;
@@ -359,8 +366,9 @@ export function AppRouteTransition({
 
     if (prev != null && prev.pathname !== pathKey) {
       const kind: RouteTransitionEnterKind = kindRef.current;
+      /** Peek first — do not consume until we actually start hub cover (StrictMode/remount safe). */
       const axisFromIntent =
-        pendingMenuIntent?.mainShellPushAxis ?? consumeMainShellPushAxisIntent(pathKey) ?? null;
+        pendingMenuIntent?.mainShellPushAxis ?? peekMainShellPushAxisIntent() ?? null;
       if (axisFromIntent) {
         lastPushAxisRef.current = axisFromIntent;
       }
@@ -375,10 +383,15 @@ export function AppRouteTransition({
 
       /** Hub: NEW-only rtl cover-enter (no dual-panel, no frozen overlay, no OLD exit). */
       if (hubKeepAliveTransition) {
-        const hubAxis =
+        /**
+         * Product contract: hub↔hub bottom-nav = always rtl.
+         * First cold entry often loses axis (intent cleared / consume race) → felt like "no cover".
+         */
+        const hubAxis: MainShellRoutePushAxis =
           axisFromIntent ??
           lastPushAxisRef.current ??
-          (pushAxis === "rtl" || pushAxis === "ltr" ? pushAxis : null);
+          (pushAxis === "rtl" || pushAxis === "ltr" ? pushAxis : null) ??
+          "rtl";
         lastPushAxisRef.current = null;
         pushSessionActiveRef.current = false;
         setPushSession(null);
@@ -386,7 +399,8 @@ export function AppRouteTransition({
         stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
         renderedRef.current = { pathname: pathKey, node: children };
 
-        if (el && hubAxis && !prefersReducedMotion()) {
+        if (el && !prefersReducedMotion()) {
+          consumeMainShellPushAxisIntent(pathKey);
           return beginHubNewOnlyRtlEnter(el, hubAxis, pathKey);
         }
 
@@ -464,17 +478,24 @@ export function AppRouteTransition({
       /**
        * Remount mid-hub-nav: recover NEW-only cover from push-axis intent
        * instead of forcing kind=none (drops the only enter animation).
+       * Default rtl when bottom-nav/trade-primary intent is present but axis was cleared.
        */
       const axisFromIntent =
-        pendingMenuIntent?.mainShellPushAxis ?? consumeMainShellPushAxisIntent(pathKey) ?? null;
+        pendingMenuIntent?.mainShellPushAxis ?? peekMainShellPushAxisIntent() ?? null;
+      const recoverAxis: MainShellRoutePushAxis | null =
+        axisFromIntent ??
+        (pendingMenuIntent?.source === "bottom-nav" || pendingMenuIntent?.source === "trade-primary"
+          ? "rtl"
+          : null);
       if (
         el &&
-        axisFromIntent &&
+        recoverAxis &&
         isMainTabKeepAliveHubPath(pathKey) &&
         !prefersReducedMotion()
       ) {
+        consumeMainShellPushAxisIntent(pathKey);
         renderedRef.current = { pathname: pathKey, node: children };
-        return beginHubNewOnlyRtlEnter(el, axisFromIntent, pathKey);
+        return beginHubNewOnlyRtlEnter(el, recoverAxis, pathKey);
       }
       if (el?.dataset) {
         el.dataset.routeTransitionKind = "none";

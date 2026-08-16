@@ -96,11 +96,23 @@ function pathOk(pathName, prefix) {
   return pathName === prefix || pathName.startsWith(`${prefix}/`);
 }
 
-async function sampleAfterClick(page) {
+async function sampleAfterClick(page, destPrefix) {
+  if (destPrefix) {
+    await page
+      .waitForFunction(
+        (prefix) => {
+          const p = location.pathname;
+          return p === prefix || p.startsWith(`${prefix}/`);
+        },
+        destPrefix,
+        { timeout: 20_000 }
+      )
+      .catch(() => null);
+  }
   let maxTx = 0;
   let sawCoverKind = false;
   let sawFrozenOverlay = false;
-  for (let s = 0; s < 35; s++) {
+  for (let s = 0; s < 45; s++) {
     const snap = await page.evaluate(() => {
       const surface = document.querySelector("[data-main-shell-push-surface]");
       const frozen = document.querySelector("[data-main-shell-cover-bg]");
@@ -162,7 +174,7 @@ async function oneCommunityToTrade(browser, i) {
     .catch(() => null);
 
   await page.locator('a.app-bottom-nav-item[href="/market"]').first().click({ timeout: 10_000 });
-  const sampled = await sampleAfterClick(page);
+  const sampled = await sampleAfterClick(page, "/market");
   const navigated = pathOk(sampled.idle.path, "/market");
   const motion = sampled.maxTx > 40;
   const idleClean =
@@ -193,7 +205,7 @@ async function fiveMain(browser) {
   const hops = [];
   for (const hop of FIVE_HOPS) {
     await navLocator(page, hop).click({ timeout: 15_000 });
-    const sampled = await sampleAfterClick(page);
+    const sampled = await sampleAfterClick(page, hop.destPrefix);
     const navigated = pathOk(sampled.idle.path || "", hop.destPrefix);
     const motion = sampled.maxTx > 40;
     const idleClean =

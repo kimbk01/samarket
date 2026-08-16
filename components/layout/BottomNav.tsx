@@ -78,6 +78,13 @@ import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-na
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { computeMainBottomNavPushAxis } from "@/lib/navigation/compute-main-bottom-nav-push-axis";
+import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { pathFromHref } from "@/lib/navigation/main-shell-push-session";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type {
@@ -98,6 +105,16 @@ import {
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
+
+/** Inactive MAIN hub roots — Next RSC prefetch so first bottom-nav enter is not cold. */
+function shouldPrefetchMainBottomNavHref(href: string, isActive: boolean): boolean {
+  if (isActive) return false;
+  const path = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "/";
+  if (path === "/" || path === "/philife" || path === "/community") return true;
+  if (path === "/market" || path === "/stores" || path === "/mypage") return true;
+  if (path === "/community-messenger") return true;
+  return false;
+}
 
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -351,7 +368,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   return (
     <Link
       href={effectiveHref}
-      prefetch={false}
+      prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
@@ -875,7 +892,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   return (
     <Link
       href={effectiveHref}
-      prefetch={false}
+      prefetch={shouldPrefetchMainBottomNavHref(effectiveHref, isActive)}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
@@ -1016,7 +1033,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   return (
     <Link
       href={storesTabHref}
-      prefetch={false}
+      prefetch={shouldPrefetchMainBottomNavHref(storesTabHref, isActive)}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, storesTabHref)}
       scroll={false}
       className={className}
@@ -1212,6 +1229,7 @@ export function BottomNav({
   /**
    * ONE BottomNav commit — confirm popup 없음.
    * Chat: requireAuthAction = gate only; success → commitMainBottomNavRoute (bare router.push 금지).
+   * Already-authed Chat: sync commit (DO NOT park beginMenuNavigation / cover axis behind await).
    * same-tab: scroll_only without auth gate.
    */
   const commitTabRoute = useCallback((tabId: string, commitOpts: BottomNavTabCommitOpts) => {
@@ -1225,6 +1243,19 @@ export function BottomNav({
       commitBottomNavTabRoute(commitOpts);
     };
     if (commitOpts.href.includes("/community-messenger")) {
+      const boot = peekAppBootProfile();
+      const cached =
+        getCurrentUser() ?? (boot?.id ? profileRowToClientProfile(boot) : null);
+      if (cached?.id && isClientSignupComplete(cached)) {
+        run();
+        return;
+      }
+      /**
+       * Cold Chat: profile cache may lag cookie session. Pre-arm rtl axis before await
+       * so when requireAuthAction finally commits, first-enter cover is not dropped.
+       */
+      const axis = computeMainBottomNavPushAxis(commitOpts.pathname, commitOpts.href);
+      setMainShellPushAxisIntent(axis, pathFromHref(commitOpts.href));
       void requireAuthAction("messenger_open", run, { next: commitOpts.href });
       return;
     }

@@ -44,7 +44,11 @@ import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { whenAppShellReady } from "@/lib/startup/startup-metrics";
-import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
+import {
+  hubStateToCommunityNavSelection,
+  readCommunityHubState,
+  writeCommunityHubState,
+} from "@/lib/community/community-hub-state";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
@@ -156,69 +160,6 @@ function philifePerfDiagEnabled(): boolean {
 function philifePerfDiag(event: string, extra: Record<string, unknown>): void {
   if (!philifePerfDiagEnabled() || typeof console.debug !== "function") return;
   console.debug(`[community-feed:perf-diag] ${event}`, extra);
-}
-
-const COMMUNITY_HUB_STATE_KEY = "community_hub_state_v1";
-
-type CommunityHubStateShape = { nav: string; category: string; sort: string };
-
-function readCommunityHubState(): CommunityHubStateShape | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(COMMUNITY_HUB_STATE_KEY);
-    if (!raw) return null;
-    const j = JSON.parse(raw) as { nav?: unknown; category?: unknown; sort?: unknown };
-    return {
-      nav: typeof j.nav === "string" ? j.nav.trim().toLowerCase() : "",
-      category: typeof j.category === "string" ? j.category.trim().toLowerCase() : "",
-      sort: typeof j.sort === "string" ? j.sort.trim().toLowerCase() : "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-/** `CommunityNavSelection` → hub state shape (URL 과 같은 authority) */
-function communityNavSelectionToHubState(sel: CommunityNavSelection): CommunityHubStateShape {
-  if (sel.kind === "topic") {
-    return { nav: "", category: sel.topicSlug.trim().toLowerCase(), sort: "" };
-  }
-  if (sel.kind === "local") {
-    return { nav: "local", category: "", sort: "" };
-  }
-  /** home/popular kinds absorb to all+sort */
-  if (sel.kind === "popular") {
-    return { nav: "all", category: "", sort: "popular" };
-  }
-  if (sel.kind === "home") {
-    return { nav: "all", category: "", sort: "latest" };
-  }
-  return { nav: "all", category: "", sort: sel.allSort === "popular" ? "popular" : "latest" };
-}
-
-function hubStateToCommunityNavSelection(h: CommunityHubStateShape): CommunityNavSelection {
-  if (h.nav === "local") return { kind: "local", topicSlug: "", allSort: "latest" };
-  if (h.category) return { kind: "topic", topicSlug: h.category, allSort: "latest" };
-  if (h.nav === "all") {
-    return { kind: "all", topicSlug: "", allSort: h.sort === "popular" ? "popular" : "latest" };
-  }
-  /** Legacy home / popular chip hub → all+sort */
-  if (h.nav === "popular" || h.sort === "popular") {
-    return { kind: "all", topicSlug: "", allSort: "popular" };
-  }
-  if (h.nav === "home" || h.sort === "latest" || h.sort === "recommended") {
-    return { kind: "all", topicSlug: "", allSort: "latest" };
-  }
-  return { kind: "all", topicSlug: "", allSort: "latest" };
-}
-
-function writeCommunityHubState(sel: CommunityNavSelection): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(COMMUNITY_HUB_STATE_KEY, JSON.stringify(communityNavSelectionToHubState(sel)));
-  } catch {
-    /* ignore */
-  }
 }
 
 function isCommunityHubPath(pathname: string): boolean {
@@ -552,7 +493,12 @@ export function CommunityFeed({
     router,
   ]);
 
-  /** Hub remount without params — restore last nav selection (after hub cover window). */
+  /**
+   * Fallback remount without params — restore last nav selection immediately.
+   * Bottom-nav entry expands href via `resolveCommunityBottomNavEntryHref` so first paint
+   * already has category (no All→topic flash during cover). This path covers soft refresh
+   * / deep→hub without going through bottom-nav expand.
+   */
   useLayoutEffect(() => {
     if (hubStateRestoredRef.current) return;
     if (!isCommunityHubPath(pathname)) return;
@@ -572,11 +518,7 @@ export function CommunityFeed({
     if (isSameCommunityNavSelection(selection, defaultCommunityNavSelection())) return;
     const target = buildCommunityFeedHref(pathname, { selection });
     if (target === pathname) return;
-    const delayMs = MAIN_SHELL_ROUTE_TRANSITION_MS + 40;
-    const timer = window.setTimeout(() => {
-      void router.replace(target, { scroll: false });
-    }, delayMs);
-    return () => window.clearTimeout(timer);
+    void router.replace(target, { scroll: false });
   }, [pathname, searchParams, router]);
 
   /** Persist hub state for detail-back / tab remount */

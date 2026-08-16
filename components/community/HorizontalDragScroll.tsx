@@ -18,6 +18,8 @@ type DragState = {
   scrollStart: number;
   /** 이번 제스처에서 실제로 스크롤을 밀었는지 */
   dragged: boolean;
+  /** pointer capture 를 threshold 이후에만 잡았는지 */
+  captureHeld: boolean;
   /** 드래그 직후 1회 클릭만 막음(터치 스크롤 후 오염 방지) */
   suppressNextClick: boolean;
 };
@@ -29,6 +31,7 @@ function idleDragState(): DragState {
     startX: 0,
     scrollStart: 0,
     dragged: false,
+    captureHeld: false,
     suppressNextClick: false,
   };
 }
@@ -42,6 +45,7 @@ function isInteractivePointerTarget(target: EventTarget | null): boolean {
 /**
  * 가로 스크롤 영역: 터치는 네이티브 스크롤만, 마우스/펜은 드래그로 밀기.
  * - 터치 pointerdown/up 시 drag·suppress 플래그를 반드시 초기화(스크롤 후 탭 클릭 유지)
+ * - 마우스: pointer capture 는 드래그 threshold 이후에만 — 버튼 탭 onClick 유지
  * - 네이티브 scroll 이벤트 시에도 suppress 해제(손 뗀 뒤 클릭·탭 정상화)
  */
 export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function HorizontalDragScroll(
@@ -58,6 +62,7 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
     const clearPointerDrag = () => {
       drag.current.active = false;
       drag.current.dragged = false;
+      drag.current.captureHeld = false;
       drag.current.suppressNextClick = false;
     };
 
@@ -77,20 +82,32 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
         startX: e.clientX,
         scrollStart: el.scrollLeft,
         dragged: false,
+        captureHeld: false,
         suppressNextClick: false,
       };
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
+      /**
+       * DO NOT setPointerCapture on pointerdown — capturing the host steals the
+       * button click (community 2단 topic tabs). Capture only after drag threshold.
+       */
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
       if (!drag.current.active || e.pointerId !== drag.current.pointerId) return;
       const dx = e.clientX - drag.current.startX;
-      if (Math.abs(dx) > DRAG_SCROLL_THRESHOLD_PX) drag.current.dragged = true;
+      if (Math.abs(dx) > DRAG_SCROLL_THRESHOLD_PX) {
+        if (!drag.current.dragged) {
+          drag.current.dragged = true;
+          if (!drag.current.captureHeld) {
+            drag.current.captureHeld = true;
+            try {
+              el.setPointerCapture(e.pointerId);
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
       if (!drag.current.dragged) return;
       el.scrollLeft = drag.current.scrollStart - dx;
     };
@@ -102,12 +119,16 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
       }
       if (!drag.current.active || e.pointerId !== drag.current.pointerId) return;
       const didDrag = drag.current.dragged;
+      const hadCapture = drag.current.captureHeld;
       drag.current.active = false;
       drag.current.dragged = false;
-      try {
-        el.releasePointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
+      drag.current.captureHeld = false;
+      if (hadCapture) {
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
       }
       if (didDrag) {
         drag.current.suppressNextClick = true;
@@ -119,6 +140,7 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
       if (e.pointerId !== drag.current.pointerId) return;
       drag.current.active = false;
       drag.current.dragged = false;
+      drag.current.captureHeld = false;
     };
 
     const onScroll = () => {

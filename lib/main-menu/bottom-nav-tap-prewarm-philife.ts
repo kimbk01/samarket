@@ -15,6 +15,7 @@ import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { buildFeedChipsFromPhilifeTopicOptionsJson } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { UserRegion } from "@/lib/regions/types";
+import { readCommunityHubState } from "@/lib/community/community-hub-state";
 
 const PHILIFE_TAB_PREWARM_COOLDOWN_MS = 12_000;
 const philifeTabPrewarmAt = new Map<string, number>();
@@ -89,6 +90,12 @@ export function prewarmBottomNavPhilifeTab(_region?: UserRegion | null): void {
   const viewerSig = philifeFeedViewerSig();
   warmPhilifeNeighborhoodTopicOptions();
   prewarmPhilifeGlobalFeedVariant(viewerSig, "", "recommended");
+  const saved = readCommunityHubState();
+  if (saved?.category) {
+    prewarmPhilifeGlobalFeedVariant(viewerSig, saved.category, "latest");
+  } else if (saved?.nav === "all" && saved.sort === "popular") {
+    prewarmPhilifeGlobalFeedVariant(viewerSig, "", "popular");
+  }
   void fetchPhilifeNeighborhoodTopicOptions()
     .then((json) => {
       const { chips } = buildFeedChipsFromPhilifeTopicOptionsJson(json);

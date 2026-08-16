@@ -9,6 +9,7 @@ import {
   type MainBottomNavHubDomain,
 } from "@/lib/main-menu/main-bottom-nav-domain";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
+import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
 
 export type MainBottomNavTabEmphasisKind = "domain-hub" | "messenger-hub" | null;
 
@@ -97,6 +98,13 @@ export function resolveMainBottomNavTabTapHref(
   }
   if (isMainBottomNavUnifiedInboxTabId(tabId)) {
     return mainBottomNavGlobalInboxTabHref(pathname, searchParams);
+  }
+  if (
+    tabId === "community" ||
+    tabId === "philife-home-hub" ||
+    tabId === "philife"
+  ) {
+    return resolveCommunityBottomNavEntryHref(tabHref, { fromPathname: pathname });
   }
   return tabHref;
 }

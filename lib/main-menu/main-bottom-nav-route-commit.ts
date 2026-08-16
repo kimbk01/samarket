@@ -28,6 +28,7 @@ import {
 } from "@/lib/navigation/nav-perf-browser";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 import { isDeepRouteNavigationLockActive } from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
 
 /**
  * BottomNav MAIN DOMAIN history SSOT.
@@ -120,19 +121,23 @@ export function abortPendingMainBottomNavRouteCommits(): void {
 export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): MainBottomNavRouteCommitResult {
   args.onCloseDomainSwitcher?.();
 
-  if (shouldMainBottomNavRouteScrollOnly(args.pathname, args.currentSearch, args.href)) {
+  /** Community hub: restore last topic/local/sort on entry (no bare /philife → All flash). */
+  const href = resolveCommunityBottomNavEntryHref(args.href, { fromPathname: args.pathname });
+  const commitArgs = href === args.href ? args : { ...args, href };
+
+  if (shouldMainBottomNavRouteScrollOnly(commitArgs.pathname, commitArgs.currentSearch, commitArgs.href)) {
     scrollAppShellToTop();
-    args.onCloseOverlay?.();
+    commitArgs.onCloseOverlay?.();
     return "scroll_only";
   }
 
-  if (!args.guardBeforeNavigate(args.href)) {
+  if (!commitArgs.guardBeforeNavigate(commitArgs.href)) {
     return "blocked";
   }
 
-  const pushAxis = computeMainBottomNavPushAxis(args.pathname, args.href);
-  const targetPath = pathFromHref(args.href);
-  const fromPath = normalizeMainBottomNavRoutePath(args.pathname);
+  const pushAxis = computeMainBottomNavPushAxis(commitArgs.pathname, commitArgs.href);
+  const targetPath = pathFromHref(commitArgs.href);
+  const fromPath = normalizeMainBottomNavRoutePath(commitArgs.pathname);
   const normalizedTargetPath = normalizeMainBottomNavRoutePath(targetPath);
   if (isStoresBrowseHubPath(fromPath) && !isStoresSurfacePath(normalizedTargetPath)) {
     abortStoresBrowseAmbientPrewarm("bottom_nav_route_commit");
@@ -144,13 +149,13 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     armMainShellPushEnterSession(pushAxis!, fromPath, targetPath);
   }
 
-  args.onNavigationIntent(args.tabId);
-  args.beginMenuNavigation(args.href, "bottom-nav", {
+  commitArgs.onNavigationIntent(commitArgs.tabId);
+  commitArgs.beginMenuNavigation(commitArgs.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,
     ...(crossGroup ? { mainShellCrossGroupPush: true } : {}),
   });
 
-  commitMainBottomNavRouteNavigateSync(args);
+  commitMainBottomNavRouteNavigateSync(commitArgs);
   return "navigated";
 }
 
