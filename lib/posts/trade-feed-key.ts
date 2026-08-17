@@ -1,4 +1,5 @@
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 export type TradeFeedSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -30,12 +31,7 @@ export function computeTradeFeedKey(
   const av = extras?.todayAvailable ? "1" : "";
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
-  const ts =
-    extras?.tradeState === "active" ||
-    extras?.tradeState === "reserved" ||
-    extras?.tradeState === "sold"
-      ? extras.tradeState
-      : "latest";
+  const ts = parseMarketplacePublicTradeState(extras?.tradeState);
   return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
 }
 
@@ -56,11 +52,6 @@ export function computeTradeFeedKeyForMarketParent(
   const av = extras?.todayAvailable ? "1" : "";
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
-  const ts =
-    extras?.tradeState === "active" ||
-    extras?.tradeState === "reserved" ||
-    extras?.tradeState === "sold"
-      ? extras.tradeState
-      : "latest";
+  const ts = parseMarketplacePublicTradeState(extras?.tradeState);
   return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
 }

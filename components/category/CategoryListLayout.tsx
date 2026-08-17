@@ -23,6 +23,7 @@ import {
   hydrateTradeMarketCategoryPeekCache,
   peekTradeMarketClientShell,
 } from "@/lib/market/peek-trade-market-client-shell";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 
@@ -84,10 +85,7 @@ export function CategoryListLayout({
     const fsRaw = searchParams.get("fs")?.trim().toLowerCase() ?? "";
     const sort = parseTradeFeedSortQuery(fsRaw || null);
     const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
-    const tradeState =
-      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-        ? tradeStateRaw
-        : "latest";
+    const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
     return peekTradeMarketClientShell(slugOrId, { topic, sort, tradeState });
   }, [expectedType, isTradeSeeded, slugOrId, tradeMarketSearchSyncKey, searchParams]);
 
@@ -195,10 +193,7 @@ export function CategoryListLayout({
 
     const sortForPeek = parseTradeFeedSortQuery(fsPad || null);
     const tradeStateRaw = (searchParamsRef.current.get("tradeState")?.trim() ?? "");
-    const tradeStateForPeek =
-      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-        ? tradeStateRaw
-        : "latest";
+    const tradeStateForPeek = parseMarketplacePublicTradeState(tradeStateRaw);
     const instantClientShell =
       expectedType === "trade" && !softShellKeepTradeChrome
         ? peekTradeMarketClientShell(slugOrId, { topic, sort: sortForPeek, tradeState: tradeStateForPeek })

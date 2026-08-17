@@ -46,6 +46,7 @@ import {
 } from "@/lib/trade/location/trade-location-scope";
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
@@ -76,8 +77,7 @@ const ReportReasonModal = dynamic(
 type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 30_000;
 function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter {
-  if (raw === "active" || raw === "reserved" || raw === "sold") return raw;
-  return "latest";
+  return parseMarketplacePublicTradeState(raw);
 }
 
 const INITIAL_VISIBLE_CARD_COUNT = TRADE_CHAT_LIST_PAGE_SIZE;

@@ -41,6 +41,7 @@ export function PostListPreviewColumn({
   stretchPreviewToThumbnailColumn = true,
   /** 거래 피드 카드용 초밀도 간격 (배지줄/본문줄 사이 세로 간격 최소화) */
   compactSpacing = false,
+  badgeSurface = "internal",
 }: {
   listingPost: TradeListingPostLike;
   preview: PostListPreviewModel;
@@ -49,6 +50,7 @@ export function PostListPreviewColumn({
   omitListFooter?: boolean;
   stretchPreviewToThumbnailColumn?: boolean;
   compactSpacing?: boolean;
+  badgeSurface?: "marketplace" | "internal";
 }) {
   function renderRealEstatePriceLine(text: string) {
     const src = text.trim();
@@ -154,7 +156,7 @@ export function PostListPreviewColumn({
         }
       >
         <div className={`flex flex-wrap items-center ${compactSpacing ? "gap-1" : "gap-1.5"}`}>
-          {!omitListingBadge ? <TradeListingStatusBadge post={listingPost} /> : null}
+          {!omitListingBadge ? <TradeListingStatusBadge post={listingPost} surface={badgeSurface} /> : null}
           {preview.showPipeAfterListingBadge &&
           !omitListingBadge &&
           preview.listingChips.length > 0 ? (
@@ -188,7 +190,7 @@ export function PostListPreviewColumn({
             : preview.listingRowClassName
         }
       >
-        {!omitListingBadge ? <TradeListingStatusBadge post={listingPost} /> : null}
+        {!omitListingBadge ? <TradeListingStatusBadge post={listingPost} surface={badgeSurface} /> : null}
         {preview.showPipeAfterListingBadge &&
         !omitListingBadge &&
         preview.listingChips.length > 0 ? (

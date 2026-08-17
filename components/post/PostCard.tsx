@@ -134,6 +134,8 @@ interface PostCardProps {
   priorityThumb?: boolean;
   /** 찜 목록 등 — 카드 하단 보조 액션 */
   footer?: ReactNode;
+  /** marketplace LIST = ACTIVE/SOLD. Favorites/mypage keep L1. */
+  listingStatusSurface?: "marketplace" | "internal";
 }
 
 export const PostCard = memo(function PostCard({
@@ -147,6 +149,7 @@ export const PostCard = memo(function PostCard({
   isFirstCard = false,
   priorityThumb = false,
   footer,
+  listingStatusSurface = "marketplace",
 }: PostCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
@@ -327,10 +330,10 @@ export const PostCard = memo(function PostCard({
                   fallbackEn: "Promoted",
                 })}
               </span>
-              <TradeListingStatusBadge post={post} className="shrink-0" />
+              <TradeListingStatusBadge post={post} surface={listingStatusSurface} className="shrink-0" />
             </div>
           ) : (
-            <TradeListingStatusBadge post={post} className="shrink-0" />
+            <TradeListingStatusBadge post={post} surface={listingStatusSurface} className="shrink-0" />
           )}
           {compositionAttrLine ? (
             <div className={TRADE_FEED_META_ROW_CLASS}>

@@ -1720,7 +1720,7 @@ export function PostDetailView({
                 <p className={TRADE_FB_DETAIL_SUBTITLE}>{reHeroSubtitle}</p>
               ) : null}
               <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
+                <TradeListingStatusBadge post={post} size="detail" surface="marketplace" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
                 {post.is_price_offer === true ? (
                   <span className={TRADE_FB_DETAIL_CHIP}>
                     {t("trade_detail_price_offer_badge")}

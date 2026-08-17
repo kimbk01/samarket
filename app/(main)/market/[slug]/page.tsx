@@ -26,17 +26,13 @@ export default async function MarketCategoryPage({ params, searchParams }: PageP
   }
 
   const topicRaw = firstString(sp.topic);
-  const tradeStateRaw = firstString(sp.tradeState);
   const fsRaw = firstString(sp.fs);
   const sortRaw = firstString(sp.sort);
 
   const target = buildTradeMarketFeedHref({
     categoryId: slugOrId,
     topic: topicRaw || null,
-    tradeState:
-      tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-        ? tradeStateRaw
-        : null,
+    tradeState: firstString(sp.tradeState) || null,
     baseSearch:
       fsRaw || sortRaw
         ? new URLSearchParams({

@@ -18,6 +18,7 @@ export function FavoritePostCard({ post, onUnfavorite }: FavoritePostCardProps) 
   return (
     <PostCard
       post={post}
+      listingStatusSurface="internal"
       isFavorite={true}
       skinKey={composition?.skinKey}
       categorySlug={composition?.categorySlug}

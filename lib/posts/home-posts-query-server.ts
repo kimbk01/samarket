@@ -47,14 +47,13 @@ export function resolveHomePostsStatusOrByTradeState(
   tradeState: HomePostsTradeStateFilter
 ): string {
   switch (tradeState) {
-    case "active":
-      return "status.is.null,status.eq.active";
-    case "reserved":
-      return "status.eq.reserved";
     case "sold":
       return "status.eq.sold";
+    case "active":
+    case "reserved":
     case "latest":
     default:
+      /** Public ACTIVE = not hidden/sold. L0 reserved stays in latest/active. */
       return HOME_POSTS_STATUS_OR;
   }
 }

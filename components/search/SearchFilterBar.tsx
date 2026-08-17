@@ -10,7 +10,7 @@ export type MarketplaceSearchSort = "newest" | "distance";
 
 export interface SearchFilters {
   categoryId: string;
-  status: "all" | "active" | "reserved" | "sold";
+  status: "all" | "active" | "sold";
   sortKey: MarketplaceSearchSort;
   priceMin: string;
   priceMax: string;
@@ -51,8 +51,7 @@ export function SearchFilterBar({
     () => [
       { value: "all" as const, label: safeT("common_all") },
       { value: "active" as const, label: safeT("trade_market_sort_active") },
-      { value: "reserved" as const, label: safeT("trade_market_sort_reserved") },
-      { value: "sold" as const, label: safeT("trade_market_sort_sold") },
+      { value: "sold" as const, label: safeT("trade_listing_step_completed") },
     ],
     [safeT]
   );

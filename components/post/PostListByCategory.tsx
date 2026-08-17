@@ -27,6 +27,7 @@ import {
   peekTradeLguDisplayLabel,
 } from "@/lib/trade/location/trade-location-scope";
 import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -105,10 +106,7 @@ export function PostListByCategory({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
-  const tradeState: "latest" | "active" | "reserved" | "sold" =
-    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-      ? tradeStateRaw
-      : "latest";
+  const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
   const locationScope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(searchParams),
     [searchParams]

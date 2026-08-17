@@ -1,4 +1,5 @@
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 /** `/market`·`/market/[slug]` PTR — `trade-meet-spot` 제외 */
 export function isTradeMarketPullRefreshSurface(pathname: string | null | undefined): boolean {
@@ -43,8 +44,8 @@ export function normalizeTradeMarketPullRefreshQuery(
     out.set("fs", fsRaw);
   }
 
-  const tradeState = (params.get("tradeState") ?? "").trim();
-  if (tradeState === "active" || tradeState === "reserved" || tradeState === "sold") {
+  const tradeState = parseMarketplacePublicTradeState(params.get("tradeState"));
+  if (tradeState === "active" || tradeState === "sold") {
     out.set("tradeState", tradeState);
   }
 

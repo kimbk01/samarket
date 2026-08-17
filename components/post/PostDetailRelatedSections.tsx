@@ -78,7 +78,7 @@ function PostMiniCard({
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
         {preview ? (
-          <PostListPreviewColumn listingPost={item} preview={preview} />
+          <PostListPreviewColumn listingPost={item} preview={preview} badgeSurface="marketplace" />
         ) : (
           <p className="line-clamp-2 min-h-[34px] sam-text-body-secondary font-medium text-sam-fg">{item.title}</p>
         )}

@@ -20,6 +20,7 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import {
   parseMarketplacePriceBound,
   sanitizeMarketplaceQueryText,
@@ -30,9 +31,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function parseTradeState(raw: string | null): HomePostsTradeStateFilter {
-  const t = (raw ?? "").trim();
-  if (t === "active" || t === "reserved" || t === "sold") return t;
-  return "latest";
+  return parseMarketplacePublicTradeState(raw);
 }
 
 function parseCategoryIds(raw: string | null): string[] {

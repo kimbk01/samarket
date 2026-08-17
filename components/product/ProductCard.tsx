@@ -62,7 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col justify-between">
           <div className="shrink-0">
-            <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} />
+            <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} surface="marketplace" />
           </div>
           <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
             {product.title}

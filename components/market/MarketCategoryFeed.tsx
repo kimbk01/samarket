@@ -30,6 +30,7 @@ import {
 } from "@/lib/posts/getPostsByCategory";
 import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import { marketplaceHomePrewarmOptions, marketplaceFeedLocationExtrasFromUrlOrSession } from "@/lib/trade/marketplace/client-location-fetch";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -176,10 +177,7 @@ export function MarketCategoryFeed({
     searchParams.get("sort") ?? searchParams.get("fs")
   );
   const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
-  const tradeState: "latest" | "active" | "reserved" | "sold" =
-    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-      ? tradeStateRaw
-      : "latest";
+  const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
 
   const feedKey = useMemo(() => {
     return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort, undefined, {

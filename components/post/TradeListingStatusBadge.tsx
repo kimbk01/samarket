@@ -5,6 +5,7 @@ import type { Product } from "@/lib/types/product";
 import type { FavoriteProduct } from "@/lib/types/favorite";
 import { productStatusLabel } from "@/lib/mypage/seller-listing-i18n";
 import { listTradeStatusBadge } from "@/lib/products/seller-listing-state";
+import { marketplacePublicStatusBadge } from "@/lib/trade/marketplace/public-listing-status";
 import { isTradeListingPost } from "@/lib/posts/is-trade-listing-post";
 import {
   APP_FEED_LIST_ROW1_LAYOUT,
@@ -24,13 +25,24 @@ export function TradeListingStatusBadge({
   post,
   size = "list",
   className = "",
+  surface = "internal",
 }: {
   post: TradeListingPostLike;
   size?: "list" | "detail";
   className?: string;
+  /** marketplace: ACTIVE/SOLD only. Chat/mypage/admin keep L1 labels. */
+  surface?: "marketplace" | "internal";
 }) {
   const { t } = useI18n();
   const textSize = size === "detail" ? APP_FEED_LIST_ROW1_TEXT_DETAIL : APP_FEED_LIST_ROW1_TEXT_LIST;
+  if (surface === "marketplace") {
+    const badge = marketplacePublicStatusBadge(post, size, t);
+    return (
+      <span className={`${badge.className} ${className}`.trim()}>
+        {badge.label}
+      </span>
+    );
+  }
   if (!isTradeListingPost(post)) {
     const st = (post.status ?? "").toLowerCase();
     if (st === "sold") return null;

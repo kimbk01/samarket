@@ -26,6 +26,7 @@ import {
   buildTradeMarketFeedHref,
   parseTradeMarketCategoryFromSearch,
 } from "@/lib/trade/tabs/trade-market-feed-href";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { isTradeMarketAllRouteActive } from "@/lib/categories/tradeMarketPath";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -84,24 +85,19 @@ function TradePrimaryTabsInner({
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
   const allSortMenuRef = useRef<HTMLUListElement | null>(null);
   const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
-  const tradeState = tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-    ? tradeStateRaw
-    : "latest";
+  const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
   const allSortLabel =
     tradeState === "active"
       ? safeT("trade_market_sort_active")
-      : tradeState === "reserved"
-        ? safeT("trade_market_sort_reserved")
-        : tradeState === "sold"
-          ? safeT("trade_market_sort_sold")
-          : safeT("trade_market_sort_latest");
+      : tradeState === "sold"
+        ? safeT("trade_listing_step_completed")
+        : safeT("trade_market_sort_latest");
   const tradeSortOptions = useMemo(
     () =>
       [
         { key: "latest" as const, label: safeT("trade_market_sort_latest") },
         { key: "active" as const, label: safeT("trade_market_sort_active") },
-        { key: "reserved" as const, label: safeT("trade_market_sort_reserved") },
-        { key: "sold" as const, label: safeT("trade_market_sort_sold") },
+        { key: "sold" as const, label: safeT("trade_listing_step_completed") },
       ],
     [safeT]
   );
@@ -109,7 +105,7 @@ function TradePrimaryTabsInner({
     tradeState: tradeState === "latest" ? null : tradeState,
   });
   const setTradeState = useCallback(
-    (next: "latest" | "active" | "reserved" | "sold") => {
+    (next: "latest" | "active" | "sold") => {
       const nextHref = buildTradeMarketFeedHref({
         tradeState: next === "latest" ? null : next,
       });
@@ -281,7 +277,7 @@ function TradePrimaryTabsInner({
                   type="button"
                   role="option"
                   aria-selected={tradeState === opt.key}
-                  onClick={() => setTradeState(opt.key as "latest" | "active" | "reserved" | "sold")}
+                  onClick={() => setTradeState(opt.key)}
                   className="block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
                 >
                   {opt.label}

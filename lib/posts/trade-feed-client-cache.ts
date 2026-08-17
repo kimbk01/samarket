@@ -13,6 +13,7 @@ import {
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
 import { marketplaceQueryCacheSegment } from "@/lib/trade/marketplace/query-contract";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -81,12 +82,7 @@ export function buildTradeFeedClientCacheKey(
   const av = options.todayAvailable === true ? "1" : "";
   const jr = options.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = options.jobIndustrySlug?.trim().toLowerCase() ?? "";
-  const ts =
-    options.tradeState === "active" ||
-    options.tradeState === "reserved" ||
-    options.tradeState === "sold"
-      ? options.tradeState
-      : "latest";
+  const ts = parseMarketplacePublicTradeState(options.tradeState);
   const loc = (() => {
     const raw = options.lguCityId?.trim();
     if (raw) {

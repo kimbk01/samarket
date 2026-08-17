@@ -7,6 +7,7 @@ import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { marketplaceHomePrewarmOptions } from "@/lib/trade/marketplace/client-location-fetch";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
@@ -63,10 +64,7 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
   const topicRaw = (url.searchParams.get("topic") ?? "").trim().normalize("NFC");
   const sort = parseTradeFeedSortQuery(url.searchParams.get("sort") ?? url.searchParams.get("fs"));
   const tradeStateRaw = (url.searchParams.get("tradeState") ?? "").trim();
-  const tradeState: "latest" | "active" | "reserved" | "sold" =
-    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
-      ? tradeStateRaw
-      : "latest";
+  const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
 
   let locExtras = marketplaceFeedLocationExtras(
     parseTradeLocationScopeFromSearchParams(url.searchParams)

@@ -5,6 +5,7 @@ import { readFreshTradeFeedClientCache } from "@/lib/posts/getPostsByCategory";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { TradeFeedClientSort } from "@/lib/posts/trade-feed-client-cache";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 const CATEGORY_BY_KEY_TTL_MS = 60_000;
 const CHILDREN_CACHE_TTL_MS = 45_000;
@@ -81,18 +82,13 @@ export function peekTradeMarketClientShell(
 
   const topic = (opts?.topic ?? "").trim().normalize("NFC");
   const sort = opts?.sort ?? "latest";
-  const tradeState: "latest" | "active" | "reserved" | "sold" =
-    opts?.tradeState === "active" ||
-    opts?.tradeState === "reserved" ||
-    opts?.tradeState === "sold"
-      ? opts.tradeState
-      : "latest";
+  const tradeState = parseMarketplacePublicTradeState(opts?.tradeState);
   const feedOpts: {
     page: 1;
     sort: TradeFeedClientSort;
     tradeMarketParent: string;
     topic: string;
-    tradeState: "latest" | "active" | "reserved" | "sold";
+    tradeState: "latest" | "active" | "sold";
   } = {
     page: 1,
     sort,

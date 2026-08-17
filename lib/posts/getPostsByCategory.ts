@@ -18,6 +18,7 @@ import {
   appendMarketplaceLocationSearchParams,
   appendMarketplaceQuerySearchParams,
 } from "@/lib/trade/marketplace/query-contract";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 export type PostSort = TradeFeedClientSort;
 export type GetPostsByCategoryOptions = TradeFeedClientOptions;
@@ -114,12 +115,9 @@ export async function getPostsByTradeCategoryIds(
     if (jr) params.set("jr", jr);
     const jc = options.jobIndustrySlug?.trim().toLowerCase();
     if (jc) params.set("jc", jc);
-    if (
-      options.tradeState === "active" ||
-      options.tradeState === "reserved" ||
-      options.tradeState === "sold"
-    ) {
-      params.set("tradeState", options.tradeState);
+    const publicTradeState = parseMarketplacePublicTradeState(options.tradeState);
+    if (publicTradeState === "active" || publicTradeState === "sold") {
+      params.set("tradeState", publicTradeState);
     }
     const lgu = options.lguCityId?.trim();
     appendMarketplaceLocationSearchParams(params, {

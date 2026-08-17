@@ -31,6 +31,7 @@ import {
   parseMarketplaceSort,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
@@ -73,8 +74,7 @@ function normalizeType(raw: string | null): HomePostsQueryType {
 }
 
 function normalizeTradeState(raw: string | null): HomePostsTradeStateFilter {
-  if (raw === "active" || raw === "reserved" || raw === "sold") return raw;
-  return "latest";
+  return parseMarketplacePublicTradeState(raw);
 }
 
 function normalizePage(raw: string | null): number {

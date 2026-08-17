@@ -3,6 +3,8 @@
  * CONTRACT: pathname 은 항상 `/market`, 카테고리는 `?category=` (페이지 push 금지).
  */
 
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
+
 export function parseTradeMarketCategoryFromSearch(
   searchParams: URLSearchParams | { get(name: string): string | null }
 ): string {
@@ -37,12 +39,8 @@ export function buildTradeMarketFeedHref(opts: BuildTradeMarketFeedHrefOpts = {}
   const categoryId = (opts.categoryId ?? "").trim();
   if (categoryId) sp.set("category", categoryId);
 
-  const tradeState = (opts.tradeState ?? "").trim();
-  if (
-    tradeState === "active" ||
-    tradeState === "reserved" ||
-    tradeState === "sold"
-  ) {
+  const tradeState = parseMarketplacePublicTradeState(opts.tradeState);
+  if (tradeState === "active" || tradeState === "sold") {
     sp.set("tradeState", tradeState);
   }
 

@@ -18,6 +18,7 @@ import {
   parseMarketplacePriceBound,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular" | "distance";
@@ -188,7 +189,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const sort = options.sort === "popular" || options.sort === "distance" ? options.sort : "latest";
   const typeFilter = options.type ?? null;
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
-  const tradeState = options.tradeState ?? "latest";
+  const tradeState = parseMarketplacePublicTradeState(options.tradeState);
   const lguCityId = options.lguCityId?.trim() || null;
   const locationAll = options.locationAll === true && !lguCityId;
   const radiusKm = lguCityId
