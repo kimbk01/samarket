@@ -90,6 +90,7 @@ export function SearchView() {
           q,
           priceMin: parseMarketplacePriceBound(filters.priceMin),
           priceMax: parseMarketplacePriceBound(filters.priceMax),
+          compositionFilters: filters.categoryId ? filters.compositionFilters : {},
         });
         const next = applyBlocked(postsToSearchProducts(res.posts ?? []));
         setProducts((prev) => (append ? [...prev, ...next] : next));

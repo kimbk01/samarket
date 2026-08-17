@@ -21,6 +21,7 @@ import {
   parseMarketplaceSort,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
 import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
@@ -46,6 +47,7 @@ export type TradeFeedPageOptions = {
   q?: string;
   priceMin?: number;
   priceMax?: number;
+  compositionFilters?: CompositionFilterClause[];
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -61,6 +63,7 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const q = sanitizeMarketplaceQueryText(opts.q);
   const priceMin = parseMarketplacePriceBound(opts.priceMin);
   const priceMax = parseMarketplacePriceBound(opts.priceMax);
+  const compositionFilters = opts.compositionFilters?.length ? opts.compositionFilters : undefined;
 
   if (
     !restrictTradeTypeJob &&
@@ -72,7 +75,8 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
     !tradeFeedLocation &&
     !q &&
     priceMin == null &&
-    priceMax == null
+    priceMax == null &&
+    !compositionFilters
   ) {
     return undefined;
   }
@@ -87,6 +91,7 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
     q,
     priceMin,
     priceMax,
+    compositionFilters,
   };
 }
 

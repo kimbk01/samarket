@@ -74,6 +74,18 @@ export {
 
 export { getTradeOptionCatalog, labelForTradeOption } from "./option-catalogs";
 
+export {
+  parseCompositionFilterSearchParams,
+  appendCompositionFilterSearchParams,
+  compositionFilterCacheSegment,
+  resolveCompositionAttributeFilterFields,
+  sanitizeCompositionFilterSelection,
+  buildCompositionFilterClauses,
+  applyCompositionFilterClausesToPostgrest,
+  type CompositionFilterSelection,
+  type CompositionFilterClause,
+} from "./composition-filter-query";
+
 export { tradeFieldAdminLabel, TRADE_FIELD_ADMIN_LABELS } from "./field-admin-labels";
 
 export {

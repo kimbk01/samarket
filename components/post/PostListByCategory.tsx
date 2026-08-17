@@ -30,6 +30,15 @@ import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-lo
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
+import {
+  appendCompositionFilterSearchParams,
+  parseCompositionFilterSearchParams,
+  resolveCompositionAttributeFilterFields,
+  resolveTradeCompositionForCategory,
+  sanitizeCompositionFilterSelection,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form";
 
 const ReportReasonModal = dynamic(
   () => import("./ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -117,6 +126,24 @@ export function PostListByCategory({
   const lguCityId = locExtras.lguCityId;
   const radiusKm = locExtras.radiusKm;
   const locationAll = locExtras.locationAll === true;
+  const resolvedComposition = useMemo(
+    () => (category ? resolveTradeCompositionForCategory(category) : null),
+    [category]
+  );
+  const compositionFilters = useMemo(() => {
+    const raw = parseCompositionFilterSearchParams(new URLSearchParams(searchParams.toString()));
+    if (!resolvedComposition) return {} as CompositionFilterSelection;
+    return sanitizeCompositionFilterSelection(raw, resolvedComposition);
+  }, [searchParams, resolvedComposition]);
+  const onCompositionFiltersChange = useCallback(
+    (next: CompositionFilterSelection) => {
+      const params = new URLSearchParams(searchParams.toString());
+      appendCompositionFilterSearchParams(params, next);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -133,6 +160,7 @@ export function PostListByCategory({
       lguCityId,
       radiusKm,
       locationAll,
+      compositionFilters,
     }),
     [
       jobEmploymentType,
@@ -143,6 +171,7 @@ export function PostListByCategory({
       lguCityId,
       radiusKm,
       locationAll,
+      compositionFilters,
     ]
   );
 
@@ -162,6 +191,7 @@ export function PostListByCategory({
         lguCityId: feedExtras.lguCityId,
         radiusKm: feedExtras.radiusKm,
         locationAll: feedExtras.locationAll,
+        compositionFilters: feedExtras.compositionFilters,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };
@@ -649,6 +679,18 @@ export function PostListByCategory({
   const fieldComposition = category?.settings?.field_composition ?? null;
 
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
+  const compositionFilterBar =
+    resolvedComposition &&
+    resolveCompositionAttributeFilterFields(resolvedComposition).length > 0 ? (
+      <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft bg-sam-surface px-4 py-2">
+        <CompositionAttributeFilterSelects
+          composition={resolvedComposition}
+          selection={compositionFilters}
+          onChange={onCompositionFiltersChange}
+        />
+      </div>
+    ) : null;
+
   if (locationInvalid) {
     return (
       <>
@@ -676,6 +718,7 @@ export function PostListByCategory({
     return (
       <>
         {tradePullRefreshRegister}
+        {compositionFilterBar}
         <div className="flex min-h-[min(36vh,320px)] items-center justify-center py-8" aria-busy="true">
           <TradeFeedBufferingSpinner />
         </div>
@@ -692,6 +735,7 @@ export function PostListByCategory({
       return (
         <>
           {tradePullRefreshRegister}
+          {compositionFilterBar}
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
             <p className="text-[14px] text-sam-muted">
               {t("trade_location_empty", { city: cityLabel })}
@@ -715,6 +759,7 @@ export function PostListByCategory({
     return (
       <>
         {tradePullRefreshRegister}
+        {compositionFilterBar}
         <CategoryEmptyState
           message="아직 등록된 글이 없어요."
           subMessage="첫 글을 올려보세요."
@@ -726,6 +771,7 @@ export function PostListByCategory({
   return (
     <>
       {tradePullRefreshRegister}
+      {compositionFilterBar}
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post, index) =>
           notInterestedPostIds.has(post.id) ? (

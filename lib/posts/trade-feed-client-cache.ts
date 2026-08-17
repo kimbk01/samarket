@@ -13,6 +13,11 @@ import {
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
 import { marketplaceQueryCacheSegment } from "@/lib/trade/marketplace/query-contract";
+import {
+  appendCompositionFilterSearchParams,
+  compositionFilterCacheSegment,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form/composition-filter-query";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
@@ -38,6 +43,7 @@ export type TradeFeedClientOptions = {
   q?: string | null;
   priceMin?: number | null;
   priceMax?: number | null;
+  compositionFilters?: CompositionFilterSelection | null;
 };
 
 export type TradeFeedClientResult = {
@@ -103,6 +109,9 @@ export function buildTradeFeedClientCacheKey(
     priceMax: options.priceMax,
     sort,
   });
+  const sel = options.compositionFilters;
+  const cfSuffix =
+    sel && Object.keys(sel).length > 0 ? `|${compositionFilterCacheSegment(sel)}` : "";
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -110,14 +119,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}|p:${page}|u:${u}:v6`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}${cfSuffix}|p:${page}|u:${u}:v6`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}|p:${page}|u:${u}:v6`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}${cfSuffix}|p:${page}|u:${u}:v6`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */

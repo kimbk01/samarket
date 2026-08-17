@@ -31,6 +31,8 @@ import {
   parseMarketplaceSort,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import { compositionFilterCacheSegment } from "@/lib/trade/category-form/composition-filter-query";
+import { resolveCompositionFilterClausesFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
@@ -368,16 +370,27 @@ export async function resolveHomePostsGetData(
   const q = sanitizeMarketplaceQueryText(searchParams.get("q"));
   const priceMin = parseMarketplacePriceBound(searchParams.get("priceMin"));
   const priceMax = parseMarketplacePriceBound(searchParams.get("priceMax"));
-  const querySegment = marketplaceQueryCacheSegment({
+  const tradeMarketParent = await resolveTradeMarketParentParam(
+    readSb as SupabaseClient<any>,
+    searchParams.get("tradeMarketParent")
+  );
+  const compositionFilters = await resolveCompositionFilterClausesFromRequest(
+    readSb as SupabaseClient<any>,
+    tradeMarketParent,
+    searchParams
+  );
+  const querySegmentBase = marketplaceQueryCacheSegment({
     q,
     priceMin,
     priceMax,
     sort,
   });
-  const tradeMarketParent = await resolveTradeMarketParentParam(
-    readSb as SupabaseClient<any>,
-    searchParams.get("tradeMarketParent")
-  );
+  const querySegment =
+    compositionFilters.length > 0
+      ? `${querySegmentBase}:${compositionFilterCacheSegment(
+          Object.fromEntries(compositionFilters.map((c) => [c.fieldId, c.values[0] ?? ""]))
+        )}`
+      : querySegmentBase;
 
   let tradeCategoryIds: string[] | null = null;
   let effectiveType: HomePostsQueryType = type;
@@ -442,7 +455,7 @@ export async function resolveHomePostsGetData(
         statusOr,
         lguCityId,
         radiusKm,
-        { q, priceMin, priceMax }
+        { q, priceMin, priceMax, compositionFilters }
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {

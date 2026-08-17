@@ -18,6 +18,11 @@ import {
   parseMarketplacePriceBound,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import {
+  appendCompositionFilterSearchParams,
+  compositionFilterCacheSegment,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form/composition-filter-query";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import type { PostWithMeta } from "./schema";
 
@@ -45,6 +50,7 @@ export interface GetPostsForHomeOptions {
   q?: string | null;
   priceMin?: number | null;
   priceMax?: number | null;
+  compositionFilters?: CompositionFilterSelection | null;
 }
 
 export interface GetPostsForHomeResult {
@@ -200,6 +206,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const q = sanitizeMarketplaceQueryText(options.q);
   const priceMin = parseMarketplacePriceBound(options.priceMin ?? undefined);
   const priceMax = parseMarketplacePriceBound(options.priceMax ?? undefined);
+  const compositionFilters = options.compositionFilters ?? {};
   const marketKey = tradeMarketParent ?? "all";
   const loc = (() => {
     if (lguCityId) {
@@ -211,7 +218,10 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     return "loc:unset";
   })();
   const querySegment = marketplaceQueryCacheSegment({ q, priceMin, priceMax, sort });
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}:v6`;
+  const cfSegment = compositionFilterCacheSegment(compositionFilters);
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}${
+    Object.keys(compositionFilters).length > 0 ? `:${cfSegment}` : ""
+  }:v6`;
   return {
     page,
     sort,
@@ -224,6 +234,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     q,
     priceMin,
     priceMax,
+    compositionFilters,
     canFetch: Boolean(lguCityId || locationAll),
     cacheKey,
   };
@@ -246,6 +257,7 @@ function applyHomePostsRequestParams(
     priceMin: opts.priceMin,
     priceMax: opts.priceMax,
   });
+  appendCompositionFilterSearchParams(params, opts.compositionFilters);
 }
 
 function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {

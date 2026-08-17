@@ -18,6 +18,7 @@ import {
   appendMarketplaceLocationSearchParams,
   appendMarketplaceQuerySearchParams,
 } from "@/lib/trade/marketplace/query-contract";
+import { appendCompositionFilterSearchParams } from "@/lib/trade/category-form/composition-filter-query";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 export type PostSort = TradeFeedClientSort;
@@ -130,6 +131,7 @@ export async function getPostsByTradeCategoryIds(
       priceMin: options.priceMin,
       priceMax: options.priceMax,
     });
+    appendCompositionFilterSearchParams(params, options.compositionFilters);
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {

@@ -22,6 +22,10 @@ import {
   type TradeLguCityQueryConstraint,
 } from "@/lib/trade/location/trade-lgu-city-rollup";
 import { applyMarketplaceQueryToPostgrest } from "@/lib/trade/marketplace/query-contract";
+import {
+  applyCompositionFilterClausesToPostgrest,
+  type CompositionFilterClause,
+} from "@/lib/trade/category-form/composition-filter-query";
 
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(getPostsByCategory 와 동일) */
 export const MAX_JOB_LISTING_KIND_CHUNKS = 120;
@@ -138,6 +142,8 @@ export type TradeFeedQueryExtras = {
   q?: string;
   priceMin?: number;
   priceMax?: number;
+  /** Composition attribute filters — already sanitized against category overlay. */
+  compositionFilters?: CompositionFilterClause[];
   /** Trade discovery LGU City — `region` + `city IN (…)` rollup. */
   lguCityId?: string;
   /**
@@ -263,6 +269,7 @@ export async function fetchPostsRangeForTradeCategories(
       priceMin: extras?.priceMin,
       priceMax: extras?.priceMax,
     });
+    q2 = applyCompositionFilterClausesToPostgrest(q2, extras?.compositionFilters);
 
     return q2;
   };

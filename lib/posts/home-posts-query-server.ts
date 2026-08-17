@@ -19,6 +19,10 @@ import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/nationa
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import { applyMarketplaceQueryToPostgrest } from "@/lib/trade/marketplace/query-contract";
 import {
+  applyCompositionFilterClausesToPostgrest,
+  type CompositionFilterClause,
+} from "@/lib/trade/category-form/composition-filter-query";
+import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
@@ -104,7 +108,12 @@ export async function loadHomePostsPage(
   statusOr: string,
   lguCityId?: string | null,
   radiusKm?: number | null,
-  queryExtras?: { q?: string; priceMin?: number; priceMax?: number }
+  queryExtras?: {
+    q?: string;
+    priceMin?: number;
+    priceMax?: number;
+    compositionFilters?: CompositionFilterClause[];
+  }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
   const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
@@ -147,6 +156,7 @@ export async function loadHomePostsPage(
       priceMin: queryExtras?.priceMin,
       priceMax: queryExtras?.priceMax,
     }) as typeof q;
+    q = applyCompositionFilterClausesToPostgrest(q as any, queryExtras?.compositionFilters) as typeof q;
     if (sort === "popular") {
       q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
     } else {
@@ -189,7 +199,12 @@ export async function resolveHomePostsPayload(
   statusOr: string,
   lguCityId?: string | null,
   radiusKm?: number | null,
-  queryExtras?: { q?: string; priceMin?: number; priceMax?: number }
+  queryExtras?: {
+    q?: string;
+    priceMin?: number;
+    priceMax?: number;
+    compositionFilters?: CompositionFilterClause[];
+  }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const fromMaskedRead = await loadHomePostsPage(
     readSb,

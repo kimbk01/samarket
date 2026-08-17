@@ -5,6 +5,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
+import {
+  resolveTradeCompositionForCategory,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form";
 
 export type MarketplaceSearchSort = "newest" | "distance";
 
@@ -14,6 +19,7 @@ export interface SearchFilters {
   sortKey: MarketplaceSearchSort;
   priceMin: string;
   priceMax: string;
+  compositionFilters: CompositionFilterSelection;
 }
 
 interface SearchFilterBarProps {
@@ -29,10 +35,11 @@ const defaultFilters: SearchFilters = {
   sortKey: "newest",
   priceMin: "",
   priceMax: "",
+  compositionFilters: {},
 };
 
 export function getDefaultSearchFilters(): SearchFilters {
-  return { ...defaultFilters };
+  return { ...defaultFilters, compositionFilters: {} };
 }
 
 export function SearchFilterBar({
@@ -56,19 +63,29 @@ export function SearchFilterBar({
     [safeT]
   );
 
+  const selectedCategory = categories.find((c) => c.id === filters.categoryId) ?? null;
+  const composition = selectedCategory ? resolveTradeCompositionForCategory(selectedCategory) : null;
+
   const hasActive =
     Boolean(filters.categoryId) ||
     filters.status !== "all" ||
     filters.sortKey !== "newest" ||
     Boolean(filters.priceMin.trim()) ||
-    Boolean(filters.priceMax.trim());
+    Boolean(filters.priceMax.trim()) ||
+    Object.keys(filters.compositionFilters).length > 0;
 
   return (
-    <div className="flex h-10 flex-shrink-0 items-center gap-2 border-b border-sam-border-soft bg-sam-surface px-4">
+    <div className="flex min-h-10 flex-shrink-0 items-center gap-2 border-b border-sam-border-soft bg-sam-surface px-4">
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={filters.categoryId}
-          onChange={(e) => onChange({ ...filters, categoryId: e.target.value })}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              categoryId: e.target.value,
+              compositionFilters: {},
+            })
+          }
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           <option value="">{safeT("common_all_category")}</option>
@@ -137,6 +154,11 @@ export function SearchFilterBar({
             fallbackEn: "Max price",
           })}
           className="min-h-[44px] w-[7.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+        />
+        <CompositionAttributeFilterSelects
+          composition={composition}
+          selection={filters.compositionFilters}
+          onChange={(compositionFilters) => onChange({ ...filters, compositionFilters })}
         />
       </div>
       {hasActive && (

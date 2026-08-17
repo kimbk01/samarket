@@ -1,5 +1,9 @@
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
+import {
+  compositionFilterCacheSegment,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form/composition-filter-query";
 
 export type TradeFeedSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -11,12 +15,19 @@ export type TradeFeedKeyExtras = {
   tradeState?: "latest" | "active" | "reserved" | "sold";
   lguCityId?: string;
   locationAll?: boolean;
+  compositionFilters?: CompositionFilterSelection | null;
 };
 
 function feedKeyLocationSegment(extras?: TradeFeedKeyExtras): string {
   if (extras?.lguCityId?.trim()) return `loc:${extras.lguCityId.trim()}`;
   if (extras?.locationAll) return "loc:all";
   return "loc:unset";
+}
+
+function feedKeyCompositionSegment(extras?: TradeFeedKeyExtras): string {
+  const sel = extras?.compositionFilters;
+  if (!sel || Object.keys(sel).length === 0) return "";
+  return `|${compositionFilterCacheSegment(sel)}`;
 }
 
 /** 서버 bootstrap 과 클라이언트 `PostListByCategory` 가 동일한지 판별 */
@@ -32,7 +43,7 @@ export function computeTradeFeedKey(
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
   const ts = parseMarketplacePublicTradeState(extras?.tradeState);
-  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
+  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}${feedKeyCompositionSegment(extras)}`;
 }
 
 /**
@@ -53,5 +64,5 @@ export function computeTradeFeedKeyForMarketParent(
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
   const ts = parseMarketplacePublicTradeState(extras?.tradeState);
-  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
+  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}${feedKeyCompositionSegment(extras)}`;
 }

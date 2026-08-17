@@ -10,6 +10,7 @@ import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
+import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
 
 export type TradeFeedOpenRequestOptions = {
   page: number;
@@ -26,6 +27,7 @@ export type TradeFeedOpenRequestOptions = {
   q?: string;
   priceMin?: number;
   priceMax?: number;
+  compositionFilters?: CompositionFilterClause[];
 };
 
 export type TradeFeedOpenPayload = {
@@ -61,6 +63,7 @@ export async function resolveTradeFeedOpenPayload(
     q: opts.q,
     priceMin: opts.priceMin,
     priceMax: opts.priceMax,
+    compositionFilters: opts.compositionFilters,
   });
   if (
     result.posts.length === 0 &&
@@ -82,6 +85,7 @@ export async function resolveTradeFeedOpenPayload(
       q: opts.q,
       priceMin: opts.priceMin,
       priceMax: opts.priceMax,
+      compositionFilters: opts.compositionFilters,
     });
     if (alt.posts.length > 0) {
       result = alt;

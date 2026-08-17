@@ -26,6 +26,7 @@ import {
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import { resolveCompositionFilterClausesFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -137,6 +138,13 @@ export async function GET(req: NextRequest) {
   const q = sanitizeMarketplaceQueryText(searchParams.get("q"));
   const priceMin = parseMarketplacePriceBound(searchParams.get("priceMin"));
   const priceMax = parseMarketplacePriceBound(searchParams.get("priceMax"));
+  const compositionCategoryId =
+    tradeMarketParent ?? (categoryIdsParam.length === 1 ? categoryIdsParam[0] : null);
+  const compositionFilters = await resolveCompositionFilterClausesFromRequest(
+    clients.readSb as SupabaseClient<any>,
+    compositionCategoryId,
+    searchParams
+  );
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
@@ -157,6 +165,7 @@ export async function GET(req: NextRequest) {
       q,
       priceMin,
       priceMax,
+      compositionFilters,
     },
     viewerId
   );
