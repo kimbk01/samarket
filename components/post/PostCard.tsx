@@ -53,6 +53,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 
 /** 피드 카드 부동산 금액 토큰 렌더 */
 function FeedRealEstatePriceLine({ text }: { text: string }) {
@@ -189,7 +190,7 @@ export const PostCard = memo(function PostCard({
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
       ? (post.meta as Record<string, unknown>)
       : undefined;
-  const isPromotedContent = metaRecord?.promotion_projection === "promoted_content";
+  const isPromotedContent = postHasTradePromotionOverlay(post);
   const locationLine = resolveTradePostListingLocationLine(
     metaRecord,
     post.region,

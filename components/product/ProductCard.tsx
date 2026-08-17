@@ -26,10 +26,13 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const isSold = product.status === "sold";
   const detailHref = `/post/${product.id}`;
+  const statusBadge = (
+    <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} surface="marketplace" />
+  );
 
   return (
     <Link
@@ -61,8 +64,16 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
       <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col justify-between">
-          <div className="shrink-0">
-            <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} surface="marketplace" />
+          <div className="flex shrink-0 flex-wrap items-center gap-1">
+            {product.hasPromotionOverlay ? (
+              <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
+                {safeT("trade_promo_badge", {
+                  fallbackKo: "홍보",
+                  fallbackEn: "Promoted",
+                })}
+              </span>
+            ) : null}
+            {statusBadge}
           </div>
           <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
             {product.title}

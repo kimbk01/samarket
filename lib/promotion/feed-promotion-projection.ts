@@ -12,34 +12,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
+import {
+  TRADE_PROMOTION_PROJECTION,
+  isPostEligibleForPromotionBoost,
+} from "@/lib/promotion/trade-promotion-overlay";
+
+export {
+  TRADE_PROMOTION_PROJECTION,
+  isPostEligibleForPromotionBoost,
+  postHasTradePromotionOverlay,
+} from "@/lib/promotion/trade-promotion-overlay";
 
 /** Cap page-0 pin count so paid boost does not bury the organic feed. */
 export const MAX_PAGE0_PROMOTED_PINS = 3;
-
-const INELIGIBLE_STATUS = new Set([
-  "sold",
-  "deleted",
-  "hidden",
-  "suspended",
-  "blocked",
-  "blinded",
-]);
 
 export type ActivePromotionEntitlement = {
   targetId: string;
   endAt: string;
   productId: string;
 };
-
-/** Sold/hidden/deleted/suspended must not stay boosted in feed. */
-export function isPostEligibleForPromotionBoost(
-  status: string | null | undefined
-): boolean {
-  const s = String(status ?? "active").trim().toLowerCase();
-  if (!s || s === "null") return true;
-  if (INELIGIBLE_STATUS.has(s)) return false;
-  return s === "active";
-}
 
 export async function listActiveTradePromotionTargetIds(
   sb: SupabaseClient,
@@ -97,7 +88,7 @@ export function projectTradeFeedWithPromotions(input: {
 
   const eligiblePromoted = promotedPosts.filter((p) => {
     if (!activePromotionIds.has(p.id)) return false;
-    return isPostEligibleForPromotionBoost(p.status);
+    return isPostEligibleForPromotionBoost(p.status, p.seller_listing_state);
   });
 
   if (pageIndex <= 0) {
@@ -132,7 +123,7 @@ export async function loadPostsByIdsForPromotion(
   const { data, error } = await sb
     .from("posts")
     .select(
-      "id, user_id, type, trade_category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer"
+      "id, user_id, type, trade_category_id, title, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer"
     )
     .in("id", unique);
 
@@ -142,7 +133,7 @@ export async function loadPostsByIdsForPromotion(
     mapPostRowForHome(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
   );
 
-  rows = rows.filter((p) => isPostEligibleForPromotionBoost(p.status));
+  rows = rows.filter((p) => isPostEligibleForPromotionBoost(p.status, p.seller_listing_state));
 
   if (categoryIdFilter && categoryIdFilter.length > 0) {
     const allow = new Set(categoryIdFilter);
@@ -170,7 +161,7 @@ export function annotatePromotedPosts(
         : {};
     return {
       ...p,
-      meta: { ...meta, promotion_projection: "promoted_content" },
+      meta: { ...meta, promotion_projection: TRADE_PROMOTION_PROJECTION },
     };
   });
 }

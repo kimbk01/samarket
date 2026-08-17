@@ -36,6 +36,8 @@ export interface Product {
   likesCount: number;
   chatCount: number;
   isBoosted: boolean;
+  /** Marketplace LIST/SEARCH overlay from `point_promotion_orders`. Not a listing status. Not `isBoosted`. */
+  hasPromotionOverlay?: boolean;
   distance?: number;
   /** 3단계 상세 */
   category?: string;

@@ -8,6 +8,7 @@ import {
   isPostEligibleForPromotionBoost,
   projectTradeFeedWithPromotions,
 } from "@/lib/promotion/feed-promotion-projection";
+import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import {
   FEED_AD_SLOT_AFTER_CONTENT_COUNT,
   selectCampaignForPlacement,
@@ -29,10 +30,25 @@ describe("member promotion products", () => {
 });
 
 describe("promotion eligibility", () => {
-  it("blocks sold/hidden from boost", () => {
+  it("allows public ACTIVE including L1 inquiry/negotiating/reserved", () => {
+    expect(isPostEligibleForPromotionBoost("active", "inquiry")).toBe(true);
+    expect(isPostEligibleForPromotionBoost("active", "negotiating")).toBe(true);
+    expect(isPostEligibleForPromotionBoost("reserved")).toBe(true);
+    expect(isPostEligibleForPromotionBoost("active", "reserved")).toBe(true);
+  });
+
+  it("blocks sold and L1 completed", () => {
     expect(isPostEligibleForPromotionBoost("sold")).toBe(false);
+    expect(isPostEligibleForPromotionBoost("active", "completed")).toBe(false);
+  });
+
+  it("blocks hidden/non-public even though projector maps hidden to active", () => {
+    expect(resolveMarketplacePublicListingStatus({ status: "hidden" })).toBe("active");
     expect(isPostEligibleForPromotionBoost("hidden")).toBe(false);
-    expect(isPostEligibleForPromotionBoost("active")).toBe(true);
+    expect(isPostEligibleForPromotionBoost("hidden", "inquiry")).toBe(false);
+    expect(isPostEligibleForPromotionBoost("blinded")).toBe(false);
+    expect(isPostEligibleForPromotionBoost("deleted")).toBe(false);
+    expect(isPostEligibleForPromotionBoost("suspended")).toBe(false);
   });
 });
 
