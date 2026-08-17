@@ -17,10 +17,11 @@ import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog"
 import {
   POST_TRADE_LIST_SELECT,
   applyResolvedTradeFeedLocationToQuery,
+  type TradeFeedQueryExtras,
 } from "@/lib/posts/trade-posts-range-query";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
-import { applyMarketplaceQueryToPostgrest } from "@/lib/trade/marketplace/query-contract";
+import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import {
   applyCompositionFilterClausesToPostgrest,
   type CompositionFilterClause,
@@ -30,6 +31,17 @@ import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+import {
+  SEARCH_EXPANSION_EXACT_BATCH,
+  SEARCH_EXPANSION_RELATED_IN_BATCH,
+  SEARCH_EXPANSION_RELATED_OUT_BATCH,
+  advanceSearchExpansionCursor,
+  assembleSearchExpansionRound,
+  buildSearchExpansionRelatedOrFilter,
+  inferBodyTypesFromListings,
+  resolveSearchExpansionHints,
+  type SearchExpansionCursor,
+} from "@/lib/trade/marketplace/search-candidate-expansion";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -102,40 +114,39 @@ export async function expandTradeMarketCategoryFilterIds(
   return expandTradeCategoryIdsForRoot(readSb, serviceSb, parentId);
 }
 
-export async function loadHomePostsPage(
+type HomePostsQueryExtras = {
+  q?: string;
+  priceMin?: number;
+  priceMax?: number;
+  compositionFilters?: CompositionFilterClause[];
+  mixedDiscoverySellIntent?: boolean;
+};
+
+type HomePostsRangeFilterOpts = {
+  applyTitleQuery?: boolean;
+  applyLocation?: boolean;
+  relatedOr?: string | null;
+  excludeLguIds?: string[] | null;
+};
+
+async function fetchHomePostsMappedRange(
   sb: SupabaseClient<any>,
   table: string,
-  from: number,
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
   tradeCategoryIds: string[] | null,
   statusOr: string,
-  lguCityId?: string | null,
-  radiusKm?: number | null,
-  queryExtras?: {
-    q?: string;
-    priceMin?: number;
-    priceMax?: number;
-    compositionFilters?: CompositionFilterClause[];
-    /** CUT B: HOME / SEARCH-all mixed discovery — exclude buy-request / 구직 / 환전-삽니다 */
-    mixedDiscoverySellIntent?: boolean;
-  }
-): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
+  feedLocExtras: TradeFeedQueryExtras["tradeFeedLocation"],
+  queryExtras: HomePostsQueryExtras | undefined,
+  rangeFrom: number,
+  rangeTo: number,
+  filterOpts?: HomePostsRangeFilterOpts
+): Promise<PostWithMeta[] | null> {
   let data: unknown[] | null = null;
-  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
-  if (feedConstraint.kind === "invalid") {
-    return { posts: [], hasMore: false };
-  }
-  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
-  const useDistance = sort === "distance" && feedConstraint.kind === "lgu";
-  const rangeFrom = useDistance ? 0 : from;
-  const rangeTo = useDistance
-    ? MARKETPLACE_DISTANCE_SCAN_CAP - 1
-    : from + HOME_POSTS_PAGE_SIZE - 1;
-
+  const applyTitleQuery = filterOpts?.applyTitleQuery !== false;
+  const applyLocation = filterOpts?.applyLocation !== false;
   const applyHomePostsRowFilters = (q: any) => {
     if (type === "trade" && !(tradeCategoryIds && tradeCategoryIds.length > 0)) {
-      /** Union already scopes by trade_category_id. Extra neq("") breaks PostgREST + type=trade. */
       q = q.not("trade_category_id", "is", null);
     } else if (type === "community") {
       q = q.eq("type", "community");
@@ -144,14 +155,20 @@ export async function loadHomePostsPage(
     } else if (type === "feature") {
       // no-op
     }
-    if (feedLocExtras) {
+    if (applyLocation && feedLocExtras) {
       q = applyResolvedTradeFeedLocationToQuery(q, feedLocExtras);
     }
+    if (filterOpts?.excludeLguIds && filterOpts.excludeLguIds.length > 0) {
+      q = q.not("trade_lgu_id", "in", `(${filterOpts.excludeLguIds.join(",")})`);
+    }
     q = applyMarketplaceQueryToPostgrest(q, {
-      q: queryExtras?.q,
+      q: applyTitleQuery ? queryExtras?.q : undefined,
       priceMin: queryExtras?.priceMin,
       priceMax: queryExtras?.priceMax,
     });
+    if (filterOpts?.relatedOr) {
+      q = q.or(filterOpts.relatedOr);
+    }
     const compositionFilters = [
       ...(queryExtras?.compositionFilters ?? []),
       ...(queryExtras?.mixedDiscoverySellIntent ? buildMixedDiscoverySellIntentClauses() : []),
@@ -181,17 +198,13 @@ export async function loadHomePostsPage(
       ? buildTradePostsStatusAndCategoryAndFilter(tradeCategoryIds, statusOr)
       : null;
     if (tradeCategoryIds?.length && !dualAnd) {
-      return { posts: [], hasMore: false };
+      return [];
     }
     const res = await runHomePostsSelect(selectFields, dualAnd);
     if (!res.error && Array.isArray(res.data)) {
       data = res.data;
       break outer;
     }
-    /**
-     * Same fallback as `fetchPostsRangeForTradeCategories`: posts has no `category_id`.
-     * Dual-column `and` then empties every HOME select tier (tradeMarketParent → 0 rows).
-     */
     if (
       tradeCategoryIds?.length &&
       res.error &&
@@ -203,7 +216,7 @@ export async function loadHomePostsPage(
         statusOr
       );
       if (!fallbackAnd) {
-        return { posts: [], hasMore: false };
+        return [];
       }
       const retry = await runHomePostsSelect(selectFields, fallbackAnd);
       if (!retry.error && Array.isArray(retry.data)) {
@@ -214,10 +227,46 @@ export async function loadHomePostsPage(
   }
 
   if (!data) return null;
-
-  const mapped = data.map((row) =>
+  return data.map((row) =>
     mapPostRowForHome(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
   );
+}
+
+export async function loadHomePostsPage(
+  sb: SupabaseClient<any>,
+  table: string,
+  from: number,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
+  tradeCategoryIds: string[] | null,
+  statusOr: string,
+  lguCityId?: string | null,
+  radiusKm?: number | null,
+  queryExtras?: HomePostsQueryExtras
+): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
+  if (feedConstraint.kind === "invalid") {
+    return { posts: [], hasMore: false };
+  }
+  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+  const useDistance = sort === "distance" && feedConstraint.kind === "lgu";
+  const rangeFrom = useDistance ? 0 : from;
+  const rangeTo = useDistance
+    ? MARKETPLACE_DISTANCE_SCAN_CAP - 1
+    : from + HOME_POSTS_PAGE_SIZE - 1;
+  const mapped = await fetchHomePostsMappedRange(
+    sb,
+    table,
+    sort,
+    type,
+    tradeCategoryIds,
+    statusOr,
+    feedLocExtras,
+    queryExtras,
+    rangeFrom,
+    rangeTo
+  );
+  if (!mapped) return null;
   if (useDistance && feedConstraint.kind === "lgu") {
     const sorted = sortListingsByLguDistance(mapped, feedConstraint.canonicalId);
     const page = sorted.slice(from, from + HOME_POSTS_PAGE_SIZE);
@@ -230,6 +279,138 @@ export async function loadHomePostsPage(
   }
   const hasMoreFlag = mapped.length === HOME_POSTS_PAGE_SIZE;
   return { posts: mapped, hasMore: hasMoreFlag };
+}
+
+export async function loadSearchExpansionRound(
+  sb: SupabaseClient<any>,
+  table: string,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
+  tradeCategoryIds: string[] | null,
+  statusOr: string,
+  lguCityId: string | null | undefined,
+  radiusKm: number | null | undefined,
+  queryExtras: HomePostsQueryExtras | undefined,
+  cursor: SearchExpansionCursor
+): Promise<{ posts: PostWithMeta[]; cursor: SearchExpansionCursor; queryCount: number } | null> {
+  const searchQ = sanitizeMarketplaceQueryText(queryExtras?.q);
+  const hints = resolveSearchExpansionHints(searchQ);
+  if (!hints) {
+    return { posts: [], cursor: { ...cursor, exactExhausted: true, relatedInExhausted: true, relatedOutExhausted: true }, queryCount: 0 };
+  }
+  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
+  if (feedConstraint.kind === "invalid") {
+    return {
+      posts: [],
+      cursor: { ...cursor, exactExhausted: true, relatedInExhausted: true, relatedOutExhausted: true },
+      queryCount: 0,
+    };
+  }
+  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+  const browseLgu = feedConstraint.kind === "lgu" ? feedConstraint.canonicalId : null;
+  const matchingLguIds =
+    feedConstraint.kind === "lgu" ? [...new Set(feedConstraint.matchingCanonicalIds)] : [];
+  let queryCount = 0;
+  let exactRows: PostWithMeta[] = [];
+  if (!cursor.exactExhausted) {
+    const exact = await fetchHomePostsMappedRange(
+      sb,
+      table,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      feedLocExtras,
+      queryExtras,
+      cursor.exactOffset,
+      cursor.exactOffset + SEARCH_EXPANSION_EXACT_BATCH - 1,
+      { applyTitleQuery: true, applyLocation: false }
+    );
+    if (!exact) return null;
+    queryCount += 1;
+    exactRows = exact;
+  }
+  const inferredBodyTypes = [
+    ...new Set([...cursor.inferredBodyTypes, ...inferBodyTypesFromListings(exactRows)]),
+  ];
+  const relatedOr = buildSearchExpansionRelatedOrFilter(hints, inferredBodyTypes);
+  let relatedInRows: PostWithMeta[] = [];
+  let relatedOutRows: PostWithMeta[] = [];
+  if (!cursor.relatedInExhausted && relatedOr) {
+    const relatedIn = await fetchHomePostsMappedRange(
+      sb,
+      table,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      feedLocExtras,
+      queryExtras,
+      cursor.relatedInOffset,
+      cursor.relatedInOffset + SEARCH_EXPANSION_RELATED_IN_BATCH - 1,
+      { applyTitleQuery: false, applyLocation: true, relatedOr }
+    );
+    if (!relatedIn) return null;
+    queryCount += 1;
+    relatedInRows = relatedIn;
+  }
+  const fetchRelatedOut = Boolean(browseLgu && relatedOr && !cursor.relatedOutExhausted);
+  if (fetchRelatedOut) {
+    const relatedOut = await fetchHomePostsMappedRange(
+      sb,
+      table,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      feedLocExtras,
+      queryExtras,
+      cursor.relatedOutOffset,
+      cursor.relatedOutOffset + SEARCH_EXPANSION_RELATED_OUT_BATCH - 1,
+      {
+        applyTitleQuery: false,
+        applyLocation: false,
+        relatedOr,
+        excludeLguIds: matchingLguIds,
+      }
+    );
+    if (!relatedOut) return null;
+    queryCount += 1;
+    relatedOutRows = relatedOut;
+  }
+  const fetched = {
+    exact: exactRows.length,
+    relatedIn: relatedInRows.length,
+    relatedOut: fetchRelatedOut ? relatedOutRows.length : 0,
+  };
+  const advanced = advanceSearchExpansionCursor(
+    {
+      ...cursor,
+      inferredBodyTypes,
+      relatedOutExhausted: cursor.relatedOutExhausted || !browseLgu || !relatedOr,
+      relatedInExhausted: cursor.relatedInExhausted || !relatedOr,
+    },
+    fetched,
+    {
+      exact: SEARCH_EXPANSION_EXACT_BATCH,
+      relatedIn: SEARCH_EXPANSION_RELATED_IN_BATCH,
+      relatedOut: SEARCH_EXPANSION_RELATED_OUT_BATCH,
+    },
+    {
+      exact: !cursor.exactExhausted,
+      relatedIn: !cursor.relatedInExhausted && Boolean(relatedOr),
+      relatedOut: fetchRelatedOut,
+    }
+  );
+  const assembled = assembleSearchExpansionRound({
+    exactRows,
+    relatedInRows,
+    relatedOutRows,
+    hints,
+    browseLguCanonicalId: browseLgu,
+    cursor: advanced,
+  });
+  return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
 }
 
 export async function resolveHomePostsPayload(
@@ -295,5 +476,62 @@ export async function resolveHomePostsPayload(
     );
   }
 
+  return null;
+}
+
+export async function resolveSearchExpansionRound(
+  readSb: SupabaseClient<any>,
+  serviceSb: SupabaseClient<any> | null,
+  sort: HomePostsQuerySort,
+  type: HomePostsQueryType,
+  tradeCategoryIds: string[] | null,
+  statusOr: string,
+  lguCityId: string | null | undefined,
+  radiusKm: number | null | undefined,
+  queryExtras: HomePostsQueryExtras | undefined,
+  cursor: SearchExpansionCursor
+): Promise<{ posts: PostWithMeta[]; cursor: SearchExpansionCursor; queryCount: number } | null> {
+  const fromMaskedRead = await loadSearchExpansionRound(
+    readSb,
+    POSTS_TABLE_READ,
+    sort,
+    type,
+    tradeCategoryIds,
+    statusOr,
+    lguCityId,
+    radiusKm,
+    queryExtras,
+    cursor
+  );
+  if (fromMaskedRead) return fromMaskedRead;
+  if (serviceSb && serviceSb !== readSb) {
+    const fromMaskedService = await loadSearchExpansionRound(
+      serviceSb,
+      POSTS_TABLE_READ,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      lguCityId,
+      radiusKm,
+      queryExtras,
+      cursor
+    );
+    if (fromMaskedService) return fromMaskedService;
+  }
+  if (serviceSb) {
+    return loadSearchExpansionRound(
+      serviceSb,
+      "posts",
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      lguCityId,
+      radiusKm,
+      queryExtras,
+      cursor
+    );
+  }
   return null;
 }

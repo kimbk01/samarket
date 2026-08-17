@@ -16,6 +16,7 @@ import {
   expandTradeMarketCategoryFilterIds,
   resolveHomePostsStatusOrByTradeState,
   resolveHomePostsPayload,
+  resolveSearchExpansionRound,
   type HomePostsQuerySort,
   type HomePostsTradeStateFilter,
   type HomePostsQueryType,
@@ -34,6 +35,11 @@ import {
 import { compositionFilterCacheSegment } from "@/lib/trade/category-form/composition-filter-query";
 import { resolveCompositionFilterQueryFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
 import { shouldApplyMixedDiscoverySellIntent } from "@/lib/trade/marketplace/sell-intent-list-ssot";
+import { shouldApplyMarketplaceSearchExpansion } from "@/lib/trade/marketplace/search-candidate-expansion";
+import {
+  buildSearchRankedWindowCacheKey,
+  takeSearchRankedWindowPage,
+} from "@/lib/trade/marketplace/search-ranked-window-cache";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
@@ -438,6 +444,15 @@ export async function resolveHomePostsGetData(
       ? "configured_trade_union"
       : "all";
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
+  const useSearchExpansion = shouldApplyMarketplaceSearchExpansion({ q, sort });
+  const rankedWindowKey = buildSearchRankedWindowCacheKey({
+    sort,
+    type: effectiveType ?? "all",
+    marketSegment,
+    tradeState,
+    locSegment,
+    querySegment,
+  });
   const cacheKey = buildHomePostsCacheKey(
     page,
     sort,
@@ -465,18 +480,44 @@ export async function resolveHomePostsGetData(
       }
 
       if (diagnostics) diagnostics.dbQueryStartMs = elapsedMs();
-      const pack = await resolveHomePostsPayload(
-        readSb as SupabaseClient<any>,
-        serviceSb as SupabaseClient<any> | null,
-        from,
-        sort,
-        effectiveType,
-        tradeCategoryIds,
-        statusOr,
-        lguCityId,
-        radiusKm,
-        { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent }
-      );
+      const pack = useSearchExpansion
+        ? await takeSearchRankedWindowPage({
+            key: rankedWindowKey,
+            page,
+            pageSize: HOME_POSTS_PAGE_SIZE,
+            loadNext: async (cursor) => {
+              const round = await resolveSearchExpansionRound(
+                readSb as SupabaseClient<any>,
+                serviceSb as SupabaseClient<any> | null,
+                sort,
+                effectiveType,
+                tradeCategoryIds,
+                statusOr,
+                lguCityId,
+                radiusKm,
+                { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent },
+                cursor
+              );
+              if (!round) return null;
+              await enrichPostsAuthorNicknamesFromProfiles(
+                readSb as SupabaseClient<any>,
+                round.posts
+              );
+              return round;
+            },
+          })
+        : await resolveHomePostsPayload(
+            readSb as SupabaseClient<any>,
+            serviceSb as SupabaseClient<any> | null,
+            from,
+            sort,
+            effectiveType,
+            tradeCategoryIds,
+            statusOr,
+            lguCityId,
+            radiusKm,
+            { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent }
+          );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
         return null;
@@ -484,7 +525,9 @@ export async function resolveHomePostsGetData(
 
       /** 캐시에 넣기 전 닉네임 보강 — TTL 동안 요청마다 `profiles` 재조회하지 않음 */
       if (diagnostics && diagnostics.relatedFetchStartMs === 0) diagnostics.relatedFetchStartMs = elapsedMs();
-      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+      if (!useSearchExpansion) {
+        await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+      }
       if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
 
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;

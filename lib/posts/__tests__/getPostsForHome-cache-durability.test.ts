@@ -9,7 +9,7 @@ import {
 const SESSION_PREFIX = "samarket:home-posts:v1:";
 const LOCAL_PREFIX = "samarket:home-posts:local:v1:";
 /** normalizeOptions default key — must stay in sync with getPostsForHome */
-const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:q::pmin::pmax::ms:newest:v7";
+const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:q::pmin::pmax::ms:newest:v9";
 
 const sample = {
   posts: [{ id: "p1" } as never],
@@ -249,7 +249,7 @@ describe("home posts durable local write on network (Fix 4)", () => {
       { posts: [{ id: "cat" } as never], hasMore: false, favoriteMap: {} }
     );
     const homeRaw = localStore.getItem(localKey(DEFAULT_CACHE_KEY));
-    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:q::pmin::pmax::ms:newest:v7`;
+    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:q::pmin::pmax::ms:newest:v9`;
     const catRaw = localStore.getItem(localKey(catKey));
     expect(homeRaw).toBeTruthy();
     expect(catRaw).toBeTruthy();
