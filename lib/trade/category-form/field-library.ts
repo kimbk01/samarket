@@ -59,7 +59,7 @@ export const TRADE_FIELD_LIBRARY: Record<string, TradeFieldDefinition> = {
     widget: "select",
     storage: { kind: "meta", key: "car_trade" },
     optionCatalogId: "used_car_trade",
-    surfaces: { write: true, list: true, detail: true, edit: true, filter: false },
+    surfaces: { write: true, list: true, detail: true, edit: true, filter: true },
   },
   make: {
     id: "make",
@@ -284,7 +284,7 @@ export const TRADE_FIELD_LIBRARY: Record<string, TradeFieldDefinition> = {
     widget: "select",
     storage: { kind: "meta", key: "exchange_direction" },
     optionCatalogId: "exchange_direction",
-    surfaces: { write: true, list: true, detail: true, edit: true, filter: "weak" },
+    surfaces: { write: true, list: true, detail: true, edit: true, filter: true },
   },
   from_currency: {
     id: "from_currency",

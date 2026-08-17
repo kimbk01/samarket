@@ -133,7 +133,7 @@ describe("trade category-form composition authority", () => {
     expect(attrs.some((a) => a.fieldId === "floor_area")).toBe(true);
   });
 
-  it("FILTER contract matches Phase 0B surface flags (no filter UI)", () => {
+  it("FILTER contract matches Field Library surface flags", () => {
     const expectFilter = (id: string, expected: boolean | "partial" | "weak" | "range") => {
       const surf = TRADE_FIELD_LIBRARY[id]?.surfaces.filter;
       expect(surf, id).toBe(expected);
@@ -144,12 +144,12 @@ describe("trade category-form composition authority", () => {
     expectFilter("model", true);
     expectFilter("transmission", true);
     expectFilter("fuel_type", true);
-    expectFilter("car_trade", false);
+    expectFilter("car_trade", true);
     expectFilter("has_accident", false);
     expectFilter("listing_kind", true);
     expectFilter("work_category", "partial");
     expectFilter("pay_type", "partial");
-    expectFilter("exchange_direction", "weak");
+    expectFilter("exchange_direction", true);
     expectFilter("amount", "weak");
     expectFilter("location", true);
     expectFilter("description", false);

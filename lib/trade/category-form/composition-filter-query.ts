@@ -4,7 +4,12 @@
  *
  * DO NOT: invent range/weak widgets; client-filter page-1 rows; new search endpoints.
  * P2 location/q/price/sort stay in `lib/trade/marketplace/query-contract.ts`.
+ * CUT B sell-intent defaults: `lib/trade/marketplace/sell-intent-list-ssot.ts`.
  */
+import {
+  applySellIntentListDefaults,
+  planSellIntentListClause,
+} from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import { getTradeFieldDefinition } from "./field-library";
 import { getTradeOptionCatalog } from "./option-catalogs";
 import { compositionFieldsForSurface } from "./resolve-composition";
@@ -15,7 +20,7 @@ export type CompositionFilterSelection = Record<string, string>;
 
 export type CompositionFilterClause = {
   fieldId: string;
-  op: "eq" | "ilike";
+  op: "eq" | "ilike" | "exclude_eq" | "or_eq";
   columns: string[];
   values: string[];
 };
@@ -115,6 +120,16 @@ export function sanitizeCompositionFilterSelection(
   return out;
 }
 
+/** URL-absent sell-intent fields default to sell/hire so LIST UI and server match. */
+export function withSellIntentListDefaults(
+  selection: CompositionFilterSelection,
+  composition: ResolvedTradeComposition | null | undefined
+): CompositionFilterSelection {
+  if (!composition) return { ...selection };
+  const allowed = resolveCompositionAttributeFilterFields(composition).map((field) => field.id);
+  return applySellIntentListDefaults(selection, allowed);
+}
+
 export function buildCompositionFilterClauses(
   selection: CompositionFilterSelection,
   composition: ResolvedTradeComposition
@@ -130,6 +145,16 @@ export function buildCompositionFilterClauses(
     if (!catalogId) continue;
     const entry = getTradeOptionCatalog(catalogId).find((row) => row.value === value);
     if (!entry) continue;
+    const sellIntent = planSellIntentListClause(fieldId, entry.value);
+    if (sellIntent) {
+      clauses.push({
+        fieldId,
+        op: sellIntent.op,
+        columns: sellIntent.columns,
+        values: sellIntent.values,
+      });
+      continue;
+    }
     const storage = field.definition.storage;
     if (storage.kind === "combined_meta") {
       const needles = [...new Set([entry.value, entry.labelKo, entry.labelEn].map((s) => s.trim()).filter(Boolean))];
@@ -166,6 +191,31 @@ export function applyCompositionFilterClausesToPostgrest<T extends PostgrestFilt
   if (!clauses?.length) return query;
   let q = query;
   for (const clause of clauses) {
+    if (clause.op === "exclude_eq") {
+      if (clause.columns.length === 0 || clause.values.length === 0) continue;
+      const n = Math.min(clause.columns.length, clause.values.length);
+      for (let i = 0; i < n; i++) {
+        const column = clause.columns[i];
+        const value = clause.values[i];
+        if (!column || !value) continue;
+        q = q.or(`${column}.is.null,${column}.neq.${value}`) as T;
+      }
+      continue;
+    }
+    if (clause.op === "or_eq") {
+      if (clause.columns.length === 0 || clause.values.length === 0) continue;
+      const n = Math.min(clause.columns.length, clause.values.length);
+      const parts: string[] = [];
+      for (let i = 0; i < n; i++) {
+        const column = clause.columns[i];
+        const value = clause.values[i];
+        if (!column || !value) continue;
+        parts.push(`${column}.eq.${value}`);
+      }
+      if (parts.length === 0) continue;
+      q = q.or(parts.join(",")) as T;
+      continue;
+    }
     if (clause.op === "eq") {
       const value = clause.values[0];
       if (!value || clause.columns.length === 0) continue;

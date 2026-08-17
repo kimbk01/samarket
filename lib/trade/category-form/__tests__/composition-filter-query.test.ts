@@ -24,6 +24,7 @@ describe("composition filter query", () => {
     const ids = resolveCompositionAttributeFilterFields(seed).map((f) => f.id);
     expect(ids).toContain("body_type");
     expect(ids).toContain("make");
+    expect(ids).toContain("car_trade");
     expect(ids).not.toContain("mileage");
     expect(ids).not.toContain("has_accident");
     expect(ids).not.toContain("price");

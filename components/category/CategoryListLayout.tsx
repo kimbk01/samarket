@@ -234,6 +234,13 @@ export function CategoryListLayout({
         if (fs === "popular" || fs === "pay_desc" || fs === "chat_desc" || fs === "near") {
           qs.set("fs", fs);
         }
+        const liveParams = searchParamsRef.current;
+        for (const [key, value] of liveParams.entries()) {
+          if (!/^filters\[[a-z][a-z0-9_]*\]$/i.test(key)) continue;
+          const token = value.trim();
+          if (!token) continue;
+          qs.set(key, token);
+        }
         const res = await fetch(`/api/categories/market-bootstrap?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",

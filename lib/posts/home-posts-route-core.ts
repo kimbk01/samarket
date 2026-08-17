@@ -32,7 +32,8 @@ import {
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
 import { compositionFilterCacheSegment } from "@/lib/trade/category-form/composition-filter-query";
-import { resolveCompositionFilterClausesFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
+import { resolveCompositionFilterQueryFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
+import { shouldApplyMixedDiscoverySellIntent } from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
@@ -191,7 +192,15 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
   const marketSegment =
     tradeCategoryIds && tradeCategoryIds.length > 0 ? "configured_trade_union" : "all";
   const locSegment = "loc:all";
-  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState, locSegment);
+  const cacheKey = buildHomePostsCacheKey(
+    page,
+    sort,
+    effectiveType,
+    marketSegment,
+    tradeState,
+    locSegment,
+    "q::pmin::pmax::ms:newest:si:mix"
+  );
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -217,7 +226,14 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
         effectiveType,
         tradeCategoryIds,
         resolveHomePostsStatusOrByTradeState(tradeState),
-        undefined
+        undefined,
+        undefined,
+        {
+          mixedDiscoverySellIntent: shouldApplyMixedDiscoverySellIntent({
+            tradeMarketParent: null,
+            type: effectiveType,
+          }),
+        }
       );
       if (!pack) {
         return null;
@@ -374,23 +390,27 @@ export async function resolveHomePostsGetData(
     readSb as SupabaseClient<any>,
     searchParams.get("tradeMarketParent")
   );
-  const compositionFilters = await resolveCompositionFilterClausesFromRequest(
+  const compositionQuery = await resolveCompositionFilterQueryFromRequest(
     readSb as SupabaseClient<any>,
     tradeMarketParent,
     searchParams
   );
+  const compositionFilters = compositionQuery.clauses;
+  const mixedDiscoverySellIntent = shouldApplyMixedDiscoverySellIntent({
+    tradeMarketParent,
+    type,
+  });
   const querySegmentBase = marketplaceQueryCacheSegment({
     q,
     priceMin,
     priceMax,
     sort,
   });
-  const querySegment =
-    compositionFilters.length > 0
-      ? `${querySegmentBase}:${compositionFilterCacheSegment(
-          Object.fromEntries(compositionFilters.map((c) => [c.fieldId, c.values[0] ?? ""]))
-        )}`
-      : querySegmentBase;
+  const cfSegment =
+    Object.keys(compositionQuery.selection).length > 0
+      ? `:${compositionFilterCacheSegment(compositionQuery.selection)}`
+      : "";
+  const querySegment = `${querySegmentBase}${cfSegment}${mixedDiscoverySellIntent ? ":si:mix" : ""}`;
 
   let tradeCategoryIds: string[] | null = null;
   let effectiveType: HomePostsQueryType = type;
@@ -455,7 +475,7 @@ export async function resolveHomePostsGetData(
         statusOr,
         lguCityId,
         radiusKm,
-        { q, priceMin, priceMax, compositionFilters }
+        { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent }
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {

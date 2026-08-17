@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     availParam,
     jrParam,
     jcParam,
+    filterSearchParams: req.nextUrl.searchParams,
   });
 
   if (!result.ok) {

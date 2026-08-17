@@ -37,6 +37,7 @@ import {
   resolveCompositionAttributeFilterFields,
   resolveTradeCompositionForCategory,
   sanitizeCompositionFilterSelection,
+  withSellIntentListDefaults,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
 
@@ -133,7 +134,10 @@ export function PostListByCategory({
   const compositionFilters = useMemo(() => {
     const raw = parseCompositionFilterSearchParams(new URLSearchParams(searchParams.toString()));
     if (!resolvedComposition) return {} as CompositionFilterSelection;
-    return sanitizeCompositionFilterSelection(raw, resolvedComposition);
+    return withSellIntentListDefaults(
+      sanitizeCompositionFilterSelection(raw, resolvedComposition),
+      resolvedComposition
+    );
   }, [searchParams, resolvedComposition]);
   const onCompositionFiltersChange = useCallback(
     (next: CompositionFilterSelection) => {

@@ -9,7 +9,10 @@ import { selectTradeCompositionOwnerRow } from "./resolve-for-category";
 import {
   buildCompositionFilterClauses,
   parseCompositionFilterSearchParams,
+  sanitizeCompositionFilterSelection,
+  withSellIntentListDefaults,
   type CompositionFilterClause,
+  type CompositionFilterSelection,
 } from "./composition-filter-query";
 
 type CompositionLoadRow = {
@@ -62,14 +65,25 @@ export async function loadResolvedTradeCompositionByCategoryId(
   });
 }
 
+export async function resolveCompositionFilterQueryFromRequest(
+  sb: SupabaseClient<any>,
+  categoryId: string | null | undefined,
+  searchParams: URLSearchParams
+): Promise<{ selection: CompositionFilterSelection; clauses: CompositionFilterClause[] }> {
+  const composition = await loadResolvedTradeCompositionByCategoryId(sb, categoryId);
+  if (!composition) return { selection: {}, clauses: [] };
+  const raw = sanitizeCompositionFilterSelection(
+    parseCompositionFilterSearchParams(searchParams),
+    composition
+  );
+  const selection = withSellIntentListDefaults(raw, composition);
+  return { selection, clauses: buildCompositionFilterClauses(selection, composition) };
+}
+
 export async function resolveCompositionFilterClausesFromRequest(
   sb: SupabaseClient<any>,
   categoryId: string | null | undefined,
   searchParams: URLSearchParams
 ): Promise<CompositionFilterClause[]> {
-  const raw = parseCompositionFilterSearchParams(searchParams);
-  if (Object.keys(raw).length === 0) return [];
-  const composition = await loadResolvedTradeCompositionByCategoryId(sb, categoryId);
-  if (!composition) return [];
-  return buildCompositionFilterClauses(raw, composition);
+  return (await resolveCompositionFilterQueryFromRequest(sb, categoryId, searchParams)).clauses;
 }

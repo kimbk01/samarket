@@ -12,6 +12,7 @@ import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
+import { resolveCompositionFilterQueryFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,6 +61,7 @@ export type LoadMarketBootstrapArgs = {
   availParam?: string | null;
   jrParam?: string | null;
   jcParam?: string | null;
+  filterSearchParams?: URLSearchParams;
 };
 
 export async function loadMarketBootstrapPayload(
@@ -136,12 +138,17 @@ export async function loadMarketBootstrapPayload(
   if (args.includePosts) {
     const feedSort = parseBootstrapFeedSort(args.fsParam);
     /** 일자리 마켓도 목록 상단 필터 제거 — URL `jk`/`je`/… 는 피드·feedKey 에 반영하지 않음 (주제·정렬만). */
+    const compositionQuery = await resolveCompositionFilterQueryFromRequest(
+      clients.readSb as unknown as SupabaseClient,
+      parentId,
+      args.filterSearchParams ?? new URLSearchParams()
+    );
     const feedKey = computeTradeFeedKeyForMarketParent(
       parentId,
       topicParam,
       feedSort,
       undefined,
-      {}
+      { compositionFilters: compositionQuery.selection }
     );
 
     const feedOptsBase = {
@@ -152,6 +159,7 @@ export async function loadMarketBootstrapPayload(
       todayAvailable: false as const,
       jobRegionSlug: undefined as undefined,
       jobIndustrySlug: undefined as undefined,
+      compositionFilters: compositionQuery.clauses,
     };
 
     const useHomeQuery = !isJobMarket && !topicParam.trim();

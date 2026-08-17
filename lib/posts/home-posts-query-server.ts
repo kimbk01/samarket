@@ -25,6 +25,7 @@ import {
   applyCompositionFilterClausesToPostgrest,
   type CompositionFilterClause,
 } from "@/lib/trade/category-form/composition-filter-query";
+import { buildMixedDiscoverySellIntentClauses } from "@/lib/trade/marketplace/sell-intent-list-ssot";
 import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
@@ -116,6 +117,8 @@ export async function loadHomePostsPage(
     priceMin?: number;
     priceMax?: number;
     compositionFilters?: CompositionFilterClause[];
+    /** CUT B: HOME / SEARCH-all mixed discovery — exclude buy-request / 구직 / 환전-삽니다 */
+    mixedDiscoverySellIntent?: boolean;
   }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
@@ -149,7 +152,11 @@ export async function loadHomePostsPage(
       priceMin: queryExtras?.priceMin,
       priceMax: queryExtras?.priceMax,
     });
-    q = applyCompositionFilterClausesToPostgrest(q, queryExtras?.compositionFilters);
+    const compositionFilters = [
+      ...(queryExtras?.compositionFilters ?? []),
+      ...(queryExtras?.mixedDiscoverySellIntent ? buildMixedDiscoverySellIntentClauses() : []),
+    ];
+    q = applyCompositionFilterClausesToPostgrest(q, compositionFilters);
     if (sort === "popular") {
       q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
     } else {
@@ -240,6 +247,7 @@ export async function resolveHomePostsPayload(
     priceMin?: number;
     priceMax?: number;
     compositionFilters?: CompositionFilterClause[];
+    mixedDiscoverySellIntent?: boolean;
   }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const fromMaskedRead = await loadHomePostsPage(

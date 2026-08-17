@@ -219,9 +219,10 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   })();
   const querySegment = marketplaceQueryCacheSegment({ q, priceMin, priceMax, sort });
   const cfSegment = compositionFilterCacheSegment(compositionFilters);
+  /** v7: CUT B HOME mixed discovery sell-intent (server `si:mix`) — bust v6 mixed-intent rows */
   const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}${
     Object.keys(compositionFilters).length > 0 ? `:${cfSegment}` : ""
-  }:v6`;
+  }:v7`;
   return {
     page,
     sort,

@@ -27,7 +27,11 @@ import {
 import { parseMarketplacePriceBound } from "@/lib/trade/marketplace/query-contract";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { splitTradeListingAndCompositionOwnerIds } from "@/lib/trade/category-form";
+import {
+  resolveTradeCompositionForCategoryId,
+  splitTradeListingAndCompositionOwnerIds,
+  withSellIntentListDefaults,
+} from "@/lib/trade/category-form";
 
 export function SearchView() {
   const { t, safeT } = useI18n();
@@ -105,7 +109,13 @@ export function SearchView() {
           priceMin: parseMarketplacePriceBound(filters.priceMin),
           priceMax: parseMarketplacePriceBound(filters.priceMax),
           compositionFilters: listingAndComposition.compositionOwnerId
-            ? filters.compositionFilters
+            ? withSellIntentListDefaults(
+                filters.compositionFilters,
+                resolveTradeCompositionForCategoryId(
+                  listingAndComposition.compositionOwnerId,
+                  new Map(categories.map((c) => [c.id, c]))
+                )
+              )
             : {},
         });
         const next = applyBlocked(postsToSearchProducts(res.posts ?? []));
@@ -116,7 +126,7 @@ export function SearchView() {
         setLoading(false);
       }
     },
-    [keyword, locGate, filters, listingAndComposition, applyBlocked]
+    [keyword, locGate, filters, listingAndComposition, applyBlocked, categories]
   );
 
   useEffect(() => {

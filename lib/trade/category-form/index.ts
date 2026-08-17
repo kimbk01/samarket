@@ -88,6 +88,7 @@ export {
   compositionFilterCacheSegment,
   resolveCompositionAttributeFilterFields,
   sanitizeCompositionFilterSelection,
+  withSellIntentListDefaults,
   buildCompositionFilterClauses,
   applyCompositionFilterClausesToPostgrest,
   type CompositionFilterSelection,
