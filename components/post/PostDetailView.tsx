@@ -1777,17 +1777,6 @@ export function PostDetailView({
           ) : null}
         </section>
 
-        <section
-          id={POST_DETAIL_SELLER_ANCHOR_ID}
-          data-post-detail-seller="true"
-          className={`scroll-mt-14 ${TRADE_WRITE_FB_SECTION}`}
-        >
-          <PostDetailSellerProfileRow
-            author={author}
-            regionLine={null}
-          />
-        </section>
-
         <section className={TRADE_WRITE_FB_SECTION}>
           <div className={`flex flex-col ${isJobsSpec ? "gap-2" : "gap-3"}`}>
             {isJobsSpec ? <JobDetailContextNote direction={jobDetailDirection} /> : null}
@@ -1841,6 +1830,17 @@ export function PostDetailView({
           {detailFooterMetaParts.length > 0 ? (
             <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}
+        </section>
+
+        <section
+          id={POST_DETAIL_SELLER_ANCHOR_ID}
+          data-post-detail-seller="true"
+          className={`scroll-mt-14 ${TRADE_WRITE_FB_SECTION}`}
+        >
+          <PostDetailSellerProfileRow
+            author={author}
+            regionLine={null}
+          />
         </section>
 
         {relatedSectionsSlot

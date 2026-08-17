@@ -101,7 +101,7 @@ const REFRESH_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 /** 환전 카드 — 참고 띠·입력 행·금액 행 공통 (한 곳만 수정해 정렬·타이포 유지) */
 const EXCHANGE_WRITE_REFERENCE_BAR_CLASS =
-  "flex min-h-[40px] items-center justify-between gap-3 bg-slate-800 px-3 py-2.5 text-white";
+  "flex min-h-[40px] items-center justify-between gap-3 border-b border-sam-border-soft bg-sam-surface-muted px-3 py-2.5 text-sam-fg";
 const EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS =
   "mb-1.5 flex min-h-[38px] flex-col justify-end gap-0.5";
 const EXCHANGE_WRITE_FIELD_TITLE_CLASS = "text-[12px] font-semibold leading-[1.2] text-sam-fg";
@@ -799,21 +799,21 @@ export function ExchangeExtendedWriteFields({
         {/* 참고 시세(요약) + 기준/가산 입력 + 적용 환율 + 페소 금액 — 한 카드 (열·행 정렬·타이포 통일) */}
         <section className={TRADE_WRITE_FB_SECTION}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_130")}</h4>
-          <div className="mt-1 overflow-hidden rounded-ui-rect border border-slate-800 bg-white shadow-sm">
+          <div className="mt-1 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
             <div className={EXCHANGE_WRITE_REFERENCE_BAR_CLASS}>
               <span className="shrink-0 text-[12px] font-semibold leading-none tracking-tight">
                 {t("exchange_write_reference_rate")}
               </span>
-              <span className="min-w-0 text-right font-mono text-[12px] font-medium leading-snug tabular-nums text-slate-100">
+              <span className="min-w-0 text-right font-mono text-[12px] font-medium leading-snug tabular-nums text-sam-fg">
                 {ratesLoading ? (
-                  <span className="text-slate-400">{t("trade_103")}</span>
+                  <span className="text-sam-muted">{t("trade_103")}</span>
                 ) : (
                   <span className="inline-flex flex-col items-end gap-0.5 sm:flex-row sm:items-baseline sm:gap-1.5">
-                    <span className="text-slate-50">
+                    <span className="text-sam-fg">
                       1 PHP ≈ {referenceKrwMid.toFixed(2)} ₩
                     </span>
                     {ratesFetchedAt ? (
-                      <span className="text-[11px] font-normal tabular-nums text-slate-400">
+                      <span className="text-[11px] font-normal tabular-nums text-sam-muted">
                         {ratesFetchedAt}
                       </span>
                     ) : null}

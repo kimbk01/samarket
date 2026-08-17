@@ -24,8 +24,8 @@ import {
   POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS,
   POST_LIST_TRADE_PRICE_CLASS,
   POST_LIST_TRADE_TITLE_CLASS,
-  POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
   stripPostListBlockTopMargin,
+  type PostListPreviewModel,
 } from "@/lib/posts/post-list-preview-model";
 import {
   imageSanitizeViewerMediaUrl,
@@ -92,6 +92,26 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
       })}
     </>
   );
+}
+
+/** Consume preview bodyBlocks / listingRowBoldText only — no category if-tree. */
+function pickPreviewCompositionAttrLine(preview: PostListPreviewModel): string | null {
+  const title = preview.feedTitle?.trim() ?? "";
+  const price = preview.feedPrice?.trim() ?? "";
+  for (const block of preview.bodyBlocks) {
+    if (block.row === "seller" || block.row === "real_estate_price" || block.row === "jobs_pay_row") {
+      continue;
+    }
+    const text = block.text.trim();
+    if (!text || text === title || text === price) continue;
+    if (block.className === POST_LIST_TRADE_TITLE_CLASS || block.className === POST_LIST_TRADE_PRICE_CLASS) {
+      continue;
+    }
+    return text;
+  }
+  const trail = preview.listingRowBoldText?.trim() ?? "";
+  if (trail && trail !== title && trail !== price) return trail;
+  return null;
 }
 
 interface PostCardProps {
@@ -177,11 +197,8 @@ export const PostCard = memo(function PostCard({
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at)
       : "";
-  const listKind = listPreview?.listKind ?? "trade";
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
-  /** 중고차 삽니다 — 썸네일 미첨부 시 플레이스홀더 대신 빈 칸(레이아웃 폭 유지) */
-  const usedCarBuyEmptyThumbSlot =
-    listKind === "used-car" && metaRecord?.car_trade === "buy" && !hasUsableThumbnail;
+  const compositionAttrLine = listPreview ? pickPreviewCompositionAttrLine(listPreview) : null;
 
   useEffect(() => {
     bumpTradeListProductCardRenderCount();
@@ -234,13 +251,7 @@ export const PostCard = memo(function PostCard({
         onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
         className="flex min-w-0 flex-col"
       >
-        <div
-          className={
-            usedCarBuyEmptyThumbSlot
-              ? `${TRADE_FEED_THUMB_BOX_CLASS} bg-transparent`
-              : TRADE_FEED_THUMB_BOX_CLASS
-          }
-        >
+        <div className={TRADE_FEED_THUMB_BOX_CLASS}>
           {hasUsableThumbnail ? (
             <SamarketThumbnail
               src={thumbnailFetchUrl}
@@ -259,22 +270,8 @@ export const PostCard = memo(function PostCard({
               }}
               onImageError={() => setThumbnailFailed(true)}
             />
-          ) : usedCarBuyEmptyThumbSlot ? (
-            <span className="block h-full min-h-0 w-full" aria-hidden />
-          ) : listKind === "jobs" ? (
-            <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
-              JOB
-            </div>
-          ) : listKind === "exchange" ? (
-            <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
-              FX
-            </div>
-          ) : listKind === "rent-car" ? (
-            <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[12px] font-semibold text-sam-muted" aria-hidden>
-              RENT
-            </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
+            <span className="block h-full min-h-0 w-full bg-sam-surface-muted" aria-hidden />
           )}
         </div>
         <div className={TRADE_FEED_META_COLUMN_CLASS}>
@@ -322,31 +319,26 @@ export const PostCard = memo(function PostCard({
               </p>
             )}
           </div>
-          {listPreview?.listingChips.length || listPreview?.listingRowBoldText?.trim() ? (
+          {isPromotedContent ? (
             <div className={`${TRADE_FEED_META_ROW_CLASS} flex-wrap gap-1`}>
-              {isPromotedContent ? (
-                <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
-                  {safeT("trade_promo_badge", {
-                    fallbackKo: "홍보",
-                    fallbackEn: "Promoted",
-                  })}
-                </span>
-              ) : null}
-              {listPreview?.listingChips.map((c, i) => (
-                <span key={`${c.text}-${i}`} className={`${c.className} shrink-0`}>
-                  {c.text}
-                </span>
-              ))}
-              {listPreview?.listingRowBoldText?.trim() ? (
-                <span className={`${POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS} shrink-0 truncate`}>
-                  {listPreview.listingRowBoldText.trim()}
-                </span>
-              ) : null}
+              <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
+                {safeT("trade_promo_badge", {
+                  fallbackKo: "홍보",
+                  fallbackEn: "Promoted",
+                })}
+              </span>
               <TradeListingStatusBadge post={post} className="shrink-0" />
             </div>
           ) : (
             <TradeListingStatusBadge post={post} className="shrink-0" />
           )}
+          {compositionAttrLine ? (
+            <div className={TRADE_FEED_META_ROW_CLASS}>
+              <p className="w-full truncate text-[12px] font-normal leading-snug text-sam-muted" title={compositionAttrLine}>
+                {compositionAttrLine}
+              </p>
+            </div>
+          ) : null}
           <div className={TRADE_FEED_META_ROW_CLASS}>
             <p
               className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"

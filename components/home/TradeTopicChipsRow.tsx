@@ -5,8 +5,10 @@ import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/Lates
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
-import { Sam } from "@/lib/ui/sam-component-classes";
-import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
+import {
+  DIBAY_SECONDARY_TAB_LABEL_CLASS,
+  dibaySecondaryTabClass,
+} from "@/lib/ui/dibay-secondary-tabs";
 
 interface TradeTopicChipsRowProps {
   /** 예: /market/ukay */
@@ -21,7 +23,7 @@ interface TradeTopicChipsRowProps {
 }
 
 /**
- * 마켓 2행 주제 — 커뮤니티 피드 주제 탭과 동일 `sam-tab` / 밑줄 활성.
+ * 마켓 2행 주제 — 1단과 동일 `dibay-secondary-tab` filled pill.
  * `marketBasePath` 는 `/market` (카테고리는 `extraQuery.category`).
  */
 export function TradeTopicChipsRow({
@@ -67,9 +69,9 @@ export function TradeTopicChipsRow({
             onTouchStart={() => onTopicIntent?.(raw)}
             onPointerDown={() => onTopicIntent?.(raw)}
             onFocus={() => onTopicIntent?.(raw)}
-            className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
+            className={dibaySecondaryTabClass(on)}
           >
-            <span className={I18N_COMPACT_CHIP_LABEL}>
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
               {resolveTradeCategoryUILabel(
                 language,
                 t.name,
