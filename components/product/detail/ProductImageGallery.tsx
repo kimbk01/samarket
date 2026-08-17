@@ -56,11 +56,11 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
               <img
                 src={imageResolveTradePostDetailDisplayUrl(src)}
                 alt={title ? `${title} - ${i + 1}` : ""}
-                className="block h-auto w-full max-h-[420px] object-contain object-center"
+                className="block h-auto w-full max-h-[min(70vh,520px)] object-contain object-center"
                 draggable={false}
               />
             ) : (
-              <div className="flex min-h-[160px] w-full items-center justify-center bg-sam-surface-muted text-sm text-[#999]">
+              <div className="flex min-h-[160px] w-full items-center justify-center bg-sam-surface-muted text-sm text-sam-meta">
                 {t("ui_product_gallery_fallback")}
               </div>
             )}

@@ -285,7 +285,7 @@ export function TradeDefaultLocationBlock({
     <section
       className={
         denseLayout
-          ? "border-b border-[#e4e6eb] bg-white px-3 py-2 sm:px-3.5"
+          ? "border-b border-sam-border-soft bg-sam-surface px-3 py-2 sm:px-3.5"
           : "border-b border-sam-border-soft bg-sam-surface px-4 py-4"
       }
     >
@@ -294,7 +294,7 @@ export function TradeDefaultLocationBlock({
         disabled={readOnly}
         className={
           denseLayout
-            ? "mt-1.5 w-full rounded-ui-rect border border-[#e4e6eb] bg-[#f7f8fa] px-2.5 py-2 text-left first:mt-0 disabled:opacity-70"
+            ? "mt-1.5 w-full rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2.5 py-2 text-left first:mt-0 disabled:opacity-70"
             : "w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-left disabled:opacity-70"
         }
         aria-label={t("layout_address_manage_aria", { line: currentAddressText })}
@@ -303,7 +303,7 @@ export function TradeDefaultLocationBlock({
         <p
           className={
             denseLayout
-              ? "text-[13px] font-semibold leading-tight text-[#65676B]"
+              ? "text-[13px] font-semibold leading-tight text-sam-muted"
               : "sam-text-body font-semibold text-sam-fg"
           }
         >
@@ -312,7 +312,7 @@ export function TradeDefaultLocationBlock({
         <div
           className={
             denseLayout
-              ? "mt-0.5 flex min-w-0 items-start gap-1.5 text-[15px] font-medium leading-snug text-[#050505]"
+              ? "mt-0.5 flex min-w-0 items-start gap-1.5 text-[15px] font-medium leading-snug text-sam-fg"
               : "mt-1 flex min-w-0 items-start gap-1.5 text-[13px] leading-snug text-sam-muted"
           }
         >

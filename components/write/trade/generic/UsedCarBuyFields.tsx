@@ -113,7 +113,7 @@ export function UsedCarBuyFields({
             onChange={(e) => setPrice(formatPriceInput(e.target.value))}
             readOnly={disabled}
             placeholder=""
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-[#050505] outline-none placeholder:text-[#8a8d91]"
+            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-sam-fg outline-none placeholder:text-sam-meta"
             aria-invalid={!!errors.price}
           />
         </div>

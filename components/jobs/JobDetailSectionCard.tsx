@@ -18,13 +18,13 @@ export function JobDetailSectionCard({
 }) {
   if (rows.length === 0) return null;
   return (
-    <div className={`rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5 ${className}`.trim()}>
+    <div className={`rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 ${className}`.trim()}>
       <h3 className={`${TRADE_WRITE_FB_BLOCK_TITLE} mb-0`}>{title}</h3>
       <dl className="mt-1.5 space-y-1.5 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
           <div key={`${title}-${label}`} className={TRADE_FB_DETAIL_META_ROW}>
             <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
-            <dd className={`${TRADE_FB_DETAIL_META_DD} font-semibold text-[#050505]`}>{value}</dd>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
           </div>
         ))}
       </dl>

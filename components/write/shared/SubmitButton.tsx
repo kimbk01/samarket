@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 interface SubmitButtonProps {
@@ -56,7 +57,7 @@ export function SubmitButton({
           onPointerDown={(e) => {
             if (!submitLocked) triggerInteractionFeedback("light", e);
           }}
-          className={`flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
+          className={`${Sam.btn.primary} min-h-12 flex-1 disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
           {submitting ? resolvedSubmittingLabel : resolvedLabel}
         </button>

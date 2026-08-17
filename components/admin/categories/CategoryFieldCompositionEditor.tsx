@@ -21,6 +21,7 @@ import {
   buildAdminCompositionSurfaceMatrix,
 } from "@/lib/trade/category-form/admin-composition-surface-matrix";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Props = {
   iconKey: string;
@@ -95,33 +96,33 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
   const unused = libraryIds.filter((id) => !rows.some((r) => r.id === id));
 
   return (
-    <div className="space-y-3 rounded border border-sam-border-soft p-3">
+    <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_composition_title")}</p>
-        <button type="button" onClick={() => onChange(null)} className="sam-text-helper text-sam-primary underline">
+        <button type="button" onClick={() => onChange(null)} className={`${Sam.btn.ghost} ${Sam.btn.sm}`}>
           {t("admin_cat_composition_reset_seed")}
         </button>
       </div>
       <p className="sam-text-xxs text-sam-muted">{t("admin_cat_composition_hint")}</p>
 
-      <div className="rounded border border-sam-border-soft bg-sam-app px-2 py-2">
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-2">
         <p className="sam-text-helper font-medium text-sam-fg">{t("admin_cat_composition_matrix_title")}</p>
         <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("admin_cat_composition_matrix_hint")}</p>
         <p className="mt-1 sam-text-xxs text-sam-muted">
           {t("admin_cat_composition_profile")}: {matrix.profileId} · {t("admin_cat_composition_layout")}:{" "}
           {matrix.layoutVariant} · {matrix.source}
         </p>
-        <div className="mt-2 flex flex-wrap gap-2 sam-text-xxs text-sam-fg">
-          <span>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <span className={matrix.counts.write > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
             {t("admin_cat_composition_surface_write")} {matrix.counts.write}
           </span>
-          <span>
+          <span className={matrix.counts.list > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
             {t("admin_cat_composition_surface_list")} {matrix.counts.list}
           </span>
-          <span>
+          <span className={matrix.counts.detail > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
             {t("admin_cat_composition_surface_detail")} {matrix.counts.detail}
           </span>
-          <span>
+          <span className={matrix.counts.edit > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
             {t("admin_cat_composition_surface_edit")} {matrix.counts.edit}
           </span>
         </div>
@@ -134,13 +135,13 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
           .map((r) => (
             <li
               key={r.id}
-              className="flex flex-wrap items-center gap-2 rounded bg-sam-app px-2 py-1.5 sam-text-helper"
+              className="flex flex-wrap items-center gap-2 rounded-ui-rect bg-sam-app px-2 py-1.5 sam-text-helper"
             >
               <span className="min-w-[7rem] font-medium text-sam-fg">{tradeFieldAdminLabel(r.id, lang)}</span>
-              <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-sam-muted">
+              <span className={Sam.chip.activeCombo}>
                 {adminSurfaceBadgeChars(matrix.fieldSurfaces[r.id]) || "—"}
               </span>
-              <label className="flex items-center gap-1 text-sam-muted">
+              <label className={`flex items-center gap-1 ${r.active !== false ? "text-sam-primary" : "text-sam-muted"}`}>
                 <input
                   type="checkbox"
                   checked={r.active !== false}
@@ -175,7 +176,7 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
         <div>
           <label className="block sam-text-helper text-sam-muted">{t("admin_cat_composition_add")}</label>
           <select
-            className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+            className={`mt-1 w-full ${Sam.input.select}`}
             defaultValue=""
             onChange={(e) => {
               const id = e.target.value;

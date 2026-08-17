@@ -3,6 +3,7 @@
  * 신규 UI 규격은 전역 `Sam` 디자인 시스템(`sam-*`)만 사용한다.
  */
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+import { TRADE_FEED_PRODUCT_GRID_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 
 export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS };
 
@@ -74,9 +75,9 @@ export const COMMUNITY_FEED_LIST_WRAP_CLASS =
   "m-0 list-none space-y-2 p-0 px-4 pt-1.5 pb-4 [&>li]:list-none";
 
 /**
- * 거래 피드 `<ul>` — 좌우 인셋은 philife 와 동일, 하단은 탭 clearance(셸 `pb-0` 와 쌍).
+ * 거래 피드 `<ul>` — Marketplace product grid. 좌우 인셋은 philife 와 동일, 하단은 탭 clearance.
  */
-export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} [&>li]:list-none`;
+export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none p-0 ${TRADE_FEED_PRODUCT_GRID_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} [&>li]:list-none`;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =

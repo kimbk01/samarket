@@ -16,7 +16,7 @@ export const PRODUCT_DETAIL_CTA_BUTTON =
  */
 
 /** 외곽 셸: 상단 그림자 — safe-area 는 자식 최하단 섹터에만 */
-export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} -translate-x-1/2 flex-col border-t border-[#DDE1E7] bg-sam-surface shadow-[0_-2px_16px_rgba(15,20,25,0.07)] dark:border-sam-border dark:shadow-[0_-2px_14px_rgba(0,0,0,0.4)]`;
+export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} -translate-x-1/2 flex-col border-t border-sam-border bg-sam-surface shadow-[0_-2px_16px_rgba(15,20,25,0.07)] dark:border-sam-border dark:shadow-[0_-2px_14px_rgba(0,0,0,0.4)]`;
 
 /** PRIMARY 공통 골격 (safe 제외) */
 const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_BASE =
@@ -34,11 +34,11 @@ export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER = `${TRADE_POST_D
 
 /** 관심 — 고정 폭 컬럼 (분기 공통) */
 export const TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN =
-  "flex w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 border-r border-[#E4E6EB] bg-sam-surface py-2 text-[#65676B] transition-colors hover:bg-[#F0F2F5] active:bg-[#E4E6EB] dark:border-sam-border-soft dark:text-sam-muted dark:hover:bg-sam-surface-muted sm:w-[72px]";
+  "flex w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft bg-sam-surface py-2 text-sam-muted transition-colors hover:bg-sam-surface-muted active:bg-sam-border-soft sm:w-[72px]";
 
 /** 부동산 하단 판매가 요약 칼럼 */
 export const TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY =
-  "flex min-w-0 max-w-[44%] shrink-0 flex-col justify-center border-r border-[#E4E6EB] px-2.5 py-2 sm:max-w-[38%] sm:px-3 md:px-4 dark:border-sam-border-soft";
+  "flex min-w-0 max-w-[44%] shrink-0 flex-col justify-center border-r border-sam-border-soft px-2.5 py-2 sm:max-w-[38%] sm:px-3 md:px-4";
 
 /** CTA 묶음 (가격 제안·채팅 등) */
 export const TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP =
@@ -49,15 +49,15 @@ export const TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER =
 
 /** 메인 액션 (채팅) — 브랜드 블루 */
 export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] bg-sam-primary px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-white shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] bg-sam-primary px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-on-primary shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
 
 /** 보조 액션 (가격 제안하기 등) — 연회색 필 */
 export const TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] border border-[#CCD0D5] bg-[#F0F2F5] px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-[#050505] transition-colors hover:bg-[#E4E6EB] active:bg-[#D8DADF] disabled:pointer-events-none disabled:opacity-45 dark:border-sam-border dark:bg-sam-surface-muted dark:text-sam-fg dark:hover:bg-sam-border-soft md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] border border-sam-border bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-fg transition-colors hover:bg-sam-border-soft active:bg-sam-border disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
 
 /** 비활성·대기 상태 */
 export const TRADE_POST_DETAIL_BOTTOM_MUTED_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-[#E4E6EB] px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-[#65676B] dark:bg-sam-surface-muted dark:text-sam-muted md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-sam-surface-muted px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-sam-muted md:min-h-[50px]";
 
 /** 로딩 플레이스홀더 */
 export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =
@@ -68,7 +68,7 @@ export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =
  * CTA min-h 48 유지 · pt compact (구 pt-3 → pt-2).
  */
 export const TRADE_POST_DETAIL_BOTTOM_SELLER_BAND =
-  "w-full border-t border-[#E4E6EB] bg-[#F0F2F5] px-3 pb-[max(10px,var(--safe-bottom))] pt-2 dark:border-sam-border dark:bg-sam-app sm:px-4 md:px-5";
+  "w-full border-t border-sam-border-soft bg-sam-surface-muted px-3 pb-[max(10px,var(--safe-bottom))] pt-2 sm:px-4 md:px-5";
 
 /**
  * 본문 스크롤 reserve (overlay avoidance — bar 내부 visual safe 와 별개).

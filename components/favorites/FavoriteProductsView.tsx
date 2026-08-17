@@ -15,6 +15,7 @@ import {
 } from "@/lib/mypage/favorite-manage-tabs";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { FavoritePostCard } from "./FavoritePostCard";
+import { TRADE_FEED_PRODUCT_GRID_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 
 export function FavoriteProductsView({
   embedded = false,
@@ -150,7 +151,7 @@ export function FavoriteProductsView({
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
-        <ul className="m-0 min-w-0 w-full list-none divide-y divide-sam-border p-0">
+        <ul className={`m-0 min-w-0 w-full list-none p-0 ${TRADE_FEED_PRODUCT_GRID_CLASS}`}>
           {filtered.map((post) => (
             <li key={post.id} className="min-w-0">
               <FavoritePostCard

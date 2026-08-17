@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCategoryAdmin } from "./useCategoryAdmin";
 import { CategoryTable } from "./CategoryTable";
 import { CategoryFormModal } from "./CategoryFormModal";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import type { CategoryFormPayload, CategoryFormSettingsPayload } from "./CategoryFormModal";
 
 export function AdminCategoriesPage() {
@@ -51,7 +52,7 @@ export function AdminCategoriesPage() {
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
+          className={Sam.btn.primary}
         >
           {t("admin_cat_add_btn")}
         </button>

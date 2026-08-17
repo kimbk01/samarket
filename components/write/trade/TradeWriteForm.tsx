@@ -2018,8 +2018,7 @@ function TradeMarketplaceWriteFormInner({
 
   const extendedChromeSlots: TradeWriteChromeSlots = {
     images: (
-      <div className={TRADE_WRITE_FB_SECTION}>
-        <ImageUploader
+      <ImageUploader
           value={images}
           onChange={setImages}
           maxCount={extendedImageMax}
@@ -2028,7 +2027,6 @@ function TradeMarketplaceWriteFormInner({
           compact={false}
           variant="karrot"
         />
-      </div>
     ),
     topic: (
       <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -2056,8 +2054,8 @@ function TradeMarketplaceWriteFormInner({
               : ""
           }
           maxLength={isJobsProfile ? JOB_TITLE_MAX : 100}
-          className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
-            extendedChromeErrors.title ? "border-red-400 bg-red-50" : "border-sam-border"
+          className={`${TRADE_WRITE_FB_CONTROL} ${
+            extendedChromeErrors.title ? "border-red-400 bg-red-50" : ""
           }`}
         />
         {extendedChromeErrors.title ? (
@@ -2079,9 +2077,9 @@ function TradeMarketplaceWriteFormInner({
               : t("jobs_write_description_label")
             : t("trade_write_content")}{" "}
           {isJobsProfile ? (
-            <span className="text-red-500">*</span>
+            <span className="text-sam-danger">*</span>
           ) : (
-            <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+            <span className="font-normal text-sam-muted">{t("trade_001")}</span>
           )}
         </h4>
         <AutoGrowTextarea
@@ -2092,9 +2090,9 @@ function TradeMarketplaceWriteFormInner({
             isJobsProfile ? (jobsListingKind === "work" ? t("trade_008") : t("trade_036")) : ""
           }
           maxLength={isJobsProfile ? JOB_DESCRIPTION_MAX : undefined}
-          className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
-            extendedChromeErrors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
-          } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-[#050505]"}`}
+          className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-ui-rect border px-3 py-2.5 text-[15px] outline-none placeholder:text-sam-meta focus:border-sam-primary ${
+            extendedChromeErrors.description ? "border-red-400 bg-red-50" : "border-sam-border bg-sam-surface"
+          } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-sam-fg"}`}
         />
         {!showDescriptionAppend ? (
           <>
@@ -2119,18 +2117,18 @@ function TradeMarketplaceWriteFormInner({
             {description.length}/{JOB_DESCRIPTION_MAX}
           </p>
         ) : isExchangeProfile ? (
-          <p className="mt-1 text-[12px] text-[#8a8d91]">{t("trade_066")}</p>
+          <p className="mt-1 text-[12px] text-sam-muted">{t("trade_066")}</p>
         ) : null}
         {extendedChromeErrors.description ? (
           <p className="sam-text-body-secondary text-red-500">{extendedChromeErrors.description}</p>
         ) : null}
         {showDescriptionAppend ? (
-          <div className="mt-2 border-t border-[#e4e6eb] pt-2">
+          <div className="mt-2 border-t border-sam-border-soft pt-2">
             <label className={TRADE_WRITE_FB_FIELD_LABEL}>
               {isExchangeProfile ? t("trade_117") : t("trade_116")}
             </label>
             {isJobsProfile ? (
-              <p className="mb-1 text-[12px] text-[#8a8d91]">
+              <p className="mb-1 text-[12px] text-sam-muted">
                 {jobsListingKind === "work" ? t("jobs_write_append_hint") : t("trade_045")}
               </p>
             ) : null}
@@ -2138,7 +2136,7 @@ function TradeMarketplaceWriteFormInner({
               value={descriptionAppend}
               onChange={(e) => setDescriptionAppend(e.target.value)}
               placeholder=""
-              className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
+              className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] outline-none focus:border-sam-primary`}
             />
           </div>
         ) : null}
@@ -2184,6 +2182,7 @@ function TradeMarketplaceWriteFormInner({
         ) : null}
         {isJobsProfile ? (
           <>
+            {extendedChromeSlots.images}
             {extendedChromeSlots.topic}
             {extendedChromeSlots.title}
             <JobsExtendedWriteFields
@@ -2201,7 +2200,6 @@ function TradeMarketplaceWriteFormInner({
             />
             {extendedChromeSlots.location}
             {extendedChromeSlots.description}
-            {extendedChromeSlots.images}
           </>
         ) : isExchangeProfile ? (
           <>
@@ -2225,7 +2223,6 @@ function TradeMarketplaceWriteFormInner({
         ) : (
           <>
         {!(isUsedCarSkin && usedCarTrade === "buy") ? (
-          <div className={TRADE_WRITE_FB_SECTION}>
             <ImageUploader
               value={images}
               onChange={setImages}
@@ -2235,7 +2232,6 @@ function TradeMarketplaceWriteFormInner({
               compact={false}
               variant="karrot"
             />
-          </div>
         ) : null}
         <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
           <WriteTradeTopicSection
@@ -2245,7 +2241,6 @@ function TradeMarketplaceWriteFormInner({
             compact
           />
         </div>
-        {skinKey === "real-estate" && hasLocation ? tradeLocationEl : null}
         {skinKey === "used-car" ? (
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -2283,7 +2278,7 @@ function TradeMarketplaceWriteFormInner({
             {usedCarTrade === "buy" ? (
               <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
                 <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                  {t("trade_write_wanted_model")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+                  {t("trade_write_wanted_model")} <span className="font-normal text-sam-muted">{t("trade_001")}</span>
                 </h4>
                 <input
                   type="text"
@@ -2315,49 +2310,6 @@ function TradeMarketplaceWriteFormInner({
             {errors.title ? <p className="mt-1 text-[12px] text-red-600">{errors.title}</p> : null}
           </section>
         )}
-        <section className={TRADE_WRITE_FB_SECTION}>
-          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-            {t("trade_write_content")} <span className="text-sam-danger">*</span>
-          </h4>
-          <AutoGrowTextarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            readOnly={coreLocked || showDescriptionAppend}
-            placeholder=""
-            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] text-[#050505] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary`}
-            aria-invalid={!!errors.description}
-          />
-          {!showDescriptionAppend ? (
-            <>
-              <button
-                type="button"
-                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
-                onClick={() => setFrequentPhrasesOpen(true)}
-              >
-                {t("trade_write_frequent_phrases")}
-              </button>
-              <TradeFrequentPhrasesSheet
-                open={frequentPhrasesOpen}
-                onClose={() => setFrequentPhrasesOpen(false)}
-                onPickPhrase={(text) => {
-                  setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
-                }}
-              />
-            </>
-          ) : null}
-          {errors.description && <p className="mt-1 text-[12px] text-red-600">{errors.description}</p>}
-          {showDescriptionAppend ? (
-            <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-              <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
-              <AutoGrowTextarea
-                value={descriptionAppend}
-                onChange={(e) => setDescriptionAppend(e.target.value)}
-                placeholder=""
-                className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
-              />
-            </div>
-          ) : null}
-        </section>
         {(hasPrice || (hasFreeShare && !isUsedCarSkin && !isRentCarSkin)) &&
           skinKey !== "real-estate" &&
           skinKey !== "rent-car" &&
@@ -2626,7 +2578,50 @@ function TradeMarketplaceWriteFormInner({
             />
           </section>
         ) : null}
-        {skinKey !== "real-estate" ? tradeLocationEl : null}
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+            {t("trade_write_content")} <span className="text-sam-danger">*</span>
+          </h4>
+          <AutoGrowTextarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            readOnly={coreLocked || showDescriptionAppend}
+            placeholder=""
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg outline-none placeholder:text-sam-meta focus:border-sam-primary`}
+            aria-invalid={!!errors.description}
+          />
+          {!showDescriptionAppend ? (
+            <>
+              <button
+                type="button"
+                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
+                onClick={() => setFrequentPhrasesOpen(true)}
+              >
+                {t("trade_write_frequent_phrases")}
+              </button>
+              <TradeFrequentPhrasesSheet
+                open={frequentPhrasesOpen}
+                onClose={() => setFrequentPhrasesOpen(false)}
+                onPickPhrase={(text) => {
+                  setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
+                }}
+              />
+            </>
+          ) : null}
+          {errors.description && <p className="mt-1 text-[12px] text-red-600">{errors.description}</p>}
+          {showDescriptionAppend ? (
+            <div className="mt-2 border-t border-sam-border-soft pt-2">
+              <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
+              <AutoGrowTextarea
+                value={descriptionAppend}
+                onChange={(e) => setDescriptionAppend(e.target.value)}
+                placeholder=""
+                className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] outline-none focus:border-sam-primary`}
+              />
+            </div>
+          ) : null}
+        </section>
+        {tradeLocationEl}
         <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
           <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_016")}</h4>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">

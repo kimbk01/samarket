@@ -104,9 +104,9 @@ const EXCHANGE_WRITE_REFERENCE_BAR_CLASS =
   "flex min-h-[40px] items-center justify-between gap-3 bg-slate-800 px-3 py-2.5 text-white";
 const EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS =
   "mb-1.5 flex min-h-[38px] flex-col justify-end gap-0.5";
-const EXCHANGE_WRITE_FIELD_TITLE_CLASS = "text-[12px] font-semibold leading-[1.2] text-[#050505]";
+const EXCHANGE_WRITE_FIELD_TITLE_CLASS = "text-[12px] font-semibold leading-[1.2] text-sam-fg";
 const EXCHANGE_WRITE_FIELD_HINT_CLASS =
-  "text-[11px] font-normal leading-[1.25] text-[#65676B]";
+  "text-[11px] font-normal leading-[1.25] text-sam-muted";
 const EXCHANGE_WRITE_INPUT_ROW_CLASS =
   "flex h-11 w-full items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3";
 const EXCHANGE_WRITE_INPUT_CLASS =
@@ -776,7 +776,7 @@ export function ExchangeExtendedWriteFields({
       />
         <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
           <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>{t("trade_010")}</p>
-          <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-[#65676B]">
+          <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-sam-muted">
             {t("exchange_write_intro_hint")}
           </p>
         </div>
@@ -862,15 +862,15 @@ export function ExchangeExtendedWriteFields({
                 </div>
               </div>
 
-              <div className="rounded-md bg-[#f0f2f5] px-3 py-3">
-                <p className="text-center text-[12px] font-semibold leading-tight text-[#65676B]">{t("trade_100")}</p>
-                <p className="mt-1.5 text-center text-[15px] font-semibold tabular-nums leading-snug tracking-tight text-[#050505]">
+              <div className="rounded-ui-rect bg-sam-surface-muted px-3 py-3">
+                <p className="text-center text-[12px] font-semibold leading-tight text-sam-muted">{t("trade_100")}</p>
+                <p className="mt-1.5 text-center text-[15px] font-semibold tabular-nums leading-snug tracking-tight text-sam-fg">
                   {rateValue > 0 && !Number.isNaN(rateValue)
                     ? `1 PHP = ${rateValue.toFixed(2)} KRW`
                     : "1 PHP = —"}
                 </p>
                 {ratePlusValue !== 0 && baseRateValue > 0 && !Number.isNaN(baseRateValue) ? (
-                  <p className="mt-1.5 text-center text-[11px] font-normal tabular-nums leading-snug text-[#65676B]">
+                  <p className="mt-1.5 text-center text-[11px] font-normal tabular-nums leading-snug text-sam-muted">
                     {t("exchange_write_rate_base_plus", {
                       base: baseRateValue.toFixed(2),
                       plus: `${ratePlusValue >= 0 ? "+" : ""}${ratePlusValue}`,
@@ -883,7 +883,7 @@ export function ExchangeExtendedWriteFields({
                 <p className="sam-text-body-secondary text-red-500">{errors.rate}</p>
               ) : null}
 
-              <div className="border-t border-[#e4e6eb] pt-1">
+              <div className="border-t border-sam-border-soft pt-1">
                 <label
                   className={`mb-1.5 block ${EXCHANGE_WRITE_FIELD_TITLE_CLASS} leading-tight`}
                   htmlFor="exchange-write-amount-php"

@@ -64,21 +64,20 @@ export const POST_LIST_TYPE_CHIP = POST_LIST_CHIP_BLUE;
 
 /** 피드 카드 본문 타이포 — 커뮤니티 `ListTitleOnly`와 정렬(15px semibold #050505) */
 export const POST_LIST_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 text-left text-[15px] font-semibold leading-snug text-[#050505]";
+  "mt-0.5 line-clamp-2 text-left text-[15px] font-semibold leading-snug text-sam-fg";
 /**
  * 일반 중고 2단(제목) 등 — 커뮤니티 카드 제목과 동일
  */
 export const POST_LIST_TRADE_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 text-left text-[13px] font-medium leading-snug text-[#050505]";
+  "mt-0.5 line-clamp-2 text-left text-[13px] font-medium leading-snug text-sam-fg";
 /** 중고차 1단 — 삽니다/팝니다 칩 옆 차종(뱃지 아님·굵은 텍스트) */
 export const POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS =
-  "min-w-0 text-[13px] font-semibold leading-snug text-[#050505]";
+  "min-w-0 text-[13px] font-semibold leading-snug text-sam-fg";
 /**
- * 리스트 3단 금액 본문(마진 없음) — 15~16px Bold(700) `#1A1A1A`.
- * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
+ * 리스트 금액 본문 — Marketplace price emphasis.
  */
 export const POST_LIST_PRICE_TEXT_CLASS =
-  "sam-text-body-lg font-bold leading-tight tabular-nums text-[#1A1A1A]";
+  "sam-text-body-lg font-bold leading-tight tabular-nums text-sam-fg";
 
 /** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
@@ -93,7 +92,7 @@ export const POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS = "mt-0.5 text-left";
  * 리스트 4단 메타 본문(마진 없음) — 커뮤니티 `ListMetaKarrot`(12px #6B7280)
  */
 export const POST_LIST_META_LINE_CLASS =
-  "text-[12px] font-normal leading-[1.4] text-[#6B7280]";
+  "text-[12px] font-normal leading-[1.4] text-sam-muted";
 /**
  * 부동산 리스트 금액 숫자 — 일자리 급여 금액과 동일 (`POST_LIST_PRICE_TEXT_CLASS`).
  */
@@ -105,7 +104,7 @@ export const POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS =
   `shrink-0 ${POST_LIST_META_LINE_CLASS}`;
 /** 리스트 작성자(닉네임) 줄 — 메뉴/전체 공통 */
 export const POST_LIST_SELLER_LINE_CLASS =
-  "text-[11px] font-medium leading-[1.4] text-[#050505]";
+  "text-[11px] font-medium leading-[1.4] text-sam-fg";
 
 /** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;

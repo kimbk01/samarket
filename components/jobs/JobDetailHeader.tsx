@@ -27,7 +27,7 @@ function jobStatusLabel(
   direction: JobDetailDirection
 ): { label: string; className: string } {
   const st = String(post.status ?? "").toLowerCase();
-  const closedClass = "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]";
+  const closedClass = "border border-sam-border bg-sam-surface-muted text-sam-muted";
   if (st === "sold") {
     return direction === "seeking"
       ? { label: t("ui_jobs_status_done"), className: closedClass }
@@ -39,8 +39,8 @@ function jobStatusLabel(
       : { label: t("ui_jobs_status_closed"), className: closedClass };
   }
   return direction === "seeking"
-    ? { label: t("ui_jobs_status_seeking_active"), className: "border-0 bg-emerald-600 text-white" }
-    : { label: t("ui_jobs_status_hiring_active"), className: "border-0 bg-signature text-white" };
+    ? { label: t("ui_jobs_status_seeking_active"), className: "border-0 bg-sam-primary text-sam-on-primary" }
+    : { label: t("ui_jobs_status_hiring_active"), className: "border-0 bg-sam-primary text-sam-on-primary" };
 }
 
 function jobPayHeroLine(
@@ -93,8 +93,12 @@ export function JobDetailHeader({
 
   return (
     <section className="px-0 pt-0">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex h-6 items-center rounded-[4px] bg-amber-100 px-2 text-[12px] font-semibold leading-none text-amber-950">
+      {payLine ? <p className={TRADE_FB_DETAIL_PRICE}>{payLine}</p> : null}
+      <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${payLine ? "" : "mt-0 "} ${isSoldOpacity ? "opacity-80" : ""}`}>
+        {post.title ?? ""}
+      </h2>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex h-6 items-center rounded-[4px] bg-sam-surface-muted px-2 text-[12px] font-semibold leading-none text-sam-fg">
           {typeLabel}
         </span>
         <span
@@ -103,10 +107,6 @@ export function JobDetailHeader({
           {status.label}
         </span>
       </div>
-      <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} mt-1 ${isSoldOpacity ? "opacity-80" : ""}`}>
-        {post.title ?? ""}
-      </h2>
-      {payLine ? <p className={TRADE_FB_DETAIL_PRICE}>{payLine}</p> : null}
     </section>
   );
 }

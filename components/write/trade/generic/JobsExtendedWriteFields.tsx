@@ -136,7 +136,7 @@ const JOB_CHIP_BASE = `${JOB_TAP_CLEAR} select-none rounded-full border px-3 py-
 
 function jobToggleSurface(selected: boolean): string {
   return selected
-    ? "border-sam-border bg-sam-ink text-white active:opacity-[0.88]"
+    ? "border-sam-primary bg-sam-primary text-sam-on-primary active:opacity-[0.88]"
     : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-surface-muted";
 }
 
@@ -1264,7 +1264,7 @@ export function JobsExtendedWriteFields({
         interactionMode="blocking"
       />
         <div className={TRADE_WRITE_FB_SECTION}>
-          <p className="text-[13px] font-medium text-[#65676B]">{t("trade_113")}</p>
+          <p className="text-[13px] font-medium text-sam-muted">{t("trade_113")}</p>
         </div>
 
         <section
@@ -1778,7 +1778,7 @@ export function JobsExtendedWriteFields({
                 <span className="sam-text-helper text-sam-muted">{seekOptionalOpen ? t("trade_write_collapse") : t("trade_write_expand")}</span>
               </button>
               {seekOptionalOpen ? (
-                <div className="mt-3 space-y-4 border-t border-[#e4e6eb] pt-3">
+                <div className="mt-3 space-y-4 border-t border-sam-border-soft pt-3">
                   <div>
                     <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_007")}</p>
                     <div className="flex flex-wrap gap-2">

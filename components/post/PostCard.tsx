@@ -27,7 +27,6 @@ import {
   POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
-import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   imageSanitizeViewerMediaUrl,
   loadTradeFeedThumbnailFetchUrl,
@@ -54,9 +53,8 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
-import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
-/** 피드 카드 6행 SSOT — 부동산 금액 토큰 렌더 */
+/** 피드 카드 부동산 금액 토큰 렌더 */
 function FeedRealEstatePriceLine({ text }: { text: string }) {
   const src = text.trim();
   if (!src) return null;
@@ -164,8 +162,6 @@ export const PostCard = memo(function PostCard({
     return loadTradeFeedThumbnailFetchUrl(thumbnailUrl) ?? thumbnailUrl;
   }, [thumbnailUrl]);
 
-  const authorDisplay =
-    incomingCallPeerNicknameLabel(post.author_nickname) || "판매자";
   const metaRecord =
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
       ? (post.meta as Record<string, unknown>)
@@ -181,7 +177,6 @@ export const PostCard = memo(function PostCard({
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at)
       : "";
-  const viewCount = typeof post.view_count === "number" ? post.view_count : 0;
   const listKind = listPreview?.listKind ?? "trade";
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
   /** 중고차 삽니다 — 썸네일 미첨부 시 플레이스홀더 대신 빈 칸(레이아웃 폭 유지) */
@@ -223,75 +218,112 @@ export const PostCard = memo(function PostCard({
   }, [isFirstCard, thumbnailFetchUrl]);
 
   return (
-    <div
-      className={`flex flex-col ${PHILIFE_FB_CARD_CLASS}`}
-    >
-      <div className="px-3 pb-0 pt-1 sm:px-4">
-        <Link
-          href={detailHref}
-          prefetch
-          onPointerDown={() => {
-            void router.prefetch(detailHref);
-          }}
-          onPointerEnter={() => {
-            void router.prefetch(detailHref);
-          }}
-          onFocus={() => {
-            void router.prefetch(detailHref);
-          }}
-          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
-          className="flex min-w-0 items-stretch gap-1.5 sm:gap-2"
+    <div className="relative flex min-w-0 flex-col">
+      <Link
+        href={detailHref}
+        prefetch
+        onPointerDown={() => {
+          void router.prefetch(detailHref);
+        }}
+        onPointerEnter={() => {
+          void router.prefetch(detailHref);
+        }}
+        onFocus={() => {
+          void router.prefetch(detailHref);
+        }}
+        onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+        className="flex min-w-0 flex-col"
+      >
+        <div
+          className={
+            usedCarBuyEmptyThumbSlot
+              ? `${TRADE_FEED_THUMB_BOX_CLASS} bg-transparent`
+              : TRADE_FEED_THUMB_BOX_CLASS
+          }
         >
-          <div
-            className={
-              usedCarBuyEmptyThumbSlot
-                ? `${TRADE_FEED_THUMB_BOX_CLASS} bg-transparent`
-                : TRADE_FEED_THUMB_BOX_CLASS
-            }
-          >
-            {hasUsableThumbnail ? (
-              <SamarketThumbnail
-                src={thumbnailFetchUrl}
-                fill
-                roundedClassName="rounded-none"
-                className="bg-sam-surface-muted"
-                fallbackSrc=""
-                priority={isFirstCard || priorityThumb}
-                bootMetricTrack={isFirstCard || priorityThumb}
-                imageRef={isFirstCard ? imageRef : undefined}
-                onImageLoad={() => {
-                  if (!isFirstCard) return;
-                  recordTradeListImageRequestRangeFromResources(
-                    imageRef.current?.currentSrc || thumbnailFetchUrl || null
-                  );
-                }}
-                onImageError={() => setThumbnailFailed(true)}
-              />
-            ) : usedCarBuyEmptyThumbSlot ? (
-              <span className="block h-full min-h-0 w-full" aria-hidden />
-            ) : listKind === "jobs" ? (
-              <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
-                JOB
-              </div>
-            ) : listKind === "exchange" ? (
-              <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
-                FX
-              </div>
-            ) : listKind === "rent-car" ? (
-              <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[12px] font-semibold text-sam-muted" aria-hidden>
-                RENT
-              </div>
+          {hasUsableThumbnail ? (
+            <SamarketThumbnail
+              src={thumbnailFetchUrl}
+              fill
+              roundedClassName="rounded-ui-rect"
+              className="pointer-events-none bg-sam-surface-muted"
+              fallbackSrc=""
+              priority={isFirstCard || priorityThumb}
+              bootMetricTrack={isFirstCard || priorityThumb}
+              imageRef={isFirstCard ? imageRef : undefined}
+              onImageLoad={() => {
+                if (!isFirstCard) return;
+                recordTradeListImageRequestRangeFromResources(
+                  imageRef.current?.currentSrc || thumbnailFetchUrl || null
+                );
+              }}
+              onImageError={() => setThumbnailFailed(true)}
+            />
+          ) : usedCarBuyEmptyThumbSlot ? (
+            <span className="block h-full min-h-0 w-full" aria-hidden />
+          ) : listKind === "jobs" ? (
+            <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
+              JOB
+            </div>
+          ) : listKind === "exchange" ? (
+            <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
+              FX
+            </div>
+          ) : listKind === "rent-car" ? (
+            <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[12px] font-semibold text-sam-muted" aria-hidden>
+              RENT
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
+          )}
+        </div>
+        <div className={TRADE_FEED_META_COLUMN_CLASS}>
+          <div className={TRADE_FEED_META_ROW_CLASS}>
+            {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
+              <p
+                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
+              >
+                <FeedRealEstatePriceLine text={listPreview.feedPrice} />
+              </p>
+            ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
+              <p
+                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
+              >
+                <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
+                  {listPreview.feedJobsPay.label}
+                </span>
+                {listPreview.feedJobsPay.amount ? (
+                  <span className={`min-w-0 ${POST_LIST_PRICE_TEXT_CLASS}`}>
+                    {listPreview.feedJobsPay.amount}
+                  </span>
+                ) : null}
+              </p>
+            ) : listPreview?.feedPrice?.trim() ? (
+              <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
+                {listPreview.feedPrice.trim()}
+              </p>
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
+              <p className="w-full" aria-hidden>
+                {"\u00A0"}
+              </p>
             )}
           </div>
-          <div className={TRADE_FEED_META_COLUMN_CLASS}>
-            {/**
-             * 거래 피드 썸네일 우측 고정 6행 SSOT — 썸네일과 동일 높이·행 균등
-             * 1 유형+진행 · 2 제목 · 3 금액 · 4 지역+닉네임 · 5 작성일·조회 · 6 찜·⋮
-             */}
-            {/* 1 — 유형 + 진행 */}
-            <div className={`${TRADE_FEED_META_ROW_CLASS} gap-1`}>
+          <div className={TRADE_FEED_META_ROW_CLASS}>
+            {listPreview?.feedTitle?.trim() ? (
+              <p
+                className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} w-full`}
+                title={listPreview.feedTitle.trim()}
+              >
+                {listPreview.feedTitle.trim()}
+              </p>
+            ) : (
+              <p className="w-full" aria-hidden>
+                {"\u00A0"}
+              </p>
+            )}
+          </div>
+          {listPreview?.listingChips.length || listPreview?.listingRowBoldText?.trim() ? (
+            <div className={`${TRADE_FEED_META_ROW_CLASS} flex-wrap gap-1`}>
               {isPromotedContent ? (
                 <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
                   {safeT("trade_promo_badge", {
@@ -312,110 +344,49 @@ export const PostCard = memo(function PostCard({
               ) : null}
               <TradeListingStatusBadge post={post} className="shrink-0" />
             </div>
-
-            {/* 2 — 제목 */}
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              {listPreview?.feedTitle?.trim() ? (
-                <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} w-full truncate`}
-                  title={listPreview.feedTitle.trim()}
-                >
-                  {listPreview.feedTitle.trim()}
-                </p>
-              ) : (
-                <p className="w-full" aria-hidden>
-                  {"\u00A0"}
-                </p>
-              )}
-            </div>
-
-            {/* 3 — 금액 */}
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
-                <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1 truncate`}
-                >
-                  <FeedRealEstatePriceLine text={listPreview.feedPrice} />
-                </p>
-              ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
-                <p
-                  className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1 truncate`}
-                >
-                  <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
-                    {listPreview.feedJobsPay.label}
-                  </span>
-                  {listPreview.feedJobsPay.amount ? (
-                    <span className={`shrink-0 ${POST_LIST_PRICE_TEXT_CLASS}`}>
-                      {listPreview.feedJobsPay.amount}
-                    </span>
-                  ) : null}
-                </p>
-              ) : listPreview?.feedPrice?.trim() ? (
-                <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
-                  {listPreview.feedPrice.trim()}
-                </p>
-              ) : (
-                <p className="w-full" aria-hidden>
-                  {"\u00A0"}
-                </p>
-              )}
-            </div>
-
-            {/* 4 — 지역 + 닉네임 */}
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              <p
-                className="flex min-w-0 w-full items-center gap-1 truncate text-[11px] font-normal leading-none text-[#6B7280]"
-                title={[locationLine ?? "", authorDisplay].filter(Boolean).join(" · ")}
-              >
-                {locationLine ? (
-                  <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
-                    <MapPin className="h-3 w-3 shrink-0 text-[#6B7280]" strokeWidth={2} aria-hidden />
-                    <span className="truncate">{locationLine}</span>
-                  </span>
-                ) : null}
-                {locationLine ? <span className="shrink-0" aria-hidden>·</span> : null}
-                <span className="truncate font-semibold text-[#1F2430]">{authorDisplay}</span>
-              </p>
-            </div>
-
-            {/* 5 — 작성일 · 조회 */}
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              <p
-                className="min-w-0 w-full truncate text-[11px] font-normal leading-none text-[#6B7280]"
-                title={[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-              >
-                {[timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-              </p>
-            </div>
-
-            {/* 6 — 찜 · ⋮ */}
-            <div className={`${TRADE_FEED_META_ROW_CLASS} justify-end gap-1`}>
-              <PostFavoriteButton
-                postId={post.id}
-                authorUserId={post.author_id}
-                favorited={!!isFavorite}
-                onFavoriteChange={
-                  onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
-                }
-                iconClassName="h-3.5 w-3.5"
-              />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setMenuOpen((prev) => (prev ? prev : true));
-                }}
-                className="sam-header-action relative flex h-full min-h-0 w-7 shrink-0 items-center justify-center text-sam-muted"
-                aria-label={t("ui_home_rail_menu_open")}
-              >
-                <span className="pointer-events-none absolute -inset-y-1 -inset-x-2" aria-hidden />
-                <span className="text-[14px] leading-none">⋮</span>
-              </button>
-            </div>
+          ) : (
+            <TradeListingStatusBadge post={post} className="shrink-0" />
+          )}
+          <div className={TRADE_FEED_META_ROW_CLASS}>
+            <p
+              className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"
+              title={[locationLine ?? "", timeLabel].filter(Boolean).join(" · ")}
+            >
+              {locationLine ? (
+                <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
+                  <MapPin className="h-3 w-3 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
+                  <span className="truncate">{locationLine}</span>
+                </span>
+              ) : null}
+              {locationLine && timeLabel ? <span className="shrink-0" aria-hidden>·</span> : null}
+              {timeLabel ? <span className="truncate">{timeLabel}</span> : null}
+            </p>
           </div>
-        </Link>
+        </div>
+      </Link>
+      <div className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/85 p-1 shadow-sm">
+        <PostFavoriteButton
+          postId={post.id}
+          authorUserId={post.author_id}
+          favorited={!!isFavorite}
+          onFavoriteChange={
+            onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
+          }
+          iconClassName="h-5 w-5 drop-shadow-sm"
+        />
       </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setMenuOpen((prev) => (prev ? prev : true));
+        }}
+        className="absolute left-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white"
+        aria-label={t("ui_home_rail_menu_open")}
+      >
+        <span className="text-[14px] leading-none">⋮</span>
+      </button>
       {footer ? (
         <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2 sm:px-4">{footer}</div>
       ) : null}

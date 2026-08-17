@@ -1,17 +1,15 @@
 /**
  * 거래 피드 카드 썸네일 규격 단일 소스.
- * - 중고거래/중고차/부동산/환전/일자리 전부 동일 크기
- * - 신규 거래 카테고리 추가 시에도 `PostCard`를 쓰면 자동으로 동일 규격을 따른다.
+ * Marketplace product tile — 중고거래/중고차/부동산/환전/일자리/렌터카 동일 비율.
  */
 export const TRADE_FEED_THUMB_BOX_CLASS =
-  "relative h-[96px] w-[96px] shrink-0 flex-none self-start overflow-hidden rounded-[8px] bg-[#f2f3f5] [aspect-ratio:1/1] sm:h-[108px] sm:w-[108px] md:h-[120px] md:w-[120px]";
+  "relative aspect-square w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted";
 
-/**
- * 썸네일 우측 메타 열 — 썸네일과 **동일 높이**, 내부 6행 `flex-1` 균등 분배.
- */
-export const TRADE_FEED_META_COLUMN_CLASS =
-  "flex h-[96px] min-h-0 min-w-0 flex-1 flex-col sm:h-[108px] md:h-[120px]";
+/** 썸네일 아래 메타 — 가격 → 제목 → 지역 */
+export const TRADE_FEED_META_COLUMN_CLASS = "mt-1.5 flex min-w-0 flex-col gap-0.5";
 
-/** 메타 열 6행 공통 — 동일 높이 슬롯 */
-export const TRADE_FEED_META_ROW_CLASS =
-  "flex min-h-0 min-w-0 flex-1 items-center overflow-hidden";
+export const TRADE_FEED_META_ROW_CLASS = "flex min-w-0 items-center overflow-hidden";
+
+/** 모바일 2열 · 태블릿 3열 · 와이드 4열 — 기존 메인 컬럼 셸 안에서만 */
+export const TRADE_FEED_PRODUCT_GRID_CLASS =
+  "grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 [&>li]:min-w-0";

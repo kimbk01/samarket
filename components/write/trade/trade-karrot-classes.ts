@@ -9,6 +9,6 @@ export const KARROT_INNER_BOX =
 
 /** 판매하기 / 나눔하기 pill — 선택 시 진한 배경 */
 export const KARROT_PILL_ACTIVE =
-  "border-sam-border bg-sam-fg text-white shadow-sm dark:bg-sam-fg dark:text-white";
+  "border-sam-primary bg-sam-primary text-sam-on-primary shadow-sm";
 export const KARROT_PILL_IDLE =
   "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted";

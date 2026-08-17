@@ -115,7 +115,7 @@ export function TradeCompositionDetailSection(props: {
     </>
   );
   if (props.framed) {
-    return <div className="mt-3 border-t border-[#e4e6eb] pt-3">{body}</div>;
+    return <div className="mt-3 border-t border-sam-border-soft pt-3">{body}</div>;
   }
   return body;
 }

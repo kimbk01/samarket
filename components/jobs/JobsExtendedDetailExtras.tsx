@@ -130,7 +130,7 @@ function HiringExtras({ post, meta }: { post: PostWithMeta; meta: Record<string,
     <div className="flex flex-col gap-2">
       <JobDetailSectionCard title={t("ui_jobs_detail_conditions_section")} rows={recruitRows} />
       <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={condRows} />
-      <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5">
         <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_description_heading")}</h3>
         <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
       </div>
@@ -162,7 +162,7 @@ function SeekingExtras({ post, meta }: { post: PostWithMeta; meta: Record<string
   const content = (post.content ?? "").trim();
   return (
     <div className="flex flex-col gap-2">
-      <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5">
         <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_intro_heading")}</h3>
         <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
       </div>

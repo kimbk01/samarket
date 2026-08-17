@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useRef, useState } from "react";
 import { Camera } from "lucide-react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { ImageEditorModal } from "./ImageEditorModal";
 
 export interface ImageUploadItem {
@@ -82,64 +83,118 @@ export function ImageUploader({
 
   if (isKarrot) {
     const showAdd = value.length < maxCount && !disabled;
+    const cover = value[0];
 
     return (
       <>
-        <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 ${compact ? "py-2" : "py-3"} ${disabled ? "opacity-60" : ""}`}
-        >
-          <div className={compact ? "mb-1.5" : "mb-2"}>
-            <span className="text-[15px] font-bold text-sam-fg">{resolvedLabel}</span>
+        <section className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${disabled ? "opacity-60" : ""}`}>
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <span className="text-[15px] font-semibold text-sam-fg">{resolvedLabel}</span>
+            <span className="sam-text-xxs text-sam-muted">
+              {value.length}/{maxCount}
+            </span>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {showAdd ? (
+          {cover ? (
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-ui-rect bg-sam-surface-muted">
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => inputRef.current?.click()}
-                className={`${THUMB_CLASS} flex flex-col items-center justify-center border border-sam-border bg-sam-surface-muted`}
-                aria-label={t("ui_write_image_add_aria")}
-              >
-                <Camera className="h-7 w-7 stroke-[1.25] text-sam-muted" aria-hidden />
-                <span className="pointer-events-none mt-1 sam-text-xxs font-medium text-signature">
-                  {value.length}/{maxCount}
-                </span>
-              </button>
-            ) : null}
+                className="absolute inset-0 z-0"
+                aria-label={t("trade_write_image_edit_aria", { index: "1" })}
+                onClick={() => setEditorIndex(0)}
+              />
+              <SamarketThumbnail
+                src={cover.url}
+                alt=""
+                fill
+                className="pointer-events-none"
+                roundedClassName="rounded-ui-rect"
+                imageClassName="object-cover"
+                loading="eager"
+              />
+              <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-0.5 sam-text-xxs text-white">
+                {t("trade_write_cover_photo")}
+              </span>
+              {!disabled ? (
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-[14px] leading-none text-white"
+                  aria-label={t("common_delete")}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeAt(0);
+                  }}
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          ) : showAdd ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => inputRef.current?.click()}
+              className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-surface-muted"
+              aria-label={t("ui_write_image_add_aria")}
+            >
+              <Camera className="h-8 w-8 stroke-[1.25] text-sam-primary" aria-hidden />
+              <span className="mt-2 text-[14px] font-medium text-sam-fg">{t("ui_write_image_add_aria")}</span>
+            </button>
+          ) : null}
 
-            {value.map((item, index) => (
-              <div key={`${item.url}-${index}`} className={THUMB_CLASS}>
+          {value.length > 0 ? (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {value.slice(1).map((item, i) => {
+                const index = i + 1;
+                return (
+                  <div key={`${item.url}-${index}`} className={THUMB_CLASS}>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      className="absolute inset-0 z-0"
+                      aria-label={t("trade_write_image_edit_aria", { index: String(index + 1) })}
+                      onClick={() => setEditorIndex(index)}
+                    />
+                    <SamarketThumbnail
+                      src={item.url}
+                      alt=""
+                      fill
+                      className="pointer-events-none"
+                      roundedClassName="rounded-ui-rect"
+                      imageClassName="object-cover"
+                    />
+                    {!disabled ? (
+                      <button
+                        type="button"
+                        className="absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-[12px] leading-none text-white"
+                        aria-label={t("common_delete")}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          removeAt(index);
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {showAdd ? (
                 <button
                   type="button"
                   disabled={disabled}
-                  className="absolute inset-0 z-0"
-                  aria-label={t("trade_write_image_edit_aria", { index: String(index + 1) })}
-                  onClick={() => setEditorIndex(index)}
-                />
-                <img src={item.url} alt="" className="pointer-events-none h-full w-full object-cover" />
-                {index === 0 ? (
-                  <span className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/55 py-0.5 text-center sam-text-xxs leading-tight text-white">
-                    {t("trade_write_cover_photo")}
-                  </span>
-                ) : null}
-                {!disabled ? (
-                  <button
-                    type="button"
-                    className="absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-[12px] leading-none text-white"
-                    aria-label={t("common_delete")}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      removeAt(index);
-                    }}
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
+                  onClick={() => inputRef.current?.click()}
+                  className={`${THUMB_CLASS} flex flex-col items-center justify-center border border-dashed border-sam-border bg-sam-surface-muted`}
+                  aria-label={t("ui_write_image_add_aria")}
+                >
+                  <Camera className="h-6 w-6 stroke-[1.25] text-sam-muted" aria-hidden />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           <input
             ref={inputRef}

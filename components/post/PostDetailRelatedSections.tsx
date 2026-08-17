@@ -60,7 +60,7 @@ function PostMiniCard({
       onPointerEnter={() => void router.prefetch(detailHref)}
       onFocus={() => void router.prefetch(detailHref)}
       onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
-      className="block overflow-hidden rounded-md border border-[#ccd0d5] bg-white"
+      className="block overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
     >
       <div className="relative aspect-square bg-sam-app">
         <SamarketThumbnail
@@ -155,7 +155,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
     <section>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-[13px] font-bold leading-tight text-[#050505]">{personalTitle}</h3>
+          <h3 className="truncate text-[13px] font-bold leading-tight text-sam-fg">{personalTitle}</h3>
           <span
             className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-sam-border sam-text-xxs text-sam-muted"
             aria-label={t("ui_post_ad_info_aria")}
@@ -207,7 +207,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
             <button
               key={`dot-${idx}`}
               type="button"
-              className={`h-2 w-2 rounded-full ${idx === page ? "bg-signature" : "bg-sam-border"}`}
+              className={`h-2 w-2 rounded-full ${idx === page ? "bg-sam-primary" : "bg-sam-border"}`}
               aria-label={`광고 페이지 ${idx + 1}`}
               onClick={() => {
                 const el = scrollerRef.current;
@@ -238,7 +238,7 @@ function RelatedGridSection({
   if (items.length === 0) return null;
   return (
     <section>
-      <h3 className="mb-3 text-[13px] font-bold leading-tight text-[#050505]">{title}</h3>
+      <h3 className="mb-3 text-[13px] font-bold leading-tight text-sam-fg">{title}</h3>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {items.map((item) => (
           <PostMiniCard
@@ -253,7 +253,7 @@ function RelatedGridSection({
 }
 
 /** 거래 상세 하단 연관 영역 — FB형 연속 블록과 맞춤 */
-const RELATED_STACK_CARD_CLASS = "border-t border-[#e4e6eb] bg-white";
+const RELATED_STACK_CARD_CLASS = "border-t border-sam-border-soft bg-sam-surface";
 
 export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: RelatedProps) {
   const { t } = useI18n();

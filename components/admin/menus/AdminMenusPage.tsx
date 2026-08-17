@@ -13,6 +13,7 @@ import type { CategoryFormPayload, CategoryFormSettingsPayload } from "@/compone
 import { updateCategory } from "@/lib/categories/updateCategory";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 async function requestPruneOrphanMarketBottomNav(): Promise<void> {
   try {
@@ -166,7 +167,7 @@ export function AdminMenusPage() {
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
+          className={Sam.btn.primary}
         >
           {t("admin_cat_menu_add")}
         </button>

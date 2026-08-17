@@ -124,7 +124,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   TRADE_WRITE_FB_SECTION,
-  TRADE_WRITE_FB_BLOCK_TITLE,
   TRADE_WRITE_FB_FIELD_HEAD,
   TRADE_FB_DETAIL_HERO_TITLE,
   TRADE_FB_DETAIL_PRICE,
@@ -135,6 +134,7 @@ import {
   TRADE_FB_DETAIL_IMAGE_SECTION,
   TRADE_FB_DETAIL_SELLER_NAME,
   TRADE_FB_DETAIL_PLACEHOLDER_TEXT,
+  TRADE_FB_DETAIL_CHIP,
 } from "@/lib/ui/trade-write-fb-ui";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
@@ -143,7 +143,7 @@ import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 const TRADE_POST_DETAIL_FB_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`;
 /** 상세 제목 줄 `TradeListingStatusBadge` — 목록·상세 규격 단일화 */
 const TRADE_DETAIL_STATUS_BADGE_CLASS =
-  "!inline-flex !h-6 !items-center !rounded-[4px] !border-0 !bg-[#f1f3f5] !px-2 !py-0 !text-[12px] !font-medium !leading-none !text-[#555555]";
+  `!inline-flex !h-6 !items-center !rounded-[4px] !border-0 !bg-sam-surface-muted !px-2 !py-0 !text-[12px] !font-medium !leading-none !text-sam-muted`;
 /** 댓글·오버플로 잠금 해제 — `sam-card` 단일 규격 */
 const POST_DETAIL_COMMUNITY_CARD_CLASS = "sam-card !overflow-visible";
 
@@ -183,7 +183,7 @@ function PostDetailSellerProfileRow({
           src={author?.avatar_url}
           size={38}
           roundedClassName="rounded-full"
-          className="mr-2.5 bg-[#eeeeee] text-[13px] font-bold text-[#888]"
+          className="mr-2.5 bg-sam-surface-muted text-[13px] font-bold text-sam-muted"
           fallbackSrc=""
           fallbackNode={<span aria-hidden>{initial}</span>}
         />
@@ -1620,7 +1620,6 @@ export function PostDetailView({
   );
 
   const detailFooterMetaParts = [
-    formatTimeAgo(post.created_at),
     post.view_count != null && tradeDetailViewsLine(t, post.view_count),
     tradeDetailFavoritesLine(t, favoriteCount),
   ].filter(Boolean) as string[];
@@ -1674,14 +1673,14 @@ export function PostDetailView({
         {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
           <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {detailImageUrls.length === 0 ? (
-              <div className="relative flex w-full items-center justify-center overflow-hidden bg-[#f0f2f5]">
+              <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
                 {isExchangeSpec ? (
                   <div
-                    className="flex w-full flex-col items-center justify-center gap-2 py-12 text-[#65676B]"
+                    className="flex w-full flex-col items-center justify-center gap-2 py-12 text-sam-muted"
                     aria-hidden
                   >
                     <span className="text-5xl font-semibold leading-none">₱</span>
-                    <span className="text-xl font-normal leading-none text-[#8a8d91]">↔</span>
+                    <span className="text-xl font-normal leading-none text-sam-meta">↔</span>
                     <span className="text-5xl font-semibold leading-none">₩</span>
                   </div>
                 ) : (
@@ -1705,10 +1704,6 @@ export function PostDetailView({
             />
           ) : (
             <>
-              <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
-              {isRealEstateSpec && reHeroSubtitle ? (
-                <p className={TRADE_FB_DETAIL_SUBTITLE}>{reHeroSubtitle}</p>
-              ) : null}
               {isRealEstateSpec && rePriceSummary ? (
                 <p className={TRADE_FB_DETAIL_PRICE}>{rePriceSummary}</p>
               ) : showPrice && !(isRealEstateSpec && isReDealTypeRent(reDealType)) ? (
@@ -1720,10 +1715,14 @@ export function PostDetailView({
                       : ""}
                 </p>
               ) : null}
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
+              {isRealEstateSpec && reHeroSubtitle ? (
+                <p className={TRADE_FB_DETAIL_SUBTITLE}>{reHeroSubtitle}</p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                 <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
                 {post.is_price_offer === true ? (
-                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                  <span className={TRADE_FB_DETAIL_CHIP}>
                     {t("trade_detail_price_offer_badge")}
                   </span>
                 ) : null}
@@ -1732,24 +1731,38 @@ export function PostDetailView({
                     const lab = getCarTradeLabel(t, post.meta as Record<string, unknown> | undefined);
                     if (!lab) return null;
                     return (
-                      <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                      <span className={TRADE_FB_DETAIL_CHIP}>
                         {lab}
                       </span>
                     );
                   })()}
                 {post.is_free_share && (
-                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                  <span className={TRADE_FB_DETAIL_CHIP}>
                     {t("trade_050")}
                   </span>
                 )}
                 {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
-                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                  <span className={TRADE_FB_DETAIL_CHIP}>
                     {t("trade_108")}
                   </span>
                 )}
               </div>
             </>
           )}
+          {!isRealEstateSpec && listingLocationLine ? (
+            <p className={`mt-2 flex min-w-0 items-center gap-1 ${TRADE_FB_DETAIL_META_HELP}`}>
+              <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="truncate">{listingLocationLine}</span>
+              {post.created_at ? (
+                <>
+                  <span className="shrink-0" aria-hidden>·</span>
+                  <span className="shrink-0">{formatTimeAgo(post.created_at)}</span>
+                </>
+              ) : null}
+            </p>
+          ) : post.created_at && !isRealEstateSpec ? (
+            <p className={`mt-2 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{formatTimeAgo(post.created_at)}</p>
+          ) : null}
           {showBuyerOfferStatus ? (
             <OfferStatusBuyer
               productId={post.id}
@@ -1771,14 +1784,7 @@ export function PostDetailView({
         >
           <PostDetailSellerProfileRow
             author={author}
-            regionLine={
-              listingLocationLine ? (
-                <p className={`mt-0.5 flex max-w-[190px] items-center gap-0.5 truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
-                  <MapPin className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-                  <span className="truncate">{listingLocationLine}</span>
-                </p>
-              ) : null
-            }
+            regionLine={null}
           />
         </section>
 
@@ -1825,7 +1831,7 @@ export function PostDetailView({
             ) : null}
 
             {!isJobsSpec && !isRealEstateSpec ? (
-              <div className={detailMetaAny ? "border-t border-[#e4e6eb] pt-3" : ""}>
+              <div className={detailMetaAny ? "border-t border-sam-border-soft pt-3" : ""}>
                 <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("ui_post_product_description_heading")}</h3>
                 <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
               </div>

@@ -21,7 +21,7 @@ export const DIBAY_DOMAIN_CHROME = {
   },
   trade: {
     surface: "#EAF3EE",
-    accent: "#32734E",
+    accent: "#0B421A",
     accentText: "#FFFFFF",
     tabIdleBg: "#F3F8F5",
     tabIdleFg: "#243832",

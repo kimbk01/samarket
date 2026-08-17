@@ -60,7 +60,7 @@ export function GenericTradeWriteFields({
   if (visible.length === 0) return null;
 
   return (
-    <div className={`space-y-2 ${disabled ? "pointer-events-none opacity-60" : ""}`}>
+    <div className={`space-y-3 ${disabled ? "pointer-events-none opacity-60" : ""}`}>
       {visible.map((f) => {
         const def = f.definition;
         const label = tradeFieldAdminLabel(f.id, lang);
