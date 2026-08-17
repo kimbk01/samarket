@@ -1,0 +1,49 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT C (SEARCH discovery expansion T1–T4)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT C HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-c-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT C LOCKED**
+- Production SHA: `1afedf38e14d45839ac13e9eb5e6a1618c247bf2`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_4xgf6HmYVHJocNoUuUnvyWfrxzAk`
+- T1 EXACT / CONTAINS: **LOCKED**
+- T2 ATTRIBUTE / TOKEN: **LOCKED**
+- T3 SAME-LOCATION RELATED: **LOCKED**
+- T4 GLOBAL RELATED: **LOCKED**
+- UNRELATED EXCLUSION: **LOCKED**
+- MIGRATION: **NO**
+- CUT A / CUT B / P0–P5: **PRESERVED**
+- 50+ WINDOW PAGINATION: **NOT_PROVEN — non-blocking**
+- RUNTIME QUERY COUNT: **NOT_PROVEN — code contract only; non-blocking**
+
+## KEEP
+
+```text
+SEARCH q + latest = T1 phrase → T2 strong related → T3 same-location looser → T4 global looser
+location is a tier axis, not all-local dump
+explicit category / price / composition / sell-intent / status stay AND
+ranked window key has no page
+continuation cursors are independent
+distance / popular unchanged
+```
+
+Authority: `lib/trade/marketplace/search-candidate-expansion.ts`.
+
+This cut changed **SEARCH discovery expansion**, not LIST default (CUT B) or taxonomy (CUT A).
+
+## DO NOT (without a new cut)
+
+- Title ILIKE as the only SEARCH candidate gate
+- 0..1999 SEARCH rescan
+- Short window = search end
+- `page` on ranked window cache key
+- New search table / vector / fuzzy
+- DETAIL similar-posts as SEARCH
+- Reopen CUT A / B, or start CUT D inside CUT C work
