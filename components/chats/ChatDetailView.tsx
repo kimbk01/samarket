@@ -38,7 +38,6 @@ import { StoreOrderSellerHamburger } from "@/components/chats/StoreOrderSellerHa
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
-import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import {
   MESSENGER_CHAT_HEADER_ROW_CLASS,
@@ -59,7 +58,6 @@ import {
   type SellerListingState,
   normalizeSellerListingState,
 } from "@/lib/products/seller-listing-state";
-import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import {
   dispatchTradeChatUnreadUpdated,
   KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
@@ -151,7 +149,7 @@ interface ChatDetailViewProps {
   room: ChatRoom;
   currentUserId: string;
   onRoomReload?: () => void;
-  /** 구매 내역 등에서 ?review=1 로 진입 시 후기 시트 자동 오픈 */
+  /** CUT D: legacy ?review=1 진입은 무시 — member 후기 작성 UI 제거 */
   openReviewOnMount?: boolean;
   /** `ChatRoomScreen`에서 전달 — 목록 복귀 경로 덮어쓰기 */
   listHref?: string;
@@ -324,7 +322,6 @@ export function ChatDetailView({
   const reportEnabled = useMemo(() => getAppSettings().reportEnabled !== false, []);
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
   const [blockSheetOpen, setBlockSheetOpen] = useState(false);
-  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
   const [roomInfoSheetOpen, setRoomInfoSheetOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -339,7 +336,6 @@ export function ChatDetailView({
   const [listingNotice, setListingNotice] = useState<string | null>(null);
   const [sellerListingControlsEnabled, setSellerListingControlsEnabled] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
-  const didAutoOpenReviewRef = useRef(false);
   const tradeCallBridgePrefetchKeyRef = useRef<string | null>(null);
   const [storeOrderTop, setStoreOrderTop] = useState<StoreOrderBuyerOrderPayload | null>(null);
   const [storeOrderItems, setStoreOrderItems] = useState<StoreOrderBuyerItemPayload[]>([]);
@@ -532,23 +528,6 @@ export function ChatDetailView({
       chatMode !== "readonly" &&
       chatMode !== "limited" &&
       !tradeFlowLocksTradeMessaging;
-  const canOpenReviewSheet = !isGeneralPurposeChat && canOpenTradeReviewSheet({
-    currentUserId,
-    roomSellerId: room.sellerId,
-    roomBuyerId: room.buyerId,
-    productStatus: displayProductStatus || room.product?.status,
-    sellerListingState: room.product?.sellerListingState,
-    ...(amISeller &&
-    pinnedListing != null &&
-    pinnedForProductId === postId &&
-    postId
-      ? { sellerListingOverride: pinnedListing }
-      : {}),
-    tradeFlowStatus: room.tradeFlowStatus,
-    soldBuyerId: room.soldBuyerId ?? null,
-    buyerReviewSubmitted: room.buyerReviewSubmitted === true,
-  });
-
   const isNarrowChatShell = useMatchMaxWidthMd();
   const [chatTradeComposerFocused, setChatTradeComposerFocused] = useState(false);
   const chatTradeComposerFocusTracking =
@@ -556,17 +535,8 @@ export function ChatDetailView({
   const chatTradeKeyboardCompact = chatTradeComposerFocusTracking && chatTradeComposerFocused;
 
   useEffect(() => {
-    didAutoOpenReviewRef.current = false;
     lastPostSellerListingDbSigRef.current = "";
   }, [room.id, postId]);
-
-  useEffect(() => {
-    if (!openReviewOnMount || didAutoOpenReviewRef.current) return;
-    if (!canOpenReviewSheet) return;
-    didAutoOpenReviewRef.current = true;
-    setReviewSheetOpen(true);
-    if (pathname) router.replace(pathname, { scroll: false });
-  }, [openReviewOnMount, canOpenReviewSheet, pathname, router]);
 
   const isChatRoom = room.source === "chat_room";
 
@@ -1944,18 +1914,6 @@ export function ChatDetailView({
                     {t("common_hide")}
                   </button>
                 )}
-                {canOpenReviewSheet && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReviewSheetOpen(true);
-                      setMenuOpen(false);
-                    }}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-                  >
-                    {t("nav_trade_review_send")}
-                  </button>
-                )}
     </div>
   ) : null;
 
@@ -2195,8 +2153,6 @@ export function ChatDetailView({
                     lastPostSellerListingDbSigRef.current = "";
                     void hardRefreshMessagesAfterSellerListingWrite();
                   }}
-                  onOpenReview={() => setReviewSheetOpen(true)}
-                  canOpenReviewSheet={canOpenReviewSheet}
                   displayListing={displayListing}
                   onPersistListing={persistListingState}
                   listingSaving={listingSaving}
@@ -2416,28 +2372,6 @@ export function ChatDetailView({
           {messengerTradeToast}
         </p>
       ) : null}
-
-      <DibayBottomSheet
-        open={reviewSheetOpen}
-        onClose={() => setReviewSheetOpen(false)}
-        title={t("chats_write_review_title")}
-        anchor="above-bottom-nav"
-      >
-        <TradeReviewForm
-          effectiveProductChatId={effectiveProductChatId}
-          productId={room.productId}
-          revieweeId={partnerId}
-          revieweeLabel={partnerDisplayNickname}
-          roleType="buyer_to_seller"
-          onSuccess={() => {
-            setReviewSheetOpen(false);
-            bustRoomClientCachesAfterTradeMutation(room.id);
-            onRoomReload?.();
-            router.refresh();
-          }}
-          onCancel={() => setReviewSheetOpen(false)}
-        />
-      </DibayBottomSheet>
     </div>
   );
 }

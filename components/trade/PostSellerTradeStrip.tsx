@@ -19,8 +19,8 @@ const FLOW_SHORT: Record<string, string> = {
   chatting: "판매중",
   seller_marked_done: "판매자완료",
   buyer_confirmed: "거래완료 확인",
-  review_pending: "후기대기",
-  review_completed: "후기완료",
+  review_pending: "거래완료",
+  review_completed: "거래완료",
   dispute: "분쟁",
   archived: "종료",
 };

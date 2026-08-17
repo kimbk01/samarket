@@ -1,9 +1,8 @@
 "use client";
 
-import { dibayConfirm, DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChatProductSummary } from "@/components/chats/ChatProductSummary";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
 import {
@@ -11,9 +10,6 @@ import {
   invalidateChatRoomDetailCache,
   peekChatRoomDetailMemory,
 } from "@/lib/chats/fetch-chat-room-detail-api";
-import { bustChatRoomBootstrapFlights } from "@/lib/chats/fetch-chat-room-bootstrap-api";
-import { forgetSingleFlight } from "@/lib/http/run-single-flight";
-import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import {
   normalizeSellerListingState,
@@ -26,16 +22,7 @@ import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-li
 import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
-import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-
-function bustTradeCachesAfterReview(productChatId: string) {
-  const k = productChatId.trim();
-  if (!k) return;
-  invalidateChatRoomDetailCache(k);
-  forgetSingleFlight(`chat:room-detail:${k}`);
-  bustChatRoomBootstrapFlights(k);
-}
 
 type Props = {
   productChatId: string;
@@ -66,11 +53,6 @@ export function CommunityMessengerTradeProcessSection({
   dockPlacement = "belowHeader",
 }: Props) {
   const { t } = useI18n();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
-  const didAutoOpenReviewRef = useRef(false);
   const initialId = productChatId.trim();
   const [room, setRoom] = useState<ChatRoom | null>(() => {
     if (initialTradeChatRoom) return initialTradeChatRoom;
@@ -278,34 +260,6 @@ export function CommunityMessengerTradeProcessSection({
     onTradeMetaChanged?.();
   }, [reload, onTradeMetaChanged]);
 
-  const canOpenReview =
-    room &&
-    canOpenTradeReviewSheet({
-      currentUserId: viewerUserId,
-      roomSellerId: room.sellerId,
-      roomBuyerId: room.buyerId,
-        productStatus: displayProductStatus || room.product?.status,
-      sellerListingState: room.product?.sellerListingState,
-      ...(amISeller && pinnedListing != null && pinnedForProductId === postId && postId
-        ? { sellerListingOverride: pinnedListing }
-        : {}),
-      tradeFlowStatus: room.tradeFlowStatus,
-      soldBuyerId: room.soldBuyerId ?? null,
-      buyerReviewSubmitted: room.buyerReviewSubmitted === true,
-    });
-
-  const partnerId = room ? (room.buyerId === viewerUserId ? room.sellerId : room.buyerId) : "";
-  const partnerLabel = room?.partnerNickname?.trim() || partnerId.slice(0, 8);
-
-  useEffect(() => {
-    if (searchParams.get("review") !== "1") return;
-    if (!room || !canOpenReview || viewerUserId !== room.buyerId) return;
-    if (didAutoOpenReviewRef.current) return;
-    didAutoOpenReviewRef.current = true;
-    setReviewSheetOpen(true);
-    if (pathname) router.replace(pathname, { scroll: false });
-  }, [searchParams, room, canOpenReview, viewerUserId, pathname, router]);
-
   useLayoutEffect(() => {
     if (!room) return;
     notifyCmTradeDockLayoutChange("trade_dock_content");
@@ -344,10 +298,6 @@ export function CommunityMessengerTradeProcessSection({
         currentUserId={viewerUserId}
         effectiveProductChatId={effectiveProductChatId}
         onActionDone={() => void onActionDone()}
-        onOpenReview={() => {
-          if (viewerUserId === room.buyerId) setReviewSheetOpen(true);
-        }}
-        canOpenReviewSheet={Boolean(canOpenReview)}
         displayListing={displayListing}
         onPersistListing={persistListingState}
         listingSaving={listingSaving}
@@ -370,31 +320,6 @@ export function CommunityMessengerTradeProcessSection({
           />
         </div>
       ) : null}
-
-      <DibayBottomSheet
-        open={Boolean(reviewSheetOpen && room)}
-        onClose={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
-        title={t("cm_ui_write_review")}
-        anchor="above-bottom-nav"
-      >
-        {room ? (
-          <TradeReviewForm
-            effectiveProductChatId={effectiveProductChatId}
-            productId={room.productId}
-            revieweeId={partnerId}
-            revieweeLabel={partnerLabel}
-            roleType="buyer_to_seller"
-            onSuccess={() => {
-              setReviewSheetOpen((prev) => (prev ? false : prev));
-              bustTradeCachesAfterReview(effectiveProductChatId);
-              void reload();
-              onTradeMetaChanged?.();
-              router.refresh();
-            }}
-            onCancel={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
-          />
-        ) : null}
-      </DibayBottomSheet>
     </div>
   );
 }

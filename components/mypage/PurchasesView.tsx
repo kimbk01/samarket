@@ -115,16 +115,12 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
       fallbackEn: "No purchases in progress.",
     }),
     completed: safeT("mypage_activity_purchases_empty_completed", {
-      fallbackKo: "구매완료·후기까지 끝난 내역이 없어요.",
+      fallbackKo: "완료된 구매 내역이 없어요.",
       fallbackEn: "No completed purchases yet.",
     }),
     cancelled: safeT("mypage_activity_purchases_empty_cancelled", {
       fallbackKo: "취소된 구매가 없어요.",
       fallbackEn: "No cancelled purchases.",
-    }),
-    review_wait: safeT("mypage_activity_purchases_empty_review_wait", {
-      fallbackKo: "후기를 작성할 수 있는 단계인 거래가 없어요.",
-      fallbackEn: "No purchases waiting for a review.",
     }),
   };
 

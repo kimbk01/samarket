@@ -14,7 +14,7 @@ function firstQueryString(v: string | string[] | undefined): string | undefined 
 }
 
 /**
- * 레거시 거래 허브 방 URL — 메신저 방(또는 후기 플로우 시 `/chats`)으로 통일 리다이렉트.
+ * 레거시 거래 허브 방 URL — 메신저 방으로 통일 리다이렉트.
  */
 export default function TradeHubChatRoomPage({
   params,
@@ -43,13 +43,10 @@ async function TradeHubChatRoomPageBody({
   if (!roomId) {
     return redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
   }
-  const openReviewOnMount = firstQueryString(sp.review)?.trim() === "1";
   const sourceRaw = firstQueryString(sp.source)?.trim();
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;
 
-  const dest = openReviewOnMount
-    ? tradeHubChatRoomHref(roomId, chatRoomSourceHint, { review: true })
-    : tradeHubChatRoomHref(roomId, chatRoomSourceHint);
+  const dest = tradeHubChatRoomHref(roomId, chatRoomSourceHint);
   return redirect(dest);
 }

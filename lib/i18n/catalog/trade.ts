@@ -218,18 +218,14 @@ export const tradeMessages = {
     trade_flow_seller_complete_confirm:
       "판매 완료로 처리할까요? 완료 후에는 이 채팅에서 단계를 다시 바꾸기 어려울 수 있어요.",
     trade_flow_buyer_seller_done_body:
-      "판매자가 거래완료 처리했어요. 거래가 끝났다면 {confirmStep}으로 넘어간 뒤 평가·후기를 남겨 주세요.",
+      "판매자가 거래완료 처리했어요. 물품을 받았다면 {confirmStep}으로 마무리해 주세요.",
     trade_flow_processing: "처리 중…",
     trade_flow_buyer_issue: "문제있어요",
     trade_flow_later: "나중에",
     trade_flow_buyer_dismissed_hint:
-      "거래완료 확인·평가·후기는 새로고침하거나 {menuPath}의 메뉴(⋮)에서 진행할 수 있어요.",
-    trade_flow_review_done_buyer: "평가·후기 작성이 완료되었어요.",
-    trade_flow_review_pending_buyer:
-      "거래완료 확인이 끝났어요. 평가·후기를 남겨보세요. 구매 내역 메뉴(⋮)의 「후기 보내기」에서도 할 수 있어요.",
-    trade_flow_review_seller_done: "거래 흐름이 모두 끝나요.",
-    trade_flow_review_seller_pending: "이 단계가 마무리돼요.",
-    trade_flow_review_seller_intro: "평가·후기는 구매자만 작성해요. 구매자가 남기면 {suffix}",
+      "거래완료 확인은 새로고침하거나 {menuPath}의 메뉴(⋮)에서 진행할 수 있어요.",
+    trade_flow_trade_complete_buyer: "거래가 완료되었어요.",
+    trade_flow_trade_complete_seller: "구매자가 거래를 확인했어요. 거래가 완료되었어요.",
     trade_listing_step_inquiry: "판매중",
     trade_listing_step_negotiating: "문의중",
     trade_listing_step_reserved: "예약중",
@@ -457,18 +453,14 @@ export const tradeMessages = {
     trade_flow_seller_complete_confirm:
       "Mark this sale complete? You may not be able to change the step again in this chat.",
     trade_flow_buyer_seller_done_body:
-      "The seller marked the trade complete. If you are done, continue to {confirmStep} and leave a rating and review.",
+      "The seller marked the trade complete. If you are done, continue with {confirmStep}.",
     trade_flow_processing: "Processing…",
     trade_flow_buyer_issue: "Report an issue",
     trade_flow_later: "Later",
     trade_flow_buyer_dismissed_hint:
-      "You can confirm completion, rate, and review after refreshing or from the menu (⋮) under {menuPath}.",
-    trade_flow_review_done_buyer: "Your rating and review are submitted.",
-    trade_flow_review_pending_buyer:
-      "Completion is confirmed. Leave a rating and review, or use Send review in Purchases (⋮).",
-    trade_flow_review_seller_done: "The trade flow is fully complete.",
-    trade_flow_review_seller_pending: "This step will finish once they submit.",
-    trade_flow_review_seller_intro: "Only the buyer can leave a review. When they do, {suffix}",
+      "You can confirm completion after refreshing or from the menu (⋮) under {menuPath}.",
+    trade_flow_trade_complete_buyer: "This trade is complete.",
+    trade_flow_trade_complete_seller: "The buyer confirmed the trade. It is complete.",
     trade_listing_step_inquiry: "For sale",
     trade_listing_step_negotiating: "In inquiry",
     trade_listing_step_reserved: "Reserved",

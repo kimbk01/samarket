@@ -236,13 +236,6 @@ export function SalesHistoryCard({
               <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
-              <span
-                className={`rounded-ui-rect px-1.5 py-0.5 sam-text-xxs font-medium ${
-                  row.hasBuyerReview ? "bg-emerald-50 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
-                }`}
-              >
-                {row.hasBuyerReview ? t("mypage_comp_sales_buyer_review_arrived") : t("mypage_comp_sales_buyer_review_none")}
-              </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 sam-text-helper">
               {hasChat ? (

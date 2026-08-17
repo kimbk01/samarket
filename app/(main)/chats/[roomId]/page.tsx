@@ -47,10 +47,9 @@ async function ChatRoomPageBody({
   const sp = await searchParamsPromise;
   const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const roomId = parseRoomId(raw);
-  const review = firstQueryString(sp.review)?.trim();
   const from = firstQueryString(sp.from)?.trim();
-  const openReviewOnMount = review === "1";
   const listHref = resolveChatListHref(from);
+  const openReviewOnMount = false;
   const sourceRaw = firstQueryString(sp.source)?.trim();
   const chatRoomSourceHint: ChatRoomSource | null =
     sourceRaw === "chat_room" || sourceRaw === "product_chat" ? sourceRaw : null;

@@ -15,7 +15,7 @@ import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-mes
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 구매자 거래완료 확인(buyer-confirm) — 평가·후기 작성 가능 상태로 */
+/** 구매자 거래완료 확인(buyer-confirm) — seller 알림 + trust ledger (Marketplace 후기 UI는 CUT D에서 member 경로 제거) */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
@@ -88,7 +88,7 @@ export async function POST(
       user_id: pc.seller_id,
       notification_type: "status",
       title: "구매자가 거래를 확인했어요",
-      body: "서로 후기를 남기실 수 있어요.",
+      body: "거래가 완료되었어요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
       domain: "trade_chat",
       ref_id: resolved.productChatId,

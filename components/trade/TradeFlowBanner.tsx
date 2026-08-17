@@ -29,22 +29,14 @@ interface TradeFlowBannerProps {
   onActionDone: () => void;
   /** `seller-complete` 성공 직후 UI를 즉시 완료로 반영(Realtime 누락 대비) */
   onSellerCompleteOptimistic?: () => void;
-  onOpenReview?: () => void;
-  canOpenReviewSheet?: boolean;
-  /** 상품 카드·배너와 동일한 판매 노출 상태 (낙관적 반영 포함) */
   displayListing: SellerListingState;
   onPersistListing: (next: SellerListingState) => Promise<void>;
   listingSaving: boolean;
   listingError: string | null;
-  /** 성공했으나 DB 제한으로 부분 반영만 된 경우(amber) */
   listingNotice?: string | null;
-  /** posts.status Realtime 까지 즉시 반영해 구매자/상대방 UI를 동일하게 맞춤 */
   productStatusOverride?: string | null;
-  /** false면 판매중/문의중 등 단계 버튼 숨김(DB에 seller_listing_state 없을 때) */
   sellerListingControlsEnabled?: boolean;
-  /** 모바일 키보드 시 단계 UI를 한 줄로 접었다가 펼침 */
   layoutVariant?: "default" | "keyboardCompact";
-  /** 단계 다이어그램 펼침·접힘 — 타임라인 하단 앵커 */
   onDiagramExpandedChange?: (expanded: boolean) => void;
 }
 
@@ -54,8 +46,6 @@ export function TradeFlowBanner({
   effectiveProductChatId,
   onActionDone,
   onSellerCompleteOptimistic,
-  onOpenReview,
-  canOpenReviewSheet = false,
   displayListing,
   onPersistListing,
   listingSaving,
@@ -127,9 +117,6 @@ export function TradeFlowBanner({
         onSellerCompleteOptimistic?.();
       }
       onActionDone();
-      if (path.includes("/buyer-confirm") && amBuyer && onOpenReview && canOpenReviewSheet) {
-        onOpenReview();
-      }
     } catch {
       setMsg(t("trade_review_form_network_error"));
     } finally {
@@ -172,7 +159,6 @@ export function TradeFlowBanner({
     );
   }
 
-  /** 상품 거래방은 히스토리·단계 확인을 위해 다이어그램을 유지해야 하므로, 읽기 제한 배너만 단독으로 두지 않음 */
   if (mode === "readonly" && !room.product) {
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
@@ -185,15 +171,6 @@ export function TradeFlowBanner({
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
         <p className="sam-text-xxs text-sam-fg">{t("trade_flow_limited_hint")}</p>
-        {canOpenReviewSheet && onOpenReview ? (
-          <button
-            type="button"
-            onClick={() => onOpenReview()}
-            className="mt-2 rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
-            {t("nav_trade_review_send")}
-          </button>
-        ) : null}
       </div>
     );
   }
@@ -206,18 +183,7 @@ export function TradeFlowBanner({
         <p className="mb-2 sam-text-xxs text-sam-fg">{t("trade_flow_readonly_with_history")}</p>
       ) : null}
       {mode === "limited" && room.product ? (
-        <div className="mb-2 space-y-2">
-          <p className="sam-text-xxs text-sam-fg">{t("trade_flow_limited_hint")}</p>
-          {canOpenReviewSheet && onOpenReview ? (
-            <button
-              type="button"
-              onClick={() => onOpenReview()}
-              className="rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-            >
-              {t("nav_trade_review_send")}
-            </button>
-          ) : null}
-        </div>
+        <p className="mb-2 sam-text-xxs text-sam-fg">{t("trade_flow_limited_hint")}</p>
       ) : null}
 
       {room.product ? (
@@ -306,34 +272,9 @@ export function TradeFlowBanner({
       )}
 
       {(flow === "buyer_confirmed" || flow === "review_pending" || flow === "review_completed") && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {amBuyer ? (
-            <>
-              <p className="sam-text-xxs text-sam-fg">
-                {room.buyerReviewSubmitted
-                  ? t("trade_flow_review_done_buyer")
-                  : t("trade_flow_review_pending_buyer")}
-              </p>
-              {canOpenReviewSheet && onOpenReview && !room.buyerReviewSubmitted ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenReview()}
-                  className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white"
-                >
-                  {t("nav_trade_review_send")}
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <p className="sam-text-xxs text-sam-fg">
-              {t("trade_flow_review_seller_intro", {
-                suffix: room.buyerReviewSubmitted
-                  ? t("trade_flow_review_seller_done")
-                  : t("trade_flow_review_seller_pending"),
-              })}
-            </p>
-          )}
-        </div>
+        <p className="mt-2 sam-text-xxs text-sam-fg">
+          {amBuyer ? t("trade_flow_trade_complete_buyer") : t("trade_flow_trade_complete_seller")}
+        </p>
       )}
 
       {flow === "dispute" && (

@@ -11,14 +11,12 @@ import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
-  canShowPurchaseReviewSend,
   purchaseOverflowMenuKind,
   purchaseProductStatusBadge,
   purchaseReviewStatusBadge,
   purchaseTradeStatusBadge,
 } from "@/lib/mypage/purchase-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
-import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -58,7 +56,6 @@ export function PurchaseHistoryCard({
 }) {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reviewSheet, setReviewSheet] = useState(false);
   const [readSheet, setReadSheet] = useState(false);
   const [report, setReport] = useState<{ open: boolean }>({ open: false });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -76,9 +73,7 @@ export function PurchaseHistoryCard({
   const reviewBadge = purchaseReviewStatusBadge(rowLike);
   const productBadge = purchaseProductStatusBadge(row.sellerListingState, row.status);
   const menuKind = purchaseOverflowMenuKind(rowLike);
-  const showReviewSend = canShowPurchaseReviewSend(rowLike);
   const needsBuyerTradeConfirm = menuKind === "seller_done";
-  const needsReviewCallToAction = menuKind === "need_review" && showReviewSend && !row.hasBuyerReview;
 
   const tradeAt =
     row.buyerConfirmedAt || row.sellerCompletedAt || row.createdAt || row.lastMessageAt;
@@ -115,9 +110,6 @@ export function PurchaseHistoryCard({
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (res.ok && data.ok) {
           onReload();
-          if (path.endsWith("/buyer-confirm")) {
-            setReviewSheet(true);
-          }
         }
       })
       .finally(() => {
@@ -129,7 +121,7 @@ export function PurchaseHistoryCard({
   return (
     <li className="relative rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div
-        className={`flex gap-2 p-3 ${needsBuyerTradeConfirm || needsReviewCallToAction ? "pb-2" : ""}`}
+        className={`flex gap-2 p-3 ${needsBuyerTradeConfirm ? "pb-2" : ""}`}
       >
         <Link href={purchaseDetailHref} className="flex min-w-0 flex-1 gap-3">
           <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
@@ -161,9 +153,11 @@ export function PurchaseHistoryCard({
               <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
-              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                {t("mypage_comp_nav_sec_trade_reviews_label")} · {reviewBadge}
-              </span>
+              {reviewBadge ? (
+                <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
+                  {t("mypage_comp_nav_sec_trade_reviews_label")} · {reviewBadge}
+                </span>
+              ) : null}
             </div>
           </div>
         </Link>
@@ -198,19 +192,6 @@ export function PurchaseHistoryCard({
                   >
                     {t("mypage_comp_report_problem")}
                   </MenuButton>
-                </>
-              ) : null}
-              {menuKind === "need_review" && showReviewSend ? (
-                <>
-                  <MenuButton onClick={() => { setReviewSheet(true); setMenuOpen(false); }}>
-                    {t("mypage_comp_purchase_send_review")}
-                  </MenuButton>
-                  <MenuLink
-                    href={tradeHubChatRoomHref(row.chatId, "product_chat", { review: true })}
-                    onNavigate={() => setMenuOpen(false)}
-                  >
-                    {t("mypage_comp_purchase_review_from_chat_top")}
-                  </MenuLink>
                 </>
               ) : null}
               {menuKind === "review_done" && row.hasBuyerReview ? (
@@ -253,39 +234,6 @@ export function PurchaseHistoryCard({
             {t("mypage_comp_purchase_issue_menu_hint")}
           </p>
         </div>
-      ) : null}
-
-      {needsReviewCallToAction ? (
-        <div className="border-t border-sam-border-soft px-3 py-2.5">
-          <p className="mb-2 text-center sam-text-xxs text-sam-fg">
-            {t("mypage_comp_purchase_card_review_prompt_p1")}
-            <strong className="font-semibold">{t("mypage_comp_purchase_review_step")}</strong>
-            {t("mypage_comp_purchase_card_review_prompt_p2")}
-          </p>
-          <button
-            type="button"
-            onClick={() => setReviewSheet(true)}
-            className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body-secondary font-medium text-white"
-          >
-            {t("mypage_comp_purchase_send_review")}
-          </button>
-        </div>
-      ) : null}
-
-      {reviewSheet ? (
-        <PurchaseReviewSheet
-          chatId={row.chatId}
-          postId={row.postId}
-          sellerId={row.sellerId}
-          sellerNickname={row.sellerNickname || t("mypage_comp_actor_owner")}
-          productTitle={row.title}
-          thumbnail={row.thumbnail}
-          onClose={() => setReviewSheet(false)}
-          onSuccess={() => {
-            setReviewSheet(false);
-            onReload();
-          }}
-        />
       ) : null}
 
       {readSheet ? (

@@ -10,13 +10,10 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
-  canShowPurchaseReviewSend,
   purchaseProductStatusBadge,
-  purchaseReviewStatusBadge,
   purchaseTradeStatusBadge,
 } from "@/lib/mypage/purchase-history-ui";
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
-import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import type { PurchaseHistoryRow } from "./PurchaseHistoryCard";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -40,7 +37,6 @@ export function PurchaseDetailView({
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [row, setRow] = useState<DetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [readOpen, setReadOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -104,9 +100,7 @@ export function PurchaseDetailView({
     buyerConfirmSource: row.buyerConfirmSource,
   };
   const tradeBadge = purchaseTradeStatusBadge(rowLike);
-  const reviewBadge = purchaseReviewStatusBadge(rowLike);
   const productBadge = purchaseProductStatusBadge(row.sellerListingState, row.status);
-  const showReview = canShowPurchaseReviewSend(rowLike);
   const base = `/api/trade/product-chat/${encodeURIComponent(chatId)}`;
   const chatHref = tradeHubChatRoomHref(row.chatId, "product_chat");
 
@@ -121,9 +115,6 @@ export function PurchaseDetailView({
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (res.ok && data.ok) {
           void load({ silent: false });
-          if (path.endsWith("/buyer-confirm")) {
-            setReviewOpen(true);
-          }
         }
       })
       .finally(() => setBusy(null));
@@ -149,9 +140,6 @@ export function PurchaseDetailView({
               <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
-              <span className="rounded-ui-rect bg-signature/5 px-2 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                {t("mypage_comp_nav_sec_trade_reviews_label")} · {reviewBadge}
-              </span>
             </div>
           </div>
         </div>
@@ -164,13 +152,7 @@ export function PurchaseDetailView({
         {flow === "seller_marked_done" ? (
           <>
             <p className="mt-3 rounded-ui-rect bg-signature/5 px-3 py-2.5 sam-text-helper leading-snug text-sam-fg">
-              {t("mypage_comp_purchase_seller_done_p1")}
-              <strong className="font-semibold">{t("mypage_comp_purchase_trade_complete")}</strong>
-              {t("mypage_comp_purchase_seller_done_p2")}
-              <strong className="font-semibold">{t("mypage_comp_purchase_buyer_confirm")}</strong>
-              {t("mypage_comp_purchase_seller_done_p3")}
-              <strong className="font-semibold">{t("mypage_comp_purchase_review_step")}</strong>
-              {t("mypage_comp_purchase_seller_done_p4")}
+              {t("mypage_comp_purchase_seller_done_body")}
             </p>
             <div className="mt-3 flex flex-col gap-2">
               <button
@@ -205,22 +187,6 @@ export function PurchaseDetailView({
             {t("mypage_comp_order_chat_revisit")}
           </Link>
         )}
-        {showReview && !row.hasBuyerReview && flow !== "seller_marked_done" ? (
-          <div className="mt-4 rounded-ui-rect border border-sam-border bg-signature/10 p-3">
-            <p className="sam-text-helper leading-snug text-sam-fg">
-              {t("mypage_comp_purchase_review_prompt_p1")}
-              <strong className="font-semibold">{t("mypage_comp_purchase_review_step")}</strong>
-              {t("mypage_comp_purchase_review_prompt_p2")}
-            </p>
-            <button
-              type="button"
-              onClick={() => setReviewOpen(true)}
-              className="mt-2 w-full rounded-ui-rect bg-signature py-3 text-center sam-text-body font-medium text-white"
-            >
-              {t("mypage_comp_purchase_send_review")}
-            </button>
-          </div>
-        ) : null}
       </section>
 
       <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
@@ -241,19 +207,13 @@ export function PurchaseDetailView({
             label={t("mypage_comp_purchase_buyer_confirm")}
             sub={row.buyerConfirmedAt ? formatTradeListDatetime(row.buyerConfirmedAt) : t("mypage_comp_purchase_waiting")}
           />
-          <TimelineItem
-            done={row.hasBuyerReview || flow === "review_completed"}
-            label={
-              row.hasBuyerReview || flow === "review_completed" ? t("mypage_comp_purchase_review_done") : t("mypage_comp_purchase_review_step")
-            }
-            sub={
-              row.hasBuyerReview || flow === "review_completed"
-                ? t("mypage_comp_purchase_done")
-                : showReview
-                  ? t("mypage_comp_purchase_writable")
-                  : "—"
-            }
-          />
+          {row.hasBuyerReview || flow === "review_completed" ? (
+            <TimelineItem
+              done
+              label={t("mypage_comp_purchase_review_done")}
+              sub={t("mypage_comp_purchase_done")}
+            />
+          ) : null}
         </ul>
       </section>
 
@@ -269,9 +229,6 @@ export function PurchaseDetailView({
               </ActionBtn>
             </>
           ) : null}
-          {showReview ? (
-            <ActionBtn onClick={() => setReviewOpen(true)}>{t("mypage_comp_purchase_send_review")}</ActionBtn>
-          ) : null}
           {row.hasBuyerReview ? (
             <ActionBtn outline onClick={() => setReadOpen(true)}>
               {t("mypage_comp_purchase_my_review_view")}
@@ -285,22 +242,6 @@ export function PurchaseDetailView({
           </ActionBtn>
         </div>
       </div>
-
-      {reviewOpen ? (
-        <PurchaseReviewSheet
-          chatId={row.chatId}
-          postId={row.postId}
-          sellerId={row.sellerId}
-          sellerNickname={row.sellerNickname || t("mypage_comp_actor_owner")}
-          productTitle={row.title}
-          thumbnail={row.thumbnail}
-          onClose={() => setReviewOpen(false)}
-          onSuccess={() => {
-            setReviewOpen(false);
-            load();
-          }}
-        />
-      ) : null}
 
       {readOpen ? (
         <BuyerReviewReadSheet chatId={row.chatId} perspective="buyer_self" onClose={() => setReadOpen(false)} />

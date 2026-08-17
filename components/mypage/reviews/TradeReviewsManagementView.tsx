@@ -8,26 +8,15 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { formatPrice } from "@/lib/utils/format";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
-import { getBuyerManageTabId } from "@/lib/mypage/buyer-manage-tabs";
-import { isSellerReviewWait } from "@/lib/mypage/seller-manage-tabs";
-import {
-  PurchaseHistoryCard,
-  type PurchaseHistoryRow,
-} from "@/components/mypage/purchases/PurchaseHistoryCard";
-import { SalesHistoryCard, type SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
-import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
+import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import {
-  fetchTradeHistoryPurchasesBySession,
-  fetchTradeHistorySalesBySession,
-  invalidateTradeHistoryCache,
-} from "@/lib/mypage/trade-history-client";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
-export type TradeReviewManageTabId = "received" | "written" | "pending" | "hidden_review";
+/** CUT D — read-only review history (received / written). No pending write tab. */
+export type TradeReviewManageTabId = "received" | "written";
 
 function tagLine(
   t: ReturnType<typeof useI18n>["t"],
@@ -154,64 +143,45 @@ export function TradeReviewsManagementView({
   const REVIEW_MANAGE_TABS: { id: TradeReviewManageTabId; label: string }[] = [
     { id: "received", label: t("mypage_comp_review_received_tab") },
     { id: "written", label: t("mypage_comp_review_written_tab") },
-    { id: "pending", label: t("mypage_comp_review_pending_tab") },
-    { id: "hidden_review", label: t("mypage_comp_review_hidden_tab") },
   ];
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [tab, setTab] = useState<TradeReviewManageTabId>(initialTab ?? "received");
   const [received, setReceived] = useState<MyReceivedReviewItem[]>([]);
   const [writtenCount, setWrittenCount] = useState(0);
-  const [purchases, setPurchases] = useState<PurchaseHistoryRow[]>([]);
-  const [sales, setSales] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  const viewerId = getCurrentUser()?.id?.trim() ?? "";
-
-  const load = useCallback((opts?: { silent?: boolean; force?: boolean }) => {
+  const load = useCallback((opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
     if (!silent) setLoading(true);
     const init: RequestInit = { credentials: "include", cache: "no-store" };
-    const force = !!opts?.force;
 
     void (async () => {
       try {
-        const [recv, writLen, pur, sal] = await runSingleFlight(
-          `mypage:trade-reviews-management:load${force ? ":force" : ""}`,
-          () =>
-            Promise.all([
-              fetch("/api/my/received-reviews", init).then(async (r) => {
-                const d = (await r.json().catch(() => ({}))) as { items?: MyReceivedReviewItem[] };
-                return r.ok && Array.isArray(d.items) ? d.items : [];
-              }),
-              fetch("/api/my/written-reviews", init).then(async (r) => {
-                const d = (await r.json().catch(() => ({}))) as { items?: unknown[] };
-                return r.ok && Array.isArray(d.items) ? d.items.length : 0;
-              }),
-              fetchTradeHistoryPurchasesBySession({ force }),
-              fetchTradeHistorySalesBySession({ force }),
-            ])
+        const [recv, writLen] = await runSingleFlight("mypage:trade-reviews-management:load", () =>
+          Promise.all([
+            fetch("/api/my/received-reviews", init).then(async (r) => {
+              const d = (await r.json().catch(() => ({}))) as { items?: MyReceivedReviewItem[] };
+              return r.ok && Array.isArray(d.items) ? d.items : [];
+            }),
+            fetch("/api/my/written-reviews", init).then(async (r) => {
+              const d = (await r.json().catch(() => ({}))) as { items?: unknown[] };
+              return r.ok && Array.isArray(d.items) ? d.items.length : 0;
+            }),
+          ])
         );
         setReceived(recv);
         setWrittenCount(writLen);
-        setPurchases(pur);
-        setSales(sal);
       } catch {
         if (!silent) {
           setReceived([]);
           setWrittenCount(0);
-          setPurchases([]);
-          setSales([]);
         }
       } finally {
         if (!silent) setLoading(false);
       }
     })();
   }, []);
-
-  const reload = useCallback(() => {
-    void load({ force: true });
-  }, [load]);
 
   useEffect(() => {
     setMounted(true);
@@ -223,10 +193,7 @@ export function TradeReviewsManagementView({
   }, [mounted, load]);
 
   useEffect(() => {
-    const onAuth = () => {
-      invalidateTradeHistoryCache();
-      void load({ force: true });
-    };
+    const onAuth = () => void load({ silent: false });
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
   }, [load]);
@@ -234,29 +201,16 @@ export function TradeReviewsManagementView({
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   useEffect(() => {
-    if (initialTab) setTab(initialTab);
+    if (initialTab === "received" || initialTab === "written") setTab(initialTab);
   }, [initialTab]);
-
-  const pendingPurchases = useMemo(() => {
-    if (!viewerId) return [];
-    return purchases.filter((row) => getBuyerManageTabId(row, viewerId) === "review_wait");
-  }, [purchases, viewerId]);
-
-  const pendingSales = useMemo(() => {
-    return sales.filter((row) => isSellerReviewWait(row));
-  }, [sales]);
-
-  const hiddenReviewCount = 0;
 
   const counts = useMemo(
     () =>
       ({
         received: received.length,
         written: writtenCount,
-        pending: pendingPurchases.length + pendingSales.length,
-        hidden_review: hiddenReviewCount,
       }) as Record<TradeReviewManageTabId, number>,
-    [received.length, writtenCount, pendingPurchases.length, pendingSales.length]
+    [received.length, writtenCount]
   );
 
   if (!mounted) {
@@ -268,6 +222,7 @@ export function TradeReviewsManagementView({
     );
   }
 
+  const viewerId = getCurrentUser()?.id?.trim() ?? "";
   if (!viewerId) {
     return (
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center">
@@ -300,58 +255,6 @@ export function TradeReviewsManagementView({
       ) : null}
 
       {tab === "written" ? <MyWrittenReviewsView variant="tabPanel" /> : null}
-
-      {tab === "pending" ? (
-        pendingPurchases.length === 0 && pendingSales.length === 0 ? (
-          <p className="py-10 text-center sam-text-body text-sam-muted">{t("mypage_comp_review_pending_empty")}</p>
-        ) : (
-          <div className="space-y-6">
-            {pendingPurchases.length > 0 ? (
-              <div>
-                <h4 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_review_pending_buy_heading")}</h4>
-                <p className="mt-0.5 sam-text-helper text-sam-muted">{t("mypage_comp_review_pending_buy_desc")}</p>
-                <ul className="mt-3 space-y-2">
-                  {pendingPurchases.map((row) => (
-                    <PurchaseHistoryCard
-                      key={row.chatId}
-                      row={row}
-                      viewerId={viewerId}
-                      currency={currency}
-                      onReload={reload}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {pendingSales.length > 0 ? (
-              <div className={pendingPurchases.length > 0 ? "border-t border-sam-border-soft pt-6" : ""}>
-                <h4 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_review_pending_sell_heading")}</h4>
-                <p className="mt-0.5 sam-text-helper text-sam-muted">{t("mypage_comp_review_pending_sell_desc")}</p>
-                <ul className="mt-3 space-y-2">
-                  {pendingSales.map((row) => (
-                    <SalesHistoryCard
-                      key={row.chatId ? row.chatId : `post-${row.postId}`}
-                      row={row}
-                      currency={currency}
-                      viewerId={viewerId}
-                      onReload={reload}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        )
-      ) : null}
-
-      {tab === "hidden_review" ? (
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center">
-          <p className="sam-text-body text-sam-muted">{t("mypage_comp_review_hidden_empty")}</p>
-          <p className="mt-2 sam-text-helper text-sam-muted">
-            {t("mypage_comp_review_hidden_hint")}
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

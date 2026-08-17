@@ -133,7 +133,7 @@ export async function POST(
       user_id: pc.buyer_id,
       notification_type: "status",
       title: "거래가 완료 처리되었어요",
-      body: "정상 거래였다면 거래완료 확인 후 평가·후기를 남겨 주세요.",
+      body: "물품을 받으셨다면 채팅에서 거래완료 확인을 눌러 주세요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
       domain: "trade_chat",
       ref_id: resolved.productChatId,
