@@ -43,7 +43,13 @@ type UsedCarSellFieldsProps = {
   errors: UsedCarSellFieldsErrors;
   /** Rent-car reuses brand/model/year UI without odometer mileage */
   showMileage?: boolean;
+  /** Composition-active field ids. Omitted = all visible (seed). */
+  enabledFieldIds?: ReadonlySet<string>;
 };
+
+function compositionFieldOn(ids: ReadonlySet<string> | undefined, id: string): boolean {
+  return !ids || ids.has(id);
+}
 
 export function UsedCarSellFields({
   carModel,
@@ -64,6 +70,7 @@ export function UsedCarSellFields({
   setFuelType,
   errors,
   showMileage = true,
+  enabledFieldIds,
 }: UsedCarSellFieldsProps) {
   const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -72,165 +79,185 @@ export function UsedCarSellFields({
   const models = brand?.models ?? [];
   const transmissionOpts = getTradeOptionCatalog("vehicle_transmission");
   const fuelOpts = getTradeOptionCatalog("vehicle_fuel_type");
+  const showMake = compositionFieldOn(enabledFieldIds, "make");
+  const showModel = compositionFieldOn(enabledFieldIds, "model");
+  const showYear = compositionFieldOn(enabledFieldIds, "year");
+  const showOdometer = showMileage && compositionFieldOn(enabledFieldIds, "mileage");
+  const showTransmission = compositionFieldOn(enabledFieldIds, "transmission");
+  const showFuel = compositionFieldOn(enabledFieldIds, "fuel_type");
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="min-w-0">
-          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            {t("trade_write_brand")} <span className="text-sam-danger">*</span>
-          </label>
-          <select
-            value={brandKey}
-            onChange={(e) => {
-              const next = e.target.value;
-              setBrandKey(next);
-              setModelKey("");
-              setCarModel("");
-            }}
-            className={TRADE_WRITE_FB_CONTROL}
-            aria-invalid={!!errors.carModel && !brandKey}
-          >
-            <option value="">{t("trade_075")}</option>
-            {USED_CAR_BRANDS.map((b) => (
-              <option key={b.key} value={b.key}>
-                {usedCarBrandOptionLabel(t, b.key, b.label)}
-              </option>
-            ))}
-          </select>
-        </div>
+      {showMake || showModel ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {showMake ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+                {t("trade_write_brand")} <span className="text-sam-danger">*</span>
+              </label>
+              <select
+                value={brandKey}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setBrandKey(next);
+                  setModelKey("");
+                  setCarModel("");
+                }}
+                className={TRADE_WRITE_FB_CONTROL}
+                aria-invalid={!!errors.carModel && !brandKey}
+              >
+                <option value="">{t("trade_075")}</option>
+                {USED_CAR_BRANDS.map((b) => (
+                  <option key={b.key} value={b.key}>
+                    {usedCarBrandOptionLabel(t, b.key, b.label)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
-        {brandKey && brandKey !== USED_CAR_BRAND_OTHER_KEY ? (
-          <div className="min-w-0">
-            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-              {t("trade_write_model")} <span className="text-sam-danger">*</span>
-            </label>
-            <select
-              value={modelKey}
-              onChange={(e) => {
-                const next = e.target.value;
-                setModelKey(next);
-                const line = buildCarModelLineFromKeys(brandKey, next);
-                if (line) setCarModel(line);
-              }}
-              className={TRADE_WRITE_FB_CONTROL}
-              aria-invalid={!!errors.carModel && !modelKey}
-            >
-              <option value="">{t("trade_075")}</option>
-              {models.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {usedCarModelOptionLabel(t, m.key, m.label)}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : brandKey === USED_CAR_BRAND_OTHER_KEY ? (
-          <div className="min-w-0 sm:col-span-1">
-            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-              {t("trade_write_body_type")} <span className="text-sam-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={carModel}
-              onChange={(e) => setCarModel(e.target.value)}
-              placeholder=""
-              className={TRADE_WRITE_FB_CONTROL}
-              aria-invalid={!!errors.carModel}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="min-w-0">
-          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            {t("trade_write_year")} <span className="text-sam-danger">*</span>
-          </label>
-          <select
-            value={carYear.replace(/\D/g, "").length === 4 ? carYear.replace(/\D/g, "").slice(0, 4) : ""}
-            onChange={(e) => setCarYear(e.target.value)}
-            className={TRADE_WRITE_FB_CONTROL}
-            aria-invalid={!!errors.carYear}
-          >
-            {yearOpts.map((opt) => (
-              <option key={opt.value || "empty"} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          {errors.carYear ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p> : null}
-        </div>
-
-        {showMileage ? (
-          <div className="min-w-0">
-            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-              {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
-            </label>
-            <select
-              value={mileagePresetKey}
-              onChange={(e) => {
-                const k = e.target.value;
-                setMileagePresetKey(k);
-                if (k && k !== USED_CAR_MILEAGE_CUSTOM_KEY) {
-                  const p = USED_CAR_MILEAGE_PRESETS.find((x) => x.key === k);
-                  if (p) setMileage(formatPriceInput(p.digits));
-                }
-              }}
-              className={TRADE_WRITE_FB_CONTROL}
-              aria-invalid={!!errors.mileage}
-            >
-              <option value="">{t("trade_075")}</option>
-              {USED_CAR_MILEAGE_PRESETS.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {labelForUsedCarMileagePresetKey(p.key, t)}
-                </option>
-              ))}
-              <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
-            </select>
-            {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
+          {showModel && brandKey && brandKey !== USED_CAR_BRAND_OTHER_KEY ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+                {t("trade_write_model")} <span className="text-sam-danger">*</span>
+              </label>
+              <select
+                value={modelKey}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setModelKey(next);
+                  const line = buildCarModelLineFromKeys(brandKey, next);
+                  if (line) setCarModel(line);
+                }}
+                className={TRADE_WRITE_FB_CONTROL}
+                aria-invalid={!!errors.carModel && !modelKey}
+              >
+                <option value="">{t("trade_075")}</option>
+                {models.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {usedCarModelOptionLabel(t, m.key, m.label)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : showModel && brandKey === USED_CAR_BRAND_OTHER_KEY ? (
+            <div className="min-w-0 sm:col-span-1">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+                {t("trade_write_body_type")} <span className="text-sam-danger">*</span>
+              </label>
               <input
                 type="text"
-                inputMode="numeric"
-                value={mileage}
-                onChange={(e) => setMileage(formatPriceInput(e.target.value))}
+                value={carModel}
+                onChange={(e) => setCarModel(e.target.value)}
                 placeholder=""
-                className={`mt-1.5 ${TRADE_WRITE_FB_CONTROL}`}
-                aria-invalid={!!errors.mileage}
+                className={TRADE_WRITE_FB_CONTROL}
+                aria-invalid={!!errors.carModel}
               />
-            ) : null}
-            {errors.mileage ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.mileage}</p> : null}
-          </div>
-        ) : null}
-      </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="min-w-0">
-          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_transmission")}</label>
-          <select
-            value={transmission}
-            onChange={(e) => setTransmission(e.target.value)}
-            className={TRADE_WRITE_FB_CONTROL}
-          >
-            <option value="">{t("trade_075")}</option>
-            {transmissionOpts.map((o) => (
-              <option key={o.value} value={o.value}>
-                {lang === "en" ? o.labelEn : o.labelKo}
-              </option>
-            ))}
-          </select>
+      {showYear || showOdometer ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {showYear ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+                {t("trade_write_year")} <span className="text-sam-danger">*</span>
+              </label>
+              <select
+                value={carYear.replace(/\D/g, "").length === 4 ? carYear.replace(/\D/g, "").slice(0, 4) : ""}
+                onChange={(e) => setCarYear(e.target.value)}
+                className={TRADE_WRITE_FB_CONTROL}
+                aria-invalid={!!errors.carYear}
+              >
+                {yearOpts.map((opt) => (
+                  <option key={opt.value || "empty"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {errors.carYear ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p> : null}
+            </div>
+          ) : null}
+
+          {showOdometer ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+                {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
+              </label>
+              <select
+                value={mileagePresetKey}
+                onChange={(e) => {
+                  const k = e.target.value;
+                  setMileagePresetKey(k);
+                  if (k && k !== USED_CAR_MILEAGE_CUSTOM_KEY) {
+                    const p = USED_CAR_MILEAGE_PRESETS.find((x) => x.key === k);
+                    if (p) setMileage(formatPriceInput(p.digits));
+                  }
+                }}
+                className={TRADE_WRITE_FB_CONTROL}
+                aria-invalid={!!errors.mileage}
+              >
+                <option value="">{t("trade_075")}</option>
+                {USED_CAR_MILEAGE_PRESETS.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {labelForUsedCarMileagePresetKey(p.key, t)}
+                  </option>
+                ))}
+                <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
+              </select>
+              {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={mileage}
+                  onChange={(e) => setMileage(formatPriceInput(e.target.value))}
+                  placeholder=""
+                  className={`mt-1.5 ${TRADE_WRITE_FB_CONTROL}`}
+                  aria-invalid={!!errors.mileage}
+                />
+              ) : null}
+              {errors.mileage ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.mileage}</p> : null}
+            </div>
+          ) : null}
         </div>
-        <div className="min-w-0">
-          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_fuel_type")}</label>
-          <select value={fuelType} onChange={(e) => setFuelType(e.target.value)} className={TRADE_WRITE_FB_CONTROL}>
-            <option value="">{t("trade_075")}</option>
-            {fuelOpts.map((o) => (
-              <option key={o.value} value={o.value}>
-                {lang === "en" ? o.labelEn : o.labelKo}
-              </option>
-            ))}
-          </select>
+      ) : null}
+
+      {showTransmission || showFuel ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {showTransmission ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_transmission")}</label>
+              <select
+                value={transmission}
+                onChange={(e) => setTransmission(e.target.value)}
+                className={TRADE_WRITE_FB_CONTROL}
+              >
+                <option value="">{t("trade_075")}</option>
+                {transmissionOpts.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {lang === "en" ? o.labelEn : o.labelKo}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {showFuel ? (
+            <div className="min-w-0">
+              <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>{t("ui_meta_fuel_type")}</label>
+              <select value={fuelType} onChange={(e) => setFuelType(e.target.value)} className={TRADE_WRITE_FB_CONTROL}>
+                <option value="">{t("trade_075")}</option>
+                {fuelOpts.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {lang === "en" ? o.labelEn : o.labelKo}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
       {errors.carModel ? <p className="sam-text-helper text-sam-danger">{errors.carModel}</p> : null}
     </div>

@@ -20,6 +20,10 @@ import {
 import { JobsExtendedWriteFields } from "./generic/JobsExtendedWriteFields";
 import { ExchangeExtendedWriteFields } from "./generic/ExchangeExtendedWriteFields";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
+import {
+  filterTradePersistMetaByComposition,
+  resolveUsedCarWriteTradeMode,
+} from "@/lib/trade/category-form/filter-persist-meta-by-composition";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
@@ -330,6 +334,10 @@ function TradeMarketplaceWriteFormInner({
     () => resolveTradeCompositionForCategory(category),
     [category]
   );
+  const compositionWriteFieldIds = useMemo(
+    () => new Set(tradeComposition.fields.map((field) => field.id)),
+    [tradeComposition]
+  );
   const isJobsProfile = tradeComposition.profileId === "jobs";
   const isExchangeProfile = tradeComposition.profileId === "exchange";
   const isExtendedProfile = isJobsProfile || isExchangeProfile;
@@ -372,6 +380,13 @@ function TradeMarketplaceWriteFormInner({
   /** 중고차: 삽니다(buy) / 팝니다(sell) — 신규 작성 기본은 팝니다 */
   const [usedCarTrade, setUsedCarTrade] = useState<"buy" | "sell" | null>(() =>
     isUsedCarTradeWriteSkin(category.icon_key) ? "sell" : null
+  );
+  const usedCarWriteTradeMode = useMemo(
+    () =>
+      isUsedCarSkin
+        ? resolveUsedCarWriteTradeMode(compositionWriteFieldIds, usedCarTrade)
+        : usedCarTrade,
+    [isUsedCarSkin, compositionWriteFieldIds, usedCarTrade]
   );
   const [usedCarBrandKey, setUsedCarBrandKey] = useState("");
   const [usedCarModelKey, setUsedCarModelKey] = useState("");
@@ -1341,17 +1356,32 @@ function TradeMarketplaceWriteFormInner({
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (skinKey !== "real-estate" && !isUsedCarSkin && !isRentCarSkin && !title.trim()) next.title = t("trade_102");
-    if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = t("trade_write_err_pick_buy_sell");
-    if (isUsedCarSkin && usedCarTrade === "buy") {
-      if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = t("trade_write_err_body_type");
-      const yErr = getUsedCarYearFieldError(carYear, "buy", t);
-      if (yErr) next.carYear = yErr;
-    } else if (isUsedCarSkin && usedCarTrade === "sell") {
-      const yErr = getUsedCarYearFieldError(carYear, "sell", t);
-      if (yErr) next.carYear = yErr;
-      if (!carModel.trim()) next.carModel = t("trade_write_err_brand_model");
-      const mileageDigits = mileage.replace(/\D/g, "");
-      if (!mileageDigits) next.mileage = t("trade_write_err_mileage");
+    if (isUsedCarSkin && compositionWriteFieldIds.has("car_trade") && !usedCarTrade) {
+      next.usedCarTrade = t("trade_write_err_pick_buy_sell");
+    }
+    if (isUsedCarSkin && usedCarWriteTradeMode === "buy") {
+      if (compositionWriteFieldIds.has("body_type") && !usedCarBodyTypeKey.trim()) {
+        next.usedCarBodyType = t("trade_write_err_body_type");
+      }
+      if (compositionWriteFieldIds.has("year")) {
+        const yErr = getUsedCarYearFieldError(carYear, "buy", t);
+        if (yErr) next.carYear = yErr;
+      }
+    } else if (isUsedCarSkin && usedCarWriteTradeMode === "sell") {
+      if (compositionWriteFieldIds.has("year")) {
+        const yErr = getUsedCarYearFieldError(carYear, "sell", t);
+        if (yErr) next.carYear = yErr;
+      }
+      if (
+        (compositionWriteFieldIds.has("make") || compositionWriteFieldIds.has("model")) &&
+        !carModel.trim()
+      ) {
+        next.carModel = t("trade_write_err_brand_model");
+      }
+      if (compositionWriteFieldIds.has("mileage")) {
+        const mileageDigits = mileage.replace(/\D/g, "");
+        if (!mileageDigits) next.mileage = t("trade_write_err_mileage");
+      }
     }
     if (!description.trim()) next.description = t("trade_write_err_content");
     const isRealEstateSale = skinKey === "real-estate" && dealType === "판매";
@@ -1408,9 +1438,16 @@ function TradeMarketplaceWriteFormInner({
       }
     }
     if (skinKey === "rent-car") {
-      if (!carModel.trim()) next.carModel = t("trade_write_err_brand_model");
-      const yErr = getUsedCarYearFieldError(carYear, "sell", t);
-      if (yErr) next.carYear = yErr;
+      if (
+        (compositionWriteFieldIds.has("make") || compositionWriteFieldIds.has("model")) &&
+        !carModel.trim()
+      ) {
+        next.carModel = t("trade_write_err_brand_model");
+      }
+      if (compositionWriteFieldIds.has("year")) {
+        const yErr = getUsedCarYearFieldError(carYear, "sell", t);
+        if (yErr) next.carYear = yErr;
+      }
       const compErrs = validateAdaptedCompositionValues(
         rentCarAdaptedFields,
         rentCarFieldValues,
@@ -1457,6 +1494,7 @@ function TradeMarketplaceWriteFormInner({
     isUsedCarSkin,
     isRentCarSkin,
     usedCarTrade,
+    usedCarWriteTradeMode,
     usedCarBodyTypeKey,
     carYear,
     carModel,
@@ -1480,6 +1518,7 @@ function TradeMarketplaceWriteFormInner({
     usedCarFieldValues,
     rentCarAdaptedFields,
     rentCarFieldValues,
+    compositionWriteFieldIds,
     generalAdaptedFields,
     generalFieldValues,
     language,
@@ -1602,7 +1641,7 @@ function TradeMarketplaceWriteFormInner({
           return;
         }
         const user = getCurrentUser();
-        const skipUsedCarBuyImages = isUsedCarSkin && usedCarTrade === "buy";
+        const skipUsedCarBuyImages = isUsedCarSkin && usedCarWriteTradeMode === "buy";
         const files = skipUsedCarBuyImages
           ? []
           : images.map((item) => item.file).filter((f): f is File => !!f);
@@ -1702,12 +1741,13 @@ function TradeMarketplaceWriteFormInner({
           const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
           if (meetMeta) meta = { ...meta, ...meetMeta };
         }
+        meta = filterTradePersistMetaByComposition(meta, tradeComposition);
         const usedCarPostTitle =
-          usedCarTrade === "buy"
+          usedCarWriteTradeMode === "buy"
             ? t("trade_write_auto_title_buy", {
                 detail: `${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey, t)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`,
               })
-            : usedCarTrade === "sell"
+            : usedCarWriteTradeMode === "sell"
               ? carModel.trim()
                 ? t("trade_write_auto_title_sell", { detail: carModel.trim() })
                 : t("trade_write_auto_title_sell_only")
@@ -1799,6 +1839,7 @@ function TradeMarketplaceWriteFormInner({
       dealType,
       title,
       usedCarTrade,
+      usedCarWriteTradeMode,
       description,
       price,
       hasPrice,
@@ -1849,6 +1890,7 @@ function TradeMarketplaceWriteFormInner({
       isJobsProfile,
       isExchangeProfile,
       submitExtendedProfile,
+      tradeComposition,
     ]
   );
 
@@ -2222,7 +2264,7 @@ function TradeMarketplaceWriteFormInner({
           </>
         ) : (
           <>
-        {!(isUsedCarSkin && usedCarTrade === "buy") ? (
+        {!(isUsedCarSkin && usedCarWriteTradeMode === "buy") ? (
             <ImageUploader
               value={images}
               onChange={setImages}
@@ -2241,7 +2283,7 @@ function TradeMarketplaceWriteFormInner({
             compact
           />
         </div>
-        {skinKey === "used-car" ? (
+        {skinKey === "used-car" && compositionWriteFieldIds.has("car_trade") ? (
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
               <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>
@@ -2292,7 +2334,7 @@ function TradeMarketplaceWriteFormInner({
               </section>
             ) : null}
           </>
-        ) : skinKey === "rent-car" ? null : (
+        ) : skinKey === "used-car" || skinKey === "rent-car" ? null : (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
               {t("trade_write_title")} <span className="text-sam-danger">*</span>
@@ -2313,7 +2355,7 @@ function TradeMarketplaceWriteFormInner({
         {(hasPrice || (hasFreeShare && !isUsedCarSkin && !isRentCarSkin)) &&
           skinKey !== "real-estate" &&
           skinKey !== "rent-car" &&
-          !(isUsedCarSkin && usedCarTrade === "buy") && (
+          !(isUsedCarSkin && usedCarWriteTradeMode === "buy") && (
           <section className={TRADE_WRITE_FB_SECTION}>
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-1">
@@ -2454,7 +2496,7 @@ function TradeMarketplaceWriteFormInner({
         {skinKey === "used-car" && (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_112")}</h4>
-            {usedCarTrade === "buy" ? (
+            {usedCarWriteTradeMode === "buy" ? (
               <UsedCarBuyFields
                 bodyTypeKey={usedCarBodyTypeKey}
                 setBodyTypeKey={setUsedCarBodyTypeKey}
@@ -2467,6 +2509,7 @@ function TradeMarketplaceWriteFormInner({
                 setIsPriceOfferEnabled={setIsPriceOfferEnabled}
                 allowPriceOffer={allowPriceOffer}
                 disabled={coreLocked}
+                enabledFieldIds={compositionWriteFieldIds}
                 errors={{
                   bodyType: errors.usedCarBodyType,
                   carYear: errors.carYear,
@@ -2492,12 +2535,14 @@ function TradeMarketplaceWriteFormInner({
                   setTransmission={setTransmission}
                   fuelType={fuelType}
                   setFuelType={setFuelType}
+                  enabledFieldIds={compositionWriteFieldIds}
                   errors={{
                     carYear: errors.carYear,
                     carModel: errors.carModel,
                     mileage: errors.mileage,
                   }}
                 />
+                {compositionWriteFieldIds.has("has_accident") ? (
                 <label className="flex cursor-pointer items-center gap-2 pt-0.5 whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -2507,6 +2552,7 @@ function TradeMarketplaceWriteFormInner({
                   />
                   <span className="sam-text-body-secondary text-sam-fg whitespace-nowrap">{t("trade_069")}</span>
                 </label>
+                ) : null}
               </div>
             )}
           </section>
@@ -2533,6 +2579,7 @@ function TradeMarketplaceWriteFormInner({
                 fuelType={fuelType}
                 setFuelType={setFuelType}
                 showMileage={false}
+                enabledFieldIds={compositionWriteFieldIds}
                 errors={{
                   carYear: errors.carYear,
                   carModel: errors.carModel,
