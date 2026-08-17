@@ -8,6 +8,7 @@ import {
   resolveCommunityMessengerDeliveryContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
+import { resolveMessengerRoomPhase2DomainChrome } from "@/lib/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome";
 import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,
@@ -95,11 +96,38 @@ export function useMessengerRoomPhase2RoomPresentation({
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
-  const roomTypeLabel = isOpenGroupRoom
-    ? t("nav_messenger_open_group")
-    : isPrivateGroupRoom
-      ? t("nav_messenger_private_group")
-      : t("nav_messenger_direct_room");
+  const domainChromePresentation = useMemo(() => {
+    if (!snapshot?.room) return null;
+    const tradeProductTitle =
+      snapshot.tradeChatRoomDetail?.product?.title?.trim() ||
+      (snapshot.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta.headline?.trim() : "") ||
+      null;
+    return resolveMessengerRoomPhase2DomainChrome({
+      room: snapshot.room,
+      viewerUserId: snapshot.viewerUserId,
+      myRole: snapshot.myRole,
+      tradeProductTitle,
+      storeOrderId: storeOrderIdForDock || null,
+      orderStatusLabel: null,
+      t,
+    });
+  }, [
+    snapshot?.room,
+    snapshot?.viewerUserId,
+    snapshot?.myRole,
+    snapshot?.tradeChatRoomDetail?.product?.title,
+    storeOrderIdForDock,
+    t,
+  ]);
+  const roomTypeLabel =
+    domainChromePresentation?.roomTypeLabel ??
+    (isOpenGroupRoom
+      ? t("nav_messenger_open_group")
+      : isPrivateGroupRoom
+        ? t("nav_messenger_private_group")
+        : t("nav_messenger_direct_room"));
+  const showTimelineMemberCountSuffix = domainChromePresentation?.showTimelineMemberCountSuffix ?? false;
+  const timelineMemberCount = domainChromePresentation?.timelineMemberCount ?? 0;
   const roomSubtitle = isGroupRoom
     ? typeof snapshot?.room.onlineCount === "number"
       ? t("cm_ui_group_members_online_line", {
@@ -237,10 +265,12 @@ export function useMessengerRoomPhase2RoomPresentation({
           : `${snapshot.room.memberCount}`)
       );
     }
+    const chromeSecondary = domainChromePresentation?.headerSecondaryText?.trim();
+    if (chromeSecondary) return chromeSecondary;
     return (
       [roomTypeLabel, roomSubtitle || "마지막 활동 없음"].filter(Boolean).join(" · ") || ""
     );
-  }, [snapshot, roomTypeLabel, roomSubtitle, isGroupRoom, t]);
+  }, [domainChromePresentation?.headerSecondaryText, snapshot, roomTypeLabel, roomSubtitle, isGroupRoom, t]);
 
   return {
     roomUnavailable,
@@ -279,5 +309,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     privateGroupNoticeStatusLabel,
     returnToCallSessionId,
     roomHeaderStatus,
+    showTimelineMemberCountSuffix,
+    timelineMemberCount,
   };
 }

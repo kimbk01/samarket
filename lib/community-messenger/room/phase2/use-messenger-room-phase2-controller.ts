@@ -407,6 +407,8 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNoticeStatusLabel,
     returnToCallSessionId,
     roomHeaderStatus,
+    showTimelineMemberCountSuffix,
+    timelineMemberCount,
   } = useMessengerRoomPhase2RoomPresentation({
     snapshot,
     roomId,
@@ -2542,6 +2544,8 @@ export function useMessengerRoomPhase2Controller() {
     ...phase1,
     call,
     roomHeaderStatus,
+    showTimelineMemberCountSuffix,
+    timelineMemberCount,
     roomUnavailable,
     isGroupRoom,
     roomSummaryHoldsOnlyTradeOrDeliveryMeta,

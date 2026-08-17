@@ -3003,7 +3003,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         callsHydrating={Boolean(data?.deferredCallLog)}
         onStartDirectCall={startDirectCall}
         onBootstrapCallsChange={onBootstrapCallsChange}
-        chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
+        chatListVisual={
+          pillar === "trade"
+            ? "trade"
+            : pillar === "delivery"
+              ? "delivery"
+              : chatKindFilter === "trade"
+                ? "trade"
+                : chatKindFilter === "delivery"
+                  ? "delivery"
+                  : "default"
+        }
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
         splitLayoutMode={tabletSplitListOnly ? "list-only" : "hub"}
       />

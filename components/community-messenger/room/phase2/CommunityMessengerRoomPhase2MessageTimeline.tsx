@@ -1821,8 +1821,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             {vm.roomTypeLabel}
             {vm.roomJoinLabel ? ` · ${vm.roomJoinLabel}` : ""}
             {vm.roomIdentityLabel ? ` · ${vm.roomIdentityLabel}` : ""}
-            {vm.snapshot.room.memberCount > 0
-              ? vm.t("cm_ui_member_count_suffix", { count: vm.snapshot.room.memberCount })
+            {vm.showTimelineMemberCountSuffix
+              ? vm.t("cm_ui_member_count_suffix", { count: vm.timelineMemberCount })
               : ""}
             {vm.snapshot.room.myIdentityMode
               ? ` · ${vm.t("nav_messenger_my_identity", {
