@@ -3,25 +3,17 @@
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatHubSecondaryTabs } from "@/components/chats/ChatHubSecondaryTabs";
-import {
-  MYPAGE_HOME_TRADE_HUB_HREF,
-  MYPAGE_HOME_TRADE_SALES_HREF,
-} from "@/lib/mypage/mypage-home-hub-links";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
-/**
- * Slice 5: purchase detail chrome tabs → trade hub SSOT
- * (legacy `/mypage/purchases|sales` list pages redirect)
- */
+/** CUT E: legacy purchase detail chrome tabs → Messenger list + sales. */
 export function MypagePurchaseSalesHubTabs() {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
-  const onPurchases =
-    pathname.startsWith("/mypage/trade") &&
-    !pathname.startsWith("/mypage/trade/sales") &&
-    !pathname.startsWith("/mypage/trade/favorites") &&
-    !pathname.startsWith("/mypage/trade/reviews")
-      ? true
-      : pathname.startsWith("/mypage/purchases");
+  const onMessenger =
+    pathname.startsWith("/community-messenger/trade-chats") ||
+    pathname.startsWith("/mypage/purchases") ||
+    pathname.startsWith("/philife/purchases");
   const onSales =
     pathname.startsWith("/mypage/trade/sales") || pathname.startsWith("/mypage/sales");
 
@@ -29,9 +21,9 @@ export function MypagePurchaseSalesHubTabs() {
     <ChatHubSecondaryTabs
       items={[
         {
-          href: MYPAGE_HOME_TRADE_HUB_HREF,
-          label: t("nav_trade_hub_purchases"),
-          active: onPurchases,
+          href: TRADE_CHAT_MESSENGER_LIST_HREF,
+          label: t("nav_trade_hub_chat"),
+          active: onMessenger,
         },
         {
           href: MYPAGE_HOME_TRADE_SALES_HREF,

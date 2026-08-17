@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 
@@ -12,10 +14,7 @@ export default function PhilifeReviewsPage() {
       <div className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <p className="sam-text-body leading-relaxed text-sam-muted">
           <strong className="text-sam-fg">{translate(lang, "philife_reviews_intro_1")}</strong>{" "}
-          {translate(lang, "philife_reviews_intro_2")}{" "}
-          <Link href="/mypage/trade" className="font-medium text-signature underline">
-            {translate(lang, "philife_reviews_shortcut_purchases")}
-          </Link>
+          {translate(lang, "philife_reviews_intro_2")}
         </p>
         <MyWrittenReviewsView />
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
@@ -25,7 +24,7 @@ export default function PhilifeReviewsPage() {
           <ul className="space-y-2">
             <li>
               <Link
-                href="/mypage/trade"
+                href={TRADE_CHAT_MESSENGER_LIST_HREF}
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 {translate(lang, "philife_reviews_shortcut_purchases")}
@@ -33,7 +32,7 @@ export default function PhilifeReviewsPage() {
             </li>
             <li>
               <Link
-                href="/mypage/trade/sales"
+                href={MYPAGE_HOME_TRADE_SALES_HREF}
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 {translate(lang, "philife_reviews_shortcut_sales")}

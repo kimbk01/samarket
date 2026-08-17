@@ -7,7 +7,6 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const MENU_ITEMS: { sectionId: string; labelKey: MessageKey }[] = [
-  { sectionId: "trade-purchases", labelKey: "mypage_comp_nav_sec_trade_purchases_label" },
   { sectionId: "trade-sales", labelKey: "mypage_comp_nav_sec_trade_sales_label" },
   { sectionId: "trade-favorites", labelKey: "mypage_comp_nav_sec_trade_favorites_label" },
   { sectionId: "trade-reviews", labelKey: "mypage_comp_nav_sec_trade_reviews_label" },

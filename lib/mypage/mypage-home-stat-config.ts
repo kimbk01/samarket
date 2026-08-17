@@ -83,9 +83,9 @@ export function buildMypageHomeStatRows(args: {
 }
 
 export function resolveActiveTradeCount(
-  purchases: number | null | undefined,
+  _purchases: number | null | undefined,
   sales: number | null | undefined
 ): number | null {
-  if (typeof purchases !== "number" || typeof sales !== "number") return null;
-  return Math.max(0, purchases) + Math.max(0, sales);
+  if (typeof sales !== "number") return null;
+  return Math.max(0, sales);
 }

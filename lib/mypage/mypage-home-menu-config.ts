@@ -8,11 +8,11 @@ import {
   MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
-  MYPAGE_HOME_TRADE_HUB_HREF,
   MYPAGE_HOME_TRADE_OFFERS_HREF,
   MYPAGE_HOME_TRADE_REVIEWS_HREF,
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export type {
   MypageHomeLinkMenuItem,
@@ -35,8 +35,8 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
     icon: "package",
   },
   {
-    href: MYPAGE_HOME_TRADE_HUB_HREF,
-    titleKey: "mypage_comp_nav_sec_trade_purchases_label",
+    href: TRADE_CHAT_MESSENGER_LIST_HREF,
+    titleKey: "nav_trade_hub_chat",
     icon: "shopping-bag",
   },
   {

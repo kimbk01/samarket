@@ -268,7 +268,7 @@ export function MyWrittenReviewsView({
           href={hubPurchasesPath}
           className="inline-block rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
         >
-          {t("mypage_comp_trade_nav_purchases")}
+          {t("nav_trade_hub_chat")}
         </Link>
       </div>
     );

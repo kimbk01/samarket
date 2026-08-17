@@ -53,16 +53,9 @@ const TRADE_HUB_RAIL_LINKS: readonly {
   {
     key: "hub",
     labelKey: "ui_home_rail_trade_hub",
-    href: "/mypage/trade/purchases",
+    href: "/mypage/trade/sales",
     fabClass: `${FAB_BASE} bg-sam-fg/10`,
     Icon: HubGridIcon,
-  },
-  {
-    key: "purchases",
-    labelKey: "trade_031",
-    href: "/mypage/trade/purchases",
-    fabClass: `${FAB_BASE} bg-amber-600`,
-    Icon: BagIcon,
   },
   {
     key: "sales",

@@ -77,7 +77,7 @@ export const SAMARKET_ROUTES = {
     hub: "/orders",
     /** 사업자·레거시 마이페이지 트리 — 구매자 배달 목록은 `orderChats` */
     storeOrders: "/mypage/store-orders",
-    tradePurchases: "/mypage/trade",
+    tradePurchases: "/community-messenger/trade-chats",
     /** 구매자 배달·매장 주문 목록(채팅 허브 탭과 동일) */
     orderChats: "/community-messenger/delivery-chats",
   },

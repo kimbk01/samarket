@@ -73,7 +73,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   /** Trade hub children — never fall through to empty title / brand fallback. */
   if (p === "/mypage/trade/purchases" || p.startsWith("/mypage/trade/purchases/")) {
     return backMypage({
-      titleText: "nav_trade_hub_purchases",
+      titleText: "nav_trade_hub_chat",
       subtitle: "tier1_trade_hub_subtitle",
       showHubQuickActions: true,
     });

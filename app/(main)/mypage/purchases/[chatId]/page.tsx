@@ -1,34 +1,17 @@
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import {
-  PurchaseDetailInvalidRoute,
-  PurchaseDetailRouteChrome,
-} from "@/components/mypage/purchases/PurchaseDetailRouteChrome";
-import { PurchaseDetailView } from "@/components/mypage/purchases/PurchaseDetailView";
+import { redirect } from "next/navigation";
+import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { parseRoomId } from "@/lib/validate-params";
 
 interface PageProps {
   params: Promise<{ chatId: string }>;
 }
 
-export default function PurchaseDetailPage({ params }: PageProps) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <PurchaseDetailPageBody params={params} />
-    </Suspense>
-  );
-}
-
-async function PurchaseDetailPageBody({ params }: PageProps) {
+/** CUT E — legacy purchase detail → Messenger trade room (buyer actions stay in room). */
+export default async function PurchaseDetailLegacyRedirectPage({ params }: PageProps) {
   const { chatId: raw } = await params;
   const chatId = parseRoomId(raw);
   if (!chatId) {
-    return <PurchaseDetailInvalidRoute />;
+    redirect(tradeHubChatRoomHref(""));
   }
-
-  return (
-    <PurchaseDetailRouteChrome>
-      <PurchaseDetailView chatId={chatId} />
-    </PurchaseDetailRouteChrome>
-  );
+  redirect(tradeHubChatRoomHref(chatId, "product_chat"));
 }

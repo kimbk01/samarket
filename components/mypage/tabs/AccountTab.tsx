@@ -183,10 +183,8 @@ export function AccountTab({
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryBox
-          label={t("mypage_comp_stat_active_trade")}
-          value={String(
-            (overviewCounts.purchases ?? 0) + (overviewCounts.sales ?? 0),
-          )}
+          label={t("mypage_comp_trade_nav_sales")}
+          value={String(overviewCounts.sales ?? 0)}
         />
         <SummaryBox label={t("mypage_comp_account_unread_alerts")} value={notificationBadge ?? "0"} />
         <SummaryBox

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { MYPAGE_HOME_TRADE_HUB_HREF } from "@/lib/mypage/mypage-home-hub-links";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
 
-/** Slice 5: legacy purchases shell → trade hub SSOT */
+/** CUT E — legacy purchase list → Messenger trade chat list. */
 export default function MypagePurchasesLegacyRedirectPage() {
-  redirect(MYPAGE_HOME_TRADE_HUB_HREF);
+  redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
 }

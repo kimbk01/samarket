@@ -2,6 +2,7 @@
  * section 스택 → 허브 redirect SSOT
  * 홈·하단탭은 허브만 연결하고, 북마크·레거시 URL 은 여기서 흡수한다.
  */
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
 import {
   MYPAGE_HOME_ACCOUNT_HREF,
   MYPAGE_HOME_ADDRESSES_HREF,
@@ -10,13 +11,12 @@ import {
   MYPAGE_HOME_RECENT_VIEWED_HREF,
   MYPAGE_HOME_STORE_ORDERS_HREF,
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
-  MYPAGE_HOME_TRADE_HUB_HREF,
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 
 const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "trade:sales": MYPAGE_HOME_TRADE_SALES_HREF,
-  "trade:purchases": MYPAGE_HOME_TRADE_HUB_HREF,
+  "trade:purchases": TRADE_CHAT_MESSENGER_LIST_HREF,
   "trade:favorites": MYPAGE_HOME_TRADE_FAVORITES_HREF,
   /** Slice 5: section recent → recent-viewed hub (not self) */
   "trade:recent": MYPAGE_HOME_RECENT_VIEWED_HREF,

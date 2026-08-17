@@ -1,6 +1,7 @@
-import { TradePurchasesSection } from "@/components/mypage/trade/TradePurchasesSection";
+import { redirect } from "next/navigation";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
-/** 리다이렉트 제거 — `/mypage/trade` 에서 바로 구매 본문 렌더로 왕복 한 번 줄임 */
+/** CUT E — Marketplace MY default = sales (buyer history → Messenger trade list). */
 export default function MypageTradeHubIndexPage() {
-  return <TradePurchasesSection />;
+  redirect(MYPAGE_HOME_TRADE_SALES_HREF);
 }

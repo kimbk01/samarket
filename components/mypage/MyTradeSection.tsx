@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode }[] = [
-  { labelKey: "mypage_comp_trade_nav_purchases", href: "/mypage/trade/purchases", icon: <BagIcon /> },
+  { labelKey: "nav_trade_hub_chat", href: TRADE_CHAT_SURFACE.messengerListHref, icon: <BagIcon /> },
   { labelKey: "mypage_comp_trade_nav_sales", href: "/mypage/trade/sales", icon: <CartIcon /> },
   { labelKey: "mypage_comp_trade_nav_favorites", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon /> },
   { labelKey: "mypage_comp_trade_nav_reviews", href: "/mypage/trade/reviews", icon: <StarIcon /> },

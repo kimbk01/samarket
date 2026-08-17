@@ -1,6 +1,7 @@
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
-import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import type { ManagedMyCtaLink } from "@/lib/my/managed-my-section-ctas";
 
@@ -14,10 +15,9 @@ function withLabels(items: Array<{ href: string; labelKey: MessageKey }>): Manag
 
 export function getTradeSectionCtas(): ManagedMyCtaLink[] {
   return withLabels([
-    { href: "/mypage/trade", labelKey: "my_cta_trade_hub" },
-    { href: "/mypage/trade/purchases", labelKey: "my_cta_trade_purchases" },
+    { href: MYPAGE_HOME_TRADE_SALES_HREF, labelKey: "my_cta_trade_hub" },
+    { href: TRADE_CHAT_MESSENGER_LIST_HREF, labelKey: "my_cta_trade_chat" },
     { href: "/mypage/trade/sales", labelKey: "my_cta_trade_sales" },
-    { href: "/community-messenger?section=chats&kind=trade", labelKey: "my_cta_trade_chat" },
     { href: "/mypage/trade/favorites", labelKey: "my_cta_trade_favorites" },
     { href: "/mypage/trade/reviews", labelKey: "my_cta_trade_reviews" },
   ]);
@@ -26,7 +26,7 @@ export function getTradeSectionCtas(): ManagedMyCtaLink[] {
 export function getOrdersSectionCtas(): ManagedMyCtaLink[] {
   return withLabels([
     { href: "/mypage/store-orders", labelKey: "my_cta_orders_history" },
-    { href: "/mypage/trade/purchases", labelKey: "my_cta_trade_purchases" },
+    { href: TRADE_CHAT_MESSENGER_LIST_HREF, labelKey: "my_cta_trade_chat" },
     { href: "/mypage/trade/sales", labelKey: "my_cta_trade_sales" },
   ]);
 }

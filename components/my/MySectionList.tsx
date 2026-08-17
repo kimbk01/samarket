@@ -3,13 +3,14 @@
 import Link from "next/link";
 import type { MyPageSectionRow } from "@/lib/my/types";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 
 /**
  * 내정보(`/mypage`·`/my`) 「개인 메뉴」 타일 목적지.
- * `deals`(나의 거래)는 개인 중고 거래 허브 — 구매/판매/찜/후기/채팅이 `/mypage/trade`에 있음.
+ * `deals`(나의 거래)는 판매 MY 허브 — buyer history는 Messenger trade list.
  */
 const SECTION_ROUTES: Record<string, string> = {
-  deals: "/mypage/trade/purchases",
+  deals: MYPAGE_HOME_TRADE_SALES_HREF,
   interests: MYPAGE_TRADE_FAVORITES_HREF,
   activity: "/my/reviews",
   business: "/stores/owner",

@@ -1,21 +1,7 @@
-import { PurchasesView } from "@/components/mypage/PurchasesView";
-import { HomePurchaseSalesHubTabs } from "@/components/mypage/HomePurchaseSalesHubTabs";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
-import { translate } from "@/lib/i18n/messages";
+import { redirect } from "next/navigation";
+import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
 
-export default function PhilifePurchasesPage() {
-  const lang = resolveServerInitialLanguage({});
-  return (
-    <div className="min-h-screen bg-background">
-      <MySubpageHeader
-        title={translate(lang, "philife_trade_manage_title")}
-        backHref="/philife"
-        stickyBelow={<HomePurchaseSalesHubTabs />}
-      />
-      <div className="mx-auto max-w-lg space-y-2 px-4 py-4 pb-24">
-        <PurchasesView />
-      </div>
-    </div>
-  );
+/** CUT E — philife purchase list duplicate surface → Messenger trade chat list. */
+export default function PhilifePurchasesLegacyRedirectPage() {
+  redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
 }

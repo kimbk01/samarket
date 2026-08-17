@@ -1,8 +1,11 @@
 /**
  * Slice 5 — Trade Activity hub paths SSOT.
- * Legacy `/mypage/purchases|sales` list shells redirect here; detail route KEEP.
+ * CUT E: buyer purchase list → Messenger trade list; detail legacy → room redirect.
  */
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  tradeHubChatRoomHref,
+  TRADE_CHAT_MESSENGER_LIST_HREF,
+} from "@/lib/chats/surfaces/trade-chat-surface";
 export const MYPAGE_TRADE_FAVORITES_HREF = "/mypage/trade/favorites" as const;
 
 /** @deprecated dual-shell removed in Slice 5 — always trade_shell */
@@ -17,7 +20,7 @@ export function tradeHubModeFromPathname(pathname: string): TradeHubLinkMode {
 }
 
 export function tradePurchasesPath(_mode?: TradeHubLinkMode): string {
-  return "/mypage/trade/purchases";
+  return TRADE_CHAT_MESSENGER_LIST_HREF;
 }
 
 export function tradeSalesPath(_mode?: TradeHubLinkMode): string {

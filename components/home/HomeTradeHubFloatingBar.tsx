@@ -7,7 +7,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
 import { warmTradeChatRoomsClient } from "@/lib/chats/warm-trade-chat-rooms-client";
 import {
-  fetchTradeHistoryPurchasesBySession,
   fetchTradeHistorySalesBySession,
 } from "@/lib/mypage/trade-history-client";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
@@ -140,7 +139,6 @@ export function HomeTradeHubFloatingBar() {
   useEffect(() => {
     if (!menuOpen) return;
     warmTradeChatRoomsClient(pathname);
-    void fetchTradeHistoryPurchasesBySession().catch(() => {});
     void fetchTradeHistorySalesBySession().catch(() => {});
   }, [menuOpen]);
 

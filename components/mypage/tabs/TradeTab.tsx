@@ -3,12 +3,11 @@
 import type { ReactNode } from "react";
 import { FavoritesHubView } from "@/components/favorites/FavoritesHubView";
 import { ChatRoomList } from "@/components/chats/ChatRoomList";
-import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_SURFACE, tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function TradeTab({ section }: { section: string }) {
@@ -27,10 +26,16 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "purchases") {
     return (
       <TabShell
-        title={safeT("mypage_comp_nav_sec_trade_purchases_label")}
-        description={t("mypage_comp_nav_sec_trade_purchases_desc")}
+        title={safeT("nav_trade_hub_chat")}
+        description={t("mypage_comp_nav_sec_trade_chat_desc")}
       >
-        <PurchasesView />
+        <p className="sam-text-body text-sam-muted">{t("nav_chat_trade_empty")}</p>
+        <a
+          href={TRADE_CHAT_SURFACE.messengerListHref}
+          className="mt-4 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
+        >
+          {t("nav_trade_hub_chat")}
+        </a>
       </TabShell>
     );
   }

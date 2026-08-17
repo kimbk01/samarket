@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
@@ -12,12 +13,6 @@ import {
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-
-/** `/mypage/trade` 인덱스와 `/mypage/trade/purchases` 모두 구매 탭 활성 */
-function isPurchasesHubPath(norm: string): boolean {
-  const p = norm.replace(/\/+$/, "") || "/";
-  return p === "/mypage/trade" || p === "/mypage/trade/purchases";
-}
 
 function linkActive(
   norm: string,
@@ -32,8 +27,13 @@ function linkActive(
     : p === prefix || (prefix !== "/" && p.startsWith(`${prefix}/`));
 }
 
+function isSalesHubPath(norm: string): boolean {
+  const p = norm.replace(/\/+$/, "") || "/";
+  return p === MYPAGE_HOME_TRADE_SALES_HREF || p === "/mypage/trade";
+}
+
 /**
- * 거래 허브 PRIMARY SECTION NAV — shared dibay secondary (oval parallel removed).
+ * 거래 허브 PRIMARY SECTION NAV — CUT E: sales-centric (no buyer purchase tab).
  */
 export function TradeHubTopTabs() {
   const { t } = useI18n();
@@ -43,11 +43,10 @@ export function TradeHubTopTabs() {
   const rows = useMemo(
     () =>
       [
-        { key: "purchases", label: t("nav_trade_hub_purchases"), href: "/mypage/trade" },
         {
           key: "sales",
           label: t("nav_trade_hub_sales"),
-          href: "/mypage/trade/sales",
+          href: MYPAGE_HOME_TRADE_SALES_HREF,
           pathMatch: "exact" as const,
         },
         {
@@ -83,7 +82,7 @@ export function TradeHubTopTabs() {
         <div className={`${DIBAY_SECONDARY_TABS_CLASS} border-b-0 bg-transparent px-0`} role="tablist">
           {rows.map((row) => {
             const active =
-              row.key === "purchases" ? isPurchasesHubPath(norm) : linkActive(norm, row);
+              row.key === "sales" ? isSalesHubPath(norm) : linkActive(norm, row);
             return (
               <Link
                 key={row.key}

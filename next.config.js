@@ -119,7 +119,12 @@ const nextConfig = {
       /** Slice 5 Activity — legacy list shells → trade hub (HTTP 307; RSC-only redirect is 200+CSR) */
       {
         source: "/mypage/purchases",
-        destination: "/mypage/trade",
+        destination: "/community-messenger/trade-chats",
+        permanent: false,
+      },
+      {
+        source: "/mypage/trade/purchases",
+        destination: "/community-messenger/trade-chats",
         permanent: false,
       },
       {

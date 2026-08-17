@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
@@ -16,21 +15,21 @@ import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-type StackTab = "purchases" | "sales" | "favorites" | "reviews" | "chat";
+type StackTab = "sales" | "favorites" | "reviews" | "chat";
 
-const TAB_ORDER: StackTab[] = ["purchases", "sales", "favorites", "reviews", "chat"];
+const TAB_ORDER: StackTab[] = ["sales", "favorites", "reviews", "chat"];
 
 const PANEL_ROOT_CLASS = ["flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app text-sam-fg", COMMUNITY_FONT_CLASS].join(
   " "
 );
 
 /**
- * 헤더 스택 안 거래 허브 — 필라이프 피드와 동일한 탭 스트립·가로 인셋(`px-2`).
+ * 헤더 스택 안 거래 허브 — CUT E: sales default, buyer list → Messenger.
  */
 export function TradeHistoryStackPanel() {
   const { t } = useI18n();
   const { requestClose } = useTradeHeaderTradeHistoryStack();
-  const [tab, setTab] = useState<StackTab>("purchases");
+  const [tab, setTab] = useState<StackTab>("sales");
 
   useEffect(() => {
     prefetchTradeHubHistorySnapshots();
@@ -38,7 +37,6 @@ export function TradeHistoryStackPanel() {
 
   const labels = useMemo(
     () => ({
-      purchases: t("nav_trade_hub_purchases"),
       sales: t("nav_trade_hub_sales"),
       favorites: t("nav_trade_hub_favorites"),
       reviews: t("nav_trade_hub_reviews"),
@@ -84,11 +82,6 @@ export function TradeHistoryStackPanel() {
       <div
         className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,var(--safe-bottom))] pt-2 ${PHILIFE_FEED_INSET_X_CLASS}`}
       >
-        {tab === "purchases" ? (
-          <TradeHubSectionShell title={t("trade_031")}>
-            <PurchasesView />
-          </TradeHubSectionShell>
-        ) : null}
         {tab === "sales" ? (
           <TradeHubSectionShell title={t("trade_122")}>
             <SalesHistoryView />
