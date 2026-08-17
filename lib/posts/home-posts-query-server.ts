@@ -9,7 +9,10 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { normalizePostImages, normalizePostMeta, normalizePostPrice } from "@/lib/posts/post-normalize";
 import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
-import { buildTradePostsStatusAndCategoryAndFilter } from "@/lib/posts/trade-posts-category-filter";
+import {
+  buildTradePostsStatusAndCategoryAndFilter,
+  buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
+} from "@/lib/posts/trade-posts-category-filter";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
 import {
   POST_TRADE_LIST_SELECT,
@@ -127,17 +130,7 @@ export async function loadHomePostsPage(
     ? MARKETPLACE_DISTANCE_SCAN_CAP - 1
     : from + HOME_POSTS_PAGE_SIZE - 1;
 
-  outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
-    let q = sb.from(table).select(selectFields);
-    if (tradeCategoryIds?.length) {
-      const andGroup = buildTradePostsStatusAndCategoryAndFilter(tradeCategoryIds, statusOr);
-      if (!andGroup) {
-        return { posts: [], hasMore: false };
-      }
-      applyPostgrestAndGroup(q as unknown as { url: URL }, andGroup);
-    } else {
-      q = q.or(statusOr);
-    }
+  const applyHomePostsRowFilters = (q: any) => {
     if (type === "trade" && !(tradeCategoryIds && tradeCategoryIds.length > 0)) {
       /** Union already scopes by trade_category_id. Extra neq("") breaks PostgREST + type=trade. */
       q = q.not("trade_category_id", "is", null);
@@ -149,24 +142,67 @@ export async function loadHomePostsPage(
       // no-op
     }
     if (feedLocExtras) {
-      q = applyResolvedTradeFeedLocationToQuery(q as any, feedLocExtras) as typeof q;
+      q = applyResolvedTradeFeedLocationToQuery(q, feedLocExtras);
     }
-    q = applyMarketplaceQueryToPostgrest(q as any, {
+    q = applyMarketplaceQueryToPostgrest(q, {
       q: queryExtras?.q,
       priceMin: queryExtras?.priceMin,
       priceMax: queryExtras?.priceMax,
-    }) as typeof q;
-    q = applyCompositionFilterClausesToPostgrest(q as any, queryExtras?.compositionFilters) as typeof q;
+    });
+    q = applyCompositionFilterClausesToPostgrest(q, queryExtras?.compositionFilters);
     if (sort === "popular") {
       q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
     } else {
       q = q.order("created_at", { ascending: false });
     }
+    return q;
+  };
 
-    const res = await q.range(rangeFrom, rangeTo);
+  const runHomePostsSelect = async (selectFields: string, andGroup: string | null) => {
+    let q = sb.from(table).select(selectFields);
+    if (andGroup) {
+      applyPostgrestAndGroup(q as unknown as { url: URL }, andGroup);
+    } else {
+      q = q.or(statusOr);
+    }
+    q = applyHomePostsRowFilters(q);
+    return q.range(rangeFrom, rangeTo);
+  };
+
+  outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
+    const dualAnd = tradeCategoryIds?.length
+      ? buildTradePostsStatusAndCategoryAndFilter(tradeCategoryIds, statusOr)
+      : null;
+    if (tradeCategoryIds?.length && !dualAnd) {
+      return { posts: [], hasMore: false };
+    }
+    const res = await runHomePostsSelect(selectFields, dualAnd);
     if (!res.error && Array.isArray(res.data)) {
       data = res.data;
       break outer;
+    }
+    /**
+     * Same fallback as `fetchPostsRangeForTradeCategories`: posts has no `category_id`.
+     * Dual-column `and` then empties every HOME select tier (tradeMarketParent → 0 rows).
+     */
+    if (
+      tradeCategoryIds?.length &&
+      res.error &&
+      typeof res.error.message === "string" &&
+      /category_id/i.test(res.error.message)
+    ) {
+      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(
+        tradeCategoryIds,
+        statusOr
+      );
+      if (!fallbackAnd) {
+        return { posts: [], hasMore: false };
+      }
+      const retry = await runHomePostsSelect(selectFields, fallbackAnd);
+      if (!retry.error && Array.isArray(retry.data)) {
+        data = retry.data;
+        break outer;
+      }
     }
   }
 
