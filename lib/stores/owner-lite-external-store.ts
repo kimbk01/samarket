@@ -1,5 +1,5 @@
 /**
- * 소유 매장 요약(/api/me/stores) — BottomNav·OwnerLiteStoreBar 등이 같이 쓸 때
+ * 소유 매장 요약(/api/me/stores) — BottomNav·오너 허브 등이 같이 쓸 때
  * 구독은 여러 개여도 로드는 한 갈래(runSingleFlight + fetchMeStoresListDeduped).
  */
 import {

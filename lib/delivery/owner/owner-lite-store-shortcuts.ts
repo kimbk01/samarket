@@ -27,7 +27,7 @@ function resolveSafeStoreDeepLink(ownerStoreId: string, href: string | null | un
 }
 
 /**
- * 하단 OwnerLiteStoreBar 와 동일 우선순위 — 문의 → 신규주문 → 배달채팅 → (판매 가능 시 주문관리) → 매장 설정
+ * 오너 숏컷 우선순위 — 문의 → 신규주문 → 배달채팅 → (판매 가능 시 주문관리) → 매장 설정
  */
 export function resolveOwnerLiteStoreShortcuts(
   ownerStore: { id: string; sales_permission?: SalesPermission },

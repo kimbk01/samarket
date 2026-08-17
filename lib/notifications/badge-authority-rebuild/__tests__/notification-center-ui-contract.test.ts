@@ -50,9 +50,15 @@ describe("Gate3 Step8 Notification Center UI contract", () => {
       path.join(root, "lib/layout/conditional-app-shell-flags.ts"),
       "utf8"
     );
-    expect(flags.includes("isNotificationsCenterPathname")).toBe(true);
-    expect(flags.includes("!isNotificationsCenter")).toBe(true);
-    expect(flags.includes("showOwnerLiteStoreBarInNotificationsSticky = false")).toBe(true);
+    expect(flags.includes("showFloat")).toBe(false);
+    expect(flags.includes("showOwnerLiteStoreBar")).toBe(false);
+    expect(flags.includes("isNotificationsCenterPathname")).toBe(false);
+    const shell = fs.readFileSync(
+      path.join(root, "components/layout/ConditionalAppShell.tsx"),
+      "utf8"
+    );
+    expect(shell.includes("OwnerLiteStoreBar")).toBe(false);
+    expect(shell.includes("FloatingAddButton")).toBe(false);
     const sticky = fs.readFileSync(
       path.join(root, "components/layout/AppStickyHeader.tsx"),
       "utf8"

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import {
@@ -130,15 +132,27 @@ describe("orders hub store review shell", () => {
   });
 });
 
-describe("platform legal public surfaces", () => {
+describe("global left write FAB and OwnerLite store strip are removed", () => {
+  it("shell and flags do not keep the retired chrome", () => {
+    const root = join(__dirname, "..", "..");
+    const shell = readFileSync(join(root, "components/layout/ConditionalAppShell.tsx"), "utf8");
+    const flags = readFileSync(join(root, "lib/layout/conditional-app-shell-flags.ts"), "utf8");
+    expect(shell).not.toContain("OwnerLiteStoreBar");
+    expect(shell).not.toContain("FloatingAddButton");
+    expect(shell).not.toContain("showFloat");
+    expect(shell).not.toContain("showOwnerLiteStoreBar");
+    expect(flags).not.toContain("showFloat");
+    expect(flags).not.toContain("showOwnerLiteStoreBar");
+    expect(flags).not.toContain("FloatingAddButton");
+    expect(flags).not.toContain("OwnerLiteStoreBar");
+  });
+
   it.each(["/terms", "/privacy", "/business-info"])(
-    "%s hides OwnerLite strip and global write FAB",
+    "%s also hides delivery FAB sector",
     (path) => {
       const f = resolveConditionalAppShellFlags(path, false);
-      expect(f.showFloat).toBe(false);
-      expect(f.showOwnerLiteStoreBar).toBe(false);
       expect(f.showMainBottomNavFabSector).toBe(false);
-    },
+    }
   );
 });
 

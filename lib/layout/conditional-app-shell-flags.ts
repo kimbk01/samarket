@@ -8,7 +8,6 @@ import {
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isMypageAddressEditPath, isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { isMainBottomNavHubBodyClearancePath } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
@@ -25,34 +24,6 @@ const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
   "meetings",
   "post",
 ]);
-
-/** `/terms` — 약관 전용 서브페이지(매장 1단·글로벌 + FAB 없음) */
-export function isTermsPagePathname(pathname: string | null | undefined): boolean {
-  const p = (pathname ?? "").split("?")[0]!.trim();
-  return p === "/terms" || p.startsWith("/terms/");
-}
-
-/**
- * 공개 법적·사업자 문서 표면 — `/terms` · `/privacy` · `/business-info`.
- * DO NOT leave global `+` FAB (`FloatingAddButton`) or external OwnerLite (store name strip)
- * on these surfaces (APK/iOS overlap with safe-top / bottom nav).
- */
-export function isPlatformLegalPublicPathname(pathname: string | null | undefined): boolean {
-  const p = (pathname ?? "").split("?")[0]!.trim();
-  if (isTermsPagePathname(p)) return true;
-  if (p === "/privacy" || p.startsWith("/privacy/")) return true;
-  if (p === "/business-info" || p.startsWith("/business-info/")) return true;
-  return false;
-}
-
-/**
- * Member Notification Center — `/notifications` · `/notifications/[id]`.
- * DO NOT leave global `+` FAB or external OwnerLite (above safe-top) on this surface.
- */
-export function isNotificationsCenterPathname(pathname: string | null | undefined): boolean {
-  const p = (pathname ?? "").split("?")[0]!.trim();
-  return p === "/notifications" || p.startsWith("/notifications/");
-}
 
 /** `/philife/{uuid}` · `/community/posts/{uuid}` — 동네 게시글 상세(스크롤 숨김·셸 플래그) */
 export function isPhilifeNeighborhoodPostDetailPathname(pathname: string | null | undefined): boolean {
@@ -98,9 +69,6 @@ export function isMarketTradeFeedHubPath(pathname: string | null | undefined): b
 export type ConditionalAppShellResolvedFlags = {
   /** `/stores/[slug]` 주문 메뉴 루트 — 히어로 풀블리드·당김 배경과 셸 배경 일치 */
   isStoreOrderHeroMenuSurface: boolean;
-  isSettings: boolean;
-  isLogout: boolean;
-  isMyEdit: boolean;
   isProductEditPage: boolean;
   isPersonalProductComposerPage: boolean;
   isWritePage: boolean;
@@ -128,25 +96,17 @@ export type ConditionalAppShellResolvedFlags = {
   isTradeFloatingSurface: boolean;
   /** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */
   showHomeTradeHubFloatingBar: boolean;
-  /** `/market/trade-meet-spot` — 전역 하단 탭·플로팅 FAB 숨김 */
+  /** `/market/trade-meet-spot` — 전역 하단 탭·거래 허브 FAB 숨김 */
   isTradeMeetSpotPickRoute: boolean;
   /** 배달 FAB 섹터(`/stores`·`/stores/cart`·주문내역) — 하단 탭 보조 메뉴 */
   showMainBottomNavFabSector: boolean;
   isChatsHubSurface: boolean;
-  hideBarAndFloat: boolean;
   hideRegionBar: boolean;
   isMyTab: boolean;
   isMypageHub: boolean;
-  showFloat: boolean;
   showBottomNav: boolean;
-  /**
-   * `/notifications` only — OwnerLite mounts **inside** `AppStickyHeader` (after safe-top),
-   * not above it. External `showOwnerLiteStoreBar` stays false on this path.
-   */
-  showOwnerLiteStoreBarInNotificationsSticky: boolean;
   /** Desktop 좌측 메인 탭 레일 — `showBottomNav` 와 동일 경로 자격(뷰포트는 Shell 클라이언트에서 AND) */
   showMainDesktopSideNavEligible: boolean;
-  showOwnerLiteStoreBar: boolean;
   mountGlobalRealtimeChromeOnTradeOrStoreDetail: boolean;
   mountGlobalRealtimeChrome: boolean;
   mountNotificationSoundPrime: boolean;
@@ -175,9 +135,6 @@ export function resolveConditionalAppShellFlags(
   const isStoreOrderHeroMenuSurface = isStoresConsumerSlugMenuRoute(pathname);
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
   const isHome = pathname === "/" || pathname === "/philife";
-  const isSettings = pathname?.startsWith("/my/settings") ?? false;
-  const isLogout = pathname === "/my/logout";
-  const isMyEdit = isProfileEditPath(pathname);
   const isProductEditPage = Boolean(pathname?.match(/^\/products\/[^/]+\/edit$/));
   const isPersonalProductComposerPage =
     pathname === "/products/new" || (pathname?.startsWith("/products/new/") ?? false) || isProductEditPage;
@@ -240,7 +197,6 @@ export function resolveConditionalAppShellFlags(
       ? storeCartViewportLockedShellClass
       : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
-  const isLegalPublicPage = isPlatformLegalPublicPathname(pathname);
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
   const isCommunityApp =
@@ -268,56 +224,12 @@ export function resolveConditionalAppShellFlags(
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
   const showHomeTradeHubFloatingBar = isTradeFloatingSurface && !isMarketTradeFeedHubPath(pathname);
   const isChatsHubSurface = pathname === "/mypage/trade/chat";
-  const hideBarAndFloat = isSettings || isLogout || isMyEdit;
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
   const isMyTab = pathname?.startsWith("/my") ?? false;
   const isMypageHub = pathname?.startsWith("/mypage") ?? false;
-  const isNotificationsCenter = isNotificationsCenterPathname(pathname);
-  const showFloat =
-    !hideBarAndFloat &&
-    !isMyTab &&
-    !isMypageHub &&
-    !isNotificationsCenter &&
-    !isWritePage &&
-    !isChatRoomDetail &&
-    !isPostDetail &&
-    !isProductDetail &&
-    !isProductEditPage &&
-    !isStoreProductDetail &&
-    !isStoreSection &&
-    !isCommunityApp &&
-    !isCommunityMessengerSurface &&
-    !isOrdersHub &&
-    !isTradeFloatingSurface &&
-    !isTradeMeetSpotPickRoute &&
-    !isTradeBrowseLocationRoute &&
-    !isLegalPublicPage;
   /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
   const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
-  const ownerLiteEligibleBase =
-    showBottomNav &&
-    !hideBarAndFloat &&
-    !isMyTab &&
-    !isMypageHub &&
-    !isStoreSection &&
-    !isOrdersHub &&
-    !isChatRoomDetail &&
-    !isChatsHubSurface &&
-    !isSearch &&
-    !isServicesSection &&
-    !isTradeFloatingSurface &&
-    !isCommunityMessengerSurface &&
-    !isCommunityApp &&
-    !isPersonalProductComposerPage &&
-    !isLegalPublicPage;
-  /**
-   * External OwnerLite — OFF on Notification Center (sticky/above-title).
-   * OwnerLite on `/notifications` mounts **in page body below title** only
-   * (`app/(main)/notifications/page.tsx`) — do not re-enable sticky strip.
-   */
-  const showOwnerLiteStoreBar = ownerLiteEligibleBase && !isNotificationsCenter;
-  const showOwnerLiteStoreBarInNotificationsSticky = false;
   const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
     isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =
@@ -367,9 +279,6 @@ export function resolveConditionalAppShellFlags(
   return {
     isStoreOrderHeroMenuSurface,
     // home(첫 진입)에서는 글로벌 realtime chrome을 기본으로 끈다(배지/사운드는 허브에서만).
-    isSettings,
-    isLogout,
-    isMyEdit,
     isProductEditPage,
     isPersonalProductComposerPage,
     isWritePage,
@@ -398,15 +307,11 @@ export function resolveConditionalAppShellFlags(
     isTradeMeetSpotPickRoute,
     showMainBottomNavFabSector,
     isChatsHubSurface,
-    hideBarAndFloat,
     hideRegionBar,
     isMyTab,
     isMypageHub,
-    showFloat,
     showBottomNav,
     showMainDesktopSideNavEligible: showBottomNav,
-    showOwnerLiteStoreBar,
-    showOwnerLiteStoreBarInNotificationsSticky,
     mountGlobalRealtimeChromeOnTradeOrStoreDetail,
     mountGlobalRealtimeChrome,
     mountNotificationSoundPrime,

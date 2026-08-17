@@ -71,10 +71,9 @@ describe("hub shell bottom padding", () => {
     expect(f.mainBottomClass).toBe("pb-0");
   });
 
-  it("/market/location hides global + FAB and owns bottom padding", () => {
+  it("/market/location hides trade hub FAB and owns bottom padding", () => {
     for (const path of ["/market/location", "/market/location/distance", "/market/location/search"]) {
       const f = resolveConditionalAppShellFlags(path, false);
-      expect(f.showFloat).toBe(false);
       expect(f.showHomeTradeHubFloatingBar).toBe(false);
       expect(f.mainBottomClass).toBe("pb-0");
     }

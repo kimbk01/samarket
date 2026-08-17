@@ -75,16 +75,6 @@ const HomeTradeHubFloatingBarLazy = dynamic(
   () => import("@/components/home/HomeTradeHubFloatingBar").then((m) => m.HomeTradeHubFloatingBar),
   { ssr: false }
 );
-/** 오너 라이트 상단 바 서브그래프만 별도 청크 — 표시 조건·DOM 위치·모달 계약 동일. */
-const OwnerLiteStoreBarLazy = dynamic(
-  () => import("@/components/layout/OwnerLiteStoreBar").then((m) => m.OwnerLiteStoreBar),
-  { ssr: false }
-);
-/** 글로벌 FAB(+ 글쓰기) 서브그래프만 별도 청크 — `f.showFloat`·DOM 위치 동일. */
-const FloatingAddButtonLazy = dynamic(
-  () => import("@/components/layout/FloatingAddButton").then((m) => m.FloatingAddButton),
-  { ssr: false }
-);
 const MainBottomNavFabSectorLazy = dynamic(
   () => import("@/components/layout/MainBottomNavFabSector").then((m) => m.MainBottomNavFabSector),
   { ssr: false }
@@ -344,14 +334,13 @@ export function ConditionalAppShell({
         hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
-      {/** App Ready before BottomNav/owner layout — children layout effects run depth-first first→last */}
+      {/** App Ready before BottomNav layout — children layout effects run depth-first first→last */}
       <MarkAppShellReadyOnce pathname={pathname} routeSearch={routeSearch} />
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />
       <WebConnectivityBanner />
       {f.showRegionBar ? <RegionBar /> : null}
-      {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       {hubScrollColumn ? (
         /**
          * MAIN hub: Header+Body share ONE push-surface transform authority
@@ -391,7 +380,6 @@ export function ConditionalAppShell({
       {f.showMainBottomNavFabSector && !messengerCallSuppressesBottomNav ? (
         <MainBottomNavFabSectorLazy />
       ) : null}
-      {f.showFloat && <FloatingAddButtonLazy />}
       <BootThumbnailObserver />
     </div>
     </BottomNavScrollChromeProvider>
