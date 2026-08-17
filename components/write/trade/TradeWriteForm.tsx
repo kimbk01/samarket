@@ -17,14 +17,8 @@ import {
   GenericTradeWriteFields,
   validateAdaptedCompositionValues,
 } from "./generic/GenericTradeWriteFields";
-import {
-  JobsExtendedWriteFields,
-  type JobsWriteSubmitHandler,
-} from "./generic/JobsExtendedWriteFields";
-import {
-  ExchangeExtendedWriteFields,
-  type ExchangeWriteSubmitHandler,
-} from "./generic/ExchangeExtendedWriteFields";
+import { JobsExtendedWriteFields } from "./generic/JobsExtendedWriteFields";
+import { ExchangeExtendedWriteFields } from "./generic/ExchangeExtendedWriteFields";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
@@ -225,6 +219,12 @@ import {
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
+import type {
+  TradeExtendedWriteController,
+  TradeWriteChromeSlots,
+  TradeWriteChromeState,
+} from "@/lib/trade/category-form/extended-write-controller";
+import { JOB_DESCRIPTION_MAX, JOB_TITLE_MAX, type JobListingKind } from "@/lib/jobs/form-options";
 import {
   TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
@@ -333,24 +333,18 @@ function TradeMarketplaceWriteFormInner({
   const isJobsProfile = tradeComposition.profileId === "jobs";
   const isExchangeProfile = tradeComposition.profileId === "exchange";
   const isExtendedProfile = isJobsProfile || isExchangeProfile;
-  const jobsSubmitRef = useRef<JobsWriteSubmitHandler | null>(null);
-  const exchangeSubmitRef = useRef<ExchangeWriteSubmitHandler | null>(null);
+  const jobsControllerRef = useRef<TradeExtendedWriteController | null>(null);
+  const exchangeControllerRef = useRef<TradeExtendedWriteController | null>(null);
   const [jobsSubmitting, setJobsSubmitting] = useState(false);
   const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
-  const registerJobsSubmit = useCallback(
-    (handler: JobsWriteSubmitHandler | null, submittingNow: boolean) => {
-      jobsSubmitRef.current = handler;
-      setJobsSubmitting((prev) => (prev === submittingNow ? prev : submittingNow));
-    },
-    []
-  );
-  const registerExchangeSubmit = useCallback(
-    (handler: ExchangeWriteSubmitHandler | null, submittingNow: boolean) => {
-      exchangeSubmitRef.current = handler;
-      setExchangeSubmitting((prev) => (prev === submittingNow ? prev : submittingNow));
-    },
-    []
-  );
+  const registerJobsController = useCallback((controller: TradeExtendedWriteController | null) => {
+    jobsControllerRef.current = controller;
+  }, []);
+  const registerExchangeController = useCallback((controller: TradeExtendedWriteController | null) => {
+    exchangeControllerRef.current = controller;
+  }, []);
+  const [jobsListingKind, setJobsListingKind] = useState<JobListingKind>("hire");
+  const [extendedChromeErrors, setExtendedChromeErrors] = useState<Record<string, string>>({});
   /**
    * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
    * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
@@ -1240,6 +1234,13 @@ function TradeMarketplaceWriteFormInner({
    * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
    */
   const handleBeforeNavigateToAddresses = useCallback(async () => {
+    if (isExtendedProfile) {
+      if (editPostId) return;
+      const controller = isJobsProfile ? jobsControllerRef.current : exchangeControllerRef.current;
+      const ok = await controller?.persistStagingIfNeeded({ markRestoreAfterSubflow: true });
+      if (!ok) throw new Error("extended-staging-aborted");
+      return;
+    }
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
@@ -1250,7 +1251,14 @@ function TradeMarketplaceWriteFormInner({
     const built = buildTradeWriteFormSessionDraft(payload);
     writeTradeWriteFormSessionDraft(built);
     persistTradeWriteMeetSpotStaging(category.id, built);
-  }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
+  }, [
+    isExtendedProfile,
+    isJobsProfile,
+    editPostId,
+    category.id,
+    uploadPendingTradeWriteImages,
+    assembleTradeWriteFlushPayload,
+  ]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -1479,15 +1487,106 @@ function TradeMarketplaceWriteFormInner({
     t,
   ]);
 
+  const submitExtendedProfile = useCallback(
+    async (
+      controller: TradeExtendedWriteController | null,
+      setExtendedSubmitting: React.Dispatch<React.SetStateAction<boolean>>
+    ) => {
+      if (!controller) return;
+      if (!controller.validate()) return;
+      setErrors({});
+      setExtendedSubmitting(true);
+      try {
+        const pathFallback = controller.getSubmitErrorFallbackPath();
+        if (editPostId) {
+          if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
+            return;
+          }
+        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
+          return;
+        }
+
+        const controllerImages = controller.getImages();
+        const user = getCurrentUser();
+        const files = controllerImages.map((item) => item.file).filter((f): f is File => !!f);
+        const existingUrls = controllerImages
+          .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
+          .map((item) => item.url);
+        let uploadedFileResults: string[] = [];
+        let createPreflight: { userId: string; phoneGatePassed: true } | undefined;
+
+        if (editPostId) {
+          uploadedFileResults =
+            files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+        } else {
+          const uploadPromise =
+            files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
+          const [uploaded, preflightUserId] = await Promise.all([
+            uploadPromise,
+            getCurrentUserIdForDb(),
+          ]);
+          uploadedFileResults = uploaded;
+          if (!preflightUserId) {
+            setErrors({ submit: t("trade_write_err_login") });
+            return;
+          }
+          createPreflight = { userId: preflightUserId, phoneGatePassed: true };
+        }
+
+        if (files.length > 0 && uploadedFileResults.length !== files.length) {
+          setErrors({
+            submit: t("trade_write_err_upload_partial", {
+              total: files.length,
+              uploaded: uploadedFileResults.length,
+            }),
+          });
+          return;
+        }
+
+        const mergedImageUrls = [...existingUrls, ...uploadedFileResults];
+        const imageUrlsForSave = mergedImageUrls.length > 0 ? mergedImageUrls : undefined;
+        const payload = controller.buildPayload(imageUrlsForSave);
+
+        if (editPostId) {
+          const res = await updateTradePostFromCreatePayload(editPostId, payload, {
+            descriptionAppend: controller.getDescriptionAppend(),
+          });
+          if (res.ok) {
+            controller.clearStagingAfterSuccess();
+            invalidateHomePostsCache();
+            onSuccess(editPostId);
+          } else {
+            if (redirectForBlockedAction(router, res.error, pathFallback)) return;
+            setErrors({ submit: res.error });
+          }
+          return;
+        }
+
+        const res = await createPost(payload, createPreflight);
+        if (res.ok) {
+          controller.clearStagingAfterSuccess();
+          invalidateHomePostsCache();
+          onSuccess(res.id);
+        } else {
+          if (redirectForBlockedAction(router, res.error, pathFallback)) return;
+          setErrors({ submit: res.error });
+        }
+      } finally {
+        setExtendedSubmitting(false);
+      }
+    },
+    [editPostId, onSuccess, router, t]
+  );
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (isJobsProfile) {
-        await jobsSubmitRef.current?.(e);
+        await submitExtendedProfile(jobsControllerRef.current, setJobsSubmitting);
         return;
       }
       if (isExchangeProfile) {
-        await exchangeSubmitRef.current?.(e);
+        await submitExtendedProfile(exchangeControllerRef.current, setExchangeSubmitting);
         return;
       }
       if (!validate()) return;
@@ -1749,6 +1848,7 @@ function TradeMarketplaceWriteFormInner({
       t,
       isJobsProfile,
       isExchangeProfile,
+      submitExtendedProfile,
     ]
   );
 
@@ -1863,22 +1963,188 @@ function TradeMarketplaceWriteFormInner({
         region={region}
         city={city}
         onSyncRegionCity={syncTradeRegionCity}
-        error={errors.location}
+        error={isExtendedProfile ? extendedChromeErrors.location || errors.location : errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
         onAddressResolved={setTradeAddressSsot}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
-        meetSpotError={errors.meetSpot}
+        meetSpotError={isExtendedProfile ? extendedChromeErrors.meetSpot || errors.meetSpot : errors.meetSpot}
         onBeforeMeetSpotPick={
           hasLocation && !locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
         }
-        meetSpotHeading={t("trade_write_location")}
+        meetSpotHeading={
+          isJobsProfile
+            ? jobsListingKind === "work"
+              ? t("jobs_write_meet_seeker")
+              : t("jobs_write_meet_hire")
+            : t("trade_write_location")
+        }
         belowMeetSpotSlot={undefined}
         denseLayout
       />
     </div>
   ) : null;
+
+  const extendedChrome: TradeWriteChromeState = {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    descriptionAppend,
+    setDescriptionAppend,
+    images,
+    setImages,
+    region,
+    city,
+    setRegion,
+    setCity,
+    syncTradeRegionCity,
+    tradeTopicChildId,
+    setTradeTopicChildId,
+    tradeMeetSpot,
+    setTradeMeetSpot,
+    tradeAddressSsot,
+    setTradeAddressSsot,
+    setChromeErrors: setExtendedChromeErrors,
+  };
+
+  const extendedImageMax = isJobsProfile ? Math.min(3, maxProductImages) : maxProductImages;
+  const extendedImageLabel = isJobsProfile
+    ? jobsListingKind === "work"
+      ? t("jobs_write_photos_optional_label")
+      : t("jobs_write_store_photos_label")
+    : t("trade_write_photos");
+
+  const extendedChromeSlots: TradeWriteChromeSlots = {
+    images: (
+      <div className={TRADE_WRITE_FB_SECTION}>
+        <ImageUploader
+          value={images}
+          onChange={setImages}
+          maxCount={extendedImageMax}
+          label={extendedImageLabel}
+          disabled={coreLocked}
+          compact={false}
+          variant="karrot"
+        />
+      </div>
+    ),
+    topic: (
+      <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+        <WriteTradeTopicSection
+          category={category}
+          value={tradeTopicChildId}
+          onChange={setTradeTopicChildId}
+        />
+      </div>
+    ),
+    location: tradeLocationEl,
+    title: isExchangeProfile ? null : (
+      <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+        <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_101")}</h4>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          readOnly={coreLocked}
+          placeholder={
+            isJobsProfile
+              ? jobsListingKind === "hire"
+                ? t("jobs_write_title_ph_hire")
+                : t("jobs_write_title_ph_work")
+              : ""
+          }
+          maxLength={isJobsProfile ? JOB_TITLE_MAX : 100}
+          className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
+            extendedChromeErrors.title ? "border-red-400 bg-red-50" : "border-sam-border"
+          }`}
+        />
+        {extendedChromeErrors.title ? (
+          <p className="mt-1 sam-text-body-secondary text-red-500">{extendedChromeErrors.title}</p>
+        ) : null}
+        {isJobsProfile ? (
+          <p className="mt-1 sam-text-helper text-sam-muted">
+            {title.length}/{JOB_TITLE_MAX}
+          </p>
+        ) : null}
+      </section>
+    ),
+    description: (
+      <section className={TRADE_WRITE_FB_SECTION}>
+        <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+          {isJobsProfile
+            ? jobsListingKind === "work"
+              ? t("jobs_write_intro_label")
+              : t("jobs_write_description_label")
+            : t("trade_write_content")}{" "}
+          {isJobsProfile ? (
+            <span className="text-red-500">*</span>
+          ) : (
+            <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+          )}
+        </h4>
+        <AutoGrowTextarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          readOnly={coreLocked || showDescriptionAppend}
+          placeholder={
+            isJobsProfile ? (jobsListingKind === "work" ? t("trade_008") : t("trade_036")) : ""
+          }
+          maxLength={isJobsProfile ? JOB_DESCRIPTION_MAX : undefined}
+          className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
+            extendedChromeErrors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
+          } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-[#050505]"}`}
+        />
+        {!showDescriptionAppend ? (
+          <>
+            <button
+              type="button"
+              className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
+              onClick={() => setFrequentPhrasesOpen(true)}
+            >
+              {t("trade_write_frequent_phrases")}
+            </button>
+            <TradeFrequentPhrasesSheet
+              open={frequentPhrasesOpen}
+              onClose={() => setFrequentPhrasesOpen(false)}
+              onPickPhrase={(text) => {
+                setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
+              }}
+            />
+          </>
+        ) : null}
+        {isJobsProfile ? (
+          <p className="mt-1 text-right sam-text-helper text-sam-muted">
+            {description.length}/{JOB_DESCRIPTION_MAX}
+          </p>
+        ) : isExchangeProfile ? (
+          <p className="mt-1 text-[12px] text-[#8a8d91]">{t("trade_066")}</p>
+        ) : null}
+        {extendedChromeErrors.description ? (
+          <p className="sam-text-body-secondary text-red-500">{extendedChromeErrors.description}</p>
+        ) : null}
+        {showDescriptionAppend ? (
+          <div className="mt-2 border-t border-[#e4e6eb] pt-2">
+            <label className={TRADE_WRITE_FB_FIELD_LABEL}>
+              {isExchangeProfile ? t("trade_117") : t("trade_116")}
+            </label>
+            {isJobsProfile ? (
+              <p className="mb-1 text-[12px] text-[#8a8d91]">
+                {jobsListingKind === "work" ? t("jobs_write_append_hint") : t("trade_045")}
+              </p>
+            ) : null}
+            <AutoGrowTextarea
+              value={descriptionAppend}
+              onChange={(e) => setDescriptionAppend(e.target.value)}
+              placeholder=""
+              className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
+            />
+          </div>
+        ) : null}
+      </section>
+    ),
+  };
 
   return (
     <div
@@ -1917,29 +2183,45 @@ function TradeMarketplaceWriteFormInner({
           </div>
         ) : null}
         {isJobsProfile ? (
-          <JobsExtendedWriteFields
-            category={category}
-            onSuccess={onSuccess}
-            onCancel={onCancel}
-            onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
-            suppressTier1Chrome
-            editPostId={editPostId}
-            ownerEditSnapshot={ownerEditSnapshot}
-            tradePolicy={tradePolicy}
-            registerSubmit={registerJobsSubmit}
-          />
+          <>
+            {extendedChromeSlots.topic}
+            {extendedChromeSlots.title}
+            <JobsExtendedWriteFields
+              category={category}
+              onSuccess={onSuccess}
+              onCancel={onCancel}
+              onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
+              suppressTier1Chrome
+              editPostId={editPostId}
+              ownerEditSnapshot={ownerEditSnapshot}
+              tradePolicy={tradePolicy}
+              registerController={registerJobsController}
+              chrome={extendedChrome}
+              onListingKindChange={setJobsListingKind}
+            />
+            {extendedChromeSlots.location}
+            {extendedChromeSlots.description}
+            {extendedChromeSlots.images}
+          </>
         ) : isExchangeProfile ? (
-          <ExchangeExtendedWriteFields
-            category={category}
-            onSuccess={onSuccess}
-            onCancel={onCancel}
-            onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
-            suppressTier1Chrome
-            editPostId={editPostId}
-            ownerEditSnapshot={ownerEditSnapshot}
-            tradePolicy={tradePolicy}
-            registerSubmit={registerExchangeSubmit}
-          />
+          <>
+            {extendedChromeSlots.images}
+            {extendedChromeSlots.topic}
+            <ExchangeExtendedWriteFields
+              category={category}
+              onSuccess={onSuccess}
+              onCancel={onCancel}
+              onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
+              suppressTier1Chrome
+              editPostId={editPostId}
+              ownerEditSnapshot={ownerEditSnapshot}
+              tradePolicy={tradePolicy}
+              registerController={registerExchangeController}
+              chrome={extendedChrome}
+            />
+            {extendedChromeSlots.location}
+            {extendedChromeSlots.description}
+          </>
         ) : (
           <>
         {!(isUsedCarSkin && usedCarTrade === "buy") ? (

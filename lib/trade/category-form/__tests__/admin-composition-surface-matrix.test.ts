@@ -69,6 +69,7 @@ describe("admin composition surface matrix (Phase 4)", () => {
     expect(list).toContain("field_composition");
     expect(home).toContain("useTradeListCompositionMap");
     expect(detail).toContain("field_composition");
-    expect(detail).toContain('iconKey="jobs"');
+    expect(detail).toContain("iconKey={detailSpecProfileId}");
+    expect(detail).not.toContain("if (isRealEstateDetail)");
   });
 });

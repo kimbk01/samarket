@@ -3,23 +3,17 @@
 /**
  * Exchange write profile body — NOT a product entry.
  * Mount only via TradeWriteForm → TradeMarketplaceWriteFormInner (profileId === "exchange").
- * The marketplace shell owns page chrome and submit button; this body keeps exchange-specific
- * rate/prep UI, draft staging, validation, and create/update payload behavior.
+ * The marketplace shell owns page chrome, chrome widget placement, and submit;
+ * this body keeps exchange-specific rate/prep extras, draft staging, and validation.
  */
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { createPost } from "@/lib/posts/createPost";
-import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
-import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import {
-  hrefTradeMeetSpotPick,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
@@ -34,13 +28,9 @@ import {
   clearTradeMeetSpotSessionNavigationState,
   consumeTradeMeetSpotPickResult,
   peekTradeMeetSpotPickResult,
-  prepareTradeMeetSpotMapNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
 import {
-  TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
-  markTradeMeetSpotFocusOnReturn,
-  persistTradeMeetSpotReturnScrollPosition,
   restoreTradeMeetSpotReturnScrollPosition,
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
@@ -58,12 +48,6 @@ import {
 } from "@/lib/posts/jobs-exchange-write-draft-signal";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import {
-  ensureClientAccessOrRedirectAsync,
-  redirectForBlockedAction,
-} from "@/lib/auth/client-access-flow";
-import { getAppSettings } from "@/lib/app-settings";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
   CURRENCY_SYMBOLS,
@@ -72,22 +56,13 @@ import {
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { AutoGrowTextarea } from "../../shared/AutoGrowTextarea";
-import { ImageUploader, type ImageUploadItem } from "../../shared/ImageUploader";
-import { TradeFrequentPhrasesSheet } from "../../shared/TradeFrequentPhrasesSheet";
-import {
-  TradeDefaultLocationBlock,
-  type TradeWriteAddressSsotSnapshot,
-} from "../../shared/TradeDefaultLocationBlock";
-import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
+import { resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_INPUT_REGION_BAR,
   TRADE_WRITE_FB_INPUT_REGION_TITLE,
   TRADE_WRITE_FB_FIELD_HEAD,
-  TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
-import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
@@ -98,13 +73,15 @@ import {
 } from "@/components/write/trade/generic/GenericTradeWriteFields";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
+import type {
+  TradeExtendedWriteController,
+  TradeWriteChromeState,
+} from "@/lib/trade/category-form/extended-write-controller";
 
 /**
  * Exchange Write — rate card / prep / memo stay shell (derived UX + multi-select).
  * Composition still owns validation via exchangeAdaptedFields + exchangeFieldValues.
  */
-
-export type ExchangeWriteSubmitHandler = (e: React.FormEvent) => Promise<void>;
 
 interface ExchangeExtendedWriteFieldsProps {
   category: CategoryWithSettings;
@@ -115,7 +92,8 @@ interface ExchangeExtendedWriteFieldsProps {
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
-  registerSubmit?: (handler: ExchangeWriteSubmitHandler | null, submitting: boolean) => void;
+  registerController?: (controller: TradeExtendedWriteController | null) => void;
+  chrome: TradeWriteChromeState;
 }
 
 
@@ -151,36 +129,42 @@ function buildExchangeTitle(
 
 export function ExchangeExtendedWriteFields({
   category,
-  onSuccess,
   onMeaningfulTradeDraftChange,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
-  registerSubmit,
+  registerController,
+  chrome,
 }: ExchangeExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
-  const appSettings = useMemo(() => getAppSettings(), []);
-  const maxImages = Math.max(1, appSettings.maxProductImages ?? 10);
   /** 환전 전용 폼은 거래 지역 필수. exchange 카테고리 DB 설정에 has_location=false가 있어도 항상 표시 */
   const hasLocation = true;
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [descriptionAppend, setDescriptionAppend] = useState("");
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
-  const locationLocked = Boolean(
-    editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
-  );
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
-  const [region, setRegion] = useState("");
-  const [city, setCity] = useState("");
-  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
-    setRegion(rid);
-    setCity(cid);
-  }, []);
+  const {
+    description: memo,
+    setDescription: setMemo,
+    descriptionAppend,
+    setDescriptionAppend,
+    images,
+    setImages,
+    region,
+    city,
+    setRegion,
+    setCity,
+    syncTradeRegionCity,
+    tradeTopicChildId,
+    setTradeTopicChildId,
+    tradeMeetSpot,
+    setTradeMeetSpot,
+    tradeAddressSsot,
+    setTradeAddressSsot,
+    setChromeErrors,
+  } = chrome;
 
   const [direction, setDirection] = useState<"sell" | "buy">("sell");
   const [liveRates, setLiveRates] = useState<ExchangeRates | null>(null);
@@ -189,19 +173,6 @@ export function ExchangeExtendedWriteFields({
   const [rate, setRate] = useState("");
   const [ratePlus, setRatePlus] = useState("0");
   const [amount, setAmount] = useState("");
-  const [tradeTopicChildId, setTradeTopicChildId] = useState("");
-  const [images, setImages] = useState<ImageUploadItem[]>([]);
-  const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
-  const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
-  const [tradeAddressSsot, setTradeAddressSsot] = useState<TradeWriteAddressSsotSnapshot>({
-    ready: false,
-    missing: true,
-    displayLine: null,
-    regionId: "",
-    cityId: "",
-    tradeLguId: null,
-    nationalStatus: "pending",
-  });
   const effectiveTradeRegionId = useMemo(() => {
     return region.trim();
   }, [region]);
@@ -225,7 +196,6 @@ export function ExchangeExtendedWriteFields({
 
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
   const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
-  const [memo, setMemo] = useState("");
 
   const exchangeComposition = useMemo(
     () => resolveTradeCompositionForCategory(category),
@@ -478,12 +448,6 @@ export function ExchangeExtendedWriteFields({
   const isOtherPrepDisabled = (prep: string[], value: string) =>
     prep.includes(IDENTITY_NOT_REQUIRED) && value !== IDENTITY_NOT_REQUIRED;
 
-  const karrotMeetSpotDisplayLine = useMemo(() => {
-    const fromMap = tradeMeetSpot?.displayLine?.trim();
-    if (fromMap) return fromMap;
-    return tradeAddressSsot.displayLine?.trim() ?? "";
-  }, [tradeMeetSpot, tradeAddressSsot.displayLine]);
-
   const handleResumeExchangePersistedDraft = useCallback(() => {
     const staged = consumeExchangeWriteMeetSpotStaging(category.id);
     if (!staged) return;
@@ -632,24 +596,6 @@ export function ExchangeExtendedWriteFields({
     };
   }, [tradeWriteSheet, editPostId, persistExchangeFormStagingIfNeeded]);
 
-  const handleBeforeNavigateToAddresses = useCallback(async () => {
-    if (editPostId) return;
-    const ok = await persistExchangeFormStagingIfNeeded({ markRestoreAfterSubflow: true });
-    if (!ok) throw new Error("exchange-staging-aborted");
-  }, [editPostId, persistExchangeFormStagingIfNeeded]);
-
-  const handleBeforeMeetSpotPick = useCallback(async () => {
-    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
-    if (!editPostId) {
-      const ok = await persistExchangeFormStagingIfNeeded({ markRestoreAfterSubflow: true });
-      if (!ok) return;
-    }
-    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
-    persistTradeMeetSpotReturnScrollPosition();
-    markTradeMeetSpotFocusOnReturn();
-    router.push(hrefTradeMeetSpotPick(returnTo));
-  }, [editPostId, tradeWriteSheet, category, persistExchangeFormStagingIfNeeded, tradeMeetSpot, router]);
-
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (rateValue <= 0 || Number.isNaN(rateValue)) {
@@ -694,6 +640,11 @@ export function ExchangeExtendedWriteFields({
       if (!next[formKey]) next[formKey] = msg;
     }
     setErrors(next);
+    setChromeErrors({
+      location: next.location ?? "",
+      meetSpot: next.meetSpot ?? "",
+      description: next.memo ?? "",
+    });
     return Object.keys(next).length === 0;
   }, [
     rateValue,
@@ -709,95 +660,44 @@ export function ExchangeExtendedWriteFields({
     exchangeFieldValues,
     language,
     t,
+    setChromeErrors,
   ]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!validate()) return;
-      setSubmitting(true);
-      try {
-        const pathFallback =
-          pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`);
-        if (editPostId) {
-          if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
-            return;
-          }
-        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
-          return;
-        }
-        const user = getCurrentUser();
-        const files = images.map((i) => i.file).filter((f): f is File => !!f);
-        const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-        const existingUrls = images
-          .map((i) => i.url)
-          .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
-        const mergedImageUrls = [...existingUrls, ...uploaded];
-
-        const title = buildExchangeTitle(direction, t);
-        const content = memo.trim() || t("exchange_write_default_memo");
-        let meta: Record<string, unknown> = {
-          exchange_direction: direction,
-          from_currency: "PHP",
-          to_currency: "KRW",
-          exchange_rate: rateValue,
-          exchange_rate_base: baseRateValue,
-          exchange_rate_plus: ratePlusValue,
-          rate_criteria_at: ratesFetchedAt ?? undefined,
-          amount: amountValue,
-          converted_amount: converted,
-          seller_prep: direction === "sell" ? [] : sellerPrep,
-          buyer_prep: buyerPrep,
-        };
-        const submitRegion = effectiveTradeRegionId.trim();
-        const submitCity = effectiveTradeCityId.trim();
-        if (hasLocation) {
-          const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
-          if (meetMeta) meta = { ...meta, ...meetMeta };
-        }
-        const payload = {
-          type: "trade" as const,
-          categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
-          title,
-          content,
-          price: amountValue,
-          imageUrls: mergedImageUrls.length > 0 ? mergedImageUrls : undefined,
-          region: submitRegion || undefined,
-          city: submitCity || undefined,
-          tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
-          meta,
-        };
-        if (editPostId) {
-          const res = await updateTradePostFromCreatePayload(editPostId, payload, {
-            descriptionAppend:
-              showDescriptionAppend && descriptionAppend.trim()
-                ? descriptionAppend.trim()
-                : undefined,
-          });
-          if (res.ok) {
-            clearExchangeWriteMeetSpotStaging(category.id);
-            clearTradeMeetSpotSessionNavigationState();
-            invalidateHomePostsCache();
-            onSuccess(editPostId);
-          } else {
-            if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) return;
-            setErrors({ submit: res.error });
-          }
-        } else {
-          const res = await createPost(payload);
-          if (res.ok) {
-            clearExchangeWriteMeetSpotStaging(category.id);
-            clearTradeMeetSpotSessionNavigationState();
-            invalidateHomePostsCache();
-            onSuccess(res.id);
-          } else {
-            if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
-            setErrors({ submit: res.error });
-          }
-        }
-      } finally {
-        setSubmitting(false);
+  const buildPayload = useCallback(
+    (imageUrls: string[] | undefined) => {
+      const title = buildExchangeTitle(direction, t);
+      const content = memo.trim() || t("exchange_write_default_memo");
+      let meta: Record<string, unknown> = {
+        exchange_direction: direction,
+        from_currency: "PHP",
+        to_currency: "KRW",
+        exchange_rate: rateValue,
+        exchange_rate_base: baseRateValue,
+        exchange_rate_plus: ratePlusValue,
+        rate_criteria_at: ratesFetchedAt ?? undefined,
+        amount: amountValue,
+        converted_amount: converted,
+        seller_prep: direction === "sell" ? [] : sellerPrep,
+        buyer_prep: buyerPrep,
+      };
+      const submitRegion = effectiveTradeRegionId.trim();
+      const submitCity = effectiveTradeCityId.trim();
+      if (hasLocation) {
+        const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
+        if (meetMeta) meta = { ...meta, ...meetMeta };
       }
+      return {
+        type: "trade" as const,
+        categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
+        title,
+        content,
+        price: amountValue,
+        imageUrls,
+        region: submitRegion || undefined,
+        city: submitCity || undefined,
+        tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
+        meta,
+      };
     },
     [
       direction,
@@ -814,51 +714,48 @@ export function ExchangeExtendedWriteFields({
       tradeTopicChildId,
       effectiveTradeRegionId,
       effectiveTradeCityId,
-      validate,
-      onSuccess,
-      router,
-      pathname,
-      editPostId,
-      showDescriptionAppend,
-      descriptionAppend,
-      images,
       tradeAddressSsot,
       tradeMeetSpot,
+      hasLocation,
+      t,
     ]
   );
 
   useEffect(() => {
-    registerSubmit?.(handleSubmit, submitting);
-    return () => registerSubmit?.(null, false);
-  }, [registerSubmit, handleSubmit, submitting]);
+    registerController?.({
+      validate,
+      getImages: () => images,
+      buildPayload,
+      getDescriptionAppend: () =>
+        showDescriptionAppend && descriptionAppend.trim() ? descriptionAppend.trim() : undefined,
+      clearStagingAfterSuccess: () => {
+        clearExchangeWriteMeetSpotStaging(category.id);
+        clearTradeMeetSpotSessionNavigationState();
+      },
+      getSubmitErrorFallbackPath: () =>
+        pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`),
+      persistStagingIfNeeded: persistExchangeFormStagingIfNeeded,
+    });
+    return () => registerController?.(null);
+  }, [
+    registerController,
+    validate,
+    images,
+    buildPayload,
+    showDescriptionAppend,
+    descriptionAppend,
+    category.id,
+    category.slug,
+    pathname,
+    editPostId,
+    persistExchangeFormStagingIfNeeded,
+  ]);
 
   /** 참고 시세 한 줄용 — API·정적 기준만(작성 중 입력값과 무관). 로딩 여부는 UI에서만 분기 */
   const referenceKrwMid = useMemo(
     () =>
       liveRates?.KRW && liveRates.KRW > 0 ? liveRates.KRW : DEFAULT_RATES_PHP_BASE.KRW,
     [liveRates]
-  );
-
-  const tradeLocationEl = (
-    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
-      <TradeDefaultLocationBlock
-        category={category}
-        editPostId={editPostId}
-        region={region}
-        city={city}
-        onSyncRegionCity={syncTradeRegionCity}
-        error={errors.location}
-        readOnly={locationLocked || coreLocked}
-        onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
-        onAddressResolved={setTradeAddressSsot}
-        karrotMeetSpotUi={hasLocation}
-        meetSpotLine={karrotMeetSpotDisplayLine || null}
-        meetSpotError={errors.meetSpot}
-        onBeforeMeetSpotPick={!locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
-        meetSpotHeading={t("trade_write_location")}
-        denseLayout
-      />
-    </div>
   );
 
   return (
@@ -884,26 +781,7 @@ export function ExchangeExtendedWriteFields({
           </p>
         </div>
 
-        <div className={TRADE_WRITE_FB_SECTION}>
-          <ImageUploader
-            value={images}
-            onChange={setImages}
-            maxCount={maxImages}
-            label={t("trade_write_photos")}
-            disabled={coreLocked}
-            compact={false}
-            variant="karrot"
-          />
-        </div>
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-        <div className={TRADE_WRITE_FB_SECTION}>
-          <WriteTradeTopicSection
-            category={category}
-            value={tradeTopicChildId}
-            onChange={setTradeTopicChildId}
-          />
-        </div>
-
         {/* 팝니다 = 페소 팝니다 / 삽니다 = 페소 삽니다. 금액은 항상 페소. */}
         <section className={TRADE_WRITE_FB_SECTION}>
           <GenericTradeWriteFields
@@ -1091,51 +969,6 @@ export function ExchangeExtendedWriteFields({
           {errors.prep && <p className="mt-2 sam-text-body-secondary text-red-500">{errors.prep}</p>}
         </section>
         </div>
-
-        {tradeLocationEl}
-
-        <section className={TRADE_WRITE_FB_SECTION}>
-          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-            {t("trade_write_content")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
-          </h4>
-          <AutoGrowTextarea
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            readOnly={coreLocked || showDescriptionAppend}
-            placeholder=""
-            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] text-[#050505] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary`}
-          />
-          {!showDescriptionAppend ? (
-            <>
-              <button
-                type="button"
-                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
-                onClick={() => setFrequentPhrasesOpen(true)}
-              >
-                {t("trade_write_frequent_phrases")}
-              </button>
-              <TradeFrequentPhrasesSheet
-                open={frequentPhrasesOpen}
-                onClose={() => setFrequentPhrasesOpen(false)}
-                onPickPhrase={(text) => {
-                  setMemo((d) => (d.trim() ? `${d}\n\n${text}` : text));
-                }}
-              />
-            </>
-          ) : null}
-          <p className="mt-1 text-[12px] text-[#8a8d91]">{t("trade_066")}</p>
-          {showDescriptionAppend ? (
-            <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-              <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_117")}</label>
-              <AutoGrowTextarea
-                value={descriptionAppend}
-                onChange={(e) => setDescriptionAppend(e.target.value)}
-                placeholder=""
-                className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[80px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
-              />
-            </div>
-          ) : null}
-        </section>
 
       {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
     </>

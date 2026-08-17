@@ -123,8 +123,11 @@ describe("R7 composition matrix (6 profiles)", () => {
     expect(tradeWrite).not.toContain('if (compositionProfileId === "exchange")');
     expect(tradeWrite).toContain('const isJobsProfile = tradeComposition.profileId === "jobs"');
     expect(tradeWrite).toContain('const isExchangeProfile = tradeComposition.profileId === "exchange"');
-    expect(tradeWrite).toContain("registerSubmit={registerJobsSubmit}");
-    expect(tradeWrite).toContain("registerSubmit={registerExchangeSubmit}");
+    expect(tradeWrite).toContain("registerController={registerJobsController}");
+    expect(tradeWrite).toContain("registerController={registerExchangeController}");
+    expect(tradeWrite).toContain("chrome={extendedChrome}");
+    expect(tradeWrite).toContain("extendedChromeSlots.topic");
+    expect(tradeWrite).not.toContain("slots={extendedChromeSlots}");
   });
 
   it("EDIT hydrate rent-car restores composition meta (CREATE == EDIT)", () => {

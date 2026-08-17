@@ -46,4 +46,15 @@ describe("list composition wire (R5)", () => {
     expect(src).toContain("fieldComposition,");
     expect(src).toMatch(/buildPostListPreviewModel\([\s\S]*fieldComposition/);
   });
+
+  it("PostDetailRelatedSections passes composition map into related card preview", () => {
+    const src = readFileSync(
+      resolve(process.cwd(), "components/post/PostDetailRelatedSections.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("useTradeListCompositionMap");
+    expect(src).toContain("fieldComposition: composition?.fieldComposition ?? null");
+    expect(src).toContain("skinKey: composition?.skinKey");
+    expect(src).toContain("propsForCategoryId(item.category_id)");
+  });
 });

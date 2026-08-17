@@ -240,12 +240,17 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     expect(tradeLocation).not.toContain("trade_write_manage_addresses");
     expect(tradeLocation).not.toContain("createPortal");
     expect(tradeLocation).not.toContain("suppressAddressBookRegionSync");
+    expect(tradeForm).toContain("<TradeDefaultLocationBlock");
     for (const [name, src] of [
       ["TradeWriteForm", tradeForm],
       ["JobsExtendedWriteFields", jobsForm],
       ["ExchangeExtendedWriteFields", exchangeForm],
     ] as const) {
-      expect(src, name).toContain("category={category}");
+      if (name === "TradeWriteForm") {
+        expect(src, name).toContain("category={category}");
+      } else {
+        expect(src, name).not.toContain("<TradeDefaultLocationBlock");
+      }
       expect(src, name).not.toContain("scheduleTradeWriteSheetReopenAfterMeetSpot");
       expect(src, name).not.toContain("addressReturnTo");
       expect(src, name).not.toContain("suppressAddressBookRegionSync");

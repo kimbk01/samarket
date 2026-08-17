@@ -43,6 +43,14 @@ export { buildCompositionListAttributes, joinCompositionListAttributeLine, type 
 export { buildCompositionDetailAttributes, type CompositionDetailAttribute } from "./detail-attributes";
 
 export {
+  resolveDetailSpecProfileId,
+  detailSpecSectionTitleKey,
+  REAL_ESTATE_HERO_SKIP_FIELD_IDS,
+} from "./detail-spec-route";
+
+export { formatCompositionDetailField } from "./detail-field-formatters";
+
+export {
   resolveTradeDetailCtaPolicy,
   type TradeDetailCtaPolicy,
   type TradeDetailCtaPolicyInput,

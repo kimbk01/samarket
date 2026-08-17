@@ -1,12 +1,19 @@
 "use client";
 
 /**
- * Detail attribute section from Category Composition (no new skin if-trees).
+ * Single DETAIL spec projector. Formatters + skip defaults live here — not MetaBlock if-trees.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatJobsCompositionDetailField } from "@/lib/jobs/job-detail-composition-rows";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import type { TradeBehaviorContext } from "@/lib/trade/category-form/behavior-adapters";
+import { resolveTradeCompositionProfileId } from "@/lib/trade/category-form/composition-seeds";
 import { buildCompositionDetailAttributes } from "@/lib/trade/category-form/detail-attributes";
+import { formatCompositionDetailField } from "@/lib/trade/category-form/detail-field-formatters";
+import {
+  behaviorContextFromDetailMeta,
+  defaultDetailSkipFieldIds,
+} from "@/lib/trade/category-form/detail-spec-route";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
 import { formatPrice } from "@/lib/utils/format";
@@ -32,34 +39,67 @@ export function TradeCompositionDetailSection(props: {
   currency?: string;
   adapterCtx?: TradeBehaviorContext;
   skipFieldIds?: readonly string[];
+  /** Real-estate hero page: spec table below description */
+  framed?: boolean;
   formatField?: (
     fieldId: string,
     rawValue: string,
     meta: Record<string, unknown>
   ) => string | null;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const profileId =
+    resolveTradeCompositionProfileId({
+      icon_key: props.iconKey,
+      slug: props.categorySlug ?? null,
+    }) ?? "general";
+  const adapterCtx: TradeBehaviorContext = {
+    ...behaviorContextFromDetailMeta(props.meta),
+    ...props.adapterCtx,
+  };
+  const skipFieldIds = Array.from(
+    new Set([...defaultDetailSkipFieldIds(profileId, props.meta), ...(props.skipFieldIds ?? [])])
+  );
+  const amount = typeof props.post?.price === "number" ? props.post.price : null;
+  const formatField =
+    props.formatField ??
+    ((fieldId: string, rawValue: string, meta: Record<string, unknown>) => {
+      if (profileId === "jobs") {
+        return formatJobsCompositionDetailField({
+          fieldId,
+          rawValue,
+          meta,
+          listingKind: String(adapterCtx.listingKind ?? ""),
+          lang,
+        });
+      }
+      return formatCompositionDetailField(profileId, fieldId, rawValue, meta, {
+        t,
+        lang,
+        amount,
+      });
+    });
   const composition = resolveTradeComposition({
     icon_key: props.iconKey,
     slug: props.categorySlug ?? null,
     fieldComposition: props.fieldComposition ?? null,
   });
-  const adapted = applyTradeBehaviorAdapter(composition, props.adapterCtx ?? {});
+  const adapted = applyTradeBehaviorAdapter(composition, adapterCtx);
   const attrs = buildCompositionDetailAttributes({
     composition,
     adaptedFields: adapted,
     meta: props.meta,
     post: props.post,
     lang,
-    skipFieldIds: props.skipFieldIds,
+    skipFieldIds,
     formatMoney: props.currency
       ? (raw) => formatPrice(parseMetaAmount(raw), props.currency!)
       : undefined,
-    formatField: props.formatField,
+    formatField,
   });
   if (attrs.length === 0) return null;
-  return (
+  const body = (
     <>
       <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{props.title}</h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
@@ -74,4 +114,8 @@ export function TradeCompositionDetailSection(props: {
       </dl>
     </>
   );
+  if (props.framed) {
+    return <div className="mt-3 border-t border-[#e4e6eb] pt-3">{body}</div>;
+  }
+  return body;
 }

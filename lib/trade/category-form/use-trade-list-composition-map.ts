@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Home / favorites list — resolve category composition for PostCard (R5 overlay).
+ * Home / favorites / related list — resolve category composition for PostCard (R5 overlay).
  * Category list feed already has category in scope; mixed feeds need this map.
  */
 import { useEffect, useMemo, useState } from "react";

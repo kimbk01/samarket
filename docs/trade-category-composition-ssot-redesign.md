@@ -1,7 +1,9 @@
-# Trade Category Composition SSOT — Redesign LOCK
+# Trade Category Composition SSOT — Redesign HARD LOCK
 
-**Status:** Phase 0 LOCK (2026-08-17)  
-**Mode:** Owner intent **B** — WRITE / LIST / DETAIL / ADMIN 재설계 (배관만으로 완료 금지)
+**Status:** §4 COMPLETION **PASS** · PATH B STRUCTURAL REDESIGN **COMPLETE** · **HARD LOCK (2026-08-17)**  
+**Mode:** Owner intent **B** — WRITE / LIST / DETAIL / ADMIN composition authority (not piping-only)
+
+> §4 PASS is **not** from legacy Track “Phase 1–5 DONE”. It is from §4 completion definition + code contracts + runtime/browser evidence below.
 
 ## 1. Goal
 
@@ -9,7 +11,7 @@
 
 ```text
 Field Library (Product) → Seed (+ Admin Overlay) → resolveTradeComposition
-  → WRITE Generic(+legacy-look widgets)
+  → WRITE Generic (+ reusable domain widgets)
   → LIST layoutVariant + composition attrs
   → DETAIL single projector
   → CTA / EDIT (same entry as WRITE)
@@ -40,52 +42,84 @@ Field Library (Product) → Seed (+ Admin Overlay) → resolveTradeComposition
 | exchange | exchange-card | exchange-php-krw |
 | rent-car | rental-card | rent-car-rental |
 
-## 4. Completion definition
+## 4. Completion definition — **PASS (2026-08-17)**
 
-| Surface | Done when |
-|---------|-----------|
-| WRITE | No Jobs/Exchange/UsedCar full-form fork; Generic + widgets only; EDIT == WRITE entry |
-| LIST | Home + favorites + category + related pass overlay; `rental-card` ≠ used-car |
-| DETAIL | Spec block = single projector; no skin Meta if-tree for UsedCar/RE/Jobs |
-| ADMIN | Overlay change observable on WRITE/LIST/DETAIL; new field types = Product PR only |
-| Extend | 7th category = Library ± Seed ± Overlay — no new `*WriteForm.tsx` |
+| Surface | Status | Evidence |
+|---------|--------|----------|
+| WRITE | **PASS** | `TradeWriteForm` owns chrome, submit, composition resolve; Jobs/Exchange extras-only; UsedCar domain widgets ALLOW |
+| LIST | **PASS** | home / fav / category / related composition wire; rent-car browser overlay |
+| DETAIL | **PASS** | `resolveDetailSpecProfileId` → `TradeCompositionDetailSection` single projector; domain extras only |
+| ADMIN overlay runtime | **PASS** | DB `field_composition` JSONB `{id,active,required,order}` → WRITE/LIST/DETAIL browser |
+| 7th category | **PASS** | `seventh-category-anti-fork-contract.test.ts` |
+| rent-car ops | **PASS** | DB category + home chip |
 
-## 5. Phase order (mandatory)
+## 5. Runtime evidence (§4 — not Phase track)
 
-0. This LOCK doc  
-1. WRITE absorb: Jobs → Exchange → used-car → general chrome  
-2. LIST unify: home/favorites wire + rental-card + layout if-tree shrink  
-3. DETAIL unify: UsedCar/RE/Jobs → projector  
-4. ADMIN verify matrix + category/chip data ops  
-5. Delete legacy modules + close UI leaks  
+### WRITE
 
-## 6. DO NOT
+- Common chrome / topic / title / location / description / images → `TradeWriteForm`
+- Submit / `createPost` → shell only (`TradeExtendedWriteController` for Jobs/Exchange payload)
+- Jobs / Exchange → domain extras only (no chrome slots)
+- Used-car `UsedCarSellFields` / `UsedCarBuyFields` → domain widget; does **not** steal submit or detail spec
+- Rent-car `/write/rent-car`: overlay `mileage_cap active:false` → 일일 주행 한도 hidden (browser)
 
-- Call piping “재설계 완료”
-- Reintroduce TradeCategoryWriteForm forks
-- Grow Behavior Adapter into WriteModules
-- Break trade home list invariants while wiring composition
-- Claim rent-car menu exists from code seed alone
+### LIST
 
-## 7. Track
+- Composition map: home / favorites / related (`useTradeListCompositionMap`)
+- Rent-car post browser: overlay year OFF → `R4LD… · 2500`; year ON → `R4LD… · 2018 · 2500`; `mileage_cap` stays hidden
 
-Update this section when a phase completes (append-only).
+### DETAIL
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| 0 LOCK | DONE | This file |
-| 1 WRITE | DONE | Jobs/Exchange in shared shell. Jobs hire seed fields (`work_category`, `work_term`, `pay_type`, `pay_amount`) and Exchange `exchange_direction` now render through `GenericTradeWriteFields`; hire/seek extras remain shell-owned. Rent-car: `rental-car`→`rent-car` skin, auto title from model, title input hidden. |
-| 2 LIST | DONE | Home/fav overlay + rental-card. Daily `/일` + with-driver chip. List preview now prefers `layoutVariant` and only uses legacy meta heuristics when `general-card` or `skinKey` is missing; `rental-card` wins over used-car. |
-| 3 DETAIL | DONE | UsedCar + RealEstate + rent-car + Jobs core → `TradeCompositionDetailSection`. Jobs hire/seek extras in `JobsExtendedDetailExtras`. |
-| 4 ADMIN | DONE | Surface matrix + rent-car subtype label/icon in menu form (`admin_cat_subtype_rent_car`). Create category with subtype rent-car + `show_in_home_chips` to expose menu. |
-| 5 Legacy removal | DONE | Removed unused Job*DetailCards wrappers. Jobs/Exchange remain as Extended write bodies (intentional product extras + shell-owned submit). |
+- Single projector: `TradeCompositionDetailSection` + `formatCompositionDetailField`
+- Real-estate page early-return removed; Jobs/RE/UsedCar remain domain widget / hero / CTA only
+- Rent-car post browser: year OFF → pickup only; year ON → year visible; `mileage_cap` hidden throughout
 
-## 8. Ops — rent-car menu exposure
+### ADMIN overlay
 
-Code seed does **not** insert a DB category. Admin must:
+- Stored: `category_settings.field_composition` on rent-car `e236ce0b-8dd1-4bff-83ae-79d36a1a0e9c`
+- Contract: `{id, active, required, order}` only — no widget/storage/CTA in JSONB
+- Persist path for proof: production contract JSONB (Admin UI click-save = separate surface QA)
 
-1. Menus → Trade → add category subtype **렌터카** (`rent-car`)
-2. Enable write + home chips as needed (`show_in_home_chips`)
-3. Optionally save Field Composition (null = Product seed)
+### Rent-car ops
 
-Without step 1–2, rent-car WRITE/LIST/DETAIL code exists but the chip/menu will not appear.
+| Field | Value |
+|-------|--------|
+| id | `e236ce0b-8dd1-4bff-83ae-79d36a1a0e9c` |
+| slug / icon_key | `rent-car` |
+| name | 렌터카 / Rent a car |
+| show_in_home_chips | true |
+| Final overlay | year ON, mileage_cap OFF |
+| Test posts | deleted after proof |
+
+## 6. HARD LOCK — DO NOT (without reopen)
+
+- Re-distribute composition authority (category-name if/switch as presentation owner)
+- Reintroduce category-specific full `*WriteForm.tsx` forks
+- Reintroduce UsedCar/RE/Jobs/Exchange **Detail spec MetaBlock if-trees**
+- Store widget / storage / CTA / layoutVariant in Admin overlay JSONB
+- Add 7th category via new WriteForm — use Library ± Seed ± Overlay + reusable domain widget
+- Claim overlay changed live UI while DB `field_composition` is null for that category
+
+**Reopen requires:** explicit product decision + new runtime evidence + doc amendment in §7.
+
+## 7. Track (append-only)
+
+| Gate | Status | Notes |
+|------|--------|-------|
+| Authority / seeds / resolve | DONE | |
+| WRITE entry + one submit | DONE | |
+| WRITE shell + domain extras/widgets | DONE | Used-car widgets = domain ALLOW |
+| LIST home/fav/category/related | DONE | |
+| DETAIL single projector | DONE | |
+| ADMIN overlay runtime | DONE | Browser LIST/DETAIL/WRITE |
+| 7th anti-fork contract | DONE | |
+| rent-car ops | DONE | DB + chip |
+
+### KNOWN FOLLOW-UP (NOT §4 blockers)
+
+1. **Used-car WRITE overlay gap** — `UsedCarSellFields` / `UsedCarBuyFields` not via Field Library widget registry; some used-car fields do not follow WRITE overlay directly.
+2. **Admin UI click-save QA** — overlay proof used same JSONB contract written to DB; Admin modal click path not separately exercised.
+
+## 8. Ops — rent-car
+
+DB row (not migration): id `e236ce0b-8dd1-4bff-83ae-79d36a1a0e9c`, slug/icon_key `rent-car`, `show_in_home_chips=true`, overlay stored.

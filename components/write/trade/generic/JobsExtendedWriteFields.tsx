@@ -4,20 +4,15 @@
  * Jobs write profile body (Composition Phase 1b).
  * Mount only via TradeWriteForm → TradeMarketplaceWriteForm (profileId === "jobs").
  * TradeCategoryWriteForm must not import this.
- * The marketplace shell owns page chrome and submit button; this body keeps Jobs-specific
- * hire/seek state, validation, staging, and create/update payload behavior.
+ * The marketplace shell owns page chrome, chrome widget placement, and submit;
+ * this body keeps Jobs-specific hire/seek extras, validation, and staging.
  */
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { createPost } from "@/lib/posts/createPost";
-import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
-import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import {
-  hrefTradeMeetSpotPick,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
-  resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
@@ -32,13 +27,9 @@ import {
   clearTradeMeetSpotSessionNavigationState,
   consumeTradeMeetSpotPickResult,
   peekTradeMeetSpotPickResult,
-  prepareTradeMeetSpotMapNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
 import {
-  TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
-  markTradeMeetSpotFocusOnReturn,
-  persistTradeMeetSpotReturnScrollPosition,
   restoreTradeMeetSpotReturnScrollPosition,
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
@@ -57,11 +48,6 @@ import {
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import {
-  ensureClientAccessOrRedirectAsync,
-  redirectForBlockedAction,
-} from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPrice, formatPriceInput, getCurrencyUnitLabel } from "@/lib/utils/format";
 import {
@@ -91,25 +77,14 @@ import {
   type JobSeekerStartValue,
 } from "@/lib/jobs/form-options";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { AutoGrowTextarea } from "../../shared/AutoGrowTextarea";
-import { ImageUploader, type ImageUploadItem } from "../../shared/ImageUploader";
-import { TradeFrequentPhrasesSheet } from "../../shared/TradeFrequentPhrasesSheet";
-import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
-import {
-  TradeDefaultLocationBlock,
-  type TradeWriteAddressSsotSnapshot,
-} from "../../shared/TradeDefaultLocationBlock";
+import { resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
-import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_BLOCK_TITLE,
-  TRADE_WRITE_FB_FIELD_HEAD,
-  TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
-import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import {
@@ -120,8 +95,10 @@ import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labe
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
-
-export type JobsWriteSubmitHandler = (e: React.FormEvent) => Promise<void>;
+import type {
+  TradeExtendedWriteController,
+  TradeWriteChromeState,
+} from "@/lib/trade/category-form/extended-write-controller";
 
 interface JobsExtendedWriteFieldsProps {
   category: CategoryWithSettings;
@@ -133,7 +110,9 @@ interface JobsExtendedWriteFieldsProps {
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
-  registerSubmit?: (handler: JobsWriteSubmitHandler | null, submitting: boolean) => void;
+  registerController?: (controller: TradeExtendedWriteController | null) => void;
+  chrome: TradeWriteChromeState;
+  onListingKindChange?: (kind: JobListingKind) => void;
 }
 
 /** 로컬 기준 YYYY-MM-DD */
@@ -207,39 +186,53 @@ function normalizeJobsWorkCategorySelect(wc: string, wo: string): { category: st
 
 export function JobsExtendedWriteFields({
   category,
-  onSuccess,
   onMeaningfulTradeDraftChange,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
-  registerSubmit,
+  registerController,
+  chrome,
+  onListingKindChange,
 }: JobsExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const appSettings = useMemo(() => getAppSettings(), []);
   const currency = appSettings.defaultCurrency || "PHP";
-  const baseMaxImages = Math.max(1, appSettings.maxProductImages ?? 10);
-  const maxImagesHire = Math.min(3, baseMaxImages);
-  const maxImagesSeeker = Math.min(3, baseMaxImages);
+
+  const {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    descriptionAppend,
+    setDescriptionAppend,
+    images,
+    setImages,
+    region,
+    city,
+    setRegion,
+    setCity,
+    syncTradeRegionCity,
+    tradeTopicChildId,
+    setTradeTopicChildId,
+    tradeMeetSpot,
+    setTradeMeetSpot,
+    tradeAddressSsot,
+    setTradeAddressSsot,
+    setChromeErrors,
+  } = chrome;
 
   const [listingKind, setListingKind] = useState<JobListingKind>("hire");
-  const [title, setTitle] = useState("");
+  useEffect(() => {
+    onListingKindChange?.(listingKind);
+  }, [listingKind, onListingKindChange]);
   const [workCategory, setWorkCategory] = useState("");
   const [workCategoryOther, setWorkCategoryOther] = useState("");
   const [workTerm, setWorkTerm] = useState<string>("short");
   const [payType, setPayType] = useState<string>("hourly");
   const [payAmount, setPayAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [region, setRegion] = useState("");
-  const [city, setCity] = useState("");
-  const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
-    setRegion(rid);
-    setCity(cid);
-  }, []);
-  const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
   const [todayMin, setTodayMin] = useState("");
   const [workDate, setWorkDate] = useState("");
@@ -277,19 +270,6 @@ export function JobsExtendedWriteFields({
   const [seekOptionalOpen, setSeekOptionalOpen] = useState(false);
   const [experienceLevel, setExperienceLevel] = useState("none");
 
-  const [images, setImages] = useState<ImageUploadItem[]>([]);
-  const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
-  const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
-  const [tradeAddressSsot, setTradeAddressSsot] = useState<TradeWriteAddressSsotSnapshot>({
-    ready: false,
-    missing: true,
-    displayLine: null,
-    regionId: "",
-    cityId: "",
-    tradeLguId: null,
-    nationalStatus: "pending",
-  });
-
   const effectiveTradeRegionId = useMemo(() => {
     return region.trim();
   }, [region]);
@@ -307,19 +287,13 @@ export function JobsExtendedWriteFields({
     [syncTradeRegionCity]
   );
 
-  const hasLocation = true;
   const pendingMeetSpotFocusRef = useRef(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [descriptionAppend, setDescriptionAppend] = useState("");
   const [hydratedEdit, setHydratedEdit] = useState(false);
   const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
 
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
-  const locationLocked = Boolean(
-    editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
-  );
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const isSeeker = listingKind === "work";
 
@@ -570,12 +544,6 @@ export function JobsExtendedWriteFields({
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, [applyMeetSpotPick]);
-
-  const karrotMeetSpotDisplayLine = useMemo(() => {
-    const fromMap = tradeMeetSpot?.displayLine?.trim();
-    if (fromMap) return fromMap;
-    return tradeAddressSsot.displayLine?.trim() ?? "";
-  }, [tradeMeetSpot, tradeAddressSsot.displayLine]);
 
   const handleResumeJobsPersistedDraft = useCallback(() => {
     const staged = consumeJobsWriteMeetSpotStaging(category.id);
@@ -877,24 +845,6 @@ export function JobsExtendedWriteFields({
     };
   }, [tradeWriteSheet, editPostId, persistJobsFormStagingIfNeeded]);
 
-  const handleBeforeNavigateToAddresses = useCallback(async () => {
-    if (editPostId) return;
-    const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
-    if (!ok) throw new Error("jobs-staging-aborted");
-  }, [editPostId, persistJobsFormStagingIfNeeded]);
-
-  const handleBeforeMeetSpotPick = useCallback(async () => {
-    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
-    if (!editPostId) {
-      const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
-      if (!ok) return;
-    }
-    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
-    persistTradeMeetSpotReturnScrollPosition();
-    markTradeMeetSpotFocusOnReturn();
-    router.push(hrefTradeMeetSpotPick(returnTo));
-  }, [editPostId, tradeWriteSheet, category, persistJobsFormStagingIfNeeded, tradeMeetSpot, router]);
-
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (title.trim().length < JOB_TITLE_MIN || title.trim().length > JOB_TITLE_MAX) {
@@ -1016,6 +966,12 @@ export function JobsExtendedWriteFields({
       if (!next[formKey]) next[formKey] = msg;
     }
     setErrors(next);
+    setChromeErrors({
+      title: next.title ?? "",
+      description: next.description ?? "",
+      location: next.region ?? "",
+      meetSpot: next.meetSpot ?? "",
+    });
     return Object.keys(next).length === 0;
   }, [
     title,
@@ -1039,6 +995,7 @@ export function JobsExtendedWriteFields({
     jobsFieldValues,
     language,
     t,
+    setChromeErrors,
   ]);
 
   const buildMeta = useCallback((): Record<string, unknown> => {
@@ -1213,150 +1170,82 @@ export function JobsExtendedWriteFields({
     hireHeadcount,
   ]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (editPostId && !hydratedEdit) return;
-      if (!validate()) return;
-      setSubmitting(true);
-      try {
-        const pathFallback = editPostId
-          ? `/products/${editPostId}/edit`
-          : `/write/${category.slug}`;
-        if (editPostId) {
-          if (!(await ensureClientAccessOrRedirectAsync(router, pathname || pathFallback))) {
-            return;
-          }
-        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathname || pathFallback }))) {
-          return;
-        }
-        const user = getCurrentUser();
-        const files = images.map((i) => i.file).filter((f): f is File => !!f);
-        const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-        const existingUrls = images
-          .map((i) => i.url)
-          .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
-        const imageUrls = [...existingUrls, ...uploaded];
-        let meta: Record<string, unknown> = buildMeta();
-        const submitRegion = effectiveTradeRegionId.trim();
-        const submitCity = effectiveTradeCityId.trim();
-        if (tradeMeetSpot) {
-          const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
-          if (meetMeta) meta = { ...meta, ...meetMeta };
-        }
-        const priceNum = payNum ? Number(payNum) : null;
-        const tradeJob = buildTradeJobPayload();
-        if (editPostId) {
-          const res = await updateTradePostFromCreatePayload(
-            editPostId,
-            {
-              type: "trade",
-              categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
-              title: title.trim(),
-              content: description.trim(),
-              price: priceNum,
-              isPriceOfferEnabled: false,
-              isFreeShare: false,
-              region: submitRegion || undefined,
-              city: submitCity || undefined,
-              tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
-              barangay: undefined,
-              imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-              meta: Object.keys(meta).length > 0 ? meta : undefined,
-              tradeJob,
-            },
-            showDescriptionAppend ? { descriptionAppend: descriptionAppend.trim() || null } : undefined
-          );
-          if (res.ok) {
-            clearJobsWriteMeetSpotStaging(category.id);
-            clearTradeMeetSpotSessionNavigationState();
-            invalidateHomePostsCache();
-            onSuccess(editPostId);
-          } else {
-            if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
-            setErrors({ submit: res.error });
-          }
-          return;
-        }
-        const res = await createPost({
-          type: "trade",
-          categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
-          title: title.trim(),
-          content: description.trim(),
-          price: priceNum,
-          isPriceOfferEnabled: false,
-          isFreeShare: false,
-          region: submitRegion || undefined,
-          city: submitCity || undefined,
-          tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
-          barangay: undefined,
-          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-          meta: Object.keys(meta).length > 0 ? meta : undefined,
-          tradeJob,
-        });
-        if (res.ok) {
-          clearJobsWriteMeetSpotStaging(category.id);
-          clearTradeMeetSpotSessionNavigationState();
-          invalidateHomePostsCache();
-          onSuccess(res.id);
-        } else {
-          if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
-          setErrors({ submit: res.error });
-        }
-      } finally {
-        setSubmitting(false);
+  const buildPayload = useCallback(
+    (imageUrls: string[] | undefined) => {
+      let meta: Record<string, unknown> = buildMeta();
+      const submitRegion = effectiveTradeRegionId.trim();
+      const submitCity = effectiveTradeCityId.trim();
+      if (tradeMeetSpot) {
+        const meetMeta = buildTradeMeetSpotMetaForPersist(tradeMeetSpot);
+        if (meetMeta) meta = { ...meta, ...meetMeta };
       }
+      const priceNum = payNum ? Number(payNum) : null;
+      const tradeJob = buildTradeJobPayload();
+      return {
+        type: "trade" as const,
+        categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
+        title: title.trim(),
+        content: description.trim(),
+        price: priceNum,
+        isPriceOfferEnabled: false,
+        isFreeShare: false,
+        region: submitRegion || undefined,
+        city: submitCity || undefined,
+        tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
+        barangay: undefined,
+        imageUrls,
+        meta: Object.keys(meta).length > 0 ? meta : undefined,
+        tradeJob,
+      };
     },
     [
-      validate,
       buildMeta,
       buildTradeJobPayload,
+      category,
+      tradeTopicChildId,
       title,
       description,
       payNum,
-      images,
-      category,
-      tradeTopicChildId,
       effectiveTradeRegionId,
       effectiveTradeCityId,
-      router,
-      pathname,
-      onSuccess,
-      editPostId,
-      hydratedEdit,
-      showDescriptionAppend,
-      descriptionAppend,
       tradeAddressSsot,
       tradeMeetSpot,
     ]
   );
 
   useEffect(() => {
-    registerSubmit?.(handleSubmit, submitting);
-    return () => registerSubmit?.(null, false);
-  }, [registerSubmit, handleSubmit, submitting]);
-
-  const tradeLocationEl = (
-    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
-      <TradeDefaultLocationBlock
-        category={category}
-        editPostId={editPostId}
-        region={region}
-        city={city}
-        onSyncRegionCity={syncTradeRegionCity}
-        error={errors.region}
-        readOnly={locationLocked || coreLocked}
-        onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
-        onAddressResolved={setTradeAddressSsot}
-        karrotMeetSpotUi={hasLocation}
-        meetSpotLine={karrotMeetSpotDisplayLine || null}
-        meetSpotError={errors.meetSpot}
-        onBeforeMeetSpotPick={!locationLocked && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
-        meetSpotHeading={isSeeker ? t("jobs_write_meet_seeker") : t("jobs_write_meet_hire")}
-        denseLayout
-      />
-    </div>
-  );
+    registerController?.({
+      validate: () => {
+        if (editPostId && !hydratedEdit) return false;
+        return validate();
+      },
+      getImages: () => images,
+      buildPayload,
+      getDescriptionAppend: () =>
+        showDescriptionAppend && descriptionAppend.trim() ? descriptionAppend.trim() : undefined,
+      clearStagingAfterSuccess: () => {
+        clearJobsWriteMeetSpotStaging(category.id);
+        clearTradeMeetSpotSessionNavigationState();
+      },
+      getSubmitErrorFallbackPath: () =>
+        pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`),
+      persistStagingIfNeeded: persistJobsFormStagingIfNeeded,
+    });
+    return () => registerController?.(null);
+  }, [
+    registerController,
+    editPostId,
+    hydratedEdit,
+    validate,
+    images,
+    buildPayload,
+    showDescriptionAppend,
+    descriptionAppend,
+    category.id,
+    category.slug,
+    pathname,
+    persistJobsFormStagingIfNeeded,
+  ]);
 
   return (
     <>
@@ -1394,36 +1283,6 @@ export function JobsExtendedWriteFields({
               </button>
             ))}
           </div>
-        </section>
-
-        <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-          <WriteTradeTopicSection
-            category={category}
-            value={tradeTopicChildId}
-            onChange={setTradeTopicChildId}
-          />
-        </div>
-
-        <section
-          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-        >
-          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_101")}</h4>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={
-              listingKind === "hire"
-                ? t("jobs_write_title_ph_hire")
-                : t("jobs_write_title_ph_work")
-            }
-            maxLength={JOB_TITLE_MAX}
-            className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
-              errors.title ? "border-red-400 bg-red-50" : "border-sam-border"
-            }`}
-          />
-          {errors.title && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.title}</p>}
-          <p className="mt-1 sam-text-helper text-sam-muted">{title.length}/{JOB_TITLE_MAX}</p>
         </section>
 
         {!isSeeker ? (
@@ -1653,8 +1512,6 @@ export function JobsExtendedWriteFields({
               </label>
             </section>
 
-            {tradeLocationEl}
-
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
@@ -1848,8 +1705,6 @@ export function JobsExtendedWriteFields({
               </div>
             </section>
 
-            {tradeLocationEl}
-
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
@@ -1870,68 +1725,7 @@ export function JobsExtendedWriteFields({
           </>
         )}
 
-        {!isSeeker ? (
-          <>
-            <section className={TRADE_WRITE_FB_SECTION}>
-              <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                {t("jobs_write_description_label")} <span className="text-red-500">*</span>
-              </h4>
-              <AutoGrowTextarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                readOnly={showDescriptionAppend}
-                placeholder={t("trade_036")}
-                maxLength={JOB_DESCRIPTION_MAX}
-                className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
-                  errors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
-                } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-[#050505]"}`}
-              />
-              {!showDescriptionAppend ? (
-                <>
-                  <button
-                    type="button"
-                    className="mt-1.5 touch-manipulation [-webkit-tap-highlight-color:transparent] rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg transition-[transform,opacity] duration-100 active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary focus-visible:ring-offset-2"
-                    onClick={() => setFrequentPhrasesOpen(true)}
-                  >
-                    {t("trade_write_frequent_phrases")}
-                  </button>
-                  <TradeFrequentPhrasesSheet
-                    open={frequentPhrasesOpen}
-                    onClose={() => setFrequentPhrasesOpen(false)}
-                    onPickPhrase={(text) => {
-                      setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
-                    }}
-                  />
-                </>
-              ) : null}
-              <p className="mt-1 text-right sam-text-helper text-sam-muted">{description.length}/{JOB_DESCRIPTION_MAX}</p>
-              {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
-              {showDescriptionAppend ? (
-                <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
-                  <p className="mb-1 text-[12px] text-[#8a8d91]">{t("trade_045")}</p>
-                  <AutoGrowTextarea
-                    value={descriptionAppend}
-                    onChange={(e) => setDescriptionAppend(e.target.value)}
-                    placeholder=""
-                    className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[88px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
-                  />
-                </div>
-              ) : null}
-            </section>
-            <div className={TRADE_WRITE_FB_SECTION}>
-              <ImageUploader
-                value={images}
-                onChange={setImages}
-                maxCount={maxImagesHire}
-                label={t("jobs_write_store_photos_label")}
-                disabled={coreLocked}
-                compact={false}
-                variant="karrot"
-              />
-            </div>
-          </>
-        ) : (
+        {!isSeeker ? null : (
           <>
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -1972,40 +1766,6 @@ export function JobsExtendedWriteFields({
                 <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
               ) : null}
               {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
-            </section>
-
-            <section className={TRADE_WRITE_FB_SECTION}>
-              <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                {t("jobs_write_intro_label")} <span className="text-red-500">*</span>
-              </h4>
-              <AutoGrowTextarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                readOnly={showDescriptionAppend}
-                placeholder={t("trade_008")}
-                maxLength={JOB_DESCRIPTION_MAX}
-                className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[120px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
-                  errors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
-                } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-[#050505]"}`}
-              />
-              <p className="mt-1 text-right sam-text-helper text-sam-muted">
-                {description.length}/{JOB_DESCRIPTION_MAX}
-              </p>
-              {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
-              {showDescriptionAppend ? (
-                <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
-                  <p className="mb-1 text-[12px] text-[#8a8d91]">
-                    {t("jobs_write_append_hint")}
-                  </p>
-                  <AutoGrowTextarea
-                    value={descriptionAppend}
-                    onChange={(e) => setDescriptionAppend(e.target.value)}
-                    placeholder=""
-                    className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[88px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
-                  />
-                </div>
-              ) : null}
             </section>
 
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -2080,17 +1840,6 @@ export function JobsExtendedWriteFields({
                         className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
                       />
                     ) : null}
-                  </div>
-                  <div>
-                    <ImageUploader
-                      value={images}
-                      onChange={setImages}
-                      maxCount={maxImagesSeeker}
-                      label={t("jobs_write_photos_optional_label")}
-                      disabled={coreLocked}
-                      compact={false}
-                      variant="karrot"
-                    />
                   </div>
                 </div>
               ) : null}

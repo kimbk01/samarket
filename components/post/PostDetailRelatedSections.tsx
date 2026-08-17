@@ -15,6 +15,10 @@ import {
   imageResolveTradePostDetailRelatedDisplayUrl,
   imageResolveTradePostDetailRelatedThumbRaw,
 } from "@/lib/image";
+import {
+  useTradeListCompositionMap,
+  type TradeListCompositionProps,
+} from "@/lib/trade/category-form/use-trade-list-composition-map";
 
 type RelatedProps = {
   sellerItems: PostWithMeta[];
@@ -30,7 +34,13 @@ function useRelatedItemThumbSrc(item: PostWithMeta): string | null {
   }, [thumbRaw]);
 }
 
-function PostMiniCard({ item }: { item: PostWithMeta }) {
+function PostMiniCard({
+  item,
+  composition,
+}: {
+  item: PostWithMeta;
+  composition: TradeListCompositionProps | null;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const thumb = useRelatedItemThumbSrc(item);
@@ -38,6 +48,9 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
   const preview = buildPostListPreviewModel(item as unknown as Record<string, unknown>, {
     currency: app.defaultCurrency || "KRW",
     locale: app.defaultLocale || "ko-KR",
+    skinKey: composition?.skinKey,
+    categorySlug: composition?.categorySlug ?? null,
+    fieldComposition: composition?.fieldComposition ?? null,
   });
 
   const detailHref = `/post/${encodeURIComponent(item.id)}`;
@@ -216,9 +229,11 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
 function RelatedGridSection({
   title,
   items,
+  propsForCategoryId,
 }: {
   title: string;
   items: PostWithMeta[];
+  propsForCategoryId: (categoryId: string | null | undefined) => TradeListCompositionProps | null;
 }) {
   if (items.length === 0) return null;
   return (
@@ -226,7 +241,11 @@ function RelatedGridSection({
       <h3 className="mb-3 text-[13px] font-bold leading-tight text-[#050505]">{title}</h3>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {items.map((item) => (
-          <PostMiniCard key={item.id} item={item} />
+          <PostMiniCard
+            key={item.id}
+            item={item}
+            composition={propsForCategoryId(item.category_id)}
+          />
         ))}
       </div>
     </section>
@@ -238,6 +257,7 @@ const RELATED_STACK_CARD_CLASS = "border-t border-[#e4e6eb] bg-white";
 
 export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: RelatedProps) {
   const { t } = useI18n();
+  const { propsForCategoryId } = useTradeListCompositionMap();
   if (sellerItems.length === 0 && similarItems.length === 0 && ads.length === 0) {
     return null;
   }
@@ -245,9 +265,17 @@ export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: Re
   return (
     <div className={RELATED_STACK_CARD_CLASS}>
       <div className="space-y-6 px-3 py-4 sm:px-4">
-        <RelatedGridSection title={t("ui_post_related_seller_items")} items={sellerItems} />
+        <RelatedGridSection
+          title={t("ui_post_related_seller_items")}
+          items={sellerItems}
+          propsForCategoryId={propsForCategoryId}
+        />
         <RelatedAdsCarouselSection items={ads} />
-        <RelatedGridSection title={t("ui_post_related_similar_items")} items={similarItems} />
+        <RelatedGridSection
+          title={t("ui_post_related_similar_items")}
+          items={similarItems}
+          propsForCategoryId={propsForCategoryId}
+        />
       </div>
     </div>
   );

@@ -44,8 +44,46 @@ describe("trade write entry SSOT (R4/R7)", () => {
     expect(src).toContain('const isExchangeProfile = tradeComposition.profileId === "exchange"');
     expect(src).toContain("<JobsExtendedWriteFields");
     expect(src).toContain("<ExchangeExtendedWriteFields");
-    expect(src).toContain("registerSubmit={registerJobsSubmit}");
-    expect(src).toContain("registerSubmit={registerExchangeSubmit}");
+    expect(src).toContain("registerController={registerJobsController}");
+    expect(src).toContain("registerController={registerExchangeController}");
+    expect(src).toContain("chrome={extendedChrome}");
+    expect(src).toContain("extendedChromeSlots.topic");
+    expect(src).toContain("extendedChromeSlots.location");
+    expect(src).toContain("extendedChromeSlots.description");
+    expect(src).toContain("extendedChromeSlots.images");
+    expect(src).not.toContain("slots={extendedChromeSlots}");
+  });
+
+  it("Jobs/Exchange extended bodies register controllers without submit authority imports", () => {
+    const jobs = readFileSync(
+      resolve(process.cwd(), "components/write/trade/generic/JobsExtendedWriteFields.tsx"),
+      "utf8"
+    );
+    const exchange = readFileSync(
+      resolve(process.cwd(), "components/write/trade/generic/ExchangeExtendedWriteFields.tsx"),
+      "utf8"
+    );
+    expect(jobs).toContain("registerController");
+    expect(exchange).toContain("registerController");
+    expect(jobs).not.toContain('from "@/lib/posts/createPost"');
+    expect(exchange).not.toContain('from "@/lib/posts/createPost"');
+    expect(jobs).not.toContain("updateTradePostFromCreatePayload");
+    expect(exchange).not.toContain("updateTradePostFromCreatePayload");
+    expect(jobs).not.toContain("<ImageUploader");
+    expect(exchange).not.toContain("<ImageUploader");
+    expect(jobs).not.toContain("<TradeDefaultLocationBlock");
+    expect(exchange).not.toContain("<TradeDefaultLocationBlock");
+    expect(jobs).not.toContain("<AutoGrowTextarea");
+    expect(exchange).not.toContain("<AutoGrowTextarea");
+    expect(jobs).not.toContain("slots.topic");
+    expect(jobs).not.toContain("slots.title");
+    expect(jobs).not.toContain("slots.location");
+    expect(jobs).not.toContain("slots.description");
+    expect(jobs).not.toContain("slots.images");
+    expect(exchange).not.toContain("slots.topic");
+    expect(exchange).not.toContain("slots.location");
+    expect(exchange).not.toContain("slots.description");
+    expect(exchange).not.toContain("slots.images");
   });
 
   it("Jobs/Exchange extended bodies render seed library fields through GenericTradeWriteFields", () => {
