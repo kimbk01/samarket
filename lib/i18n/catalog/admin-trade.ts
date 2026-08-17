@@ -3,14 +3,14 @@ export const adminTradeMessages = {
   ko: {
     admin_trade_hub_desc:
       "홈 거래·마켓과 연결된 관리 화면을 한곳에서 이동합니다. (채팅·리뷰 등은 기존 메뉴 그룹에도 그대로 있습니다.)",
-    admin_trade_hub_section_menu_chips: "메뉴 · 홈 칩",
+    admin_trade_hub_section_menu_chips: "주제 · 카테고리 · 옵션",
     admin_trade_hub_section_feed_topics: "피드 · 주제",
     admin_trade_hub_section_posts_products: "게시 · 상품",
     admin_trade_hub_section_favorites_offers: "찜 · 제안 · 상태",
     admin_trade_hub_section_chat_flow: "채팅 · 거래 흐름",
     admin_trade_hub_section_reviews_ads: "후기 · 광고(연동)",
     admin_trade_hub_desc_settings: "상세 하단 추천 규칙·지역 fallback·광고/유사상품 개수",
-    admin_trade_hub_desc_menu_trade: "홈 상단 칩·거래 종류(일반·중고차 등)·글쓰기 런처 노출",
+    admin_trade_hub_desc_menu_trade: "1행 주제, 2행 카테고리, 옵션, 글쓰기 런처",
     admin_trade_hub_desc_feed_topics: "마켓 2행 주제·세부 칩(현대·기아 등)",
     admin_trade_hub_desc_products: "등록된 거래 상품(게시) 목록",
     admin_trade_hub_desc_posts_management: "전체 게시물(거래·기타 탭 포함)",
@@ -172,14 +172,14 @@ export const adminTradeMessages = {
   en: {
     admin_trade_hub_desc:
       "Jump to trade and market admin screens from one place. (Chat, reviews, etc. remain in their existing menu groups.)",
-    admin_trade_hub_section_menu_chips: "Menu · home chips",
+    admin_trade_hub_section_menu_chips: "Topics · categories · options",
     admin_trade_hub_section_feed_topics: "Feed · topics",
     admin_trade_hub_section_posts_products: "Posts · products",
     admin_trade_hub_section_favorites_offers: "Favorites · offers · status",
     admin_trade_hub_section_chat_flow: "Chat · trade flow",
     admin_trade_hub_section_reviews_ads: "Reviews · ads (linked)",
     admin_trade_hub_desc_settings: "Detail-bottom recommendations, region fallback, ad/similar counts",
-    admin_trade_hub_desc_menu_trade: "Home top chips, trade types (general, used cars, etc.), write launcher",
+    admin_trade_hub_desc_menu_trade: "Row-1 topics, row-2 categories, options, write launcher",
     admin_trade_hub_desc_feed_topics: "Market row-2 topics and sub-chips (e.g. Hyundai, Kia)",
     admin_trade_hub_desc_products: "Registered trade product (listing) list",
     admin_trade_hub_desc_posts_management: "All posts (including trade and other tabs)",

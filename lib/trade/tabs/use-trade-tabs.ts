@@ -77,7 +77,13 @@ export function useTradeTabs(pathname: string, categoryQuery: string | null = nu
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError((e as Error)?.message ?? "TRADE 카테고리를 불러올 수 없습니다.");
+        setError(
+          (e as Error)?.message ??
+            safeT("trade_primary_tabs_load_error", {
+              fallbackKo: "주제를 불러올 수 없습니다.",
+              fallbackEn: "Unable to load topics.",
+            })
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

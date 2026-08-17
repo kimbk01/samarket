@@ -63,7 +63,15 @@ export {
 
 export { writeWidgetKeyForField, TRADE_WRITE_WIDGET_KEYS } from "./write-widget-registry";
 
-export { resolveTradeCompositionForCategory } from "./resolve-for-category";
+export {
+  resolveTradeCompositionForCategory,
+  resolveTradeCompositionForCategoryId,
+  resolveTradeCompositionRootRow,
+  selectTradeCompositionOwnerRow,
+  splitTradeListingAndCompositionOwnerIds,
+  withTradeCompositionOwner,
+  type TradeCompositionCategoryRow,
+} from "./resolve-for-category";
 
 export {
   applyTradeBehaviorAdapter,

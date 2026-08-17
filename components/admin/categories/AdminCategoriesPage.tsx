@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCategoryAdmin } from "./useCategoryAdmin";
 import { CategoryTable } from "./CategoryTable";
@@ -57,6 +58,13 @@ export function AdminCategoriesPage() {
           {t("admin_cat_add_btn")}
         </button>
       </div>
+      <p className="sam-text-body text-sam-muted">
+        {t("admin_cat_trade_ssot_prefix")}{" "}
+        <Link href="/admin/menus/trade" className="font-medium text-signature hover:underline">
+          {t("admin_cat_trade_ssot_link")}
+        </Link>
+        {t("admin_cat_trade_ssot_suffix")}
+      </p>
 
       {supabaseAvailable === false && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">

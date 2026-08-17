@@ -154,7 +154,7 @@ export const uiPhaseFinishMessages = {
     ui_category_empty_message: "아직 글이 없어요.",
     ui_category_empty_sub: "첫 글을 올려보세요.",
 
-    ui_market_topic_filter_aria: "주제 필터",
+    ui_market_topic_filter_aria: "카테고리 필터",
     ui_market_jobs_tab_aria: "구인구직 유형",
 
     ui_report_reason_title: "신고 사유",
@@ -471,7 +471,7 @@ export const uiPhaseFinishMessages = {
     ui_write_image_rotate: "회전",
     ui_write_image_add_aria: "사진 추가",
     ui_write_phrase_ph: "문구를 입력하세요",
-    ui_write_topic_label: "주제",
+    ui_write_topic_label: "카테고리",
     ui_write_topic_one_only: "· 하나만",
     ui_write_topic_select_paren: "(하나만 선택)",
     ui_write_cancel_title: "글쓰기 취소",
@@ -694,7 +694,7 @@ export const uiPhaseFinishMessages = {
     ui_category_empty_message: "No posts yet.",
     ui_category_empty_sub: "Be the first to post.",
 
-    ui_market_topic_filter_aria: "Topic filter",
+    ui_market_topic_filter_aria: "Category filter",
     ui_market_jobs_tab_aria: "Job listing type",
 
     ui_report_reason_title: "Report reason",
@@ -1010,7 +1010,7 @@ export const uiPhaseFinishMessages = {
     ui_write_image_rotate: "Rotate",
     ui_write_image_add_aria: "Add photo",
     ui_write_phrase_ph: "Enter a phrase",
-    ui_write_topic_label: "Topic",
+    ui_write_topic_label: "Category",
     ui_write_topic_one_only: "· one only",
     ui_write_topic_select_paren: "(select one)",
     ui_write_cancel_title: "Cancel writing",

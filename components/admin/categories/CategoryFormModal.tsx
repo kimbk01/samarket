@@ -206,6 +206,9 @@ export function CategoryFormModal({
     [isMenuMode, tradeSubtype, communitySkin]
   );
 
+  /** CUT A2 — 옵션(field_composition)은 거래 주제(루트)에서만 편집. 하위 카테고리 overlay는 A1 reader가 무시한다. */
+  const isTradeOptionRoot = (fixedType === "trade" || type === "trade") && !category?.parent_id;
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -256,7 +259,16 @@ export function CategoryFormModal({
             quick_create_order,
             show_in_home_chips,
           },
-          { can_write, has_price, has_chat, has_location, has_direct_deal, has_free_share, post_type, field_composition: fieldComposition }
+          {
+            can_write,
+            has_price,
+            has_chat,
+            has_location,
+            has_direct_deal,
+            has_free_share,
+            post_type,
+            ...(isTradeOptionRoot ? { field_composition: fieldComposition } : {}),
+          }
         );
         onClose();
       } finally {
@@ -284,7 +296,9 @@ export function CategoryFormModal({
       has_free_share,
       post_type,
       fieldComposition,
+      isTradeOptionRoot,
       category?.id,
+      category?.parent_id,
       onSave,
       onClose,
       isMenuMode,
@@ -569,7 +583,7 @@ export function CategoryFormModal({
               </div>
             </div>
           </div>
-          {(fixedType === "trade" || type === "trade") && (
+          {isTradeOptionRoot && (
             <div className="border-t border-sam-border-soft pt-4">
               <CategoryFieldCompositionEditor
                 iconKey={

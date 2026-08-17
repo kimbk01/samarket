@@ -37,16 +37,6 @@ const SECTIONS: HubSection[] = [
     ],
   },
   {
-    titleKey: "admin_trade_hub_section_feed_topics",
-    items: [
-      {
-        href: "/admin/trade/feed-topics",
-        titleKey: "admin_menu_trade_topics",
-        descriptionKey: "admin_trade_hub_desc_feed_topics",
-      },
-    ],
-  },
-  {
     titleKey: "admin_trade_hub_section_posts_products",
     items: [
       {

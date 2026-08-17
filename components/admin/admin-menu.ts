@@ -99,7 +99,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "trade-post-ads": "admin_menu_trade_post_ads",
   "trade-ad-policies": "admin_menu_trade_ad_policies",
   "menu-trade": "admin_menu_menu_trade",
-  "trade-feed-topics": "admin_menu_trade_topics",
   "trade-likes": "admin_menu_trade_likes",
   "chat-trade-flow": "admin_menu_chat_flow",
   "chat-trade-complete": "admin_menu_chat_trade_complete",
@@ -416,7 +415,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
       { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
       { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
-      { key: "trade-feed-topics", title: "", path: "/admin/trade/feed-topics", status: "done" },
       { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
       { key: "chat-trade-flow", title: "", path: "/admin/trade-flow", status: "done" },
       {

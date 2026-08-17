@@ -25,6 +25,9 @@ import {
   parseTradeLocationScopeFromSearchParams,
 } from "@/lib/trade/location/trade-location-scope";
 import { parseMarketplacePriceBound } from "@/lib/trade/marketplace/query-contract";
+import { getCategories } from "@/lib/categories/getCategories";
+import type { CategoryWithSettings } from "@/lib/categories/types";
+import { splitTradeListingAndCompositionOwnerIds } from "@/lib/trade/category-form";
 
 export function SearchView() {
   const { t, safeT } = useI18n();
@@ -53,6 +56,16 @@ export function SearchView() {
 
   const [keyword, setKeyword] = useState(queryFromUrl);
   const [filters, setFilters] = useState<SearchFilters>(getDefaultSearchFilters);
+  const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
+
+  useEffect(() => {
+    void getCategories({ type: "trade", activeOnly: true }).then(setCategories);
+  }, []);
+
+  const listingAndComposition = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    return splitTradeListingAndCompositionOwnerIds(filters.categoryId, byId);
+  }, [categories, filters.categoryId]);
 
   useEffect(() => {
     setKeyword(queryFromUrl);
@@ -83,14 +96,17 @@ export function SearchView() {
           page: pageNum,
           sort: locGate.lguCityId && filters.sortKey === "distance" ? "distance" : "latest",
           tradeState: filters.status === "all" ? "latest" : filters.status,
-          tradeMarketParentId: filters.categoryId || null,
+          /** listing narrowing only — child id stays child; composition owner is root via loader 1-hop */
+          tradeMarketParentId: listingAndComposition.listingCategoryId,
           locationAll: locGate.locationAll === true,
           lguCityId: locGate.lguCityId ?? null,
           radiusKm: locGate.radiusKm ?? null,
           q,
           priceMin: parseMarketplacePriceBound(filters.priceMin),
           priceMax: parseMarketplacePriceBound(filters.priceMax),
-          compositionFilters: filters.categoryId ? filters.compositionFilters : {},
+          compositionFilters: listingAndComposition.compositionOwnerId
+            ? filters.compositionFilters
+            : {},
         });
         const next = applyBlocked(postsToSearchProducts(res.posts ?? []));
         setProducts((prev) => (append ? [...prev, ...next] : next));
@@ -100,7 +116,7 @@ export function SearchView() {
         setLoading(false);
       }
     },
-    [keyword, locGate, filters, applyBlocked]
+    [keyword, locGate, filters, listingAndComposition, applyBlocked]
   );
 
   useEffect(() => {

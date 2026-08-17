@@ -64,6 +64,7 @@ import {
   tradeDetailViewsLine,
 } from "@/lib/trade/post-detail-i18n";
 import { resolveTradeCompositionProfileId } from "@/lib/trade/category-form/composition-seeds";
+import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolve-for-category";
 import {
   REAL_ESTATE_HERO_SKIP_FIELD_IDS,
   detailSpecSectionTitleKey,
@@ -545,6 +546,8 @@ export function PostDetailView({
   /** 카테고리 로드 전 폴백 — 거래 상세는 `/market` 이 안전 */
   const [backHref, setBackHref] = useState("/market");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
+  /** Option SSOT — ROOT topic. Child category is list narrowing only. */
+  const [compositionRoot, setCompositionRoot] = useState<CategoryWithSettings | null>(null);
   const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(() =>
     sellerProfile?.id
       ? {
@@ -723,13 +726,29 @@ export function PostDetailView({
   const writeCtx = useWriteCategory();
 
   useEffect(() => {
-    getCategoryBySlugOrId(post.category_id).then((c) => {
-      if (c) {
-        setCategory(c);
-        const remembered = peekTradeListReturnHref();
-        setBackHref(remembered || getCategoryHref(c));
+    let cancelled = false;
+    setCompositionRoot(null);
+    void (async () => {
+      const c = await getCategoryBySlugOrId(post.category_id);
+      if (cancelled || !c) return;
+      setCategory(c);
+      const remembered = peekTradeListReturnHref();
+      setBackHref(remembered || getCategoryHref(c));
+      const parentId = typeof c.parent_id === "string" ? c.parent_id.trim() : "";
+      if (!parentId) {
+        setCompositionRoot(c);
+        return;
       }
-    });
+      const parent = await getCategoryBySlugOrId(parentId);
+      if (cancelled) return;
+      const byId = new Map<string, CategoryWithSettings>();
+      byId.set(c.id, c);
+      if (parent?.id) byId.set(parent.id, parent);
+      setCompositionRoot(resolveTradeCompositionRootRow(c.id, byId) ?? c);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [post.category_id]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -1219,13 +1238,14 @@ export function PostDetailView({
     String(detailMetaJob.trade_chat_kind ?? "").toLowerCase() === "job";
   const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
   const jobDetailListingKind = jobDetailDirection === "hiring" ? "hire" : "work";
+  const compositionOwner = compositionRoot;
   const detailCompositionProfileId = resolveTradeCompositionProfileId({
-    icon_key: category?.icon_key,
-    slug: category?.slug,
+    icon_key: compositionOwner?.icon_key ?? category?.icon_key,
+    slug: compositionOwner?.slug ?? category?.slug,
   });
   const detailSpecProfileId = resolveDetailSpecProfileId({
-    icon_key: category?.icon_key,
-    slug: category?.slug,
+    icon_key: compositionOwner?.icon_key ?? category?.icon_key,
+    slug: compositionOwner?.slug ?? category?.slug,
     meta: detailMetaJob,
   });
   /** CTA/process only — spec presentation uses detailSpecProfileId → projector */
@@ -1656,7 +1676,7 @@ export function PostDetailView({
       ? jobDetailDirection === "hiring"
         ? t("ui_jobs_detail_recruit_section")
         : t("ui_jobs_detail_seek_section")
-      : t(detailSpecSectionTitleKey(detailSpecProfileId, category?.icon_key));
+      : t(detailSpecSectionTitleKey(detailSpecProfileId, compositionOwner?.icon_key ?? category?.icon_key));
 
   const specMeta =
     isRealEstateSpec && post.price != null ? { ...reMeta, price: String(post.price) } : (post.meta as Record<string, unknown>) ?? {};
@@ -1788,12 +1808,13 @@ export function PostDetailView({
               </div>
             ) : null}
 
-            {detailSpecProfileId !== "general" ||
-            Boolean(category?.icon_key && post.meta && Object.keys(post.meta).length > 0) ? (
+            {compositionOwner &&
+            (detailSpecProfileId !== "general" ||
+              Boolean(compositionOwner.icon_key && post.meta && Object.keys(post.meta).length > 0)) ? (
               <TradeCompositionDetailSection
                 iconKey={detailSpecProfileId}
-                categorySlug={category?.slug}
-                fieldComposition={category?.settings?.field_composition}
+                categorySlug={compositionOwner.slug}
+                fieldComposition={compositionOwner.settings?.field_composition}
                 title={specTitle}
                 meta={specMeta}
                 post={specPost}

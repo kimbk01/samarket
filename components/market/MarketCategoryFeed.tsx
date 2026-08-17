@@ -45,7 +45,7 @@ import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
 
 /**
  * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
- * (`/admin/trade/feed-topics` · TradeSubtopicsPanel 과 동일 소스. 하위가 없으면 2행 숨김)
+ * (`/admin/menus/trade` · TradeSubtopicsPanel 과 동일 소스. 하위가 없으면 2행 숨김)
  */
 
 /** 1차 거래 탭 `href`는 쿼리 {t("common_none")} — 진입 시 기본 정렬(`latest`)만 유효. 현재 화면 `fs`/`sort`를 쓰면 캐시 키가 어긋난다. */

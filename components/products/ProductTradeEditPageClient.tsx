@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
+import { withTradeCompositionOwner } from "@/lib/trade/category-form";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -89,16 +90,26 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       setErrorMessage(t("trade_120"));
       return;
     }
+    let formCategory = c;
+    const parentId = typeof c.parent_id === "string" ? c.parent_id.trim() : "";
+    if (parentId) {
+      try {
+        const owner = await getCategoryBySlugOrId(parentId);
+        if (owner) formCategory = withTradeCompositionOwner(c, owner);
+      } catch {
+        formCategory = c;
+      }
+    }
     if (c.settings && !c.settings.can_write) {
       setSnapshot(post);
       setTradePolicy(data.tradePolicy ?? null);
-      setCategory(c);
+      setCategory(formCategory);
       setStatus("no_write");
       return;
     }
     setSnapshot(post);
     setTradePolicy(data.tradePolicy ?? null);
-    setCategory(c);
+    setCategory(formCategory);
     setStatus("ready");
   }, [id, router, pathname, t]);
 

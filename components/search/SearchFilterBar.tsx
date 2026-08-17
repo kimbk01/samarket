@@ -7,7 +7,7 @@ import type { CategoryWithSettings } from "@/lib/types/category";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import {
-  resolveTradeCompositionForCategory,
+  resolveTradeCompositionForCategoryId,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
 
@@ -63,8 +63,13 @@ export function SearchFilterBar({
     [safeT]
   );
 
-  const selectedCategory = categories.find((c) => c.id === filters.categoryId) ?? null;
-  const composition = selectedCategory ? resolveTradeCompositionForCategory(selectedCategory) : null;
+  const compositionById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  );
+  const composition = filters.categoryId
+    ? resolveTradeCompositionForCategoryId(filters.categoryId, compositionById)
+    : null;
 
   const hasActive =
     Boolean(filters.categoryId) ||

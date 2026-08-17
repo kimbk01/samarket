@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { resolveTradeCompositionRootRow } from "@/lib/trade/category-form/resolve-for-category";
 import { resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 
 export type TradeListCompositionProps = {
@@ -23,6 +24,24 @@ function propsFromCategory(c: CategoryWithSettings): TradeListCompositionProps {
   };
 }
 
+/** Child category ids resolve to ROOT topic composition (CUT A1). */
+export function buildTradeListCompositionMapFromCategories(
+  list: readonly CategoryWithSettings[]
+): Map<string, TradeListCompositionProps> {
+  const byRow = new Map<string, CategoryWithSettings>();
+  for (const c of list) {
+    if (!c.id) continue;
+    byRow.set(c.id, c);
+  }
+  const next = new Map<string, TradeListCompositionProps>();
+  for (const c of list) {
+    if (!c.id) continue;
+    const root = resolveTradeCompositionRootRow(c.id, byRow) ?? c;
+    next.set(c.id, propsFromCategory(root));
+  }
+  return next;
+}
+
 export function useTradeListCompositionMap(): {
   ready: boolean;
   propsForCategoryId: (categoryId: string | null | undefined) => TradeListCompositionProps | null;
@@ -34,12 +53,7 @@ export function useTradeListCompositionMap(): {
     let cancelled = false;
     void getCategories({ type: "trade", activeOnly: true }).then((list) => {
       if (cancelled) return;
-      const next = new Map<string, TradeListCompositionProps>();
-      for (const c of list) {
-        if (!c.id) continue;
-        next.set(c.id, propsFromCategory(c));
-      }
-      setById(next);
+      setById(buildTradeListCompositionMapFromCategories(list));
       setReady(true);
     });
     return () => {
