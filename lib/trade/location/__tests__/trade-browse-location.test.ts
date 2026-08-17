@@ -9,8 +9,15 @@ import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/tr
 import { TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL } from "@/lib/trade/location/national/legacy-product-alias-canonical";
 
 describe("tradeBrowseLocation draft/committed bridge", () => {
-  it("URL ALL → browse all", () => {
+  it("empty URL is unset; picker draft still starts as all", () => {
     const scope = parseTradeLocationScopeFromSearchParams(new URLSearchParams(""));
+    expect(scope).toEqual({ mode: "unset" });
+    expect(tradeBrowseLocationFromScope(scope)).toEqual({ kind: "all" });
+  });
+
+  it("URL location=all → browse all", () => {
+    const scope = parseTradeLocationScopeFromSearchParams(new URLSearchParams("location=all"));
+    expect(scope).toEqual({ mode: "all" });
     expect(tradeBrowseLocationFromScope(scope)).toEqual({ kind: "all" });
   });
 

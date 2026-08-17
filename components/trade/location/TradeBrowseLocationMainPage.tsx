@@ -38,6 +38,7 @@ import {
   seedTradeBrowseLocationDraftSession,
   writeTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
+import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
 import {
   TRADE_BROWSE_LOCATION_DISTANCE_PATH,
   TRADE_BROWSE_LOCATION_SEARCH_PATH,
@@ -272,6 +273,7 @@ export function TradeBrowseLocationMainPage() {
 
   const onViewAll = useCallback(() => {
     clearTradeBrowseLocationDraftSession();
+    writeTradeBrowseCommittedScope({ mode: "all" });
     const href = buildTradeLocationHref("/market", searchParams.toString(), { mode: "all" });
     router.replace(href, { scroll: false });
   }, [router, searchParams]);

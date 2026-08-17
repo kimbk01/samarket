@@ -5,6 +5,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
+import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
+import { marketplaceHomePrewarmOptions } from "@/lib/trade/marketplace/client-location-fetch";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
@@ -27,6 +29,9 @@ import {
 } from "@/lib/ui/network-policy";
 import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
+import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import { peekTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
+import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
 
 /**
  * `/market` | `/market?category=…` 인접 탭 프리웜 — 목록은 일자리 URL 필터 없음(`jk` 등 무시), 주제·정렬만 반영.
@@ -63,6 +68,16 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
       ? tradeStateRaw
       : "latest";
 
+  let locExtras = marketplaceFeedLocationExtras(
+    parseTradeLocationScopeFromSearchParams(url.searchParams)
+  );
+  if (!locExtras.lguCityId && !locExtras.locationAll) {
+    const session = peekTradeBrowseCommittedScope();
+    if (!session) return;
+    locExtras = marketplaceFeedLocationExtras(session);
+    if (!locExtras.lguCityId && !locExtras.locationAll) return;
+  }
+
   const useUnfilteredMarketParentFeed = !topicRaw;
 
   const base = {
@@ -70,6 +85,7 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
     sort,
     tradeMarketParent: parent,
     tradeState,
+    ...locExtras,
   };
 
   const options: GetPostsByCategoryOptions = useUnfilteredMarketParentFeed
@@ -103,6 +119,7 @@ export function MarketContent({
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
   clientFeedInstantBoot?: boolean;
 }) {
+  useTradeMarketplaceLocationHydrate();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -195,9 +212,12 @@ export function MarketContent({
           peekOrWarmMarketCategoryFeedFromHref(href);
           return;
         }
-        const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
-        if (!hit?.posts?.length) {
-          void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
+        const hit = peekCachedPostsForHome(
+          marketplaceHomePrewarmOptions() ?? { sort: "latest", type: null, tradeState: "latest" }
+        );
+        const prewarm = marketplaceHomePrewarmOptions();
+        if (prewarm && !hit?.posts?.length) {
+          void getPostsForHome({ page: 1, ...prewarm });
         }
         return;
       }

@@ -9,7 +9,7 @@ import {
 const SESSION_PREFIX = "samarket:home-posts:v1:";
 const LOCAL_PREFIX = "samarket:home-posts:local:v1:";
 /** normalizeOptions default key — must stay in sync with getPostsForHome */
-const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:v5";
+const DEFAULT_CACHE_KEY = "1:latest:all:m:all:ts:latest:loc:all:q::pmin::pmax::ms:newest:v6";
 
 const sample = {
   posts: [{ id: "p1" } as never],
@@ -79,7 +79,7 @@ describe("home posts session expiresAt (Fix 3)", () => {
       sessionKey(),
       JSON.stringify({ expiresAt: Date.now() + 45_000, data: sample })
     );
-    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(hit?.posts).toHaveLength(1);
     expect(hit?.favoriteMap.p1).toBe(true);
   });
@@ -90,7 +90,7 @@ describe("home posts session expiresAt (Fix 3)", () => {
     vi.setSystemTime(now);
     invalidateHomePostsCache({ notifyListReload: false });
     sessionStore.setItem(sessionKey(), JSON.stringify({ expiresAt: now, data: sample }));
-    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(hit?.posts).toHaveLength(1);
   });
 
@@ -99,7 +99,7 @@ describe("home posts session expiresAt (Fix 3)", () => {
       sessionKey(),
       JSON.stringify({ expiresAt: Date.now() - 1, data: sample })
     );
-    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(hit).toBeNull();
     expect(sessionStore.getItem(sessionKey())).toBeNull();
   });
@@ -109,7 +109,7 @@ describe("home posts session expiresAt (Fix 3)", () => {
       localKey(),
       JSON.stringify({ expiresAt: Date.now() - 1, data: sample })
     );
-    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(hit).toBeNull();
     expect(localStore.getItem(localKey())).toBeNull();
   });
@@ -129,32 +129,32 @@ describe("home posts session expiresAt (Fix 3)", () => {
         data: { posts: [{ id: "local-fresh" }], hasMore: false, favoriteMap: {} },
       })
     );
-    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(hit?.posts[0]?.id).toBe("local-fresh");
   });
 
   it("malformed JSON → miss without throw", () => {
     sessionStore.setItem(sessionKey(), "{not-json");
     expect(() =>
-      peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" })
+      peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })
     ).not.toThrow();
-    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" })).toBeNull();
+    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })).toBeNull();
   });
 
   it("schema mismatch / missing expiresAt → miss", () => {
     sessionStore.setItem(sessionKey(), JSON.stringify({ data: sample }));
-    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" })).toBeNull();
+    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })).toBeNull();
     sessionStore.setItem(
       sessionKey(),
       JSON.stringify({ expiresAt: Date.now() + 1000, data: { posts: "bad", favoriteMap: {} } })
     );
-    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" })).toBeNull();
+    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })).toBeNull();
   });
 
   it("unix-seconds expiresAt is not treated as valid ms hit", () => {
     const seconds = Math.floor(Date.now() / 1000) + 3600;
     sessionStore.setItem(sessionKey(), JSON.stringify({ expiresAt: seconds, data: sample }));
-    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" })).toBeNull();
+    expect(peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })).toBeNull();
   });
 });
 
@@ -173,8 +173,8 @@ describe("home posts durable local write on network (Fix 4)", () => {
     );
 
     const [a, b] = await Promise.all([
-      getPostsForHome({ sort: "latest", type: null, tradeState: "latest" }),
-      getPostsForHome({ sort: "latest", type: null, tradeState: "latest" }),
+      getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true }),
+      getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true }),
     ]);
     expect(a.posts).toHaveLength(1);
     expect(b.posts).toHaveLength(1);
@@ -189,14 +189,14 @@ describe("home posts durable local write on network (Fix 4)", () => {
     invalidateHomePostsCache({ notifyListReload: false });
     sessionStore.clear();
     localStore.setItem(localKey(), durable!);
-    const fromLocal = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    const fromLocal = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     expect(fromLocal?.posts[0]?.id).toBe("p1");
   });
 
   it("network !ok → no local write", async () => {
     const setItemSpy = vi.spyOn(localStore, "setItem");
     vi.stubGlobal("fetch", vi.fn(async () => new Response("err", { status: 500 })));
-    await getPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    await getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     const localWrites = setItemSpy.mock.calls.filter(([k]) => String(k).startsWith(LOCAL_PREFIX));
     expect(localWrites.length).toBe(0);
   });
@@ -209,7 +209,7 @@ describe("home posts durable local write on network (Fix 4)", () => {
         throw new Error("network");
       })
     );
-    await getPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    await getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true });
     const localWrites = setItemSpy.mock.calls.filter(([k]) => String(k).startsWith(LOCAL_PREFIX));
     expect(localWrites.length).toBe(0);
   });
@@ -232,18 +232,24 @@ describe("home posts durable local write on network (Fix 4)", () => {
       return original(key, value);
     });
     await expect(
-      getPostsForHome({ sort: "latest", type: null, tradeState: "latest" })
+      getPostsForHome({ sort: "latest", type: null, tradeState: "latest", locationAll: true })
     ).resolves.toEqual({ posts: [], hasMore: false, favoriteMap: {} });
   });
 
   it("home vs category-like key do not share local slot", () => {
-    primeHomePostsCache({ sort: "latest", type: null, tradeState: "latest" }, sample);
+    primeHomePostsCache({ sort: "latest", type: null, tradeState: "latest", locationAll: true }, sample);
     primeHomePostsCache(
-      { sort: "latest", type: null, tradeState: "latest", tradeMarketParentId: "cat-parent-uuid" },
+      {
+        sort: "latest",
+        type: null,
+        tradeState: "latest",
+        tradeMarketParentId: "cat-parent-uuid",
+        locationAll: true,
+      },
       { posts: [{ id: "cat" } as never], hasMore: false, favoriteMap: {} }
     );
     const homeRaw = localStore.getItem(localKey(DEFAULT_CACHE_KEY));
-    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:v5`;
+    const catKey = `1:latest:all:m:cat-parent-uuid:ts:latest:loc:all:q::pmin::pmax::ms:newest:v6`;
     const catRaw = localStore.getItem(localKey(catKey));
     expect(homeRaw).toBeTruthy();
     expect(catRaw).toBeTruthy();

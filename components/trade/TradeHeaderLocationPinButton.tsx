@@ -92,13 +92,16 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
 
 /** Header hint: `{place} · {전체|Nkm}` — place truncates; suffix must never clip. */
 export function buildTradeHeaderLocationHintParts(input: {
-  mode: "all" | "city";
+  mode: "all" | "city" | "unset";
   cityLabel: string | null;
   radiusKm: number | null;
   userPlaceLabel: string | null;
   allLabel: string;
   fallbackPlaceLabel: string;
 }): { place: string | null; suffix: string } {
+  if (input.mode === "unset") {
+    return { place: null, suffix: input.allLabel };
+  }
   if (input.mode === "city") {
     const place = (input.cityLabel ?? "").trim() || input.fallbackPlaceLabel;
     const km =
@@ -133,6 +136,7 @@ export function TradeHeaderLocationPinButton({
 
   const committedScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const isFiltered = committedScope.mode === "city";
+  const locationUnset = committedScope.mode === "unset";
   const onLocationStack = isTradeBrowseLocationPath(pathname);
 
   const committedBrowse = useMemo(
@@ -201,11 +205,16 @@ export function TradeHeaderLocationPinButton({
   }, [committedBrowse, router, searchParams]);
 
   const hintParts = buildTradeHeaderLocationHintParts({
-    mode: committedScope.mode === "city" ? "city" : "all",
+    mode:
+      committedScope.mode === "city"
+        ? "city"
+        : committedScope.mode === "unset"
+          ? "unset"
+          : "all",
     cityLabel: committedLabel,
     radiusKm: committedScope.mode === "city" ? committedScope.radiusKm : null,
     userPlaceLabel: myRegion?.displayName ?? null,
-    allLabel: t("trade_location_all"),
+    allLabel: locationUnset ? t("trade_location_resolving_city") : t("trade_location_all"),
     fallbackPlaceLabel: t("trade_location_section_region"),
   });
 

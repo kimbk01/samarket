@@ -26,6 +26,7 @@ import {
   parseTradeLocationScopeFromSearchParams,
   peekTradeLguDisplayLabel,
 } from "@/lib/trade/location/trade-location-scope";
+import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -113,13 +114,11 @@ export function PostListByCategory({
     [searchParams]
   );
   const locationInvalid = locationScope.mode === "invalid";
-  const lguCityId =
-    locationScope.mode === "city"
-      ? locationScope.lguId
-      : locationInvalid
-        ? locationScope.raw || "invalid"
-        : undefined;
-  const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
+  const locationUnset = locationScope.mode === "unset";
+  const locExtras = marketplaceFeedLocationExtras(locationScope);
+  const lguCityId = locExtras.lguCityId;
+  const radiusKm = locExtras.radiusKm;
+  const locationAll = locExtras.locationAll === true;
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -135,6 +134,7 @@ export function PostListByCategory({
       tradeState,
       lguCityId,
       radiusKm,
+      locationAll,
     }),
     [
       jobEmploymentType,
@@ -144,6 +144,7 @@ export function PostListByCategory({
       tradeState,
       lguCityId,
       radiusKm,
+      locationAll,
     ]
   );
 
@@ -162,6 +163,7 @@ export function PostListByCategory({
         tradeState: feedExtras.tradeState,
         lguCityId: feedExtras.lguCityId,
         radiusKm: feedExtras.radiusKm,
+        locationAll: feedExtras.locationAll,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };
@@ -299,6 +301,10 @@ export function PostListByCategory({
         allowRscBootstrapFeedRef.current = true;
         return;
       }
+      if (locationUnset) {
+        setLoading(true);
+        return;
+      }
       if (!tradeFeedServerResolution && effectiveIds.length === 0) {
         setLoading((prev) => (prev ? false : prev));
         allowRscBootstrapFeedRef.current = true;
@@ -343,6 +349,7 @@ export function PostListByCategory({
       tradeFeedServerResolution,
       resolveFavoriteMapAsync,
       buildTradeFeedRequestOptions,
+      locationUnset,
     ]
   );
 
@@ -456,6 +463,14 @@ export function PostListByCategory({
       return false;
     };
 
+    if (locationUnset) {
+      setLoading(true);
+      setPosts([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (applyBootstrapOrCacheSync()) {
       return () => {
         cancelled = true;
@@ -487,6 +502,7 @@ export function PostListByCategory({
     tradeFeedServerResolution,
     effectiveIds,
     categoryId,
+    locationUnset,
   ]);
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */

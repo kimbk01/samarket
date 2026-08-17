@@ -14,6 +14,10 @@ import {
   type TradeFeedClientResult,
   type TradeFeedClientSort,
 } from "@/lib/posts/trade-feed-client-cache";
+import {
+  appendMarketplaceLocationSearchParams,
+  appendMarketplaceQuerySearchParams,
+} from "@/lib/trade/marketplace/query-contract";
 
 export type PostSort = TradeFeedClientSort;
 export type GetPostsByCategoryOptions = TradeFeedClientOptions;
@@ -118,13 +122,16 @@ export async function getPostsByTradeCategoryIds(
       params.set("tradeState", options.tradeState);
     }
     const lgu = options.lguCityId?.trim();
-    if (lgu) {
-      params.set("location", "city");
-      params.set("lgu", lgu);
-      if (options.radiusKm != null && Number.isFinite(Number(options.radiusKm))) {
-        params.set("radius", String(Math.round(Number(options.radiusKm))));
-      }
-    }
+    appendMarketplaceLocationSearchParams(params, {
+      locationAll: options.locationAll === true && !lgu,
+      lguCityId: lgu,
+      radiusKm: options.radiusKm,
+    });
+    appendMarketplaceQuerySearchParams(params, {
+      q: options.q,
+      priceMin: options.priceMin,
+      priceMax: options.priceMax,
+    });
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {

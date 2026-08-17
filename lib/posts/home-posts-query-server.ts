@@ -17,6 +17,11 @@ import {
 } from "@/lib/posts/trade-posts-range-query";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
+import { applyMarketplaceQueryToPostgrest } from "@/lib/trade/marketplace/query-contract";
+import {
+  MARKETPLACE_DISTANCE_SCAN_CAP,
+  sortListingsByLguDistance,
+} from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -35,7 +40,7 @@ export const HOME_POSTS_SELECT_TIERS = [
 export const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
 export type HomePostsTradeStateFilter = "latest" | "active" | "reserved" | "sold";
 
-export type HomePostsQuerySort = "latest" | "popular";
+export type HomePostsQuerySort = "latest" | "popular" | "distance";
 export type HomePostsQueryType = "trade" | "community" | "service" | "feature" | null;
 
 export function resolveHomePostsStatusOrByTradeState(
@@ -99,7 +104,8 @@ export async function loadHomePostsPage(
   tradeCategoryIds: string[] | null,
   statusOr: string,
   lguCityId?: string | null,
-  radiusKm?: number | null
+  radiusKm?: number | null,
+  queryExtras?: { q?: string; priceMin?: number; priceMax?: number }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
   const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
@@ -107,6 +113,11 @@ export async function loadHomePostsPage(
     return { posts: [], hasMore: false };
   }
   const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+  const useDistance = sort === "distance" && feedConstraint.kind === "lgu";
+  const rangeFrom = useDistance ? 0 : from;
+  const rangeTo = useDistance
+    ? MARKETPLACE_DISTANCE_SCAN_CAP - 1
+    : from + HOME_POSTS_PAGE_SIZE - 1;
 
   outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
     let q = sb.from(table).select(selectFields);
@@ -131,13 +142,18 @@ export async function loadHomePostsPage(
     if (feedLocExtras) {
       q = applyResolvedTradeFeedLocationToQuery(q as any, feedLocExtras) as typeof q;
     }
-    if (sort === "latest") {
-      q = q.order("created_at", { ascending: false });
-    } else {
+    q = applyMarketplaceQueryToPostgrest(q as any, {
+      q: queryExtras?.q,
+      priceMin: queryExtras?.priceMin,
+      priceMax: queryExtras?.priceMax,
+    }) as typeof q;
+    if (sort === "popular") {
       q = q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
+    } else {
+      q = q.order("created_at", { ascending: false });
     }
 
-    const res = await q.range(from, from + HOME_POSTS_PAGE_SIZE - 1);
+    const res = await q.range(rangeFrom, rangeTo);
     if (!res.error && Array.isArray(res.data)) {
       data = res.data;
       break outer;
@@ -149,6 +165,16 @@ export async function loadHomePostsPage(
   const mapped = data.map((row) =>
     mapPostRowForHome(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
   );
+  if (useDistance && feedConstraint.kind === "lgu") {
+    const sorted = sortListingsByLguDistance(mapped, feedConstraint.canonicalId);
+    const page = sorted.slice(from, from + HOME_POSTS_PAGE_SIZE);
+    return {
+      posts: page,
+      hasMore:
+        sorted.length > from + HOME_POSTS_PAGE_SIZE ||
+        mapped.length >= MARKETPLACE_DISTANCE_SCAN_CAP,
+    };
+  }
   const hasMoreFlag = mapped.length === HOME_POSTS_PAGE_SIZE;
   return { posts: mapped, hasMore: hasMoreFlag };
 }
@@ -162,7 +188,8 @@ export async function resolveHomePostsPayload(
   tradeCategoryIds: string[] | null,
   statusOr: string,
   lguCityId?: string | null,
-  radiusKm?: number | null
+  radiusKm?: number | null,
+  queryExtras?: { q?: string; priceMin?: number; priceMax?: number }
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const fromMaskedRead = await loadHomePostsPage(
     readSb,
@@ -173,7 +200,8 @@ export async function resolveHomePostsPayload(
     tradeCategoryIds,
     statusOr,
     lguCityId,
-    radiusKm
+    radiusKm,
+    queryExtras
   );
   if (fromMaskedRead) return fromMaskedRead;
 
@@ -187,7 +215,8 @@ export async function resolveHomePostsPayload(
       tradeCategoryIds,
       statusOr,
       lguCityId,
-      radiusKm
+      radiusKm,
+      queryExtras
     );
     if (fromMaskedService) return fromMaskedService;
   }
@@ -202,7 +231,8 @@ export async function resolveHomePostsPayload(
       tradeCategoryIds,
       statusOr,
       lguCityId,
-      radiusKm
+      radiusKm,
+      queryExtras
     );
   }
 

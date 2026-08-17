@@ -23,6 +23,9 @@ export type TradeFeedOpenRequestOptions = {
   statusOr?: string;
   lguCityId?: string;
   radiusKm?: number | null;
+  q?: string;
+  priceMin?: number;
+  priceMax?: number;
 };
 
 export type TradeFeedOpenPayload = {
@@ -55,6 +58,9 @@ export async function resolveTradeFeedOpenPayload(
     statusOr: opts.statusOr,
     lguCityId: opts.lguCityId,
     radiusKm: opts.radiusKm,
+    q: opts.q,
+    priceMin: opts.priceMin,
+    priceMax: opts.priceMax,
   });
   if (
     result.posts.length === 0 &&
@@ -73,6 +79,9 @@ export async function resolveTradeFeedOpenPayload(
       statusOr: opts.statusOr,
       lguCityId: opts.lguCityId,
       radiusKm: opts.radiusKm,
+      q: opts.q,
+      priceMin: opts.priceMin,
+      priceMax: opts.priceMax,
     });
     if (alt.posts.length > 0) {
       result = alt;

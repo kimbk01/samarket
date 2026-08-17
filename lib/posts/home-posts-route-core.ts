@@ -25,6 +25,12 @@ import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/tra
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
 import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import {
+  marketplaceQueryCacheSegment,
+  parseMarketplacePriceBound,
+  parseMarketplaceSort,
+  sanitizeMarketplaceQueryText,
+} from "@/lib/trade/marketplace/query-contract";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
   const v = (process.env.HOME_POSTS_CONFIGURED_TRADE_UNION ?? "").trim().toLowerCase();
@@ -54,7 +60,9 @@ export function clearHomePostsFavoriteCacheKeysForViewerPrefix(userId: string): 
 }
 
 function normalizeSort(raw: string | null): HomePostsQuerySort {
-  return raw === "popular" ? "popular" : "latest";
+  if (raw === "popular") return "popular";
+  if (parseMarketplaceSort(raw) === "distance") return "distance";
+  return "latest";
 }
 
 function normalizeType(raw: string | null): HomePostsQueryType {
@@ -81,9 +89,10 @@ function buildHomePostsCacheKey(
   type: HomePostsQueryType,
   marketSegment: string,
   tradeState: HomePostsTradeStateFilter,
-  locSegment: string
+  locSegment: string,
+  querySegment = "q::pmin::pmax::ms:newest"
 ): string {
-  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}:ts:${tradeState}:${locSegment}`;
+  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}:ts:${tradeState}:${locSegment}:${querySegment}`;
 }
 
 function buildHomePostsFavoriteCacheKey(
@@ -93,9 +102,10 @@ function buildHomePostsFavoriteCacheKey(
   type: HomePostsQueryType,
   marketSegment: string,
   tradeState: HomePostsTradeStateFilter,
-  locSegment: string
+  locSegment: string,
+  querySegment = "q::pmin::pmax::ms:newest"
 ): string {
-  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment, tradeState, locSegment)}`;
+  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment, tradeState, locSegment, querySegment)}`;
 }
 
 function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
@@ -352,7 +362,18 @@ export async function resolveHomePostsGetData(
       ? `loc:lgu:${locationScope.canonicalId}:r:${locationScope.radiusKm}`
       : locationScope.mode === "invalid"
         ? `loc:invalid:${locationScope.raw || "_"}`
-        : "loc:all";
+        : locationScope.mode === "unset"
+          ? "loc:unset"
+          : "loc:all";
+  const q = sanitizeMarketplaceQueryText(searchParams.get("q"));
+  const priceMin = parseMarketplacePriceBound(searchParams.get("priceMin"));
+  const priceMax = parseMarketplacePriceBound(searchParams.get("priceMax"));
+  const querySegment = marketplaceQueryCacheSegment({
+    q,
+    priceMin,
+    priceMax,
+    sort,
+  });
   const tradeMarketParent = await resolveTradeMarketParentParam(
     readSb as SupabaseClient<any>,
     searchParams.get("tradeMarketParent")
@@ -384,7 +405,15 @@ export async function resolveHomePostsGetData(
       ? "configured_trade_union"
       : "all";
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
-  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState, locSegment);
+  const cacheKey = buildHomePostsCacheKey(
+    page,
+    sort,
+    effectiveType,
+    marketSegment,
+    tradeState,
+    locSegment,
+    querySegment
+  );
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -412,7 +441,8 @@ export async function resolveHomePostsGetData(
         tradeCategoryIds,
         statusOr,
         lguCityId,
-        radiusKm
+        radiusKm,
+        { q, priceMin, priceMax }
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
@@ -460,7 +490,8 @@ export async function resolveHomePostsGetData(
       effectiveType,
       marketSegment,
       tradeState,
-      locSegment
+      locSegment,
+      querySegment
     );
     const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);

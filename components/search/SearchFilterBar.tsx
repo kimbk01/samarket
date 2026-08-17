@@ -2,31 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRegionOptions } from "@/lib/regions/region-utils";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/types/category";
-import type { SearchSortKey } from "@/lib/search/search-utils";
-import { SEARCH_SORT_OPTIONS } from "@/lib/search/search-utils";
 import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
+export type MarketplaceSearchSort = "newest" | "distance";
+
 export interface SearchFilters {
-  regionId: string;
-  category: string;
-  status: string;
-  sortKey: SearchSortKey;
+  categoryId: string;
+  status: "all" | "active" | "reserved" | "sold";
+  sortKey: MarketplaceSearchSort;
+  priceMin: string;
+  priceMax: string;
 }
 
 interface SearchFilterBarProps {
   filters: SearchFilters;
   onChange: (f: SearchFilters) => void;
   onReset: () => void;
+  distanceEnabled: boolean;
 }
 
 const defaultFilters: SearchFilters = {
-  regionId: "",
-  category: "",
+  categoryId: "",
   status: "all",
-  sortKey: "latest",
+  sortKey: "newest",
+  priceMin: "",
+  priceMax: "",
 };
 
 export function getDefaultSearchFilters(): SearchFilters {
@@ -37,8 +39,9 @@ export function SearchFilterBar({
   filters,
   onChange,
   onReset,
+  distanceEnabled,
 }: SearchFilterBarProps) {
-  const { t, tt, safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   useEffect(() => {
     getCategories({ type: "trade", activeOnly: true }).then(setCategories);
@@ -46,47 +49,32 @@ export function SearchFilterBar({
 
   const statusOptions = useMemo(
     () => [
-      { value: "all", label: safeT("common_all") },
-      { value: "active", label: safeT("trade_market_sort_active") },
-      { value: "reserved", label: safeT("trade_market_sort_reserved") },
-      { value: "sold", label: safeT("trade_market_sort_sold") },
+      { value: "all" as const, label: safeT("common_all") },
+      { value: "active" as const, label: safeT("trade_market_sort_active") },
+      { value: "reserved" as const, label: safeT("trade_market_sort_reserved") },
+      { value: "sold" as const, label: safeT("trade_market_sort_sold") },
     ],
     [safeT]
   );
 
   const hasActive =
-    filters.regionId ||
-    filters.category ||
+    Boolean(filters.categoryId) ||
     filters.status !== "all" ||
-    filters.sortKey !== "latest";
+    filters.sortKey !== "newest" ||
+    Boolean(filters.priceMin.trim()) ||
+    Boolean(filters.priceMax.trim());
 
   return (
     <div className="flex h-10 flex-shrink-0 items-center gap-2 border-b border-sam-border-soft bg-sam-surface px-4">
       <div className="flex flex-wrap items-center gap-2">
         <select
-          value={filters.regionId}
-          onChange={(e) =>
-            onChange({ ...filters, regionId: e.target.value })
-          }
-          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
-        >
-          <option value="">{t("common_all_region")}</option>
-          {getRegionOptions().map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filters.category}
-          onChange={(e) =>
-            onChange({ ...filters, category: e.target.value })
-          }
+          value={filters.categoryId}
+          onChange={(e) => onChange({ ...filters, categoryId: e.target.value })}
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           <option value="">{safeT("common_all_category")}</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.slug}>
+            <option key={c.id} value={c.id}>
               {resolveTradeCategoryUILabel(language, c.name, c.name_en, c.slug, c.icon_key)}
             </option>
           ))}
@@ -94,7 +82,10 @@ export function SearchFilterBar({
         <select
           value={filters.status}
           onChange={(e) =>
-            onChange({ ...filters, status: e.target.value })
+            onChange({
+              ...filters,
+              status: e.target.value as SearchFilters["status"],
+            })
           }
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
@@ -105,18 +96,49 @@ export function SearchFilterBar({
           ))}
         </select>
         <select
-          value={filters.sortKey}
+          value={distanceEnabled ? filters.sortKey : "newest"}
           onChange={(e) =>
-            onChange({ ...filters, sortKey: e.target.value as SearchSortKey })
+            onChange({
+              ...filters,
+              sortKey: e.target.value as MarketplaceSearchSort,
+            })
           }
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
-          {SEARCH_SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {tt(o.label)}
+          <option value="newest">{safeT("trade_market_sort_latest")}</option>
+          {distanceEnabled ? (
+            <option value="distance">
+              {safeT("trade_market_sort_distance", {
+                fallbackKo: "가까운순",
+                fallbackEn: "Nearest",
+              })}
             </option>
-          ))}
+          ) : null}
         </select>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          value={filters.priceMin}
+          onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
+          placeholder={safeT("trade_market_price_min", {
+            fallbackKo: "최소 가격",
+            fallbackEn: "Min price",
+          })}
+          className="min-h-[44px] w-[7.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+        />
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          value={filters.priceMax}
+          onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
+          placeholder={safeT("trade_market_price_max", {
+            fallbackKo: "최대 가격",
+            fallbackEn: "Max price",
+          })}
+          className="min-h-[44px] w-[7.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+        />
       </div>
       {hasActive && (
         <button

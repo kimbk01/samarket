@@ -82,7 +82,7 @@ describe("trade browse radius Phase 3", () => {
       new URLSearchParams("location=city&lgu=pasig&radius=96&foo=1"),
       { mode: "all" }
     );
-    expect(allParams.get("location")).toBeNull();
+    expect(allParams.get("location")).toBe("all");
     expect(allParams.get("lgu")).toBeNull();
     expect(allParams.get("radius")).toBeNull();
     expect(allParams.get("foo")).toBe("1");

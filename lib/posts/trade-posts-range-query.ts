@@ -21,6 +21,7 @@ import {
   resolveTradeLguCityQueryConstraint,
   type TradeLguCityQueryConstraint,
 } from "@/lib/trade/location/trade-lgu-city-rollup";
+import { applyMarketplaceQueryToPostgrest } from "@/lib/trade/marketplace/query-contract";
 
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(getPostsByCategory 와 동일) */
 export const MAX_JOB_LISTING_KIND_CHUNKS = 120;
@@ -133,6 +134,10 @@ export type TradeFeedQueryExtras = {
    * 미지정 시 기본(hidden/sold 제외).
    */
   statusOr?: string;
+  /** Marketplace title search — `posts.title` ILIKE */
+  q?: string;
+  priceMin?: number;
+  priceMax?: number;
   /** Trade discovery LGU City — `region` + `city IN (…)` rollup. */
   lguCityId?: string;
   /**
@@ -253,11 +258,18 @@ export async function fetchPostsRangeForTradeCategories(
       }
     }
 
+    q2 = applyMarketplaceQueryToPostgrest(q2, {
+      q: extras?.q,
+      priceMin: extras?.priceMin,
+      priceMax: extras?.priceMax,
+    });
+
     return q2;
   };
 
   const applySort = (q: any) => {
-    if (sort === "latest") {
+    if (sort === "latest" || sort === "near") {
+      /** `near`/`distance` page order is applied in fetchTradeFeedPage (LGU centroid). */
       return q.order("created_at", { ascending: false });
     }
     if (sort === "pay_desc") {
@@ -265,10 +277,6 @@ export async function fetchPostsRangeForTradeCategories(
     }
     if (sort === "chat_desc") {
       return q.order("chat_count", { ascending: false }).order("created_at", { ascending: false });
-    }
-    if (sort === "near") {
-      /** 지역 프록시: `city` 오름차순 후 최신순 (실거리 정렬은 추후 확장) */
-      return q.order("city", { ascending: true }).order("created_at", { ascending: false });
     }
     return q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
   };

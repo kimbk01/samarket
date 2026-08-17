@@ -44,6 +44,9 @@ import {
   peekTradeLguDisplayLabel,
   rememberTradeLguDisplayLabel,
 } from "@/lib/trade/location/trade-location-scope";
+import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
+import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
+import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { TRADE_CHAT_LIST_PAGE_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
@@ -125,10 +128,11 @@ function getHydrationSafeBoot(
 }
 
 function readClientHomeListBoot(
-  options: GetPostsForHomeOptions
+  options: GetPostsForHomeOptions,
+  allowRecentFallback: boolean
 ): GetPostsForHomeResult | null {
   if (typeof window === "undefined") return null;
-  return peekCachedPostsForHome(options) ?? peekRecentHomePostsFallback();
+  return peekCachedPostsForHome(options) ?? (allowRecentFallback ? peekRecentHomePostsFallback() : null);
 }
 
 export function HomeProductList({
@@ -144,6 +148,7 @@ export function HomeProductList({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { unresolved: locationUnresolved } = useTradeMarketplaceLocationHydrate();
   const { propsForCategoryId } = useTradeListCompositionMap();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const locationScope = useMemo(
@@ -151,6 +156,9 @@ export function HomeProductList({
     [searchParams]
   );
   const locationInvalid = locationScope.mode === "invalid";
+  const locationUnset = locationScope.mode === "unset";
+  const locationAll = locationScope.mode === "all";
+  const locGate = marketplaceLocationFetchGate(locationScope);
   const lguCityId = locationScope.mode === "city" ? locationScope.lguId : null;
   const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : null;
   const [cityEmptyLabel, setCityEmptyLabel] = useState<string | null>(() =>
@@ -191,19 +199,21 @@ export function HomeProductList({
       tradeState,
       lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
       radiusKm: locationInvalid ? null : radiusKm,
+      locationAll,
     }),
-    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope]
+    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope, locationAll]
   );
   const { tt } = useI18n();
   const hydrationSeed =
-    !locationInvalid && lguCityId == null
+    locationAll && !locationInvalid
       ? getHydrationSafeBoot(tradeState, initialHomeTradeFeed)
       : null;
   const clientBoot =
     typeof window !== "undefined" &&
     tradeState === "latest" &&
+    locGate.canFetch &&
     (clientInstantBoot || !hydrationSeed)
-      ? readClientHomeListBoot(homePostListOptions)
+      ? readClientHomeListBoot(homePostListOptions, locationAll)
       : null;
   const initialBoot = clientBoot ?? hydrationSeed;
   const [listState, setListState] = useState<ListState>(() =>
@@ -233,6 +243,10 @@ export function HomeProductList({
       setFavoriteMap({});
       setListState("empty");
       lastLoadedAtRef.current = Date.now();
+      return;
+    }
+    if (locationUnset) {
+      setListState("loading");
       return;
     }
     const requestId = ++latestRequestIdRef.current;
@@ -288,7 +302,7 @@ export function HomeProductList({
         allowRscHomeListSeedRef.current = true;
       }
     }
-  }, [homePostListOptions, locationInvalid]);
+  }, [homePostListOptions, locationInvalid, locationUnset]);
 
   const pullRefreshRouteKey = useMemo(
     () => resolveTradeMarketPullRefreshRouteKey(pathname, searchParams),
@@ -319,15 +333,23 @@ export function HomeProductList({
       return;
     }
 
-    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && lguCityId == null) {
-      primeHomePostsCache({ sort: "latest", type: null, tradeState }, initialHomeTradeFeed);
+    if (locationUnset) {
+      setListState("loading");
+      return;
+    }
+
+    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && locationAll) {
+      primeHomePostsCache(
+        { sort: "latest", type: null, tradeState, locationAll: true },
+        initialHomeTradeFeed
+      );
     }
 
     const boot =
-      tradeState === "latest" && allowRscHomeListSeedRef.current && lguCityId == null
+      tradeState === "latest" && allowRscHomeListSeedRef.current && locationAll
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
         : peekCachedPostsForHome(homePostListOptions);
-    const merged = boot ?? (lguCityId == null ? peekRecentHomePostsFallback() : null);
+    const merged = boot ?? (locationAll ? peekRecentHomePostsFallback() : null);
 
     if (merged) {
       setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
@@ -338,7 +360,7 @@ export function HomeProductList({
     }
 
     void load();
-  }, [tradeState, lguCityId, initialHomeTradeFeed, load, homePostListOptions, locationInvalid]);
+  }, [tradeState, lguCityId, locationAll, locationUnset, initialHomeTradeFeed, load, homePostListOptions, locationInvalid]);
 
   useEffect(() => {
     const q = searchParams.toString();
@@ -396,7 +418,7 @@ export function HomeProductList({
   );
 
   const refreshSilent = useCallback(async () => {
-    if (locationInvalid) return;
+    if (locationInvalid || locationUnset) return;
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
       return;
     }
@@ -411,7 +433,7 @@ export function HomeProductList({
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       /* 기존 목록 유지 */
     }
-  }, [homePostListOptions, locationInvalid]);
+  }, [homePostListOptions, locationInvalid, locationUnset]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
@@ -509,9 +531,16 @@ export function HomeProductList({
     setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
   }, []);
 
-  const showEmpty = locationInvalid || listState === "empty" || posts.length === 0;
+  const showEmpty =
+    locationInvalid ||
+    locationUnresolved ||
+    listState === "empty" ||
+    (!locationUnset && posts.length === 0);
   const showError = listState === "error";
-  const showLoading = !locationInvalid && listState === "loading";
+  const showLoading =
+    !locationInvalid &&
+    !locationUnresolved &&
+    (listState === "loading" || locationUnset);
   const rootClass = "min-w-0 w-full max-w-full";
   /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
   const listClass = TRADE_FEED_LIST_WRAP_CLASS;
@@ -564,6 +593,28 @@ export function HomeProductList({
 
   if (showEmpty) {
     const cityLabel = cityEmptyLabel;
+    if (locationUnresolved) {
+      return (
+        <>
+          {tradePullRefreshRegister}
+          <div className={rootClass}>
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <p className="text-[14px] text-sam-muted">{t("trade_location_my_region_missing")}</p>
+              <button
+                type="button"
+                className="text-[14px] font-medium text-signature"
+                onClick={() => {
+                  const q = searchParams.toString();
+                  router.push(q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH);
+                }}
+              >
+                {t("trade_location_sheet_title")}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
     if (locationInvalid) {
       return (
         <>

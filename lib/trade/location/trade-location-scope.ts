@@ -1,6 +1,8 @@
 /**
- * Trade discovery location scope — ALL | CITY(LGU) | INVALID.
- * Default missing URL → ALL. No auto-filter from master address.
+ * Trade discovery location scope — UNSET | ALL | CITY(LGU) | INVALID.
+ *
+ * Missing URL → UNSET (not nationwide). Explicit `location=all` is the only ALL.
+ * Marketplace default CITY is hydrated onto the URL (session → Address master projection).
  *
  * URL may carry legacy product alias (`pasig`) or PSGC canonical id.
  * Cache / query authority uses canonical PSGC only.
@@ -27,6 +29,7 @@ import {
 } from "@/lib/trade/location/trade-browse-radius";
 
 export type TradeLocationScope =
+  | { mode: "unset" }
   | { mode: "all" }
   | { mode: "city"; lguId: string; canonicalId: string; radiusKm: number }
   | { mode: "invalid"; raw: string };
@@ -40,7 +43,7 @@ export const TRADE_LOCATION_SEED_PARAM = "tradeLocSeed" as const;
 
 export function tradeLocationScopeEquals(a: TradeLocationScope, b: TradeLocationScope): boolean {
   if (a.mode !== b.mode) return false;
-  if (a.mode === "all") return true;
+  if (a.mode === "all" || a.mode === "unset") return true;
   if (a.mode === "invalid" && b.mode === "invalid") return a.raw === b.raw;
   return (
     a.mode === "city" &&
@@ -54,7 +57,9 @@ export function parseTradeLocationScopeFromSearchParams(
   params: URLSearchParams | { get: (k: string) => string | null }
 ): TradeLocationScope {
   const location = (params.get(TRADE_LOCATION_URL_PARAM) ?? "").trim().toLowerCase();
-  if (location !== "city") return { mode: "all" };
+  if (!location) return { mode: "unset" };
+  if (location === "all") return { mode: "all" };
+  if (location !== "city") return { mode: "invalid", raw: location };
   const lguRaw = (params.get(TRADE_LOCATION_LGU_PARAM) ?? "").trim();
   if (!lguRaw) return { mode: "invalid", raw: "" };
 
@@ -76,8 +81,12 @@ export function applyTradeLocationScopeToSearchParams(
 ): URLSearchParams {
   let next = new URLSearchParams(params.toString());
   next.delete(TRADE_LOCATION_SEED_PARAM);
-  if (scope.mode === "all") {
+  if (scope.mode === "unset") {
     next.delete(TRADE_LOCATION_URL_PARAM);
+    next.delete(TRADE_LOCATION_LGU_PARAM);
+    next = applyTradeBrowseRadiusToSearchParams(next, null);
+  } else if (scope.mode === "all") {
+    next.set(TRADE_LOCATION_URL_PARAM, "all");
     next.delete(TRADE_LOCATION_LGU_PARAM);
     next = applyTradeBrowseRadiusToSearchParams(next, null);
   } else if (scope.mode === "invalid") {
@@ -96,13 +105,14 @@ export function applyTradeLocationScopeToSearchParams(
 }
 
 export function tradeLocationScopeCacheSegment(scope: TradeLocationScope): string {
+  if (scope.mode === "unset") return "loc:unset";
   if (scope.mode === "all") return "loc:all";
   if (scope.mode === "invalid") return `loc:invalid:${scope.raw || "_"}`;
   return `loc:lgu:${scope.canonicalId}:${tradeBrowseRadiusCacheSegment(scope.radiusKm)}`;
 }
 
 export function tradeLocationScopeDisplayLabel(scope: TradeLocationScope): string | null {
-  if (scope.mode === "all" || scope.mode === "invalid") return null;
+  if (scope.mode === "all" || scope.mode === "unset" || scope.mode === "invalid") return null;
   if (isTradeLguCityId(scope.lguId)) {
     return getTradeLguCityDef(scope.lguId as TradeLguCityId)?.displayName ?? null;
   }

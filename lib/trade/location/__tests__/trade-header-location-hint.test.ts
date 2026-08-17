@@ -40,4 +40,17 @@ describe("buildTradeHeaderLocationHintParts", () => {
       })
     ).toEqual({ place: "Makati City", suffix: "64km" });
   });
+
+  it("UNSET does not show nationwide 전체 as committed", () => {
+    expect(
+      buildTradeHeaderLocationHintParts({
+        mode: "unset",
+        cityLabel: null,
+        radiusKm: null,
+        userPlaceLabel: "Quezon City",
+        allLabel: "지역을 확인하는 중…",
+        fallbackPlaceLabel: "지역",
+      })
+    ).toEqual({ place: null, suffix: "지역을 확인하는 중…" });
+  });
 });

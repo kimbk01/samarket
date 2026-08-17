@@ -29,6 +29,7 @@ import {
   readFreshTradeFeedClientCache,
 } from "@/lib/posts/getPostsByCategory";
 import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
+import { marketplaceHomePrewarmOptions, marketplaceFeedLocationExtrasFromUrlOrSession } from "@/lib/trade/marketplace/client-location-fetch";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -256,9 +257,12 @@ export function MarketCategoryFeed({
       const pathOnly = (href.split("?")[0] ?? "").trim();
       if (!pathOnly) return;
       if (pathOnly === "/market") {
-        const homeHit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
-        if (!homeHit?.posts?.length) {
-          void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
+        const homeHit = peekCachedPostsForHome(
+          marketplaceHomePrewarmOptions() ?? { sort: "latest", type: null, tradeState: "latest" }
+        );
+        const prewarm = marketplaceHomePrewarmOptions();
+        if (prewarm && !homeHit?.posts?.length) {
+          void getPostsForHome({ page: 1, ...prewarm });
         }
         return;
       }
@@ -272,11 +276,14 @@ export function MarketCategoryFeed({
       }
       const parentNorm = parent.normalize("NFC");
       tradeParentsWarmedFromHref.add(parentNorm);
+      const locExtras = marketplaceFeedLocationExtrasFromUrlOrSession();
+      if (!locExtras) return;
       const neighborOpts = {
         page: 1,
         sort: NEIGHBOR_MARKET_TAB_FEED_SORT,
         tradeMarketParent: parent,
         topic: "",
+        ...locExtras,
       } as const;
       if (readFreshTradeFeedClientCache([], neighborOpts)) return;
       void getPostsByTradeCategoryIds([], neighborOpts);
@@ -296,11 +303,14 @@ export function MarketCategoryFeed({
       for (const parentCategoryId of neighborKeys) {
         const pid = parentCategoryId.trim().normalize("NFC");
         if (tradeParentsWarmedFromHref.has(pid)) continue;
+        const locExtras = marketplaceFeedLocationExtrasFromUrlOrSession();
+        if (!locExtras) continue;
         const idleNeighborOpts = {
           page: 1,
           sort: NEIGHBOR_MARKET_TAB_FEED_SORT,
           tradeMarketParent: parentCategoryId,
           topic: "",
+          ...locExtras,
         } as const;
         if (readFreshTradeFeedClientCache([], idleNeighborOpts)) continue;
         void getPostsByTradeCategoryIds([], idleNeighborOpts);
@@ -318,6 +328,8 @@ export function MarketCategoryFeed({
       const topic = topicKey.trim();
       if (!topic) return;
       if (isConstrainedNetwork()) return;
+      const locExtras = marketplaceFeedLocationExtrasFromUrlOrSession();
+      if (!locExtras) return;
       if (
         readFreshTradeFeedClientCache([], {
           page: 1,
@@ -325,6 +337,7 @@ export function MarketCategoryFeed({
           tradeMarketParent: category.id,
           topic,
           tradeState,
+          ...locExtras,
         })
       )
         return;
@@ -340,6 +353,7 @@ export function MarketCategoryFeed({
         tradeMarketParent: category.id,
         topic,
         tradeState,
+        ...locExtras,
       });
     },
     [category.id, postSort, tradeState]

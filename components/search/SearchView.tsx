@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { getPostsForHome } from "@/lib/posts/getPostsForHome";
 import { postsToSearchProducts } from "@/lib/search/post-with-meta-to-product";
-import { useRegion } from "@/contexts/RegionContext";
-import {
-  filterByKeyword,
-  filterByRegionName,
-  filterByCategory,
-  filterByStatus,
-  sortSearchResults,
-} from "@/lib/search/search-utils";
 import { addRecentSearch } from "@/lib/search/recent-searches-local";
-import { getRegionName } from "@/lib/regions/region-utils";
 import { getViewerUserId } from "@/lib/auth/viewer-user-id";
 import { logEvent } from "@/lib/recommendation/recommendation-behavior-state";
 import {
@@ -27,19 +18,30 @@ import { SearchFilterBar, getDefaultSearchFilters, type SearchFilters } from "./
 import { SearchResultList } from "./SearchResultList";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
+import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
+import {
+  applyTradeLocationScopeToSearchParams,
+  parseTradeLocationScopeFromSearchParams,
+} from "@/lib/trade/location/trade-location-scope";
+import { parseMarketplacePriceBound } from "@/lib/trade/marketplace/query-contract";
 
 export function SearchView() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const { scope, unresolved } = useTradeMarketplaceLocationHydrate();
+  const locGate = useMemo(() => marketplaceLocationFetchGate(scope), [scope]);
   const queryFromUrl = searchParams.get("q") ?? "";
-  const { currentRegionName } = useRegion();
   const currentUserId = getViewerUserId();
   const [blockedIds, setBlockedIds] = useState<string[]>(() =>
     currentUserId ? getBlockedUserIds(currentUserId) : []
   );
-  const [baseProducts, setBaseProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -49,23 +51,6 @@ export function SearchView() {
     void refreshBlockedUsersFromServer(currentUserId).then(setBlockedIds);
   }, [currentUserId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void getPostsForHome({ page: 1, sort: "latest", type: "trade" }).then((result) => {
-      if (cancelled) return;
-      const products = postsToSearchProducts(result.posts ?? []);
-      setBaseProducts(
-        products.filter((p) => {
-          const sellerId = p.sellerId ?? p.seller?.id;
-          return !sellerId || !blockedIds.includes(sellerId);
-        })
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentRegionName, blockedIds]);
-
   const [keyword, setKeyword] = useState(queryFromUrl);
   const [filters, setFilters] = useState<SearchFilters>(getDefaultSearchFilters);
 
@@ -73,18 +58,59 @@ export function SearchView() {
     setKeyword(queryFromUrl);
   }, [queryFromUrl]);
 
-  const filteredAndSorted = useMemo(() => {
-    let list = baseProducts;
-    if (keyword.trim()) {
-      list = filterByKeyword(list, keyword);
+  const applyBlocked = useCallback(
+    (list: Product[]) =>
+      list.filter((p) => {
+        const sellerId = p.sellerId ?? p.seller?.id;
+        return !sellerId || !blockedIds.includes(sellerId);
+      }),
+    [blockedIds]
+  );
+
+  const fetchPage = useCallback(
+    async (pageNum: number, append: boolean) => {
+      const q = keyword.trim();
+      if (!q || !locGate.canFetch) {
+        if (!append) {
+          setProducts([]);
+          setHasMore(false);
+        }
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await getPostsForHome({
+          page: pageNum,
+          sort: locGate.lguCityId && filters.sortKey === "distance" ? "distance" : "latest",
+          type: "trade",
+          tradeState: filters.status === "all" ? "latest" : filters.status,
+          tradeMarketParentId: filters.categoryId || null,
+          locationAll: locGate.locationAll === true,
+          lguCityId: locGate.lguCityId ?? null,
+          radiusKm: locGate.radiusKm ?? null,
+          q,
+          priceMin: parseMarketplacePriceBound(filters.priceMin),
+          priceMax: parseMarketplacePriceBound(filters.priceMax),
+        });
+        const next = applyBlocked(postsToSearchProducts(res.posts ?? []));
+        setProducts((prev) => (append ? [...prev, ...next] : next));
+        setHasMore(res.hasMore === true);
+        setPage(pageNum);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [keyword, locGate, filters, applyBlocked]
+  );
+
+  useEffect(() => {
+    if (!keyword.trim()) {
+      setProducts([]);
+      setHasMore(false);
+      return;
     }
-    if (filters.regionId) {
-      list = filterByRegionName(list, getRegionName(filters.regionId));
-    }
-    if (filters.category) list = filterByCategory(list, filters.category);
-    if (filters.status) list = filterByStatus(list, filters.status);
-    return sortSearchResults(list, filters.sortKey);
-  }, [baseProducts, keyword, filters]);
+    void fetchPage(1, false);
+  }, [keyword, fetchPage]);
 
   const handleSubmit = useCallback(
     (k: string) => {
@@ -97,9 +123,14 @@ export function SearchView() {
         query: q,
       });
       setKeyword(q);
-      router.replace(`/search?q=${encodeURIComponent(q)}`, { scroll: false });
+      const next = applyTradeLocationScopeToSearchParams(
+        new URLSearchParams(searchParams.toString()),
+        parseTradeLocationScopeFromSearchParams(searchParams)
+      );
+      next.set("q", q);
+      router.replace(`/search?${next.toString()}`, { scroll: false });
     },
-    [router, currentUserId]
+    [router, currentUserId, searchParams]
   );
 
   const handleSelectRecent = useCallback(
@@ -137,18 +168,36 @@ export function SearchView() {
               filters={filters}
               onChange={setFilters}
               onReset={() => setFilters(getDefaultSearchFilters())}
+              distanceEnabled={Boolean(locGate.lguCityId)}
             />
           ) : null}
         </div>
       ),
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, setFilters]);
+  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, locGate.lguCityId, t]);
 
   return (
     <div className="mx-auto max-w-lg pb-24">
       {showResults ? (
-        <SearchResultList products={filteredAndSorted} />
+        <>
+          <SearchResultList products={products} />
+          {hasMore ? (
+            <div className="px-4 pb-6">
+              <button
+                type="button"
+                className="w-full min-h-11 rounded-ui-rect border border-sam-border text-sm font-semibold text-sam-fg"
+                disabled={loading || unresolved || !locGate.canFetch}
+                onClick={() => void fetchPage(page + 1, true)}
+              >
+                {safeT("trade_market_load_more", {
+                  fallbackKo: "더 보기",
+                  fallbackEn: "Load more",
+                })}
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : (
         <RecentSearches onSelectKeyword={handleSelectRecent} />
       )}

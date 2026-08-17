@@ -11,9 +11,16 @@ import {
   TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
+import {
+  appendMarketplaceLocationSearchParams,
+  appendMarketplaceQuerySearchParams,
+  marketplaceQueryCacheSegment,
+  parseMarketplacePriceBound,
+  sanitizeMarketplaceQueryText,
+} from "@/lib/trade/marketplace/query-contract";
 import type { PostWithMeta } from "./schema";
 
-export type HomePostSort = "latest" | "popular";
+export type HomePostSort = "latest" | "popular" | "distance";
 export type HomeTradeStateFilter = "latest" | "active" | "reserved" | "sold";
 
 export interface GetPostsForHomeOptions {
@@ -28,10 +35,15 @@ export interface GetPostsForHomeOptions {
   tradeMarketParentId?: string | null;
   /** 전체 거래 정렬/상태 필터 */
   tradeState?: HomeTradeStateFilter;
-  /** Trade LGU City scope (`pasig`, …). Omit / empty = ALL */
+  /** Trade LGU City scope (`pasig`, …). Requires locationAll=false */
   lguCityId?: string | null;
   /** Browse radius km — only with lguCityId */
   radiusKm?: number | null;
+  /** Explicit nationwide. Missing location + missing this = do not fetch. */
+  locationAll?: boolean;
+  q?: string | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
 }
 
 export interface GetPostsForHomeResult {
@@ -173,26 +185,66 @@ function writeHomePostsLocalCache(cacheKey: string, data: GetPostsForHomeResult)
 
 function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const page = Math.max(1, options.page ?? 1);
-  const sort = options.sort ?? "latest";
+  const sort = options.sort === "popular" || options.sort === "distance" ? options.sort : "latest";
   const typeFilter = options.type ?? null;
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
   const tradeState = options.tradeState ?? "latest";
   const lguCityId = options.lguCityId?.trim() || null;
+  const locationAll = options.locationAll === true && !lguCityId;
   const radiusKm = lguCityId
     ? sanitizeTradeBrowseRadiusKm(
         options.radiusKm ?? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
       )
     : null;
+  const q = sanitizeMarketplaceQueryText(options.q);
+  const priceMin = parseMarketplacePriceBound(options.priceMin ?? undefined);
+  const priceMax = parseMarketplacePriceBound(options.priceMax ?? undefined);
   const marketKey = tradeMarketParent ?? "all";
-  /** N4: cache by canonical LGU + radius so radius changes never reuse feed */
   const loc = (() => {
-    if (!lguCityId) return "loc:all";
-    const cid = resolveTradeLguUrlTokenToCanonical(lguCityId);
-    if (!cid) return `loc:invalid:${lguCityId}`;
-    return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(radiusKm)}`;
+    if (lguCityId) {
+      const cid = resolveTradeLguUrlTokenToCanonical(lguCityId);
+      if (!cid) return `loc:invalid:${lguCityId}`;
+      return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(radiusKm)}`;
+    }
+    if (locationAll) return "loc:all";
+    return "loc:unset";
   })();
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:v5`;
-  return { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, radiusKm, cacheKey };
+  const querySegment = marketplaceQueryCacheSegment({ q, priceMin, priceMax, sort });
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:${loc}:${querySegment}:v6`;
+  return {
+    page,
+    sort,
+    typeFilter,
+    tradeMarketParent,
+    tradeState,
+    lguCityId,
+    radiusKm,
+    locationAll,
+    q,
+    priceMin,
+    priceMax,
+    canFetch: Boolean(lguCityId || locationAll),
+    cacheKey,
+  };
+}
+
+function applyHomePostsRequestParams(
+  params: URLSearchParams,
+  opts: ReturnType<typeof normalizeOptions>
+): void {
+  if (opts.typeFilter) params.set("type", opts.typeFilter);
+  if (opts.tradeMarketParent) params.set("tradeMarketParent", opts.tradeMarketParent);
+  if (opts.tradeState && opts.tradeState !== "latest") params.set("tradeState", opts.tradeState);
+  appendMarketplaceLocationSearchParams(params, {
+    locationAll: opts.locationAll,
+    lguCityId: opts.lguCityId,
+    radiusKm: opts.radiusKm,
+  });
+  appendMarketplaceQuerySearchParams(params, {
+    q: opts.q,
+    priceMin: opts.priceMin,
+    priceMax: opts.priceMax,
+  });
 }
 
 function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {
@@ -339,8 +391,11 @@ export async function getPostsForHome(
   options: GetPostsForHomeOptions = {},
   opts: { signal?: AbortSignal } = {}
 ): Promise<GetPostsForHomeResult> {
-  const { page, sort, typeFilter, tradeMarketParent, tradeState, lguCityId, radiusKm, cacheKey } =
-    normalizeOptions(options);
+  const normalized = normalizeOptions(options);
+  const { page, sort, cacheKey, canFetch } = normalized;
+  if (!canFetch) {
+    return { posts: [], hasMore: false, favoriteMap: {} };
+  }
   const genAtEnter = homePostsInvalidationGeneration;
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -381,20 +436,7 @@ export async function getPostsForHome(
         page: String(page),
         sort,
       });
-      if (typeFilter) {
-        params.set("type", typeFilter);
-      }
-      if (tradeMarketParent) {
-        params.set("tradeMarketParent", tradeMarketParent);
-      }
-      if (tradeState && tradeState !== "latest") {
-        params.set("tradeState", tradeState);
-      }
-      if (lguCityId) {
-        params.set("location", "city");
-        params.set("lgu", lguCityId);
-        if (radiusKm != null) params.set("radius", String(radiusKm));
-      }
+      applyHomePostsRequestParams(params, normalized);
 
       const dbg = samarketRuntimeDebugEnabled();
       const wallT0 = dbg ? performance.now() : 0;
@@ -465,20 +507,7 @@ export async function getPostsForHome(
         page: String(page),
         sort,
       });
-      if (typeFilter) {
-        params.set("type", typeFilter);
-      }
-      if (tradeMarketParent) {
-        params.set("tradeMarketParent", tradeMarketParent);
-      }
-      if (tradeState && tradeState !== "latest") {
-        params.set("tradeState", tradeState);
-      }
-      if (lguCityId) {
-        params.set("location", "city");
-        params.set("lgu", lguCityId);
-        if (radiusKm != null) params.set("radius", String(radiusKm));
-      }
+      applyHomePostsRequestParams(params, normalized);
 
       const dbg = samarketRuntimeDebugEnabled();
       const wallT0 = dbg ? performance.now() : 0;

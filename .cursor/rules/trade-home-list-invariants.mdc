@@ -24,7 +24,7 @@ alwaysApply: false
 
 3. **`HomeProductList` 등 목록 컴포넌트**에서 `runSingleFlight('home-product-list:load', …)` 같이 **고정 문자열 키**로 전체 fetch를 감싸지 않는다. 네트워크 단일 합류는 **`getPostsForHome` 내부**의 `cacheKey` 기반 비행만.
 
-4. **prewarm** 호출 인자는 `HomeProductList` 첫 요청과 **`normalizeOptions` 동일 키**가 되게 맞춘다 (`page`·`sort`·`type`·`tradeState`).
+4. **prewarm** 호출 인자는 `HomeProductList` 첫 요청과 **`normalizeOptions` 동일 키**가 되게 맞춘다 (`page`·`sort`·`type`·`tradeState`·**location city|all**). Unset이면 nationwide prewarm 금지.
 
 5. **시드·캐시로 전체 `posts`가 이미 있을 때** 첫 페인트부터 **전체 행**을 그릴 수 있게 한다. 캐시 히트에만 **8장+rAF 지연**을 적용하지 않는다.
 

@@ -12,6 +12,7 @@ import {
   TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
+import { marketplaceQueryCacheSegment } from "@/lib/trade/marketplace/query-contract";
 
 export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
@@ -31,6 +32,11 @@ export type TradeFeedClientOptions = {
   lguCityId?: string;
   /** Browse radius km */
   radiusKm?: number | null;
+  /** Explicit nationwide */
+  locationAll?: boolean;
+  q?: string | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
 };
 
 export type TradeFeedClientResult = {
@@ -83,15 +89,24 @@ export function buildTradeFeedClientCacheKey(
       : "latest";
   const loc = (() => {
     const raw = options.lguCityId?.trim();
-    if (!raw) return "loc:all";
-    const cid = resolveTradeLguUrlTokenToCanonical(raw);
-    if (!cid) return `loc:invalid:${raw}`;
-    const r =
-      options.radiusKm == null
-        ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
-        : sanitizeTradeBrowseRadiusKm(options.radiusKm);
-    return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(r)}`;
+    if (raw) {
+      const cid = resolveTradeLguUrlTokenToCanonical(raw);
+      if (!cid) return `loc:invalid:${raw}`;
+      const r =
+        options.radiusKm == null
+          ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+          : sanitizeTradeBrowseRadiusKm(options.radiusKm);
+      return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(r)}`;
+    }
+    if (options.locationAll === true) return "loc:all";
+    return "loc:unset";
   })();
+  const querySegment = marketplaceQueryCacheSegment({
+    q: options.q,
+    priceMin: options.priceMin,
+    priceMax: options.priceMax,
+    sort,
+  });
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -99,14 +114,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|p:${page}|u:${u}:v5`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}|p:${page}|u:${u}:v6`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|p:${page}|u:${u}:v5`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${loc}|${querySegment}|p:${page}|u:${u}:v6`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */
@@ -120,7 +135,7 @@ export function invalidateAllTradeFeedClientCache(): void {
 export function invalidateTradeFeedClientCacheForViewer(viewerUserId: string): void {
   const u = viewerUserId.trim();
   if (!u) return;
-  const suffix = `|u:${u}:v5`;
+  const suffix = `|u:${u}:v6`;
   for (const k of [...tradeFeedClientCache.keys()]) {
     if (k.endsWith(suffix)) tradeFeedClientCache.delete(k);
   }

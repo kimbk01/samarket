@@ -8,6 +8,6 @@ export function parseTradeFeedSortQuery(raw: string | null | undefined): TradeFe
   if (s === "popular") return "popular";
   if (s === "pay_desc") return "pay_desc";
   if (s === "chat_desc") return "chat_desc";
-  if (s === "near") return "near";
+  if (s === "near" || s === "distance") return "near";
   return "latest";
 }

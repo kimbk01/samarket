@@ -20,6 +20,10 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
+import {
+  parseMarketplacePriceBound,
+  sanitizeMarketplaceQueryText,
+} from "@/lib/trade/marketplace/query-contract";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 
 export const runtime = "nodejs";
@@ -131,6 +135,9 @@ export async function GET(req: NextRequest) {
         ? locationScope.raw || "invalid"
         : undefined;
   const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
+  const q = sanitizeMarketplaceQueryText(searchParams.get("q"));
+  const priceMin = parseMarketplacePriceBound(searchParams.get("priceMin"));
+  const priceMax = parseMarketplacePriceBound(searchParams.get("priceMax"));
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
@@ -148,6 +155,9 @@ export async function GET(req: NextRequest) {
       statusOr,
       lguCityId,
       radiusKm,
+      q,
+      priceMin,
+      priceMax,
     },
     viewerId
   );

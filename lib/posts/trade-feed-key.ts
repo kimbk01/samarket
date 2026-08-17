@@ -8,7 +8,15 @@ export type TradeFeedKeyExtras = {
   jobRegionSlug?: string;
   jobIndustrySlug?: string;
   tradeState?: "latest" | "active" | "reserved" | "sold";
+  lguCityId?: string;
+  locationAll?: boolean;
 };
+
+function feedKeyLocationSegment(extras?: TradeFeedKeyExtras): string {
+  if (extras?.lguCityId?.trim()) return `loc:${extras.lguCityId.trim()}`;
+  if (extras?.locationAll) return "loc:all";
+  return "loc:unset";
+}
 
 /** 서버 bootstrap 과 클라이언트 `PostListByCategory` 가 동일한지 판별 */
 export function computeTradeFeedKey(
@@ -28,7 +36,7 @@ export function computeTradeFeedKey(
     extras?.tradeState === "sold"
       ? extras.tradeState
       : "latest";
-  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}`;
+  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
 }
 
 /**
@@ -54,5 +62,5 @@ export function computeTradeFeedKeyForMarketParent(
     extras?.tradeState === "sold"
       ? extras.tradeState
       : "latest";
-  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}`;
+  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|${feedKeyLocationSegment(extras)}`;
 }

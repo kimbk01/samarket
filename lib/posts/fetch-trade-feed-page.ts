@@ -16,6 +16,15 @@ import {
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
+import {
+  parseMarketplacePriceBound,
+  parseMarketplaceSort,
+  sanitizeMarketplaceQueryText,
+} from "@/lib/trade/marketplace/query-contract";
+import {
+  MARKETPLACE_DISTANCE_SCAN_CAP,
+  sortListingsByLguDistance,
+} from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 
 export type TradeFeedPageSort = TradePostSort;
 
@@ -34,6 +43,9 @@ export type TradeFeedPageOptions = {
   lguCityId?: string;
   /** Browse radius km (`?radius=`) — only meaningful with lguCityId */
   radiusKm?: number | null;
+  q?: string;
+  priceMin?: number;
+  priceMax?: number;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -46,6 +58,9 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const lguCityId = opts.lguCityId?.trim();
   const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, opts.radiusKm);
   const tradeFeedLocation = tradeFeedLocationToQueryExtras(feedConstraint);
+  const q = sanitizeMarketplaceQueryText(opts.q);
+  const priceMin = parseMarketplacePriceBound(opts.priceMin);
+  const priceMax = parseMarketplacePriceBound(opts.priceMax);
 
   if (
     !restrictTradeTypeJob &&
@@ -54,7 +69,10 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
     !jr &&
     !jc &&
     !statusOr &&
-    !tradeFeedLocation
+    !tradeFeedLocation &&
+    !q &&
+    priceMin == null &&
+    priceMax == null
   ) {
     return undefined;
   }
@@ -66,6 +84,9 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
     jobIndustrySlug: jc || undefined,
     statusOr: statusOr || undefined,
     tradeFeedLocation,
+    q,
+    priceMin,
+    priceMax,
   };
 }
 
@@ -138,8 +159,31 @@ export async function fetchTradeFeedPage(
   }
 
   const from = (page - 1) * PAGE_SIZE;
+  const marketplaceSort = parseMarketplaceSort(sort);
+  const useDistance =
+    marketplaceSort === "distance" &&
+    jobKind !== "hire" &&
+    jobKind !== "work" &&
+    feedConstraint.kind === "lgu";
 
   try {
+    if (useDistance) {
+      const scanned = await fetchPostsRangeForTradeCategories(
+        supabase,
+        ids,
+        "latest",
+        0,
+        MARKETPLACE_DISTANCE_SCAN_CAP - 1,
+        queryExtras
+      );
+      const sorted = sortListingsByLguDistance(scanned, feedConstraint.canonicalId);
+      const posts = sorted.slice(from, from + PAGE_SIZE);
+      return {
+        posts,
+        hasMore:
+          sorted.length > from + PAGE_SIZE || scanned.length >= MARKETPLACE_DISTANCE_SCAN_CAP,
+      };
+    }
     const posts = await fetchPostsRangeForTradeCategories(
       supabase,
       ids,

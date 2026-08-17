@@ -31,6 +31,7 @@ import {
   readTradeBrowseLocationDraftSession,
   writeTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
+import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import {
   buildTradeLocationHref,
@@ -143,6 +144,7 @@ export function TradeBrowseLocationDistancePage() {
     rememberTradeLguDisplayLabel(withRadius.canonicalId, withRadius.displayName);
     clearTradeBrowseLocationDraftSession();
     const scope = tradeBrowseLocationToScope(withRadius);
+    writeTradeBrowseCommittedScope(scope);
     const href = buildTradeLocationHref("/market", searchParams.toString(), scope);
     router.replace(href, { scroll: false });
   }, [draft, draftRadius.km, router, searchParams]);

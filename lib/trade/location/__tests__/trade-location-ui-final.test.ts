@@ -26,9 +26,9 @@ const SAMPLES = [
 ] as const;
 
 describe("Trade location UI national selector chain", () => {
-  it("DEFAULT ALL has no location constraint", () => {
+  it("DEFAULT missing URL is UNSET, not nationwide ALL", () => {
     const scope = parseTradeLocationScopeFromSearchParams(new URLSearchParams(""));
-    expect(scope).toEqual({ mode: "all" });
+    expect(scope).toEqual({ mode: "unset" });
     expect(resolveTradeFeedLocationConstraint(null).kind).toBe("all");
   });
 
