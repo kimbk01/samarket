@@ -13,12 +13,11 @@ export const STATUS_LABEL: Record<ProductStatus, string> = {
   deleted: "삭제됨",
 };
 
-export type MyProductFilterKey = "all" | "active" | "reserved" | "sold" | "hidden";
+export type MyProductFilterKey = "all" | "active" | "sold" | "hidden";
 
 export const MY_PRODUCT_FILTER_OPTIONS: { value: MyProductFilterKey; label: string }[] = [
   { value: "all", label: "전체" },
   { value: "active", label: "판매중" },
-  { value: "reserved", label: "예약중" },
   { value: "sold", label: "판매완료" },
   { value: "hidden", label: "숨김" },
 ];

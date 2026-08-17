@@ -6,11 +6,16 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
+import {
+  collectActivePromotionTargetIds,
+  filterMyProductsByListingAxis,
+} from "@/lib/products/my-product-listing-filter";
 import { normalizeSellerListingState, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
+import type { PointPromotionOrder } from "@/lib/types/point";
 import { MyProductFilter } from "./MyProductFilter";
 import { MyProductCard } from "./MyProductCard";
 import {
@@ -25,16 +30,13 @@ import {
   postSellerListingStateRequest,
 } from "@/lib/trade/seller-trade-flow-client";
 
-function filterByStatus(products: Product[], filter: MyProductFilterKey): Product[] {
-  if (filter === "all") return products.filter((p) => p.status !== "hidden");
-  return products.filter((p) => p.status === filter);
-}
-
 export function MyProductsView() {
   const { t } = useI18n();
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
   const [filter, setFilter] = useState<MyProductFilterKey>("all");
+  const [promotedOnly, setPromotedOnly] = useState(false);
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
+  const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [savingListingId, setSavingListingId] = useState<string | null>(null);
   const [buyerPicker, setBuyerPicker] = useState<{
@@ -43,7 +45,12 @@ export function MyProductsView() {
     candidates: TradeBuyerPickCandidate[];
   } | null>(null);
 
-  const products = filterByStatus(rawProducts, filter);
+  const products = filterMyProductsByListingAxis(
+    rawProducts,
+    filter,
+    promotedOnly,
+    promotedTargetIds
+  );
 
   useEffect(() => {
     const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
@@ -59,31 +66,61 @@ export function MyProductsView() {
     return (data.posts ?? []) as Product[];
   }, []);
 
+  const fetchPromotedTargetIds = useCallback(async (uid: string) => {
+    const res = await runSingleFlight(`me:promotion-orders:get:${uid.trim()}`, () =>
+      fetch("/api/me/points/promotion-orders", { cache: "no-store", credentials: "include" })
+    );
+    if (!res.ok) return new Set<string>();
+    const data = (await res.clone().json()) as { ok?: boolean; orders?: PointPromotionOrder[] };
+    if (!data.ok || !Array.isArray(data.orders)) return new Set<string>();
+    return collectActivePromotionTargetIds(data.orders);
+  }, []);
+
+  const loadListing = useCallback(
+    async (uid: string) => {
+      const [list, ids] = await Promise.all([fetchMyPosts(uid), fetchPromotedTargetIds(uid)]);
+      return { list, ids };
+    },
+    [fetchMyPosts, fetchPromotedTargetIds]
+  );
+
   useEffect(() => {
     if (!currentUserId) {
       setRawProducts([]);
+      setPromotedTargetIds(new Set());
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    fetchMyPosts(currentUserId)
-      .then((list) => {
-        if (!cancelled) setRawProducts(list);
+    loadListing(currentUserId)
+      .then(({ list, ids }) => {
+        if (!cancelled) {
+          setRawProducts(list);
+          setPromotedTargetIds(ids);
+        }
       })
       .catch(() => {
-        if (!cancelled) setRawProducts([]);
+        if (!cancelled) {
+          setRawProducts([]);
+          setPromotedTargetIds(new Set());
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [currentUserId, fetchMyPosts]);
+  }, [currentUserId, loadListing]);
 
   useEffect(() => {
     if (!currentUserId) return;
     const run = () => {
-      fetchMyPosts(currentUserId).then(setRawProducts).catch(() => {});
+      loadListing(currentUserId)
+        .then(({ list, ids }) => {
+          setRawProducts(list);
+          setPromotedTargetIds(ids);
+        })
+        .catch(() => {});
     };
     const onVis = () => {
       if (document.visibilityState === "visible") run();
@@ -94,22 +131,31 @@ export function MyProductsView() {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", run);
     };
-  }, [currentUserId, fetchMyPosts]);
+  }, [currentUserId, loadListing]);
 
   const refetchPostsSilent = useCallback(() => {
     if (!currentUserId) return;
-    void fetchMyPosts(currentUserId).then(setRawProducts).catch(() => {});
-  }, [currentUserId, fetchMyPosts]);
+    void loadListing(currentUserId)
+      .then(({ list, ids }) => {
+        setRawProducts(list);
+        setPromotedTargetIds(ids);
+      })
+      .catch(() => {});
+  }, [currentUserId, loadListing]);
 
   useRefetchOnPageShowRestore(refetchPostsSilent, { enableVisibilityRefetch: false });
 
   const refresh = useCallback(() => {
     if (!currentUserId) {
       setRawProducts([]);
+      setPromotedTargetIds(new Set());
       return;
     }
-    fetchMyPosts(currentUserId).then(setRawProducts);
-  }, [currentUserId, fetchMyPosts]);
+    void loadListing(currentUserId).then(({ list, ids }) => {
+      setRawProducts(list);
+      setPromotedTargetIds(ids);
+    });
+  }, [currentUserId, loadListing]);
 
   const handleFilterChange = useCallback((value: MyProductFilterKey) => {
     setFilter(value);
@@ -369,7 +415,12 @@ export function MyProductsView() {
           </a>
         </div>
       </div>
-      <MyProductFilter value={filter} onChange={handleFilterChange} />
+      <MyProductFilter
+        value={filter}
+        onChange={handleFilterChange}
+        promotedOnly={promotedOnly}
+        onPromotedOnlyChange={setPromotedOnly}
+      />
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
@@ -377,7 +428,9 @@ export function MyProductsView() {
       ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="sam-text-body text-sam-muted">
-            {filter === "all" ? t("mypage_comp_product_empty_all") : t("mypage_comp_product_empty_filter")}
+            {filter === "all" && !promotedOnly
+              ? t("mypage_comp_product_empty_all")
+              : t("mypage_comp_product_empty_filter")}
           </p>
         </div>
       ) : (

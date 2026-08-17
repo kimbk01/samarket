@@ -9,6 +9,7 @@ import {
   TradeListingStatusBadge,
   tradeListingPostFromProduct,
 } from "@/components/post/TradeListingStatusBadge";
+import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   POST_LIST_META_LINE_CLASS,
@@ -39,8 +40,9 @@ export function MyProductCard({
   onSellerListingStateChange,
 }: MyProductCardProps) {
   const router = useRouter();
-  const isSold = product.status === "sold";
-  const isHidden = product.status === "hidden";
+  const listingPost = tradeListingPostFromProduct(product);
+  const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
+  const isHidden = product.status === "hidden" || product.status === "blinded";
   const detailHref = `/post/${product.id}`;
   return (
     <div
@@ -72,7 +74,7 @@ export function MyProductCard({
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
             <div className="flex min-h-0 flex-1 flex-col justify-between">
               <div className="shrink-0">
-                <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} />
+                <TradeListingStatusBadge post={listingPost} surface="marketplace" />
               </div>
               <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
                 {product.title}
