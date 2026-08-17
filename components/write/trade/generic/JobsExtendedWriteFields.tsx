@@ -1,8 +1,11 @@
 "use client";
 
 /**
- * Legacy jobs write layout — NOT a product entry.
- * Mount only via TradeWriteForm (R4). TradeCategoryWriteForm must not import this.
+ * Jobs write profile body (Composition Phase 1b).
+ * Mount only via TradeWriteForm → TradeMarketplaceWriteForm (profileId === "jobs").
+ * TradeCategoryWriteForm must not import this.
+ * The marketplace shell owns page chrome and submit button; this body keeps Jobs-specific
+ * hire/seek state, validation, staging, and create/update payload behavior.
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -64,9 +67,6 @@ import { formatPrice, formatPriceInput, getCurrencyUnitLabel } from "@/lib/utils
 import {
   JOB_LISTING_KIND_OPTIONS,
   type JobListingKind,
-  JOB_WORK_TYPE_OPTIONS,
-  PAY_TYPE_OPTIONS,
-  WORK_CATEGORY_OPTIONS,
   WORK_CATEGORY_DB_VALUES,
   WORK_CATEGORY_OTHER,
   WORK_CATEGORY_OTHER_MAX,
@@ -91,22 +91,18 @@ import {
   type JobSeekerStartValue,
 } from "@/lib/jobs/form-options";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
-import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
-import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
-import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
-import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
-import { SubmitButton } from "../shared/SubmitButton";
-import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
+import { AutoGrowTextarea } from "../../shared/AutoGrowTextarea";
+import { ImageUploader, type ImageUploadItem } from "../../shared/ImageUploader";
+import { TradeFrequentPhrasesSheet } from "../../shared/TradeFrequentPhrasesSheet";
+import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
 import {
   TradeDefaultLocationBlock,
   type TradeWriteAddressSsotSnapshot,
-} from "../shared/TradeDefaultLocationBlock";
+} from "../../shared/TradeDefaultLocationBlock";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
-import { APP_TRADE_WRITE_FORM_FB_STACK_CLASS } from "@/lib/ui/app-content-layout";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_BLOCK_TITLE,
@@ -123,10 +119,11 @@ import {
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 
-interface JobsWriteFormProps {
+export type JobsWriteSubmitHandler = (e: React.FormEvent) => Promise<void>;
+
+interface JobsExtendedWriteFieldsProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
@@ -136,6 +133,7 @@ interface JobsWriteFormProps {
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
+  registerSubmit?: (handler: JobsWriteSubmitHandler | null, submitting: boolean) => void;
 }
 
 /** 로컬 기준 YYYY-MM-DD */
@@ -207,22 +205,20 @@ function normalizeJobsWorkCategorySelect(wc: string, wo: string): { category: st
   return { category: WORK_CATEGORY_OTHER, other: o || t };
 }
 
-export function JobsWriteForm({
+export function JobsExtendedWriteFields({
   category,
   onSuccess,
-  onCancel,
   onMeaningfulTradeDraftChange,
-  suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
-}: JobsWriteFormProps) {
+  registerSubmit,
+}: JobsExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
-  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currency = appSettings.defaultCurrency || "PHP";
   const baseMaxImages = Math.max(1, appSettings.maxProductImages ?? 10);
@@ -338,7 +334,13 @@ export function JobsWriteForm({
   const jobsGenericFields = useMemo(
     () =>
       jobsAdaptedFields.filter(
-        (f) => f.id === "company_name" || f.id === "work_category_other"
+        (f) =>
+          f.id === "company_name" ||
+          f.id === "work_category" ||
+          f.id === "work_category_other" ||
+          f.id === "work_term" ||
+          f.id === "pay_type" ||
+          f.id === "pay_amount"
       ),
     [jobsAdaptedFields]
   );
@@ -432,9 +434,23 @@ export function JobsWriteForm({
     }
   }, [listingKind, workTerm, todayMin]);
 
-  const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
   const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency, t) : "";
+
+  const handleJobsGenericChange = useCallback((fieldId: string, value: string | boolean) => {
+    const next = String(value);
+    if (fieldId === "company_name") setCompanyName(next);
+    if (fieldId === "work_category") {
+      setWorkCategory(next);
+      if (next !== WORK_CATEGORY_OTHER) setWorkCategoryOther("");
+    }
+    if (fieldId === "work_category_other") {
+      setWorkCategoryOther(next.slice(0, WORK_CATEGORY_OTHER_MAX));
+    }
+    if (fieldId === "work_term") setWorkTerm(next);
+    if (fieldId === "pay_type") setPayType(next);
+    if (fieldId === "pay_amount") setPayAmount(next);
+  }, []);
 
   const applyJobsStagingToForm = useCallback((staged: JobsWriteMeetSpotStagingV1) => {
     setListingKind(staged.listingKind === "work" ? "work" : "hire");
@@ -1315,14 +1331,10 @@ export function JobsWriteForm({
     ]
   );
 
-  const categoryLabel = useMemo(
-    () => resolveWriteCategoryUILabel(language, category),
-    [language, category]
-  );
-  const tierTitle = editPostId
-    ? `${categoryLabel} · ${t("jobs_write_header_edit")}`
-    : `${categoryLabel} · ${t("jobs_write_header_quick")}`;
-  const policyHint = tradePolicy?.hint?.trim() ?? "";
+  useEffect(() => {
+    registerSubmit?.(handleSubmit, submitting);
+    return () => registerSubmit?.(null, false);
+  }, [registerSubmit, handleSubmit, submitting]);
 
   const tradeLocationEl = (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={locationLocked || coreLocked ? "pointer-events-none opacity-60" : ""}>
@@ -1347,13 +1359,7 @@ export function JobsWriteForm({
   );
 
   return (
-    <div
-      className={
-        embeddedTier1 || suppressTier1Chrome
-          ? "flex w-full min-w-0 flex-col bg-sam-app pb-28"
-          : "min-h-screen bg-sam-app pb-28"
-      }
-    >
+    <>
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
@@ -1368,25 +1374,9 @@ export function JobsWriteForm({
         ariaLabel={t("jobs_write_draft_aria")}
         interactionMode="blocking"
       />
-      {!suppressTier1Chrome ? (
-        <WriteScreenTier1Sync
-          tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={tierTitle}
-          backHref={backHref}
-          onRequestClose={onCancel}
-        />
-      ) : null}
-      <form
-        onSubmit={handleSubmit}
-        className={`${APP_TRADE_WRITE_FORM_FB_STACK_CLASS} [-webkit-tap-highlight-color:transparent]`}
-      >
         <div className={TRADE_WRITE_FB_SECTION}>
           <p className="text-[13px] font-medium text-[#65676B]">{t("trade_113")}</p>
         </div>
-
-        {editPostId && policyHint ? (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-950">{policyHint}</div>
-        ) : null}
 
         <section
           className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -1443,9 +1433,7 @@ export function JobsWriteForm({
             <GenericTradeWriteFields
               fields={jobsGenericFields.filter((f) => f.id === "company_name")}
               values={jobsFieldValues}
-              onChange={(fieldId, value) => {
-                if (fieldId === "company_name") setCompanyName(String(value));
-              }}
+              onChange={handleJobsGenericChange}
               errors={{
                 company_name: errors.companyName ?? "",
               }}
@@ -1459,79 +1447,45 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_083")}</p>
-              <label htmlFor="jobs-work-category-select" className="sr-only">
-                {t("jobs_write_category_select_aria")}
-              </label>
-              <select
-                id="jobs-work-category-select"
-                value={
-                  !workCategory.trim()
-                    ? ""
-                    : WORK_CATEGORY_DB_VALUES.includes(workCategory)
-                      ? workCategory
-                      : WORK_CATEGORY_OTHER
-                }
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setWorkCategory(v);
-                  if (v !== WORK_CATEGORY_OTHER) setWorkCategoryOther("");
+              <GenericTradeWriteFields
+                fields={jobsGenericFields.filter(
+                  (f) => f.id === "work_category" || f.id === "work_category_other"
+                )}
+                values={{
+                  ...jobsFieldValues,
+                  work_category:
+                    !workCategory.trim()
+                      ? ""
+                      : WORK_CATEGORY_DB_VALUES.includes(workCategory)
+                        ? workCategory
+                        : WORK_CATEGORY_OTHER,
                 }}
-                className={`w-full rounded-ui-rect border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg ${
-                  errors.workCategory ? "border-red-400 bg-red-50" : "border-sam-border"
-                }`}
-              >
-                <option value="">{t("trade_084")}</option>
-                {WORK_CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {t(cat.labelKey)}
-                  </option>
-                ))}
-              </select>
+                onChange={handleJobsGenericChange}
+                errors={{
+                  work_category: errors.workCategory ?? "",
+                  work_category_other: errors.workCategoryOther ?? "",
+                }}
+                disabled={coreLocked}
+              />
               {workCategory === WORK_CATEGORY_OTHER && (
-                <div className="mt-3">
-                  <GenericTradeWriteFields
-                    fields={jobsGenericFields.filter((f) => f.id === "work_category_other")}
-                    values={jobsFieldValues}
-                    onChange={(fieldId, value) => {
-                      if (fieldId === "work_category_other") {
-                        setWorkCategoryOther(String(value).slice(0, WORK_CATEGORY_OTHER_MAX));
-                      }
-                    }}
-                    errors={{
-                      work_category_other: errors.workCategoryOther ?? "",
-                    }}
-                    disabled={coreLocked}
-                  />
-                  <p className="mt-1 sam-text-helper text-sam-muted">
-                    {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · {t("jobs_write_category_other_hint")}
-                  </p>
-                </div>
-              )}
-              {errors.workCategory && (
-                <p className="mt-1 sam-text-body-secondary text-red-500">{errors.workCategory}</p>
-              )}
-              {errors.workCategoryOther && (
-                <p className="mt-1 sam-text-body-secondary text-red-500">{errors.workCategoryOther}</p>
+                <p className="mt-1 sam-text-helper text-sam-muted">
+                  {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · {t("jobs_write_category_other_hint")}
+                </p>
               )}
             </section>
 
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_039")}</p>
-              <div className="flex flex-wrap gap-2">
-                {JOB_WORK_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setWorkTerm(opt.value)}
-                    className={jobChipClass(workTerm === opt.value)}
-                  >
-                    {t(opt.labelKey)}
-                  </button>
-                ))}
-              </div>
+              <GenericTradeWriteFields
+                fields={jobsGenericFields.filter((f) => f.id === "work_term")}
+                values={jobsFieldValues}
+                onChange={handleJobsGenericChange}
+                errors={{
+                  work_term: errors.workTerm ?? "",
+                }}
+                disabled={coreLocked}
+              />
             </section>
 
             {(workTerm === "short" || workTerm === "one_day") && (
@@ -1668,39 +1622,22 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_042")}</p>
-              <div className="mb-2 flex flex-wrap gap-2">
-                {PAY_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setPayType(opt.value)}
-                    className={jobChipClass(payType === opt.value)}
-                  >
-                    {t(opt.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2.5">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={hirePayNegotiable ? "" : payAmount}
-                  onChange={(e) => setPayAmount(formatPriceInput(e.target.value))}
-                  placeholder="0"
-                  disabled={hirePayNegotiable}
-                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none ${
-                    errors.payAmount ? "text-red-600" : ""
-                  } ${hirePayNegotiable ? "text-sam-muted" : ""}`}
-                />
-                {!hirePayNegotiable ? (
-                  <span className="sam-text-body text-sam-muted">{getCurrencyUnitLabel(currency)}</span>
-                ) : null}
-              </div>
+              <GenericTradeWriteFields
+                fields={jobsGenericFields.filter(
+                  (f) => f.id === "pay_type" || (!hirePayNegotiable && f.id === "pay_amount")
+                )}
+                values={jobsFieldValues}
+                onChange={handleJobsGenericChange}
+                errors={{
+                  pay_type: errors.payType ?? "",
+                  pay_amount: errors.payAmount ?? "",
+                }}
+                disabled={coreLocked}
+                currencyUnit={getCurrencyUnitLabel(currency)}
+              />
               {!hirePayNegotiable && payDisplay ? (
                 <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
               ) : null}
-              {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
               <label className={`mt-2 flex items-center gap-2 ${JOB_LABEL_CHECK_ROW}`}>
                 <input
                   type="checkbox"
@@ -2161,16 +2098,7 @@ export function JobsWriteForm({
           </>
         )}
 
-        {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
-
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
-          <SubmitButton
-            label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
-            submitting={submitting}
-            onCancel={onCancel}
-          />
-        </div>
-      </form>
-    </div>
+      {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
+    </>
   );
 }

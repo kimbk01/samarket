@@ -277,6 +277,10 @@ export const PostCard = memo(function PostCard({
               <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
                 FX
               </div>
+            ) : listKind === "rent-car" ? (
+              <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[12px] font-semibold text-sam-muted" aria-hidden>
+                RENT
+              </div>
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
             )}

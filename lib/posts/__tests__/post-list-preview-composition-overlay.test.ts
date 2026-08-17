@@ -83,4 +83,49 @@ describe("list preview field_composition (R5)", () => {
     const specLine = model?.bodyBlocks.find((b) => b.text.includes("sq"))?.text ?? "";
     expect(specLine).not.toMatch(/(^|·)\s*2(\s|·|$)/);
   });
+
+  it("rent-car uses rental-card listKind (not used-car) when skin/meta overlap", () => {
+    const model = buildPostListPreviewModel(
+      {
+        type: "trade",
+        title: "Vios rent",
+        price: 2500,
+        meta: {
+          car_model: "Toyota Vios",
+          car_year: "2021",
+          daily_price: "2500",
+          pickup_location: "Cebu",
+        },
+        created_at: "2026-07-01T00:00:00.000Z",
+      },
+      {
+        currency: "PHP",
+        locale: "ko",
+        skinKey: "rent-car",
+        fieldComposition: null,
+      }
+    );
+    expect(model?.listKind).toBe("rent-car");
+    expect(model?.listingChips.some((c) => /렌터|Rent/i.test(c.text))).toBe(true);
+    expect(model?.feedPrice).toMatch(/\/(일|day)/);
+  });
+
+  it("rent-car meta without skinKey still wins over used-car", () => {
+    const model = buildPostListPreviewModel(
+      {
+        type: "trade",
+        title: "Vios rent",
+        price: 2500,
+        meta: {
+          car_model: "Toyota Vios",
+          car_year: "2021",
+          daily_price: "2500",
+          pickup_location: "Cebu",
+        },
+        created_at: "2026-07-01T00:00:00.000Z",
+      },
+      { currency: "PHP", locale: "ko", fieldComposition: null }
+    );
+    expect(model?.listKind).toBe("rent-car");
+  });
 });

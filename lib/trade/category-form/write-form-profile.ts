@@ -1,7 +1,7 @@
 /**
  * Write layout profile helpers — NOT product entry authority.
- * Product entry is always TradeCategoryWriteForm → TradeWriteForm.
- * Jobs/Exchange modules may mount only from TradeWriteForm (legacy layout) until Generic absorb completes.
+ * Product entry is always TradeCategoryWriteForm → TradeWriteForm → composition.profileId body.
+ * Jobs/Exchange bodies live under `generic/*ExtendedWriteFields` until shell merge (Phase 1b).
  */
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { resolveTradeCompositionProfileId } from "@/lib/trade/category-form/composition-seeds";

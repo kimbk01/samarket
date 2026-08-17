@@ -9,6 +9,7 @@ describe("detail composition + rent-car (R6)", () => {
   it("PostDetailView routes rent-car before used-car meta heuristic", () => {
     const src = readFileSync(resolve(process.cwd(), "components/post/PostDetailView.tsx"), "utf8");
     expect(src).toContain('profileId === "rent-car"');
+    expect(src).toContain("hasRentCarMetaEarly");
     expect(src).toContain("TradeCompositionDetailSection");
     expect(src).toContain("compositionProfileId: detailCompositionProfileId");
     expect(src).toContain('category.icon_key !== "rent-car"');
@@ -16,13 +17,40 @@ describe("detail composition + rent-car (R6)", () => {
     expect(src).not.toContain("META_LABEL_KEYS");
   });
 
-  it("TradeMetaBlock delegates non-RE skins to TradeCompositionDetailSection", () => {
+  it("TradeMetaBlock delegates skin detail blocks to TradeCompositionDetailSection", () => {
     const src = readFileSync(resolve(process.cwd(), "components/post/PostDetailView.tsx"), "utf8");
     const idx = src.indexOf("function TradeMetaBlock");
     expect(idx).toBeGreaterThan(-1);
     const slice = src.slice(idx, idx + 1200);
     expect(slice).toContain("TradeCompositionDetailSection");
     expect(slice).not.toContain("buildCompositionDetailAttributes");
+  });
+
+  it("RealEstateMetaBlock delegates projection to TradeCompositionDetailSection", () => {
+    const src = readFileSync(resolve(process.cwd(), "components/post/PostDetailView.tsx"), "utf8");
+    const idx = src.indexOf("function RealEstateMetaBlock");
+    expect(idx).toBeGreaterThan(-1);
+    const slice = src.slice(idx, src.indexOf("function TradeMetaBlock"));
+    expect(slice).toContain('iconKey="real-estate"');
+    expect(slice).toContain("adapterCtx={{ dealType }}");
+    expect(slice).toContain("skipFieldIds={skipHero}");
+    expect(slice).toContain('fieldId === "move_in_date"');
+    expect(slice).not.toContain("buildCompositionDetailAttributes");
+  });
+
+  it("PostDetailView jobs path delegates core detail rows to TradeCompositionDetailSection", () => {
+    const src = readFileSync(resolve(process.cwd(), "components/post/PostDetailView.tsx"), "utf8");
+    const idx = src.indexOf("<JobDetailContextNote");
+    expect(idx).toBeGreaterThan(-1);
+    const slice = src.slice(idx, idx + 1800);
+    expect(slice).toContain("JobDetailContextNote");
+    expect(slice).toContain("TradeCompositionDetailSection");
+    expect(slice).toContain('iconKey="jobs"');
+    expect(slice).toContain("listingKind: jobDetailListingKind");
+    expect(slice).toContain("workCategory:");
+    expect(slice).toContain("JobsExtendedDetailExtras");
+    expect(slice).not.toContain("JobHiringDetailCards");
+    expect(slice).not.toContain("JobSeekingDetailCards");
   });
 
   it("rent-car seed projects daily_price on detail surface", () => {

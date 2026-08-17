@@ -20,25 +20,50 @@ function stubCategory(partial: Partial<CategoryWithSettings> & { icon_key: strin
   } as CategoryWithSettings;
 }
 
-describe("trade write entry SSOT (R4)", () => {
+describe("trade write entry SSOT (R4/R7)", () => {
   it("TradeCategoryWriteForm does not import Jobs/Exchange WriteModules", () => {
     const src = readFileSync(
       resolve(process.cwd(), "components/write/trade/TradeCategoryWriteForm.tsx"),
       "utf8"
     );
     expect(src).toContain("TradeWriteForm");
-    expect(src).not.toMatch(/from ["']@\/components\/write\/trade\/JobsWriteForm["']/);
-    expect(src).not.toMatch(/from ["']@\/components\/write\/trade\/ExchangeWriteForm["']/);
-    expect(src).not.toMatch(/<JobsWriteForm\b/);
-    expect(src).not.toMatch(/<ExchangeWriteForm\b/);
+    expect(src).not.toMatch(/JobsWriteForm|ExchangeWriteForm|JobsExtendedWriteFields|ExchangeExtendedWriteFields/);
   });
 
-  it("TradeWriteForm owns Jobs/Exchange layout mounts", () => {
+  it("TradeWriteForm routes jobs/exchange into the shared shell", () => {
     const src = readFileSync(resolve(process.cwd(), "components/write/trade/TradeWriteForm.tsx"), "utf8");
-    expect(src).toMatch(/from ["']\.\/JobsWriteForm["']/);
-    expect(src).toMatch(/from ["']\.\/ExchangeWriteForm["']/);
-    expect(src).toContain("resolveUsesJobsTradeWriteForm");
-    expect(src).toContain("resolveUsesExchangeTradeWriteForm");
+    expect(src).toMatch(/from ["']\.\/generic\/JobsExtendedWriteFields["']/);
+    expect(src).toMatch(/from ["']\.\/generic\/ExchangeExtendedWriteFields["']/);
+    expect(src).not.toMatch(/from ["']\.\/JobsWriteForm["']/);
+    expect(src).not.toMatch(/from ["']\.\/ExchangeWriteForm["']/);
+    expect(src).not.toContain("resolveUsesJobsTradeWriteForm");
+    expect(src).not.toContain("resolveUsesExchangeTradeWriteForm");
+    expect(src).not.toContain('if (compositionProfileId === "jobs")');
+    expect(src).not.toContain('if (compositionProfileId === "exchange")');
+    expect(src).toContain('const isJobsProfile = tradeComposition.profileId === "jobs"');
+    expect(src).toContain('const isExchangeProfile = tradeComposition.profileId === "exchange"');
+    expect(src).toContain("<JobsExtendedWriteFields");
+    expect(src).toContain("<ExchangeExtendedWriteFields");
+    expect(src).toContain("registerSubmit={registerJobsSubmit}");
+    expect(src).toContain("registerSubmit={registerExchangeSubmit}");
+  });
+
+  it("Jobs/Exchange extended bodies render seed library fields through GenericTradeWriteFields", () => {
+    const jobs = readFileSync(
+      resolve(process.cwd(), "components/write/trade/generic/JobsExtendedWriteFields.tsx"),
+      "utf8"
+    );
+    const exchange = readFileSync(
+      resolve(process.cwd(), "components/write/trade/generic/ExchangeExtendedWriteFields.tsx"),
+      "utf8"
+    );
+    expect(jobs).toContain("GenericTradeWriteFields");
+    expect(jobs).toContain('f.id === "work_category"');
+    expect(jobs).toContain('f.id === "work_term"');
+    expect(jobs).toContain('f.id === "pay_type"');
+    expect(jobs).toContain('f.id === "pay_amount"');
+    expect(exchange).toContain("GenericTradeWriteFields");
+    expect(exchange).toContain('f.id === "exchange_direction"');
   });
 
   it("profile helpers map icon_key/slug to jobs/exchange", () => {

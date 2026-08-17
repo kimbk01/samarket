@@ -14,6 +14,7 @@ const TRADE_TILE_EMOJI: Record<string, string> = {
   "real-estate": "🏠",
   jobs: "💼",
   exchange: "💱",
+  "rent-car": "🔑",
 };
 
 const COMMUNITY_TILE_EMOJI: Record<string, string> = {

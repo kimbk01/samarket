@@ -63,6 +63,7 @@ import {
   shouldInjectFeedAdAtContentIndex,
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
+import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -143,6 +144,7 @@ export function HomeProductList({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { propsForCategoryId } = useTradeListCompositionMap();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const locationScope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(searchParams),
@@ -632,14 +634,22 @@ export function HomeProductList({
           ) : (
             <Fragment key={post.id}>
               <li className="min-w-0">
-                <PostCard
-                  post={post}
-                  isFirstCard={index === 0}
-                  priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
-                  isFavorite={favoriteMap[post.id]}
-                  onFavoriteChange={handleFavoriteChange}
-                  onMenuAction={handleMenuAction}
-                />
+                {(() => {
+                  const composition = propsForCategoryId(post.category_id);
+                  return (
+                    <PostCard
+                      post={post}
+                      isFirstCard={index === 0}
+                      priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                      isFavorite={favoriteMap[post.id]}
+                      onFavoriteChange={handleFavoriteChange}
+                      onMenuAction={handleMenuAction}
+                      skinKey={composition?.skinKey}
+                      categorySlug={composition?.categorySlug}
+                      fieldComposition={composition?.fieldComposition}
+                    />
+                  );
+                })()}
               </li>
               {shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
                 <FeedAdBannerCarousel

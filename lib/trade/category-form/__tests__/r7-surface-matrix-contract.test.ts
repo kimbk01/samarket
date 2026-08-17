@@ -107,10 +107,24 @@ describe("R7 composition matrix (6 profiles)", () => {
       resolve(process.cwd(), "components/write/trade/TradeCategoryWriteForm.tsx"),
       "utf8"
     );
+    const tradeWrite = readFileSync(
+      resolve(process.cwd(), "components/write/trade/TradeWriteForm.tsx"),
+      "utf8"
+    );
     expect(editClient).toContain("TradeCategoryWriteForm");
     expect(editClient).not.toMatch(/JobsWriteForm|ExchangeWriteForm/);
     expect(categoryWrite).toContain("TradeWriteForm");
-    expect(categoryWrite).not.toMatch(/<JobsWriteForm\b|<ExchangeWriteForm\b/);
+    expect(categoryWrite).not.toMatch(/JobsWriteForm|ExchangeWriteForm|JobsExtendedWriteFields|ExchangeExtendedWriteFields/);
+    expect(tradeWrite).not.toMatch(/from ["']\.\/JobsWriteForm["']/);
+    expect(tradeWrite).not.toMatch(/from ["']\.\/ExchangeWriteForm["']/);
+    expect(tradeWrite).not.toContain("resolveUsesJobsTradeWriteForm");
+    expect(tradeWrite).not.toContain("resolveUsesExchangeTradeWriteForm");
+    expect(tradeWrite).not.toContain('if (compositionProfileId === "jobs")');
+    expect(tradeWrite).not.toContain('if (compositionProfileId === "exchange")');
+    expect(tradeWrite).toContain('const isJobsProfile = tradeComposition.profileId === "jobs"');
+    expect(tradeWrite).toContain('const isExchangeProfile = tradeComposition.profileId === "exchange"');
+    expect(tradeWrite).toContain("registerSubmit={registerJobsSubmit}");
+    expect(tradeWrite).toContain("registerSubmit={registerExchangeSubmit}");
   });
 
   it("EDIT hydrate rent-car restores composition meta (CREATE == EDIT)", () => {

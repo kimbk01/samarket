@@ -39,6 +39,36 @@ function parseAmount(raw: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+export function formatJobsCompositionDetailField(input: {
+  fieldId: string;
+  rawValue: string;
+  meta: Record<string, unknown>;
+  listingKind: "hire" | "work" | string;
+  lang: "ko" | "en";
+}): string | null {
+  const kind = String(input.listingKind).trim() === "hire" ? "hire" : "work";
+  if (input.fieldId === "listing_kind") {
+    return kind === "hire"
+      ? input.lang === "en"
+        ? "Hiring"
+        : "구인"
+      : input.lang === "en"
+        ? "Looking for work"
+        : "구직";
+  }
+  if (input.fieldId === "work_category" || input.fieldId === "work_category_other") {
+    const display = jobWorkCategoryDisplay(input.meta, input.lang);
+    if (input.fieldId === "work_category_other") return null;
+    return display || input.rawValue || null;
+  }
+  if (input.fieldId === "pay_amount") {
+    const payType = String(input.meta.pay_type ?? "").trim();
+    if (!input.rawValue && payType === "negotiate") return input.lang === "en" ? "Negotiable" : "협의";
+    return input.rawValue || null;
+  }
+  return input.rawValue;
+}
+
 export function buildJobsCompositionDetailRows(input: {
   listingKind: "hire" | "work" | string;
   meta: Record<string, unknown>;
@@ -66,22 +96,14 @@ export function buildJobsCompositionDetailRows(input: {
     post: input.post,
     lang: input.lang,
     formatMoney: (raw) => formatPrice(parseAmount(raw), input.currency),
-    formatField: (fieldId, raw, meta) => {
-      if (fieldId === "listing_kind") {
-        return kind === "hire" ? (input.lang === "en" ? "Hiring" : "구인") : input.lang === "en" ? "Looking for work" : "구직";
-      }
-      if (fieldId === "work_category" || fieldId === "work_category_other") {
-        const display = jobWorkCategoryDisplay(meta, input.lang);
-        if (fieldId === "work_category_other") return null;
-        return display || raw || null;
-      }
-      if (fieldId === "pay_amount") {
-        const payType = String(meta.pay_type ?? "").trim();
-        if (!raw && payType === "negotiate") return input.lang === "en" ? "Negotiable" : "협의";
-        return raw || null;
-      }
-      return raw;
-    },
+    formatField: (fieldId, rawValue, meta) =>
+      formatJobsCompositionDetailField({
+        fieldId,
+        rawValue,
+        meta,
+        listingKind: kind,
+        lang: input.lang,
+      }),
   });
 
   const out: JobDetailCompositionRow[] = [];

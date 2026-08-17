@@ -11,18 +11,20 @@ import {
   labelForUsedCarBodyTypeKey,
 } from "@/lib/trade/used-car-form-catalog";
 import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
-import { UsedCarSellFields } from "./UsedCarSellFields";
-import { UsedCarBuyFields } from "./UsedCarBuyFields";
-import { JobsWriteForm } from "./JobsWriteForm";
-import { ExchangeWriteForm } from "./ExchangeWriteForm";
-import {
-  resolveUsesExchangeTradeWriteForm,
-  resolveUsesJobsTradeWriteForm,
-} from "@/lib/trade/category-form/write-form-profile";
+import { UsedCarSellFields } from "./generic/UsedCarSellFields";
+import { UsedCarBuyFields } from "./generic/UsedCarBuyFields";
 import {
   GenericTradeWriteFields,
   validateAdaptedCompositionValues,
 } from "./generic/GenericTradeWriteFields";
+import {
+  JobsExtendedWriteFields,
+  type JobsWriteSubmitHandler,
+} from "./generic/JobsExtendedWriteFields";
+import {
+  ExchangeExtendedWriteFields,
+  type ExchangeWriteSubmitHandler,
+} from "./generic/ExchangeExtendedWriteFields";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
@@ -249,41 +251,17 @@ interface TradeWriteFormProps {
 
 export function TradeWriteForm(props: TradeWriteFormProps) {
   /**
-   * R4 entry SSOT: Jobs/Exchange legacy layouts mount only here (not from TradeCategoryWriteForm).
-   * Full Generic field absorb remains subsequent — do not reintroduce CategoryWriteForm forks.
+   * Composition WRITE entry SSOT: TradeCategoryWriteForm enters here once.
+   * Profile bodies (jobs/exchange) mount inside TradeMarketplaceWriteFormInner by composition.profileId.
    */
-  if (resolveUsesJobsTradeWriteForm(props.category)) {
-    return (
-      <JobsWriteForm
-        category={props.category}
-        onSuccess={props.onSuccess}
-        onCancel={props.onCancel}
-        suppressTier1Chrome={props.suppressTier1Chrome}
-        onMeaningfulTradeDraftChange={props.onMeaningfulTradeDraftChange}
-        editPostId={props.editPostId}
-        ownerEditSnapshot={props.ownerEditSnapshot}
-        tradePolicy={props.tradePolicy}
-      />
-    );
-  }
-  if (resolveUsesExchangeTradeWriteForm(props.category)) {
-    return (
-      <ExchangeWriteForm
-        category={props.category}
-        onSuccess={props.onSuccess}
-        onCancel={props.onCancel}
-        suppressTier1Chrome={props.suppressTier1Chrome}
-        onMeaningfulTradeDraftChange={props.onMeaningfulTradeDraftChange}
-        editPostId={props.editPostId}
-        ownerEditSnapshot={props.ownerEditSnapshot}
-        tradePolicy={props.tradePolicy}
-      />
-    );
-  }
   return <TradeMarketplaceWriteForm {...props} />;
 }
 
-function TradeMarketplaceWriteForm({
+function TradeMarketplaceWriteForm(props: TradeWriteFormProps) {
+  return <TradeMarketplaceWriteFormInner {...props} />;
+}
+
+function TradeMarketplaceWriteFormInner({
   category,
   onSuccess,
   onCancel,
@@ -348,11 +326,36 @@ function TradeMarketplaceWriteForm({
   const skinKey = resolveTradeWriteSkinKey(category.icon_key);
   const isUsedCarSkin = skinKey === "used-car";
   const isRentCarSkin = skinKey === "rent-car";
+  const tradeComposition = useMemo(
+    () => resolveTradeCompositionForCategory(category),
+    [category]
+  );
+  const isJobsProfile = tradeComposition.profileId === "jobs";
+  const isExchangeProfile = tradeComposition.profileId === "exchange";
+  const isExtendedProfile = isJobsProfile || isExchangeProfile;
+  const jobsSubmitRef = useRef<JobsWriteSubmitHandler | null>(null);
+  const exchangeSubmitRef = useRef<ExchangeWriteSubmitHandler | null>(null);
+  const [jobsSubmitting, setJobsSubmitting] = useState(false);
+  const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+  const registerJobsSubmit = useCallback(
+    (handler: JobsWriteSubmitHandler | null, submittingNow: boolean) => {
+      jobsSubmitRef.current = handler;
+      setJobsSubmitting((prev) => (prev === submittingNow ? prev : submittingNow));
+    },
+    []
+  );
+  const registerExchangeSubmit = useCallback(
+    (handler: ExchangeWriteSubmitHandler | null, submittingNow: boolean) => {
+      exchangeSubmitRef.current = handler;
+      setExchangeSubmitting((prev) => (prev === submittingNow ? prev : submittingNow));
+    },
+    []
+  );
   /**
    * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
    * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
    */
-  const hasLocation = isUsedCarSkin || isRentCarSkin ? true : (settings?.has_location ?? true);
+  const hasLocation = isExtendedProfile || isUsedCarSkin || isRentCarSkin ? true : (settings?.has_location ?? true);
   /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차·렌터카는 전용 상단 필드 */
   const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car";
 
@@ -398,10 +401,6 @@ function TradeMarketplaceWriteForm({
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
-  const tradeComposition = useMemo(
-    () => resolveTradeCompositionForCategory(category),
-    [category]
-  );
   const realEstateAdaptedFields = useMemo(() => {
     if (skinKey !== "real-estate") return [];
     return applyTradeBehaviorAdapter(tradeComposition, { dealType });
@@ -768,6 +767,11 @@ function TradeMarketplaceWriteForm({
 
   /** 주소 관리·지도 복귀 시 즉시 복원 · 진짜 이탈 초안만 이어쓰기 확인 */
   useLayoutEffect(() => {
+    if (isExtendedProfile) {
+      setResumeDraftSnapshot(null);
+      setDraftResumeGate("ready");
+      return;
+    }
     if (editPostId) return;
     const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
     const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
@@ -797,7 +801,7 @@ function TradeMarketplaceWriteForm({
     /** 세션·로컬에 남아 있으면 무조건 이어쓰기 선택지 — 마운트 시 지우지 않음(나가기 유지·카테고리 재선택 흐름과 동일) */
     setResumeDraftSnapshot(d);
     setDraftResumeGate("pending_choice");
-  }, [editPostId, category.id, applyPersistedDraft, pathname, tradeWriteSheetEpoch]);
+  }, [isExtendedProfile, editPostId, category.id, applyPersistedDraft, pathname, tradeWriteSheetEpoch]);
 
   useEffect(() => {
     suppressDraftPersistenceRef.current = false;
@@ -976,10 +980,10 @@ function TradeMarketplaceWriteForm({
   ]);
 
   useEffect(() => {
-    if (!onMeaningfulTradeDraftChange) return;
+    if (!onMeaningfulTradeDraftChange || isExtendedProfile) return;
     onMeaningfulTradeDraftChange(meaningfulTradeDraftForSheet);
     return () => onMeaningfulTradeDraftChange(false);
-  }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
+  }, [isExtendedProfile, meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
 
   const handleResumePersistedDraft = useCallback(() => {
     if (!resumeDraftSnapshot) return;
@@ -1478,6 +1482,14 @@ function TradeMarketplaceWriteForm({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isJobsProfile) {
+        await jobsSubmitRef.current?.(e);
+        return;
+      }
+      if (isExchangeProfile) {
+        await exchangeSubmitRef.current?.(e);
+        return;
+      }
       if (!validate()) return;
       setSubmitting(true);
       try {
@@ -1617,11 +1629,19 @@ function TradeMarketplaceWriteForm({
                 : dt || ""
             : isUsedCarSkin
               ? usedCarPostTitle
-              : title.trim();
+              : isRentCarSkin
+                ? carModel.trim() || t("cat_skin_rent_car")
+                : title.trim();
         const payload = {
           type: "trade" as const,
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
-          title: postTitle || (isUsedCarSkin ? usedCarPostTitle : title.trim()),
+          title:
+            postTitle ||
+            (isUsedCarSkin
+              ? usedCarPostTitle
+              : isRentCarSkin
+                ? carModel.trim() || t("cat_skin_rent_car")
+                : title.trim()),
           content: description.trim(),
           price: priceToSend,
           isPriceOfferEnabled,
@@ -1727,6 +1747,8 @@ function TradeMarketplaceWriteForm({
       effectiveTradeRegionId,
       effectiveTradeCityId,
       t,
+      isJobsProfile,
+      isExchangeProfile,
     ]
   );
 
@@ -1894,6 +1916,32 @@ function TradeMarketplaceWriteForm({
             {tradePolicy.hint}
           </div>
         ) : null}
+        {isJobsProfile ? (
+          <JobsExtendedWriteFields
+            category={category}
+            onSuccess={onSuccess}
+            onCancel={onCancel}
+            onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
+            suppressTier1Chrome
+            editPostId={editPostId}
+            ownerEditSnapshot={ownerEditSnapshot}
+            tradePolicy={tradePolicy}
+            registerSubmit={registerJobsSubmit}
+          />
+        ) : isExchangeProfile ? (
+          <ExchangeExtendedWriteFields
+            category={category}
+            onSuccess={onSuccess}
+            onCancel={onCancel}
+            onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
+            suppressTier1Chrome
+            editPostId={editPostId}
+            ownerEditSnapshot={ownerEditSnapshot}
+            tradePolicy={tradePolicy}
+            registerSubmit={registerExchangeSubmit}
+          />
+        ) : (
+          <>
         {!(isUsedCarSkin && usedCarTrade === "buy") ? (
           <div className={TRADE_WRITE_FB_SECTION}>
             <ImageUploader
@@ -1967,7 +2015,7 @@ function TradeMarketplaceWriteForm({
               </section>
             ) : null}
           </>
-        ) : (
+        ) : skinKey === "rent-car" ? null : (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
               {t("trade_write_title")} <span className="text-sam-danger">*</span>
@@ -2332,12 +2380,14 @@ function TradeMarketplaceWriteForm({
             </label>
           </div>
         </section>
+          </>
+        )}
         {errors.submit && (
           <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton
           label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
-          submitting={submitting}
+          submitting={isJobsProfile ? jobsSubmitting : isExchangeProfile ? exchangeSubmitting : submitting}
           submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
           onCancel={onCancel}
         />

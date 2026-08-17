@@ -14,6 +14,7 @@ const TRADE_SUBTYPE_KEYS: Record<string, MessageKey> = {
   "real-estate": "admin_cat_subtype_realestate",
   jobs: "admin_cat_subtype_jobs",
   exchange: "admin_cat_subtype_exchange",
+  "rent-car": "admin_cat_subtype_rent_car",
   __custom__: "admin_cat_subtype_custom",
 };
 

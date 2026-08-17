@@ -19,7 +19,20 @@ export function hasRealEstateMeta(meta: Record<string, unknown>): boolean {
   );
 }
 
+/** Rent-car — must win over used-car when meta overlaps (car_model / year). */
+export function hasRentCarMeta(meta: Record<string, unknown>): boolean {
+  const key = (k: string) => Object.prototype.hasOwnProperty.call(meta, k);
+  return (
+    key("daily_price") ||
+    key("pickup_location") ||
+    key("mileage_cap") ||
+    key("with_driver") ||
+    key("available_from")
+  );
+}
+
 export function hasUsedCarMeta(meta: Record<string, unknown>): boolean {
+  if (hasRentCarMeta(meta)) return false;
   const key = (k: string) => Object.prototype.hasOwnProperty.call(meta, k);
   return (
     key("car_model") ||

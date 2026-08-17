@@ -3,6 +3,7 @@
 /**
  * Admin V1 — compose approved Field Library ids onto a trade category.
  * Cannot invent fields / storagePath / validators.
+ * Phase 4: surface verify matrix (W/L/D/E) from Field Library + resolve.
  */
 import { useMemo } from "react";
 import {
@@ -15,6 +16,10 @@ import {
 import { TRADE_FIELD_LIBRARY } from "@/lib/trade/category-form/field-library";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import { parseTradeFieldCompositionPayload } from "@/lib/trade/category-form/parse-field-composition";
+import {
+  adminSurfaceBadgeChars,
+  buildAdminCompositionSurfaceMatrix,
+} from "@/lib/trade/category-form/admin-composition-surface-matrix";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
@@ -41,6 +46,16 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
   }, [value, iconKey, slug]);
 
   const libraryIds = useMemo(() => Object.keys(TRADE_FIELD_LIBRARY).sort(), []);
+
+  const matrix = useMemo(
+    () =>
+      buildAdminCompositionSurfaceMatrix({
+        iconKey,
+        slug,
+        fieldComposition: value,
+      }),
+    [iconKey, slug, value]
+  );
 
   const emit = (nextRows: TradeCompositionFieldOverlay[]) => {
     onChange(serializeTradeFieldCompositionPayload({ v: 1, fields: nextRows }));
@@ -88,6 +103,30 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
         </button>
       </div>
       <p className="sam-text-xxs text-sam-muted">{t("admin_cat_composition_hint")}</p>
+
+      <div className="rounded border border-sam-border-soft bg-sam-app px-2 py-2">
+        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_cat_composition_matrix_title")}</p>
+        <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("admin_cat_composition_matrix_hint")}</p>
+        <p className="mt-1 sam-text-xxs text-sam-muted">
+          {t("admin_cat_composition_profile")}: {matrix.profileId} · {t("admin_cat_composition_layout")}:{" "}
+          {matrix.layoutVariant} · {matrix.source}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2 sam-text-xxs text-sam-fg">
+          <span>
+            {t("admin_cat_composition_surface_write")} {matrix.counts.write}
+          </span>
+          <span>
+            {t("admin_cat_composition_surface_list")} {matrix.counts.list}
+          </span>
+          <span>
+            {t("admin_cat_composition_surface_detail")} {matrix.counts.detail}
+          </span>
+          <span>
+            {t("admin_cat_composition_surface_edit")} {matrix.counts.edit}
+          </span>
+        </div>
+      </div>
+
       <ul className="space-y-2">
         {rows
           .slice()
@@ -98,6 +137,9 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
               className="flex flex-wrap items-center gap-2 rounded bg-sam-app px-2 py-1.5 sam-text-helper"
             >
               <span className="min-w-[7rem] font-medium text-sam-fg">{tradeFieldAdminLabel(r.id, lang)}</span>
+              <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-sam-muted">
+                {adminSurfaceBadgeChars(matrix.fieldSurfaces[r.id]) || "—"}
+              </span>
               <label className="flex items-center gap-1 text-sam-muted">
                 <input
                   type="checkbox"

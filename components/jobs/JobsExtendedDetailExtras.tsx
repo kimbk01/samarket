@@ -3,17 +3,24 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { EXPERIENCE_LEVEL_LABELS } from "@/lib/jobs/form-options";
-import { JOB_SEEKER_LANGUAGE_OPTIONS } from "@/lib/jobs/form-options";
+import {
+  EXPERIENCE_LEVEL_LABELS,
+  JOB_SEEKER_START_OPTIONS,
+  JOB_SEEKER_VISA_OPTIONS,
+  JOB_SEEKER_LANGUAGE_OPTIONS,
+  type JobSeekerStartValue,
+} from "@/lib/jobs/form-options";
 import { jobOptionLabel } from "@/lib/jobs/job-label-keys";
 import {
   formatJobHireTimeSlotsPipe,
   formatJobHireWeekDays,
-  shouldShowJobHireWorkDates,
+  formatSeekTimeSlotsPipe,
+  formatSeekerLanguagesPipe,
 } from "@/lib/jobs/job-detail-format";
-import { buildJobsCompositionDetailRows } from "@/lib/jobs/job-detail-composition-rows";
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
 import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
+
+type JobExtraRow = { label: string; value: string };
 
 function formatHireLanguagesPipe(
   t: ReturnType<typeof useI18n>["t"],
@@ -31,33 +38,33 @@ function formatHireLanguagesPipe(
     .join(", ");
 }
 
-const COMPOSITION_LABEL_KEYS: Record<string, string> = {
-  listing_kind: "ui_jobs_row_listing_kind",
-  work_category: "ui_jobs_row_industry",
-  work_term: "ui_jobs_row_work_term",
-  work_date_start: "ui_jobs_row_work_dates",
-  work_date_end: "ui_jobs_row_work_dates",
-  pay_type: "ui_jobs_row_pay",
-  pay_amount: "ui_jobs_row_pay",
-};
+function tradeMeetDisplayLine(meta: Record<string, unknown>): string {
+  const spot = meta.trade_meet_spot;
+  if (spot && typeof spot === "object" && !Array.isArray(spot)) {
+    const line = String((spot as { display_line?: unknown }).display_line ?? "").trim();
+    if (line) return line;
+  }
+  return "";
+}
 
-export function JobHiringDetailCards({
-  post,
-  meta,
-  currency,
-  fieldComposition,
-}: {
-  post: PostWithMeta;
-  meta: Record<string, unknown>;
-  currency: string;
-  fieldComposition?: unknown;
-}) {
-  const { t, language } = useI18n();
-  const lang = language === "en" ? "en" : "ko";
+function seekerStartLabel(t: ReturnType<typeof useI18n>["t"], meta: Record<string, unknown>): string {
+  const raw = String(meta.seeker_start ?? "").trim() as JobSeekerStartValue | "";
+  const opt = JOB_SEEKER_START_OPTIONS.find((o) => o.value === raw);
+  const base = opt ? jobOptionLabel(t, opt.labelKey) : raw ? raw : "";
+  const d = String(meta.seeker_start_date ?? "").trim();
+  if (raw === "date" && d) return `${base}: ${d}`;
+  return base || "";
+}
 
-  const workTerm = String(meta.work_term ?? "").trim();
-  const workDateStart = String(meta.work_date_start ?? "").trim();
-  const workDateEnd = String(meta.work_date_end ?? "").trim();
+function locationLine(post: PostWithMeta, meta: Record<string, unknown>): { geoLine: string; meetLine: string } {
+  const regionId = post.region?.trim() ?? "";
+  const cityId = post.city?.trim() ?? "";
+  const geoLine = regionId && cityId ? getLocationLabel(regionId, cityId) : "";
+  return { geoLine, meetLine: tradeMeetDisplayLine(meta) };
+}
+
+function HiringExtras({ post, meta }: { post: PostWithMeta; meta: Record<string, unknown> }) {
+  const { t } = useI18n();
   const workTimeStart = String(meta.work_time_start ?? "").trim();
   const workTimeEnd = String(meta.work_time_end ?? "").trim();
   const hireTimeNegotiable = meta.hire_time_negotiable === true;
@@ -71,23 +78,12 @@ export function JobHiringDetailCards({
   const experienceRequired =
     post.experience_required != null ? String(post.experience_required).trim() : "";
   const availableTime = String(meta.available_time ?? "").trim();
-
-  const dateRange =
-    workDateStart && workDateEnd
-      ? `${workDateStart} ~ ${workDateEnd}`
-      : workDateStart
-        ? workDateStart
-        : null;
   const timeRange =
     workTimeStart && workTimeEnd ? `${workTimeStart} ~ ${workTimeEnd}` : workTimeStart ? workTimeStart : null;
-
-  const regionId = post.region?.trim() ?? "";
-  const cityId = post.city?.trim() ?? "";
-  const geoLine = regionId && cityId ? getLocationLabel(regionId, cityId) : "";
-
   const hireSlotsLabel = formatJobHireTimeSlotsPipe(meta);
   const hireDaysLabel = formatJobHireWeekDays(meta);
-  const showDates = shouldShowJobHireWorkDates(workTerm) && dateRange;
+  const { geoLine } = locationLine(post, meta);
+  const locLine = [workAddress, geoLine].filter(Boolean).join(" · ");
 
   const workTimeParts: string[] = [];
   if (timeRange) {
@@ -98,37 +94,8 @@ export function JobHiringDetailCards({
   if (hireSlotsLabel) workTimeParts.push(hireSlotsLabel);
   if (!hireSlotsLabel && availableTime) workTimeParts.push(availableTime);
   const workTimeCombined = workTimeParts.join(" · ");
-  const locLine = [workAddress, geoLine].filter(Boolean).join(" · ");
 
-  const compositionRows = buildJobsCompositionDetailRows({
-    listingKind: "hire",
-    meta,
-    post: post as unknown as Record<string, unknown>,
-    currency,
-    lang,
-    fieldComposition,
-    labelForField: (fieldId, fallback) => {
-      const key = COMPOSITION_LABEL_KEYS[fieldId];
-      return key ? t(key as Parameters<typeof t>[0]) : fallback;
-    },
-  });
-
-  const recruitRows: { label: string; value: string }[] = [];
-  const usedLabels = new Set<string>();
-  for (const row of compositionRows) {
-    if (row.fieldId === "work_date_end") continue;
-    if (row.fieldId === "work_date_start") {
-      if (showDates && dateRange) {
-        recruitRows.push({ label: t("ui_jobs_row_work_dates"), value: dateRange });
-        usedLabels.add("ui_jobs_row_work_dates");
-      }
-      continue;
-    }
-    if (row.fieldId === "pay_type") continue;
-    if (usedLabels.has(row.label)) continue;
-    usedLabels.add(row.label);
-    recruitRows.push({ label: row.label, value: row.value });
-  }
+  const recruitRows: JobExtraRow[] = [];
   if (hireDaysLabel) recruitRows.push({ label: t("ui_jobs_row_work_days"), value: hireDaysLabel });
   if (workTimeCombined) recruitRows.push({ label: t("ui_jobs_row_work_hours"), value: workTimeCombined });
   if (headcount) recruitRows.push({ label: t("ui_jobs_row_headcount"), value: headcount });
@@ -142,7 +109,7 @@ export function JobHiringDetailCards({
   }
   if (locLine) recruitRows.push({ label: t("ui_jobs_row_location"), value: locLine });
 
-  const condRows: { label: string; value: string }[] = [];
+  const condRows: JobExtraRow[] = [];
   if (meta.hire_meal === true) {
     condRows.push({ label: t("ui_jobs_row_meal"), value: t("ui_jobs_value_provided") });
   }
@@ -159,15 +126,59 @@ export function JobHiringDetailCards({
   });
 
   const content = (post.content ?? "").trim();
-
   return (
     <div className="flex flex-col gap-2">
-      <JobDetailSectionCard title={t("ui_jobs_detail_recruit_section")} rows={recruitRows} />
-      <JobDetailSectionCard title={t("ui_jobs_detail_conditions_section")} rows={condRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_conditions_section")} rows={recruitRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={condRows} />
       <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
         <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_description_heading")}</h3>
         <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
       </div>
     </div>
   );
+}
+
+function SeekingExtras({ post, meta }: { post: PostWithMeta; meta: Record<string, unknown> }) {
+  const { t } = useI18n();
+  const slotsLine = formatSeekTimeSlotsPipe(meta);
+  const { geoLine, meetLine } = locationLine(post, meta);
+  const hopeWorkRegion = geoLine || meetLine || "";
+  const visaRaw = String(meta.seeker_visa ?? "").trim();
+  const visaOpt = JOB_SEEKER_VISA_OPTIONS.find((o) => o.value === visaRaw);
+  const visaLabel = visaOpt ? jobOptionLabel(t, visaOpt.labelKey) : visaRaw || "";
+  const langLine = formatSeekerLanguagesPipe(meta);
+  const startLine = seekerStartLabel(t, meta);
+
+  const extraRows: JobExtraRow[] = [];
+  if (slotsLine) extraRows.push({ label: t("ui_jobs_row_available_time"), value: slotsLine });
+  if (hopeWorkRegion) extraRows.push({ label: t("ui_jobs_row_hope_region"), value: hopeWorkRegion });
+  if (langLine) extraRows.push({ label: t("ui_jobs_row_languages_available"), value: langLine });
+  if (visaLabel) extraRows.push({ label: t("ui_jobs_row_visa_status"), value: visaLabel });
+  if (startLine) extraRows.push({ label: t("ui_jobs_row_start_availability"), value: startLine });
+  if (geoLine && meetLine && meetLine !== geoLine) {
+    extraRows.push({ label: t("ui_jobs_row_mobility_region"), value: meetLine });
+  }
+
+  const content = (post.content ?? "").trim();
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
+        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_intro_heading")}</h3>
+        <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
+      </div>
+      <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={extraRows} />
+    </div>
+  );
+}
+
+export function JobsExtendedDetailExtras({
+  variant,
+  post,
+  meta,
+}: {
+  variant: "hire" | "work";
+  post: PostWithMeta;
+  meta: Record<string, unknown>;
+}) {
+  return variant === "hire" ? <HiringExtras post={post} meta={meta} /> : <SeekingExtras post={post} meta={meta} />;
 }

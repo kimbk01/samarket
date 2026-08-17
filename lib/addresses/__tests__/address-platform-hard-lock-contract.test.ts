@@ -223,8 +223,8 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   it("trade write location uses master address SSOT, not local region pickers", () => {
     const tradeLocation = read("components/write/shared/TradeDefaultLocationBlock.tsx");
     const tradeForm = read("components/write/trade/TradeWriteForm.tsx");
-    const jobsForm = read("components/write/trade/JobsWriteForm.tsx");
-    const exchangeForm = read("components/write/trade/ExchangeWriteForm.tsx");
+    const jobsForm = read("components/write/trade/generic/JobsExtendedWriteFields.tsx");
+    const exchangeForm = read("components/write/trade/generic/ExchangeExtendedWriteFields.tsx");
     expect(tradeLocation).toContain("formatUserAddressTitle");
     expect(tradeLocation).toContain("buildMypageAddressesHrefFromPath");
     expect(tradeLocation).toContain("buildMypageAddressesHref(addressReturnTo)");
@@ -242,8 +242,8 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     expect(tradeLocation).not.toContain("suppressAddressBookRegionSync");
     for (const [name, src] of [
       ["TradeWriteForm", tradeForm],
-      ["JobsWriteForm", jobsForm],
-      ["ExchangeWriteForm", exchangeForm],
+      ["JobsExtendedWriteFields", jobsForm],
+      ["ExchangeExtendedWriteFields", exchangeForm],
     ] as const) {
       expect(src, name).toContain("category={category}");
       expect(src, name).not.toContain("scheduleTradeWriteSheetReopenAfterMeetSpot");

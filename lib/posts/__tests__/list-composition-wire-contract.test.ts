@@ -11,6 +11,12 @@ describe("list composition wire (R5)", () => {
     );
   });
 
+  it("post-list-preview-model uses layoutVariant before legacy skin/meta heuristics", () => {
+    const src = readFileSync(resolve(process.cwd(), "lib/posts/post-list-preview-model.ts"), "utf8");
+    expect(src).toContain('const allowMetaFallback = layoutVariant === "general-card" || !skinKey;');
+    expect(src).not.toMatch(/skinKey === "(real-estate|rent-car|rental-car|used-car|jobs|job|exchange)"/);
+  });
+
   it("PostListByCategory passes category.settings.field_composition to PostCard", () => {
     const src = readFileSync(
       resolve(process.cwd(), "components/post/PostListByCategory.tsx"),
@@ -18,6 +24,21 @@ describe("list composition wire (R5)", () => {
     );
     expect(src).toContain("category?.settings?.field_composition");
     expect(src).toContain("fieldComposition={fieldComposition}");
+  });
+
+  it("HomeProductList and FavoritePostCard pass composition via useTradeListCompositionMap", () => {
+    const home = readFileSync(
+      resolve(process.cwd(), "components/home/HomeProductList.tsx"),
+      "utf8"
+    );
+    const fav = readFileSync(
+      resolve(process.cwd(), "components/favorites/FavoritePostCard.tsx"),
+      "utf8"
+    );
+    expect(home).toContain("useTradeListCompositionMap");
+    expect(home).toContain("fieldComposition={composition?.fieldComposition}");
+    expect(fav).toContain("useTradeListCompositionMap");
+    expect(fav).toContain("fieldComposition={composition?.fieldComposition}");
   });
 
   it("PostCard forwards fieldComposition into buildPostListPreviewModel", () => {

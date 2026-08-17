@@ -50,6 +50,10 @@ export const postListPreviewMessages = {
 
     post_preview_wanted_pay_inquiry: "희망 급여 문의",
 
+    post_preview_rent_car_daily: "{price}/일",
+
+    post_preview_rent_car_with_driver: "기사포함",
+
   },
 
   en: {
@@ -99,6 +103,10 @@ export const postListPreviewMessages = {
     post_preview_wanted_pay_discuss: "Pay negotiable",
 
     post_preview_wanted_pay_inquiry: "Pay on request",
+
+    post_preview_rent_car_daily: "{price}/day",
+
+    post_preview_rent_car_with_driver: "With driver",
 
   },
 

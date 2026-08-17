@@ -26,6 +26,7 @@ import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
   hasRealEstateMeta,
   hasUsedCarMeta,
+  hasRentCarMeta,
   hasJobsMeta,
   hasExchangeMeta,
 } from "@/lib/posts/post-variant";
@@ -44,6 +45,7 @@ export type PostListThumbMode = "exchange" | "generic" | "none";
 export type PostListPreviewListKind =
   | "real-estate"
   | "used-car"
+  | "rent-car"
   | "jobs"
   | "exchange"
   | "trade";
@@ -408,13 +410,15 @@ export function buildPostListPreviewModel(
     skinKey ||
     (hasRealEstateMeta(meta)
       ? "real-estate"
-      : hasUsedCarMeta(meta)
-        ? "used-car"
-        : hasJobsMeta(meta)
-          ? "jobs"
-          : hasExchangeMeta(meta)
-            ? "exchange"
-            : "general");
+      : hasRentCarMeta(meta)
+        ? "rent-car"
+        : hasUsedCarMeta(meta)
+          ? "used-car"
+          : hasJobsMeta(meta)
+            ? "jobs"
+            : hasExchangeMeta(meta)
+              ? "exchange"
+              : "general");
   const listComposition = resolveTradeComposition({
     icon_key: inferredIcon,
     slug: opts.categorySlug ?? null,
@@ -430,21 +434,23 @@ export function buildPostListPreviewModel(
     lang: listLang,
   });
 
+  const allowMetaFallback = layoutVariant === "general-card" || !skinKey;
   const isRealEstate =
     layoutVariant === "property-card" ||
-    ((!skinKey || skinKey === "real-estate") && hasRealEstateMeta(meta));
+    (allowMetaFallback && hasRealEstateMeta(meta));
+  const isRentCar =
+    layoutVariant === "rental-card" ||
+    (allowMetaFallback && hasRentCarMeta(meta));
   const isUsedCar =
-    layoutVariant === "vehicle-card" ||
-    ((!skinKey || skinKey === "used-car") && hasUsedCarMeta(meta));
+    !isRentCar &&
+    (layoutVariant === "vehicle-card" ||
+      (allowMetaFallback && hasUsedCarMeta(meta)));
   const isJobs =
     layoutVariant === "job-card" ||
-    skinKey === "jobs" ||
-    skinKey === "job" ||
-    (!skinKey && hasJobsMeta(meta));
+    (allowMetaFallback && hasJobsMeta(meta));
   const isExchange =
     layoutVariant === "exchange-card" ||
-    skinKey === "exchange" ||
-    (!skinKey && hasExchangeMeta(meta));
+    (allowMetaFallback && hasExchangeMeta(meta));
 
   /** PostCard와 동일: 부동산 스킨이어도 meta 비어 있으면 일반 거래 블록으로 */
   if (isRealEstate && Object.keys(meta).length > 0) {
@@ -501,6 +507,71 @@ export function buildPostListPreviewModel(
       feedPrice: row2Price || postPreviewT(locale, "post_preview_price_inquiry"),
       feedPriceKind: "real_estate",
       listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
+      showPipeAfterListingBadge: listingChips.length > 0,
+    };
+  }
+
+  if (isRentCar) {
+    const fromComposition =
+      joinCompositionListAttributeLine(listAttrs, ["make", "model", "year", "daily_price"]) ||
+      joinCompositionListAttributeLine(listAttrs, ["year", "daily_price", "with_driver"]) ||
+      (usesDbOverlay ? joinCompositionListAttributeLine(listAttrs) : "");
+    const carModel = str(meta.car_model);
+    const yearRaw = str(meta.car_year);
+    const yearPart =
+      yearRaw && /^\d{4}$/.test(yearRaw)
+        ? postPreviewT(locale, "post_preview_year_suffix", { year: yearRaw })
+        : yearRaw;
+    const legacySpec = [carModel, yearPart].filter(Boolean).join(" · ");
+    const specLine = usesDbOverlay ? fromComposition : fromComposition || legacySpec;
+    const dailyRaw = str(meta.daily_price);
+    const dailyNum = dailyRaw ? Number(String(dailyRaw).replace(/,/g, "")) : NaN;
+    const rentPriceLabel =
+      priceOk != null
+        ? formatPrice(priceOk, currency)
+        : Number.isFinite(dailyNum)
+          ? formatPrice(dailyNum, currency)
+          : null;
+    const rentPriceWithUnit = rentPriceLabel
+      ? postPreviewT(locale, "post_preview_rent_car_daily", { price: rentPriceLabel })
+      : null;
+    const listingChips: ListingChip[] = [
+      {
+        text: postPreviewT(locale, "cat_skin_rent_car"),
+        className: POST_LIST_TYPE_CHIP,
+      },
+    ];
+    const withDriver =
+      meta.with_driver === true || meta.with_driver === "true" || meta.with_driver === 1;
+    if (withDriver) {
+      listingChips.push({
+        text: postPreviewT(locale, "post_preview_rent_car_with_driver"),
+        className: POST_LIST_TYPE_CHIP,
+      });
+    }
+    const blocks: PostListBodyBlock[] = [];
+    if (specLine) {
+      blocks.push({
+        className: POST_LIST_USED_CAR_SPEC_CLASS,
+        text: specLine,
+      });
+    }
+    blocks.push({
+      className: POST_LIST_TRADE_PRICE_CLASS,
+      text: rentPriceWithUnit ?? postPreviewT(locale, "post_preview_price_inquiry"),
+    });
+    return {
+      thumbnailMode: "none",
+      listKind: "rent-car",
+      listingRowClassName: "flex flex-wrap items-center gap-1.5",
+      listingChips,
+      listingBold: null,
+      listingRowBoldText: null,
+      bodyBlocks: blocks,
+      feedTitle: specLine || null,
+      feedPrice: rentPriceWithUnit ?? postPreviewT(locale, "post_preview_price_inquiry"),
+      feedPriceKind: "plain",
+      listFooter: buildListFooter(post, "uc", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
   }

@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * Legacy exchange write layout — NOT a product entry.
- * Mount only via TradeWriteForm (R4). TradeCategoryWriteForm must not import this.
+ * Exchange write profile body — NOT a product entry.
+ * Mount only via TradeWriteForm → TradeMarketplaceWriteFormInner (profileId === "exchange").
+ * The marketplace shell owns page chrome and submit button; this body keeps exchange-specific
+ * rate/prep UI, draft staging, validation, and create/update payload behavior.
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -66,23 +68,18 @@ import { formatPriceInput } from "@/lib/utils/format";
 import {
   CURRENCY_SYMBOLS,
   DEFAULT_RATES_PHP_BASE,
-  EXCHANGE_DIRECTION_OPTIONS,
   PREP_OPTIONS,
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
-import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
-import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
-import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
-import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
+import { AutoGrowTextarea } from "../../shared/AutoGrowTextarea";
+import { ImageUploader, type ImageUploadItem } from "../../shared/ImageUploader";
+import { TradeFrequentPhrasesSheet } from "../../shared/TradeFrequentPhrasesSheet";
 import {
   TradeDefaultLocationBlock,
   type TradeWriteAddressSsotSnapshot,
-} from "../shared/TradeDefaultLocationBlock";
-import { SubmitButton } from "../shared/SubmitButton";
-import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
-import { APP_TRADE_WRITE_FORM_FB_STACK_CLASS } from "@/lib/ui/app-content-layout";
+} from "../../shared/TradeDefaultLocationBlock";
+import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../../shared/WriteTradeTopicSection";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_INPUT_REGION_BAR,
@@ -93,10 +90,12 @@ import {
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
-import { validateAdaptedCompositionValues } from "@/components/write/trade/generic/GenericTradeWriteFields";
+import {
+  GenericTradeWriteFields,
+  validateAdaptedCompositionValues,
+} from "@/components/write/trade/generic/GenericTradeWriteFields";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
 import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-bridge";
 
@@ -105,7 +104,9 @@ import type { TradeFieldValueBag } from "@/lib/trade/category-form/field-value-b
  * Composition still owns validation via exchangeAdaptedFields + exchangeFieldValues.
  */
 
-interface ExchangeWriteFormProps {
+export type ExchangeWriteSubmitHandler = (e: React.FormEvent) => Promise<void>;
+
+interface ExchangeExtendedWriteFieldsProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
@@ -114,6 +115,7 @@ interface ExchangeWriteFormProps {
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
+  registerSubmit?: (handler: ExchangeWriteSubmitHandler | null, submitting: boolean) => void;
 }
 
 
@@ -147,22 +149,20 @@ function buildExchangeTitle(
   return direction === "sell" ? translate("exchange_write_dir_sell_php") : translate("exchange_write_dir_buy_php");
 }
 
-export function ExchangeWriteForm({
+export function ExchangeExtendedWriteFields({
   category,
   onSuccess,
-  onCancel,
   onMeaningfulTradeDraftChange,
-  suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
-}: ExchangeWriteFormProps) {
+  registerSubmit,
+}: ExchangeExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
-  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const maxImages = Math.max(1, appSettings.maxProductImages ?? 10);
   /** 환전 전용 폼은 거래 지역 필수. exchange 카테고리 DB 설정에 has_location=false가 있어도 항상 표시 */
@@ -234,6 +234,10 @@ export function ExchangeWriteForm({
   const exchangeAdaptedFields = useMemo(
     () => applyTradeBehaviorAdapter(exchangeComposition, { exchangeDirection: direction }),
     [exchangeComposition, direction]
+  );
+  const exchangeGenericFields = useMemo(
+    () => exchangeAdaptedFields.filter((f) => f.id === "exchange_direction"),
+    [exchangeAdaptedFields]
   );
 
   useEffect(() => {
@@ -823,18 +827,16 @@ export function ExchangeWriteForm({
     ]
   );
 
-  const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
+  useEffect(() => {
+    registerSubmit?.(handleSubmit, submitting);
+    return () => registerSubmit?.(null, false);
+  }, [registerSubmit, handleSubmit, submitting]);
 
   /** 참고 시세 한 줄용 — API·정적 기준만(작성 중 입력값과 무관). 로딩 여부는 UI에서만 분기 */
   const referenceKrwMid = useMemo(
     () =>
       liveRates?.KRW && liveRates.KRW > 0 ? liveRates.KRW : DEFAULT_RATES_PHP_BASE.KRW,
     [liveRates]
-  );
-
-  const categoryLabel = useMemo(
-    () => resolveWriteCategoryUILabel(language, category),
-    [language, category]
   );
 
   const tradeLocationEl = (
@@ -860,13 +862,7 @@ export function ExchangeWriteForm({
   );
 
   return (
-    <div
-      className={
-        embeddedTier1 || suppressTier1Chrome
-          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
-          : "min-h-screen bg-sam-app pb-24"
-      }
-    >
+    <>
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
@@ -881,25 +877,6 @@ export function ExchangeWriteForm({
         ariaLabel={t("exchange_write_draft_aria")}
         interactionMode="blocking"
       />
-      {!suppressTier1Chrome ? (
-        <WriteScreenTier1Sync
-          tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={
-            editPostId
-              ? `${categoryLabel} · ${t("exchange_write_header_edit")}`
-              : `${categoryLabel} · ${t("exchange_write_header_post")}`
-          }
-          backHref={backHref}
-          onRequestClose={onCancel}
-        />
-      ) : null}
-      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
-        {tradePolicy?.hint ? (
-          <div className="mt-0 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
-            {tradePolicy.hint}
-          </div>
-        ) : null}
-
         <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
           <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>{t("trade_010")}</p>
           <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-[#65676B]">
@@ -929,21 +906,16 @@ export function ExchangeWriteForm({
 
         {/* 팝니다 = 페소 팝니다 / 삽니다 = 페소 삽니다. 금액은 항상 페소. */}
         <section className={TRADE_WRITE_FB_SECTION}>
-          <div className="flex gap-2">
-            {EXCHANGE_DIRECTION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                disabled={coreLocked}
-                onClick={() => setDirection(opt.value as "sell" | "buy")}
-                className={`flex-1 rounded-ui-rect border py-2.5 sam-text-body font-medium ${
-                  direction === opt.value ? "border-sam-border bg-sam-surface-dark text-white" : "border-sam-border bg-sam-surface text-sam-fg"
-                }`}
-              >
-                {t(opt.labelKey)}
-              </button>
-            ))}
-          </div>
+          <GenericTradeWriteFields
+            fields={exchangeGenericFields}
+            values={exchangeFieldValues}
+            onChange={(fieldId, value) => {
+              if (fieldId === "exchange_direction") {
+                setDirection(value === "buy" ? "buy" : "sell");
+              }
+            }}
+            disabled={coreLocked}
+          />
         </section>
 
         {/* 참고 시세(요약) + 기준/가산 입력 + 적용 환율 + 페소 금액 — 한 카드 (열·행 정렬·타이포 통일) */}
@@ -1165,15 +1137,7 @@ export function ExchangeWriteForm({
           ) : null}
         </section>
 
-        {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
-
-        <SubmitButton
-          label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
-          submitting={submitting}
-          submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
-          onCancel={onCancel}
-        />
-      </form>
-    </div>
+      {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
+    </>
   );
 }
