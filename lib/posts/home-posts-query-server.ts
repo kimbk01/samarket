@@ -130,8 +130,9 @@ export async function loadHomePostsPage(
     } else {
       q = q.or(statusOr);
     }
-    if (type === "trade") {
-      q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
+    if (type === "trade" && !(tradeCategoryIds && tradeCategoryIds.length > 0)) {
+      /** Union already scopes by trade_category_id. Extra neq("") breaks PostgREST + type=trade. */
+      q = q.not("trade_category_id", "is", null);
     } else if (type === "community") {
       q = q.eq("type", "community");
     } else if (type === "service") {

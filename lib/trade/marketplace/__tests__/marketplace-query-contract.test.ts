@@ -99,6 +99,28 @@ describe("LGU centroid distance sort", () => {
     const sorted = sortListingsByLguDistance(rows, pasig);
     expect(sorted[0]?.id).toBe("near");
   });
+
+  it("maps legacy region/city to centroid when trade_lgu_id is null", () => {
+    const pasig = "1381200000";
+    const rows = [
+      {
+        id: "far",
+        trade_lgu_id: "1130700000",
+        region: null,
+        city: "aaaa",
+        created_at: "2026-08-17T12:00:00.000Z",
+      },
+      {
+        id: "legacy-near",
+        trade_lgu_id: null,
+        region: "manila",
+        city: "m20",
+        created_at: "2026-08-16T10:00:00.000Z",
+      },
+    ];
+    const sorted = sortListingsByLguDistance(rows, pasig);
+    expect(sorted.map((r) => r.id)).toEqual(["legacy-near", "far"]);
+  });
 });
 
 describe("getPostsForHome location gate", () => {

@@ -82,7 +82,6 @@ export function SearchView() {
         const res = await getPostsForHome({
           page: pageNum,
           sort: locGate.lguCityId && filters.sortKey === "distance" ? "distance" : "latest",
-          type: "trade",
           tradeState: filters.status === "all" ? "latest" : filters.status,
           tradeMarketParentId: filters.categoryId || null,
           locationAll: locGate.locationAll === true,
