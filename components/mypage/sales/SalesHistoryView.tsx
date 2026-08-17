@@ -9,6 +9,7 @@ import {
   SELLER_MANAGE_TABS,
   countSellerManageTabs,
   getSellerManageTabId,
+  parseSellerManageTabId,
   type SellerManageTabId,
 } from "@/lib/mypage/seller-manage-tabs";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
@@ -22,14 +23,14 @@ import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFoo
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabId } = {}) {
+export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
   const { t } = useI18n();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerId, setViewerId] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<SellerManageTabId>(initialTab ?? "selling");
+  const [tab, setTab] = useState<SellerManageTabId>(() => parseSellerManageTabId(initialTab));
   const isSameSalesRows = (prev: SalesHistoryRow[], next: SalesHistoryRow[]): boolean => {
     if (prev.length !== next.length) return false;
     const rowStamp = (r: SalesHistoryRow) => r.postUpdatedAt ?? r.updatedAt ?? null;
@@ -99,7 +100,10 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   useEffect(() => {
-    if (initialTab) setTab((prev) => (prev === initialTab ? prev : initialTab));
+    if (initialTab) {
+      const next = parseSellerManageTabId(initialTab);
+      setTab((prev) => (prev === next ? prev : next));
+    }
   }, [initialTab]);
 
   const counts = useMemo(() => countSellerManageTabs(items), [items]);
@@ -136,10 +140,8 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
 
   const emptyTabMsg: Record<SellerManageTabId, string> = {
     selling: t("mypage_comp_sales_empty_selling"),
-    reserved: t("mypage_comp_sales_empty_reserved"),
     completed: t("mypage_comp_sales_empty_completed"),
     cancelled: t("mypage_comp_sales_empty_cancelled"),
-    review_wait: t("mypage_comp_sales_empty_review_wait"),
   };
 
   return (

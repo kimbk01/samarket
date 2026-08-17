@@ -9,7 +9,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { formatPrice } from "@/lib/utils/format";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { getBuyerManageTabId } from "@/lib/mypage/buyer-manage-tabs";
-import { getSellerManageTabId } from "@/lib/mypage/seller-manage-tabs";
+import { isSellerReviewWait } from "@/lib/mypage/seller-manage-tabs";
 import {
   PurchaseHistoryCard,
   type PurchaseHistoryRow,
@@ -243,7 +243,7 @@ export function TradeReviewsManagementView({
   }, [purchases, viewerId]);
 
   const pendingSales = useMemo(() => {
-    return sales.filter((row) => getSellerManageTabId(row) === "review_wait");
+    return sales.filter((row) => isSellerReviewWait(row));
   }, [sales]);
 
   const hiddenReviewCount = 0;

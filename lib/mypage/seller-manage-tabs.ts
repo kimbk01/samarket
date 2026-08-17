@@ -4,20 +4,16 @@ import { translate } from "@/lib/i18n/messages";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 
-/** 내정보 거래관리 — 판매내역 하위 탭 */
-export type SellerManageTabId =
-  | "selling"
-  | "reserved"
-  | "completed"
-  | "cancelled"
-  | "review_wait";
+/**
+ * /mypage/trade/sales list tabs — chat/flow buckets, not Marketplace ACTIVE/SOLD.
+ * reserved / review_wait are activity 모아보기, not 1st-class tabs.
+ */
+export type SellerManageTabId = "selling" | "completed" | "cancelled";
 
 export const SELLER_MANAGE_TABS: { id: SellerManageTabId; label: string; labelKey: MessageKey }[] = [
   { id: "selling", label: "판매중", labelKey: "tab_active_sale" },
-  { id: "reserved", label: "예약중", labelKey: "tab_reserved" },
   { id: "completed", label: "판매완료", labelKey: "tab_sale_completed" },
   { id: "cancelled", label: "판매취소", labelKey: "tab_sale_cancelled" },
-  { id: "review_wait", label: "후기대기", labelKey: "tab_review_wait" },
 ];
 
 type Row = Pick<
@@ -30,6 +26,31 @@ type Row = Pick<
   | "chatId"
 >;
 
+export function parseSellerManageTabId(raw: string | null | undefined): SellerManageTabId {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (s === "completed" || s === "review_wait") return "completed";
+  if (s === "cancelled") return "cancelled";
+  return "selling";
+}
+
+function hasActiveChat(row: Row): boolean {
+  return Boolean(row.chatId?.trim()) && !row.noActiveChat;
+}
+
+/** Review hub entry — not a sales list tab. */
+export function isSellerReviewWait(row: Row): boolean {
+  const flow = String(row.tradeFlowStatus ?? "chatting");
+  const st = String(row.status ?? "active").toLowerCase();
+  if (flow === "archived" || flow === "cancelled" || st === "deleted") return false;
+  const soldLike = st === "sold";
+  return (
+    hasActiveChat(row) &&
+    soldLike &&
+    (flow === "buyer_confirmed" || flow === "review_pending") &&
+    !row.hasBuyerReview
+  );
+}
+
 export function getSellerManageTabId(row: Row): SellerManageTabId {
   const flow = String(row.tradeFlowStatus ?? "chatting");
   const st = String(row.status ?? "active").toLowerCase();
@@ -39,16 +60,10 @@ export function getSellerManageTabId(row: Row): SellerManageTabId {
   if (st === "deleted") return "cancelled";
 
   const listing = normalizeSellerListingState(row.sellerListingState, row.status);
-  if (st === "reserved" || listing === "reserved") return "reserved";
+  if (st === "reserved" || listing === "reserved") return "selling";
 
-  const hasChat = Boolean(row.chatId?.trim()) && !row.noActiveChat;
   const soldLike = st === "sold";
-  const waitingBuyerReview =
-    hasChat &&
-    soldLike &&
-    (flow === "buyer_confirmed" || flow === "review_pending") &&
-    !row.hasBuyerReview;
-  if (waitingBuyerReview) return "review_wait";
+  if (isSellerReviewWait(row)) return "completed";
 
   if (flow === "review_completed" || (row.hasBuyerReview && soldLike)) return "completed";
   if (soldLike && flow !== "cancelled" && flow !== "archived") {
@@ -62,10 +77,8 @@ export function getSellerManageTabId(row: Row): SellerManageTabId {
 export function countSellerManageTabs<T extends Row>(items: T[]): Record<SellerManageTabId, number> {
   const counts: Record<SellerManageTabId, number> = {
     selling: 0,
-    reserved: 0,
     completed: 0,
     cancelled: 0,
-    review_wait: 0,
   };
   for (const row of items) {
     counts[getSellerManageTabId(row)] += 1;
