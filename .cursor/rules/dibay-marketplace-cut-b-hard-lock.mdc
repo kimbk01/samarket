@@ -1,0 +1,43 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT B (sell-side LIST default, explicit opposite intent remains)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT B HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-b-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT B LOCKED**
+- Production SHA: `0a0958c9f63693dd185e53340b7d4229c5c67722`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_F1JByRDbb5fbCMSzkdQSdtVCHpwa`
+- SELL-SIDE LIST DEFAULT: **LOCKED**
+- EXPLICIT 삽니다 / 구직 / 페소 삽니다: **REACHABLE**
+- LEGACY NULL META: **sell-side via exclude opposite, not eq sell**
+- MIGRATION: **NO**
+- CUT A / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+HOME / no-category SEARCH = mixed discovery exclude buy / 구직 / 페소 삽니다
+중고차 default = exclude buy (null stays)
+일자리 default = exclude 구직
+환전 default = exclude 페소 삽니다
+부동산 / 렌터카 = no CUT B intent
+explicit opposite filter must not stack with default exclude
+```
+
+Authority: `lib/trade/marketplace/sell-intent-list-ssot.ts`.
+
+This cut changed **discovery default**, not deletion of buy-intent WRITE.
+
+## DO NOT (without a new cut)
+
+- `eq sell` as the default LIST clause
+- Stack default exclude + explicit buy/구직/페소 삽니다 (0-row trap)
+- Strip opposite-intent filters from used-car / jobs / exchange
+- Leak intent clauses onto realty or rent-car
+- Start CUT C inside CUT B work
