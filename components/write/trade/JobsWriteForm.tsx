@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Legacy jobs write layout — NOT a product entry.
+ * Mount only via TradeWriteForm (R4). TradeCategoryWriteForm must not import this.
+ */
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";

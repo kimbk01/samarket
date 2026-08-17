@@ -68,14 +68,16 @@ export type TradeCompositionProfileId =
   | "used-car"
   | "real-estate"
   | "jobs"
-  | "exchange";
+  | "exchange"
+  | "rent-car";
 
 export type TradeLayoutVariant =
   | "general-card"
   | "vehicle-card"
   | "property-card"
   | "job-card"
-  | "exchange-card";
+  | "exchange-card"
+  | "rental-card";
 
 export type TradeSeedComposition = {
   profileId: TradeCompositionProfileId;

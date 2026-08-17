@@ -24,6 +24,7 @@ function parseMetaAmount(raw: string): number {
 
 export function TradeCompositionDetailSection(props: {
   iconKey: string;
+  categorySlug?: string | null;
   fieldComposition?: unknown;
   title: string;
   meta: Record<string, unknown>;
@@ -41,6 +42,7 @@ export function TradeCompositionDetailSection(props: {
   const lang = language === "en" ? "en" : "ko";
   const composition = resolveTradeComposition({
     icon_key: props.iconKey,
+    slug: props.categorySlug ?? null,
     fieldComposition: props.fieldComposition ?? null,
   });
   const adapted = applyTradeBehaviorAdapter(composition, props.adapterCtx ?? {});

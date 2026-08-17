@@ -631,6 +631,8 @@ export function PostListByCategory({
     [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
   );
   const skinKey = category?.icon_key ?? undefined;
+  const categorySlug = category?.slug ?? null;
+  const fieldComposition = category?.settings?.field_composition ?? null;
 
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
   if (locationInvalid) {
@@ -726,6 +728,8 @@ export function PostListByCategory({
                 <PostCard
                   post={post}
                   skinKey={skinKey}
+                  categorySlug={categorySlug}
+                  fieldComposition={fieldComposition}
                   isFavorite={favoriteMap[post.id]}
                   onFavoriteChange={handleFavoriteChange}
                   onMenuAction={handleMenuAction}

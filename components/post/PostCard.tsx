@@ -100,6 +100,10 @@ interface PostCardProps {
   post: PostWithMeta;
   /** 거래 종류 스킨 (일반/부동산/중고차/알바/환전) → 뱃지 표시 */
   skinKey?: string;
+  /** category.slug — list composition profile */
+  categorySlug?: string | null;
+  /** `category.settings.field_composition` → list resolve (R5) */
+  fieldComposition?: unknown | null;
   /** 목록에서 배치 조회한 찜 여부 (있으면 깜빡임 방지) */
   isFavorite?: boolean;
   /** 찜 토글 시 상위에서 상태 갱신용 */
@@ -117,6 +121,8 @@ interface PostCardProps {
 export const PostCard = memo(function PostCard({
   post,
   skinKey,
+  categorySlug,
+  fieldComposition,
   isFavorite,
   onFavoriteChange,
   onMenuAction,
@@ -146,6 +152,8 @@ export const PostCard = memo(function PostCard({
     currency,
     locale: getAppSettings().defaultLocale || "ko-KR",
     skinKey,
+    categorySlug,
+    fieldComposition,
   });
   const thumbnailUrl = imageSanitizeViewerMediaUrl(
     post.thumbnail_url ||

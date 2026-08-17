@@ -354,6 +354,13 @@ export function buildPostListPreviewModel(
     currency: string;
     locale: string;
     skinKey?: string;
+    /** category.slug — profile resolve (e.g. exchange `current`) */
+    categorySlug?: string | null;
+    /**
+     * `category.settings.field_composition` — MUST reach resolve (R5).
+     * null/omitted → product seed. Valid overlay → list attrs follow Admin composition.
+     */
+    fieldComposition?: unknown | null;
     /** `parsePostMetaField(post?.meta)` 와 동일 메타 — 문자열 JSON·빈 케이스와 `post.meta` 직접 읽기 불일치 방지 */
     preParsedMeta?: Record<string, unknown>;
     /** 채팅 카드에서 이미 `getExchangeFeedLines` 한 결과 — 환전 블록 이중 계산 제거 */
@@ -410,8 +417,11 @@ export function buildPostListPreviewModel(
             : "general");
   const listComposition = resolveTradeComposition({
     icon_key: inferredIcon,
-    fieldComposition: null,
+    slug: opts.categorySlug ?? null,
+    fieldComposition: opts.fieldComposition ?? null,
   });
+  /** Admin overlay: do not resurrect deactivated fields via legacy meta fallbacks */
+  const usesDbOverlay = listComposition.source === "db_overlay";
   const layoutVariant = listComposition.layoutVariant;
   const listAttrs = buildCompositionListAttributes({
     composition: listComposition,
@@ -443,15 +453,20 @@ export function buildPostListPreviewModel(
       str(meta.deal_type);
     const row1Headline = realEstateListingHeadline(meta, post, region, city);
     const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency, locale);
-    const row3 =
+    const row3FromComposition =
       joinCompositionListAttributeLine(listAttrs, ["estate_type", "floor_area", "bedrooms"]) ||
-      (() => {
-        const estateType = str(meta.estate_type);
-        const sizeSq = meta.size_sq ?? meta.area_sqm;
-        const sizeSqStr =
-          sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
-        return [estateType, sizeSqStr].filter(Boolean).join(" · ");
-      })();
+      (usesDbOverlay ? joinCompositionListAttributeLine(listAttrs) : "");
+    const row3 =
+      row3FromComposition ||
+      (usesDbOverlay
+        ? ""
+        : (() => {
+            const estateType = str(meta.estate_type);
+            const sizeSq = meta.size_sq ?? meta.area_sqm;
+            const sizeSqStr =
+              sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
+            return [estateType, sizeSqStr].filter(Boolean).join(" · ");
+          })());
 
     const listingChips: ListingChip[] = [];
     if (dealType) {
@@ -505,16 +520,18 @@ export function buildPostListPreviewModel(
         : yearRaw;
     const fromComposition =
       joinCompositionListAttributeLine(listAttrs, ["make", "model", "year", "mileage"]) ||
-      joinCompositionListAttributeLine(listAttrs, ["year", "mileage"]);
-    /** 삽니다: 차종은 `listingChips` 줄 — 여기서는 모델·연식·주행 */
+      joinCompositionListAttributeLine(listAttrs, ["year", "mileage"]) ||
+      (usesDbOverlay ? joinCompositionListAttributeLine(listAttrs) : "");
+    /** 삽니다: 차종은 `listingChips` 줄 — 여기는 모델·연식·주행 (seed 전용 레거시 fallback) */
     const carSpecLine = [carModel, yearPart].filter(Boolean).join(" · ");
     const mileageRaw = str(meta.mileage).replace(/,/g, "");
     const mileagePart =
       mileageRaw && /^\d+$/.test(mileageRaw)
         ? `${Number(mileageRaw).toLocaleString(locale)} km`
         : "";
-    const carSpecWithMileage =
-      fromComposition || [carSpecLine, mileagePart].filter(Boolean).join(" · ");
+    const carSpecWithMileage = usesDbOverlay
+      ? fromComposition
+      : fromComposition || [carSpecLine, mileagePart].filter(Boolean).join(" · ");
     const usedCarPriceLabel = isFree
       ? postPreviewT(locale, "post_preview_free_share")
       : priceOk != null

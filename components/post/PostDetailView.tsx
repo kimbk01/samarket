@@ -69,6 +69,7 @@ import {
 } from "@/lib/trade/post-detail-i18n";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
+import { resolveTradeCompositionProfileId } from "@/lib/trade/category-form/composition-seeds";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
 import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
 import { buildCompositionDetailAttributes } from "@/lib/trade/category-form/detail-attributes";
@@ -76,7 +77,6 @@ import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labe
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -160,42 +160,6 @@ function stripUsedCarTradeDirectionFromDetailTitle(title: string): string {
   const stripped = t.replace(/^(삽니다|팝니다)\s*·\s*/u, "").trim();
   return stripped || t;
 }
-
-const META_LABEL_KEYS: Record<string, Record<string, MessageKey>> = {
-  "real-estate": {
-    neighborhood: "ui_meta_neighborhood",
-    building_name: "ui_meta_building_name",
-    estate_type: "ui_meta_estate_type",
-    deal_type: "ui_meta_deal_type",
-    deposit: "ui_meta_deposit",
-    monthly: "ui_meta_monthly",
-    management_fee: "ui_meta_management_fee",
-    size_sq: "ui_meta_size_sq",
-    room_count: "ui_meta_room_count",
-    bathroom_count: "ui_meta_bathroom_count",
-    move_in_date: "ui_meta_move_in_date",
-  },
-  "used-car": {
-    car_trade: "ui_meta_car_trade",
-    car_body_type: "ui_meta_car_body_type",
-    car_model: "ui_meta_car_model",
-    car_year: "ui_meta_car_year",
-    car_year_max: "ui_meta_car_year_max",
-    mileage: "ui_meta_mileage",
-    has_accident: "ui_meta_has_accident",
-    transmission: "ui_meta_transmission",
-    fuel_type: "ui_meta_fuel_type",
-  },
-  jobs: {
-    salary: "ui_meta_jobs_salary",
-    work_place: "ui_meta_jobs_work_place",
-    work_type: "ui_meta_jobs_work_type",
-  },
-  exchange: {
-    currency: "ui_meta_exchange_currency",
-    exchange_rate: "ui_meta_exchange_rate",
-  },
-};
 
 function hasJobsMeta(meta: Record<string, unknown>): boolean {
   return (
@@ -519,15 +483,16 @@ function TradeMetaBlock({
   post,
   defaultCurrency,
   fieldComposition,
+  categorySlug,
 }: {
   skinKey: string;
   meta: Record<string, unknown>;
   post?: { price?: number | null; region?: string | null; city?: string | null };
   defaultCurrency?: string;
   fieldComposition?: unknown;
+  categorySlug?: string | null;
 }) {
-  const { t, language } = useI18n();
-  const lang = language === "en" ? "en" : "ko";
+  const { t } = useI18n();
   if (skinKey === "real-estate") {
     return (
       <RealEstateMetaBlock
@@ -540,56 +505,17 @@ function TradeMetaBlock({
       />
     );
   }
-  const composition = resolveTradeComposition({ icon_key: skinKey, fieldComposition: fieldComposition ?? null });
-  const attrs = buildCompositionDetailAttributes({
-    composition,
-    meta,
-    post: post as Record<string, unknown> | undefined,
-    lang,
-    formatMoney: defaultCurrency
-      ? (raw) => formatPrice(parseMetaAmount(raw), defaultCurrency)
-      : undefined,
-  });
-  if (attrs.length === 0) {
-    const labelKeys = META_LABEL_KEYS[skinKey];
-    if (!labelKeys || Object.keys(meta).length === 0) return null;
-    const entries = Object.entries(meta)
-      .filter(([, v]) => v != null && String(v).trim() !== "")
-      .map(([k, v]) => {
-        const key = labelKeys[k];
-        return [k, key ? t(key) : k, String(v)] as const;
-      });
-    if (entries.length === 0) return null;
-    return (
-      <>
-        <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>
-          {TRADE_SKIN_MESSAGE_KEYS[skinKey] ? t(TRADE_SKIN_MESSAGE_KEYS[skinKey]) : skinKey}
-        </h3>
-        <dl className="mt-2 space-y-2 text-[15px] leading-snug">
-          {entries.map(([key, label, value]) => (
-            <div key={key} className={TRADE_FB_DETAIL_META_ROW}>
-              <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
-              <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </>
-    );
-  }
+  const titleKey = TRADE_SKIN_MESSAGE_KEYS[skinKey];
   return (
-    <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>
-        {TRADE_SKIN_MESSAGE_KEYS[skinKey] ? t(TRADE_SKIN_MESSAGE_KEYS[skinKey]) : skinKey}
-      </h3>
-      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
-        {attrs.map((a) => (
-          <div key={a.fieldId} className={TRADE_FB_DETAIL_META_ROW}>
-            <dt className={TRADE_FB_DETAIL_META_DT}>{tradeFieldAdminLabel(a.fieldId, lang)}</dt>
-            <dd className={TRADE_FB_DETAIL_META_DD}>{a.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </>
+    <TradeCompositionDetailSection
+      iconKey={skinKey}
+      categorySlug={categorySlug}
+      fieldComposition={fieldComposition}
+      title={titleKey ? t(titleKey) : t("ui_post_product_description_heading")}
+      meta={meta}
+      post={post as Record<string, unknown> | undefined}
+      currency={defaultCurrency}
+    />
   );
 }
 
@@ -1662,6 +1588,10 @@ export function PostDetailView({
     category?.icon_key === "job" ||
     hasJobsMeta(detailMetaJob);
   const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
+  const detailCompositionProfileId = resolveTradeCompositionProfileId({
+    icon_key: category?.icon_key,
+    slug: category?.slug,
+  });
 
   const ctaPolicy = resolveTradeDetailCtaPolicy({
     isOwnPost,
@@ -1675,6 +1605,7 @@ export function PostDetailView({
     listingKind: listingKindJob,
     existingTradeRoomId,
     priceOfferGatesChat: buyerPriceOfferFlowActive,
+    compositionProfileId: detailCompositionProfileId,
   });
   const uiTradeChatEnabled = ctaPolicy.uiTradeChatEnabled;
   const bottomBarHasChatBtn = ctaPolicy.bottomBarHasChatBtn;
@@ -1946,9 +1877,12 @@ export function PostDetailView({
     typeof reMeta.has_accident === "boolean";
   const isRealEstateDetail =
     category?.icon_key !== "used-car" &&
+    category?.icon_key !== "rent-car" &&
+    category?.icon_key !== "rental-car" &&
     category?.icon_key !== "exchange" &&
     category?.icon_key !== "jobs" &&
     category?.icon_key !== "job" &&
+    detailCompositionProfileId !== "rent-car" &&
     !hasUsedCarMetaEarly &&
     (category?.icon_key === "real-estate" || hasRealEstateMeta) &&
     Object.keys(reMeta).length > 0;
@@ -2243,7 +2177,13 @@ export function PostDetailView({
   ].filter(Boolean) as string[];
 
   const detailImageUrls = imageResolveTradePostDetailImageUrls(post);
-  const isUsedCarDetailUi = category?.icon_key === "used-car" || hasUsedCarMetaEarly;
+  const isRentCarDetailUi =
+    detailCompositionProfileId === "rent-car" ||
+    category?.icon_key === "rent-car" ||
+    category?.icon_key === "rental-car";
+  const isUsedCarDetailUi =
+    !isRentCarDetailUi &&
+    (category?.icon_key === "used-car" || hasUsedCarMetaEarly);
   const usedCarBuyNoImages =
     isUsedCarDetailUi && (reMeta.car_trade as string | undefined) === "buy" && detailImageUrls.length === 0;
   const detailHeroTitle = isUsedCarDetailUi
@@ -2263,6 +2203,13 @@ export function PostDetailView({
       meta.car_trade != null ||
       typeof meta.has_accident === "boolean";
     if (hasUsedCarMeta || category?.icon_key === "used-car") return true;
+    if (
+      category?.icon_key === "rent-car" ||
+      category?.icon_key === "rental-car" ||
+      detailCompositionProfileId === "rent-car"
+    ) {
+      return true;
+    }
     if ((category?.icon_key === "jobs" || category?.icon_key === "job") || hasJobsMeta(meta)) return true;
     if (category?.icon_key === "exchange" || hasExchangeMeta(meta)) return true;
     if (
@@ -2398,6 +2345,25 @@ export function PostDetailView({
           <div className={`flex flex-col ${isJobsDetailUi ? "gap-2" : "gap-3"}`}>
             {(() => {
               const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
+              const fieldComposition = category?.settings?.field_composition;
+              const profileId = resolveTradeCompositionProfileId({
+                icon_key: category?.icon_key,
+                slug: category?.slug,
+              });
+              /** R6: rent-car before used-car — shared vehicle meta must not steal rental detail */
+              if (profileId === "rent-car") {
+                return (
+                  <TradeCompositionDetailSection
+                    iconKey="rent-car"
+                    categorySlug={category?.slug}
+                    fieldComposition={fieldComposition}
+                    title={t("cat_skin_rent_car")}
+                    meta={meta}
+                    post={post as unknown as Record<string, unknown>}
+                    currency={defaultCurrency}
+                  />
+                );
+              }
               const hasUsedCarMeta =
                 meta &&
                 (meta.car_model != null ||
@@ -2407,14 +2373,14 @@ export function PostDetailView({
                   meta.mileage != null ||
                   meta.car_trade != null ||
                   typeof meta.has_accident === "boolean");
-              const isUsedCarCategory = category?.icon_key === "used-car";
+              const isUsedCarCategory = category?.icon_key === "used-car" || profileId === "used-car";
               if (hasUsedCarMeta || isUsedCarCategory) {
                 return (
                   <UsedCarMetaBlock
                     meta={meta}
                     salePrice={post.price ?? null}
                     currency={defaultCurrency}
-                    fieldComposition={category?.settings?.field_composition}
+                    fieldComposition={fieldComposition}
                   />
                 );
               }
@@ -2452,6 +2418,8 @@ export function PostDetailView({
                 )}
                 {category?.icon_key &&
                   category.icon_key !== "used-car" &&
+                  category.icon_key !== "rent-car" &&
+                  category.icon_key !== "rental-car" &&
                   category.icon_key !== "jobs" &&
                   category.icon_key !== "job" &&
                   category.icon_key !== "exchange" &&
@@ -2459,6 +2427,7 @@ export function PostDetailView({
                   Object.keys(post.meta).length > 0 && (
                     <TradeMetaBlock
                       skinKey={category.icon_key}
+                      categorySlug={category.slug}
                       meta={post.meta as Record<string, unknown>}
                       post={post}
                       defaultCurrency={defaultCurrency}

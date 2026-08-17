@@ -17,6 +17,11 @@ export type TradeDetailCtaPolicyInput = {
   existingTradeRoomId: string | null;
   /** Price-offer listing gates chat until accept (legacy buyerPriceOfferFlowActive) */
   priceOfferGatesChat: boolean;
+  /**
+   * Composition profile (R6) — rent-car uses inquire CTA; does not invent booking CTA.
+   * From `resolveTradeCompositionProfileId`.
+   */
+  compositionProfileId?: string | null;
 };
 
 export type TradeDetailCtaPolicy = {
@@ -86,7 +91,8 @@ export function resolveTradeDetailCtaPolicy(
   } else if (bottomBarHasChatBtn && !jobHireMergedApplyChatBtn) {
     primaryKind = "chat";
     if (input.existingTradeRoomId) labelKey = "trade_detail_chat_continue";
-    else if (input.isJobsDetailUi) labelKey = "trade_detail_inquire_cta";
+    else if (input.isJobsDetailUi || input.compositionProfileId === "rent-car")
+      labelKey = "trade_detail_inquire_cta";
     else labelKey = "trade_detail_chat_cta";
   }
 

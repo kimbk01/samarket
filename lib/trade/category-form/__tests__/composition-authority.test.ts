@@ -17,11 +17,14 @@ import {
 } from "@/lib/trade/category-form/option-catalogs";
 
 describe("trade category-form composition authority", () => {
-  it("seeds five profiles and rejects rent-car", () => {
+  it("seeds six profiles including rent-car", () => {
     expect(Object.keys(TRADE_SEED_COMPOSITIONS).sort()).toEqual(
-      ["exchange", "general", "jobs", "real-estate", "used-car"].sort()
+      ["exchange", "general", "jobs", "real-estate", "rent-car", "used-car"].sort()
     );
-    expect(TRADE_SEED_COMPOSITIONS["rent-car"]).toBeUndefined();
+    const rent = TRADE_SEED_COMPOSITIONS["rent-car"];
+    expect(rent?.layoutVariant).toBe("rental-card");
+    expect(rent?.fields.some((f) => f.id === "daily_price")).toBe(true);
+    expect(resolveTradeCompositionProfileId({ icon_key: "rent-car" })).toBe("rent-car");
   });
 
   it("maps legacy icon_key car → used-car profile", () => {

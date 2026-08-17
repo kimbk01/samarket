@@ -133,6 +133,18 @@ function adaptExchange(
   });
 }
 
+/** Rent-car — all seed fields visible; required follows overlay/seed */
+function adaptRentCar(
+  fields: ResolvedTradeCompositionField[],
+  _ctx: TradeBehaviorContext
+): AdaptedCompositionField[] {
+  return fields.map((f) => ({
+    ...f,
+    visible: true,
+    effectiveRequired: f.required,
+  }));
+}
+
 /** Apply adapter; unknown adapter → all visible with seed required */
 export function applyTradeBehaviorAdapter(
   composition: ResolvedTradeComposition,
@@ -143,6 +155,7 @@ export function applyTradeBehaviorAdapter(
   if (id === "real-estate-deal") return adaptRealEstate(composition.fields, ctx);
   if (id === "jobs-hire-seek") return adaptJobs(composition.fields, ctx);
   if (id === "exchange-php-krw") return adaptExchange(composition.fields, ctx);
+  if (id === "rent-car-rental") return adaptRentCar(composition.fields, ctx);
   return composition.fields.map((f) => ({
     ...f,
     visible: true,

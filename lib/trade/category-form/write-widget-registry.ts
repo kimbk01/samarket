@@ -1,6 +1,6 @@
 /**
  * Generic write field registry — maps Field Library widget → renderer key.
- * Full UI cutover of TradeWriteForm is subsequent; this locks the widget contract.
+ * R3: TradeWriteForm general/RE/used-car/rent-car use GenericTradeWriteFields + legacy vehicle widgets.
  */
 import type { TradeFieldWidget } from "./types";
 

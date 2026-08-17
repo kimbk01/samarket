@@ -1,6 +1,5 @@
 /**
- * Product Seed Compositions — Phase 0B freeze (5 categories).
- * Rent-car intentionally absent until separate Owner start.
+ * Product Seed Compositions — FINAL DESIGN RESTART (6 categories incl. rent-car).
  */
 import type {
   TradeCompositionFieldOverlay,
@@ -121,6 +120,27 @@ export const TRADE_SEED_COMPOSITIONS: Record<string, TradeSeedComposition> = {
       f("images", 140, false),
     ],
   },
+  "rent-car": {
+    profileId: "rent-car",
+    layoutVariant: "rental-card",
+    behaviorAdapterId: "rent-car-rental",
+    fields: [
+      f("images", 10, true),
+      f("make", 20, true),
+      f("model", 30, true),
+      f("year", 40, true),
+      f("daily_price", 50, true),
+      f("mileage_cap", 60, false),
+      f("with_driver", 70, false),
+      f("deposit", 80, false),
+      f("pickup_location", 90, true),
+      f("available_from", 100, false),
+      f("transmission", 110, false),
+      f("fuel_type", 120, false),
+      f("description", 130, true),
+      f("location", 140, true),
+    ],
+  },
 };
 
 /** Legacy bridge: category icon_key / slug → seed profile (NOT long-term meaning authority) */
@@ -137,6 +157,9 @@ export function resolveTradeCompositionProfileId(input: {
   }
   if (ik === "jobs" || ik === "job" || slug === "jobs" || slug === "job") return "jobs";
   if (ik === "exchange" || slug === "exchange" || slug === "current") return "exchange";
+  if (ik === "rent-car" || ik === "rental-car" || slug === "rent-car" || slug === "rental-car") {
+    return "rent-car";
+  }
   if (ik === "general" || ik === "market" || slug === "market" || slug === "used" || ik === "") {
     return "general";
   }

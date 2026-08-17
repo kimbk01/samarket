@@ -67,3 +67,8 @@ export {
 export { getTradeOptionCatalog, labelForTradeOption } from "./option-catalogs";
 
 export { tradeFieldAdminLabel, TRADE_FIELD_ADMIN_LABELS } from "./field-admin-labels";
+
+export {
+  resolveUsesJobsTradeWriteForm,
+  resolveUsesExchangeTradeWriteForm,
+} from "./write-form-profile";

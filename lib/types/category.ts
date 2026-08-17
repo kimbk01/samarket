@@ -34,7 +34,14 @@ export const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   feature: categoryTypeLabel("feature"),
 };
 
-export const TRADE_SUBTYPE_PRESET_VALUES = ["general", "used-car", "real-estate", "jobs", "exchange"];
+export const TRADE_SUBTYPE_PRESET_VALUES = [
+  "general",
+  "used-car",
+  "real-estate",
+  "jobs",
+  "exchange",
+  "rent-car",
+];
 
 /** @deprecated use `tradeSkinLabel` */
 export const TRADE_SKIN_LABELS: Record<string, string> = {
@@ -43,6 +50,7 @@ export const TRADE_SKIN_LABELS: Record<string, string> = {
   "real-estate": tradeSkinLabel("real-estate"),
   jobs: tradeSkinLabel("jobs"),
   exchange: tradeSkinLabel("exchange"),
+  "rent-car": tradeSkinLabel("rent-car"),
 };
 
 /** 타입 선택 시 폼에 자동 반영할 기능 기본값 (관리자가 수정 가능) */

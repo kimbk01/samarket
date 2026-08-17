@@ -19,6 +19,7 @@ export const TRADE_SKIN_MESSAGE_KEYS: Record<string, MessageKey> = {
   "real-estate": "cat_skin_real_estate",
   jobs: "cat_skin_jobs",
   exchange: "cat_skin_exchange",
+  "rent-car": "cat_skin_rent_car",
 };
 
 export function categoryTypeLabel(type: CategoryType): string {
@@ -41,6 +42,7 @@ export const TRADE_SUBTYPE_OPTIONS = [
   { value: "real-estate", labelKey: "cat_skin_real_estate" as MessageKey },
   { value: "jobs", labelKey: "cat_skin_jobs" as MessageKey },
   { value: "exchange", labelKey: "cat_skin_exchange" as MessageKey },
+  { value: "rent-car", labelKey: "cat_skin_rent_car" as MessageKey },
   { value: "__custom__", labelKey: "cat_skin_custom" as MessageKey },
 ];
 

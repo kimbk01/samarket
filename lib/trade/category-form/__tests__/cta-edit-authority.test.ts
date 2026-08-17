@@ -52,6 +52,25 @@ describe("trade detail CTA policy", () => {
     expect(p.jobHireMergedApplyChatBtn).toBe(true);
     expect(p.primary.kind).toBe("job_apply_chat");
   });
+
+  it("rent-car buyer primary is inquire chat (no booking CTA)", () => {
+    const p = resolveTradeDetailCtaPolicy({
+      isOwnPost: false,
+      postStatusLower: "active",
+      categoryHasChat: true,
+      buyerPriceOfferFlowActive: false,
+      hasAcceptedOffer: false,
+      isJobsDetailUi: false,
+      jobDirection: "unknown",
+      listingKind: "",
+      existingTradeRoomId: null,
+      priceOfferGatesChat: false,
+      compositionProfileId: "rent-car",
+    });
+    expect(p.primary.kind).toBe("chat");
+    expect(p.primary.labelKey).toBe("trade_detail_inquire_cta");
+    expect(p.secondary.kind).toBe("none");
+  });
 });
 
 describe("edit hydrator Field Library", () => {
@@ -86,5 +105,29 @@ describe("edit hydrator Field Library", () => {
     expect(h.carYear).toBe("2020");
     expect(h.usedCarTrade).toBe("sell");
     expect(h.transmission).toBe("automatic");
+  });
+
+  it("reads rent-car Field Library fields for EDIT == WRITE", () => {
+    const h = hydrateTradeCategoryFieldsFromSnapshot({
+      meta: {
+        car_model: "Toyota Vios",
+        car_year: "2021",
+        daily_price: "2500",
+        mileage_cap: "200",
+        with_driver: true,
+        pickup_location: "Cebu IT Park",
+        available_from: "2026-09-01",
+        deposit: "5000",
+      },
+      post: { price: 2500 },
+    });
+    expect(h.carModel).toBe("Toyota Vios");
+    expect(h.carYear).toBe("2021");
+    expect(h.dailyPrice).toMatch(/2,?500/);
+    expect(h.mileageCap).toBe("200");
+    expect(h.withDriver).toBe(true);
+    expect(h.pickupLocation).toBe("Cebu IT Park");
+    expect(h.availableFrom).toBe("2026-09-01");
+    expect(h.deposit).toMatch(/5,?000/);
   });
 });

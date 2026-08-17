@@ -54,6 +54,11 @@ export const TRADE_FIELD_ADMIN_LABELS: Record<string, { ko: string; en: string }
   seller_prep: { ko: "판매자 준비", en: "Seller prep" },
   buyer_prep: { ko: "구매자 준비", en: "Buyer prep" },
   rate_criteria_at: { ko: "환율 기준 시각", en: "Rate criteria" },
+  daily_price: { ko: "일일 요금", en: "Daily price" },
+  mileage_cap: { ko: "일일 주행 한도", en: "Daily mileage cap" },
+  with_driver: { ko: "기사 포함", en: "With driver" },
+  pickup_location: { ko: "픽업 장소", en: "Pickup location" },
+  available_from: { ko: "이용 가능일", en: "Available from" },
 };
 
 export function tradeFieldAdminLabel(id: string, lang: "ko" | "en"): string {

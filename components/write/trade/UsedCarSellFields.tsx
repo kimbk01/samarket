@@ -41,6 +41,8 @@ type UsedCarSellFieldsProps = {
   fuelType: string;
   setFuelType: (v: string) => void;
   errors: UsedCarSellFieldsErrors;
+  /** Rent-car reuses brand/model/year UI without odometer mileage */
+  showMileage?: boolean;
 };
 
 export function UsedCarSellFields({
@@ -61,6 +63,7 @@ export function UsedCarSellFields({
   fuelType,
   setFuelType,
   errors,
+  showMileage = true,
 }: UsedCarSellFieldsProps) {
   const { t, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -158,44 +161,46 @@ export function UsedCarSellFields({
           {errors.carYear ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p> : null}
         </div>
 
-        <div className="min-w-0">
-          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
-          </label>
-          <select
-            value={mileagePresetKey}
-            onChange={(e) => {
-              const k = e.target.value;
-              setMileagePresetKey(k);
-              if (k && k !== USED_CAR_MILEAGE_CUSTOM_KEY) {
-                const p = USED_CAR_MILEAGE_PRESETS.find((x) => x.key === k);
-                if (p) setMileage(formatPriceInput(p.digits));
-              }
-            }}
-            className={TRADE_WRITE_FB_CONTROL}
-            aria-invalid={!!errors.mileage}
-          >
-            <option value="">{t("trade_075")}</option>
-            {USED_CAR_MILEAGE_PRESETS.map((p) => (
-              <option key={p.key} value={p.key}>
-                {labelForUsedCarMileagePresetKey(p.key, t)}
-              </option>
-            ))}
-            <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
-          </select>
-          {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
-            <input
-              type="text"
-              inputMode="numeric"
-              value={mileage}
-              onChange={(e) => setMileage(formatPriceInput(e.target.value))}
-              placeholder=""
-              className={`mt-1.5 ${TRADE_WRITE_FB_CONTROL}`}
+        {showMileage ? (
+          <div className="min-w-0">
+            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
+              {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
+            </label>
+            <select
+              value={mileagePresetKey}
+              onChange={(e) => {
+                const k = e.target.value;
+                setMileagePresetKey(k);
+                if (k && k !== USED_CAR_MILEAGE_CUSTOM_KEY) {
+                  const p = USED_CAR_MILEAGE_PRESETS.find((x) => x.key === k);
+                  if (p) setMileage(formatPriceInput(p.digits));
+                }
+              }}
+              className={TRADE_WRITE_FB_CONTROL}
               aria-invalid={!!errors.mileage}
-            />
-          ) : null}
-          {errors.mileage ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.mileage}</p> : null}
-        </div>
+            >
+              <option value="">{t("trade_075")}</option>
+              {USED_CAR_MILEAGE_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {labelForUsedCarMileagePresetKey(p.key, t)}
+                </option>
+              ))}
+              <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
+            </select>
+            {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
+              <input
+                type="text"
+                inputMode="numeric"
+                value={mileage}
+                onChange={(e) => setMileage(formatPriceInput(e.target.value))}
+                placeholder=""
+                className={`mt-1.5 ${TRADE_WRITE_FB_CONTROL}`}
+                aria-invalid={!!errors.mileage}
+              />
+            ) : null}
+            {errors.mileage ? <p className="mt-1 sam-text-helper text-sam-danger">{errors.mileage}</p> : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

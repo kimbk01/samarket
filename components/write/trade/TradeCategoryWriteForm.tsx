@@ -2,8 +2,6 @@
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
-import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
-import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 
 export type TradeCategoryWriteFormProps = {
@@ -18,25 +16,19 @@ export type TradeCategoryWriteFormProps = {
   tradePolicy?: TradePolicyClient | null;
 };
 
-/** 신규 일자리형 거래 메뉴를 분기에 넣을 때 사용 */
-export function resolveUsesJobsTradeWriteForm(category: CategoryWithSettings): boolean {
-  return category.icon_key === "jobs" || category.icon_key === "job";
-}
-
-/** 신규 환전형 거래 메뉴를 분기에 넣을 때 사용 (`slug === "current"` 포함) */
-export function resolveUsesExchangeTradeWriteForm(category: CategoryWithSettings): boolean {
-  return (
-    category.icon_key === "exchange" ||
-    category.slug === "exchange" ||
-    category.slug === "current"
-  );
-}
+/** @deprecated import from `@/lib/trade/category-form/write-form-profile` */
+export {
+  resolveUsesJobsTradeWriteForm,
+  resolveUsesExchangeTradeWriteForm,
+} from "@/lib/trade/category-form/write-form-profile";
 
 /**
  * 거래 타입(`trade`) 카테고리 → 작성 폼 단일 진입점.
  *
- * - **`/write` 풀페이지** · **거래 글쓰기 시트** · **상품 수정** 이 세 곳 모두 이 컴포넌트만 쓰도록 유지한다.
- * - 전용 폼이 필요하면 여기에 분기 추가 후 `discardTradeWriteStashedDraft`(`trade-write-exit-cleanup.ts`)에 저장소 정리를 등록한다.
+ * - `/write` · 거래 시트 · 상품 수정 모두 이 컴포넌트만 사용한다.
+ * - DO NOT: 여기에 Jobs/Exchange/중고차 WriteModule 분기를 추가하지 않는다.
+ * - 신규 카테고리 = Field Library + Composition seed (+ Admin overlay).
+ * - Jobs/Exchange 레거시 레이아웃은 `TradeWriteForm` 내부에서만 마운트한다.
  */
 export function TradeCategoryWriteForm({
   category,
@@ -48,34 +40,6 @@ export function TradeCategoryWriteForm({
   ownerEditSnapshot,
   tradePolicy,
 }: TradeCategoryWriteFormProps) {
-  if (resolveUsesJobsTradeWriteForm(category)) {
-    return (
-      <JobsWriteForm
-        category={category}
-        onSuccess={onSuccess}
-        onCancel={onCancel}
-        suppressTier1Chrome={suppressTier1Chrome}
-        onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
-        editPostId={editPostId}
-        ownerEditSnapshot={ownerEditSnapshot}
-        tradePolicy={tradePolicy}
-      />
-    );
-  }
-  if (resolveUsesExchangeTradeWriteForm(category)) {
-    return (
-      <ExchangeWriteForm
-        category={category}
-        onSuccess={onSuccess}
-        onCancel={onCancel}
-        suppressTier1Chrome={suppressTier1Chrome}
-        onMeaningfulTradeDraftChange={onMeaningfulTradeDraftChange}
-        editPostId={editPostId}
-        ownerEditSnapshot={ownerEditSnapshot}
-        tradePolicy={tradePolicy}
-      />
-    );
-  }
   return (
     <TradeWriteForm
       category={category}

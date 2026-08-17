@@ -51,6 +51,11 @@ export type TradeWriteHydratedFields = {
   usedCarMileagePresetKey?: string;
   /** used-car + 삽니다 — meta.car_body_type */
   usedCarBodyTypeKey?: string;
+  /** rent-car composition fields (CREATE == EDIT) */
+  mileageCap?: string;
+  withDriver?: boolean;
+  pickupLocation?: string;
+  availableFrom?: string;
 };
 
 function str(v: unknown): string {
@@ -113,6 +118,24 @@ export function hydrateTradeWriteFormFromSnapshot(
     return {
       ...base,
       usedCarBodyTypeKey: categoryFields.usedCarBodyTypeKey,
+    };
+  }
+
+  if (skinKey === "rent-car") {
+    const resolved = resolveUsedCarSellKeysFromStoredCarModel(base.carModel);
+    const daily = categoryFields.dailyPrice.trim();
+    return {
+      ...base,
+      /** Prefer column price; fall back to meta.daily_price */
+      price: base.price || daily,
+      usedCarBrandKey: resolved.brandKey,
+      usedCarModelKey: resolved.modelKey,
+      mileageCap: categoryFields.mileageCap
+        ? formatPriceInput(categoryFields.mileageCap)
+        : "",
+      withDriver: categoryFields.withDriver,
+      pickupLocation: categoryFields.pickupLocation,
+      availableFrom: categoryFields.availableFrom,
     };
   }
 

@@ -26,6 +26,8 @@ export const categoryLabelsMessages = {
 
     cat_skin_exchange: "환전",
 
+    cat_skin_rent_car: "렌터카",
+
     cat_trade_market: "중고거래",
 
     cat_trade_exchange_listing: "환전거래",
@@ -87,6 +89,8 @@ export const categoryLabelsMessages = {
     cat_skin_jobs: "Jobs",
 
     cat_skin_exchange: "Exchange",
+
+    cat_skin_rent_car: "Rent a car",
 
     cat_trade_market: "Used goods",
 

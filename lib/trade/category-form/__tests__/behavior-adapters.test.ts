@@ -36,4 +36,22 @@ describe("trade behavior adapters", () => {
     expect(shown.find((f) => f.id === "work_category_other")?.visible).toBe(true);
     expect(shown.find((f) => f.id === "work_category_other")?.effectiveRequired).toBe(true);
   });
+
+  it("rent-car adapter keeps daily_price required and visible", () => {
+    const c = resolveTradeComposition({ icon_key: "rent-car" });
+    expect(c.layoutVariant).toBe("rental-card");
+    const adapted = applyTradeBehaviorAdapter(c, {});
+    expect(adapted.find((f) => f.id === "daily_price")?.visible).toBe(true);
+    expect(adapted.find((f) => f.id === "daily_price")?.effectiveRequired).toBe(true);
+    expect(adapted.find((f) => f.id === "pickup_location")?.effectiveRequired).toBe(true);
+  });
+
+  it("rent-car seed includes vehicle + rental fields only from Field Library", () => {
+    const c = resolveTradeComposition({ icon_key: "rent-car", fieldComposition: null });
+    expect(c.source).toBe("product_seed");
+    expect(c.fields.every((f) => f.definition)).toBe(true);
+    expect(c.fields.some((f) => f.id === "make")).toBe(true);
+    expect(c.fields.some((f) => f.id === "with_driver")).toBe(true);
+    expect(c.fields.some((f) => f.id === "car_trade")).toBe(false);
+  });
 });

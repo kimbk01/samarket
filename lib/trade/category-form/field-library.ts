@@ -350,6 +350,39 @@ export const TRADE_FIELD_LIBRARY: Record<string, TradeFieldDefinition> = {
     storage: { kind: "meta", key: "rate_criteria_at" },
     surfaces: { write: true, list: false, detail: true, edit: true, filter: false },
   },
+
+  /** Rent-car — daily rate stored as price column + meta for clarity */
+  daily_price: {
+    id: "daily_price",
+    widget: "money",
+    storage: { kind: "meta_or_column", metaKey: "daily_price", column: "price" },
+    surfaces: { write: true, list: true, detail: true, edit: true, filter: "partial" },
+  },
+  mileage_cap: {
+    id: "mileage_cap",
+    widget: "number",
+    unit: "km",
+    storage: { kind: "meta", key: "mileage_cap" },
+    surfaces: { write: true, list: true, detail: true, edit: true, filter: "partial" },
+  },
+  with_driver: {
+    id: "with_driver",
+    widget: "boolean",
+    storage: { kind: "meta", key: "with_driver" },
+    surfaces: { write: true, list: true, detail: true, edit: true, filter: "partial" },
+  },
+  pickup_location: {
+    id: "pickup_location",
+    widget: "text",
+    storage: { kind: "meta", key: "pickup_location" },
+    surfaces: { write: true, list: false, detail: true, edit: true, filter: false },
+  },
+  available_from: {
+    id: "available_from",
+    widget: "text",
+    storage: { kind: "meta", key: "available_from" },
+    surfaces: { write: true, list: false, detail: true, edit: true, filter: false },
+  },
 };
 
 export function getTradeFieldDefinition(id: string): TradeFieldDefinition | null {

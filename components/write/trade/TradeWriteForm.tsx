@@ -13,6 +13,12 @@ import {
 import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 import { UsedCarSellFields } from "./UsedCarSellFields";
 import { UsedCarBuyFields } from "./UsedCarBuyFields";
+import { JobsWriteForm } from "./JobsWriteForm";
+import { ExchangeWriteForm } from "./ExchangeWriteForm";
+import {
+  resolveUsesExchangeTradeWriteForm,
+  resolveUsesJobsTradeWriteForm,
+} from "@/lib/trade/category-form/write-form-profile";
 import {
   GenericTradeWriteFields,
   validateAdaptedCompositionValues,
@@ -70,6 +76,11 @@ function buildTradeMeta(
     carHasAccident: boolean;
     transmission: string;
     fuelType: string;
+    mileageCap: string;
+    withDriver: boolean;
+    pickupLocation: string;
+    availableFrom: string;
+    dailyPrice: string;
     salary: string;
     workPlace: string;
     workType: string;
@@ -111,17 +122,18 @@ function buildTradeMeta(
     }
     return o;
   }
-  if (skinKey === "jobs") {
+  if (skinKey === "rent-car") {
     const o: Record<string, unknown> = {};
-    if (v.salary.trim()) o.salary = v.salary.trim();
-    if (v.workPlace.trim()) o.work_place = v.workPlace.trim();
-    if (v.workType.trim()) o.work_type = v.workType.trim();
-    return o;
-  }
-  if (skinKey === "exchange") {
-    const o: Record<string, unknown> = {};
-    if (v.currency.trim()) o.currency = v.currency.trim();
-    if (v.exchangeRate.trim()) o.exchange_rate = v.exchangeRate.trim();
+    if (v.carModel.trim()) o.car_model = v.carModel.trim();
+    if (v.carYear.trim()) o.car_year = v.carYear.replace(/\D/g, "").slice(0, 4);
+    if (v.transmission.trim()) o.transmission = v.transmission.trim();
+    if (v.fuelType.trim()) o.fuel_type = v.fuelType.trim();
+    if (v.deposit.trim()) o.deposit = v.deposit.trim();
+    if (v.mileageCap.trim()) o.mileage_cap = v.mileageCap.replace(/,/g, "").replace(/\D/g, "");
+    if (v.withDriver) o.with_driver = true;
+    if (v.pickupLocation.trim()) o.pickup_location = v.pickupLocation.trim();
+    if (v.availableFrom.trim()) o.available_from = v.availableFrom.trim();
+    if (v.dailyPrice.trim()) o.daily_price = v.dailyPrice.trim();
     return o;
   }
   return {};
@@ -235,7 +247,43 @@ interface TradeWriteFormProps {
   tradePolicy?: TradePolicyClient | null;
 }
 
-export function TradeWriteForm({
+export function TradeWriteForm(props: TradeWriteFormProps) {
+  /**
+   * R4 entry SSOT: Jobs/Exchange legacy layouts mount only here (not from TradeCategoryWriteForm).
+   * Full Generic field absorb remains subsequent — do not reintroduce CategoryWriteForm forks.
+   */
+  if (resolveUsesJobsTradeWriteForm(props.category)) {
+    return (
+      <JobsWriteForm
+        category={props.category}
+        onSuccess={props.onSuccess}
+        onCancel={props.onCancel}
+        suppressTier1Chrome={props.suppressTier1Chrome}
+        onMeaningfulTradeDraftChange={props.onMeaningfulTradeDraftChange}
+        editPostId={props.editPostId}
+        ownerEditSnapshot={props.ownerEditSnapshot}
+        tradePolicy={props.tradePolicy}
+      />
+    );
+  }
+  if (resolveUsesExchangeTradeWriteForm(props.category)) {
+    return (
+      <ExchangeWriteForm
+        category={props.category}
+        onSuccess={props.onSuccess}
+        onCancel={props.onCancel}
+        suppressTier1Chrome={props.suppressTier1Chrome}
+        onMeaningfulTradeDraftChange={props.onMeaningfulTradeDraftChange}
+        editPostId={props.editPostId}
+        ownerEditSnapshot={props.ownerEditSnapshot}
+        tradePolicy={props.tradePolicy}
+      />
+    );
+  }
+  return <TradeMarketplaceWriteForm {...props} />;
+}
+
+function TradeMarketplaceWriteForm({
   category,
   onSuccess,
   onCancel,
@@ -299,13 +347,14 @@ export function TradeWriteForm({
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = resolveTradeWriteSkinKey(category.icon_key);
   const isUsedCarSkin = skinKey === "used-car";
+  const isRentCarSkin = skinKey === "rent-car";
   /**
    * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
    * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
    */
-  const hasLocation = isUsedCarSkin ? true : (settings?.has_location ?? true);
-  /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차는 전용 상단 필드 */
-  const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car";
+  const hasLocation = isUsedCarSkin || isRentCarSkin ? true : (settings?.has_location ?? true);
+  /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차·렌터카는 전용 상단 필드 */
+  const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car";
 
   // 거래 종류별 meta 필드
   const [neighborhood, setNeighborhood] = useState("");
@@ -337,6 +386,11 @@ export function TradeWriteForm({
   const [carHasAccident, setCarHasAccident] = useState(false);
   const [transmission, setTransmission] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [mileageCap, setMileageCap] = useState("");
+  const [withDriver, setWithDriver] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState("");
+  const [availableFrom, setAvailableFrom] = useState("");
+  /** Dead path leftovers — Jobs/Exchange use dedicated forms; kept for draft hydrate shape only */
   const [salary, setSalary] = useState("");
   const [workPlace, setWorkPlace] = useState("");
   const [workType, setWorkType] = useState("");
@@ -356,8 +410,12 @@ export function TradeWriteForm({
     if (skinKey !== "used-car") return [];
     return applyTradeBehaviorAdapter(tradeComposition, { carTrade: usedCarTrade });
   }, [skinKey, tradeComposition, usedCarTrade]);
+  const rentCarAdaptedFields = useMemo(() => {
+    if (skinKey !== "rent-car") return [];
+    return applyTradeBehaviorAdapter(tradeComposition, {});
+  }, [skinKey, tradeComposition]);
   const generalAdaptedFields = useMemo(() => {
-    if (skinKey === "real-estate" || skinKey === "used-car") return [];
+    if (skinKey === "real-estate" || skinKey === "used-car" || skinKey === "rent-car") return [];
     return applyTradeBehaviorAdapter(tradeComposition, {});
   }, [skinKey, tradeComposition]);
   const realEstateFieldValues = useMemo((): TradeFieldValueBag => {
@@ -424,7 +482,7 @@ export function TradeWriteForm({
     description,
   ]);
   const generalFieldValues = useMemo((): TradeFieldValueBag => {
-    if (skinKey === "real-estate" || skinKey === "used-car") return {};
+    if (skinKey === "real-estate" || skinKey === "used-car" || skinKey === "rent-car") return {};
     return {
       title,
       price,
@@ -433,6 +491,66 @@ export function TradeWriteForm({
       is_price_offer: isPriceOfferEnabled,
     };
   }, [skinKey, title, price, description, isFreeShare, isPriceOfferEnabled]);
+  const rentCarFieldValues = useMemo((): TradeFieldValueBag => {
+    if (skinKey !== "rent-car") return {};
+    return {
+      make: carModel,
+      model: carModel,
+      year: carYear,
+      daily_price: price,
+      mileage_cap: mileageCap,
+      with_driver: withDriver,
+      deposit,
+      pickup_location: pickupLocation,
+      available_from: availableFrom,
+      transmission,
+      fuel_type: fuelType,
+      description,
+    };
+  }, [
+    skinKey,
+    carModel,
+    carYear,
+    price,
+    mileageCap,
+    withDriver,
+    deposit,
+    pickupLocation,
+    availableFrom,
+    transmission,
+    fuelType,
+    description,
+  ]);
+  const onRentCarCompositionChange = useCallback((fieldId: string, value: string | boolean) => {
+    switch (fieldId) {
+      case "daily_price":
+        setPrice(String(value));
+        break;
+      case "mileage_cap":
+        setMileageCap(String(value));
+        break;
+      case "with_driver":
+        setWithDriver(value === true);
+        break;
+      case "deposit":
+        setDeposit(String(value));
+        break;
+      case "pickup_location":
+        setPickupLocation(String(value));
+        break;
+      case "available_from":
+        setAvailableFrom(String(value));
+        break;
+      case "transmission":
+        setTransmission(String(value));
+        break;
+      case "fuel_type":
+        setFuelType(String(value));
+        break;
+      default:
+        break;
+    }
+  }, []);
   const onRealEstateCompositionChange = useCallback((fieldId: string, value: string | boolean) => {
     switch (fieldId) {
       case "deal_type":
@@ -511,6 +629,14 @@ export function TradeWriteForm({
     if (!isUsedCarSkin) return;
     setUsedCarTrade((prev) => (prev === null ? "sell" : prev));
   }, [category.id, editPostId, isUsedCarSkin]);
+
+  /** 렌터카: 저장된 car_model 문자열 → 브랜드/모델 키 복원 */
+  useEffect(() => {
+    if (!isRentCarSkin) return;
+    const r = resolveUsedCarSellKeysFromStoredCarModel(carModel);
+    setUsedCarBrandKey(r.brandKey);
+    setUsedCarModelKey(r.modelKey);
+  }, [isRentCarSkin, carModel]);
 
   /** 카테고리 설정상 한쪽만 허용일 때 상태 정합 */
   useEffect(() => {
@@ -1167,11 +1293,24 @@ export function TradeWriteForm({
       setUsedCarModelKey("");
       setUsedCarMileagePresetKey("");
       setUsedCarBodyTypeKey((h.usedCarBodyTypeKey ?? "").trim());
+    } else if (skinKey === "rent-car") {
+      setUsedCarBrandKey(h.usedCarBrandKey ?? "");
+      setUsedCarModelKey(h.usedCarModelKey ?? "");
+      setUsedCarMileagePresetKey("");
+      setUsedCarBodyTypeKey("");
+      setMileageCap(h.mileageCap ?? "");
+      setWithDriver(h.withDriver === true);
+      setPickupLocation(h.pickupLocation ?? "");
+      setAvailableFrom(h.availableFrom ?? "");
     } else {
       setUsedCarBrandKey("");
       setUsedCarModelKey("");
       setUsedCarMileagePresetKey("");
       setUsedCarBodyTypeKey("");
+      setMileageCap("");
+      setWithDriver(false);
+      setPickupLocation("");
+      setAvailableFrom("");
     }
     setSalary(h.salary);
     setWorkPlace(h.workPlace);
@@ -1189,7 +1328,7 @@ export function TradeWriteForm({
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
-    if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = t("trade_102");
+    if (skinKey !== "real-estate" && !isUsedCarSkin && !isRentCarSkin && !title.trim()) next.title = t("trade_102");
     if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = t("trade_write_err_pick_buy_sell");
     if (isUsedCarSkin && usedCarTrade === "buy") {
       if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = t("trade_write_err_body_type");
@@ -1204,7 +1343,7 @@ export function TradeWriteForm({
     }
     if (!description.trim()) next.description = t("trade_write_err_content");
     const isRealEstateSale = skinKey === "real-estate" && dealType === "판매";
-    const effectiveFreeShare = isUsedCarSkin ? false : isFreeShare;
+    const effectiveFreeShare = isUsedCarSkin || isRentCarSkin ? false : isFreeShare;
     if (hasPrice && !effectiveFreeShare && (skinKey !== "real-estate" || isRealEstateSale)) {
       const priceNum = price.trim() ? Number(price.replace(/,/g, "")) : NaN;
       if (!price.trim() || isNaN(priceNum) || priceNum < 0) {
@@ -1256,7 +1395,32 @@ export function TradeWriteForm({
         if (!next[k]) next[k] = msg;
       }
     }
-    if (skinKey !== "real-estate" && skinKey !== "used-car") {
+    if (skinKey === "rent-car") {
+      if (!carModel.trim()) next.carModel = t("trade_write_err_brand_model");
+      const yErr = getUsedCarYearFieldError(carYear, "sell", t);
+      if (yErr) next.carYear = yErr;
+      const compErrs = validateAdaptedCompositionValues(
+        rentCarAdaptedFields,
+        rentCarFieldValues,
+        (fieldId) => {
+          const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
+          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        }
+      );
+      const RC_MAP: Record<string, string> = {
+        make: "carModel",
+        model: "carModel",
+        year: "carYear",
+        daily_price: "price",
+        pickup_location: "pickup_location",
+        description: "description",
+      };
+      for (const [id, msg] of Object.entries(compErrs)) {
+        const k = RC_MAP[id] ?? id;
+        if (!next[k]) next[k] = msg;
+      }
+    }
+    if (skinKey !== "real-estate" && skinKey !== "used-car" && skinKey !== "rent-car") {
       const compErrs = validateAdaptedCompositionValues(
         generalAdaptedFields,
         generalFieldValues,
@@ -1279,11 +1443,19 @@ export function TradeWriteForm({
     hasLocation,
     isFreeShare,
     isUsedCarSkin,
+    isRentCarSkin,
     usedCarTrade,
     usedCarBodyTypeKey,
     carYear,
     carModel,
     mileage,
+    mileageCap,
+    withDriver,
+    deposit,
+    pickupLocation,
+    availableFrom,
+    transmission,
+    fuelType,
     region,
     city,
     effectiveTradeRegionId,
@@ -1294,6 +1466,8 @@ export function TradeWriteForm({
     realEstateFieldValues,
     usedCarAdaptedFields,
     usedCarFieldValues,
+    rentCarAdaptedFields,
+    rentCarFieldValues,
     generalAdaptedFields,
     generalFieldValues,
     language,
@@ -1400,6 +1574,11 @@ export function TradeWriteForm({
           carHasAccident,
           transmission,
           fuelType,
+          mileageCap,
+          withDriver,
+          pickupLocation,
+          availableFrom,
+          dailyPrice: price,
           salary,
           workPlace,
           workType,
@@ -1849,8 +2028,9 @@ export function TradeWriteForm({
             </div>
           ) : null}
         </section>
-        {(hasPrice || (hasFreeShare && !isUsedCarSkin)) &&
+        {(hasPrice || (hasFreeShare && !isUsedCarSkin && !isRentCarSkin)) &&
           skinKey !== "real-estate" &&
+          skinKey !== "rent-car" &&
           !(isUsedCarSkin && usedCarTrade === "buy") && (
           <section className={TRADE_WRITE_FB_SECTION}>
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
@@ -2049,70 +2229,73 @@ export function TradeWriteForm({
             )}
           </section>
         )}
-        {skinKey === "jobs" && (
-          <section className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_082")}</h4>
+        {skinKey === "rent-car" && (
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("cat_skin_rent_car")}</h4>
             <div className="space-y-2">
-              <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_042")}</label>
-                <input
-                  type="text"
-                  value={salary}
-                  onChange={(e) => setSalary(e.target.value)}
-                  placeholder=""
-                  className={TRADE_WRITE_FB_CONTROL}
-                />
-              </div>
-              <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_040")}</label>
-                <input
-                  type="text"
-                  value={workPlace}
-                  onChange={(e) => setWorkPlace(e.target.value)}
-                  placeholder=""
-                  className={TRADE_WRITE_FB_CONTROL}
-                />
-              </div>
-              <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_039")}</label>
-                <input
-                  type="text"
-                  value={workType}
-                  onChange={(e) => setWorkType(e.target.value)}
-                  placeholder=""
-                  className={TRADE_WRITE_FB_CONTROL}
-                />
-              </div>
+              <UsedCarSellFields
+                carModel={carModel}
+                setCarModel={setCarModel}
+                carYear={carYear}
+                setCarYear={setCarYear}
+                mileage={mileage}
+                setMileage={setMileage}
+                brandKey={usedCarBrandKey}
+                setBrandKey={setUsedCarBrandKey}
+                modelKey={usedCarModelKey}
+                setModelKey={setUsedCarModelKey}
+                mileagePresetKey={usedCarMileagePresetKey}
+                setMileagePresetKey={setUsedCarMileagePresetKey}
+                transmission={transmission}
+                setTransmission={setTransmission}
+                fuelType={fuelType}
+                setFuelType={setFuelType}
+                showMileage={false}
+                errors={{
+                  carYear: errors.carYear,
+                  carModel: errors.carModel,
+                }}
+              />
+              <GenericTradeWriteFields
+                fields={rentCarAdaptedFields}
+                values={rentCarFieldValues}
+                onChange={onRentCarCompositionChange}
+                errors={errors}
+                disabled={coreLocked}
+                currencyUnit={currencyUnit}
+                skipFieldIds={[
+                  "make",
+                  "model",
+                  "year",
+                  "transmission",
+                  "fuel_type",
+                  "images",
+                  "description",
+                  "location",
+                ]}
+              />
             </div>
           </section>
         )}
-        {skinKey === "exchange" && (
-          <section className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_132")}</h4>
-            <div className="space-y-2">
-              <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_121")}</label>
-                <input
-                  type="text"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  placeholder=""
-                  className={TRADE_WRITE_FB_CONTROL}
-                />
-              </div>
-              <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_131")}</label>
-                <input
-                  type="text"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(e.target.value)}
-                  placeholder=""
-                  className={TRADE_WRITE_FB_CONTROL}
-                />
-              </div>
-            </div>
+        {isKarrotGeneral ? (
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <GenericTradeWriteFields
+              fields={generalAdaptedFields}
+              values={generalFieldValues}
+              onChange={(fieldId, value) => {
+                if (fieldId === "title") setTitle(String(value));
+                else if (fieldId === "price") setPrice(String(value));
+                else if (fieldId === "description") setDescription(String(value));
+                else if (fieldId === "is_free_share") setIsFreeShare(value === true);
+                else if (fieldId === "is_price_offer") setIsPriceOfferEnabled(value === true);
+              }}
+              errors={errors}
+              disabled={coreLocked}
+              currencyUnit={currencyUnit}
+              skipFieldIds={["title", "price", "description", "is_free_share", "is_price_offer"]}
+            />
           </section>
-        )}
+        ) : null}
         {skinKey !== "real-estate" ? tradeLocationEl : null}
         <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
           <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_016")}</h4>

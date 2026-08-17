@@ -26,7 +26,7 @@ export function readCompositionFieldFromSnapshot(
   return readFieldValueFromBags(def, bags);
 }
 
-/** Real-estate / used-car overlapping TradeWriteForm keys from Field Library */
+/** Real-estate / used-car / rent-car overlapping TradeWriteForm keys from Field Library */
 export function hydrateTradeCategoryFieldsFromSnapshot(bags: {
   meta: Record<string, unknown>;
   post?: Record<string, unknown>;
@@ -51,11 +51,18 @@ export function hydrateTradeCategoryFieldsFromSnapshot(bags: {
   transmission: string;
   fuelType: string;
   usedCarBodyTypeKey: string;
+  /** rent-car */
+  mileageCap: string;
+  withDriver: boolean;
+  pickupLocation: string;
+  availableFrom: string;
+  dailyPrice: string;
 } {
   const deal = asStr(readCompositionFieldFromSnapshot("deal_type", bags));
   const carTrade = asStr(readCompositionFieldFromSnapshot("car_trade", bags));
   const hasAccident = readCompositionFieldFromSnapshot("has_accident", bags);
   const hasPremium = readCompositionFieldFromSnapshot("has_premium", bags);
+  const withDriver = readCompositionFieldFromSnapshot("with_driver", bags);
 
   return {
     neighborhood: asStr(readCompositionFieldFromSnapshot("neighborhood", bags)),
@@ -78,5 +85,10 @@ export function hydrateTradeCategoryFieldsFromSnapshot(bags: {
     transmission: asStr(readCompositionFieldFromSnapshot("transmission", bags)),
     fuelType: asStr(readCompositionFieldFromSnapshot("fuel_type", bags)),
     usedCarBodyTypeKey: asStr(readCompositionFieldFromSnapshot("body_type", bags)),
+    mileageCap: asStr(readCompositionFieldFromSnapshot("mileage_cap", bags)).replace(/\D/g, ""),
+    withDriver: withDriver === true,
+    pickupLocation: asStr(readCompositionFieldFromSnapshot("pickup_location", bags)),
+    availableFrom: asStr(readCompositionFieldFromSnapshot("available_from", bags)),
+    dailyPrice: asMoney(readCompositionFieldFromSnapshot("daily_price", bags)),
   };
 }
