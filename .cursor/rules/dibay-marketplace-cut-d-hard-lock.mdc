@@ -1,0 +1,45 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT D (member review write UI removal)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT D HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-d-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT D LOCKED**
+- Production SHA: `0824300da9edc2aab60f22b3ba983948f13d8903`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_7CUwHkWKouEpL4z8x5KgF4Vwpsgg`
+- MEMBER REVIEW WRITE UI: **REMOVED (UI gate — not API/DB writer removal)**
+- REVIEW_WAIT / PENDING HUB: **REMOVED**
+- REVIEW=1 DEEP-LINK: **REMOVED**
+- COMPLETION NOTIFICATION COPY: **LOCKED**
+- SUBMIT-REVIEW API / REVIEW DB / TRUST / ADMIN / STORE REVIEW: **PRESERVED**
+- MIGRATION: **NO**
+- CUT A / CUT B / CUT C / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+Trade flow ends at 거래완료 — no member write-review next step
+canOpenTradeReviewSheet / canShowPurchaseReviewSend = false
+buyer_confirmed / review_pending → 구매완료 (no review_wait tab)
+/mypage/trade/reviews = received + written read-only only
+Sales: no 구매자 후기 대기 / 후기 없음 badge
+Notifications: completion copy; tradeChatNotificationHref; no ?review=1
+tradeHubChatRoomHref ignores review opt
+```
+
+Authority: `lib/trade/can-open-trade-review-sheet.ts` · `lib/mypage/buyer-manage-tabs.ts` · `lib/chats/surfaces/trade-chat-surface.ts`.
+
+This cut changed **Marketplace member review write UX**, not SEARCH (C), LIST default (B), or taxonomy (A).
+
+## DO NOT (without a new cut)
+
+- Restore member review write sheet / CTA / review_wait / pending tab
+- Re-append `?review=1` on trade hrefs or completion notifications
+- Delete submit-review API or review DB under CUT D
+- Reopen CUT A / B / C, or start CUT E inside CUT D work
