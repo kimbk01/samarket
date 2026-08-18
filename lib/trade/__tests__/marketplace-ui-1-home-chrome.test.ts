@@ -60,4 +60,10 @@ describe("Marketplace UI-1 HOME chrome", () => {
       })
     ).toBe("/market?q=Toyota&lgu=pasig&category=used-car");
   });
+
+  it("전체 href drops q so default Marketplace feed is unscoped search", () => {
+    expect(buildTradeMarketFeedHref({ baseSearch: "q=Toyota&lgu=pasig" })).toBe(
+      "/market?lgu=pasig"
+    );
+  });
 });
