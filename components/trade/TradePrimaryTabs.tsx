@@ -22,6 +22,7 @@ import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primar
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface TradePrimaryTabsProps {
@@ -155,7 +156,8 @@ function TradePrimaryTabsInner({
             onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
             onClick={(e) => {
               e.preventDefault();
-              if (allTab.isDisplayActive) {
+              const hasQ = Boolean(sanitizeMarketplaceQueryText(searchParams.get("q")));
+              if (allTab.isDisplayActive && !hasQ) {
                 if (
                   !isPendingMenuBlockingContent ||
                   menuHrefMatchesIntent(allTab.href, pendingMenuIntent)

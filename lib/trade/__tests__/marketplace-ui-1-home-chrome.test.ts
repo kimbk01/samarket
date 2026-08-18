@@ -45,6 +45,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tabs).toContain("marketplace_more_categories");
     expect(tabs).toContain("marketplace_region_chip");
     expect(tabs).toContain("TRADE_BROWSE_LOCATION_PATH");
+    expect(tabs).toContain("sanitizeMarketplaceQueryText");
   });
 
   it("search and write back fallback to Marketplace HOME", () => {
