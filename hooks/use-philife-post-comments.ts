@@ -43,27 +43,46 @@ export function usePhilifePostComments(postId: string) {
   const [likeError, setLikeError] = useState("");
   const [commentText, setCommentText] = useState("");
   const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
-  const [scrollSig, setScrollSig] = useState(0);
+  const [loadError, setLoadError] = useState(false);
 
   const loadSeqRef = useRef(0);
   const likeInflightRef = useRef(new Set<string>());
 
+  const applyFetchResult = useCallback(
+    (seq: number, result: Awaited<ReturnType<typeof fetchPhilifePostCommentTree>>) => {
+      if (seq !== loadSeqRef.current) return false;
+      if (result.ok) {
+        setComments(result.tree);
+        setLoadError(false);
+        return true;
+      }
+      setLoadError(true);
+      return false;
+    },
+    []
+  );
+
   const reloadComments = useCallback(async (): Promise<boolean> => {
     const seq = ++loadSeqRef.current;
     const result = await fetchPhilifePostCommentTree(postId);
-    if (seq !== loadSeqRef.current) return false;
-    if (result.ok) {
-      setComments(result.tree);
-      return true;
-    }
-    return false;
-  }, [postId]);
+    return applyFetchResult(seq, result);
+  }, [applyFetchResult, postId]);
+
+  const retryComments = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    const seq = ++loadSeqRef.current;
+    const result = await fetchPhilifePostCommentTree(postId);
+    applyFetchResult(seq, result);
+    if (seq === loadSeqRef.current) setLoading(false);
+  }, [applyFetchResult, postId]);
 
   useEffect(() => {
     let alive = true;
     const seq = ++loadSeqRef.current;
     setComments([]);
     setLoading(true);
+    setLoadError(false);
     setSubmitError("");
     setLikeError("");
     setCommentText("");
@@ -71,14 +90,14 @@ export function usePhilifePostComments(postId: string) {
 
     void fetchPhilifePostCommentTree(postId).then((result) => {
       if (!alive || seq !== loadSeqRef.current) return;
-      if (result.ok) setComments(result.tree);
+      applyFetchResult(seq, result);
       setLoading(false);
     });
 
     return () => {
       alive = false;
     };
-  }, [postId]);
+  }, [applyFetchResult, postId]);
 
   const resolveSubmitError = useCallback(
     (res: Response, data: { ok?: boolean; error?: string; code?: string }) => {
@@ -114,7 +133,7 @@ export function usePhilifePostComments(postId: string) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parentId ? { content: trimmed, parentId } : { content: trimmed }),
         });
-        const data = (await res.json()) as { ok?: boolean; error?: string; code?: string };
+        const data = (await res.json()) as { ok?: boolean; error?: string; code?: string; id?: string };
         if (!data.ok) {
           const profileHandled = handleProfileIncompleteApiResponse(data);
           setSubmitError(
@@ -122,8 +141,9 @@ export function usePhilifePostComments(postId: string) {
           );
           return false;
         }
+        const createdId = typeof data.id === "string" ? data.id.trim() : "";
         await reloadComments();
-        return true;
+        return createdId;
       } finally {
         setActionBusy(false);
       }
@@ -137,11 +157,10 @@ export function usePhilifePostComments(postId: string) {
     await requireAction(
       "community_comment",
       async () => {
-        const ok = await postComment(commentText, null);
-        if (ok) {
-          setCommentText("");
-          setScrollSig((s) => s + 1);
-        }
+        const createdId = await postComment(commentText, null);
+        if (createdId === false) return;
+        setCommentText("");
+        if (createdId) setFocusCommentId(createdId);
       },
       { next }
     );
@@ -154,11 +173,9 @@ export function usePhilifePostComments(postId: string) {
       await requireAction(
         "community_comment",
         async () => {
-          const ok = await postComment(content, parentId);
-          if (ok) {
-            setFocusCommentId(parentId);
-            setScrollSig((s) => s + 1);
-          }
+          const createdId = await postComment(content, parentId);
+          if (createdId === false) return;
+          if (createdId) setFocusCommentId(createdId);
         },
         { next }
       );
@@ -286,19 +303,20 @@ export function usePhilifePostComments(postId: string) {
   return {
     comments,
     loading,
+    loadError,
     actionBusy,
     submitError,
     likeError,
     commentText,
     setCommentText,
     focusCommentId,
-    scrollSig,
     displayCommentCount,
     submitRootComment,
     submitReply,
     likeComment,
     editComment,
     deleteComment,
+    retryComments,
     clearSubmitError: () => setSubmitError(""),
   };
 }

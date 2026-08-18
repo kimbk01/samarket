@@ -94,19 +94,20 @@ export function CommunityDetail({
   const {
     comments,
     loading: commentsLoading,
+    loadError: commentsLoadError,
     actionBusy: commentActionBusy,
     submitError: commentSubmitErr,
     likeError: commentLikeErr,
     commentText,
     setCommentText,
     focusCommentId,
-    scrollSig,
     displayCommentCount,
     submitRootComment,
     submitReply,
     likeComment,
     editComment,
     deleteComment,
+    retryComments,
     clearSubmitError,
   } = usePhilifePostComments(post.id);
   const [likeCount, setLikeCount] = useState(post.like_count);
@@ -563,8 +564,9 @@ export function CommunityDetail({
             <CommunityCommentSection
             roots={comments}
             focusCommentId={focusCommentId}
-            scrollToBottomSignal={scrollSig}
             commentsLoading={commentsLoading}
+            commentsLoadError={commentsLoadError}
+            onRetryComments={() => void retryComments()}
             locked={commentsLocked}
             lockMessage={
               !me?.id

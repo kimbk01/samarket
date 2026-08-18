@@ -1,6 +1,7 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { CM_BTN_PILL_PRIMARY_CLASS, CM_INPUT_CLASS } from "@/lib/community/community-ui-classes";
@@ -19,6 +20,77 @@ type Props = {
   className?: string;
 };
 
+const COMPOSER_MAX_CLASS = "max-h-[7.5rem]";
+
+function syncGrowHeight(el: HTMLTextAreaElement, minPx: number) {
+  el.style.height = "auto";
+  const maxRaw = Number.parseFloat(getComputedStyle(el).maxHeight);
+  const maxPx = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : 120;
+  el.style.height = `${Math.min(Math.max(el.scrollHeight, minPx), maxPx)}px`;
+}
+
+export function CommunityCommentGrowTextarea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  readOnly,
+  onFocus,
+  onBlur,
+  onClick,
+  expanded,
+  id,
+  composingRef,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onClick?: () => void;
+  expanded: boolean;
+  id?: string;
+  composingRef?: { current: boolean };
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const minPx = expanded ? 52 : 44;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    syncGrowHeight(el, minPx);
+  }, [value, expanded, minPx]);
+
+  return (
+    <textarea
+      id={id}
+      ref={ref}
+      rows={expanded ? 2 : 1}
+      className={`${CM_INPUT_CLASS} ${COMPOSER_MAX_CLASS} resize-none overflow-y-auto leading-[1.4] ${
+        expanded ? "min-h-[3.25rem]" : ""
+      }`}
+      value={value}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      disabled={disabled}
+      onClick={onClick}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onCompositionStart={() => {
+        if (composingRef) composingRef.current = true;
+      }}
+      onCompositionEnd={() => {
+        if (composingRef) composingRef.current = false;
+      }}
+      onChange={(e) => onChange(e.target.value)}
+      autoComplete="off"
+      enterKeyHint="enter"
+    />
+  );
+}
+
 function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
   const n = (me?.name || "?").trim() || "?";
   const ch = n.slice(0, 1).toUpperCase();
@@ -29,7 +101,11 @@ function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
       roundedClassName="rounded-full"
       className="bg-[var(--cm-primary-soft)] ring-1 ring-[var(--cm-border)]"
       fallbackSrc=""
-      fallbackNode={<span className="text-[14px] font-semibold text-[var(--cm-primary)]" aria-hidden>{ch}</span>}
+      fallbackNode={
+        <span className="text-[14px] font-semibold text-[var(--cm-primary)]" aria-hidden>
+          {ch}
+        </span>
+      }
     />
   );
 }
@@ -61,44 +137,46 @@ export function CommunityCommentComposerForm({
 }: Props) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
+  const [focused, setFocused] = useState(false);
+  const composingRef = useRef(false);
+  const expanded = focused || value.trim().length > 0;
+
+  const trySubmit = () => {
+    if (composingRef.current) return;
+    if (disabled || busy || !isLoggedIn || !value.trim()) return;
+    onSubmit();
+  };
 
   return (
     <form
-      className={`flex w-full items-center gap-2.5 ${className}`}
+      className={`flex w-full min-w-0 items-start gap-2.5 ${className}`}
       onSubmit={(e) => {
         e.preventDefault();
-        if (disabled || busy || !isLoggedIn || !value.trim()) return;
-        onSubmit();
+        trySubmit();
       }}
     >
       <SmallAvatar me={me} />
-      <input
-        type="text"
-        className={CM_INPUT_CLASS}
+      <CommunityCommentGrowTextarea
         value={value}
+        onChange={onChange}
         placeholder={placeholder}
         readOnly={!isLoggedIn}
         disabled={(disabled || busy) && isLoggedIn}
+        expanded={expanded}
+        composingRef={composingRef}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onClick={() => {
           if (!isLoggedIn) {
             const n = window.location.pathname + window.location.search;
             void requireAction("community_comment", () => undefined, { next: n });
           }
         }}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (!disabled && !busy && isLoggedIn && value.trim()) onSubmit();
-          }
-        }}
-        autoComplete="off"
-        enterKeyHint="send"
       />
       <button
         type="submit"
         disabled={disabled || busy || !isLoggedIn || !value.trim()}
-        className={`h-11 shrink-0 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
+        className={`min-h-12 shrink-0 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
         aria-label={t("community_comment_post_aria")}
       >
         {t("community_comment_post")}

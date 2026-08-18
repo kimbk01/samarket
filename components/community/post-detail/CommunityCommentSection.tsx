@@ -1,13 +1,14 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { CommunityCommentComposerForm, type MeAvatarProps } from "./CommunityCommentComposerForm";
 import { CommunityCommentItem } from "./CommunityCommentItem";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityCard } from "@/components/community/ui/CommunityCard";
 import {
+  CM_BTN_GHOST_CLASS,
   CM_SEGMENT_ACTIVE_CLASS,
   CM_SEGMENT_IDLE_CLASS,
 } from "@/lib/community/community-ui-classes";
@@ -30,16 +31,15 @@ function countFlat(nodes: NeighborhoodCommentNode[]): number {
 
 function sortRoots(roots: NeighborhoodCommentNode[], mode: CommentSortMode): NeighborhoodCommentNode[] {
   if (mode === "thread") return roots;
-  return [...roots].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  return [...roots].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 type Props = {
   roots: NeighborhoodCommentNode[];
   focusCommentId?: string | null;
-  scrollToBottomSignal: number;
   commentsLoading: boolean;
+  commentsLoadError?: boolean;
+  onRetryComments?: () => void;
   locked?: boolean;
   lockMessage?: string;
   viewerUserId?: string | null;
@@ -65,8 +65,9 @@ type Props = {
 export function CommunityCommentSection({
   roots,
   focusCommentId = null,
-  scrollToBottomSignal,
   commentsLoading,
+  commentsLoadError = false,
+  onRetryComments,
   locked = false,
   lockMessage = "",
   viewerUserId = null,
@@ -87,14 +88,8 @@ export function CommunityCommentSection({
   });
   const [sortMode, setSortMode] = useState<CommentSortMode>("thread");
   const [replyOpenCommentId, setReplyOpenCommentId] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const displayRoots = useMemo(() => sortRoots(roots, sortMode), [roots, sortMode]);
   const n = useMemo(() => countFlat(roots), [roots]);
-
-  useEffect(() => {
-    if (scrollToBottomSignal <= 0) return;
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [scrollToBottomSignal]);
 
   useEffect(() => {
     if (!focusCommentId) return;
@@ -121,15 +116,24 @@ export function CommunityCommentSection({
     );
   }
 
+  const listState: "loading" | "error" | "empty" | "success" =
+    commentsLoading && displayRoots.length === 0
+      ? "loading"
+      : commentsLoadError && displayRoots.length === 0
+        ? "error"
+        : displayRoots.length === 0
+          ? "empty"
+          : "success";
+
   return (
     <CommunityCard className="mt-4" id="comments">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold text-[var(--cm-text)]">
-          <MessageCircle className="h-5 w-5 text-[var(--cm-text-muted)]" strokeWidth={1.8} aria-hidden />
-          {t("community_comments_title", { count: n })}
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 flex min-w-0 items-center gap-2 text-[17px] font-bold text-[var(--cm-text)]">
+          <MessageCircle className="h-5 w-5 shrink-0 text-[var(--cm-text-muted)]" strokeWidth={1.8} aria-hidden />
+          <span className="min-w-0 break-words">{t("community_comments_title", { count: n })}</span>
         </h2>
         <div
-          className="inline-flex gap-0.5 rounded-full border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-0.5"
+          className="inline-flex max-w-full shrink-0 gap-0.5 rounded-full border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-0.5"
           role="group"
           aria-label={t("community_comments_sort_aria")}
         >
@@ -151,7 +155,7 @@ export function CommunityCommentSection({
       </div>
 
       {composer ? (
-        <div id="comment-composer" className="mt-4 scroll-mt-4">
+        <div id="comment-composer" className="mt-4 min-w-0 scroll-mt-4">
           <CommunityCommentComposerForm
             me={composer.me}
             value={composer.value}
@@ -170,20 +174,34 @@ export function CommunityCommentSection({
         </div>
       ) : null}
 
-      {commentsLoading && displayRoots.length === 0 ? (
+      {listState === "loading" ? (
         <div className="py-6 text-center text-[14px] text-[var(--cm-text-muted)]">
           {t("community_comments_loading")}
         </div>
-      ) : displayRoots.length === 0 ? (
+      ) : listState === "error" ? (
+        <div className="py-6 text-center">
+          <p className="m-0 text-[14px] text-[var(--cm-text)]">{t("community_comments_load_error")}</p>
+          {onRetryComments ? (
+            <button
+              type="button"
+              className={`mt-3 min-h-12 px-4 ${CM_BTN_GHOST_CLASS}`}
+              onClick={() => onRetryComments()}
+            >
+              {t("common_retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : listState === "empty" ? (
         <p className="py-6 text-center text-[14px] text-[var(--cm-text-muted)]">{t("community_comment_first")}</p>
       ) : (
-        <ul className="m-0 mt-3 list-none space-y-2 p-0">
+        <ul className="m-0 mt-3 list-none divide-y divide-[var(--cm-border)] p-0">
           {displayRoots.map((node) => (
-            <li key={node.id} className="m-0 rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-2">
+            <li key={node.id} className="m-0 min-w-0">
               <CommunityCommentItem
                 node={node}
                 viewerUserId={viewerUserId}
                 viewerIsAdmin={viewerIsAdmin}
+                focusCommentId={focusCommentId}
                 onLike={onCommentLike}
                 onEdit={onCommentEdit}
                 onDelete={onCommentDelete}
@@ -194,7 +212,6 @@ export function CommunityCommentSection({
               />
             </li>
           ))}
-          <div ref={endRef} />
         </ul>
       )}
     </CommunityCard>

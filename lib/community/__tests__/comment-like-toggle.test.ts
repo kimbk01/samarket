@@ -21,6 +21,7 @@ describe("comment like toggle contract", () => {
     expect(src).toContain("const nextLiked = !node.liked_by_viewer");
     expect(src).toContain("typeof data.liked === \"boolean\"");
     expect(src).toContain("await reloadComments()");
+    expect(src).toContain("setFocusCommentId(createdId)");
   });
 
   it("CommunityDetail post like toggles with server liked flag", () => {
