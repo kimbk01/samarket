@@ -103,8 +103,39 @@ async function signInForLoginId(loginId) {
   return { cookies, loginId, userId: data.session.user.id };
 }
 
+async function findOwnedStoreOrderRoom(userId, storeOrderRooms) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!serviceKey || !url || !userId || !storeOrderRooms?.length) return null;
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const { data: stores } = await admin.from("stores").select("id").eq("owner_user_id", userId).limit(20);
+  const storeIds = new Set((stores ?? []).map((s) => String(s.id ?? "").trim()).filter(Boolean));
+  if (storeIds.size === 0) return null;
+  const { data: orders } = await admin
+    .from("store_orders")
+    .select("id, store_id")
+    .in("store_id", [...storeIds])
+    .limit(80);
+  const orderIds = new Set((orders ?? []).map((o) => String(o.id ?? "").trim()).filter(Boolean));
+  for (const room of storeOrderRooms) {
+    const oid = String(room.contextMeta?.storeOrderId ?? "").trim();
+    const sid = String(room.contextMeta?.storeId ?? "").trim();
+    const dk = String(room.messengerDirectKey ?? room.directKey ?? "");
+    if (sid && storeIds.has(sid)) return room;
+    if (oid && orderIds.has(oid)) return room;
+    for (const id of orderIds) {
+      if (id && dk.includes(id)) return room;
+    }
+  }
+  return null;
+}
+
 function loginIdCandidates() {
-  return [...new Set([process.env.E2E_TEST_USERNAME?.trim(), "aa11", "aaaa", "wwww", "qqqq", "bbbb"].filter(Boolean))];
+  return [
+    ...new Set(
+      [process.env.E2E_TEST_USERNAME?.trim(), "aa11", "aaaa", "wwww", "qqqq", "bbbb", "asas55"].filter(Boolean)
+    ),
+  ];
 }
 
 async function signInSession() {
@@ -136,6 +167,13 @@ async function discoverFixturesAcrossAccounts(page) {
   const mergedRooms = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
   const authByDomain = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
   const scanByLogin = {};
+  const roomsByLogin = {};
+  const matrix = {
+    storeOrderOwner: null,
+    tradeSecond: null,
+    generalTradePeerPair: null,
+    sameLoginThreeDomains: null,
+  };
 
   for (const loginId of loginIds) {
     const auth = await signInForLoginId(loginId);
@@ -152,6 +190,7 @@ async function discoverFixturesAcrossAccounts(page) {
     const groups = payload.groups ?? payload.data?.groups ?? [];
     const rooms = [...chats, ...groups];
     const fixtures = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
+    const classified = { GENERAL_DIRECT: [], GROUP: [], TRADE: [], STORE_ORDER: [] };
     for (const room of rooms) {
       const d = classifyRoom(room);
       const preferPrivateGroup =
@@ -159,20 +198,78 @@ async function discoverFixturesAcrossAccounts(page) {
         room.roomType === "private_group" &&
         mergedRooms.GROUP?.roomType !== "private_group";
       if (d in fixtures && !fixtures[d]) fixtures[d] = room?.id ?? null;
+      if (d in classified && room?.id) classified[d].push(room);
       if (d in mergedFixtures && room?.id && (!mergedFixtures[d] || preferPrivateGroup)) {
         mergedFixtures[d] = room.id;
         mergedRooms[d] = room;
         authByDomain[d] = auth;
       }
     }
+    roomsByLogin[loginId] = classified;
+    if (
+      !matrix.sameLoginThreeDomains &&
+      classified.GENERAL_DIRECT[0] &&
+      classified.TRADE[0] &&
+      classified.STORE_ORDER[0]
+    ) {
+      matrix.sameLoginThreeDomains = {
+        loginId,
+        generalId: classified.GENERAL_DIRECT[0].id,
+        tradeId: classified.TRADE[0].id,
+        storeOrderId: classified.STORE_ORDER[0].id,
+      };
+    }
+    if (!matrix.tradeSecond && classified.TRADE.length >= 2) {
+      matrix.tradeSecond = { auth, rooms: classified.TRADE.slice(0, 2) };
+    }
+    if (!matrix.generalTradePeerPair) {
+      for (const general of classified.GENERAL_DIRECT) {
+        const peer = String(general.peerUserId ?? "").trim();
+        if (!peer) continue;
+        const trade = classified.TRADE.find((r) => String(r.peerUserId ?? "").trim() === peer);
+        if (trade) {
+          matrix.generalTradePeerPair = { auth, peerUserId: peer, general, trade };
+          break;
+        }
+      }
+    }
+    if (!matrix.storeOrderOwner) {
+      const owned = await findOwnedStoreOrderRoom(auth.userId, classified.STORE_ORDER);
+      if (owned) {
+        matrix.storeOrderOwner = { auth, room: owned, via: "stores.owner_user_id" };
+      } else {
+        for (const room of classified.STORE_ORDER.slice(0, 8)) {
+          const meta = await fetchRoomBootstrapMeta(page, room.id);
+          if (meta.myRole === "owner") {
+            matrix.storeOrderOwner = { auth, room, meta, via: "snapshot.myRole" };
+            break;
+          }
+        }
+      }
+    }
+    const ownedId =
+      matrix.storeOrderOwner?.auth?.loginId === loginId ? matrix.storeOrderOwner?.room?.id ?? null : null;
+    const customerStoreOrder = classified.STORE_ORDER.find((room) => room.id !== ownedId) ?? null;
+    if (customerStoreOrder) {
+      mergedFixtures.STORE_ORDER = customerStoreOrder.id;
+      mergedRooms.STORE_ORDER = customerStoreOrder;
+      authByDomain.STORE_ORDER = auth;
+      fixtures.STORE_ORDER = customerStoreOrder.id;
+    }
     scanByLogin[loginId] = {
       ok: bootstrap.ok,
       chatCount: chats.length,
       groupCount: groups.length,
       fixtures,
+      tradeCount: classified.TRADE.length,
+      storeOrderCount: classified.STORE_ORDER.length,
       hasActiveSessionCookie: auth.cookies.some((c) => c.name === "samarket_active_session_id"),
     };
-    if (Object.values(mergedFixtures).every(Boolean)) break;
+    const fourReady = Object.values(mergedFixtures).every(Boolean);
+    const matrixReady = Boolean(
+      matrix.storeOrderOwner && matrix.tradeSecond && matrix.generalTradePeerPair && matrix.sameLoginThreeDomains
+    );
+    if (fourReady && matrixReady) break;
   }
 
   const primaryAuth =
@@ -190,9 +287,26 @@ async function discoverFixturesAcrossAccounts(page) {
       scanByLogin,
       authLoginByDomain: Object.fromEntries(Object.entries(authByDomain).map(([k, v]) => [k, v?.loginId ?? null])),
       score: Object.values(mergedFixtures).filter(Boolean).length,
+      matrix: {
+        storeOrderOwner: matrix.storeOrderOwner?.room?.id ?? null,
+        storeOrderOwnerLogin: matrix.storeOrderOwner?.auth?.loginId ?? null,
+        storeOrderOwnerVia: matrix.storeOrderOwner?.via ?? null,
+        tradeSecondIds: matrix.tradeSecond?.rooms?.map((r) => r.id) ?? null,
+        generalTradePeerPair: matrix.generalTradePeerPair
+          ? {
+              loginId: matrix.generalTradePeerPair.auth.loginId,
+              peerUserId: matrix.generalTradePeerPair.peerUserId,
+              generalId: matrix.generalTradePeerPair.general.id,
+              tradeId: matrix.generalTradePeerPair.trade.id,
+            }
+          : null,
+        sameLoginThreeDomains: matrix.sameLoginThreeDomains,
+      },
     },
     mergedRooms,
     authByDomain,
+    matrix,
+    roomsByLogin,
   };
 }
 
@@ -263,6 +377,10 @@ async function readRoomSignals(page, opts = {}) {
       bodyHasGroupLabel:
         /비공개 그룹|오픈 그룹|Private group|Open group/i.test(chipText) || /\bgroup\b/i.test(chipText),
       bodyHasMemberSuffix: /[·•]\s*\d+\s*(명|members?)/i.test(chipText),
+      headerTitle:
+        roomRoot?.querySelector("p.font-semibold")?.textContent?.trim() ||
+        roomRoot?.querySelector("p.sam-text-body")?.textContent?.trim() ||
+        null,
       cmRoom: !!roomRoot,
       tradeDock: !!document.querySelector("[data-cm-trade-dock]"),
       url: window.location.pathname,
@@ -285,6 +403,9 @@ async function fetchRoomBootstrapMeta(page, roomId) {
       chatDomain: room?.chatDomain ?? null,
       roomType: room?.roomType ?? null,
       contextKind: room?.contextMeta?.kind ?? null,
+      myRole: json?.snapshot?.myRole ?? null,
+      peerUserId: room?.peerUserId ?? null,
+      title: room?.title ?? null,
     };
   }, roomId);
 }
@@ -467,6 +588,101 @@ async function runDomainStoreOrder(page, room) {
   return evidence;
 }
 
+function assessMatrixCase(evidence) {
+  if (evidence.skipped) return "SKIP";
+  const checks = evidence.checks ?? {};
+  const values = Object.values(checks);
+  if (values.length === 0) return "NOT_PROVEN";
+  if (values.every(Boolean)) return "PASS";
+  if (values.some(Boolean)) return "PARTIAL";
+  return "FAIL";
+}
+
+async function runCaseC(page, pair) {
+  const evidence = { case: "C_GENERAL_TRADE_SAME_PEER", checks: {}, errors: [] };
+  if (!pair?.general?.id || !pair?.trade?.id) {
+    evidence.skipped = true;
+    evidence.skipReason = "no_same_peer_general_trade_pair";
+    return evidence;
+  }
+  evidence.peerUserId = pair.peerUserId;
+  evidence.generalId = pair.general.id;
+  evidence.tradeId = pair.trade.id;
+  const general = await probeRoomHeader(page, pair.general.id);
+  evidence.general = general;
+  evidence.checks.general_entered = general.entered && general.cmRoom;
+  evidence.checks.general_label = general.bodyHasDirectLabel;
+  evidence.checks.general_no_trade_dock = !general.tradeDock;
+  const trade = await probeRoomHeader(page, pair.trade.id, { waitTradeDock: true, settleMs: 4000 });
+  evidence.trade = trade;
+  evidence.checks.trade_entered = trade.entered && trade.cmRoom;
+  evidence.checks.trade_label = trade.bodyHasTradeLabel;
+  evidence.checks.trade_no_general_suffix = !trade.bodyHasDirectLabel && !trade.bodyHasMemberSuffix;
+  evidence.checks.distinct_rooms = pair.general.id !== pair.trade.id;
+  return evidence;
+}
+
+async function runCaseD(page, tradeSecond) {
+  const evidence = { case: "D_MULTI_TRADE", checks: {}, errors: [] };
+  const rooms = tradeSecond?.rooms ?? [];
+  if (rooms.length < 2) {
+    evidence.skipped = true;
+    evidence.skipReason = "need_two_trade_rooms";
+    return evidence;
+  }
+  evidence.roomIds = rooms.map((r) => r.id);
+  const first = await probeRoomHeader(page, rooms[0].id, { waitTradeDock: true, settleMs: 4000 });
+  const second = await probeRoomHeader(page, rooms[1].id, { waitTradeDock: true, settleMs: 4000 });
+  evidence.first = first;
+  evidence.second = second;
+  evidence.checks.first_trade = first.bodyHasTradeLabel && first.entered && first.cmRoom;
+  evidence.checks.second_trade = second.bodyHasTradeLabel && second.entered && second.cmRoom;
+  evidence.checks.distinct_rooms = rooms[0].id !== rooms[1].id;
+  evidence.checks.no_general_leak =
+    !first.bodyHasDirectLabel && !second.bodyHasDirectLabel && !first.bodyHasMemberSuffix && !second.bodyHasMemberSuffix;
+  return evidence;
+}
+
+async function runCaseF(page, owner) {
+  const evidence = { case: "F_STORE_ORDER_OWNER", checks: {}, errors: [] };
+  if (!owner?.room?.id) {
+    evidence.skipped = true;
+    evidence.skipReason = "no_owner_store_order_room";
+    return evidence;
+  }
+  evidence.roomId = owner.room.id;
+  const roomSig = await probeRoomHeader(page, owner.room.id);
+  evidence.room = roomSig;
+  evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
+  evidence.checks.viewer_is_store_owner = owner.via === "stores.owner_user_id" || roomSig.bootstrapMeta?.myRole === "owner";
+  evidence.checks.bootstrap_store_order =
+    roomSig.bootstrapMeta?.chatDomain === "store_order" || roomSig.bootstrapMeta?.contextKind === "delivery";
+  evidence.checks.timeline_order_label = roomSig.bodyHasOrderLabel;
+  evidence.checks.no_general_member_suffix = !roomSig.bodyHasDirectLabel && !roomSig.bodyHasMemberSuffix;
+  evidence.checks.no_trade_dock = !roomSig.tradeDock;
+  evidence.checks.no_store_title_as_peer_primary = !/매장|Store chats|Order chat/i.test(roomSig.headerTitle ?? "");
+  evidence.via = owner.via ?? null;
+  return evidence;
+}
+
+function runCaseG(domains) {
+  const evidence = { case: "G_SAME_LOGIN_MULTI_DOMAIN", checks: {}, errors: [] };
+  const general = domains.GENERAL_DIRECT;
+  const trade = domains.TRADE;
+  const store = domains.STORE_ORDER;
+  if (general?.verdict === "SKIP" || trade?.verdict === "SKIP" || store?.verdict === "SKIP") {
+    evidence.skipped = true;
+    evidence.skipReason = "missing_domain_runtime";
+    return evidence;
+  }
+  evidence.checks.general_independent = general?.verdict === "PASS" && general?.room?.bodyHasDirectLabel;
+  evidence.checks.trade_independent = trade?.verdict === "PASS" && trade?.room?.bodyHasTradeLabel;
+  evidence.checks.store_independent = store?.verdict === "PASS" && store?.room?.bodyHasOrderLabel;
+  evidence.checks.no_cross_trade_on_store = store?.room?.bodyHasTradeLabel !== true;
+  evidence.checks.no_cross_general_on_trade = trade?.room?.bodyHasDirectLabel !== true;
+  return evidence;
+}
+
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
@@ -480,8 +696,8 @@ async function main() {
 
   const byDomain = discovery.mergedRooms;
 
-  async function runOnFreshPage(domainKey, runner) {
-    const domainAuth = discovery.authByDomain[domainKey] ?? discovery;
+  async function runOnFreshPage(domainKey, runner, authOverride) {
+    const domainAuth = authOverride ?? discovery.authByDomain[domainKey] ?? discovery;
     await applyAuthCookies(context, domainAuth);
     const page = await context.newPage();
     try {
@@ -532,11 +748,40 @@ async function main() {
     STORE_ORDER: storeEv.verdict ? storeEv : { ...storeEv, verdict: assessDomain("STORE_ORDER", storeEv) },
   };
 
+  const caseCEv = await runOnFreshPage(
+    "GENERAL_DIRECT",
+    (page) => runCaseC(page, discovery.matrix.generalTradePeerPair),
+    discovery.matrix.generalTradePeerPair?.auth
+  ).catch((e) => ({ case: "C_GENERAL_TRADE_SAME_PEER", checks: {}, errors: [String(e?.message ?? e)], verdict: "FAIL" }));
+  const caseDEv = await runOnFreshPage(
+    "TRADE",
+    (page) => runCaseD(page, discovery.matrix.tradeSecond),
+    discovery.matrix.tradeSecond?.auth
+  ).catch((e) => ({ case: "D_MULTI_TRADE", checks: {}, errors: [String(e?.message ?? e)], verdict: "FAIL" }));
+  const caseFEv = await runOnFreshPage(
+    "STORE_ORDER",
+    (page) => runCaseF(page, discovery.matrix.storeOrderOwner),
+    discovery.matrix.storeOrderOwner?.auth
+  ).catch((e) => ({ case: "F_STORE_ORDER_OWNER", checks: {}, errors: [String(e?.message ?? e)], verdict: "FAIL" }));
+  const caseGEv = runCaseG(domains);
+
+  const matrix = {
+    C_GENERAL_TRADE_SAME_PEER: caseCEv.verdict ? caseCEv : { ...caseCEv, verdict: assessMatrixCase(caseCEv) },
+    D_MULTI_TRADE: caseDEv.verdict ? caseDEv : { ...caseDEv, verdict: assessMatrixCase(caseDEv) },
+    F_STORE_ORDER_OWNER: caseFEv.verdict ? caseFEv : { ...caseFEv, verdict: assessMatrixCase(caseFEv) },
+    G_SAME_LOGIN_MULTI_DOMAIN: { ...caseGEv, verdict: assessMatrixCase(caseGEv) },
+  };
+
   const verdicts = Object.values(domains).map((d) => d.verdict);
   const hardFails = verdicts.filter((v) => v === "FAIL").length;
   const partials = verdicts.filter((v) => v === "PARTIAL").length;
   const skips = verdicts.filter((v) => v === "SKIP" || v === "NOT_PROVEN").length;
   const passes = verdicts.filter((v) => v === "PASS").length;
+  const matrixVerdicts = Object.values(matrix).map((d) => d.verdict);
+  const matrixFails = matrixVerdicts.filter((v) => v === "FAIL").length;
+  const matrixPartials = matrixVerdicts.filter((v) => v === "PARTIAL").length;
+  const matrixSkips = matrixVerdicts.filter((v) => v === "SKIP" || v === "NOT_PROVEN").length;
+  const matrixPasses = matrixVerdicts.filter((v) => v === "PASS").length;
 
   const report = {
     runAt: new Date().toISOString(),
@@ -548,11 +793,21 @@ async function main() {
     chatCount: discovery.fixtureDiscovery?.scanByLogin?.[discovery.loginId]?.chatCount ?? 0,
     fixtures: Object.fromEntries(Object.entries(byDomain).map(([k, v]) => [k, v?.id ?? null])),
     domains,
+    matrix,
     summary: { passes, partials, hardFails, skips },
+    matrixSummary: { passes: matrixPasses, partials: matrixPartials, hardFails: matrixFails, skips: matrixSkips },
     FINAL:
-      hardFails > 0 ? "FAIL" : partials > 0 || skips > 0 ? "PARTIAL" : passes === 4 ? "PASS" : "PARTIAL",
+      hardFails > 0 || matrixFails > 0
+        ? "FAIL"
+        : partials > 0 || skips > 0 || matrixPartials > 0 || matrixSkips > 0
+          ? "PARTIAL"
+          : passes === 4 && matrixPasses === 4
+            ? "PASS"
+            : "PARTIAL",
     FIRST_BREAK:
-      Object.entries(domains).find(([, d]) => d.verdict === "FAIL" || d.verdict === "PARTIAL")?.[0] ?? null,
+      Object.entries(domains).find(([, d]) => d.verdict === "FAIL" || d.verdict === "PARTIAL")?.[0] ??
+      Object.entries(matrix).find(([, d]) => d.verdict === "FAIL" || d.verdict === "PARTIAL")?.[0] ??
+      null,
   };
 
   fs.writeFileSync(outFile, `${JSON.stringify(report, null, 2)}\n`);
@@ -562,7 +817,7 @@ async function main() {
   );
   console.log(JSON.stringify(report, null, 2));
   await browser.close();
-  process.exit(hardFails > 0 ? 1 : 0);
+  process.exit(hardFails > 0 || matrixFails > 0 ? 1 : 0);
 }
 
 main().catch((err) => {
