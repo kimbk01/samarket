@@ -52,8 +52,11 @@ if (!tradeTabs.includes("e.preventDefault()")) {
 if (!/onClick=\{\(e\) => \{[\s\S]*commitTab\(allTab\.href/.test(tradeTabs)) {
   fail("TradePrimaryTabs 전체 Link onClick must commit via commitTradePrimaryTabRoute");
 }
-if (!tradeTabs.includes("commitTab(tab.href, tab.key)")) {
-  fail("TradePrimaryTabs 더보기 category commit must use commitTradePrimaryTabRoute");
+if (!tradeTabs.includes("commitTab(href, tabKey)")) {
+  fail("TradePrimaryTabs 더보기 apply must use commitTradePrimaryTabRoute");
+}
+if (!tradeTabs.includes("MarketplaceMoreBrowseSheet")) {
+  fail("TradePrimaryTabs 더보기 must use MarketplaceMoreBrowseSheet");
 }
 
 const marketLoading = read("app/(main)/market/loading.tsx");

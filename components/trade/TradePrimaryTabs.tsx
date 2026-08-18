@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
-import { DibayActionSheet } from "@/components/ui/dibay-overlay/DibayActionSheet";
+import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
@@ -72,11 +72,12 @@ function TradePrimaryTabsInner({
   const [moreOpen, setMoreOpen] = useState(false);
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
-  const { error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(
-    pathname,
-    categoryQuery,
-    searchParams.toString()
-  );
+  const {
+    error,
+    tabs,
+    tradeCategories,
+    activeIndex: pathnameActiveIndex,
+  } = useTradeTabs(pathname, categoryQuery, searchParams.toString());
   const displayTabs = useMemo(
     () =>
       tabs.map((tab) => ({
@@ -195,21 +196,17 @@ function TradePrimaryTabsInner({
           <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_region_chip")}</span>
         </button>
       </DibaySecondaryTabRow>
-      <DibayActionSheet
+      <MarketplaceMoreBrowseSheet
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
-        title={t("marketplace_more_categories_title")}
-        cancelLabel={t("common_cancel")}
-        items={categoryTabs.map((tab) => ({
-          key: tab.key,
-          label: tab.label,
-          onClick: () => {
-            if (tab.isDisplayActive) return;
-            if (!guardBeforeNavigate(tab.href)) return;
-            prewarmBottomNavMarketTab(tab.href);
-            commitTab(tab.href, tab.key);
-          },
-        }))}
+        topics={tradeCategories}
+        baseSearch={searchParams.toString()}
+        onApply={(href, tabKey) => {
+          setMoreOpen(false);
+          if (!guardBeforeNavigate(href)) return;
+          prewarmBottomNavMarketTab(href);
+          commitTab(href, tabKey);
+        }}
       />
     </>
   );
