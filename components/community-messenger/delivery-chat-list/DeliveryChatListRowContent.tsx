@@ -35,6 +35,7 @@ export function DeliveryChatListRowContent({
       <div className="shrink-0">{avatar}</div>
       <div className="min-w-0 flex-1">
         <p
+          data-cm-list-title=""
           className={`${ONE_LINE} sam-text-body font-semibold leading-tight`}
           style={{ color: "var(--messenger-text)" }}
         >
