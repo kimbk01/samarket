@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Apply supabase/migrations/20260525190000_community_messenger_home_sync_snapshot.sql */
+/** Apply supabase/migrations/20261118123700_home_sync_snapshot_store_order_store_name.sql */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import pg from "pg";
@@ -42,7 +42,7 @@ async function main() {
     process.exit(1);
   }
   const sql = readFileSync(
-    resolve(process.cwd(), "supabase/migrations/20260525190000_community_messenger_home_sync_snapshot.sql"),
+    resolve(process.cwd(), "supabase/migrations/20261118123700_home_sync_snapshot_store_order_store_name.sql"),
     "utf8"
   );
   const client = new Client({ connectionString: cs, ssl: { rejectUnauthorized: false } });

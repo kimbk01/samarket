@@ -119,6 +119,29 @@ describe("applyCommerceLifecycleFromSnapshotPayload", () => {
     expect(summaries[0]?.isReadonly).toBe(true);
   });
 
+  it("merges flat store_name from snapshot RPC rows (no stores embed)", () => {
+    const summaries = [deliveryRoom("room-delivery-2", "store_order:order-2")];
+    const payload: HomeSyncSnapshotPayloadJson = {
+      commerce_lifecycle: {
+        product_chats: [],
+        store_orders: [
+          {
+            id: "order-2",
+            order_status: "preparing",
+            community_messenger_room_id: "room-delivery-2",
+            store_id: "store-2",
+            store_name: "MARKET MARKET",
+            profile_image_url: "https://cdn.example/m.jpg",
+          },
+        ],
+        order_completed_events: [],
+      },
+    };
+    applyCommerceLifecycleFromSnapshotPayload(summaries, payload);
+    expect(summaries[0]?.contextMeta?.storeDisplayName).toBe("MARKET MARKET");
+    expect(summaries[0]?.contextMeta?.storeId).toBe("store-2");
+  });
+
   it("no-ops when commerce_lifecycle block is absent", () => {
     const summaries = [tradeRoom("room-trade", "trade_pc:pc-1")];
     const before = { ...summaries[0]!.contextMeta };
