@@ -1,0 +1,47 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT E (buyer purchase surface removal)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT E HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-e-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT E LOCKED**
+- Production SHA: `89a3f87929b7db3b18dbbbc1f43f2926c11caccf`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_8uz72ReurjjXvYUF1qu2pK2j7AiZ`
+- BUYER PURCHASE LIST / TAB / CTA: **REMOVED**
+- LEGACY LIST → `/community-messenger/trade-chats`: **LOCKED**
+- LEGACY DETAIL → Messenger trade room: **LOCKED**
+- `/mypage/trade` DEFAULT: **SALES**
+- AccountTab: **salesCount + 판매 내역**
+- PURCHASE API / purchaseCount: **PRESERVED**
+- BUYER-CONFIRM / BUYER-ISSUE / CHAT: **PRESERVED**
+- MIGRATION: **NO**
+- CUT A / B / C / D / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+Duplicate Buyer MY surface removed — purchase data not deleted
+MY default = sales
+Buyer history/actions = Messenger trade SSOT
+list legacy → TRADE_CHAT_MESSENGER_LIST_HREF
+detail legacy → tradeHubChatRoomHref
+purchaseCount API/data KEEP
+```
+
+Authority: `lib/chats/surfaces/trade-chat-surface.ts` · `lib/mypage/trade-hub-paths.ts`.
+
+This cut changed **Buyer MY navigation**, not SEARCH (C), LIST default (B), taxonomy (A), or review write UI (D).
+
+## DO NOT (without a new cut)
+
+- Restore buyer purchase list / tab / CTA
+- Redirect purchase list URLs to sales MY
+- Delete purchase API/data under CUT E
+- Remove buyer-confirm / buyer-issue
+- Reopen CUT A–D, or start CUT F inside CUT E work
