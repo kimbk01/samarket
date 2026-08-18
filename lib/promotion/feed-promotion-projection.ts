@@ -8,6 +8,9 @@
  * - Ordering among pins: entitlement end_at DESC (freshest remaining window first).
  * - page>0: exclude active promoted ids (no duplicate re-entry).
  * - Ad slot count uses projected content rows (promoted+normal), not a separate blank lane.
+ *
+ * CUT F (2026-08-18): SEARCH (`pinPromoted: false`) is badge-only.
+ * Do not prepend pins over CUT C T1–T4 rank. LIST/CATEGORY browse still pins.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -25,6 +28,15 @@ export {
 
 /** Cap page-0 pin count so paid boost does not bury the organic feed. */
 export const MAX_PAGE0_PROMOTED_PINS = 3;
+
+/**
+ * Request `page` is 1-based (`normalizePage`). LIST pin uses 0-based pageIndex.
+ * page=1 → 0 (pin ≤3). page=2+ → ≥1 (no prepend).
+ */
+export function tradePromotionPageIndexFromRequestPage(page: number): number {
+  const n = Number.isFinite(page) ? Math.floor(page) : 1;
+  return Math.max(0, n - 1);
+}
 
 export type ActivePromotionEntitlement = {
   targetId: string;
@@ -167,8 +179,30 @@ export function annotatePromotedPosts(
 }
 
 /**
+ * CUT F SEARCH — badge only. Do not prepend pins or drop promoted ids.
+ * CUT C T1–T4 order stays the candidate/rank authority.
+ */
+export function overlayTradePromotionBadges(input: {
+  posts: PostWithMeta[];
+  activePromotionIds: Set<string>;
+}): { posts: PostWithMeta[]; promotedIdsOnPage: string[] } {
+  const promotedIdsOnPage = input.posts
+    .filter(
+      (p) =>
+        input.activePromotionIds.has(p.id) &&
+        isPostEligibleForPromotionBoost(p.status, p.seller_listing_state)
+    )
+    .map((p) => p.id);
+  return {
+    posts: annotatePromotedPosts(input.posts, new Set(promotedIdsOnPage)),
+    promotedIdsOnPage,
+  };
+}
+
+/**
  * Server-side Trade feed projection. Content page query unchanged;
- * promoted rows overlay on page 0 and are excluded from later pages.
+ * LIST/CATEGORY browse: promoted rows overlay on page 0 and are excluded
+ * from later pages. SEARCH (`pinPromoted: false`): badge only, rank unchanged.
  */
 export async function applyTradeHomePromotionProjection(
   sb: SupabaseClient,
@@ -176,6 +210,8 @@ export async function applyTradeHomePromotionProjection(
     pageIndex: number;
     posts: PostWithMeta[];
     tradeCategoryIds: string[] | null;
+    /** Default true = LIST pin. False = SEARCH overlay (CUT F). */
+    pinPromoted?: boolean;
   }
 ): Promise<{ posts: PostWithMeta[]; hasPromotionOverlay: boolean }> {
   try {
@@ -184,6 +220,16 @@ export async function applyTradeHomePromotionProjection(
       return { posts: input.posts, hasPromotionOverlay: false };
     }
     const activeIds = new Set(entitlements.map((e) => e.targetId));
+    if (input.pinPromoted === false) {
+      const overlaid = overlayTradePromotionBadges({
+        posts: input.posts,
+        activePromotionIds: activeIds,
+      });
+      return {
+        posts: overlaid.posts,
+        hasPromotionOverlay: overlaid.promotedIdsOnPage.length > 0,
+      };
+    }
     const promotedPosts =
       input.pageIndex <= 0
         ? await loadPostsByIdsForPromotion(

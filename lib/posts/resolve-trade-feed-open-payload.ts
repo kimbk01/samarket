@@ -9,7 +9,10 @@ import { fetchTradeFeedPage, type TradeFeedPageSort } from "@/lib/posts/fetch-tr
 import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-server-cache";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
-import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
+import {
+  applyTradeHomePromotionProjection,
+  tradePromotionPageIndexFromRequestPage,
+} from "@/lib/promotion/feed-promotion-projection";
 import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
 
 export type TradeFeedOpenRequestOptions = {
@@ -106,7 +109,7 @@ export async function resolveTradeFeedOpenPayload(
 
   const promoSb = (serviceSb ?? readSb) as any;
   const projected = await applyTradeHomePromotionProjection(promoSb, {
-    pageIndex: Math.max(0, opts.page - 1),
+    pageIndex: tradePromotionPageIndexFromRequestPage(opts.page),
     posts: result.posts as PostWithMeta[],
     tradeCategoryIds: categoryIds,
   });

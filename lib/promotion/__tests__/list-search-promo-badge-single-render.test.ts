@@ -32,3 +32,51 @@ describe("LIST/SEARCH promotion badge single render", () => {
     expect(text).not.toContain("PostCard");
   });
 });
+
+describe("CUT F seller promotion unification", () => {
+  it("SEARCH path disables pin so CUT C rank is not prepended", () => {
+    const route = src("lib/posts/home-posts-route-core.ts");
+    const projection = src("lib/promotion/feed-promotion-projection.ts");
+    expect(route).toContain("pinPromoted: !q");
+    expect(route).toContain("tradePromotionPageIndexFromRequestPage(page)");
+    expect(projection).toContain("overlayTradePromotionBadges");
+    expect(projection).toContain("pinPromoted === false");
+    const overlayStart = projection.indexOf("export function overlayTradePromotionBadges");
+    const overlayEnd = projection.indexOf("export async function applyTradeHomePromotionProjection");
+    const overlayBody = projection.slice(overlayStart, overlayEnd);
+    expect(overlayBody).toContain("annotatePromotedPosts");
+    expect(overlayBody).not.toContain("projectTradeFeedWithPromotions");
+    expect(overlayBody).not.toContain(".sort(");
+    expect(overlayBody).not.toContain("pinned");
+  });
+
+  it("LIST browse seed still pins (0-based pageIndex, default pinPromoted)", () => {
+    const text = src("lib/posts/home-posts-route-core.ts");
+    expect(text).toContain("tradePromotionPageIndexFromRequestPage(page)");
+    const seedFn = text.slice(
+      text.indexOf("export async function resolveDefaultTradeHomePostsSeedForServerComponent"),
+      text.indexOf("export async function resolveHomePostsGetData")
+    );
+    expect(seedFn).toContain("applyTradeHomePromotionProjection");
+    expect(seedFn).toContain("tradePromotionPageIndexFromRequestPage");
+    expect(seedFn).not.toContain("pinPromoted:");
+  });
+
+  it("DETAIL seller CTA is Product A sheet, not trade-ads/apply", () => {
+    const detail = src("components/post/PostDetailView.tsx");
+    const sheet = src("components/post/MemberPostPromoteSheet.tsx");
+    expect(detail).toContain("MemberPostPromoteSheet");
+    expect(detail).toContain("trade_promo_detail_cta");
+    expect(detail).not.toContain("trade-ads/apply");
+    expect(detail).not.toContain("TradePostAdApplySheet");
+    expect(sheet).toContain("/api/me/points/promotion-orders");
+    expect(sheet).not.toContain("trade-ads/apply");
+    expect(sheet).toContain("promo_sheet_title_trade");
+  });
+
+  it("does not drop CUT B sell-intent or CUT C search expansion on the home-posts path", () => {
+    const route = src("lib/posts/home-posts-route-core.ts");
+    expect(route).toContain("shouldApplyMixedDiscoverySellIntent");
+    expect(route).toContain("shouldApplyMarketplaceSearchExpansion");
+  });
+});

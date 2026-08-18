@@ -199,9 +199,9 @@ export function MemberPostPromoteSheet({
           fallbackKo: "게시물 홍보하기",
           fallbackEn: "Promote this post",
         })
-      : safeT("promo_sheet_title", {
-          fallbackKo: "게시물 상위 노출",
-          fallbackEn: "Post paid exposure",
+      : safeT("promo_sheet_title_trade", {
+          fallbackKo: "게시물 홍보하기",
+          fallbackEn: "Promote this post",
         });
 
   return (

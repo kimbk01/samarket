@@ -434,7 +434,7 @@ function TradePostDetailActionBar({
   );
 }
 
-/** 판매자 하단 — 받은 제안(모달) · 유료 광고를 마켓플레이스형으로 나란히 */
+/** 판매자 하단 — 받은 제안(모달) · Product A 더 알리기 (CUT F) */
 function PostDetailSellerPromoButtons({
   showSellerOfferList,
   canApplyTradeAd,
@@ -446,9 +446,13 @@ function PostDetailSellerPromoButtons({
   onOpenOffers: () => void;
   onOpenAd: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   if (!showSellerOfferList && !canApplyTradeAd) return null;
   const btnClass = `${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1 px-2`;
+  const promoteLabel = safeT("trade_promo_detail_cta", {
+    fallbackKo: "더 알리기",
+    fallbackEn: "Promote",
+  });
   return (
     <div className="flex w-full gap-2 sm:gap-2.5">
       {showSellerOfferList ? (
@@ -458,7 +462,7 @@ function PostDetailSellerPromoButtons({
       ) : null}
       {canApplyTradeAd ? (
         <button type="button" className={btnClass} onClick={onOpenAd}>
-          {t("ui_post_paid_ad_apply_title")}
+          {promoteLabel}
         </button>
       ) : null}
     </div>

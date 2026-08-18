@@ -24,7 +24,10 @@ import {
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
-import { applyTradeHomePromotionProjection } from "@/lib/promotion/feed-promotion-projection";
+import {
+  applyTradeHomePromotionProjection,
+  tradePromotionPageIndexFromRequestPage,
+} from "@/lib/promotion/feed-promotion-projection";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 import {
   marketplaceQueryCacheSegment,
@@ -248,7 +251,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
       await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
       const projected = await applyTradeHomePromotionProjection(promoSb, {
-        pageIndex: page,
+        pageIndex: tradePromotionPageIndexFromRequestPage(page),
         posts: pack.posts,
         tradeCategoryIds,
       });
@@ -531,10 +534,12 @@ export async function resolveHomePostsGetData(
       if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
 
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
+      // CUT F: SEARCH q → overlay badge only. Empty q = LIST/CATEGORY pin.
       const projected = await applyTradeHomePromotionProjection(promoSb, {
-        pageIndex: page,
+        pageIndex: tradePromotionPageIndexFromRequestPage(page),
         posts: pack.posts,
         tradeCategoryIds,
+        pinPromoted: !q,
       });
 
       homePostsServerCache.set(cacheKey, {
