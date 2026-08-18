@@ -18,6 +18,15 @@ import { resolveStoreProductMediaUrl } from "@/lib/media/resolve-store-product-m
 /** 매장 정보 누락 시 표면 라벨 — 회원명 노출 대신 매장 표면 유지 */
 export const STORE_ORDER_DISPLAY_STORE_FALLBACK = "매장";
 
+/** GENERAL room.title fallback (`cm_ui_new_conversation`) — 매장 identity로 쓰지 않는다. */
+const STORE_ORDER_PLACEHOLDER_TITLES = new Set(["새 대화", "new conversation", "cm_ui_new_conversation"]);
+
+export function isUnusableStoreOrderDisplayName(name: string | null | undefined): boolean {
+  const n = typeof name === "string" ? name.trim() : "";
+  if (!n) return true;
+  return STORE_ORDER_PLACEHOLDER_TITLES.has(n.toLowerCase());
+}
+
 export type StoreOrderDisplayIdentity = {
   storeId: string | null;
   /** 항상 매장 표면. 매장명 미확정 시 fallback 라벨(회원명 아님). */
@@ -49,8 +58,8 @@ export function resolveStoreOrderDisplayIdentity(
   const meta = resolveCommunityMessengerDeliveryContextMeta(room);
   if (!meta) return null;
 
-  const resolvedName =
-    trimOrNull(meta.storeDisplayName) ?? parseStoreNameFromDeliveryHeadline(meta.headline);
+  const rawName = trimOrNull(meta.storeDisplayName) ?? parseStoreNameFromDeliveryHeadline(meta.headline);
+  const resolvedName = isUnusableStoreOrderDisplayName(rawName) ? null : rawName;
 
   const rawImage = trimOrNull(meta.storeProfileImageUrl) ?? trimOrNull(meta.thumbnailUrl);
   const storeProfileImageUrl = rawImage ? resolveStoreProductMediaUrl(rawImage) ?? rawImage : null;

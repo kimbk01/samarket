@@ -27,6 +27,31 @@ describe("buildDeliveryChatListRowModel", () => {
     expect(m?.storeThumbnailUrl).toContain("logo.jpg");
   });
 
+  it("placeholder storeDisplayName stays store surface, not 새 대화", () => {
+    const room = {
+      id: "r-placeholder",
+      chatDomain: "store_order",
+      summary: "",
+      contextMeta: {
+        v: 1 as const,
+        kind: "delivery" as const,
+        storeDisplayName: "새 대화",
+        storeId: "store-1",
+      },
+    } as unknown as CommunityMessengerRoomSummary;
+    expect(buildDeliveryChatListRowModel(room, t)?.storeName).toBe("매장");
+  });
+
+  it("confirmed store_order without delivery meta still returns store surface", () => {
+    const room = {
+      id: "r-confirmed",
+      chatDomain: "store_order",
+      title: "새 대화",
+      summary: "",
+    } as unknown as CommunityMessengerRoomSummary;
+    expect(buildDeliveryChatListRowModel(room, t)?.storeName).toBe("매장");
+  });
+
   it("완료 주문 stepLabel 유지", () => {
     const completed = {
       id: "r-done",

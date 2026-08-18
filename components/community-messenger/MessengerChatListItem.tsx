@@ -58,6 +58,7 @@ import { StoreProfileThumb } from "@/components/community-messenger/delivery-cha
 import {
   buildDeliveryChatListRowModel,
 } from "@/lib/community-messenger/delivery-chat-list/view-model";
+import { STORE_ORDER_DISPLAY_STORE_FALLBACK } from "@/lib/community-messenger/store-order-display-identity";
 import { formatDeliveryChatListShortTimestamp } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-timestamp";
 import { buildDeliveryChatListPreviewLine } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-preview";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
@@ -803,11 +804,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const avatarBlock =
-    isDeliveryChatListVisual && deliveryRowModel ? (
+    isDeliveryChatListVisual ? (
       <StoreProfileThumb
-        src={deliveryRowModel.storeThumbnailUrl}
-        storeId={deliveryRowModel.storeId}
-        storeName={deliveryRowModel.storeName}
+        src={deliveryRowModel?.storeThumbnailUrl}
+        storeId={deliveryRowModel?.storeId}
+        storeName={deliveryRowModel?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (
       <TradeProductThumb
@@ -839,7 +840,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       : null;
 
   const trailingBlock =
-    isDeliveryChatListVisual && deliveryRowModel ? (
+    isDeliveryChatListVisual ? (
       <>
         <span
           data-cm-list-meta=""
@@ -926,15 +927,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   } ${isRouteActiveRoom ? "bg-[color:var(--cm-list-row-selected)]" : ""}`;
 
   const rowContent =
-    isDeliveryChatListVisual && deliveryRowModel ? (
+    isDeliveryChatListVisual ? (
       <DeliveryChatListRowContent
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        storeName={deliveryRowModel.storeName}
+        storeName={deliveryRowModel?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK}
         previewLine={deliveryPreviewLine}
-        statusLabel={deliveryRowModel.orderStatusLabel ?? ""}
-        statusBadgeClassName={deliveryRowModel.statusBadgeClassName}
+        statusLabel={deliveryRowModel?.orderStatusLabel ?? ""}
+        statusBadgeClassName={deliveryRowModel?.statusBadgeClassName ?? ""}
         unread={displayedUnreadCount > 0}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (

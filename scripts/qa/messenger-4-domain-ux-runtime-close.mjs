@@ -472,6 +472,12 @@ async function clickBack(page) {
   return false;
 }
 
+function isPlaceholderListTitle(title) {
+  const t = String(title ?? "").trim();
+  if (!t) return true;
+  return /^(새 대화|New conversation|cm_ui_new_conversation)$/i.test(t);
+}
+
 function assessDomain(domain, evidence) {
   if (evidence.skipped) return "SKIP";
   const checks = evidence.checks ?? {};
@@ -487,7 +493,10 @@ function assessDomain(domain, evidence) {
   const headerChecks = headerKeys.map((k) => checks[k]);
   if (headerChecks.length === 0) return "NOT_PROVEN";
   const headerPass = headerChecks.every(Boolean);
-  const listPass = checks.list_rows_visible !== false;
+  const listPass =
+    checks.list_rows_visible !== false &&
+    (checks.list_product_primary === undefined || Boolean(checks.list_product_primary)) &&
+    (checks.list_store_primary === undefined || Boolean(checks.list_store_primary));
   if (headerPass && listPass) return "PASS";
   if (headerPass) return "PARTIAL";
   if (headerChecks.some(Boolean)) return "PARTIAL";
@@ -550,7 +559,8 @@ async function runDomainTrade(page, room) {
   }
   evidence.list = await probeList(page, "/community-messenger?section=chats&kind=trade");
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
-  evidence.checks.list_product_primary = Boolean(evidence.list.firstListTitle);
+  evidence.checks.list_product_primary =
+    Boolean(evidence.list.firstListTitle) && !isPlaceholderListTitle(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id, { waitTradeDock: true, settleMs: 5000 });
   evidence.room = roomSig;
   evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
@@ -573,7 +583,8 @@ async function runDomainStoreOrder(page, room) {
   }
   evidence.list = await probeList(page, "/community-messenger?section=chats&kind=delivery");
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
-  evidence.checks.list_store_primary = Boolean(evidence.list.firstListTitle);
+  evidence.checks.list_store_primary =
+    Boolean(evidence.list.firstListTitle) && !isPlaceholderListTitle(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id);
   evidence.room = roomSig;
   evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
