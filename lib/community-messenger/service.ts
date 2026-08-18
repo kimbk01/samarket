@@ -147,6 +147,7 @@ import {
   traceDomainSeparation,
 } from "@/lib/chat-domain/domain-separation-trace";
 import {
+  communityMessengerRoomIsConfirmedTrade,
   communityMessengerSummaryEligibleForPhaseDTradeEnrich,
   isMessengerGeneralFriendDirectKey,
   messengerDirectKeyForUserPair,
@@ -3687,11 +3688,14 @@ export async function hydrateTradeChatListContextMetaForRoomIds(
     deepSteps: {},
   };
   const tEnrich = performance.now();
-  await runWithTradeMetaRequestScope(() =>
-    enrichTradeRoomContextMetaForBootstrap(viewerUserId, summaries, undefined, listMetaTrace, {
-      tradeListMetaUltraLight: true,
-    })
-  );
+  const hasTradeSummary = summaries.some((s) => communityMessengerRoomIsConfirmedTrade(s));
+  if (hasTradeSummary) {
+    await runWithTradeMetaRequestScope(() =>
+      enrichTradeRoomContextMetaForBootstrap(viewerUserId, summaries, undefined, listMetaTrace, {
+        tradeListMetaUltraLight: true,
+      })
+    );
+  }
   const sbDelivery = getSupabaseOrNull();
   if (sbDelivery) {
     await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sbDelivery, summaries);

@@ -86,6 +86,27 @@ describe("mergeTradeRoomContextMetaPreferLocalDetail", () => {
     const m = mergeTradeRoomContextMetaPreferLocalDetail(prev, incoming);
     expect(m?.sellerDisplayName).toBe("판매자닉");
   });
+
+  it("keeps hydrated delivery storeDisplayName when incoming omits it", () => {
+    const prev = {
+      v: 1 as const,
+      kind: "delivery" as const,
+      storeDisplayName: "맛업는식당",
+      storeId: "store-9",
+      headline: "맛업는식당",
+    };
+    const incoming = { v: 1 as const, kind: "delivery" as const, orderStatus: "preparing", headline: "주문" };
+    const m = mergeTradeRoomContextMetaPreferLocalDetail(prev, incoming);
+    expect(m?.storeDisplayName).toBe("맛업는식당");
+    expect(m?.storeId).toBe("store-9");
+    expect(m?.headline).toBe("맛업는식당");
+    expect(m?.orderStatus).toBe("preparing");
+  });
+
+  it("keeps prev delivery meta when incoming omits contextMeta", () => {
+    const prev = { v: 1 as const, kind: "delivery" as const, storeDisplayName: "MARKET MARKET" };
+    expect(mergeTradeRoomContextMetaPreferLocalDetail(prev, undefined)).toEqual(prev);
+  });
 });
 
 describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
@@ -93,6 +114,27 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
     clearLocalReadGuardsForTests();
     clearMessengerConsistencyStateForTests();
     clearHomeListServerUnreadIncreaseForTests();
+  });
+
+  it("preserves hydrated delivery store name across critical_patch without storeDisplayName", () => {
+    const prev = room({
+      id: "d1",
+      contextMeta: {
+        v: 1,
+        kind: "delivery",
+        storeDisplayName: "맛업는식당",
+        storeId: "store-9",
+        headline: "맛업는식당",
+      },
+    });
+    const incoming = room({
+      id: "d1",
+      unreadCount: 2,
+      contextMeta: { v: 1, kind: "delivery", orderStatus: "preparing", headline: "주문" },
+    });
+    const out = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming);
+    expect(out.contextMeta?.storeDisplayName).toBe("맛업는식당");
+    expect(out.unreadCount).toBe(2);
   });
 
   it("preserves prev contextMeta when incoming dropped it", () => {

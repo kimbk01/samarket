@@ -166,4 +166,52 @@ describe("enrichDeliveryRoomLifecycleFieldsFromStoreOrders", () => {
     expect(summary.contextMeta?.storeId).toBe("store-9");
     expect(summary.contextMeta?.headline).toBe("맛업는식당");
   });
+
+  it("fills storeDisplayName from stores table when embed is missing", async () => {
+    const summary = baseSummary({
+      id: "room-d3",
+      title: "새 대화",
+      messengerDirectKey: "store_order:ord-3",
+      contextMeta: { v: 1, kind: "delivery", storeOrderId: "ord-3" },
+    });
+    const sb = {
+      from: vi.fn((table: string) => {
+        if (table === "store_orders") {
+          return {
+            select: vi.fn(() => ({
+              in: vi.fn(async () => ({
+                data: [
+                  {
+                    id: "ord-3",
+                    order_status: "preparing",
+                    community_messenger_room_id: "room-d3",
+                    store_id: "store-3",
+                  },
+                ],
+              })),
+            })),
+          };
+        }
+        if (table === "stores") {
+          return {
+            select: vi.fn(() => ({
+              in: vi.fn(async () => ({
+                data: [{ id: "store-3", store_name: "MARKET MARKET", profile_image_url: null }],
+              })),
+            })),
+          };
+        }
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              eq: vi.fn(async () => ({ data: [] })),
+            })),
+          })),
+        };
+      }),
+    };
+    await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sb, [summary]);
+    expect(summary.contextMeta?.storeDisplayName).toBe("MARKET MARKET");
+    expect(summary.contextMeta?.storeId).toBe("store-3");
+  });
 });

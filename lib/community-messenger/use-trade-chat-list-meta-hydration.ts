@@ -183,6 +183,11 @@ export function useTradeChatListMetaHydration(args: {
           .join(",")
       : "";
 
+  const hydratePriority =
+    chats?.some((r) => deliveryChatListSummaryNeedsMetaHydration(r, tradeMetaFetchAttemptedRef.current))
+      ? "medium"
+      : "low";
+
   useEffect(() => {
     if (!enabled || !viewerUserId || !missingKey) return;
     shadowDispatch?.markTradeMetaInFlight();
@@ -200,7 +205,7 @@ export function useTradeChatListMetaHydration(args: {
     getMessengerBackgroundHydrationScheduler().schedule({
       id: dedupeKey,
       dedupeKey,
-      priority: "low",
+      priority: hydratePriority,
       run: async (signal) => {
         if (tradeMetaHydrationInFlightKeys.has(dedupeKey)) return;
         tradeMetaHydrationInFlightKeys.add(dedupeKey);
@@ -298,5 +303,5 @@ export function useTradeChatListMetaHydration(args: {
     return () => {
       stale = true;
     };
-  }, [enabled, maxBatchSize, missingKey, setData, shadowDispatch, viewerUserId, surfaceResumeTick]);
+  }, [enabled, hydratePriority, maxBatchSize, missingKey, setData, shadowDispatch, viewerUserId, surfaceResumeTick]);
 }

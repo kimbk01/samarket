@@ -11,6 +11,42 @@ import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSummary
 export const STORE_ORDER_LIFECYCLE_SELECT =
   "id, order_status, community_messenger_room_id, store_id, stores(store_name, profile_image_url)";
 
+const STORE_ORDER_LIFECYCLE_SELECT_NO_EMBED =
+  "id, order_status, community_messenger_room_id, store_id";
+
+type StoreOrderInQuery = {
+  in: (col: string, vals: string[]) => Promise<{ data?: unknown; error?: unknown }>;
+};
+
+type LifecycleSb = { from: (table: string) => { select: (cols: string) => unknown } };
+
+function asInQuery(selectResult: unknown): StoreOrderInQuery | null {
+  if (!selectResult || typeof selectResult !== "object") return null;
+  const inFn = (selectResult as { in?: unknown }).in;
+  if (typeof inFn !== "function") return null;
+  return selectResult as StoreOrderInQuery;
+}
+
+async function selectRowsByIn(
+  sb: LifecycleSb,
+  table: string,
+  cols: string,
+  column: string,
+  ids: string[]
+): Promise<Array<Record<string, unknown>>> {
+  if (!ids.length) return [];
+  const q = asInQuery(sb.from(table).select(cols));
+  if (!q) return [];
+  try {
+    const result = await q.in(column, ids);
+    if (!result || typeof result !== "object" || "eq" in result) return [];
+    if (result.error || !Array.isArray(result.data)) return [];
+    return result.data as Array<Record<string, unknown>>;
+  } catch {
+    return [];
+  }
+}
+
 function trim(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -162,21 +198,41 @@ export async function enrichDeliveryRoomLifecycleFieldsFromStoreOrders(
 
   const oidList = [...orderIds];
   if (oidList.length) {
-    const q = sb.from("store_orders").select(STORE_ORDER_LIFECYCLE_SELECT) as {
-      in: (col: string, vals: string[]) => Promise<{ data?: unknown }>;
-    };
-    const { data } = await q.in("id", oidList);
-    ingestOrders((Array.isArray(data) ? data : []) as Array<Record<string, unknown>>);
+    let rows = await selectRowsByIn(sb, "store_orders", STORE_ORDER_LIFECYCLE_SELECT, "id", oidList);
+    if (!rows.length) {
+      rows = await selectRowsByIn(
+        sb,
+        "store_orders",
+        STORE_ORDER_LIFECYCLE_SELECT_NO_EMBED,
+        "id",
+        oidList
+      );
+    }
+    ingestOrders(rows);
   }
 
   const roomLookupIds = roomIdsWithoutOrder.filter((rid) => !orderByRoomId.has(rid));
   if (roomLookupIds.length) {
-    const q = sb.from("store_orders").select(STORE_ORDER_LIFECYCLE_SELECT) as {
-      in: (col: string, vals: string[]) => Promise<{ data?: unknown }>;
-    };
-    const { data } = await q.in("community_messenger_room_id", roomLookupIds);
-    ingestOrders((Array.isArray(data) ? data : []) as Array<Record<string, unknown>>);
+    let rows = await selectRowsByIn(
+      sb,
+      "store_orders",
+      STORE_ORDER_LIFECYCLE_SELECT,
+      "community_messenger_room_id",
+      roomLookupIds
+    );
+    if (!rows.length) {
+      rows = await selectRowsByIn(
+        sb,
+        "store_orders",
+        STORE_ORDER_LIFECYCLE_SELECT_NO_EMBED,
+        "community_messenger_room_id",
+        roomLookupIds
+      );
+    }
+    ingestOrders(rows);
   }
+
+  await fillMissingStoreIdentityFromStoresTable(sb, orderById);
 
   const allOrderIds = dedupeOrderIds([...orderById.keys()]);
   let completedAtByOrderId = new Map<string, string>();
@@ -218,4 +274,45 @@ export async function enrichDeliveryRoomLifecycleFieldsFromStoreOrders(
 
 function dedupeOrderIds(ids: string[]): string[] {
   return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+}
+
+async function fillMissingStoreIdentityFromStoresTable(
+  sb: LifecycleSb,
+  orderById: Map<string, StoreOrderLifecycleRow>
+): Promise<void> {
+  const missingStoreIds = dedupeOrderIds(
+    [...orderById.values()].map((row) => (!row.storeName && row.storeId ? row.storeId : "")).filter(Boolean)
+  );
+  if (!missingStoreIds.length) return;
+
+  const storeRows = await selectRowsByIn(
+    sb,
+    "stores",
+    "id, store_name, profile_image_url",
+    "id",
+    missingStoreIds
+  );
+  if (!storeRows.length) return;
+
+  const byStoreId = new Map<string, { storeName: string; profileImageUrl: string | null }>();
+  for (const raw of storeRows) {
+    const id = trim(raw.id);
+    const storeName = usableStoreName(raw.store_name);
+    if (!id || !storeName) continue;
+    byStoreId.set(id, {
+      storeName,
+      profileImageUrl: trim(raw.profile_image_url) || null,
+    });
+  }
+
+  for (const row of orderById.values()) {
+    const sid = trim(row.storeId);
+    if (!sid || row.storeName) continue;
+    const hit = byStoreId.get(sid);
+    if (!hit) continue;
+    row.storeName = hit.storeName;
+    if (!row.storeProfileImageUrl && hit.profileImageUrl) {
+      row.storeProfileImageUrl = hit.profileImageUrl;
+    }
+  }
 }

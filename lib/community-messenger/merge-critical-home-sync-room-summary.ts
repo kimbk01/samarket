@@ -4,6 +4,10 @@ import {
   shouldSuppressStaleUnread,
 } from "@/lib/community-messenger/read/local-read-guard";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  isUnusableStoreOrderDisplayName,
+  STORE_ORDER_DISPLAY_STORE_FALLBACK,
+} from "@/lib/community-messenger/store-order-display-identity";
 import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
@@ -71,9 +75,42 @@ function isPlaceholderTradeHeadline(value: string | null | undefined): boolean {
   return !t || t === "거래";
 }
 
+function metaText(v: string | null | undefined): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function isWeakDeliveryStoreLabel(value: string | null | undefined): boolean {
+  if (isUnusableStoreOrderDisplayName(value)) return true;
+  const t = metaText(value).toLowerCase();
+  return t === STORE_ORDER_DISPLAY_STORE_FALLBACK.toLowerCase() || t === "주문" || t === "order";
+}
+
+function mergeDeliveryRoomContextMetaPreferLocalStoreIdentity(
+  prev: CommunityMessengerRoomContextMetaV1,
+  incoming: CommunityMessengerRoomContextMetaV1
+): CommunityMessengerRoomContextMetaV1 {
+  const out: CommunityMessengerRoomContextMetaV1 = { ...incoming };
+  if (isWeakDeliveryStoreLabel(incoming.storeDisplayName) && !isWeakDeliveryStoreLabel(prev.storeDisplayName)) {
+    out.storeDisplayName = prev.storeDisplayName;
+  }
+  if (isWeakDeliveryStoreLabel(incoming.headline) && !isWeakDeliveryStoreLabel(prev.headline)) {
+    out.headline = prev.headline;
+  }
+  if (!metaText(incoming.storeId) && metaText(prev.storeId)) {
+    out.storeId = prev.storeId;
+  }
+  if (!metaText(incoming.storeProfileImageUrl) && metaText(prev.storeProfileImageUrl)) {
+    out.storeProfileImageUrl = prev.storeProfileImageUrl;
+  }
+  if (!metaText(incoming.thumbnailUrl) && metaText(prev.thumbnailUrl)) {
+    out.thumbnailUrl = prev.thumbnailUrl;
+  }
+  return out;
+}
+
 /**
  * `home-sync` `critical_patch` 가 상단 방 목록을 덮을 때, 서버 페이로드가
- * `contextMeta` 를 생략·플레이스홀더만 실은 경우 **클라에 이미 있던 더 풍부한 거래 메타**를 잃지 않게 한다.
+ * `contextMeta` 를 생략·플레이스홀더만 실은 경우 **클라에 이미 있던 더 풍부한 거래·주문 메타**를 잃지 않게 한다.
  */
 export function mergeTradeRoomContextMetaPreferLocalDetail(
   prev: CommunityMessengerRoomContextMetaV1 | null | undefined,
@@ -81,6 +118,12 @@ export function mergeTradeRoomContextMetaPreferLocalDetail(
 ): CommunityMessengerRoomContextMetaV1 | null | undefined {
   if (!incoming || incoming.kind !== "trade") {
     if (prev?.kind === "trade") return prev;
+    if (prev?.kind === "delivery") {
+      if (!incoming) return prev;
+      if (incoming.kind === "delivery") {
+        return mergeDeliveryRoomContextMetaPreferLocalStoreIdentity(prev, incoming);
+      }
+    }
     return incoming ?? null;
   }
   if (!prev || prev.kind !== "trade") {
