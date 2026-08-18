@@ -132,12 +132,10 @@ describe("CUT D — API / data preserve", () => {
 describe("CUT D — dead member link audit", () => {
   const memberPaths = [
     "components/mypage/purchases/PurchaseHistoryCard.tsx",
-    "components/mypage/purchases/PurchaseDetailView.tsx",
     "components/trade/TradeFlowBanner.tsx",
     "components/community-messenger/CommunityMessengerTradeProcessSection.tsx",
     "components/chats/ChatDetailView.tsx",
     "components/mypage/reviews/TradeReviewsManagementView.tsx",
-    "components/mypage/PurchasesView.tsx",
     "lib/chats/surfaces/trade-chat-surface.ts",
     "app/(main)/mypage/trade/chat/[roomId]/page.tsx",
   ];
