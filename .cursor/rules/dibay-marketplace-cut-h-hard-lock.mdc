@@ -1,0 +1,47 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT H (HOME list freshness CTA, no silent unshift)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT H HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-h-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT H LOCKED**
+- Production SHA: `e74a5775f61d6c45e6271e43beb4efdcb5fa616b`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_2C5bCtmGtuwMiYyS1uSwoRSYpxKK`
+- HOME `/market` SILENT: **keep current order** (in-place patch only)
+- NEW LISTING CTA: **LOCKED** (`N` = unique incoming page-1 ids not on applied list; no cap)
+- CTA TAP / PTR: **apply latest page-1** (PTR does not wait for CTA)
+- SEARCH / CATEGORY BROWSE: **UNTOUCHED**
+- Realtime / `bumped_at` LIST order: **UNTOUCHED**
+- CUT F pin ≤3: **PRESERVED**
+- MIGRATION: **NO**
+- CUT A / B / C / D / E / F / G / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+HOME /market only
+silent = 현재 순서 유지
+자동 unshift 없음
+N = pending unique new ids
+CTA → latest page-1
+PTR → 즉시 latest
+CUT F pin ≤3
+```
+
+Authority: `lib/trade/marketplace/home-list-freshness.ts` · `components/home/HomeProductList.tsx`.
+
+This cut changed **HOME list freshness**, not SEARCH expansion (C), LIST sell-intent (B), taxonomy (A), review UI (D), Buyer MY (E), seller promotion (F), or heart/report/share (G).
+
+## DO NOT (without a new cut)
+
+- Auto-unshift HOME from silent refresh
+- Cap pending N
+- Add Realtime or `bumped_at` LIST order
+- Put H CTA on SEARCH or category browse
+- Reopen CUT A–G, or start CUT I inside CUT H work
