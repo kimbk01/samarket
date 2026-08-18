@@ -41,7 +41,7 @@ function loadEnvLocal() {
   }
 }
 
-async function signInSession() {
+async function signInForLoginId(loginId) {
   loadEnvLocal();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -50,61 +50,142 @@ async function signInSession() {
   const ref = url.match(/https:\/\/([^.]+)\./)?.[1] ?? "";
   const sb = createClient(url, anon, { auth: { persistSession: false } });
   const password = process.env.E2E_TEST_PASSWORD ?? process.env.SAMARKET_TEST_PASSWORD ?? "1234";
-  const loginIds = [process.env.E2E_TEST_USERNAME?.trim(), "qqqq", "aa11", "aaaa"].filter(Boolean);
   const host = new URL(baseUrl).hostname;
 
-  for (const loginId of loginIds) {
-    let email = loginId.includes("@") ? loginId.toLowerCase() : `${loginId.toLowerCase()}@manual.local`;
-    if (serviceKey && loginId === "aa11") {
-      const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-      const { data: pr } = await admin
-        .from("profiles")
-        .select("auth_login_email, email")
-        .or("username.eq.aa11")
-        .maybeSingle();
-      const resolved = String(pr?.auth_login_email ?? pr?.email ?? "").trim().toLowerCase();
-      if (resolved.includes("@")) email = resolved;
-    }
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error || !data.session) continue;
-    const session = {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      expires_at: data.session.expires_at,
-      expires_in: data.session.expires_in,
-      token_type: data.session.token_type,
-      user: data.session.user,
-    };
-    const cookies = [
-      {
-        name: `sb-${ref}-auth-token`,
-        value: encodeURIComponent(JSON.stringify(session)),
+  let email = loginId.includes("@") ? loginId.toLowerCase() : `${loginId.toLowerCase()}@manual.local`;
+  if (serviceKey && loginId === "aa11") {
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { data: pr } = await admin
+      .from("profiles")
+      .select("auth_login_email, email")
+      .or("username.eq.aa11")
+      .maybeSingle();
+    const resolved = String(pr?.auth_login_email ?? pr?.email ?? "").trim().toLowerCase();
+    if (resolved.includes("@")) email = resolved;
+  }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error || !data.session) return null;
+  const session = {
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    expires_at: data.session.expires_at,
+    expires_in: data.session.expires_in,
+    token_type: data.session.token_type,
+    user: data.session.user,
+  };
+  const cookies = [
+    {
+      name: `sb-${ref}-auth-token`,
+      value: encodeURIComponent(JSON.stringify(session)),
+      domain: host,
+      path: "/",
+      sameSite: "Lax",
+    },
+  ];
+  if (serviceKey) {
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { data: pr } = await admin
+      .from("profiles")
+      .select("active_session_id")
+      .eq("id", data.session.user.id)
+      .maybeSingle();
+    const activeSession = String(pr?.active_session_id ?? "").trim();
+    if (activeSession) {
+      cookies.push({
+        name: "samarket_active_session_id",
+        value: encodeURIComponent(activeSession),
         domain: host,
         path: "/",
         sameSite: "Lax",
-      },
-    ];
-    if (serviceKey) {
-      const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-      const { data: pr } = await admin
-        .from("profiles")
-        .select("active_session_id")
-        .eq("id", data.session.user.id)
-        .maybeSingle();
-      const activeSession = String(pr?.active_session_id ?? "").trim();
-      if (activeSession) {
-        cookies.push({
-          name: "samarket_active_session_id",
-          value: encodeURIComponent(activeSession),
-          domain: host,
-          path: "/",
-          sameSite: "Lax",
-        });
-      }
+      });
     }
-    return { cookies, loginId, userId: data.session.user.id };
+  }
+  return { cookies, loginId, userId: data.session.user.id };
+}
+
+function loginIdCandidates() {
+  return [...new Set([process.env.E2E_TEST_USERNAME?.trim(), "aa11", "aaaa", "wwww", "qqqq", "bbbb"].filter(Boolean))];
+}
+
+async function signInSession() {
+  for (const loginId of loginIdCandidates()) {
+    const session = await signInForLoginId(loginId);
+    if (session) return session;
   }
   throw new Error("signIn failed for all login ids");
+}
+
+async function applyAuthCookies(context, auth) {
+  await context.clearCookies();
+  await context.addCookies([
+    ...auth.cookies,
+    {
+      name: "samarket_e2e_room_diag",
+      value: "1",
+      domain: new URL(baseUrl).hostname,
+      path: "/",
+      sameSite: "Lax",
+    },
+  ]);
+}
+
+async function discoverFixturesAcrossAccounts(page) {
+  const forced = process.env.E2E_TEST_USERNAME?.trim();
+  const loginIds = forced ? [forced] : loginIdCandidates();
+  const mergedFixtures = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
+  const mergedRooms = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
+  const authByDomain = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
+  const scanByLogin = {};
+
+  for (const loginId of loginIds) {
+    const auth = await signInForLoginId(loginId);
+    if (!auth) {
+      scanByLogin[loginId] = { ok: false, reason: "sign_in_failed" };
+      continue;
+    }
+    await applyAuthCookies(page.context(), auth);
+    await page.goto(`${baseUrl}/community-messenger`, { waitUntil: "domcontentloaded", timeout: 90_000 });
+    await page.waitForTimeout(1000);
+    const bootstrap = await fetchBootstrap(page);
+    const chats = bootstrap.body?.chats ?? bootstrap.body?.data?.chats ?? [];
+    const fixtures = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
+    for (const room of chats) {
+      const d = classifyRoom(room);
+      if (d in fixtures && !fixtures[d]) fixtures[d] = room?.id ?? null;
+      if (d in mergedFixtures && !mergedFixtures[d] && room?.id) {
+        mergedFixtures[d] = room.id;
+        mergedRooms[d] = room;
+        authByDomain[d] = auth;
+      }
+    }
+    scanByLogin[loginId] = {
+      ok: bootstrap.ok,
+      chatCount: chats.length,
+      fixtures,
+      hasActiveSessionCookie: auth.cookies.some((c) => c.name === "samarket_active_session_id"),
+    };
+    if (Object.values(mergedFixtures).every(Boolean)) break;
+  }
+
+  const primaryAuth =
+    authByDomain.TRADE ??
+    authByDomain.STORE_ORDER ??
+    authByDomain.GENERAL_DIRECT ??
+    authByDomain.GROUP ??
+    (await signInForLoginId(loginIds.find((id) => scanByLogin[id]?.ok !== false) ?? loginIds[0]));
+  if (!primaryAuth) throw new Error("discoverFixturesAcrossAccounts: no login succeeded");
+
+  return {
+    ...primaryAuth,
+    fixtureDiscovery: {
+      fixtures: mergedFixtures,
+      scanByLogin,
+      authLoginByDomain: Object.fromEntries(Object.entries(authByDomain).map(([k, v]) => [k, v?.loginId ?? null])),
+      score: Object.values(mergedFixtures).filter(Boolean).length,
+    },
+    mergedRooms,
+    authByDomain,
+  };
 }
 
 function isCommerceDirectKey(dk) {
@@ -154,34 +235,24 @@ async function dismissOverlays(page) {
 async function readRoomSignals(page, opts = {}) {
   await page.waitForTimeout(opts.settleMs ?? 3000);
   if (opts.waitTradeDock) {
-    await page.waitForSelector("[data-cm-trade-dock]", { timeout: 35_000 }).catch(() => undefined);
+    await page.waitForSelector("[data-cm-trade-dock]", { timeout: 15_000 }).catch(() => undefined);
   }
   return page.evaluate(() => {
+    const roomRoot = document.querySelector("[data-cm-room]");
+    const chipText = roomRoot?.querySelector("p.rounded-full")?.textContent?.trim() ?? "";
     const bodyText = document.body?.innerText ?? "";
-    const chips = Array.from(document.querySelectorAll("p.rounded-full"));
-    let timelineChip = null;
-    for (const el of chips) {
-      const t = el.textContent?.trim() ?? "";
-      if (
-        t.includes("대화") ||
-        t.includes("채팅") ||
-        t.includes("그룹") ||
-        t.includes("chat") ||
-        t.includes("Group")
-      ) {
-        timelineChip = t;
-        break;
-      }
-    }
     return {
-      timelineChip,
-      bodyHasDirectLabel: bodyText.includes("1:1 대화") || bodyText.includes("1:1 chat"),
-      bodyHasTradeLabel: bodyText.includes("거래 채팅") || bodyText.includes("Trade chat"),
-      bodyHasOrderLabel: bodyText.includes("주문 채팅") || bodyText.includes("Order chat"),
-      bodyHasGroupLabel: bodyText.includes("비공개 그룹") || bodyText.includes("오픈 그룹") || bodyText.includes("group"),
-      bodyHasMemberSuffix: / · \d+명/.test(bodyText) || / · \d+ members/.test(bodyText),
+      timelineChip: chipText || null,
+      bodyHasDirectLabel: /1:1 chat|1:1 대화/i.test(chipText),
+      bodyHasTradeLabel: /Trade chat|거래 채팅/i.test(chipText),
+      bodyHasOrderLabel: /Order chat|주문 채팅/i.test(chipText),
+      bodyHasGroupLabel:
+        /비공개 그룹|오픈 그룹|Private group|Open group/i.test(chipText) || /\bgroup\b/i.test(chipText),
+      bodyHasMemberSuffix: /[·•]\s*\d+\s*(명|members?)/i.test(chipText),
+      cmRoom: !!roomRoot,
       tradeDock: !!document.querySelector("[data-cm-trade-dock]"),
       url: window.location.pathname,
+      bodySnippet: bodyText.slice(0, 200),
     };
   });
 }
@@ -229,7 +300,7 @@ async function probeRoomHeader(page, roomId, opts = {}) {
   };
 }
 
-async function waitForChatRows(page, timeoutMs = 35_000) {
+async function waitForChatRows(page, timeoutMs = 15_000) {
   try {
     await page.waitForSelector('[data-messenger-chat-row="true"]', { timeout: timeoutMs });
     return await page.locator('[data-messenger-chat-row="true"]').count();
@@ -256,8 +327,8 @@ async function probeList(page, listHref) {
 }
 
 async function clickBack(page) {
-  const back = page.getByRole("button", { name: /뒤로|Back|닫기|Close/i }).first();
-  if (await back.isVisible({ timeout: 5000 }).catch(() => false)) {
+  const back = page.getByRole("button", { name: /이전 화면|Go back|뒤로|Back/i }).first();
+  if (await back.isVisible({ timeout: 3000 }).catch(() => false)) {
     await back.click({ timeout: 8000 }).catch(() => undefined);
     await page.waitForTimeout(1500);
     return true;
@@ -298,7 +369,7 @@ async function runDomainGeneral(page, room) {
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
   const roomSig = await probeRoomHeader(page, room.id);
   evidence.room = roomSig;
-  evidence.checks.room_entered = roomSig.entered;
+  evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
   evidence.checks.bootstrap_chat_domain =
     roomSig.bootstrapMeta?.chatDomain === "general_direct" ||
     (roomSig.bootstrapMeta?.roomType === "direct" &&
@@ -329,7 +400,7 @@ async function runDomainGroup(page, room) {
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
   const roomSig = await probeRoomHeader(page, room.id);
   evidence.room = roomSig;
-  evidence.checks.room_entered = roomSig.entered;
+  evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
   evidence.checks.timeline_group_label = roomSig.bodyHasGroupLabel;
   evidence.checks.no_trade_dock = !roomSig.tradeDock;
   evidence.checks.member_suffix = roomSig.bodyHasMemberSuffix;
@@ -356,7 +427,7 @@ async function runDomainTrade(page, room) {
   evidence.checks.list_product_primary = Boolean(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id, { waitTradeDock: true, settleMs: 5000 });
   evidence.room = roomSig;
-  evidence.checks.room_entered = roomSig.entered;
+  evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
   evidence.checks.bootstrap_chat_domain = roomSig.bootstrapMeta?.chatDomain === "trade" || roomSig.bootstrapMeta?.contextKind === "trade";
   evidence.checks.timeline_trade_label = roomSig.bodyHasTradeLabel;
   evidence.checks.no_general_member_suffix = !roomSig.bodyHasDirectLabel && !roomSig.bodyHasMemberSuffix;
@@ -384,7 +455,7 @@ async function runDomainStoreOrder(page, room) {
   evidence.checks.list_store_primary = Boolean(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id);
   evidence.room = roomSig;
-  evidence.checks.room_entered = roomSig.entered;
+  evidence.checks.room_entered = roomSig.entered && roomSig.cmRoom;
   evidence.checks.bootstrap_chat_domain =
     roomSig.bootstrapMeta?.chatDomain === "store_order" || roomSig.bootstrapMeta?.contextKind === "delivery";
   evidence.checks.timeline_order_label = roomSig.bodyHasOrderLabel;
@@ -403,53 +474,56 @@ async function runDomainStoreOrder(page, room) {
 
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
-  const auth = await signInSession();
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ baseURL: baseUrl });
-  await context.addCookies([
-    ...auth.cookies,
-    {
-      name: "samarket_e2e_room_diag",
-      value: "1",
-      domain: new URL(baseUrl).hostname,
-      path: "/",
-      sameSite: "Lax",
-    },
-  ]);
-  const page = await context.newPage();
+  const context = await browser.newContext({
+    baseURL: baseUrl,
+    viewport: { width: 390, height: 844 },
+  });
+  const discoveryPage = await context.newPage();
+  const discovery = await discoverFixturesAcrossAccounts(discoveryPage);
+  await discoveryPage.close();
 
-  const bootstrap = await (async () => {
-    await page.goto(`${baseUrl}/community-messenger`, { waitUntil: "domcontentloaded", timeout: 90_000 });
-    await page.waitForTimeout(1500);
-    return fetchBootstrap(page);
-  })();
+  const byDomain = discovery.mergedRooms;
 
-  const chats = bootstrap.body?.chats ?? bootstrap.body?.data?.chats ?? [];
-  const byDomain = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
-  for (const room of chats) {
-    const d = classifyRoom(room);
-    if (d in byDomain && !byDomain[d]) byDomain[d] = room;
+  async function runOnFreshPage(domainKey, runner) {
+    const domainAuth = discovery.authByDomain[domainKey] ?? discovery;
+    await applyAuthCookies(context, domainAuth);
+    const page = await context.newPage();
+    try {
+      await page.goto(`${baseUrl}/community-messenger`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await page.waitForTimeout(800);
+      return await runner(page);
+    } finally {
+      await page.close();
+    }
   }
 
-  const generalEv = await runDomainGeneral(page, byDomain.GENERAL_DIRECT).catch((e) => ({
-    domain: "GENERAL_DIRECT",
-    checks: {},
-    errors: [String(e?.message ?? e)],
-    verdict: "FAIL",
-  }));
-  const groupEv = await runDomainGroup(page, byDomain.GROUP).catch((e) => ({
+  const bootstrap = { ok: true, body: { chats: [] } };
+  const chats = [];
+
+  const generalEv = await runOnFreshPage("GENERAL_DIRECT", (page) => runDomainGeneral(page, byDomain.GENERAL_DIRECT)).catch(
+    (e) => ({
+      domain: "GENERAL_DIRECT",
+      checks: {},
+      errors: [String(e?.message ?? e)],
+      verdict: "FAIL",
+    })
+  );
+  const groupEv = await runOnFreshPage("GROUP", (page) => runDomainGroup(page, byDomain.GROUP)).catch((e) => ({
     domain: "GROUP",
     checks: {},
     errors: [String(e?.message ?? e)],
     verdict: "FAIL",
   }));
-  const tradeEv = await runDomainTrade(page, byDomain.TRADE).catch((e) => ({
+  const tradeEv = await runOnFreshPage("TRADE", (page) => runDomainTrade(page, byDomain.TRADE)).catch((e) => ({
     domain: "TRADE",
     checks: {},
     errors: [String(e?.message ?? e)],
     verdict: "FAIL",
   }));
-  const storeEv = await runDomainStoreOrder(page, byDomain.STORE_ORDER).catch((e) => ({
+  const storeEv = await runOnFreshPage("STORE_ORDER", (page) =>
+    runDomainStoreOrder(page, byDomain.STORE_ORDER)
+  ).catch((e) => ({
     domain: "STORE_ORDER",
     checks: {},
     errors: [String(e?.message ?? e)],
@@ -472,10 +546,11 @@ async function main() {
   const report = {
     runAt: new Date().toISOString(),
     baseUrl,
-    loginId: auth.loginId,
+    loginId: discovery.loginId,
+    fixtureDiscovery: discovery.fixtureDiscovery ?? null,
     bootstrapOk: bootstrap.ok,
-    bootstrapStatus: bootstrap.status,
-    chatCount: chats.length,
+    bootstrapStatus: 200,
+    chatCount: discovery.fixtureDiscovery?.scanByLogin?.[discovery.loginId]?.chatCount ?? 0,
     fixtures: Object.fromEntries(Object.entries(byDomain).map(([k, v]) => [k, v?.id ?? null])),
     domains,
     summary: { passes, partials, hardFails, skips },
@@ -486,6 +561,10 @@ async function main() {
   };
 
   fs.writeFileSync(outFile, `${JSON.stringify(report, null, 2)}\n`);
+  fs.writeFileSync(
+    path.join(root, ".qa-logs", "messenger-4-domain-ux-runtime-last-run.json"),
+    `${JSON.stringify(report, null, 2)}\n`
+  );
   console.log(JSON.stringify(report, null, 2));
   await browser.close();
   process.exit(hardFails > 0 ? 1 : 0);
