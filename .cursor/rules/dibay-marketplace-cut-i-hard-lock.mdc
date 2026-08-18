@@ -1,0 +1,42 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT I (6-profile WRITE/LIST/DETAIL/FILTER runtime matrix)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT I HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-i-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT I LOCKED**
+- Production SHA: `023bb23a031e069afbb184f469e9060abcbd0b59`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_CJHbp1PL3WFVLmWJN9hapKtWC4fg`
+- 6 PROFILE MATRIX (WRITE/LIST/DETAIL/FILTER): **LOCKED**
+- WRITE SUBMIT CHAIN (6 + uc_buy + EX converted): **LOCKED**
+- COMPOSITION SSOT + UsedCar/rent-car widgets: **PRESERVED**
+- MIGRATION: **NO**
+- CUT A / B / C / D / E / F / G / H / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+general | used-car | real-estate | jobs | exchange | rent-car
+WRITE / LIST / DETAIL / FILTER Production runtime proven
+CompositionAttributeFilterSelects: category browse + SEARCH only
+UsedCar sell/buy + rent-car rental overlay KEEP
+CUT A root option authority KEEP
+CUT H HOME freshness untouched
+```
+
+Authority: `lib/trade/category-form/resolve-composition.ts` · `composition-seeds.ts` · `TradeCategoryWriteForm.tsx`.
+
+This cut changed **6-profile category runtime matrix proof**, not SEARCH (C), LIST sell-intent (B), taxonomy write authority (A), review UI (D), Buyer MY (E), promotion (F), heart/report (G), or HOME freshness (H).
+
+## DO NOT (without a new cut)
+
+- Reopen CUT A–H, or start CUT J inside CUT I work
+- Generic-only rewrite of used-car sell/buy widgets
+- Composition filters on HOME default list
+- Child category field_composition as option authority
