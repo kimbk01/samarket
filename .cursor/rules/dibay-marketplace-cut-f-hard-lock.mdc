@@ -1,0 +1,45 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT F (seller promotion LIST pin vs SEARCH badge)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT F HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-f-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT F LOCKED**
+- Production SHA: `c85f47e8e1fabd3a8d8a9027edd1ae045b16ef49`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_Ec8MmHhcSDqZf3VcSZ8BzmLc7CLD`
+- LIST / CATEGORY BROWSE PIN ≤3: **LOCKED**
+- SEARCH: **badge-only, no pin** (CUT C order preserved)
+- DETAIL CTA: **Product A 더 알리기 / MemberPostPromoteSheet**
+- trade-ads/apply MEMBER PATH: **NOT product CTA**
+- Feed Banner: **UNTOUCHED**
+- trade_post_ads backend/Admin: **PRESERVED**
+- MIGRATION: **NO**
+- CUT A / B / C / D / E / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+LIST (no q) page=1 pin ≤3 + 홍보 badge
+LIST page=2+ prepend 0
+SEARCH q → overlayTradePromotionBadges only
+DETAIL → point_promotion_orders
+Feed Banner / trade_post_ads Admin KEEP
+```
+
+Authority: `lib/promotion/feed-promotion-projection.ts` · `lib/posts/home-posts-route-core.ts`.
+
+This cut changed **seller promotion placement**, not SEARCH expansion (C), LIST sell-intent (B), taxonomy (A), review UI (D), or Buyer MY (E).
+
+## DO NOT (without a new cut)
+
+- Pin SEARCH results over CUT C rank
+- Restore member DETAIL to `trade-ads/apply`
+- Delete `trade_post_ads` under CUT F
+- Touch Feed Banner
+- Reopen CUT A–E, or start CUT G inside CUT F work
