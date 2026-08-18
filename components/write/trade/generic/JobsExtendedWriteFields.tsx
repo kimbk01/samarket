@@ -8,7 +8,7 @@
  * this body keeps Jobs-specific hire/seek extras, validation, and staging.
  */
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import {
@@ -113,6 +113,8 @@ interface JobsExtendedWriteFieldsProps {
   registerController?: (controller: TradeExtendedWriteController | null) => void;
   chrome: TradeWriteChromeState;
   onListingKindChange?: (kind: JobListingKind) => void;
+  /** UI-3 품목정보 — ROOT + child topic. Price writers stay in this body. */
+  itemInfoHeader?: ReactNode;
 }
 
 /** 로컬 기준 YYYY-MM-DD */
@@ -193,6 +195,7 @@ export function JobsExtendedWriteFields({
   registerController,
   chrome,
   onListingKindChange,
+  itemInfoHeader,
 }: JobsExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
   const pathname = usePathname();
@@ -1263,6 +1266,87 @@ export function JobsExtendedWriteFields({
         ariaLabel={t("jobs_write_draft_aria")}
         interactionMode="blocking"
       />
+        <div data-ui3-slot="price">
+        {!isSeeker ? (
+            <section
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <GenericTradeWriteFields
+                fields={jobsGenericFields.filter(
+                  (f) => f.id === "pay_type" || (!hirePayNegotiable && f.id === "pay_amount")
+                )}
+                values={jobsFieldValues}
+                onChange={handleJobsGenericChange}
+                errors={{
+                  pay_type: errors.payType ?? "",
+                  pay_amount: errors.payAmount ?? "",
+                }}
+                disabled={coreLocked}
+                currencyUnit={getCurrencyUnitLabel(currency)}
+              />
+              {!hirePayNegotiable && payDisplay ? (
+                <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
+              ) : null}
+              <label className={`mt-2 flex items-center gap-2 ${JOB_LABEL_CHECK_ROW}`}>
+                <input
+                  type="checkbox"
+                  checked={hirePayNegotiable}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setHirePayNegotiable(v);
+                    if (v) setPayAmount("");
+                  }}
+                  className="rounded border-sam-border"
+                />
+                <span className="sam-text-body text-sam-fg">{t("trade_043")}</span>
+              </label>
+            </section>
+        ) : (
+            <section
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_134")}</p>
+              <div className="mb-2 flex flex-wrap gap-2">
+                {JOB_SEEKER_PAY_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setPayType(opt.value);
+                      if (opt.value === "negotiate") setPayAmount("");
+                    }}
+                    className={jobChipClass(payType === opt.value)}
+                  >
+                    {t(opt.labelKey)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2.5">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={payType === "negotiate" ? "" : payAmount}
+                  onChange={(e) => setPayAmount(formatPriceInput(e.target.value))}
+                  placeholder={t("trade_087")}
+                  disabled={payType === "negotiate"}
+                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none ${
+                    errors.payAmount ? "text-red-600" : ""
+                  } ${payType === "negotiate" ? "text-sam-muted" : ""}`}
+                />
+                {payType !== "negotiate" ? (
+                  <span className="sam-text-body text-sam-muted">{getCurrencyUnitLabel(currency)}</span>
+                ) : null}
+              </div>
+              {payType !== "negotiate" && payDisplay ? (
+                <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
+              ) : null}
+              {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
+            </section>
+        )}
+        </div>
+
+        {itemInfoHeader}
+
         <div className={TRADE_WRITE_FB_SECTION}>
           <p className="text-[13px] font-medium text-sam-muted">{t("trade_113")}</p>
         </div>
@@ -1481,40 +1565,6 @@ export function JobsExtendedWriteFields({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <GenericTradeWriteFields
-                fields={jobsGenericFields.filter(
-                  (f) => f.id === "pay_type" || (!hirePayNegotiable && f.id === "pay_amount")
-                )}
-                values={jobsFieldValues}
-                onChange={handleJobsGenericChange}
-                errors={{
-                  pay_type: errors.payType ?? "",
-                  pay_amount: errors.payAmount ?? "",
-                }}
-                disabled={coreLocked}
-                currencyUnit={getCurrencyUnitLabel(currency)}
-              />
-              {!hirePayNegotiable && payDisplay ? (
-                <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
-              ) : null}
-              <label className={`mt-2 flex items-center gap-2 ${JOB_LABEL_CHECK_ROW}`}>
-                <input
-                  type="checkbox"
-                  checked={hirePayNegotiable}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setHirePayNegotiable(v);
-                    if (v) setPayAmount("");
-                  }}
-                  className="rounded border-sam-border"
-                />
-                <span className="sam-text-body text-sam-fg">{t("trade_043")}</span>
-              </label>
-            </section>
-
-            <section
-              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-            >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_058")}</p>
               <label className="mb-1 block sam-text-body-secondary text-sam-fg">{t("trade_057")}</label>
               <input
@@ -1727,47 +1777,6 @@ export function JobsExtendedWriteFields({
 
         {!isSeeker ? null : (
           <>
-            <section
-              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-            >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_134")}</p>
-              <div className="mb-2 flex flex-wrap gap-2">
-                {JOB_SEEKER_PAY_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setPayType(opt.value);
-                      if (opt.value === "negotiate") setPayAmount("");
-                    }}
-                    className={jobChipClass(payType === opt.value)}
-                  >
-                    {t(opt.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2.5">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={payType === "negotiate" ? "" : payAmount}
-                  onChange={(e) => setPayAmount(formatPriceInput(e.target.value))}
-                  placeholder={t("trade_087")}
-                  disabled={payType === "negotiate"}
-                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none ${
-                    errors.payAmount ? "text-red-600" : ""
-                  } ${payType === "negotiate" ? "text-sam-muted" : ""}`}
-                />
-                {payType !== "negotiate" ? (
-                  <span className="sam-text-body text-sam-muted">{getCurrencyUnitLabel(currency)}</span>
-                ) : null}
-              </div>
-              {payType !== "negotiate" && payDisplay ? (
-                <p className="mt-1 sam-text-helper text-sam-muted">{payDisplay}</p>
-              ) : null}
-              {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
-            </section>
-
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
               <button
                 type="button"

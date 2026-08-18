@@ -7,7 +7,7 @@
  * this body keeps exchange-specific rate/prep extras, draft staging, and validation.
  */
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -94,6 +94,8 @@ interface ExchangeExtendedWriteFieldsProps {
   tradePolicy?: TradePolicyClient | null;
   registerController?: (controller: TradeExtendedWriteController | null) => void;
   chrome: TradeWriteChromeState;
+  /** UI-3 품목정보 — ROOT + child topic. Amount writer stays in this body. */
+  itemInfoHeader?: ReactNode;
 }
 
 
@@ -135,6 +137,7 @@ export function ExchangeExtendedWriteFields({
   tradePolicy = null,
   registerController,
   chrome,
+  itemInfoHeader,
 }: ExchangeExtendedWriteFieldsProps) {
   const { t, language } = useI18n();
   const pathname = usePathname();
@@ -774,6 +777,39 @@ export function ExchangeExtendedWriteFields({
         ariaLabel={t("exchange_write_draft_aria")}
         interactionMode="blocking"
       />
+        <section data-ui3-slot="title" className={TRADE_WRITE_FB_SECTION}>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_title")}</h4>
+          <p className="mt-0.5 min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-[15px] text-sam-fg">
+            {buildExchangeTitle(direction, t)}
+          </p>
+        </section>
+
+        <section data-ui3-slot="price" className={TRADE_WRITE_FB_SECTION}>
+          <label
+            className={`mb-1.5 block ${EXCHANGE_WRITE_FIELD_TITLE_CLASS} leading-tight`}
+            htmlFor="exchange-write-amount-php"
+          >
+            {t("exchange_write_amount_php")}
+          </label>
+          <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
+            <span className="shrink-0 text-[15px] font-medium text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
+            <input
+              id="exchange-write-amount-php"
+              type="text"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(formatPriceInput(e.target.value))}
+              placeholder="0"
+              className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.amount ? "text-red-600" : ""}`}
+            />
+          </div>
+          {errors.amount ? (
+            <p className="mt-1 sam-text-body-secondary text-red-500">{errors.amount}</p>
+          ) : null}
+        </section>
+
+        {itemInfoHeader}
+
         <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
           <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>{t("trade_010")}</p>
           <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-sam-muted">
@@ -882,30 +918,6 @@ export function ExchangeExtendedWriteFields({
               {errors.rate ? (
                 <p className="sam-text-body-secondary text-red-500">{errors.rate}</p>
               ) : null}
-
-              <div className="border-t border-sam-border-soft pt-1">
-                <label
-                  className={`mb-1.5 block ${EXCHANGE_WRITE_FIELD_TITLE_CLASS} leading-tight`}
-                  htmlFor="exchange-write-amount-php"
-                >
-                  {t("exchange_write_amount_php")}
-                </label>
-                <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
-                  <span className="shrink-0 text-[15px] font-medium text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
-                  <input
-                    id="exchange-write-amount-php"
-                    type="text"
-                    inputMode="numeric"
-                    value={amount}
-                    onChange={(e) => setAmount(formatPriceInput(e.target.value))}
-                    placeholder="0"
-                    className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.amount ? "text-red-600" : ""}`}
-                  />
-                </div>
-                {errors.amount ? (
-                  <p className="mt-1 sam-text-body-secondary text-red-500">{errors.amount}</p>
-                ) : null}
-              </div>
             </div>
           </div>
         </section>

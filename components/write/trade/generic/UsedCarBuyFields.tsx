@@ -34,6 +34,8 @@ type Props = {
   errors: UsedCarBuyFieldsErrors;
   disabled?: boolean;
   enabledFieldIds?: ReadonlySet<string>;
+  /** UI-3 visual slots — same writers, not a new field */
+  fieldsSlot?: "all" | "price" | "item";
 };
 
 function compositionFieldOn(ids: ReadonlySet<string> | undefined, id: string): boolean {
@@ -54,15 +56,18 @@ export function UsedCarBuyFields({
   errors,
   disabled = false,
   enabledFieldIds,
+  fieldsSlot = "all",
 }: Props) {
   const { t } = useI18n();
   const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(t), [t]);
   const showBodyType = compositionFieldOn(enabledFieldIds, "body_type");
   const showYear = compositionFieldOn(enabledFieldIds, "year");
   const showPrice = compositionFieldOn(enabledFieldIds, "price");
+  const showItem = fieldsSlot !== "price";
+  const showPriceSlot = fieldsSlot !== "item";
   return (
     <>
-      {showBodyType || showYear ? (
+      {showItem && (showBodyType || showYear) ? (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {showBodyType ? (
             <div className="min-w-0">
@@ -113,7 +118,7 @@ export function UsedCarBuyFields({
           ) : null}
         </div>
       ) : null}
-      {showPrice ? (
+      {showPriceSlot && showPrice ? (
         <div className="mt-2">
           <label className={TRADE_WRITE_FB_FIELD_LABEL}>
             {t("used_car_budget_max_label")} <span className="text-sam-danger">*</span>
@@ -138,7 +143,7 @@ export function UsedCarBuyFields({
           ) : null}
         </div>
       ) : null}
-      {allowPriceOffer ? (
+      {showPriceSlot && allowPriceOffer ? (
         <label className="mt-3 flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"

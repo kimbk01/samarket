@@ -17,8 +17,15 @@ import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
+import { ImageUploader, type ImageUploadItem } from "@/components/write/shared/ImageUploader";
+import { SubmitButton } from "@/components/write/shared/SubmitButton";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 import { PHILIFE_WRITE_SELECT_CLASS } from "@/lib/ui/philife-write-fb-ui";
+import {
+  TRADE_WRITE_FB_CONTROL,
+  TRADE_WRITE_FB_FIELD_HEAD,
+  TRADE_WRITE_FB_SECTION,
+} from "@/lib/ui/trade-write-fb-ui";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
 
@@ -68,6 +75,9 @@ export function WriteSheetFlowInner({
   const [formStatus, setFormStatus] = useState<
     "idle" | "redirecting" | "loading" | "found" | "not_found" | "no_write"
   >("idle");
+  const [pendingImages, setPendingImages] = useState<ImageUploadItem[]>([]);
+  const [pendingTitle, setPendingTitle] = useState("");
+  const [pendingDescription, setPendingDescription] = useState("");
 
   const categoryUiLabel = useCallback(
     (category: CategoryWithSettings) => resolveWriteCategoryUILabel(language, category),
@@ -356,6 +366,29 @@ export function WriteSheetFlowInner({
     }
   }, []);
 
+  const rootTopicSelect = (
+    <section data-ui3-write-root="true" className={TRADE_WRITE_FB_SECTION}>
+      <label htmlFor="write-category-select" className={TRADE_WRITE_FB_FIELD_HEAD}>
+        {t("ui_write_select_category")}
+      </label>
+      <select
+        id="write-category-select"
+        value={categoryKey.trim()}
+        onChange={(e) => handleDropdownChange(e.target.value)}
+        className={PHILIFE_WRITE_SELECT_CLASS}
+        disabled={selectableCategories.length === 0}
+      >
+        <option value="">{t("ui_write_select_category")}</option>
+        {selectableCategories.map((category) => (
+          <option key={category.id} value={category.id} disabled={!category.settings?.can_write}>
+            {categoryUiLabel(category)}
+            {!category.settings?.can_write ? t("ui_write_category_disabled_suffix") : ""}
+          </option>
+        ))}
+      </select>
+    </section>
+  );
+
   const renderWriteForm = () => {
     if (formStatus === "loading") {
       return <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
@@ -375,11 +408,18 @@ export function WriteSheetFlowInner({
       case "trade":
         return (
           <TradeCategoryWriteForm
+            key={selectedCategory.id}
             category={selectedCategory}
             onSuccess={handleSuccess}
             onCancel={tryClose}
             suppressTier1Chrome
             onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
+            rootTopicSelect={rootTopicSelect}
+            listingChromeSeed={{
+              images: pendingImages,
+              title: pendingTitle,
+              description: pendingDescription,
+            }}
           />
         );
       case "community":
@@ -430,36 +470,9 @@ export function WriteSheetFlowInner({
         interactionMode="blocking"
       />
     <div
-      className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-4 pb-[max(1.25rem,var(--safe-bottom))] pt-3`}
+      className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-0 pb-[max(1.25rem,var(--safe-bottom))] pt-3`}
     >
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <label
-          htmlFor="write-category-select"
-          className="mb-2 block sam-text-body font-semibold text-sam-fg"
-        >
-          {t("ui_write_select_category")}
-        </label>
-        <select
-          id="write-category-select"
-          value={categoryKey.trim()}
-          onChange={(e) => handleDropdownChange(e.target.value)}
-          className={PHILIFE_WRITE_SELECT_CLASS}
-          disabled={selectableCategories.length === 0}
-        >
-          <option value="">{t("ui_write_select_category")}</option>
-          {selectableCategories.map((category) => (
-            <option key={category.id} value={category.id} disabled={!category.settings?.can_write}>
-              {categoryUiLabel(category)}
-              {!category.settings?.can_write ? t("ui_write_category_disabled_suffix") : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-      {!categoryKey.trim() ? (
-        <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-          <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_select_category")}</p>
-        </div>
-      ) : (
+      {selectedCategory?.type === "trade" && formStatus === "found" ? (
         <div
           className="min-w-0"
           onChangeCapture={markDirtyByFormInteraction}
@@ -467,6 +480,58 @@ export function WriteSheetFlowInner({
         >
           {renderWriteForm()}
         </div>
+      ) : !categoryKey.trim() ? (
+        <div data-ui3-write-ungated="true" className="min-w-0">
+          <div data-ui3-slot="photos">
+            <ImageUploader
+              value={pendingImages}
+              onChange={setPendingImages}
+              maxCount={10}
+              label={t("trade_write_photos")}
+              compact={false}
+              variant="karrot"
+            />
+          </div>
+          <section data-ui3-slot="title" className={TRADE_WRITE_FB_SECTION}>
+            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_title")}</h4>
+            <input
+              type="text"
+              value={pendingTitle}
+              onChange={(e) => setPendingTitle(e.target.value)}
+              maxLength={100}
+              className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
+            />
+          </section>
+          <section data-ui3-slot="price" className={TRADE_WRITE_FB_SECTION}>
+            <label className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_price")}</label>
+            <div className={`${TRADE_WRITE_FB_CONTROL} bg-sam-app text-sam-muted`}> </div>
+          </section>
+          <div data-ui3-slot="item">{rootTopicSelect}</div>
+          <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>
+            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_content")}</h4>
+            <textarea
+              value={pendingDescription}
+              onChange={(e) => setPendingDescription(e.target.value)}
+              className={`mt-0.5 min-h-[100px] w-full ${TRADE_WRITE_FB_CONTROL}`}
+            />
+          </section>
+          <div data-ui3-slot="submit">
+            <SubmitButton label={t("trade_write_submit")} disabled onCancel={onUserRequestClose} />
+          </div>
+        </div>
+      ) : (
+        <>
+          {selectedCategory?.type === "service" || selectedCategory?.type === "feature" || !selectedCategory
+            ? rootTopicSelect
+            : null}
+          <div
+            className="min-w-0"
+            onChangeCapture={markDirtyByFormInteraction}
+            onInputCapture={markDirtyByFormInteraction}
+          >
+            {renderWriteForm()}
+          </div>
+        </>
       )}
     </div>
     </>

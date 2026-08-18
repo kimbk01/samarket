@@ -2,6 +2,8 @@
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
+import type { ReactNode } from "react";
+import type { ImageUploadItem } from "@/components/write/shared/ImageUploader";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 
 export type TradeCategoryWriteFormProps = {
@@ -14,6 +16,12 @@ export type TradeCategoryWriteFormProps = {
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
+  rootTopicSelect?: ReactNode;
+  listingChromeSeed?: {
+    images: ImageUploadItem[];
+    title: string;
+    description: string;
+  };
 };
 
 /** @deprecated import from `@/lib/trade/category-form/write-form-profile` */
@@ -39,6 +47,8 @@ export function TradeCategoryWriteForm({
   editPostId,
   ownerEditSnapshot,
   tradePolicy,
+  rootTopicSelect,
+  listingChromeSeed,
 }: TradeCategoryWriteFormProps) {
   return (
     <TradeWriteForm
@@ -50,6 +60,8 @@ export function TradeCategoryWriteForm({
       editPostId={editPostId}
       ownerEditSnapshot={ownerEditSnapshot}
       tradePolicy={tradePolicy}
+      rootTopicSelect={rootTopicSelect}
+      listingChromeSeed={listingChromeSeed}
     />
   );
 }

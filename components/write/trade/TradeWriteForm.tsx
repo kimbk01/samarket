@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import {
   USED_CAR_FORM_YEAR_MIN,
@@ -251,6 +251,14 @@ interface TradeWriteFormProps {
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   /** GET owner-edit `tradePolicy` */
   tradePolicy?: TradePolicyClient | null;
+  /** UI-3: ROOT select lives in 품목정보, not a first-screen gate */
+  rootTopicSelect?: ReactNode;
+  /** Ungated chrome seed when ROOT is chosen after photo/title */
+  listingChromeSeed?: {
+    images: ImageUploadItem[];
+    title: string;
+    description: string;
+  };
 }
 
 export function TradeWriteForm(props: TradeWriteFormProps) {
@@ -274,6 +282,8 @@ function TradeMarketplaceWriteFormInner({
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
+  rootTopicSelect,
+  listingChromeSeed,
 }: TradeWriteFormProps) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -294,8 +304,8 @@ function TradeMarketplaceWriteFormInner({
   const maxProductImages = Math.max(1, appSettings.maxProductImages ?? 10);
   const allowPriceOffer = appSettings.allowPriceOffer ?? true;
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(() => listingChromeSeed?.title ?? "");
+  const [description, setDescription] = useState(() => listingChromeSeed?.description ?? "");
   const [price, setPrice] = useState("");
   const [isPriceOfferEnabled, setIsPriceOfferEnabled] = useState(false);
   const [isFreeShare, setIsFreeShare] = useState(false);
@@ -303,7 +313,7 @@ function TradeMarketplaceWriteFormInner({
   const [isDirectDeal, setIsDirectDeal] = useState(true);
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
-  const [images, setImages] = useState<ImageUploadItem[]>([]);
+  const [images, setImages] = useState<ImageUploadItem[]>(() => listingChromeSeed?.images ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   /** 당근형 — 자주 쓰는 문구 바텀시트 */
@@ -2028,6 +2038,33 @@ function TradeMarketplaceWriteFormInner({
     </div>
   ) : null;
 
+  const listingTitlePreview = useMemo(() => {
+    if (skinKey === "used-car") {
+      if (usedCarWriteTradeMode === "buy") {
+        return t("trade_write_auto_title_buy", {
+          detail: `${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey, t)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`,
+        });
+      }
+      if (usedCarWriteTradeMode === "sell") {
+        return carModel.trim()
+          ? t("trade_write_auto_title_sell", { detail: carModel.trim() })
+          : t("trade_write_auto_title_sell_only");
+      }
+      return "";
+    }
+    if (skinKey === "rent-car") {
+      return carModel.trim() || t("cat_skin_rent_car");
+    }
+    return title;
+  }, [
+    skinKey,
+    usedCarWriteTradeMode,
+    usedCarBodyTypeKey,
+    carModel,
+    title,
+    t,
+  ]);
+
   const extendedChrome: TradeWriteChromeState = {
     title,
     setTitle,
@@ -2186,6 +2223,13 @@ function TradeMarketplaceWriteFormInner({
     ),
   };
 
+  const ui3ItemInfoHeader = (
+    <div data-ui3-slot="item">
+      {rootTopicSelect}
+      {extendedChromeSlots.topic}
+    </div>
+  );
+
   return (
     <div
       className={
@@ -2224,9 +2268,8 @@ function TradeMarketplaceWriteFormInner({
         ) : null}
         {isJobsProfile ? (
           <>
-            {extendedChromeSlots.images}
-            {extendedChromeSlots.topic}
-            {extendedChromeSlots.title}
+            <div data-ui3-slot="photos">{extendedChromeSlots.images}</div>
+            <div data-ui3-slot="title">{extendedChromeSlots.title}</div>
             <JobsExtendedWriteFields
               category={category}
               onSuccess={onSuccess}
@@ -2239,14 +2282,14 @@ function TradeMarketplaceWriteFormInner({
               registerController={registerJobsController}
               chrome={extendedChrome}
               onListingKindChange={setJobsListingKind}
+              itemInfoHeader={ui3ItemInfoHeader}
             />
-            {extendedChromeSlots.location}
-            {extendedChromeSlots.description}
+            <div data-ui3-slot="description">{extendedChromeSlots.description}</div>
+            <div data-ui3-slot="location">{extendedChromeSlots.location}</div>
           </>
         ) : isExchangeProfile ? (
           <>
-            {extendedChromeSlots.images}
-            {extendedChromeSlots.topic}
+            <div data-ui3-slot="photos">{extendedChromeSlots.images}</div>
             <ExchangeExtendedWriteFields
               category={category}
               onSuccess={onSuccess}
@@ -2258,12 +2301,14 @@ function TradeMarketplaceWriteFormInner({
               tradePolicy={tradePolicy}
               registerController={registerExchangeController}
               chrome={extendedChrome}
+              itemInfoHeader={ui3ItemInfoHeader}
             />
-            {extendedChromeSlots.location}
-            {extendedChromeSlots.description}
+            <div data-ui3-slot="description">{extendedChromeSlots.description}</div>
+            <div data-ui3-slot="location">{extendedChromeSlots.location}</div>
           </>
         ) : (
           <>
+        <div data-ui3-slot="photos">
         {!(isUsedCarSkin && usedCarWriteTradeMode === "buy") ? (
             <ImageUploader
               value={images}
@@ -2275,83 +2320,34 @@ function TradeMarketplaceWriteFormInner({
               variant="karrot"
             />
         ) : null}
-        <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-          <WriteTradeTopicSection
-            category={category}
-            value={tradeTopicChildId}
-            onChange={setTradeTopicChildId}
-            compact
-          />
         </div>
-        {skinKey === "used-car" && compositionWriteFieldIds.has("car_trade") ? (
-          <>
-            <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-              <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>
-                {t("trade_write_kind")} <span className="text-sam-danger">*</span>
-              </h4>
-              <div className="flex flex-wrap gap-3 pt-0.5">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={usedCarTrade === "sell"}
-                    onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
-                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
-                  />
-                  <span className="sam-text-body text-sam-fg">{t("trade_126")}</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={usedCarTrade === "buy"}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      if (checked) setImages([]);
-                      setUsedCarTrade(checked ? "buy" : null);
-                    }}
-                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
-                  />
-                  <span className="sam-text-body text-sam-fg">{t("trade_071")}</span>
-                </label>
-              </div>
-              {(errors.usedCarTrade || errors.title) && (
-                <p className="mt-1.5 text-[12px] text-red-600">{errors.usedCarTrade || errors.title}</p>
-              )}
-            </section>
-            {usedCarTrade === "buy" ? (
-              <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-                <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                  {t("trade_write_wanted_model")} <span className="font-normal text-sam-muted">{t("trade_001")}</span>
-                </h4>
-                <input
-                  type="text"
-                  value={carModel}
-                  onChange={(e) => setCarModel(e.target.value)}
-                  readOnly={coreLocked}
-                  placeholder=""
-                  maxLength={100}
-                  className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
-                />
-              </section>
-            ) : null}
-          </>
-        ) : skinKey === "used-car" || skinKey === "rent-car" ? null : (
-          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-              {t("trade_write_title")} <span className="text-sam-danger">*</span>
-            </h4>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              readOnly={coreLocked}
-              placeholder=""
-              maxLength={100}
-              className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
-              aria-invalid={!!errors.title}
-            />
-            {errors.title ? <p className="mt-1 text-[12px] text-red-600">{errors.title}</p> : null}
-          </section>
-        )}
+        <section data-ui3-slot="title" className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+            {t("trade_write_title")}{skinKey === "used-car" || skinKey === "rent-car" ? null : (
+              <> <span className="text-sam-danger">*</span></>
+            )}
+          </h4>
+          {skinKey === "used-car" || skinKey === "rent-car" ? (
+            <p className={`mt-0.5 min-h-[44px] ${TRADE_WRITE_FB_CONTROL} bg-sam-app text-sam-fg`}>
+              {listingTitlePreview || " "}
+            </p>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                readOnly={coreLocked}
+                placeholder=""
+                maxLength={100}
+                className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
+                aria-invalid={!!errors.title}
+              />
+              {errors.title ? <p className="mt-1 text-[12px] text-red-600">{errors.title}</p> : null}
+            </>
+          )}
+        </section>
+        <div data-ui3-slot="price">
         {(hasPrice || (hasFreeShare && !isUsedCarSkin && !isRentCarSkin)) &&
           skinKey !== "real-estate" &&
           skinKey !== "rent-car" &&
@@ -2480,6 +2476,119 @@ function TradeMarketplaceWriteFormInner({
             )}
           </section>
         )}
+        {skinKey === "real-estate" ? (
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <GenericTradeWriteFields
+              fields={realEstateAdaptedFields.filter(
+                (f) => f.id === "price" || f.id === "deposit" || f.id === "monthly"
+              )}
+              values={realEstateFieldValues}
+              onChange={onRealEstateCompositionChange}
+              errors={errors}
+              disabled={coreLocked}
+              currencyUnit={currencyUnit}
+            />
+          </section>
+        ) : null}
+        {skinKey === "rent-car" ? (
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <GenericTradeWriteFields
+              fields={rentCarAdaptedFields.filter((f) => f.id === "daily_price")}
+              values={rentCarFieldValues}
+              onChange={onRentCarCompositionChange}
+              errors={errors}
+              disabled={coreLocked}
+              currencyUnit={currencyUnit}
+            />
+          </section>
+        ) : null}
+        {isUsedCarSkin && usedCarWriteTradeMode === "buy" ? (
+          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <UsedCarBuyFields
+              bodyTypeKey={usedCarBodyTypeKey}
+              setBodyTypeKey={setUsedCarBodyTypeKey}
+              carYear={carYear}
+              setCarYear={setCarYear}
+              price={price}
+              setPrice={setPrice}
+              currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
+              isPriceOfferEnabled={isPriceOfferEnabled}
+              setIsPriceOfferEnabled={setIsPriceOfferEnabled}
+              allowPriceOffer={allowPriceOffer}
+              disabled={coreLocked}
+              enabledFieldIds={compositionWriteFieldIds}
+              fieldsSlot="price"
+              errors={{
+                bodyType: errors.usedCarBodyType,
+                carYear: errors.carYear,
+                price: errors.price,
+              }}
+            />
+          </section>
+        ) : null}
+        </div>
+        <div data-ui3-slot="item">
+        {rootTopicSelect}
+        <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+          <WriteTradeTopicSection
+            category={category}
+            value={tradeTopicChildId}
+            onChange={setTradeTopicChildId}
+            compact
+          />
+        </div>
+        {skinKey === "used-car" && compositionWriteFieldIds.has("car_trade") ? (
+          <>
+            <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+              <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>
+                {t("trade_write_kind")} <span className="text-sam-danger">*</span>
+              </h4>
+              <div className="flex flex-wrap gap-3 pt-0.5">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={usedCarTrade === "sell"}
+                    onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
+                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
+                  />
+                  <span className="sam-text-body text-sam-fg">{t("trade_126")}</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={usedCarTrade === "buy"}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      if (checked) setImages([]);
+                      setUsedCarTrade(checked ? "buy" : null);
+                    }}
+                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
+                  />
+                  <span className="sam-text-body text-sam-fg">{t("trade_071")}</span>
+                </label>
+              </div>
+              {(errors.usedCarTrade || errors.title) && (
+                <p className="mt-1.5 text-[12px] text-red-600">{errors.usedCarTrade || errors.title}</p>
+              )}
+            </section>
+            {usedCarTrade === "buy" ? (
+              <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+                <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+                  {t("trade_write_wanted_model")} <span className="font-normal text-sam-muted">{t("trade_001")}</span>
+                </h4>
+                <input
+                  type="text"
+                  value={carModel}
+                  onChange={(e) => setCarModel(e.target.value)}
+                  readOnly={coreLocked}
+                  placeholder=""
+                  maxLength={100}
+                  className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
+                />
+              </section>
+            ) : null}
+          </>
+        ) : null}
         {skinKey === "real-estate" && (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_021")}</h4>
@@ -2490,6 +2599,7 @@ function TradeMarketplaceWriteFormInner({
               errors={errors}
               disabled={coreLocked}
               currencyUnit={currencyUnit}
+              skipFieldIds={["price", "deposit", "monthly"]}
             />
           </section>
         )}
@@ -2510,6 +2620,7 @@ function TradeMarketplaceWriteFormInner({
                 allowPriceOffer={allowPriceOffer}
                 disabled={coreLocked}
                 enabledFieldIds={compositionWriteFieldIds}
+                fieldsSlot="item"
                 errors={{
                   bodyType: errors.usedCarBodyType,
                   carYear: errors.carYear,
@@ -2601,6 +2712,7 @@ function TradeMarketplaceWriteFormInner({
                   "images",
                   "description",
                   "location",
+                  "daily_price",
                 ]}
               />
             </div>
@@ -2625,7 +2737,8 @@ function TradeMarketplaceWriteFormInner({
             />
           </section>
         ) : null}
-        <section className={TRADE_WRITE_FB_SECTION}>
+        </div>
+        <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
             {t("trade_write_content")} <span className="text-sam-danger">*</span>
           </h4>
@@ -2668,9 +2781,12 @@ function TradeMarketplaceWriteFormInner({
             </div>
           ) : null}
         </section>
-        {tradeLocationEl}
-        <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_016")}</h4>
+        <div data-ui3-slot="location">{tradeLocationEl}</div>
+        <section
+          data-ui3-slot="call-policy"
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
+          <h4 className={`${TRADE_WRITE_FB_FIELD_HEAD} font-normal text-sam-muted`}>{t("trade_016")}</h4>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -2709,12 +2825,14 @@ function TradeMarketplaceWriteFormInner({
         {errors.submit && (
           <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
+        <div data-ui3-slot="submit">
         <SubmitButton
           label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
           submitting={isJobsProfile ? jobsSubmitting : isExchangeProfile ? exchangeSubmitting : submitting}
           submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
           onCancel={onCancel}
         />
+        </div>
       </form>
     </div>
   );
