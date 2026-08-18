@@ -27,6 +27,7 @@ import {
   peekTradeLguDisplayLabel,
 } from "@/lib/trade/location/trade-location-scope";
 import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
+import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -127,6 +128,7 @@ export function PostListByCategory({
   const lguCityId = locExtras.lguCityId;
   const radiusKm = locExtras.radiusKm;
   const locationAll = locExtras.locationAll === true;
+  const q = sanitizeMarketplaceQueryText(searchParams.get("q")) ?? null;
   const resolvedComposition = useMemo(
     () => (category ? resolveTradeCompositionForCategory(category) : null),
     [category]
@@ -165,6 +167,7 @@ export function PostListByCategory({
       radiusKm,
       locationAll,
       compositionFilters,
+      q,
     }),
     [
       jobEmploymentType,
@@ -176,6 +179,7 @@ export function PostListByCategory({
       radiusKm,
       locationAll,
       compositionFilters,
+      q,
     ]
   );
 
@@ -196,6 +200,7 @@ export function PostListByCategory({
         radiusKm: feedExtras.radiusKm,
         locationAll: feedExtras.locationAll,
         compositionFilters: feedExtras.compositionFilters,
+        q: feedExtras.q,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };

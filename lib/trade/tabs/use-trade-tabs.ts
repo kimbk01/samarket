@@ -53,7 +53,11 @@ async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
   return tradePrimaryCategoriesFlight;
 }
 
-export function useTradeTabs(pathname: string, categoryQuery: string | null = null) {
+export function useTradeTabs(
+  pathname: string,
+  categoryQuery: string | null = null,
+  baseSearch: string | null = null
+) {
   const { language, safeT } = useI18n();
   const [tradeCategories, setTradeCategories] = useState<CategoryWithSettings[]>(
     cachedTradePrimaryCategories ?? []
@@ -98,7 +102,7 @@ export function useTradeTabs(pathname: string, categoryQuery: string | null = nu
       {
         key: "all",
         label: safeT("trade_market_tab_all"),
-        href: buildTradeMarketFeedHref(),
+        href: buildTradeMarketFeedHref({ baseSearch }),
         isActive: isTradeMarketAllRouteActive(pathname, categoryQuery),
       },
       ...tradeCategories.map((category) => ({
@@ -110,11 +114,11 @@ export function useTradeTabs(pathname: string, categoryQuery: string | null = nu
           category.slug,
           category.icon_key
         ),
-        href: buildTradeMarketFeedHref({ categoryId: category.id }),
+        href: buildTradeMarketFeedHref({ categoryId: category.id, baseSearch }),
         isActive: isTradeMarketRouteActive(pathname, category, categoryQuery),
       })),
     ],
-    [pathname, categoryQuery, tradeCategories, language, safeT]
+    [pathname, categoryQuery, tradeCategories, language, safeT, baseSearch]
   );
 
   const activeIndex = tabs.findIndex((tab) => tab.isActive);

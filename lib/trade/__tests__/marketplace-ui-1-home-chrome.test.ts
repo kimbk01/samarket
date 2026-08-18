@@ -25,26 +25,39 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 
-  it("HOME search and sell entry are visible and use existing routes", () => {
+  it("HOME search stays on /market and sell hub uses existing WRITE", () => {
     const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
-    expect(chrome).toContain('href="/search"');
+    expect(chrome).not.toContain('href="/search"');
     expect(chrome).toContain("openTradeWriteSheet");
-    expect(chrome).toContain("trade_write_sell_cta");
+    expect(chrome).toContain("marketplace_sell_hub_create");
     expect(chrome).toContain("marketplace_search_placeholder");
+    expect(chrome).toContain("sanitizeMarketplaceQueryText");
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain("MarketplaceHomeEntryChrome");
+    const home = read("components/home/HomeProductList.tsx");
+    expect(home).toContain("q,");
   });
 
-  it("topic row is topics only — 전체 first, no 최신순 sort chip", () => {
+  it("topic row is 전체 + 더보기 categories + 지역, no 최신순", () => {
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("allSortChip");
     expect(tabs).not.toContain("leading=");
-    expect(tabs).toContain("displayTabs.map");
-    expect(tabs).not.toContain('filter((tab) => tab.key !== "all")');
+    expect(tabs).toContain("marketplace_more_categories");
+    expect(tabs).toContain("marketplace_region_chip");
+    expect(tabs).toContain("TRADE_BROWSE_LOCATION_PATH");
   });
 
   it("search and write back fallback to Marketplace HOME", () => {
     expect(resolveMainTier1Subpage("/search")?.backHref).toBe("/market");
     expect(resolveMainTier1Subpage("/write")?.backHref).toBe("/market");
+  });
+
+  it("preserves q when switching category href", () => {
+    expect(
+      buildTradeMarketFeedHref({
+        categoryId: "used-car",
+        baseSearch: "q=Toyota&lgu=pasig",
+      })
+    ).toBe("/market?q=Toyota&lgu=pasig&category=used-car");
   });
 });

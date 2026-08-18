@@ -49,9 +49,11 @@ if (!tradeTabs.includes("commitTradePrimaryTabRoute")) {
 if (!tradeTabs.includes("e.preventDefault()")) {
   fail("TradePrimaryTabs Link onClick must preventDefault");
 }
-const linkClickBlock = tradeTabs.match(/onClick=\{\(e\) => \{[\s\S]*?commitTradePrimaryTabRoute/);
-if (!linkClickBlock) {
-  fail("TradePrimaryTabs category Link onClick must call commitTradePrimaryTabRoute");
+if (!/onClick=\{\(e\) => \{[\s\S]*commitTab\(allTab\.href/.test(tradeTabs)) {
+  fail("TradePrimaryTabs 전체 Link onClick must commit via commitTradePrimaryTabRoute");
+}
+if (!tradeTabs.includes("commitTab(tab.href, tab.key)")) {
+  fail("TradePrimaryTabs 더보기 category commit must use commitTradePrimaryTabRoute");
 }
 
 const marketLoading = read("app/(main)/market/loading.tsx");

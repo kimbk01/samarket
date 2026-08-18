@@ -125,7 +125,7 @@ export function MarketContent({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tradeState = searchParams.get("tradeState") ?? "";
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
-  const { tabs, activeIndex } = useTradeTabs(pathname, categoryQuery);
+  const { tabs, activeIndex } = useTradeTabs(pathname, categoryQuery, searchParams.toString());
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);

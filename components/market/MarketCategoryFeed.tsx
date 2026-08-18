@@ -87,7 +87,7 @@ export function MarketCategoryFeed({
   const topicPrefetchAtRef = useRef<Record<string, number>>({});
   /** 선두 3칩 프리워밍은 카테고리 id 단위로만 1회(Strict Mode 이중 마운트·불리언 플래그 누락 방지) */
   const headTopicPrewarmedCategoryIdRef = useRef<string | null>(null);
-  const { tabs, activeIndex } = useTradeTabs(pathname, category.id);
+  const { tabs, activeIndex } = useTradeTabs(pathname, category.id, searchParams.toString());
   const { beginMenuNavigation } = useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
 

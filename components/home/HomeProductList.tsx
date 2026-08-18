@@ -50,6 +50,7 @@ import {
 } from "@/lib/trade/location/trade-location-scope";
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { marketplaceLocationFetchGate } from "@/lib/trade/marketplace/client-location-fetch";
+import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
@@ -155,6 +156,7 @@ export function HomeProductList({
   const { unresolved: locationUnresolved } = useTradeMarketplaceLocationHydrate();
   const { propsForCategoryId } = useTradeListCompositionMap();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
+  const q = sanitizeMarketplaceQueryText(searchParams.get("q")) ?? null;
   const locationScope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(searchParams),
     [searchParams]
@@ -204,12 +206,13 @@ export function HomeProductList({
       lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
       radiusKm: locationInvalid ? null : radiusKm,
       locationAll,
+      q,
     }),
-    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope, locationAll]
+    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope, locationAll, q]
   );
   const { tt } = useI18n();
   const hydrationSeed =
-    locationAll && !locationInvalid
+    locationAll && !locationInvalid && !q
       ? getHydrationSafeBoot(tradeState, initialHomeTradeFeed)
       : null;
   const clientBoot =
@@ -350,7 +353,7 @@ export function HomeProductList({
       return;
     }
 
-    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && locationAll) {
+    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && locationAll && !q) {
       primeHomePostsCache(
         { sort: "latest", type: null, tradeState, locationAll: true },
         initialHomeTradeFeed
@@ -358,7 +361,7 @@ export function HomeProductList({
     }
 
     const boot =
-      tradeState === "latest" && allowRscHomeListSeedRef.current && locationAll
+      tradeState === "latest" && allowRscHomeListSeedRef.current && locationAll && !q
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
         : peekCachedPostsForHome(homePostListOptions);
     const merged = boot ?? (locationAll ? peekRecentHomePostsFallback() : null);
@@ -437,6 +440,7 @@ export function HomeProductList({
    */
   const refreshSilent = useCallback(async () => {
     if (locationInvalid || locationUnset) return;
+    if (q) return;
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
       return;
     }
@@ -704,7 +708,7 @@ export function HomeProductList({
   return (
     <>
       {tradePullRefreshRegister}
-      {pendingNewCount > 0 ? (
+      {pendingNewCount > 0 && !q ? (
         <div className="sticky top-0 z-[9] flex justify-center py-2">
           <button
             type="button"
