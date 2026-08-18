@@ -1,0 +1,45 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT G (heart boolean parity, LIST+DETAIL report, DETAIL share)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT G HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-g-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT G LOCKED**
+- Production SHA: `637c42a10a0b12fdf218110d3c8dece8cb7b712b`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_7vWnF25rvFYdQh1thGuEF62yx88k`
+- HEART BOOLEAN PARITY: **LOCKED** (LIST / SEARCH / DETAIL / MY → same toggle)
+- MEMBER 관심 N / posts.favorite_count DISPLAY: **REMOVED**
+- MY HUB FAVORITE COUNT: **PRESERVED** (live favorites-row metric)
+- REPORT: LIST + DETAIL `ReportReasonModal`; SEARCH after DETAIL; MY none
+- DETAIL SHARE: **LOCKED** (`navigator.share` else copy `/post/[id]`)
+- REPORT DEDUP / SEARCH REPORT / COUNT BATCH: **OUT**
+- MIGRATION: **NO**
+- CUT A / B / C / D / E / F / P0–P5: **PRESERVED**
+
+## KEEP
+
+```text
+FAVORITE: LIST / SEARCH / DETAIL / MY → same toggle authority
+REPORT: LIST + DETAIL → ReportReasonModal
+SEARCH: DETAIL 진입 후 신고
+MY: 별도 신고 surface 없음
+DETAIL: 찜 + 신고 + 공유 + 채팅
+```
+
+Authority: `lib/favorites/toggleFavorite.ts` · `components/post/ReportReasonModal.tsx` · `lib/trade/share-trade-listing.ts`.
+
+This cut changed **Marketplace heart boolean + LIST/DETAIL report + DETAIL share**, not SEARCH expansion (C), LIST sell-intent (B), taxonomy (A), review UI (D), Buyer MY (E), or seller promotion (F).
+
+## DO NOT (without a new cut)
+
+- Restore member 관심 N / `posts.favorite_count` display
+- Add a `posts.favorite_count` writer or LIST count batch
+- Add SEARCH report or report 409 dedup
+- Touch Feed Banner / trade chat hot-path
+- Reopen CUT A–F, or start CUT H inside CUT G work
