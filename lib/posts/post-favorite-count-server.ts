@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** 글에 연결된 찜 건수(구매자 기준). `posts.favorite_count` 없을 때 대비 */
+/**
+ * Live 찜 건수 — `favorites` COUNT.
+ * CUT G CASE B: `posts.favorite_count` is a stale snapshot (no trigger / no app writer).
+ * Do not treat the column as write authority.
+ */
 export async function countFavoritesForPostId(sbAny: SupabaseClient, postId: string): Promise<number> {
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) return 0;

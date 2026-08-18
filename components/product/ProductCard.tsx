@@ -85,9 +85,6 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className={stripPostListBlockTopMargin(POST_LIST_META_TEXT_CLASS)}>
               {product.location}
             </p>
-            {product.likesCount != null && product.likesCount > 0 ? (
-              <p className={POST_LIST_META_LINE_CLASS}>{t("ui_product_interest_count", { count: product.likesCount })}</p>
-            ) : null}
             <p className={POST_LIST_META_LINE_CLASS}>
               <TimeAgo isoString={product.createdAt} />
             </p>

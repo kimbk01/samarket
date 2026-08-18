@@ -4,6 +4,8 @@ export const POST_FAVORITE_CHANGED_EVENT = "samarket-post-favorite-changed";
 export type PostFavoriteChangedDetail = {
   postId: string;
   isFavorite: boolean;
+  /** Live `favorites` COUNT when the toggle route returned it. Not `posts.favorite_count`. */
+  favoriteCount?: number;
 };
 
 export function dispatchPostFavoriteChanged(detail: PostFavoriteChangedDetail): void {

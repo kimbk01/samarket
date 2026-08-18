@@ -1,4 +1,4 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
  * POST /api/favorites/toggle — 찜 토글
  * Body: { postId: string } — 사용자는 세션에서만 결정
  * 성공 시 `favorite_audit_log`에 기록(테이블 없으면 무시) — `/admin/favorites` 감사 로그와 동일 소스
+ *
+ * CUT G CASE B: `posts.favorite_count` is a stale snapshot (no trigger / no app writer).
+ * Do not UPDATE that column here. Response `favoriteCount` is live `favorites` COUNT only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -16,6 +19,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
 import { invalidatePostFavoriteServerCachesForViewer } from "@/lib/posts/invalidate-post-favorite-server-caches";
+import { countFavoritesForPostId } from "@/lib/posts/post-favorite-count-server";
 
 async function appendFavoriteAuditLog(
   sbAny: SupabaseClient,
@@ -118,7 +122,8 @@ export async function POST(req: NextRequest) {
       }
       await appendFavoriteAuditLog(sbAny, userId, postId, "remove");
       invalidatePostFavoriteServerCachesForViewer(userId);
-      return NextResponse.json({ ok: true, isFavorite: false });
+      const favoriteCount = await countFavoritesForPostId(sbAny, postId);
+      return NextResponse.json({ ok: true, isFavorite: false, favoriteCount });
     }
 
     const { error } = await sbAny.from("favorites").insert({
@@ -134,7 +139,8 @@ export async function POST(req: NextRequest) {
     }
     await appendFavoriteAuditLog(sbAny, userId, postId, "add");
     invalidatePostFavoriteServerCachesForViewer(userId);
-    return NextResponse.json({ ok: true, isFavorite: true });
+    const favoriteCount = await countFavoritesForPostId(sbAny, postId);
+    return NextResponse.json({ ok: true, isFavorite: true, favoriteCount });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: (e as Error)?.message ?? "처리에 실패했습니다." },

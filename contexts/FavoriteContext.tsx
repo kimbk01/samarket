@@ -11,10 +11,12 @@ import {
 } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { fetchFavoritePostIds } from "@/lib/favorites/favorites-client";
 import {
-  fetchFavoritePostIds,
-  toggleFavoritePost,
-} from "@/lib/favorites/favorites-client";
+  POST_FAVORITE_CHANGED_EVENT,
+  type PostFavoriteChangedDetail,
+} from "@/lib/favorites/post-favorite-events";
+import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { logEvent } from "@/lib/recommendation/recommendation-behavior-state";
 import { recordConversionByProduct } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 
@@ -59,6 +61,22 @@ export function FavoriteProvider({ children }: { children: React.ReactNode }) {
     };
   }, [currentUserId]);
 
+  useEffect(() => {
+    const onFav = (event: Event) => {
+      const detail = (event as CustomEvent<PostFavoriteChangedDetail>).detail;
+      const postId = typeof detail?.postId === "string" ? detail.postId.trim() : "";
+      if (!postId || typeof detail?.isFavorite !== "boolean") return;
+      setFavoriteIds((prev) => {
+        const has = prev.includes(postId);
+        if (detail.isFavorite && !has) return [...prev, postId];
+        if (!detail.isFavorite && has) return prev.filter((id) => id !== postId);
+        return prev;
+      });
+    };
+    window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+    return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+  }, []);
+
   const isFavorite = useCallback(
     (productId: string) => favoriteIds.includes(productId),
     [favoriteIds]
@@ -74,7 +92,7 @@ export function FavoriteProvider({ children }: { children: React.ReactNode }) {
       return wasFavorite ? prev.filter((id) => id !== productId) : [...prev, productId];
     });
 
-    void toggleFavoritePost(productId).then((result) => {
+    void toggleFavorite(productId).then((result) => {
       if (!result.ok) {
         setFavoriteIds((prev) => {
           const has = prev.includes(productId);

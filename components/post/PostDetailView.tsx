@@ -14,7 +14,10 @@ import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format"
 import { getUserProfile } from "@/lib/users/getUserProfile";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
-import { createReport } from "@/lib/reports/createReport";
+import {
+  POST_FAVORITE_CHANGED_EVENT,
+  type PostFavoriteChangedDetail,
+} from "@/lib/favorites/post-favorite-events";
 import { postOwnedByUserId, postTradeListingOwnerUserId } from "@/lib/chats/resolve-author-nickname";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -56,7 +59,6 @@ import {
   isReDealTypeRent,
   isReDealTypeSale,
   tradeDetailChatBlockBanner,
-  tradeDetailFavoritesLine,
   tradeDetailReRentSummary,
   tradeDetailReSalePriceLine,
   tradeDetailReSaleSummary,
@@ -72,8 +74,7 @@ import {
 } from "@/lib/trade/category-form/detail-spec-route";
 import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -86,6 +87,7 @@ import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-lo
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
+import { ReportReasonModal } from "@/components/post/ReportReasonModal";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { TradeCompositionDetailSection } from "@/components/post/TradeCompositionDetailSection";
@@ -121,6 +123,7 @@ import {
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeDetailTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
+import { canonicalTradeDetailUrl, shareOrCopyTradeListing } from "@/lib/trade/share-trade-listing";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
@@ -506,7 +509,7 @@ export function PostDetailView({
   initialSellerPriceOffers,
   initialViewerBuyerOffers,
 }: PostDetailViewProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
   const pathname = usePathname();
@@ -569,16 +572,9 @@ export function PostDetailView({
     () => sellerProfile?.tradeLocationLine?.trim() || null
   );
   const [isFavorite, setIsFavorite] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(() => {
-    const n = post.favorite_count;
-    return typeof n === "number" && Number.isFinite(n) ? n : 0;
-  });
   const [jobApplyBusy, setJobApplyBusy] = useState(false);
   const [jobApplyDone, setJobApplyDone] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [reportError, setReportError] = useState("");
   /**
    * 채팅 CTA navigation once-guard.
    * 연타 시 `openCreateTradeChat`/`openExistingTradeChat` 이 replace·push 를 반복하지 않게 한다.
@@ -955,10 +951,14 @@ export function PostDetailView({
   }, [post.id]);
 
   useEffect(() => {
-    const n = post.favorite_count;
-    const next = typeof n === "number" && Number.isFinite(n) ? n : 0;
-    setFavoriteCount((prev) => (prev === next ? prev : next));
-  }, [post.id, post.favorite_count]);
+    const onFav = (event: Event) => {
+      const detail = (event as CustomEvent<PostFavoriteChangedDetail>).detail;
+      if (detail?.postId !== post.id || typeof detail.isFavorite !== "boolean") return;
+      setIsFavorite(detail.isFavorite);
+    };
+    window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+    return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
+  }, [post.id]);
 
   const handleFavorite = useCallback(async () => {
     await requireAction("trade_favorite", async () => {
@@ -966,38 +966,38 @@ export function PostDetailView({
       if (!uid) return;
       if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
       const prevFavorite = isFavorite;
-      const prevCount = favoriteCount;
       setIsFavorite(!prevFavorite);
-      setFavoriteCount((c) => Math.max(0, c + (prevFavorite ? -1 : 1)));
       const res = await toggleFavorite(post.id);
       if (!res.ok) {
         setIsFavorite(prevFavorite);
-        setFavoriteCount(prevCount);
       } else {
         setIsFavorite(res.isFavorite);
       }
     });
-  }, [post, post.id, requireAction, isFavorite, favoriteCount]);
+  }, [post, post.id, requireAction, isFavorite]);
 
-  const handleReport = useCallback(async () => {
-    await requireAction("trade_report", async () => {
-      if (!reportReason.trim()) return;
-      setReportError((prev) => (prev === "" ? prev : ""));
-      setReportSubmitting((prev) => (prev ? prev : true));
-      try {
-        const res = await createReport(post.id, reportReason.trim());
-        if (res.ok) {
-          setReportOpen((prev) => (prev ? false : prev));
-          setReportReason((prev) => (prev === "" ? prev : ""));
-          setReportError((prev) => (prev === "" ? prev : ""));
-        } else {
-          setReportError(res.error ?? t("ui_report_failed"));
-        }
-      } finally {
-        setReportSubmitting((prev) => (prev ? false : prev));
-      }
-    });
-  }, [post.id, reportReason, requireAction, t]);
+  const handleShare = useCallback(async () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = canonicalTradeDetailUrl(origin, post.id);
+    const result = await shareOrCopyTradeListing({ title: post.title ?? "", url });
+    if (result === "copied") {
+      await dibayAlert({
+        title: safeT("trade_detail_share_copied", {
+          fallbackKo: "링크를 복사했어요.",
+          fallbackEn: "Link copied.",
+        }),
+      });
+      return;
+    }
+    if (result === "failed") {
+      await dibayAlert({
+        title: safeT("trade_detail_share_failed", {
+          fallbackKo: "공유하지 못했습니다.",
+          fallbackEn: "Could not share.",
+        }),
+      });
+    }
+  }, [post.id, post.title, safeT]);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
@@ -1560,8 +1560,10 @@ export function PostDetailView({
         open={detailMoreOpen}
         onClose={() => setDetailMoreOpen(false)}
         onSelectReport={() => {
-          setReportError("");
           setReportOpen(true);
+        }}
+        onSelectShare={() => {
+          void handleShare();
         }}
         authorUserId={post.author_id}
         authorNickname={author?.nickname ?? null}
@@ -1609,43 +1611,16 @@ export function PostDetailView({
         productTitle={post.title ?? null}
         listPrice={typeof post.price === "number" ? post.price : null}
       />
-      <DibayBottomSheet
+      <ReportReasonModal
+        postId={post.id}
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        title={t("ui_report_submit")}
-        anchor="above-bottom-nav"
-      >
-        <input
-          type="text"
-          value={reportReason}
-          onChange={(e) => setReportReason(e.target.value)}
-          placeholder={t("ui_report_reason_title")}
-          className={OverlayUi.input}
-        />
-        {reportError ? (
-          <p className={`mt-2 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportError}</p>
-        ) : null}
-        <div className={`${OverlayUi.actionsRow} mt-3`}>
-          <DibayOverlayButton roleTone="secondary" type="button" onClick={() => setReportOpen(false)}>
-            {t("common_cancel")}
-          </DibayOverlayButton>
-          <DibayOverlayButton
-            roleTone="destructive"
-            type="button"
-            onClick={handleReport}
-            disabled={!reportReason.trim() || reportSubmitting}
-            loading={reportSubmitting}
-          >
-            {t("trade_detail_report_submit")}
-          </DibayOverlayButton>
-        </div>
-      </DibayBottomSheet>
+      />
     </>
   );
 
   const detailFooterMetaParts = [
     post.view_count != null && tradeDetailViewsLine(t, post.view_count),
-    tradeDetailFavoritesLine(t, favoriteCount),
   ].filter(Boolean) as string[];
 
   const detailImageUrls = imageResolveTradePostDetailImageUrls(post);

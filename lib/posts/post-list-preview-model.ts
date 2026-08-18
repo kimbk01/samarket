@@ -260,22 +260,18 @@ function buildListFooter(
     variant === "trade" || variant === "uc" ? POST_LIST_SELLER_LINE_CLASS : POST_LIST_META_LINE_CLASS;
   const t = createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : "";
   const chatCount = post.comment_count;
-  const favCount = post.favorite_count;
   const items: string[] = [];
+  // CUT G CASE 1: do not render posts.favorite_count. Heart boolean is favorites-table authority.
   if (variant === "uc") {
     if (locationLabel) items.push(locationLabel);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0)
       items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
-    if (typeof favCount === "number" && favCount > 0)
-      items.push(postPreviewT(locale, "post_preview_fav_count", { count: favCount }));
   } else {
     if (variant === "trade" && locationLabel) items.push(locationLabel);
     if (t) items.push(t);
     if (typeof chatCount === "number" && chatCount > 0)
       items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
-    if (typeof favCount === "number" && favCount > 0)
-      items.push(postPreviewT(locale, "post_preview_fav_count", { count: favCount }));
   }
   /** ul 은 `sellerLine` 아래 두 번째 줄 — 블록 전체 `mt-1` 은 PostListPreviewColumn 래퍼에서 */
   const ulClassName = `flex flex-wrap items-center gap-x-2 gap-y-0.5 ${POST_LIST_META_LINE_CLASS}`;

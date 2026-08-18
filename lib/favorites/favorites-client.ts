@@ -1,6 +1,7 @@
 /** 클라이언트 찜 API — `/api/favorites/*` */
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 
 const FAVORITES_LIST_FLIGHT = "favorites:list";
 
@@ -21,27 +22,9 @@ export async function fetchFavoritePostIds(userId?: string): Promise<string[]> {
   }
 }
 
+/** SEARCH/LIST/DETAIL writer SSOT is `toggleFavorite`. Keep this alias so leftover callers share events. */
 export async function toggleFavoritePost(
   postId: string
-): Promise<{ ok: boolean; isFavorite?: boolean; error?: string }> {
-  const id = postId.trim();
-  if (!id) return { ok: false, error: "postId 필요" };
-  try {
-    const res = await fetch("/api/favorites/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: id }),
-    });
-    const data = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      isFavorite?: boolean;
-      error?: string;
-    };
-    if (!res.ok || data.ok === false) {
-      return { ok: false, error: data.error ?? "처리에 실패했습니다." };
-    }
-    return { ok: true, isFavorite: data.isFavorite === true };
-  } catch {
-    return { ok: false, error: "네트워크 오류" };
-  }
+): Promise<{ ok: boolean; isFavorite?: boolean; favoriteCount?: number; error?: string }> {
+  return toggleFavorite(postId);
 }

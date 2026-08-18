@@ -30,6 +30,18 @@ function IconReportAlert({ className }: { className?: string }) {
   );
 }
 
+function IconShare({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+      />
+    </svg>
+  );
+}
+
 const rowClass =
   "flex w-full items-center gap-3 rounded-[length:var(--overlay-radius-md)] px-3 py-3 text-left text-[length:var(--overlay-body-1-size)] text-[color:var(--overlay-text-primary)] hover:bg-[color:var(--overlay-surface)] active:scale-[var(--overlay-press-scale)]";
 
@@ -37,6 +49,7 @@ export function PostDetailMoreBottomSheet({
   open,
   onClose,
   onSelectReport,
+  onSelectShare,
   authorUserId,
   authorNickname,
   reportEnabled = true,
@@ -45,12 +58,13 @@ export function PostDetailMoreBottomSheet({
   onClose: () => void;
   /** 신고 사유 입력 단계로 */
   onSelectReport: () => void;
+  onSelectShare: () => void;
   authorUserId: string;
   authorNickname?: string | null;
   /** false면 시트에서 「신고하기」만 숨김 (더보기 메뉴는 계속 사용) */
   reportEnabled?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const requireAction = useRequireAuthAction();
 
   const handleHideAuthor = () => {
@@ -75,9 +89,18 @@ export function PostDetailMoreBottomSheet({
     onSelectReport();
   };
 
+  const handleShare = () => {
+    onClose();
+    onSelectShare();
+  };
+
   return (
     <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
       <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
+        <button type="button" onClick={handleShare} className={rowClass}>
+          <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
+          {safeT("trade_detail_share", { fallbackKo: "공유하기", fallbackEn: "Share" })}
+        </button>
         <button type="button" onClick={handleHideAuthor} className={rowClass}>
           <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           이 사용자의 글 보지 않기

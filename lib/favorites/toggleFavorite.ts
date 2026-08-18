@@ -6,7 +6,7 @@ import { dispatchPostFavoriteChanged } from "@/lib/favorites/post-favorite-event
 import { invalidateTradeFeedClientCacheForViewer } from "@/lib/posts/trade-feed-client-cache";
 
 export type ToggleFavoriteResult =
-  | { ok: true; isFavorite: boolean }
+  | { ok: true; isFavorite: boolean; favoriteCount?: number }
   | { ok: false; error: string };
 
 /**
@@ -38,8 +38,15 @@ export async function toggleFavorite(postId: string): Promise<ToggleFavoriteResu
       invalidateFavoriteCountClientCache();
       invalidateTradeFeedClientCacheForViewer(user.id);
       const isFavorite = (data as { isFavorite: boolean }).isFavorite;
-      dispatchPostFavoriteChanged({ postId, isFavorite });
-      return { ok: true, isFavorite };
+      const favoriteCountRaw = (data as { favoriteCount?: unknown }).favoriteCount;
+      const favoriteCount =
+        typeof favoriteCountRaw === "number" && Number.isFinite(favoriteCountRaw)
+          ? Math.max(0, Math.floor(favoriteCountRaw))
+          : undefined;
+      dispatchPostFavoriteChanged(
+        favoriteCount == null ? { postId, isFavorite } : { postId, isFavorite, favoriteCount }
+      );
+      return favoriteCount == null ? { ok: true, isFavorite } : { ok: true, isFavorite, favoriteCount };
     }
     return { ok: false, error: "응답 형식 오류" };
   } catch (e) {
