@@ -42,7 +42,7 @@ export function SearchInputBar({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? t("trade_024")}
           className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 sam-text-body font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
-          aria-label={t("trade_027")}
+          aria-label={placeholder ?? t("marketplace_search_entry_aria")}
         />
       </div>
       <button

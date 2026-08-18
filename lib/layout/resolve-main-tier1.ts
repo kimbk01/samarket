@@ -146,7 +146,13 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   if (p === "/search") {
-    return backHome({ titleText: "tier1_search", showHubQuickActions: true });
+    return {
+      ...DEFAULT,
+      backHref: "/market",
+      preferHistoryBack: true,
+      titleText: "tier1_search",
+      showHubQuickActions: true,
+    };
   }
 
   if (p === "/services" || starts(p, "/services/")) {
@@ -234,7 +240,13 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   if (p === "/write" || starts(p, "/write/")) {
-    return backHome({ titleText: "tier1_write", showHubQuickActions: true });
+    return {
+      ...DEFAULT,
+      backHref: "/market",
+      preferHistoryBack: true,
+      titleText: "tier1_write",
+      showHubQuickActions: true,
+    };
   }
 
   if (p === "/philife/write" || starts(p, "/philife/write")) {

@@ -114,7 +114,7 @@ export function buildTradeHeaderLocationHintParts(input: {
   return { place, suffix: input.allLabel };
 }
 
-export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title";
+export type TradeHeaderLocationPinPlacement = "icon-cluster" | "beside-title" | "below-title";
 
 /**
  * Trade header MapPin — opens `/market/location` page stack (not bottom sheet).
@@ -225,18 +225,24 @@ export function TradeHeaderLocationPinButton({
   const ariaLabel = `${t("trade_location_pin_aria")}: ${headerHintAria}`;
 
   const besideTitle = placement === "beside-title";
+  const belowTitle = placement === "below-title";
+  const showInlineHint = besideTitle || belowTitle;
 
-  const hintTextClass = "text-[11px] font-semibold leading-[22px] text-sam-fg";
+  const hintTextClass = belowTitle
+    ? "text-[13px] font-semibold leading-5 text-sam-fg"
+    : "text-[11px] font-semibold leading-[22px] text-sam-fg";
 
   return (
     <button
       type="button"
       className={
-        besideTitle
-          ? `inline-flex max-w-[min(62vw,15.5rem)] min-w-0 shrink items-center gap-1 self-center rounded-ui-rect px-1 py-0 text-left ${samTier1HeaderIconMicro}`
-          : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
-              isFiltered ? "text-sam-primary" : ""
-            }`
+        belowTitle
+          ? `inline-flex max-w-full min-w-0 items-center gap-1 rounded-ui-rect py-0.5 text-left ${samTier1HeaderIconMicro}`
+          : besideTitle
+            ? `inline-flex max-w-[min(62vw,15.5rem)] min-w-0 shrink items-center gap-1 self-center rounded-ui-rect px-1 py-0 text-left ${samTier1HeaderIconMicro}`
+            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative ${
+                isFiltered ? "text-sam-primary" : ""
+              }`
       }
       aria-label={ariaLabel}
       aria-current={onLocationStack ? "page" : undefined}
@@ -244,7 +250,7 @@ export function TradeHeaderLocationPinButton({
     >
       <MapPin
         className={
-          besideTitle
+          showInlineHint
             ? "h-[18px] w-[18px] shrink-0 text-sam-primary"
             : `${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} text-sam-primary`
         }
@@ -253,7 +259,7 @@ export function TradeHeaderLocationPinButton({
         fillOpacity={0.18}
         aria-hidden
       />
-      {besideTitle ? (
+      {showInlineHint ? (
         <span className={`flex min-w-0 items-center gap-1 ${hintTextClass}`}>
           {hintParts.place ? (
             <>

@@ -121,9 +121,10 @@ describe("marketplace public filters do not expose reserved", () => {
       "utf8"
     );
     expect(tabs).not.toContain('trade_market_sort_reserved');
-    expect(tabs).toContain('key: "latest"');
-    expect(tabs).toContain('key: "active"');
-    expect(tabs).toContain('key: "sold"');
+    expect(tabs).not.toContain("allSortChip");
+    expect(tabs).not.toContain('key: "latest"');
+    expect(tabs).not.toContain('key: "active"');
+    expect(tabs).not.toContain('key: "sold"');
     expect(search).toContain('status: "all" | "active" | "sold"');
     expect(search).not.toContain('"reserved"');
   });

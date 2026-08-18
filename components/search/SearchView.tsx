@@ -34,7 +34,7 @@ import {
 } from "@/lib/trade/category-form";
 
 export function SearchView() {
-  const { t, safeT } = useI18n();
+  const { safeT } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -179,7 +179,10 @@ export function SearchView() {
                 value={keyword}
                 onChange={setKeyword}
                 onSubmit={handleSubmit}
-                placeholder={t("trade_028")}
+                placeholder={safeT("marketplace_search_placeholder", {
+                  fallbackKo: "Marketplace에서 검색",
+                  fallbackEn: "Search Marketplace",
+                })}
                 autoFocus
               />
             </div>
@@ -201,7 +204,7 @@ export function SearchView() {
       ),
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, locGate.lguCityId, t]);
+  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, locGate.lguCityId, safeT]);
 
   return (
     <div className="mx-auto max-w-lg pb-24">

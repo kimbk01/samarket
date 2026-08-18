@@ -26,6 +26,7 @@ import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-view
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
+import { MarketplaceHomeEntryChrome } from "@/components/trade/MarketplaceHomeEntryChrome";
 import { StoresHomePullRefreshHost } from "@/components/stores/home/hub/StoresHomePullRefreshHost";
 import { StoresBrowsePullRefreshHost } from "@/components/stores/browse/StoresBrowsePullRefreshHost";
 
@@ -106,6 +107,7 @@ export function AppStickyHeader() {
               <>
                 <TradeMarketPullRefreshHost />
                 <TradeMarketPullRefreshHint />
+                <MarketplaceHomeEntryChrome />
                 <TradePrimaryTabs embed embedInAppHeader />
                 {tradeSecondaryTabs}
               </>

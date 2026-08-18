@@ -5,7 +5,6 @@ import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderCo
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
-import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { MyMypageHeaderActions } from "@/components/my/MyMypageHeaderActions";
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
@@ -88,16 +87,11 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
     return null;
   }
 
-  /** Trade: green pin + `주소 · 전체|Nkm` immediately right of 「거래」. */
+  /** Trade HOME identity is Marketplace. Location lives in the entry chrome under this row. */
   const title: ReactNode =
-    hub === "trade" ? (
-      <span className="flex min-w-0 max-w-full items-center gap-1.5 whitespace-normal">
-        <span className="shrink-0">{t(hubTitleKey(hub))}</span>
-        <TradeHeaderLocationPinButton placement="beside-title" />
-      </span>
-    ) : (
-      t(hubTitleKey(hub))
-    );
+    hub === "trade"
+      ? t("marketplace_home_title")
+      : t(hubTitleKey(hub));
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
   return (
