@@ -17,6 +17,8 @@ import {
   sliceGroupParticipantsForRoomBootstrap,
   summarizeRoomsBatchWithProfileMap,
 } from "@/lib/community-messenger/service";
+import { applyCommerceLifecycleFromSnapshotPayload } from "@/lib/community-messenger/home-sync-snapshot-commerce-lifecycle-apply";
+import type { HomeSyncSnapshotPayloadJson } from "@/lib/community-messenger/home-sync-snapshot-assemble";
 import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
@@ -156,6 +158,21 @@ function parseLiteBundle(payload: FullBootstrapSnapshotPayloadJson) {
     roomRows,
     participantRows,
     profileLabels: parseProfileLabels(profileSource),
+  };
+}
+
+function commerceLifecycleFromOrderContext(payload: FullBootstrapSnapshotPayloadJson): HomeSyncSnapshotPayloadJson {
+  const raw = payload.order_context;
+  const store_orders =
+    raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray((raw as { store_orders?: unknown }).store_orders)
+      ? ((raw as { store_orders: unknown[] }).store_orders as Array<Record<string, unknown>>)
+      : [];
+  return {
+    commerce_lifecycle: {
+      product_chats: [],
+      store_orders,
+      order_completed_events: [],
+    },
   };
 }
 
@@ -302,6 +319,8 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
   if (sbBoot) {
     await enrichTradeRoomClassificationForDeferredHomeSync(sbBoot as never, userId, mySummaries);
   }
+
+  applyCommerceLifecycleFromSnapshotPayload(mySummaries, commerceLifecycleFromOrderContext(payload));
 
   await enrichMessengerTradeUnreadWithLegacyTrade(
     null as never,
@@ -488,6 +507,8 @@ export async function assembleFullBootstrapFromSnapshotPayload(
     mySummaries,
     payload.trade_context ?? {}
   );
+
+  applyCommerceLifecycleFromSnapshotPayload(mySummaries, commerceLifecycleFromOrderContext(payload));
 
   await enrichMessengerTradeUnreadWithLegacyTrade(
     null as never,

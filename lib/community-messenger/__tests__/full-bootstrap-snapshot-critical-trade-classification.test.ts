@@ -68,3 +68,69 @@ describe("assembleCriticalBootstrapFromSnapshotPayload trade classification", ()
     );
   });
 });
+
+const DELIVERY_ROOM = "75313bc5-6bfa-47d4-9cf7-4c942ef18694";
+const ORDER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+function criticalDeliveryPayload() {
+  return {
+    ok: true,
+    tier: "critical",
+    list_limit: 30,
+    lite_bundle: {
+      rooms: [
+        {
+          id: DELIVERY_ROOM,
+          room_type: "direct",
+          room_status: "active",
+          direct_key: `store_order:${ORDER_ID}`,
+          title: "매장",
+          last_message: "주문 접수",
+          last_message_at: "2026-01-02T00:00:00.000Z",
+          last_message_type: "text",
+        },
+      ],
+      participants: [
+        { room_id: DELIVERY_ROOM, user_id: VIEWER, unread_count: 0 },
+        { room_id: DELIVERY_ROOM, user_id: PEER, unread_count: 0 },
+      ],
+      profile_labels: {
+        [VIEWER]: { id: VIEWER, display_name: "Me", nickname: null, username: null, avatar_url: null },
+        [PEER]: { id: PEER, display_name: "Peer", nickname: null, username: null, avatar_url: null },
+      },
+    },
+    hs5: { chatRows: [], pcRows: [] },
+    order_context: {
+      store_orders: [
+        {
+          id: ORDER_ID,
+          order_status: "preparing",
+          community_messenger_room_id: DELIVERY_ROOM,
+          store_id: "store-2",
+          store_name: "MARKET MARKET",
+          profile_image_url: "https://cdn.example/m.jpg",
+        },
+      ],
+    },
+  };
+}
+
+describe("assembleCriticalBootstrapFromSnapshotPayload store-order store name", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("puts order_context store_name on critical context_meta for first paint", async () => {
+    vi.spyOn(supabaseServer, "getSupabaseServer").mockReturnValue(null as never);
+    vi.spyOn(tradeEnrich, "enrichTradeRoomClassificationForDeferredHomeSync").mockResolvedValue(undefined);
+
+    const payload = await assembleCriticalBootstrapFromSnapshotPayload(VIEWER, criticalDeliveryPayload());
+    expect(payload?.chats[0]?.room_id).toBe(DELIVERY_ROOM);
+    expect(payload?.chats[0]?.context_meta).toMatchObject({
+      kind: "delivery",
+      storeDisplayName: "MARKET MARKET",
+      storeId: "store-2",
+      storeOrderId: ORDER_ID,
+    });
+  });
+});
