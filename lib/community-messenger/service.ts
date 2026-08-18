@@ -80,6 +80,7 @@ import {
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichCommerceChatRoomLifecycleForList } from "@/lib/community-messenger/commerce-chat-room-lifecycle-enrich";
+import { enrichDeliveryRoomLifecycleFieldsFromStoreOrders } from "@/lib/community-messenger/delivery-chat-list/delivery-context-meta-lifecycle-enrich";
 import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
@@ -3691,6 +3692,10 @@ export async function hydrateTradeChatListContextMetaForRoomIds(
       tradeListMetaUltraLight: true,
     })
   );
+  const sbDelivery = getSupabaseOrNull();
+  if (sbDelivery) {
+    await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sbDelivery, summaries);
+  }
   perf.trade_chat_meta_enrich_total_ms = Math.round(performance.now() - tEnrich);
   perf.trade_list_meta_ultra_light = 1;
   const te = listMetaTrace.deepSteps.tradeMetaEnrich;

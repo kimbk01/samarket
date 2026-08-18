@@ -3,12 +3,61 @@
  */
 import { parseStoreOrderIdFromMessengerDirectKey } from "@/lib/community-messenger/delivery-list-canonical-key";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import {
+  isUnusableStoreOrderDisplayName,
+} from "@/lib/community-messenger/store-order-display-identity";
 import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
-export const STORE_ORDER_LIFECYCLE_SELECT = "id, order_status, community_messenger_room_id";
+export const STORE_ORDER_LIFECYCLE_SELECT =
+  "id, order_status, community_messenger_room_id, store_id, stores(store_name, profile_image_url)";
 
 function trim(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+function usableStoreName(v: unknown): string {
+  const n = trim(v);
+  return isUnusableStoreOrderDisplayName(n) ? "" : n;
+}
+
+function storeEmbedFromOrderRow(raw: Record<string, unknown>): {
+  store_name?: unknown;
+  profile_image_url?: unknown;
+} | null {
+  const stores = raw.stores;
+  if (Array.isArray(stores)) {
+    const first = stores[0];
+    return first && typeof first === "object" ? (first as { store_name?: unknown; profile_image_url?: unknown }) : null;
+  }
+  if (stores && typeof stores === "object") {
+    return stores as { store_name?: unknown; profile_image_url?: unknown };
+  }
+  return null;
+}
+
+export type StoreOrderLifecycleRow = {
+  id: string;
+  order_status: string;
+  community_messenger_room_id?: string | null;
+  storeId?: string | null;
+  storeName?: string | null;
+  storeProfileImageUrl?: string | null;
+};
+
+export function parseStoreOrderLifecycleRow(raw: Record<string, unknown>): StoreOrderLifecycleRow | null {
+  const id = trim(raw.id);
+  const order_status = trim(raw.order_status);
+  if (!id) return null;
+  const embed = storeEmbedFromOrderRow(raw);
+  return {
+    id,
+    order_status,
+    community_messenger_room_id: trim(raw.community_messenger_room_id) || null,
+    storeId: trim(raw.store_id) || null,
+    storeName: usableStoreName(embed?.store_name) || usableStoreName(raw.store_name) || null,
+    storeProfileImageUrl:
+      trim(embed?.profile_image_url) || trim(raw.profile_image_url) || trim(raw.store_profile_image_url) || null,
+  };
 }
 
 export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
@@ -17,18 +66,38 @@ export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
     orderId: string;
     orderStatus: string;
     deliveryCompletedAt?: string | null;
+    storeId?: string | null;
+    storeDisplayName?: string | null;
+    storeProfileImageUrl?: string | null;
   }
 ): CommunityMessengerRoomContextMetaV1 {
   const orderStatus = trim(args.orderStatus);
   const completedAt = trim(args.deliveryCompletedAt);
-  return {
+  const storeId = trim(args.storeId) || trim(meta.storeId);
+  const storeDisplayName = usableStoreName(args.storeDisplayName) || usableStoreName(meta.storeDisplayName);
+  const storeProfileImageUrl =
+    trim(args.storeProfileImageUrl) || trim(meta.storeProfileImageUrl) || trim(meta.thumbnailUrl);
+  const headline = usableStoreName(meta.headline) || storeDisplayName || "";
+  const next: CommunityMessengerRoomContextMetaV1 = {
     ...meta,
     kind: "delivery",
     v: 1,
     storeOrderId: trim(meta.storeOrderId) || args.orderId,
-    ...(orderStatus ? { orderStatus } : {}),
-    ...(completedAt ? { deliveryCompletedAt: completedAt, completedAt } : {}),
   };
+  if (orderStatus) next.orderStatus = orderStatus;
+  if (completedAt) {
+    next.deliveryCompletedAt = completedAt;
+    next.completedAt = completedAt;
+  }
+  if (storeId) next.storeId = storeId;
+  if (storeDisplayName) next.storeDisplayName = storeDisplayName;
+  if (storeProfileImageUrl) {
+    next.storeProfileImageUrl = storeProfileImageUrl;
+    if (!next.thumbnailUrl) next.thumbnailUrl = storeProfileImageUrl;
+  }
+  if (headline) next.headline = headline;
+  else if (isUnusableStoreOrderDisplayName(next.headline)) delete next.headline;
+  return next;
 }
 
 function resolveOrderIdForDeliverySummary(summary: CommunityMessengerRoomSummary): string | null {
@@ -78,22 +147,15 @@ export async function enrichDeliveryRoomLifecycleFieldsFromStoreOrders(
     }
   }
 
-  type OrderRow = { id: string; order_status: string; community_messenger_room_id?: string | null };
-  const orderById = new Map<string, OrderRow>();
-  const orderByRoomId = new Map<string, OrderRow>();
+  const orderById = new Map<string, StoreOrderLifecycleRow>();
+  const orderByRoomId = new Map<string, StoreOrderLifecycleRow>();
 
   const ingestOrders = (rows: Array<Record<string, unknown>>) => {
     for (const raw of rows) {
-      const id = trim(raw.id);
-      const order_status = trim(raw.order_status);
-      if (!id) continue;
-      const rec: OrderRow = {
-        id,
-        order_status,
-        community_messenger_room_id: trim(raw.community_messenger_room_id) || null,
-      };
-      orderById.set(id, rec);
-      const cmRid = trim(raw.community_messenger_room_id);
+      const rec = parseStoreOrderLifecycleRow(raw);
+      if (!rec) continue;
+      orderById.set(rec.id, rec);
+      const cmRid = trim(rec.community_messenger_room_id);
       if (cmRid) orderByRoomId.set(cmRid, rec);
     }
   };
@@ -137,13 +199,16 @@ export async function enrichDeliveryRoomLifecycleFieldsFromStoreOrders(
 
     const base =
       resolveCommunityMessengerDeliveryContextMeta(summary) ??
-      ({ v: 1, kind: "delivery", headline: summary.title.trim() || "주문" } as CommunityMessengerRoomContextMetaV1);
+      ({ v: 1, kind: "delivery" } as CommunityMessengerRoomContextMetaV1);
 
     const deliveryCompletedAt = completedAtByOrderId.get(order.id) ?? null;
     summary.contextMeta = mergeStoreOrderLifecycleIntoDeliveryContextMeta(base, {
       orderId: order.id,
       orderStatus: order.order_status,
       deliveryCompletedAt,
+      storeId: order.storeId,
+      storeDisplayName: order.storeName,
+      storeProfileImageUrl: order.storeProfileImageUrl,
     });
     if (order.order_status === "completed") {
       summary.isReadonly = true;

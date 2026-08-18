@@ -99,6 +99,8 @@ describe("applyCommerceLifecycleFromSnapshotPayload", () => {
             id: "order-1",
             order_status: "completed",
             community_messenger_room_id: "room-delivery",
+            store_id: "store-1",
+            stores: { store_name: "맛업는식당", profile_image_url: "https://cdn.example/s.jpg" },
           },
         ],
         order_completed_events: [
@@ -113,6 +115,7 @@ describe("applyCommerceLifecycleFromSnapshotPayload", () => {
     applyCommerceLifecycleFromSnapshotPayload(summaries, payload);
     expect(summaries[0]?.contextMeta?.orderStatus).toBe("completed");
     expect(summaries[0]?.contextMeta?.completedAt).toBe("2026-06-08T07:49:10.294Z");
+    expect(summaries[0]?.contextMeta?.storeDisplayName).toBe("맛업는식당");
     expect(summaries[0]?.isReadonly).toBe(true);
   });
 

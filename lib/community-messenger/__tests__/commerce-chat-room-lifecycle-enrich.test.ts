@@ -125,4 +125,45 @@ describe("enrichDeliveryRoomLifecycleFieldsFromStoreOrders", () => {
     expect(summary.contextMeta?.deliveryCompletedAt).toBe("2026-06-03T09:00:00.000Z");
     expect(summary.isReadonly).toBe(true);
   });
+
+  it("fills storeDisplayName from stores.store_name, not room.title", async () => {
+    const summary = baseSummary({
+      id: "room-d2",
+      title: "새 대화",
+      messengerDirectKey: "store_order:ord-2",
+      contextMeta: { v: 1, kind: "delivery", storeOrderId: "ord-2" },
+    });
+    const sb = {
+      from: vi.fn((table: string) => {
+        if (table === "store_orders") {
+          return {
+            select: vi.fn(() => ({
+              in: vi.fn(async () => ({
+                data: [
+                  {
+                    id: "ord-2",
+                    order_status: "preparing",
+                    community_messenger_room_id: "room-d2",
+                    store_id: "store-9",
+                    stores: { store_name: "맛업는식당", profile_image_url: "https://cdn.example/s.jpg" },
+                  },
+                ],
+              })),
+            })),
+          };
+        }
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => ({
+              eq: vi.fn(async () => ({ data: [] })),
+            })),
+          })),
+        };
+      }),
+    };
+    await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sb, [summary]);
+    expect(summary.contextMeta?.storeDisplayName).toBe("맛업는식당");
+    expect(summary.contextMeta?.storeId).toBe("store-9");
+    expect(summary.contextMeta?.headline).toBe("맛업는식당");
+  });
 });

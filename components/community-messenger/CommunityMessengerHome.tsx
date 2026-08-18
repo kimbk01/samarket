@@ -1855,8 +1855,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   });
 
   const tradeMetaHydrationChats = useMemo(() => {
-    if (pillar === "trade") return primaryListItems.map((item) => item.room);
-    if (pillar === "delivery") return [];
+    if (pillar === "trade" || pillar === "delivery") return primaryListItems.map((item) => item.room);
     return data?.chats;
   }, [pillar, primaryListItems, data?.chats]);
 

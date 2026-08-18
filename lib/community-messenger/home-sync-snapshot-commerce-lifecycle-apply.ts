@@ -6,6 +6,7 @@ import { parseStoreOrderIdFromMessengerDirectKey } from "@/lib/community-messeng
 import {
   indexLatestOrderCompletedAtByOrderId,
   mergeStoreOrderLifecycleIntoDeliveryContextMeta,
+  parseStoreOrderLifecycleRow,
 } from "@/lib/community-messenger/delivery-chat-list/delivery-context-meta-lifecycle-enrich";
 import type { HomeSyncSnapshotPayloadJson } from "@/lib/community-messenger/home-sync-snapshot-assemble";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -71,7 +72,7 @@ function indexProductChatRows(rows: Array<Record<string, unknown>>): {
   return { pcById, pcByRoomId };
 }
 
-type OrderRow = { id: string; order_status: string; community_messenger_room_id?: string | null };
+type OrderRow = NonNullable<ReturnType<typeof parseStoreOrderLifecycleRow>>;
 
 function indexStoreOrderRows(rows: Array<Record<string, unknown>>): {
   orderById: Map<string, OrderRow>;
@@ -80,16 +81,10 @@ function indexStoreOrderRows(rows: Array<Record<string, unknown>>): {
   const orderById = new Map<string, OrderRow>();
   const orderByRoomId = new Map<string, OrderRow>();
   for (const raw of rows) {
-    const id = trim(raw.id);
-    const order_status = trim(raw.order_status);
-    if (!id) continue;
-    const rec: OrderRow = {
-      id,
-      order_status,
-      community_messenger_room_id: trim(raw.community_messenger_room_id) || null,
-    };
-    orderById.set(id, rec);
-    const cmRid = trim(raw.community_messenger_room_id);
+    const rec = parseStoreOrderLifecycleRow(raw);
+    if (!rec) continue;
+    orderById.set(rec.id, rec);
+    const cmRid = trim(rec.community_messenger_room_id);
     if (cmRid) orderByRoomId.set(cmRid, rec);
   }
   return { orderById, orderByRoomId };
@@ -149,12 +144,15 @@ export function applyCommerceLifecycleFromSnapshotPayload(
       if (!order) continue;
       const base =
         resolveCommunityMessengerDeliveryContextMeta(summary) ??
-        ({ v: 1, kind: "delivery", headline: summary.title.trim() || "주문" } as CommunityMessengerRoomContextMetaV1);
+        ({ v: 1, kind: "delivery" } as CommunityMessengerRoomContextMetaV1);
       const deliveryCompletedAt = completedAtByOrderId.get(order.id) ?? null;
       summary.contextMeta = mergeStoreOrderLifecycleIntoDeliveryContextMeta(base, {
         orderId: order.id,
         orderStatus: order.order_status,
         deliveryCompletedAt,
+        storeId: order.storeId,
+        storeDisplayName: order.storeName,
+        storeProfileImageUrl: order.storeProfileImageUrl,
       });
       if (order.order_status === "completed") {
         summary.isReadonly = true;

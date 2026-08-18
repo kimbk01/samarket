@@ -11,7 +11,8 @@ import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resolveMessengerHomeBootstrapSetData } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
-import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
+import { communityMessengerRoomIsConfirmedDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
+import { resolveStoreOrderDisplayIdentity } from "@/lib/community-messenger/store-order-display-identity";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerRoomContextMetaV1,
@@ -136,6 +137,15 @@ function tradeChatListSummaryNeedsMetaHydration(
   return false;
 }
 
+function deliveryChatListSummaryNeedsMetaHydration(
+  room: CommunityMessengerRoomSummary,
+  attemptedRoomIds: ReadonlySet<string>
+): boolean {
+  if (attemptedRoomIds.has(room.id)) return false;
+  if (!communityMessengerRoomIsConfirmedDelivery(room)) return false;
+  return resolveStoreOrderDisplayIdentity(room)?.hasResolvedStoreName !== true;
+}
+
 /**
  * `/community-messenger/trade-chats` — 부트스트랩·캐시만으로 거래 `contextMeta` 가 부족할 때
  * 서버 `hydrateTradeChatListContextMetaForRoomIds` 와 동일 보강을 **배치**로 한 번 더 적용한다.
@@ -163,7 +173,11 @@ export function useTradeChatListMetaHydration(args: {
   const missingKey =
     chats?.length && enabled && viewerUserId
       ? chats
-          .filter((r) => tradeChatListSummaryNeedsMetaHydration(r, tradeMetaFetchAttemptedRef.current))
+          .filter(
+            (r) =>
+              tradeChatListSummaryNeedsMetaHydration(r, tradeMetaFetchAttemptedRef.current) ||
+              deliveryChatListSummaryNeedsMetaHydration(r, tradeMetaFetchAttemptedRef.current)
+          )
           .map((r) => r.id)
           .sort()
           .join(",")
