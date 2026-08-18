@@ -36,6 +36,10 @@ import {
   sampleTradeMemoryHeapUsedMb,
 } from "@/lib/trade/trade-c2c-perf-metrics";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import {
+  countPendingNewHomeListings,
+  patchHomeTradePostsInPlace,
+} from "@/lib/trade/marketplace/home-list-freshness";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import {
@@ -144,7 +148,7 @@ export function HomeProductList({
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
   clientInstantBoot?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -227,10 +231,13 @@ export function HomeProductList({
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [pendingNewCount, setPendingNewCount] = useState(0);
   const lastLoadedAtRef = useRef(0);
   const latestRequestIdRef = useRef(0);
   const silentRequestIdRef = useRef(0);
   const listMountedRef = useRef(true);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
   /** 글 등록 직후 `router.refresh()` 등으로 RSC 시드가 늦게 와도, 클라 `load()` 결과를 덮어쓰지 않게 함 */
   const allowRscHomeListSeedRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,9 +245,11 @@ export function HomeProductList({
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
 
   const load = useCallback(async () => {
+    silentRequestIdRef.current += 1;
     if (locationInvalid) {
       setPosts([]);
       setFavoriteMap({});
+      setPendingNewCount(0);
       setListState("empty");
       lastLoadedAtRef.current = Date.now();
       return;
@@ -270,6 +279,7 @@ export function HomeProductList({
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
       setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
+      setPendingNewCount(0);
       lastLoadedAtRef.current = Date.now();
       setListState(res.posts.length === 0 ? "empty" : "idle");
       if (firstNetworkList) {
@@ -326,8 +336,10 @@ export function HomeProductList({
    */
   useLayoutEffect(() => {
     if (locationInvalid) {
+      silentRequestIdRef.current += 1;
       setPosts([]);
       setFavoriteMap({});
+      setPendingNewCount(0);
       setListState("empty");
       lastLoadedAtRef.current = Date.now();
       return;
@@ -352,8 +364,10 @@ export function HomeProductList({
     const merged = boot ?? (locationAll ? peekRecentHomePostsFallback() : null);
 
     if (merged) {
+      silentRequestIdRef.current += 1;
       setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
       setFavoriteMap(merged.favoriteMap ?? {});
+      setPendingNewCount(0);
       setListState(merged.posts.length === 0 ? "empty" : "idle");
       lastLoadedAtRef.current = Date.now();
       return;
@@ -417,6 +431,10 @@ export function HomeProductList({
     [visiblePosts.length, tradeHomeAdSessionId]
   );
 
+  /**
+   * CUT H: silent fetch must not apply incoming order (auto unshift).
+   * Pending N = unseen incoming ids. PTR / cache-bust `load()` still applies page-1.
+   */
   const refreshSilent = useCallback(async () => {
     if (locationInvalid || locationUnset) return;
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
@@ -426,7 +444,14 @@ export function HomeProductList({
     try {
       const res = await getPostsForHome(homePostListOptions);
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
-      setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
+      const current = postsRef.current;
+      if (current.length === 0) {
+        setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
+        setPendingNewCount(0);
+      } else {
+        setPosts((prev) => patchHomeTradePostsInPlace(prev, res.posts, isSameHomeTradePostRow));
+        setPendingNewCount(countPendingNewHomeListings(current, res.posts));
+      }
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
     } catch {
@@ -434,6 +459,13 @@ export function HomeProductList({
       /* 기존 목록 유지 */
     }
   }, [homePostListOptions, locationInvalid, locationUnset]);
+
+  const applyPendingHomeFreshness = useCallback(async () => {
+    setPendingNewCount(0);
+    invalidateHomePostsCache({ notifyListReload: false });
+    allowRscHomeListSeedRef.current = false;
+    await load();
+  }, [load]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
@@ -672,6 +704,21 @@ export function HomeProductList({
   return (
     <>
       {tradePullRefreshRegister}
+      {pendingNewCount > 0 ? (
+        <div className="sticky top-0 z-[9] flex justify-center py-2">
+          <button
+            type="button"
+            className="rounded-full bg-signature px-4 py-2 text-[14px] font-semibold text-white"
+            onClick={() => void applyPendingHomeFreshness()}
+          >
+            {safeT("trade_market_new_listings_cta", {
+              vars: { count: pendingNewCount },
+              fallbackKo: `새 매물 ${pendingNewCount}개`,
+              fallbackEn: `${pendingNewCount} new listings`,
+            })}
+          </button>
+        </div>
+      ) : null}
       <ul ref={listMeasureRef} className={`${rootClass} ${listClass}`}>
         {visiblePosts.map((post, index) =>
           notInterestedPostIds.has(post.id) ? (

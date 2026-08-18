@@ -148,6 +148,7 @@ export const tradeMessages = {
     trade_market_price_min: "최소 가격",
     trade_market_price_max: "최대 가격",
     trade_market_load_more: "더 보기",
+    trade_market_new_listings_cta: "새 매물 {count}개",
     trade_market_sort_chip_aria:
       "{label}. 한 번 탭하면 최신순 정렬로 바로 적용하고, 길게 누르면 판매중·판매완료 등 다른 정렬을 고를 수 있어요.",
     trade_write_title_length_error: "제목은 {min}~{max}자로 입력해 주세요.",
@@ -384,6 +385,7 @@ export const tradeMessages = {
     trade_market_price_min: "Min price",
     trade_market_price_max: "Max price",
     trade_market_load_more: "Load more",
+    trade_market_new_listings_cta: "{count} new listings",
     trade_market_sort_chip_aria:
       "{label}. Tap once to apply latest sort; long-press to choose on sale or sold.",
     trade_write_title_length_error: "Please enter a title between {min} and {max} characters.",
