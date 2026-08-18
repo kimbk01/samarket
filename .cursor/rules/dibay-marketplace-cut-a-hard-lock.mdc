@@ -1,0 +1,40 @@
+---
+description: HARD LOCK — DIBAY Marketplace CUT A (topic/root options, child narrowing, member terms)
+alwaysApply: true
+---
+
+# DIBAY Marketplace CUT A HARD LOCK
+
+**HARD LOCK (2026-08-18).** Full doc: `docs/dibay-marketplace-cut-a-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: CUT A LOCKED**
+- Production SHA: `38031d3dda9e44fd4c85c5c5ee5940020bbabd51`
+- Alias: `https://samarket.vercel.app`
+- A1 OPTION ROOT SSOT: **LOCKED**
+- A2 ADMIN TOPIC → CATEGORY → OPTION: **LOCKED**
+- A1/A2 AUTHORITY LEAK: **CLOSED**
+- A3 MEMBER TERMINOLOGY: **LOCKED**
+- MIGRATION: **NO**
+- P0–P5 / previous locks: **PRESERVED**
+
+## KEEP
+
+```text
+주제 (ROOT)     = option owner
+카테고리 (CHILD) = list narrowing only
+posts.trade_category_id = child if chosen, else root
+?topic= keep
+SUV = body_type option, not a child
+```
+
+WRITE / LIST / DETAIL / FILTER / SEARCH / EDIT use ROOT composition. Listing id stays child.
+
+Admin SSOT: `/admin/menus/trade`. Child has no option editor.
+
+## DO NOT (without a new cut)
+
+- Reopen CUT A (schema rename, SUV→child, `trade_category_id` migrate)
+- Read child `field_composition` as option authority
+- Start CUT B inside CUT A work
