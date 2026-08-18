@@ -57,10 +57,10 @@ export type DomainReadRoomPresentationDto = Readonly<{
       }
     | {
         kind: "trade";
-        /** Room Header primary — viewer-relative counterparty */
+        /** Room Header secondary — viewer-relative counterparty */
         peerLabel: string;
         peerAvatarUrl: string | null;
-        /** Product context (list primary + in-room dock / secondary chrome) */
+        /** Room Header primary — listing / product */
         productTitle: string;
         productImageUrl: string | null;
         itemId: string;

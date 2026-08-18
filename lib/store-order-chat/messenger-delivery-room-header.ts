@@ -70,9 +70,28 @@ export function storeNameFromDeliveryHeadline(headline: string | undefined): str
   return sep > 0 ? h.slice(0, sep).trim() || null : h;
 }
 
-/** 구매자 헤더·점세개·하단 카드 — 매장명 단일 소스(실 ID·slug 폴백 금지) */
+/** Window-only: store_order chrome even if chatDomain is mislabeled. Does not change confirmed-delivery list/badge gates. */
+export function roomShowsStoreOrderWindowHeader(room: {
+  chatDomain?: string | null;
+  messengerDirectKey?: string | null;
+}): boolean {
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  if (dk.startsWith("store_order:") || dk.startsWith("trade_order:")) return true;
+  return room.chatDomain === "store_order";
+}
+
+const STORE_ORDER_PLACEHOLDER_TITLES = new Set(["새 대화", "new conversation", "cm_ui_new_conversation"]);
+
+function isUnusableStoreWindowLabel(label: string | null | undefined): boolean {
+  const n = label?.trim() ?? "";
+  if (!n) return true;
+  return STORE_ORDER_PLACEHOLDER_TITLES.has(n.toLowerCase());
+}
+
+/** 구매자 헤더·점세개·하단 카드 — 매장명 단일 소스(실 ID·slug·회원 닉 폴백 금지) */
 export function resolveDeliveryStoreDisplayName(input: {
   orderCardStoreName?: string | null;
+  contextStoreDisplayName?: string | null;
   deliveryHeadline?: string | null;
   roomTitle?: string | null;
   storeId?: string | null;
@@ -80,18 +99,24 @@ export function resolveDeliveryStoreDisplayName(input: {
 }): string {
   const ids = { storeId: input.storeId, storeSlug: input.storeSlug };
   const fromCard = input.orderCardStoreName?.trim();
-  if (fromCard && !isStoreTechnicalIdentifier(fromCard, ids)) return fromCard;
+  if (fromCard && !isUnusableStoreWindowLabel(fromCard) && !isStoreTechnicalIdentifier(fromCard, ids)) {
+    return fromCard;
+  }
+
+  const fromContext = input.contextStoreDisplayName?.trim();
+  if (fromContext && !isUnusableStoreWindowLabel(fromContext) && !isStoreTechnicalIdentifier(fromContext, ids)) {
+    return fromContext;
+  }
 
   const fromHeadline = storeNameFromDeliveryHeadline(input.deliveryHeadline ?? undefined);
-  if (fromHeadline && !isStoreTechnicalIdentifier(fromHeadline, ids)) return fromHeadline;
+  if (fromHeadline && !isUnusableStoreWindowLabel(fromHeadline) && !isStoreTechnicalIdentifier(fromHeadline, ids)) {
+    return fromHeadline;
+  }
 
-  const fromTitleHeadline = storeNameFromDeliveryHeadline(input.roomTitle ?? undefined);
-  if (fromTitleHeadline && !isStoreTechnicalIdentifier(fromTitleHeadline, ids)) return fromTitleHeadline;
-
-  const title = input.roomTitle?.trim();
-  if (title && !isStoreTechnicalIdentifier(title, ids) && title.includes(" · ")) {
+  const title = input.roomTitle?.trim() ?? "";
+  if (title.includes(" · ")) {
     const head = storeNameFromDeliveryHeadline(title);
-    if (head && !isStoreTechnicalIdentifier(head, ids)) return head;
+    if (head && !isUnusableStoreWindowLabel(head) && !isStoreTechnicalIdentifier(head, ids)) return head;
   }
 
   return "매장";

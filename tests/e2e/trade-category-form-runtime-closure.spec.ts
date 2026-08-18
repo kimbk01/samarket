@@ -197,6 +197,56 @@ async function ensureTradeAddressReady(page: Page) {
   await page.waitForTimeout(600);
 }
 
+async function selectFormOptionValue(page: Page, value: string) {
+  const ok = await page.evaluate((optionValue) => {
+    const selects = Array.from(document.querySelectorAll("form select")) as HTMLSelectElement[];
+    for (const el of selects) {
+      if ([...el.options].some((o) => o.value === optionValue)) {
+        el.value = optionValue;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      }
+    }
+    return false;
+  }, value);
+  expect(ok, `missing_select_option:${value}`).toBe(true);
+}
+
+async function fillUsedCarBrandModelYear(page: Page) {
+  await page.locator("form select").first().selectOption("toyota").catch(async () => {
+    await page.locator("form select").first().selectOption({ index: 1 });
+  });
+  await page.waitForTimeout(500);
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        (Array.from(document.querySelectorAll("form select")) as HTMLSelectElement[]).some((s) =>
+          [...s.options].some((o) => o.value === "vios")
+        )
+      )
+    )
+    .toBe(true);
+  await selectFormOptionValue(page, "vios");
+  await page.waitForTimeout(300);
+  await selectFormOptionValue(page, "2021");
+}
+
+async function fillPickupLocationField(page: Page, value: string) {
+  const byPlaceholder = page.getByPlaceholder(/픽업|pickup|장소/i).first();
+  if (await byPlaceholder.isVisible().catch(() => false)) {
+    await byPlaceholder.fill(value);
+    return;
+  }
+  const pickupSection = page.locator("form").filter({ hasText: /픽업|Pickup/i }).first();
+  const input = pickupSection.locator('input[type="text"]').first();
+  if (await input.isVisible().catch(() => false)) {
+    await input.fill(value);
+    return;
+  }
+  throw new Error("pickup_input_not_found");
+}
+
 async function gotoWrite(page: Page, slug: string) {
   const origin = playwrightOriginFromEnv();
   const lguWait = page
@@ -655,6 +705,48 @@ test.describe("trade category-form FINAL runtime closure", () => {
     results["EX_EDIT"] = "PASS";
 
     await assertBuyerChatDestination(page, postId, "CTA_EXCHANGE_BUYER");
+  });
+
+  test("RENT-CAR chain", async ({ page }) => {
+    const origin = playwrightOriginFromEnv();
+    await ensureE2eUserSession(page, { username: "wwww", password: "1234" });
+    await ensureMasterCityForTradeWrite(page);
+    await gotoWrite(page, "rent-car");
+
+    await fillUsedCarBrandModelYear(page);
+    const daily = page.locator('form input[inputmode="numeric"], form input[inputmode="decimal"]').first();
+    await daily.fill("2500");
+    await fillPickupLocationField(page, `${MARK}-Pickup`);
+
+    await fillFirstTextarea(page, `${MARK} rent-car body`);
+    const postId = await waitCreatePostId(page, () => clickPrimarySubmit(page));
+    created.push(postId);
+    results["RENT_CAR_WRITE"] = "PASS";
+
+    const stored = await fetchDetail(page, postId);
+    const meta = (stored?.meta && typeof stored.meta === "object" ? stored.meta : {}) as Record<
+      string,
+      unknown
+    >;
+    results["RENT_CAR_STORE"] =
+      meta.pickup_location != null || meta.daily_price != null || meta.car_year != null || meta.car_model != null
+        ? "PASS"
+        : "FAIL";
+    expect(results["RENT_CAR_STORE"]).toBe("PASS");
+
+    await page.goto(`${origin}/mypage/products`, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).toContainText(/렌터|Rent|Pickup|TCF|2500|2021/i, { timeout: 30_000 });
+    results["RENT_CAR_LIST"] = "PASS";
+
+    await page.goto(`${origin}/post/${postId}`, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).toContainText(/렌터|Rent|픽업|Pickup|일일|daily|TCF/i, { timeout: 20_000 });
+    results["RENT_CAR_DETAIL"] = "PASS";
+
+    await page.goto(`${origin}/products/${postId}/edit`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
+    await dismissDraftResume(page);
+    await expect(page.locator("form").first()).toBeVisible({ timeout: 20_000 });
+    results["RENT_CAR_EDIT"] = "PASS";
   });
 
   test("ADMIN UI composition persist+restore", async ({ page }) => {

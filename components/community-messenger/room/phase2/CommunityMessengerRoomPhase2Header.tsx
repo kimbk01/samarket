@@ -33,9 +33,11 @@ import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSl
 import {
   formatDeliveryMessengerPresenceIndustrySubtitle,
   resolveStoreOrderBuyerVoicePeerLabel,
+  roomShowsStoreOrderWindowHeader,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
+import { TradeMarketplaceContextBanner } from "@/components/community-messenger/room/phase2/TradeMarketplaceContextBanner";
 import {
   generalFriendDirectRoomGate,
   messengerRoomShowsConfirmedDeliveryPresentation,
@@ -66,17 +68,18 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
   const bindPresenceAndTyping = hydrationPass >= 2;
 
-  const deliveryMeta = useMemo(
-    () =>
-      messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
-        ? resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)
-        : null,
-    [vm.snapshot.room, vm.snapshot.viewerUserId]
-  );
+  const deliveryMeta = useMemo(() => {
+    const room = vm.snapshot.room;
+    const windowStoreOrder =
+      roomShowsStoreOrderWindowHeader(room) ||
+      messengerRoomShowsConfirmedDeliveryPresentation(room, vm.snapshot.viewerUserId);
+    if (!windowStoreOrder) return null;
+    return resolveCommunityMessengerDeliveryContextMeta(room);
+  }, [vm.snapshot.room, vm.snapshot.viewerUserId]);
   const storeOrderId =
     typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
   const storeId = typeof deliveryMeta?.storeId === "string" ? deliveryMeta.storeId.trim() : "";
-  const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
+  const isDeliveryRoom = Boolean(deliveryMeta) && storeOrderId.length > 0;
   const deliveryViewerRole = messengerDeliveryViewerRole(deliveryMeta, vm.snapshot.myRole);
   const isDeliveryBuyer = isDeliveryRoom && deliveryViewerRole === "buyer";
   const isTradeRoom = messengerRoomShowsConfirmedTradePresentation(
@@ -163,6 +166,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
     deliveryHeadline: deliveryMeta?.headline,
+    contextStoreDisplayName: deliveryMeta?.storeDisplayName,
     storeOrderId,
     storeId,
     myRole: vm.snapshot.myRole,
@@ -233,6 +237,15 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     if (mine === t("cm_ui_trade_role_buyer") || mine === buyerKo) return t("cm_ui_trade_role_seller");
     return null;
   }, [t, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
+
+  const listingHeader = vm.tradeListingHeader;
+  const listingSubtitle = useMemo(() => {
+    if (!listingHeader) return statusLine;
+    if (typingPeerCount > 0) return t("chats_peer_typing");
+    if (listingHeader.counterpartyRole === "seller") return t("cm_ui_trade_role_seller");
+    if (listingHeader.counterpartyRole === "buyer") return t("cm_ui_trade_role_buyer");
+    return peerTradeRoleLabel?.trim() || statusLine;
+  }, [listingHeader, peerTradeRoleLabel, statusLine, t, typingPeerCount]);
 
   const handleBack = () => {
     if (ownerSlideHost?.closeSlide) {
@@ -349,6 +362,27 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             showPresence={Boolean(showDeliveryPresence)}
             subtitle={deliveryHeaderSubtitle}
           />
+        ) : listingHeader ? (
+          <>
+            <div className="relative h-9 w-9 shrink-0 self-center">
+              <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+                <SamarketThumbnail
+                  src={listingHeader.imageUrl || ""}
+                  fill
+                  roundedClassName="rounded-full"
+                  className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+                  fallbackSrc=""
+                  fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+                />
+              </div>
+            </div>
+            <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
+              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+                {listingHeader.headerTitle}
+              </p>
+              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{listingSubtitle}</p>
+            </div>
+          </>
         ) : canOpenPeerFriendProfile ? (
           <button
             type="button"
@@ -470,6 +504,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           )}
         </div>
     </MessengerHeader>
+    {listingHeader ? (
+      <TradeMarketplaceContextBanner
+        productTitle={listingHeader.title}
+        priceLabel={listingHeader.priceLabel}
+        detailHref={listingHeader.detailHref}
+        onMoreOptions={() => vm.setActiveSheet("menu")}
+      />
+    ) : null}
     {headerVoiceConfirmOpen ? (
       <MessengerOutgoingCallConfirmDialog
         open

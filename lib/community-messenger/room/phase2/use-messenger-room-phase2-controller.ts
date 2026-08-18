@@ -409,6 +409,7 @@ export function useMessengerRoomPhase2Controller() {
     roomHeaderStatus,
     showTimelineMemberCountSuffix,
     timelineMemberCount,
+    tradeListingHeader,
   } = useMessengerRoomPhase2RoomPresentation({
     snapshot,
     roomId,
@@ -2546,6 +2547,7 @@ export function useMessengerRoomPhase2Controller() {
     roomHeaderStatus,
     showTimelineMemberCountSuffix,
     timelineMemberCount,
+    tradeListingHeader,
     roomUnavailable,
     isGroupRoom,
     roomSummaryHoldsOnlyTradeOrDeliveryMeta,

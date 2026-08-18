@@ -30,7 +30,7 @@ export function buildTradeHeaderModel(
   resolveTradeHeaderKind(item);
   const p = resolveTradePresentationFromListItem(item);
   const viewer = extras?.viewerUserId?.trim() || "";
-  // Self must never appear as Room Header primary identity.
+  // Self must never appear as Room Header peer (secondary) identity.
   if (viewer && (viewer === item.sellerUserId || viewer === item.counterpartyUserId)) {
     const expectedPeer =
       viewer === item.sellerUserId ? item.counterpartyUserId : item.sellerUserId;

@@ -378,6 +378,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     () => ({
       snapshot: view.snapshot,
       roomHeaderStatus: view.roomHeaderStatus,
+      tradeListingHeader: view.tradeListingHeader,
       router: view.router,
       isGroupRoom: view.isGroupRoom,
       isPrivateGroupRoom: view.isPrivateGroupRoom,
@@ -393,6 +394,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     [
       view.snapshot,
       view.roomHeaderStatus,
+      view.tradeListingHeader,
       view.router,
       view.isGroupRoom,
       view.isPrivateGroupRoom,

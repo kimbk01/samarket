@@ -67,6 +67,7 @@ export function useDeliveryRoomMessageSenderLabel(vm: VmLike) {
   const deliveryHeader = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
     deliveryHeadline: meta?.kind === "delivery" ? meta.headline : undefined,
+    contextStoreDisplayName: meta?.kind === "delivery" ? meta.storeDisplayName : null,
     storeOrderId,
     storeId: vm.storeIdForDock,
     myRole: vm.snapshot.myRole,

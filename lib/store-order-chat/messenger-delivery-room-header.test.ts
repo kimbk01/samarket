@@ -9,6 +9,7 @@ import {
   resolveDeliveryStoreIndustrySubtitle,
   resolveStoreOrderBuyerVoicePeerLabel,
   resolveStoreOrderDeliveryHeaderMode,
+  roomShowsStoreOrderWindowHeader,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { resolveDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
 
@@ -169,7 +170,44 @@ describe("formatDeliveryMessengerPresenceIndustrySubtitle", () => {
   });
 });
 
+describe("roomShowsStoreOrderWindowHeader", () => {
+  it("treats commerce store_order key as window store-order even if chatDomain is general_direct", () => {
+    expect(
+      roomShowsStoreOrderWindowHeader({
+        chatDomain: "general_direct",
+        messengerDirectKey: "store_order:o1",
+      })
+    ).toBe(true);
+  });
+
+  it("does not treat pair-key friend DM as store-order window", () => {
+    expect(
+      roomShowsStoreOrderWindowHeader({
+        chatDomain: "general_direct",
+        messengerDirectKey: "u1:u2",
+      })
+    ).toBe(false);
+  });
+});
+
 describe("resolveDeliveryStoreDisplayName", () => {
+  it("uses context store name over peer room title", () => {
+    expect(
+      resolveDeliveryStoreDisplayName({
+        contextStoreDisplayName: "MARKET MARKET",
+        roomTitle: "메인관리자",
+      })
+    ).toBe("MARKET MARKET");
+  });
+
+  it("never uses a bare member nickname as store name", () => {
+    expect(
+      resolveDeliveryStoreDisplayName({
+        roomTitle: "메인관리자",
+      })
+    ).toBe("매장");
+  });
+
   it("never uses store slug as display name", () => {
     expect(
       resolveDeliveryStoreDisplayName({

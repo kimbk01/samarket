@@ -17,6 +17,8 @@ import {
   formatTime,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { GroupPinnedMessageBanner } from "@/components/community-messenger/group/GroupPinnedMessageBanner";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { useGroupMessageReadCounts } from "@/lib/community-messenger/group/use-group-message-read-counts";
 import { stripMentionTokensForPreview } from "@/lib/community-messenger/group/group-room-mention-parser";
 import {
@@ -1831,6 +1833,35 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               : ""}
             {vm.isGroupRoom ? ` · ${vm.groupCallStatusLabel}` : ""}
           </p>
+          {vm.tradeListingHeader ? (
+            <div className="flex flex-col items-center px-2 pb-1 pt-3 text-center">
+              <div className="relative h-20 w-20 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+                <SamarketThumbnail
+                  src={vm.tradeListingHeader.imageUrl || ""}
+                  fill
+                  roundedClassName="rounded-full"
+                  className="bg-[color:var(--cm-room-primary-soft)]"
+                  fallbackSrc=""
+                  fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+                />
+              </div>
+              <p className="mt-3 max-w-[min(100%,22rem)] sam-text-body font-semibold leading-snug text-[color:var(--cm-room-text)]">
+                {vm.tradeListingHeader.headerTitle}
+              </p>
+              <p className="mt-1 max-w-[min(100%,22rem)] sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)]">
+                {vm.t("cm_ui_trade_window_privacy")}
+              </p>
+              <button
+                type="button"
+                onClick={() => vm.setActiveSheet("menu")}
+                className="mt-1 sam-text-helper font-medium text-[color:var(--cm-room-primary)] active:opacity-80"
+              >
+                {vm.tradeListingHeader.counterpartyRole === "buyer"
+                  ? vm.t("cm_ui_trade_view_buyer_profile")
+                  : vm.t("cm_ui_trade_view_seller_profile")}
+              </button>
+            </div>
+          ) : null}
           {vm.snapshot.room.summary?.trim() && !vm.roomSummaryHoldsOnlyTradeOrDeliveryMeta ? (
             <button
               type="button"

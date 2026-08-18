@@ -37,6 +37,7 @@ export type StoreOrderDeliveryMessengerHeaderModel = {
 type Input = {
   isDeliveryRoom: boolean;
   deliveryHeadline: string | undefined;
+  contextStoreDisplayName?: string | null;
   storeOrderId: string;
   storeId: string;
   myRole: "owner" | "admin" | "member";
@@ -143,6 +144,7 @@ export function useStoreOrderDeliveryMessengerHeader(
 
   const storeDisplayName = resolveDeliveryStoreDisplayName({
     orderCardStoreName: storeOrderSnap?.orderCard?.storeName,
+    contextStoreDisplayName: input.contextStoreDisplayName,
     deliveryHeadline: input.deliveryHeadline,
     roomTitle: input.roomTitle,
     storeId: input.storeId,
@@ -250,7 +252,6 @@ export function useStoreOrderDeliveryMessengerHeader(
     storeOrderSnap?.storeProfileImageUrl?.trim() ||
     input.thumbnailUrl?.trim() ||
     storeSummaryExtras?.profileImageUrl?.trim() ||
-    input.roomAvatarUrl?.trim() ||
     null;
 
   return useMemo((): StoreOrderDeliveryMessengerHeaderModel => {
@@ -290,7 +291,7 @@ export function useStoreOrderDeliveryMessengerHeader(
         showAvatar: false,
         avatarUrl: null,
         avatarRounded: "circle",
-        title: input.roomTitle,
+        title: storeDisplayName,
         subtitle: null,
         industryPrimary: null,
         industrySecondary: null,

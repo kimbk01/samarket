@@ -26,4 +26,6 @@ Source: `.qa-logs/four-domain-pollution/pollution-dry-run.json`
 
 ## Status
 
-**DATA MIGRATION PENDING** — code path must stop new pollution; historical 4 rooms remain quarantined until explicit migration approval.
+**WINDOW CHROME: LOCKED (Room UI CUT R4, 2026-08-18)** — those 4 room ids keep TRADE window chrome; they are not merged and not rewritten.
+
+**DATA MIGRATION PENDING** — `direct_key` rewrite / split of the multi-PC room is **not** part of the Room UI cut. Needs a separate cut.

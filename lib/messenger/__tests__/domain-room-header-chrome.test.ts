@@ -22,9 +22,7 @@ describe("composeDomainRoomHeaderChrome — Domain Header Factory", () => {
     expect(chrome.showMemberCountSuffix).toBe(false);
   });
 
-  it("trade Room chrome: counterparty profileKind + product secondary (not listing primary)", () => {
-    // peerLabel is viewer-relative peer display name from Trade loader:
-    // seller viewer → counterparty name; counterparty viewer → seller name.
+  it("trade Room chrome: listing profileKind + peer secondary", () => {
     const asSellerView = composeDomainRoomHeaderChrome({
       kind: "trade",
       peerLabel: "구매 희망자 김철수",
@@ -32,10 +30,10 @@ describe("composeDomainRoomHeaderChrome — Domain Header Factory", () => {
     });
     expect(asSellerView.roomTypeLabelKey).toBe("nav_trade_chat_label");
     expect(asSellerView.forbidsGeneralDirectChrome).toBe(true);
-    expect(asSellerView.profileKind).toBe("user");
+    expect(asSellerView.profileKind).toBe("listing");
     expect(asSellerView.identityKind).toBe("listing_seller_counterparty");
     expect(resolveDomainRoomHeaderSecondaryText(asSellerView.headerSecondary, t)).toBe(
-      "맥북 프로 M3"
+      "구매 희망자 김철수"
     );
 
     const asBuyerView = composeDomainRoomHeaderChrome({
@@ -43,9 +41,9 @@ describe("composeDomainRoomHeaderChrome — Domain Header Factory", () => {
       peerLabel: "판매자 홍길동",
       productTitle: "맥북 프로 M3",
     });
-    expect(asBuyerView.profileKind).toBe("user");
+    expect(asBuyerView.profileKind).toBe("listing");
     expect(resolveDomainRoomHeaderSecondaryText(asBuyerView.headerSecondary, t)).toBe(
-      "맥북 프로 M3"
+      "판매자 홍길동"
     );
   });
 

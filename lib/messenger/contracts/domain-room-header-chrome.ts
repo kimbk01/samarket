@@ -44,9 +44,9 @@ export type DomainRoomHeaderChromeInput =
     }
   | {
       kind: "trade";
-      /** Room Header primary is counterparty — peerLabel kept for diagnostics only */
+      /** Room Header secondary — viewer-relative counterparty */
       peerLabel: string | null;
-      /** Product line under peer name (Room secondary / list primary elsewhere) */
+      /** Room Header primary — listing / product */
       productTitle: string | null;
     }
   | {
@@ -105,14 +105,14 @@ export function composeDomainRoomHeaderChrome(
       };
     }
     case "trade": {
-      const product = input.productTitle?.trim() || "";
+      const peer = input.peerLabel?.trim() || "";
       return {
         roomTypeLabelKey: "nav_trade_chat_label",
-        // Room Header primary = counterparty (user avatar). Product is secondary context.
-        headerSecondary: product ? { mode: "plain", text: product } : { mode: "none" },
+        // Room Header primary = listing. Counterparty is secondary.
+        headerSecondary: peer ? { mode: "plain", text: peer } : { mode: "none" },
         showMemberCountSuffix: false,
         memberCountForSuffix: null,
-        profileKind: "user",
+        profileKind: "listing",
         identityKind: "listing_seller_counterparty",
         forbidsGeneralDirectChrome: true,
       };

@@ -34,6 +34,7 @@ import {
   type TradeRoomContext,
 } from "@/components/community-messenger/room/phase2/ChatRoomMoreMenu";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
+import { roomShowsStoreOrderWindowHeader } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import {
@@ -119,21 +120,23 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     [vm.snapshot.members, peerUserId]
   );
 
-  const deliveryMeta = useMemo(
-    () =>
-      messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
-        ? resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)
-        : null,
-    [vm.snapshot.room, vm.snapshot.viewerUserId]
-  );
+  const deliveryMeta = useMemo(() => {
+    const room = vm.snapshot.room;
+    const windowStoreOrder =
+      roomShowsStoreOrderWindowHeader(room) ||
+      messengerRoomShowsConfirmedDeliveryPresentation(room, vm.snapshot.viewerUserId);
+    if (!windowStoreOrder) return null;
+    return resolveCommunityMessengerDeliveryContextMeta(room);
+  }, [vm.snapshot.room, vm.snapshot.viewerUserId]);
   const storeOrderId =
     typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
-  const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
+  const isDeliveryRoom = Boolean(deliveryMeta) && storeOrderId.length > 0;
 
   const deliveryRoomSnap = useStoreOrderDeliveryRoomOptional();
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
     deliveryHeadline: deliveryMeta?.headline,
+    contextStoreDisplayName: deliveryMeta?.storeDisplayName,
     storeOrderId,
     storeId: vm.storeIdForDock,
     myRole: vm.snapshot.myRole,

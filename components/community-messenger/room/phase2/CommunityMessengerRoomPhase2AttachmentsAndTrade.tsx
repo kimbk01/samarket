@@ -59,6 +59,7 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
               onTradeMetaChanged={() => void vm.refresh(true)}
               keyboardCompact={keyboardCompact}
               dockPlacement="aboveComposer"
+              hideProductCard
             />
           </Suspense>
         </>

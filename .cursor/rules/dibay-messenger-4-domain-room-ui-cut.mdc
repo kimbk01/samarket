@@ -1,0 +1,50 @@
+---
+description: CONTRACT FROZEN — DIBAY Messenger 4-domain chat-window UI (not room-key infra)
+alwaysApply: true
+---
+
+# DIBAY Messenger 4-Domain Room UI CUT
+
+**CONTRACT FROZEN (2026-08-18). HARD LOCK NOT DECLARED.**
+Full doc: `docs/dibay-messenger-4-domain-room-ui-cut.md`.
+
+## Baseline
+
+- **STATUS: CONTRACT FROZEN / R5 TRADE-ONLY (composer and other domains OUT)**
+- Chat-window UI only (chrome / timeline chip / visible identity)
+- Room key / DB / badge / notification / routes: **INFRA LOCK — do not touch**
+- Marketplace CUT A–H: **PRESERVED**
+- Native Call: **UNTOUCHED**
+
+## KEEP
+
+```text
+4 domains never share a window look
+GENERAL = peer + 1:1
+GROUP = group + member count
+TRADE = per listing, never merge with general or other listings
+STORE_ORDER customer = store identity
+STORE_ORDER owner = customer identity
+commerce direct_key wins over wrong chatDomain for WINDOW chrome
+true pair-key friend DM stays general
+```
+
+Authority: `lib/messenger/contracts/domain-room-header-chrome.ts` · `components/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome.ts`
+
+This cut changes **room window presentation**, not SEARCH, LIST sell-intent, taxonomy, or messenger infra writers.
+
+## Phases
+
+R1 chrome misclassification (done) → R2 listing-primary trade header (done) → R3 order window store paths (done) → R4 window quarantine (done, no SQL) → R5 TRADE-ONLY Marketplace chrome (header / banner / timeline origin). Composer, general, group, order: OUT.
+
+## DO NOT (without a new cut)
+
+- Mutate `chat_domain` / `direct_key` / merge writers to “fix” chrome
+- Change `communityMessengerRoomIsConfirmedTrade` globally in R1 (list/badge side effects)
+- Rewrite `direct_key` / run pollution SQL under this cut
+- Touch the message composer / input in this cut
+- Restyle general / group / store-order windows as Marketplace
+- Put general `1:1` chip on trade/order windows
+- Merge two listings into one trade window
+- Show owner member nickname as the customer’s order-chat identity
+- Reopen Marketplace CUT A–H or Native Call to finish this chrome

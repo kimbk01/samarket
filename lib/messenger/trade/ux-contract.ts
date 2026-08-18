@@ -45,10 +45,10 @@ export type TradeListViewModel = Readonly<{
 
 export type TradeRoomHeaderViewModel = Readonly<{
   kind: "trade";
-  /** Room Header primary = viewer-relative counterparty */
+  /** Room Header secondary = viewer-relative counterparty (never self) */
   peerLabel: string;
   peerAvatarUrl: string | null;
-  /** Product stays in list + in-room context — not Room Header primary */
+  /** Room Header primary = listing / product */
   productTitle: string;
   productImageUrl: string | null;
   itemId: string;

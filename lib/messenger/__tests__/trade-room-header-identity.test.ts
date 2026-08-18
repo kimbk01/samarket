@@ -1,6 +1,6 @@
 /**
- * Trade List = product primary; Trade Room Header = viewer-relative counterparty primary.
- * Product context stays separate. Viewer self must never be Room Header identity.
+ * Trade List = product primary; Trade Room Header = listing primary, counterparty secondary.
+ * Viewer self must never be Room Header peer identity.
  */
 import { describe, expect, it, beforeEach } from "vitest";
 import { buildTradeHeaderModel } from "@/lib/messenger/trade/header";
@@ -59,7 +59,7 @@ function listItem(partial: Partial<TradeListItem> & { itemId: string }): TradeLi
 }
 
 describe("trade profile identity contracts", () => {
-  it("1) buyer viewer → Room Header = seller peer (not product, not self)", () => {
+  it("1) buyer viewer → Room Header primary = product; secondary = seller peer (not self)", () => {
     const item = listItem({
       itemId: ITEM_A,
       peerDisplayName: "판매자 홍길동",
@@ -76,7 +76,7 @@ describe("trade profile identity contracts", () => {
     expect(header.peerAvatarUrl).not.toBe(header.productImageUrl);
   });
 
-  it("2) seller viewer → Room Header = buyer/counterparty peer", () => {
+  it("2) seller viewer → Room Header secondary = buyer/counterparty peer", () => {
     const item = listItem({
       itemId: ITEM_A,
       peerDisplayName: "구매 희망자 김철수",
@@ -200,16 +200,16 @@ describe("trade profile identity contracts", () => {
     expect(header.productTitle).toBe("상품명");
   });
 
-  it("list primary stays product; Room chrome secondary is product", () => {
+  it("list and Room Header primary stay product; chrome secondary is peer", () => {
     const chrome = composeDomainRoomHeaderChrome({
       kind: "trade",
       peerLabel: "Peer",
       productTitle: "Sofa",
     });
-    expect(chrome.profileKind).toBe("user");
+    expect(chrome.profileKind).toBe("listing");
     expect(chrome.forbidsGeneralDirectChrome).toBe(true);
-    if (chrome.headerSecondary.mode !== "plain") throw new Error("expected product secondary");
-    expect(chrome.headerSecondary.text).toBe("Sofa");
+    if (chrome.headerSecondary.mode !== "plain") throw new Error("expected peer secondary");
+    expect(chrome.headerSecondary.text).toBe("Peer");
   });
 
   it("product title placeholder is never the obsolete generic 거래 label", () => {

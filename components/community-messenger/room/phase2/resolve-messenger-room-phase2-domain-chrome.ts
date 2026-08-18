@@ -5,8 +5,10 @@
  * Must NOT live under lib/community-messenger → @/lib/messenger (Phase 6/7/8 wiring 0).
  * Factory remains in lib/messenger/contracts/domain-room-header-chrome.ts
  */
+import { isFourDomainPollutionQuarantineRoom } from "@/lib/chat-domain/four-domain-pollution-quarantine";
 import {
   generalFriendDirectRoomGate,
+  isMessengerCommerceDirectKey,
   messengerRoomShowsConfirmedDeliveryPresentation,
   messengerRoomShowsConfirmedTradePresentation,
 } from "@/lib/community-messenger/messenger-room-domain";
@@ -25,6 +27,7 @@ export type MessengerRoomPhase2DomainChromePresentation = Readonly<{
   /** Timeline chip — commerce domains forbid GENERAL 「· N명」 suffix. */
   showTimelineMemberCountSuffix: boolean;
   timelineMemberCount: number;
+  headerPrimaryText: string | null;
   headerSecondaryText: string | null;
 }>;
 
@@ -61,6 +64,41 @@ function resolveChromeInput(input: {
       kind: "group",
       memberCount: Math.max(0, room.memberCount ?? 0),
       groupSubtype: "private_group",
+    };
+  }
+
+  // Room UI CUT R1: commerce direct_key owns window chrome even if chatDomain is mislabeled.
+  const commerceKey = room.messengerDirectKey?.trim() ?? "";
+  if (isMessengerCommerceDirectKey(commerceKey)) {
+    if (commerceKey.startsWith("trade_pc:") || commerceKey.startsWith("trade_item:")) {
+      return {
+        kind: "trade",
+        peerLabel: room.title?.trim() || null,
+        productTitle: tradeProductTitleFromRoom(room, input.tradeProductTitle),
+      };
+    }
+    const orderId = input.storeOrderId?.trim() || "";
+    const orderStatusLabel = input.orderStatusLabel?.trim() || null;
+    if (myRole === "owner") {
+      return {
+        kind: "owner_buyer_peer",
+        orderId: orderId || null,
+        orderStatusLabel,
+      };
+    }
+    return {
+      kind: "buyer_store",
+      orderId: orderId || null,
+      orderStatusLabel,
+    };
+  }
+
+  // R4: quarantined trade rooms keep TRADE window chrome. Do not rewrite keys or merge listings.
+  if (isFourDomainPollutionQuarantineRoom(room.id)) {
+    return {
+      kind: "trade",
+      peerLabel: room.title?.trim() || null,
+      productTitle: tradeProductTitleFromRoom(room, input.tradeProductTitle),
     };
   }
 
@@ -126,6 +164,10 @@ export function resolveMessengerRoomPhase2DomainChrome(input: {
   const chrome = composeDomainRoomHeaderChrome(chromeInput);
   const roomTypeLabel = input.t(chrome.roomTypeLabelKey, chrome.roomTypeLabelVars);
   const headerSecondaryText = resolveDomainRoomHeaderSecondaryText(chrome.headerSecondary, input.t);
+  const headerPrimaryText =
+    chrome.profileKind === "listing"
+      ? tradeProductTitleFromRoom(input.room, input.tradeProductTitle)
+      : null;
   const memberCount = Math.max(0, Math.floor(Number(input.room.memberCount) || 0));
 
   const showTimelineMemberCountSuffix = chrome.showMemberCountSuffix
@@ -142,6 +184,7 @@ export function resolveMessengerRoomPhase2DomainChrome(input: {
     roomTypeLabel,
     showTimelineMemberCountSuffix,
     timelineMemberCount,
+    headerPrimaryText,
     headerSecondaryText,
   };
 }

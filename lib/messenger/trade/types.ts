@@ -70,7 +70,7 @@ export const EMPTY_TRADE_STATE: TradeDomainState = {
   rows: [],
 };
 
-/** List/product-context only — never Room Header primary title. Matches nav_trade_product_fallback (ko). */
+/** Listing title fallback when item title is missing. Matches nav_trade_product_fallback (ko). */
 export const TRADE_PRODUCT_TITLE_PLACEHOLDER = "상품";
 export const TRADE_PEER_PLACEHOLDER = "상대방";
 

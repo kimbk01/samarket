@@ -35,6 +35,8 @@ type Props = {
   keyboardCompact?: boolean;
   /** 메신저 셸: 헤더 아래(legacy) vs 입력란 바로 위 */
   dockPlacement?: "belowHeader" | "aboveComposer";
+  /** Marketplace banner already shows the listing — do not duplicate above composer. */
+  hideProductCard?: boolean;
 };
 
 /**
@@ -51,6 +53,7 @@ export function CommunityMessengerTradeProcessSection({
   onTradeMetaChanged,
   keyboardCompact = false,
   dockPlacement = "belowHeader",
+  hideProductCard = false,
 }: Props) {
   const { t } = useI18n();
   const initialId = productChatId.trim();
@@ -308,7 +311,7 @@ export function CommunityMessengerTradeProcessSection({
         layoutVariant={keyboardCompact ? "keyboardCompact" : "default"}
         onDiagramExpandedChange={() => notifyCmTradeDockLayoutChange("diagram_expand")}
       />
-      {room.product && !keyboardCompact ? (
+      {room.product && !keyboardCompact && !hideProductCard ? (
         <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">
           <ChatProductSummary
             variant="messengerDock"

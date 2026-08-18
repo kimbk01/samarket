@@ -7,6 +7,7 @@ export type MessengerRoomPhase2HeaderViewModel = Pick<
   MessengerRoomPhase2ViewModel,
   | "snapshot"
   | "roomHeaderStatus"
+  | "tradeListingHeader"
   | "router"
   | "isGroupRoom"
   | "isPrivateGroupRoom"
