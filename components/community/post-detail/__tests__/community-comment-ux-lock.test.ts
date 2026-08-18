@@ -62,6 +62,9 @@ describe("community comment UX lock", () => {
     expect(composer).toContain("textarea");
     expect(composer).toContain("max-h-[7.5rem]");
     expect(composer).toContain("scrollHeight");
+    expect(composer).toContain("CM_COMMENT_COMPOSER_FIELD_CLASS");
+    expect(composer).toContain("COMPOSER_MIN_PX = 40");
+    expect(composer).not.toContain("min-h-[3.25rem]");
     expect(composer).not.toMatch(/e\.key === \"Enter\"/);
     expect(section).toContain("divide-y divide-[var(--cm-border)]");
     expect(section).not.toContain("rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-2");

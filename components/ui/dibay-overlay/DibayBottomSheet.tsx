@@ -53,7 +53,7 @@ export function DibayBottomSheet({
       : { paddingBottom: "max(1rem, var(--safe-bottom))" };
 
   // Footer present: outer must not scroll — body scrolls, footer stays as flex sibling.
-  // Footer absent: keep legacy overflow-y-auto panel scroll.
+  // Footer absent: panel scrolls; do not wrap children in overflow-hidden (clips last actions).
   const overflowClass = hasFooter
     ? "flex flex-col overflow-hidden overscroll-contain"
     : "overflow-y-auto overscroll-contain";
@@ -82,7 +82,11 @@ export function DibayBottomSheet({
             {title}
           </h2>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+        {hasFooter ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
+        ) : (
+          children
+        )}
         {hasFooter ? <div className="shrink-0">{footer}</div> : null}
       </div>
     </DibayOverlayRoot>

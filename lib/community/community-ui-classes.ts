@@ -35,6 +35,10 @@ export const CM_COMMENT_BODY_CLASS =
 export const CM_INPUT_CLASS =
   "min-h-11 w-full min-w-0 flex-1 rounded-[var(--cm-radius-input)] border border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-4 py-2.5 text-[length:var(--cm-font-body)] text-[var(--cm-text)] outline-none placeholder:text-[var(--cm-text-muted)] focus:border-[var(--cm-primary)] focus:ring-1 focus:ring-[color-mix(in_srgb,var(--cm-primary)_25%,transparent)]";
 
+/** 댓글·답글 한 줄 입력 — 40px 행, 상하 패딩 대칭으로 플레이스홀더/캐럿 세로 중앙 */
+export const CM_COMMENT_COMPOSER_FIELD_CLASS =
+  "box-border min-h-10 w-full min-w-0 flex-1 rounded-[var(--cm-radius-input)] border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3.5 py-[9px] text-[length:var(--cm-font-body)] leading-5 text-[var(--cm-text)] outline-none placeholder:text-[var(--cm-text-muted)] focus:border-[var(--cm-primary)] focus:ring-1 focus:ring-[color-mix(in_srgb,var(--cm-primary)_25%,transparent)]";
+
 export const CM_TEXTAREA_CLASS =
   "min-h-[10rem] w-full resize-y rounded-[var(--cm-radius-card)] border border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-4 py-3 text-[length:var(--cm-font-body)] leading-[var(--cm-lh-body)] text-[var(--cm-text)] outline-none placeholder:text-[var(--cm-text-muted)] focus:border-[var(--cm-primary)] focus:ring-1 focus:ring-[color-mix(in_srgb,var(--cm-primary)_25%,transparent)]";
 

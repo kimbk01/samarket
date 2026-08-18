@@ -87,6 +87,22 @@
   bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
 }
 
+html:has(.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit)
+  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
+  bottom: calc(
+    var(--app-bottom-nav-height, 60px) + var(--safe-bottom) +
+      var(--app-bottom-nav-orbit-rise, calc(2.625rem * 0.36))
+  );
+}
+
+html:has(.app-bottom-nav-shell--delivery)
+  .dibay-overlay-root--sheet[data-sheet-anchor="above-bottom-nav"] {
+  bottom: calc(
+    var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
+      var(--safe-bottom)
+  );
+}
+
 .dibay-overlay-root--full {
   align-items: stretch;
   justify-content: stretch;

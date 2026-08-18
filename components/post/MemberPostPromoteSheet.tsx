@@ -204,8 +204,55 @@ export function MemberPostPromoteSheet({
           fallbackEn: "Promote this post",
         });
 
+  const catalogFooter =
+    successEndAt || loading ? null : activeEndAt || pendingExisting ? (
+      <div className={OverlayUi.actionsRow}>
+        <DibayOverlayButton roleTone="secondary" onClick={onClose}>
+          {t("common_confirm")}
+        </DibayOverlayButton>
+      </div>
+    ) : (
+      <div className={OverlayUi.actionsRow}>
+        {insufficient ? (
+          <a href="/mypage/points" className={`${OverlayUi.btn.secondary} text-center`}>
+            {safeT("promo_sheet_go_points", {
+              fallbackKo: "D-Point 충전",
+              fallbackEn: "Add D-Point",
+            })}
+          </a>
+        ) : null}
+        <DibayOverlayButton
+          roleTone="primary"
+          disabled={busy || !selected || insufficient || catalog.length === 0}
+          loading={busy}
+          onClick={() => void purchase()}
+        >
+          {busy
+            ? t("common_loading")
+            : safeT("promo_sheet_cta", {
+                fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
+                fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
+              })}
+        </DibayOverlayButton>
+      </div>
+    );
+
+  const successFooter = successEndAt ? (
+    <div className={OverlayUi.actionsRow}>
+      <DibayOverlayButton roleTone="primary" onClick={onClose}>
+        {t("common_confirm")}
+      </DibayOverlayButton>
+    </div>
+  ) : null;
+
   return (
-    <DibayBottomSheet open={open} onClose={onClose} title={sheetTitle} anchor="above-bottom-nav">
+    <DibayBottomSheet
+      open={open}
+      onClose={onClose}
+      title={sheetTitle}
+      anchor="above-bottom-nav"
+      footer={successFooter ?? catalogFooter}
+    >
       <p className={`mb-2 line-clamp-2 ${OverlayUi.bodySecondary}`}>{postTitle}</p>
 
       {successEndAt ? (
@@ -244,11 +291,6 @@ export function MemberPostPromoteSheet({
               {balance.toLocaleString()}P
             </p>
           ) : null}
-          <div className="mt-4">
-            <DibayOverlayButton roleTone="primary" onClick={onClose}>
-              {t("common_confirm")}
-            </DibayOverlayButton>
-          </div>
         </div>
       ) : loading ? (
         <p className={`py-8 text-center ${OverlayUi.bodySecondary}`}>{t("common_loading")}</p>
@@ -281,11 +323,6 @@ export function MemberPostPromoteSheet({
               fallbackEn: "You can apply again after the current promotion ends or is decided.",
             })}
           </p>
-          <div className="mt-4">
-            <DibayOverlayButton roleTone="secondary" onClick={onClose}>
-              {t("common_confirm")}
-            </DibayOverlayButton>
-          </div>
         </div>
       ) : (
         <>
@@ -405,30 +442,6 @@ export function MemberPostPromoteSheet({
               </p>
             ) : null}
             {err ? <p className="mt-2 text-sm text-[color:var(--overlay-danger)]">{err}</p> : null}
-          </div>
-
-          <div className={`${OverlayUi.actionsRow} mt-2`}>
-            {insufficient ? (
-              <a href="/mypage/points" className={`${OverlayUi.btn.secondary} text-center`}>
-                {safeT("promo_sheet_go_points", {
-                  fallbackKo: "D-Point 충전",
-                  fallbackEn: "Add D-Point",
-                })}
-              </a>
-            ) : null}
-            <DibayOverlayButton
-              roleTone="primary"
-              disabled={busy || !selected || insufficient || catalog.length === 0}
-              loading={busy}
-              onClick={() => void purchase()}
-            >
-              {busy
-                ? t("common_loading")
-                : safeT("promo_sheet_cta", {
-                    fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
-                    fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
-                  })}
-            </DibayOverlayButton>
           </div>
         </>
       )}

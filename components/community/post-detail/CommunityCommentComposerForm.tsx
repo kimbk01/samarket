@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
-import { CM_BTN_PILL_PRIMARY_CLASS, CM_INPUT_CLASS } from "@/lib/community/community-ui-classes";
+import {
+  CM_BTN_PILL_PRIMARY_CLASS,
+  CM_COMMENT_COMPOSER_FIELD_CLASS,
+} from "@/lib/community/community-ui-classes";
 
 export type MeAvatarProps = { name: string; avatarUrl: string | null };
 
@@ -21,6 +24,7 @@ type Props = {
 };
 
 const COMPOSER_MAX_CLASS = "max-h-[7.5rem]";
+const COMPOSER_MIN_PX = 40;
 
 function syncGrowHeight(el: HTMLTextAreaElement, minPx: number) {
   el.style.height = "auto";
@@ -38,7 +42,6 @@ export function CommunityCommentGrowTextarea({
   onFocus,
   onBlur,
   onClick,
-  expanded,
   id,
   composingRef,
 }: {
@@ -50,27 +53,23 @@ export function CommunityCommentGrowTextarea({
   onFocus?: () => void;
   onBlur?: () => void;
   onClick?: () => void;
-  expanded: boolean;
   id?: string;
   composingRef?: { current: boolean };
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const minPx = expanded ? 52 : 44;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    syncGrowHeight(el, minPx);
-  }, [value, expanded, minPx]);
+    syncGrowHeight(el, COMPOSER_MIN_PX);
+  }, [value]);
 
   return (
     <textarea
       id={id}
       ref={ref}
-      rows={expanded ? 2 : 1}
-      className={`${CM_INPUT_CLASS} ${COMPOSER_MAX_CLASS} resize-none overflow-y-auto leading-[1.4] ${
-        expanded ? "min-h-[3.25rem]" : ""
-      }`}
+      rows={1}
+      className={`${CM_COMMENT_COMPOSER_FIELD_CLASS} ${COMPOSER_MAX_CLASS} resize-none overflow-y-auto`}
       value={value}
       placeholder={placeholder}
       readOnly={readOnly}
@@ -99,7 +98,7 @@ function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
       src={me?.avatarUrl}
       size={40}
       roundedClassName="rounded-full"
-      className="bg-[var(--cm-primary-soft)] ring-1 ring-[var(--cm-border)]"
+      className="shrink-0 bg-[var(--cm-primary-soft)] ring-1 ring-[var(--cm-border)]"
       fallbackSrc=""
       fallbackNode={
         <span className="text-[14px] font-semibold text-[var(--cm-primary)]" aria-hidden>
@@ -137,9 +136,7 @@ export function CommunityCommentComposerForm({
 }: Props) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const [focused, setFocused] = useState(false);
   const composingRef = useRef(false);
-  const expanded = focused || value.trim().length > 0;
 
   const trySubmit = () => {
     if (composingRef.current) return;
@@ -162,10 +159,7 @@ export function CommunityCommentComposerForm({
         placeholder={placeholder}
         readOnly={!isLoggedIn}
         disabled={(disabled || busy) && isLoggedIn}
-        expanded={expanded}
         composingRef={composingRef}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         onClick={() => {
           if (!isLoggedIn) {
             const n = window.location.pathname + window.location.search;
@@ -176,7 +170,7 @@ export function CommunityCommentComposerForm({
       <button
         type="submit"
         disabled={disabled || busy || !isLoggedIn || !value.trim()}
-        className={`min-h-12 shrink-0 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
+        className={`shrink-0 self-end px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
         aria-label={t("community_comment_post_aria")}
       >
         {t("community_comment_post")}

@@ -46,6 +46,8 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(css).toContain(".dibay-overlay-btn--destructive");
     expect(css).toContain('data-sheet-anchor="above-bottom-nav"');
     expect(css).toContain("var(--app-bottom-nav-height, 60px)");
+    expect(css).toContain("var(--delivery-home-overhang, 0px)");
+    expect(css).toContain("--app-bottom-nav-orbit-rise");
     expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\btop:\s*0;/);
     expect(css).toMatch(/\.dibay-overlay-root\s*\{[^}]*\bbottom:\s*0;/);
     expect(css).not.toMatch(/\.dibay-overlay-root\s*\{[^}]*\binset:\s*0/);
@@ -72,6 +74,14 @@ describe("DIBAY Overlay SSOT contract", () => {
     expect(src).toContain("OVERLAY_SHEET_ABOVE_NAV.maxHClass");
     expect(src).toContain("hasFooter");
     expect(src).toContain("overflow-hidden");
+    expect(src).toContain("overflow-y-auto overscroll-contain");
+  });
+
+  it("promote sheet pins CTAs in footer above bottom nav", () => {
+    const src = read("components/post/MemberPostPromoteSheet.tsx");
+    expect(src).toContain("footer={successFooter ?? catalogFooter}");
+    expect(src).toContain('anchor="above-bottom-nav"');
+    expect(src).not.toContain("OverlayUi.actionsRow} mt-2");
   });
 
   it("confirm dialog enforces horizontal cancel|confirm order", () => {

@@ -70,7 +70,6 @@ export function CommunityCommentItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
   const [replyDraft, setReplyDraft] = useState("");
-  const [replyFocused, setReplyFocused] = useState(false);
   const replyComposingRef = useRef(false);
   const me = viewerUserId?.trim() ?? "";
   const isOwner = me.length > 0 && isSameUserId(node.user_id, me);
@@ -139,7 +138,6 @@ export function CommunityCommentItem({
   const childCount = node.children.length;
   const showRepliesFold = childCount > 0;
   const indent = Math.min(depth, MAX_VISUAL_DEPTH) * INDENT_PX;
-  const replyExpanded = replyFocused || replyDraft.trim().length > 0;
   const itemClass = `block w-full px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
 
   const toggleReply = () => {
@@ -311,10 +309,7 @@ export function CommunityCommentItem({
                 onChange={setReplyDraft}
                 placeholder={t("community_reply_placeholder")}
                 disabled={commentBusy}
-                expanded={replyExpanded}
                 composingRef={replyComposingRef}
-                onFocus={() => setReplyFocused(true)}
-                onBlur={() => setReplyFocused(false)}
               />
               <div className="mt-1.5 flex items-center justify-end gap-2">
                 <button
