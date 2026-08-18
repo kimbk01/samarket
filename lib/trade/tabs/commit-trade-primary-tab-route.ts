@@ -33,6 +33,34 @@ export type CommitTradePrimaryTabRouteResult = "blocked" | "noop" | "navigated";
 
 let tradePrimaryTabRouteCommitGeneration = 0;
 
+function normalizeTradePrimaryTabHref(href: string): string {
+  const raw = href.trim();
+  const qi = raw.indexOf("?");
+  const path = (qi >= 0 ? raw.slice(0, qi) : raw).replace(/\/+$/, "") || "/";
+  const search = qi >= 0 ? raw.slice(qi + 1) : "";
+  const sp = new URLSearchParams(search);
+  const keys = [...new Set([...sp.keys()])].sort();
+  const out = new URLSearchParams();
+  for (const key of keys) {
+    for (const value of sp.getAll(key)) out.append(key, value);
+  }
+  const qs = out.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+/** Same-tab re-click is a noop only when the destination URL is already current. */
+export function isTradePrimaryTabCommitNoop(args: {
+  fromTabIndex: number;
+  toTabIndex: number;
+  href: string;
+  currentHref?: string | null;
+}): boolean {
+  if (args.fromTabIndex !== args.toTabIndex) return false;
+  const current = (args.currentHref ?? "").trim();
+  if (!current) return true;
+  return normalizeTradePrimaryTabHref(args.href) === normalizeTradePrimaryTabHref(current);
+}
+
 /**
  * CONTRACT — 거래 1차 탭 **단일 이동 커밋**.
  * 커뮤니티 topic 패리티: `/market` 허브 안에서는 `replace` + 축/스크롤점프 없음.
@@ -43,7 +71,19 @@ let tradePrimaryTabRouteCommitGeneration = 0;
 export function commitTradePrimaryTabRoute(
   args: CommitTradePrimaryTabRouteArgs
 ): CommitTradePrimaryTabRouteResult {
-  if (args.fromTabIndex === args.toTabIndex) return "noop";
+  if (
+    isTradePrimaryTabCommitNoop({
+      fromTabIndex: args.fromTabIndex,
+      toTabIndex: args.toTabIndex,
+      href: args.href,
+      currentHref:
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : args.fromPathname,
+    })
+  ) {
+    return "noop";
+  }
   if (!args.guardBeforeNavigate(args.href)) return "blocked";
 
   const targetPath = pathFromHref(args.href);
