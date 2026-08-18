@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { translate } from "@/lib/i18n/messages";
-import { resolveMessengerRoomPhase2DomainChrome } from "@/lib/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome";
+import { resolveMessengerRoomPhase2DomainChrome } from "@/components/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 const t = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) =>

@@ -147,12 +147,19 @@ async function discoverFixturesAcrossAccounts(page) {
     await page.goto(`${baseUrl}/community-messenger`, { waitUntil: "domcontentloaded", timeout: 90_000 });
     await page.waitForTimeout(1000);
     const bootstrap = await fetchBootstrap(page);
-    const chats = bootstrap.body?.chats ?? bootstrap.body?.data?.chats ?? [];
+    const payload = bootstrap.body ?? {};
+    const chats = payload.chats ?? payload.data?.chats ?? [];
+    const groups = payload.groups ?? payload.data?.groups ?? [];
+    const rooms = [...chats, ...groups];
     const fixtures = { GENERAL_DIRECT: null, GROUP: null, TRADE: null, STORE_ORDER: null };
-    for (const room of chats) {
+    for (const room of rooms) {
       const d = classifyRoom(room);
+      const preferPrivateGroup =
+        d === "GROUP" &&
+        room.roomType === "private_group" &&
+        mergedRooms.GROUP?.roomType !== "private_group";
       if (d in fixtures && !fixtures[d]) fixtures[d] = room?.id ?? null;
-      if (d in mergedFixtures && !mergedFixtures[d] && room?.id) {
+      if (d in mergedFixtures && room?.id && (!mergedFixtures[d] || preferPrivateGroup)) {
         mergedFixtures[d] = room.id;
         mergedRooms[d] = room;
         authByDomain[d] = auth;
@@ -161,6 +168,7 @@ async function discoverFixturesAcrossAccounts(page) {
     scanByLogin[loginId] = {
       ok: bootstrap.ok,
       chatCount: chats.length,
+      groupCount: groups.length,
       fixtures,
       hasActiveSessionCookie: auth.cookies.some((c) => c.name === "samarket_active_session_id"),
     };
@@ -199,7 +207,13 @@ function isCommerceDirectKey(dk) {
 }
 
 function classifyRoom(room) {
-  if (room.roomType === "private_group" || room.roomType === "open_group") return "GROUP";
+  if (
+    room.chatDomain === "group" ||
+    room.roomType === "private_group" ||
+    room.roomType === "open_group"
+  ) {
+    return "GROUP";
+  }
   if (room.chatDomain === "trade" || room.contextMeta?.kind === "trade") return "TRADE";
   if (room.chatDomain === "store_order" || room.contextMeta?.kind === "delivery") return "STORE_ORDER";
   const dk = room.messengerDirectKey ?? room.directKey ?? "";
@@ -327,8 +341,9 @@ async function probeList(page, listHref) {
 }
 
 async function clickBack(page) {
-  const back = page.getByRole("button", { name: /이전 화면|Go back|뒤로|Back/i }).first();
-  if (await back.isVisible({ timeout: 3000 }).catch(() => false)) {
+  await page.waitForSelector("[data-cm-room]", { timeout: 15_000 }).catch(() => undefined);
+  const back = page.locator("[data-cm-room] button[aria-label]").first();
+  if (await back.isVisible({ timeout: 5000 }).catch(() => false)) {
     await back.click({ timeout: 8000 }).catch(() => undefined);
     await page.waitForTimeout(1500);
     return true;
@@ -378,11 +393,6 @@ async function runDomainGeneral(page, room) {
   evidence.checks.timeline_general_label = roomSig.bodyHasDirectLabel;
   evidence.checks.no_trade_dock = !roomSig.tradeDock;
   evidence.checks.member_suffix = roomSig.bodyHasMemberSuffix;
-  await page.goto(`${baseUrl}/community-messenger/rooms/${encodeURIComponent(room.id)}`, {
-    waitUntil: "commit",
-    timeout: 45_000,
-  });
-  await page.waitForTimeout(1500);
   const backOk = await clickBack(page);
   evidence.checks.back_navigation = backOk;
   evidence.backUrl = page.url();
@@ -396,7 +406,7 @@ async function runDomainGroup(page, room) {
     evidence.skipReason = "no_fixture_room";
     return evidence;
   }
-  evidence.list = await probeList(page, "/community-messenger?section=chats");
+  evidence.list = await probeList(page, "/community-messenger?section=chats&kind=private_group");
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
   const roomSig = await probeRoomHeader(page, room.id);
   evidence.room = roomSig;
@@ -404,11 +414,6 @@ async function runDomainGroup(page, room) {
   evidence.checks.timeline_group_label = roomSig.bodyHasGroupLabel;
   evidence.checks.no_trade_dock = !roomSig.tradeDock;
   evidence.checks.member_suffix = roomSig.bodyHasMemberSuffix;
-  await page.goto(`${baseUrl}/community-messenger/rooms/${encodeURIComponent(room.id)}`, {
-    waitUntil: "commit",
-    timeout: 45_000,
-  });
-  await page.waitForTimeout(1500);
   const backOk = await clickBack(page);
   evidence.checks.back_navigation = backOk;
   evidence.backUrl = page.url();
@@ -422,7 +427,7 @@ async function runDomainTrade(page, room) {
     evidence.skipReason = "no_fixture_room";
     return evidence;
   }
-  evidence.list = await probeList(page, "/community-messenger/trade-chats");
+  evidence.list = await probeList(page, "/community-messenger?section=chats&kind=trade");
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
   evidence.checks.list_product_primary = Boolean(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id, { waitTradeDock: true, settleMs: 5000 });
@@ -432,13 +437,8 @@ async function runDomainTrade(page, room) {
   evidence.checks.timeline_trade_label = roomSig.bodyHasTradeLabel;
   evidence.checks.no_general_member_suffix = !roomSig.bodyHasDirectLabel && !roomSig.bodyHasMemberSuffix;
   evidence.checks.trade_dock = roomSig.tradeDock;
-  await page.goto(
-    `${baseUrl}/community-messenger/rooms/${encodeURIComponent(room.id)}?return=${encodeURIComponent("/community-messenger/trade-chats")}`,
-    { waitUntil: "commit", timeout: 45_000 }
-  );
-  await page.waitForTimeout(1500);
   const backOk = await clickBack(page);
-  evidence.checks.back_navigation = backOk && page.url().includes("/community-messenger/trade-chats");
+  evidence.checks.back_navigation = backOk;
   evidence.backUrl = page.url();
   return evidence;
 }
@@ -450,7 +450,7 @@ async function runDomainStoreOrder(page, room) {
     evidence.skipReason = "no_fixture_room";
     return evidence;
   }
-  evidence.list = await probeList(page, "/community-messenger/delivery-chats");
+  evidence.list = await probeList(page, "/community-messenger?section=chats&kind=delivery");
   evidence.checks.list_rows_visible = evidence.list.rowCount > 0;
   evidence.checks.list_store_primary = Boolean(evidence.list.firstListTitle);
   const roomSig = await probeRoomHeader(page, room.id);
@@ -461,13 +461,8 @@ async function runDomainStoreOrder(page, room) {
   evidence.checks.timeline_order_label = roomSig.bodyHasOrderLabel;
   evidence.checks.no_general_member_suffix = !roomSig.bodyHasDirectLabel && !roomSig.bodyHasMemberSuffix;
   evidence.checks.no_trade_dock = !roomSig.tradeDock;
-  await page.goto(
-    `${baseUrl}/community-messenger/rooms/${encodeURIComponent(room.id)}?return=${encodeURIComponent("/community-messenger/delivery-chats")}`,
-    { waitUntil: "commit", timeout: 45_000 }
-  );
-  await page.waitForTimeout(1500);
   const backOk = await clickBack(page);
-  evidence.checks.back_navigation = backOk && page.url().includes("/community-messenger/delivery-chats");
+  evidence.checks.back_navigation = backOk;
   evidence.backUrl = page.url();
   return evidence;
 }

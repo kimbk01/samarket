@@ -8,7 +8,7 @@ import {
   resolveCommunityMessengerDeliveryContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
-import { resolveMessengerRoomPhase2DomainChrome } from "@/lib/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome";
+import { resolveMessengerRoomPhase2DomainChrome } from "@/components/community-messenger/room/phase2/resolve-messenger-room-phase2-domain-chrome";
 import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,

@@ -1,6 +1,9 @@
 /**
  * Phase2 room timeline/header chrome — Domain Header Factory SSOT.
  * Uses existing runtime snapshot authority only (no new domain inference).
+ *
+ * Must NOT live under lib/community-messenger → @/lib/messenger (Phase 6/7/8 wiring 0).
+ * Factory remains in lib/messenger/contracts/domain-room-header-chrome.ts
  */
 import {
   generalFriendDirectRoomGate,
