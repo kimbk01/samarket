@@ -48,7 +48,7 @@ describe("R7 composition matrix (6 profiles)", () => {
     const composition = resolveTradeComposition({ icon_key: profileId, fieldComposition: null });
     expect(composition.profileId).toBe(profileId);
     expect(composition.source).toBe("product_seed");
-    for (const surface of ["write", "list", "detail", "edit"] as const) {
+    for (const surface of ["write", "list", "detail", "edit", "filter"] as const) {
       expect(
         compositionFieldsForSurface(composition, surface).length,
         `${profileId}.${surface}`
