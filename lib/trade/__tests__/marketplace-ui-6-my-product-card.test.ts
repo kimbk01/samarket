@@ -17,7 +17,8 @@ describe("marketplace UI-6 MY selling listings contract", () => {
     expect(titleIdx).toBeGreaterThan(priceIdx);
     expect(locationIdx).toBeGreaterThan(titleIdx);
     expect(card).toContain("formatTimeAgo");
-    expect(card).toContain("trade_listing_step_inquiry");
+    expect(card).toContain("marketplace_seller_listing_status_live");
+    expect(card).toContain("marketplace_seller_listing_status_sold");
     expect(card).toContain("trade_promo_badge");
     expect(card).not.toContain("<TradeListingStatusBadge");
     expect(card).not.toContain("mypage_comp_product_primary_hub_hint");

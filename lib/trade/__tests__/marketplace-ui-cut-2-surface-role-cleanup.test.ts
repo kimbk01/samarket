@@ -25,18 +25,30 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
     expect(view).not.toContain("handleSellerListingStateChange");
   });
 
-  it("PostSellerTradeStrip is informational + chat entry only — no seller complete mutation", () => {
+  it("PostSellerTradeStrip is presentational summary — no per-card post-buyer-chats fetch", () => {
     const strip = src("components/trade/PostSellerTradeStrip.tsx");
-    expect(strip).toContain("tradeHubChatRoomHref");
+    expect(strip).toContain("MYPAGE_HOME_TRADE_SALES_HREF");
+    expect(strip).toContain("marketplace_seller_trade_summary");
+    expect(strip).toContain("chatCount");
+    expect(strip).not.toContain("fetchPostBuyerChats");
+    expect(strip).not.toContain("post-buyer-chats");
     expect(strip).not.toContain("postSellerCompleteRequest");
     expect(strip).not.toContain("sellerComplete");
     expect(strip).not.toContain(">거래완료<");
+    expect(strip).not.toContain("tradeHubChatRoomHref");
+  });
+
+  it("MyProductsView loads sales once for trade summary counts — not per-card chats API", () => {
+    const view = src("components/mypage/products/MyProductsView.tsx");
+    expect(view).toContain("fetchTradeHistorySalesBySession");
+    expect(view).toContain("buildActiveTradeCountByPostId");
+    expect(view).toContain("activeTradeCountByPostId");
+    expect(view).not.toContain("PostSellerTradeStrip postId");
   });
 
   it("SalesHistoryCard is sales history only — no listing/transaction mutations", () => {
     const card = src("components/mypage/sales/SalesHistoryCard.tsx");
-    expect(card).toContain("mypage_comp_trade_chat_revisit");
-    expect(card).not.toContain("mypage_comp_order_chat_revisit");
+    expect(card).toContain("marketplace_seller_trade_chat_primary");
     expect(card).toContain("mypage_comp_sales_buyer_review_view");
     expect(card).not.toContain("seller-complete");
     expect(card).not.toContain("seller-listing-state");

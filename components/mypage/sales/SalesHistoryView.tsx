@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -22,9 +22,13 @@ import { useTradeChatListClientPagination } from "@/lib/community-messenger/trad
 import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  SellerHubEmptyActionLink,
+  SellerHubEmptyState,
+} from "@/components/mypage/seller/SellerHubEmptyState";
 
 export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,16 +136,63 @@ export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
 
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center sam-text-body text-sam-muted">
-        {t("mypage_comp_sales_empty_all")}
-      </p>
+      <SellerHubEmptyState
+        message={safeT("marketplace_seller_empty_trades_all", {
+          fallbackKo: "진행 중인 거래가 없어요",
+          fallbackEn: "No trades yet",
+        })}
+        actions={
+          <SellerHubEmptyActionLink href="/mypage/products">
+            {safeT("marketplace_seller_cta_view_listings", {
+              fallbackKo: "등록한 매물 보기",
+              fallbackEn: "View your listings",
+            })}
+          </SellerHubEmptyActionLink>
+        }
+      />
     );
   }
 
   const emptyTabMsg: Record<SellerManageTabId, string> = {
-    selling: t("mypage_comp_sales_empty_selling"),
-    completed: t("mypage_comp_sales_empty_completed"),
-    cancelled: t("mypage_comp_sales_empty_cancelled"),
+    selling: safeT("marketplace_seller_empty_trades_selling", {
+      fallbackKo: "진행 중인 거래가 없어요",
+      fallbackEn: "No trades in progress",
+    }),
+    completed: safeT("marketplace_seller_empty_trades_completed", {
+      fallbackKo: "완료된 거래가 없어요",
+      fallbackEn: "No completed trades",
+    }),
+    cancelled: safeT("marketplace_seller_empty_trades_cancelled", {
+      fallbackKo: "취소된 거래가 없어요",
+      fallbackEn: "No cancelled trades",
+    }),
+  };
+
+  const emptyTabActions: Record<SellerManageTabId, ReactNode> = {
+    selling: (
+      <SellerHubEmptyActionLink href="/mypage/products">
+        {safeT("marketplace_seller_cta_view_listings", {
+          fallbackKo: "등록한 매물 보기",
+          fallbackEn: "View your listings",
+        })}
+      </SellerHubEmptyActionLink>
+    ),
+    completed: (
+      <SellerHubEmptyActionLink href="/mypage/products" variant="secondary">
+        {safeT("marketplace_seller_cta_view_listings", {
+          fallbackKo: "등록한 매물 보기",
+          fallbackEn: "View your listings",
+        })}
+      </SellerHubEmptyActionLink>
+    ),
+    cancelled: (
+      <SellerHubEmptyActionLink href="/mypage/products" variant="secondary">
+        {safeT("marketplace_seller_cta_view_listings", {
+          fallbackKo: "등록한 매물 보기",
+          fallbackEn: "View your listings",
+        })}
+      </SellerHubEmptyActionLink>
+    ),
   };
 
   return (
@@ -153,7 +204,7 @@ export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
         onChange={setTab}
       />
       {filtered.length === 0 ? (
-        <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>
+        <SellerHubEmptyState message={emptyTabMsg[tab]} actions={emptyTabActions[tab]} />
       ) : (
         <>
           <ul className="space-y-2">

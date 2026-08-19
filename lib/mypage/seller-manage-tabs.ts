@@ -11,9 +11,9 @@ import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard
 export type SellerManageTabId = "selling" | "completed" | "cancelled";
 
 export const SELLER_MANAGE_TABS: { id: SellerManageTabId; label: string; labelKey: MessageKey }[] = [
-  { id: "selling", label: "판매중", labelKey: "tab_active_sale" },
-  { id: "completed", label: "판매완료", labelKey: "tab_sale_completed" },
-  { id: "cancelled", label: "판매취소", labelKey: "tab_sale_cancelled" },
+  { id: "selling", label: "거래 진행", labelKey: "marketplace_seller_trade_tab_selling" },
+  { id: "completed", label: "거래 완료", labelKey: "marketplace_seller_trade_tab_completed" },
+  { id: "cancelled", label: "판매 취소", labelKey: "marketplace_seller_trade_tab_cancelled" },
 ];
 
 type Row = Pick<

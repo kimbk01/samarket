@@ -22,6 +22,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 interface MyProductCardProps {
   product: Product;
   isPromoted?: boolean;
+  activeTradeCount?: number;
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
   onDelete: (productId: string) => void;
 }
@@ -29,6 +30,7 @@ interface MyProductCardProps {
 export function MyProductCard({
   product,
   isPromoted = false,
+  activeTradeCount = 0,
   onStatusChange,
   onDelete,
 }: MyProductCardProps) {
@@ -41,8 +43,14 @@ export function MyProductCard({
   const statusLabel = isHidden
     ? t("mypage_comp_product_status_hidden")
     : isSold
-      ? t("trade_listing_step_completed")
-      : t("trade_listing_step_inquiry");
+      ? safeT("marketplace_seller_listing_status_sold", {
+          fallbackKo: "판매 완료",
+          fallbackEn: "Sold",
+        })
+      : safeT("marketplace_seller_listing_status_live", {
+          fallbackKo: "게시 중",
+          fallbackEn: "Live",
+        });
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
 
   return (
@@ -101,7 +109,7 @@ export function MyProductCard({
           onDelete={onDelete}
         />
       </div>
-      <PostSellerTradeStrip postId={product.id} isSeller variant="compact" />
+      <PostSellerTradeStrip chatCount={activeTradeCount} variant="compact" />
     </div>
   );
 }
