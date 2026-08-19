@@ -132,16 +132,18 @@ export function ImageUploader({
               ) : null}
             </div>
           ) : showAdd ? (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => inputRef.current?.click()}
-              className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-surface-muted"
-              aria-label={t("ui_write_image_add_aria")}
-            >
-              <Camera className="h-8 w-8 stroke-[1.25] text-sam-primary" aria-hidden />
-              <span className="mt-2 text-[14px] font-medium text-sam-fg">{t("ui_write_image_add_aria")}</span>
-            </button>
+            <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => inputRef.current?.click()}
+                className={`${THUMB_CLASS} flex flex-col items-center justify-center border border-dashed border-sam-border bg-sam-surface-muted`}
+                aria-label={t("ui_write_image_add_aria")}
+              >
+                <Camera className="h-6 w-6 stroke-[1.25] text-sam-primary" aria-hidden />
+                <span className="mt-1 sam-text-xxs font-medium text-sam-fg">{t("ui_write_image_add_aria")}</span>
+              </button>
+            </div>
           ) : null}
 
           {value.length > 0 ? (

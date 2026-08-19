@@ -258,6 +258,7 @@ interface TradeWriteFormProps {
     images: ImageUploadItem[];
     title: string;
     description: string;
+    price?: string;
   };
 }
 
@@ -306,7 +307,7 @@ function TradeMarketplaceWriteFormInner({
 
   const [title, setTitle] = useState(() => listingChromeSeed?.title ?? "");
   const [description, setDescription] = useState(() => listingChromeSeed?.description ?? "");
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(() => listingChromeSeed?.price ?? "");
   const [isPriceOfferEnabled, setIsPriceOfferEnabled] = useState(false);
   const [isFreeShare, setIsFreeShare] = useState(false);
   /** 신규 글: 직거래 기본 — 나눔 선택 시 false 로 전환 */

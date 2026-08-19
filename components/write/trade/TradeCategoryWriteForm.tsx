@@ -21,6 +21,7 @@ export type TradeCategoryWriteFormProps = {
     images: ImageUploadItem[];
     title: string;
     description: string;
+    price?: string;
   };
 };
 

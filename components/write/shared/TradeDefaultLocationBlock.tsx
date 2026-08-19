@@ -9,7 +9,11 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { buildMypageAddressesHref, buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  buildMypageAddressesHref,
+  buildMypageAddressesHrefFromPath,
+  resolveAddressFlowEntryPath,
+} from "@/lib/addresses/mypage-addresses-return-to";
 import { formatUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -143,7 +147,13 @@ export function TradeDefaultLocationBlock({
   const searchParams = useSearchParams();
   const router = useRouter();
   const tradeWriteSheet = useTradeWriteSheetOptional();
-  const addressReturnTo = !editPostId && tradeWriteSheet ? getCategoryHref(category) : null;
+  const addressReturnTo =
+    !editPostId && tradeWriteSheet
+      ? resolveAddressFlowEntryPath(
+          pathname,
+          searchParams?.toString() ? `?${searchParams.toString()}` : ""
+        ) || getCategoryHref(category)
+      : null;
   const addressesHref =
     addressReturnTo?.trim()
       ? buildMypageAddressesHref(addressReturnTo)
@@ -271,9 +281,9 @@ export function TradeDefaultLocationBlock({
         return;
       }
     }
-    if (addressReturnTo) scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo);
+    if (addressReturnTo) scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo, category.id);
     router.push(addressesHref);
-  }, [addressReturnTo, addressesHref, onBeforeNavigateToAddresses, router]);
+  }, [addressReturnTo, addressesHref, category.id, onBeforeNavigateToAddresses, router]);
 
   const currentAddressText = !ready
     ? "…"

@@ -70,22 +70,37 @@ export function hrefTradeMeetSpotPick(returnToHref: string): string {
   return `/market/trade-meet-spot?${q.toString()}`;
 }
 
-/** `returnTo` 가 `/market/{slugOrId}` 형태일 때 카테고리 키(경로 한 세그먼트) */
+/**
+ * `returnTo` 에서 거래 글쓰기 시트 재오픈용 카테고리 키(UUID·slug).
+ * - SSOT: `/market?category={id}`
+ * - 레거시: `/market/{id|slug}` (`sell`·`trade-meet-spot` 제외)
+ */
 export function parseMarketTradeWriteReturnCategoryKey(returnToHref: string): string | null {
   try {
-    const path = returnToHref.trim().split("?")[0].split("#")[0];
+    const trimmed = returnToHref.trim();
+    const qIdx = trimmed.indexOf("?");
+    const path = (qIdx >= 0 ? trimmed.slice(0, qIdx) : trimmed).split("#")[0];
     const segs = path.split("/").filter(Boolean);
-    if (segs[0] !== "market" || segs.length < 2) return null;
+    if (segs[0] !== "market") return null;
+    if (qIdx >= 0) {
+      const fromQuery = new URLSearchParams(trimmed.slice(qIdx + 1)).get("category")?.trim();
+      if (fromQuery) return fromQuery;
+    }
+    if (segs.length < 2) return null;
     const seg1 = decodeURIComponent(segs[1]);
-    if (seg1 === "trade-meet-spot") return null;
+    if (seg1 === "trade-meet-spot" || seg1 === "sell") return null;
     return seg1 || null;
   } catch {
     return null;
   }
 }
 
-export function scheduleTradeWriteSheetReopenAfterMeetSpot(returnToHref: string): void {
-  const key = parseMarketTradeWriteReturnCategoryKey(returnToHref);
+/** 지도·주소 subflow 후 인라인 글쓰기 시트 재오픈 — `categoryId` 가 있으면 returnTo 파싱보다 우선 */
+export function scheduleTradeWriteSheetReopenAfterMeetSpot(
+  returnToHref: string,
+  categoryId?: string | null
+): void {
+  const key = categoryId?.trim() || parseMarketTradeWriteReturnCategoryKey(returnToHref);
   if (!key) return;
   try {
     sessionStorage.setItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY, "1");

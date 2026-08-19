@@ -21,6 +21,7 @@ import { ImageUploader, type ImageUploadItem } from "@/components/write/shared/I
 import { SubmitButton } from "@/components/write/shared/SubmitButton";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 import { PHILIFE_WRITE_SELECT_CLASS } from "@/lib/ui/philife-write-fb-ui";
+import { formatPriceInput } from "@/lib/utils/format";
 import {
   TRADE_WRITE_FB_CONTROL,
   TRADE_WRITE_FB_FIELD_HEAD,
@@ -79,6 +80,7 @@ export function WriteSheetFlowInner({
   const [pendingImages, setPendingImages] = useState<ImageUploadItem[]>([]);
   const [pendingTitle, setPendingTitle] = useState("");
   const [pendingDescription, setPendingDescription] = useState("");
+  const [pendingPrice, setPendingPrice] = useState("");
 
   const categoryUiLabel = useCallback(
     (category: CategoryWithSettings) => resolveWriteCategoryUILabel(language, category),
@@ -370,7 +372,7 @@ export function WriteSheetFlowInner({
   const rootTopicSelect = (
     <section data-ui3-write-root="true" className={TRADE_WRITE_FB_SECTION}>
       <label htmlFor="write-category-select" className={TRADE_WRITE_FB_FIELD_HEAD}>
-        {t("ui_write_select_category")}
+        {t("ui_write_root_category_label")}
       </label>
       <select
         id="write-category-select"
@@ -420,6 +422,7 @@ export function WriteSheetFlowInner({
               images: pendingImages,
               title: pendingTitle,
               description: pendingDescription,
+              price: pendingPrice,
             }}
           />
         );
@@ -489,7 +492,7 @@ export function WriteSheetFlowInner({
               onChange={setPendingImages}
               maxCount={10}
               label={t("trade_write_photos")}
-              compact={false}
+              compact
               variant="karrot"
             />
           </div>
@@ -504,8 +507,17 @@ export function WriteSheetFlowInner({
             />
           </section>
           <section data-ui3-slot="price" className={TRADE_WRITE_FB_SECTION}>
-            <label className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_price")}</label>
-            <div className={`${TRADE_WRITE_FB_CONTROL} bg-sam-app text-sam-muted`}> </div>
+            <label className={TRADE_WRITE_FB_FIELD_HEAD} htmlFor="write-ungated-price">
+              {t("trade_write_price")}
+            </label>
+            <input
+              id="write-ungated-price"
+              type="text"
+              inputMode="numeric"
+              value={pendingPrice}
+              onChange={(e) => setPendingPrice(formatPriceInput(e.target.value))}
+              className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
+            />
           </section>
           <div data-ui3-slot="item">{rootTopicSelect}</div>
           <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>

@@ -145,7 +145,9 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
       }
     }
     const onMatchingCategory =
-      (pathOnly === "/market" && categoryFromQuery === key) || legacySeg === key;
+      pathOnly === "/market/sell" ||
+      (pathOnly === "/market" && categoryFromQuery === key) ||
+      legacySeg === key;
     if (!onMatchingCategory) return;
     try {
       sessionStorage.removeItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY);
