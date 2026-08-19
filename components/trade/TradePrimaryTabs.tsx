@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
+import { MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
@@ -21,7 +22,11 @@ import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewar
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
-import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import {
+  parseTradeLocationScopeFromSearchParams,
+  tradeLocationScopeDisplayLabel,
+} from "@/lib/trade/location/trade-location-scope";
+import { countActiveMarketFilters } from "@/components/trade/MarketFilterSheet";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -70,6 +75,7 @@ function TradePrimaryTabsInner({
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const {
@@ -184,17 +190,44 @@ function TradePrimaryTabsInner({
           onClick={() => setMoreOpen(true)}
         >
           <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
-            {activeCategory?.label ?? t("marketplace_more_categories")}
+            {activeCategory?.label ?? t("marketplace_more_categories_tab")}
           </span>
         </button>
-        <button
-          type="button"
-          data-marketplace-region-chip="true"
-          className={tradePrimaryTabClass(locationScope.mode === "city")}
-          onClick={openLocation}
-        >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("marketplace_region_chip")}</span>
-        </button>
+        {(() => {
+          const locationLabel = tradeLocationScopeDisplayLabel(locationScope);
+          const locationActive = locationScope.mode === "city";
+          const displayLabel = locationActive && locationLabel
+            ? locationLabel
+            : t("marketplace_region_chip");
+          return (
+            <button
+              type="button"
+              data-marketplace-region-chip="true"
+              className={tradePrimaryTabClass(locationActive)}
+              onClick={openLocation}
+            >
+              <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{displayLabel}</span>
+            </button>
+          );
+        })()}
+        {(() => {
+          const filterCount = countActiveMarketFilters(searchParams.toString());
+          const filterActive = filterCount > 0;
+          const filterLabel = filterActive
+            ? `${t("marketplace_filter_button")} ${filterCount}`
+            : t("marketplace_filter_button");
+          return (
+            <button
+              type="button"
+              data-marketplace-filter="true"
+              className={`${tradePrimaryTabClass(filterActive)} ml-auto shrink-0`}
+              aria-haspopup="dialog"
+              onClick={() => setFilterOpen(true)}
+            >
+              <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{filterLabel}</span>
+            </button>
+          );
+        })()}
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
         open={moreOpen}
@@ -207,6 +240,11 @@ function TradePrimaryTabsInner({
           prewarmBottomNavMarketTab(href);
           commitTab(href, tabKey);
         }}
+      />
+      <MarketFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        baseSearch={searchParams.toString()}
       />
     </>
   );

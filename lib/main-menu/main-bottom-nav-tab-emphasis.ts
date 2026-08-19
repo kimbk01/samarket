@@ -10,6 +10,7 @@ import {
 } from "@/lib/main-menu/main-bottom-nav-domain";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
 import { resolveCommunityBottomNavEntryHref } from "@/lib/community/community-hub-state";
+import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 
 export type MainBottomNavTabEmphasisKind = "domain-hub" | "messenger-hub" | null;
 
@@ -105,6 +106,10 @@ export function resolveMainBottomNavTabTapHref(
     tabId === "philife"
   ) {
     return resolveCommunityBottomNavEntryHref(tabHref, { fromPathname: pathname });
+  }
+  // Market 탭: 마지막 탐색 URL(q/category/sort/tradeState/priceMin/priceMax/location) 복귀
+  if (tabId === "home" && tabHref.startsWith("/market")) {
+    return peekTradeListReturnHref() ?? tabHref;
   }
   return tabHref;
 }
