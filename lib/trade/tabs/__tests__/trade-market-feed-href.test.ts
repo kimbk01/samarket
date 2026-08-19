@@ -20,6 +20,7 @@ describe("trade-market-feed-href (community parity)", () => {
 
   it("parses category from search", () => {
     expect(parseTradeMarketCategoryFromSearch(new URLSearchParams("category=abc"))).toBe("abc");
+    expect(parseTradeMarketCategoryFromSearch(new URLSearchParams("categoryIds=xyz"))).toBe("xyz");
     expect(parseTradeMarketCategoryFromSearch(new URLSearchParams())).toBe("");
   });
 

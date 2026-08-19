@@ -1,13 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
-import { marketplaceHomePrewarmOptions } from "@/lib/trade/marketplace/client-location-fetch";
-import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
@@ -17,89 +14,23 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import {
-  getPostsByTradeCategoryIds,
-  readFreshTradeFeedClientCache,
-  type GetPostsByCategoryOptions,
-} from "@/lib/posts/getPostsByCategory";
-import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
-import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
-import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
-import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
-import { peekTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
-import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
-
-/**
- * `/market` | `/market?category=…` 인접 탭 프리웜 — 목록은 일자리 URL 필터 없음(`jk` 등 무시), 주제·정렬만 반영.
- */
-function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-  let url: URL;
-  try {
-    url = new URL(href, origin);
-  } catch {
-    return;
-  }
-  const pathOnly = url.pathname.trim().replace(/\/+$/, "") || "";
-  let parent = "";
-  if (pathOnly === "/market") {
-    parent = (url.searchParams.get("category") ?? "").trim();
-  } else {
-    const m = pathOnly.match(/^\/market\/([^/]+)$/);
-    if (!m) return;
-    parent = m[1]!;
-  }
-  if (!parent) return;
-  try {
-    parent = decodeURIComponent(parent);
-  } catch {
-    /* noop */
-  }
-
-  const topicRaw = (url.searchParams.get("topic") ?? "").trim().normalize("NFC");
-  const sort = parseTradeFeedSortQuery(url.searchParams.get("sort") ?? url.searchParams.get("fs"));
-  const tradeStateRaw = (url.searchParams.get("tradeState") ?? "").trim();
-  const tradeState = parseMarketplacePublicTradeState(tradeStateRaw);
-
-  let locExtras = marketplaceFeedLocationExtras(
-    parseTradeLocationScopeFromSearchParams(url.searchParams)
-  );
-  if (!locExtras.lguCityId && !locExtras.locationAll) {
-    const session = peekTradeBrowseCommittedScope();
-    if (!session) return;
-    locExtras = marketplaceFeedLocationExtras(session);
-    if (!locExtras.lguCityId && !locExtras.locationAll) return;
-  }
-
-  const useUnfilteredMarketParentFeed = !topicRaw;
-
-  const base = {
-    page: 1,
-    sort,
-    tradeMarketParent: parent,
-    tradeState,
-    ...locExtras,
-  };
-
-  const options: GetPostsByCategoryOptions = useUnfilteredMarketParentFeed
-    ? { ...base, topic: "" }
-    : { ...base, topic: topicRaw };
-
-  if (readFreshTradeFeedClientCache([], options)) return;
-  void getPostsByTradeCategoryIds([], options);
-}
+import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
+import {
+  parseMarketplaceBrowseStateFromSearchParams,
+  resolveMarketCategorySurfaceQuery,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
 
 function MarketTradeFeedBody({
   initialHomeTradeFeed,
   clientFeedInstantBoot = false,
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
-  /** 탭 push·Suspense 대기 — 첫 페인트 전 홈 피드 캐시 */
   clientFeedInstantBoot?: boolean;
 }) {
   return (
@@ -121,11 +52,27 @@ export function MarketContent({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { beginMenuNavigation } = useLatestMenuNavigation();
+  const { beginMenuNavigation, pendingMenuIntent, isPendingMenuBlockingContent } =
+    useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const tradeState = searchParams.get("tradeState") ?? "";
-  const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
-  const { tabs, activeIndex } = useTradeTabs(pathname, categoryQuery, searchParams.toString());
+
+  const categoryQueryFromUrl = parseTradeMarketCategoryFromSearch(searchParams);
+
+  const categoryQueryFromIntent = useMemo(() => {
+    if (!pendingMenuIntent?.search) return null;
+    return resolveMarketCategorySurfaceQuery(new URLSearchParams(pendingMenuIntent.search));
+  }, [pendingMenuIntent]);
+
+  /** CUT-SSOT-6: URL authority; pending ROOT intent hides HOME rows during tab commit lag. */
+  const categorySurfaceQuery = useMemo(() => {
+    if (categoryQueryFromUrl) return categoryQueryFromUrl;
+    if (isPendingMenuBlockingContent && categoryQueryFromIntent) {
+      return categoryQueryFromIntent;
+    }
+    return null;
+  }, [categoryQueryFromUrl, categoryQueryFromIntent, isPendingMenuBlockingContent]);
+
+  const { tabs, activeIndex } = useTradeTabs(pathname, categoryQueryFromUrl, searchParams.toString());
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
@@ -184,7 +131,6 @@ export function MarketContent({
     recordTradeListMetricOnce("trade_list_home_content_render_end_ms");
   }, []);
 
-  /** 인접 탭: 단일 idle 작업으로 prefetch + 피드 프리웜(이전에는 동일 URL에 prefetch가 즉시·지연 이중 호출됨) */
   useEffect(() => {
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
@@ -197,37 +143,10 @@ export function MarketContent({
     if (prev) targets.add(prev);
     if (targets.size === 0) return;
 
-    const prewarmTradeSurfaceHref = (href: string) => {
-      const pathOnly = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "";
-      if (pathOnly === "/market") {
-        let cat = "";
-        try {
-          cat = new URL(href, "http://localhost").searchParams.get("category")?.trim() ?? "";
-        } catch {
-          cat = "";
-        }
-        if (cat) {
-          peekOrWarmMarketCategoryFeedFromHref(href);
-          return;
-        }
-        const hit = peekCachedPostsForHome(
-          marketplaceHomePrewarmOptions() ?? { sort: "latest", type: null, tradeState: "latest" }
-        );
-        const prewarm = marketplaceHomePrewarmOptions();
-        if (prewarm && !hit?.posts?.length) {
-          void getPostsForHome({ page: 1, ...prewarm });
-        }
-        return;
-      }
-      const m = pathOnly.match(/^\/market\/([^/]+)$/);
-      if (!m) return;
-      peekOrWarmMarketCategoryFeedFromHref(href);
-    };
-
     const idleId = scheduleWhenBrowserIdle(() => {
       for (const href of targets) {
         void router.prefetch(href);
-        prewarmTradeSurfaceHref(href);
+        prewarmBottomNavMarketTab(href);
       }
     }, 300);
     return () => cancelScheduledWhenBrowserIdle(idleId);
@@ -244,18 +163,23 @@ export function MarketContent({
     recordTradeListMetricOnce("trade_list_hydration_complete_ms");
   }, []);
 
+  const browseStateForSurface = useMemo(
+    () => parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  );
+
   return (
     <div className="min-w-0 w-full max-w-full">
-      {categoryQuery ? (
+      {categorySurfaceQuery ? (
         <MarketCategoryPageClient
-          key={categoryQuery}
+          key={categorySurfaceQuery}
           tradeServerSeed={null}
-          slugOrId={categoryQuery}
+          slugOrId={categorySurfaceQuery}
         />
       ) : (
         <div ref={setMarketFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
           <MarketTradeFeedBody
-            key={`home-feed:${tradeState || "latest"}`}
+            key={`home-feed:${browseStateForSurface.tradeState || "latest"}`}
             initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
             clientFeedInstantBoot={clientFeedInstantBoot}
           />

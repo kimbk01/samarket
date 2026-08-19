@@ -26,6 +26,7 @@ import {
   parseMarketplacePriceBound,
   sanitizeMarketplaceQueryText,
 } from "@/lib/trade/marketplace/query-contract";
+import type { GetPostsForHomeOptions } from "@/lib/posts/getPostsForHome";
 
 export type MarketplaceBrowseSort = "latest" | "near" | "popular";
 export type MarketplaceBrowseTradeState = "all" | "active" | "sold";
@@ -78,7 +79,8 @@ function parseTradeStateFromSearch(sp: URLSearchParams): MarketplaceBrowseTradeS
   return "all";
 }
 
-function parseRootIdsFromSearch(sp: URLSearchParams): string[] {
+/** ROOT ids authority — categoryIds first, then category (fork + fetch SSOT). */
+export function parseMarketplaceRootCategoryIdsFromSearch(sp: URLSearchParams): string[] {
   const raw = sp.get("categoryIds");
   const fromIds =
     raw && raw.trim()
@@ -91,6 +93,84 @@ function parseRootIdsFromSearch(sp: URLSearchParams): string[] {
   const fallback = sp.get("category");
   if (fallback && fallback.trim()) return [fallback.trim()];
   return [];
+}
+
+/** UI category surface query — same ROOT authority as fetch (CUT-SSOT-6). */
+export function resolveMarketCategorySurfaceQuery(
+  searchParams: URLSearchParams | { get(name: string): string | null; toString?: () => string }
+): string | null {
+  const sp =
+    searchParams instanceof URLSearchParams
+      ? searchParams
+      : new URLSearchParams(
+          typeof searchParams.toString === "function" ? searchParams.toString() : ""
+        );
+  const state = parseMarketplaceBrowseStateFromSearchParams(sp);
+  const id = state.rootCategoryIds[0] ?? state.rootCategoryId;
+  return id?.trim() || null;
+}
+
+function locationFetchExtrasFromScope(
+  scope: TradeLocationScope
+): Pick<GetPostsForHomeOptions, "lguCityId" | "radiusKm" | "locationAll"> {
+  if (scope.mode === "invalid") {
+    return {
+      lguCityId: scope.raw || "invalid",
+      radiusKm: null,
+      locationAll: false,
+    };
+  }
+  if (scope.mode === "city") {
+    return {
+      lguCityId: scope.lguId,
+      radiusKm: scope.radiusKm,
+      locationAll: false,
+    };
+  }
+  if (scope.mode === "all") {
+    return { lguCityId: null, radiusKm: null, locationAll: true };
+  }
+  return { lguCityId: null, radiusKm: null, locationAll: false };
+}
+
+/** Fetch options SSOT — HomeProductList / prewarm / cache peek share this. */
+export function marketplaceBrowseStateToGetPostsForHomeOptions(
+  state: MarketplaceBrowseState
+): GetPostsForHomeOptions {
+  const sort: GetPostsForHomeOptions["sort"] =
+    state.sort === "popular" ? "popular" : state.sort === "near" ? "distance" : "latest";
+  const tradeState: GetPostsForHomeOptions["tradeState"] =
+    state.tradeState === "active" ? "active" : state.tradeState === "sold" ? "sold" : "latest";
+
+  return {
+    sort,
+    type: null,
+    tradeState,
+    ...locationFetchExtrasFromScope(state.locationScope),
+    q: state.q,
+    priceMin: state.priceMin,
+    priceMax: state.priceMax,
+    compositionFilters: state.compositionFilters,
+    tradeMarketParentIds: state.rootCategoryIds.length > 0 ? state.rootCategoryIds : null,
+    tradeTopicByParent:
+      Object.keys(state.topicByRoot).length > 0 ? state.topicByRoot : null,
+  };
+}
+
+export function marketplaceBrowseIdentityKeyFromSearch(
+  searchParams: URLSearchParams | { get(name: string): string | null; toString?: () => string }
+): string {
+  const sp =
+    searchParams instanceof URLSearchParams
+      ? searchParams
+      : new URLSearchParams(
+          typeof searchParams.toString === "function" ? searchParams.toString() : ""
+        );
+  return marketplaceBrowseStateIdentityKey(parseMarketplaceBrowseStateFromSearchParams(sp));
+}
+
+function parseRootIdsFromSearch(sp: URLSearchParams): string[] {
+  return parseMarketplaceRootCategoryIdsFromSearch(sp);
 }
 
 function parseTopicByRootFromSearch(

@@ -5,12 +5,9 @@ import {
   peekCachedPostsForHome,
 } from "@/lib/posts/getPostsForHome";
 import {
-  getPostsByTradeCategoryIds,
-  getTradeFeedClientViewerSegment,
-} from "@/lib/posts/getPostsByCategory";
-import { isCachedTradeFeedFresh } from "@/lib/posts/trade-feed-client-cache";
-import { marketplaceHomePrewarmOptions, marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-location-fetch";
-import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+  marketplaceBrowseStateToGetPostsForHomeOptions,
+  parseMarketplaceBrowseStateFromSearchParams,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
 
 function decodeSegment(raw: string): string {
   try {
@@ -23,6 +20,7 @@ function decodeSegment(raw: string): string {
 const MARKET_PREWARM_DEDUPE_MS = 800;
 let lastMarketPrewarmAt = 0;
 
+/** CUT-SSOT-6: prewarm uses same getPostsForHome + browse options as list display. */
 export function prewarmBottomNavMarketTab(path: string): void {
   let url: URL;
   try {
@@ -30,44 +28,30 @@ export function prewarmBottomNavMarketTab(path: string): void {
   } catch {
     return;
   }
+
   const pathOnly = url.pathname.trim().replace(/\/+$/, "") || "";
-  const categoryQuery = (url.searchParams.get("category") ?? "").trim();
+  if (pathOnly !== "/market" && !pathOnly.startsWith("/market/")) return;
 
-  if (pathOnly === "/market" && !categoryQuery) {
-    const prewarm = marketplaceHomePrewarmOptions(url.searchParams);
-    if (!prewarm) return;
-    if (peekCachedPostsForHome(prewarm)?.posts?.length) return;
-    const now = Date.now();
-    if (now - lastMarketPrewarmAt < MARKET_PREWARM_DEDUPE_MS) return;
-    lastMarketPrewarmAt = now;
-    void getPostsForHome({ page: 1, ...prewarm }).catch(() => {
-      /* 마운트 후 single-flight 합류 */
-    });
-    return;
-  }
-
-  let parent = categoryQuery;
-  if (!parent) {
+  if (pathOnly.startsWith("/market/") && pathOnly !== "/market") {
     const m = pathOnly.match(/^\/market\/([^/]+)$/);
     if (!m) return;
-    parent = decodeSegment(m[1]!);
-  } else {
-    parent = decodeSegment(parent);
+    const legacyParent = decodeSegment(m[1]!);
+    url.searchParams.set("category", legacyParent);
   }
 
-  const locExtras = marketplaceFeedLocationExtras(
-    parseTradeLocationScopeFromSearchParams(url.searchParams)
-  );
-  const opts = {
-    page: 1,
-    sort: "latest" as const,
-    tradeMarketParent: parent,
-    topic: "",
-    ...locExtras,
-  };
-  if (!locExtras.lguCityId && !locExtras.locationAll) return;
-  if (isCachedTradeFeedFresh([], opts, getTradeFeedClientViewerSegment())) return;
-  void getPostsByTradeCategoryIds([], opts).catch(() => {
-    /* 동일 */
+  const browseState = parseMarketplaceBrowseStateFromSearchParams(url.searchParams);
+  if (browseState.locationScope.mode === "unset") return;
+
+  const fetchOpts = marketplaceBrowseStateToGetPostsForHomeOptions(browseState);
+
+  if (!fetchOpts.locationAll && !fetchOpts.lguCityId) return;
+  if (peekCachedPostsForHome(fetchOpts)?.posts?.length) return;
+
+  const now = Date.now();
+  if (now - lastMarketPrewarmAt < MARKET_PREWARM_DEDUPE_MS) return;
+  lastMarketPrewarmAt = now;
+
+  void getPostsForHome({ page: 1, ...fetchOpts }).catch(() => {
+    /* mount single-flight merge */
   });
 }

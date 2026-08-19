@@ -4,11 +4,12 @@
  */
 
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
+import { resolveMarketCategorySurfaceQuery } from "@/lib/trade/marketplace/marketplace-browse-state";
 
 export function parseTradeMarketCategoryFromSearch(
-  searchParams: URLSearchParams | { get(name: string): string | null }
+  searchParams: URLSearchParams | { get(name: string): string | null; toString?: () => string }
 ): string {
-  return (searchParams.get("category") ?? "").trim().normalize("NFC");
+  return resolveMarketCategorySurfaceQuery(searchParams) ?? "";
 }
 
 export type BuildTradeMarketFeedHrefOpts = {

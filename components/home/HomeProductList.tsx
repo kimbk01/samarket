@@ -10,7 +10,6 @@ import { NotInterestedCard } from "@/components/post/NotInterestedCard";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import {
   getPostsForHome,
-  getHomePostsBrowseCacheKey,
   invalidateHomePostsCache,
   peekCachedPostsForHome,
   primeHomePostsCache,
@@ -74,7 +73,11 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
-import { parseCompositionFilterSearchParams } from "@/lib/trade/category-form";
+import {
+  marketplaceBrowseStateIdentityKey,
+  marketplaceBrowseStateToGetPostsForHomeOptions,
+  parseMarketplaceBrowseStateFromSearchParams,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -198,100 +201,17 @@ export function HomeProductList({
     };
   }, [locationScope]);
 
-  const homeSort: GetPostsForHomeOptions["sort"] = useMemo(() => {
-    const raw = (searchParams.get("sort") ?? searchParams.get("fs") ?? "").trim().toLowerCase();
-    if (raw === "popular") return "popular";
-    if (raw === "near" || raw === "distance") return "distance";
-    return "latest";
-  }, [searchParams]);
-
-  const priceMinMax = useMemo(() => {
-    const minRaw = searchParams.get("priceMin");
-    const maxRaw = searchParams.get("priceMax");
-    const minNum = minRaw && minRaw.trim() !== "" ? Number(minRaw) : null;
-    const maxNum = maxRaw && maxRaw.trim() !== "" ? Number(maxRaw) : null;
-    return {
-      priceMin: Number.isFinite(minNum as number) && (minNum as number) > 0 ? (minNum as number) : null,
-      priceMax: Number.isFinite(maxNum as number) && (maxNum as number) > 0 ? (maxNum as number) : null,
-    };
-  }, [searchParams]);
-
-  const selectedRootIds = useMemo(() => {
-    const raw = searchParams.get("categoryIds");
-    const fromIds =
-      raw && raw.trim()
-        ? raw
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean)
-        : [];
-    if (fromIds.length > 0) return fromIds;
-    const fallback = searchParams.get("category");
-    if (fallback && fallback.trim()) return [fallback.trim()];
-    return [];
-  }, [searchParams]);
-
-  const tradeTopicByParent = useMemo(() => {
-    const primaryRootId = selectedRootIds[0] ?? null;
-    const topicParam = searchParams.get("topic")?.trim() ?? "";
-    const out: Record<string, string | null> = {};
-
-    const pairsRaw = searchParams.getAll("topicByRoot").join(",");
-    if (pairsRaw.trim()) {
-      for (const part of pairsRaw.split(",")) {
-        const p = part.trim();
-        if (!p) continue;
-        const idx = p.indexOf(":");
-        if (idx <= 0) continue;
-        const rootId = p.slice(0, idx).trim();
-        const topicKey = p.slice(idx + 1).trim();
-        if (!rootId) continue;
-        if (selectedRootIds.length > 0 && !selectedRootIds.includes(rootId)) continue;
-        out[rootId] = topicKey ? topicKey : null;
-      }
-    }
-
-    // backward compatible: legacy `topic` is the primary-root topic
-    if (primaryRootId && topicParam && out[primaryRootId] == null) {
-      out[primaryRootId] = topicParam;
-    }
-
-    if (Object.keys(out).length === 0) return null;
-    return out;
-  }, [searchParams, selectedRootIds]);
-
-  const compositionFilters = useMemo(() => parseCompositionFilterSearchParams(searchParams), [searchParams]);
-
+  const browseState = useMemo(
+    () => parseMarketplaceBrowseStateFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  );
+  const browseIdentityKey = useMemo(
+    () => marketplaceBrowseStateIdentityKey(browseState),
+    [browseState]
+  );
   const homePostListOptions = useMemo<GetPostsForHomeOptions>(
-    () => ({
-      sort: homeSort,
-      type: null,
-      tradeState,
-      lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
-      radiusKm: locationInvalid ? null : radiusKm,
-      locationAll,
-      q,
-      priceMin: priceMinMax.priceMin,
-      priceMax: priceMinMax.priceMax,
-      compositionFilters,
-      tradeMarketParentIds: selectedRootIds.length > 0 ? selectedRootIds : null,
-      tradeTopicByParent,
-    }),
-    [
-      tradeState,
-      lguCityId,
-      radiusKm,
-      locationInvalid,
-      locationScope,
-      locationAll,
-      q,
-      homeSort,
-      selectedRootIds,
-      tradeTopicByParent,
-      priceMinMax.priceMin,
-      priceMinMax.priceMax,
-      compositionFilters,
-    ]
+    () => marketplaceBrowseStateToGetPostsForHomeOptions(browseState),
+    [browseState]
   );
   const { tt } = useI18n();
   const hydrationSeed =
@@ -334,7 +254,22 @@ export function HomeProductList({
   const serverPageRef = useRef(1);
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loadingMoreServer, setLoadingMoreServer] = useState(false);
-  const browseCacheKeyRef = useRef<string | null>(null);
+  const browseIdentityPrevRef = useRef<string | null>(null);
+  const browseIdentityInitializedRef = useRef(false);
+  const silentRefreshIdentityRef = useRef(browseIdentityKey);
+  silentRefreshIdentityRef.current = browseIdentityKey;
+
+  const detectBrowseIdentityTransition = useCallback((currentKey: string): boolean => {
+    if (!browseIdentityInitializedRef.current) {
+      browseIdentityInitializedRef.current = true;
+      browseIdentityPrevRef.current = currentKey;
+      return false;
+    }
+    const prev = browseIdentityPrevRef.current;
+    if (prev === currentKey) return false;
+    browseIdentityPrevRef.current = currentKey;
+    return true;
+  }, []);
 
   const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean; replaceList?: boolean }) => {
     silentRequestIdRef.current += 1;
@@ -479,12 +414,20 @@ export function HomeProductList({
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
         : peekCachedPostsForHome(homePostListOptions);
 
-    const browseKey = getHomePostsBrowseCacheKey(homePostListOptions);
-    const browseKeyChanged =
-      browseCacheKeyRef.current !== null && browseCacheKeyRef.current !== browseKey;
-    browseCacheKeyRef.current = browseKey;
+    const identityTransition = detectBrowseIdentityTransition(browseIdentityKey);
 
-    if (boot && !browseKeyChanged) {
+    if (identityTransition) {
+      silentRequestIdRef.current += 1;
+      serverPageRef.current = 1;
+      setServerHasMore(false);
+      setListPaginationEpoch((n) => n + 1);
+      allowRscHomeListSeedRef.current = false;
+      setPosts([]);
+      setFavoriteMap({});
+      setPendingNewCount(0);
+    }
+
+    if (boot && !identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
       setServerHasMore(boot.hasMore === true);
@@ -496,7 +439,7 @@ export function HomeProductList({
       return;
     }
 
-    if (boot && browseKeyChanged) {
+    if (boot && identityTransition) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
       setServerHasMore(boot.hasMore === true);
@@ -508,14 +451,13 @@ export function HomeProductList({
       return;
     }
 
-    if (browseKeyChanged) {
-      setListPaginationEpoch((n) => n + 1);
-      allowRscHomeListSeedRef.current = false;
+    if (identityTransition) {
+      setListState("loading");
     }
 
     void load({
-      forceFreshRankedWindow: !!q || browseKeyChanged,
-      replaceList: browseKeyChanged || !!q,
+      forceFreshRankedWindow: !!q || identityTransition,
+      replaceList: identityTransition || !!q,
     });
   }, [
     tradeState,
@@ -527,6 +469,8 @@ export function HomeProductList({
     homePostListOptions,
     locationInvalid,
     q,
+    browseIdentityKey,
+    detectBrowseIdentityTransition,
   ]);
 
   useEffect(() => {
@@ -636,9 +580,14 @@ export function HomeProductList({
       return;
     }
     const requestId = ++silentRequestIdRef.current;
+    const refreshIdentity = silentRefreshIdentityRef.current;
+    if (browseIdentityPrevRef.current !== refreshIdentity) {
+      return;
+    }
     try {
       const res = await getPostsForHome(homePostListOptions);
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
+      if (browseIdentityPrevRef.current !== refreshIdentity) return;
       const current = postsRef.current;
       if (current.length === 0) {
         setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
@@ -653,7 +602,7 @@ export function HomeProductList({
       if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       /* 기존 목록 유지 */
     }
-  }, [homePostListOptions, locationInvalid, locationUnset]);
+  }, [homePostListOptions, locationInvalid, locationUnset, q]);
 
   const applyPendingHomeFreshness = useCallback(async () => {
     setPendingNewCount(0);
@@ -668,7 +617,15 @@ export function HomeProductList({
       setServerHasMore(false);
       setListPaginationEpoch((n) => n + 1);
       allowRscHomeListSeedRef.current = false;
-      browseCacheKeyRef.current = null;
+      browseIdentityInitializedRef.current = false;
+      browseIdentityPrevRef.current = null;
+      latestRequestIdRef.current += 1;
+      silentRequestIdRef.current += 1;
+      lastLoadedAtRef.current = 0;
+      setPosts([]);
+      setFavoriteMap({});
+      setPendingNewCount(0);
+      setListState("loading");
     };
     window.addEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
     return () => window.removeEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
