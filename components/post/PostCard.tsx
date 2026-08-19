@@ -14,7 +14,6 @@ import {
   PostListMenuBottomSheet,
   type PostListMenuAction,
 } from "@/components/post/PostListMenuBottomSheet";
-import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   buildPostListPreviewModel,
@@ -25,7 +24,6 @@ import {
   POST_LIST_TRADE_PRICE_CLASS,
   POST_LIST_TRADE_TITLE_CLASS,
   stripPostListBlockTopMargin,
-  type PostListPreviewModel,
 } from "@/lib/posts/post-list-preview-model";
 import {
   imageSanitizeViewerMediaUrl,
@@ -52,7 +50,6 @@ import {
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
-import { formatTimeAgo } from "@/lib/utils/format";
 import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
 
 /** 피드 카드 부동산 금액 토큰 렌더 */
@@ -95,26 +92,6 @@ function FeedRealEstatePriceLine({ text }: { text: string }) {
   );
 }
 
-/** Consume preview bodyBlocks / listingRowBoldText only — no category if-tree. */
-function pickPreviewCompositionAttrLine(preview: PostListPreviewModel): string | null {
-  const title = preview.feedTitle?.trim() ?? "";
-  const price = preview.feedPrice?.trim() ?? "";
-  for (const block of preview.bodyBlocks) {
-    if (block.row === "seller" || block.row === "real_estate_price" || block.row === "jobs_pay_row") {
-      continue;
-    }
-    const text = block.text.trim();
-    if (!text || text === title || text === price) continue;
-    if (block.className === POST_LIST_TRADE_TITLE_CLASS || block.className === POST_LIST_TRADE_PRICE_CLASS) {
-      continue;
-    }
-    return text;
-  }
-  const trail = preview.listingRowBoldText?.trim() ?? "";
-  if (trail && trail !== title && trail !== price) return trail;
-  return null;
-}
-
 interface PostCardProps {
   post: PostWithMeta;
   /** 거래 종류 스킨 (일반/부동산/중고차/알바/환전) → 뱃지 표시 */
@@ -135,8 +112,6 @@ interface PostCardProps {
   priorityThumb?: boolean;
   /** 찜 목록 등 — 카드 하단 보조 액션 */
   footer?: ReactNode;
-  /** marketplace LIST = ACTIVE/SOLD. Favorites/mypage keep L1. */
-  listingStatusSurface?: "marketplace" | "internal";
 }
 
 export const PostCard = memo(function PostCard({
@@ -150,7 +125,6 @@ export const PostCard = memo(function PostCard({
   isFirstCard = false,
   priorityThumb = false,
   footer,
-  listingStatusSurface = "marketplace",
 }: PostCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
@@ -197,12 +171,7 @@ export const PostCard = memo(function PostCard({
     post.city,
     post.trade_lgu_id
   );
-  const timeLabel =
-    post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at)
-      : "";
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
-  const compositionAttrLine = listPreview ? pickPreviewCompositionAttrLine(listPreview) : null;
 
   useEffect(() => {
     bumpTradeListProductCardRenderCount();
@@ -255,7 +224,7 @@ export const PostCard = memo(function PostCard({
         onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
         className="flex min-w-0 flex-col"
       >
-        <div className={TRADE_FEED_THUMB_BOX_CLASS}>
+        <div data-ui4-slot="photos" className={TRADE_FEED_THUMB_BOX_CLASS}>
           {hasUsableThumbnail ? (
             <SamarketThumbnail
               src={thumbnailFetchUrl}
@@ -282,12 +251,14 @@ export const PostCard = memo(function PostCard({
           <div className={TRADE_FEED_META_ROW_CLASS}>
             {listPreview?.feedPriceKind === "real_estate" && listPreview.feedPrice ? (
               <p
+                data-ui4-slot="price"
                 className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
               >
                 <FeedRealEstatePriceLine text={listPreview.feedPrice} />
               </p>
             ) : listPreview?.feedPriceKind === "jobs_pay" && listPreview.feedJobsPay ? (
               <p
+                data-ui4-slot="price"
                 className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} flex w-full min-w-0 flex-wrap items-baseline gap-x-1`}
               >
                 <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>
@@ -300,7 +271,7 @@ export const PostCard = memo(function PostCard({
                 ) : null}
               </p>
             ) : listPreview?.feedPrice?.trim() ? (
-              <p className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
+              <p data-ui4-slot="price" className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_PRICE_CLASS)} w-full truncate`}>
                 {listPreview.feedPrice.trim()}
               </p>
             ) : (
@@ -312,6 +283,7 @@ export const PostCard = memo(function PostCard({
           <div className={TRADE_FEED_META_ROW_CLASS}>
             {listPreview?.feedTitle?.trim() ? (
               <p
+                data-ui4-slot="title"
                 className={`${stripPostListBlockTopMargin(POST_LIST_TRADE_TITLE_CLASS)} w-full`}
                 title={listPreview.feedTitle.trim()}
               >
@@ -324,40 +296,29 @@ export const PostCard = memo(function PostCard({
             )}
           </div>
           {isPromotedContent ? (
-            <div className={`${TRADE_FEED_META_ROW_CLASS} flex-wrap gap-1`}>
+            <div data-ui4-slot="promo" className={`${TRADE_FEED_META_ROW_CLASS} flex-wrap gap-1`}>
               <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
                 {safeT("trade_promo_badge", {
                   fallbackKo: "홍보",
                   fallbackEn: "Promoted",
                 })}
               </span>
-              <TradeListingStatusBadge post={post} surface={listingStatusSurface} className="shrink-0" />
-            </div>
-          ) : (
-            <TradeListingStatusBadge post={post} surface={listingStatusSurface} className="shrink-0" />
-          )}
-          {compositionAttrLine ? (
-            <div className={TRADE_FEED_META_ROW_CLASS}>
-              <p className="w-full truncate text-[12px] font-normal leading-snug text-sam-muted" title={compositionAttrLine}>
-                {compositionAttrLine}
-              </p>
             </div>
           ) : null}
-          <div className={TRADE_FEED_META_ROW_CLASS}>
-            <p
-              className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"
-              title={[locationLine ?? "", timeLabel].filter(Boolean).join(" · ")}
-            >
-              {locationLine ? (
+          {locationLine ? (
+            <div className={TRADE_FEED_META_ROW_CLASS}>
+              <p
+                data-ui4-slot="location"
+                className="flex min-w-0 w-full items-center gap-1 truncate text-[12px] font-normal leading-snug text-sam-muted"
+                title={locationLine}
+              >
                 <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
                   <MapPin className="h-3 w-3 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
                   <span className="truncate">{locationLine}</span>
                 </span>
-              ) : null}
-              {locationLine && timeLabel ? <span className="shrink-0" aria-hidden>·</span> : null}
-              {timeLabel ? <span className="truncate">{timeLabel}</span> : null}
-            </p>
-          </div>
+              </p>
+            </div>
+          ) : null}
         </div>
       </Link>
       <div className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/85 p-1 shadow-sm">

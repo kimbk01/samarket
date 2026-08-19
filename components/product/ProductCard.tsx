@@ -5,15 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
-import { TimeAgo } from "@/components/ui/TimeAgo";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
-  TradeListingStatusBadge,
-  tradeListingPostFromProduct,
-} from "@/components/post/TradeListingStatusBadge";
-import {
-  POST_LIST_META_LINE_CLASS,
   POST_LIST_META_TEXT_CLASS,
   POST_LIST_PRICE_CLASS,
   POST_LIST_TITLE_CLASS,
@@ -30,9 +24,6 @@ export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const isSold = product.status === "sold";
   const detailHref = `/post/${product.id}`;
-  const statusBadge = (
-    <TradeListingStatusBadge post={tradeListingPostFromProduct(product)} surface="marketplace" />
-  );
 
   return (
     <Link
@@ -49,7 +40,10 @@ export function ProductCard({ product }: ProductCardProps) {
       >
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
-      <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+      <div
+        data-ui4-slot="photos"
+        className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+      >
         <SamarketThumbnail
           src={product.thumbnail}
           fill
@@ -64,31 +58,28 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
       <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col justify-between">
-          <div className="flex shrink-0 flex-wrap items-center gap-1">
-            {product.hasPromotionOverlay ? (
-              <span className="inline-block shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
-                {safeT("trade_promo_badge", {
-                  fallbackKo: "홍보",
-                  fallbackEn: "Promoted",
-                })}
-              </span>
-            ) : null}
-            {statusBadge}
-          </div>
-          <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
-            {product.title}
-          </p>
-          <p className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
+          <p data-ui4-slot="price" className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
             {formatPrice(product.price)}
           </p>
-          <div className="flex shrink-0 flex-col">
-            <p className={stripPostListBlockTopMargin(POST_LIST_META_TEXT_CLASS)}>
+          <p data-ui4-slot="title" className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
+            {product.title}
+          </p>
+          {product.hasPromotionOverlay ? (
+            <span
+              data-ui4-slot="promo"
+              className="inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted"
+            >
+              {safeT("trade_promo_badge", {
+                fallbackKo: "홍보",
+                fallbackEn: "Promoted",
+              })}
+            </span>
+          ) : null}
+          {product.location ? (
+            <p data-ui4-slot="location" className={stripPostListBlockTopMargin(POST_LIST_META_TEXT_CLASS)}>
               {product.location}
             </p>
-            <p className={POST_LIST_META_LINE_CLASS}>
-              <TimeAgo isoString={product.createdAt} />
-            </p>
-          </div>
+          ) : null}
         </div>
       </div>
     </Link>
