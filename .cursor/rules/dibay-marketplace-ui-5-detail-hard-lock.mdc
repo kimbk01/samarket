@@ -1,0 +1,45 @@
+---
+description: HARD LOCK — DIBAY Marketplace UI-5 DETAIL visual hierarchy
+alwaysApply: true
+---
+
+# DIBAY Marketplace UI-5 DETAIL HARD LOCK
+
+**HARD LOCK (2026-08-19).** Full doc: `docs/dibay-marketplace-ui-5-detail-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: UI-5 LOCKED**
+- Production SHA: `d9ad0d6b913aea660372897627424c0f7d0ece64`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_EVAWPH2iY3MxvsnaXconBBW5NHZS`
+- BUYER FLOW: 사진 → 가격 → 제목 → 지역·시간 → 품목정보 → 설명 → 판매자 → 찜/신고/공유
+- DISCOVERY: 판매자 다른 상품 / 광고 / 관련 (core 아래)
+- STICKY: 채팅 CTA (overlay; related loader unchanged)
+- OWNER: buyer 찜/신고/채팅 없음 · 수정/삭제/더 알리기 KEEP
+- MIGRATION: **NO**
+- CUT A–J / UI-1 / UI-2 / UI-3: **PRESERVED**
+- UI-4 / UI-6: **NOT STARTED**
+
+## KEEP
+
+```text
+공통 가격 슬롯 = 화면 위치만
+중고차 팝니다·삽니다 = 품목정보
+부동산 = 지역·시간 행 + 품목 → 설명
+일자리 = 급여 → 제목 → 지역 → 품목 → 설명
+BUYER ⋯ = 신고/공유 중복 없음
+CUT G writers / CUT F promote / related loader 불변
+```
+
+Authority: `PostDetailView.tsx` · `JobDetailHeader.tsx`.
+
+This cut changed **DETAIL visual order**, not SEARCH, LIST, WRITE, or related data loading.
+
+## DO NOT (without a new cut)
+
+- Restore title-adjacent status/intent chips
+- Force buyer actions onto owner DETAIL
+- Change `getTradeDetailRelatedData` to finish chrome
+- Start UI-4 LIST or UI-6 inside UI-5 work
+- Reopen CUT A–J or UI-1/2/3 to finish DETAIL
