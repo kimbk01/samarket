@@ -155,6 +155,39 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     };
   }
 
+  if (p === "/market/sell" || starts(p, "/market/sell/")) {
+    return {
+      ...DEFAULT,
+      backHref: "/market",
+      preferHistoryBack: true,
+      titleText: "marketplace_sell_hub_title",
+      subtitle: "marketplace_sell_hub_subtitle",
+      showHubQuickActions: true,
+    };
+  }
+
+  if (p === "/mypage/products" || starts(p, "/mypage/products/")) {
+    return {
+      ...DEFAULT,
+      backHref: "/market/sell",
+      preferHistoryBack: true,
+      titleText: "marketplace_seller_products_title",
+      subtitle: "marketplace_seller_products_subtitle",
+      showHubQuickActions: true,
+    };
+  }
+
+  if (p === "/mypage/points/promotions" || starts(p, "/mypage/points/promotions/")) {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage/products",
+      preferHistoryBack: true,
+      titleText: "tier1_point_promotion",
+      subtitle: "tier1_point_promotion_subtitle",
+      showHubQuickActions: true,
+    };
+  }
+
   if (p === "/services" || starts(p, "/services/")) {
     return backHome({ titleText: "tier1_service", showHubQuickActions: true });
   }

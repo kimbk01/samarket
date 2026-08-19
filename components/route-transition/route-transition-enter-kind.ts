@@ -16,6 +16,10 @@ import {
   isMypageAddressListPath,
   isMypageAddressSearchPath,
 } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  isMarketplaceSellerHubPath,
+  marketplaceSellerHubDepth,
+} from "@/lib/trade/marketplace/marketplace-seller-hub-slide";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -159,6 +163,28 @@ export function computeRouteTransitionEnterKind(
     if (dNext > dPrev) kind = "address-platform-forward";
     else if (dNext < dPrev) kind = "address-platform-back";
     else kind = "subtle";
+  } else if (isMarketplaceSellerHubPath(prevPath) || isMarketplaceSellerHubPath(nextPath)) {
+    const dPrev = marketplaceSellerHubDepth(prevPath);
+    const dNext = marketplaceSellerHubDepth(nextPath);
+    if (dPrev >= 0 && dNext >= 0) {
+      if (opts.popstateBack) {
+        kind = dNext < dPrev ? "ltr-back" : "rtl-back";
+      } else if (dNext > dPrev) {
+        kind = "rtl-forward";
+        opts.lastForwardAxisRef.current = "rtl";
+      } else if (dNext < dPrev) {
+        kind = "ltr-back";
+      } else {
+        kind = "subtle";
+      }
+    } else if (dNext >= 0 && dPrev < 0) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else if (dPrev >= 0 && dNext < 0) {
+      kind = "ltr-back";
+    } else {
+      kind = "none";
+    }
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";

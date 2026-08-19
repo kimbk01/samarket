@@ -55,12 +55,8 @@ export function MyProductCard({
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
 
   return (
-    <div
-      className={`overflow-hidden rounded-ui-rect bg-sam-surface ${
-        isSold || isHidden ? "opacity-70" : ""
-      }`}
-    >
-      <div className="flex gap-3 p-3">
+    <div className={isSold || isHidden ? "opacity-70" : undefined}>
+      <div className="flex gap-3 px-3 py-3">
         <Link
           href={detailHref}
           onPointerEnter={() => void router.prefetch(detailHref)}

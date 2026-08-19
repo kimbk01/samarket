@@ -27,6 +27,9 @@ export function isTradeFloatingMenuSurface(pathname: string | null | undefined):
   if (safePath === "/market/location" || safePath.startsWith("/market/location/")) {
     return false;
   }
+  if (safePath === "/market/sell" || safePath.startsWith("/market/sell/")) {
+    return false;
+  }
   if (safePath === "/market" || startsWithPath(safePath, "/market")) return true;
   if (
     startsWithPath(safePath, "/mypage/purchases") ||

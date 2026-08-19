@@ -1,9 +1,8 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { parseMyProductListingFilterKey } from "@/lib/products/my-product-listing-filter";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
@@ -27,20 +26,29 @@ import {
 import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-client";
 import { groupSalesRowsByPostId } from "@/lib/mypage/seller-listings-with-trades";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
-import { MyProductFilter } from "./MyProductFilter";
 import { MyProductCard } from "./MyProductCard";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
-export function MyProductsView() {
+type MyProductsViewProps = {
+  filter: MyProductFilterKey;
+  onFilterChange: (value: MyProductFilterKey) => void;
+  promotedOnly: boolean;
+  onPromotedOnlyChange: (value: boolean) => void;
+};
+
+export function MyProductsView({
+  filter,
+  onFilterChange,
+  promotedOnly,
+  onPromotedOnlyChange,
+}: MyProductsViewProps) {
   const { t, safeT } = useI18n();
   const { open: openTradeWriteSheet } = useTradeWriteSheet();
   const writeCtx = useWriteCategory();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
-  const searchParams = useSearchParams();
-  const [filter, setFilter] = useState<MyProductFilterKey>(() =>
-    parseMyProductListingFilterKey(searchParams.get("filter"))
-  );
-  const [promotedOnly, setPromotedOnly] = useState(false);
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [salesRows, setSalesRows] = useState<SalesHistoryRow[]>([]);
@@ -54,13 +62,6 @@ export function MyProductsView() {
     promotedOnly,
     promotedTargetIds
   );
-
-  useEffect(() => {
-    const raw = searchParams.get("filter");
-    if (!raw) return;
-    const next = parseMyProductListingFilterKey(raw);
-    setFilter((prev) => (prev === next ? prev : next));
-  }, [searchParams]);
 
   useEffect(() => {
     const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
@@ -180,10 +181,6 @@ export function MyProductsView() {
     });
   }, [currentUserId, loadListing]);
 
-  const handleFilterChange = useCallback((value: MyProductFilterKey) => {
-    setFilter(value);
-  }, []);
-
   const handleStatusChange = useCallback(
     async (productId: string, newStatus: Product["status"]) => {
       if (!currentUserId) return;
@@ -240,11 +237,12 @@ export function MyProductsView() {
     openTradeWriteSheet("");
   }, [guardBeforeNavigate, openTradeWriteSheet, writeCtx]);
 
+  const createLabel = safeT("marketplace_sell_hub_create", {
+    fallbackKo: "상품 등록",
+    fallbackEn: "Post item",
+  });
+
   const renderEmpty = () => {
-    const createLabel = safeT("marketplace_seller_cta_create_listing", {
-      fallbackKo: "상품 등록",
-      fallbackEn: "Post item",
-    });
     const viewAllLabel = safeT("marketplace_seller_cta_view_all_listings", {
       fallbackKo: "전체 매물 보기",
       fallbackEn: "View all listings",
@@ -281,11 +279,11 @@ export function MyProductsView() {
           })}
           actions={
             <>
-              <SellerHubEmptyActionButton onClick={() => setPromotedOnly(false)}>
+              <SellerHubEmptyActionButton onClick={() => onPromotedOnlyChange(false)}>
                 {clearPromoLabel}
               </SellerHubEmptyActionButton>
               {filter !== "all" ? (
-                <SellerHubEmptyActionButton variant="secondary" onClick={() => setFilter("all")}>
+                <SellerHubEmptyActionButton variant="secondary" onClick={() => onFilterChange("all")}>
                   {viewAllLabel}
                 </SellerHubEmptyActionButton>
               ) : null}
@@ -299,13 +297,13 @@ export function MyProductsView() {
       return (
         <SellerHubEmptyState
           message={safeT("marketplace_seller_empty_listings_active", {
-            fallbackKo: "게시 중인 매물이 없어요",
-            fallbackEn: "No live listings",
+            fallbackKo: "판매중인 매물이 없어요",
+            fallbackEn: "No listings for sale",
           })}
           actions={
             <>
               <SellerHubEmptyActionButton onClick={openWrite}>{createLabel}</SellerHubEmptyActionButton>
-              <SellerHubEmptyActionButton variant="secondary" onClick={() => setFilter("all")}>
+              <SellerHubEmptyActionButton variant="secondary" onClick={() => onFilterChange("all")}>
                 {viewAllLabel}
               </SellerHubEmptyActionButton>
             </>
@@ -322,10 +320,10 @@ export function MyProductsView() {
             fallbackEn: "No sold listings",
           })}
           actions={
-            <SellerHubEmptyActionButton variant="secondary" onClick={() => setFilter("active")}>
+            <SellerHubEmptyActionButton variant="secondary" onClick={() => onFilterChange("active")}>
               {safeT("marketplace_seller_listing_tab_active", {
-                fallbackKo: "게시 중",
-                fallbackEn: "Live",
+                fallbackKo: "판매중",
+                fallbackEn: "For sale",
               })}
             </SellerHubEmptyActionButton>
           }
@@ -360,13 +358,7 @@ export function MyProductsView() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <MyProductFilter
-        value={filter}
-        onChange={handleFilterChange}
-        promotedOnly={promotedOnly}
-        onPromotedOnlyChange={setPromotedOnly}
-      />
+    <div className="flex min-w-0 flex-col pb-28">
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
@@ -374,7 +366,7 @@ export function MyProductsView() {
       ) : products.length === 0 ? (
         renderEmpty()
       ) : (
-        <ul className="space-y-2">
+        <ul className="overflow-hidden rounded-ui-rect bg-sam-surface divide-y divide-sam-border-soft">
           {products.map((product) => (
             <li key={product.id}>
               <MyProductCard
@@ -388,6 +380,19 @@ export function MyProductsView() {
           ))}
         </ul>
       )}
+
+      <div
+        className={`fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-app/95 backdrop-blur-sm ${APP_MAIN_GUTTER_X_CLASS} pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      >
+        <button
+          type="button"
+          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} flex items-center justify-center gap-2 py-3.5`}
+          onClick={openWrite}
+        >
+          <Plus className="h-5 w-5 shrink-0" aria-hidden />
+          <span>{createLabel}</span>
+        </button>
+      </div>
     </div>
   );
 }
