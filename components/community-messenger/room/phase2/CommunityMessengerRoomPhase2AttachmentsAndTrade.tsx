@@ -1,15 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
 import {
-  CommunityMessengerTradeProcessSection,
-  MessengerTradeChatRoomDetailPrefetch,
-  SeedTradeChatDetailMemoryFromSnapshot,
-} from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
+  CommunityMessengerRoomPhase2StoreOrderChrome,
+} from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2StoreOrderChrome";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
-import { CommunityMessengerRoomPhase2StoreOrderChrome } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2StoreOrderChrome";
 
 export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const vm = useMessengerRoomPhase2View();
@@ -39,30 +35,6 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
 
       {vm.showMessengerStoreOrderDock ? (
         <CommunityMessengerRoomPhase2StoreOrderChrome keyboardCompact={keyboardCompact} />
-      ) : null}
-
-      {vm.showMessengerTradeProcessDock ? (
-        <>
-          {vm.snapshot.tradeChatRoomDetail ? (
-            <SeedTradeChatDetailMemoryFromSnapshot
-              productChatId={vm.tradeProductChatIdForDock}
-              room={vm.snapshot.tradeChatRoomDetail}
-            />
-          ) : (
-            <MessengerTradeChatRoomDetailPrefetch productChatId={vm.tradeProductChatIdForDock} />
-          )}
-          <Suspense fallback={null}>
-            <CommunityMessengerTradeProcessSection
-              productChatId={vm.tradeProductChatIdForDock}
-              viewerUserId={vm.snapshot.viewerUserId}
-              initialTradeChatRoom={vm.snapshot.tradeChatRoomDetail ?? null}
-              onTradeMetaChanged={() => void vm.refresh(true)}
-              keyboardCompact={keyboardCompact}
-              dockPlacement="aboveComposer"
-              hideProductCard
-            />
-          </Suspense>
-        </>
       ) : null}
     </>
   );

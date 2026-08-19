@@ -93,6 +93,8 @@ export type ChatRoomMoreMenuProps = {
   disableFriendRequest?: boolean;
   /** P2 — initiator hides Add Contact row on general direct rooms */
   hidePeerSocialAdd?: boolean;
+  /** 거래방 — slide 상세(채팅 유지) */
+  onOpenProductDetail?: (postId: string) => void;
   onSearch: () => void;
   onOpenMediaFiles: () => void;
   onFriendRequest: () => void;
@@ -293,6 +295,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             )}
             detailHref={`/post/${encodeURIComponent(tradeContext.product.id)}`}
             productLabel={tradeContext.product.title}
+            onOpenProductDetail={props.onOpenProductDetail}
           />
         </div>
       ) : null}

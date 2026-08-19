@@ -22,10 +22,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPrice } from "@/lib/utils/format";
-import {
-  formatTradeMarketplacePeerProductTitle,
-  resolveTradeWindowCounterpartyRole,
-} from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
+import { resolveTradeWindowCounterpartyRole } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
 
 /** `summary`·`contextMeta` 가 거래/배달 v1 기계 메타만 담는지 — 친구 1:1 DM legacy 잔재 포함. */
 export function roomSummaryIsTradeOrDeliveryContextMetaOnly(input: {
@@ -147,8 +144,11 @@ export function useMessengerRoomPhase2RoomPresentation({
       sellerUserId: snapshot.tradeChatRoomDetail?.sellerId,
       buyerUserId: snapshot.tradeChatRoomDetail?.buyerId,
     });
-    const postId = product?.id?.trim() || (snapshot.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta.postId?.trim() : "") || "";
-    const detailHref = product?.detailHref?.trim() || (postId ? `/post/${postId}` : null);
+    const postId =
+      product?.id?.trim() ||
+      (snapshot.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta.postId?.trim() : "") ||
+      "";
+    const detailHref = postId ? `/post/${postId}` : null;
     const currency = getAppSettings().defaultCurrency ?? "PHP";
     const priceRaw = product?.price;
     const priceLabel =
@@ -157,7 +157,9 @@ export function useMessengerRoomPhase2RoomPresentation({
       title,
       imageUrl,
       peerLabel,
-      headerTitle: formatTradeMarketplacePeerProductTitle(peerLabel, title),
+      /** Factory/R2 primary — listing title only (peer is subtitle). */
+      headerTitle: title,
+      postId: postId || null,
       counterpartyRole,
       priceLabel,
       detailHref,

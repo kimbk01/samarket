@@ -140,6 +140,7 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 
 /** 거래 상세 — FB형 연속 섹션 스택(글쓰기와 동일 밀도) */
 const TRADE_POST_DETAIL_FB_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`;
@@ -498,6 +499,7 @@ export function PostDetailView({
 }: PostDetailViewProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const tradePostDetailSlideHost = useTradePostDetailSlideHost();
   const requireAction = useRequireAuthAction();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -745,6 +747,24 @@ export function PostDetailView({
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
+    if (tradePostDetailSlideHost) {
+      setMainTier1Extras({
+        tier1: {
+          titleText: tradeDetailHeaderTitle,
+          preferHistoryBack: false,
+          ariaLabel: t("tier1_back"),
+          showHubQuickActions: false,
+          leftSlot: (
+            <AppBackButton
+              onBack={tradePostDetailSlideHost.closeSlide}
+              ariaLabelKey="tier1_back"
+              className="text-[#111]"
+            />
+          ),
+        },
+      });
+      return () => setMainTier1Extras(null);
+    }
     const showBuyerMore = !isOwnPost;
     const showSellerMore = showSellerMoreMenu;
     setMainTier1Extras({
@@ -802,6 +822,7 @@ export function PostDetailView({
     backHref,
     isOwnPost,
     showSellerMoreMenu,
+    tradePostDetailSlideHost,
     t,
   ]);
 

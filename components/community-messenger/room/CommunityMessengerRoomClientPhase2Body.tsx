@@ -9,6 +9,8 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useCmRoomVisibleViewportShell } from "@/lib/ui/use-cm-room-visible-viewport-shell";
+import { TradePostDetailSlideHostProvider } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
+import { TradePostDetailSlidePanel } from "@/components/community-messenger/room/phase2/TradePostDetailSlidePanel";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
@@ -152,6 +154,19 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
 }: CommunityMessengerRoomClientPhase2MainProps) {
   useCmDevRenderTrace("MessengerShell");
   useCmStrictModeEffectProbe("MessengerShell");
+  const [tradePostDetailSlidePostId, setTradePostDetailSlidePostId] = useState<string | null>(null);
+  const openTradePostDetailSlide = useCallback((postId: string) => {
+    const id = postId.trim();
+    if (!id) return;
+    setTradePostDetailSlidePostId(id);
+  }, []);
+  const closeTradePostDetailSlide = useCallback(() => {
+    setTradePostDetailSlidePostId(null);
+  }, []);
+  const isTradeRoomShell = messengerRoomShowsConfirmedTradePresentation(
+    room.snapshot.room,
+    room.snapshot.viewerUserId
+  );
   const phase2RenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   phase2RenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const phase2PrevSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
@@ -582,6 +597,10 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length, room.snapshot.room.id]);
 
   return (
+    <TradePostDetailSlideHostProvider
+      openPostDetail={openTradePostDetailSlide}
+      closeSlide={closeTradePostDetailSlide}
+    >
     <MessengerRoomPhase2ViewProvider value={view}>
         <StoreOrderDeliveryRoomProvider
           storeOrderId={view.storeOrderIdForDock}
@@ -633,6 +652,16 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
         </CmRoomPhase2HydrationProvider>
         </StoreOrderDeliveryRoomProvider>
       </MessengerRoomPhase2ViewProvider>
+      {isTradeRoomShell && tradePostDetailSlidePostId ? (
+        <TradePostDetailSlidePanel
+          postId={tradePostDetailSlidePostId}
+          viewerUserId={room.snapshot.viewerUserId}
+          messengerRoomId={room.snapshot.room.id}
+          productChatRoomId={room.tradeProductChatIdForDock}
+          onClose={closeTradePostDetailSlide}
+        />
+      ) : null}
+    </TradePostDetailSlideHostProvider>
   );
 });
 

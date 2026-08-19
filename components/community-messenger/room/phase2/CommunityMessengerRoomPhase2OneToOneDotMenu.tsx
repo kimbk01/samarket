@@ -33,6 +33,7 @@ import {
   type RoomType,
   type TradeRoomContext,
 } from "@/components/community-messenger/room/phase2/ChatRoomMoreMenu";
+import { useTradePostDetailSlideHost } from "@/components/community-messenger/room/phase2/TradePostDetailSlideHostContext";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { roomShowsStoreOrderWindowHeader } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
@@ -112,6 +113,7 @@ function buildTradeContextFromMeta(
 
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
   const { t } = useI18n();
+  const tradePostDetailSlide = useTradePostDetailSlideHost();
   const [dotMenuOutgoingConfirm, setDotMenuOutgoingConfirm] = useState<null | "voice" | "video">(null);
 
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
@@ -393,6 +395,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       isMuted={Boolean(vm.snapshot.room.isMuted)}
       isArchived={Boolean(vm.snapshot.room.isArchivedByViewer)}
       tradeContext={tradeContext}
+      onOpenProductDetail={
+        tradePostDetailSlide ? (postId) => tradePostDetailSlide.openPostDetail(postId) : undefined
+      }
       disableVoiceCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableVideoCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableMuteToggle={vm.busy === "room-mute"}

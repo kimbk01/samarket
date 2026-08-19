@@ -13,6 +13,8 @@ export type MessengerTradeProductDockRowProps = {
   detailHref: string;
   /** 썸네일·제목 링크 접근성 */
   productLabel: string;
+  /** 거래방 slide 상세 — Link 대신 콜백(채팅 유지) */
+  onOpenProductDetail?: (postId: string) => void;
 };
 
 /**
@@ -24,36 +26,76 @@ export function MessengerTradeProductDockRow({
   line2,
   detailHref,
   productLabel,
+  onOpenProductDetail,
 }: MessengerTradeProductDockRowProps) {
   const { t } = useI18n();
+  const postIdFromHref = (() => {
+    const m = detailHref.match(/^\/post\/([^/?#]+)/);
+    return m?.[1] ? decodeURIComponent(m[1]) : "";
+  })();
+  const useSlide = Boolean(onOpenProductDetail && postIdFromHref);
+  const thumbClassName =
+    "relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)] transition active:opacity-90";
+  const textClassName =
+    "min-w-0 flex-1 text-left transition active:opacity-90";
+  const thumbInner = (
+    <SamarketThumbnail
+      src={thumbnailUrl}
+      fill
+      roundedClassName="rounded-md"
+      className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+      fallbackSrc=""
+      fallbackNode={
+        <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+          {t("cm_ui_product")}
+        </div>
+      }
+    />
+  );
   return (
     <div className="flex gap-2.5">
-      <Link
-        href={detailHref}
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)] transition active:opacity-90"
-        aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
-      >
-        <SamarketThumbnail
-          src={thumbnailUrl}
-          fill
-          roundedClassName="rounded-md"
-          className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
-          fallbackSrc=""
-          fallbackNode={
-            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-              {t("cm_ui_product")}
-            </div>
-          }
-        />
-      </Link>
-      <Link
-        href={detailHref}
-        className="min-w-0 flex-1 text-left transition active:opacity-90"
-        aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
-      >
-        <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">{line1}</p>
-        <p className="mt-0.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">{line2}</p>
-      </Link>
+      {useSlide ? (
+        <button
+          type="button"
+          className={thumbClassName}
+          aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
+          onClick={() => onOpenProductDetail?.(postIdFromHref)}
+        >
+          {thumbInner}
+        </button>
+      ) : (
+        <Link
+          href={detailHref}
+          className={thumbClassName}
+          aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
+        >
+          {thumbInner}
+        </Link>
+      )}
+      {useSlide ? (
+        <button
+          type="button"
+          className={textClassName}
+          aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
+          onClick={() => onOpenProductDetail?.(postIdFromHref)}
+        >
+          <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">
+            {line1}
+          </p>
+          <p className="mt-0.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">{line2}</p>
+        </button>
+      ) : (
+        <Link
+          href={detailHref}
+          className={textClassName}
+          aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
+        >
+          <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">
+            {line1}
+          </p>
+          <p className="mt-0.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">{line2}</p>
+        </Link>
+      )}
     </div>
   );
 }
