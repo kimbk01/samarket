@@ -11,12 +11,12 @@ import {
 } from "@/lib/trade/location/trade-browse-radius";
 
 describe("Phase 4 URL canonicalization", () => {
-  it("missing radius on city → recommended 64", () => {
+  it("missing radius on city → null (distance 전체)", () => {
     const s = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams("location=city&lgu=quezon-city")
     );
     expect(s.mode).toBe("city");
-    if (s.mode === "city") expect(s.radiusKm).toBe(TRADE_BROWSE_RECOMMENDED_RADIUS_KM);
+    if (s.mode === "city") expect(s.radiusKm).toBeNull();
   });
 
   it("invalid / 0 / negative / over-max / decimal normalize", () => {

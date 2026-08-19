@@ -142,7 +142,7 @@ function TradePrimaryTabsInner({
         bordered={!embedInAppHeader}
         leading={<TradeHeaderLocationPinButton placement="below-title" />}
         trailing={
-          <div className="inline-flex items-center gap-2">
+          <div className="inline-flex items-center gap-1">
             {allTab ? (
               <Link
                 href={allTab.href}
@@ -150,7 +150,7 @@ function TradePrimaryTabsInner({
                 aria-selected={allTab.isDisplayActive}
                 aria-label={allTab.label}
                 prefetch
-                className={`${tradePrimaryTabClass(false)} inline-flex h-9 w-9 shrink-0 items-center justify-center !bg-transparent !text-sam-fg active:scale-[0.98] active:opacity-90`}
+                className={`${tradePrimaryTabClass(false)} inline-flex h-10 w-10 shrink-0 items-center justify-center !bg-transparent active:scale-[0.98] active:opacity-90`}
                 onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
                 onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
                 onClick={(e) => {
@@ -166,7 +166,8 @@ function TradePrimaryTabsInner({
                 }}
               >
                 <RotateCcw
-                  className={`h-4 w-4 ${allTab.isDisplayActive ? "text-sam-primary" : "text-sam-fg"}`}
+                  className="h-5 w-5 shrink-0 text-sam-primary"
+                  strokeWidth={2.25}
                   aria-hidden
                 />
               </Link>
@@ -174,12 +175,12 @@ function TradePrimaryTabsInner({
             <button
               type="button"
               data-marketplace-filter="true"
-              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
+              className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect active:scale-[0.98] active:opacity-90"
               aria-haspopup="dialog"
               aria-label={filterLabel}
               onClick={() => setFilterOpen(true)}
             >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              <SlidersHorizontal className="h-5 w-5 shrink-0 text-sam-primary" strokeWidth={2.25} aria-hidden />
               {filterActive ? (
                 <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
                   {filterCount}

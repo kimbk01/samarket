@@ -41,7 +41,6 @@ export function TradeBrowseLocationSearchPage() {
         kind: "city",
         canonicalId: hit.canonicalId,
         displayName: hit.displayName,
-        radiusKm: radius.km,
       };
       rememberTradeLguDisplayLabel(hit.canonicalId, hit.displayName);
       writeTradeBrowseLocationDraftSession(

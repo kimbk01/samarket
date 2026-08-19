@@ -30,7 +30,6 @@ describe("tradeBrowseLocation draft/committed bridge", () => {
       kind: "city",
       canonicalId: TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL.pasig,
       displayName: "Pasig City",
-      radiusKm: 64,
     });
     const back = tradeBrowseLocationToScope(browse);
     expect(back.mode).toBe("city");

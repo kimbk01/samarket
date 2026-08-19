@@ -67,6 +67,34 @@ describe("marketplace location default", () => {
     expect(scope).toEqual({ mode: "all" });
     expect(marketplaceLocationFetchGate(scope)).toEqual({ canFetch: true, locationAll: true });
   });
+
+  it("city without radius = distance 전체 (null), not silent 64km", () => {
+    const scope = parseTradeLocationScopeFromSearchParams(
+      new URLSearchParams("location=city&lgu=pasig")
+    );
+    expect(scope.mode).toBe("city");
+    if (scope.mode !== "city") return;
+    expect(scope.radiusKm).toBeNull();
+    expect(marketplaceLocationFetchGate(scope)).toEqual({
+      canFetch: true,
+      lguCityId: "pasig",
+      radiusKm: null,
+    });
+  });
+
+  it("city with explicit radius passes km through gate", () => {
+    const scope = parseTradeLocationScopeFromSearchParams(
+      new URLSearchParams("location=city&lgu=pasig&radius=32")
+    );
+    expect(scope.mode).toBe("city");
+    if (scope.mode !== "city") return;
+    expect(scope.radiusKm).toBe(32);
+    expect(marketplaceLocationFetchGate(scope)).toEqual({
+      canFetch: true,
+      lguCityId: "pasig",
+      radiusKm: 32,
+    });
+  });
 });
 
 describe("trade browse committed session", () => {
@@ -86,6 +114,18 @@ describe("trade browse committed session", () => {
     vi.stubGlobal("window", { sessionStorage: session });
     writeTradeBrowseCommittedScope({ mode: "all" });
     expect(peekTradeBrowseCommittedScope()).toEqual({ mode: "all" });
+    writeTradeBrowseCommittedScope({
+      mode: "city",
+      lguId: "pasig",
+      canonicalId: "1381200000",
+      radiusKm: null,
+    });
+    expect(peekTradeBrowseCommittedScope()).toEqual({
+      mode: "city",
+      lguId: "pasig",
+      canonicalId: "1381200000",
+      radiusKm: null,
+    });
   });
 });
 

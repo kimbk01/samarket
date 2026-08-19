@@ -23,7 +23,6 @@ import {
   applyTradeBrowseRadiusToSearchParams,
   parseTradeBrowseRadiusKmFromSearchParams,
   sanitizeTradeBrowseRadiusKm,
-  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   TRADE_LOCATION_RADIUS_PARAM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
@@ -31,7 +30,7 @@ import {
 export type TradeLocationScope =
   | { mode: "unset" }
   | { mode: "all" }
-  | { mode: "city"; lguId: string; canonicalId: string; radiusKm: number }
+  | { mode: "city"; lguId: string; canonicalId: string; radiusKm: number | null }
   | { mode: "invalid"; raw: string };
 
 export const TRADE_LOCATION_URL_PARAM = "location" as const;
@@ -68,9 +67,7 @@ export function parseTradeLocationScopeFromSearchParams(
 
   const legacyAlias = resolveCanonicalToLegacyProductAlias(canonicalId);
   const lguId = legacyAlias ?? canonicalId;
-  const radiusKm =
-    parseTradeBrowseRadiusKmFromSearchParams(params, true) ??
-    TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
+  const radiusKm = parseTradeBrowseRadiusKmFromSearchParams(params, true);
 
   return { mode: "city", lguId, canonicalId, radiusKm };
 }
@@ -98,7 +95,7 @@ export function applyTradeLocationScopeToSearchParams(
     next.set(TRADE_LOCATION_LGU_PARAM, scope.lguId);
     next = applyTradeBrowseRadiusToSearchParams(
       next,
-      sanitizeTradeBrowseRadiusKm(scope.radiusKm)
+      scope.radiusKm == null ? null : sanitizeTradeBrowseRadiusKm(scope.radiusKm)
     );
   }
   return next;
@@ -122,7 +119,7 @@ export function tradeLocationScopeDisplayLabel(scope: TradeLocationScope): strin
 /** Build CITY scope from canonical PSGC (legacy alias kept in URL when available). */
 export function buildTradeCityScopeFromCanonical(
   canonicalId: string,
-  radiusKm: number = TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+  radiusKm: number | null = null
 ): Extract<TradeLocationScope, { mode: "city" }> | null {
   const cid = resolveTradeLguUrlTokenToCanonical(canonicalId);
   if (!cid) return null;
@@ -131,7 +128,7 @@ export function buildTradeCityScopeFromCanonical(
     mode: "city",
     lguId: legacyAlias ?? cid,
     canonicalId: cid,
-    radiusKm: sanitizeTradeBrowseRadiusKm(radiusKm),
+    radiusKm: radiusKm == null ? null : sanitizeTradeBrowseRadiusKm(radiusKm),
   };
 }
 

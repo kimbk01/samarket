@@ -178,8 +178,8 @@ describe("N4 trade feed national location filter", () => {
     const scopeB = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams(`location=city&lgu=${PASIG}`)
     );
-    expect(tradeLocationScopeCacheSegment(scopeA)).toBe(`loc:lgu:${PASIG}:r:64`);
-    expect(tradeLocationScopeCacheSegment(scopeB)).toBe(`loc:lgu:${PASIG}:r:64`);
+    expect(tradeLocationScopeCacheSegment(scopeA)).toBe(`loc:lgu:${PASIG}:r:none`);
+    expect(tradeLocationScopeCacheSegment(scopeB)).toBe(`loc:lgu:${PASIG}:r:none`);
   });
 
   it("local-area map covers 143 rows for national bridge", () => {

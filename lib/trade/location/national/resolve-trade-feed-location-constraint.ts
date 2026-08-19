@@ -21,7 +21,6 @@ import {
 } from "@/lib/trade/location/national/lgu-centroids";
 import {
   sanitizeTradeBrowseRadiusKm,
-  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
 
@@ -37,7 +36,7 @@ export type TradeFeedLocationConstraint =
       kind: "lgu";
       /** Browse anchor City */
       canonicalId: string;
-      radiusKm: number;
+      radiusKm: number | null;
       /** City-grain radius match set (includes anchor) */
       matchingCanonicalIds: string[];
       legacyMembers: TradeFeedLegacyRegionMembers[];
@@ -80,19 +79,18 @@ export function resolveTradeFeedLocationConstraint(
   if (!isTradeNationalPsgcCanonicalId(canonicalId)) return { kind: "invalid", raw };
 
   const radius =
-    radiusKm == null
-      ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
-      : sanitizeTradeBrowseRadiusKm(radiusKm);
+    radiusKm == null ? null : sanitizeTradeBrowseRadiusKm(radiusKm);
 
   const center = resolveTradeBrowseCenterForCanonical(canonicalId);
-  const matchingCanonicalIds = center
-    ? matchTradeLguIdsInRadius({
-        centerLat: center.lat,
-        centerLng: center.lng,
-        radiusKm: radius,
-        centerCanonicalId: canonicalId,
-      })
-    : [canonicalId];
+  const matchingCanonicalIds =
+    radius == null || !center
+      ? [canonicalId]
+      : matchTradeLguIdsInRadius({
+          centerLat: center.lat,
+          centerLng: center.lng,
+          radiusKm: radius,
+          centerCanonicalId: canonicalId,
+        });
 
   const legacyMembers = legacyMembersForCanonicalIds(matchingCanonicalIds);
 

@@ -69,14 +69,14 @@ export function tradeBrowseRadiusSelectionEquals(
   return a.mode === b.mode && a.km === b.km;
 }
 
-/** Parse URL radius when CITY scope is active. Missing → recommended. ALL → null. */
+/** Parse URL radius when CITY scope is active. Missing → null (distance 전체). ALL → null. */
 export function parseTradeBrowseRadiusKmFromSearchParams(
   params: URLSearchParams | { get: (k: string) => string | null },
   locationIsCity: boolean
 ): number | null {
   if (!locationIsCity) return null;
   const raw = params.get(TRADE_LOCATION_RADIUS_PARAM);
-  if (raw == null || !String(raw).trim()) return TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
+  if (raw == null || !String(raw).trim()) return null;
   return sanitizeTradeBrowseRadiusKm(raw);
 }
 

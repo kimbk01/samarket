@@ -12,7 +12,7 @@ const KEY = "samarket:trade-browse-committed-scope:v1";
 
 type Stored =
   | { v: 1; mode: "all" }
-  | { v: 1; mode: "city"; canonicalId: string; radiusKm: number };
+  | { v: 1; mode: "city"; canonicalId: string; radiusKm?: number | null };
 
 function canUseSession(): boolean {
   return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
@@ -27,7 +27,9 @@ export function writeTradeBrowseCommittedScope(scope: TradeLocationScope): void 
       v: 1,
       mode: "city",
       canonicalId: scope.canonicalId,
-      radiusKm: sanitizeTradeBrowseRadiusKm(scope.radiusKm),
+      ...(scope.radiusKm == null
+        ? {}
+        : { radiusKm: sanitizeTradeBrowseRadiusKm(scope.radiusKm) }),
     };
   }
   if (!stored) return;
@@ -47,10 +49,23 @@ export function peekTradeBrowseCommittedScope(): TradeLocationScope | null {
     if (!parsed || parsed.v !== 1) return null;
     if (parsed.mode === "all") return { mode: "all" };
     if (parsed.mode === "city") {
-      return buildTradeCityScopeFromCanonical(parsed.canonicalId, parsed.radiusKm);
+      const radiusKm =
+        parsed.radiusKm == null || parsed.radiusKm === undefined
+          ? null
+          : sanitizeTradeBrowseRadiusKm(parsed.radiusKm);
+      return buildTradeCityScopeFromCanonical(parsed.canonicalId, radiusKm);
     }
     return null;
   } catch {
     return null;
+  }
+}
+
+export function clearTradeBrowseCommittedScope(): void {
+  if (!canUseSession()) return;
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
   }
 }

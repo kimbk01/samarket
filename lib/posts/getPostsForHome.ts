@@ -8,7 +8,6 @@ import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics"
 import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
 import {
   sanitizeTradeBrowseRadiusKm,
-  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
 import {
@@ -222,9 +221,9 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const lguCityId = options.lguCityId?.trim() || null;
   const locationAll = options.locationAll === true && !lguCityId;
   const radiusKm = lguCityId
-    ? sanitizeTradeBrowseRadiusKm(
-        options.radiusKm ?? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
-      )
+    ? options.radiusKm == null
+      ? null
+      : sanitizeTradeBrowseRadiusKm(options.radiusKm)
     : null;
   const q = sanitizeMarketplaceQueryText(options.q);
   const priceMin = parseMarketplacePriceBound(options.priceMin ?? undefined);

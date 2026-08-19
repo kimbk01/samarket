@@ -3,19 +3,18 @@
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isTradeBrowseLocationPath } from "@/lib/trade/location/trade-browse-location-paths";
-import {
-  writeTradeBrowseCommittedScope,
-} from "@/lib/trade/location/trade-browse-committed-session";
+import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
 import {
   buildTradeLocationHref,
   parseTradeLocationScopeFromSearchParams,
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
+import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 
 /**
  * Missing URL location is UNSET. Hydrate to explicit ALL by default.
- * Header still shows master-address place label independently.
- * Location picker stack is left alone.
+ * Header shows master-address place label independently.
+ * Master address change resets location + market filters to ALL.
  */
 export function useTradeMarketplaceLocationHydrate(): {
   scope: TradeLocationScope;
@@ -35,18 +34,9 @@ export function useTradeMarketplaceLocationHydrate(): {
   const unresolved = false;
 
   useEffect(() => {
-    if (onLocationStack) {
-      return;
-    }
-    if (scope.mode === "city" || scope.mode === "all") {
-      writeTradeBrowseCommittedScope(scope);
-      return;
-    }
-    if (scope.mode !== "unset") {
-      return;
-    }
-    if (hydratingRef.current) return;
-    hydratingRef.current = true;
+    if (onLocationStack) return;
+
+    let cancelled = false;
 
     const commit = (next: TradeLocationScope) => {
       writeTradeBrowseCommittedScope(next);
@@ -54,9 +44,31 @@ export function useTradeMarketplaceLocationHydrate(): {
       router.replace(href, { scroll: false });
     };
 
-    commit({ mode: "all" });
-    hydratingRef.current = false;
-    return;
+    void (async () => {
+      const resetHref = await resolveTradeMarketplaceMasterAddressResetHref(
+        pathname || "/market",
+        searchParams.toString()
+      );
+      if (cancelled) return;
+      if (resetHref) {
+        router.replace(resetHref, { scroll: false });
+        return;
+      }
+
+      if (scope.mode === "city" || scope.mode === "all") {
+        writeTradeBrowseCommittedScope(scope);
+        return;
+      }
+      if (scope.mode !== "unset") return;
+      if (hydratingRef.current) return;
+      hydratingRef.current = true;
+      commit({ mode: "all" });
+      hydratingRef.current = false;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [onLocationStack, pathname, router, scope, searchParams]);
 
   return { scope, ready, unresolved };

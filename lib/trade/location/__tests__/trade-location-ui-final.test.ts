@@ -49,13 +49,11 @@ describe("Trade location UI national selector chain", () => {
       expect(constraint.kind).toBe("lgu");
       if (constraint.kind === "lgu") {
         expect(constraint.canonicalId).toBe(s.id);
-        expect(tradeFeedLocationCacheSegment(constraint)).toBe(
-          `loc:lgu:${s.id}:r:${constraint.radiusKm}`
-        );
+        expect(constraint.radiusKm).toBeNull();
+        expect(constraint.matchingCanonicalIds).toEqual([s.id]);
+        expect(tradeFeedLocationCacheSegment(constraint)).toBe(`loc:lgu:${s.id}:r:none`);
       }
-      expect(tradeLocationScopeCacheSegment(scope!)).toBe(
-        `loc:lgu:${s.id}:r:${scope!.radiusKm}`
-      );
+      expect(tradeLocationScopeCacheSegment(scope!)).toBe(`loc:lgu:${s.id}:r:none`);
     }
   });
 
@@ -89,7 +87,8 @@ describe("Trade location UI national selector chain", () => {
     expect(parsed.mode).toBe("city");
     if (parsed.mode === "city") {
       expect(parsed.canonicalId).toBe("1130700000");
-      expect(tradeLocationScopeCacheSegment(parsed)).toBe("loc:lgu:1130700000:r:64");
+      expect(parsed.radiusKm).toBeNull();
+      expect(tradeLocationScopeCacheSegment(parsed)).toBe("loc:lgu:1130700000:r:none");
     }
   });
 
@@ -100,8 +99,8 @@ describe("Trade location UI national selector chain", () => {
     const b = parseTradeLocationScopeFromSearchParams(
       new URLSearchParams("location=city&lgu=1381200000")
     );
-    expect(tradeLocationScopeCacheSegment(a)).toBe("loc:lgu:1381200000:r:64");
-    expect(tradeLocationScopeCacheSegment(b)).toBe("loc:lgu:1381200000:r:64");
+    expect(tradeLocationScopeCacheSegment(a)).toBe("loc:lgu:1381200000:r:none");
+    expect(tradeLocationScopeCacheSegment(b)).toBe("loc:lgu:1381200000:r:none");
   });
 
   it("invalid LGU is not silent ALL", () => {

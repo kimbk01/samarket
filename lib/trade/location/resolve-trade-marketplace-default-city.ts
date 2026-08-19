@@ -9,7 +9,6 @@ import {
   rememberTradeLguDisplayLabel,
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
-import { TRADE_BROWSE_RECOMMENDED_RADIUS_KM } from "@/lib/trade/location/trade-browse-radius";
 
 export async function resolveTradeMarketplaceDefaultCityFromMaster(): Promise<
   Extract<TradeLocationScope, { mode: "city" }> | null
@@ -50,7 +49,7 @@ export async function resolveTradeMarketplaceDefaultCityFromMaster(): Promise<
       "";
     if (!canonicalId) return null;
     if (displayName) rememberTradeLguDisplayLabel(canonicalId, displayName);
-    return buildTradeCityScopeFromCanonical(canonicalId, TRADE_BROWSE_RECOMMENDED_RADIUS_KM);
+    return buildTradeCityScopeFromCanonical(canonicalId, null);
   } catch {
     return null;
   }

@@ -154,10 +154,8 @@ export function countActiveMarketFilters(baseSearch: string): number {
 
   const location = (sp.get("location") ?? "").trim().toLowerCase();
   const radiusRaw = sp.get(TRADE_LOCATION_RADIUS_PARAM);
-  // `radius`가 없거나 추천 기본값(64km)이면 default로 간주해 active count에 넣지 않습니다.
   if (location === "city" && radiusRaw != null && String(radiusRaw).trim() !== "") {
-    const parsed = Number(radiusRaw);
-    if (!Number.isNaN(parsed) && Math.round(parsed) !== TRADE_BROWSE_RECOMMENDED_RADIUS_KM) n++;
+    n++;
   }
 
   const ts = (sp.get("tradeState") ?? "").trim().toLowerCase();
@@ -236,7 +234,9 @@ export function MarketFilterSheet({
   const committedCityCanonical =
     committedScope.mode === "city" ? committedScope.canonicalId : null;
   const initialRadiusKm =
-    committedScope.mode === "city" ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
+    committedScope.mode === "city" && committedScope.radiusKm != null
+      ? committedScope.radiusKm
+      : TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
   const radiusRaw = new URLSearchParams(baseSearch).get(TRADE_LOCATION_RADIUS_PARAM);
   // `distance: 전체`는 "URL에 radius가 없는 경우"로만 취급 (명시된 radius=64는 쿼리 의미 유지)
   const initialDistanceAll = committedScope.mode === "city" ? radiusRaw == null || radiusRaw === "" : true;
@@ -411,7 +411,10 @@ export function MarketFilterSheet({
         topicEditRootId: nextPrimary,
         filters: rootObj ? parseKnownCompositionSelectionFromSearch({ baseSearch, root: rootObj }) : {},
         regionMode: locScope.mode === "all" ? "all" : "commit",
-        radiusKm: locScope.mode === "city" ? locScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+        radiusKm:
+          locScope.mode === "city" && locScope.radiusKm != null
+            ? locScope.radiusKm
+            : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
         distanceAll:
           locScope.mode === "city"
             ? radiusRaw == null || radiusRaw === ""
@@ -497,8 +500,7 @@ export function MarketFilterSheet({
     if (state.regionMode !== "all") {
       if (!state.distanceAll) {
         const km = Math.round(state.radiusKm);
-        // 추천 기본값(64km)은 "적용된 필터"로 보지 않음(칩만 숨김)
-        if (km !== TRADE_BROWSE_RECOMMENDED_RADIUS_KM) chips.push({ id: "distance", label: `${km}km` });
+        chips.push({ id: "distance", label: `${km}km` });
       }
     }
 
@@ -610,7 +612,10 @@ export function MarketFilterSheet({
       topicEditRootId: null,
       filters: {},
       regionMode: cityMode ? "commit" : "all",
-      radiusKm: cityMode ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+      radiusKm:
+        cityMode && committedScope.mode === "city" && committedScope.radiusKm != null
+          ? committedScope.radiusKm
+          : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
       distanceAll: true,
     }));
     // on purpose: q is derived from URL baseSearch and never cleared by this sheet
@@ -699,12 +704,11 @@ export function MarketFilterSheet({
             ? committedScope.canonicalId
             : null;
       if (canonical) {
-        const radiusToApply = state.distanceAll ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM : sanitizeTradeBrowseRadiusKm(state.radiusKm);
+        const radiusToApply = state.distanceAll
+          ? null
+          : sanitizeTradeBrowseRadiusKm(state.radiusKm);
         const scope = buildTradeCityScopeFromCanonical(canonical, radiusToApply);
-        // apply* deletes seed param etc internally; we only need the produced URL params.
         const applied = applyTradeLocationScopeToSearchParams(sp, scope as TradeLocationScope);
-        if (state.distanceAll) applied.delete(TRADE_LOCATION_RADIUS_PARAM);
-        // replace whole values
         return applyCategoryHrefIfNeeded({ sp: applied, rootCategory });
       }
     }

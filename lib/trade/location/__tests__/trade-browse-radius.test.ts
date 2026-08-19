@@ -75,7 +75,7 @@ describe("trade browse radius Phase 3", () => {
     );
     expect(missing.mode).toBe("city");
     if (missing.mode === "city") {
-      expect(missing.radiusKm).toBe(TRADE_BROWSE_RECOMMENDED_RADIUS_KM);
+      expect(missing.radiusKm).toBeNull();
     }
 
     const allParams = applyTradeLocationScopeToSearchParams(
@@ -86,6 +86,15 @@ describe("trade browse radius Phase 3", () => {
     expect(allParams.get("lgu")).toBeNull();
     expect(allParams.get("radius")).toBeNull();
     expect(allParams.get("foo")).toBe("1");
+  });
+
+  it("feed constraint without radius keeps single city", () => {
+    const c = resolveTradeFeedLocationConstraint("pasig", null);
+    expect(c.kind).toBe("lgu");
+    if (c.kind !== "lgu") return;
+    expect(c.radiusKm).toBeNull();
+    expect(c.matchingCanonicalIds).toEqual([PASIG]);
+    expect(tradeFeedLocationCacheSegment(c)).toBe(`loc:lgu:${PASIG}:r:none`);
   });
 
   it("feed constraint expands matching ids and cache includes radius", () => {

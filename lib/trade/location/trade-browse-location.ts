@@ -50,7 +50,7 @@ export function tradeBrowseLocationFromScope(
       kind: "city",
       canonicalId: scope.canonicalId,
       displayName: name,
-      radiusKm: scope.radiusKm,
+      ...(scope.radiusKm != null ? { radiusKm: scope.radiusKm } : {}),
     };
   }
   return { kind: "all" };

@@ -9,7 +9,6 @@ import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { resolveTradeLguUrlTokenToCanonical } from "@/lib/trade/location/national/legacy-product-alias-canonical";
 import {
   sanitizeTradeBrowseRadiusKm,
-  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   tradeBrowseRadiusCacheSegment,
 } from "@/lib/trade/location/trade-browse-radius";
 import { marketplaceQueryCacheSegment } from "@/lib/trade/marketplace/query-contract";
@@ -96,7 +95,7 @@ export function buildTradeFeedClientCacheKey(
       if (!cid) return `loc:invalid:${raw}`;
       const r =
         options.radiusKm == null
-          ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+          ? null
           : sanitizeTradeBrowseRadiusKm(options.radiusKm);
       return `loc:lgu:${cid}:${tradeBrowseRadiusCacheSegment(r)}`;
     }

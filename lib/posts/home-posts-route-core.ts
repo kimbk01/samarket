@@ -29,6 +29,7 @@ import {
   tradePromotionPageIndexFromRequestPage,
 } from "@/lib/promotion/feed-promotion-projection";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
+import { tradeBrowseRadiusCacheSegment } from "@/lib/trade/location/trade-browse-radius";
 import {
   marketplaceQueryCacheSegment,
   parseMarketplacePriceBound,
@@ -386,7 +387,7 @@ export async function resolveHomePostsGetData(
   const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
   const locSegment =
     locationScope.mode === "city"
-      ? `loc:lgu:${locationScope.canonicalId}:r:${locationScope.radiusKm}`
+      ? `loc:lgu:${locationScope.canonicalId}:${tradeBrowseRadiusCacheSegment(locationScope.radiusKm)}`
       : locationScope.mode === "invalid"
         ? `loc:invalid:${locationScope.raw || "_"}`
         : locationScope.mode === "unset"

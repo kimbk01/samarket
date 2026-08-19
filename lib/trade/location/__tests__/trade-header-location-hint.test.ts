@@ -28,6 +28,19 @@ describe("buildTradeHeaderLocationHintParts", () => {
     ).toEqual({ place: null, suffix: "전체" });
   });
 
+  it("CITY without explicit radius shows 전체 suffix", () => {
+    expect(
+      buildTradeHeaderLocationHintParts({
+        mode: "city",
+        cityLabel: "Makati City",
+        radiusKm: null,
+        userPlaceLabel: "Quezon City",
+        allLabel: "전체",
+        fallbackPlaceLabel: "지역",
+      })
+    ).toEqual({ place: "Makati City", suffix: "전체" });
+  });
+
   it("CITY keeps Nkm suffix for untruncated render", () => {
     expect(
       buildTradeHeaderLocationHintParts({
