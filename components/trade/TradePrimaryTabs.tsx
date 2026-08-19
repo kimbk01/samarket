@@ -25,6 +25,8 @@ import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-marke
 import { buildMarketFilterResetHref, countActiveMarketFilters } from "@/components/trade/MarketFilterSheet";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
+import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -70,6 +72,8 @@ function TradePrimaryTabsInner({
   const { beginMenuNavigation, pendingMenuIntent, isPendingMenuBlockingContent } =
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const { open: openTradeWriteSheet } = useTradeWriteSheet();
+  const writeCtx = useWriteCategory();
   const [filterOpen, setFilterOpen] = useState(false);
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
   const {
@@ -109,6 +113,11 @@ function TradePrimaryTabsInner({
       skipPrewarm: true,
       fromPathname: pathname,
     });
+  };
+  const openWrite = () => {
+    writeCtx?.ensureLauncherCategoriesLoaded();
+    if (!guardBeforeNavigate()) return;
+    openTradeWriteSheet("");
   };
 
   if (error) {
@@ -162,6 +171,14 @@ function TradePrimaryTabsInner({
             <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{allTab.label}</span>
           </Link>
         ) : null}
+        <button
+          type="button"
+          data-marketplace-sell-cta="true"
+          className={tradePrimaryTabClass(false)}
+          onClick={openWrite}
+        >
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("trade_write_sell_cta")}</span>
+        </button>
         {/* Filter only (category/location are handled inside MarketFilterSheet) */}
         {(() => {
           const filterCount = countActiveMarketFilters(searchParams.toString());
@@ -173,14 +190,17 @@ function TradePrimaryTabsInner({
             <button
               type="button"
               data-marketplace-filter="true"
-              className={`${tradePrimaryTabClass(filterActive)} ml-auto shrink-0`}
+              className="relative ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
               aria-haspopup="dialog"
+              aria-label={filterLabel}
               onClick={() => setFilterOpen(true)}
             >
-              <span className="flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{filterLabel}</span>
-              </span>
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              {filterActive ? (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
+                  {filterCount}
+                </span>
+              ) : null}
             </button>
           );
         })()}

@@ -18,33 +18,36 @@ describe("Marketplace UI-1 HOME chrome", () => {
   });
 
   it("HOME header uses Marketplace identity, not bottom-nav 거래 title", () => {
-    expect(tradeMessages.ko.marketplace_home_title).toBe("Marketplace");
-    expect(tradeMessages.en.marketplace_home_title).toBe("Marketplace");
+    expect(tradeMessages.ko.marketplace_home_title).toBe("DIBAY MARKET");
+    expect(tradeMessages.en.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain('t("marketplace_home_title")');
     expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 
-  it("HOME search stays on /market and sell hub uses existing WRITE", () => {
+  it("HOME search stays on /market and sell CTA moved to tab row", () => {
     const chrome = read("components/trade/MarketplaceHomeEntryChrome.tsx");
     expect(chrome).not.toContain('href="/search"');
-    expect(chrome).toContain("openTradeWriteSheet");
-    expect(chrome).toContain("marketplace_sell_hub_create");
-    expect(chrome).toContain("marketplace_search_placeholder");
-    expect(chrome).toContain("sanitizeMarketplaceQueryText");
+    expect(chrome).toContain("TradeHeaderLocationPinButton");
+    const tabs = read("components/trade/TradePrimaryTabs.tsx");
+    expect(tabs).toContain("openTradeWriteSheet");
+    expect(tabs).toContain("data-marketplace-sell-cta");
+    const header = read("components/layout/RegionBarMainHubTier1.tsx");
+    expect(header).toContain("marketplace_search_placeholder");
+    expect(header).toContain("sanitizeMarketplaceQueryText");
     const sticky = read("components/layout/AppStickyHeader.tsx");
     expect(sticky).toContain("MarketplaceHomeEntryChrome");
     const home = read("components/home/HomeProductList.tsx");
     expect(home).toContain("q,");
   });
 
-  it("topic row is 전체 + 더보기 categories + 지역, no 최신순", () => {
+  it("topic row is 전체 + 필터, no 최신순", () => {
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("allSortChip");
     expect(tabs).not.toContain("leading=");
-    expect(tabs).toContain("marketplace_more_categories");
-    expect(tabs).toContain("marketplace_region_chip");
-    expect(tabs).toContain("TRADE_BROWSE_LOCATION_PATH");
+    expect(tabs).toContain("marketplace_filter_button");
+    expect(tabs).toContain("data-marketplace-filter");
+    expect(tabs).toContain("MarketFilterSheet");
     expect(tabs).toContain("sanitizeMarketplaceQueryText");
   });
 

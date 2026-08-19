@@ -116,8 +116,9 @@ describe("Marketplace UI-2 more browse", () => {
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).toContain("MarketplaceMoreBrowseSheet");
     expect(tabs).toContain("commitTab(href, tabKey)");
-    expect(tabs).toContain("marketplace_more_categories");
-    expect(tabs).toContain("marketplace_region_chip");
+    expect(tabs).toContain("marketplace_filter_button");
+    expect(tabs).toContain("data-marketplace-filter");
+    expect(tabs).toContain("MarketFilterSheet");
     expect(tabs).not.toContain("DibayActionSheet");
   });
 });
