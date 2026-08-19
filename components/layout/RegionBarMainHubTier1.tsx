@@ -16,6 +16,7 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { SectionHeader } from "@/components/layout/sector-header";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import {
   resolveMainTabKeepAliveHub,
   type MainTabKeepAliveHubId,
@@ -160,6 +161,7 @@ function TradeHeaderRightActions() {
   return (
     <>
       <div className={`${samTier1HeaderIconCluster} gap-2`}>
+        <TradeHeaderLocationPinButton placement="icon-cluster" />
         <button
           ref={anchorRef}
           type="button"

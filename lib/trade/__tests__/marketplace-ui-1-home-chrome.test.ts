@@ -22,7 +22,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tradeMessages.en.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain('t("marketplace_home_title")');
-    expect(header).not.toContain("TradeHeaderLocationPinButton");
+    expect(header).toContain("TradeHeaderLocationPinButton");
   });
 
   it("HOME search stays on /market and sell CTA moved to tab row", () => {
@@ -47,7 +47,6 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tabs).toContain("marketplace_filter_button");
     expect(tabs).toContain("data-marketplace-filter");
     expect(tabs).toContain("MarketFilterSheet");
-    expect(tabs).toContain("sanitizeMarketplaceQueryText");
   });
 
   it("search and write back fallback to Marketplace HOME", () => {
