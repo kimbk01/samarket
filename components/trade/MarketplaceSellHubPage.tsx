@@ -1,50 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronRight, Plus, X } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
-import { MYPAGE_HOME_TRADE_SALES_HREF } from "@/lib/mypage/mypage-home-hub-links";
-import { SellerHubNav } from "@/components/mypage/seller/SellerHubNav";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+import type { Product } from "@/lib/types/product";
+import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-client";
+import {
+  countActiveListingProducts,
+  countOpenSellerChatRows,
+} from "@/lib/mypage/seller-listings-with-trades";
+import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-const PROMOTIONS_HREF = "/mypage/points/promotions";
-
-function HubManagementRow({
-  title,
-  description,
-  href,
-  onNavigate,
-}: {
-  title: string;
-  description: string;
-  href: string;
-  onNavigate: (href: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onNavigate(href)}
-      className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3.5 text-left active:bg-sam-surface-muted"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="sam-text-body font-semibold text-sam-fg">{title}</p>
-        <p className="mt-0.5 sam-text-helper text-sam-muted">{description}</p>
-      </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-sam-muted" aria-hidden />
-    </button>
-  );
-}
+const PRODUCTS_HREF = "/mypage/products";
+const MESSAGES_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
 export function MarketplaceSellHubPage() {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const { open: openTradeWriteSheet } = useTradeWriteSheet();
   const writeCtx = useWriteCategory();
+  const [activeListingCount, setActiveListingCount] = useState<number | null>(null);
+  const [openChatCount, setOpenChatCount] = useState<number | null>(null);
+
+  const loadOverview = useCallback(async () => {
+    const uid = getCurrentUser()?.id?.trim();
+    if (!uid) {
+      setActiveListingCount(0);
+      setOpenChatCount(0);
+      return;
+    }
+    try {
+      const [postsRes, salesRows] = await Promise.all([
+        runSingleFlight(`me:my-posts:${uid}`, () => fetch("/api/my/posts")),
+        fetchTradeHistorySalesBySession().catch(() => [] as SalesHistoryRow[]),
+      ]);
+      let posts: Product[] = [];
+      if (postsRes.ok) {
+        const data = (await postsRes.json()) as { posts?: Product[] };
+        posts = data.posts ?? [];
+      }
+      setActiveListingCount(countActiveListingProducts(posts));
+      setOpenChatCount(countOpenSellerChatRows(salesRows));
+    } catch {
+      setActiveListingCount(null);
+      setOpenChatCount(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOverview();
+  }, [loadOverview]);
 
   const go = (href: string) => {
     if (!guardBeforeNavigate(href)) return;
@@ -57,21 +73,24 @@ export function MarketplaceSellHubPage() {
     openTradeWriteSheet("");
   };
 
-  const hubSubtitle = safeT("marketplace_sell_hub_subtitle", {
-    fallbackKo: "DIBAY MARKET",
-    fallbackEn: "DIBAY MARKET",
-  });
   const hubTitle = safeT("marketplace_sell_hub_title", {
-    fallbackKo: "판매자 센터",
-    fallbackEn: "Seller center",
+    fallbackKo: "판매",
+    fallbackEn: "Sell",
+  });
+  const listingsPill = safeT("marketplace_seller_hub_pill_listings", {
+    fallbackKo: "내 매물",
+    fallbackEn: "My listings",
+  });
+  const messagesPill = safeT("marketplace_seller_hub_pill_messages", {
+    fallbackKo: "받은 메시지",
+    fallbackEn: "Inbox",
   });
 
   return (
     <main className="mx-auto w-full max-w-lg px-4 pb-24 pt-4 md:max-w-2xl lg:max-w-3xl">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="sam-text-helper font-medium uppercase tracking-wide text-sam-muted">{hubSubtitle}</p>
-          <h1 className="mt-0.5 sam-text-title-3 text-sam-fg">{hubTitle}</h1>
+          <h1 className="sam-text-title-3 text-sam-fg">{hubTitle}</h1>
         </div>
         <button
           type="button"
@@ -86,9 +105,36 @@ export function MarketplaceSellHubPage() {
         </button>
       </div>
 
-      <div className="mt-4">
-        <SellerHubNav active="hub" />
-      </div>
+      <nav
+        aria-label={safeT("marketplace_seller_hub_pill_nav", {
+          fallbackKo: "판매 메뉴",
+          fallbackEn: "Selling menu",
+        })}
+        className="mt-4 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <Link
+          href={PRODUCTS_HREF}
+          onClick={(e) => {
+            if (!guardBeforeNavigate(PRODUCTS_HREF)) e.preventDefault();
+          }}
+          className={`shrink-0 rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
+            pathname.startsWith(PRODUCTS_HREF)
+              ? "bg-signature text-white"
+              : "border border-sam-border bg-sam-surface text-sam-fg-muted"
+          }`}
+        >
+          {listingsPill}
+        </Link>
+        <Link
+          href={MESSAGES_HREF}
+          onClick={(e) => {
+            if (!guardBeforeNavigate(MESSAGES_HREF)) e.preventDefault();
+          }}
+          className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary font-medium text-sam-fg-muted"
+        >
+          {messagesPill}
+        </Link>
+      </nav>
 
       <button
         type="button"
@@ -104,71 +150,65 @@ export function MarketplaceSellHubPage() {
         </span>
       </button>
 
-      <section className="mt-8" aria-labelledby="seller-hub-manage-heading">
-        <h2 id="seller-hub-manage-heading" className="sam-text-body-secondary font-semibold text-sam-fg">
-          {safeT("marketplace_sell_hub_section_manage", {
-            fallbackKo: "판매 관리",
-            fallbackEn: "Selling",
+      <section className="mt-8" aria-labelledby="seller-hub-overview-heading">
+        <h2 id="seller-hub-overview-heading" className="sam-text-body-secondary font-semibold text-sam-fg">
+          {safeT("marketplace_seller_hub_overview", {
+            fallbackKo: "개요",
+            fallbackEn: "Overview",
           })}
         </h2>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          <HubManagementRow
-            title={safeT("marketplace_sell_hub_listings_row_title", {
-              fallbackKo: "등록한 매물",
-              fallbackEn: "Your listings",
-            })}
-            description={safeT("marketplace_sell_hub_listings_row_desc", {
-              fallbackKo: "수정 · 숨김 · 홍보",
-              fallbackEn: "Edit · hide · promote",
-            })}
-            href="/mypage/products"
-            onNavigate={go}
-          />
-          <HubManagementRow
-            title={safeT("marketplace_sell_hub_trades_row_title", {
-              fallbackKo: "거래 관리",
-              fallbackEn: "Trade management",
-            })}
-            description={safeT("marketplace_sell_hub_trades_row_desc", {
-              fallbackKo: "구매자별 거래 · 채팅",
-              fallbackEn: "Per-buyer deals · chat",
-            })}
-            href={MYPAGE_HOME_TRADE_SALES_HREF}
-            onNavigate={go}
-          />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => go(`${PRODUCTS_HREF}?filter=active`)}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left active:bg-sam-surface-muted"
+          >
+            <p className="sam-text-helper text-sam-muted">
+              {safeT("marketplace_seller_hub_overview_active", {
+                fallbackKo: "판매중",
+                fallbackEn: "For sale",
+              })}
+            </p>
+            <p className="mt-1 sam-text-body font-semibold text-sam-fg">
+              {activeListingCount === null ? "—" : `${activeListingCount}`}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => go(MESSAGES_HREF)}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left active:bg-sam-surface-muted"
+          >
+            <p className="sam-text-helper text-sam-muted">
+              {safeT("marketplace_seller_hub_overview_chats", {
+                fallbackKo: "답장할 채팅",
+                fallbackEn: "Chats to reply",
+              })}
+            </p>
+            <p className="mt-1 sam-text-body font-semibold text-sam-fg">
+              {openChatCount === null ? "—" : `${openChatCount}`}
+            </p>
+          </button>
         </div>
       </section>
 
-      <section className="mt-8" aria-labelledby="seller-hub-promo-heading">
-        <h2 id="seller-hub-promo-heading" className="sam-text-body-secondary font-semibold text-sam-fg">
-          {safeT("marketplace_sell_hub_section_promotion", {
-            fallbackKo: "홍보",
-            fallbackEn: "Promotion",
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => go(PRODUCTS_HREF)}
+          className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} py-3`}
+        >
+          {safeT("marketplace_seller_cta_manage_listings", {
+            fallbackKo: "내 매물 관리",
+            fallbackEn: "Manage my listings",
           })}
-        </h2>
-        <div className="mt-3">
-          <HubManagementRow
-            title={safeT("marketplace_sell_hub_promotion_row_title", {
-              fallbackKo: "홍보 관리",
-              fallbackEn: "Promotion",
-            })}
-            description={safeT("marketplace_sell_hub_promotion_row_desc", {
-              fallbackKo: "더 알리기 · 홍보 현황",
-              fallbackEn: "Boost visibility · status",
-            })}
-            href={PROMOTIONS_HREF}
-            onNavigate={go}
-          />
-        </div>
-      </section>
+        </button>
+      </div>
 
       <div className="mt-10 border-t border-sam-border pt-4 text-center">
         <Link
           href="/mypage"
           onClick={(e) => {
-            if (!guardBeforeNavigate("/mypage")) {
-              e.preventDefault();
-            }
+            if (!guardBeforeNavigate("/mypage")) e.preventDefault();
           }}
           className="sam-text-body-secondary font-medium text-sam-muted underline-offset-2 hover:text-sam-fg hover:underline"
         >

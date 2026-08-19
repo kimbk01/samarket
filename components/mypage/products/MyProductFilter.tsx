@@ -20,14 +20,14 @@ const FILTER_LABEL_KEY: Record<MyProductFilterKey, MessageKey> = {
 
 const FILTER_FALLBACK_KO: Record<MyProductFilterKey, string> = {
   all: "전체",
-  active: "게시 중",
-  sold: "판매 완료",
+  active: "판매중",
+  sold: "판매완료",
   hidden: "숨김",
 };
 
 const FILTER_FALLBACK_EN: Record<MyProductFilterKey, string> = {
   all: "All",
-  active: "Live",
+  active: "For sale",
   sold: "Sold",
   hidden: "Hidden",
 };
@@ -67,10 +67,7 @@ export function MyProductFilter({
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-2">
-        <span className="sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">
-          {safeT("marketplace_sell_hub_section_promotion", { fallbackKo: "홍보", fallbackEn: "Promotion" })}
-        </span>
+      <div className="flex items-center">
         <button
           type="button"
           aria-pressed={promotedOnly}

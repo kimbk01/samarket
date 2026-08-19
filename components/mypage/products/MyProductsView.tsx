@@ -1,7 +1,9 @@
 "use client";
 
 import { dibayAlert } from "@/components/ui/dibay-overlay";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { parseMyProductListingFilterKey } from "@/lib/products/my-product-listing-filter";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
@@ -23,7 +25,8 @@ import {
   SellerHubEmptyState,
 } from "@/components/mypage/seller/SellerHubEmptyState";
 import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-client";
-import { buildActiveTradeCountByPostId } from "@/lib/mypage/seller-active-trade-counts-by-post";
+import { groupSalesRowsByPostId } from "@/lib/mypage/seller-listings-with-trades";
+import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { MyProductFilter } from "./MyProductFilter";
 import { MyProductCard } from "./MyProductCard";
 
@@ -33,14 +36,17 @@ export function MyProductsView() {
   const writeCtx = useWriteCategory();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
-  const [filter, setFilter] = useState<MyProductFilterKey>("all");
+  const searchParams = useSearchParams();
+  const [filter, setFilter] = useState<MyProductFilterKey>(() =>
+    parseMyProductListingFilterKey(searchParams.get("filter"))
+  );
   const [promotedOnly, setPromotedOnly] = useState(false);
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
-  const [activeTradeCountByPostId, setActiveTradeCountByPostId] = useState<Map<string, number>>(
-    () => new Map()
-  );
+  const [salesRows, setSalesRows] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const tradesByPostId = useMemo(() => groupSalesRowsByPostId(salesRows), [salesRows]);
 
   const products = filterMyProductsByListingAxis(
     rawProducts,
@@ -48,6 +54,13 @@ export function MyProductsView() {
     promotedOnly,
     promotedTargetIds
   );
+
+  useEffect(() => {
+    const raw = searchParams.get("filter");
+    if (!raw) return;
+    const next = parseMyProductListingFilterKey(raw);
+    setFilter((prev) => (prev === next ? prev : next));
+  }, [searchParams]);
 
   useEffect(() => {
     const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
@@ -75,12 +88,12 @@ export function MyProductsView() {
 
   const loadListing = useCallback(
     async (uid: string) => {
-      const [list, ids, salesRows] = await Promise.all([
+      const [list, ids, salesList] = await Promise.all([
         fetchMyPosts(uid),
         fetchPromotedTargetIds(uid),
         fetchTradeHistorySalesBySession().catch(() => []),
       ]);
-      return { list, ids, tradeCounts: buildActiveTradeCountByPostId(salesRows) };
+      return { list, ids, salesRows: salesList as SalesHistoryRow[] };
     },
     [fetchMyPosts, fetchPromotedTargetIds]
   );
@@ -89,25 +102,25 @@ export function MyProductsView() {
     if (!currentUserId) {
       setRawProducts([]);
       setPromotedTargetIds(new Set());
-      setActiveTradeCountByPostId(new Map());
+      setSalesRows([]);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     loadListing(currentUserId)
-      .then(({ list, ids, tradeCounts }) => {
+      .then(({ list, ids, salesRows: nextSalesRows }) => {
         if (!cancelled) {
           setRawProducts(list);
           setPromotedTargetIds(ids);
-          setActiveTradeCountByPostId(tradeCounts);
+          setSalesRows(nextSalesRows);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setRawProducts([]);
           setPromotedTargetIds(new Set());
-          setActiveTradeCountByPostId(new Map());
+          setSalesRows([]);
         }
       })
       .finally(() => {
@@ -122,10 +135,10 @@ export function MyProductsView() {
     if (!currentUserId) return;
     const run = () => {
       loadListing(currentUserId)
-        .then(({ list, ids, tradeCounts }) => {
+        .then(({ list, ids, salesRows: nextSalesRows }) => {
           setRawProducts(list);
           setPromotedTargetIds(ids);
-          setActiveTradeCountByPostId(tradeCounts);
+          setSalesRows(nextSalesRows);
         })
         .catch(() => {});
     };
@@ -143,10 +156,10 @@ export function MyProductsView() {
   const refetchPostsSilent = useCallback(() => {
     if (!currentUserId) return;
     void loadListing(currentUserId)
-      .then(({ list, ids, tradeCounts }) => {
+      .then(({ list, ids, salesRows: nextSalesRows }) => {
         setRawProducts(list);
         setPromotedTargetIds(ids);
-        setActiveTradeCountByPostId(tradeCounts);
+        setSalesRows(nextSalesRows);
       })
       .catch(() => {});
   }, [currentUserId, loadListing]);
@@ -157,13 +170,13 @@ export function MyProductsView() {
     if (!currentUserId) {
       setRawProducts([]);
       setPromotedTargetIds(new Set());
-      setActiveTradeCountByPostId(new Map());
+      setSalesRows([]);
       return;
     }
-    void loadListing(currentUserId).then(({ list, ids, tradeCounts }) => {
+    void loadListing(currentUserId).then(({ list, ids, salesRows: nextSalesRows }) => {
       setRawProducts(list);
       setPromotedTargetIds(ids);
-      setActiveTradeCountByPostId(tradeCounts);
+      setSalesRows(nextSalesRows);
     });
   }, [currentUserId, loadListing]);
 
@@ -336,9 +349,9 @@ export function MyProductsView() {
         message={t("mypage_comp_product_empty_filter")}
         actions={
           <SellerHubEmptyActionLink href="/market/sell" variant="secondary">
-            {safeT("marketplace_seller_nav_hub", {
-              fallbackKo: "판매자 센터",
-              fallbackEn: "Seller center",
+            {safeT("marketplace_sell_hub_title", {
+              fallbackKo: "판매",
+              fallbackEn: "Sell",
             })}
           </SellerHubEmptyActionLink>
         }
@@ -367,7 +380,7 @@ export function MyProductsView() {
               <MyProductCard
                 product={product}
                 isPromoted={promotedTargetIds.has(product.id)}
-                activeTradeCount={activeTradeCountByPostId.get(product.id) ?? 0}
+                tradeRows={tradesByPostId.get(product.id) ?? []}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
               />

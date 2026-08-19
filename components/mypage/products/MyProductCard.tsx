@@ -15,14 +15,15 @@ import {
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
 import { MyProductActions } from "./MyProductActions";
-import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
+import { SellerTradeRow } from "@/components/mypage/seller/SellerTradeRow";
+import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface MyProductCardProps {
   product: Product;
   isPromoted?: boolean;
-  activeTradeCount?: number;
+  tradeRows?: SalesHistoryRow[];
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
   onDelete: (productId: string) => void;
 }
@@ -30,7 +31,7 @@ interface MyProductCardProps {
 export function MyProductCard({
   product,
   isPromoted = false,
-  activeTradeCount = 0,
+  tradeRows = [],
   onStatusChange,
   onDelete,
 }: MyProductCardProps) {
@@ -44,12 +45,12 @@ export function MyProductCard({
     ? t("mypage_comp_product_status_hidden")
     : isSold
       ? safeT("marketplace_seller_listing_status_sold", {
-          fallbackKo: "판매 완료",
+          fallbackKo: "판매완료",
           fallbackEn: "Sold",
         })
       : safeT("marketplace_seller_listing_status_live", {
-          fallbackKo: "게시 중",
-          fallbackEn: "Live",
+          fallbackKo: "판매중",
+          fallbackEn: "For sale",
         });
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
 
@@ -109,7 +110,9 @@ export function MyProductCard({
           onDelete={onDelete}
         />
       </div>
-      <PostSellerTradeStrip chatCount={activeTradeCount} variant="compact" />
+      {tradeRows.map((row) => (
+        <SellerTradeRow key={row.chatId || `${row.postId}-${row.buyerId}`} row={row} />
+      ))}
     </div>
   );
 }

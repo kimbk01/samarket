@@ -25,25 +25,20 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
     expect(view).not.toContain("handleSellerListingStateChange");
   });
 
-  it("PostSellerTradeStrip is presentational summary — no per-card post-buyer-chats fetch", () => {
-    const strip = src("components/trade/PostSellerTradeStrip.tsx");
-    expect(strip).toContain("MYPAGE_HOME_TRADE_SALES_HREF");
-    expect(strip).toContain("marketplace_seller_trade_summary");
-    expect(strip).toContain("chatCount");
-    expect(strip).not.toContain("fetchPostBuyerChats");
-    expect(strip).not.toContain("post-buyer-chats");
-    expect(strip).not.toContain("postSellerCompleteRequest");
-    expect(strip).not.toContain("sellerComplete");
-    expect(strip).not.toContain(">거래완료<");
-    expect(strip).not.toContain("tradeHubChatRoomHref");
+  it("MyProductCard embeds buyer trade rows — no PostSellerTradeStrip", () => {
+    const card = src("components/mypage/products/MyProductCard.tsx");
+    expect(card).toContain("SellerTradeRow");
+    expect(card).not.toContain("PostSellerTradeStrip");
+    expect(card).not.toContain("activeTradeCount");
   });
 
-  it("MyProductsView loads sales once for trade summary counts — not per-card chats API", () => {
+  it("MyProductsView loads sales once and groups by post — not per-card chats API", () => {
     const view = src("components/mypage/products/MyProductsView.tsx");
     expect(view).toContain("fetchTradeHistorySalesBySession");
-    expect(view).toContain("buildActiveTradeCountByPostId");
-    expect(view).toContain("activeTradeCountByPostId");
-    expect(view).not.toContain("PostSellerTradeStrip postId");
+    expect(view).toContain("groupSalesRowsByPostId");
+    expect(view).toContain("tradesByPostId");
+    expect(view).not.toContain("post-buyer-chats");
+    expect(view).not.toContain("PostSellerTradeStrip");
   });
 
   it("SalesHistoryCard is sales history only — no listing/transaction mutations", () => {
@@ -53,10 +48,14 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
     expect(card).not.toContain("seller-complete");
     expect(card).not.toContain("seller-listing-state");
     expect(card).not.toContain("mypage_comp_sales_to_inquiry");
-    expect(card).not.toContain("mypage_comp_sales_promote_cta");
-    expect(card).not.toContain("mypage_comp_sales_banner_cta");
     expect(card).not.toContain("mypage_comp_product_cancel_sale");
     expect(card).not.toContain("owner-status");
+  });
+
+  it("trade sales route redirects to unified listings", () => {
+    const page = src("app/(main)/mypage/trade/sales/page.tsx");
+    expect(page).toContain('redirect("/mypage/products")');
+    expect(page).not.toContain("SellerHubNav");
   });
 
   it("TradeFlowBanner keeps in-room transaction actions", () => {

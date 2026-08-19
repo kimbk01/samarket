@@ -43,5 +43,6 @@ describe("marketplace UI-6 MY selling listings contract", () => {
     expect(view).not.toContain("mypage_comp_product_primary_hub_hint");
     expect(view).not.toContain("mypage_comp_product_go_sales_hub");
     expect(view).toContain("isPromoted={promotedTargetIds.has(product.id)}");
+    expect(view).toContain("tradeRows={tradesByPostId.get(product.id)");
   });
 });

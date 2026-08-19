@@ -101,7 +101,7 @@ function MyPointsPromotionsPageInner() {
       <MySubpageHeader
         title={t("mypage_points_promotions_title")}
         subtitle={t("mypage_points_promotions_subtitle")}
-        backHref="/mypage/points"
+        backHref="/mypage/products"
         section="account"
         hideCtaStrip
       />
