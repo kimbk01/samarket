@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { isTradeBrowseLocationPath } from "@/lib/trade/location/trade-browse-location-paths";
 import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
 import {
@@ -24,6 +25,7 @@ export function useTradeMarketplaceLocationHydrate(): {
 } {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
   const router = useRouter();
   const scope = useMemo(
     () => parseTradeLocationScopeFromSearchParams(searchParams),
@@ -34,45 +36,48 @@ export function useTradeMarketplaceLocationHydrate(): {
   const ready = onLocationStack || scope.mode === "city" || scope.mode === "all" || scope.mode === "invalid";
   const unresolved = false;
 
-  useEffect(() => {
+  const runHydrate = useCallback(async () => {
     if (onLocationStack) return;
 
-    let cancelled = false;
+    const resetHref = await resolveTradeMarketplaceMasterAddressResetHref(
+      pathname || "/market",
+      searchKey
+    );
+    if (resetHref) {
+      router.replace(resetHref, { scroll: false });
+      return;
+    }
 
-    const commit = (next: TradeLocationScope) => {
-      writeTradeBrowseCommittedScope(next);
-      const href = buildTradeLocationHref(pathname || "/market", searchParams.toString(), next);
-      router.replace(href, { scroll: false });
-    };
-
-    void (async () => {
-      const resetHref = await resolveTradeMarketplaceMasterAddressResetHref(
-        pathname || "/market",
-        searchParams.toString()
-      );
-      if (cancelled) return;
-      if (resetHref) {
-        router.replace(resetHref, { scroll: false });
-        return;
-      }
-
-      if (scope.mode === "city" || scope.mode === "all") {
-        writeTradeBrowseCommittedScope(scope);
-        return;
-      }
-      if (scope.mode !== "unset") return;
-      if (hydratingRef.current) return;
-      hydratingRef.current = true;
+    if (scope.mode === "city" || scope.mode === "all") {
+      writeTradeBrowseCommittedScope(scope);
+      return;
+    }
+    if (scope.mode !== "unset") return;
+    if (hydratingRef.current) return;
+    hydratingRef.current = true;
+    try {
       const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
-      if (cancelled) return;
-      commit(masterCity ?? { mode: "all" });
+      const next: TradeLocationScope = masterCity ?? { mode: "all" };
+      writeTradeBrowseCommittedScope(next);
+      const href = buildTradeLocationHref(pathname || "/market", searchKey, next);
+      router.replace(href, { scroll: false });
+    } finally {
       hydratingRef.current = false;
-    })();
+    }
+  }, [onLocationStack, pathname, router, scope, searchKey]);
 
-    return () => {
-      cancelled = true;
+  useEffect(() => {
+    void runHydrate();
+  }, [runHydrate]);
+
+  useEffect(() => {
+    if (onLocationStack) return;
+    const onAddressesUpdated = () => {
+      void runHydrate();
     };
-  }, [onLocationStack, pathname, router, scope, searchParams]);
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [onLocationStack, runHydrate]);
 
   return { scope, ready, unresolved };
 }

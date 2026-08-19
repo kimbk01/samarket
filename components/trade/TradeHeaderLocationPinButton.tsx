@@ -26,6 +26,7 @@ import {
   tradeBrowseRadiusSelectionFromKm,
 } from "@/lib/trade/location/trade-browse-radius";
 import { seedTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import {
   TRADE_BROWSE_LOCATION_PATH,
   isTradeBrowseLocationPath,
@@ -188,6 +189,14 @@ export function TradeHeaderLocationPinButton({
 
   useEffect(() => {
     void loadMyRegion();
+  }, [loadMyRegion]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      void loadMyRegion();
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [loadMyRegion]);
 
   const openLocationPage = useCallback(() => {

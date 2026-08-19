@@ -20,9 +20,14 @@ describe("isTradeMarketPullRefreshSurface", () => {
 });
 
 describe("normalizeTradeMarketPullRefreshQuery", () => {
-  it("keeps topic and sort only", () => {
+  it("keeps committed browse params except page and cursor", () => {
+    expect(
+      normalizeTradeMarketPullRefreshQuery(
+        "topic=phones&fs=popular&location=city&lgu=quezon&page=2&cursor=x"
+      )
+    ).toBe("fs=popular&lgu=quezon&location=city&topic=phones");
     expect(normalizeTradeMarketPullRefreshQuery("topic=phones&fs=popular&noise=1")).toBe(
-      "fs=popular&topic=phones"
+      "fs=popular&noise=1&topic=phones"
     );
   });
 });

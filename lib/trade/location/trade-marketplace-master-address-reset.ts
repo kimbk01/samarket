@@ -5,7 +5,10 @@
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import { clearTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
-import { clearTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
+import {
+  clearTradeBrowseCommittedScope,
+  writeTradeBrowseCommittedScope,
+} from "@/lib/trade/location/trade-browse-committed-session";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import { buildTradeLocationHref, type TradeLocationScope } from "@/lib/trade/location/trade-location-scope";
 
@@ -47,6 +50,8 @@ export async function buildTradeMarketplaceDefaultBrowseHref(
   const sp = stripMarketFilterParams(currentSearch);
   const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
   const scope: TradeLocationScope = masterCity ?? { mode: "all" };
+  clearTradeBrowseLocationDraftSession();
+  writeTradeBrowseCommittedScope(scope);
   return buildTradeLocationHref(pathname, sp.toString(), scope);
 }
 

@@ -1,11 +1,48 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterPostsOutsideBrowseAnchor,
+  filterPostsWithinBrowseAnchor,
   shouldUseRegionAllBrowsePriority,
   tradeFeedLocationSqlExtras,
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
-import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import {
+  listingMatchesTradeFeedLocation,
+  resolveTradeFeedLocationConstraint,
+} from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import { normalizeTradeMarketPullRefreshQuery } from "@/lib/trade/trade-market-pull-refresh-surface";
 import { invalidateSearchRankedWindowSession } from "@/lib/trade/marketplace/search-ranked-window-cache";
+
+describe("region+all browse priority partition", () => {
+  it("anchor within and outside are disjoint for canonical rows", () => {
+    const constraint = resolveTradeFeedLocationConstraint("1381200000", null);
+    if (constraint.kind !== "lgu") return;
+    const anchorRow = {
+      trade_lgu_id: constraint.canonicalId,
+      region: "NCR",
+      city: "Pasig",
+    };
+    const otherRow = {
+      trade_lgu_id: "1376020000",
+      region: "NCR",
+      city: "Makati",
+    };
+    expect(listingMatchesTradeFeedLocation(anchorRow, constraint)).toBe(true);
+    expect(listingMatchesTradeFeedLocation(otherRow, constraint)).toBe(false);
+    const batch = [anchorRow, otherRow];
+    expect(filterPostsWithinBrowseAnchor(batch, constraint)).toHaveLength(1);
+    expect(filterPostsOutsideBrowseAnchor(batch, constraint)).toHaveLength(1);
+  });
+
+  it("simulated feed puts anchor block before outside block", () => {
+    const constraint = resolveTradeFeedLocationConstraint("1381200000", null);
+    if (constraint.kind !== "lgu") return;
+    const within = [{ id: "a", trade_lgu_id: constraint.canonicalId }];
+    const outside = [{ id: "b", trade_lgu_id: "1376020000" }];
+    const page = [...within, ...outside].slice(0, 2);
+    expect(page[0]?.id).toBe("a");
+    expect(page[1]?.id).toBe("b");
+  });
+});
 
 describe("trade feed location SQL extras", () => {
   it("region+all skips SQL location filter", () => {

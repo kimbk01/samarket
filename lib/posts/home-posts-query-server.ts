@@ -23,10 +23,10 @@ import {
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
 import {
   filterPostsOutsideBrowseAnchor,
-  filterPostsWithinBrowseAnchor,
   shouldUseRegionAllBrowsePriority,
   tradeFeedLocationSqlExtras,
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
+import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import {
   applyCompositionFilterClausesToPostgrest,
@@ -619,7 +619,8 @@ export async function resolveHomePostsPayload(
       );
     }
 
-    const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
+    /** region+전체 within: anchor SQL. Outside: nationwide scan + legacy-disjoint filter (not global top-N trim). */
+    const anchorLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
     const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
     const rangeFrom = 0;
     const rangeTo = targetInclusive;
@@ -632,13 +633,58 @@ export async function resolveHomePostsPayload(
 
     const canSortByDistance = sort === "distance";
     const canonicalId = feedConstraint.canonicalId;
-    const isRegionAll = feedConstraint.radiusKm === null;
+
+    const fetchRegionAllOutsidePrefix = async (args: {
+      tradeCatIds: string[] | null;
+      excludeTradeCatIds?: string[] | null;
+    }): Promise<PostWithMeta[]> => {
+      const batchSize = HOME_POSTS_PAGE_SIZE;
+      const collected: PostWithMeta[] = [];
+      const seen = new Set<string>();
+      let dbOffset = 0;
+      while (collected.length <= targetInclusive && dbOffset < MARKETPLACE_DISTANCE_SCAN_CAP) {
+        const batchEnd = Math.min(dbOffset + batchSize - 1, MARKETPLACE_DISTANCE_SCAN_CAP - 1);
+        const batch = await fetchHomePostsMappedRange(
+          sb,
+          POSTS_TABLE_READ,
+          sort,
+          type,
+          args.tradeCatIds,
+          statusOr,
+          undefined,
+          queryExtras,
+          dbOffset,
+          batchEnd,
+          {
+            applyLocation: false,
+            excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
+          }
+        );
+        if (!batch || batch.length === 0) break;
+        for (const row of filterPostsOutsideBrowseAnchor(batch, feedConstraint)) {
+          const id = (row.id ?? "").trim();
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          collected.push(row);
+          if (collected.length > targetInclusive) break;
+        }
+        if (batch.length < batchSize) break;
+        dbOffset += batchSize;
+      }
+      if (canSortByDistance) {
+        return sortListingsByLguDistance(collected, canonicalId);
+      }
+      return collected;
+    };
 
     const fetchTier = async (args: {
       tradeCatIds: string[] | null;
       tier: "within" | "outside";
       excludeTradeCatIds?: string[] | null;
     }): Promise<PostWithMeta[]> => {
+      if (args.tier === "outside") {
+        return fetchRegionAllOutsidePrefix(args);
+      }
       const mapped = await fetchHomePostsMappedRange(
         sb,
         POSTS_TABLE_READ,
@@ -646,33 +692,20 @@ export async function resolveHomePostsPayload(
         type,
         args.tradeCatIds,
         statusOr,
-        feedLocExtras,
+        anchorLocExtras,
         queryExtras,
         rangeFrom,
         rangeTo,
         {
-          applyLocation: !isRegionAll && args.tier === "within",
-          excludeLguIds:
-            !isRegionAll && args.tier === "outside"
-              ? feedConstraint.matchingCanonicalIds
-              : null,
+          applyLocation: true,
           excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
         }
       );
       if (!mapped) return [];
-      let rows = mapped;
-      if (isRegionAll) {
-        rows =
-          args.tier === "within"
-            ? filterPostsWithinBrowseAnchor(mapped, feedConstraint)
-            : filterPostsOutsideBrowseAnchor(mapped, feedConstraint);
-      } else if (args.tier === "outside") {
-        rows = filterPostsOutsideBrowseAnchor(mapped, feedConstraint);
-      }
       if (canSortByDistance) {
-        return sortListingsByLguDistance(rows, canonicalId);
+        return sortListingsByLguDistance(mapped, canonicalId);
       }
-      return rows;
+      return mapped;
     };
 
     if (!rootArr) {

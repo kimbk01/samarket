@@ -1,14 +1,12 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RotateCcw, SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
-import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
@@ -26,9 +24,9 @@ import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/
 import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_CLUSTER_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
-  SAM_TIER1_HEADER_ICON_HIT_CLASS,
   SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
 } from "@/lib/ui/tier1-header-icon";
 
@@ -95,7 +93,6 @@ function TradePrimaryTabsInner({
       })),
     [tabs, pendingMenuIntent]
   );
-  const allTab = displayTabs.find((tab) => tab.key === "all");
   const activeDisplayIndex = useMemo(
     () => displayTabs.findIndex((tab) => tab.isDisplayActive),
     [displayTabs]
@@ -150,40 +147,32 @@ function TradePrimaryTabsInner({
         leading={<TradeHeaderLocationPinButton placement="below-title" />}
         trailing={
           <div className={`inline-flex items-center ${SAM_TIER1_HEADER_ICON_CLUSTER_CLASS}`}>
-            {allTab ? (
-              <Link
-                href={allTab.href}
-                role="tab"
-                aria-selected={allTab.isDisplayActive}
-                aria-label={allTab.label}
-                prefetch
-                className={`${tradePrimaryTabClass(false)} inline-flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} shrink-0 items-center justify-center !bg-transparent active:scale-[0.98] active:opacity-90`}
-                onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
-                onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void buildMarketplaceBrowseResetCommittedHref(
-                    "/market",
-                    searchParams.toString()
-                  ).then((resetHref) => {
-                    if (!guardBeforeNavigate(resetHref)) return;
-                    prewarmBottomNavMarketTab(resetHref);
-                    allTab.href = resetHref;
-                    commitTab(allTab.href, allTab.key);
-                  });
-                }}
-              >
-                <RotateCcw
-                  className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
-                  strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-                  aria-hidden
-                />
-              </Link>
-            ) : null}
+            <button
+              type="button"
+              data-marketplace-browse-reset="true"
+              className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
+              aria-label={t("marketplace_filter_clear_all")}
+              onClick={() => {
+                void buildMarketplaceBrowseResetCommittedHref(
+                  "/market",
+                  searchParams.toString()
+                ).then((resetHref) => {
+                  if (!guardBeforeNavigate(resetHref)) return;
+                  prewarmBottomNavMarketTab(resetHref);
+                  router.replace(resetHref, { scroll: false });
+                });
+              }}
+            >
+              <RotateCcw
+                className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
+                strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+                aria-hidden
+              />
+            </button>
             <button
               type="button"
               data-marketplace-filter="true"
-              className={`relative inline-flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} shrink-0 items-center justify-center rounded-ui-rect active:scale-[0.98] active:opacity-90`}
+              className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
               aria-haspopup="dialog"
               aria-label={filterLabel}
               onClick={() => setFilterOpen(true)}
