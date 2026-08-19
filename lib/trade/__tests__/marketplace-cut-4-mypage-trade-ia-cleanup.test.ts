@@ -26,8 +26,9 @@ describe("TRADE UI CUT 4 — MyPage trade IA cleanup", () => {
 
   it("Trade sales/reviews surfaces use trade chat vocabulary keys", () => {
     const sales = src("components/mypage/sales/SalesHistoryCard.tsx");
-    expect(sales).toContain("mypage_comp_trade_chat_view");
-    expect(sales).toContain("mypage_comp_trade_chat_revisit");
+    expect(sales).toContain("marketplace_seller_trade_chat_primary");
+    expect(sales).not.toContain("mypage_comp_order_chat_view");
+    expect(sales).not.toContain("mypage_comp_order_chat_revisit");
     expect(sales).not.toContain('t("mypage_comp_order_chat_view")');
     expect(sales).not.toContain('t("mypage_comp_order_chat_revisit")');
 
