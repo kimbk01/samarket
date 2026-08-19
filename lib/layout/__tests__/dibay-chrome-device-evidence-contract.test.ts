@@ -36,7 +36,7 @@ describe("dibay chrome device-evidence contract", () => {
     expect(css).toMatch(/\.dibay-secondary-tab--active/);
     const tradeTabs = readFileSync(join(root, "components/trade/TradePrimaryTabs.tsx"), "utf8");
     expect(tradeTabs).not.toMatch(/APP_MAIN_HEADER_INNER_CLASS/);
-    expect(tradeTabs).toMatch(/tradePrimaryTabClass/);
+    expect(tradeTabs).toMatch(/DibaySecondaryTabRow/);
   });
 
   it("Chat PRIMARY MessengerHomeSectionTabs uses shared dibay secondary", () => {
