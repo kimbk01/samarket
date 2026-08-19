@@ -9,8 +9,6 @@ import {
   DIBAY_SECONDARY_TAB_LABEL_CLASS,
   dibaySecondaryTabClass,
 } from "@/lib/ui/dibay-secondary-tabs";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { Sam } from "@/lib/ui/sam-component-classes";
 
 const FILTER_LABEL_KEY: Record<MyProductFilterKey, MessageKey> = {
   all: "common_all",
@@ -40,7 +38,10 @@ interface MyProductFilterProps {
   onPromotedOnlyChange: (value: boolean) => void;
 }
 
-/** STATUS FILTER — Community / Trade / Chat 2단 SSOT (`DibaySecondaryTabRow`) */
+/**
+ * STATUS FILTER — single 44px `DibaySecondaryTabRow` (sell hub chrome height SSOT).
+ * D-Point promoted overlay = trailing pill (not a second row — avoids sell↔products stutter).
+ */
 export function MyProductFilter({
   value,
   onChange,
@@ -49,51 +50,56 @@ export function MyProductFilter({
 }: MyProductFilterProps) {
   const { safeT } = useI18n();
   const promotedLabel = safeT("marketplace_seller_promoted_only", {
-    fallbackKo: "홍보 중만",
-    fallbackEn: "Promoted only",
+    fallbackKo: "D-Point 홍보",
+    fallbackEn: "D-Point promoted",
+  });
+  const promotedAria = safeT("marketplace_seller_promoted_only_aria", {
+    fallbackKo: "D-Point로 목록에 노출 중인 홍보 매물만 보기",
+    fallbackEn: "Show only listings promoted with D-Point",
   });
 
   return (
-    <div className="min-w-0">
-      <DibaySecondaryTabRow
-        bordered
-        navRole="secondary"
-        trackAriaLabel={safeT("marketplace_seller_products_title", {
-          fallbackKo: "내 매물",
-          fallbackEn: "My listings",
-        })}
-      >
-        {MY_PRODUCT_FILTER_OPTIONS.map((opt) => {
-          const active = value === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(opt.value)}
-              className={dibaySecondaryTabClass(active)}
-            >
-              <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
-                {safeT(FILTER_LABEL_KEY[opt.value], {
-                  fallbackKo: FILTER_FALLBACK_KO[opt.value],
-                  fallbackEn: FILTER_FALLBACK_EN[opt.value],
-                })}
-              </span>
-            </button>
-          );
-        })}
-      </DibaySecondaryTabRow>
-      <div className={`${APP_MAIN_GUTTER_X_CLASS} pb-2 pt-1`}>
+    <DibaySecondaryTabRow
+      bordered
+      navRole="secondary"
+      trackAriaLabel={safeT("marketplace_seller_products_title", {
+        fallbackKo: "내 매물",
+        fallbackEn: "My listings",
+      })}
+      trailing={
         <button
           type="button"
-          aria-pressed={promotedOnly}
+          role="tab"
+          aria-selected={promotedOnly}
+          aria-label={promotedAria}
+          title={promotedAria}
           onClick={() => onPromotedOnlyChange(!promotedOnly)}
-          className={`${Sam.chip.base} ${promotedOnly ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}`}
+          className={`${dibaySecondaryTabClass(promotedOnly)} shrink-0`}
         >
-          {promotedLabel}
+          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{promotedLabel}</span>
         </button>
-      </div>
-    </div>
+      }
+    >
+      {MY_PRODUCT_FILTER_OPTIONS.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(opt.value)}
+            className={dibaySecondaryTabClass(active)}
+          >
+            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
+              {safeT(FILTER_LABEL_KEY[opt.value], {
+                fallbackKo: FILTER_FALLBACK_KO[opt.value],
+                fallbackEn: FILTER_FALLBACK_EN[opt.value],
+              })}
+            </span>
+          </button>
+        );
+      })}
+    </DibaySecondaryTabRow>
   );
 }

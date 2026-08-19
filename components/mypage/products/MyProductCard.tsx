@@ -143,7 +143,7 @@ export function MyProductCard({
         <div className="border-t border-sam-border-soft px-3 py-2">
           <button
             type="button"
-            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} py-2.5 text-center sam-text-body-secondary`}
+            className={`${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[length:var(--sam-button-min-height)] py-2.5 text-center sam-text-body-secondary font-semibold`}
             onClick={openPromoteSheet}
           >
             {promoteCtaLabel}
