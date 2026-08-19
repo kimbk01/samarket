@@ -788,7 +788,7 @@ export function HomeProductList({
   }
 
   if (showEmpty) {
-    const cityLabel = cityEmptyLabel;
+    const cityLabel = q?.trim() ? null : cityEmptyLabel;
     if (locationUnresolved) {
       return (
         <>

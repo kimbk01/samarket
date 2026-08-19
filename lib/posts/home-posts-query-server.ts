@@ -28,7 +28,11 @@ import {
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
-import { shouldAllowSearchExpansionTail } from "@/lib/trade/marketplace/resolve-marketplace-membership";
+import type { MarketplaceSearchDiscoveryContext } from "@/lib/trade/marketplace/load-marketplace-search-discovery-context";
+import {
+  MARKETPLACE_DISCOVERY_POOL_BATCH,
+  rankMarketplaceDiscoveryBatch,
+} from "@/lib/trade/marketplace/marketplace-discovery-rank";
 import type { SearchTopicGraphContext } from "@/lib/trade/marketplace/search-topic-graph-context";
 import {
   applyCompositionFilterClausesToPostgrest,
@@ -40,17 +44,9 @@ import {
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
 import {
-  SEARCH_EXPANSION_EXACT_BATCH,
-  SEARCH_EXPANSION_RELATED_IN_BATCH,
-  SEARCH_EXPANSION_RELATED_OUT_BATCH,
-  SEARCH_EXPANSION_TAIL_BATCH,
-  advanceSearchExpansionCursor,
-  buildSearchExpansionRelatedOrFilter,
   inferBodyTypesFromListings,
-  resolveSearchExpansionHints,
   type SearchExpansionCursor,
 } from "@/lib/trade/marketplace/search-candidate-expansion";
-import { assembleMarketplaceSearchOrder } from "@/lib/trade/marketplace/assemble-marketplace-search-order";
 import { assembleMarketplaceBrowseOrder } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
@@ -136,6 +132,8 @@ type HomePostsQueryExtras = {
   categoryPriorityTopicTradeCategoryIds?: string[] | null;
   /** CUT-SSOT-2 TOPIC graph for search relevance */
   searchTopicGraphContext?: SearchTopicGraphContext | null;
+  /** SEARCH-LOCATION-FRESH-1 intent + ROOT expanded ids (ranking only) */
+  searchDiscoveryContext?: MarketplaceSearchDiscoveryContext | null;
 };
 
 type HomePostsRangeFilterOpts = {
@@ -340,9 +338,9 @@ export async function loadSearchExpansionRound(
   queryExtras: HomePostsQueryExtras | undefined,
   cursor: SearchExpansionCursor
 ): Promise<{ posts: PostWithMeta[]; cursor: SearchExpansionCursor; queryCount: number } | null> {
+  const discovery = queryExtras?.searchDiscoveryContext;
   const searchQ = sanitizeMarketplaceQueryText(queryExtras?.q);
-  const hints = resolveSearchExpansionHints(searchQ);
-  if (!hints) {
+  if (!searchQ || !discovery) {
     return {
       posts: [],
       cursor: {
@@ -355,6 +353,7 @@ export async function loadSearchExpansionRound(
       queryCount: 0,
     };
   }
+
   const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
   if (feedConstraint.kind === "invalid") {
     return {
@@ -369,164 +368,71 @@ export async function loadSearchExpansionRound(
       queryCount: 0,
     };
   }
+
+  if (cursor.tailExhausted) {
+    return {
+      posts: [],
+      cursor: {
+        ...cursor,
+        exactExhausted: true,
+        relatedInExhausted: true,
+        relatedOutExhausted: true,
+        tailExhausted: true,
+      },
+      queryCount: 0,
+    };
+  }
+
   const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
-  const browseLgu = feedConstraint.kind === "lgu" ? feedConstraint.canonicalId : null;
-  const matchingLguIds =
-    feedConstraint.kind === "lgu" ? [...new Set(feedConstraint.matchingCanonicalIds)] : [];
-  const rootSet =
-    queryExtras?.categoryPriorityRootTradeCategoryIds && queryExtras.categoryPriorityRootTradeCategoryIds.length > 0
-      ? new Set(queryExtras.categoryPriorityRootTradeCategoryIds)
-      : null;
-  const topicSet =
-    queryExtras?.categoryPriorityTopicTradeCategoryIds && queryExtras.categoryPriorityTopicTradeCategoryIds.length > 0
-      ? new Set(queryExtras.categoryPriorityTopicTradeCategoryIds)
-      : null;
-  let queryCount = 0;
-  let exactRows: PostWithMeta[] = [];
-  if (!cursor.exactExhausted) {
-    const exact = await fetchHomePostsMappedRange(
-      sb,
-      table,
-      sort,
-      type,
-      tradeCategoryIds,
-      statusOr,
-      feedLocExtras,
-      queryExtras,
-      cursor.exactOffset,
-      cursor.exactOffset + SEARCH_EXPANSION_EXACT_BATCH - 1,
-        { applyTitleQuery: true, applyLocation: false }
-    );
-    if (!exact) return null;
-    queryCount += 1;
-    exactRows = partitionPostsByCategoryPriority(exact, rootSet, topicSet);
-  }
-  const inferredBodyTypes = [
-    ...new Set([...cursor.inferredBodyTypes, ...inferBodyTypesFromListings(exactRows)]),
-  ];
-  const relatedOr = buildSearchExpansionRelatedOrFilter(hints, inferredBodyTypes);
-  let relatedInRows: PostWithMeta[] = [];
-  let relatedOutRows: PostWithMeta[] = [];
-  if (!cursor.relatedInExhausted && relatedOr) {
-    const relatedIn = await fetchHomePostsMappedRange(
-      sb,
-      table,
-      sort,
-      type,
-      tradeCategoryIds,
-      statusOr,
-      feedLocExtras,
-      queryExtras,
-      cursor.relatedInOffset,
-      cursor.relatedInOffset + SEARCH_EXPANSION_RELATED_IN_BATCH - 1,
-      { applyTitleQuery: false, applyLocation: false, relatedOr }
-    );
-    if (!relatedIn) return null;
-    queryCount += 1;
-    relatedInRows = partitionPostsByCategoryPriority(relatedIn, rootSet, topicSet);
-  }
-  const fetchRelatedOut = Boolean(browseLgu && relatedOr && !cursor.relatedOutExhausted);
-  if (fetchRelatedOut) {
-    const relatedOut = await fetchHomePostsMappedRange(
-      sb,
-      table,
-      sort,
-      type,
-      tradeCategoryIds,
-      statusOr,
-      feedLocExtras,
-      queryExtras,
-      cursor.relatedOutOffset,
-      cursor.relatedOutOffset + SEARCH_EXPANSION_RELATED_OUT_BATCH - 1,
-      {
-        applyTitleQuery: false,
-        applyLocation: false,
-        relatedOr,
-        excludeLguIds: matchingLguIds,
-      }
-    );
-    if (!relatedOut) return null;
-    queryCount += 1;
-    const withinConstraint =
-      feedConstraint.kind === "lgu" ? feedConstraint : null;
-    relatedOutRows = partitionPostsByCategoryPriority(
-      withinConstraint
-        ? filterPostsOutsideBrowseAnchor(relatedOut, withinConstraint)
-        : relatedOut,
-      rootSet,
-      topicSet
-    );
-  }
-  const fetched = {
-    exact: exactRows.length,
-    relatedIn: relatedInRows.length,
-    relatedOut: fetchRelatedOut ? relatedOutRows.length : 0,
-  };
-  const advanced = advanceSearchExpansionCursor(
-    {
-      ...cursor,
-      inferredBodyTypes,
-      relatedOutExhausted: cursor.relatedOutExhausted || !browseLgu || !relatedOr,
-      relatedInExhausted: cursor.relatedInExhausted || !relatedOr,
-    },
-    fetched,
-    {
-      exact: SEARCH_EXPANSION_EXACT_BATCH,
-      relatedIn: SEARCH_EXPANSION_RELATED_IN_BATCH,
-      relatedOut: SEARCH_EXPANSION_RELATED_OUT_BATCH,
-    },
-    {
-      exact: !cursor.exactExhausted,
-      relatedIn: !cursor.relatedInExhausted && Boolean(relatedOr),
-      relatedOut: fetchRelatedOut,
-    }
+  const poolBatch = await fetchHomePostsMappedRange(
+    sb,
+    table,
+    sort,
+    type,
+    tradeCategoryIds,
+    statusOr,
+    feedLocExtras,
+    queryExtras,
+    cursor.tailOffset,
+    cursor.tailOffset + MARKETPLACE_DISCOVERY_POOL_BATCH - 1,
+    { applyTitleQuery: false, applyLocation: false }
   );
+  if (!poolBatch) return null;
 
-  let tailRows: PostWithMeta[] = [];
-  let tailCursor = advanced;
-  const relevanceDone =
-    advanced.exactExhausted && advanced.relatedInExhausted && advanced.relatedOutExhausted;
-  if (relevanceDone && !advanced.tailExhausted) {
-    if (shouldAllowSearchExpansionTail(tradeCategoryIds)) {
-      const tail = await fetchHomePostsMappedRange(
-        sb,
-        table,
-        sort,
-        type,
-        tradeCategoryIds,
-        statusOr,
-        undefined,
-        queryExtras,
-        advanced.tailOffset,
-        advanced.tailOffset + SEARCH_EXPANSION_TAIL_BATCH - 1,
-        { applyTitleQuery: false, applyLocation: false }
-      );
-      if (!tail) return null;
-      queryCount += 1;
-      tailRows = partitionPostsByCategoryPriority(tail, rootSet, topicSet);
-      tailCursor = {
-        ...advanced,
-        tailOffset: advanced.tailOffset + tail.length,
-        tailExhausted: tail.length < SEARCH_EXPANSION_TAIL_BATCH,
-      };
-    } else {
-      // T5-B: no global unrelated tail without ROOT/TOPIC membership scope
-      tailCursor = { ...advanced, tailExhausted: true };
-    }
+  const ranked = rankMarketplaceDiscoveryBatch({
+    rows: poolBatch,
+    intent: discovery.intent,
+    rootExpandedIdsByParent: discovery.rootExpandedIdsByParent,
+    topicGraph: discovery.topicGraph,
+    feedConstraint,
+    userSort: sort,
+    inferredBodyTypes: cursor.inferredBodyTypes,
+  });
+
+  const seen = new Set(cursor.seenIds);
+  const posts: PostWithMeta[] = [];
+  for (const row of ranked) {
+    const id = (row.id ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    posts.push(row);
   }
 
-  const assembled = assembleMarketplaceSearchOrder({
-    exactRows,
-    relatedInRows,
-    relatedOutRows,
-    tailRows,
-    hints,
-    browseLguCanonicalId: browseLgu,
-    userSort: sort,
-    cursor: tailCursor,
-    topicGraph: queryExtras?.searchTopicGraphContext ?? null,
-  });
-  return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
+  const tailExhausted = poolBatch.length < MARKETPLACE_DISCOVERY_POOL_BATCH;
+  const nextCursor: SearchExpansionCursor = {
+    ...cursor,
+    exactExhausted: true,
+    relatedInExhausted: true,
+    relatedOutExhausted: true,
+    tailOffset: cursor.tailOffset + poolBatch.length,
+    tailExhausted,
+    seenIds: [...seen],
+    inferredBodyTypes: [
+      ...new Set([...cursor.inferredBodyTypes, ...inferBodyTypesFromListings(posts)]),
+    ],
+  };
+
+  return { posts, cursor: nextCursor, queryCount: 1 };
 }
 
 export type LSoftBrowseAssemblyMode = "mhard_location" | "nationwide" | "legacy_priority";

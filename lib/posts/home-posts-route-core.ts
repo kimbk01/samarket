@@ -25,7 +25,7 @@ import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
 import { resolveMarketplaceMembershipIdsForRoots } from "@/lib/trade/marketplace/resolve-marketplace-membership";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { loadSearchTopicGraphContext } from "@/lib/trade/marketplace/load-search-topic-graph-context";
+import { loadMarketplaceSearchDiscoveryContext } from "@/lib/trade/marketplace/load-marketplace-search-discovery-context";
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
 import {
   applyTradeHomePromotionProjection,
@@ -588,12 +588,13 @@ export async function resolveHomePostsGetData(
   })();
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
   const useSearchExpansion = shouldApplyMarketplaceSearchExpansion({ q, sort });
-  let searchTopicGraphContext = null;
+  let searchDiscoveryContext = null;
   if (useSearchExpansion && q) {
     const qsb =
       tryCreateSupabaseServiceClient() ?? (serviceSb as SupabaseClient<any>) ?? (readSb as SupabaseClient<any>);
-    searchTopicGraphContext = await loadSearchTopicGraphContext(
+    searchDiscoveryContext = await loadMarketplaceSearchDiscoveryContext(
       qsb,
+      serviceSb as SupabaseClient<any> | null,
       q,
       resolvedTradeMarketParentIds.length > 0 ? resolvedTradeMarketParentIds : null
     );
@@ -662,7 +663,7 @@ export async function resolveHomePostsGetData(
                   mixedDiscoverySellIntent,
                   categoryPriorityRootTradeCategoryIds,
                   categoryPriorityTopicTradeCategoryIds,
-                  searchTopicGraphContext,
+                  searchDiscoveryContext,
                 },
                 cursor
               );
