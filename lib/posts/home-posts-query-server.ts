@@ -529,6 +529,21 @@ export async function loadSearchExpansionRound(
   return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
 }
 
+export type LSoftBrowseAssemblyMode = "mhard_location" | "nationwide" | "legacy_priority";
+
+/**
+ * CUT-SSOT-H — L-SOFT city browse assembly mode.
+ * M-HARD membership → location-only tiers (no cross-ROOT others bucket).
+ */
+export function resolveLSoftBrowseAssemblyMode(
+  tradeCategoryIds: string[] | null | undefined,
+  rootArr: string[] | null
+): LSoftBrowseAssemblyMode {
+  if (tradeCategoryIds?.length) return "mhard_location";
+  if (rootArr?.length) return "legacy_priority";
+  return "nationwide";
+}
+
 export async function resolveHomePostsPayload(
   readSb: SupabaseClient<any>,
   serviceSb: SupabaseClient<any> | null,
@@ -685,6 +700,7 @@ export async function resolveHomePostsPayload(
 
     const canSortByDistance = sort === "distance";
     const canonicalId = feedConstraint.canonicalId;
+    const lSoftMode = resolveLSoftBrowseAssemblyMode(tradeCategoryIds, rootArr);
 
     const fetchRegionAllOutsidePrefix = async (args: {
       tradeCatIds: string[] | null;
@@ -760,7 +776,24 @@ export async function resolveHomePostsPayload(
       return mapped;
     };
 
-    if (!rootArr) {
+    /** M-HARD: every L-SOFT segment uses membership IN — location boost only (Case H). */
+    if (lSoftMode === "mhard_location") {
+      const membershipIds = tradeCategoryIds!;
+      const withinAll = await fetchTier({ tradeCatIds: membershipIds, tier: "within" });
+      const outsideAll = await fetchTier({ tradeCatIds: membershipIds, tier: "outside" });
+      const assembled = assembleMarketplaceBrowseOrder(
+        withinAll,
+        outsideAll,
+        sort,
+        canonicalId
+      );
+      return {
+        posts: assembled.slice(from, from + pageSize),
+        hasMore: assembled.length > targetInclusive,
+      };
+    }
+
+    if (lSoftMode === "nationwide") {
       const withinAll = await fetchTier({ tradeCatIds: null, tier: "within" });
       const outsideAll = await fetchTier({ tradeCatIds: null, tier: "outside" });
       const assembled = assembleMarketplaceBrowseOrder(
@@ -775,7 +808,7 @@ export async function resolveHomePostsPayload(
       };
     }
 
-    // category 선택이 있으면: topic → root-only → others, 그리고 within → outside
+    // legacy_priority — pre-M-HARD category tier ordering (no M-HARD scope)
     const withinTopicMatch =
       topicArr.length > 0
         ? await fetchTier({ tradeCatIds: topicArr, tier: "within" })
