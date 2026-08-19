@@ -4,13 +4,17 @@ import dynamic from "next/dynamic";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  getPostsByTradeCategoryIds,
   primeTradeFeedCache,
   readFreshTradeFeedClientCache,
   type GetPostsByCategoryOptions,
   type PostSort,
 } from "@/lib/posts/getPostsByCategory";
-import { TRADE_POST_LIST_CACHE_INVALIDATED, invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import {
+  TRADE_POST_LIST_CACHE_INVALIDATED,
+  getPostsForHome,
+  invalidateHomePostsCache,
+  type GetPostsForHomeOptions,
+} from "@/lib/posts/getPostsForHome";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { getFavoriteStatusForPosts } from "@/lib/favorites/getFavoriteStatusForPosts";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
@@ -183,6 +187,82 @@ export function PostListByCategory({
     ]
   );
 
+  const priceMinRaw = searchParams.get("priceMin");
+  const priceMaxRaw = searchParams.get("priceMax");
+  const priceMinNum = priceMinRaw && priceMinRaw.trim() !== "" ? Number(priceMinRaw) : null;
+  const priceMaxNum = priceMaxRaw && priceMaxRaw.trim() !== "" ? Number(priceMaxRaw) : null;
+  const homeSort: GetPostsForHomeOptions["sort"] =
+    sort === "popular" ? "popular" : sort === "near" ? "distance" : "latest";
+
+  const selectedRootIds = useMemo(() => {
+    const raw = searchParams.get("categoryIds");
+    if (raw && raw.trim()) {
+      return raw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    }
+    return [categoryId];
+  }, [searchParams, categoryId]);
+
+  const tradeTopicByParent = useMemo(() => {
+    const raw = searchParams.getAll("topicByRoot").join(",");
+    const map: Record<string, string> = {};
+    if (raw.trim()) {
+      for (const part of raw.split(",")) {
+        const p = part.trim();
+        if (!p) continue;
+        const idx = p.indexOf(":");
+        if (idx <= 0) continue;
+        const rid = p.slice(0, idx).trim();
+        const t = p.slice(idx + 1).trim();
+        if (!rid || !t) continue;
+        map[rid] = t;
+      }
+    }
+    // backward compatible: `topic` is primary-root topic
+    if (tradeTopicParam.trim()) {
+      const pid = categoryId;
+      if (!map[pid]) map[pid] = tradeTopicParam.trim();
+    }
+    // only keep selected roots
+    const set = new Set(selectedRootIds);
+    for (const k of Object.keys(map)) {
+      if (!set.has(k)) delete map[k];
+    }
+    return map;
+  }, [searchParams, tradeTopicParam, categoryId, selectedRootIds]);
+
+  const homePostListOptions = useMemo<GetPostsForHomeOptions>(
+    () => ({
+      sort: homeSort,
+      type: null,
+      tradeState,
+      lguCityId,
+      radiusKm,
+      locationAll,
+      q,
+      priceMin: Number.isFinite(priceMinNum as number) ? (priceMinNum as number) : null,
+      priceMax: Number.isFinite(priceMaxNum as number) ? (priceMaxNum as number) : null,
+      compositionFilters,
+      tradeMarketParentIds: selectedRootIds,
+      tradeTopicByParent: Object.keys(tradeTopicByParent).length > 0 ? tradeTopicByParent : null,
+    }),
+    [
+      homeSort,
+      tradeState,
+      lguCityId,
+      radiusKm,
+      locationAll,
+      q,
+      priceMinNum,
+      priceMaxNum,
+      compositionFilters,
+      selectedRootIds,
+      tradeTopicByParent,
+    ]
+  );
+
   /**
    * `getPostsByTradeCategoryIds` · `readFreshTradeFeedClientCache` · `primeTradeFeedCache` 가 동일 키를 쓰도록
    * 옵션을 한 곳에서 조립한다. (마켓 부모 + 일반 탭: `topic:""`·`jk` 생략 — 기존 분기와 동일)
@@ -267,27 +347,20 @@ export function PostListByCategory({
    * CONTRACT (C): mount seed — client cache OR matching `initialTradeFeed` only.
    * feedKey mismatch / other category bootstrap must not seed (stale flash 금지).
    */
-  const mountSeedFeed =
-    initialCachedFeed ??
-    (initialTradeFeed && initialTradeFeed.feedKey === feedKey
-      ? {
-          posts: initialTradeFeed.posts,
-          hasMore: initialTradeFeed.hasMore,
-          favoriteMap: initialTradeFeed.favoriteMap,
-        }
-      : null);
+  // DIBAY MARKET unified filter: trade-feed seed would violate "ONE RESULT PIPELINE"
+  // (이 컴포넌트는 home-pipeline 결과만 표시하도록 초기 seed를 강제 차단).
+  const mountSeedFeed = null;
 
-  const [posts, setPosts] = useState<PostWithMeta[]>(() => mountSeedFeed?.posts ?? []);
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
-    () => mountSeedFeed?.favoriteMap ?? {}
-  );
+  // `mountSeedFeed` is always null: optional chaining would confuse TS into `never`.
+  const [posts, setPosts] = useState<PostWithMeta[]>([]);
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [loading, setLoading] = useState(() => !mountSeedFeed);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(() => mountSeedFeed?.hasMore === true);
+  const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
@@ -297,7 +370,7 @@ export function PostListByCategory({
    * Mount/effect 가 이미 이 feedKey 목록을 시드·적용했으면 setPosts 중복 전이 생략
    * (cache / matching bootstrap only).
    */
-  const appliedListFeedKeyRef = useRef<string | null>(mountSeedFeed ? feedKey : null);
+  const appliedListFeedKeyRef = useRef<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRootRef = useRef<HTMLUListElement | null>(null);
   const firstCardPaintStartRef = useRef(0);
@@ -342,37 +415,27 @@ export function PostListByCategory({
         setLoading(true);
         return;
       }
-      if (!tradeFeedServerResolution && effectiveIds.length === 0) {
-        setLoading((prev) => (prev ? false : prev));
-        allowRscBootstrapFeedRef.current = true;
-        return;
-      }
       const append = opts?.append === true && pageNum > 1;
       const epochAtStart = listFeedEpochRef.current;
       if (!append) {
         setLoading((prev) => (prev ? prev : true));
       }
       try {
-        const ids = tradeFeedServerResolution ? [] : effectiveIds;
-        const next = await getPostsByTradeCategoryIds(ids, buildTradeFeedRequestOptions(pageNum));
+        const next = await getPostsForHome({
+          ...(homePostListOptions as GetPostsForHomeOptions),
+          page: pageNum,
+        });
         if (epochAtStart !== listFeedEpochRef.current) return;
         if (pageNum === 1) {
           setPosts(next.posts);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
+          setFavoriteMap(next.favoriteMap ?? {});
         } else {
           setPosts((prev) => [...prev, ...next.posts]);
+          setFavoriteMap((prev) => ({ ...prev, ...(next.favoriteMap ?? {}) }));
         }
         setHasMore(next.hasMore);
-        if (next.favoriteMap !== undefined) {
-          if (pageNum === 1) {
-            setFavoriteMap(next.favoriteMap);
-          } else {
-            setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
-          }
-        } else {
-          resolveFavoriteMapAsync(next.posts, pageNum, epochAtStart);
-        }
       } finally {
         if (epochAtStart === listFeedEpochRef.current && !append) {
           setLoading(false);
@@ -382,10 +445,7 @@ export function PostListByCategory({
     },
     [
       categoryId,
-      effectiveIds,
-      tradeFeedServerResolution,
-      resolveFavoriteMapAsync,
-      buildTradeFeedRequestOptions,
+      homePostListOptions,
       locationUnset,
     ]
   );
@@ -456,27 +516,29 @@ export function PostListByCategory({
 
     const applyBootstrapOrCacheSync = (): boolean => {
       if (cancelled || epoch !== listFeedEpochRef.current) return true;
+      // unified filter: trade-feed cache/seed would break "ONE RESULT PIPELINE"
+      return false;
 
       const bootstrap = initialTradeFeedRef.current;
-      if (allowRscBootstrapFeedRef.current && bootstrap && bootstrap.feedKey === feedKey) {
+      if (allowRscBootstrapFeedRef.current && bootstrap?.feedKey === feedKey) {
         const ids = tradeFeedServerResolution ? [] : effectiveIds;
         primeTradeFeedCache(ids, buildTradeFeedRequestOptions(1), {
-          posts: bootstrap.posts,
-          hasMore: bootstrap.hasMore,
-          ...(bootstrap.favoriteMap !== undefined ? { favoriteMap: bootstrap.favoriteMap } : {}),
+          posts: bootstrap!.posts,
+          hasMore: bootstrap!.hasMore,
+          ...(bootstrap!.favoriteMap !== undefined ? { favoriteMap: bootstrap!.favoriteMap } : {}),
         });
         const alreadyApplied = appliedListFeedKeyRef.current === feedKey;
         if (!alreadyApplied) {
-          setPosts(bootstrap.posts);
-          setHasMore(bootstrap.hasMore);
+          setPosts(bootstrap!.posts);
+          setHasMore(bootstrap!.hasMore);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
-          setFavoriteMap(bootstrap.favoriteMap ?? {});
+          setFavoriteMap(bootstrap!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
         }
-        if (bootstrap.favoriteMap === undefined) {
-          resolveFavoriteMapAsync(bootstrap.posts, 1, epoch);
+        if (bootstrap!.favoriteMap === undefined) {
+          resolveFavoriteMapAsync(bootstrap!.posts, 1, epoch);
         }
         return true;
       }
@@ -486,11 +548,11 @@ export function PostListByCategory({
       if (cached) {
         const alreadyApplied = appliedListFeedKeyRef.current === feedKey;
         if (!alreadyApplied) {
-          setPosts(cached.posts);
-          setHasMore(cached.hasMore);
+          setPosts(cached!.posts);
+          setHasMore(cached!.hasMore);
           setHiddenPostIds(new Set());
           setNotInterestedPostIds(new Set());
-          setFavoriteMap(cached.favoriteMap ?? {});
+          setFavoriteMap(cached!.favoriteMap ?? {});
           setLoading(false);
           appliedListFeedKeyRef.current = feedKey;
         }

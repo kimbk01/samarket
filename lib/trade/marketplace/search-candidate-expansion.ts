@@ -243,6 +243,23 @@ function sortTierRows<T extends SearchExpansionListing>(
   });
 }
 
+function sortTierRowsWithWithinOutsidePriority<T extends SearchExpansionListing>(
+  rows: T[],
+  hints: SearchExpansionHints,
+  tier: SearchExpansionTier,
+  browseLguCanonicalId: string | null | undefined
+): T[] {
+  // location-aware ordering is only meaningful when region/radius browse axis exists.
+  if (!browseLguCanonicalId?.trim()) return sortTierRows(rows, hints, tier);
+  const within: T[] = [];
+  const outside: T[] = [];
+  for (const r of rows) {
+    if (listingInBrowseLgu(r, browseLguCanonicalId)) within.push(r);
+    else outside.push(r);
+  }
+  return [...sortTierRows(within, hints, tier), ...sortTierRows(outside, hints, tier)];
+}
+
 export function assembleSearchExpansionRound<T extends SearchExpansionListing & { id?: string }>(input: {
   exactRows: T[];
   relatedInRows: T[];
@@ -271,10 +288,10 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
   }
   const posts = (
     [
-      ...sortTierRows(buckets[1], input.hints, 1),
-      ...sortTierRows(buckets[2], input.hints, 2),
-      ...sortTierRows(buckets[3], input.hints, 3),
-      ...sortTierRows(buckets[4], input.hints, 4),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[1], input.hints, 1, input.browseLguCanonicalId),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[2], input.hints, 2, input.browseLguCanonicalId),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[3], input.hints, 3, input.browseLguCanonicalId),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[4], input.hints, 4, input.browseLguCanonicalId),
     ] as T[]
   );
   return {

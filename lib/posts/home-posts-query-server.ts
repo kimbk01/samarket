@@ -12,6 +12,7 @@ import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
 import {
   buildTradePostsStatusAndCategoryAndFilter,
   buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
+  POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE,
 } from "@/lib/posts/trade-posts-category-filter";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
 import {
@@ -120,6 +121,10 @@ type HomePostsQueryExtras = {
   priceMax?: number;
   compositionFilters?: CompositionFilterClause[];
   mixedDiscoverySellIntent?: boolean;
+  /** category priority (hard-gate 없이 tier ordering에만 사용) */
+  categoryPriorityRootTradeCategoryIds?: string[] | null;
+  /** optional child(topic) priority (root-level fallback은 rootSet에서 tier ordering) */
+  categoryPriorityTopicTradeCategoryIds?: string[] | null;
 };
 
 type HomePostsRangeFilterOpts = {
@@ -127,6 +132,7 @@ type HomePostsRangeFilterOpts = {
   applyLocation?: boolean;
   relatedOr?: string | null;
   excludeLguIds?: string[] | null;
+  excludeTradeCategoryIds?: string[] | null;
 };
 
 async function fetchHomePostsMappedRange(
@@ -160,6 +166,13 @@ async function fetchHomePostsMappedRange(
     }
     if (filterOpts?.excludeLguIds && filterOpts.excludeLguIds.length > 0) {
       q = q.not("trade_lgu_id", "in", `(${filterOpts.excludeLguIds.join(",")})`);
+    }
+    if (filterOpts?.excludeTradeCategoryIds && filterOpts.excludeTradeCategoryIds.length > 0) {
+      const cleaned = [...new Set(filterOpts.excludeTradeCategoryIds.map((x) => x.trim()).filter(Boolean))];
+      for (let i = 0; i < cleaned.length; i += POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE) {
+        const chunk = cleaned.slice(i, i + POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE);
+        q = q.not("trade_category_id", "in", `(${chunk.join(",")})`);
+      }
     }
     q = applyMarketplaceQueryToPostgrest(q, {
       q: applyTitleQuery ? queryExtras?.q : undefined,
@@ -230,6 +243,29 @@ async function fetchHomePostsMappedRange(
   return data.map((row) =>
     mapPostRowForHome(row && typeof row === "object" ? (row as Record<string, unknown>) : {})
   );
+}
+
+function partitionPostsByCategoryPriority(
+  posts: PostWithMeta[],
+  rootSet: Set<string> | null | undefined,
+  topicSet: Set<string> | null | undefined
+): PostWithMeta[] {
+  if (!rootSet || rootSet.size === 0) return posts;
+  const topicOk = Boolean(topicSet && topicSet.size > 0);
+  const topicMatches: PostWithMeta[] = [];
+  const rootMatchesOnly: PostWithMeta[] = [];
+  const others: PostWithMeta[] = [];
+  for (const p of posts) {
+    const cid = p.category_id;
+    if (topicOk && topicSet!.has(cid)) {
+      topicMatches.push(p);
+    } else if (rootSet.has(cid)) {
+      rootMatchesOnly.push(p);
+    } else {
+      others.push(p);
+    }
+  }
+  return topicOk ? [...topicMatches, ...rootMatchesOnly, ...others] : [...rootMatchesOnly, ...others];
 }
 
 export async function loadHomePostsPage(
@@ -310,6 +346,14 @@ export async function loadSearchExpansionRound(
   const browseLgu = feedConstraint.kind === "lgu" ? feedConstraint.canonicalId : null;
   const matchingLguIds =
     feedConstraint.kind === "lgu" ? [...new Set(feedConstraint.matchingCanonicalIds)] : [];
+  const rootSet =
+    queryExtras?.categoryPriorityRootTradeCategoryIds && queryExtras.categoryPriorityRootTradeCategoryIds.length > 0
+      ? new Set(queryExtras.categoryPriorityRootTradeCategoryIds)
+      : null;
+  const topicSet =
+    queryExtras?.categoryPriorityTopicTradeCategoryIds && queryExtras.categoryPriorityTopicTradeCategoryIds.length > 0
+      ? new Set(queryExtras.categoryPriorityTopicTradeCategoryIds)
+      : null;
   let queryCount = 0;
   let exactRows: PostWithMeta[] = [];
   if (!cursor.exactExhausted) {
@@ -324,11 +368,11 @@ export async function loadSearchExpansionRound(
       queryExtras,
       cursor.exactOffset,
       cursor.exactOffset + SEARCH_EXPANSION_EXACT_BATCH - 1,
-      { applyTitleQuery: true, applyLocation: false }
+        { applyTitleQuery: true, applyLocation: Boolean(browseLgu) }
     );
     if (!exact) return null;
     queryCount += 1;
-    exactRows = exact;
+    exactRows = partitionPostsByCategoryPriority(exact, rootSet, topicSet);
   }
   const inferredBodyTypes = [
     ...new Set([...cursor.inferredBodyTypes, ...inferBodyTypesFromListings(exactRows)]),
@@ -352,7 +396,7 @@ export async function loadSearchExpansionRound(
     );
     if (!relatedIn) return null;
     queryCount += 1;
-    relatedInRows = relatedIn;
+    relatedInRows = partitionPostsByCategoryPriority(relatedIn, rootSet, topicSet);
   }
   const fetchRelatedOut = Boolean(browseLgu && relatedOr && !cursor.relatedOutExhausted);
   if (fetchRelatedOut) {
@@ -376,7 +420,7 @@ export async function loadSearchExpansionRound(
     );
     if (!relatedOut) return null;
     queryCount += 1;
-    relatedOutRows = relatedOut;
+    relatedOutRows = partitionPostsByCategoryPriority(relatedOut, rootSet, topicSet);
   }
   const fetched = {
     exact: exactRows.length,
@@ -423,31 +467,67 @@ export async function resolveHomePostsPayload(
   statusOr: string,
   lguCityId?: string | null,
   radiusKm?: number | null,
-  queryExtras?: {
-    q?: string;
-    priceMin?: number;
-    priceMax?: number;
-    compositionFilters?: CompositionFilterClause[];
-    mixedDiscoverySellIntent?: boolean;
-  }
+  queryExtras?: HomePostsQueryExtras
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-  const fromMaskedRead = await loadHomePostsPage(
-    readSb,
-    POSTS_TABLE_READ,
-    from,
-    sort,
-    type,
-    tradeCategoryIds,
-    statusOr,
-    lguCityId,
-    radiusKm,
-    queryExtras
-  );
-  if (fromMaskedRead) return fromMaskedRead;
+  const qIsAbsent = queryExtras?.q == null || queryExtras?.q === "";
+  const wantsBrowsePriority = qIsAbsent && lguCityId && radiusKm != null;
+  const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
+  const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
+  const hasCategoryPriority = qIsAbsent && rootIds && rootIds.length > 0;
 
-  if (serviceSb && serviceSb !== readSb) {
-    const fromMaskedService = await loadHomePostsPage(
-      serviceSb,
+  if (!wantsBrowsePriority) {
+    if (hasCategoryPriority) {
+      const resolveCategoryPriorityPayloadForSb = async (sb: SupabaseClient<any>) => {
+        const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
+        if (feedConstraint.kind === "invalid") {
+          return null;
+        }
+
+        const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+        const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
+        const rangeFrom = 0;
+        const rangeTo = targetInclusive;
+
+        const rootSet = new Set(rootIds!);
+        const topicSet = topicIds && topicIds.length > 0 ? new Set(topicIds) : null;
+
+        const mapped = await fetchHomePostsMappedRange(
+          sb,
+          POSTS_TABLE_READ,
+          sort,
+          type,
+          tradeCategoryIds,
+          statusOr,
+          feedLocExtras,
+          queryExtras,
+          rangeFrom,
+          rangeTo,
+          {
+            applyLocation: true,
+            excludeLguIds: null,
+            excludeTradeCategoryIds: null,
+          }
+        );
+        if (!mapped) return null;
+
+        const assembled = partitionPostsByCategoryPriority(mapped, rootSet, topicSet);
+        return {
+          posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+          hasMore: assembled.length > targetInclusive,
+        };
+      };
+
+      const fromMaskedRead = await resolveCategoryPriorityPayloadForSb(readSb);
+      if (fromMaskedRead) return fromMaskedRead;
+
+      if (serviceSb && serviceSb !== readSb) {
+        const fromMaskedService = await resolveCategoryPriorityPayloadForSb(serviceSb);
+        if (fromMaskedService) return fromMaskedService;
+      }
+    }
+
+    const fromMaskedRead = await loadHomePostsPage(
+      readSb,
       POSTS_TABLE_READ,
       from,
       sort,
@@ -458,22 +538,181 @@ export async function resolveHomePostsPayload(
       radiusKm,
       queryExtras
     );
+    if (fromMaskedRead) return fromMaskedRead;
+
+    if (serviceSb && serviceSb !== readSb) {
+      const fromMaskedService = await loadHomePostsPage(
+        serviceSb,
+        POSTS_TABLE_READ,
+        from,
+        sort,
+        type,
+        tradeCategoryIds,
+        statusOr,
+        lguCityId,
+        radiusKm,
+        queryExtras
+      );
+      if (fromMaskedService) return fromMaskedService;
+    }
+
+    if (serviceSb) {
+      return loadHomePostsPage(
+        serviceSb,
+        "posts",
+        from,
+        sort,
+        type,
+        tradeCategoryIds,
+        statusOr,
+        lguCityId,
+        radiusKm,
+        queryExtras
+      );
+    }
+
+    return null;
+  }
+
+  async function resolveBrowsePriorityPayloadForSb(sb: SupabaseClient<any>) {
+    const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
+    if (feedConstraint.kind === "invalid") {
+      return { posts: [], hasMore: false };
+    }
+    if (feedConstraint.kind !== "lgu") {
+      return loadHomePostsPage(
+        sb,
+        POSTS_TABLE_READ,
+        from,
+        sort,
+        type,
+        tradeCategoryIds,
+        statusOr,
+        lguCityId,
+        radiusKm,
+        queryExtras
+      );
+    }
+
+    const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+    const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
+    const rangeFrom = 0;
+    const rangeTo = targetInclusive;
+
+    const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
+    const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
+
+    const rootArr = rootIds && rootIds.length > 0 ? rootIds : null;
+    const topicArr = topicIds && topicIds.length > 0 ? topicIds : [];
+
+    const canSortByDistance = sort === "distance";
+    const canonicalId = feedConstraint.canonicalId;
+
+    const fetchTier = async (args: {
+      tradeCatIds: string[] | null;
+      applyLocation: boolean;
+      excludeLguIds?: string[] | null;
+      excludeTradeCatIds?: string[] | null;
+    }): Promise<PostWithMeta[]> => {
+      const mapped = await fetchHomePostsMappedRange(
+        sb,
+        POSTS_TABLE_READ,
+        sort,
+        type,
+        args.tradeCatIds,
+        statusOr,
+        feedLocExtras,
+        queryExtras,
+        rangeFrom,
+        rangeTo,
+        {
+          applyLocation: args.applyLocation,
+          excludeLguIds: args.excludeLguIds ?? null,
+          excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
+        }
+      );
+      if (!mapped) return [];
+      if (canSortByDistance) {
+        return sortListingsByLguDistance(mapped, canonicalId);
+      }
+      return mapped;
+    };
+
+    // category 선택이 없으면: within(all) → outside(all)
+    if (!rootArr) {
+      const withinAll = await fetchTier({ tradeCatIds: null, applyLocation: true });
+      const outsideAll = await fetchTier({
+        tradeCatIds: null,
+        applyLocation: false,
+        excludeLguIds: feedConstraint.matchingCanonicalIds,
+      });
+      const assembled = [...withinAll, ...outsideAll];
+      return {
+        posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+        hasMore: assembled.length > targetInclusive,
+      };
+    }
+
+    // category 선택이 있으면: topic → root-only → others, 그리고 within → outside
+    const withinTopicMatch =
+      topicArr.length > 0 ? await fetchTier({ tradeCatIds: topicArr, applyLocation: true }) : [];
+    const withinRootOnly = await fetchTier({
+      tradeCatIds: rootArr,
+      applyLocation: true,
+      excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
+    });
+    const withinOthers = await fetchTier({
+      tradeCatIds: null,
+      applyLocation: true,
+      excludeTradeCatIds: rootArr,
+    });
+
+    const outsideTopicMatch =
+      topicArr.length > 0
+        ? await fetchTier({
+            tradeCatIds: topicArr,
+            applyLocation: false,
+            excludeLguIds: feedConstraint.matchingCanonicalIds,
+          })
+        : [];
+    const outsideRootOnly = await fetchTier({
+      tradeCatIds: rootArr,
+      applyLocation: false,
+      excludeLguIds: feedConstraint.matchingCanonicalIds,
+      excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
+    });
+    const outsideOthers = await fetchTier({
+      tradeCatIds: null,
+      applyLocation: false,
+      excludeLguIds: feedConstraint.matchingCanonicalIds,
+      excludeTradeCatIds: rootArr,
+    });
+
+    const assembled = [
+      ...withinTopicMatch,
+      ...withinRootOnly,
+      ...withinOthers,
+      ...outsideTopicMatch,
+      ...outsideRootOnly,
+      ...outsideOthers,
+    ];
+
+    return {
+      posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+      hasMore: assembled.length > targetInclusive,
+    };
+  }
+
+  const fromMaskedRead = await resolveBrowsePriorityPayloadForSb(readSb);
+  if (fromMaskedRead) return fromMaskedRead;
+
+  if (serviceSb && serviceSb !== readSb) {
+    const fromMaskedService = await resolveBrowsePriorityPayloadForSb(serviceSb);
     if (fromMaskedService) return fromMaskedService;
   }
 
   if (serviceSb) {
-    return loadHomePostsPage(
-      serviceSb,
-      "posts",
-      from,
-      sort,
-      type,
-      tradeCategoryIds,
-      statusOr,
-      lguCityId,
-      radiusKm,
-      queryExtras
-    );
+    return resolveBrowsePriorityPayloadForSb(serviceSb);
   }
 
   return null;

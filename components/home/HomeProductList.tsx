@@ -73,6 +73,7 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
+import { parseCompositionFilterSearchParams } from "@/lib/trade/category-form";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -198,17 +199,101 @@ export function HomeProductList({
       cancelled = true;
     };
   }, [locationScope]);
+
+  const homeSort: GetPostsForHomeOptions["sort"] = useMemo(() => {
+    const raw = (searchParams.get("sort") ?? searchParams.get("fs") ?? "").trim().toLowerCase();
+    if (raw === "popular") return "popular";
+    if (raw === "near" || raw === "distance") return "distance";
+    return "latest";
+  }, [searchParams]);
+
+  const priceMinMax = useMemo(() => {
+    const minRaw = searchParams.get("priceMin");
+    const maxRaw = searchParams.get("priceMax");
+    const minNum = minRaw && minRaw.trim() !== "" ? Number(minRaw) : null;
+    const maxNum = maxRaw && maxRaw.trim() !== "" ? Number(maxRaw) : null;
+    return {
+      priceMin: Number.isFinite(minNum as number) && (minNum as number) > 0 ? (minNum as number) : null,
+      priceMax: Number.isFinite(maxNum as number) && (maxNum as number) > 0 ? (maxNum as number) : null,
+    };
+  }, [searchParams]);
+
+  const selectedRootIds = useMemo(() => {
+    const raw = searchParams.get("categoryIds");
+    const fromIds =
+      raw && raw.trim()
+        ? raw
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : [];
+    if (fromIds.length > 0) return fromIds;
+    const fallback = searchParams.get("category");
+    if (fallback && fallback.trim()) return [fallback.trim()];
+    return [];
+  }, [searchParams]);
+
+  const tradeTopicByParent = useMemo(() => {
+    const primaryRootId = selectedRootIds[0] ?? null;
+    const topicParam = searchParams.get("topic")?.trim() ?? "";
+    const out: Record<string, string | null> = {};
+
+    const pairsRaw = searchParams.getAll("topicByRoot").join(",");
+    if (pairsRaw.trim()) {
+      for (const part of pairsRaw.split(",")) {
+        const p = part.trim();
+        if (!p) continue;
+        const idx = p.indexOf(":");
+        if (idx <= 0) continue;
+        const rootId = p.slice(0, idx).trim();
+        const topicKey = p.slice(idx + 1).trim();
+        if (!rootId) continue;
+        if (selectedRootIds.length > 0 && !selectedRootIds.includes(rootId)) continue;
+        out[rootId] = topicKey ? topicKey : null;
+      }
+    }
+
+    // backward compatible: legacy `topic` is the primary-root topic
+    if (primaryRootId && topicParam && out[primaryRootId] == null) {
+      out[primaryRootId] = topicParam;
+    }
+
+    if (Object.keys(out).length === 0) return null;
+    return out;
+  }, [searchParams, selectedRootIds]);
+
+  const compositionFilters = useMemo(() => parseCompositionFilterSearchParams(searchParams), [searchParams]);
+
   const homePostListOptions = useMemo<GetPostsForHomeOptions>(
     () => ({
-      sort: "latest",
+      sort: homeSort,
       type: null,
       tradeState,
       lguCityId: locationInvalid ? locationScope.raw || "invalid" : lguCityId,
       radiusKm: locationInvalid ? null : radiusKm,
       locationAll,
       q,
+      priceMin: priceMinMax.priceMin,
+      priceMax: priceMinMax.priceMax,
+      compositionFilters,
+      tradeMarketParentIds: selectedRootIds.length > 0 ? selectedRootIds : null,
+      tradeTopicByParent,
     }),
-    [tradeState, lguCityId, radiusKm, locationInvalid, locationScope, locationAll, q]
+    [
+      tradeState,
+      lguCityId,
+      radiusKm,
+      locationInvalid,
+      locationScope,
+      locationAll,
+      q,
+      homeSort,
+      selectedRootIds,
+      tradeTopicByParent,
+      priceMinMax.priceMin,
+      priceMinMax.priceMax,
+      compositionFilters,
+    ]
   );
   const { tt } = useI18n();
   const hydrationSeed =
@@ -355,7 +440,7 @@ export function HomeProductList({
 
     if (initialHomeTradeFeed && allowRscHomeListSeedRef.current && locationAll && !q) {
       primeHomePostsCache(
-        { sort: "latest", type: null, tradeState, locationAll: true },
+        homePostListOptions,
         initialHomeTradeFeed
       );
     }

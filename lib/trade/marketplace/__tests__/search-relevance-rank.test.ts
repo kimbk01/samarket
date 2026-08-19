@@ -136,6 +136,140 @@ describe("CUT C search candidate expansion", () => {
     ]);
   });
 
+  it("forces within -> outside inside the same relevance tier (T1/T2/T3->T4)", () => {
+    const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
+    const assembled = assembleSearchExpansionRound({
+      exactRows: [
+        {
+          id: "t1-within",
+          title: "Toyota Fortuner",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T10:00:00.000Z",
+        },
+      ],
+      relatedInRows: [
+        {
+          id: "t2-within",
+          title: "Fortuner 2022 Diesel",
+          meta: { car_model: "Toyota Fortuner" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T09:00:00.000Z",
+        },
+        {
+          id: "t3-within",
+          title: "Montero Sport",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T08:00:00.000Z",
+        },
+      ],
+      relatedOutRows: [
+        {
+          id: "t1-outside",
+          title: "Toyota Fortuner",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T10:05:00.000Z",
+        },
+        {
+          id: "t2-outside",
+          title: "Fortuner 2022 Diesel",
+          meta: { car_model: "Toyota Fortuner" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T09:05:00.000Z",
+        },
+        {
+          id: "t3-outside",
+          title: "Montero Sport",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T07:00:00.000Z",
+        },
+      ],
+      hints,
+      browseLguCanonicalId: PASIG,
+      cursor: emptySearchExpansionCursor(),
+    });
+
+    const ids = assembled.posts.map((row) => row.id);
+    expect(ids).toEqual(["t1-within", "t1-outside", "t2-within", "t2-outside", "t3-within", "t3-outside"]);
+
+    // additional: outside T1 must remain before within T2 (normal tier ordering)
+    expect(ids.indexOf("t1-outside")).toBeLessThan(ids.indexOf("t2-within"));
+  });
+
+  it("keeps ordering contract across continuation (page1/page2 concat style)", () => {
+    const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
+    const page1 = assembleSearchExpansionRound({
+      exactRows: [
+        {
+          id: "t1-within",
+          title: "Toyota Fortuner",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T10:00:00.000Z",
+        },
+      ],
+      relatedInRows: [
+        {
+          id: "t2-within",
+          title: "Fortuner 2022 Diesel",
+          meta: { car_model: "Toyota Fortuner" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T09:00:00.000Z",
+        },
+      ],
+      relatedOutRows: [
+        {
+          id: "t1-outside",
+          title: "Toyota Fortuner",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T10:05:00.000Z",
+        },
+      ],
+      hints,
+      browseLguCanonicalId: PASIG,
+      cursor: emptySearchExpansionCursor(),
+    });
+
+    const page2 = assembleSearchExpansionRound({
+      exactRows: [],
+      relatedInRows: [
+        {
+          id: "t3-within",
+          title: "Montero Sport",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T08:00:00.000Z",
+        },
+      ],
+      relatedOutRows: [
+        {
+          id: "t2-outside",
+          title: "Fortuner 2022 Diesel",
+          meta: { car_model: "Toyota Fortuner" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T09:05:00.000Z",
+        },
+        {
+          id: "t3-outside",
+          title: "Montero Sport",
+          meta: { car_body_type: "suv" },
+          trade_lgu_id: DAVAO,
+          created_at: "2026-08-18T07:00:00.000Z",
+        },
+      ],
+      hints,
+      browseLguCanonicalId: PASIG,
+      cursor: page1.cursor,
+    });
+
+    const ids = [...page1.posts, ...page2.posts].map((row) => row.id);
+    expect(ids).toEqual(["t1-within", "t1-outside", "t2-within", "t2-outside", "t3-within", "t3-outside"]);
+  });
+
   it("keeps related-in/out cursors when exact/T1 is exhausted", () => {
     const start = {
       ...emptySearchExpansionCursor(),

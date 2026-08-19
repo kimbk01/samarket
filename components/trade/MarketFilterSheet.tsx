@@ -29,14 +29,13 @@ import {
   readTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import {
+  appendCompositionFilterSearchParams,
+  sanitizeCompositionFilterSelection,
   resolveCompositionAttributeFilterFields,
   resolveTradeCompositionForCategory,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
-import {
-  buildMarketplaceMoreBrowseHref,
-  marketplaceMoreBrowseHasFilterOptions,
-} from "@/lib/trade/tabs/marketplace-more-browse";
+import { marketplaceMoreBrowseHasFilterOptions } from "@/lib/trade/tabs/marketplace-more-browse";
 
 type SortOption = "latest" | "near" | "popular";
 type TradeStateOption = "all" | "active" | "sold";
@@ -50,7 +49,21 @@ type DraftState = {
   priceMax: string;
 
   rootCategoryId: string | null;
-  topicKey: string | null; // child.slug||child.id in URL contract
+  /** ROOT multi selection (URL: `categoryIds`) */
+  rootCategoryIds: string[];
+  topicKey: string | null; // child.slug||child.id in URL contract (for current primary root)
+  /**
+   * ROOT-keyed optional child map.
+   * - URL: `topicByRoot=<rootId>:<topicKey>` (repeated)
+   * - UI: `topicKey` is just the currently edited primary root's value.
+   */
+  topicByRoot: Record<string, string | null>;
+  /**
+   * Currently edited ROOT for child(topic) picker.
+   * - primary root는 `rootCategoryId`
+   * - topic 편집은 `topicEditRootId`로 전환 가능(멀티 ROOT일 때도 각 root별 topic 선택)
+   */
+  topicEditRootId: string | null;
   filters: CompositionFilterSelection;
 
   regionMode: RegionMode;
@@ -135,9 +148,9 @@ export function countActiveMarketFilters(baseSearch: string): number {
   const sp = new URLSearchParams(baseSearch);
   let n = 0;
 
+  const categoryIds = (sp.get("categoryIds") ?? "").trim();
   const category = (sp.get("category") ?? "").trim();
-  const topic = (sp.get("topic") ?? "").trim();
-  if (category || topic) n++;
+  if (categoryIds || category) n++;
 
   const location = (sp.get("location") ?? "").trim().toLowerCase();
   const radiusRaw = sp.get(TRADE_LOCATION_RADIUS_PARAM);
@@ -166,7 +179,22 @@ export function buildMarketFilterResetHref(opts: {
   const sp = new URLSearchParams(opts.baseSearch);
   const knownFieldIds = unionCompositionFieldIds(opts.topics);
 
-  for (const k of ["category", "topic", "tradeState", "sort", "fs", "priceMin", "priceMax", "location", "lgu", "radius", "page", "cursor"]) {
+  for (const k of [
+    "category",
+    "categoryIds",
+    "topic",
+    "topicByRoot",
+    "tradeState",
+    "sort",
+    "fs",
+    "priceMin",
+    "priceMax",
+    "location",
+    "lgu",
+    "radius",
+    "page",
+    "cursor",
+  ]) {
     sp.delete(k);
   }
   // composition filter params are stored as `filters[<fieldId>]`
@@ -218,14 +246,110 @@ export function MarketFilterSheet({
     tradeState: parseTradeStateFromSearch(baseSearch),
     ...parsePriceFromSearch(baseSearch),
 
-    rootCategoryId: rootFromSearch.categoryId,
-    topicKey: rootFromSearch.topicKey,
-    filters: rootFromSearch.categoryId
-      ? (() => {
-          const root = topics.find((t) => t.id === rootFromSearch.categoryId) ?? null;
-          return root ? parseKnownCompositionSelectionFromSearch({ baseSearch, root }) : {};
-        })()
-      : {},
+    rootCategoryIds: (() => {
+      const sp = new URLSearchParams(baseSearch);
+      const raw = sp.get("categoryIds");
+      const ids = raw && raw.trim() ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      if (ids.length > 0) return ids;
+      return rootFromSearch.categoryId ? [rootFromSearch.categoryId] : [];
+    })(),
+    rootCategoryId: (() => {
+      const sp = new URLSearchParams(baseSearch);
+      const raw = sp.get("categoryIds");
+      const ids = raw && raw.trim() ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      if (rootFromSearch.categoryId) return rootFromSearch.categoryId;
+      return ids[0] ?? null;
+    })(),
+    topicByRoot: (() => {
+      const sp = new URLSearchParams(baseSearch);
+      const rawRoots = sp.get("categoryIds");
+      const selectedRootIds =
+        rawRoots && rawRoots.trim()
+          ? rawRoots.split(",").map((x) => x.trim()).filter(Boolean)
+          : rootFromSearch.categoryId
+            ? [rootFromSearch.categoryId]
+            : [];
+      const selectedSet = new Set(selectedRootIds);
+
+      const out: Record<string, string | null> = {};
+      const pairsRaw = sp.getAll("topicByRoot").join(",");
+      if (pairsRaw.trim()) {
+        for (const part of pairsRaw.split(",")) {
+          const p = part.trim();
+          if (!p) continue;
+          const idx = p.indexOf(":");
+          if (idx <= 0) continue;
+          const rootId = p.slice(0, idx).trim();
+          const topicKey = p.slice(idx + 1).trim();
+          if (!rootId) continue;
+          if (!selectedSet.has(rootId)) continue;
+          if (!topicKey) {
+            out[rootId] = null;
+            continue;
+          }
+          out[rootId] = topicKey;
+        }
+      }
+
+      const primary = rootFromSearch.categoryId ?? selectedRootIds[0] ?? null;
+      // backward compatible: legacy `topic` is the primary-root topic
+      if (primary && rootFromSearch.topicKey && out[primary] == null) {
+        out[primary] = rootFromSearch.topicKey;
+      }
+
+      // prune empties
+      for (const k of Object.keys(out)) {
+        if (!selectedSet.has(k)) delete out[k];
+      }
+      return out;
+    })(),
+    topicKey: (() => {
+      const primary = (() => {
+        const sp = new URLSearchParams(baseSearch);
+        const rawRoots = sp.get("categoryIds");
+        const selectedRootIds =
+          rawRoots && rawRoots.trim()
+            ? rawRoots.split(",").map((x) => x.trim()).filter(Boolean)
+            : rootFromSearch.categoryId
+              ? [rootFromSearch.categoryId]
+              : [];
+        return rootFromSearch.categoryId ?? selectedRootIds[0] ?? null;
+      })();
+      if (!primary) return null;
+      const sp = new URLSearchParams(baseSearch);
+      const pairsRaw = sp.getAll("topicByRoot").join(",");
+      let found: string | null | undefined = undefined;
+      if (pairsRaw.trim()) {
+        for (const part of pairsRaw.split(",")) {
+          const p = part.trim();
+          if (!p) continue;
+          const idx = p.indexOf(":");
+          if (idx <= 0) continue;
+          const rootId = p.slice(0, idx).trim();
+          const topicKey = p.slice(idx + 1).trim();
+          if (rootId !== primary) continue;
+          found = topicKey ? topicKey : null;
+          break;
+        }
+      }
+      return (found === undefined ? rootFromSearch.topicKey : found) ?? null;
+    })(),
+    topicEditRootId: (() => {
+      const sp = new URLSearchParams(baseSearch);
+      const raw = sp.get("categoryIds");
+      const ids = raw && raw.trim() ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      if (rootFromSearch.categoryId) return rootFromSearch.categoryId;
+      return ids[0] ?? null;
+    })(),
+    filters: (() => {
+      const sp = new URLSearchParams(baseSearch);
+      const raw = sp.get("categoryIds");
+      const ids = raw && raw.trim() ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      const primary = rootFromSearch.categoryId ?? ids[0] ?? null;
+      if (!primary) return {};
+      const root = topics.find((t) => t.id === primary) ?? null;
+      return root ? parseKnownCompositionSelectionFromSearch({ baseSearch, root }) : {};
+    })(),
 
     regionMode:
       committedScope.mode === "all" ? "all" : committedScope.mode === "city" ? "commit" : "commit",
@@ -242,15 +366,49 @@ export function MarketFilterSheet({
     setState((prev) => {
       const rootParsed = parseRootFromSearch(baseSearch);
       const nextRoot = rootParsed.categoryId;
-      const rootObj = nextRoot ? topics.find((t) => t.id === nextRoot) ?? null : null;
+      const sp = new URLSearchParams(baseSearch);
+      const raw = sp.get("categoryIds");
+      const ids = raw && raw.trim() ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+      const nextRootIds = ids.length > 0 ? ids : nextRoot ? [nextRoot] : [];
+      const nextPrimary = nextRoot ?? nextRootIds[0] ?? null;
+      const rootObj = nextPrimary ? topics.find((t) => t.id === nextPrimary) ?? null : null;
+      const topicByRoot: Record<string, string | null> = (() => {
+        const selectedSet = new Set(nextRootIds);
+        const out: Record<string, string | null> = {};
+        const pairsRaw = sp.getAll("topicByRoot").join(",");
+        if (pairsRaw.trim()) {
+          for (const part of pairsRaw.split(",")) {
+            const p = part.trim();
+            if (!p) continue;
+            const idx = p.indexOf(":");
+            if (idx <= 0) continue;
+            const rootId = p.slice(0, idx).trim();
+            const topicKey = p.slice(idx + 1).trim();
+            if (!rootId) continue;
+            if (!selectedSet.has(rootId)) continue;
+            out[rootId] = topicKey ? topicKey : null;
+          }
+        }
+        // backward compatible: legacy `topic` is the primary-root topic
+        if (nextPrimary && rootParsed.topicKey && out[nextPrimary] == null) {
+          out[nextPrimary] = rootParsed.topicKey;
+        }
+        for (const k of Object.keys(out)) {
+          if (!selectedSet.has(k)) delete out[k];
+        }
+        return out;
+      })();
       const locScope = parseTradeLocationScopeFromSearchParams(new URLSearchParams(baseSearch));
       return {
         ...prev,
         sort: parseSortFromSearch(baseSearch),
         tradeState: parseTradeStateFromSearch(baseSearch),
         ...parsePriceFromSearch(baseSearch),
-        rootCategoryId: nextRoot,
-        topicKey: rootParsed.topicKey,
+        rootCategoryId: nextPrimary,
+        rootCategoryIds: nextRootIds,
+        topicByRoot,
+        topicKey: nextPrimary ? topicByRoot[nextPrimary] ?? null : null,
+        topicEditRootId: nextPrimary,
         filters: rootObj ? parseKnownCompositionSelectionFromSearch({ baseSearch, root: rootObj }) : {},
         regionMode: locScope.mode === "all" ? "all" : "commit",
         radiusKm: locScope.mode === "city" ? locScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
@@ -271,13 +429,14 @@ export function MarketFilterSheet({
   const pickGen = useRef(0);
 
   useEffect(() => {
-    if (!state.rootCategoryId) {
+    const editRootId = state.topicEditRootId ?? state.rootCategoryId;
+    if (!editRootId) {
       setChildren([]);
       return;
     }
     const gen = ++pickGen.current;
     setLoadingChildren(true);
-    void getChildCategories(state.rootCategoryId)
+    void getChildCategories(editRootId)
       .then((list) => {
         if (gen !== pickGen.current) return;
         setChildren(list);
@@ -286,12 +445,17 @@ export function MarketFilterSheet({
         if (gen !== pickGen.current) return;
         setLoadingChildren(false);
       });
-  }, [state.rootCategoryId]);
+  }, [state.topicEditRootId, state.rootCategoryId]);
 
   const resolvedChild = useMemo(() => {
     if (!state.topicKey) return null;
+    if (!state.rootCategoryId) return null;
+    if (state.topicEditRootId && state.topicEditRootId !== state.rootCategoryId) return null;
     return children.find((c) => (c.slug?.trim() || c.id) === state.topicKey) ?? null;
-  }, [children, state.topicKey]);
+  }, [children, state.topicKey, state.rootCategoryId, state.topicEditRootId]);
+
+  const topicEditRootIdEffective = state.topicEditRootId ?? state.rootCategoryId;
+  const editingTopicKey = topicEditRootIdEffective ? state.topicByRoot[topicEditRootIdEffective] ?? null : null;
 
   const composition = useMemo(() => {
     if (!rootCategory) return null;
@@ -309,6 +473,7 @@ export function MarketFilterSheet({
         rootCategory.slug,
         rootCategory.icon_key
       );
+      const extraRoots = Math.max(0, state.rootCategoryIds.length - 1);
       if (resolvedChild) {
         const childLabel = resolveTradeCategoryUILabel(
           language === "en" ? "en" : "ko",
@@ -317,9 +482,15 @@ export function MarketFilterSheet({
           resolvedChild.slug,
           resolvedChild.icon_key
         );
-        chips.push({ id: "category", label: `${rootLabel} · ${childLabel}` });
+        chips.push({
+          id: "category",
+          label: `${rootLabel} · ${childLabel}${extraRoots > 0 ? ` (+${extraRoots})` : ""}`,
+        });
       } else {
-        chips.push({ id: "category", label: rootLabel });
+        chips.push({
+          id: "category",
+          label: `${rootLabel}${extraRoots > 0 ? ` (+${extraRoots})` : ""}`,
+        });
       }
     }
 
@@ -356,6 +527,7 @@ export function MarketFilterSheet({
   }, [
     rootCategory,
     resolvedChild,
+    state.rootCategoryIds,
     state.regionMode,
     state.radiusKm,
     state.tradeState,
@@ -432,7 +604,10 @@ export function MarketFilterSheet({
       priceMin: "",
       priceMax: "",
       rootCategoryId: null,
+      rootCategoryIds: [],
       topicKey: null,
+      topicByRoot: {},
+      topicEditRootId: null,
       filters: {},
       regionMode: cityMode ? "commit" : "all",
       radiusKm: cityMode ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
@@ -444,7 +619,15 @@ export function MarketFilterSheet({
   function removeChip(chip: AppliedChip) {
     setState((prev) => {
       if (chip.id === "category") {
-        return { ...prev, rootCategoryId: null, topicKey: null, filters: {} };
+        return {
+          ...prev,
+          rootCategoryId: null,
+          rootCategoryIds: [],
+          topicKey: null,
+          topicByRoot: {},
+          topicEditRootId: null,
+          filters: {},
+        };
       }
       if (chip.id === "distance") {
         return { ...prev, distanceAll: true, radiusKm: TRADE_BROWSE_RECOMMENDED_RADIUS_KM };
@@ -469,7 +652,9 @@ export function MarketFilterSheet({
 
     // category axis
     sp.delete("category");
+    sp.delete("categoryIds");
     sp.delete("topic");
+    sp.delete("topicByRoot");
     for (const fid of knownFieldIds) sp.delete(`filters[${fid}]`);
 
     // location axis
@@ -532,20 +717,39 @@ export function MarketFilterSheet({
     rootCategory: CategoryWithSettings | null;
   }): string {
     // If no root selected: it's just /market + our non-category params already set.
-    if (!opts.rootCategory) {
+    if (!state.rootCategoryId || state.rootCategoryIds.length === 0) {
       const qs = opts.sp.toString();
       return qs ? `/market?${qs}` : "/market";
     }
 
-    const topicKey = state.topicKey ?? null;
-    const href = buildMarketplaceMoreBrowseHref({
-      categoryId: opts.rootCategory.id,
-      topic: topicKey,
-      filters: state.filters,
-      baseSearch: opts.sp.toString(),
-      compositionOwner: opts.rootCategory,
-    });
-    return href;
+    const primaryRootId = state.rootCategoryId;
+    const nextRootIds = [...new Set(state.rootCategoryIds)].filter(Boolean);
+
+    const sp = new URLSearchParams(opts.sp.toString());
+    sp.set("category", primaryRootId);
+    sp.set("categoryIds", nextRootIds.join(","));
+
+    // ROOT-keyed optional child:
+    // - legacy `topic` is still set for the currently edited primary root
+    // - root-keyed mapping uses `topicByRoot` for all selected roots that have a topic
+    sp.delete("topicByRoot");
+    if (state.topicKey) sp.set("topic", state.topicKey);
+    else sp.delete("topic");
+
+    for (const rid of nextRootIds) {
+      const t = state.topicByRoot?.[rid] ?? null;
+      if (!t) continue;
+      sp.append("topicByRoot", `${rid}:${t}`);
+    }
+
+    if (opts.rootCategory) {
+      const composition = resolveTradeCompositionForCategory(opts.rootCategory);
+      const sanitizedFilters = sanitizeCompositionFilterSelection(state.filters, composition);
+      appendCompositionFilterSearchParams(sp, sanitizedFilters);
+    }
+
+    const qs = sp.toString();
+    return qs ? `/market?${qs}` : "/market";
   }
 
   function applyResults() {
@@ -614,16 +818,24 @@ export function MarketFilterSheet({
           label={safeT("marketplace_more_categories_title", { fallbackKo: "카테고리", fallbackEn: "Categories" })}
         >
           <RadioItem
-            checked={!state.rootCategoryId}
+            checked={state.rootCategoryIds.length === 0}
             label={safeT("marketplace_filter_category_all", { fallbackKo: "전체", fallbackEn: "All" })}
             onChange={() => {
-              setState((s) => ({ ...s, rootCategoryId: null, topicKey: null, filters: {} }));
+              setState((s) => ({
+                ...s,
+                rootCategoryId: null,
+                rootCategoryIds: [],
+                topicKey: null,
+                topicByRoot: {},
+                topicEditRootId: null,
+                filters: {},
+              }));
             }}
           />
           {topics.map((cat) => (
-            <RadioItem
+            <CheckboxItem
               key={cat.id}
-              checked={state.rootCategoryId === cat.id}
+              checked={state.rootCategoryIds.includes(cat.id)}
               label={resolveTradeCategoryUILabel(
                 language === "en" ? "en" : "ko",
                 cat.name,
@@ -632,12 +844,43 @@ export function MarketFilterSheet({
                 cat.icon_key
               )}
               onChange={() => {
-                setState((s) => ({
-                  ...s,
-                  rootCategoryId: cat.id,
-                  topicKey: null,
-                  filters: {},
-                }));
+                setState((s) => {
+                  const has = s.rootCategoryIds.includes(cat.id);
+                  if (!has) {
+                    const nextRootIds = [...s.rootCategoryIds, cat.id];
+                    // add non-primary root: keep existing topic/filters on current primary
+                    return {
+                      ...s,
+                      rootCategoryIds: nextRootIds,
+                      rootCategoryId: s.rootCategoryId ?? cat.id,
+                      topicKey: s.rootCategoryId ? s.topicKey : s.topicByRoot[cat.id] ?? null,
+                      topicEditRootId: s.rootCategoryId ? s.topicEditRootId : cat.id,
+                    };
+                  }
+                  const nextRootIds = s.rootCategoryIds.filter((id) => id !== cat.id);
+                  const nextTopicByRoot = { ...s.topicByRoot };
+                  delete nextTopicByRoot[cat.id];
+                  if (s.rootCategoryId === cat.id) {
+                    // removing primary root: reset primary-scoped topic/filters
+                    const nextPrimary = nextRootIds[0] ?? null;
+                    return {
+                      ...s,
+                      rootCategoryIds: nextRootIds,
+                      rootCategoryId: nextPrimary,
+                      topicByRoot: nextTopicByRoot,
+                      topicKey: nextPrimary ? nextTopicByRoot[nextPrimary] ?? null : null,
+                      topicEditRootId: nextPrimary,
+                      filters: {},
+                    };
+                  }
+                  // removing non-primary root: keep primary-scoped topic/filters
+                  return {
+                    ...s,
+                    rootCategoryIds: nextRootIds,
+                    topicByRoot: nextTopicByRoot,
+                    topicEditRootId: s.topicEditRootId === cat.id ? s.rootCategoryId : s.topicEditRootId,
+                  };
+                });
               }}
             />
           ))}
@@ -654,14 +897,46 @@ export function MarketFilterSheet({
                     fallbackEn: "Category",
                   })}
                 </p>
+                {state.rootCategoryIds.length > 1 ? (
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                    {state.rootCategoryIds.map((rid) => {
+                      const r = topics.find((t) => t.id === rid) ?? null;
+                      if (!r) return null;
+                      return (
+                        <RadioItem
+                          key={rid}
+                          checked={topicEditRootIdEffective === rid}
+                          label={resolveTradeCategoryUILabel(
+                            language === "en" ? "en" : "ko",
+                            r.name,
+                            r.name_en,
+                            r.slug,
+                            r.icon_key
+                          )}
+                          onChange={() => setState((s) => ({ ...s, topicEditRootId: rid }))}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                   <RadioItem
-                    checked={!state.topicKey}
+                    checked={!editingTopicKey}
                     label={safeT("marketplace_more_browse_all_in_topic", {
                       fallbackKo: "이 주제 전체",
                       fallbackEn: "All in this topic",
                     })}
-                    onChange={() => setState((s) => ({ ...s, topicKey: null }))}
+                    onChange={() =>
+                      setState((s) => {
+                        const rid = s.topicEditRootId ?? s.rootCategoryId;
+                        if (!rid) return s;
+                        return {
+                          ...s,
+                          topicKey: s.rootCategoryId === rid ? null : s.topicKey,
+                          topicByRoot: { ...s.topicByRoot, [rid]: null },
+                        };
+                      })
+                    }
                   />
                   {loadingChildren ? (
                     <div className="text-sm text-sam-fg-muted">
@@ -671,7 +946,7 @@ export function MarketFilterSheet({
                     children.map((child) => (
                       <RadioItem
                         key={child.id}
-                        checked={state.topicKey === (child.slug?.trim() || child.id)}
+                        checked={editingTopicKey === (child.slug?.trim() || child.id)}
                         label={resolveTradeCategoryUILabel(
                           language === "en" ? "en" : "ko",
                           child.name,
@@ -679,7 +954,18 @@ export function MarketFilterSheet({
                           child.slug,
                           child.icon_key
                         )}
-                        onChange={() => setState((s) => ({ ...s, topicKey: child.slug?.trim() || child.id }))}
+                        onChange={() =>
+                          setState((s) => {
+                            const rid = s.topicEditRootId ?? s.rootCategoryId;
+                            if (!rid) return s;
+                            const next = child.slug?.trim() || child.id;
+                            return {
+                              ...s,
+                              topicKey: s.rootCategoryId === rid ? next : s.topicKey,
+                              topicByRoot: { ...s.topicByRoot, [rid]: next },
+                            };
+                          })
+                        }
                       />
                     ))
                   )}
@@ -836,6 +1122,23 @@ function RadioItem({
   return (
     <label className="flex cursor-pointer items-center gap-2">
       <input type="radio" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onChange} />
+      <span className="text-sm text-sam-fg">{label}</span>
+    </label>
+  );
+}
+
+function CheckboxItem({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2">
+      <input type="checkbox" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onChange} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );

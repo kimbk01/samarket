@@ -395,10 +395,29 @@ export async function resolveHomePostsGetData(
   const q = sanitizeMarketplaceQueryText(searchParams.get("q"));
   const priceMin = parseMarketplacePriceBound(searchParams.get("priceMin"));
   const priceMax = parseMarketplacePriceBound(searchParams.get("priceMax"));
-  const tradeMarketParent = await resolveTradeMarketParentParam(
-    readSb as SupabaseClient<any>,
-    searchParams.get("tradeMarketParent")
-  );
+  const rawTradeMarketParentTokens = (() => {
+    const multi = searchParams.get("tradeMarketParentIds");
+    if (multi && multi.trim()) {
+      return multi
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+    const single = searchParams.get("tradeMarketParent");
+    return single && single.trim() ? [single] : [];
+  })();
+
+  const resolvedTradeMarketParentIds = rawTradeMarketParentTokens.length
+    ? (await Promise.all(
+        rawTradeMarketParentTokens.map((tok) =>
+          resolveTradeMarketParentParam(readSb as SupabaseClient<any>, tok)
+        )
+      )).filter((x): x is string => Boolean(x))
+    : [];
+
+  // `resolveCompositionFilterQueryFromRequest` / mixed-discovery sell-intent은 "primary root" 1개만으로 유지
+  const tradeMarketParent = resolvedTradeMarketParentIds[0] ?? null;
+
   const compositionQuery = await resolveCompositionFilterQueryFromRequest(
     readSb as SupabaseClient<any>,
     tradeMarketParent,
@@ -421,15 +440,101 @@ export async function resolveHomePostsGetData(
       : "";
   const querySegment = `${querySegmentBase}${cfSegment}${mixedDiscoverySellIntent ? ":si:mix" : ""}`;
 
-  let tradeCategoryIds: string[] | null = null;
+  const topicPairsRaw = (searchParams.get("tradeTopicByParent") ?? "").trim();
+  const tradeTopicByParent: Record<string, string> = {};
+  if (topicPairsRaw) {
+    for (const part of topicPairsRaw.split(",")) {
+      const p = part.trim();
+      if (!p) continue;
+      const idx = p.indexOf(":");
+      if (idx <= 0) continue;
+      const rootKey = p.slice(0, idx).trim();
+      const topicKey = p.slice(idx + 1).trim();
+      if (!rootKey || !topicKey) continue;
+      tradeTopicByParent[rootKey] = topicKey;
+    }
+  }
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  async function resolveTradeTopicCategoryId(rootId: string, topicKey: string): Promise<string | null> {
+    const t = topicKey.trim().normalize("NFC");
+    if (!t) return null;
+    if (UUID_RE.test(t)) return t;
+    const qsb = (serviceSb ?? readSb) as SupabaseClient<any>;
+    const { data, error } = await qsb
+      .from("categories")
+      .select("id")
+      .eq("type", "trade")
+      .eq("parent_id", rootId)
+      .eq("is_active", true)
+      .eq("slug", t)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data || typeof data !== "object") return null;
+    const id = (data as { id?: unknown }).id;
+    if (!id) return null;
+    return String(id);
+  }
+
+  const hasRootSelection = resolvedTradeMarketParentIds.length > 0;
+  let categoryPriorityRootTradeCategoryIds: string[] | null = null;
+  let categoryPriorityTopicTradeCategoryIds: string[] | null = null;
+
+  let tradeCategoryIds: string[] | null = null; // promotion projection uses this (selected roots union)
+  let tradeCategoryIdsForQuery: string[] | null = null; // category hard-wall gate (soft in this cut)
   let effectiveType: HomePostsQueryType = type;
 
-  if (tradeMarketParent) {
-    tradeCategoryIds = await expandTradeMarketCategoryFilterIds(
-      readSb as SupabaseClient<any>,
-      serviceSb as SupabaseClient<any> | null,
-      tradeMarketParent
+  if (hasRootSelection) {
+    // root union
+    const rootSets = await Promise.all(
+      resolvedTradeMarketParentIds.map((pid) =>
+        expandTradeMarketCategoryFilterIds(
+          readSb as SupabaseClient<any>,
+          serviceSb as SupabaseClient<any> | null,
+          pid
+        )
+      )
     );
+    const rootUnion = new Set<string>();
+    for (const set of rootSets) {
+      for (const id of set) rootUnion.add(id);
+    }
+    categoryPriorityRootTradeCategoryIds = [...rootUnion];
+    tradeCategoryIds = categoryPriorityRootTradeCategoryIds;
+
+    // topic union (optional per root)
+    const topicPairs = Object.entries(tradeTopicByParent);
+    if (topicPairs.length > 0) {
+      const resolvedTopicCategoryIds = await Promise.all(
+        topicPairs.map(async ([rootId, topicKey]) => {
+          if (!resolvedTradeMarketParentIds.includes(rootId)) return null;
+          return resolveTradeTopicCategoryId(rootId, topicKey);
+        })
+      );
+      const resolvedTopicIds = resolvedTopicCategoryIds.filter((x): x is string => Boolean(x));
+      if (resolvedTopicIds.length > 0) {
+        const topicSets = await Promise.all(
+          resolvedTopicIds.map((tid) =>
+            expandTradeMarketCategoryFilterIds(
+              readSb as SupabaseClient<any>,
+              serviceSb as SupabaseClient<any> | null,
+              tid
+            )
+          )
+        );
+        const topicUnion = new Set<string>();
+        for (const set of topicSets) {
+          for (const id of set) topicUnion.add(id);
+        }
+        categoryPriorityTopicTradeCategoryIds = [...topicUnion];
+      }
+    }
+
+    // category priority cut: do NOT hard-wall via tradeCategoryIds in DB query
+    tradeCategoryIdsForQuery = null;
+
+    // marketplaces in this route should stay `trade`-only even without hard category ids
+    if (type == null || type === "trade") effectiveType = "trade";
   } else if (isConfiguredTradeUnionEnabledForHomeAll() && (type == null || type === "trade")) {
     const union = await expandTradeCategoryIdsForAllConfiguredHomeRoots(
       readSb as SupabaseClient<any>,
@@ -437,15 +542,33 @@ export async function resolveHomePostsGetData(
     );
     if (union.length > 0) {
       tradeCategoryIds = union;
+      categoryPriorityRootTradeCategoryIds = null;
+      categoryPriorityTopicTradeCategoryIds = null;
+      tradeCategoryIdsForQuery = union;
       effectiveType = "trade";
     }
   }
 
-  const marketSegment = tradeMarketParent
-    ? tradeMarketParent
-    : tradeCategoryIds && tradeCategoryIds.length > 0
-      ? "configured_trade_union"
-      : "all";
+  const marketSegment = (() => {
+    if (hasRootSelection) {
+      const rootsKey = [...resolvedTradeMarketParentIds].sort().join(",");
+      const pairs: string[] = [];
+      for (const [rid, topicKey] of Object.entries(tradeTopicByParent)) {
+        if (!resolvedTradeMarketParentIds.includes(rid)) continue;
+        const t = topicKey?.trim();
+        if (!t) continue;
+        pairs.push(`${rid}:${t}`);
+      }
+      pairs.sort();
+      const topicsKey = pairs.length > 0 ? `:t:${pairs.join(",")}` : "";
+      return `configured_roots:${rootsKey}${topicsKey}`;
+    }
+    return tradeMarketParent
+      ? tradeMarketParent
+      : tradeCategoryIds && tradeCategoryIds.length > 0
+        ? "configured_trade_union"
+        : "all";
+  })();
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
   const useSearchExpansion = shouldApplyMarketplaceSearchExpansion({ q, sort });
   const rankedWindowKey = buildSearchRankedWindowCacheKey({
@@ -494,11 +617,19 @@ export async function resolveHomePostsGetData(
                 serviceSb as SupabaseClient<any> | null,
                 sort,
                 effectiveType,
-                tradeCategoryIds,
+                tradeCategoryIdsForQuery,
                 statusOr,
                 lguCityId,
                 radiusKm,
-                { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent },
+                {
+                  q,
+                  priceMin,
+                  priceMax,
+                  compositionFilters,
+                  mixedDiscoverySellIntent,
+                  categoryPriorityRootTradeCategoryIds,
+                  categoryPriorityTopicTradeCategoryIds,
+                },
                 cursor
               );
               if (!round) return null;
@@ -515,11 +646,19 @@ export async function resolveHomePostsGetData(
             from,
             sort,
             effectiveType,
-            tradeCategoryIds,
+            tradeCategoryIdsForQuery,
             statusOr,
             lguCityId,
             radiusKm,
-            { q, priceMin, priceMax, compositionFilters, mixedDiscoverySellIntent }
+            {
+              q,
+              priceMin,
+              priceMax,
+              compositionFilters,
+              mixedDiscoverySellIntent,
+              categoryPriorityRootTradeCategoryIds,
+              categoryPriorityTopicTradeCategoryIds,
+            }
           );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {

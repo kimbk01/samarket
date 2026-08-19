@@ -37,8 +37,21 @@ export interface GetPostsForHomeOptions {
   /**
    * 거래 1차 메뉴(중고거래·부동산 등) UUID — 서버에서 하위 카테고리까지 펼쳐 필터.
    * 미지정이면 전체 거래 피드.
+   *
+   * - `tradeMarketParentIds`를 지정하면 이 값은 "primary root"로 취급됩니다.
    */
   tradeMarketParentId?: string | null;
+  /**
+   * ROOT multi selection용.
+   * - 서버에서 root → 하위 카테고리 확장 및 topic-by-root 우선순위에 사용됩니다.
+   */
+  tradeMarketParentIds?: string[] | null;
+  /**
+   * ROOT별 optional child(topic) selection.
+   * - 값은 슬러그 또는 UUID 키를 그대로 전달(서버에서 카테고리 id로 resolve)합니다.
+   * - root에 topic이 없으면 해당 root key 자체를 생략합니다.
+   */
+  tradeTopicByParent?: Record<string, string | null> | null;
   /** 전체 거래 정렬/상태 필터 */
   tradeState?: HomeTradeStateFilter;
   /** Trade LGU City scope (`pasig`, …). Requires locationAll=false */
@@ -194,7 +207,17 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort === "popular" || options.sort === "distance" ? options.sort : "latest";
   const typeFilter = options.type ?? null;
-  const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
+  const tradeMarketParentIds =
+    options.tradeMarketParentIds && Array.isArray(options.tradeMarketParentIds)
+      ? options.tradeMarketParentIds.map((x) => x?.trim()).filter(Boolean)
+      : null;
+  const primaryTradeMarketParentId =
+    tradeMarketParentIds && tradeMarketParentIds.length > 0
+      ? tradeMarketParentIds[0]!
+      : options.tradeMarketParentId?.trim() || null;
+  const tradeMarketParent = primaryTradeMarketParentId;
+  const topicPairs =
+    options.tradeTopicByParent && typeof options.tradeTopicByParent === "object" ? options.tradeTopicByParent : null;
   const tradeState = parseMarketplacePublicTradeState(options.tradeState);
   const lguCityId = options.lguCityId?.trim() || null;
   const locationAll = options.locationAll === true && !lguCityId;
@@ -207,7 +230,23 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const priceMin = parseMarketplacePriceBound(options.priceMin ?? undefined);
   const priceMax = parseMarketplacePriceBound(options.priceMax ?? undefined);
   const compositionFilters = options.compositionFilters ?? {};
-  const marketKey = tradeMarketParent ?? "all";
+  const marketKey = (() => {
+    if (!tradeMarketParentIds || tradeMarketParentIds.length === 0) return tradeMarketParent ?? "all";
+    const rootsKey = [...new Set(tradeMarketParentIds)].sort().join(",");
+    const pairs: string[] = [];
+    if (topicPairs) {
+      for (const [rid, t] of Object.entries(topicPairs)) {
+        const rootId = rid?.trim();
+        const topicKey = t?.trim();
+        if (!rootId || !topicKey) continue;
+        if (!tradeMarketParentIds.includes(rootId)) continue;
+        pairs.push(`${rootId}:${topicKey}`);
+      }
+    }
+    pairs.sort();
+    const topicsKey = pairs.length > 0 ? `:t:${pairs.join(",")}` : "";
+    return `roots:${rootsKey}${topicsKey}`;
+  })();
   const loc = (() => {
     if (lguCityId) {
       const cid = resolveTradeLguUrlTokenToCanonical(lguCityId);
@@ -228,6 +267,8 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     sort,
     typeFilter,
     tradeMarketParent,
+    tradeMarketParentIds,
+    tradeTopicByParent: topicPairs,
     tradeState,
     lguCityId,
     radiusKm,
@@ -247,6 +288,22 @@ function applyHomePostsRequestParams(
 ): void {
   if (opts.typeFilter) params.set("type", opts.typeFilter);
   if (opts.tradeMarketParent) params.set("tradeMarketParent", opts.tradeMarketParent);
+  if (opts.tradeMarketParentIds && opts.tradeMarketParentIds.length > 0) {
+    // UUID 리스트
+    params.set("tradeMarketParentIds", [...new Set(opts.tradeMarketParentIds)].sort().join(","));
+    if (opts.tradeTopicByParent) {
+      const pairs: string[] = [];
+      for (const [rid, t] of Object.entries(opts.tradeTopicByParent)) {
+        const rootId = rid?.trim();
+        const topicKey = t?.trim();
+        if (!rootId || !topicKey) continue;
+        if (!opts.tradeMarketParentIds.includes(rootId)) continue;
+        pairs.push(`${rootId}:${topicKey}`);
+      }
+      pairs.sort();
+      if (pairs.length > 0) params.set("tradeTopicByParent", pairs.join(","));
+    }
+  }
   if (opts.tradeState && opts.tradeState !== "latest") params.set("tradeState", opts.tradeState);
   appendMarketplaceLocationSearchParams(params, {
     locationAll: opts.locationAll,
