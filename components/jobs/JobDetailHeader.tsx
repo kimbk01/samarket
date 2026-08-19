@@ -72,6 +72,32 @@ function jobPayHeroLine(
   return null;
 }
 
+export function JobDetailTypeStatusChips({
+  post,
+  meta,
+  direction,
+}: {
+  post: PostWithMeta;
+  meta: Record<string, unknown>;
+  direction: JobDetailDirection;
+}) {
+  const { t } = useI18n();
+  const typeLabel = jobListingTypeLabel(t, meta);
+  const status = jobStatusLabel(t, post, direction);
+  return (
+    <>
+      <span className="inline-flex h-6 items-center rounded-[4px] bg-sam-surface-muted px-2 text-[12px] font-semibold leading-none text-sam-fg">
+        {typeLabel}
+      </span>
+      <span
+        className={`inline-flex h-6 items-center rounded-[4px] px-2 text-[12px] font-semibold leading-none ${status.className}`}
+      >
+        {status.label}
+      </span>
+    </>
+  );
+}
+
 export function JobDetailHeader({
   post,
   meta,
@@ -87,26 +113,21 @@ export function JobDetailHeader({
   isSoldOpacity: boolean;
 }) {
   const { t } = useI18n();
-  const typeLabel = jobListingTypeLabel(t, meta);
   const payLine = jobPayHeroLine(t, meta, post.price ?? null, currency, direction);
-  const status = jobStatusLabel(t, post, direction);
 
   return (
     <section className="px-0 pt-0">
-      {payLine ? <p className={TRADE_FB_DETAIL_PRICE}>{payLine}</p> : null}
-      <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${payLine ? "" : "mt-0 "} ${isSoldOpacity ? "opacity-80" : ""}`}>
+      {payLine ? (
+        <p data-ui5-slot="price" className={TRADE_FB_DETAIL_PRICE}>
+          {payLine}
+        </p>
+      ) : null}
+      <h2
+        data-ui5-slot="title"
+        className={`${TRADE_FB_DETAIL_HERO_TITLE} ${payLine ? "" : "mt-0 "} ${isSoldOpacity ? "opacity-80" : ""}`}
+      >
         {post.title ?? ""}
       </h2>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex h-6 items-center rounded-[4px] bg-sam-surface-muted px-2 text-[12px] font-semibold leading-none text-sam-fg">
-          {typeLabel}
-        </span>
-        <span
-          className={`inline-flex h-6 items-center rounded-[4px] px-2 text-[12px] font-semibold leading-none ${status.className}`}
-        >
-          {status.label}
-        </span>
-      </div>
     </section>
   );
 }

@@ -53,6 +53,7 @@ export function PostDetailMoreBottomSheet({
   authorUserId,
   authorNickname,
   reportEnabled = true,
+  shareEnabled = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -63,6 +64,8 @@ export function PostDetailMoreBottomSheet({
   authorNickname?: string | null;
   /** false면 시트에서 「신고하기」만 숨김 (더보기 메뉴는 계속 사용) */
   reportEnabled?: boolean;
+  /** false면 시트에서 공유 숨김 — 본문 1차 공유와 중복 금지 */
+  shareEnabled?: boolean;
 }) {
   const { t, safeT } = useI18n();
   const requireAction = useRequireAuthAction();
@@ -97,10 +100,12 @@ export function PostDetailMoreBottomSheet({
   return (
     <DibayBottomSheet open={open} onClose={onClose} anchor="above-bottom-nav" ariaLabel={t("ui_sheet_close_aria")}>
       <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-2">
-        <button type="button" onClick={handleShare} className={rowClass}>
-          <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
-          {safeT("trade_detail_share", { fallbackKo: "공유하기", fallbackEn: "Share" })}
-        </button>
+        {shareEnabled ? (
+          <button type="button" onClick={handleShare} className={rowClass}>
+            <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
+            {safeT("trade_detail_share", { fallbackKo: "공유하기", fallbackEn: "Share" })}
+          </button>
+        ) : null}
         <button type="button" onClick={handleHideAuthor} className={rowClass}>
           <IconEyeSlash className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
           이 사용자의 글 보지 않기

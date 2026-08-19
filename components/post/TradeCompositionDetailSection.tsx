@@ -39,7 +39,7 @@ export function TradeCompositionDetailSection(props: {
   currency?: string;
   adapterCtx?: TradeBehaviorContext;
   skipFieldIds?: readonly string[];
-  /** Real-estate hero page: spec table below description */
+  /** Real-estate: spec table after location, before description */
   framed?: boolean;
   formatField?: (
     fieldId: string,

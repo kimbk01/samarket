@@ -18,7 +18,6 @@ import {
   formatSeekerLanguagesPipe,
 } from "@/lib/jobs/job-detail-format";
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
-import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
 
 type JobExtraRow = { label: string; value: string };
 
@@ -125,15 +124,10 @@ function HiringExtras({ post, meta }: { post: PostWithMeta; meta: Record<string,
     value: sameDayPay ? t("ui_jobs_value_yes") : t("ui_jobs_value_no"),
   });
 
-  const content = (post.content ?? "").trim();
   return (
     <div className="flex flex-col gap-2">
       <JobDetailSectionCard title={t("ui_jobs_detail_conditions_section")} rows={recruitRows} />
       <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={condRows} />
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5">
-        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_description_heading")}</h3>
-        <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
-      </div>
     </div>
   );
 }
@@ -159,13 +153,8 @@ function SeekingExtras({ post, meta }: { post: PostWithMeta; meta: Record<string
     extraRows.push({ label: t("ui_jobs_row_mobility_region"), value: meetLine });
   }
 
-  const content = (post.content ?? "").trim();
   return (
     <div className="flex flex-col gap-2">
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5">
-        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_intro_heading")}</h3>
-        <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
-      </div>
       <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={extraRows} />
     </div>
   );

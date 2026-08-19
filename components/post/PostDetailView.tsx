@@ -27,7 +27,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
 import { resolveJobDetailDirection } from "@/lib/jobs/resolve-job-detail-direction";
-import { JobDetailHeader } from "@/components/jobs/JobDetailHeader";
+import { JobDetailHeader, JobDetailTypeStatusChips } from "@/components/jobs/JobDetailHeader";
 import { JobDetailContextNote } from "@/components/jobs/JobDetailContextNote";
 import { JobsExtendedDetailExtras } from "@/components/jobs/JobsExtendedDetailExtras";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
@@ -39,7 +39,6 @@ import {
 import {
   TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER,
   TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP,
-  TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN,
   TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER,
   TRADE_POST_DETAIL_BOTTOM_MUTED_CTA,
   TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA,
@@ -131,7 +130,6 @@ import {
   TRADE_WRITE_FB_FIELD_HEAD,
   TRADE_FB_DETAIL_HERO_TITLE,
   TRADE_FB_DETAIL_PRICE,
-  TRADE_FB_DETAIL_SUBTITLE,
   TRADE_FB_DETAIL_BODY,
   TRADE_FB_DETAIL_FOOTNOTE,
   TRADE_FB_DETAIL_META_HELP,
@@ -205,9 +203,7 @@ type TradePostDetailReFooterSummary = { priceLine: string; dealType: string } | 
 
 /** 거래 상세 하단 — FB 마켓플레이스형 셸(구매자 행 + 판매자 밴드) */
 function TradePostDetailActionBar({
-  isOwnPost,
-  isFavorite,
-  onFavorite,
+  showPrimaryRow,
   reFooterSummary,
   bottomActionsRowClass,
   buyerPriceOfferFlowActive,
@@ -241,9 +237,7 @@ function TradePostDetailActionBar({
   jobApplyDone,
   onJobApply,
 }: {
-  isOwnPost: boolean;
-  isFavorite: boolean;
-  onFavorite: () => void;
+  showPrimaryRow: boolean;
   reFooterSummary: TradePostDetailReFooterSummary;
   bottomActionsRowClass: string;
   buyerPriceOfferFlowActive: boolean;
@@ -284,16 +278,8 @@ function TradePostDetailActionBar({
     : TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW;
   return (
     <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
+        {showPrimaryRow ? (
         <div className={primaryRowClass}>
-          <button
-            type="button"
-            onClick={onFavorite}
-            className={TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN}
-            aria-label={isFavorite ? t("ui_fav_interest_remove_aria") : t("ui_fav_interest_add_aria")}
-          >
-            <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-            <span className="text-[12px] font-semibold text-[#65676B]">{t("ui_fav_interest")}</span>
-          </button>
           {reFooterSummary ? (
             <div className={TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY}>
               <p className="truncate text-[14px] font-semibold text-[#050505]">
@@ -423,6 +409,7 @@ function TradePostDetailActionBar({
             </div>
           </div>
         </div>
+        ) : null}
       {sellerBandVisible ? (
         <div className={TRADE_POST_DETAIL_BOTTOM_SELLER_BAND}>
           <PostDetailSellerPromoButtons
@@ -624,6 +611,8 @@ export function PostDetailView({
   const canApplyTradeAd = isOwnPost && post.type !== "community" && postStatusLower === "active";
   const showSellerMoreMenu =
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
+  const isTradeDetail = post.type !== "community";
+  const promoteBuyerPrimaryActions = !isOwnPost && isTradeDetail;
 
   const ownerMenuPost = useMemo(
     () => ({
@@ -1514,12 +1503,8 @@ export function PostDetailView({
     return t || null;
   }, [post.region, post.city, post.trade_lgu_id, post.meta, sellerTradeLocationLine]);
 
-  const showLocation =
-    (category == null || category.settings?.has_location !== false) && !!listingLocationLine;
-
   const reMeta = (post.meta ?? {}) as Record<string, unknown>;
   const reDealType = (reMeta.deal_type as string)?.trim();
-  const reEstateType = (reMeta.estate_type as string)?.trim();
   const rePriceSummary =
     isReDealTypeSale(reDealType) && post.price != null
       ? tradeDetailReSaleSummary(t, formatPrice(post.price, defaultCurrency))
@@ -1567,7 +1552,8 @@ export function PostDetailView({
         }}
         authorUserId={post.author_id}
         authorNickname={author?.nickname ?? null}
-        reportEnabled={reportEnabled}
+        reportEnabled={reportEnabled && !promoteBuyerPrimaryActions}
+        shareEnabled={!promoteBuyerPrimaryActions}
       />
       <PostDetailSellerMoreSheet
         open={sellerMoreOpen}
@@ -1632,12 +1618,6 @@ export function PostDetailView({
     isUsedCarDetailUi && (reMeta.car_trade as string | undefined) === "buy" && detailImageUrls.length === 0;
   const reHeroBuilding = String(reMeta.building_name ?? "").trim();
   const reHeroTitle = reHeroBuilding || post.title || "";
-  const reHeroSubtitle = [
-    [reDealType, reEstateType].filter(Boolean).join(" · "),
-    listingLocationLine?.trim(),
-  ]
-    .filter(Boolean)
-    .join(" · ");
   const detailHeroTitle = isUsedCarDetailUi
     ? stripUsedCarTradeDirectionFromDetailTitle(post.title ?? "")
     : isRealEstateSpec
@@ -1645,10 +1625,6 @@ export function PostDetailView({
       : post.title ?? "";
 
   const jobsSkipImagePlaceholder = isJobsSpec && detailImageUrls.length === 0;
-
-  const detailMetaAny =
-    detailSpecProfileId !== "general" ||
-    Boolean(category?.icon_key && post.meta && Object.keys(post.meta).length > 0);
 
   const specTitle =
     isJobsSpec
@@ -1666,11 +1642,35 @@ export function PostDetailView({
     ...(isRealEstateSpec && post.city ? { city: post.city } : {}),
   };
 
+  const stickyPrimaryVisible =
+    !isOwnPost &&
+    (bottomBarHasChatBtn ||
+      bottomBarHasOfferBtn ||
+      showJobApplyBtn ||
+      showJobSeekContactBtn ||
+      (isRealEstateSpec && Boolean(reFooterPrice)));
+  const showStickyBar = stickyPrimaryVisible || sellerBandVisible;
+  const jobsDescriptionHeading =
+    jobDetailDirection === "hiring" ? t("ui_jobs_detail_description_heading") : t("ui_jobs_detail_intro_heading");
+  const descriptionHeading = isJobsSpec ? jobsDescriptionHeading : t("ui_post_product_description_heading");
+  const descriptionBody = (post.content ?? "").trim();
+  const ui5ActionBtnClass =
+    "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft text-[13px] font-semibold text-sam-fg last:border-r-0";
+
   return (
-    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${sellerBandVisible ? TRADE_POST_DETAIL_SCROLL_PAD_SELLER : TRADE_POST_DETAIL_SCROLL_PAD_BUYER}`}>
+    <div
+      ref={rootRef}
+      className={`w-full min-w-0 bg-sam-app ${
+        sellerBandVisible
+          ? TRADE_POST_DETAIL_SCROLL_PAD_SELLER
+          : showStickyBar
+            ? TRADE_POST_DETAIL_SCROLL_PAD_BUYER
+            : "pb-[max(10px,var(--safe-bottom))]"
+      }`}
+    >
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
         {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
-          <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
+          <section data-ui5-slot="photos" className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {detailImageUrls.length === 0 ? (
               <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
                 {isExchangeSpec ? (
@@ -1704,9 +1704,11 @@ export function PostDetailView({
           ) : (
             <>
               {isRealEstateSpec && rePriceSummary ? (
-                <p className={TRADE_FB_DETAIL_PRICE}>{rePriceSummary}</p>
+                <p data-ui5-slot="price" className={TRADE_FB_DETAIL_PRICE}>
+                  {rePriceSummary}
+                </p>
               ) : showPrice && !(isRealEstateSpec && isReDealTypeRent(reDealType)) ? (
-                <p className={TRADE_FB_DETAIL_PRICE}>
+                <p data-ui5-slot="price" className={TRADE_FB_DETAIL_PRICE}>
                   {post.is_free_share
                     ? t("trade_detail_free_share")
                     : post.price != null
@@ -1714,53 +1716,31 @@ export function PostDetailView({
                       : ""}
                 </p>
               ) : null}
-              <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
-              {isRealEstateSpec && reHeroSubtitle ? (
-                <p className={TRADE_FB_DETAIL_SUBTITLE}>{reHeroSubtitle}</p>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                <TradeListingStatusBadge post={post} size="detail" surface="marketplace" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
-                {post.is_price_offer === true ? (
-                  <span className={TRADE_FB_DETAIL_CHIP}>
-                    {t("trade_detail_price_offer_badge")}
-                  </span>
-                ) : null}
-                {isUsedCarDetailUi &&
-                  (() => {
-                    const lab = getCarTradeLabel(t, post.meta as Record<string, unknown> | undefined);
-                    if (!lab) return null;
-                    return (
-                      <span className={TRADE_FB_DETAIL_CHIP}>
-                        {lab}
-                      </span>
-                    );
-                  })()}
-                {post.is_free_share && (
-                  <span className={TRADE_FB_DETAIL_CHIP}>
-                    {t("trade_050")}
-                  </span>
-                )}
-                {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
-                  <span className={TRADE_FB_DETAIL_CHIP}>
-                    {t("trade_108")}
-                  </span>
-                )}
-              </div>
+              <h2 data-ui5-slot="title" className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>
+                {detailHeroTitle}
+              </h2>
             </>
           )}
-          {!isRealEstateSpec && listingLocationLine ? (
-            <p className={`mt-2 flex min-w-0 items-center gap-1 ${TRADE_FB_DETAIL_META_HELP}`}>
+          {listingLocationLine ? (
+            <p
+              data-ui5-slot="location"
+              className={`mt-2 flex min-w-0 items-center gap-1 ${TRADE_FB_DETAIL_META_HELP}`}
+            >
               <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
               <span className="truncate">{listingLocationLine}</span>
               {post.created_at ? (
                 <>
-                  <span className="shrink-0" aria-hidden>·</span>
+                  <span className="shrink-0" aria-hidden>
+                    ·
+                  </span>
                   <span className="shrink-0">{formatTimeAgo(post.created_at)}</span>
                 </>
               ) : null}
             </p>
-          ) : post.created_at && !isRealEstateSpec ? (
-            <p className={`mt-2 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{formatTimeAgo(post.created_at)}</p>
+          ) : post.created_at ? (
+            <p data-ui5-slot="location" className={`mt-2 ${TRADE_FB_DETAIL_FOOTNOTE}`}>
+              {formatTimeAgo(post.created_at)}
+            </p>
           ) : null}
           {showBuyerOfferStatus ? (
             <OfferStatusBuyer
@@ -1776,16 +1756,42 @@ export function PostDetailView({
           ) : null}
         </section>
 
-        <section className={TRADE_WRITE_FB_SECTION}>
+        <section data-ui5-slot="item" className={TRADE_WRITE_FB_SECTION}>
           <div className={`flex flex-col ${isJobsSpec ? "gap-2" : "gap-3"}`}>
-            {isJobsSpec ? <JobDetailContextNote direction={jobDetailDirection} /> : null}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {isJobsSpec ? (
+                <JobDetailTypeStatusChips
+                  post={post}
+                  meta={(post.meta as Record<string, unknown>) ?? {}}
+                  direction={jobDetailDirection}
+                />
+              ) : (
+                <>
+                  <TradeListingStatusBadge
+                    post={post}
+                    size="detail"
+                    surface="marketplace"
+                    className={TRADE_DETAIL_STATUS_BADGE_CLASS}
+                  />
+                  {post.is_price_offer === true ? (
+                    <span className={TRADE_FB_DETAIL_CHIP}>{t("trade_detail_price_offer_badge")}</span>
+                  ) : null}
+                  {isUsedCarDetailUi
+                    ? (() => {
+                        const lab = getCarTradeLabel(t, post.meta as Record<string, unknown> | undefined);
+                        if (!lab) return null;
+                        return <span className={TRADE_FB_DETAIL_CHIP}>{lab}</span>;
+                      })()
+                    : null}
+                  {post.is_free_share ? <span className={TRADE_FB_DETAIL_CHIP}>{t("trade_050")}</span> : null}
+                  {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true ? (
+                    <span className={TRADE_FB_DETAIL_CHIP}>{t("trade_108")}</span>
+                  ) : null}
+                </>
+              )}
+            </div>
 
-            {isRealEstateSpec ? (
-              <div>
-                <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("ui_post_product_description_heading")}</h3>
-                <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
-              </div>
-            ) : null}
+            {isJobsSpec ? <JobDetailContextNote direction={jobDetailDirection} /> : null}
 
             {compositionOwner &&
             (detailSpecProfileId !== "general" ||
@@ -1818,15 +1824,12 @@ export function PostDetailView({
                 meta={(post.meta as Record<string, unknown>) ?? {}}
               />
             ) : null}
-
-            {!isJobsSpec && !isRealEstateSpec ? (
-              <div className={detailMetaAny ? "border-t border-sam-border-soft pt-3" : ""}>
-                <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("ui_post_product_description_heading")}</h3>
-                <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
-              </div>
-            ) : null}
           </div>
+        </section>
 
+        <section data-ui5-slot="description" className={TRADE_WRITE_FB_SECTION}>
+          <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{descriptionHeading}</h3>
+          <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{descriptionBody || (isJobsSpec ? "—" : "")}</p>
           {detailFooterMetaParts.length > 0 ? (
             <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}
@@ -1835,23 +1838,50 @@ export function PostDetailView({
         <section
           id={POST_DETAIL_SELLER_ANCHOR_ID}
           data-post-detail-seller="true"
+          data-ui5-slot="seller"
           className={`scroll-mt-14 ${TRADE_WRITE_FB_SECTION}`}
         >
-          <PostDetailSellerProfileRow
-            author={author}
-            regionLine={null}
-          />
+          <PostDetailSellerProfileRow author={author} regionLine={null} />
         </section>
 
-        {relatedSectionsSlot
-          ? relatedSectionsSlot
-          : related ? (
-              <PostDetailRelatedSections
-                sellerItems={related.sellerItems}
-                similarItems={related.similarItems}
-                ads={related.ads}
-              />
+        {isTradeDetail ? (
+          <section data-ui5-slot="actions" className={TRADE_WRITE_FB_SECTION}>
+            {promoteBuyerPrimaryActions ? (
+              <div className="-mx-4 -my-3 flex">
+                <button type="button" onClick={() => void handleFavorite()} className={ui5ActionBtnClass}>
+                  <span className={isFavorite ? "text-red-500" : "text-sam-muted"}>{isFavorite ? "♥" : "♡"}</span>
+                  <span>{t("ui_fav_interest")}</span>
+                </button>
+                {reportEnabled ? (
+                  <button type="button" onClick={() => setReportOpen(true)} className={ui5ActionBtnClass}>
+                    {t("trade_detail_report_submit")}
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => void handleShare()} className={ui5ActionBtnClass}>
+                  {t("trade_detail_share")}
+                </button>
+              </div>
+            ) : isOwnPost ? (
+              <div className="-mx-4 -my-3 flex">
+                <button type="button" onClick={() => void handleShare()} className={ui5ActionBtnClass}>
+                  {t("trade_detail_share")}
+                </button>
+              </div>
             ) : null}
+          </section>
+        ) : null}
+
+        <div data-ui5-slot="discovery">
+          {relatedSectionsSlot ? (
+            relatedSectionsSlot
+          ) : related ? (
+            <PostDetailRelatedSections
+              sellerItems={related.sellerItems}
+              similarItems={related.similarItems}
+              ads={related.ads}
+            />
+          ) : null}
+        </div>
 
         {post.type === "community" ? (
           <div className={POST_DETAIL_COMMUNITY_CARD_CLASS}>
@@ -1860,10 +1890,9 @@ export function PostDetailView({
         ) : null}
       </div>
 
+      {showStickyBar ? (
       <TradePostDetailActionBar
-        isOwnPost={isOwnPost}
-        isFavorite={isFavorite}
-        onFavorite={handleFavorite}
+        showPrimaryRow={stickyPrimaryVisible}
         reFooterSummary={
           isRealEstateSpec && reFooterPrice
             ? { priceLine: reFooterPrice, dealType: reDealType ?? "" }
@@ -1902,6 +1931,7 @@ export function PostDetailView({
         onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
         onTradeAdOpen={() => setPromoteSheetOpen(true)}
       />
+      ) : null}
       {postDetailSharedOverlays}
     </div>
   );

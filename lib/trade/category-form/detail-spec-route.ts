@@ -16,10 +16,7 @@ import { resolveTradeCompositionProfileId } from "./composition-seeds";
 import type { TradeCompositionProfileId } from "./types";
 
 export const REAL_ESTATE_HERO_SKIP_FIELD_IDS = [
-  "neighborhood",
   "building_name",
-  "estate_type",
-  "deal_type",
   "price",
   "deposit",
   "monthly",
