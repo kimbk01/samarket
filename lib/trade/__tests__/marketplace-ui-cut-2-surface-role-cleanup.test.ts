@@ -10,7 +10,8 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
   it("MyProductActions keeps listing management only — no seller complete", () => {
     const actions = src("components/mypage/products/MyProductActions.tsx");
     expect(actions).toContain("mypage_comp_product_edit");
-    expect(actions).toContain("trade_promo_detail_cta");
+    expect(actions).toContain("marketplace_seller_promote_cta");
+    expect(actions).toContain("onPromoteClick");
     expect(actions).toContain("mypage_comp_product_hide");
     expect(actions).toContain("mypage_comp_product_delete");
     expect(actions).not.toContain("onSellerListingStateChange");
@@ -27,7 +28,10 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
 
   it("MyProductCard embeds buyer trade rows — no PostSellerTradeStrip", () => {
     const card = src("components/mypage/products/MyProductCard.tsx");
-    expect(card).toContain("SellerTradeRow");
+    const chats = src("components/mypage/seller/ListingBuyerChatsBlock.tsx");
+    expect(card).toContain("ListingBuyerChatsBlock");
+    expect(card).toContain("tradeRows");
+    expect(chats).toContain("SellerTradeRow");
     expect(card).not.toContain("PostSellerTradeStrip");
     expect(card).not.toContain("activeTradeCount");
   });
