@@ -129,17 +129,21 @@ export async function POST(
   }
 
   try {
+    const cmRoomId = resolved.messengerRoomId?.trim() ?? "";
+    if (!cmRoomId) {
+      return NextResponse.json({ ok: true, tradeFlowStatus: "seller_marked_done", productChatId: resolved.productChatId });
+    }
     await appendUserNotification(sbAny, {
       user_id: pc.buyer_id,
       notification_type: "status",
       title: "거래가 완료 처리되었어요",
       body: "물품을 받으셨다면 채팅에서 거래완료 확인을 눌러 주세요.",
-      link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
-      ref_id: resolved.productChatId,
+      ref_id: cmRoomId,
       meta: {
         kind: "trade_completed",
-        room_id: resolved.productChatId,
+        room_id: cmRoomId,
         product_chat_id: resolved.productChatId,
       },
     });

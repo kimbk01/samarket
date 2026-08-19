@@ -77,20 +77,24 @@ export async function POST(
   }
 
   try {
+    const cmRoomId = resolved.messengerRoomId?.trim() ?? "";
+    if (!cmRoomId) {
+      return NextResponse.json({ ok: true, tradeFlowStatus: "dispute" });
+    }
     await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "report",
       title: "거래 관련 문의가 접수되었어요",
       body: "운영팀에서 내용을 검토할 예정이에요.",
-      link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
-      ref_id: resolved.productChatId,
+      ref_id: cmRoomId,
       sender_id: userId,
       dedupe_key: `trade-dispute:${resolved.productChatId}:${userId}`,
       push_kind: "community",
       meta: {
         kind: "trade_dispute",
-        room_id: resolved.productChatId,
+        room_id: cmRoomId,
         product_id: pc.post_id,
         actor_id: userId,
       },

@@ -84,17 +84,21 @@ export async function POST(
   invalidateHomeSyncSnapshotForTradeLifecycle([pc.seller_id, pc.buyer_id]);
 
   try {
+    const cmRoomId = resolved.messengerRoomId?.trim() ?? "";
+    if (!cmRoomId) {
+      return NextResponse.json({ ok: true, tradeFlowStatus: "buyer_confirmed" });
+    }
     await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "status",
       title: "구매자가 거래를 확인했어요",
       body: "거래가 완료되었어요.",
-      link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      link_url: tradeChatNotificationHref(cmRoomId, "product_chat"),
       domain: "trade_chat",
-      ref_id: resolved.productChatId,
+      ref_id: cmRoomId,
       meta: {
         kind: "trade_completed",
-        room_id: resolved.productChatId,
+        room_id: cmRoomId,
         product_chat_id: resolved.productChatId,
       },
     });
