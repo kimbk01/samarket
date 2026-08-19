@@ -1,0 +1,189 @@
+# DIBAY Marketplace Browse — SINGLE CONTRACT (Implementation Gate)
+
+**STATUS: DESIGN CLOSED — READY TO IMPLEMENT (REGION/RANGE/SEARCH gates + PTR additive).**
+**PRODUCT CODE MODIFIED FOR THIS GATE: 0 until explicit implementation cut.**
+
+Full design thread: marketplace REGION / RANGE / SEARCH / FILTER / RESET audit (2026-08-20).
+
+## DO NOT (without reopen)
+
+- Reopen CUT A–J / UI-1~6 marketplace chrome locks for browse semantics
+- DB migration / new global location store / silent 64km fallback
+- `location=all` as DEFAULT (DEFAULT = master LGU + range 전체)
+- Conflate **↺ TOP RESET** / **filter 전체 초기화** with **Pull-to-Refresh**
+- PTR that mutates URL, sort, q, region, range, or runs master/hydrate reset
+
+---
+
+## 1. REGION / RANGE (unchanged)
+
+| State | Candidate universe | Ordering priority |
+|---|---|---|
+| **anchor + 전체** (`radiusKm==null`) | Nationwide — **no SQL location WHERE** | Anchor LGU first → other regions |
+| **anchor + N km** (`radiusKm!=null`) | **Within N km only** — hard EXCLUDE outside | User sort within boundary |
+| **`location=all`** | Nationwide — **no anchor, no region priority** | User sort only |
+
+Mandatory feed fixes (prior gate): flip `wantsBrowsePriority` to `radiusKm==null`; legacy row disjoint outside partition; SEARCH `relatedOut` OFF when `radiusKm!=null`.
+
+---
+
+## 2. SEARCH (unchanged)
+
+When `q` present: **exact → similar → expansion** at all sorts (`latest` / `popular` / `distance`).
+Sort changes **ordering only**, not candidate universe.
+
+---
+
+## 3. FILTER / RESET (unchanged)
+
+- **Committed authority = URL** (not filter draft, not session alone).
+- **↺ TOP RESET** = **filter 「전체 초기화」** → shared `buildMarketplaceBrowseResetCommittedHref` (DEFAULT: master + range 전체; **`q` preserved**).
+- Filter draft-only clear **≠** reset — both must navigate to same reset href (Option B).
+
+---
+
+## 4. PULL-TO-REFRESH — meaning
+
+Trade LIST vertical swipe refresh:
+
+```text
+CURRENT COMMITTED STATE (URL + all query params)
++ CURRENT QUERY refetch
++ reflect new/changed/hidden/deleted posts
+```
+
+PTR is **NOT**: reset, filter init, region/range/search/sort change, URL mutation, master hydrate clear.
+
+### 4.1 Preserved across PTR (URL BEFORE = URL AFTER)
+
+`location`, `lgu`, `radius`, `category`, `categoryIds`, `topic`, `topicByRoot`, composition filters, `priceMin`, `priceMax`, `tradeState`, **`q`**, **`sort`**.
+
+Pagination **internal window** may reset to fresh page 1 / first ranked window — user-visible URL unchanged.
+
+### 4.2 REGION / RANGE on PTR
+
+- **Pasay + 전체**: Pasay priority + nationwide refresh — no URL change.
+- **Pasay + 5km**: 5km hard boundary — no outside leakage on refresh.
+- **`location=all`**: nationwide, no anchor priority.
+
+### 4.3 SEARCH on PTR
+
+- **`q` + Pasay + 전체**: same tiers, same anchor, fresh matching posts.
+- **`q` + Pasay + 5km**: `q` kept, `relatedOut` OFF, 5km boundary kept.
+
+### 4.4 SORT on PTR
+
+PTR **must NOT** force `sort=latest`.
+
+| sort | PTR behavior |
+|---|---|
+| `latest` | New matching posts → top per latest |
+| `popular` | Refetch → re-apply popular ordering |
+| `distance` | Refetch → re-apply distance ordering |
+
+```text
+REFRESH = DATA REFETCH
+SORT CHANGE = NO
+```
+
+### 4.5 Pagination on PTR
+
+- Invalidate client feed cache + **search ranked window** for current committed key.
+- Fresh **page 1 / first window** — no old page-2 window mixed with new fetch.
+- Goals: duplicate 0, stale row 0, missing new row 0.
+
+### 4.6 RESET separation
+
+| Action | Effect |
+|---|---|
+| ↺ TOP RESET | DEFAULT filter state |
+| Filter 전체 초기화 | Same as ↺ |
+| **Pull-to-Refresh** | Same filters/search — **data reload only** |
+
+### 4.7 URL / SESSION on PTR
+
+Forbidden on PTR: `router.replace`, strip location, delete `q`, change sort/defaults, `master address reset`, default hydrate, `trade committed scope clear`.
+
+Exception: separate **MASTER CHANGE** event → existing master-change contract wins.
+
+---
+
+## 5. PTR SSOT — reuse (no duplicate PTR system)
+
+| Concern | Owner |
+|---|---|
+| Touch + run | `lib/trade/use-trade-market-pull-refresh.ts` |
+| Store / handler map | `lib/trade/trade-market-pull-refresh-store.ts` (`runTradeMarketPullRefresh`) |
+| Route key | `lib/trade/trade-market-pull-refresh-surface.ts` |
+| UI host / hint | `TradeMarketPullRefreshHost`, `TradeMarketPullRefreshHint` |
+| Handler register | `TradeMarketPullRefreshRegister` |
+| Shell enable | `AppStickyHeader` (trade domain) |
+| Preflight | `lib/layout/main-hub-ptr-preflight.ts` (scroll top only) |
+| HOME list handler | `components/home/HomeProductList.tsx` → `onPullRefresh` |
+| Category list handler | `components/post/PostListByCategory.tsx` → `onPullRefresh` |
+| Cache bust | `invalidateHomePostsCache` in `lib/posts/getPostsForHome.ts` |
+
+Surfaces: `/market`, `/market/[slug]` (excludes `trade-meet-spot`). Not Philife/Messenger/Stores PTR stores.
+
+---
+
+## 6. PTR implementation gaps (audit — fix in same cut)
+
+1. **`normalizeTradeMarketPullRefreshQuery`** omits `location`, `lgu`, `radius`, `q`, price, composition — handler key can collide across committed browse states. **Fix:** align route key with full committed browse cache segment (same as `getPostsForHome` / `marketplaceQueryCacheSegment` + location segment).
+2. **Search ranked window** (`lib/trade/marketplace/search-ranked-window-cache.ts`): server in-memory session survives client cache bust. **Fix:** PTR refetch path must force fresh window (e.g. `forceFreshSearchWindow` on `GetPostsForHomeOptions` — **not** URL param).
+3. **HOME vs category parity:** `PostListByCategory` PTR bumps epoch + `setPage(1)`; `HomeProductList` only `invalidateHomePostsCache` + `load()`. **Fix:** explicit client pagination reset + request epoch on HOME PTR; verify `load()` always replaces page-1 truth (no append).
+4. **Confirm PTR never** calls `buildMarketFilterResetHref`, `useTradeMarketplaceLocationHydrate` reset paths, or `router.replace`.
+
+---
+
+## 7. TEST MATRIX
+
+### Browse / search / reset (1–12 — prior gate)
+
+1. DEFAULT hydrate = master + range 전체  
+2. Pasay + 전체 = nationwide + Pasay priority  
+3. Pasay + 5km = within only, 0 outside  
+4. `location=all` ≠ Pasay + 전체  
+5. q + Pasay + 전체 = tiers + anchor  
+6. q + Pasay + 5km = no relatedOut  
+7. popular + q = expansion ON, popular order  
+8. distance + q = expansion ON, distance order  
+9. ↺ = DEFAULT, q preserved  
+10. filter init = same href as ↺  
+11. region+all pagination = no dup/miss (legacy disjoint)  
+12. header `location=all` ≠ master LGU label  
+
+### Pull-to-Refresh (13–20)
+
+13. Pasay+전체 → PTR: URL unchanged, Pasay priority, fresh posts  
+14. Pasay+5km → PTR: URL unchanged, 5km leakage 0  
+15. q + Pasay+전체 → PTR: q kept, search tiers kept, fresh matches  
+16. q + Pasay+5km → PTR: q kept, relatedOut OFF  
+17. popular → PTR: `sort=popular` unchanged  
+18. distance → PTR: `sort=distance` unchanged  
+19. latest → PTR: new matching posts top per latest  
+20. page2 state → PTR: old window discarded, fresh page1, duplicate 0  
+
+---
+
+## 8. FINAL IMPLEMENTATION CONTRACT
+
+```text
+PULL TO REFRESH:           data refetch only
+FILTER PRESERVED:          YES
+SEARCH PRESERVED:          YES
+REGION PRESERVED:          YES
+RANGE PRESERVED:           YES
+SORT PRESERVED:            YES
+URL PRESERVED:             YES
+PAGINATION WINDOW RESET:   YES
+LATEST NEW POSTS:          refetched from server; top placement follows current sort
+TOP RESET ↺ AFFECTED:      NO
+FILTER INITIALIZE AFFECTED: NO
+```
+
+---
+
+## Authority (implementation touch list — summary)
+
+`resolve-trade-feed-location-constraint.ts` · `home-posts-query-server.ts` · `search-candidate-expansion.ts` · `home-posts-route-core.ts` · `MarketFilterSheet.tsx` · `TradePrimaryTabs.tsx` · `use-trade-marketplace-location-hydrate.ts` · `HomeProductList.tsx` · `PostListByCategory.tsx` · `trade-market-pull-refresh-surface.ts` · `search-ranked-window-cache.ts`

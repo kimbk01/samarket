@@ -21,7 +21,12 @@ import {
   type TradeFeedQueryExtras,
 } from "@/lib/posts/trade-posts-range-query";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
-import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
+import {
+  filterPostsOutsideBrowseAnchor,
+  filterPostsWithinBrowseAnchor,
+  shouldUseRegionAllBrowsePriority,
+  tradeFeedLocationSqlExtras,
+} from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import {
   applyCompositionFilterClausesToPostgrest,
@@ -284,7 +289,7 @@ export async function loadHomePostsPage(
   if (feedConstraint.kind === "invalid") {
     return { posts: [], hasMore: false };
   }
-  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+  const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
   const useDistance = sort === "distance" && feedConstraint.kind === "lgu";
   const rangeFrom = useDistance ? 0 : from;
   const rangeTo = useDistance
@@ -342,8 +347,9 @@ export async function loadSearchExpansionRound(
       queryCount: 0,
     };
   }
-  const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+  const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
   const browseLgu = feedConstraint.kind === "lgu" ? feedConstraint.canonicalId : null;
+  const hasHardRadius = feedConstraint.kind === "lgu" && feedConstraint.radiusKm != null;
   const matchingLguIds =
     feedConstraint.kind === "lgu" ? [...new Set(feedConstraint.matchingCanonicalIds)] : [];
   const rootSet =
@@ -368,7 +374,7 @@ export async function loadSearchExpansionRound(
       queryExtras,
       cursor.exactOffset,
       cursor.exactOffset + SEARCH_EXPANSION_EXACT_BATCH - 1,
-        { applyTitleQuery: true, applyLocation: Boolean(browseLgu) }
+        { applyTitleQuery: true, applyLocation: hasHardRadius }
     );
     if (!exact) return null;
     queryCount += 1;
@@ -392,13 +398,19 @@ export async function loadSearchExpansionRound(
       queryExtras,
       cursor.relatedInOffset,
       cursor.relatedInOffset + SEARCH_EXPANSION_RELATED_IN_BATCH - 1,
-      { applyTitleQuery: false, applyLocation: true, relatedOr }
+      { applyTitleQuery: false, applyLocation: hasHardRadius, relatedOr }
     );
     if (!relatedIn) return null;
     queryCount += 1;
     relatedInRows = partitionPostsByCategoryPriority(relatedIn, rootSet, topicSet);
   }
-  const fetchRelatedOut = Boolean(browseLgu && relatedOr && !cursor.relatedOutExhausted);
+  const fetchRelatedOut = Boolean(
+    browseLgu &&
+      feedConstraint.kind === "lgu" &&
+      feedConstraint.radiusKm === null &&
+      relatedOr &&
+      !cursor.relatedOutExhausted
+  );
   if (fetchRelatedOut) {
     const relatedOut = await fetchHomePostsMappedRange(
       sb,
@@ -420,7 +432,15 @@ export async function loadSearchExpansionRound(
     );
     if (!relatedOut) return null;
     queryCount += 1;
-    relatedOutRows = partitionPostsByCategoryPriority(relatedOut, rootSet, topicSet);
+    const withinConstraint =
+      feedConstraint.kind === "lgu" ? feedConstraint : null;
+    relatedOutRows = partitionPostsByCategoryPriority(
+      withinConstraint
+        ? filterPostsOutsideBrowseAnchor(relatedOut, withinConstraint)
+        : relatedOut,
+      rootSet,
+      topicSet
+    );
   }
   const fetched = {
     exact: exactRows.length,
@@ -452,6 +472,7 @@ export async function loadSearchExpansionRound(
     relatedOutRows,
     hints,
     browseLguCanonicalId: browseLgu,
+    userSort: sort,
     cursor: advanced,
   });
   return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
@@ -470,12 +491,16 @@ export async function resolveHomePostsPayload(
   queryExtras?: HomePostsQueryExtras
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const qIsAbsent = queryExtras?.q == null || queryExtras?.q === "";
-  const wantsBrowsePriority = qIsAbsent && lguCityId && radiusKm != null;
+  const useRegionAllBrowsePriority = shouldUseRegionAllBrowsePriority(
+    lguCityId,
+    radiusKm,
+    qIsAbsent
+  );
   const rootIds = queryExtras?.categoryPriorityRootTradeCategoryIds ?? null;
   const topicIds = queryExtras?.categoryPriorityTopicTradeCategoryIds ?? null;
   const hasCategoryPriority = qIsAbsent && rootIds && rootIds.length > 0;
 
-  if (!wantsBrowsePriority) {
+  if (!useRegionAllBrowsePriority) {
     if (hasCategoryPriority) {
       const resolveCategoryPriorityPayloadForSb = async (sb: SupabaseClient<any>) => {
         const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
@@ -483,7 +508,7 @@ export async function resolveHomePostsPayload(
           return null;
         }
 
-        const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+        const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
         const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
         const rangeFrom = 0;
         const rangeTo = targetInclusive;
@@ -503,7 +528,7 @@ export async function resolveHomePostsPayload(
           rangeFrom,
           rangeTo,
           {
-            applyLocation: true,
+            applyLocation: Boolean(feedLocExtras),
             excludeLguIds: null,
             excludeTradeCategoryIds: null,
           }
@@ -594,7 +619,7 @@ export async function resolveHomePostsPayload(
       );
     }
 
-    const feedLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
+    const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
     const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
     const rangeFrom = 0;
     const rangeTo = targetInclusive;
@@ -607,11 +632,11 @@ export async function resolveHomePostsPayload(
 
     const canSortByDistance = sort === "distance";
     const canonicalId = feedConstraint.canonicalId;
+    const isRegionAll = feedConstraint.radiusKm === null;
 
     const fetchTier = async (args: {
       tradeCatIds: string[] | null;
-      applyLocation: boolean;
-      excludeLguIds?: string[] | null;
+      tier: "within" | "outside";
       excludeTradeCatIds?: string[] | null;
     }): Promise<PostWithMeta[]> => {
       const mapped = await fetchHomePostsMappedRange(
@@ -626,26 +651,33 @@ export async function resolveHomePostsPayload(
         rangeFrom,
         rangeTo,
         {
-          applyLocation: args.applyLocation,
-          excludeLguIds: args.excludeLguIds ?? null,
+          applyLocation: !isRegionAll && args.tier === "within",
+          excludeLguIds:
+            !isRegionAll && args.tier === "outside"
+              ? feedConstraint.matchingCanonicalIds
+              : null,
           excludeTradeCategoryIds: args.excludeTradeCatIds ?? null,
         }
       );
       if (!mapped) return [];
-      if (canSortByDistance) {
-        return sortListingsByLguDistance(mapped, canonicalId);
+      let rows = mapped;
+      if (isRegionAll) {
+        rows =
+          args.tier === "within"
+            ? filterPostsWithinBrowseAnchor(mapped, feedConstraint)
+            : filterPostsOutsideBrowseAnchor(mapped, feedConstraint);
+      } else if (args.tier === "outside") {
+        rows = filterPostsOutsideBrowseAnchor(mapped, feedConstraint);
       }
-      return mapped;
+      if (canSortByDistance) {
+        return sortListingsByLguDistance(rows, canonicalId);
+      }
+      return rows;
     };
 
-    // category 선택이 없으면: within(all) → outside(all)
     if (!rootArr) {
-      const withinAll = await fetchTier({ tradeCatIds: null, applyLocation: true });
-      const outsideAll = await fetchTier({
-        tradeCatIds: null,
-        applyLocation: false,
-        excludeLguIds: feedConstraint.matchingCanonicalIds,
-      });
+      const withinAll = await fetchTier({ tradeCatIds: null, tier: "within" });
+      const outsideAll = await fetchTier({ tradeCatIds: null, tier: "outside" });
       const assembled = [...withinAll, ...outsideAll];
       return {
         posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
@@ -655,36 +687,32 @@ export async function resolveHomePostsPayload(
 
     // category 선택이 있으면: topic → root-only → others, 그리고 within → outside
     const withinTopicMatch =
-      topicArr.length > 0 ? await fetchTier({ tradeCatIds: topicArr, applyLocation: true }) : [];
+      topicArr.length > 0
+        ? await fetchTier({ tradeCatIds: topicArr, tier: "within" })
+        : [];
     const withinRootOnly = await fetchTier({
       tradeCatIds: rootArr,
-      applyLocation: true,
+      tier: "within",
       excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
     });
     const withinOthers = await fetchTier({
       tradeCatIds: null,
-      applyLocation: true,
+      tier: "within",
       excludeTradeCatIds: rootArr,
     });
 
     const outsideTopicMatch =
       topicArr.length > 0
-        ? await fetchTier({
-            tradeCatIds: topicArr,
-            applyLocation: false,
-            excludeLguIds: feedConstraint.matchingCanonicalIds,
-          })
+        ? await fetchTier({ tradeCatIds: topicArr, tier: "outside" })
         : [];
     const outsideRootOnly = await fetchTier({
       tradeCatIds: rootArr,
-      applyLocation: false,
-      excludeLguIds: feedConstraint.matchingCanonicalIds,
+      tier: "outside",
       excludeTradeCatIds: topicArr.length > 0 ? topicArr : null,
     });
     const outsideOthers = await fetchTier({
       tradeCatIds: null,
-      applyLocation: false,
-      excludeLguIds: feedConstraint.matchingCanonicalIds,
+      tier: "outside",
       excludeTradeCatIds: rootArr,
     });
 
@@ -773,4 +801,26 @@ export async function resolveSearchExpansionRound(
     );
   }
   return null;
+}
+
+/** Re-apply user sort inside SEARCH ranked window (tiers preserved; sort ≠ universe). */
+export function applyHomePostsSortToListings(
+  posts: PostWithMeta[],
+  sort: HomePostsQuerySort,
+  anchorCanonicalId: string | null | undefined
+): PostWithMeta[] {
+  if (sort === "distance" && anchorCanonicalId?.trim()) {
+    return sortListingsByLguDistance(posts, anchorCanonicalId.trim());
+  }
+  if (sort === "popular") {
+    return [...posts].sort((a, b) => {
+      const av = Number(a.view_count ?? 0);
+      const bv = Number(b.view_count ?? 0);
+      if (bv !== av) return bv - av;
+      const at = Date.parse(String(a.created_at ?? "")) || 0;
+      const bt = Date.parse(String(b.created_at ?? "")) || 0;
+      return bt - at;
+    });
+  }
+  return posts;
 }

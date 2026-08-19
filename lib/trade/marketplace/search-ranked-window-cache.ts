@@ -56,6 +56,11 @@ export function resetSearchRankedWindowCacheForTests(): void {
   sessions.clear();
 }
 
+/** PTR / explicit fresh feed — drop server ranked window for this committed browse key. */
+export function invalidateSearchRankedWindowSession(key: string): void {
+  sessions.delete(key);
+}
+
 export function peekSearchRankedWindowSession<T>(key: string): SearchRankedWindowSession<T> | null {
   const hit = sessions.get(key) as SearchRankedWindowSession<T> | undefined;
   if (!hit || hit.expiresAt <= Date.now()) return null;

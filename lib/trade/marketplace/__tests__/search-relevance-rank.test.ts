@@ -21,11 +21,11 @@ const PASIG = "1381200000";
 const DAVAO = "1130700000";
 
 describe("CUT C search candidate expansion", () => {
-  it("applies only when q is set and sort is latest/newest", () => {
+  it("applies when q is set regardless of sort", () => {
     expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "latest" })).toBe(true);
     expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "newest" })).toBe(true);
-    expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "distance" })).toBe(false);
-    expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "popular" })).toBe(false);
+    expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "distance" })).toBe(true);
+    expect(shouldApplyMarketplaceSearchExpansion({ q: "fortuner", sort: "popular" })).toBe(true);
     expect(shouldApplyMarketplaceSearchExpansion({ q: "  ", sort: "latest" })).toBe(false);
   });
 

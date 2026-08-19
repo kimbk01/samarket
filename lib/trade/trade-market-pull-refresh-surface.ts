@@ -1,5 +1,4 @@
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
-import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 
 /** `/market`·`/market/[slug]` PTR — `trade-meet-spot` 제외 */
 export function isTradeMarketPullRefreshSurface(pathname: string | null | undefined): boolean {
@@ -18,7 +17,7 @@ export function buildTradeMarketPullRefreshRouteKeyFromSegment(
 }
 
 /**
- * PTR 핸들러 조회용 쿼리 정규화 — 주제·정렬·거래상태·알바 필터만 포함(피드 조건과 동일).
+ * PTR 핸들러 조회용 쿼리 정규화 — committed browse URL 전체(page/cursor 제외).
  */
 export function normalizeTradeMarketPullRefreshQuery(
   search: string | URLSearchParams | null | undefined
@@ -31,41 +30,10 @@ export function normalizeTradeMarketPullRefreshQuery(
   if (!raw) return "";
 
   const params = new URLSearchParams(raw);
-  const out = new URLSearchParams();
+  params.delete("page");
+  params.delete("cursor");
 
-  const topic = (params.get("topic") ?? "").trim().normalize("NFC");
-  if (topic) out.set("topic", topic);
-
-  const category = (params.get("category") ?? "").trim().normalize("NFC");
-  if (category) out.set("category", category);
-
-  const fsRaw = (params.get("fs") ?? params.get("sort") ?? "").trim().toLowerCase();
-  if (fsRaw === "popular" || fsRaw === "pay_desc" || fsRaw === "chat_desc" || fsRaw === "near") {
-    out.set("fs", fsRaw);
-  }
-
-  const tradeState = parseMarketplacePublicTradeState(params.get("tradeState"));
-  if (tradeState === "active" || tradeState === "sold") {
-    out.set("tradeState", tradeState);
-  }
-
-  const jk = (params.get("jk") ?? "").trim().toLowerCase();
-  if (jk === "hire" || jk === "work") out.set("jk", jk);
-
-  const je = (params.get("je") ?? "").trim();
-  if (je) out.set("je", je);
-
-  if (params.get("av") === "1" || params.get("av")?.trim().toLowerCase() === "true") {
-    out.set("av", "1");
-  }
-
-  const jr = (params.get("jr") ?? "").trim().toLowerCase();
-  if (jr) out.set("jr", jr);
-
-  const jc = (params.get("jc") ?? "").trim().toLowerCase();
-  if (jc) out.set("jc", jc);
-
-  return [...out.entries()]
+  return [...params.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&");

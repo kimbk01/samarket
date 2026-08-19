@@ -42,8 +42,10 @@ import { shouldApplyMixedDiscoverySellIntent } from "@/lib/trade/marketplace/sel
 import { shouldApplyMarketplaceSearchExpansion } from "@/lib/trade/marketplace/search-candidate-expansion";
 import {
   buildSearchRankedWindowCacheKey,
+  invalidateSearchRankedWindowSession,
   takeSearchRankedWindowPage,
 } from "@/lib/trade/marketplace/search-ranked-window-cache";
+import { isDibayMarketFreshFeedRequest } from "@/lib/trade/marketplace/market-fresh-feed-header";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 /** `HOME_POSTS_CONFIGURED_TRADE_UNION` — React 훅 아님(이름 `use*` 금지: eslint react-hooks/rules-of-hooks) */
 function isConfiguredTradeUnionEnabledForHomeAll(): boolean {
@@ -592,7 +594,13 @@ export async function resolveHomePostsGetData(
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
-  const cachedPosts = homePostsServerCache.get(cacheKey);
+  const freshFeed = isDibayMarketFreshFeedRequest(req.headers);
+  if (freshFeed) {
+    invalidateSearchRankedWindowSession(rankedWindowKey);
+    homePostsServerCache.delete(cacheKey);
+  }
+
+  const cachedPosts = freshFeed ? undefined : homePostsServerCache.get(cacheKey);
   let posts: PostWithMeta[];
   let hasMore: boolean;
 
@@ -602,7 +610,7 @@ export async function resolveHomePostsGetData(
   } else {
     const loaded = await runSingleFlight(`api:home-posts:${cacheKey}`, async () => {
       const again = homePostsServerCache.get(cacheKey);
-      if (again && again.expiresAt > Date.now()) {
+      if (again && again.expiresAt > Date.now() && !freshFeed) {
         return { posts: again.posts, hasMore: again.hasMore };
       }
 

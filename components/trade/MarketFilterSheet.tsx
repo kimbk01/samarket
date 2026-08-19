@@ -29,6 +29,7 @@ import {
   readTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
 import {
   appendCompositionFilterSearchParams,
   sanitizeCompositionFilterSelection,
@@ -618,6 +619,13 @@ export function MarketFilterSheet({
       ? draftCity.displayName
       : null;
 
+  function resetAllFiltersCommitted() {
+    void buildMarketplaceBrowseResetCommittedHref("/market", baseSearch).then((href) => {
+      onClose();
+      router.replace(href, { scroll: false });
+    });
+  }
+
   function clearDraft() {
     const cityMode = committedScope.mode === "city";
     setState((prev) => ({
@@ -831,7 +839,7 @@ export function MarketFilterSheet({
             <button
               type="button"
               className="ml-auto inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-xs font-medium text-sam-fg active:scale-[0.98]"
-              onClick={clearDraft}
+              onClick={resetAllFiltersCommitted}
             >
               {safeT("marketplace_filter_clear_all", { fallbackKo: "전체 초기화", fallbackEn: "Reset all" })}
             </button>

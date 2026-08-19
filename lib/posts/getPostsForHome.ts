@@ -23,6 +23,7 @@ import {
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form/composition-filter-query";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
+import { DIBAY_MARKET_FRESH_FEED_HEADER } from "@/lib/trade/marketplace/market-fresh-feed-header";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular" | "distance";
@@ -63,6 +64,8 @@ export interface GetPostsForHomeOptions {
   priceMin?: number | null;
   priceMax?: number | null;
   compositionFilters?: CompositionFilterSelection | null;
+  /** PTR: server ranked-window + API cache bust (internal header only). */
+  forceFreshRankedWindow?: boolean;
 }
 
 export interface GetPostsForHomeResult {
@@ -278,6 +281,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
     compositionFilters,
     canFetch: Boolean(lguCityId || locationAll),
     cacheKey,
+    forceFreshRankedWindow: options.forceFreshRankedWindow === true,
   };
 }
 
@@ -514,6 +518,9 @@ export async function getPostsForHome(
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
         signal: opts.signal,
+        headers: normalized.forceFreshRankedWindow
+          ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
+          : undefined,
       });
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
@@ -584,6 +591,9 @@ export async function getPostsForHome(
       const tNet0 = dbg ? performance.now() : 0;
       const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
+        headers: normalized.forceFreshRankedWindow
+          ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
+          : undefined,
       });
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));

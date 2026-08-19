@@ -405,7 +405,7 @@ export function PostListByCategory({
   );
 
   const load = useCallback(
-    async (pageNum: number = 1, opts?: { append?: boolean }) => {
+    async (pageNum: number = 1, opts?: { append?: boolean; forceFreshRankedWindow?: boolean }) => {
       if (!categoryId) {
         setLoading((prev) => (prev ? false : prev));
         allowRscBootstrapFeedRef.current = true;
@@ -424,6 +424,7 @@ export function PostListByCategory({
         const next = await getPostsForHome({
           ...(homePostListOptions as GetPostsForHomeOptions),
           page: pageNum,
+          forceFreshRankedWindow: opts?.forceFreshRankedWindow,
         });
         if (epochAtStart !== listFeedEpochRef.current) return;
         if (pageNum === 1) {
@@ -469,7 +470,7 @@ export function PostListByCategory({
     listFeedEpochRef.current += 1;
     favoriteFetchEpochRef.current += 1;
     setPage(1);
-    await load(1);
+    await load(1, { forceFreshRankedWindow: true });
   }, [load]);
 
   const tradePullRefreshRegister =

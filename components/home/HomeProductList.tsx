@@ -331,8 +331,10 @@ export function HomeProductList({
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 시드·세션·메모리 캐시 — 첫 페인트는 INITIAL_VISIBLE_CARD_COUNT 까지만, 더보기로 펼침 */
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
+  const listFeedEpochRef = useRef(0);
+  const [listPaginationEpoch, setListPaginationEpoch] = useState(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean }) => {
     silentRequestIdRef.current += 1;
     if (locationInvalid) {
       setPosts([]);
@@ -363,9 +365,17 @@ export function HomeProductList({
       tradeFetchT0 = performance.now();
     }
     try {
-      const res = await getPostsForHome(listOpts);
+      const res = await getPostsForHome({
+        ...listOpts,
+        page: 1,
+        forceFreshRankedWindow: opts?.forceFreshRankedWindow,
+      });
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
-      setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
+      if (opts?.forceFreshRankedWindow) {
+        setPosts(res.posts);
+      } else {
+        setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
+      }
       setFavoriteMap(res.favoriteMap);
       setPendingNewCount(0);
       lastLoadedAtRef.current = Date.now();
@@ -410,7 +420,13 @@ export function HomeProductList({
   const onPullRefresh = useCallback(async () => {
     invalidateHomePostsCache({ notifyListReload: false });
     allowRscHomeListSeedRef.current = false;
-    await load();
+    listFeedEpochRef.current += 1;
+    latestRequestIdRef.current += 1;
+    setListPaginationEpoch((n) => n + 1);
+    setPendingNewCount(0);
+    await load({
+      forceFreshRankedWindow: true,
+    });
   }, [load]);
 
   const tradePullRefreshRegister =
@@ -500,7 +516,7 @@ export function HomeProductList({
   const listPagination = useTradeChatListClientPagination({
     items: posts,
     pageSize: TRADE_CHAT_LIST_PAGE_SIZE,
-    resetKey: tradeListPaginationResetKey(tradeState, posts),
+    resetKey: `${tradeListPaginationResetKey(tradeState, posts)}:${listPaginationEpoch}`,
   });
   const visiblePosts = listPagination.visibleItems;
   const tradeHomeAdSessionId = useMemo(

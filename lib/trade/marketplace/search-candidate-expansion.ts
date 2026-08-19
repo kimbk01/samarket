@@ -10,7 +10,12 @@
  */
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { getTradeOptionCatalog } from "@/lib/trade/category-form/option-catalogs";
-import { resolveListingLguCanonicalId } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+import {
+  resolveListingLguCanonicalId,
+  sortListingsByLguDistance,
+} from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+
+export type SearchExpansionUserSort = "latest" | "popular" | "distance";
 
 export const SEARCH_EXPANSION_EXACT_BATCH = 40;
 export const SEARCH_EXPANSION_RELATED_IN_BATCH = 50;
@@ -65,9 +70,8 @@ export function shouldApplyMarketplaceSearchExpansion(input: {
   q?: string | null;
   sort?: string | null;
 }): boolean {
-  if (!sanitizeMarketplaceQueryText(input.q)) return false;
-  const sort = (input.sort ?? "latest").trim().toLowerCase();
-  return sort === "latest" || sort === "newest";
+  void input.sort;
+  return Boolean(sanitizeMarketplaceQueryText(input.q));
 }
 
 export function normalizeSearchExpansionText(raw: string | null | undefined): string {
@@ -228,12 +232,22 @@ export function classifySearchExpansionTier(
   return 3;
 }
 
-function sortTierRows<T extends SearchExpansionListing>(
+function sortTierRows<T extends SearchExpansionListing & { view_count?: number | null }>(
   rows: T[],
   hints: SearchExpansionHints,
-  tier: SearchExpansionTier
+  tier: SearchExpansionTier,
+  userSort: SearchExpansionUserSort = "latest",
+  anchorCanonicalId?: string | null
 ): T[] {
+  if (userSort === "distance" && anchorCanonicalId?.trim()) {
+    return sortListingsByLguDistance(rows, anchorCanonicalId.trim()) as T[];
+  }
   return [...rows].sort((a, b) => {
+    if (userSort === "popular") {
+      const av = Number(a.view_count ?? 0);
+      const bv = Number(b.view_count ?? 0);
+      if (bv !== av) return bv - av;
+    }
     if (tier === 1) {
       const ba = titleBand(normalizeSearchExpansionText(a.title ?? ""), hints.phrase);
       const bb = titleBand(normalizeSearchExpansionText(b.title ?? ""), hints.phrase);
@@ -243,31 +257,36 @@ function sortTierRows<T extends SearchExpansionListing>(
   });
 }
 
-function sortTierRowsWithWithinOutsidePriority<T extends SearchExpansionListing>(
+function sortTierRowsWithWithinOutsidePriority<T extends SearchExpansionListing & { view_count?: number | null }>(
   rows: T[],
   hints: SearchExpansionHints,
   tier: SearchExpansionTier,
-  browseLguCanonicalId: string | null | undefined
+  browseLguCanonicalId: string | null | undefined,
+  userSort: SearchExpansionUserSort = "latest"
 ): T[] {
-  // location-aware ordering is only meaningful when region/radius browse axis exists.
-  if (!browseLguCanonicalId?.trim()) return sortTierRows(rows, hints, tier);
+  if (!browseLguCanonicalId?.trim()) return sortTierRows(rows, hints, tier, userSort);
   const within: T[] = [];
   const outside: T[] = [];
   for (const r of rows) {
     if (listingInBrowseLgu(r, browseLguCanonicalId)) within.push(r);
     else outside.push(r);
   }
-  return [...sortTierRows(within, hints, tier), ...sortTierRows(outside, hints, tier)];
+  return [
+    ...sortTierRows(within, hints, tier, userSort, browseLguCanonicalId),
+    ...sortTierRows(outside, hints, tier, userSort, browseLguCanonicalId),
+  ];
 }
 
-export function assembleSearchExpansionRound<T extends SearchExpansionListing & { id?: string }>(input: {
+export function assembleSearchExpansionRound<T extends SearchExpansionListing & { id?: string; view_count?: number | null }>(input: {
   exactRows: T[];
   relatedInRows: T[];
   relatedOutRows: T[];
   hints: SearchExpansionHints;
   browseLguCanonicalId?: string | null;
+  userSort?: SearchExpansionUserSort;
   cursor: SearchExpansionCursor;
 }): { posts: T[]; cursor: SearchExpansionCursor } {
+  const userSort = input.userSort ?? "latest";
   const seen = new Set(input.cursor.seenIds);
   const inferred = [...new Set([...input.cursor.inferredBodyTypes, ...inferBodyTypesFromListings(input.exactRows)])];
   const buckets: Record<SearchExpansionTier, T[]> = { 1: [], 2: [], 3: [], 4: [] };
@@ -288,10 +307,10 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
   }
   const posts = (
     [
-      ...sortTierRowsWithWithinOutsidePriority(buckets[1], input.hints, 1, input.browseLguCanonicalId),
-      ...sortTierRowsWithWithinOutsidePriority(buckets[2], input.hints, 2, input.browseLguCanonicalId),
-      ...sortTierRowsWithWithinOutsidePriority(buckets[3], input.hints, 3, input.browseLguCanonicalId),
-      ...sortTierRowsWithWithinOutsidePriority(buckets[4], input.hints, 4, input.browseLguCanonicalId),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[1], input.hints, 1, input.browseLguCanonicalId, userSort),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[2], input.hints, 2, input.browseLguCanonicalId, userSort),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[3], input.hints, 3, input.browseLguCanonicalId, userSort),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[4], input.hints, 4, input.browseLguCanonicalId, userSort),
     ] as T[]
   );
   return {

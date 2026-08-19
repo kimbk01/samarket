@@ -22,7 +22,8 @@ import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/Lates
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
-import { buildMarketFilterResetHref, countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
+import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
+import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   SAM_TIER1_HEADER_ICON_CLUSTER_CLASS,
@@ -161,14 +162,15 @@ function TradePrimaryTabsInner({
                 onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
                 onClick={(e) => {
                   e.preventDefault();
-                  const resetHref = buildMarketFilterResetHref({
-                    baseSearch: searchParams.toString(),
-                    topics: tradeCategories,
+                  void buildMarketplaceBrowseResetCommittedHref(
+                    "/market",
+                    searchParams.toString()
+                  ).then((resetHref) => {
+                    if (!guardBeforeNavigate(resetHref)) return;
+                    prewarmBottomNavMarketTab(resetHref);
+                    allTab.href = resetHref;
+                    commitTab(allTab.href, allTab.key);
                   });
-                  if (!guardBeforeNavigate(resetHref)) return;
-                  prewarmBottomNavMarketTab(resetHref);
-                  allTab.href = resetHref;
-                  commitTab(allTab.href, allTab.key);
                 }}
               >
                 <RotateCcw
