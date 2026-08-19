@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
-import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -25,8 +24,6 @@ interface MyProductCardProps {
   isPromoted?: boolean;
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
   onDelete: (productId: string) => void;
-  listingSaving?: boolean;
-  onSellerListingStateChange: (productId: string, state: SellerListingState) => void;
 }
 
 export function MyProductCard({
@@ -34,8 +31,6 @@ export function MyProductCard({
   isPromoted = false,
   onStatusChange,
   onDelete,
-  listingSaving = false,
-  onSellerListingStateChange,
 }: MyProductCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
@@ -103,8 +98,6 @@ export function MyProductCard({
         <MyProductActions
           product={product}
           onStatusChange={onStatusChange}
-          onSellerListingStateChange={onSellerListingStateChange}
-          listingSaving={listingSaving}
           onDelete={onDelete}
         />
       </div>

@@ -27,9 +27,10 @@ describe("marketplace UI-6 MY selling listings contract", () => {
     const actions = src("components/mypage/products/MyProductActions.tsx");
     expect(actions).toContain("mypage_comp_product_edit");
     expect(actions).toContain("trade_promo_detail_cta");
-    expect(actions).toContain("trade_listing_step_completed");
     expect(actions).toContain("mypage_comp_product_hide");
     expect(actions).toContain("mypage_comp_product_delete");
+    expect(actions).not.toContain("trade_listing_step_completed");
+    expect(actions).not.toContain("onSellerListingStateChange");
     expect(actions).not.toContain("mypage_comp_product_listing_section");
     expect(actions).not.toContain("mypage_comp_product_bump");
     expect(actions).not.toContain("mypage_comp_product_go_promotion");

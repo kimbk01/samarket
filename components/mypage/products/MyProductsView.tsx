@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useState, useCallback, useEffect } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -10,25 +10,12 @@ import {
   collectActivePromotionTargetIds,
   filterMyProductsByListingAxis,
 } from "@/lib/products/my-product-listing-filter";
-import { normalizeSellerListingState, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
 import type { PointPromotionOrder } from "@/lib/types/point";
 import { MyProductFilter } from "./MyProductFilter";
 import { MyProductCard } from "./MyProductCard";
-import {
-  TradeBuyerPickerModal,
-  type TradeBuyerPickCandidate,
-} from "./TradeBuyerPickerModal";
-import {
-  dedupeBuyerCandidates,
-  fetchPostBuyerChats,
-  isActiveTradeChat,
-  postSellerCompleteRequest,
-  postSellerListingStateRequest,
-} from "@/lib/trade/seller-trade-flow-client";
 
 export function MyProductsView() {
   const { t } = useI18n();
@@ -38,12 +25,6 @@ export function MyProductsView() {
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
-  const [savingListingId, setSavingListingId] = useState<string | null>(null);
-  const [buyerPicker, setBuyerPicker] = useState<{
-    mode: "reserve" | "complete";
-    productId: string;
-    candidates: TradeBuyerPickCandidate[];
-  } | null>(null);
 
   const products = filterMyProductsByListingAxis(
     rawProducts,
@@ -109,7 +90,9 @@ export function MyProductsView() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [currentUserId, loadListing]);
 
   useEffect(() => {
@@ -165,16 +148,13 @@ export function MyProductsView() {
     async (productId: string, newStatus: Product["status"]) => {
       if (!currentUserId) return;
       try {
-        const res = await fetch(
-          `/api/posts/${encodeURIComponent(productId)}/owner-status`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: newStatus,
-            }),
-          }
-        );
+        const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: newStatus,
+          }),
+        });
         const data = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
@@ -195,10 +175,9 @@ export function MyProductsView() {
     async (productId: string) => {
       if (!currentUserId) return;
       try {
-        const res = await fetch(
-          `/api/posts/${encodeURIComponent(productId)}/owner-delete`,
-          { method: "POST" }
-        );
+        const res = await fetch(`/api/posts/${encodeURIComponent(productId)}/owner-delete`, {
+          method: "POST",
+        });
         const data = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
@@ -215,175 +194,8 @@ export function MyProductsView() {
     [currentUserId, refresh, t]
   );
 
-  const handleSellerListingStateChange = useCallback(
-    async (productId: string, state: SellerListingState) => {
-      const product = rawProducts.find((p) => p.id === productId);
-      if (!product) return;
-      const current = normalizeSellerListingState(
-        product.sellerListingState,
-        product.status
-      );
-      if (state === current) return;
-      const label = sellerListingLabel(t, state);
-
-      if (typeof window === "undefined") return;
-
-      if (state === "completed") {
-        const ok = await dibayConfirm({
-          title: t("mypage_comp_product_complete_confirm"),
-          cancelLabel: t("common_cancel"),
-          confirmLabel: t("common_confirm"),
-        });
-        if (!ok) return;
-      } else {
-        const ok = await dibayConfirm({
-          title: t("mypage_comp_product_listing_change_confirm", { label }),
-          cancelLabel: t("common_cancel"),
-          confirmLabel: t("common_confirm"),
-        });
-        if (!ok) return;
-      }
-
-      setSavingListingId(productId);
-      try {
-        if (!currentUserId) return;
-
-        if (state === "completed") {
-          const data = await fetchPostBuyerChats(productId);
-          if (data.error) {
-            await dibayAlert({ title: data.error });
-            return;
-          }
-          const items = (data.items ?? []).filter(isActiveTradeChat);
-          const reservedId = data.reservedBuyerId?.trim() || "";
-          const listingIsReserved =
-            (data.sellerListingState ?? "").toLowerCase() === "reserved" ||
-            product.status === "reserved";
-
-          if (listingIsReserved && reservedId) {
-            const row = items.find((i) => i.buyerId === reservedId);
-            if (!row?.chatId) {
-              await dibayAlert({ title: t("mypage_comp_product_reserved_chat_missing") });
-              return;
-            }
-            const done = await postSellerCompleteRequest(row.chatId);
-            if (!done.ok) {
-              await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
-              return;
-            }
-            refresh();
-            return;
-          }
-
-          const candidates = dedupeBuyerCandidates(items);
-          if (candidates.length === 0) {
-            await dibayAlert({ title: t("mypage_comp_product_no_inquiry_for_complete") });
-            return;
-          }
-          if (candidates.length === 1) {
-            const done = await postSellerCompleteRequest(candidates[0].chatId);
-            if (!done.ok) {
-              await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
-              return;
-            }
-            refresh();
-            return;
-          }
-          setBuyerPicker({ mode: "complete", productId, candidates });
-          return;
-        }
-
-        if (state === "reserved") {
-          const data = await fetchPostBuyerChats(productId);
-          if (data.error) {
-            await dibayAlert({ title: data.error });
-            return;
-          }
-          const items = (data.items ?? []).filter(isActiveTradeChat);
-          const candidates = dedupeBuyerCandidates(items);
-          if (candidates.length === 0) {
-            await dibayAlert({ title: t("mypage_comp_product_reserve_inquiry_only") });
-            return;
-          }
-          if (candidates.length === 1) {
-            const saved = await postSellerListingStateRequest(productId, "reserved", candidates[0].buyerId);
-            if (!saved.ok) {
-              await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
-              return;
-            }
-            if (saved.warning) await dibayAlert({ title: saved.warning });
-            refresh();
-            return;
-          }
-          setBuyerPicker({ mode: "reserve", productId, candidates });
-          return;
-        }
-
-        const saved = await postSellerListingStateRequest(productId, state);
-        if (!saved.ok) {
-          await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
-          return;
-        }
-        if (saved.warning) await dibayAlert({ title: saved.warning });
-        refresh();
-      } catch {
-        await dibayAlert({ title: t("mypage_comp_product_network_save_failed") });
-      } finally {
-        setSavingListingId(null);
-      }
-    },
-    [currentUserId, rawProducts, refresh, t]
-  );
-
-  const onBuyerPicked = useCallback(
-    async (c: TradeBuyerPickCandidate) => {
-      if (!buyerPicker) return;
-      const { mode, productId } = buyerPicker;
-      setBuyerPicker(null);
-      setSavingListingId(productId);
-      try {
-        if (mode === "reserve") {
-          const saved = await postSellerListingStateRequest(productId, "reserved", c.buyerId);
-          if (!saved.ok) {
-            await dibayAlert({ title: saved.error ?? "저장에 실패했습니다." });
-            return;
-          }
-          if (saved.warning) await dibayAlert({ title: saved.warning });
-        } else {
-          const done = await postSellerCompleteRequest(c.chatId);
-          if (!done.ok) {
-            await dibayAlert({ title: done.error ?? "거래완료 처리에 실패했습니다." });
-            return;
-          }
-        }
-        refresh();
-      } catch {
-        await dibayAlert({ title: t("mypage_comp_product_network_error_short") });
-      } finally {
-        setSavingListingId(null);
-      }
-    },
-    [buyerPicker, refresh, t]
-  );
-
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <TradeBuyerPickerModal
-        open={buyerPicker != null}
-        title={
-          buyerPicker?.mode === "reserve"
-            ? t("mypage_comp_product_pick_reserve_title")
-            : t("mypage_comp_product_pick_complete_title")
-        }
-        subtitle={
-          buyerPicker?.mode === "reserve"
-            ? t("mypage_comp_product_pick_reserve_subtitle")
-            : t("mypage_comp_product_pick_complete_subtitle")
-        }
-        candidates={buyerPicker?.candidates ?? []}
-        onClose={() => setBuyerPicker(null)}
-        onSelect={onBuyerPicked}
-      />
       <MyProductFilter
         value={filter}
         onChange={handleFilterChange}
@@ -411,8 +223,6 @@ export function MyProductsView() {
                 isPromoted={promotedTargetIds.has(product.id)}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
-                listingSaving={savingListingId === product.id}
-                onSellerListingStateChange={handleSellerListingStateChange}
               />
             </li>
           ))}

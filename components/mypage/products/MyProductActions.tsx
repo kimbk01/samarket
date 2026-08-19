@@ -5,10 +5,6 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import type { ProductStatus } from "@/lib/types/product";
-import {
-  normalizeSellerListingState,
-  type SellerListingState,
-} from "@/lib/products/seller-listing-state";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -17,16 +13,12 @@ import { productStatusLabel } from "@/lib/mypage/seller-listing-i18n";
 interface MyProductActionsProps {
   product: Product;
   onStatusChange: (productId: string, newStatus: ProductStatus) => void;
-  onSellerListingStateChange: (productId: string, state: SellerListingState) => void;
-  listingSaving?: boolean;
   onDelete: (productId: string) => void;
 }
 
 export function MyProductActions({
   product,
   onStatusChange,
-  onSellerListingStateChange,
-  listingSaving = false,
   onDelete,
 }: MyProductActionsProps) {
   const { t, safeT } = useI18n();
@@ -35,12 +27,6 @@ export function MyProductActions({
   const listingPost = tradeListingPostFromProduct(product);
   const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
   const isHidden = product.status === "hidden" || product.status === "blinded";
-  const currentListing = normalizeSellerListingState(
-    product.sellerListingState,
-    product.status
-  );
-  const canComplete =
-    !isHidden && !isSold && currentListing !== "completed" && product.status === "active";
 
   useEffect(() => {
     if (!open) return;
@@ -111,19 +97,6 @@ export function MyProductActions({
             >
               {promoteLabel}
             </Link>
-          ) : null}
-          {canComplete ? (
-            <button
-              type="button"
-              disabled={listingSaving}
-              onClick={() => {
-                onSellerListingStateChange(product.id, "completed");
-                setOpen(false);
-              }}
-              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
-            >
-              {t("trade_listing_step_completed")}
-            </button>
           ) : null}
           {isHidden ? (
             <button

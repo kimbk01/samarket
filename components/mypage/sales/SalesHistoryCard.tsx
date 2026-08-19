@@ -1,14 +1,11 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
-  salesCanChangeListing,
-  salesCanSellerCompleteTrade,
   salesCardTradeLine,
   salesProductStatusBadge,
   salesTradeStatusBadge,
@@ -16,8 +13,6 @@ import {
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { BuyerReviewReadSheet } from "@/components/mypage/purchases/BuyerReviewReadSheet";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
-import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
-import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -55,8 +50,6 @@ export interface SalesHistoryRow {
 export function SalesHistoryCard({
   row,
   currency,
-  viewerId,
-  onReload,
 }: {
   row: SalesHistoryRow;
   currency: string;
@@ -69,7 +62,6 @@ export function SalesHistoryCard({
   const [readBuyerReview, setReadBuyerReview] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hasChat = Boolean(row.chatId?.trim()) && !row.noActiveChat;
@@ -77,106 +69,8 @@ export function SalesHistoryCard({
   const tradeBadge = salesTradeStatusBadge(t, row.tradeFlowStatus ?? "chatting");
   const productBadge = salesProductStatusBadge(row.sellerListingState, row.status);
   const tradeLine = salesCardTradeLine(t, row.tradeFlowStatus, row.hasBuyerReview, row.buyerConfirmSource);
-  const canListing = salesCanChangeListing(row.status);
-  const canSellerComplete =
-    hasChat && salesCanSellerCompleteTrade(row.tradeFlowStatus, row.status);
-  const canCancelSale = !["sold", "hidden", "deleted", "blinded"].includes(
-    String(row.status ?? "").toLowerCase()
-  );
   const tradeAt = row.buyerConfirmedAt || row.sellerCompletedAt || row.createdAt || row.lastMessageAt;
   const detailHref = `/post/${row.postId}`;
-
-  const persistListing = async (next: SellerListingState) => {
-    const label = SELLER_LISTING_LABEL[next];
-    if (!(await dibayConfirm({
-      title: t("mypage_comp_sales_listing_change_confirm", { label }),
-      cancelLabel: t("common_cancel"),
-      confirmLabel: t("common_confirm"),
-    }))) {
-      return;
-    }
-    if (next === "reserved" && !row.buyerId?.trim()) {
-      await dibayAlert({ title: t("mypage_comp_product_reserve_inquiry_only") });
-      return;
-    }
-    setActionBusy("listing");
-    try {
-      const body: { sellerListingState: SellerListingState; reservedBuyerId?: string } = {
-        sellerListingState: next,
-      };
-      if (next === "reserved") {
-        body.reservedBuyerId = row.buyerId.trim();
-      }
-      const res = await fetch(`/api/posts/${encodeURIComponent(row.postId)}/seller-listing-state`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.ok && data.ok) onReload();
-      else if (data.error) await dibayAlert({ title: data.error });
-    } catch {
-      /* ignore */
-    } finally {
-      setActionBusy((prev) => (prev === null ? prev : null));
-      setMenuOpen((prev) => (prev ? false : prev));
-    }
-  };
-
-  const runCancelSale = async () => {
-    if (!(await dibayConfirm({
-      title: SELLER_CANCEL_SALE_CONFIRM_MESSAGE,
-      cancelLabel: t("common_cancel"),
-      confirmLabel: t("mypage_comp_product_cancel_sale"),
-      confirmTone: "destructive",
-    }))) {
-      return;
-    }
-    setActionBusy("cancel");
-    try {
-      const res = await fetch(`/api/posts/${encodeURIComponent(row.postId)}/owner-status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ status: "hidden" }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.ok && data.ok) onReload();
-      else if (data.error) await dibayAlert({ title: data.error });
-    } catch {
-      /* ignore */
-    } finally {
-      setActionBusy((prev) => (prev === null ? prev : null));
-      setMenuOpen((prev) => (prev ? false : prev));
-    }
-  };
-
-  const runSellerComplete = async () => {
-    if (!hasChat) return;
-    if (!(await dibayConfirm({
-      title: t("mypage_comp_sales_complete_confirm"),
-      cancelLabel: t("common_cancel"),
-      confirmLabel: t("common_confirm"),
-    }))) {
-      return;
-    }
-    setActionBusy("complete");
-    try {
-      const res = await fetch(`/api/trade/product-chat/${encodeURIComponent(row.chatId)}/seller-complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.ok && data.ok) onReload();
-      else if (data.error) await dibayAlert({ title: data.error });
-    } catch {
-      /* ignore */
-    } finally {
-      setActionBusy((prev) => (prev === null ? prev : null));
-      setMenuOpen((prev) => (prev ? false : prev));
-    }
-  };
 
   useEffect(() => {
     setThumbFailed(false);
@@ -276,54 +170,6 @@ export function SalesHistoryCard({
                   {t("mypage_comp_sales_chat_none_menu")}
                 </span>
               )}
-              {canListing ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={!!actionBusy}
-                    onClick={() => void persistListing("inquiry")}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
-                  >
-                    {actionBusy === "listing" ? t("mypage_comp_processing") : t("mypage_comp_sales_to_inquiry")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!!actionBusy}
-                    onClick={() => void persistListing("negotiating")}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
-                  >
-                    {t("mypage_comp_sales_to_negotiating")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!!actionBusy}
-                    onClick={() => void persistListing("reserved")}
-                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
-                  >
-                    {t("mypage_comp_sales_to_reserved")}
-                  </button>
-                </>
-              ) : null}
-              {canSellerComplete ? (
-                <button
-                  type="button"
-                  disabled={!!actionBusy}
-                  onClick={() => void runSellerComplete()}
-                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
-                >
-                  {actionBusy === "complete" ? t("mypage_comp_processing") : t("mypage_comp_sales_complete_irreversible")}
-                </button>
-              ) : null}
-              {canCancelSale ? (
-                <button
-                  type="button"
-                  disabled={!!actionBusy}
-                  onClick={() => void runCancelSale()}
-                  className="block w-full border-t border-sam-border-soft px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {actionBusy === "cancel" ? t("mypage_comp_processing") : t("mypage_comp_product_cancel_sale")}
-                </button>
-              ) : null}
               {hasChat && row.hasBuyerReview ? (
                 <button
                   type="button"
@@ -336,32 +182,6 @@ export function SalesHistoryCard({
                   {t("mypage_comp_sales_buyer_review_view")}
                 </button>
               ) : null}
-              <Link
-                href={`/mypage/points/promotions?postId=${encodeURIComponent(row.postId)}`}
-                onClick={() => setMenuOpen(false)}
-                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-              >
-                {t("mypage_comp_sales_promote_cta")}
-              </Link>
-              <Link
-                href="/mypage/ads/feed-request"
-                onClick={() => setMenuOpen(false)}
-                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-              >
-                {t("mypage_comp_sales_banner_cta")}
-              </Link>
-              <Link
-                href={detailHref}
-                onPointerEnter={() => void router.prefetch(detailHref)}
-                onFocus={() => void router.prefetch(detailHref)}
-                onClick={() => {
-                  beginRouteEntryPerf("product_detail", detailHref);
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-              >
-                {t("mypage_comp_sales_view_post")}
-              </Link>
               {hasChat && row.buyerId ? (
                 <button
                   type="button"
