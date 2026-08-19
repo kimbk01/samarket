@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { Product } from "@/lib/types/product";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
@@ -15,10 +16,12 @@ import {
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
 import { MyProductActions } from "./MyProductActions";
-import { SellerTradeRow } from "@/components/mypage/seller/SellerTradeRow";
+import { ListingBuyerChatsBlock } from "@/components/mypage/seller/ListingBuyerChatsBlock";
+import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 interface MyProductCardProps {
   product: Product;
@@ -26,6 +29,7 @@ interface MyProductCardProps {
   tradeRows?: SalesHistoryRow[];
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
   onDelete: (productId: string) => void;
+  onPromotionChanged?: () => void;
 }
 
 export function MyProductCard({
@@ -34,12 +38,18 @@ export function MyProductCard({
   tradeRows = [],
   onStatusChange,
   onDelete,
+  onPromotionChanged,
 }: MyProductCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const [promoteSheetOpen, setPromoteSheetOpen] = useState(false);
   const listingPost = tradeListingPostFromProduct(product);
-  const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
+  const publicStatus = resolveMarketplacePublicListingStatus(listingPost);
+  const isSold = publicStatus === "sold";
   const isHidden = product.status === "hidden" || product.status === "blinded";
+  const isLiveForSale = publicStatus === "active" && !isHidden;
+  const canPromote = isLiveForSale && product.status === "active";
+  const showBuyerChatEmptyHint = isLiveForSale;
   const detailHref = `/post/${product.id}`;
   const statusLabel = isHidden
     ? t("mypage_comp_product_status_hidden")
@@ -53,27 +63,44 @@ export function MyProductCard({
           fallbackEn: "For sale",
         });
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
+  const promoteCtaLabel = isPromoted
+    ? safeT("marketplace_seller_promote_manage_cta", {
+        fallbackKo: "홍보 관리",
+        fallbackEn: "Manage promotion",
+      })
+    : safeT("marketplace_seller_promote_cta", {
+        fallbackKo: "더 알리기",
+        fallbackEn: "Promote more",
+      });
+
+  const openPromoteSheet = () => setPromoteSheetOpen(true);
 
   return (
     <div className={isSold || isHidden ? "opacity-70" : undefined}>
       <div className="flex gap-3 px-3 py-3">
-        <Link
-          href={detailHref}
-          onPointerEnter={() => void router.prefetch(detailHref)}
-          onFocus={() => void router.prefetch(detailHref)}
-          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
-          className="flex min-w-0 flex-1 gap-3"
-        >
-          <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+        <div className="flex min-w-0 flex-1 gap-3">
+          <Link
+            href={detailHref}
+            onPointerEnter={() => void router.prefetch(detailHref)}
+            onFocus={() => void router.prefetch(detailHref)}
+            onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+            className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+          >
             <SamarketThumbnail
               src={product.thumbnail}
               fill
               roundedClassName="rounded-ui-rect"
               className="bg-sam-surface-muted"
             />
-          </div>
+          </Link>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col justify-between">
-            <div className="flex min-h-0 flex-1 flex-col justify-between">
+            <Link
+              href={detailHref}
+              onPointerEnter={() => void router.prefetch(detailHref)}
+              onFocus={() => void router.prefetch(detailHref)}
+              onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+              className="flex min-h-0 flex-1 flex-col justify-between"
+            >
               <p className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
                 {formatPrice(product.price)}
               </p>
@@ -89,26 +116,52 @@ export function MyProductCard({
                 {statusLabel}
                 {timeLabel ? ` · ${timeLabel}` : ""}
               </p>
-              {isPromoted ? (
-                <span className="mt-0.5 inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
-                  {safeT("trade_promo_badge", {
-                    fallbackKo: "홍보",
-                    fallbackEn: "Promoted",
-                  })}
-                </span>
-              ) : null}
-            </div>
+            </Link>
+            {isPromoted ? (
+              <button
+                type="button"
+                onClick={openPromoteSheet}
+                className="mt-1 inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted underline-offset-2 hover:underline"
+              >
+                {safeT("trade_promo_badge", {
+                  fallbackKo: "홍보",
+                  fallbackEn: "Promoted",
+                })}
+              </button>
+            ) : null}
           </div>
-        </Link>
+        </div>
         <MyProductActions
           product={product}
           onStatusChange={onStatusChange}
           onDelete={onDelete}
+          onPromoteClick={canPromote ? openPromoteSheet : undefined}
         />
       </div>
-      {tradeRows.map((row) => (
-        <SellerTradeRow key={row.chatId || `${row.postId}-${row.buyerId}`} row={row} />
-      ))}
+
+      {canPromote ? (
+        <div className="border-t border-sam-border-soft px-3 py-2">
+          <button
+            type="button"
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} py-2.5 text-center sam-text-body-secondary`}
+            onClick={openPromoteSheet}
+          >
+            {promoteCtaLabel}
+          </button>
+        </div>
+      ) : null}
+
+      <ListingBuyerChatsBlock tradeRows={tradeRows} showEmptyHint={showBuyerChatEmptyHint} />
+
+      <MemberPostPromoteSheet
+        postId={product.id}
+        postTitle={product.title ?? ""}
+        open={promoteSheetOpen}
+        onClose={() => setPromoteSheetOpen(false)}
+        onPurchased={() => {
+          onPromotionChanged?.();
+        }}
+      />
     </div>
   );
 }

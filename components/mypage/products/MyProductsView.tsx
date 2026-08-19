@@ -375,6 +375,7 @@ export function MyProductsView({
                 tradeRows={tradesByPostId.get(product.id) ?? []}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                onPromotionChanged={refresh}
               />
             </li>
           ))}

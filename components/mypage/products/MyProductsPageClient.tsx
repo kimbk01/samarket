@@ -6,13 +6,12 @@ import { MyProductsView } from "@/components/mypage/products/MyProductsView";
 import { MyProductFilter } from "@/components/mypage/products/MyProductFilter";
 import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
-import { parseMyProductListingFilterKey } from "@/lib/products/my-product-listing-filter";
+import {
+  buildMyProductsListingHref,
+  parseMyProductListingFilterKey,
+  parseMyProductPromotedOnly,
+} from "@/lib/products/my-product-listing-filter";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-
-function filterToQuery(filter: MyProductFilterKey): string {
-  if (filter === "all") return "/mypage/products";
-  return `/mypage/products?filter=${encodeURIComponent(filter)}`;
-}
 
 function MyProductsPageInner() {
   const router = useRouter();
@@ -20,21 +19,31 @@ function MyProductsPageInner() {
   const [filter, setFilter] = useState<MyProductFilterKey>(() =>
     parseMyProductListingFilterKey(searchParams.get("filter"))
   );
-  const [promotedOnly, setPromotedOnly] = useState(false);
+  const [promotedOnly, setPromotedOnly] = useState(() =>
+    parseMyProductPromotedOnly(searchParams.get("promoted"))
+  );
 
   useEffect(() => {
-    const raw = searchParams.get("filter");
-    if (!raw) return;
-    const next = parseMyProductListingFilterKey(raw);
-    setFilter((prev) => (prev === next ? prev : next));
+    const nextFilter = parseMyProductListingFilterKey(searchParams.get("filter"));
+    const nextPromoted = parseMyProductPromotedOnly(searchParams.get("promoted"));
+    setFilter((prev) => (prev === nextFilter ? prev : nextFilter));
+    setPromotedOnly((prev) => (prev === nextPromoted ? prev : nextPromoted));
   }, [searchParams]);
 
   const handleFilterChange = useCallback(
     (next: MyProductFilterKey) => {
       setFilter(next);
-      router.replace(filterToQuery(next), { scroll: false });
+      router.replace(buildMyProductsListingHref(next, promotedOnly), { scroll: false });
     },
-    [router]
+    [promotedOnly, router]
+  );
+
+  const handlePromotedOnlyChange = useCallback(
+    (next: boolean) => {
+      setPromotedOnly(next);
+      router.replace(buildMyProductsListingHref(filter, next), { scroll: false });
+    },
+    [filter, router]
   );
 
   return (
@@ -49,7 +58,7 @@ function MyProductsPageInner() {
           value={filter}
           onChange={handleFilterChange}
           promotedOnly={promotedOnly}
-          onPromotedOnlyChange={setPromotedOnly}
+          onPromotedOnlyChange={handlePromotedOnlyChange}
         />
       }
     >
@@ -57,7 +66,7 @@ function MyProductsPageInner() {
         filter={filter}
         onFilterChange={handleFilterChange}
         promotedOnly={promotedOnly}
-        onPromotedOnlyChange={setPromotedOnly}
+        onPromotedOnlyChange={handlePromotedOnlyChange}
       />
     </MypageSubpageShell>
   );

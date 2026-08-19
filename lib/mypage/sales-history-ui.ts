@@ -1,5 +1,9 @@
+import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { normalizeSellerListingState, publicListingBadge } from "@/lib/products/seller-listing-state";
-import { tradeSituationShortLabel } from "@/lib/trade/trade-situation-copy";
+import {
+  normalizeTradeFlowKey,
+  tradeSituationShortLabel,
+} from "@/lib/trade/trade-situation-copy";
 import type { TradeReviewTranslate } from "@/lib/trade/trade-review-tags";
 
 export function salesTradeStatusBadge(t: TradeReviewTranslate, flow: string): string {
@@ -43,4 +47,24 @@ export function salesCardTradeLine(
     hasBuyerReview,
     buyerConfirmSource,
   });
+}
+
+/** Embedded buyer row under `/mypage/products` — avoid duplicating listing 「판매중」 on chatting flow. */
+export function sellerEmbeddedTradeRowStatusLabel(
+  t: TradeReviewTranslate,
+  row: Pick<
+    SalesHistoryRow,
+    "tradeFlowStatus" | "hasBuyerReview" | "buyerConfirmSource"
+  >
+): string {
+  const flow = normalizeTradeFlowKey(row.tradeFlowStatus);
+  if (flow === "chatting") {
+    return t("marketplace_seller_buyer_chat_status_chatting");
+  }
+  return salesCardTradeLine(
+    t,
+    row.tradeFlowStatus,
+    row.hasBuyerReview,
+    row.buyerConfirmSource
+  );
 }

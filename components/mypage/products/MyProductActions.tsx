@@ -14,12 +14,15 @@ interface MyProductActionsProps {
   product: Product;
   onStatusChange: (productId: string, newStatus: ProductStatus) => void;
   onDelete: (productId: string) => void;
+  /** Opens CUT F promote sheet on listing card. */
+  onPromoteClick?: () => void;
 }
 
 export function MyProductActions({
   product,
   onStatusChange,
   onDelete,
+  onPromoteClick,
 }: MyProductActionsProps) {
   const { t, safeT } = useI18n();
   const [open, setOpen] = useState(false);
@@ -65,7 +68,7 @@ export function MyProductActions({
     }
   };
 
-  const promoteLabel = safeT("trade_promo_detail_cta", {
+  const promoteLabel = safeT("marketplace_seller_promote_cta", {
     fallbackKo: "더 알리기",
     fallbackEn: "Promote more",
   });
@@ -89,14 +92,17 @@ export function MyProductActions({
           >
             {t("mypage_comp_product_edit")}
           </Link>
-          {product.status === "active" && !isSold ? (
-            <Link
-              href={`/mypage/points/promotions?postId=${encodeURIComponent(product.id)}`}
-              className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
-              onClick={() => setOpen(false)}
+          {product.status === "active" && !isSold && onPromoteClick ? (
+            <button
+              type="button"
+              onClick={() => {
+                onPromoteClick();
+                setOpen(false);
+              }}
+              className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
               {promoteLabel}
-            </Link>
+            </button>
           ) : null}
           {isHidden ? (
             <button

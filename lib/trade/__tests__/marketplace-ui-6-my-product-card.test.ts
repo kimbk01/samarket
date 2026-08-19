@@ -20,14 +20,20 @@ describe("marketplace UI-6 MY selling listings contract", () => {
     expect(card).toContain("marketplace_seller_listing_status_live");
     expect(card).toContain("marketplace_seller_listing_status_sold");
     expect(card).toContain("trade_promo_badge");
+    expect(card).toContain("MemberPostPromoteSheet");
+    expect(card).toContain("ListingBuyerChatsBlock");
+    expect(card).toContain("marketplace_seller_promote_cta");
     expect(card).not.toContain("<TradeListingStatusBadge");
     expect(card).not.toContain("mypage_comp_product_primary_hub_hint");
   });
 
-  it("MyProductActions exposes seller menu without 4-state listing section", () => {
+  it("MyProductActions opens promote sheet via callback — not trade-ads or promotions page link", () => {
     const actions = src("components/mypage/products/MyProductActions.tsx");
     expect(actions).toContain("mypage_comp_product_edit");
-    expect(actions).toContain("trade_promo_detail_cta");
+    expect(actions).toContain("marketplace_seller_promote_cta");
+    expect(actions).toContain("onPromoteClick");
+    expect(actions).not.toContain("/mypage/points/promotions");
+    expect(actions).not.toContain("trade-ads/apply");
     expect(actions).toContain("mypage_comp_product_hide");
     expect(actions).toContain("mypage_comp_product_delete");
     expect(actions).not.toContain("trade_listing_step_completed");
@@ -40,9 +46,13 @@ describe("marketplace UI-6 MY selling listings contract", () => {
 
   it("MyProductsView removes secondary hub banner", () => {
     const view = src("components/mypage/products/MyProductsView.tsx");
+    const page = src("components/mypage/products/MyProductsPageClient.tsx");
     expect(view).not.toContain("mypage_comp_product_primary_hub_hint");
     expect(view).not.toContain("mypage_comp_product_go_sales_hub");
     expect(view).toContain("isPromoted={promotedTargetIds.has(product.id)}");
     expect(view).toContain("tradeRows={tradesByPostId.get(product.id)");
+    expect(view).toContain("onPromotionChanged={refresh}");
+    expect(page).toContain("buildMyProductsListingHref");
+    expect(page).toContain("parseMyProductPromotedOnly");
   });
 });

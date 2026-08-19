@@ -19,6 +19,24 @@ export function parseMyProductListingFilterKey(
   return "all";
 }
 
+/** `/mypage/products` promoted-only overlay — URL `?promoted=1`. */
+export function parseMyProductPromotedOnly(raw: string | null | undefined): boolean {
+  const s = (raw ?? "").trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes";
+}
+
+/** Listing filter + promoted overlay → canonical href (share/refresh safe). */
+export function buildMyProductsListingHref(
+  baseFilter: MyProductListingFilterKey,
+  promotedOnly = false
+): string {
+  const params = new URLSearchParams();
+  if (baseFilter !== "all") params.set("filter", baseFilter);
+  if (promotedOnly) params.set("promoted", "1");
+  const q = params.toString();
+  return q ? `/mypage/products?${q}` : "/mypage/products";
+}
+
 function listingPost(product: Product) {
   return {
     seller_listing_state: product.sellerListingState,

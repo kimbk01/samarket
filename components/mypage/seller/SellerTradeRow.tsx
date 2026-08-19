@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { BuyerReviewReadSheet } from "@/components/mypage/purchases/BuyerReviewReadSheet";
-import { salesTradeStatusBadge } from "@/lib/mypage/sales-history-ui";
+import { sellerEmbeddedTradeRowStatusLabel } from "@/lib/mypage/sales-history-ui";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { formatTimeAgo } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 
-/** Embedded buyer trade row under a listing card — chat-first, no duplicate product block. */
+/** Embedded buyer trade row under a listing card — compact, chat-first. */
 export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
   const { t, safeT } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,10 +21,13 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
 
   const hasChat = Boolean(row.chatId?.trim()) && !row.noActiveChat;
   const chatHref = hasChat ? tradeHubChatRoomHref(row.chatId, "product_chat") : "#";
-  const tradeBadge = salesTradeStatusBadge(t, row.tradeFlowStatus ?? "chatting");
+  const tradeStatusLabel = sellerEmbeddedTradeRowStatusLabel(t, row);
   const buyerLabel = row.buyerNickname?.trim()
     ? row.buyerNickname.trim()
     : t("mypage_comp_sales_no_chat_yet");
+  const preview = row.lastMessagePreview?.trim() ?? "";
+  const timeRaw = row.lastMessageAt ?? row.createdAt;
+  const timeLabel = timeRaw ? formatTimeAgo(timeRaw) : "";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -41,14 +45,35 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
 
   if (!hasChat) return null;
 
+  const chatCta = safeT("marketplace_seller_trade_chat_primary", {
+    fallbackKo: "거래 채팅",
+    fallbackEn: "Trade chat",
+  });
+
   return (
-    <div className="border-t border-sam-border-soft px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{buyerLabel}</p>
-          <p className="mt-0.5 sam-text-helper text-sam-muted">{tradeBadge}</p>
-        </div>
-        <div className="relative shrink-0" ref={menuRef}>
+    <>
+      <div className="flex items-stretch border-t border-sam-border-soft first:border-t-0">
+        <Link
+          href={chatHref}
+          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 hover:bg-sam-surface-muted/80 active:bg-sam-surface-muted"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{buyerLabel}</p>
+            <p className="mt-0.5 sam-text-helper text-sam-muted">{tradeStatusLabel}</p>
+            {preview ? (
+              <p className="mt-0.5 truncate sam-text-helper text-sam-fg">{preview}</p>
+            ) : null}
+            {timeLabel ? <p className="mt-0.5 sam-text-xxs text-sam-meta">{timeLabel}</p> : null}
+          </div>
+          <span className="flex shrink-0 items-center gap-0.5 sam-text-helper font-medium text-sam-brand">
+            {chatCta}
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </span>
+        </Link>
+        <div
+          className="relative flex shrink-0 items-center border-l border-sam-border-soft pr-1"
+          ref={menuRef}
+        >
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -89,15 +114,6 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
           ) : null}
         </div>
       </div>
-      <Link
-        href={chatHref}
-        className={`${Sam.btn.primaryCombo} ${Sam.btn.block} mt-2 py-2.5 text-center sam-text-body-secondary`}
-      >
-        {safeT("marketplace_seller_trade_chat_primary", {
-          fallbackKo: "거래 채팅",
-          fallbackEn: "Trade chat",
-        })}
-      </Link>
 
       {readBuyerReview ? (
         <BuyerReviewReadSheet
@@ -119,6 +135,6 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
           onSuccess={() => setReportOpen(false)}
         />
       ) : null}
-    </div>
+    </>
   );
 }
