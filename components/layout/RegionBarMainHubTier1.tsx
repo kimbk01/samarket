@@ -16,7 +16,6 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { SectionHeader } from "@/components/layout/sector-header";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
-import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import {
   resolveMainTabKeepAliveHub,
   type MainTabKeepAliveHubId,
@@ -91,12 +90,10 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
   const title: ReactNode =
     hub === "trade" ? t("marketplace_home_title") : t(hubTitleKey(hub));
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
-  const leftSlot =
-    hub === "trade" ? <TradeHeaderLocationPinButton placement="beside-title" /> : undefined;
 
   return (
     <UnifiedTier1Shell>
-      <SectionHeader embedded titleAlign="left" title={title} leftSlot={leftSlot} rightSlot={rightSlot} />
+      <SectionHeader embedded titleAlign="left" title={title} rightSlot={rightSlot} />
     </UnifiedTier1Shell>
   );
 }

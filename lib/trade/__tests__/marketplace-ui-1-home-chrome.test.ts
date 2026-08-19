@@ -22,7 +22,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tradeMessages.en.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain('t("marketplace_home_title")');
-    expect(header).toContain("TradeHeaderLocationPinButton");
+    expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 
   it("HOME search stays on /market and sell CTA moved to tab row", () => {
@@ -33,7 +33,6 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(tabs).toContain('"/market/sell"');
     expect(tabs).toContain("data-marketplace-sell-cta");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
-    expect(header).toContain("TradeHeaderLocationPinButton");
     expect(header).toContain("marketplace_search_placeholder");
     expect(header).toContain("sanitizeMarketplaceQueryText");
     const sticky = read("components/layout/AppStickyHeader.tsx");
@@ -45,7 +44,6 @@ describe("Marketplace UI-1 HOME chrome", () => {
   it("topic row is 전체 + 필터, no 최신순", () => {
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
     expect(tabs).not.toContain("allSortChip");
-    expect(tabs).not.toContain("leading=");
     expect(tabs).toContain("marketplace_filter_button");
     expect(tabs).toContain("data-marketplace-filter");
     expect(tabs).toContain("MarketFilterSheet");

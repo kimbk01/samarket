@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
@@ -93,6 +94,11 @@ function TradePrimaryTabsInner({
     () => displayTabs.findIndex((tab) => tab.isDisplayActive),
     [displayTabs]
   );
+  const filterCount = countActiveMarketFilters(searchParams.toString());
+  const filterActive = filterCount > 0;
+  const filterLabel = filterActive
+    ? `${t("marketplace_filter_button")} ${filterCount}`
+    : t("marketplace_filter_button");
 
   const commitTab = (href: string, tabKey: string) => {
     const toIdx = displayTabs.findIndex((tab) => tab.key === tabKey);
@@ -140,6 +146,24 @@ function TradePrimaryTabsInner({
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
+        leading={<TradeHeaderLocationPinButton placement="below-title" />}
+        trailing={
+          <button
+            type="button"
+            data-marketplace-filter="true"
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
+            aria-haspopup="dialog"
+            aria-label={filterLabel}
+            onClick={() => setFilterOpen(true)}
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            {filterActive ? (
+              <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
+                {filterCount}
+              </span>
+            ) : null}
+          </button>
+        }
       >
         {allTab ? (
           <Link
@@ -174,31 +198,6 @@ function TradePrimaryTabsInner({
         >
           <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("trade_write_sell_cta")}</span>
         </button>
-        {/* Filter only: icon + N (category/location 선택은 MarketFilterSheet 안에서만) */}
-        {(() => {
-          const filterCount = countActiveMarketFilters(searchParams.toString());
-          const filterActive = filterCount > 0;
-          const filterLabel = filterActive
-            ? `${t("marketplace_filter_button")} ${filterCount}`
-            : t("marketplace_filter_button");
-          return (
-            <button
-              type="button"
-              data-marketplace-filter="true"
-              className="relative ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
-              aria-haspopup="dialog"
-              aria-label={filterLabel}
-              onClick={() => setFilterOpen(true)}
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              {filterActive ? (
-                <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
-                  {filterCount}
-                </span>
-              ) : null}
-            </button>
-          );
-        })()}
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
         open={false}
