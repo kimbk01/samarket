@@ -3,36 +3,18 @@ import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-polic
 import { hydrateTradeCategoryFieldsFromSnapshot } from "@/lib/trade/category-form/edit-hydrator";
 
 describe("trade detail CTA policy", () => {
-  it("gates chat on price offer until accepted", () => {
-    const gated = resolveTradeDetailCtaPolicy({
+  it("allows chat whenever category has chat (no price-offer gate)", () => {
+    const p = resolveTradeDetailCtaPolicy({
       isOwnPost: false,
       postStatusLower: "active",
       categoryHasChat: true,
-      buyerPriceOfferFlowActive: true,
-      hasAcceptedOffer: false,
       isJobsDetailUi: false,
       jobDirection: "unknown",
       listingKind: "",
       existingTradeRoomId: null,
-      priceOfferGatesChat: true,
     });
-    expect(gated.uiTradeChatEnabled).toBe(false);
-
-    const accepted = resolveTradeDetailCtaPolicy({
-      ...gated,
-      isOwnPost: false,
-      postStatusLower: "active",
-      categoryHasChat: true,
-      buyerPriceOfferFlowActive: true,
-      hasAcceptedOffer: true,
-      isJobsDetailUi: false,
-      jobDirection: "unknown",
-      listingKind: "",
-      existingTradeRoomId: null,
-      priceOfferGatesChat: true,
-    });
-    expect(accepted.uiTradeChatEnabled).toBe(true);
-    expect(accepted.primary.kind).toBe("chat");
+    expect(p.uiTradeChatEnabled).toBe(true);
+    expect(p.primary.kind).toBe("chat");
   });
 
   it("merges hire apply into primary chat path", () => {
@@ -40,13 +22,10 @@ describe("trade detail CTA policy", () => {
       isOwnPost: false,
       postStatusLower: "active",
       categoryHasChat: true,
-      buyerPriceOfferFlowActive: false,
-      hasAcceptedOffer: false,
       isJobsDetailUi: true,
       jobDirection: "hiring",
       listingKind: "hire",
       existingTradeRoomId: null,
-      priceOfferGatesChat: false,
     });
     expect(p.showJobApplyBtn).toBe(true);
     expect(p.jobHireMergedApplyChatBtn).toBe(true);
@@ -58,18 +37,14 @@ describe("trade detail CTA policy", () => {
       isOwnPost: false,
       postStatusLower: "active",
       categoryHasChat: true,
-      buyerPriceOfferFlowActive: false,
-      hasAcceptedOffer: false,
       isJobsDetailUi: false,
       jobDirection: "unknown",
       listingKind: "",
       existingTradeRoomId: null,
-      priceOfferGatesChat: false,
       compositionProfileId: "rent-car",
     });
     expect(p.primary.kind).toBe("chat");
     expect(p.primary.labelKey).toBe("trade_detail_inquire_cta");
-    expect(p.secondary.kind).toBe("none");
   });
 });
 

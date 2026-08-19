@@ -203,7 +203,6 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
             ? initialBundle.viewerUserId.trim()
             : undefined
         }
-        initialViewerBuyerOffers={initialBundle.initialViewerBuyerOffers}
       />
     </>
   );

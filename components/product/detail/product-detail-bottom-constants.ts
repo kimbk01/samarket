@@ -40,7 +40,7 @@ export const TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN =
 export const TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY =
   "flex min-w-0 max-w-[44%] shrink-0 flex-col justify-center border-r border-sam-border-soft px-2.5 py-2 sm:max-w-[38%] sm:px-3 md:px-4";
 
-/** CTA 묶음 (가격 제안·채팅 등) */
+/** CTA 묶음 (레거시 — 인라인 채팅 이후 판매자 홍보만 하단 고정) */
 export const TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP =
   "flex min-h-0 min-w-0 flex-1 items-stretch px-2.5 py-2 sm:px-3 md:px-4";
 
@@ -79,12 +79,9 @@ export const TRADE_POST_DETAIL_SCROLL_PAD_BUYER =
   "pb-[calc(3.75rem+max(10px,var(--safe-bottom)))]";
 
 export const TRADE_POST_DETAIL_SCROLL_PAD_SELLER =
-  "pb-[calc(7.25rem+max(10px,var(--safe-bottom)))]";
+  "pb-[calc(4.75rem+max(10px,var(--safe-bottom)))]";
 
-/** Seller band 실렌더 — CTA 0이면 band 0 (빈 회색 밴드 금지) */
-export function tradePostDetailSellerBandVisible(opts: {
-  showSellerOfferList: boolean;
-  canApplyTradeAd: boolean;
-}): boolean {
-  return Boolean(opts.showSellerOfferList || opts.canApplyTradeAd);
+/** Seller band 실렌더 — D-Point 홍보만 (빈 밴드 금지) */
+export function tradePostDetailSellerBandVisible(opts: { canApplyTradeAd: boolean }): boolean {
+  return Boolean(opts.canApplyTradeAd);
 }

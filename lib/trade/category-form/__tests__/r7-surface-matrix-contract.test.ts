@@ -30,13 +30,10 @@ const CTA_BASE = {
   isOwnPost: false,
   postStatusLower: "active",
   categoryHasChat: true,
-  buyerPriceOfferFlowActive: false,
-  hasAcceptedOffer: false,
   isJobsDetailUi: false,
   jobDirection: "unknown" as const,
   listingKind: "",
   existingTradeRoomId: null as string | null,
-  priceOfferGatesChat: false,
 };
 
 describe("R7 composition matrix (6 profiles)", () => {

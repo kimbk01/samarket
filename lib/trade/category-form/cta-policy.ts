@@ -9,14 +9,10 @@ export type TradeDetailCtaPolicyInput = {
   postStatusLower: string;
   /** category has_chat + non-community (same as legacy `showChat`) */
   categoryHasChat: boolean;
-  buyerPriceOfferFlowActive: boolean;
-  hasAcceptedOffer: boolean;
   isJobsDetailUi: boolean;
   jobDirection: "hiring" | "seeking" | "unknown" | string;
   listingKind: string;
   existingTradeRoomId: string | null;
-  /** Price-offer listing gates chat until accept (legacy buyerPriceOfferFlowActive) */
-  priceOfferGatesChat: boolean;
   /**
    * Composition profile (R6) — rent-car uses inquire CTA; does not invent booking CTA.
    * From `resolveTradeCompositionProfileId`.
@@ -35,13 +31,6 @@ export type TradeDetailCtaPolicy = {
       | "trade_detail_inquire_cta"
       | "none";
   };
-  secondary: {
-    kind: "offer" | "none";
-    enabled: boolean;
-  };
-  owner: {
-    showOfferList: boolean;
-  };
   /** Same semantics as legacy PostDetailView `uiTradeChatEnabled` */
   uiTradeChatEnabled: boolean;
   bottomBarHasChatBtn: boolean;
@@ -55,11 +44,7 @@ export function resolveTradeDetailCtaPolicy(
 ): TradeDetailCtaPolicy {
   const role: TradeDetailCtaRole = input.isOwnPost ? "owner" : "buyer";
 
-  const uiTradeChatEnabled =
-    input.categoryHasChat &&
-    (!input.priceOfferGatesChat ||
-      input.hasAcceptedOffer ||
-      input.isOwnPost);
+  const uiTradeChatEnabled = input.categoryHasChat;
 
   const bottomBarHasChatBtn = uiTradeChatEnabled;
 
@@ -102,13 +87,6 @@ export function resolveTradeDetailCtaPolicy(
       kind: primaryKind,
       enabled: primaryKind !== "none",
       labelKey,
-    },
-    secondary: {
-      kind: input.buyerPriceOfferFlowActive && !input.isOwnPost ? "offer" : "none",
-      enabled: input.buyerPriceOfferFlowActive && !input.isOwnPost,
-    },
-    owner: {
-      showOfferList: input.isOwnPost,
     },
     uiTradeChatEnabled,
     bottomBarHasChatBtn,

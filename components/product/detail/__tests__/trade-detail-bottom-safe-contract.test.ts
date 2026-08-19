@@ -7,12 +7,9 @@ import {
 } from "@/components/product/detail/product-detail-bottom-constants";
 
 describe("trade post detail bottom safe-area contract", () => {
-  it("sellerBandVisible requires at least one CTA", () => {
-    expect(tradePostDetailSellerBandVisible({ showSellerOfferList: false, canApplyTradeAd: false })).toBe(
-      false
-    );
-    expect(tradePostDetailSellerBandVisible({ showSellerOfferList: true, canApplyTradeAd: false })).toBe(true);
-    expect(tradePostDetailSellerBandVisible({ showSellerOfferList: false, canApplyTradeAd: true })).toBe(true);
+  it("sellerBandVisible requires promote CTA", () => {
+    expect(tradePostDetailSellerBandVisible({ canApplyTradeAd: false })).toBe(false);
+    expect(tradePostDetailSellerBandVisible({ canApplyTradeAd: true })).toBe(true);
   });
 
   it("buyer primary consumes safe-bottom; above-seller primary does not", () => {

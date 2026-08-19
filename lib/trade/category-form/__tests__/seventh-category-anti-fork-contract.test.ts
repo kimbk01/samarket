@@ -30,13 +30,10 @@ const CTA_BASE = {
   isOwnPost: false,
   postStatusLower: "active",
   categoryHasChat: true,
-  buyerPriceOfferFlowActive: false,
-  hasAcceptedOffer: false,
   isJobsDetailUi: false,
   jobDirection: "unknown" as const,
   listingKind: "",
   existingTradeRoomId: null as string | null,
-  priceOfferGatesChat: false,
 };
 
 describe("7th category anti-fork (§4 EXTEND)", () => {

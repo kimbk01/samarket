@@ -303,12 +303,10 @@ function TradeMarketplaceWriteFormInner({
   const hasDirectDeal = settings?.has_direct_deal ?? true;
   const hasFreeShare = settings?.has_free_share ?? true;
   const maxProductImages = Math.max(1, appSettings.maxProductImages ?? 10);
-  const allowPriceOffer = appSettings.allowPriceOffer ?? true;
 
   const [title, setTitle] = useState(() => listingChromeSeed?.title ?? "");
   const [description, setDescription] = useState(() => listingChromeSeed?.description ?? "");
   const [price, setPrice] = useState(() => listingChromeSeed?.price ?? "");
-  const [isPriceOfferEnabled, setIsPriceOfferEnabled] = useState(false);
   const [isFreeShare, setIsFreeShare] = useState(false);
   /** 신규 글: 직거래 기본 — 나눔 선택 시 false 로 전환 */
   const [isDirectDeal, setIsDirectDeal] = useState(true);
@@ -507,9 +505,9 @@ function TradeMarketplaceWriteFormInner({
       price,
       description,
       is_free_share: isFreeShare,
-      is_price_offer: isPriceOfferEnabled,
+      is_price_offer: false,
     };
-  }, [skinKey, title, price, description, isFreeShare, isPriceOfferEnabled]);
+  }, [skinKey, title, price, description, isFreeShare]);
   const rentCarFieldValues = useMemo((): TradeFieldValueBag => {
     if (skinKey !== "rent-car") return {};
     return {
@@ -726,7 +724,6 @@ function TradeMarketplaceWriteFormInner({
         : draftImagesToUploadItems(d.imageUrls ?? [])
     );
     setIsFreeShare(d.isFreeShare === true);
-    setIsPriceOfferEnabled(d.isPriceOfferEnabled === true);
     setIsDirectDeal(d.isDirectDeal !== false);
     setTradeTopicChildId(d.tradeTopicChildId ?? "");
     setNeighborhood(d.neighborhood ?? "");
@@ -839,7 +836,7 @@ function TradeMarketplaceWriteFormInner({
       city,
       images: workingImages,
       isFreeShare,
-      isPriceOfferEnabled,
+      isPriceOfferEnabled: false,
       isDirectDeal,
       tradeTopicChildId,
       neighborhood,
@@ -881,7 +878,6 @@ function TradeMarketplaceWriteFormInner({
       region,
       city,
       isFreeShare,
-      isPriceOfferEnabled,
       isDirectDeal,
       tradeTopicChildId,
       neighborhood,
@@ -963,7 +959,6 @@ function TradeMarketplaceWriteFormInner({
     city,
     images,
     isFreeShare,
-    isPriceOfferEnabled,
     isDirectDeal,
     tradeTopicChildId,
     neighborhood,
@@ -1063,7 +1058,6 @@ function TradeMarketplaceWriteFormInner({
     setWorkType("");
     setCurrency("");
     setExchangeRate("");
-    setIsPriceOfferEnabled(false);
     setRegion("");
     setCity("");
     if (!isUsedCarSkin) {
@@ -1138,7 +1132,6 @@ function TradeMarketplaceWriteFormInner({
     city,
     images,
     isFreeShare,
-    isPriceOfferEnabled,
     isDirectDeal,
     tradeTopicChildId,
     neighborhood,
@@ -1296,7 +1289,6 @@ function TradeMarketplaceWriteFormInner({
     setCity(h.city);
     setImages(skinKey === "used-car" && h.usedCarTrade === "buy" ? [] : h.images);
     setIsFreeShare(h.isFreeShare);
-    setIsPriceOfferEnabled(h.isPriceOfferEnabled);
     setIsDirectDeal(h.isDirectDeal);
     setTradeTopicChildId(h.tradeTopicChildId);
     setNeighborhood(h.neighborhood);
@@ -1794,7 +1786,7 @@ function TradeMarketplaceWriteFormInner({
                 : title.trim()),
           content: description.trim(),
           price: priceToSend,
-          isPriceOfferEnabled,
+          isPriceOfferEnabled: false,
           isFreeShare: submitFreeShare,
           region: submitRegion || undefined,
           city: submitCity || undefined,
@@ -1855,7 +1847,6 @@ function TradeMarketplaceWriteFormInner({
       price,
       hasPrice,
       isFreeShare,
-      isPriceOfferEnabled,
       region,
       city,
       images,
@@ -2462,17 +2453,6 @@ function TradeMarketplaceWriteFormInner({
                   />
                 </div>
                 {errors.price && <p className="mt-1 text-[12px] text-red-600">{errors.price}</p>}
-                {allowPriceOffer && (
-                  <label className="mt-2 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isPriceOfferEnabled}
-                      onChange={(e) => setIsPriceOfferEnabled(e.target.checked)}
-                      className={`rounded border-sam-border ${isKarrotGeneral ? "accent-signature" : ""}`}
-                    />
-                    <span className="sam-text-body-secondary text-sam-muted">{t("trade_004")}</span>
-                  </label>
-                )}
               </>
             )}
           </section>
@@ -2513,9 +2493,9 @@ function TradeMarketplaceWriteFormInner({
               price={price}
               setPrice={setPrice}
               currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
-              isPriceOfferEnabled={isPriceOfferEnabled}
-              setIsPriceOfferEnabled={setIsPriceOfferEnabled}
-              allowPriceOffer={allowPriceOffer}
+              isPriceOfferEnabled={false}
+              setIsPriceOfferEnabled={() => {}}
+              allowPriceOffer={false}
               disabled={coreLocked}
               enabledFieldIds={compositionWriteFieldIds}
               fieldsSlot="price"
@@ -2616,9 +2596,9 @@ function TradeMarketplaceWriteFormInner({
                 price={price}
                 setPrice={setPrice}
                 currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
-                isPriceOfferEnabled={isPriceOfferEnabled}
-                setIsPriceOfferEnabled={setIsPriceOfferEnabled}
-                allowPriceOffer={allowPriceOffer}
+                isPriceOfferEnabled={false}
+                setIsPriceOfferEnabled={() => {}}
+                allowPriceOffer={false}
                 disabled={coreLocked}
                 enabledFieldIds={compositionWriteFieldIds}
                 fieldsSlot="item"
@@ -2729,7 +2709,6 @@ function TradeMarketplaceWriteFormInner({
                 else if (fieldId === "price") setPrice(String(value));
                 else if (fieldId === "description") setDescription(String(value));
                 else if (fieldId === "is_free_share") setIsFreeShare(value === true);
-                else if (fieldId === "is_price_offer") setIsPriceOfferEnabled(value === true);
               }}
               errors={errors}
               disabled={coreLocked}
