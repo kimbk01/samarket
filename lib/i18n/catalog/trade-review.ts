@@ -46,6 +46,9 @@ export const tradeReviewMessages = {
     trade_review_form_submitting: "등록 중...",
     trade_review_form_submit_failed: "등록에 실패했습니다.",
     trade_review_form_network_error: "네트워크 오류입니다.",
+    trade_review_comment_label: "후기 내용 (선택)",
+    trade_review_comment_placeholder: "거래 경험을 간단히 남겨 주세요",
+    trade_flow_review_write_cta: "평가·후기 보내기",
   },
   en: {
     trade_review_tag_kind: "Kind",
@@ -93,5 +96,8 @@ export const tradeReviewMessages = {
     trade_review_form_submitting: "Submitting…",
     trade_review_form_submit_failed: "Could not submit the review.",
     trade_review_form_network_error: "Network error.",
+    trade_review_comment_label: "Review note (optional)",
+    trade_review_comment_placeholder: "Share a brief note about the trade",
+    trade_flow_review_write_cta: "Send rating and review",
   },
 };

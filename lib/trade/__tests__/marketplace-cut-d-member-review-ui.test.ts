@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import { canShowPurchaseReviewSend } from "@/lib/mypage/purchase-history-ui";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import {
@@ -16,26 +15,6 @@ function readRepoFile(relativePath: string): string {
 }
 
 const FORBIDDEN_REVIEW_PROMPT = /후기|리뷰|평가|후기 남기세요/;
-
-describe("CUT D — review write UI gate", () => {
-  it("canOpenTradeReviewSheet is always false (member UI gate only)", () => {
-    expect(
-      canOpenTradeReviewSheet({
-        currentUserId: "u1",
-        roomSellerId: "s1",
-        roomBuyerId: "b1",
-        tradeFlowStatus: "review_pending",
-        buyerReviewSubmitted: false,
-      })
-    ).toBe(false);
-  });
-
-  it("canShowPurchaseReviewSend is always false", () => {
-    expect(canShowPurchaseReviewSend({ hasBuyerReview: false, tradeFlowStatus: "buyer_confirmed" })).toBe(
-      false
-    );
-  });
-});
 
 describe("CUT D — member deep-links do not open review sheet", () => {
   it("tradeHubChatRoomHref ignores review opt", () => {
@@ -106,6 +85,12 @@ describe("CUT D — reviews hub read-only", () => {
 });
 
 describe("CUT D — purchase card has no review write sheet", () => {
+  it("canShowPurchaseReviewSend stays false on purchase history (CUT 3 Trade Chat only)", () => {
+    expect(canShowPurchaseReviewSend({ hasBuyerReview: false, tradeFlowStatus: "buyer_confirmed" })).toBe(
+      false
+    );
+  });
+
   it("PurchaseHistoryCard does not import PurchaseReviewSheet or write CTA helpers", () => {
     const src = readRepoFile("components/mypage/purchases/PurchaseHistoryCard.tsx");
     expect(src).not.toContain("PurchaseReviewSheet");

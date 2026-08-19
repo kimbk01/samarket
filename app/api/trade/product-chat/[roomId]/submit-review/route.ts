@@ -104,11 +104,21 @@ export async function POST(
   const sbAny = sb;
   const { data: post } = await sbAny
     .from(POSTS_TABLE_READ)
-    .select("status")
+    .select("status, sold_buyer_id")
     .eq("id", pc.post_id)
     .maybeSingle();
-  if ((post as { status?: string } | null)?.status !== "sold") {
+  const postRow = post as { status?: string; sold_buyer_id?: string | null } | null;
+  if (postRow?.status !== "sold") {
     return NextResponse.json({ ok: false, error: "거래완료된 상품만 후기를 남길 수 있습니다." }, { status: 409 });
+  }
+  const soldBuyerId =
+    typeof postRow?.sold_buyer_id === "string" ? postRow.sold_buyer_id.trim() : "";
+  const chatBuyerId = typeof pc.buyer_id === "string" ? pc.buyer_id.trim() : "";
+  if (!soldBuyerId || !chatBuyerId || soldBuyerId !== chatBuyerId || soldBuyerId !== userId) {
+    return NextResponse.json(
+      { ok: false, error: "확정된 구매자만 후기를 남길 수 있습니다." },
+      { status: 403 }
+    );
   }
 
   const { data: existing } = await sbAny

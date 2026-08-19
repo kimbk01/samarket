@@ -1,10 +1,14 @@
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import {
+  isTradeReviewWriteEligible,
+  type TradeReviewEligibilityInput,
+} from "@/lib/trade/trade-review-eligibility";
 
 /**
- * CUT D — Marketplace member review write UI is removed.
- * submit-review API and historical review data remain; this gate stays false for product UI.
+ * CUT 3 — Trade Chat buyer review write sheet gate.
+ * submit-review API remains server authority.
  */
-export function canOpenTradeReviewSheet(_opts: {
+export function canOpenTradeReviewSheet(opts: {
   currentUserId: string;
   roomSellerId: string;
   roomBuyerId: string;
@@ -15,5 +19,14 @@ export function canOpenTradeReviewSheet(_opts: {
   soldBuyerId?: string | null;
   buyerReviewSubmitted?: boolean;
 }): boolean {
-  return false;
+  const input: TradeReviewEligibilityInput = {
+    currentUserId: opts.currentUserId,
+    roomBuyerId: opts.roomBuyerId,
+    roomSellerId: opts.roomSellerId,
+    productStatus: opts.productStatus,
+    soldBuyerId: opts.soldBuyerId,
+    tradeFlowStatus: opts.tradeFlowStatus,
+    buyerReviewSubmitted: opts.buyerReviewSubmitted,
+  };
+  return isTradeReviewWriteEligible(input);
 }
