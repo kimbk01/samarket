@@ -83,6 +83,10 @@ export function TradeBrowseLocationDistancePage() {
   const [draftRadius, setDraftRadius] = useState<TradeBrowseRadiusSelection>(() =>
     cloneTradeBrowseRadiusSelection(session?.radius ?? defaultTradeBrowseRadiusSelection())
   );
+  const [distanceAll, setDistanceAll] = useState(() => {
+    if (cityDraft && typeof cityDraft.radiusKm !== "number") return true;
+    return false;
+  });
   const [mapPin, setMapPin] = useState(() =>
     cityDraft ? draftMapCenter(cityDraft) : MAP_PICKER_DEFAULT_CENTER
   );
@@ -130,6 +134,7 @@ export function TradeBrowseLocationDistancePage() {
     !!draft.displayName.trim();
 
   const onResetRadius = useCallback(() => {
+    setDistanceAll(true);
     setDraftRadius(defaultTradeBrowseRadiusSelection());
   }, []);
 
@@ -137,17 +142,19 @@ export function TradeBrowseLocationDistancePage() {
     if (!draft || draft.kind !== "city") return;
     const next = cloneTradeBrowseLocation(draft);
     if (next.kind !== "city") return;
-    const withRadius: TradeBrowseLocation = {
-      ...next,
-      radiusKm: sanitizeTradeBrowseRadiusKm(draftRadius.km),
-    };
+    const withRadius: TradeBrowseLocation = distanceAll
+      ? next
+      : {
+          ...next,
+          radiusKm: sanitizeTradeBrowseRadiusKm(draftRadius.km),
+        };
     rememberTradeLguDisplayLabel(withRadius.canonicalId, withRadius.displayName);
     clearTradeBrowseLocationDraftSession();
     const scope = tradeBrowseLocationToScope(withRadius);
     writeTradeBrowseCommittedScope(scope);
     const href = buildTradeLocationHref("/market", searchParams.toString(), scope);
     router.replace(href, { scroll: false });
-  }, [draft, draftRadius.km, router, searchParams]);
+  }, [draft, distanceAll, draftRadius.km, router, searchParams]);
 
   if (!draft || draft.kind !== "city") {
     return (
@@ -157,7 +164,7 @@ export function TradeBrowseLocationDistancePage() {
     );
   }
 
-  const customActive = draftRadius.mode === "custom";
+  const customActive = !distanceAll && draftRadius.mode === "custom";
 
   return (
     <TradeBrowseLocationPageShell
@@ -209,13 +216,26 @@ export function TradeBrowseLocationDistancePage() {
               type="radio"
               name="trade-browse-radius"
               className="h-5 w-5 accent-[color:var(--sam-primary)]"
-              checked={draftRadius.mode === "recommended"}
-              onChange={() =>
+              checked={distanceAll}
+              onChange={() => setDistanceAll(true)}
+            />
+            <span className="text-[15px] font-medium text-sam-fg">
+              {t("trade_location_all")}
+            </span>
+          </label>
+          <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-ui-rect px-1 py-1.5">
+            <input
+              type="radio"
+              name="trade-browse-radius"
+              className="h-5 w-5 accent-[color:var(--sam-primary)]"
+              checked={!distanceAll && draftRadius.mode === "recommended"}
+              onChange={() => {
+                setDistanceAll(false);
                 setDraftRadius({
                   mode: "recommended",
                   km: TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
-                })
-              }
+                });
+              }}
             />
             <span className="text-[15px] font-medium text-sam-fg">
               {t("trade_location_radius_recommended")} ({TRADE_BROWSE_RECOMMENDED_RADIUS_KM}km)
@@ -230,8 +250,11 @@ export function TradeBrowseLocationDistancePage() {
                 type="radio"
                 name="trade-browse-radius"
                 className="h-5 w-5 accent-[color:var(--sam-primary)]"
-                checked={draftRadius.mode === "preset" && draftRadius.km === km}
-                onChange={() => setDraftRadius({ mode: "preset", km })}
+                checked={!distanceAll && draftRadius.mode === "preset" && draftRadius.km === km}
+                onChange={() => {
+                  setDistanceAll(false);
+                  setDraftRadius({ mode: "preset", km });
+                }}
               />
               <span className="text-[15px] font-medium text-sam-fg">{km}km</span>
             </label>
@@ -241,13 +264,14 @@ export function TradeBrowseLocationDistancePage() {
               type="radio"
               name="trade-browse-radius"
               className="h-5 w-5 accent-[color:var(--sam-primary)]"
-              checked={customActive}
-              onChange={() =>
+              checked={!distanceAll && customActive}
+              onChange={() => {
+                setDistanceAll(false);
                 setDraftRadius({
                   mode: "custom",
                   km: sanitizeTradeBrowseRadiusKm(draftRadius.km),
-                })
-              }
+                });
+              }}
             />
             <span className="text-[15px] font-medium text-sam-fg">
               {t("trade_location_radius_custom")}

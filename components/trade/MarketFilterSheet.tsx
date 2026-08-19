@@ -30,6 +30,7 @@ import {
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
+import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import {
   appendCompositionFilterSearchParams,
   sanitizeCompositionFilterSelection,
@@ -621,6 +622,7 @@ export function MarketFilterSheet({
 
   function resetAllFiltersCommitted() {
     void buildMarketplaceBrowseResetCommittedHref("/market", baseSearch).then((href) => {
+      applyMarketplaceBrowseResetClientEffects();
       onClose();
       router.replace(href, { scroll: false });
     });

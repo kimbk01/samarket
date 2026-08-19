@@ -14,7 +14,8 @@ import { buildTradeLocationHref, type TradeLocationScope } from "@/lib/trade/loc
 
 const MASTER_ADDRESS_ID_KEY = "samarket:trade-browse-master-address-id:v1";
 
-const MARKET_FILTER_PARAMS = [
+/** Proven browse params stripped on CLASS A reset (master / 2-row / filter 전체). */
+export const MARKET_BROWSE_RESET_PARAMS = [
   "category",
   "categoryIds",
   "topic",
@@ -29,13 +30,14 @@ const MARKET_FILTER_PARAMS = [
   "radius",
   "page",
   "cursor",
+  "q",
 ] as const;
 
-function stripMarketFilterParams(currentSearch: string): URLSearchParams {
+function stripMarketBrowseResetSearchParams(currentSearch: string): URLSearchParams {
   const sp = new URLSearchParams(
     currentSearch.startsWith("?") ? currentSearch.slice(1) : currentSearch
   );
-  for (const k of MARKET_FILTER_PARAMS) sp.delete(k);
+  for (const k of MARKET_BROWSE_RESET_PARAMS) sp.delete(k);
   for (const key of [...sp.keys()]) {
     if (key.startsWith("filters[")) sp.delete(key);
   }
@@ -47,7 +49,7 @@ export async function buildTradeMarketplaceDefaultBrowseHref(
   pathname: string,
   currentSearch: string
 ): Promise<string> {
-  const sp = stripMarketFilterParams(currentSearch);
+  const sp = stripMarketBrowseResetSearchParams(currentSearch);
   const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
   const scope: TradeLocationScope = masterCity ?? { mode: "all" };
   clearTradeBrowseLocationDraftSession();
@@ -55,6 +57,10 @@ export async function buildTradeMarketplaceDefaultBrowseHref(
   return buildTradeLocationHref(pathname, sp.toString(), scope);
 }
 
+/** Test-only export — strip CLASS A reset params without master fetch. */
+export function stripMarketBrowseResetSearchParamsForTests(currentSearch: string): URLSearchParams {
+  return stripMarketBrowseResetSearchParams(currentSearch);
+}
 /**
  * Returns reset href when master address id changed since last market visit; else null.
  * First sighting stores id without reset.

@@ -6,31 +6,29 @@ import {
   resolveTradeFeedLocationConstraint,
   type TradeFeedLocationConstraint,
 } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
-import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import type { TradeFeedQueryExtras } from "@/lib/posts/trade-posts-range-query";
 
-/** PostgREST location filter — only for anchor + finite radius (hard boundary). */
+/**
+ * Browse feed SQL location filter — disabled for member browse (location = rank signal only).
+ * Within/outside assembly uses tradeFeedLocationToQueryExtras on the priority path only.
+ */
 export function tradeFeedLocationSqlExtras(
   constraint: TradeFeedLocationConstraint
 ): TradeFeedQueryExtras["tradeFeedLocation"] | undefined {
-  if (constraint.kind !== "lgu") {
-    return tradeFeedLocationToQueryExtras(constraint);
-  }
-  if (constraint.radiusKm === null) {
-    return undefined;
-  }
-  return tradeFeedLocationToQueryExtras(constraint);
+  void constraint;
+  return undefined;
 }
 
-/** LIST region+전체: nationwide fetch + anchor-first concat (not SQL LGU-only). */
+/** LIST city anchor: nationwide fetch + near-first concat (not SQL-only LGU dump). */
 export function shouldUseRegionAllBrowsePriority(
   lguCityId: string | null | undefined,
   radiusKm: number | null | undefined,
   qAbsent: boolean
 ): boolean {
+  void radiusKm;
   if (!qAbsent || !lguCityId?.trim()) return false;
   const constraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
-  return constraint.kind === "lgu" && constraint.radiusKm === null;
+  return constraint.kind === "lgu";
 }
 
 export function filterPostsOutsideBrowseAnchor<T extends {

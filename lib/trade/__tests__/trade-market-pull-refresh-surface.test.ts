@@ -27,8 +27,13 @@ describe("normalizeTradeMarketPullRefreshQuery", () => {
       )
     ).toBe("fs=popular&lgu=quezon&location=city&topic=phones");
     expect(normalizeTradeMarketPullRefreshQuery("topic=phones&fs=popular&noise=1")).toBe(
-      "fs=popular&noise=1&topic=phones"
+      "fs=popular&topic=phones"
     );
+    expect(
+      normalizeTradeMarketPullRefreshQuery(
+        "q=iphone&filters[body_type]=suv&noise=1&page=3"
+      )
+    ).toBe("filters[body_type]=suv&q=iphone");
   });
 });
 

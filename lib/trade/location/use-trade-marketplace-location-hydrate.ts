@@ -11,6 +11,7 @@ import {
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
+import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 
 /**
@@ -44,6 +45,7 @@ export function useTradeMarketplaceLocationHydrate(): {
       searchKey
     );
     if (resetHref) {
+      applyMarketplaceBrowseResetClientEffects();
       router.replace(resetHref, { scroll: false });
       return;
     }

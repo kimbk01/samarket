@@ -1,5 +1,26 @@
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 
+/** Committed marketplace browse URL keys — PTR handler route key SSOT (not page/cursor/junk). */
+const COMMITTED_BROWSE_QUERY_KEYS = new Set([
+  "location",
+  "lgu",
+  "radius",
+  "category",
+  "categoryIds",
+  "topic",
+  "topicByRoot",
+  "tradeState",
+  "sort",
+  "fs",
+  "priceMin",
+  "priceMax",
+  "q",
+]);
+
+function isCommittedBrowseQueryKey(key: string): boolean {
+  return COMMITTED_BROWSE_QUERY_KEYS.has(key) || key.startsWith("filters[");
+}
+
 /** `/market`·`/market/[slug]` PTR — `trade-meet-spot` 제외 */
 export function isTradeMarketPullRefreshSurface(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").split("?")[0]!.trim();
@@ -17,7 +38,7 @@ export function buildTradeMarketPullRefreshRouteKeyFromSegment(
 }
 
 /**
- * PTR 핸들러 조회용 쿼리 정규화 — committed browse URL 전체(page/cursor 제외).
+ * PTR 핸들러 조회용 쿼리 정규화 — committed browse keys only (page/cursor/unknown 제외).
  */
 export function normalizeTradeMarketPullRefreshQuery(
   search: string | URLSearchParams | null | undefined
@@ -30,10 +51,14 @@ export function normalizeTradeMarketPullRefreshQuery(
   if (!raw) return "";
 
   const params = new URLSearchParams(raw);
-  params.delete("page");
-  params.delete("cursor");
+  const kept = new URLSearchParams();
+  for (const [key, value] of params.entries()) {
+    if (key === "page" || key === "cursor") continue;
+    if (!isCommittedBrowseQueryKey(key)) continue;
+    kept.append(key, value);
+  }
 
-  return [...params.entries()]
+  return [...kept.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&");

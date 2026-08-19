@@ -57,6 +57,7 @@ import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-ret
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { TRADE_CHAT_LIST_PAGE_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
+import { MARKETPLACE_BROWSE_RESET_EVENT } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import {
@@ -333,6 +334,9 @@ export function HomeProductList({
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   const listFeedEpochRef = useRef(0);
   const [listPaginationEpoch, setListPaginationEpoch] = useState(0);
+  const serverPageRef = useRef(1);
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [loadingMoreServer, setLoadingMoreServer] = useState(false);
 
   const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean }) => {
     silentRequestIdRef.current += 1;
@@ -371,6 +375,8 @@ export function HomeProductList({
         forceFreshRankedWindow: opts?.forceFreshRankedWindow,
       });
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
+      serverPageRef.current = 1;
+      setServerHasMore(res.hasMore);
       if (opts?.forceFreshRankedWindow) {
         setPosts(res.posts);
       } else {
@@ -422,6 +428,8 @@ export function HomeProductList({
     allowRscHomeListSeedRef.current = false;
     listFeedEpochRef.current += 1;
     latestRequestIdRef.current += 1;
+    serverPageRef.current = 1;
+    setServerHasMore(false);
     setListPaginationEpoch((n) => n + 1);
     setPendingNewCount(0);
     await load({
@@ -433,6 +441,11 @@ export function HomeProductList({
     pullRefreshRouteKey != null ? (
       <TradeMarketPullRefreshRegister routeKey={pullRefreshRouteKey} onRefresh={onPullRefresh} />
     ) : null;
+
+  useEffect(() => {
+    serverPageRef.current = 1;
+    setServerHasMore(false);
+  }, [homePostListOptions]);
 
   /**
    * 클라이언트에서만 메모리·sessionStorage 캐시를 병합한다.
@@ -469,6 +482,8 @@ export function HomeProductList({
 
     if (merged) {
       silentRequestIdRef.current += 1;
+      serverPageRef.current = 1;
+      setServerHasMore(merged.hasMore === true);
       setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
       setFavoriteMap(merged.favoriteMap ?? {});
       setPendingNewCount(0);
@@ -519,6 +534,47 @@ export function HomeProductList({
     resetKey: `${tradeListPaginationResetKey(tradeState, posts)}:${listPaginationEpoch}`,
   });
   const visiblePosts = listPagination.visibleItems;
+
+  const loadMoreFeed = useCallback(async () => {
+    if (listPagination.hasMore) {
+      listPagination.loadMore();
+      return;
+    }
+    if (!serverHasMore || loadingMoreServer || locationInvalid || locationUnset) return;
+    setLoadingMoreServer(true);
+    const nextPage = serverPageRef.current + 1;
+    const requestId = ++latestRequestIdRef.current;
+    try {
+      const res = await getPostsForHome({
+        ...homePostListOptions,
+        page: nextPage,
+      });
+      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
+      serverPageRef.current = nextPage;
+      setServerHasMore(res.hasMore);
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const appended = res.posts.filter((p) => {
+          const id = p.id?.trim();
+          return id && !seen.has(id);
+        });
+        return appended.length > 0 ? [...prev, ...appended] : prev;
+      });
+      setFavoriteMap((prev) => ({ ...prev, ...res.favoriteMap }));
+    } finally {
+      if (requestId === latestRequestIdRef.current) {
+        setLoadingMoreServer(false);
+      }
+    }
+  }, [
+    homePostListOptions,
+    listPagination.hasMore,
+    listPagination.loadMore,
+    loadingMoreServer,
+    locationInvalid,
+    locationUnset,
+    serverHasMore,
+  ]);
   const tradeHomeAdSessionId = useMemo(
     () => getOrCreateFeedAdSessionId("trade:home"),
     []
@@ -571,6 +627,16 @@ export function HomeProductList({
     allowRscHomeListSeedRef.current = false;
     await load();
   }, [load]);
+
+  useEffect(() => {
+    const onReset = () => {
+      serverPageRef.current = 1;
+      setServerHasMore(false);
+      setListPaginationEpoch((n) => n + 1);
+    };
+    window.addEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
+    return () => window.removeEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
+  }, []);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
@@ -869,9 +935,9 @@ export function HomeProductList({
       </ul>
 
       <TradeListLoadMoreFooter
-        hasMore={listPagination.hasMore}
-        loadingMore={listPagination.loadingMore}
-        onLoadMore={listPagination.loadMore}
+        hasMore={listPagination.hasMore || serverHasMore}
+        loadingMore={listPagination.loadingMore || loadingMoreServer}
+        onLoadMore={() => void loadMoreFeed()}
         visibleCount={listPagination.visibleCount}
         totalCount={listPagination.totalCount}
       />

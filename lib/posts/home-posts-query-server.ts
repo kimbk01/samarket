@@ -41,6 +41,7 @@ import {
   SEARCH_EXPANSION_EXACT_BATCH,
   SEARCH_EXPANSION_RELATED_IN_BATCH,
   SEARCH_EXPANSION_RELATED_OUT_BATCH,
+  SEARCH_EXPANSION_TAIL_BATCH,
   advanceSearchExpansionCursor,
   assembleSearchExpansionRound,
   buildSearchExpansionRelatedOrFilter,
@@ -337,19 +338,34 @@ export async function loadSearchExpansionRound(
   const searchQ = sanitizeMarketplaceQueryText(queryExtras?.q);
   const hints = resolveSearchExpansionHints(searchQ);
   if (!hints) {
-    return { posts: [], cursor: { ...cursor, exactExhausted: true, relatedInExhausted: true, relatedOutExhausted: true }, queryCount: 0 };
+    return {
+      posts: [],
+      cursor: {
+        ...cursor,
+        exactExhausted: true,
+        relatedInExhausted: true,
+        relatedOutExhausted: true,
+        tailExhausted: true,
+      },
+      queryCount: 0,
+    };
   }
   const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, radiusKm);
   if (feedConstraint.kind === "invalid") {
     return {
       posts: [],
-      cursor: { ...cursor, exactExhausted: true, relatedInExhausted: true, relatedOutExhausted: true },
+      cursor: {
+        ...cursor,
+        exactExhausted: true,
+        relatedInExhausted: true,
+        relatedOutExhausted: true,
+        tailExhausted: true,
+      },
       queryCount: 0,
     };
   }
   const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
   const browseLgu = feedConstraint.kind === "lgu" ? feedConstraint.canonicalId : null;
-  const hasHardRadius = feedConstraint.kind === "lgu" && feedConstraint.radiusKm != null;
   const matchingLguIds =
     feedConstraint.kind === "lgu" ? [...new Set(feedConstraint.matchingCanonicalIds)] : [];
   const rootSet =
@@ -374,7 +390,7 @@ export async function loadSearchExpansionRound(
       queryExtras,
       cursor.exactOffset,
       cursor.exactOffset + SEARCH_EXPANSION_EXACT_BATCH - 1,
-        { applyTitleQuery: true, applyLocation: hasHardRadius }
+        { applyTitleQuery: true, applyLocation: false }
     );
     if (!exact) return null;
     queryCount += 1;
@@ -398,19 +414,13 @@ export async function loadSearchExpansionRound(
       queryExtras,
       cursor.relatedInOffset,
       cursor.relatedInOffset + SEARCH_EXPANSION_RELATED_IN_BATCH - 1,
-      { applyTitleQuery: false, applyLocation: hasHardRadius, relatedOr }
+      { applyTitleQuery: false, applyLocation: false, relatedOr }
     );
     if (!relatedIn) return null;
     queryCount += 1;
     relatedInRows = partitionPostsByCategoryPriority(relatedIn, rootSet, topicSet);
   }
-  const fetchRelatedOut = Boolean(
-    browseLgu &&
-      feedConstraint.kind === "lgu" &&
-      feedConstraint.radiusKm === null &&
-      relatedOr &&
-      !cursor.relatedOutExhausted
-  );
+  const fetchRelatedOut = Boolean(browseLgu && relatedOr && !cursor.relatedOutExhausted);
   if (fetchRelatedOut) {
     const relatedOut = await fetchHomePostsMappedRange(
       sb,
@@ -466,14 +476,44 @@ export async function loadSearchExpansionRound(
       relatedOut: fetchRelatedOut,
     }
   );
+
+  let tailRows: PostWithMeta[] = [];
+  let tailCursor = advanced;
+  const relevanceDone =
+    advanced.exactExhausted && advanced.relatedInExhausted && advanced.relatedOutExhausted;
+  if (relevanceDone && !advanced.tailExhausted) {
+    const tail = await fetchHomePostsMappedRange(
+      sb,
+      table,
+      sort,
+      type,
+      tradeCategoryIds,
+      statusOr,
+      undefined,
+      queryExtras,
+      advanced.tailOffset,
+      advanced.tailOffset + SEARCH_EXPANSION_TAIL_BATCH - 1,
+      { applyTitleQuery: false, applyLocation: false }
+    );
+    if (!tail) return null;
+    queryCount += 1;
+    tailRows = partitionPostsByCategoryPriority(tail, rootSet, topicSet);
+    tailCursor = {
+      ...advanced,
+      tailOffset: advanced.tailOffset + tail.length,
+      tailExhausted: tail.length < SEARCH_EXPANSION_TAIL_BATCH,
+    };
+  }
+
   const assembled = assembleSearchExpansionRound({
     exactRows,
     relatedInRows,
     relatedOutRows,
+    tailRows,
     hints,
     browseLguCanonicalId: browseLgu,
     userSort: sort,
-    cursor: advanced,
+    cursor: tailCursor,
   });
   return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
 }

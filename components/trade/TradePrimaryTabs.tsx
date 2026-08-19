@@ -22,6 +22,7 @@ import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primar
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
+import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
@@ -158,6 +159,7 @@ function TradePrimaryTabsInner({
                   searchParams.toString()
                 ).then((resetHref) => {
                   if (!guardBeforeNavigate(resetHref)) return;
+                  applyMarketplaceBrowseResetClientEffects();
                   prewarmBottomNavMarketTab(resetHref);
                   router.replace(resetHref, { scroll: false });
                 });

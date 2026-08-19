@@ -49,7 +49,7 @@ describe("CUT C search candidate expansion", () => {
     ).toBe(2);
   });
 
-  it("does not treat a same-city fridge as a candidate", () => {
+  it("does not classify unrelated rows into T1–T4 but accepts them in tail (T5)", () => {
     const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
     expect(
       classifySearchExpansionTier(
@@ -58,6 +58,24 @@ describe("CUT C search candidate expansion", () => {
         PASIG
       )
     ).toBeNull();
+    const assembled = assembleSearchExpansionRound({
+      exactRows: [],
+      relatedInRows: [],
+      relatedOutRows: [],
+      tailRows: [
+        {
+          id: "fridge",
+          title: "Samsung fridge",
+          meta: {},
+          trade_lgu_id: PASIG,
+          created_at: "2026-08-18T10:00:00.000Z",
+        },
+      ],
+      hints,
+      browseLguCanonicalId: PASIG,
+      cursor: emptySearchExpansionCursor(),
+    });
+    expect(assembled.posts.map((row) => row.id)).toEqual(["fridge"]);
   });
 
   it("puts same-location SUV leftover in T3 after exact Fortuner infers body_type", () => {
@@ -589,6 +607,7 @@ describe("CUT C ranked window cache", () => {
           exactExhausted: true,
           relatedInExhausted: true,
           relatedOutExhausted: true,
+          tailExhausted: true,
           seenIds: ["only"],
         },
       }),

@@ -52,11 +52,11 @@ describe("trade feed location SQL extras", () => {
     expect(shouldUseRegionAllBrowsePriority("pasig", null, true)).toBe(true);
   });
 
-  it("region+N km applies SQL location filter", () => {
+  it("region+N km uses browse priority without SQL location filter", () => {
     const c = resolveTradeFeedLocationConstraint("pasig", 5);
     expect(c.kind).toBe("lgu");
-    expect(tradeFeedLocationSqlExtras(c)).toBeDefined();
-    expect(shouldUseRegionAllBrowsePriority("pasig", 5, true)).toBe(false);
+    expect(tradeFeedLocationSqlExtras(c)).toBeUndefined();
+    expect(shouldUseRegionAllBrowsePriority("pasig", 5, true)).toBe(true);
   });
 });
 

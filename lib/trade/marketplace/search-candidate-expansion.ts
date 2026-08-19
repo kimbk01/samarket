@@ -40,27 +40,33 @@ export type SearchExpansionHints = {
   bodyTypes: string[];
 };
 
-export type SearchExpansionTier = 1 | 2 | 3 | 4;
+export type SearchExpansionTier = 1 | 2 | 3 | 4 | 5;
 
 export type SearchExpansionCursor = {
   exactOffset: number;
   relatedInOffset: number;
   relatedOutOffset: number;
+  tailOffset: number;
   exactExhausted: boolean;
   relatedInExhausted: boolean;
   relatedOutExhausted: boolean;
+  tailExhausted: boolean;
   seenIds: string[];
   inferredBodyTypes: string[];
 };
+
+export const SEARCH_EXPANSION_TAIL_BATCH = 50;
 
 export function emptySearchExpansionCursor(): SearchExpansionCursor {
   return {
     exactOffset: 0,
     relatedInOffset: 0,
     relatedOutOffset: 0,
+    tailOffset: 0,
     exactExhausted: false,
     relatedInExhausted: false,
     relatedOutExhausted: false,
+    tailExhausted: false,
     seenIds: [],
     inferredBodyTypes: [],
   };
@@ -281,6 +287,7 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
   exactRows: T[];
   relatedInRows: T[];
   relatedOutRows: T[];
+  tailRows?: T[];
   hints: SearchExpansionHints;
   browseLguCanonicalId?: string | null;
   userSort?: SearchExpansionUserSort;
@@ -289,7 +296,7 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
   const userSort = input.userSort ?? "latest";
   const seen = new Set(input.cursor.seenIds);
   const inferred = [...new Set([...input.cursor.inferredBodyTypes, ...inferBodyTypesFromListings(input.exactRows)])];
-  const buckets: Record<SearchExpansionTier, T[]> = { 1: [], 2: [], 3: [], 4: [] };
+  const buckets: Record<SearchExpansionTier, T[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
   const consider = [...input.exactRows, ...input.relatedInRows, ...input.relatedOutRows];
   for (const row of consider) {
     const id = typeof row.id === "string" ? row.id : "";
@@ -305,12 +312,19 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
     seen.add(id);
     buckets[tier].push(row);
   }
+  for (const row of input.tailRows ?? []) {
+    const id = typeof row.id === "string" ? row.id : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    buckets[5].push(row);
+  }
   const posts = (
     [
       ...sortTierRowsWithWithinOutsidePriority(buckets[1], input.hints, 1, input.browseLguCanonicalId, userSort),
       ...sortTierRowsWithWithinOutsidePriority(buckets[2], input.hints, 2, input.browseLguCanonicalId, userSort),
       ...sortTierRowsWithWithinOutsidePriority(buckets[3], input.hints, 3, input.browseLguCanonicalId, userSort),
       ...sortTierRowsWithWithinOutsidePriority(buckets[4], input.hints, 4, input.browseLguCanonicalId, userSort),
+      ...sortTierRowsWithWithinOutsidePriority(buckets[5], input.hints, 5, input.browseLguCanonicalId, userSort),
     ] as T[]
   );
   return {
@@ -324,7 +338,12 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
 }
 
 export function searchExpansionSourcesExhausted(cursor: SearchExpansionCursor): boolean {
-  return cursor.exactExhausted && cursor.relatedInExhausted && cursor.relatedOutExhausted;
+  return (
+    cursor.exactExhausted &&
+    cursor.relatedInExhausted &&
+    cursor.relatedOutExhausted &&
+    cursor.tailExhausted
+  );
 }
 
 export function advanceSearchExpansionCursor(
