@@ -30,7 +30,7 @@ export function MarketplaceSellHubPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-24 pt-4">
+    <main className="mx-auto w-full max-w-[480px] px-4 pb-24 pt-4 md:max-w-2xl lg:max-w-3xl">
       <div className="flex items-center justify-between gap-3">
         <h1 className="sam-text-title-3 text-sam-fg">{t("marketplace_sell_hub_title")}</h1>
         <button
