@@ -18,6 +18,7 @@ import {
   TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY,
   TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY,
 } from "@/lib/navigation/trade-meet-spot-return-to";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 type TradeWriteSheetContextValue = {
   isOpen: boolean;
@@ -189,7 +190,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
         confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleExternalLeaveConfirm}
-        zIndexClass="z-[70]"
+        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
         ariaLabel={t("ui_write_external_leave_aria")}
         interactionMode="blocking"
       />

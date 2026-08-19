@@ -26,6 +26,7 @@ import {
   TRADE_WRITE_FB_FIELD_HEAD,
   TRADE_WRITE_FB_SECTION,
 } from "@/lib/ui/trade-write-fb-ui";
+import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
 
@@ -452,7 +453,7 @@ export function WriteSheetFlowInner({
         confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleLeaveConfirm}
-        zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
+        zIndexClass={mode === "tradeSheet" ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : "z-[60]"}
         ariaLabel={t("ui_write_exit_aria")}
         interactionMode="blocking"
       />
@@ -465,7 +466,7 @@ export function WriteSheetFlowInner({
         confirmLabel={t("ui_write_category_change_confirm")}
         confirmTone="danger"
         onConfirm={handleCategoryChangeConfirm}
-        zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
+        zIndexClass={mode === "tradeSheet" ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : "z-[60]"}
         ariaLabel={t("ui_write_category_change_aria")}
         interactionMode="blocking"
       />
