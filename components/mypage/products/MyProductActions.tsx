@@ -9,22 +9,16 @@ import {
   normalizeSellerListingState,
   type SellerListingState,
 } from "@/lib/products/seller-listing-state";
+import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
+import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { productStatusLabel, sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
-
-const LISTING_MENU_ORDER: SellerListingState[] = [
-  "inquiry",
-  "negotiating",
-  "reserved",
-  "completed",
-];
+import { productStatusLabel } from "@/lib/mypage/seller-listing-i18n";
 
 interface MyProductActionsProps {
   product: Product;
   onStatusChange: (productId: string, newStatus: ProductStatus) => void;
   onSellerListingStateChange: (productId: string, state: SellerListingState) => void;
   listingSaving?: boolean;
-  onBump: (productId: string) => void;
   onDelete: (productId: string) => void;
 }
 
@@ -33,16 +27,20 @@ export function MyProductActions({
   onStatusChange,
   onSellerListingStateChange,
   listingSaving = false,
-  onBump,
   onDelete,
 }: MyProductActionsProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const listingPost = tradeListingPostFromProduct(product);
+  const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
+  const isHidden = product.status === "hidden" || product.status === "blinded";
   const currentListing = normalizeSellerListingState(
     product.sellerListingState,
     product.status
   );
+  const canComplete =
+    !isHidden && !isSold && currentListing !== "completed" && product.status === "active";
 
   useEffect(() => {
     if (!open) return;
@@ -68,11 +66,6 @@ export function MyProductActions({
     }
   };
 
-  const handleBump = () => {
-    onBump(product.id);
-    setOpen(false);
-  };
-
   const handleDelete = async () => {
     const ok = await dibayConfirm({
       title: t("mypage_comp_product_delete_confirm"),
@@ -86,8 +79,13 @@ export function MyProductActions({
     }
   };
 
+  const promoteLabel = safeT("trade_promo_detail_cta", {
+    fallbackKo: "더 알리기",
+    fallbackEn: "Promote more",
+  });
+
   return (
-    <div className="relative shrink-0" ref={menuRef}>
+    <div className="relative shrink-0 self-start" ref={menuRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -97,7 +95,7 @@ export function MyProductActions({
         <MoreIcon />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface py-1">
+        <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sm">
           <Link
             href={`/products/${product.id}/edit`}
             className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
@@ -105,25 +103,29 @@ export function MyProductActions({
           >
             {t("mypage_comp_product_edit")}
           </Link>
-          {product.status === "active" && (
+          {product.status === "active" && !isSold ? (
             <Link
               href={`/mypage/points/promotions?postId=${encodeURIComponent(product.id)}`}
               className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
               onClick={() => setOpen(false)}
             >
-              {t("mypage_comp_product_go_promotion")}
+              {promoteLabel}
             </Link>
-          )}
-          {product.status === "active" && (
+          ) : null}
+          {canComplete ? (
             <button
               type="button"
-              onClick={handleBump}
-              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
+              disabled={listingSaving}
+              onClick={() => {
+                onSellerListingStateChange(product.id, "completed");
+                setOpen(false);
+              }}
+              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
             >
-              {t("mypage_comp_product_bump")}
+              {t("trade_listing_step_completed")}
             </button>
-          )}
-          {product.status === "hidden" ? (
+          ) : null}
+          {isHidden ? (
             <button
               type="button"
               onClick={() => handleStatusChange("active")}
@@ -131,57 +133,7 @@ export function MyProductActions({
             >
               {t("mypage_comp_product_relist_active")}
             </button>
-          ) : (
-            <>
-              <div className="px-4 py-1.5 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">
-                {t("mypage_comp_product_listing_section")}
-              </div>
-              {LISTING_MENU_ORDER.map((state) => {
-                const isCurrent = state === currentListing;
-                return (
-                  <button
-                    key={state}
-                    type="button"
-                    disabled={listingSaving || isCurrent}
-                    onClick={() => {
-                      onSellerListingStateChange(product.id, state);
-                      setOpen(false);
-                    }}
-                    className={`w-full px-4 py-2.5 text-left sam-text-body hover:bg-sam-app ${
-                      isCurrent
-                        ? "cursor-default bg-signature/5 font-semibold text-signature"
-                        : "text-sam-fg"
-                    } disabled:opacity-50`}
-                  >
-                    {sellerListingLabel(t, state)}
-                    {isCurrent ? t("mypage_comp_listing_current_suffix") : ""}
-                  </button>
-                );
-              })}
-            </>
-          )}
-          {product.status !== "hidden" && product.status !== "sold" && (
-            <button
-              type="button"
-              onClick={() => {
-                void (async () => {
-                  const ok = await dibayConfirm({
-                    title: t("mypage_comp_product_cancel_sale_confirm"),
-                    cancelLabel: t("common_cancel"),
-                    confirmLabel: t("mypage_comp_product_cancel_sale"),
-                    confirmTone: "destructive",
-                  });
-                  if (!ok) return;
-                  onStatusChange(product.id, "hidden");
-                  setOpen(false);
-                })();
-              }}
-              className="w-full px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50"
-            >
-              {t("mypage_comp_product_cancel_sale")}
-            </button>
-          )}
-          {product.status !== "hidden" && (
+          ) : !isSold ? (
             <button
               type="button"
               onClick={() => handleStatusChange("hidden")}
@@ -189,7 +141,7 @@ export function MyProductActions({
             >
               {t("mypage_comp_product_hide")}
             </button>
-          )}
+          ) : null}
           <button
             type="button"
             onClick={handleDelete}

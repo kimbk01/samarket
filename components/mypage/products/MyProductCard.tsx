@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
-import {
-  TradeListingStatusBadge,
-  tradeListingPostFromProduct,
-} from "@/components/post/TradeListingStatusBadge";
+import { tradeListingPostFromProduct } from "@/components/post/TradeListingStatusBadge";
 import { resolveMarketplacePublicListingStatus } from "@/lib/trade/marketplace/public-listing-status";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
@@ -21,11 +18,12 @@ import {
 import { MyProductActions } from "./MyProductActions";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface MyProductCardProps {
   product: Product;
+  isPromoted?: boolean;
   onStatusChange: (productId: string, newStatus: Product["status"]) => void;
-  onBump: (productId: string) => void;
   onDelete: (productId: string) => void;
   listingSaving?: boolean;
   onSellerListingStateChange: (productId: string, state: SellerListingState) => void;
@@ -33,17 +31,25 @@ interface MyProductCardProps {
 
 export function MyProductCard({
   product,
+  isPromoted = false,
   onStatusChange,
-  onBump,
   onDelete,
   listingSaving = false,
   onSellerListingStateChange,
 }: MyProductCardProps) {
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const listingPost = tradeListingPostFromProduct(product);
   const isSold = resolveMarketplacePublicListingStatus(listingPost) === "sold";
   const isHidden = product.status === "hidden" || product.status === "blinded";
   const detailHref = `/post/${product.id}`;
+  const statusLabel = isHidden
+    ? t("mypage_comp_product_status_hidden")
+    : isSold
+      ? t("trade_listing_step_completed")
+      : t("trade_listing_step_inquiry");
+  const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
+
   return (
     <div
       className={`overflow-hidden rounded-ui-rect bg-sam-surface ${
@@ -65,35 +71,33 @@ export function MyProductCard({
               roundedClassName="rounded-ui-rect"
               className="bg-sam-surface-muted"
             />
-            {product.isBoosted && (
-              <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
-                끌올
-              </span>
-            )}
           </div>
-          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
+          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col justify-between">
             <div className="flex min-h-0 flex-1 flex-col justify-between">
-              <div className="shrink-0">
-                <TradeListingStatusBadge post={listingPost} surface="marketplace" />
-              </div>
-              <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
-                {product.title}
-              </p>
               <p className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
                 {formatPrice(product.price)}
               </p>
-              <div className="flex shrink-0 flex-col">
+              <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
+                {product.title}
+              </p>
+              {product.location ? (
                 <p className={stripPostListBlockTopMargin(POST_LIST_META_TEXT_CLASS)}>
                   {product.location}
                 </p>
-                <p className={POST_LIST_META_LINE_CLASS}>
-                  {formatTimeAgo(product.updatedAt ?? product.createdAt)}
-                </p>
-              </div>
+              ) : null}
+              <p className={POST_LIST_META_LINE_CLASS}>
+                {statusLabel}
+                {timeLabel ? ` · ${timeLabel}` : ""}
+              </p>
+              {isPromoted ? (
+                <span className="mt-0.5 inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted">
+                  {safeT("trade_promo_badge", {
+                    fallbackKo: "홍보",
+                    fallbackEn: "Promoted",
+                  })}
+                </span>
+              ) : null}
             </div>
-            <p className="mt-1 sam-text-xxs leading-snug text-signature">
-              아래에서 구매자별 거래완료를 바로 처리할 수 있어요.
-            </p>
           </div>
         </Link>
         <MyProductActions
@@ -101,7 +105,6 @@ export function MyProductCard({
           onStatusChange={onStatusChange}
           onSellerListingStateChange={onSellerListingStateChange}
           listingSaving={listingSaving}
-          onBump={onBump}
           onDelete={onDelete}
         />
       </div>

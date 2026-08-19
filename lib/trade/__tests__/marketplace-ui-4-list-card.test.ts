@@ -53,9 +53,7 @@ describe("marketplace UI-4 LIST card information contract", () => {
     expect(list).not.toContain("PostCard");
   });
 
-  it("does not touch MY sales, messenger mini-card, DETAIL, or CUT G writers", () => {
-    const my = src("components/mypage/products/MyProductCard.tsx");
-    expect(my).toContain("TradeListingStatusBadge");
+  it("does not touch messenger mini-card, DETAIL, or CUT G writers", () => {
     const preview = src("components/post/PostListPreviewColumn.tsx");
     expect(preview).toContain("TradeListingStatusBadge");
     const detail = src("components/post/PostDetailView.tsx");

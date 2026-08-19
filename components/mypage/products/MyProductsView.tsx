@@ -191,12 +191,6 @@ export function MyProductsView() {
     [currentUserId, refresh, t]
   );
 
-  const handleBump = useCallback((productId: string) => {
-    if (typeof window !== "undefined") {
-      window.location.href = `/mypage/points/promotions?postId=${encodeURIComponent(productId)}`;
-    }
-  }, []);
-
   const handleDelete = useCallback(
     async (productId: string) => {
       if (!currentUserId) return;
@@ -390,31 +384,6 @@ export function MyProductsView() {
         onClose={() => setBuyerPicker(null)}
         onSelect={onBuyerPicked}
       />
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5">
-        <p className="sam-text-body-secondary text-sam-fg">
-          {t("mypage_comp_product_primary_hub_hint")}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <a
-            href="/mypage/trade/sales"
-            className="rounded-full border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-medium text-sam-primary"
-          >
-            {t("mypage_comp_product_go_sales_hub")}
-          </a>
-          <a
-            href="/mypage/points/promotions"
-            className="rounded-full border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
-            {t("mypage_comp_product_go_promotion")}
-          </a>
-          <a
-            href="/mypage/ads"
-            className="rounded-full border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
-            {t("mypage_comp_product_go_ads")}
-          </a>
-        </div>
-      </div>
       <MyProductFilter
         value={filter}
         onChange={handleFilterChange}
@@ -439,8 +408,8 @@ export function MyProductsView() {
             <li key={product.id}>
               <MyProductCard
                 product={product}
+                isPromoted={promotedTargetIds.has(product.id)}
                 onStatusChange={handleStatusChange}
-                onBump={handleBump}
                 onDelete={handleDelete}
                 listingSaving={savingListingId === product.id}
                 onSellerListingStateChange={handleSellerListingStateChange}

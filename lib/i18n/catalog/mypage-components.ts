@@ -652,7 +652,7 @@ export const mypageComponentsMessages = {
     mypage_comp_product_network_change_failed: "네트워크 오류로 변경하지 못했습니다.",
     mypage_comp_product_listing_change_confirm: '판매 진행 상황을 "{label}"(으)로 변경할까요?',
     mypage_comp_product_complete_confirm:
-      "거래완료하면 선택한 구매자에게 확인·후기 안내가 전달되고, 글이 판매완료로 표시됩니다. 진행할까요?",
+      "거래를 완료하면 선택한 구매자에게 확인 안내가 전달되고, 글이 판매완료로 표시됩니다. 진행할까요?",
     mypage_comp_product_reserved_chat_missing: "예약된 구매자와의 활성 채팅을 찾을 수 없습니다.",
     mypage_comp_product_no_inquiry_for_complete: "문의 중인 채팅이 없으면 거래완료를 진행할 수 없습니다.",
     mypage_comp_product_reserve_inquiry_only: "문의 채팅이 있는 구매자만 예약할 수 있습니다.",
@@ -1488,7 +1488,7 @@ export const mypageComponentsMessages = {
     mypage_comp_product_network_change_failed: "Couldn’t update due to a network error.",
     mypage_comp_product_listing_change_confirm: 'Change sale progress to "{label}"?',
     mypage_comp_product_complete_confirm:
-      "Completing the trade notifies the buyer to confirm and leave a review, and marks the post sold. Continue?",
+      "Completing the trade notifies the buyer to confirm, and marks the post sold. Continue?",
     mypage_comp_product_reserved_chat_missing: "No active chat with the reserved buyer.",
     mypage_comp_product_no_inquiry_for_complete: "You need an inquiry chat to mark the trade complete.",
     mypage_comp_product_reserve_inquiry_only: "Only buyers with an inquiry chat can be reserved.",
