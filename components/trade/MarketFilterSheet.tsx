@@ -12,16 +12,12 @@ import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18
 import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
-  applyTradeLocationScopeToSearchParams,
-  buildTradeCityScopeFromCanonical,
   parseTradeLocationScopeFromSearchParams,
   tradeLocationScopeDisplayLabel,
-  type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 import {
   TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
   TRADE_LOCATION_RADIUS_PARAM,
-  sanitizeTradeBrowseRadiusKm,
   type TradeBrowseRadiusSelection,
   tradeBrowseRadiusSelectionFromKm,
 } from "@/lib/trade/location/trade-browse-radius";
@@ -29,10 +25,12 @@ import {
   readTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
-import { buildMarketplaceBrowseResetCommittedHref } from "@/lib/trade/marketplace/browse-reset-href";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import {
-  appendCompositionFilterSearchParams,
+  buildMarketFilterDraftHref,
+  buildMarketFilterOnlyResetHref,
+} from "@/lib/trade/marketplace/marketplace-browse-state";
+import {
   sanitizeCompositionFilterSelection,
   resolveCompositionAttributeFilterFields,
   resolveTradeCompositionForCategory,
@@ -175,36 +173,10 @@ export function buildMarketFilterResetHref(opts: {
   baseSearch: string;
   topics: CategoryWithSettings[];
 }): string {
-  const sp = new URLSearchParams(opts.baseSearch);
-  const knownFieldIds = unionCompositionFieldIds(opts.topics);
-
-  for (const k of [
-    "category",
-    "categoryIds",
-    "topic",
-    "topicByRoot",
-    "tradeState",
-    "sort",
-    "fs",
-    "priceMin",
-    "priceMax",
-    "location",
-    "lgu",
-    "radius",
-    "page",
-    "cursor",
-  ]) {
-    sp.delete(k);
-  }
-  // composition filter params are stored as `filters[<fieldId>]`
-  for (const fid of knownFieldIds) sp.delete(`filters[${fid}]`);
-
-  // q는 KEEP (검색은 filter가 아님)
-  const q = sp.get("q");
-  if (q == null || q === "") sp.delete("q");
-
-  const qs = sp.toString();
-  return qs ? `/market?${qs}` : "/market";
+  return buildMarketFilterOnlyResetHref({
+    baseSearch: opts.baseSearch,
+    knownCompositionFieldIds: unionCompositionFieldIds(opts.topics),
+  });
 }
 
 function priceChipLabel(priceMin: string, priceMax: string): string | null {
@@ -619,11 +591,13 @@ export function MarketFilterSheet({
       : null;
 
   function resetAllFiltersCommitted() {
-    void buildMarketplaceBrowseResetCommittedHref("/market", baseSearch).then((href) => {
-      applyMarketplaceBrowseResetClientEffects();
-      onClose();
-      router.replace(href, { scroll: false });
+    const href = buildMarketFilterOnlyResetHref({
+      baseSearch,
+      knownCompositionFieldIds: knownFieldIds,
     });
+    applyMarketplaceBrowseResetClientEffects();
+    onClose();
+    router.replace(href, { scroll: false });
   }
 
   function clearDraft() {
@@ -677,112 +651,28 @@ export function MarketFilterSheet({
   }
 
   function buildDraftHref(): string {
-    const incoming = new URLSearchParams(baseSearch);
-    // start from incoming, but remove everything we own (category/topic/options, location/radius, sort, price, tradeState)
-    const sp = new URLSearchParams(incoming.toString());
-
-    // pagination reset (new browsing session)
-    for (const k of ["page", "cursor"]) sp.delete(k);
-
-    // category axis
-    sp.delete("category");
-    sp.delete("categoryIds");
-    sp.delete("topic");
-    sp.delete("topicByRoot");
-    for (const fid of knownFieldIds) sp.delete(`filters[${fid}]`);
-
-    // location axis
-    sp.delete("location");
-    sp.delete("lgu");
-    sp.delete(TRADE_LOCATION_RADIUS_PARAM);
-
-    // sort / hard constraints
-    sp.delete("sort");
-    sp.delete("fs");
-    sp.delete("priceMin");
-    sp.delete("priceMax");
-    sp.delete("tradeState");
-
-    // preserve q
-    const q = incoming.get("q");
-    if (q) sp.set("q", q);
-    else sp.delete("q");
-
-    // sort
-    if (state.sort === "near") sp.set("sort", "near");
-    else if (state.sort === "popular") sp.set("sort", "popular");
-
-    // price
-    const minNum = Number(state.priceMin);
-    const maxNum = Number(state.priceMax);
-    if (state.priceMin && !Number.isNaN(minNum) && minNum > 0) sp.set("priceMin", String(Math.floor(minNum)));
-    if (state.priceMax && !Number.isNaN(maxNum) && maxNum > 0) sp.set("priceMax", String(Math.floor(maxNum)));
-
-    // tradeState
-    if (state.tradeState === "active") sp.set("tradeState", "active");
-    else if (state.tradeState === "sold") sp.set("tradeState", "sold");
-
-    // location + radius
-    if (state.regionMode === "all") {
-      sp.set("location", "all");
-    } else {
-      const canonical =
-        state.regionMode === "other" && draftCity?.canonicalId
-          ? draftCity.canonicalId
-          : committedScope.mode === "city"
-            ? committedScope.canonicalId
-            : null;
-      if (canonical) {
-        const radiusToApply = state.distanceAll
-          ? null
-          : sanitizeTradeBrowseRadiusKm(state.radiusKm);
-        const scope = buildTradeCityScopeFromCanonical(canonical, radiusToApply);
-        const applied = applyTradeLocationScopeToSearchParams(sp, scope as TradeLocationScope);
-        return applyCategoryHrefIfNeeded({ sp: applied, rootCategory });
-      }
-    }
-
-    return applyCategoryHrefIfNeeded({ sp, rootCategory });
-  }
-
-  function applyCategoryHrefIfNeeded(opts: {
-    sp: URLSearchParams;
-    rootCategory: CategoryWithSettings | null;
-  }): string {
-    // If no root selected: it's just /market + our non-category params already set.
-    if (!state.rootCategoryId || state.rootCategoryIds.length === 0) {
-      const qs = opts.sp.toString();
-      return qs ? `/market?${qs}` : "/market";
-    }
-
-    const primaryRootId = state.rootCategoryId;
-    const nextRootIds = [...new Set(state.rootCategoryIds)].filter(Boolean);
-
-    const sp = new URLSearchParams(opts.sp.toString());
-    sp.set("category", primaryRootId);
-    sp.set("categoryIds", nextRootIds.join(","));
-
-    // ROOT-keyed optional child:
-    // - legacy `topic` is still set for the currently edited primary root
-    // - root-keyed mapping uses `topicByRoot` for all selected roots that have a topic
-    sp.delete("topicByRoot");
-    if (state.topicKey) sp.set("topic", state.topicKey);
-    else sp.delete("topic");
-
-    for (const rid of nextRootIds) {
-      const t = state.topicByRoot?.[rid] ?? null;
-      if (!t) continue;
-      sp.append("topicByRoot", `${rid}:${t}`);
-    }
-
-    if (opts.rootCategory) {
-      const composition = resolveTradeCompositionForCategory(opts.rootCategory);
-      const sanitizedFilters = sanitizeCompositionFilterSelection(state.filters, composition);
-      appendCompositionFilterSearchParams(sp, sanitizedFilters);
-    }
-
-    const qs = sp.toString();
-    return qs ? `/market?${qs}` : "/market";
+    return buildMarketFilterDraftHref({
+      committedSearch: baseSearch,
+      knownCompositionFieldIds: knownFieldIds,
+      rootCategory,
+      draft: {
+        sort: state.sort,
+        tradeState: state.tradeState,
+        priceMin: state.priceMin,
+        priceMax: state.priceMax,
+        rootCategoryId: state.rootCategoryId,
+        rootCategoryIds: state.rootCategoryIds,
+        topicKey: state.topicKey,
+        topicByRoot: state.topicByRoot,
+        filters: state.filters,
+        location: {
+          regionMode: state.regionMode,
+          distanceAll: state.distanceAll,
+          radiusKm: state.radiusKm,
+          otherCityCanonicalId: draftCity?.canonicalId ?? null,
+        },
+      },
+    });
   }
 
   function applyResults() {

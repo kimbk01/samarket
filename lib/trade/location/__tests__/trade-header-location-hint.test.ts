@@ -66,4 +66,18 @@ describe("buildTradeHeaderLocationHintParts", () => {
       })
     ).toEqual({ place: null, suffix: "지역을 확인하는 중…" });
   });
+
+  it("INVALID uses invalid label, not 전체", () => {
+    expect(
+      buildTradeHeaderLocationHintParts({
+        mode: "invalid",
+        cityLabel: null,
+        radiusKm: null,
+        userPlaceLabel: null,
+        allLabel: "전체",
+        fallbackPlaceLabel: "지역",
+        invalidLabel: "지역을 확인할 수 없습니다",
+      })
+    ).toEqual({ place: null, suffix: "지역을 확인할 수 없습니다" });
+  });
 });

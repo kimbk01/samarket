@@ -12,11 +12,11 @@ import {
 } from "@/lib/trade/location/trade-location-scope";
 import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
-import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import { resolveTradeMarketplaceMasterHydrateScope } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 
 /**
  * Missing URL location is UNSET. Hydrate to master CITY + distance 전체 (no radius).
- * Fallback: explicit ALL when master address has no resolvable LGU.
+ * Fallback: explicit ALL only when no master address; LGU fail → invalid.
  * Master address change resets location + market filters to the same default.
  */
 export function useTradeMarketplaceLocationHydrate(): {
@@ -58,8 +58,7 @@ export function useTradeMarketplaceLocationHydrate(): {
     if (hydratingRef.current) return;
     hydratingRef.current = true;
     try {
-      const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
-      const next: TradeLocationScope = masterCity ?? { mode: "all" };
+      const next: TradeLocationScope = await resolveTradeMarketplaceMasterHydrateScope();
       writeTradeBrowseCommittedScope(next);
       const href = buildTradeLocationHref(pathname || "/market", searchKey, next);
       router.replace(href, { scroll: false });

@@ -10,9 +10,9 @@ import { NotInterestedCard } from "@/components/post/NotInterestedCard";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import {
   getPostsForHome,
+  getHomePostsBrowseCacheKey,
   invalidateHomePostsCache,
   peekCachedPostsForHome,
-  peekRecentHomePostsFallback,
   primeHomePostsCache,
   TRADE_POST_LIST_CACHE_INVALIDATED,
   type GetPostsForHomeOptions,
@@ -55,7 +55,7 @@ import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
-import { TRADE_CHAT_LIST_PAGE_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
+import { MARKETPLACE_LIST_CLIENT_PAGE_SIZE } from "@/lib/trade/marketplace/marketplace-list-pagination";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 import { MARKETPLACE_BROWSE_RESET_EVENT } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
@@ -87,7 +87,7 @@ function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter 
   return parseMarketplacePublicTradeState(raw);
 }
 
-const INITIAL_VISIBLE_CARD_COUNT = TRADE_CHAT_LIST_PAGE_SIZE;
+const INITIAL_VISIBLE_CARD_COUNT = MARKETPLACE_LIST_CLIENT_PAGE_SIZE;
 
 /** Background refresh — 동일 row 참조 유지 (전체 list replace 금지). */
 function isSameHomeTradePostRow(a: PostWithMeta, b: PostWithMeta): boolean {
@@ -134,12 +134,9 @@ function getHydrationSafeBoot(
   return null;
 }
 
-function readClientHomeListBoot(
-  options: GetPostsForHomeOptions,
-  allowRecentFallback: boolean
-): GetPostsForHomeResult | null {
+function readClientHomeListBoot(options: GetPostsForHomeOptions): GetPostsForHomeResult | null {
   if (typeof window === "undefined") return null;
-  return peekCachedPostsForHome(options) ?? (allowRecentFallback ? peekRecentHomePostsFallback() : null);
+  return peekCachedPostsForHome(options);
 }
 
 export function HomeProductList({
@@ -306,7 +303,7 @@ export function HomeProductList({
     tradeState === "latest" &&
     locGate.canFetch &&
     (clientInstantBoot || !hydrationSeed)
-      ? readClientHomeListBoot(homePostListOptions, locationAll)
+      ? readClientHomeListBoot(homePostListOptions)
       : null;
   const initialBoot = clientBoot ?? hydrationSeed;
   const [listState, setListState] = useState<ListState>(() =>
@@ -337,8 +334,9 @@ export function HomeProductList({
   const serverPageRef = useRef(1);
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loadingMoreServer, setLoadingMoreServer] = useState(false);
+  const browseCacheKeyRef = useRef<string | null>(null);
 
-  const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean }) => {
+  const load = useCallback(async (opts?: { forceFreshRankedWindow?: boolean; replaceList?: boolean }) => {
     silentRequestIdRef.current += 1;
     if (locationInvalid) {
       setPosts([]);
@@ -377,7 +375,8 @@ export function HomeProductList({
       if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
       serverPageRef.current = 1;
       setServerHasMore(res.hasMore);
-      if (opts?.forceFreshRankedWindow) {
+      const replaceList = opts?.replaceList === true || opts?.forceFreshRankedWindow === true;
+      if (replaceList) {
         setPosts(res.posts);
       } else {
         setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
@@ -434,6 +433,7 @@ export function HomeProductList({
     setPendingNewCount(0);
     await load({
       forceFreshRankedWindow: true,
+      replaceList: true,
     });
   }, [load]);
 
@@ -478,22 +478,56 @@ export function HomeProductList({
       tradeState === "latest" && allowRscHomeListSeedRef.current && locationAll && !q
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
         : peekCachedPostsForHome(homePostListOptions);
-    const merged = boot ?? (locationAll ? peekRecentHomePostsFallback() : null);
 
-    if (merged) {
+    const browseKey = getHomePostsBrowseCacheKey(homePostListOptions);
+    const browseKeyChanged =
+      browseCacheKeyRef.current !== null && browseCacheKeyRef.current !== browseKey;
+    browseCacheKeyRef.current = browseKey;
+
+    if (boot && !browseKeyChanged) {
       silentRequestIdRef.current += 1;
       serverPageRef.current = 1;
-      setServerHasMore(merged.hasMore === true);
-      setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
-      setFavoriteMap(merged.favoriteMap ?? {});
+      setServerHasMore(boot.hasMore === true);
+      setPosts((prev) => patchHomeTradePostsRows(prev, boot.posts));
+      setFavoriteMap(boot.favoriteMap ?? {});
       setPendingNewCount(0);
-      setListState(merged.posts.length === 0 ? "empty" : "idle");
+      setListState(boot.posts.length === 0 ? "empty" : "idle");
       lastLoadedAtRef.current = Date.now();
       return;
     }
 
-    void load();
-  }, [tradeState, lguCityId, locationAll, locationUnset, initialHomeTradeFeed, load, homePostListOptions, locationInvalid]);
+    if (boot && browseKeyChanged) {
+      silentRequestIdRef.current += 1;
+      serverPageRef.current = 1;
+      setServerHasMore(boot.hasMore === true);
+      setPosts(boot.posts);
+      setFavoriteMap(boot.favoriteMap ?? {});
+      setPendingNewCount(0);
+      setListState(boot.posts.length === 0 ? "empty" : "idle");
+      lastLoadedAtRef.current = Date.now();
+      return;
+    }
+
+    if (browseKeyChanged) {
+      setListPaginationEpoch((n) => n + 1);
+      allowRscHomeListSeedRef.current = false;
+    }
+
+    void load({
+      forceFreshRankedWindow: !!q || browseKeyChanged,
+      replaceList: browseKeyChanged || !!q,
+    });
+  }, [
+    tradeState,
+    lguCityId,
+    locationAll,
+    locationUnset,
+    initialHomeTradeFeed,
+    load,
+    homePostListOptions,
+    locationInvalid,
+    q,
+  ]);
 
   useEffect(() => {
     const q = searchParams.toString();
@@ -530,7 +564,7 @@ export function HomeProductList({
 
   const listPagination = useTradeChatListClientPagination({
     items: posts,
-    pageSize: TRADE_CHAT_LIST_PAGE_SIZE,
+    pageSize: MARKETPLACE_LIST_CLIENT_PAGE_SIZE,
     resetKey: `${tradeListPaginationResetKey(tradeState, posts)}:${listPaginationEpoch}`,
   });
   const visiblePosts = listPagination.visibleItems;
@@ -633,6 +667,8 @@ export function HomeProductList({
       serverPageRef.current = 1;
       setServerHasMore(false);
       setListPaginationEpoch((n) => n + 1);
+      allowRscHomeListSeedRef.current = false;
+      browseCacheKeyRef.current = null;
     };
     window.addEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);
     return () => window.removeEventListener(MARKETPLACE_BROWSE_RESET_EVENT, onReset);

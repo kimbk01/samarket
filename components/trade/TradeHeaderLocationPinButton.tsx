@@ -93,15 +93,19 @@ async function fetchNationalLguLabel(canonicalId: string): Promise<string | null
 
 /** Header hint: `{place} · {전체|Nkm}` — place truncates; suffix must never clip. */
 export function buildTradeHeaderLocationHintParts(input: {
-  mode: "all" | "city" | "unset";
+  mode: "all" | "city" | "unset" | "invalid";
   cityLabel: string | null;
   radiusKm: number | null;
   userPlaceLabel: string | null;
   allLabel: string;
   fallbackPlaceLabel: string;
+  invalidLabel?: string;
 }): { place: string | null; suffix: string } {
   if (input.mode === "unset") {
     return { place: null, suffix: input.allLabel };
+  }
+  if (input.mode === "invalid") {
+    return { place: null, suffix: input.invalidLabel ?? input.fallbackPlaceLabel };
   }
   if (input.mode === "city") {
     const place = (input.cityLabel ?? "").trim() || input.fallbackPlaceLabel;
@@ -219,12 +223,15 @@ export function TradeHeaderLocationPinButton({
         ? "city"
         : committedScope.mode === "unset"
           ? "unset"
-          : "all",
+          : committedScope.mode === "invalid"
+            ? "invalid"
+            : "all",
     cityLabel: committedLabel,
     radiusKm: committedScope.mode === "city" ? committedScope.radiusKm : null,
     userPlaceLabel: myRegion?.displayName ?? null,
     allLabel: locationUnset ? t("trade_location_resolving_city") : t("trade_location_all"),
     fallbackPlaceLabel: t("trade_location_section_region"),
+    invalidLabel: t("trade_location_invalid"),
   });
 
   const headerHintAria = hintParts.place

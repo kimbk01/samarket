@@ -10,6 +10,25 @@ import {
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 
+/**
+ * UNSET URL hydrate — no master → ALL; master with LGU resolve fail → invalid (not silent ALL).
+ */
+export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<TradeLocationScope> {
+  try {
+    const snapshot = await fetchAddressDefaultsSnapshot({
+      caller: "trade_location_scope",
+      reason: "trade_location_seed",
+    });
+    const master = coerceUserAddressDTO(snapshot?.defaults?.master ?? null);
+    if (!master?.id) return { mode: "all" };
+    const city = await resolveTradeMarketplaceDefaultCityFromMaster();
+    if (city) return city;
+    return { mode: "invalid", raw: "master_lgu_unresolved" };
+  } catch {
+    return { mode: "invalid", raw: "master_hydrate_error" };
+  }
+}
+
 export async function resolveTradeMarketplaceDefaultCityFromMaster(): Promise<
   Extract<TradeLocationScope, { mode: "city" }> | null
 > {

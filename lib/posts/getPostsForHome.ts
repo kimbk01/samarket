@@ -344,6 +344,11 @@ export function peekCachedPostsForHome(
   return restoreHomePostsFromStorageToMemory(cacheKey);
 }
 
+/** Exact browse cache key — SSOT with `normalizeOptions` (list transition / replace). */
+export function getHomePostsBrowseCacheKey(options: GetPostsForHomeOptions = {}): string {
+  return normalizeOptions(options).cacheKey;
+}
+
 export function isCachedPostsForHomeFresh(
   options: GetPostsForHomeOptions = {}
 ): boolean {
