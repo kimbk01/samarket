@@ -6,16 +6,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RotateCcw, SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
-import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
-import { tradeBrowseLocationFromScope } from "@/lib/trade/location/trade-browse-location";
-import {
-  defaultTradeBrowseRadiusSelection,
-  tradeBrowseRadiusSelectionFromKm,
-} from "@/lib/trade/location/trade-browse-radius";
-import { seedTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
-import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
@@ -121,27 +114,6 @@ function TradePrimaryTabsInner({
       fromPathname: pathname,
     });
   };
-  const goToSellHubPage = () => {
-    const href = "/market/sell";
-    if (!guardBeforeNavigate(href)) return;
-    router.push(href);
-  };
-
-  const goToLocationPageAsRefresh = () => {
-    const committedScope = parseTradeLocationScopeFromSearchParams(searchParams);
-    const committedBrowse = tradeBrowseLocationFromScope(committedScope);
-    const radius =
-      committedBrowse.kind === "city" && typeof committedBrowse.radiusKm === "number"
-        ? tradeBrowseRadiusSelectionFromKm(committedBrowse.radiusKm)
-        : defaultTradeBrowseRadiusSelection();
-
-    seedTradeBrowseLocationDraftSession(committedBrowse, radius);
-
-    const q = searchParams.toString();
-    const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
-    if (!guardBeforeNavigate(href)) return;
-    router.push(href);
-  };
 
   if (error) {
     return (
@@ -168,33 +140,23 @@ function TradePrimaryTabsInner({
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
+        leading={<TradeHeaderLocationPinButton placement="below-title" />}
         trailing={
-          <div className="inline-flex items-center gap-2">
-            <button
-              type="button"
-              data-marketplace-location-refresh="true"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
-              aria-label={t("trade_location_pin_aria")}
-              onClick={goToLocationPageAsRefresh}
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden />
-            </button>
-            <button
-              type="button"
-              data-marketplace-filter="true"
-              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
-              aria-haspopup="dialog"
-              aria-label={filterLabel}
-              onClick={() => setFilterOpen(true)}
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              {filterActive ? (
-                <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
-                  {filterCount}
-                </span>
-              ) : null}
-            </button>
-          </div>
+          <button
+            type="button"
+            data-marketplace-filter="true"
+            className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
+            aria-haspopup="dialog"
+            aria-label={filterLabel}
+            onClick={() => setFilterOpen(true)}
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            {filterActive ? (
+              <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
+                {filterCount}
+              </span>
+            ) : null}
+          </button>
         }
       >
         {allTab ? (
@@ -202,6 +164,7 @@ function TradePrimaryTabsInner({
             href={allTab.href}
             role="tab"
             aria-selected={allTab.isDisplayActive}
+            aria-label={allTab.label}
             prefetch
             className={tradePrimaryTabClass(allTab.isDisplayActive)}
             onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
@@ -219,17 +182,9 @@ function TradePrimaryTabsInner({
               commitTab(allTab.href, allTab.key);
             }}
           >
-            <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{allTab.label}</span>
+            <RotateCcw className="h-4 w-4" aria-hidden />
           </Link>
         ) : null}
-        <button
-          type="button"
-          data-marketplace-sell-cta="true"
-          className={tradePrimaryTabClass(false)}
-          onClick={goToSellHubPage}
-        >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("trade_write_sell_cta")}</span>
-        </button>
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
         open={false}

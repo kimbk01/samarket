@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
@@ -16,7 +16,6 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { SectionHeader } from "@/components/layout/sector-header";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
-import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import {
   resolveMainTabKeepAliveHub,
   type MainTabKeepAliveHubId,
@@ -25,6 +24,7 @@ import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules"
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -109,6 +109,13 @@ function TradeHeaderRightActions() {
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(() => sanitizeMarketplaceQueryText(searchParams.get("q")) ?? "");
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+
+  const goToSellHubPage = () => {
+    const href = "/market/sell";
+    if (!guardBeforeNavigate(href)) return;
+    router.push(href);
+  };
 
   const applyQuery = () => {
     const next = sanitizeMarketplaceQueryText(draft);
@@ -161,7 +168,15 @@ function TradeHeaderRightActions() {
   return (
     <>
       <div className={`${samTier1HeaderIconCluster} gap-2`}>
-        <TradeHeaderLocationPinButton placement="icon-cluster" />
+        <button
+          type="button"
+          data-marketplace-sell-cta="true"
+          className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
+          aria-label={t("trade_write_sell_cta")}
+          onClick={goToSellHubPage}
+        >
+          <FileText className="h-4 w-4 text-sam-fg" aria-hidden />
+        </button>
         <button
           ref={anchorRef}
           type="button"
