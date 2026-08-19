@@ -16,6 +16,7 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { SectionHeader } from "@/components/layout/sector-header";
 import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import {
   resolveMainTabKeepAliveHub,
   type MainTabKeepAliveHubId,
@@ -24,10 +25,6 @@ import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules"
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
-import {
-  parseTradeLocationScopeFromSearchParams,
-  peekTradeLguDisplayLabel,
-} from "@/lib/trade/location/trade-location-scope";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -84,37 +81,22 @@ function hubTitleKey(hub: Exclude<MainTabKeepAliveHubId, "delivery">) {
 export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) {
   const { t } = useI18n();
   const hub = resolveMainHubId(pathNoQuery);
-  const searchParams = useSearchParams();
   const extrasRight = useMainTier1ExtrasOptional()?.extras?.tier1?.rightSlot;
 
   if (hub == null) {
     return null;
   }
 
-  const tradeTitle = useMemo(() => {
-    if (hub !== "trade") return null;
-    const scope = parseTradeLocationScopeFromSearchParams(searchParams);
-    if (scope.mode !== "city") return t("marketplace_home_title");
-    const rawLabel =
-      peekTradeLguDisplayLabel(scope.canonicalId) ??
-      scope.canonicalId
-        .split("-")
-        .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
-        .join(" ");
-    const label = rawLabel.replace(/\s+/g, " ").trim();
-    return `${t("marketplace_home_title")} · ${label} · ${scope.radiusKm}km`;
-  }, [hub, searchParams, t]);
-
   /** Trade HOME identity is Marketplace. Location lives in the entry chrome under this row. */
   const title: ReactNode =
-    hub === "trade"
-      ? tradeTitle
-      : t(hubTitleKey(hub));
+    hub === "trade" ? t("marketplace_home_title") : t(hubTitleKey(hub));
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
+  const leftSlot =
+    hub === "trade" ? <TradeHeaderLocationPinButton placement="beside-title" /> : undefined;
 
   return (
     <UnifiedTier1Shell>
-      <SectionHeader embedded titleAlign="left" title={title} rightSlot={rightSlot} />
+      <SectionHeader embedded titleAlign="left" title={title} leftSlot={leftSlot} rightSlot={rightSlot} />
     </UnifiedTier1Shell>
   );
 }

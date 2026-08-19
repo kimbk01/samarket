@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
@@ -30,7 +31,20 @@ export function MarketplaceSellHubPage() {
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-24 pt-4">
-      <h1 className="sam-text-title-3 text-sam-fg">{t("marketplace_sell_hub_title")}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="sam-text-title-3 text-sam-fg">{t("marketplace_sell_hub_title")}</h1>
+        <button
+          type="button"
+          aria-label={t("common_cancel")}
+          className="rounded-ui-rect p-2 text-sam-fg-muted active:scale-[0.98] active:opacity-90"
+          onClick={() => {
+            if (!guardBeforeNavigate()) return;
+            router.back();
+          }}
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
       <p className="mt-1 sam-text-body text-sam-muted">{t("marketplace_home_title")}</p>
       <div className="mt-4 space-y-2">
         <button type="button" className={ITEM_CLASS} onClick={openWrite}>

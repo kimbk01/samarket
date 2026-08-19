@@ -1,7 +1,6 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import {
   APP_MAIN_COLUMN_CLASS,
   APP_MAIN_GUTTER_X_CLASS,
@@ -18,7 +17,6 @@ export function MarketplaceHomeEntryChrome() {
   return (
     <div className="min-w-0 bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]">
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex flex-col gap-2 pb-2 pt-0.5`}>
-        <TradeHeaderLocationPinButton placement="below-title" />
         <p className="sr-only">{t("marketplace_search_entry_aria")}</p>
       </div>
     </div>

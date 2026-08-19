@@ -210,12 +210,8 @@ export function MarketFilterSheet({
   const initialRadiusKm =
     committedScope.mode === "city" ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
   const radiusRaw = new URLSearchParams(baseSearch).get(TRADE_LOCATION_RADIUS_PARAM);
-  const initialDistanceAll =
-    committedScope.mode === "city"
-      ? radiusRaw == null ||
-        radiusRaw === "" ||
-        sanitizeTradeBrowseRadiusKm(Number(radiusRaw)) === TRADE_BROWSE_RECOMMENDED_RADIUS_KM
-      : true;
+  // `distance: 전체`는 "URL에 radius가 없는 경우"로만 취급 (명시된 radius=64는 쿼리 의미 유지)
+  const initialDistanceAll = committedScope.mode === "city" ? radiusRaw == null || radiusRaw === "" : true;
 
   const [state, setState] = useState<DraftState>(() => ({
     sort: parseSortFromSearch(baseSearch),
@@ -328,7 +324,11 @@ export function MarketFilterSheet({
     }
 
     if (state.regionMode !== "all") {
-      if (!state.distanceAll) chips.push({ id: "distance", label: `${Math.round(state.radiusKm)}km` });
+      if (!state.distanceAll) {
+        const km = Math.round(state.radiusKm);
+        // 추천 기본값(64km)은 "적용된 필터"로 보지 않음(칩만 숨김)
+        if (km !== TRADE_BROWSE_RECOMMENDED_RADIUS_KM) chips.push({ id: "distance", label: `${km}km` });
+      }
     }
 
     if (state.tradeState === "active") {
