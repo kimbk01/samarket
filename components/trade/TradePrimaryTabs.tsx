@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
-import { MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
@@ -22,11 +21,9 @@ import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/Lates
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
-import { buildMarketFilterResetHref, countActiveMarketFilters } from "@/components/trade/MarketFilterSheet";
+import { buildMarketFilterResetHref, countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
-import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -72,10 +69,8 @@ function TradePrimaryTabsInner({
   const { beginMenuNavigation, pendingMenuIntent, isPendingMenuBlockingContent } =
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const { open: openTradeWriteSheet } = useTradeWriteSheet();
-  const writeCtx = useWriteCategory();
-  const [filterOpen, setFilterOpen] = useState(false);
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
+  const [filterOpen, setFilterOpen] = useState(false);
   const {
     error,
     tabs,
@@ -114,10 +109,10 @@ function TradePrimaryTabsInner({
       fromPathname: pathname,
     });
   };
-  const openWrite = () => {
-    writeCtx?.ensureLauncherCategoriesLoaded();
-    if (!guardBeforeNavigate()) return;
-    openTradeWriteSheet("");
+  const goToSellHubPage = () => {
+    const href = "/market/sell";
+    if (!guardBeforeNavigate(href)) return;
+    router.push(href);
   };
 
   if (error) {
@@ -175,11 +170,11 @@ function TradePrimaryTabsInner({
           type="button"
           data-marketplace-sell-cta="true"
           className={tradePrimaryTabClass(false)}
-          onClick={openWrite}
+          onClick={goToSellHubPage}
         >
           <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{t("trade_write_sell_cta")}</span>
         </button>
-        {/* Filter only (category/location are handled inside MarketFilterSheet) */}
+        {/* Filter only: icon + N (category/location 선택은 MarketFilterSheet 안에서만) */}
         {(() => {
           const filterCount = countActiveMarketFilters(searchParams.toString());
           const filterActive = filterCount > 0;

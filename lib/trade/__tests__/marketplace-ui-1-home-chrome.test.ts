@@ -30,7 +30,7 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(chrome).not.toContain('href="/search"');
     expect(chrome).toContain("TradeHeaderLocationPinButton");
     const tabs = read("components/trade/TradePrimaryTabs.tsx");
-    expect(tabs).toContain("openTradeWriteSheet");
+    expect(tabs).toContain('"/market/sell"');
     expect(tabs).toContain("data-marketplace-sell-cta");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain("marketplace_search_placeholder");

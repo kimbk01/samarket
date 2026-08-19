@@ -59,6 +59,11 @@ type DraftState = {
   distanceAll: boolean;
 };
 
+type AppliedChip = {
+  id: "category" | "distance" | "tradeState" | "price";
+  label: string;
+};
+
 export interface MarketFilterSheetProps {
   open: boolean;
   onClose: () => void;
@@ -136,8 +141,11 @@ export function countActiveMarketFilters(baseSearch: string): number {
 
   const location = (sp.get("location") ?? "").trim().toLowerCase();
   const radiusRaw = sp.get(TRADE_LOCATION_RADIUS_PARAM);
-  // `radius`가 없으면 (default 추천 거리) — UI는 `거리: 전체`로 취급하므로 N에서도 default로 보지 않습니다.
-  if (location === "city" && radiusRaw != null && String(radiusRaw).trim() !== "") n++;
+  // `radius`가 없거나 추천 기본값(64km)이면 default로 간주해 active count에 넣지 않습니다.
+  if (location === "city" && radiusRaw != null && String(radiusRaw).trim() !== "") {
+    const parsed = Number(radiusRaw);
+    if (!Number.isNaN(parsed) && Math.round(parsed) !== TRADE_BROWSE_RECOMMENDED_RADIUS_KM) n++;
+  }
 
   const ts = (sp.get("tradeState") ?? "").trim().toLowerCase();
   if (ts === "active" || ts === "sold") n++;
@@ -202,7 +210,12 @@ export function MarketFilterSheet({
   const initialRadiusKm =
     committedScope.mode === "city" ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
   const radiusRaw = new URLSearchParams(baseSearch).get(TRADE_LOCATION_RADIUS_PARAM);
-  const initialDistanceAll = committedScope.mode === "city" ? radiusRaw == null || radiusRaw === "" : true;
+  const initialDistanceAll =
+    committedScope.mode === "city"
+      ? radiusRaw == null ||
+        radiusRaw === "" ||
+        sanitizeTradeBrowseRadiusKm(Number(radiusRaw)) === TRADE_BROWSE_RECOMMENDED_RADIUS_KM
+      : true;
 
   const [state, setState] = useState<DraftState>(() => ({
     sort: parseSortFromSearch(baseSearch),
@@ -289,8 +302,8 @@ export function MarketFilterSheet({
     return resolveTradeCompositionForCategory(rootCategory);
   }, [rootCategory]);
 
-  const appliedChips: string[] = useMemo(() => {
-    const chips: string[] = [];
+  const appliedChips: AppliedChip[] = useMemo(() => {
+    const chips: AppliedChip[] = [];
 
     if (rootCategory) {
       const rootLabel = resolveTradeCategoryUILabel(
@@ -308,34 +321,36 @@ export function MarketFilterSheet({
           resolvedChild.slug,
           resolvedChild.icon_key
         );
-        chips.push(`${rootLabel} · ${childLabel}`);
+        chips.push({ id: "category", label: `${rootLabel} · ${childLabel}` });
       } else {
-        chips.push(rootLabel);
+        chips.push({ id: "category", label: rootLabel });
       }
     }
 
     if (state.regionMode !== "all") {
-      if (!state.distanceAll) chips.push(`${Math.round(state.radiusKm)}km`);
+      if (!state.distanceAll) chips.push({ id: "distance", label: `${Math.round(state.radiusKm)}km` });
     }
 
     if (state.tradeState === "active") {
-      chips.push(
-        safeT("marketplace_filter_trade_state_active", {
+      chips.push({
+        id: "tradeState",
+        label: safeT("marketplace_filter_trade_state_active", {
           fallbackKo: "판매중",
           fallbackEn: "Available",
-        })
-      );
+        }),
+      });
     } else if (state.tradeState === "sold") {
-      chips.push(
-        safeT("marketplace_filter_trade_state_sold", {
+      chips.push({
+        id: "tradeState",
+        label: safeT("marketplace_filter_trade_state_sold", {
           fallbackKo: "판매완료",
           fallbackEn: "Sold",
-        })
-      );
+        }),
+      });
     }
 
     const priceChip = priceChipLabel(state.priceMin, state.priceMax);
-    if (priceChip) chips.push(priceChip);
+    if (priceChip) chips.push({ id: "price", label: priceChip });
 
     return chips;
   }, [
@@ -424,6 +439,24 @@ export function MarketFilterSheet({
       distanceAll: true,
     }));
     // on purpose: q is derived from URL baseSearch and never cleared by this sheet
+  }
+
+  function removeChip(chip: AppliedChip) {
+    setState((prev) => {
+      if (chip.id === "category") {
+        return { ...prev, rootCategoryId: null, topicKey: null, filters: {} };
+      }
+      if (chip.id === "distance") {
+        return { ...prev, distanceAll: true, radiusKm: TRADE_BROWSE_RECOMMENDED_RADIUS_KM };
+      }
+      if (chip.id === "tradeState") {
+        return { ...prev, tradeState: "all" };
+      }
+      if (chip.id === "price") {
+        return { ...prev, priceMin: "", priceMax: "" };
+      }
+      return prev;
+    });
   }
 
   function buildDraftHref(): string {
@@ -552,23 +585,26 @@ export function MarketFilterSheet({
             <span className={Sam.text.helper}>
               {safeT("marketplace_filter_applied", { fallbackKo: "적용된 필터", fallbackEn: "Applied filters" })}
             </span>
-            {appliedChips.map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex items-center rounded-full border border-sam-border bg-sam-surface px-2.5 py-0.5 text-sm text-sam-fg"
+            {appliedChips.map((chip, idx) => (
+              <button
+                key={`${chip.id}:${chip.label}:${idx}`}
+                type="button"
+                className="inline-flex items-center rounded-full border border-sam-border bg-sam-surface px-2.5 py-0.5 text-sm text-sam-fg active:scale-[0.98]"
+                onClick={() => removeChip(chip)}
+                aria-label={`${chip.label} ${safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}`}
               >
-                {chip}
+                {chip.label}
                 <span className="ml-1 text-sm text-sam-fg-muted" aria-hidden>
                   ×
                 </span>
-              </span>
+              </button>
             ))}
             <button
               type="button"
-              className={`${Sam.text.helper} ml-auto underline`}
+              className="ml-auto inline-flex h-8 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-xs font-medium text-sam-fg active:scale-[0.98]"
               onClick={clearDraft}
             >
-              {safeT("marketplace_filter_clear_all", { fallbackKo: "모두 지우기", fallbackEn: "Clear all" })}
+              {safeT("marketplace_filter_clear_all", { fallbackKo: "전체 초기화", fallbackEn: "Reset all" })}
             </button>
           </div>
         ) : null}

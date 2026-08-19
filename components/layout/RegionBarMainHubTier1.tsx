@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -21,9 +22,12 @@ import {
 } from "@/lib/layout/resolve-main-surface";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
+import {
+  parseTradeLocationScopeFromSearchParams,
+  peekTradeLguDisplayLabel,
+} from "@/lib/trade/location/trade-location-scope";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -80,16 +84,31 @@ function hubTitleKey(hub: Exclude<MainTabKeepAliveHubId, "delivery">) {
 export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) {
   const { t } = useI18n();
   const hub = resolveMainHubId(pathNoQuery);
+  const searchParams = useSearchParams();
   const extrasRight = useMainTier1ExtrasOptional()?.extras?.tier1?.rightSlot;
 
   if (hub == null) {
     return null;
   }
 
+  const tradeTitle = useMemo(() => {
+    if (hub !== "trade") return null;
+    const scope = parseTradeLocationScopeFromSearchParams(searchParams);
+    if (scope.mode !== "city") return t("marketplace_home_title");
+    const rawLabel =
+      peekTradeLguDisplayLabel(scope.canonicalId) ??
+      scope.canonicalId
+        .split("-")
+        .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+        .join(" ");
+    const label = rawLabel.replace(/\s+/g, " ").trim();
+    return `${t("marketplace_home_title")} · ${label} · ${scope.radiusKm}km`;
+  }, [hub, searchParams, t]);
+
   /** Trade HOME identity is Marketplace. Location lives in the entry chrome under this row. */
   const title: ReactNode =
     hub === "trade"
-      ? <span className="sr-only">{t("marketplace_home_title")}</span>
+      ? tradeTitle
       : t(hubTitleKey(hub));
   const rightSlot = extrasRight ?? defaultRightSlot(hub);
 
@@ -106,6 +125,9 @@ function TradeHeaderRightActions() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [domReady, setDomReady] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(() => sanitizeMarketplaceQueryText(searchParams.get("q")) ?? "");
 
   const applyQuery = () => {
@@ -119,13 +141,48 @@ function TradeHeaderRightActions() {
     setSearchOpen(false);
   };
 
+  useEffect(() => {
+    setDomReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const close = () => setSearchOpen(false);
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const clickedAnchor = anchorRef.current?.contains(target) ?? false;
+      const clickedPanel = panelRef.current?.contains(target) ?? false;
+      if (!clickedAnchor && !clickedPanel) close();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [searchOpen]);
+
+  const popupPos = (() => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return {
+      top: rect.bottom + 8,
+      right: Math.max(8, window.innerWidth - rect.right),
+    };
+  })();
+
   return (
     <>
       <div className={`${samTier1HeaderIconCluster} gap-2`}>
-        <span className="hidden whitespace-nowrap text-sm font-semibold text-sam-fg sm:inline">
-          {t("marketplace_home_title")}
-        </span>
         <button
+          ref={anchorRef}
           type="button"
           className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
           aria-label={t("marketplace_search_entry_aria")}
@@ -135,41 +192,44 @@ function TradeHeaderRightActions() {
         </button>
         <Tier1NotificationAnchor surface="bottom_nav_my" />
       </div>
-      <DibayBottomSheet
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        title={t("marketplace_search_entry_aria")}
-      >
-        <div className="px-4 pb-4">
-          <label className="flex min-h-11 min-w-0 items-center gap-2 overflow-hidden rounded-ui-rect bg-sam-surface-muted px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
-            <input
-              type="search"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={safeT("marketplace_search_placeholder", {
-                fallbackKo: "DIBAY MARKET에서 검색",
-                fallbackEn: "Search DIBAY MARKET",
-              })}
-              aria-label={t("marketplace_search_entry_aria")}
-              className="min-w-0 flex-1 border-0 bg-transparent sam-text-body text-sam-fg placeholder:text-sam-muted focus:outline-none focus:ring-0"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  applyQuery();
-                }
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className="mt-3 flex h-11 w-full items-center justify-center rounded-ui-rect bg-signature px-3.5 sam-text-body font-semibold text-white active:scale-[0.98] active:opacity-90"
-            onClick={applyQuery}
-          >
-            {t("common_confirm")}
-          </button>
-        </div>
-      </DibayBottomSheet>
+      {searchOpen && domReady && popupPos && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-[120] w-[min(22rem,calc(100vw-1rem))] rounded-sam-lg border border-sam-border bg-sam-surface p-3 shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
+              style={{ top: popupPos.top, right: popupPos.right }}
+            >
+              <label className="flex min-h-11 min-w-0 items-center gap-2 overflow-hidden rounded-ui-rect bg-sam-surface-muted px-3 py-2">
+                <Search className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
+                <input
+                  type="search"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={safeT("marketplace_search_placeholder", {
+                    fallbackKo: "DIBAY MARKET에서 검색",
+                    fallbackEn: "Search DIBAY MARKET",
+                  })}
+                  aria-label={t("marketplace_search_entry_aria")}
+                  className="min-w-0 flex-1 border-0 bg-transparent sam-text-body text-sam-fg placeholder:text-sam-muted focus:outline-none focus:ring-0"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyQuery();
+                    }
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="mt-3 flex h-10 w-full items-center justify-center rounded-ui-rect bg-signature px-3 sam-text-body font-semibold text-white active:scale-[0.98] active:opacity-90"
+                onClick={applyQuery}
+              >
+                {t("common_confirm")}
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
