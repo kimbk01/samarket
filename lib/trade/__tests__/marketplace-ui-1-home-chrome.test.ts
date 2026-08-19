@@ -55,6 +55,14 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(resolveMainTier1Subpage("/write")?.backHref).toBe("/market");
   });
 
+  it("sell hub excludes marketplace browse tab row chrome", () => {
+    const sticky = read("components/layout/AppStickyHeader.tsx");
+    expect(sticky).toContain('pathNoQueryForSurface !== "/market/sell"');
+    const tabs = read("components/trade/TradePrimaryTabs.tsx");
+    expect(tabs).toContain('leading={<TradeHeaderLocationPinButton placement="below-title" />}');
+    expect(tabs).not.toContain("/market/sell");
+  });
+
   it("preserves q when switching category href", () => {
     expect(
       buildTradeMarketFeedHref({

@@ -42,9 +42,15 @@ export function AppStickyHeader() {
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
   const { topTier1RuleSet, isTradeMenuSurface, domainId, domainStyle } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
+    const pathNoQueryForSurface = (pathname ?? "").split("?")[0] ?? "";
+    /** Browse-only chrome — sell hub / location stack are not marketplace list surfaces. */
     const isTradeMenuSurface =
-      pathname === "/market" ||
-      (pathname?.startsWith("/market/") ?? false);
+      pathNoQueryForSurface === "/market" ||
+      (pathNoQueryForSurface.startsWith("/market/") &&
+        pathNoQueryForSurface !== "/market/sell" &&
+        !pathNoQueryForSurface.startsWith("/market/sell/") &&
+        pathNoQueryForSurface !== "/market/location" &&
+        !pathNoQueryForSurface.startsWith("/market/location/"));
     const surface = resolveMainSurface(pathname);
     return {
       topTier1RuleSet,
