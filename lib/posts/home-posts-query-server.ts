@@ -28,6 +28,8 @@ import {
 } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import { applyMarketplaceQueryToPostgrest, sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
+import { shouldAllowSearchExpansionTail } from "@/lib/trade/marketplace/resolve-marketplace-membership";
+import type { SearchTopicGraphContext } from "@/lib/trade/marketplace/search-topic-graph-context";
 import {
   applyCompositionFilterClausesToPostgrest,
   type CompositionFilterClause,
@@ -43,12 +45,13 @@ import {
   SEARCH_EXPANSION_RELATED_OUT_BATCH,
   SEARCH_EXPANSION_TAIL_BATCH,
   advanceSearchExpansionCursor,
-  assembleSearchExpansionRound,
   buildSearchExpansionRelatedOrFilter,
   inferBodyTypesFromListings,
   resolveSearchExpansionHints,
   type SearchExpansionCursor,
 } from "@/lib/trade/marketplace/search-candidate-expansion";
+import { assembleMarketplaceSearchOrder } from "@/lib/trade/marketplace/assemble-marketplace-search-order";
+import { assembleMarketplaceBrowseOrder } from "@/lib/trade/marketplace/assemble-marketplace-browse-order";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
@@ -131,6 +134,8 @@ type HomePostsQueryExtras = {
   categoryPriorityRootTradeCategoryIds?: string[] | null;
   /** optional child(topic) priority (root-level fallback은 rootSet에서 tier ordering) */
   categoryPriorityTopicTradeCategoryIds?: string[] | null;
+  /** CUT-SSOT-2 TOPIC graph for search relevance */
+  searchTopicGraphContext?: SearchTopicGraphContext | null;
 };
 
 type HomePostsRangeFilterOpts = {
@@ -482,30 +487,35 @@ export async function loadSearchExpansionRound(
   const relevanceDone =
     advanced.exactExhausted && advanced.relatedInExhausted && advanced.relatedOutExhausted;
   if (relevanceDone && !advanced.tailExhausted) {
-    const tail = await fetchHomePostsMappedRange(
-      sb,
-      table,
-      sort,
-      type,
-      tradeCategoryIds,
-      statusOr,
-      undefined,
-      queryExtras,
-      advanced.tailOffset,
-      advanced.tailOffset + SEARCH_EXPANSION_TAIL_BATCH - 1,
-      { applyTitleQuery: false, applyLocation: false }
-    );
-    if (!tail) return null;
-    queryCount += 1;
-    tailRows = partitionPostsByCategoryPriority(tail, rootSet, topicSet);
-    tailCursor = {
-      ...advanced,
-      tailOffset: advanced.tailOffset + tail.length,
-      tailExhausted: tail.length < SEARCH_EXPANSION_TAIL_BATCH,
-    };
+    if (shouldAllowSearchExpansionTail(tradeCategoryIds)) {
+      const tail = await fetchHomePostsMappedRange(
+        sb,
+        table,
+        sort,
+        type,
+        tradeCategoryIds,
+        statusOr,
+        undefined,
+        queryExtras,
+        advanced.tailOffset,
+        advanced.tailOffset + SEARCH_EXPANSION_TAIL_BATCH - 1,
+        { applyTitleQuery: false, applyLocation: false }
+      );
+      if (!tail) return null;
+      queryCount += 1;
+      tailRows = partitionPostsByCategoryPriority(tail, rootSet, topicSet);
+      tailCursor = {
+        ...advanced,
+        tailOffset: advanced.tailOffset + tail.length,
+        tailExhausted: tail.length < SEARCH_EXPANSION_TAIL_BATCH,
+      };
+    } else {
+      // T5-B: no global unrelated tail without ROOT/TOPIC membership scope
+      tailCursor = { ...advanced, tailExhausted: true };
+    }
   }
 
-  const assembled = assembleSearchExpansionRound({
+  const assembled = assembleMarketplaceSearchOrder({
     exactRows,
     relatedInRows,
     relatedOutRows,
@@ -514,6 +524,7 @@ export async function loadSearchExpansionRound(
     browseLguCanonicalId: browseLgu,
     userSort: sort,
     cursor: tailCursor,
+    topicGraph: queryExtras?.searchTopicGraphContext ?? null,
   });
   return { posts: assembled.posts, cursor: assembled.cursor, queryCount };
 }
@@ -528,7 +539,8 @@ export async function resolveHomePostsPayload(
   statusOr: string,
   lguCityId?: string | null,
   radiusKm?: number | null,
-  queryExtras?: HomePostsQueryExtras
+  queryExtras?: HomePostsQueryExtras,
+  pageSize: number = HOME_POSTS_PAGE_SIZE
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   const qIsAbsent = queryExtras?.q == null || queryExtras?.q === "";
   const useRegionAllBrowsePriority = shouldUseRegionAllBrowsePriority(
@@ -549,7 +561,7 @@ export async function resolveHomePostsPayload(
         }
 
         const feedLocExtras = tradeFeedLocationSqlExtras(feedConstraint);
-        const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
+        const targetInclusive = from + pageSize;
         const rangeFrom = 0;
         const rangeTo = targetInclusive;
 
@@ -577,7 +589,7 @@ export async function resolveHomePostsPayload(
 
         const assembled = partitionPostsByCategoryPriority(mapped, rootSet, topicSet);
         return {
-          posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+          posts: assembled.slice(from, from + pageSize),
           hasMore: assembled.length > targetInclusive,
         };
       };
@@ -661,7 +673,7 @@ export async function resolveHomePostsPayload(
 
     /** region+전체 within: anchor SQL. Outside: nationwide scan + legacy-disjoint filter (not global top-N trim). */
     const anchorLocExtras = tradeFeedLocationToQueryExtras(feedConstraint);
-    const targetInclusive = from + HOME_POSTS_PAGE_SIZE;
+    const targetInclusive = from + pageSize;
     const rangeFrom = 0;
     const rangeTo = targetInclusive;
 
@@ -678,7 +690,7 @@ export async function resolveHomePostsPayload(
       tradeCatIds: string[] | null;
       excludeTradeCatIds?: string[] | null;
     }): Promise<PostWithMeta[]> => {
-      const batchSize = HOME_POSTS_PAGE_SIZE;
+      const batchSize = pageSize;
       const collected: PostWithMeta[] = [];
       const seen = new Set<string>();
       let dbOffset = 0;
@@ -751,9 +763,14 @@ export async function resolveHomePostsPayload(
     if (!rootArr) {
       const withinAll = await fetchTier({ tradeCatIds: null, tier: "within" });
       const outsideAll = await fetchTier({ tradeCatIds: null, tier: "outside" });
-      const assembled = [...withinAll, ...outsideAll];
+      const assembled = assembleMarketplaceBrowseOrder(
+        withinAll,
+        outsideAll,
+        sort,
+        canonicalId
+      );
       return {
-        posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+        posts: assembled.slice(from, from + pageSize),
         hasMore: assembled.length > targetInclusive,
       };
     }
@@ -799,7 +816,7 @@ export async function resolveHomePostsPayload(
     ];
 
     return {
-      posts: assembled.slice(from, from + HOME_POSTS_PAGE_SIZE),
+      posts: assembled.slice(from, from + pageSize),
       hasMore: assembled.length > targetInclusive,
     };
   }

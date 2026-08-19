@@ -51,6 +51,7 @@ describe("CUT C search candidate expansion", () => {
 
   it("does not classify unrelated rows into T1–T4 but accepts them in tail (T5)", () => {
     const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
+    expect(hints.metaCatalogMatches).toEqual([]);
     expect(
       classifySearchExpansionTier(
         { title: "Samsung fridge", meta: {}, trade_lgu_id: PASIG },
@@ -78,7 +79,7 @@ describe("CUT C search candidate expansion", () => {
     expect(assembled.posts.map((row) => row.id)).toEqual(["fridge"]);
   });
 
-  it("puts same-location SUV leftover in T3 after exact Fortuner infers body_type", () => {
+  it("puts SUV composition proximity in T3 regardless of browse LGU (location is within-tier sort only)", () => {
     const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
     expect(
       classifySearchExpansionTier(
@@ -95,7 +96,7 @@ describe("CUT C search candidate expansion", () => {
         PASIG,
         ["suv"]
       )
-    ).toBe(4);
+    ).toBe(3);
   });
 
   it("assembles T1 before T2 before T3 before T4 without duplicate ids", () => {
@@ -154,7 +155,7 @@ describe("CUT C search candidate expansion", () => {
     ]);
   });
 
-  it("forces within -> outside inside the same relevance tier (T1/T2/T3->T4)", () => {
+  it("forces within -> outside inside the same relevance tier (T1/T2/T3)", () => {
     const hints = resolveSearchExpansionHints("Toyota Fortuner")!;
     const assembled = assembleSearchExpansionRound({
       exactRows: [

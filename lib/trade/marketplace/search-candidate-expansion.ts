@@ -11,6 +11,17 @@
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { getTradeOptionCatalog } from "@/lib/trade/category-form/option-catalogs";
 import {
+  mergeProfileHintsIntoSearchExpansion,
+  listingMatchesMetaCatalogHints,
+  type SearchMetaCatalogMatch,
+} from "@/lib/trade/marketplace/search-expansion-profile-hints";
+import {
+  listingMatchesTopicGraphExact,
+  listingMatchesTopicGraphSibling,
+  type SearchTopicGraphContext,
+} from "@/lib/trade/marketplace/search-topic-graph-context";
+import { listingMatchesCompositionProximity } from "@/lib/trade/marketplace/search-expansion-composition-proximity";
+import {
   resolveListingLguCanonicalId,
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
@@ -25,6 +36,7 @@ export const SEARCH_EXPANSION_MAX_QUERIES_PER_ROUND = 3;
 export type SearchExpansionListing = {
   id?: string;
   title?: string | null;
+  category_id?: string | null;
   meta?: Record<string, unknown> | null;
   trade_lgu_id?: string | null;
   region?: string | null;
@@ -38,6 +50,8 @@ export type SearchExpansionHints = {
   makes: string[];
   models: string[];
   bodyTypes: string[];
+  /** CUT-SSOT-2 profile catalog meta matches (exchange, jobs, RE, …) */
+  metaCatalogMatches: SearchMetaCatalogMatch[];
 };
 
 export type SearchExpansionTier = 1 | 2 | 3 | 4 | 5;
@@ -137,7 +151,14 @@ export function resolveSearchExpansionHints(q: string | null | undefined): Searc
     const body = tokenHitsCatalog(token, bodyRows);
     if (body && !bodyTypes.includes(body)) bodyTypes.push(body);
   }
-  return { phrase, tokens, makes, models, bodyTypes };
+  return mergeProfileHintsIntoSearchExpansion({
+    phrase,
+    tokens,
+    makes,
+    models,
+    bodyTypes,
+    metaCatalogMatches: [],
+  });
 }
 
 export function buildSearchExpansionRelatedOrFilter(
@@ -166,6 +187,9 @@ export function buildSearchExpansionRelatedOrFilter(
   const bodies = [...new Set([...hints.bodyTypes, ...inferredBodyTypes])];
   for (const body of bodies) {
     push(`meta->>car_body_type.eq.${body}`);
+  }
+  for (const match of hints.metaCatalogMatches) {
+    push(`meta->>${match.metaKey}.eq.${match.value}`);
   }
   return parts.length > 0 ? parts.join(",") : null;
 }
@@ -200,7 +224,13 @@ function listingInBrowseLgu(
   return resolveListingLguCanonicalId(listing) === browse;
 }
 
-function strongRelated(listing: SearchExpansionListing, hints: SearchExpansionHints): boolean {
+function strongRelated(
+  listing: SearchExpansionListing,
+  hints: SearchExpansionHints,
+  topicGraph?: SearchTopicGraphContext | null
+): boolean {
+  if (listingMatchesTopicGraphExact(listing.category_id, topicGraph)) return true;
+  if (listingMatchesMetaCatalogHints(listing.meta ?? null, hints.metaCatalogMatches)) return true;
   const title = normalizeSearchExpansionText(listing.title ?? "");
   const carModel = listingMetaText(listing.meta ?? null, "car_model");
   const haystack = `${title} ${carModel}`.trim();
@@ -213,29 +243,20 @@ function strongRelated(listing: SearchExpansionListing, hints: SearchExpansionHi
   return false;
 }
 
-function looserRelated(
-  listing: SearchExpansionListing,
-  hints: SearchExpansionHints,
-  inferredBodyTypes: string[]
-): boolean {
-  const body = listingMetaText(listing.meta ?? null, "car_body_type");
-  const allowed = new Set([...hints.bodyTypes, ...inferredBodyTypes]);
-  return Boolean(body && allowed.has(body));
-}
-
 export function classifySearchExpansionTier(
   listing: SearchExpansionListing,
   hints: SearchExpansionHints,
   browseLguCanonicalId: string | null | undefined,
-  inferredBodyTypes: string[] = []
+  inferredBodyTypes: string[] = [],
+  topicGraph?: SearchTopicGraphContext | null
 ): SearchExpansionTier | null {
+  void browseLguCanonicalId;
   const title = normalizeSearchExpansionText(listing.title ?? "");
   if (hints.phrase && title.includes(hints.phrase)) return 1;
-  if (strongRelated(listing, hints)) return 2;
-  if (!looserRelated(listing, hints, inferredBodyTypes)) return null;
-  if (listingInBrowseLgu(listing, browseLguCanonicalId)) return 3;
-  if (browseLguCanonicalId?.trim()) return 4;
-  return 3;
+  if (strongRelated(listing, hints, topicGraph)) return 2;
+  if (listingMatchesCompositionProximity(listing, hints, inferredBodyTypes)) return 3;
+  if (listingMatchesTopicGraphSibling(listing.category_id, topicGraph)) return 4;
+  return null;
 }
 
 function sortTierRows<T extends SearchExpansionListing & { view_count?: number | null }>(
@@ -292,8 +313,10 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
   browseLguCanonicalId?: string | null;
   userSort?: SearchExpansionUserSort;
   cursor: SearchExpansionCursor;
+  topicGraph?: SearchTopicGraphContext | null;
 }): { posts: T[]; cursor: SearchExpansionCursor } {
   const userSort = input.userSort ?? "latest";
+  const topicGraph = input.topicGraph ?? null;
   const seen = new Set(input.cursor.seenIds);
   const inferred = [...new Set([...input.cursor.inferredBodyTypes, ...inferBodyTypesFromListings(input.exactRows)])];
   const buckets: Record<SearchExpansionTier, T[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -306,7 +329,8 @@ export function assembleSearchExpansionRound<T extends SearchExpansionListing & 
       row,
       input.hints,
       input.browseLguCanonicalId,
-      extraInferred
+      extraInferred,
+      topicGraph
     );
     if (!tier) continue;
     seen.add(id);

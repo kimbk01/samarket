@@ -23,6 +23,9 @@ import {
 } from "@/lib/posts/home-posts-query-server";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { expandTradeCategoryIdsForAllConfiguredHomeRoots } from "@/lib/trade/trade-market-catalog";
+import { resolveMarketplaceMembershipIdsForRoots } from "@/lib/trade/marketplace/resolve-marketplace-membership";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { loadSearchTopicGraphContext } from "@/lib/trade/marketplace/load-search-topic-graph-context";
 import { getPostFavoriteMutationEpochForViewer } from "@/lib/posts/post-favorites-viewer-mutation-epoch";
 import {
   applyTradeHomePromotionProjection,
@@ -484,7 +487,7 @@ export async function resolveHomePostsGetData(
   let categoryPriorityTopicTradeCategoryIds: string[] | null = null;
 
   let tradeCategoryIds: string[] | null = null; // promotion projection uses this (selected roots union)
-  let tradeCategoryIdsForQuery: string[] | null = null; // category hard-wall gate (soft in this cut)
+  let tradeCategoryIdsForQuery: string[] | null = null; // M-HARD membership IN gate (CUT-SSOT-1)
   let effectiveType: HomePostsQueryType = type;
 
   if (hasRootSelection) {
@@ -533,8 +536,19 @@ export async function resolveHomePostsGetData(
       }
     }
 
-    // category priority cut: do NOT hard-wall via tradeCategoryIds in DB query
-    tradeCategoryIdsForQuery = null;
+    // CUT-SSOT-1 M-HARD: `computeMarketFilterIds` parity with trade/feed
+    const qsb =
+      tryCreateSupabaseServiceClient() ?? (serviceSb as SupabaseClient<any>) ?? (readSb as SupabaseClient<any>);
+    tradeCategoryIdsForQuery = await resolveMarketplaceMembershipIdsForRoots(
+      qsb,
+      resolvedTradeMarketParentIds.map((pid) => ({
+        parentId: pid,
+        topicParam: tradeTopicByParent[pid] ?? "",
+      }))
+    );
+    if (tradeCategoryIdsForQuery) {
+      tradeCategoryIds = tradeCategoryIdsForQuery;
+    }
 
     // marketplaces in this route should stay `trade`-only even without hard category ids
     if (type == null || type === "trade") effectiveType = "trade";
@@ -574,6 +588,16 @@ export async function resolveHomePostsGetData(
   })();
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
   const useSearchExpansion = shouldApplyMarketplaceSearchExpansion({ q, sort });
+  let searchTopicGraphContext = null;
+  if (useSearchExpansion && q) {
+    const qsb =
+      tryCreateSupabaseServiceClient() ?? (serviceSb as SupabaseClient<any>) ?? (readSb as SupabaseClient<any>);
+    searchTopicGraphContext = await loadSearchTopicGraphContext(
+      qsb,
+      q,
+      resolvedTradeMarketParentIds.length > 0 ? resolvedTradeMarketParentIds : null
+    );
+  }
   const rankedWindowKey = buildSearchRankedWindowCacheKey({
     sort,
     type: effectiveType ?? "all",
@@ -638,6 +662,7 @@ export async function resolveHomePostsGetData(
                   mixedDiscoverySellIntent,
                   categoryPriorityRootTradeCategoryIds,
                   categoryPriorityTopicTradeCategoryIds,
+                  searchTopicGraphContext,
                 },
                 cursor
               );

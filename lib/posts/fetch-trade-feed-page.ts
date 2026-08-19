@@ -1,7 +1,9 @@
 /**
  * 거래 마켓 피드 페이지 조회 — 브라우저·Route Handler 공용 ("use client" 없음)
+ * CUT-SSOT-4: city browse + no q → philife L-SOFT path (`resolveHomePostsPayload`).
  */
 import type { PostWithMeta } from "./schema";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   postMetaMatchesJobListingKind,
   type JobListingKindFilter,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/posts/trade-posts-range-query";
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 import { resolveTradeFeedLocationConstraint } from "@/lib/trade/location/national/resolve-trade-feed-location-constraint";
+import { shouldUseRegionAllBrowsePriority } from "@/lib/trade/location/national/trade-feed-location-sql-extras";
 import { tradeFeedLocationToQueryExtras } from "@/lib/trade/location/national/trade-feed-location-query-extras";
 import {
   parseMarketplacePriceBound,
@@ -26,6 +29,11 @@ import {
   MARKETPLACE_DISTANCE_SCAN_CAP,
   sortListingsByLguDistance,
 } from "@/lib/trade/marketplace/sort-listings-by-lgu-distance";
+import {
+  resolveHomePostsPayload,
+  resolveHomePostsStatusOrByTradeState,
+  type HomePostsQuerySort,
+} from "@/lib/posts/home-posts-query-server";
 
 export type TradeFeedPageSort = TradePostSort;
 
@@ -58,9 +66,18 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const jc = opts.jobIndustrySlug;
   const statusOr = opts.statusOr?.trim();
   const lguCityId = opts.lguCityId?.trim();
-  const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, opts.radiusKm);
-  const tradeFeedLocation = tradeFeedLocationToQueryExtras(feedConstraint);
   const q = sanitizeMarketplaceQueryText(opts.q);
+  const qAbsent = !q;
+  const useBrowseSoft =
+    Boolean(lguCityId) && shouldUseRegionAllBrowsePriority(lguCityId, opts.radiusKm, qAbsent);
+  /** CUT-SSOT-4: browse L-SOFT — no hard SQL location wall (align philife). */
+  const tradeFeedLocation = useBrowseSoft
+    ? undefined
+    : (() => {
+        const feedConstraint = resolveTradeFeedLocationConstraint(lguCityId, opts.radiusKm);
+        if (feedConstraint.kind === "all" || feedConstraint.kind === "invalid") return undefined;
+        return tradeFeedLocationToQueryExtras(feedConstraint);
+      })();
   const priceMin = parseMarketplacePriceBound(opts.priceMin);
   const priceMax = parseMarketplacePriceBound(opts.priceMax);
   const compositionFilters = opts.compositionFilters?.length ? opts.compositionFilters : undefined;
@@ -119,6 +136,29 @@ export async function fetchTradeFeedPage(
   const jobKind = restrictJob ? options.jobsListingKind : undefined;
   const queryExtras = buildQueryExtras(options);
   const PAGE_SIZE = PAGE_SIZE_TRADE_FEED;
+  const qAbsent = !sanitizeMarketplaceQueryText(options.q);
+  const useBrowseSoft =
+    Boolean(options.lguCityId?.trim()) &&
+    shouldUseRegionAllBrowsePriority(options.lguCityId, options.radiusKm, qAbsent);
+
+  if (jobKind !== "hire" && jobKind !== "work" && useBrowseSoft) {
+    const from = (page - 1) * PAGE_SIZE;
+    const browseSort = parseMarketplaceSort(sort) as HomePostsQuerySort;
+    const soft = await resolveHomePostsPayload(
+      supabase as SupabaseClient<any>,
+      null,
+      from,
+      browseSort,
+      "trade",
+      ids,
+      options.statusOr?.trim() || resolveHomePostsStatusOrByTradeState("latest"),
+      options.lguCityId,
+      options.radiusKm,
+      queryExtras,
+      PAGE_SIZE
+    );
+    if (soft) return soft;
+  }
 
   if (jobKind === "hire" || jobKind === "work") {
     const targetStart = (page - 1) * PAGE_SIZE;

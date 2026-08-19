@@ -8,8 +8,6 @@ import {
 } from "@/lib/jobs/job-list-url-params";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
-import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
@@ -27,6 +25,7 @@ import {
 } from "@/lib/trade/marketplace/query-contract";
 import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 import { resolveCompositionFilterClausesFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
+import { resolveMarketplaceMembershipIdsForRoots } from "@/lib/trade/marketplace/resolve-marketplace-membership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,12 +93,10 @@ export async function GET(req: NextRequest) {
     /** `getSupabaseServer()` 실패 시에도 `.env` 서비스 롤이 있으면 트리 확장만이라도 우회 */
     const qsb =
       tryCreateSupabaseServiceClient() ?? clients.serviceSb ?? clients.readSb;
-    const childrenForFilter = await fetchTradeCategoryDescendantNodes(qsb, tradeMarketParent);
-    categoryIds = computeMarketFilterIds({
-      parentCategoryId: tradeMarketParent,
-      activeChildren: childrenForFilter,
-      topicParam,
-    });
+    const membership = await resolveMarketplaceMembershipIdsForRoots(qsb, [
+      { parentId: tradeMarketParent, topicParam },
+    ]);
+    categoryIds = membership ?? [];
   } else if (categoryIdsParam.length > 0) {
     categoryIds = categoryIdsParam;
   } else {
