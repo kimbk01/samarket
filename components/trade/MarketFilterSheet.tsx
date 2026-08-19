@@ -36,6 +36,7 @@ import {
   sanitizeCompositionFilterSelection,
   resolveCompositionAttributeFilterFields,
   resolveTradeCompositionForCategory,
+  parseCompositionFilterSearchParams,
   type CompositionFilterSelection,
 } from "@/lib/trade/category-form";
 import { marketplaceMoreBrowseHasFilterOptions } from "@/lib/trade/tabs/marketplace-more-browse";
@@ -127,14 +128,8 @@ function parseKnownCompositionSelectionFromSearch(opts: {
 }): CompositionFilterSelection {
   const sp = new URLSearchParams(opts.baseSearch);
   const composition = resolveTradeCompositionForCategory(opts.root);
-  const fields = resolveCompositionAttributeFilterFields(composition);
-  const next: CompositionFilterSelection = {};
-  for (const f of fields) {
-    const raw = sp.get(f.id);
-    if (raw == null || raw === "") continue;
-    next[f.id] = raw;
-  }
-  return next;
+  const raw = parseCompositionFilterSearchParams(sp);
+  return sanitizeCompositionFilterSelection(raw, composition);
 }
 
 function unionCompositionFieldIds(topics: CategoryWithSettings[]): string[] {
@@ -170,6 +165,9 @@ export function countActiveMarketFilters(baseSearch: string): number {
   if (!Number.isNaN(max) && max > 0) n++;
   // 가격은 min/max 중 하나라도 있으면 1로 보이게끔 보정
   if (min > 0 || max > 0) n -= (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) - 1;
+
+  if (Object.keys(parseCompositionFilterSearchParams(sp)).length > 0) n++;
+
   return Math.max(0, n);
 }
 

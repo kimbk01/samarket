@@ -50,12 +50,14 @@ describe("CUT I — 6-profile WRITE/LIST/DETAIL/FILTER matrix (contract)", () =>
     expect(resolveCompositionAttributeFilterFields(general)).toEqual([]);
   });
 
-  it("FILTER UI is category browse + SEARCH, not HOME /market", () => {
+  it("FILTER UI is MarketFilterSheet + SEARCH, not HOME or category list inline", () => {
     const home = readRepoFile("components/home/HomeProductList.tsx");
     const category = readRepoFile("components/post/PostListByCategory.tsx");
+    const sheet = readRepoFile("components/trade/MarketFilterSheet.tsx");
     const search = readRepoFile("components/search/SearchFilterBar.tsx");
     expect(home).not.toContain("CompositionAttributeFilterSelects");
-    expect(category).toContain("CompositionAttributeFilterSelects");
+    expect(category).not.toContain("CompositionAttributeFilterSelects");
+    expect(sheet).toContain("CompositionAttributeFilterSelects");
     expect(search).toContain("CompositionAttributeFilterSelects");
   });
 
