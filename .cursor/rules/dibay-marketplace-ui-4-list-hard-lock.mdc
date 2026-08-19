@@ -1,0 +1,48 @@
+---
+description: HARD LOCK — DIBAY Marketplace UI-4 LIST card information hierarchy
+alwaysApply: true
+---
+
+# DIBAY Marketplace UI-4 LIST HARD LOCK
+
+**HARD LOCK (2026-08-19).** Full doc: `docs/dibay-marketplace-ui-4-list-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: UI-4 LOCKED**
+- Production SHA: `08fd8bba1b3604ab637b426966bf50fb8350095e`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_2kT6KMQGwaJvwxsBEfJUfX1Uenb1`
+- HOME / CATEGORY: 사진 → 가격 → 제목 → 지역 → ♡ → 홍보(해당 시) → ⋮
+- SEARCH: horizontal 100×100 KEEP · 사진 → 가격 → 제목 → 홍보(해당 시) → 지역 → ♡ · no ⋮
+- REMOVE: 판매중 / spec 요약 / 등록 시간
+- RUNTIME: Samsung + Xiaomi **PASS** (visible card DOM, not slot markers)
+- PRODUCT CODE MODIFIED DURING RUNTIME: **0**
+- FAVORITES / PROMOTED fixture: **NOT_PROVEN** — does not reopen CUT F/G
+- MIGRATION: **NO**
+- CUT A–J / UI-1 / UI-2 / UI-3 / UI-5: **PRESERVED**
+- UI-6: **NOT STARTED**
+
+## KEEP
+
+```text
+PostCard 2-col HOME/CATEGORY
+ProductCard horizontal SEARCH
+CUT F 홍보 badge / pin order
+CUT G heart + LIST report menu
+FavoritePostCard = PostCard reuse
+```
+
+Authority: `PostCard.tsx` · `ProductCard.tsx`.
+
+This cut changed **LIST card information order**, not SEARCH rank, LIST sell-intent, taxonomy, DETAIL, or WRITE.
+
+## DO NOT (without a new cut)
+
+- Restore status / spec / time on LIST cards
+- Restyle SEARCH as 2-col PostCard
+- Add SEARCH report menu
+- Touch CUT F pin or CUT G writers
+- Add proof-only `data-*` markers to product code
+- Start UI-6 inside UI-4 work
+- Reopen CUT A–J or UI-1/2/3/5 to finish LIST chrome
