@@ -8,6 +8,7 @@ import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
+import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
@@ -149,7 +150,7 @@ function TradePrimaryTabsInner({
                 aria-selected={allTab.isDisplayActive}
                 aria-label={allTab.label}
                 prefetch
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg active:scale-[0.98] active:opacity-90"
+                className={`${tradePrimaryTabClass(false)} inline-flex h-9 w-9 shrink-0 items-center justify-center !bg-transparent !text-sam-fg active:scale-[0.98] active:opacity-90`}
                 onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
                 onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
                 onClick={(e) => {
