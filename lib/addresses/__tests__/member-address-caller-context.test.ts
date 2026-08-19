@@ -83,6 +83,28 @@ describe("PHASE2 member-address continuity contracts", () => {
     expect(resolveAddressManagementExitHref("/philife")).toBe("/market/used");
   });
 
+  it("pending_restore matches /market home when surface stored with category query", () => {
+    const ctx = buildMemberAddressCallerContext({
+      caller: "trade_write",
+      purpose: "select_trade_region",
+      apply: { kind: "trade_region" },
+      restore: {
+        kind: "trade_write",
+        surfaceHref: "/market?category=cat-uuid",
+        categoryId: "cat-uuid",
+        categoryKey: "cat-uuid",
+        reopenSheet: true,
+      },
+    });
+    commitMemberAddressExit(ctx, "confirm");
+    expect(consumeMemberAddressTradeWritePendingRestore("/market")).toEqual({
+      categoryKey: "cat-uuid",
+      categoryId: "cat-uuid",
+      exitIntent: "confirm",
+      selectedAddressId: null,
+    });
+  });
+
   it("pending_restore is consume-once and rejects stale path", () => {
     const ctx = buildMemberAddressCallerContext({
       caller: "trade_write",
@@ -107,6 +129,24 @@ describe("PHASE2 member-address continuity contracts", () => {
     });
     expect(peekMemberAddressCallerContext()).toBe(null);
     expect(consumeMemberAddressTradeWritePendingRestore("/market/used")).toBe(null);
+  });
+
+  it("confirm exit does not clear pending_restore context", () => {
+    const ctx = buildMemberAddressCallerContext({
+      caller: "trade_write",
+      purpose: "select_trade_region",
+      apply: { kind: "trade_region" },
+      restore: {
+        kind: "trade_write",
+        surfaceHref: "/market",
+        categoryId: "cat-1",
+        categoryKey: "cat-1",
+        reopenSheet: true,
+      },
+    });
+    commitMemberAddressExit(ctx, "confirm");
+    expect(confirmMemberAddressFlowExit("/mypage")).toBe("/market");
+    expect(peekMemberAddressCallerContext()?.phase).toBe("pending_restore");
   });
 
   it("cancel exit restores without leaving region handoff", () => {

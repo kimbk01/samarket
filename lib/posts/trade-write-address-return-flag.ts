@@ -18,6 +18,16 @@ export function setTradeWriteRestoreAfterAddressFlag(categoryId: string): void {
   }
 }
 
+/** 제거 없이 읽기만 — Strict 이중 layout·시트 재오픈 레이스 대비 */
+export function peekTradeWriteRestoreAfterAddressFlag(categoryId: string): boolean {
+  if (typeof window === "undefined" || !categoryId.trim()) return false;
+  try {
+    return sessionStorage.getItem(key(categoryId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** true 이면 플래그를 제거했다(이번 방문에서 복원 시도할 것). */
 export function consumeTradeWriteRestoreAfterAddressFlag(categoryId: string): boolean {
   if (typeof window === "undefined" || !categoryId.trim()) return false;

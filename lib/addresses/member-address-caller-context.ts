@@ -14,6 +14,7 @@
  */
 
 import { parseSafeInternalReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
+import { scheduleTradeWriteSheetReopenAfterMeetSpot } from "@/lib/navigation/trade-meet-spot-return-to";
 
 /**
  * Pre-existing address flow exit key (formerly plain href).
@@ -287,6 +288,10 @@ export function commitMemberAddressExit(
       exitIntent,
     };
     writeMemberAddressCallerContext(pending);
+    scheduleTradeWriteSheetReopenAfterMeetSpot(
+      ctx.restore.surfaceHref,
+      ctx.restore.categoryId || ctx.restore.categoryKey,
+    );
     return { href, pending };
   }
   clearMemberAddressCallerContext();
@@ -307,6 +312,77 @@ export type TradeWritePendingRestore = {
   selectedAddressId: string | null;
 };
 
+function normalizeTradeWriteSurfacePath(p: string | null | undefined): string {
+  const raw = (p ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * `/market` 홈(쿼리 없음) · `/market?category=` · 레거시 `/market/{seg}` 를 동일 표면으로 본다.
+ */
+export function tradeWriteRestoreSurfacesMatch(
+  pathname: string | null | undefined,
+  surfaceHref: string,
+  categoryKey?: string | null,
+): boolean {
+  const base = normalizeTradeWriteSurfacePath(pathname);
+  const expected = normalizeTradeWriteSurfacePath(parseSafeInternalReturnTo(surfaceHref));
+  if (!base || !expected) return false;
+  if (base === expected) return true;
+  const key = (categoryKey ?? "").trim();
+  if (base === "/market" && expected === "/market") return true;
+  if (base === "/market" && expected.startsWith("/market")) return true;
+  if (expected === "/market" && base.startsWith("/market")) return true;
+  if (key) {
+    const legacy = base.match(/^\/market\/([^/]+)$/);
+    if (legacy?.[1]) {
+      let seg = legacy[1];
+      try {
+        seg = decodeURIComponent(seg);
+      } catch {
+        /* keep seg */
+      }
+      if (seg === key) return true;
+    }
+  }
+  return false;
+}
+
+function readTradeWritePendingRestoreFromContext(
+  ctx: MemberAddressCallerContextV1,
+): TradeWritePendingRestore | null {
+  if (ctx.restore.kind !== "trade_write") return null;
+  const categoryKey = ctx.restore.categoryKey.trim();
+  const categoryId = ctx.restore.categoryId.trim();
+  if (!categoryKey) return null;
+  return {
+    categoryKey,
+    categoryId,
+    exitIntent: ctx.exitIntent,
+    selectedAddressId: ctx.selectedAddressId,
+  };
+}
+
+/** 제거 없이 pending_restore 만 확인 */
+export function peekMemberAddressTradeWritePendingRestore(
+  pathname: string | null | undefined,
+): TradeWritePendingRestore | null {
+  const ctx = peekMemberAddressCallerContext();
+  if (!ctx || ctx.phase !== "pending_restore") return null;
+  if (ctx.restore.kind !== "trade_write") return null;
+  if (
+    !tradeWriteRestoreSurfacesMatch(pathname, ctx.restore.surfaceHref, ctx.restore.categoryKey)
+  ) {
+    return null;
+  }
+  return readTradeWritePendingRestoreFromContext(ctx);
+}
+
 /**
  * Consume-once pending_restore when surface path matches.
  * Stale path → leave context (no consume) so wrong surface cannot steal restore.
@@ -314,26 +390,10 @@ export type TradeWritePendingRestore = {
 export function consumeMemberAddressTradeWritePendingRestore(
   pathname: string | null | undefined,
 ): TradeWritePendingRestore | null {
-  const ctx = peekMemberAddressCallerContext();
-  if (!ctx || ctx.phase !== "pending_restore") return null;
-  if (ctx.restore.kind !== "trade_write") return null;
-  const base = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
-  const expected = parseSafeInternalReturnTo(ctx.restore.surfaceHref).split("?")[0] || "";
-  const norm = (p: string) => {
-    try {
-      return decodeURIComponent(p);
-    } catch {
-      return p;
-    }
-  };
-  if (!expected || norm(base) !== norm(expected)) return null;
-  const categoryKey = ctx.restore.categoryKey.trim();
-  const categoryId = ctx.restore.categoryId.trim();
-  const exitIntent = ctx.exitIntent;
-  const selectedAddressId = ctx.selectedAddressId;
+  const pending = peekMemberAddressTradeWritePendingRestore(pathname);
+  if (!pending) return null;
   clearMemberAddressCallerContext();
-  if (!categoryKey) return null;
-  return { categoryKey, categoryId, exitIntent, selectedAddressId };
+  return pending;
 }
 
 export type OpenMemberAddressBookInput = {

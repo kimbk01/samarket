@@ -152,7 +152,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     }
     const onMatchingCategory =
       pathOnly === "/market/sell" ||
-      (pathOnly === "/market" && categoryFromQuery === key) ||
+      (pathOnly === "/market" && (!categoryFromQuery || categoryFromQuery === key)) ||
       legacySeg === key;
     if (!onMatchingCategory) return;
     try {

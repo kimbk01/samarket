@@ -166,7 +166,7 @@ import {
 } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton, TRADE_WRITE_FORM_ID } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
-import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import { consumeTradeWriteRestoreAfterAddressFlag, peekTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import {
   clearTradeMeetSpotPickResult,
   clearTradeMeetSpotSessionNavigationState,
@@ -218,6 +218,7 @@ import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "./trade-karrot-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import {
   hrefTradeMeetSpotPick,
+  markTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -801,16 +802,20 @@ function TradeMarketplaceWriteFormInner({
     }
     if (editPostId) return;
     const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
+    const shouldRestore = peekTradeWriteRestoreAfterAddressFlag(category.id);
     const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
-    if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn) {
-      const staged = peekTradeWriteMeetSpotStaging(category.id);
+    const stagedForSubflow = peekTradeWriteMeetSpotStaging(category.id);
+    if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn || stagedForSubflow) {
+      const staged = stagedForSubflow ?? peekTradeWriteMeetSpotStaging(category.id);
       if (staged) {
         applyPersistedDraft(staged);
         stripTradeWriteMeetSpotSessionMirror(category.id);
       } else {
         const d = readTradeWriteFormPersistedDraft(category.id);
         if (d) applyPersistedDraft(d);
+      }
+      if (peekTradeWriteRestoreAfterAddressFlag(category.id)) {
+        consumeTradeWriteRestoreAfterAddressFlag(category.id);
       }
       setResumeDraftSnapshot(null);
       setDraftResumeGate("ready");
@@ -1272,14 +1277,20 @@ function TradeMarketplaceWriteFormInner({
     }
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
-    setTradeWriteRestoreAfterAddressFlag(category.id);
-    const workingImages = await uploadPendingTradeWriteImages();
-    if (suppressDraftPersistenceRef.current) return;
-    const payload = assembleTradeWriteFlushPayload(workingImages);
+    const payload = assembleTradeWriteFlushPayload(images);
     tradeDraftFlushRef.current = payload;
     const built = buildTradeWriteFormSessionDraft(payload);
     writeTradeWriteFormSessionDraft(built);
     persistTradeWriteMeetSpotStaging(category.id, built);
+    setTradeWriteRestoreAfterAddressFlag(category.id);
+    markTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    const workingImages = await uploadPendingTradeWriteImages();
+    if (suppressDraftPersistenceRef.current) return;
+    const uploadedPayload = assembleTradeWriteFlushPayload(workingImages);
+    tradeDraftFlushRef.current = uploadedPayload;
+    const uploadedBuilt = buildTradeWriteFormSessionDraft(uploadedPayload);
+    writeTradeWriteFormSessionDraft(uploadedBuilt);
+    persistTradeWriteMeetSpotStaging(category.id, uploadedBuilt);
   }, [
     isExtendedProfile,
     isJobsProfile,

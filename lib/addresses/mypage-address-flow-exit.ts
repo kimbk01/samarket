@@ -49,14 +49,22 @@ export function clearAddressFlowExitHref(): void {
 }
 
 export function resolveAddressManagementExitHref(returnTo?: string | null): string {
-  const fromCtx = resolveMemberAddressExitHrefFromContext(peekMemberAddressCallerContext());
-  if (fromCtx) return fromCtx;
-  return parseSafeInternalReturnTo(returnTo);
+  const fromQuery = parseSafeInternalReturnTo(returnTo);
+  const ctx = peekMemberAddressCallerContext();
+  if (ctx && ctx.caller !== "unknown") {
+    const fromCtx = resolveMemberAddressExitHrefFromContext(ctx);
+    if (fromCtx) return fromCtx;
+  }
+  if (fromQuery) return fromQuery;
+  return resolveMemberAddressExitHrefFromContext(ctx);
 }
 
 /** CONFIRM exit — may carry trade pending_restore; region handoff set by caller before this. */
 export function confirmMemberAddressFlowExit(returnTo?: string | null): string {
   const ctx = peekMemberAddressCallerContext();
+  if (ctx?.phase === "pending_restore") {
+    return resolveMemberAddressExitHrefFromContext(ctx);
+  }
   if (ctx && ctx.phase === "open") {
     const { href } = commitMemberAddressExit(ctx, "confirm");
     if (href) return href;
@@ -69,6 +77,9 @@ export function confirmMemberAddressFlowExit(returnTo?: string | null): string {
 /** CANCEL / BACK — restore caller without address apply (no region handoff). */
 export function cancelMemberAddressFlowExit(returnTo?: string | null): string {
   const ctx = peekMemberAddressCallerContext();
+  if (ctx?.phase === "pending_restore") {
+    return resolveMemberAddressExitHrefFromContext(ctx);
+  }
   if (ctx && ctx.phase === "open") {
     const { href } = commitMemberAddressExit(ctx, "cancel");
     if (href) return href;
