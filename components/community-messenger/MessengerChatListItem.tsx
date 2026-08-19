@@ -67,6 +67,7 @@ import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatar
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveCommerceChatListPresentation } from "@/lib/community-messenger/commerce-chat-list-presentation";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
+import { formatTradeMarketplacePeerProductTitle } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 import {
   normalizeMessengerRealtimeRoomId,
@@ -367,6 +368,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     productTitle: tradeRowModel?.productTitle ?? "",
     productPriceText: tradeRowModel?.productPriceText,
   });
+  const tradeListDisplayTitle = useMemo(() => {
+    if (!isTradeChatListVisual || !tradeRowModel) return "";
+    return formatTradeMarketplacePeerProductTitle(tradeRowModel.peerName, tradeListPreview.displayTitle);
+  }, [isTradeChatListVisual, tradeListPreview.displayTitle, tradeRowModel]);
   const bootstrapUnreadFloor = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
   const { count: displayedUnreadCount, tier: unreadDisplayTier } = useMessengerChatListUnread(room.id, bootstrapUnreadFloor);
 
@@ -943,7 +948,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        productTitle={tradeListPreview.displayTitle}
+        productTitle={tradeListDisplayTitle}
         previewLine={tradePreviewLine}
         rolePrefix={tradeRowModel.rolePrefix}
         productPriceText={tradeListPreview.displayPriceText}

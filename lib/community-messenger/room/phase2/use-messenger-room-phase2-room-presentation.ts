@@ -22,7 +22,10 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPrice } from "@/lib/utils/format";
-import { resolveTradeWindowCounterpartyRole } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
+import {
+  formatTradeMarketplacePeerProductTitle,
+  resolveTradeWindowCounterpartyRole,
+} from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
 
 /** `summary`·`contextMeta` 가 거래/배달 v1 기계 메타만 담는지 — 친구 1:1 DM legacy 잔재 포함. */
 export function roomSummaryIsTradeOrDeliveryContextMetaOnly(input: {
@@ -157,8 +160,8 @@ export function useMessengerRoomPhase2RoomPresentation({
       title,
       imageUrl,
       peerLabel,
-      /** Factory/R2 primary — listing title only (peer is subtitle). */
-      headerTitle: title,
+      /** UI — Marketplace-style `{peer} · {product}` (Factory primary/secondary unchanged). */
+      headerTitle: formatTradeMarketplacePeerProductTitle(peerLabel, title),
       postId: postId || null,
       counterpartyRole,
       priceLabel,

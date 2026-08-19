@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { translate } from "@/lib/i18n/messages";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { buildTradeChatListRowModel } from "@/lib/community-messenger/trade-chat-list/view-model";
+import { formatTradeMarketplacePeerProductTitle } from "@/lib/community-messenger/room/phase2/marketplace-room-chrome";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 const t = (key: MessageKey, vars?: Record<string, string | number>) => translate("ko", key, vars);
@@ -120,5 +121,22 @@ describe("buildTradeChatListRowModel", () => {
     );
     expect(m.listingState).toBe("completed");
     expect(m.statusTone).toBe("completed");
+  });
+
+  it("list primary title joins peer and product for trade list row", () => {
+    const m = buildTradeChatListRowModel(
+      room({
+        title: "Ryan Vincent",
+        contextMeta: {
+          v: 1,
+          kind: "trade",
+          headline: "2020 Audi A6 2.0 TFSI",
+        },
+      }),
+      t
+    );
+    expect(formatTradeMarketplacePeerProductTitle(m.peerName, m.productTitle)).toBe(
+      "Ryan Vincent · 2020 Audi A6 2.0 TFSI"
+    );
   });
 });

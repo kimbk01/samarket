@@ -243,8 +243,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const listingSubtitle = useMemo(() => {
     if (!listingHeader) return statusLine;
     if (typingPeerCount > 0) return t("chats_peer_typing");
-    return listingHeader.peerLabel?.trim() || statusLine;
-  }, [listingHeader, statusLine, t, typingPeerCount]);
+    if (vm.snapshot.room.roomType === "direct" && peerPresence) {
+      return formatMessengerPeerPresenceLine(peerPresence);
+    }
+    return "";
+  }, [listingHeader, peerPresence, statusLine, t, typingPeerCount, vm.snapshot.room.roomType]);
 
   const openListingDetailSlide = () => {
     const postId = listingHeader?.postId?.trim();
@@ -395,9 +398,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
                   {listingHeader.headerTitle}
                 </p>
-                <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">
-                  {listingSubtitle}
-                </p>
+                {listingSubtitle ? (
+                  <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">
+                    {listingSubtitle}
+                  </p>
+                ) : null}
               </div>
             </button>
           </>
