@@ -24,6 +24,11 @@ import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primar
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
 import { buildMarketFilterResetHref, countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  SAM_TIER1_HEADER_ICON_HIT_CLASS,
+  SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
+} from "@/lib/ui/tier1-header-icon";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -150,7 +155,7 @@ function TradePrimaryTabsInner({
                 aria-selected={allTab.isDisplayActive}
                 aria-label={allTab.label}
                 prefetch
-                className={`${tradePrimaryTabClass(false)} inline-flex h-10 w-10 shrink-0 items-center justify-center !bg-transparent active:scale-[0.98] active:opacity-90`}
+                className={`${tradePrimaryTabClass(false)} inline-flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} shrink-0 items-center justify-center !bg-transparent active:scale-[0.98] active:opacity-90`}
                 onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
                 onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
                 onClick={(e) => {
@@ -166,8 +171,8 @@ function TradePrimaryTabsInner({
                 }}
               >
                 <RotateCcw
-                  className="h-5 w-5 shrink-0 text-sam-primary"
-                  strokeWidth={2.25}
+                  className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
+                  strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
                   aria-hidden
                 />
               </Link>
@@ -175,12 +180,16 @@ function TradePrimaryTabsInner({
             <button
               type="button"
               data-marketplace-filter="true"
-              className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect active:scale-[0.98] active:opacity-90"
+              className={`relative inline-flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} shrink-0 items-center justify-center rounded-ui-rect active:scale-[0.98] active:opacity-90`}
               aria-haspopup="dialog"
               aria-label={filterLabel}
               onClick={() => setFilterOpen(true)}
             >
-              <SlidersHorizontal className="h-5 w-5 shrink-0 text-sam-primary" strokeWidth={2.25} aria-hidden />
+              <SlidersHorizontal
+                className={`${SAM_TIER1_HEADER_ICON_GLYPH_CLASS} shrink-0 text-sam-primary`}
+                strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+                aria-hidden
+              />
               {filterActive ? (
                 <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-signature px-1 text-[10px] font-semibold leading-none text-white">
                   {filterCount}

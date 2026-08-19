@@ -6,7 +6,8 @@ import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defa
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import { clearTradeBrowseLocationDraftSession } from "@/lib/trade/location/trade-browse-location-draft-session";
 import { clearTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
-import { buildTradeLocationHref } from "@/lib/trade/location/trade-location-scope";
+import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import { buildTradeLocationHref, type TradeLocationScope } from "@/lib/trade/location/trade-location-scope";
 
 const MASTER_ADDRESS_ID_KEY = "samarket:trade-browse-master-address-id:v1";
 
@@ -27,10 +28,7 @@ const MARKET_FILTER_PARAMS = [
   "cursor",
 ] as const;
 
-export function buildTradeMarketplaceDefaultBrowseHref(
-  pathname: string,
-  currentSearch: string
-): string {
+function stripMarketFilterParams(currentSearch: string): URLSearchParams {
   const sp = new URLSearchParams(
     currentSearch.startsWith("?") ? currentSearch.slice(1) : currentSearch
   );
@@ -38,7 +36,18 @@ export function buildTradeMarketplaceDefaultBrowseHref(
   for (const key of [...sp.keys()]) {
     if (key.startsWith("filters[")) sp.delete(key);
   }
-  return buildTradeLocationHref(pathname, sp.toString(), { mode: "all" });
+  return sp;
+}
+
+/** Default browse = master CITY + distance 전체; fallback nationwide ALL. */
+export async function buildTradeMarketplaceDefaultBrowseHref(
+  pathname: string,
+  currentSearch: string
+): Promise<string> {
+  const sp = stripMarketFilterParams(currentSearch);
+  const masterCity = await resolveTradeMarketplaceDefaultCityFromMaster();
+  const scope: TradeLocationScope = masterCity ?? { mode: "all" };
+  return buildTradeLocationHref(pathname, sp.toString(), scope);
 }
 
 /**
@@ -74,7 +83,7 @@ export async function resolveTradeMarketplaceMasterAddressResetHref(
     sessionStorage.setItem(MASTER_ADDRESS_ID_KEY, masterId);
     clearTradeBrowseCommittedScope();
     clearTradeBrowseLocationDraftSession();
-    return buildTradeMarketplaceDefaultBrowseHref(pathname, currentSearch);
+    return await buildTradeMarketplaceDefaultBrowseHref(pathname, currentSearch);
   } catch {
     return null;
   }

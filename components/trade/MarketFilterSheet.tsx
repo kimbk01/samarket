@@ -28,6 +28,7 @@ import {
 import {
   readTradeBrowseLocationDraftSession,
 } from "@/lib/trade/location/trade-browse-location-draft-session";
+import { resolveTradeMarketplaceDefaultCityFromMaster } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 import {
   appendCompositionFilterSearchParams,
   sanitizeCompositionFilterSelection,
@@ -227,6 +228,26 @@ export function MarketFilterSheet({
     () => parseTradeLocationScopeFromSearchParams(new URLSearchParams(baseSearch)),
     [baseSearch]
   );
+  const [masterRegionLabel, setMasterRegionLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void resolveTradeMarketplaceDefaultCityFromMaster().then((scope) => {
+      if (cancelled || !scope) return;
+      setMasterRegionLabel(tradeLocationScopeDisplayLabel(scope));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const myRegionCommitLabel = useMemo(() => {
+    if (committedScope.mode === "city") {
+      return tradeLocationScopeDisplayLabel(committedScope) ?? masterRegionLabel;
+    }
+    return masterRegionLabel;
+  }, [committedScope, masterRegionLabel]);
 
   const knownFieldIds = useMemo(() => unionCompositionFieldIds(topics), [topics]);
 
@@ -999,9 +1020,13 @@ export function MarketFilterSheet({
         >
           <RegionRadio
             checked={state.regionMode === "commit"}
-            label={committedScope.mode === "city" && committedScope.canonicalId
-              ? tradeLocationScopeDisplayLabel(committedScope) ?? safeT("trade_location_section_region", { fallbackKo: "지역", fallbackEn: "Area" })
-              : safeT("trade_location_resolving_city", { fallbackKo: "지역 확인 중…", fallbackEn: "Finding city…" })}
+            label={
+              myRegionCommitLabel ??
+              safeT("trade_location_resolving_city", {
+                fallbackKo: "지역 확인 중…",
+                fallbackEn: "Finding city…",
+              })
+            }
             onSelect={() => setState((s) => ({ ...s, regionMode: "commit" }))}
           />
           <RegionRadio
