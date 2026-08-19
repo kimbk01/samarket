@@ -8,6 +8,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -44,8 +45,21 @@ import { writeAddressPlatformV2Draft } from "@/lib/addresses/canonical-address-d
 import { resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
-  writeAddressFlowExitHref,
+  ensureMemberAddressCallerContextFromTransport,
+  confirmMemberAddressFlowExit,
+  cancelMemberAddressFlowExit,
+  clearAddressFlowExitHref,
 } from "@/lib/addresses/mypage-address-flow-exit";
+import {
+  peekMemberAddressCallerContext,
+  resolveMemberAddressExitHrefFromContext,
+  setTradeWriteRegionApplyHandoff,
+  writeMemberAddressCallerContext,
+} from "@/lib/addresses/member-address-caller-context";
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
+import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
+import { broadcastUserAddressesChanged } from "@/lib/addresses/user-addresses-sync";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
   STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
@@ -70,8 +84,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
 
   useEffect(() => {
-    if (embedded || !returnTo) return;
-    writeAddressFlowExitHref(returnTo);
+    if (embedded) return;
+    /** CallerContext is authority; returnTo query is transport only. */
+    ensureMemberAddressCallerContextFromTransport(returnTo);
   }, [embedded, returnTo]);
 
   useEffect(() => {
@@ -177,7 +192,51 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   function closeAfterRepresentativePick() {
-    if (!embedded && returnTo) router.replace(returnTo);
+    if (embedded) return;
+    const exitHref = confirmMemberAddressFlowExit(returnTo);
+    if (exitHref) {
+      router.replace(exitHref);
+      return;
+    }
+    clearAddressFlowExitHref();
+    if (returnTo) router.replace(returnTo);
+  }
+
+  function handleCancelBackToCaller() {
+    setTradeWriteRegionApplyHandoff(null);
+    const exitHref = cancelMemberAddressFlowExit(returnTo);
+    if (exitHref) {
+      router.replace(exitHref);
+      return;
+    }
+    clearAddressFlowExitHref();
+    runHistoryBackWithFallback(router, "/mypage");
+  }
+
+  function confirmTradeRegionPick(id: string): boolean {
+    const callerCtx = peekMemberAddressCallerContext();
+    if (callerCtx?.apply.kind !== "trade_region" || !returnTo) return false;
+    const row = list.find((a) => a.id === id);
+    if (!row) return false;
+    const inferred = mapUserAddressToAppLocation(row);
+    const line = (buildExplorationRegionSubtitleLine(row) ?? "").trim();
+    if (inferred && callerCtx) {
+      writeMemberAddressCallerContext({
+        ...callerCtx,
+        selectedAddressId: id,
+      });
+      setTradeWriteRegionApplyHandoff({
+        addressId: id,
+        regionId: inferred.regionId,
+        cityId: inferred.cityId,
+        displayLine: line && line !== "—" ? line : inferred.cityId,
+      });
+    } else {
+      setTradeWriteRegionApplyHandoff(null);
+    }
+    broadcastUserAddressesChanged();
+    closeAfterRepresentativePick();
+    return true;
   }
 
   async function openCurrentLocation() {
@@ -203,6 +262,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   async function setAsRepresentative(id: string) {
     const row = list.find((a) => a.id === id);
     if (!row) return;
+    if (confirmTradeRegionPick(id)) return;
     if (row.isDefaultMaster) {
       closeAfterRepresentativePick();
       return;
@@ -353,7 +413,21 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           inlineChrome
           registerMainTier1={false}
           titleKey="addr_ui_settings_title"
-          backHref={returnTo || "/mypage"}
+          backHref={
+            resolveMemberAddressExitHrefFromContext(peekMemberAddressCallerContext()) ||
+            returnTo ||
+            "/mypage"
+          }
+          preferHistoryBack={!returnTo}
+          leftSlot={
+            returnTo ? (
+              <AppBackButton
+                preferHistoryBack={false}
+                onBack={handleCancelBackToCaller}
+                ariaLabelKey="nav_back"
+              />
+            ) : undefined
+          }
           hideCtaStrip
           showHubQuickActions
         />

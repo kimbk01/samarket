@@ -6,15 +6,11 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
 import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
-import {
-  MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS,
-  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
-} from "@/lib/main-menu/bottom-nav-config";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 const SHEET_EXIT_MS = 520;
 
@@ -31,7 +27,6 @@ export function TradeWriteBottomSheet() {
     openEpoch,
     close,
     setBlockingDraft,
-    blockingDraft,
     initialCategory,
     persistSnapshotBeforeLeaveRef,
   } = useTradeWriteSheet();
@@ -43,7 +38,7 @@ export function TradeWriteBottomSheet() {
   const scrollBodyRef = useRef<HTMLDivElement | null>(null);
   const stickyChromeRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-  const [headerLeaveOpen, setHeaderLeaveOpen] = useState(false);
+  const tryCloseFromFlowRef = useRef<() => void>(() => {});
   const { effectiveViewportBottom } = useFormKeyboardViewport({ enabled: isOpen });
   useFormKeyboardFocusVisibility({
     enabled: isOpen,
@@ -134,47 +129,15 @@ export function TradeWriteBottomSheet() {
   );
 
   const onHeaderClose = useCallback(() => {
-    if (blockingDraft) {
-      setHeaderLeaveOpen(true);
-      return;
-    }
-    void exitAndClose();
-  }, [blockingDraft, exitAndClose]);
-
-  const handleHeaderLeaveConfirm = useCallback(() => {
-    setHeaderLeaveOpen(false);
-    void (async () => {
-      try {
-        await persistSnapshotBeforeLeaveRef.current?.();
-      } catch {
-        /* 스냅샷 실패해도 닫기 진행 */
-      }
-      await exitAndClose();
-    })();
-  }, [exitAndClose, persistSnapshotBeforeLeaveRef]);
-
-  const handleHeaderLeaveCancel = useCallback(() => setHeaderLeaveOpen(false), []);
+    tryCloseFromFlowRef.current();
+  }, []);
 
   if (!isOpen) return null;
 
   const panelOpen = enterDraw && !isExiting;
 
   return (
-    <>
-      <MobileConfirmBottomSheet
-        open={headerLeaveOpen}
-        onCancel={handleHeaderLeaveCancel}
-        title={t("ui_write_exit_title")}
-        description={t("ui_write_exit_body")}
-        cancelLabel={t("ui_write_exit_continue")}
-        confirmLabel={t("ui_write_exit_confirm")}
-        confirmTone="primary"
-        onConfirm={handleHeaderLeaveConfirm}
-        zIndexClass={MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS}
-        ariaLabel={t("ui_write_trade_exit_aria")}
-        interactionMode="blocking"
-      />
-      <div
+    <div
       className={`pointer-events-none fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} flex flex-col`}
       role="dialog"
       aria-modal
@@ -222,11 +185,13 @@ export function TradeWriteBottomSheet() {
               }}
               onSuccessNavigate={onSuccessNavigate}
               onTradeSheetBlockingDraftChange={setBlockingDraft}
+              onExposeTryClose={(fn) => {
+                tryCloseFromFlowRef.current = fn;
+              }}
             />
           </div>
         </div>
       </div>
     </div>
-    </>
   );
 }

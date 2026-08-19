@@ -226,10 +226,9 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
     const jobsForm = read("components/write/trade/generic/JobsExtendedWriteFields.tsx");
     const exchangeForm = read("components/write/trade/generic/ExchangeExtendedWriteFields.tsx");
     expect(tradeLocation).toContain("formatUserAddressTitle");
-    expect(tradeLocation).toContain("buildMypageAddressesHrefFromPath");
-    expect(tradeLocation).toContain("buildMypageAddressesHref(addressReturnTo)");
-    expect(tradeLocation).toContain("scheduleTradeWriteSheetReopenAfterMeetSpot(addressReturnTo)");
-    expect(tradeLocation).toContain("router.push(addressesHref)");
+    expect(tradeLocation).toContain("openMemberAddressBook");
+    expect(tradeLocation).toContain("consumeTradeWriteRegionApplyHandoff");
+    expect(tradeLocation).toContain("tradeWriteRestore");
     expect(tradeLocation).toContain("defaults?.master");
     expect(tradeLocation).toContain("SAMARKET_ADDRESSES_UPDATED_EVENT");
     expect(tradeLocation).not.toContain("defaults?.trade");
@@ -254,6 +253,9 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       expect(src, name).not.toContain("scheduleTradeWriteSheetReopenAfterMeetSpot");
       expect(src, name).not.toContain("addressReturnTo");
       expect(src, name).not.toContain("suppressAddressBookRegionSync");
+      if (name === "TradeWriteForm") {
+        expect(src, name).toContain("tradeWriteRestore");
+      }
       expect(src, name).not.toContain("representativeTradeMeetFallbackLine");
       expect(src, name).not.toContain("fetchRepresentativeTradeMeetFallbackLine");
       expect(src, name).not.toContain("getLocationLabelIfValid");
@@ -279,7 +281,8 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
   it("address book representative row pick closes to returnTo after broadcasting defaults", () => {
     const manager = read("components/addresses/AddressManagementClient.tsx");
     expect(manager).toContain("function closeAfterRepresentativePick()");
-    expect(manager).toContain("router.replace(returnTo)");
+    expect(manager).toContain("confirmMemberAddressFlowExit");
+    expect(manager).toContain("confirmTradeRegionPick");
     expect(manager).toContain("if (row.isDefaultMaster)");
     expect(manager).toContain("closeAfterRepresentativePick();");
     expect(manager).toMatch(/commitUserAddressListAfterMutation\(\)[\s\S]*setList\(rows\);[\s\S]*closeAfterRepresentativePick\(\);/);

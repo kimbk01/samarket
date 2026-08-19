@@ -28,9 +28,6 @@ type Props = {
   price: string;
   setPrice: (v: string) => void;
   currencyUnitLabel: string;
-  isPriceOfferEnabled: boolean;
-  setIsPriceOfferEnabled: (v: boolean) => void;
-  allowPriceOffer: boolean;
   errors: UsedCarBuyFieldsErrors;
   disabled?: boolean;
   enabledFieldIds?: ReadonlySet<string>;
@@ -50,9 +47,6 @@ export function UsedCarBuyFields({
   price,
   setPrice,
   currencyUnitLabel,
-  isPriceOfferEnabled,
-  setIsPriceOfferEnabled,
-  allowPriceOffer,
   errors,
   disabled = false,
   enabledFieldIds,
@@ -142,18 +136,6 @@ export function UsedCarBuyFields({
             <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>
           ) : null}
         </div>
-      ) : null}
-      {showPriceSlot && allowPriceOffer ? (
-        <label className="mt-3 flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={isPriceOfferEnabled}
-            onChange={(e) => setIsPriceOfferEnabled(e.target.checked)}
-            disabled={disabled}
-            className="rounded border-sam-border"
-          />
-          <span className="sam-text-body-secondary text-sam-muted">{t("trade_005")}</span>
-        </label>
       ) : null}
     </>
   );

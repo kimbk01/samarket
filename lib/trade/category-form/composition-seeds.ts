@@ -29,7 +29,7 @@ export const TRADE_SEED_COMPOSITIONS: Record<string, TradeSeedComposition> = {
       f("description", 40, true),
       f("location", 50, true),
       f("trade_meet_spot", 60, false),
-      f("is_price_offer", 70, false),
+      f("is_price_offer", 70, false, false),
     ],
   },
   "used-car": {

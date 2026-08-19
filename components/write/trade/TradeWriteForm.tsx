@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import {
@@ -145,6 +145,7 @@ import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snaps
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
@@ -163,7 +164,7 @@ import {
   TradeDefaultLocationBlock,
   type TradeWriteAddressSsotSnapshot,
 } from "../shared/TradeDefaultLocationBlock";
-import { SubmitButton } from "../shared/SubmitButton";
+import { SubmitButton, TRADE_WRITE_FORM_ID } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import {
@@ -289,8 +290,17 @@ function TradeMarketplaceWriteFormInner({
   const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
+  const addressWriteSurfaceHref = useMemo(
+    () =>
+      resolveAddressFlowEntryPath(
+        pathname ?? "",
+        searchParams?.toString() ? `?${searchParams.toString()}` : ""
+      ) || getCategoryHref(category),
+    [pathname, searchParams, category]
+  );
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const categoryLabel = useMemo(
     () => resolveWriteCategoryUILabel(language, category),
@@ -2010,6 +2020,16 @@ function TradeMarketplaceWriteFormInner({
         error={isExtendedProfile ? extendedChromeErrors.location || errors.location : errors.location}
         readOnly={locationLocked || coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+        tradeWriteRestore={
+          !editPostId
+            ? {
+                surfaceHref: addressWriteSurfaceHref,
+                categoryId: category.id,
+                categoryKey: category.id,
+                reopenSheet: Boolean(tradeWriteSheet),
+              }
+            : null
+        }
         onAddressResolved={setTradeAddressSsot}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
@@ -2252,7 +2272,7 @@ function TradeMarketplaceWriteFormInner({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
+      <form id={TRADE_WRITE_FORM_ID} onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
         {tradePolicy?.hint ? (
           <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-1.5 sam-text-body-secondary text-sam-warning">
             {tradePolicy.hint}
@@ -2493,9 +2513,6 @@ function TradeMarketplaceWriteFormInner({
               price={price}
               setPrice={setPrice}
               currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
-              isPriceOfferEnabled={false}
-              setIsPriceOfferEnabled={() => {}}
-              allowPriceOffer={false}
               disabled={coreLocked}
               enabledFieldIds={compositionWriteFieldIds}
               fieldsSlot="price"
@@ -2596,9 +2613,6 @@ function TradeMarketplaceWriteFormInner({
                 price={price}
                 setPrice={setPrice}
                 currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
-                isPriceOfferEnabled={false}
-                setIsPriceOfferEnabled={() => {}}
-                allowPriceOffer={false}
                 disabled={coreLocked}
                 enabledFieldIds={compositionWriteFieldIds}
                 fieldsSlot="item"
@@ -2807,6 +2821,7 @@ function TradeMarketplaceWriteFormInner({
         )}
         <div data-ui3-slot="submit">
         <SubmitButton
+          formId={TRADE_WRITE_FORM_ID}
           label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
           submitting={isJobsProfile ? jobsSubmitting : isExchangeProfile ? exchangeSubmitting : submitting}
           submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
