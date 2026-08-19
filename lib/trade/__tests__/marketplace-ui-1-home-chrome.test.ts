@@ -33,7 +33,6 @@ describe("Marketplace UI-1 HOME chrome", () => {
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
     expect(header).toContain("marketplace_search_placeholder");
     expect(header).toContain("sanitizeMarketplaceQueryText");
-    expect(tabs).not.toContain('"/market/sell"');
     expect(tabs).not.toContain("data-marketplace-sell-cta");
     expect(header).toContain('"/market/sell"');
     expect(header).toContain("data-marketplace-sell-cta");

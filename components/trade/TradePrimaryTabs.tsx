@@ -98,6 +98,7 @@ function TradePrimaryTabsInner({
   const filterLabel = filterActive
     ? `${t("marketplace_filter_button")} ${filterCount}`
     : t("marketplace_filter_button");
+  const showLocationLeading = !pathname.startsWith("/market/sell");
 
   const commitTab = (href: string, tabKey: string) => {
     const toIdx = displayTabs.findIndex((tab) => tab.key === tabKey);
@@ -140,7 +141,7 @@ function TradePrimaryTabsInner({
         trackRole="tablist"
         trackAriaLabel={t("trade_138")}
         bordered={!embedInAppHeader}
-        leading={<TradeHeaderLocationPinButton placement="below-title" />}
+        leading={showLocationLeading ? <TradeHeaderLocationPinButton placement="below-title" /> : undefined}
         trailing={
           <button
             type="button"
@@ -183,7 +184,7 @@ function TradePrimaryTabsInner({
               commitTab(allTab.href, allTab.key);
             }}
           >
-            <RotateCcw className="h-4 w-4" aria-hidden />
+            <RotateCcw className="h-4 w-4 !text-sam-fg" aria-hidden />
           </Link>
         ) : null}
       </DibaySecondaryTabRow>
