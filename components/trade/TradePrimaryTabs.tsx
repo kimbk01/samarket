@@ -8,6 +8,7 @@ import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { TradeHeaderLocationPinButton } from "@/components/trade/TradeHeaderLocationPinButton";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
+import { tradePrimaryTabClass } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import {
   DIBAY_CHROME_SECONDARY_HOST_BORDERED_CLASS,
   DIBAY_CHROME_SECONDARY_HOST_CLASS,
@@ -165,7 +166,8 @@ function TradePrimaryTabsInner({
             aria-selected={allTab.isDisplayActive}
             aria-label={allTab.label}
             prefetch
-            className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-ui-rect bg-transparent p-0"
+            className={`ml-auto ${tradePrimaryTabClass(allTab.isDisplayActive)}`}
+            style={{ background: "transparent" }}
             onPointerEnter={() => prewarmBottomNavMarketTab(allTab.href)}
             onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
             onClick={(e) => {
@@ -181,10 +183,7 @@ function TradePrimaryTabsInner({
               commitTab(allTab.href, allTab.key);
             }}
           >
-            <RotateCcw
-              className={`h-4 w-4 ${allTab.isDisplayActive ? "text-sam-primary" : "text-sam-fg"}`}
-              aria-hidden
-            />
+            <RotateCcw className="h-4 w-4" aria-hidden />
           </Link>
         ) : null}
       </DibaySecondaryTabRow>
