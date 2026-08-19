@@ -25,6 +25,7 @@ import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-marke
 import { buildMarketFilterResetHref, countActiveMarketFilters, MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  SAM_TIER1_HEADER_ICON_CLUSTER_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
   SAM_TIER1_HEADER_ICON_HIT_CLASS,
   SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
@@ -147,7 +148,7 @@ function TradePrimaryTabsInner({
         bordered={!embedInAppHeader}
         leading={<TradeHeaderLocationPinButton placement="below-title" />}
         trailing={
-          <div className="inline-flex items-center gap-1">
+          <div className={`inline-flex items-center ${SAM_TIER1_HEADER_ICON_CLUSTER_CLASS}`}>
             {allTab ? (
               <Link
                 href={allTab.href}
