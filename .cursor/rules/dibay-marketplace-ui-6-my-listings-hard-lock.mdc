@@ -1,0 +1,47 @@
+---
+description: HARD LOCK — DIBAY Marketplace UI-6 MY selling listings
+alwaysApply: true
+---
+
+# DIBAY Marketplace UI-6 MY SELLING LISTINGS HARD LOCK
+
+**HARD LOCK (2026-08-19).** Full doc: `docs/dibay-marketplace-ui-6-my-listings-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: UI-6 LOCKED**
+- Production SHA: `5414ad87bcf3f95ba02704ace9c418ff5b226e4e`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_E5TMyXumNZzHKzpCtGS4Z99hLhp7`
+- PRIMARY: `/mypage/products` = 「내 판매물품」
+- CARD: 사진 → 가격 → 제목 → 지역 → 판매상태·시간 → 홍보(해당 시)
+- MENU: 수정 / 더 알리기 / 판매완료 / 숨김 / 삭제
+- 4-STATE WRITER: **PRESERVED** (not in UI-6 1차 메뉴)
+- SALES FLOW `/mypage/trade/sales` + PostSellerTradeStrip: **PRESERVED**
+- RUNTIME: Samsung + Xiaomi **PASS**
+- PRODUCT CODE MODIFIED DURING RUNTIME: **0**
+- PROMOTED fixture: **NOT_PROVEN** — does not reopen CUT F
+- MIGRATION: **NO**
+- CUT A–J / UI-1~5: **PRESERVED**
+
+## KEEP
+
+```text
+/mypage/products = Marketplace 판매물품 관리
+더 알리기 vocabulary + existing promotion URL
+판매완료 = existing completed path
+숨김 탭 owner listings
+```
+
+Authority: `MyProductsView.tsx` · `MyProductCard.tsx` · `MyProductActions.tsx`.
+
+This cut changed **MY selling listings chrome**, not SEARCH, LIST, DETAIL, WRITE, or sales chat/flow.
+
+## DO NOT (without a new cut)
+
+- Restore secondary-list banner
+- Restore 4-state / 끌올 / 판매취소 in UI-6 ⋮
+- Restore review-write complete copy
+- Touch `/mypage/trade/sales` or PostSellerTradeStrip structure
+- Reopen CUT A–J or UI-1~5
+- Restore buyer purchase list
