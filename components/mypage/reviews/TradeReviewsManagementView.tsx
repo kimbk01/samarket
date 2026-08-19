@@ -123,7 +123,7 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
             href={tradeHubChatRoomHref(it.roomId, "product_chat")}
             className="sam-text-body-secondary font-medium text-signature hover:underline"
           >
-            {t("mypage_comp_order_chat")}
+            {t("mypage_comp_trade_chat")}
           </Link>
         ) : null}
         <Link href={detailHref} className="sam-text-body-secondary font-medium text-signature hover:underline">

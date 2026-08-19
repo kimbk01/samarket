@@ -35,7 +35,8 @@ describe("TRADE UI CUT 2 — seller surface role cleanup", () => {
 
   it("SalesHistoryCard is sales history only — no listing/transaction mutations", () => {
     const card = src("components/mypage/sales/SalesHistoryCard.tsx");
-    expect(card).toContain("mypage_comp_order_chat_revisit");
+    expect(card).toContain("mypage_comp_trade_chat_revisit");
+    expect(card).not.toContain("mypage_comp_order_chat_revisit");
     expect(card).toContain("mypage_comp_sales_buyer_review_view");
     expect(card).not.toContain("seller-complete");
     expect(card).not.toContain("seller-listing-state");

@@ -163,7 +163,7 @@ export function SalesHistoryCard({
                   onClick={() => setMenuOpen(false)}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
-                  {t("mypage_comp_order_chat_view")}
+                  {t("mypage_comp_trade_chat_view")}
                 </Link>
               ) : (
                 <span className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-meta">
@@ -205,7 +205,7 @@ export function SalesHistoryCard({
             href={tradeHubChatRoomHref(row.chatId, "product_chat")}
             className="block w-full rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
           >
-            {t("mypage_comp_order_chat_revisit")}
+            {t("mypage_comp_trade_chat_revisit")}
           </Link>
         </div>
       ) : null}

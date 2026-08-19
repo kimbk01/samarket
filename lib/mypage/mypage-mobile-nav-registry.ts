@@ -88,7 +88,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     labelKey: mypageSectionLabelKey("trade"),
     items: [
       navItem("trade", "sales"),
-      navItem("trade", "purchases"),
       navItem("trade", "favorites"),
       navItem("trade", "recent"),
       navItem("trade", "trade-chat"),

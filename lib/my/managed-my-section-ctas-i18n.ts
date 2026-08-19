@@ -24,11 +24,7 @@ export function getTradeSectionCtas(): ManagedMyCtaLink[] {
 }
 
 export function getOrdersSectionCtas(): ManagedMyCtaLink[] {
-  return withLabels([
-    { href: "/mypage/store-orders", labelKey: "my_cta_orders_history" },
-    { href: TRADE_CHAT_MESSENGER_LIST_HREF, labelKey: "my_cta_trade_chat" },
-    { href: "/mypage/trade/sales", labelKey: "my_cta_trade_sales" },
-  ]);
+  return withLabels([{ href: "/mypage/store-orders", labelKey: "my_cta_orders_history" }]);
 }
 
 export function getBoardSectionCtas(): ManagedMyCtaLink[] {
