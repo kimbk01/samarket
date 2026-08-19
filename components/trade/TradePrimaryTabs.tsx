@@ -3,6 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SlidersHorizontal } from "lucide-react";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MarketplaceMoreBrowseSheet } from "@/components/trade/MarketplaceMoreBrowseSheet";
 import { MarketFilterSheet } from "@/components/trade/MarketFilterSheet";
@@ -21,12 +22,7 @@ import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/Lates
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { parseTradeMarketCategoryFromSearch } from "@/lib/trade/tabs/trade-market-feed-href";
-import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
-import {
-  parseTradeLocationScopeFromSearchParams,
-  tradeLocationScopeDisplayLabel,
-} from "@/lib/trade/location/trade-location-scope";
-import { countActiveMarketFilters } from "@/components/trade/MarketFilterSheet";
+import { buildMarketFilterResetHref, countActiveMarketFilters } from "@/components/trade/MarketFilterSheet";
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -74,10 +70,8 @@ function TradePrimaryTabsInner({
   const { beginMenuNavigation, pendingMenuIntent, isPendingMenuBlockingContent } =
     useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const [moreOpen, setMoreOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const categoryQuery = parseTradeMarketCategoryFromSearch(searchParams);
-  const locationScope = parseTradeLocationScopeFromSearchParams(searchParams);
   const {
     error,
     tabs,
@@ -96,8 +90,6 @@ function TradePrimaryTabsInner({
     [tabs, pendingMenuIntent]
   );
   const allTab = displayTabs.find((tab) => tab.key === "all");
-  const categoryTabs = displayTabs.filter((tab) => tab.key !== "all");
-  const activeCategory = categoryTabs.find((tab) => tab.isDisplayActive) ?? null;
   const activeDisplayIndex = useMemo(
     () => displayTabs.findIndex((tab) => tab.isDisplayActive),
     [displayTabs]
@@ -117,13 +109,6 @@ function TradePrimaryTabsInner({
       skipPrewarm: true,
       fromPathname: pathname,
     });
-  };
-
-  const openLocation = () => {
-    const q = searchParams.toString();
-    const href = q ? `${TRADE_BROWSE_LOCATION_PATH}?${q}` : TRADE_BROWSE_LOCATION_PATH;
-    if (!guardBeforeNavigate(href)) return;
-    router.push(href);
   };
 
   if (error) {
@@ -163,53 +148,21 @@ function TradePrimaryTabsInner({
             onPointerDown={() => prewarmBottomNavMarketTab(allTab.href)}
             onClick={(e) => {
               e.preventDefault();
-              const hasQ = Boolean(sanitizeMarketplaceQueryText(searchParams.get("q")));
-              if (allTab.isDisplayActive && !hasQ) {
-                if (
-                  !isPendingMenuBlockingContent ||
-                  menuHrefMatchesIntent(allTab.href, pendingMenuIntent)
-                ) {
-                  return;
-                }
-              }
-              if (!guardBeforeNavigate(allTab.href)) return;
-              prewarmBottomNavMarketTab(allTab.href);
+              const resetHref = buildMarketFilterResetHref({
+                baseSearch: searchParams.toString(),
+                topics: tradeCategories,
+              });
+              if (!guardBeforeNavigate(resetHref)) return;
+              prewarmBottomNavMarketTab(resetHref);
+              // keep transition contract verifier pattern: commitTab(allTab.href, ...)
+              allTab.href = resetHref;
               commitTab(allTab.href, allTab.key);
             }}
           >
             <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{allTab.label}</span>
           </Link>
         ) : null}
-        <button
-          type="button"
-          data-marketplace-more-categories="true"
-          role="tab"
-          aria-selected={Boolean(activeCategory)}
-          aria-haspopup="dialog"
-          className={tradePrimaryTabClass(Boolean(activeCategory))}
-          onClick={() => setMoreOpen(true)}
-        >
-          <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>
-            {activeCategory?.label ?? t("marketplace_more_categories_tab")}
-          </span>
-        </button>
-        {(() => {
-          const locationLabel = tradeLocationScopeDisplayLabel(locationScope);
-          const locationActive = locationScope.mode === "city";
-          const displayLabel = locationActive && locationLabel
-            ? locationLabel
-            : t("marketplace_region_chip");
-          return (
-            <button
-              type="button"
-              data-marketplace-region-chip="true"
-              className={tradePrimaryTabClass(locationActive)}
-              onClick={openLocation}
-            >
-              <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{displayLabel}</span>
-            </button>
-          );
-        })()}
+        {/* Filter only (category/location are handled inside MarketFilterSheet) */}
         {(() => {
           const filterCount = countActiveMarketFilters(searchParams.toString());
           const filterActive = filterCount > 0;
@@ -224,20 +177,20 @@ function TradePrimaryTabsInner({
               aria-haspopup="dialog"
               onClick={() => setFilterOpen(true)}
             >
-              <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{filterLabel}</span>
+              <span className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                <span className={DIBAY_SECONDARY_TAB_LABEL_CLASS}>{filterLabel}</span>
+              </span>
             </button>
           );
         })()}
       </DibaySecondaryTabRow>
       <MarketplaceMoreBrowseSheet
-        open={moreOpen}
-        onClose={() => setMoreOpen(false)}
+        open={false}
+        onClose={() => {}}
         topics={tradeCategories}
         baseSearch={searchParams.toString()}
         onApply={(href, tabKey) => {
-          setMoreOpen(false);
-          if (!guardBeforeNavigate(href)) return;
-          prewarmBottomNavMarketTab(href);
           commitTab(href, tabKey);
         }}
       />
@@ -245,6 +198,7 @@ function TradePrimaryTabsInner({
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         baseSearch={searchParams.toString()}
+        topics={tradeCategories}
       />
     </>
   );

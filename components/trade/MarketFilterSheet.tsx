@@ -1,33 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SlidersHorizontal } from "lucide-react";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay/DibayOverlayActions";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { CategoryWithSettings } from "@/lib/categories/types";
+import { getChildCategories } from "@/lib/categories/getChildCategories";
+import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { CompositionAttributeFilterSelects } from "@/components/search/CompositionAttributeFilterSelects";
 import { Sam } from "@/lib/ui/sam-component-classes";
-
-/**
- * 필터 시트 소유 범위: 정렬 + 가격 + 판매상태
- * 카테고리 → 탭 행 [카테고리] 버튼 (MarketplaceMoreBrowseSheet)
- * 지역 → 탭 행 [지역] 버튼 (TradeHeaderLocationPinButton)
- */
+import {
+  applyTradeLocationScopeToSearchParams,
+  buildTradeCityScopeFromCanonical,
+  parseTradeLocationScopeFromSearchParams,
+  tradeLocationScopeDisplayLabel,
+  type TradeLocationScope,
+} from "@/lib/trade/location/trade-location-scope";
+import {
+  TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+  TRADE_LOCATION_RADIUS_PARAM,
+  sanitizeTradeBrowseRadiusKm,
+  type TradeBrowseRadiusSelection,
+  tradeBrowseRadiusSelectionFromKm,
+} from "@/lib/trade/location/trade-browse-radius";
+import {
+  readTradeBrowseLocationDraftSession,
+} from "@/lib/trade/location/trade-browse-location-draft-session";
+import {
+  resolveCompositionAttributeFilterFields,
+  resolveTradeCompositionForCategory,
+  type CompositionFilterSelection,
+} from "@/lib/trade/category-form";
+import {
+  buildMarketplaceMoreBrowseHref,
+  marketplaceMoreBrowseHasFilterOptions,
+} from "@/lib/trade/tabs/marketplace-more-browse";
 
 type SortOption = "latest" | "near" | "popular";
 type TradeStateOption = "all" | "active" | "sold";
 
-interface MarketFilterState {
+type RegionMode = "commit" | "other" | "all";
+
+type DraftState = {
   sort: SortOption;
   tradeState: TradeStateOption;
   priceMin: string;
   priceMax: string;
-}
+
+  rootCategoryId: string | null;
+  topicKey: string | null; // child.slug||child.id in URL contract
+  filters: CompositionFilterSelection;
+
+  regionMode: RegionMode;
+  radiusKm: number;
+  /** `거리: 전체` 선택 시 URL의 radius 파라미터를 의도적으로 생략 */
+  distanceAll: boolean;
+};
 
 export interface MarketFilterSheetProps {
   open: boolean;
   onClose: () => void;
-  /** 현재 /market URL searchParams 문자열 */
   baseSearch: string;
+  topics: CategoryWithSettings[];
 }
 
 function parseSortFromSearch(base: string): SortOption {
@@ -46,130 +82,472 @@ function parseTradeStateFromSearch(base: string): TradeStateOption {
   return "all";
 }
 
-/** 이 시트가 소유하는 파라미터만 재설정, 나머지(category/location 등)는 그대로 보존 */
-function buildFilterHref(state: MarketFilterState, baseSearch: string): string {
-  const raw = new URLSearchParams(baseSearch);
-  const sp = new URLSearchParams();
+function parsePriceFromSearch(base: string): { priceMin: string; priceMax: string } {
+  const sp = new URLSearchParams(base);
+  return {
+    priceMin: sp.get("priceMin") ?? "",
+    priceMax: sp.get("priceMax") ?? "",
+  };
+}
 
-  for (const [k, v] of raw.entries()) {
-    if (k === "tradeState" || k === "sort" || k === "fs" || k === "priceMin" || k === "priceMax")
-      continue;
-    sp.append(k, v);
+function parseRootFromSearch(base: string): { categoryId: string | null; topicKey: string | null } {
+  const sp = new URLSearchParams(base);
+  const category = sp.get("category") ?? "";
+  const topic = sp.get("topic") ?? "";
+  return {
+    categoryId: category.trim() ? category.trim() : null,
+    topicKey: topic.trim() ? topic.trim() : null,
+  };
+}
+
+function parseKnownCompositionSelectionFromSearch(opts: {
+  baseSearch: string;
+  root: CategoryWithSettings;
+}): CompositionFilterSelection {
+  const sp = new URLSearchParams(opts.baseSearch);
+  const composition = resolveTradeCompositionForCategory(opts.root);
+  const fields = resolveCompositionAttributeFilterFields(composition);
+  const next: CompositionFilterSelection = {};
+  for (const f of fields) {
+    const raw = sp.get(f.id);
+    if (raw == null || raw === "") continue;
+    next[f.id] = raw;
   }
+  return next;
+}
 
-  if (state.sort === "near") sp.set("sort", "near");
-  else if (state.sort === "popular") sp.set("sort", "popular");
-
-  if (state.tradeState === "active" || state.tradeState === "sold") {
-    sp.set("tradeState", state.tradeState);
+function unionCompositionFieldIds(topics: CategoryWithSettings[]): string[] {
+  const s = new Set<string>();
+  for (const root of topics) {
+    const composition = resolveTradeCompositionForCategory(root);
+    const fields = resolveCompositionAttributeFilterFields(composition);
+    for (const f of fields) s.add(f.id);
   }
+  return [...s];
+}
 
-  const minNum = Number(state.priceMin);
-  const maxNum = Number(state.priceMax);
-  if (state.priceMin && !Number.isNaN(minNum) && minNum > 0) sp.set("priceMin", String(minNum));
-  if (state.priceMax && !Number.isNaN(maxNum) && maxNum > 0) sp.set("priceMax", String(maxNum));
+export function countActiveMarketFilters(baseSearch: string): number {
+  const sp = new URLSearchParams(baseSearch);
+  let n = 0;
+
+  const category = (sp.get("category") ?? "").trim();
+  const topic = (sp.get("topic") ?? "").trim();
+  if (category || topic) n++;
+
+  const location = (sp.get("location") ?? "").trim().toLowerCase();
+  const radiusRaw = sp.get(TRADE_LOCATION_RADIUS_PARAM);
+  // `radius`가 없으면 (default 추천 거리) — UI는 `거리: 전체`로 취급하므로 N에서도 default로 보지 않습니다.
+  if (location === "city" && radiusRaw != null && String(radiusRaw).trim() !== "") n++;
+
+  const ts = (sp.get("tradeState") ?? "").trim().toLowerCase();
+  if (ts === "active" || ts === "sold") n++;
+
+  const min = Number(sp.get("priceMin"));
+  const max = Number(sp.get("priceMax"));
+  if (!Number.isNaN(min) && min > 0) n++;
+  if (!Number.isNaN(max) && max > 0) n++;
+  // 가격은 min/max 중 하나라도 있으면 1로 보이게끔 보정
+  if (min > 0 || max > 0) n -= (min > 0 ? 1 : 0) + (max > 0 ? 1 : 0) - 1;
+  return Math.max(0, n);
+}
+
+export function buildMarketFilterResetHref(opts: {
+  baseSearch: string;
+  topics: CategoryWithSettings[];
+}): string {
+  const sp = new URLSearchParams(opts.baseSearch);
+  const knownFieldIds = unionCompositionFieldIds(opts.topics);
+
+  for (const k of ["category", "topic", "tradeState", "sort", "fs", "priceMin", "priceMax", "location", "lgu", "radius", "page", "cursor"]) {
+    sp.delete(k);
+  }
+  // composition filter params are stored as `filters[<fieldId>]`
+  for (const fid of knownFieldIds) sp.delete(`filters[${fid}]`);
+
+  // q는 KEEP (검색은 filter가 아님)
+  const q = sp.get("q");
+  if (q == null || q === "") sp.delete("q");
 
   const qs = sp.toString();
   return qs ? `/market?${qs}` : "/market";
 }
 
-/** 이 시트가 소유하는 활성 필터 수 (탭 행 뱃지용으로도 export) */
-export function countActiveMarketFilters(baseSearch: string): number {
-  const sp = new URLSearchParams(baseSearch);
-  let n = 0;
-  const sort = (sp.get("sort") ?? sp.get("fs") ?? "").toLowerCase();
-  if (sort === "near" || sort === "distance" || sort === "popular") n++;
-  const ts = sp.get("tradeState") ?? "";
-  if (ts === "active" || ts === "sold") n++;
-  const min = Number(sp.get("priceMin"));
-  const max = Number(sp.get("priceMax"));
-  if (!Number.isNaN(min) && min > 0) n++;
-  if (!Number.isNaN(max) && max > 0) n++;
-  return n;
+function priceChipLabel(priceMin: string, priceMax: string): string | null {
+  if (!priceMin && !priceMax) return null;
+  const minLabel = priceMin ? `₱${priceMin}` : "";
+  const maxLabel = priceMax ? `₱${priceMax}` : "";
+  return minLabel && maxLabel ? `${minLabel} – ${maxLabel}` : minLabel ? `${minLabel}+` : `~${maxLabel}`;
 }
 
-export function MarketFilterSheet({ open, onClose, baseSearch }: MarketFilterSheetProps) {
-  const { safeT } = useI18n();
+export function MarketFilterSheet({
+  open,
+  onClose,
+  baseSearch,
+  topics,
+}: MarketFilterSheetProps) {
+  const { language, safeT } = useI18n();
   const router = useRouter();
+  // location picker uses sessionStorage draft. `MarketFilterSheet` reads it at render/apply time.
+  const draftFromLocationPicker = readTradeBrowseLocationDraftSession();
+  const committedScope = useMemo(
+    () => parseTradeLocationScopeFromSearchParams(new URLSearchParams(baseSearch)),
+    [baseSearch]
+  );
 
-  const raw = new URLSearchParams(baseSearch);
+  const knownFieldIds = useMemo(() => unionCompositionFieldIds(topics), [topics]);
 
-  const [state, setState] = useState<MarketFilterState>(() => ({
+  const rootFromSearch = useMemo(() => parseRootFromSearch(baseSearch), [baseSearch]);
+  const committedCityCanonical =
+    committedScope.mode === "city" ? committedScope.canonicalId : null;
+  const initialRadiusKm =
+    committedScope.mode === "city" ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM;
+  const radiusRaw = new URLSearchParams(baseSearch).get(TRADE_LOCATION_RADIUS_PARAM);
+  const initialDistanceAll = committedScope.mode === "city" ? radiusRaw == null || radiusRaw === "" : true;
+
+  const [state, setState] = useState<DraftState>(() => ({
     sort: parseSortFromSearch(baseSearch),
     tradeState: parseTradeStateFromSearch(baseSearch),
-    priceMin: raw.get("priceMin") ?? "",
-    priceMax: raw.get("priceMax") ?? "",
+    ...parsePriceFromSearch(baseSearch),
+
+    rootCategoryId: rootFromSearch.categoryId,
+    topicKey: rootFromSearch.topicKey,
+    filters: rootFromSearch.categoryId
+      ? (() => {
+          const root = topics.find((t) => t.id === rootFromSearch.categoryId) ?? null;
+          return root ? parseKnownCompositionSelectionFromSearch({ baseSearch, root }) : {};
+        })()
+      : {},
+
+    regionMode:
+      committedScope.mode === "all" ? "all" : committedScope.mode === "city" ? "commit" : "commit",
+    radiusKm: initialRadiusKm,
+    distanceAll: initialDistanceAll,
   }));
 
-  // Sync state when sheet opens with fresh baseSearch
-  const [lastBase, setLastBase] = useState(baseSearch);
-  if (open && baseSearch !== lastBase) {
-    setLastBase(baseSearch);
-    setState({
-      sort: parseSortFromSearch(baseSearch),
-      tradeState: parseTradeStateFromSearch(baseSearch),
-      priceMin: new URLSearchParams(baseSearch).get("priceMin") ?? "",
-      priceMax: new URLSearchParams(baseSearch).get("priceMax") ?? "",
+  // NOTE: open 시점에만 category/topic/filters를 URL 기준으로 동기화 (q/price/sort은 draft 의미 유지)
+  const lastBaseRef = useRef(baseSearch);
+  useEffect(() => {
+    if (!open) return;
+    if (lastBaseRef.current === baseSearch) return;
+    lastBaseRef.current = baseSearch;
+    setState((prev) => {
+      const rootParsed = parseRootFromSearch(baseSearch);
+      const nextRoot = rootParsed.categoryId;
+      const rootObj = nextRoot ? topics.find((t) => t.id === nextRoot) ?? null : null;
+      const locScope = parseTradeLocationScopeFromSearchParams(new URLSearchParams(baseSearch));
+      return {
+        ...prev,
+        sort: parseSortFromSearch(baseSearch),
+        tradeState: parseTradeStateFromSearch(baseSearch),
+        ...parsePriceFromSearch(baseSearch),
+        rootCategoryId: nextRoot,
+        topicKey: rootParsed.topicKey,
+        filters: rootObj ? parseKnownCompositionSelectionFromSearch({ baseSearch, root: rootObj }) : {},
+        regionMode: locScope.mode === "all" ? "all" : "commit",
+        radiusKm: locScope.mode === "city" ? locScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+        distanceAll:
+          locScope.mode === "city"
+            ? radiusRaw == null || radiusRaw === ""
+            : true,
+      };
     });
+  }, [open, baseSearch, topics]);
+
+  const rootCategory = state.rootCategoryId
+    ? topics.find((t) => t.id === state.rootCategoryId) ?? null
+    : null;
+
+  const [children, setChildren] = useState<CategoryWithSettings[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState(false);
+  const pickGen = useRef(0);
+
+  useEffect(() => {
+    if (!state.rootCategoryId) {
+      setChildren([]);
+      return;
+    }
+    const gen = ++pickGen.current;
+    setLoadingChildren(true);
+    void getChildCategories(state.rootCategoryId)
+      .then((list) => {
+        if (gen !== pickGen.current) return;
+        setChildren(list);
+      })
+      .finally(() => {
+        if (gen !== pickGen.current) return;
+        setLoadingChildren(false);
+      });
+  }, [state.rootCategoryId]);
+
+  const resolvedChild = useMemo(() => {
+    if (!state.topicKey) return null;
+    return children.find((c) => (c.slug?.trim() || c.id) === state.topicKey) ?? null;
+  }, [children, state.topicKey]);
+
+  const composition = useMemo(() => {
+    if (!rootCategory) return null;
+    return resolveTradeCompositionForCategory(rootCategory);
+  }, [rootCategory]);
+
+  const appliedChips: string[] = useMemo(() => {
+    const chips: string[] = [];
+
+    if (rootCategory) {
+      const rootLabel = resolveTradeCategoryUILabel(
+        language === "en" ? "en" : "ko",
+        rootCategory.name,
+        rootCategory.name_en,
+        rootCategory.slug,
+        rootCategory.icon_key
+      );
+      if (resolvedChild) {
+        const childLabel = resolveTradeCategoryUILabel(
+          language === "en" ? "en" : "ko",
+          resolvedChild.name,
+          resolvedChild.name_en,
+          resolvedChild.slug,
+          resolvedChild.icon_key
+        );
+        chips.push(`${rootLabel} · ${childLabel}`);
+      } else {
+        chips.push(rootLabel);
+      }
+    }
+
+    if (state.regionMode !== "all") {
+      if (!state.distanceAll) chips.push(`${Math.round(state.radiusKm)}km`);
+    }
+
+    if (state.tradeState === "active") {
+      chips.push(
+        safeT("marketplace_filter_trade_state_active", {
+          fallbackKo: "판매중",
+          fallbackEn: "Available",
+        })
+      );
+    } else if (state.tradeState === "sold") {
+      chips.push(
+        safeT("marketplace_filter_trade_state_sold", {
+          fallbackKo: "판매완료",
+          fallbackEn: "Sold",
+        })
+      );
+    }
+
+    const priceChip = priceChipLabel(state.priceMin, state.priceMax);
+    if (priceChip) chips.push(priceChip);
+
+    return chips;
+  }, [
+    rootCategory,
+    resolvedChild,
+    state.regionMode,
+    state.radiusKm,
+    state.tradeState,
+    state.priceMin,
+    state.priceMax,
+    safeT,
+    language,
+  ]);
+
+  const sortOptions = [
+    {
+      value: "latest" as SortOption,
+      key: "marketplace_filter_sort_latest" as const,
+      fallbackKo: "최신순",
+      fallbackEn: "Latest",
+    },
+    {
+      value: "near" as SortOption,
+      key: "marketplace_filter_sort_distance" as const,
+      fallbackKo: "가까운순",
+      fallbackEn: "Nearest",
+    },
+    {
+      value: "popular" as SortOption,
+      key: "marketplace_filter_sort_popular" as const,
+      fallbackKo: "인기순",
+      fallbackEn: "Popular",
+    },
+  ] as const;
+
+  const tradeStateOptions = [
+    {
+      value: "all" as TradeStateOption,
+      key: "marketplace_filter_trade_state_all" as const,
+      fallbackKo: "전체",
+      fallbackEn: "All",
+    },
+    {
+      value: "active" as TradeStateOption,
+      key: "marketplace_filter_trade_state_active" as const,
+      fallbackKo: "판매중",
+      fallbackEn: "Available",
+    },
+    {
+      value: "sold" as TradeStateOption,
+      key: "marketplace_filter_trade_state_sold" as const,
+      fallbackKo: "판매완료",
+      fallbackEn: "Sold",
+    },
+  ] as const;
+
+  const regionAllLabel = safeT("trade_location_all", { fallbackKo: "전체", fallbackEn: "All" });
+  const otherRegionLabel = safeT("marketplace_filter_region_other", {
+    fallbackKo: "다른 지역 선택",
+    fallbackEn: "Choose another region",
+  });
+
+  const draftCity =
+    draftFromLocationPicker?.location?.kind === "city"
+      ? draftFromLocationPicker.location
+      : null;
+
+  const displayOtherCity =
+    state.regionMode === "other" && draftCity?.displayName
+      ? draftCity.displayName
+      : null;
+
+  function clearDraft() {
+    const cityMode = committedScope.mode === "city";
+    setState((prev) => ({
+      ...prev,
+      sort: "latest",
+      tradeState: "all",
+      priceMin: "",
+      priceMax: "",
+      rootCategoryId: null,
+      topicKey: null,
+      filters: {},
+      regionMode: cityMode ? "commit" : "all",
+      radiusKm: cityMode ? committedScope.radiusKm : TRADE_BROWSE_RECOMMENDED_RADIUS_KM,
+      distanceAll: true,
+    }));
+    // on purpose: q is derived from URL baseSearch and never cleared by this sheet
   }
 
-  function clearAll() {
-    setState({ sort: "latest", tradeState: "all", priceMin: "", priceMax: "" });
+  function buildDraftHref(): string {
+    const incoming = new URLSearchParams(baseSearch);
+    // start from incoming, but remove everything we own (category/topic/options, location/radius, sort, price, tradeState)
+    const sp = new URLSearchParams(incoming.toString());
+
+    // pagination reset (new browsing session)
+    for (const k of ["page", "cursor"]) sp.delete(k);
+
+    // category axis
+    sp.delete("category");
+    sp.delete("topic");
+    for (const fid of knownFieldIds) sp.delete(`filters[${fid}]`);
+
+    // location axis
+    sp.delete("location");
+    sp.delete("lgu");
+    sp.delete(TRADE_LOCATION_RADIUS_PARAM);
+
+    // sort / hard constraints
+    sp.delete("sort");
+    sp.delete("fs");
+    sp.delete("priceMin");
+    sp.delete("priceMax");
+    sp.delete("tradeState");
+
+    // preserve q
+    const q = incoming.get("q");
+    if (q) sp.set("q", q);
+    else sp.delete("q");
+
+    // sort
+    if (state.sort === "near") sp.set("sort", "near");
+    else if (state.sort === "popular") sp.set("sort", "popular");
+
+    // price
+    const minNum = Number(state.priceMin);
+    const maxNum = Number(state.priceMax);
+    if (state.priceMin && !Number.isNaN(minNum) && minNum > 0) sp.set("priceMin", String(Math.floor(minNum)));
+    if (state.priceMax && !Number.isNaN(maxNum) && maxNum > 0) sp.set("priceMax", String(Math.floor(maxNum)));
+
+    // tradeState
+    if (state.tradeState === "active") sp.set("tradeState", "active");
+    else if (state.tradeState === "sold") sp.set("tradeState", "sold");
+
+    // location + radius
+    if (state.regionMode === "all") {
+      sp.set("location", "all");
+    } else {
+      const canonical =
+        state.regionMode === "other" && draftCity?.canonicalId
+          ? draftCity.canonicalId
+          : committedScope.mode === "city"
+            ? committedScope.canonicalId
+            : null;
+      if (canonical) {
+        const radiusToApply = state.distanceAll ? TRADE_BROWSE_RECOMMENDED_RADIUS_KM : sanitizeTradeBrowseRadiusKm(state.radiusKm);
+        const scope = buildTradeCityScopeFromCanonical(canonical, radiusToApply);
+        // apply* deletes seed param etc internally; we only need the produced URL params.
+        const applied = applyTradeLocationScopeToSearchParams(sp, scope as TradeLocationScope);
+        if (state.distanceAll) applied.delete(TRADE_LOCATION_RADIUS_PARAM);
+        // replace whole values
+        return applyCategoryHrefIfNeeded({ sp: applied, rootCategory });
+      }
+    }
+
+    return applyCategoryHrefIfNeeded({ sp, rootCategory });
   }
 
-  function applyFilters() {
-    const href = buildFilterHref(state, baseSearch);
+  function applyCategoryHrefIfNeeded(opts: {
+    sp: URLSearchParams;
+    rootCategory: CategoryWithSettings | null;
+  }): string {
+    // If no root selected: it's just /market + our non-category params already set.
+    if (!opts.rootCategory) {
+      const qs = opts.sp.toString();
+      return qs ? `/market?${qs}` : "/market";
+    }
+
+    const topicKey = state.topicKey ?? null;
+    const href = buildMarketplaceMoreBrowseHref({
+      categoryId: opts.rootCategory.id,
+      topic: topicKey,
+      filters: state.filters,
+      baseSearch: opts.sp.toString(),
+      compositionOwner: opts.rootCategory,
+    });
+    return href;
+  }
+
+  function applyResults() {
+    const href = buildDraftHref();
     onClose();
     router.replace(href, { scroll: false });
   }
 
-  const appliedChips: string[] = [];
-  if (state.sort === "near")
-    appliedChips.push(safeT("marketplace_filter_sort_distance", { fallbackKo: "가까운순", fallbackEn: "Nearest" }));
-  if (state.sort === "popular")
-    appliedChips.push(safeT("marketplace_filter_sort_popular", { fallbackKo: "인기순", fallbackEn: "Popular" }));
-  if (state.tradeState === "active")
-    appliedChips.push(safeT("marketplace_filter_trade_state_active", { fallbackKo: "판매중", fallbackEn: "Available" }));
-  if (state.tradeState === "sold")
-    appliedChips.push(safeT("marketplace_filter_trade_state_sold", { fallbackKo: "판매완료", fallbackEn: "Sold" }));
-  if (state.priceMin || state.priceMax) {
-    const minLabel = state.priceMin ? `₱${state.priceMin}` : "";
-    const maxLabel = state.priceMax ? `₱${state.priceMax}` : "";
-    appliedChips.push(
-      minLabel && maxLabel
-        ? `${minLabel} – ${maxLabel}`
-        : minLabel
-          ? `${minLabel}+`
-          : `~${maxLabel}`
-    );
-  }
-
-  const sortOptions = [
-    { value: "latest" as SortOption, fallbackKo: "최신순", fallbackEn: "Latest", key: "marketplace_filter_sort_latest" as const },
-    { value: "near" as SortOption, fallbackKo: "가까운순", fallbackEn: "Nearest", key: "marketplace_filter_sort_distance" as const },
-    { value: "popular" as SortOption, fallbackKo: "인기순", fallbackEn: "Popular", key: "marketplace_filter_sort_popular" as const },
-  ];
-
-  const tradeStateOptions = [
-    { value: "all" as TradeStateOption, fallbackKo: "전체", fallbackEn: "All", key: "marketplace_filter_trade_state_all" as const },
-    { value: "active" as TradeStateOption, fallbackKo: "판매중", fallbackEn: "Available", key: "marketplace_filter_trade_state_active" as const },
-    { value: "sold" as TradeStateOption, fallbackKo: "판매완료", fallbackEn: "Sold", key: "marketplace_filter_trade_state_sold" as const },
+  const distanceOptions: Array<{ value: "all" | number; label: string }> = [
+    { value: "all", label: regionAllLabel },
+    { value: 5, label: "5km" },
+    { value: 10, label: "10km" },
+    { value: 30, label: "30km" },
+    { value: 64, label: "64km" },
   ];
 
   return (
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("marketplace_filter_sheet_title", { fallbackKo: "필터 및 정렬", fallbackEn: "Filter & Sort" })}
+      title={safeT("marketplace_filter_sheet_title", {
+        fallbackKo: "필터 및 정렬",
+        fallbackEn: "Filter & Sort",
+      })}
       footer={
-        <DibayOverlayButton roleTone="primary" onClick={applyFilters}>
-          {safeT("marketplace_filter_view_results", { fallbackKo: "결과 보기", fallbackEn: "View results" })}
+        <DibayOverlayButton roleTone="primary" onClick={applyResults}>
+          {safeT("marketplace_filter_view_results", {
+            fallbackKo: "결과 보기",
+            fallbackEn: "View results",
+          })}
         </DibayOverlayButton>
       }
     >
       <div className="flex flex-col gap-6 px-4 py-3">
-        {/* Applied chips */}
-        {appliedChips.length > 0 && (
+        {appliedChips.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <span className={Sam.text.helper}>
               {safeT("marketplace_filter_applied", { fallbackKo: "적용된 필터", fallbackEn: "Applied filters" })}
@@ -180,22 +558,176 @@ export function MarketFilterSheet({ open, onClose, baseSearch }: MarketFilterShe
                 className="inline-flex items-center rounded-full border border-sam-border bg-sam-surface px-2.5 py-0.5 text-sm text-sam-fg"
               >
                 {chip}
+                <span className="ml-1 text-sm text-sam-fg-muted" aria-hidden>
+                  ×
+                </span>
               </span>
             ))}
             <button
               type="button"
               className={`${Sam.text.helper} ml-auto underline`}
-              onClick={clearAll}
+              onClick={clearDraft}
             >
               {safeT("marketplace_filter_clear_all", { fallbackKo: "모두 지우기", fallbackEn: "Clear all" })}
             </button>
           </div>
-        )}
+        ) : null}
+
+        {/* Category */}
+        <FilterSection
+          label={safeT("marketplace_more_categories_title", { fallbackKo: "카테고리", fallbackEn: "Categories" })}
+        >
+          <RadioItem
+            checked={!state.rootCategoryId}
+            label={safeT("marketplace_filter_category_all", { fallbackKo: "전체", fallbackEn: "All" })}
+            onChange={() => {
+              setState((s) => ({ ...s, rootCategoryId: null, topicKey: null, filters: {} }));
+            }}
+          />
+          {topics.map((cat) => (
+            <RadioItem
+              key={cat.id}
+              checked={state.rootCategoryId === cat.id}
+              label={resolveTradeCategoryUILabel(
+                language === "en" ? "en" : "ko",
+                cat.name,
+                cat.name_en,
+                cat.slug,
+                cat.icon_key
+              )}
+              onChange={() => {
+                setState((s) => ({
+                  ...s,
+                  rootCategoryId: cat.id,
+                  topicKey: null,
+                  filters: {},
+                }));
+              }}
+            />
+          ))}
+        </FilterSection>
+
+        {state.rootCategoryId ? (
+          <div className="flex flex-col gap-4">
+            {/* Child categories (topic) */}
+            {(loadingChildren || children.length > 0) ? (
+              <div>
+                <p className={`${Sam.text.helper} font-medium`}>
+                  {safeT("marketplace_more_browse_category_title", {
+                    fallbackKo: "카테고리",
+                    fallbackEn: "Category",
+                  })}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                  <RadioItem
+                    checked={!state.topicKey}
+                    label={safeT("marketplace_more_browse_all_in_topic", {
+                      fallbackKo: "이 주제 전체",
+                      fallbackEn: "All in this topic",
+                    })}
+                    onChange={() => setState((s) => ({ ...s, topicKey: null }))}
+                  />
+                  {loadingChildren ? (
+                    <div className="text-sm text-sam-fg-muted">
+                      {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+                    </div>
+                  ) : (
+                    children.map((child) => (
+                      <RadioItem
+                        key={child.id}
+                        checked={state.topicKey === (child.slug?.trim() || child.id)}
+                        label={resolveTradeCategoryUILabel(
+                          language === "en" ? "en" : "ko",
+                          child.name,
+                          child.name_en,
+                          child.slug,
+                          child.icon_key
+                        )}
+                        onChange={() => setState((s) => ({ ...s, topicKey: child.slug?.trim() || child.id }))}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Options */}
+            {composition && rootCategory && marketplaceMoreBrowseHasFilterOptions(rootCategory) ? (
+              <div className="flex flex-col gap-2">
+                <p className={`${Sam.text.helper} font-medium`}>{safeT("marketplace_more_browse_options_title", { fallbackKo: "품목 옵션", fallbackEn: "Item options" })}</p>
+                <div className="flex flex-col gap-2">
+                  <CompositionAttributeFilterSelects
+                    composition={composition}
+                    selection={state.filters}
+                    onChange={(next) => setState((s) => ({ ...s, filters: next }))}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Region */}
+        <FilterSection
+          label={safeT("trade_location_section_region", { fallbackKo: "지역", fallbackEn: "Area" })}
+        >
+          <RegionRadio
+            checked={state.regionMode === "commit"}
+            label={committedScope.mode === "city" && committedScope.canonicalId
+              ? tradeLocationScopeDisplayLabel(committedScope) ?? safeT("trade_location_section_region", { fallbackKo: "지역", fallbackEn: "Area" })
+              : safeT("trade_location_resolving_city", { fallbackKo: "지역 확인 중…", fallbackEn: "Finding city…" })}
+            onSelect={() => setState((s) => ({ ...s, regionMode: "commit" }))}
+          />
+          <RegionRadio
+            checked={state.regionMode === "all"}
+            label={regionAllLabel}
+            onSelect={() => setState((s) => ({ ...s, regionMode: "all" }))}
+          />
+          <RegionRadio
+            checked={state.regionMode === "other"}
+            label={displayOtherCity ? `${displayOtherCity}` : otherRegionLabel}
+            onSelect={() => {
+              // choose another region via existing picker (draft-session only on back)
+              setState((s) => ({ ...s, regionMode: "other" }));
+              onClose();
+              const q = baseSearch.trim();
+              router.push(q ? `/market/location?${q}` : "/market/location");
+            }}
+          />
+        </FilterSection>
+
+        {/* Distance */}
+        <FilterSection
+          label={safeT("trade_location_distance_title", { fallbackKo: "거리 설정", fallbackEn: "Set distance" })}
+        >
+          {distanceOptions.map((opt) => (
+            <RadioItem
+              key={opt.label}
+              checked={
+                opt.value === "all"
+                  ? state.regionMode === "all" || state.distanceAll
+                  : !state.distanceAll && state.radiusKm === opt.value
+              }
+              label={opt.label}
+              onChange={() => {
+                setState((s) => {
+                  if (opt.value === "all") {
+                    return { ...s, distanceAll: true, radiusKm: TRADE_BROWSE_RECOMMENDED_RADIUS_KM };
+                  }
+                  return {
+                    ...s,
+                    distanceAll: false,
+                    radiusKm: opt.value,
+                    regionMode: s.regionMode === "all" ? "commit" : s.regionMode,
+                  };
+                });
+              }}
+            />
+          ))}
+        </FilterSection>
 
         {/* Sort */}
-        <FilterSection
-          label={safeT("marketplace_filter_sort_label", { fallbackKo: "정렬", fallbackEn: "Sort by" })}
-        >
+        <FilterSection label={safeT("marketplace_filter_sort_label", { fallbackKo: "정렬", fallbackEn: "Sort by" })}>
           {sortOptions.map((opt) => (
             <RadioItem
               key={opt.value}
@@ -207,9 +739,7 @@ export function MarketFilterSheet({ open, onClose, baseSearch }: MarketFilterShe
         </FilterSection>
 
         {/* Price */}
-        <FilterSection
-          label={safeT("marketplace_filter_price_label", { fallbackKo: "가격", fallbackEn: "Price" })}
-        >
+        <FilterSection label={safeT("marketplace_filter_price_label", { fallbackKo: "가격", fallbackEn: "Price" })}>
           <div className="flex w-full items-center gap-2">
             <input
               type="number"
@@ -234,9 +764,7 @@ export function MarketFilterSheet({ open, onClose, baseSearch }: MarketFilterShe
         </FilterSection>
 
         {/* Trade state */}
-        <FilterSection
-          label={safeT("marketplace_filter_trade_state_label", { fallbackKo: "판매 상태", fallbackEn: "Trade status" })}
-        >
+        <FilterSection label={safeT("marketplace_filter_trade_state_label", { fallbackKo: "판매 상태", fallbackEn: "Trade status" })}>
           {tradeStateOptions.map((opt) => (
             <RadioItem
               key={opt.value}
@@ -271,12 +799,24 @@ function RadioItem({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2">
-      <input
-        type="radio"
-        className="h-4 w-4 accent-sam-brand"
-        checked={checked}
-        onChange={onChange}
-      />
+      <input type="radio" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onChange} />
+      <span className="text-sm text-sam-fg">{label}</span>
+    </label>
+  );
+}
+
+function RegionRadio({
+  checked,
+  label,
+  onSelect,
+}: {
+  checked: boolean;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2">
+      <input type="radio" className="h-4 w-4 accent-sam-brand" checked={checked} onChange={onSelect} />
       <span className="text-sm text-sam-fg">{label}</span>
     </label>
   );
