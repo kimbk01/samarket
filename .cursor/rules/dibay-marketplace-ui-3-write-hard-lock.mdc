@@ -1,0 +1,44 @@
+---
+description: HARD LOCK — DIBAY Marketplace UI-3 WRITE visual hierarchy
+alwaysApply: true
+---
+
+# DIBAY Marketplace UI-3 WRITE HARD LOCK
+
+**HARD LOCK (2026-08-19).** Full doc: `docs/dibay-marketplace-ui-3-write-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: UI-3 LOCKED**
+- Production SHA: `320909776cf498de7208f38d438c9e0f0cde7121`
+- Alias: `https://samarket.vercel.app`
+- Deploy: Git Integration `dpl_7p1Yrses6Fyf5PcJa8irMD9NB3b5`
+- ROOT EMPTY GATE: **REMOVED**
+- COMMON VISUAL HIERARCHY: 사진 → 제목 → 가격 → 품목정보 → 설명 → 지역 → 등록
+- PRICE AUTHORITY: **PROFILE-SPECIFIC WRITER PRESERVED**
+- SUBMIT / COMPOSITION: **PRESERVED**
+- GENERAL SELL SUBMIT RUNTIME: **PASS**
+- MIGRATION: **NO**
+- CUT A–J / UI-1 / UI-2: **PRESERVED**
+- UI-5: **NOT STARTED**
+
+## KEEP
+
+```text
+공통 가격 슬롯 = 화면 위치만
+profile writer 유지 (RE 보증금/월세, jobs 급여, exchange 페소, rent-car daily_price)
+ROOT 미선택 = 판매 등록 문맥 즉시
+ROOT 선택 = 해당 profile 옵션만
+```
+
+Authority: `WriteSheetFlowInner.tsx` · `TradeWriteForm.tsx`.
+
+This cut changed **WRITE visual order**, not SEARCH, LIST sell-intent, taxonomy, or DETAIL.
+
+## DO NOT (without a new cut)
+
+- Restore empty ROOT gate
+- Force `posts.price` on every profile
+- Start UI-5 inside UI-3 work
+- Reopen CUT A–J or UI-1/2 to finish WRITE chrome
+- Bypass moderation / DB-insert to “prove” WRITE
