@@ -151,18 +151,19 @@ export function BusinessAdminShell({
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
     const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
-    if (isOwnerMobileAdminShell) {
-      if (isOwnerFormBottomNavHiddenRoute) {
-        return "pb-[max(0.5rem,var(--safe-bottom))] sm:pb-3";
-      }
+    /** 하단 5탭이 마운트되는 화면 — 모바일·데스크톱 동일 여백(구: desktop only 소폭 pb) */
+    if (isStoresOwnerStackPath(ownerPathNorm) && !isOwnerFormBottomNavHiddenRoute) {
       return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
+    }
+    if (isOwnerFormBottomNavHiddenRoute) {
+      return "pb-[max(0.5rem,var(--safe-bottom))] sm:pb-3";
     }
     if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
     if (isStoreOwnerAdminSubroute) {
       return "pb-[max(0.5rem,var(--safe-bottom))] sm:pb-3 md:pb-4 lg:pb-6";
     }
     return "pb-[calc(5rem+var(--safe-bottom))] lg:pb-8";
-  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell, isOwnerFormBottomNavHiddenRoute]);
+  }, [pathname, ownerPathNorm, isOwnerFormBottomNavHiddenRoute]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
   const isOwnerStoreProductsHubRoute = useMemo(() => {

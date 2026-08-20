@@ -93,7 +93,7 @@ export function StoresGreenFixedHeaderChrome({
                   backHref={backHref}
                   preferHistoryBack={preferHistoryBack}
                   ariaLabel={backAriaLabel}
-                  className="!flex !h-[length:var(--delivery-header-action)] !w-[length:var(--delivery-header-action)] !items-center !justify-center !text-[var(--dibay-cream)] hover:bg-white/10 active:bg-white/15"
+                  className="!flex !h-[length:var(--delivery-header-action)] !w-[length:var(--delivery-header-action)] !items-center !justify-center !text-[color:var(--sector-header-icon-color,#243832)] hover:bg-black/5 active:bg-black/10"
                 />
                 <h1 className={STORES_HOME_HEADER_APPLY_TITLE_CLASS}>{title}</h1>
                 {right}

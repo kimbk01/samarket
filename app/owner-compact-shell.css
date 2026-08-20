@@ -35,11 +35,10 @@ body[data-owner-compact-shell] {
   }
 }
 
-/** 데스크톱 웹 — 헤더·본문 column 을 max-w-6xl(72rem) 에 맞춤, 하단 탭 없음 */
+/** 데스크톱 웹 — 헤더·본문 column 을 max-w-6xl(72rem) 에 맞춤, 하단 5탭 유지 */
 @media (min-width: 1025px) {
   body[data-owner-compact-shell] {
     --owner-shell-content-max: 72rem;
-    --owner-shell-main-pb: 1.5rem;
     --owner-shell-pad-left: max(1rem, var(--owner-shell-safe-left));
     --owner-shell-pad-right: max(1rem, var(--owner-shell-safe-right));
   }
@@ -214,23 +213,16 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   pointer-events: none;
 }
 
-@media (max-width: 1024px) {
-  .owner-ops-desktop-sidebar {
-    display: none !important;
-  }
-
-  /** 오너 하단 탭 — compact 전용 */
-  .owner-mobile-bottom-nav {
-    display: block;
-  }
+/** 데스크톱 사이드바 미사용 — 햄버거 드로어 + 하단 5탭이 전 폭 공통 */
+.owner-ops-desktop-sidebar {
+  display: none !important;
 }
 
-@media (min-width: 1025px) {
-  .owner-ops-desktop-sidebar {
-    display: none !important;
-  }
-
-  .owner-mobile-bottom-nav {
-    display: none !important;
-  }
+/**
+ * 오너 하단 탭 — 모바일·태블릿·데스크톱 웹 동일 노출.
+ * (구: ≥1025px `display:none` 이 헤더만 남기고 탭을 숨겨 빈 하단이 생김)
+ * `app-bottom-nav-shell` 의 flex 레이아웃을 유지한다.
+ */
+.owner-mobile-bottom-nav.app-bottom-nav-shell--delivery {
+  display: flex;
 }

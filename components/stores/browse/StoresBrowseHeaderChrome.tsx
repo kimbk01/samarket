@@ -147,7 +147,7 @@ export function StoresBrowseHeaderChrome() {
             <SectorHeaderBackButton
               backHref="/stores"
               preferHistoryBack={false}
-              className="!flex !h-[length:var(--delivery-header-action)] !w-[length:var(--delivery-header-action)] shrink-0 !items-center !justify-center !text-white hover:bg-white/10 active:bg-white/15"
+              className="!flex !h-[length:var(--delivery-header-action)] !w-[length:var(--delivery-header-action)] shrink-0 !items-center !justify-center !text-[color:var(--sector-header-icon-color,#243832)] hover:bg-black/5 active:bg-black/10"
               ariaLabelKey="nav_back"
             />
             <h1 className={STORES_HOME_HEADER_BROWSE_TITLE_CLASS}>{title}</h1>
