@@ -183,7 +183,7 @@ export const businessMessages = {
     business_phase7_177: "신청 제출",
     business_phase7_178: "신청·계정",
     business_phase7_179: "신청이 반려되었습니다.",
-    business_phase7_180: "신청자",
+    business_phase7_180: "실명",
     business_phase7_181: "심사 중입니다. 승인 후 매장이 공개됩니다.",
     business_phase7_182: "심사 중입니다. 승인 후 상점이 공개됩니다.",
     business_phase7_183: "심사·준비",
@@ -326,7 +326,7 @@ export const businessMessages = {
     business_phase7_320: "피드 분류",
     business_phase7_321: "픽업 안내",
     business_phase7_322: "픽업 완료",
-    business_phase7_323: "픽업·배달 주소 (내정보 · 주소록)",
+    business_phase7_323: "대표 주소 (주소록)",
     business_phase7_324: "필수 정보",
     business_phase7_325: "한 줄 설명",
     business_phase7_326: "할인",
@@ -686,7 +686,7 @@ export const businessMessages = {
     business_phase7_666: "운영중",
     business_phase7_667: "일시중지",
     business_phase7_668: "매장 주소 (내정보 · 주소록)",
-    business_phase7_669: "주소 (내정보 · 주소록)",
+    business_phase7_669: "대표 주소",
     business_phase7_670:
       "이 매장에 연결된 주소록 항목이 없습니다. 주소록에서 유형을 「매장」으로 고르고 이 매장을 연결한 뒤, 지도에서 위치를 저장해 주세요.",
     business_phase7_671: "대표 주소가 없습니다. 주소록에서 대표 주소를 먼저 설정해 주세요.",
@@ -699,7 +699,7 @@ export const businessMessages = {
     business_phase7_677: "신청이 진행 중인 동안에는 추가 신청을 할 수 없습니다.",
     business_phase7_678: "제출 중…",
     business_phase7_679: "신청하기",
-    business_phase7_680: "프로필 닉네임을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_680: "실명을 입력해 주세요.",
     business_phase7_681:
       "로그인이 필요합니다. 로그인 페이지에서 이메일(또는 수동 가입 아이디)과 비밀번호로 로그인한 뒤 다시 시도해 주세요.",
     business_phase7_682:
@@ -712,7 +712,7 @@ export const businessMessages = {
       "이 매장 ID는 시스템 예약어라 사용할 수 없습니다. 회원 ID를 변경하거나 관리자에게 문의해 주세요.",
     business_phase7_687: "요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     business_phase7_688: "1차·2차 업종을 모두 선택해 주세요.",
-    business_phase7_689: "신청자 닉네임을 1~20자로 입력해 주세요.",
+    business_phase7_689: "실명을 1~20자로 입력해 주세요.",
     business_phase7_690: "매장 ID(영문/숫자/하이픈, 3~40자)를 입력해 주세요.",
     business_phase7_691:
       "현재 계정이 auth.users에 없어 매장을 등록할 수 없습니다. Supabase 로그인 계정을 사용해 주세요.",
@@ -726,6 +726,7 @@ export const businessMessages = {
     business_phase7_698: "주소에 다음 쿼리가 필요합니다.",
     business_phase7_699: "내 상점",
     business_phase7_700: "에서 상품을 선택해 주세요.",
+    business_phase7_701: "실명을 입력하세요",
   },
   en: {
     business_phase7_001: ") is saved only.",
@@ -911,7 +912,7 @@ export const businessMessages = {
     business_phase7_177: "Submit application",
     business_phase7_178: "Application & account",
     business_phase7_179: "Application rejected.",
-    business_phase7_180: "Applicant",
+    business_phase7_180: "Legal name",
     business_phase7_181: "Under review. The store will be public after approval.",
     business_phase7_182: "Under review. The shop will be public after approval.",
     business_phase7_183: "Review & prep",
@@ -1054,7 +1055,7 @@ export const businessMessages = {
     business_phase7_320: "Feed category",
     business_phase7_321: "Pickup guide",
     business_phase7_322: "Pickup complete",
-    business_phase7_323: "Pickup & delivery address (My account · address book)",
+    business_phase7_323: "Default address (address book)",
     business_phase7_324: "Required information",
     business_phase7_325: "One-line description",
     business_phase7_326: "Discount",
@@ -1423,7 +1424,7 @@ export const businessMessages = {
     business_phase7_666: "Active",
     business_phase7_667: "Paused",
     business_phase7_668: "Store address (My account · address book)",
-    business_phase7_669: "Address (My account · address book)",
+    business_phase7_669: "Default address",
     business_phase7_670:
       "No address book entry linked to this store. Add a Store-type address, link this store, and save the map pin.",
     business_phase7_671: "No default address. Set a default address in your address book first.",
@@ -1436,7 +1437,7 @@ export const businessMessages = {
     business_phase7_677: "You cannot submit another application while one is already in progress.",
     business_phase7_678: "Submitting…",
     business_phase7_679: "Apply",
-    business_phase7_680: "Could not load your profile nickname. Please try again in a moment.",
+    business_phase7_680: "Please enter your legal name.",
     business_phase7_681:
       "Sign-in required. Log in with your email (or manual sign-up ID) and password, then try again.",
     business_phase7_682:
@@ -1449,7 +1450,7 @@ export const businessMessages = {
       "This store ID is reserved by the system. Change your member ID or contact an administrator.",
     business_phase7_687: "Could not process the request. Please try again later.",
     business_phase7_688: "Select both primary and secondary categories.",
-    business_phase7_689: "Enter an applicant nickname between 1 and 20 characters.",
+    business_phase7_689: "Enter your legal name (1–20 characters).",
     business_phase7_690: "Enter a store ID (letters, numbers, hyphens; 3–40 characters).",
     business_phase7_691:
       "Your account is not in auth.users, so the store cannot be registered. Use a Supabase sign-in account.",
@@ -1463,5 +1464,6 @@ export const businessMessages = {
     business_phase7_698: "The address needs this query parameter.",
     business_phase7_699: "My store",
     business_phase7_700: " and select a product.",
+    business_phase7_701: "Enter your legal name",
   },
 } as const;

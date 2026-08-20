@@ -244,6 +244,17 @@ export function AdminStoreReviewPanel({
         </ReviewBlock>
       ) : null}
 
+      <ReviewBlock title={t("admin_stores_section_applicant")}>
+        <ReviewRow
+          label={t("admin_stores_field_nickname")}
+          value={dash(store.applicant_nickname)}
+        />
+        <ReviewRow
+          label={t("admin_stores_field_owner_handle")}
+          value={dash(store.owner_handle || store.owner_username)}
+        />
+      </ReviewBlock>
+
       <ReviewBlock title="신청 정보">
         <ReviewRow label={t("admin_stores_field_email_gcash")} value={gcashNoDisplay} />
         <ReviewRow label="GCash name" value={dash(store.website_url)} />

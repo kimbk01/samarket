@@ -103,9 +103,9 @@ export default function BusinessApplyRoute() {
     const gated = await requireAuthAction("owner_dashboard", async () => {}, { next: pathname });
     if (!gated) return;
     setSubmitError(null);
-    const nick = (profileSeed?.applicantNickname ?? values.applicantNickname).trim();
+    const nick = values.applicantNickname.trim();
     if (!nick || nick.length > 20) {
-      setSubmitError(t("business_phase7_680"));
+      setSubmitError(t("business_phase7_689"));
       return;
     }
     const phoneRes = normalizeOptionalPhMobileDb(values.phone);

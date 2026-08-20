@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
@@ -21,20 +21,30 @@ import {
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
-import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
+import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
+import {
+  clearBusinessApplySessionDraft,
+  peekBusinessApplySessionDraft,
+  writeBusinessApplySessionDraft,
+} from "@/lib/business/business-apply-form-session-draft";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveStoreTaxonomyPrimaryDisplayName, resolveStoreTaxonomyTopicDisplayName } from "@/lib/stores/resolve-store-taxonomy-display-name";
+import {
+  resolveStoreTaxonomyPrimaryDisplayName,
+  resolveStoreTaxonomyTopicDisplayName,
+} from "@/lib/stores/resolve-store-taxonomy-display-name";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
 export type BusinessApplyProfileSeed = {
@@ -51,7 +61,7 @@ export type BusinessApplyProfileSeed = {
 };
 
 export interface BusinessApplyFormValues {
-  /** 신청자 닉네임 — 프로필에서 가져오며 신청서에서 수정 불가 */
+  /** 신청자 실명 — 어드민 `applicant_nickname` 으로 저장 */
   applicantNickname: string;
   shopName: string;
   description: string;
@@ -90,6 +100,8 @@ const APPLY_CATEGORY_GRID_CLASS = `${OWNER_STORE_FORM_GRID_2_CLASS} items-start`
 const APPLY_CATEGORY_COL_CLASS = "flex min-w-0 flex-col";
 const APPLY_CATEGORY_LABEL_CLASS = `${APPLY_FIELD_LABEL_CLASS} mb-1 min-h-[2.75rem] leading-snug`;
 const APPLY_CATEGORY_SELECT_CLASS = `${OWNER_STORE_PROFILE_SELECT_CLASS} block w-full min-h-[var(--sam-input-min-height)]`;
+
+const FOOTER_BAR_HEIGHT_PX = 60;
 
 const DEFAULT_VALUES: Omit<
   BusinessApplyFormValues,
@@ -136,10 +148,12 @@ export function BusinessApplyForm({
 }: BusinessApplyFormProps) {
   const { t, language } = useI18n();
   const router = useRouter();
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
   const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
-  const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
-    null
-  );
+  const [taxonomy, setTaxonomy] = useState<{
+    categories: StoreTaxonomyCategory[];
+    topics: StoreTaxonomyTopic[];
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,12 +195,26 @@ export function BusinessApplyForm({
       };
     });
   }, [taxonomy]);
-  const [values, setValues] = useState<BusinessApplyFormValues>(() => ({
-    ...DEFAULT_VALUES,
-    ...initialCategorySlugs(),
-  }));
-  const [regionId, setRegionId] = useState("");
-  const [cityId, setCityId] = useState("");
+
+  const draftRestoredRef = useRef(false);
+  const bootDraftRef = useRef(
+    typeof window !== "undefined" ? peekBusinessApplySessionDraft() : null
+  );
+  if (bootDraftRef.current?.values) {
+    draftRestoredRef.current = true;
+  }
+  const [values, setValues] = useState<BusinessApplyFormValues>(() => {
+    const draft = bootDraftRef.current;
+    if (draft?.values) {
+      return { ...DEFAULT_VALUES, ...initialCategorySlugs(), ...draft.values };
+    }
+    return {
+      ...DEFAULT_VALUES,
+      ...initialCategorySlugs(),
+    };
+  });
+  const [regionId, setRegionId] = useState(() => bootDraftRef.current?.regionId ?? "");
+  const [cityId, setCityId] = useState(() => bootDraftRef.current?.cityId ?? "");
   const [addressDefault, setAddressDefault] = useState<UserAddressDTO | null>(null);
   const [addressReady, setAddressReady] = useState(false);
   const profileHydratedRef = useRef(false);
@@ -200,13 +228,17 @@ export function BusinessApplyForm({
   useEffect(() => {
     if (!profileSeed || profileHydratedRef.current) return;
     profileHydratedRef.current = true;
+    if (draftRestoredRef.current) {
+      /* 주소록 복귀 초안이 있으면 프로필로 덮지 않음 */
+      return;
+    }
     const r = REGIONS.find((x) => x.id === profileSeed.regionId);
     const c = r?.cities.find((x) => x.id === profileSeed.cityId);
     setRegionId(profileSeed.regionId);
     setCityId(profileSeed.cityId);
     setValues((v) => ({
       ...v,
-      applicantNickname: profileSeed.applicantNickname.trim() || v.applicantNickname,
+      /* 실명은 신청자가 직접 입력 — 프로필 닉네임으로 채우지 않음 */
       phone: profileSeed.phoneDigits || v.phone,
       region: r?.name ?? "",
       city: c?.name ?? "",
@@ -237,18 +269,6 @@ export function BusinessApplyForm({
           return;
         }
         setAddressDefault(master);
-        const derived = deriveStoreAddressFieldsFromUserAddressMaster(master);
-        if (derived) {
-          setRegionId(derived.regionId);
-          setCityId(derived.cityId);
-          setValues((v) => ({
-            ...v,
-            region: derived.regionName || v.region,
-            city: derived.cityName || v.city,
-            addressStreetLine: derived.addressStreetLine || v.addressStreetLine,
-            addressDetail: derived.addressDetail || v.addressDetail,
-          }));
-        }
       } catch {
         if (!cancelled && seq === addressLoadSeqRef.current) setAddressDefault(null);
       } finally {
@@ -256,7 +276,6 @@ export function BusinessApplyForm({
       }
     };
 
-    // always force-refresh on mount (avoid stale snapshot after address edits)
     void load({ force: true });
 
     const onFocus = () => void load({ force: true });
@@ -275,29 +294,26 @@ export function BusinessApplyForm({
     };
   }, []);
 
-  const subOptions = useMemo(
-    () => {
-      const fallbackSubs = listBrowseSubIndustries(values.categoryPrimarySlug);
-      const fallbackBySlug = new Map(fallbackSubs.map((s) => [s.slug, s]));
-      if (!taxonomy || taxonomy.categories.length === 0) return fallbackSubs;
-      const cat = taxonomy.categories.find((c) => c.slug === values.categoryPrimarySlug);
-      if (!cat) return [];
-      return taxonomy.topics
-        .filter((t) => t.store_category_id === cat.id)
-        .map((t) => {
-          const fb = fallbackBySlug.get(t.slug);
-          return {
-            id: t.id,
-            slug: t.slug,
-            nameKo: t.name,
-            nameEn: t.name_en ?? fb?.nameEn ?? null,
-            primarySlug: values.categoryPrimarySlug,
-            sortOrder: t.sort_order,
-          };
-        });
-    },
-    [values.categoryPrimarySlug, taxonomy]
-  );
+  const subOptions = useMemo(() => {
+    const fallbackSubs = listBrowseSubIndustries(values.categoryPrimarySlug);
+    const fallbackBySlug = new Map(fallbackSubs.map((s) => [s.slug, s]));
+    if (!taxonomy || taxonomy.categories.length === 0) return fallbackSubs;
+    const cat = taxonomy.categories.find((c) => c.slug === values.categoryPrimarySlug);
+    if (!cat) return [];
+    return taxonomy.topics
+      .filter((topic) => topic.store_category_id === cat.id)
+      .map((topic) => {
+        const fb = fallbackBySlug.get(topic.slug);
+        return {
+          id: topic.id,
+          slug: topic.slug,
+          nameKo: topic.name,
+          nameEn: topic.name_en ?? fb?.nameEn ?? null,
+          primarySlug: values.categoryPrimarySlug,
+          sortOrder: topic.sort_order,
+        };
+      });
+  }, [values.categoryPrimarySlug, taxonomy]);
 
   useEffect(() => {
     const prim = primaries;
@@ -310,7 +326,9 @@ export function BusinessApplyForm({
           ? (() => {
               const cat = taxonomy.categories.find((c) => c.slug === primarySlug);
               if (!cat) return [];
-              return taxonomy.topics.filter((t) => t.store_category_id === cat.id).map((t) => ({ slug: t.slug }));
+              return taxonomy.topics
+                .filter((topic) => topic.store_category_id === cat.id)
+                .map((topic) => ({ slug: topic.slug }));
             })()
           : listBrowseSubIndustries(primarySlug);
       const sOk = subs.some((s) => s.slug === v.categorySubSlug);
@@ -320,198 +338,262 @@ export function BusinessApplyForm({
     });
   }, [primaries, taxonomy]);
 
+  const handleOpenAddressBook = useCallback(() => {
+    writeBusinessApplySessionDraft({
+      values,
+      regionId,
+      cityId,
+    });
+    openMemberAddressBook(router, {
+      caller: "owner",
+      mode: "select",
+      purpose: "store_owner_apply_master",
+      apply: { kind: "set_default_master" },
+      restore: { kind: "href", href: "/stores/owner/apply" },
+    });
+  }, [values, regionId, cityId, router]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (disabled) return;
+    clearBusinessApplySessionDraft();
     onSubmit(values);
   };
 
   const submitDisabled =
-    disabled || !computedStoreSlug.trim() || !addressDefault?.id;
+    disabled ||
+    !computedStoreSlug.trim() ||
+    !addressDefault?.id ||
+    !values.applicantNickname.trim();
 
   return (
     <>
       <form
         id="business-apply-form"
         onSubmit={handleSubmit}
-        className={`${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
+        className={`${OWNER_STORE_STACK_Y_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
+        style={{
+          paddingBottom: `calc(${FOOTER_BAR_HEIGHT_PX}px + ${effectiveBottomInset}px)`,
+        }}
       >
-      <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
-        <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-          <div className="min-w-0">
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
-            <p className={APPLY_DISPLAY_VALUE_MONO_CLASS}>{ownerHandle || "—"}</p>
-          </div>
-          <div className="min-w-0">
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_180")}</label>
-            <p className={APPLY_DISPLAY_VALUE_CLASS}>{values.applicantNickname.trim() || "—"}</p>
-          </div>
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_144")}>
-        <div>
-          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
-          <input
-            type="text"
-            value={values.shopName}
-            onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
-            required
-            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-            placeholder={t("business_phase7_143")}
-          />
-        </div>
-        <div>
-          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
-          <textarea
-            value={values.description}
-            onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
-            rows={3}
-            className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
-            placeholder={t("business_phase7_145")}
-          />
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
-        <div>
-          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_694")}</label>
-          <textarea
-            value={values.requestNote}
-            onChange={(e) => setValues((v) => ({ ...v, requestNote: e.target.value.slice(0, 1000) }))}
-            rows={4}
-            className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
-            placeholder={t("business_phase7_695")}
-          />
-          <p className="mt-1.5 sam-text-helper text-sam-muted">
-            {values.requestNote.trim().length}/1000
-          </p>
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
-        <div>
-          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
-          <input
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
-            maxLength={18}
-            value={formatPhMobileDisplayPlus63(values.phone)}
-            onChange={(e) =>
-              setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
-            }
-            required
-            className={APPLY_PHONE_VALUE_CLASS}
-            placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
-          />
-        </div>
-        <div>
-          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
-          <input
-            type="text"
-            value={values.kakaoId}
-            onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
-            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-            placeholder={t("business_phase7_193")}
-          />
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_323")}>
-        <OwnerAddressBookSnapshotCard
-          returnToPath="/stores/owner/apply"
-          addressReady={addressReady}
-          addressDefault={addressDefault}
-          bare
-        />
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-        <div className={APPLY_CATEGORY_GRID_CLASS}>
-          <div className={APPLY_CATEGORY_COL_CLASS}>
-            <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_005")}</label>
-            <div className={APPLY_SELECT_WRAP_CLASS}>
-              <select
-                value={values.categoryPrimarySlug}
-                onChange={(e) => {
-                  const slug = e.target.value;
-                  const subs =
-                    taxonomy && taxonomy.categories.length > 0
-                      ? (() => {
-                          const cat = taxonomy.categories.find((c) => c.slug === slug);
-                          if (!cat) return [];
-                          return taxonomy.topics
-                            .filter((t) => t.store_category_id === cat.id)
-                            .map((t) => ({ slug: t.slug }));
-                        })()
-                      : listBrowseSubIndustries(slug);
+        <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
+          <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
+            <div className="min-w-0">
+              <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
+              <p className={APPLY_DISPLAY_VALUE_MONO_CLASS}>{ownerHandle || "—"}</p>
+            </div>
+            <div className="min-w-0">
+              <label className={APPLY_FIELD_LABEL_CLASS} htmlFor="business-apply-legal-name">
+                {t("business_phase7_180")}
+              </label>
+              <input
+                id="business-apply-legal-name"
+                type="text"
+                value={values.applicantNickname}
+                onChange={(e) =>
                   setValues((v) => ({
                     ...v,
-                    categoryPrimarySlug: slug,
-                    categorySubSlug: subs[0]?.slug ?? "",
-                  }));
-                }}
+                    applicantNickname: e.target.value.slice(0, 20),
+                  }))
+                }
                 required
-                className={APPLY_CATEGORY_SELECT_CLASS}
-              >
-                {primaries.length === 0 ? (
-                  <option value="">{t("business_phase7_093")}</option>
-                ) : (
-                  primaries.map((p) => (
-                    <option key={p.id} value={p.slug}>
-                      {resolveStoreTaxonomyPrimaryDisplayName(language, p.slug, p.nameKo, p.nameEn)}
-                    </option>
-                  ))
-                )}
-              </select>
-              <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
-                ▼
-              </span>
+                maxLength={20}
+                autoComplete="name"
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                placeholder={t("business_phase7_701")}
+              />
             </div>
           </div>
-          <div className={APPLY_CATEGORY_COL_CLASS}>
-            <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_006")}</label>
-            <div className={APPLY_SELECT_WRAP_CLASS}>
-              <select
-                value={values.categorySubSlug}
-                onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
-                required
-                disabled={subOptions.length === 0}
-                className={APPLY_CATEGORY_SELECT_CLASS}
-              >
-                {subOptions.length === 0 ? (
-                  <option value="">{t("business_phase7_089")}</option>
-                ) : (
-                  subOptions.map((s) => (
-                    <option key={s.id} value={s.slug}>
-                      {resolveStoreTaxonomyTopicDisplayName(language, s.slug, s.nameKo, s.nameEn)}
-                    </option>
-                  ))
-                )}
-              </select>
-              <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
-                ▼
-              </span>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title={t("business_phase7_144")}>
+          <div>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
+            <input
+              type="text"
+              value={values.shopName}
+              onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
+              required
+              className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+              placeholder={t("business_phase7_143")}
+            />
+          </div>
+          <div>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
+            <textarea
+              value={values.description}
+              onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
+              rows={3}
+              className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
+              placeholder={t("business_phase7_145")}
+            />
+          </div>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
+          <div>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_694")}</label>
+            <textarea
+              value={values.requestNote}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, requestNote: e.target.value.slice(0, 1000) }))
+              }
+              rows={4}
+              className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
+              placeholder={t("business_phase7_695")}
+            />
+            <p className="mt-1.5 sam-text-helper text-sam-muted">
+              {values.requestNote.trim().length}/1000
+            </p>
+          </div>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
+          <div>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={18}
+              value={formatPhMobileDisplayPlus63(values.phone)}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
+              }
+              required
+              className={APPLY_PHONE_VALUE_CLASS}
+              placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
+            />
+          </div>
+          <div>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
+            <input
+              type="text"
+              value={values.kakaoId}
+              onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
+              className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+              placeholder={t("business_phase7_193")}
+            />
+          </div>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title={t("business_phase7_323")}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={handleOpenAddressBook}
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-left disabled:opacity-70"
+            aria-label={t("business_phase7_672")}
+          >
+            <p className="sam-text-body font-semibold text-sam-fg">
+              {t("business_phase7_669")} <span className="text-red-500">*</span>
+            </p>
+            <div className="mt-1.5 min-w-0">
+              {!addressReady ? (
+                <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+              ) : addressDefault?.id ? (
+                <AddressListRowBody row={addressDefault} badgeStyle="starbucks" />
+              ) : (
+                <p className="sam-text-body text-sam-muted">{t("business_phase7_671")}</p>
+              )}
+            </div>
+          </button>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
+          <div className={APPLY_CATEGORY_GRID_CLASS}>
+            <div className={APPLY_CATEGORY_COL_CLASS}>
+              <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_005")}</label>
+              <div className={APPLY_SELECT_WRAP_CLASS}>
+                <select
+                  value={values.categoryPrimarySlug}
+                  onChange={(e) => {
+                    const slug = e.target.value;
+                    const subs =
+                      taxonomy && taxonomy.categories.length > 0
+                        ? (() => {
+                            const cat = taxonomy.categories.find((c) => c.slug === slug);
+                            if (!cat) return [];
+                            return taxonomy.topics
+                              .filter((topic) => topic.store_category_id === cat.id)
+                              .map((topic) => ({ slug: topic.slug }));
+                          })()
+                        : listBrowseSubIndustries(slug);
+                    setValues((v) => ({
+                      ...v,
+                      categoryPrimarySlug: slug,
+                      categorySubSlug: subs[0]?.slug ?? "",
+                    }));
+                  }}
+                  required
+                  className={APPLY_CATEGORY_SELECT_CLASS}
+                >
+                  {primaries.length === 0 ? (
+                    <option value="">{t("business_phase7_093")}</option>
+                  ) : (
+                    primaries.map((p) => (
+                      <option key={p.id} value={p.slug}>
+                        {resolveStoreTaxonomyPrimaryDisplayName(language, p.slug, p.nameKo, p.nameEn)}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
+                  ▼
+                </span>
+              </div>
+            </div>
+            <div className={APPLY_CATEGORY_COL_CLASS}>
+              <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_006")}</label>
+              <div className={APPLY_SELECT_WRAP_CLASS}>
+                <select
+                  value={values.categorySubSlug}
+                  onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
+                  required
+                  disabled={subOptions.length === 0}
+                  className={APPLY_CATEGORY_SELECT_CLASS}
+                >
+                  {subOptions.length === 0 ? (
+                    <option value="">{t("business_phase7_089")}</option>
+                  ) : (
+                    subOptions.map((s) => (
+                      <option key={s.id} value={s.slug}>
+                        {resolveStoreTaxonomyTopicDisplayName(language, s.slug, s.nameKo, s.nameEn)}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
+                  ▼
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </OwnerStoreAdminDashSection>
+        </OwnerStoreAdminDashSection>
       </form>
 
       <BodyPortal>
         <footer
           role="contentinfo"
           aria-label={t("business_phase7_177")}
-          className={ownerStoreAdminFooterFixedClass()}
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+          className={`${OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS} bottom-0`}
+          style={{ paddingBottom: `${effectiveBottomInset}px` }}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => router.push("/stores/owner")}
-                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                onClick={() => {
+                  clearBusinessApplySessionDraft();
+                  router.push("/stores/owner");
+                }}
+                onPointerDown={(e) => {
+                  if (!disabled) triggerInteractionFeedback("light", e);
+                }}
+                className={`${OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
               >
                 {t("common_cancel")}
               </button>
@@ -519,7 +601,10 @@ export function BusinessApplyForm({
                 type="submit"
                 form="business-apply-form"
                 disabled={submitDisabled}
-                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                onPointerDown={(e) => {
+                  if (!submitDisabled) triggerInteractionFeedback("light", e);
+                }}
+                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
               >
                 {resolvedSubmitLabel}
               </button>
