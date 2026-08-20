@@ -1,20 +1,49 @@
 /**
- * `/philife` 첫 페인트 직후 — 하단 탭·내 매장 목록·거래 건수·거래 채팅 목록 캐시를 예열.
+ * `/market` 첫 페인트 직후 — 하단 탭·내 매장 목록·거래 건수·거래 채팅 목록 캐시를 예열.
  * 홈 피드 첫 페이지는 RSC + `HomeProductList` 의 `primeHomePostsCache` 가 담당 — 여기서 `/api/philife/posts` 를
  * 다시 예열하면 idle 타이밍에 중복 네트워크가 나기 쉬워 제외함.
- * 각 호출은 자체 runSingleFlight/TTL 을 쓰므로 BottomNav·OwnerLite·FAB 과 겹쳐도 네트워크는 한 갈래로 합쳐짐.
+ *
+ * me-stores CONTRACT:
+ * - Network/cache authority = `fetchMeStoresListDeduped` (full `StoreRow[]` TTL)
+ * - Warm purpose includes priming that full TTL for later hub/guard/shell consumers — not shell-only
+ * - Therefore do NOT skip me-stores network solely because OwnerLite projection is fresh
+ * - On TTL peek hit or after fetch: project OwnerLite from the same rows (no second freshness authority)
  */
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { warmTradeChatRoomsClient } from "@/lib/chats/warm-trade-chat-rooms-client";
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  fetchMeStoresListDeduped,
+  parseStoreRowsFromMeStoresJson,
+  peekMeStoresListClientCache,
+} from "@/lib/me/fetch-me-stores-deduped";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
+import { seedOwnerLiteStoreFromStores } from "@/lib/stores/owner-lite-external-store";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { shouldRunHomeMainShellWarm } from "@/lib/runtime/next-js-dev-client";
+
+function warmMeStoresListAndProjectOwnerLite(): void {
+  const peek = peekMeStoresListClientCache();
+  if (peek) {
+    const stores = parseStoreRowsFromMeStoresJson(peek.json);
+    if (stores != null) {
+      seedOwnerLiteStoreFromStores(stores);
+    }
+    return;
+  }
+  void fetchMeStoresListDeduped()
+    .then((result) => {
+      const stores = parseStoreRowsFromMeStoresJson(result.json);
+      if (stores != null) {
+        seedOwnerLiteStoreFromStores(stores);
+      }
+    })
+    .catch(() => {});
+}
 
 /**
  * idle 예열 작업을 취소한다. 라우트 이탈 시 effect cleanup 에서 호출해
@@ -27,7 +56,8 @@ export function warmMainShellData(): () => void {
   if (isConstrainedNetwork()) return () => {};
 
   const idleId = scheduleWhenBrowserIdle(() => {
-    void Promise.all([fetchMainBottomNavDeduped(), fetchMeStoresListDeduped()]).catch(() => {});
+    warmMeStoresListAndProjectOwnerLite();
+    void fetchMainBottomNavDeduped().catch(() => {});
 
     void (async () => {
       try {

@@ -1,10 +1,16 @@
 /**
- * 소유 매장 요약(/api/me/stores) — BottomNav·오너 허브 등이 같이 쓸 때
- * 구독은 여러 개여도 로드는 한 갈래(runSingleFlight + fetchMeStoresListDeduped).
+ * Shell projection of owned-store rows.
+ *
+ * CONTRACT:
+ * - Network/cache authority = `fetchMeStoresListDeduped` only
+ * - OwnerLite does not invent a second freshness/TTL authority
+ * - Prefer projecting from me-stores TTL peek before calling the network loader
  */
 import {
   fetchMeStoresListDeduped,
   invalidateMeStoresListDedupedCache,
+  parseStoreRowsFromMeStoresJson,
+  peekMeStoresListClientCache,
   seedMeStoresListClientCacheFromStores,
 } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
@@ -120,6 +126,67 @@ function isOwnerLiteSnapshotFreshForIdleHydrate(): boolean {
 
 function emit() {
   for (const l of listeners) l();
+}
+
+function clearOwnerLiteSessionKey(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(OWNER_LITE_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Project shell snapshot from full owned-store rows (me-stores cache / RSC seed / warm).
+ * Does not fetch. Does not become an independent network authority.
+ */
+export function seedOwnerLiteStoreFromStores(stores: readonly StoreRow[]): void {
+  const nextStores = Array.isArray(stores) ? [...stores] : [];
+  hasLoadedOnce = true;
+  snapshotLoadedAtMs = Date.now();
+  snapshot = {
+    loading: false,
+    ownerStore: pickOwnerLiteActiveStore(nextStores),
+    ownerStores: nextStores,
+  };
+  writeOwnerLiteSessionSnapshot(snapshot);
+  emit();
+}
+
+/** Auth exit / account switch — drop in-memory + session projection. */
+export function clearOwnerLiteStore(): void {
+  cancelScheduledOwnerLiteHydrate("auth_exit_clear");
+  hasLoadedOnce = false;
+  snapshotLoadedAtMs = null;
+  snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+  clearOwnerLiteSessionKey();
+  emit();
+}
+
+/** Apply me-stores TTL hit into OwnerLite; returns true when projected without network. */
+function projectOwnerLiteFromMeStoresCache(options?: {
+  subscriber?: string;
+  subscribeReason?: string;
+}): boolean {
+  const peek = peekMeStoresListClientCache();
+  if (!peek) return false;
+  const stores = parseStoreRowsFromMeStoresJson(peek.json);
+  if (stores == null) return false;
+  seedOwnerLiteStoreFromStores(stores);
+  pushMypageNetMarker({
+    event: "owner_lite_store_auto_hydrate_skipped",
+    viewerId: getCurrentUser()?.id?.trim() ?? null,
+    subscriber: options?.subscriber ?? "owner_lite_external_store",
+    subscribeReason: options?.subscribeReason ?? "projected_from_me_stores_ttl",
+    autoHydrate: true,
+    activeSubscriberCount: subscriberCount,
+    hasSnapshot: hasLoadedOnce,
+    snapshotAgeMs: snapshotLoadedAtMs != null ? Date.now() - snapshotLoadedAtMs : null,
+    executionPathname: currentPathname(),
+    detail: `count=${stores.length}`,
+  });
+  return true;
 }
 
 /** `/mypage` root must not trigger `GET /api/me/stores` — store admin routes own that fetch. */
@@ -282,6 +349,14 @@ export function subscribeOwnerLiteStore(listener: () => void) {
         });
         return;
       }
+      if (
+        projectOwnerLiteFromMeStoresCache({
+          subscriber: "subscribeOwnerLiteStore",
+          subscribeReason: "projected_from_me_stores_ttl",
+        })
+      ) {
+        return;
+      }
       void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>
         loadFromNetwork({
           withLoadingSpinner: !isConstrainedNetwork(),
@@ -352,7 +427,14 @@ export function prefetchOwnerLiteStoreQuiet(): void {
     });
     return;
   }
-  invalidateMeStoresListDedupedCache();
+  if (
+    projectOwnerLiteFromMeStoresCache({
+      subscriber: "prefetchOwnerLiteStoreQuiet",
+      subscribeReason: "projected_from_me_stores_ttl",
+    })
+  ) {
+    return;
+  }
   void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>
     loadFromNetwork({
       withLoadingSpinner: false,

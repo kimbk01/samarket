@@ -149,6 +149,22 @@ describe("invalidateAuthExitClientCaches", () => {
     expect(typeof mod.invalidateAuthExitClientCaches).toBe("function");
     expect(typeof mod.clearBrowserCacheStorageBestEffort).toBe("function");
   });
+
+  it("clears OwnerLite via single auth-exit authority (not duplicated in wipe)", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const exitSrc = fs.readFileSync(
+      path.join(process.cwd(), "lib/auth/invalidate-auth-exit-client-caches.ts"),
+      "utf8"
+    );
+    const wipeSrc = fs.readFileSync(
+      path.join(process.cwd(), "lib/auth/client-session-wipe.ts"),
+      "utf8"
+    );
+    expect(exitSrc).toContain("clearOwnerLiteStore()");
+    expect(wipeSrc).not.toContain("clearOwnerLiteStore");
+    expect(wipeSrc).toContain("invalidateAuthExitClientCaches");
+  });
 });
 
 describe("resetAuthState contract", () => {

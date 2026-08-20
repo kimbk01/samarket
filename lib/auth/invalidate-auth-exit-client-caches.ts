@@ -20,6 +20,7 @@ import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-ded
 import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { invalidateOwnerHubDashboardOrdersCache } from "@/lib/stores/owner-hub-dashboard-orders-cache";
 import { invalidateOwnerHubOrderCountsCache } from "@/lib/stores/owner-hub-order-counts-cache";
+import { clearOwnerLiteStore } from "@/lib/stores/owner-lite-external-store";
 import { invalidateOwnerStoreOwnershipCache } from "@/lib/stores/owner-store-ownership-cache";
 
 export async function clearBrowserCacheStorageBestEffort(): Promise<void> {
@@ -36,6 +37,8 @@ export async function clearBrowserCacheStorageBestEffort(): Promise<void> {
 export function invalidateAuthExitClientCaches(previousUserId?: string | null): void {
   invalidateCurrentUserIdCache();
   invalidateMeStoresListDedupedCache();
+  /** Single auth-exit clear authority for OwnerLite in-memory (+ session key). Do not duplicate in wipe. */
+  clearOwnerLiteStore();
   invalidateMainBottomNavDedupedCache();
   invalidateMeNotificationsListDedupedCache();
   pauseMeNotificationsListDedupedAfterAuthExit();
