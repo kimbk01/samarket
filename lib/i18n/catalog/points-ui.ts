@@ -179,9 +179,11 @@ export const pointsUiMessages = {
     trade_promo_detail_cta: "더 알리기",
     promo_sheet_title_trade: "게시물 홍보하기",
     promo_product_trade_7_title: "7일 더 알리기",
-    promo_product_trade_7_desc: "거래 목록에서 7일 동안 더 잘 보이게 합니다.",
+    promo_product_trade_7_desc:
+      "관리자 승인 후 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 표면당 최대 3개입니다.",
     promo_product_trade_14_title: "14일 더 알리기",
-    promo_product_trade_14_desc: "거래 목록에서 14일 동안 더 잘 보이게 합니다.",
+    promo_product_trade_14_desc:
+      "관리자 승인 후 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 표면당 최대 3개입니다.",
     point_fin_cat_charge: "D-Point 충전",
     point_fin_cat_promotion: "게시물 홍보",
     point_fin_cat_refund: "환불",
@@ -407,9 +409,11 @@ export const pointsUiMessages = {
     trade_promo_detail_cta: "Promote",
     promo_sheet_title_trade: "Promote this post",
     promo_product_trade_7_title: "Promote for 7 days",
-    promo_product_trade_7_desc: "Get better visibility in trade feeds for 7 days.",
+    promo_product_trade_7_desc:
+      "After admin approval, shown among listings on Trade home and this post’s category feed. Up to 3 per surface.",
     promo_product_trade_14_title: "Promote for 14 days",
-    promo_product_trade_14_desc: "Get better visibility in trade feeds for 14 days.",
+    promo_product_trade_14_desc:
+      "After admin approval, shown among listings on Trade home and this post’s category feed. Up to 3 per surface.",
     point_fin_cat_charge: "D-Point top-up",
     point_fin_cat_promotion: "Post promotion",
     point_fin_cat_refund: "Refund",

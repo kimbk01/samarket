@@ -17,15 +17,23 @@ type OrderRow = {
   endAt: string;
   createdAt: string;
   reviewReason?: string | null;
+  listingStatus?: string;
+  listingEligible?: boolean;
 };
 
+type Domain = "community" | "trade";
+
 /**
- * Community Paid Exposure approval queue (point_promotion_orders).
- * Mounted on /admin/ad-applications — semantic: 「게시물 홍보 신청」.
+ * Member paid-exposure approval queue (point_promotion_orders).
+ * Community + Trade「더 알리기」 share HOLD capture / release.
  */
-export function AdminCommunityPromotionQueue() {
+export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?: Domain }) {
   const { safeT, language } = useI18n();
   const en = language === "en";
+  const isTrade = domain === "trade";
+  const listHref = isTrade
+    ? "/api/admin/trade-promotion-orders"
+    : "/api/admin/community-promotion-orders";
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending_review");
@@ -36,7 +44,7 @@ export function AdminCommunityPromotionQueue() {
     setLoading(true);
     try {
       const qs = filter ? `?status=${encodeURIComponent(filter)}` : "";
-      const res = await fetch(`/api/admin/community-promotion-orders${qs}`, {
+      const res = await fetch(`${listHref}${qs}`, {
         cache: "no-store",
       });
       const j = (await res.json()) as { ok?: boolean; orders?: OrderRow[]; error?: string };
@@ -45,7 +53,7 @@ export function AdminCommunityPromotionQueue() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, listHref]);
 
   useEffect(() => {
     void load();
@@ -67,7 +75,7 @@ export function AdminCommunityPromotionQueue() {
     }
     setBusyId(id);
     try {
-      const res = await fetch(`/api/admin/community-promotion-orders/${id}`, {
+      const res = await fetch(`${listHref}/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, reason }),
@@ -88,16 +96,27 @@ export function AdminCommunityPromotionQueue() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_comm_promo_title", {
-              fallbackKo: "게시물 홍보 신청",
-              fallbackEn: "Post promotion requests",
-            })}
+            {isTrade
+              ? safeT("admin_trade_promo_title", {
+                  fallbackKo: "거래 더 알리기 신청",
+                  fallbackEn: "Trade promote requests",
+                })
+              : safeT("admin_comm_promo_title", {
+                  fallbackKo: "게시물 홍보 신청",
+                  fallbackEn: "Post promotion requests",
+                })}
           </h2>
           <p className="sam-text-helper text-sam-muted">
-            {safeT("admin_comm_promo_hint", {
-              fallbackKo: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
-              fallbackEn: "Community post boost — HOLD capture / release",
-            })}
+            {isTrade
+              ? safeT("admin_trade_promo_hint", {
+                  fallbackKo: "거래 매물 더 알리기 — 글 확인 후 HOLD 확정/해제. 승인 시 홈·해당 카테고리 목록에 노출됩니다.",
+                  fallbackEn:
+                    "Trade listing boost — review the post, then HOLD capture / release. After approval it appears on Home and that category feed.",
+                })
+              : safeT("admin_comm_promo_hint", {
+                  fallbackKo: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
+                  fallbackEn: "Community post boost — HOLD capture / release",
+                })}
           </p>
         </div>
         <select
@@ -127,6 +146,7 @@ export function AdminCommunityPromotionQueue() {
           {rows.map((row) => {
             const busy = busyId === row.id;
             const canAct = row.orderStatus === "pending_review";
+            const listingHref = isTrade ? `/post/${encodeURIComponent(row.targetId)}` : "";
             return (
               <li key={row.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
@@ -136,9 +156,33 @@ export function AdminCommunityPromotionQueue() {
                   <p className="sam-text-helper text-sam-muted">
                     {row.userNickname || row.userId.slice(0, 8)} · {row.pointCost.toLocaleString()}P ·{" "}
                     {row.durationDays}d · {row.productId ?? "—"} · {row.orderStatus}
+                    {isTrade && row.listingStatus
+                      ? ` · ${row.listingStatus}${row.listingEligible === false ? " (비공개)" : ""}`
+                      : ""}
                   </p>
+                  {listingHref && row.listingEligible !== false ? (
+                    <a
+                      href={listingHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
+                    >
+                      {safeT("admin_trade_promo_open_listing", {
+                        fallbackKo: "매물 상세 확인",
+                        fallbackEn: "Open listing",
+                      })}
+                    </a>
+                  ) : isTrade ? (
+                    <p className="sam-text-helper text-sam-muted">
+                      {safeT("admin_trade_promo_review_snapshot", {
+                        fallbackKo: "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
+                        fallbackEn:
+                          "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
+                      })}
+                    </p>
+                  ) : null}
                   {row.reviewReason ? (
-                    <p className="sam-text-helper text-sam-muted">reason: {row.reviewReason}</p>
+                    <p className="sam-text-helper text-sam-muted">{row.reviewReason}</p>
                   ) : null}
                 </div>
                 {canAct ? (

@@ -11,7 +11,8 @@ import { AdminFeedAdRequestQueue } from "@/components/admin/ads/AdminFeedAdReque
 export default function AdminAdApplicationsPage() {
   return (
     <div className="space-y-2">
-      <AdminCommunityPromotionQueue />
+      <AdminCommunityPromotionQueue domain="trade" />
+      <AdminCommunityPromotionQueue domain="community" />
       <AdminFeedAdRequestQueue />
     </div>
   );

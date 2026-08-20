@@ -57,7 +57,7 @@ export async function releaseHeldPointsForPromotionOrder(
 ): Promise<PointFlowResult> {
   const { data: holds, error } = await sb
     .from("promotion_point_holds")
-    .select("id, user_id, amount")
+    .select("id, user_id, amount, status")
     .eq("promotion_order_id", params.orderId)
     .eq("status", "held");
   if (error) return { ok: false, error: error.message };
@@ -68,6 +68,15 @@ export async function releaseHeldPointsForPromotionOrder(
     const uid = String(h.user_id ?? "");
     const amt = Math.max(0, Math.floor(Number(h.amount) || 0));
     if (!uid || amt <= 0) continue;
+    const { data: claimed, error: claimErr } = await sb
+      .from("promotion_point_holds")
+      .update({ status: "released", updated_at: new Date().toISOString() })
+      .eq("id", h.id)
+      .eq("status", "held")
+      .select("id")
+      .maybeSingle();
+    if (claimErr) return { ok: false, error: claimErr.message };
+    if (!claimed?.id) continue;
     const credited = await creditUserPoints(sb, {
       userId: uid,
       amount: amt,
@@ -78,11 +87,6 @@ export async function releaseHeldPointsForPromotionOrder(
       actorType: "system",
     });
     if (!credited.ok) return { ok: false, error: mapErr(credited.error, credited.code) };
-    const { error: upd } = await sb
-      .from("promotion_point_holds")
-      .update({ status: "released", updated_at: new Date().toISOString() })
-      .eq("id", h.id);
-    if (upd) return { ok: false, error: upd.message };
   }
   return { ok: true };
 }
@@ -93,19 +97,36 @@ export async function captureHeldPointsForPromotionOrder(
 ): Promise<PointFlowResult> {
   const { data: holds, error } = await sb
     .from("promotion_point_holds")
-    .select("id")
-    .eq("promotion_order_id", params.orderId)
-    .eq("status", "held");
+    .select("id, status")
+    .eq("promotion_order_id", params.orderId);
   if (error) return { ok: false, error: error.message };
-  if (!holds?.length) return { ok: false, error: "hold_missing" };
+  const rows = Array.isArray(holds) ? (holds as { id: string; status?: string }[]) : [];
+  if (rows.length === 0) return { ok: false, error: "hold_missing" };
 
-  for (const h of holds as { id: string }[]) {
-    const { error: upd } = await sb
+  let claimed = 0;
+  let alreadyCaptured = 0;
+  for (const h of rows) {
+    const st = String(h.status ?? "").toLowerCase();
+    if (st === "captured") {
+      alreadyCaptured += 1;
+      continue;
+    }
+    if (st !== "held") continue;
+    const { data: updated, error: upd } = await sb
       .from("promotion_point_holds")
       .update({ status: "captured", updated_at: new Date().toISOString() })
-      .eq("id", h.id);
+      .eq("id", h.id)
+      .eq("status", "held")
+      .select("id")
+      .maybeSingle();
     if (upd) return { ok: false, error: upd.message };
+    if (updated?.id) claimed += 1;
   }
+
+  if (claimed === 0 && alreadyCaptured === 0) {
+    return { ok: false, error: "hold_missing" };
+  }
+  if (claimed === 0) return { ok: true };
 
   const cost = Math.max(0, Math.floor(Number(params.pointCost) || 0));
   await appendUserPointLedgerAudit(sb, {

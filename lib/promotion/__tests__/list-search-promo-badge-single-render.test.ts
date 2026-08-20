@@ -38,8 +38,10 @@ describe("CUT F seller promotion unification", () => {
     const route = src("lib/posts/home-posts-route-core.ts");
     const projection = src("lib/promotion/feed-promotion-projection.ts");
     expect(route).toContain("pinPromoted: !q");
+    expect(route).toContain('promotionSurface: hasRootSelection ? "category" : "home"');
     expect(route).toContain("tradePromotionPageIndexFromRequestPage(page)");
     expect(projection).toContain("overlayTradePromotionBadges");
+    expect(projection).toContain("eq(\"domain\", \"trade\")");
     expect(projection).toContain("pinPromoted === false");
     const overlayStart = projection.indexOf("export function overlayTradePromotionBadges");
     const overlayEnd = projection.indexOf("export async function applyTradeHomePromotionProjection");
@@ -59,6 +61,7 @@ describe("CUT F seller promotion unification", () => {
     );
     expect(seedFn).toContain("applyTradeHomePromotionProjection");
     expect(seedFn).toContain("tradePromotionPageIndexFromRequestPage");
+    expect(seedFn).toContain('promotionSurface: "home"');
     expect(seedFn).not.toContain("pinPromoted:");
   });
 
@@ -74,9 +77,23 @@ describe("CUT F seller promotion unification", () => {
     expect(sheet).toContain("promo_sheet_title_trade");
   });
 
+  it("admin ad-applications mounts trade and community promotion queues", () => {
+    const page = src("app/admin/ad-applications/page.tsx");
+    expect(page).toContain('domain="trade"');
+    expect(page).toContain('domain="community"');
+    const api = src("app/api/admin/trade-promotion-orders/[id]/route.ts");
+    expect(api).toContain("requireAdminApiUser");
+    expect(api).toContain("export async function GET");
+    expect(api).toContain("approveTradePaidExposure");
+    expect(api).toContain("rejectTradePaidExposure");
+  });
+
   it("does not drop CUT B sell-intent or CUT C search expansion on the home-posts path", () => {
     const route = src("lib/posts/home-posts-route-core.ts");
     expect(route).toContain("shouldApplyMixedDiscoverySellIntent");
     expect(route).toContain("shouldApplyMarketplaceSearchExpansion");
+    expect(route).toContain("resolveMarketplaceMembershipIdsForRoots");
+    expect(route).toContain("tradeCategoryIds = tradeCategoryIdsForQuery");
+    expect(route).toContain("same membership/HOME-union set");
   });
 });

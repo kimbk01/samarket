@@ -6,6 +6,7 @@ import {
 } from "@/lib/points/promotion-products";
 import {
   annotatePromotedPosts,
+  isLiveTradePromotionEntitlement,
   isPostEligibleForPromotionBoost,
   MAX_PAGE0_PROMOTED_PINS,
   overlayTradePromotionBadges,
@@ -31,6 +32,36 @@ describe("member promotion products", () => {
 
   it("resolves trade_promote_7 server price", () => {
     expect(getMemberPromotionProduct("trade_promote_7")?.pointCost).toBe(500);
+  });
+});
+
+describe("live entitlement window (approve clock)", () => {
+  const t0 = Date.parse("2026-08-20T00:00:00.000Z");
+  it("is live only when active and now is inside [start, end]", () => {
+    expect(
+      isLiveTradePromotionEntitlement({
+        orderStatus: "active",
+        startAt: "2026-08-20T00:00:00.000Z",
+        endAt: "2026-08-27T00:00:00.000Z",
+        nowMs: t0,
+      })
+    ).toBe(true);
+    expect(
+      isLiveTradePromotionEntitlement({
+        orderStatus: "pending_review",
+        startAt: "2026-08-20T00:00:00.000Z",
+        endAt: "2026-08-27T00:00:00.000Z",
+        nowMs: t0,
+      })
+    ).toBe(false);
+    expect(
+      isLiveTradePromotionEntitlement({
+        orderStatus: "active",
+        startAt: "2026-08-20T00:00:00.000Z",
+        endAt: "2026-08-27T00:00:00.000Z",
+        nowMs: Date.parse("2026-08-28T00:00:00.000Z"),
+      })
+    ).toBe(false);
   });
 });
 
@@ -61,26 +92,39 @@ describe("feed promotion projection pagination", () => {
   const mk = (id: string, status = "active"): PostWithMeta =>
     ({ id, status, title: id } as PostWithMeta);
 
-  it("page0 pins max and keeps overflow in organic without duplicate", () => {
+  it("page0 hash-selects ≤3, drops unselected entitlements, keeps organic first", () => {
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
       normalPosts: [mk("a"), mk("p4"), mk("b")],
       promotedPosts: [mk("p1"), mk("p2"), mk("p3"), mk("p4")],
       activePromotionIds: new Set(["p1", "p2", "p3", "p4"]),
       maxPage0Pins: 3,
+      seed: "unit-home",
     });
-    expect(posts.map((p) => p.id)).toEqual(["p1", "p2", "p3", "a", "p4", "b"]);
-    expect(promotedIdsOnPage).toEqual(["p1", "p2", "p3", "p4"]);
+    const ids = posts.map((p) => p.id);
+    expect(ids[0]).toBe("a");
+    expect(promotedIdsOnPage).toHaveLength(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => promotedIdsOnPage.includes(id))).toHaveLength(3);
+    const unselected = ["p1", "p2", "p3", "p4"].filter((id) => !promotedIdsOnPage.includes(id));
+    for (const id of unselected) {
+      expect(ids).not.toContain(id);
+    }
   });
 
-  it("page0 prepends promoted and excludes pinned from rest", () => {
+  it("page0 interleaves a single promo after the first organic row", () => {
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
       normalPosts: [mk("a"), mk("b"), mk("promo")],
       promotedPosts: [mk("promo")],
       activePromotionIds: new Set(["promo"]),
+      seed: "unit-one",
     });
-    expect(posts.map((p) => p.id)).toEqual(["promo", "a", "b"]);
+    const ids = posts.map((p) => p.id);
+    expect(ids[0]).toBe("a");
+    expect(ids).toContain("promo");
+    expect(ids).toContain("b");
+    expect(ids.filter((id) => id === "promo")).toHaveLength(1);
     expect(promotedIdsOnPage).toEqual(["promo"]);
   });
 
@@ -94,6 +138,53 @@ describe("feed promotion projection pagination", () => {
     expect(posts.map((p) => p.id)).toEqual(["c"]);
     expect(promotedIdsOnPage).toEqual([]);
   });
+
+  it("page=1 caps to organicPageSize = organic_capped + selected (not 20+3 dump)", () => {
+    const organic = Array.from({ length: 20 }, (_, i) => mk(`o${i}`));
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: organic,
+      promotedPosts: [mk("p1"), mk("p2"), mk("p3")],
+      activePromotionIds: new Set(["p1", "p2", "p3"]),
+      maxPage0Pins: 3,
+      seed: "page-size",
+      organicPageSize: 20,
+    });
+    expect(promotedIdsOnPage).toHaveLength(3);
+    expect(posts).toHaveLength(20);
+    expect(new Set(posts.map((p) => p.id)).size).toBe(20);
+    expect(posts.filter((p) => promotedIdsOnPage.includes(p.id))).toHaveLength(3);
+  });
+
+  it("does not duplicate a promo id that is also in the organic window", () => {
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a"), mk("promo"), mk("b")],
+      promotedPosts: [mk("promo")],
+      activePromotionIds: new Set(["promo"]),
+      seed: "dup",
+    });
+    expect(posts.filter((p) => p.id === "promo")).toHaveLength(1);
+    expect(promotedIdsOnPage).toEqual(["promo"]);
+  });
+
+  it("sold/hidden/deleted entitlements never enter the mixed page", () => {
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a"), mk("b")],
+      promotedPosts: [
+        { ...mk("sold1"), status: "sold" },
+        { ...mk("hid1"), status: "hidden" },
+        mk("ok1"),
+      ],
+      activePromotionIds: new Set(["sold1", "hid1", "ok1"]),
+      seed: "status",
+    });
+    expect(promotedIdsOnPage).toEqual(["ok1"]);
+    expect(posts.map((p) => p.id)).not.toContain("sold1");
+    expect(posts.map((p) => p.id)).not.toContain("hid1");
+    expect(posts.map((p) => p.id)).toContain("ok1");
+  });
 });
 
 describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
@@ -106,7 +197,7 @@ describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
     expect(tradePromotionPageIndexFromRequestPage(3)).toBe(2);
   });
 
-  it("LIST page=1 (q none) pins at most 3, badges only those rows, duplicate id 0", () => {
+  it("LIST page=1 (q none) mixes at most 3, badges only those rows, duplicate id 0", () => {
     const pageIndex = tradePromotionPageIndexFromRequestPage(1);
     expect(pageIndex).toBe(0);
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
@@ -115,10 +206,12 @@ describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
       promotedPosts: [mk("p1"), mk("p2"), mk("p3"), mk("p4")],
       activePromotionIds: new Set(["p1", "p2", "p3", "p4"]),
       maxPage0Pins: MAX_PAGE0_PROMOTED_PINS,
+      seed: "cut-f-list",
     });
     const ids = posts.map((p) => p.id);
-    expect(ids.slice(0, 3)).toEqual(["p1", "p2", "p3"]);
-    expect(ids).toEqual(["p1", "p2", "p3", "a", "p4", "b"]);
+    expect(ids[0]).not.toBe(promotedIdsOnPage[0]);
+    expect(ids[0]).toBe("a");
+    expect(promotedIdsOnPage).toHaveLength(3);
     expect(new Set(ids).size).toBe(ids.length);
     const annotated = annotatePromotedPosts(posts, new Set(promotedIdsOnPage));
     for (const p of annotated) {

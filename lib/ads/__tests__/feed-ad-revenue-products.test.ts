@@ -48,7 +48,7 @@ describe("paid exposure family includes community", () => {
     expect(listActiveMemberPromotionProducts("community").length).toBe(2);
   });
 
-  it("trade still immediate", () => {
-    expect(getMemberPromotionProduct("trade_promote_7")?.requiresAdminApproval).toBe(false);
+  it("trade listing promotion requires admin approval (HOLD)", () => {
+    expect(getMemberPromotionProduct("trade_promote_7")?.requiresAdminApproval).toBe(true);
   });
 });

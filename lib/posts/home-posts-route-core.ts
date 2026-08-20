@@ -256,10 +256,12 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
 
       await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
+      // tradeCategoryIds == list membership IN / HOME union (same array as query).
       const projected = await applyTradeHomePromotionProjection(promoSb, {
         pageIndex: tradePromotionPageIndexFromRequestPage(page),
         posts: pack.posts,
         tradeCategoryIds,
+        promotionSurface: "home",
       });
       homePostsServerCache.set(cacheKey, {
         posts: projected.posts,
@@ -709,11 +711,13 @@ export async function resolveHomePostsGetData(
 
       const promoSb = (serviceSb ?? readSb) as SupabaseClient<any>;
       // CUT F: SEARCH q → overlay badge only. Empty q = LIST/CATEGORY pin.
+      // tradeCategoryIds is the same membership/HOME-union set as the list IN query.
       const projected = await applyTradeHomePromotionProjection(promoSb, {
         pageIndex: tradePromotionPageIndexFromRequestPage(page),
         posts: pack.posts,
         tradeCategoryIds,
         pinPromoted: !q,
+        promotionSurface: hasRootSelection ? "category" : "home",
       });
 
       homePostsServerCache.set(cacheKey, {

@@ -483,6 +483,12 @@ export const adminMessages = {
     admin_comm_promo_hint: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
     admin_comm_promo_reject_prompt: "거절 사유 (필수)",
     admin_comm_promo_title: "게시물 홍보 신청",
+    admin_trade_promo_title: "거래 더 알리기 신청",
+    admin_trade_promo_hint:
+      "거래 매물 더 알리기 — 글 확인 후 HOLD 확정/해제. 승인 시 홈·해당 카테고리 목록에 노출됩니다.",
+    admin_trade_promo_open_listing: "매물 상세 확인",
+    admin_trade_promo_review_snapshot:
+      "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
     admin_feed_ads_hint_community_home: "커뮤니티 홈 피드 — 글 사이에 노출됩니다.",
     admin_feed_ads_hint_community_topic: "커뮤니티 주제 피드 — 선택한 주제의 글 사이에 노출됩니다.",
     admin_feed_ads_hint_trade_cat: "거래 카테고리 피드 — 선택한 카테고리 게시글 사이에 노출됩니다.",
@@ -2798,6 +2804,12 @@ export const adminMessages = {
     admin_comm_promo_hint: "Community post boost — HOLD capture / release",
     admin_comm_promo_reject_prompt: "Reject reason (required)",
     admin_comm_promo_title: "Post promotion requests",
+    admin_trade_promo_title: "Trade promote requests",
+    admin_trade_promo_hint:
+      "Trade listing boost — review the post, then HOLD capture / release. After approval it appears on Home and that category feed.",
+    admin_trade_promo_open_listing: "Open listing",
+    admin_trade_promo_review_snapshot:
+      "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
     admin_feed_ads_hint_community_home: "Community home feed — shown between posts.",
     admin_feed_ads_hint_community_topic: "Community topic feed — shown between posts in that topic.",
     admin_feed_ads_hint_trade_cat: "Trade category feed — shown between listings in that category.",

@@ -2,23 +2,30 @@
  * Feed Promotion projection — content cursor stays SSOT; promotion is overlay.
  * CONTRACT: docs/dibay-promotion-advertisement-product-contract.md
  *
- * LOCK (2026-08-07 red-team):
- * - NOT "unlimited page0 dump" — max `MAX_PAGE0_PROMOTED_PINS` pins on page 0.
- * - Surfaces: TRADE_HOME (all eligible) + TRADE_CATEGORY (posts matching category filter only).
- * - Ordering among pins: entitlement end_at DESC (freshest remaining window first).
- * - page>0: exclude active promoted ids (no duplicate re-entry).
- * - Ad slot count uses projected content rows (promoted+normal), not a separate blank lane.
+ * LIST (no q):
+ * - TRADE_HOME (전체) pool = domain=trade entitlements (category filter = HOME universe only).
+ * - TRADE_CATEGORY pool = same entitlements whose post is in browse membership ids.
+ * - Select ≤ MAX_PAGE0_PROMOTED_PINS with stable hash; interleave into organic page-1.
+ * - Unselected active ids do not appear on LIST (page 0 or later).
+ * - page>0: exclude all active promoted ids (no duplicate re-entry).
  *
- * CUT F (2026-08-18): SEARCH (`pinPromoted: false`) is badge-only.
- * Do not prepend pins over CUT C T1–T4 rank. LIST/CATEGORY browse still pins.
+ * CUT F SEARCH (`pinPromoted: false`) remains badge-only over CUT C rank.
+ * DO NOT inject Feed Banner slots here.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
-import { mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
+import { HOME_POSTS_PAGE_SIZE, mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
 import {
   TRADE_PROMOTION_PROJECTION,
   isPostEligibleForPromotionBoost,
 } from "@/lib/promotion/trade-promotion-overlay";
+import {
+  interleavePromotedIntoOrganic,
+  selectPromotedListingIds,
+  tradePromotionCategoryKey,
+  tradePromotionListSeed,
+  type TradePromotionListSurface,
+} from "@/lib/promotion/select-trade-promoted-listings";
 
 export {
   TRADE_PROMOTION_PROJECTION,
@@ -44,6 +51,21 @@ export type ActivePromotionEntitlement = {
   productId: string;
 };
 
+/** LIST selector window: active row AND start<=now AND end>=now. Clock starts at admin approve. */
+export function isLiveTradePromotionEntitlement(input: {
+  orderStatus: string;
+  startAt: string;
+  endAt: string;
+  nowMs?: number;
+}): boolean {
+  if (String(input.orderStatus ?? "").toLowerCase() !== "active") return false;
+  const now = input.nowMs ?? Date.now();
+  const start = Date.parse(input.startAt);
+  const end = Date.parse(input.endAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+  return start <= now && end >= now;
+}
+
 export async function listActiveTradePromotionTargetIds(
   sb: SupabaseClient,
   nowIso = new Date().toISOString()
@@ -52,6 +74,7 @@ export async function listActiveTradePromotionTargetIds(
     .from("point_promotion_orders")
     .select("target_id, end_at, product_id, target_type, order_status, start_at")
     .eq("target_type", "product")
+    .eq("domain", "trade")
     .eq("order_status", "active")
     .lte("start_at", nowIso)
     .gte("end_at", nowIso)
@@ -65,6 +88,16 @@ export async function listActiveTradePromotionTargetIds(
   for (const row of data as Record<string, unknown>[]) {
     const targetId = String(row.target_id ?? "").trim();
     if (!targetId || seen.has(targetId)) continue;
+    if (
+      !isLiveTradePromotionEntitlement({
+        orderStatus: String(row.order_status ?? ""),
+        startAt: String(row.start_at ?? ""),
+        endAt: String(row.end_at ?? ""),
+        nowMs: Date.parse(nowIso),
+      })
+    ) {
+      continue;
+    }
     seen.add(targetId);
     out.push({
       targetId,
@@ -76,12 +109,9 @@ export async function listActiveTradePromotionTargetIds(
 }
 
 /**
- * Page 0: prepend up to MAX_PAGE0_PROMOTED_PINS eligible promoted posts,
- * then append normal posts excluding those pinned ids (and all active promo ids
- * that were eligible but not pinned stay out of organic list on page0 only if
- * they were in the pin candidate set — they remain discoverable via category
- * browse / detail; they are still excluded from page>0 to avoid double-count).
- * Page >0: normal posts only, excluding all active promoted ids (no re-entry).
+ * Page 0: hash-select up to MAX_PAGE0_PROMOTED_PINS eligible promoted posts,
+ * interleave into organic (not a top-3 block). Other active promo ids stay off LIST.
+ * Page >0: organic only, excluding all active promoted ids.
  */
 export function projectTradeFeedWithPromotions(input: {
   pageIndex: number;
@@ -89,6 +119,12 @@ export function projectTradeFeedWithPromotions(input: {
   promotedPosts: PostWithMeta[];
   activePromotionIds: Set<string>;
   maxPage0Pins?: number;
+  seed?: string;
+  /**
+   * Organic page size SSOT (HOME_POSTS_PAGE_SIZE).
+   * page=1 final length ≤ this: (organic minus all live promo ids, capped) + selected ≤3.
+   */
+  organicPageSize?: number;
 }): { posts: PostWithMeta[]; promotedIdsOnPage: string[] } {
   const {
     pageIndex,
@@ -96,6 +132,8 @@ export function projectTradeFeedWithPromotions(input: {
     promotedPosts,
     activePromotionIds,
     maxPage0Pins = MAX_PAGE0_PROMOTED_PINS,
+    seed = "trade:list",
+    organicPageSize,
   } = input;
 
   const eligiblePromoted = promotedPosts.filter((p) => {
@@ -104,19 +142,25 @@ export function projectTradeFeedWithPromotions(input: {
   });
 
   if (pageIndex <= 0) {
-    const pinned = eligiblePromoted.slice(0, Math.max(0, maxPage0Pins));
-    const pinnedIds = new Set(pinned.map((p) => p.id));
-    // Only strip pinned ids from organic rest (avoid duplicate). Overflow promos
-    // may still appear in their organic rank with annotation when present.
-    const rest = normalPosts.filter((p) => !pinnedIds.has(p.id));
-    const merged = [...pinned, ...rest];
-    const annotatedOnPage = new Set([
-      ...pinned.map((p) => p.id),
-      ...rest.filter((p) => activePromotionIds.has(p.id)).map((p) => p.id),
-    ]);
+    const selectedIds = selectPromotedListingIds(
+      eligiblePromoted.map((p) => p.id),
+      seed,
+      maxPage0Pins
+    );
+    const byId = new Map(eligiblePromoted.map((p) => [p.id, p]));
+    const selected = selectedIds
+      .map((id) => byId.get(id))
+      .filter((p): p is PostWithMeta => Boolean(p));
+    const selectedSet = new Set(selected.map((p) => p.id));
+    let rest = normalPosts.filter((p) => !activePromotionIds.has(p.id));
+    if (organicPageSize != null && Number.isFinite(organicPageSize) && organicPageSize > 0) {
+      const cap = Math.max(0, Math.floor(organicPageSize) - selected.length);
+      rest = rest.slice(0, cap);
+    }
+    const merged = interleavePromotedIntoOrganic(rest, selected, seed);
     return {
       posts: merged,
-      promotedIdsOnPage: [...annotatedOnPage],
+      promotedIdsOnPage: [...selectedSet],
     };
   }
 
@@ -135,7 +179,7 @@ export async function loadPostsByIdsForPromotion(
   const { data, error } = await sb
     .from("posts")
     .select(
-      "id, user_id, type, trade_category_id, title, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer"
+      "id, user_id, type, trade_category_id, title, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, trade_lgu_id, created_at, updated_at, meta, is_free_share, is_price_offer"
     )
     .in("id", unique);
 
@@ -147,6 +191,8 @@ export async function loadPostsByIdsForPromotion(
 
   rows = rows.filter((p) => isPostEligibleForPromotionBoost(p.status, p.seller_listing_state));
 
+  // Same membership set as LIST `tradeCategoryIds` (ROOT+TOPIC expand / HOME union).
+  // Not `eq(trade_category_id, browseRoot)` — child listing ids must stay in ROOT browse.
   if (categoryIdFilter && categoryIdFilter.length > 0) {
     const allow = new Set(categoryIdFilter);
     rows = rows.filter((p) => {
@@ -210,8 +256,11 @@ export async function applyTradeHomePromotionProjection(
     pageIndex: number;
     posts: PostWithMeta[];
     tradeCategoryIds: string[] | null;
-    /** Default true = LIST pin. False = SEARCH overlay (CUT F). */
+    /** Default true = LIST mix. False = SEARCH overlay (CUT F). */
     pinPromoted?: boolean;
+    /** HOME 전체 vs 해당 카테고리 browse. Default home. */
+    promotionSurface?: TradePromotionListSurface;
+    nowMs?: number;
   }
 ): Promise<{ posts: PostWithMeta[]; hasPromotionOverlay: boolean }> {
   try {
@@ -238,11 +287,21 @@ export async function applyTradeHomePromotionProjection(
             input.tradeCategoryIds
           )
         : [];
+    const surface: TradePromotionListSurface =
+      input.promotionSurface === "category" ? "category" : "home";
+    const seed = tradePromotionListSeed({
+      surface,
+      categoryKey:
+        surface === "category" ? tradePromotionCategoryKey(input.tradeCategoryIds) : "",
+      nowMs: input.nowMs,
+    });
     const projected = projectTradeFeedWithPromotions({
       pageIndex: input.pageIndex,
       normalPosts: input.posts,
       promotedPosts,
       activePromotionIds: activeIds,
+      seed,
+      organicPageSize: HOME_POSTS_PAGE_SIZE,
     });
     const annotated = annotatePromotedPosts(
       projected.posts,

@@ -16,6 +16,7 @@ import {
   applyCommunityPaidExposureImmediate,
   applyCommunityPaidExposurePending,
 } from "@/lib/promotion/apply-community-paid-exposure";
+import { applyTradePaidExposurePending } from "@/lib/promotion/apply-trade-paid-exposure";
 import { readUserPointBalance } from "@/lib/points/user-point-ledger";
 
 export const runtime = "nodejs";
@@ -225,6 +226,54 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       pointCost: product.pointCost,
       endAt: applied.endAt,
       startAt: applied.startAt,
+      status: applied.status,
+    });
+  }
+
+  if (product.requiresAdminApproval) {
+    const applied = await applyTradePaidExposurePending(sb, {
+      userId: auth.userId,
+      postId: targetId,
+      productId: product.id,
+      targetTitle,
+      userNickname,
+      idempotencyKey,
+    });
+    if (!applied.ok) {
+      const status =
+        applied.error === "insufficient_balance"
+          ? 400
+          : applied.error === "already_active_promotion"
+            ? 409
+            : applied.error === "forbidden"
+              ? 403
+              : applied.error === "target_not_found"
+                ? 404
+                : applied.error === "target_unavailable"
+                  ? 400
+                  : 400;
+      return NextResponse.json(
+        { ok: false, error: applied.error, code: applied.error },
+        { status }
+      );
+    }
+    const { data: orderRow } = await sb
+      .from("point_promotion_orders")
+      .select("*")
+      .eq("id", applied.orderId)
+      .maybeSingle();
+    const order = orderRow
+      ? mapPointPromotionOrderRow(orderRow as Record<string, unknown>)
+      : null;
+    const balanceAfter = await readUserPointBalance(sb, auth.userId);
+    return NextResponse.json({
+      ok: true,
+      order,
+      balanceAfter,
+      pendingReview: applied.status === "pending_review",
+      productId: product.id,
+      pointCost: product.pointCost,
+      endAt: applied.endAt,
       status: applied.status,
     });
   }
