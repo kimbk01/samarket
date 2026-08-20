@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { isTradeBrowseLocationPath } from "@/lib/trade/location/trade-browse-location-paths";
 import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
@@ -53,6 +54,7 @@ export function useTradeMarketplaceLocationHydrate(): {
   );
   const [hydrating, setHydrating] = useState(() => scopeNeedsMarketplaceLocationHydrate(scope));
   const runIdRef = useRef(0);
+  const lastCommittedScopeRef = useRef<TradeLocationScope | null>(null);
   const onLocationStack = isTradeBrowseLocationPath(pathname);
   const needsHydrate = scopeNeedsMarketplaceLocationHydrate(scope);
   const unresolved = !onLocationStack && (needsHydrate || hydrating);
@@ -84,20 +86,37 @@ export function useTradeMarketplaceLocationHydrate(): {
     setHydrating(true);
     try {
       const next = await runSharedMarketplaceLocationHydrate(
-        isRecoverableTradeLocationHydrateInvalid(scope)
+        isRecoverableTradeLocationHydrateInvalid(scope) || scope.mode === "unset"
       );
       if (runId !== runIdRef.current) return;
-      if (tradeLocationScopeEquals(scope, next)) {
-        writeTradeBrowseCommittedScope(next);
-        return;
-      }
+
       writeTradeBrowseCommittedScope(next);
+      lastCommittedScopeRef.current = next;
+
+      if (tradeLocationScopeEquals(scope, next)) return;
+
       const href = buildTradeLocationHref(pathname || "/market", searchKey, next);
       router.replace(href, { scroll: false });
     } finally {
       if (runId === runIdRef.current) setHydrating(false);
     }
   }, [onLocationStack, pathname, router, scope, searchKey]);
+
+  const shouldBootRetryHydrate = useCallback(() => {
+    if (onLocationStack) return false;
+    if (scope.mode === "city" || scope.mode === "all") return false;
+    if (!scopeNeedsMarketplaceLocationHydrate(scope)) return false;
+    const last = lastCommittedScopeRef.current;
+    if (!last) return true;
+    return scopeNeedsMarketplaceLocationHydrate(last);
+  }, [onLocationStack, scope]);
+
+  useAddressDefaultsBootRetry(
+    () => {
+      void runHydrate();
+    },
+    shouldBootRetryHydrate
+  );
 
   useEffect(() => {
     setHydrating(scopeNeedsMarketplaceLocationHydrate(scope));

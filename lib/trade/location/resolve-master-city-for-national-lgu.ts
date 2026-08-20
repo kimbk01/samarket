@@ -1,7 +1,8 @@
 /**
  * Master address → national LGU resolve inputs (structured fields only).
- * Falls back from legacy appRegionId/appCityId when city_municipality is empty.
+ * Uses the same taxonomy mapper as trade write / delivery (`mapUserAddressToAppLocation`).
  */
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { REGIONS } from "@/lib/products/form-options";
 
@@ -14,26 +15,67 @@ function legacyRegionCityToMunicipality(cityName: string): string {
   return `${head} City`;
 }
 
-export function resolveMasterCityMunicipalityForNationalLgu(
-  master: UserAddressDTO
-): { cityMunicipality: string; province: string } | null {
-  const cityMunicipality = (master.cityMunicipality ?? "").trim();
-  const province = (master.province ?? "").trim();
-  if (cityMunicipality) return { cityMunicipality, province };
+function pushUniqueCandidate(
+  out: Array<{ cityMunicipality: string; province: string }>,
+  seen: Set<string>,
+  cityMunicipality: string,
+  province: string
+): void {
+  const city = cityMunicipality.trim();
+  if (!city) return;
+  const prov = province.trim();
+  const key = `${city.toLowerCase()}|${prov.toLowerCase()}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  out.push({ cityMunicipality: city, province: prov });
+}
 
-  const regionId = (master.appRegionId ?? "").trim();
-  const cityId = (master.appCityId ?? "").trim();
-  if (!regionId || !cityId) return null;
-
+function municipalityFromLegacyRegionCity(regionId: string, cityId: string): {
+  cityMunicipality: string;
+  province: string;
+} | null {
   const region = REGIONS.find((r) => r.id === regionId);
   const legacyCityName = region?.cities.find((c) => c.id === cityId)?.name?.trim() ?? "";
   if (!legacyCityName) return null;
+  const cityMunicipality = legacyRegionCityToMunicipality(legacyCityName);
+  if (!cityMunicipality) return null;
+  return { cityMunicipality, province: (region?.name ?? "").trim() };
+}
 
-  const derived = legacyRegionCityToMunicipality(legacyCityName);
-  if (!derived) return null;
+/** Ordered candidates — first hit wins at national LGU resolve layer. */
+export function collectMasterCityMunicipalityCandidatesForNationalLgu(
+  master: UserAddressDTO
+): Array<{ cityMunicipality: string; province: string }> {
+  const out: Array<{ cityMunicipality: string; province: string }> = [];
+  const seen = new Set<string>();
+  const province = (master.province ?? "").trim();
 
-  return {
-    cityMunicipality: derived,
-    province: province || (region?.name ?? "").trim(),
-  };
+  pushUniqueCandidate(out, seen, master.cityMunicipality ?? "", province);
+  pushUniqueCandidate(out, seen, master.district ?? "", province);
+
+  const appLoc = mapUserAddressToAppLocation(master);
+  if (appLoc) {
+    const mapped = municipalityFromLegacyRegionCity(appLoc.regionId, appLoc.cityId);
+    if (mapped) {
+      pushUniqueCandidate(out, seen, mapped.cityMunicipality, province || mapped.province);
+    }
+  }
+
+  const regionId = (master.appRegionId ?? "").trim();
+  const cityId = (master.appCityId ?? "").trim();
+  if (regionId && cityId) {
+    const mapped = municipalityFromLegacyRegionCity(regionId, cityId);
+    if (mapped) {
+      pushUniqueCandidate(out, seen, mapped.cityMunicipality, province || mapped.province);
+    }
+  }
+
+  return out;
+}
+
+/** @deprecated use collectMasterCityMunicipalityCandidatesForNationalLgu */
+export function resolveMasterCityMunicipalityForNationalLgu(
+  master: UserAddressDTO
+): { cityMunicipality: string; province: string } | null {
+  return collectMasterCityMunicipalityCandidatesForNationalLgu(master)[0] ?? null;
 }

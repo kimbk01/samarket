@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveMasterCityMunicipalityForNationalLgu } from "@/lib/trade/location/resolve-master-city-for-national-lgu";
+import {
+  collectMasterCityMunicipalityCandidatesForNationalLgu,
+  resolveMasterCityMunicipalityForNationalLgu,
+} from "@/lib/trade/location/resolve-master-city-for-national-lgu";
 import {
   isRecoverableTradeLocationHydrateInvalid,
   parseTradeLocationScopeFromSearchParams,
@@ -9,6 +12,7 @@ import {
   peekTradeListReturnHref,
   rememberTradeListReturnHref,
 } from "@/lib/trade/location/trade-list-return-href";
+import { resolveTradeNationalLgu } from "@/lib/trade/location/national/resolve-trade-national-lgu";
 
 describe("trade marketplace location hydrate recovery", () => {
   it("recoverable invalid tokens include hydrate failure raw values", () => {
@@ -33,8 +37,20 @@ describe("trade marketplace location hydrate recovery", () => {
     ).toBe(false);
   });
 
-  it("legacy master appCityId fills cityMunicipality for national LGU resolve", () => {
-    const fields = resolveMasterCityMunicipalityForNationalLgu({
+  it("empty city lgu URL is recoverable for re-seed", () => {
+    expect(
+      isRecoverableTradeLocationHydrateInvalid(
+        parseTradeLocationScopeFromSearchParams(new URLSearchParams("location=city"))
+      )
+    ).toBe(true);
+  });
+
+  it("Pasig City resolves on national LGU SSOT", () => {
+    expect(resolveTradeNationalLgu({ cityMunicipality: "Pasig City" }).status).toBe("resolved");
+  });
+
+  it("taxonomy mapper fills municipality when city_municipality empty", () => {
+    const candidates = collectMasterCityMunicipalityCandidatesForNationalLgu({
       id: "a1",
       userId: "u1",
       labelType: "home",
@@ -76,8 +92,49 @@ describe("trade marketplace location hydrate recovery", () => {
       createdAt: "",
       updatedAt: "",
     });
-    expect(fields?.cityMunicipality).toBe("Pasig City");
-    expect(fields?.province).toBe("Manila");
+    expect(candidates[0]?.cityMunicipality).toBe("Pasig City");
+    expect(resolveMasterCityMunicipalityForNationalLgu({
+      id: "a1",
+      userId: "u1",
+      labelType: "home",
+      linkedStoreId: null,
+      nickname: null,
+      recipientName: null,
+      phoneNumber: null,
+      countryCode: "PH",
+      countryName: "Philippines",
+      province: null,
+      cityMunicipality: null,
+      barangay: null,
+      district: null,
+      streetAddress: null,
+      buildingName: null,
+      unitFloorRoom: null,
+      landmark: null,
+      latitude: null,
+      longitude: null,
+      placeId: null,
+      formattedAddress: null,
+      roadAddress: null,
+      detailAddress: null,
+      deliveryNote: null,
+      fullAddress: null,
+      neighborhoodName: null,
+      appRegionId: "manila",
+      appCityId: "m20",
+      useForLife: true,
+      useForTrade: true,
+      useForDelivery: true,
+      isDefaultMaster: true,
+      isDefaultLife: false,
+      isDefaultTrade: false,
+      isDefaultDelivery: false,
+      isActive: true,
+      sortOrder: 0,
+      lastUsedAt: null,
+      createdAt: "",
+      updatedAt: "",
+    })?.cityMunicipality).toBe("Pasig City");
   });
 
   it("trade list return href skips invalid and recoverable hydrate URLs", () => {

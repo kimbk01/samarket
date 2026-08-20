@@ -48,10 +48,14 @@ export const TRADE_LOCATION_HYDRATE_INVALID_RAW = {
 
 export function isRecoverableTradeLocationHydrateInvalid(scope: TradeLocationScope): boolean {
   if (scope.mode !== "invalid") return false;
-  return (
+  if (
     scope.raw === TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_LGU_UNRESOLVED ||
     scope.raw === TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_HYDRATE_ERROR
-  );
+  ) {
+    return true;
+  }
+  // `location=city` without lgu — stale/partial URL; re-seed from master.
+  return !scope.raw.trim();
 }
 
 export function tradeLocationScopeEquals(a: TradeLocationScope, b: TradeLocationScope): boolean {
