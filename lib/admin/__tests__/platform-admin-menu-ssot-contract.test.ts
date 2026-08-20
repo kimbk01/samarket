@@ -96,4 +96,33 @@ describe("platform admin menu SSOT contract", () => {
     expect(findAdminMenuByKey(adminMenu, "moderation")).toBeTruthy();
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/reports");
   });
+
+  it("Cut B: Trade workspace owns Marketplace ops leaves (routes KEEP)", () => {
+    const trade = findAdminMenuByKey(adminMenu, "trade");
+    const tradeKeys = new Set((trade?.children ?? []).map((c) => c.key));
+    expect(tradeKeys.has("reports-posts")).toBe(true);
+    expect(tradeKeys.has("reviews-trade")).toBe(true);
+    expect(tradeKeys.has("chat-trade")).toBe(true);
+    expect(tradeKeys.has("ads-applications")).toBe(true);
+    expect(tradeKeys.has("trade-users")).toBe(true);
+    expect(tradeKeys.has("trade-audit")).toBe(true);
+    // No Store finance / Trade Payment·Settlement under Trade
+    expect(tradeKeys.has("store-settlements-admin")).toBe(false);
+    expect(tradeKeys.has("delivery-orders-settlement")).toBe(false);
+    expect([...tradeKeys].some((k) => /payment|settlement/i.test(k))).toBe(false);
+
+    const moderationKeys = new Set(
+      (findAdminMenuByKey(adminMenu, "moderation")?.children ?? []).map((c) => c.key)
+    );
+    expect(moderationKeys.has("reports-posts")).toBe(false);
+    expect(moderationKeys.has("reviews-trade")).toBe(false);
+
+    const messengerKeys = new Set(
+      (findAdminMenuByKey(adminMenu, "messenger")?.children ?? []).map((c) => c.key)
+    );
+    expect(messengerKeys.has("chat-trade")).toBe(false);
+
+    const growthAds = findAdminMenuByKey(adminMenu, "ads")?.children ?? [];
+    expect(growthAds.some((c) => c.key === "ads-applications")).toBe(false);
+  });
 });

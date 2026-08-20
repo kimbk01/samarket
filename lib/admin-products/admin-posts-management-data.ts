@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { ADMIN_TRADE_OPEN_REPORT_STATUSES } from "@/lib/admin-products/admin-trade-overview-counts";
 
 /**
  * 게시물 관리용 posts 목록 조회 (클라이언트 Supabase / 서비스 롤 공용)
@@ -200,8 +201,10 @@ async function queryPostsPage(
   const from = (q.page - 1) * q.pageSize;
   const to = from + q.pageSize - 1;
 
-  const applyFilters = (builder: any) => {
+  const applyFilters = (builder: any, opts?: { skipType?: boolean }) => {
     let b = builder;
+    // Cut A / S1 — Trade admin list SSOT = marketplace posts only (align Overview KPI).
+    if (!opts?.skipType) b = b.eq("type", "trade");
     if (q.status) b = b.eq("status", q.status);
     if (q.productId) {
       if (UUID_RE.test(q.productId)) b = b.eq("id", q.productId);
@@ -223,7 +226,16 @@ async function queryPostsPage(
   );
   if (res.error) {
     const msg = formatSupabaseError(res.error).toLowerCase();
-    if (msg.includes("created_at") || msg.includes("column") || msg.includes("42703")) {
+    if (msg.includes("type") && (msg.includes("column") || msg.includes("42703"))) {
+      res = await applyFilters(
+        client
+          .from(POSTS_TABLE_READ)
+          .select(select, { count: "exact" })
+          .order("created_at", { ascending: false })
+          .range(from, to),
+        { skipType: true }
+      );
+    } else if (msg.includes("created_at") || msg.includes("column") || msg.includes("42703")) {
       res = await applyFilters(
         client
           .from(POSTS_TABLE_READ)
@@ -528,10 +540,12 @@ async function enrichPostsToProducts(
     for (let i = 0; i < uniquePostIds.length; i += reportChunk) {
       const chunk = uniquePostIds.slice(i, i + reportChunk);
       try {
+        // Cut A / S2 — open reports only (pending|reviewing), same set as Overview reportsPending.
         const { data: reportRows } = await client
           .from("reports")
           .select("target_id")
           .eq("target_type", "product")
+          .in("status", [...ADMIN_TRADE_OPEN_REPORT_STATUSES])
           .in("target_id", chunk);
         if (Array.isArray(reportRows)) {
           reportRows.forEach((r: { target_id: string }) => {

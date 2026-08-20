@@ -93,7 +93,18 @@ export async function applyReportActionDaangn(
 
   const pid = report.product_id ?? report.target_id;
   if (actionType === "product_hide" && pid) {
-    await sb.from(POSTS_TABLE_WRITE).update({ status: "hidden", updated_at: now }).eq("id", pid);
+    // Cut A / S3 — align with POST /api/admin/posts/[postId]/status hide (status + visibility).
+    const hidePatch = { status: "hidden", visibility: "hidden", updated_at: now };
+    let { error: hideErr } = await sb.from(POSTS_TABLE_WRITE).update(hidePatch).eq("id", pid);
+    if (hideErr && /visibility|column/i.test(String(hideErr.message))) {
+      hideErr = (
+        await sb
+          .from(POSTS_TABLE_WRITE)
+          .update({ status: "hidden", updated_at: now })
+          .eq("id", pid)
+      ).error;
+    }
+    void hideErr;
   }
 
   const sanctionType = SANCTION_TYPE_MAP[actionType];

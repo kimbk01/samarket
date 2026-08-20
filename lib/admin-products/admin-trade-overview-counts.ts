@@ -1,5 +1,10 @@
 /**
  * Lightweight Trade Overview counts — head COUNT only, no row payloads.
+ *
+ * CONTRACT (Cut A / S1):
+ * - Listing KPIs = posts.type = trade only (same scope as posts-management list).
+ * - Status axis = posts.status (active | sold | hidden) — LISTING_OPS, not seller_listing_state.
+ * - reportsPending = open only (pending|reviewing) — same open set as list reportCount (S2).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,6 +20,9 @@ export type AdminTradeOverviewCounts = {
   promoActive: number | null;
 };
 
+/** Open report statuses shared by Overview KPI and List reportCount (S2). */
+export const ADMIN_TRADE_OPEN_REPORT_STATUSES = ["pending", "reviewing"] as const;
+
 async function countExact(
   sb: SupabaseClient,
   run: () => PromiseLike<{ count: number | null; error: { message?: string } | null }>
@@ -26,6 +34,10 @@ async function countExact(
   } catch {
     return null;
   }
+}
+
+function tradePostsHead(sbAny: any) {
+  return sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true }).eq("type", "trade");
 }
 
 export async function fetchAdminTradeOverviewCounts(
@@ -43,24 +55,16 @@ export async function fetchAdminTradeOverviewCounts(
     promoPending,
     promoActive,
   ] = await Promise.all([
-    countExact(sb, () =>
-      sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true })
-    ),
-    countExact(sb, () =>
-      sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true }).eq("status", "active")
-    ),
-    countExact(sb, () =>
-      sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true }).eq("status", "sold")
-    ),
-    countExact(sb, () =>
-      sbAny.from(POSTS_TABLE_READ).select("id", { count: "exact", head: true }).eq("status", "hidden")
-    ),
+    countExact(sb, () => tradePostsHead(sbAny)),
+    countExact(sb, () => tradePostsHead(sbAny).eq("status", "active")),
+    countExact(sb, () => tradePostsHead(sbAny).eq("status", "sold")),
+    countExact(sb, () => tradePostsHead(sbAny).eq("status", "hidden")),
     countExact(sb, () =>
       sbAny
         .from("reports")
         .select("id", { count: "exact", head: true })
         .eq("target_type", "product")
-        .in("status", ["pending", "reviewing"])
+        .in("status", [...ADMIN_TRADE_OPEN_REPORT_STATUSES])
     ),
     countExact(sb, () =>
       sbAny

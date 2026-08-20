@@ -108,15 +108,27 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
 
-  const { data: before, error: readErr } = await sb
-    .from(POSTS_TABLE_READ)
-    .select("id, status, visibility, title, sold_buyer_id, reserved_buyer_id, seller_listing_state")
-    .eq("id", postId)
-    .maybeSingle();
-
-  if (readErr) {
-    return NextResponse.json({ ok: false, error: readErr.message }, { status: 500 });
+  // Prod may lack posts.visibility — never fail the whole writer on SELECT column miss (S3 closeout).
+  const selectFull =
+    "id, status, visibility, title, sold_buyer_id, reserved_buyer_id, seller_listing_state";
+  const selectNoVis =
+    "id, status, title, sold_buyer_id, reserved_buyer_id, seller_listing_state";
+  let before: Record<string, unknown> | null = null;
+  {
+    const first = await sb.from(POSTS_TABLE_READ).select(selectFull).eq("id", postId).maybeSingle();
+    if (first.error && /visibility|column|42703/i.test(String(first.error.message))) {
+      const second = await sb.from(POSTS_TABLE_READ).select(selectNoVis).eq("id", postId).maybeSingle();
+      if (second.error) {
+        return NextResponse.json({ ok: false, error: second.error.message }, { status: 500 });
+      }
+      before = (second.data as Record<string, unknown> | null) ?? null;
+    } else if (first.error) {
+      return NextResponse.json({ ok: false, error: first.error.message }, { status: 500 });
+    } else {
+      before = (first.data as Record<string, unknown> | null) ?? null;
+    }
   }
+
   if (!before) {
     return NextResponse.json({ ok: false, error: "게시물을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -128,6 +140,13 @@ export async function POST(
     visibility: nextVisibility,
     updated_at: now,
   };
+
+  // Cut A / S4 — keep LISTING_OPS (posts.status) and SELLER_STAGE (seller_listing_state) aligned.
+  if (status === "active") {
+    patch.seller_listing_state = "inquiry";
+  } else if (status === "reserved") {
+    patch.seller_listing_state = "reserved";
+  }
 
   let resolvedSoldBuyer: string | null = null;
   if (status === "sold") {

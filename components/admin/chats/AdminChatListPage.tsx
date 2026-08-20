@@ -41,8 +41,13 @@ function isItemTradeAdminRoom(r: AdminChatRoom): boolean {
   return r.roomType === "item_trade" || Boolean(itemTradeTripleKey(r));
 }
 
+/**
+ * Cut A / S5 — Trade OPS_CHAT authority = product_chats.
+ * When the same listing×seller×buyer exists in both stores, prefer product_chats;
+ * chat_rooms is fallback only (CM trade room chrome / messenger).
+ */
 function pickPreferredAdminRoom(a: TaggedAdminRoom, b: TaggedAdminRoom): TaggedAdminRoom {
-  const rank = (s: AdminMergeSource) => (s === "chat_rooms" ? 2 : 1);
+  const rank = (s: AdminMergeSource) => (s === "product_chats" ? 2 : 1);
   if (rank(a._mergeSource) !== rank(b._mergeSource)) {
     return rank(a._mergeSource) > rank(b._mergeSource) ? a : b;
   }

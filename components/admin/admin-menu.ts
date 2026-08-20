@@ -155,6 +155,10 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "chat-community": "admin_menu_chat_community",
   "chat-business": "admin_menu_chat_business",
 
+  // Trade family extras (Cut B)
+  "trade-users": "admin_menu_users",
+  "trade-audit": "admin_menu_dev_audit",
+
   // Growth
   ads: "admin_menu_ads",
   "ads-applications": "admin_menu_ads_applications",
@@ -372,13 +376,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── MODERATION ─────────────────────────────────
+  // Cut B: Marketplace reports/reviews live under TRADE (route KEEP). Store/philife remain here.
   {
     key: "moderation",
     title: "",
     children: [
-      { key: "reports-posts", title: "", path: "/admin/reports", status: "done" },
       { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
-      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
       { key: "store-reports-admin", title: "", path: "/admin/store-reports", status: "partial" },
       { key: "store-reviews-admin", title: "", path: "/admin/store-reviews", status: "partial" },
       { key: "chat-reported", title: "", path: "/admin/chats/reported", status: "done" },
@@ -398,6 +401,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── TRADE ──────────────────────────────────────
+  // Cut B: Admin → 거래 = Marketplace ops single entry (routes KEEP; no Store finance; no Payment/Settlement).
   {
     key: "trade",
     title: "",
@@ -410,7 +414,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/posts-management?tab=jobs",
         status: "done",
       },
-      { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
       {
         key: "chat-trade-flow",
         title: "",
@@ -419,10 +422,32 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
         status: "done",
       },
-      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
-      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
+      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
+      { key: "reports-posts", title: "", path: "/admin/reports", status: "done" },
+      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
+      {
+        key: "ads-applications",
+        title: "",
+        path: "/admin/ad-applications",
+        status: "done",
+      },
       { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
       { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
+      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
+      {
+        key: "trade-users",
+        title: "",
+        path: "/admin/users?from=trade",
+        status: "done",
+      },
+      {
+        key: "trade-audit",
+        title: "",
+        path: "/admin/audit-logs?target_type=post",
+        status: "done",
+      },
+      { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
+      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
     ],
   },
 
@@ -609,12 +634,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── MESSENGER ──────────────────────────────────
+  // Cut B: trade chats leaf moved under TRADE (route /admin/chats/trade KEEP).
   {
     key: "messenger",
     title: "",
     children: [
       { key: "chat-all", title: "", path: "/admin/chats", status: "done" },
-      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
       { key: "chat-messenger", title: "", path: "/admin/chats/messenger", status: "done" },
       {
         key: "chat-messenger-perf",
@@ -640,7 +665,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         status: "done",
         children: [
-          { key: "ads-applications", title: "", path: "/admin/ad-applications", status: "done" },
+          // Cut B: Marketplace 더 알리기 queue → TRADE (ads-applications). Feed Banner stays Growth.
           { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
           { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
           {

@@ -200,11 +200,20 @@ export function AdminTradeHub() {
           <ul className="divide-y divide-sam-border-soft sam-text-body-secondary">
             {[
               { href: "/admin/posts-management", label: t("admin_menu_posts_management") },
-              { href: "/admin/reports", label: t("admin_menu_reports") },
               { href: "/admin/trade-flow", label: t("admin_menu_chat_flow") },
               { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
+              { href: "/admin/reports", label: t("admin_menu_reports") },
+              { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
               { href: "/admin/ad-applications", label: t("admin_menu_ads_applications") },
+              { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },
+              { href: "/admin/favorites", label: t("admin_menu_trade_likes") },
+              { href: "/admin/users?from=trade", label: t("admin_menu_users") },
+              {
+                href: "/admin/audit-logs?target_type=post",
+                label: t("admin_menu_dev_audit"),
+              },
               { href: "/admin/menus/trade", label: t("admin_menu_menu_trade") },
+              { href: "/admin/trade/settings", label: t("admin_menu_trade_settings") },
             ].map((row) => (
               <li key={row.href}>
                 <Link
