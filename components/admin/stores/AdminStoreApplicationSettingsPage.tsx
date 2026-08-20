@@ -152,32 +152,13 @@ export function AdminStoreApplicationSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <AdminPageHeader titleKey="admin_page_store_application_settings" />
-
-      <nav className="mt-5 flex items-center gap-2">
-        <Link
-          href="/admin/stores/application-settings?menu=alerts"
-          className={`rounded-full border px-3 py-1.5 sam-text-body-secondary font-semibold transition ${
-            activeMenu === "alerts"
-              ? "border-sam-primary/40 bg-sam-primary-soft text-sam-primary"
-              : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-          }`}
-          aria-current={activeMenu === "alerts" ? "page" : undefined}
-        >
-          {t("admin_stores_app_menu_alerts")}
-        </Link>
-        <Link
-          href="/admin/stores/application-settings?menu=stores"
-          className={`rounded-full border px-3 py-1.5 sam-text-body-secondary font-semibold transition ${
-            activeMenu === "stores"
-              ? "border-sam-primary/40 bg-sam-primary-soft text-sam-primary"
-              : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
-          }`}
-          aria-current={activeMenu === "stores" ? "page" : undefined}
-        >
-          {t("admin_stores_app_menu_stores")}
-        </Link>
-      </nav>
+      <AdminPageHeader
+        titleKey={
+          activeMenu === "stores"
+            ? "admin_page_store_settings_taxonomy"
+            : "admin_page_store_settings_alerts"
+        }
+      />
 
       {msg ? (
         <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
