@@ -14,10 +14,10 @@ describe("admin member Control Center Slice 6–10", () => {
     expect(loader).toMatch(/from\("community_posts"\)/);
     expect(loader).toMatch(/from\("community_comments"\)/);
     expect(loader).toMatch(/from\("community_reports"\)/);
-    expect(loader).toMatch(/reporter_id/);
     expect(loader).toMatch(/eq\("user_id", uid\)/);
     expect(loader).toMatch(/from\("feed_ad_requests"\)/);
     expect(loader).toMatch(/\.eq\("user_id", uid\)/);
+    expect(loader).not.toMatch(/\.eq\("reporter_id"/);
     expect(loader).not.toMatch(/Math\.random/);
     expect(route).toMatch(/requireAdminPermission\("users"\)/);
     expect(route).not.toMatch(/export async function POST/);

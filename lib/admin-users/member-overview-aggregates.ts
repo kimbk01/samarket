@@ -181,12 +181,7 @@ export async function loadMemberOverviewAggregates(
   ] = await Promise.all([
     asCount(sb.from("community_posts").select("id", { count: "exact", head: true }).eq("user_id", uid)),
     asCount(sb.from("community_comments").select("id", { count: "exact", head: true }).eq("user_id", uid)),
-    asCount(sb.from("community_reports").select("id", { count: "exact", head: true }).eq("reporter_id", uid)).then(
-      async (metric) => {
-        if (metric.ok || !/reporter_id/i.test(metric.error)) return metric;
-        return asCount(sb.from("community_reports").select("id", { count: "exact", head: true }).eq("user_id", uid));
-      },
-    ),
+    asCount(sb.from("community_reports").select("id", { count: "exact", head: true }).eq("user_id", uid)),
     asLatest(
       sb.from("community_posts").select("created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
       "created_at",

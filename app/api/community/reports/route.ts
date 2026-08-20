@@ -61,27 +61,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "본인 게시글은 신고할 수 없습니다." }, { status: 400 });
   }
 
+  // Production community_reports: reporter=`user_id`, text=`reason` (no reporter_id/reason_type/reason_text).
   const { data: existing } = await sb
     .from("community_reports")
     .select("id")
     .eq("target_type", "post")
     .eq("target_id", postId)
-    .eq("reporter_id", auth.userId)
+    .eq("user_id", auth.userId)
     .maybeSingle();
   if (existing?.id) {
     return NextResponse.json({ ok: false, error: "이미 신고한 게시글입니다." }, { status: 409 });
   }
 
-  const reason_type = inferReportReasonCode(reasonText) || "etc";
+  const reasonCode = inferReportReasonCode(reasonText) || "etc";
+  const reasonPayload = `${reasonCode}: ${reasonText}`.slice(0, 2000);
 
   const { data: ins, error } = await sb
     .from("community_reports")
     .insert({
       target_type: "post",
       target_id: postId,
-      reporter_id: auth.userId,
-      reason_type,
-      reason_text: reasonText.slice(0, 2000),
+      user_id: auth.userId,
+      reason: reasonPayload,
       status: "open",
     })
     .select("id")

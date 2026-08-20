@@ -16,8 +16,7 @@ const ME_STORE_SELECT =
     "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
     "approval_status, is_visible, rejected_reason, revision_note",
     "created_at, updated_at, approved_at",
-    // Optional column (older DBs might not have it). When present, it avoids an extra round-trip.
-    "applicant_nickname",
+    // Production has no stores.applicant_nickname — nickname comes from profiles join below.
     "store_categories ( name, slug ), store_topics ( name, slug )",
   ].join(", ");
 
@@ -46,8 +45,7 @@ export async function loadMeStoresListForUser(
     return cached.value;
   }
 
-  // Backward compatible: some environments may not have `stores.applicant_nickname`.
-  // Try with the column first to avoid an extra query; fall back to the legacy select if needed.
+  // Production: no stores.applicant_nickname — select without it first.
   let data: unknown[] | null = null;
   let error: { message?: string } | null = null;
   {
@@ -58,16 +56,6 @@ export async function loadMeStoresListForUser(
       .order("created_at", { ascending: false });
     data = r.data as unknown[] | null;
     error = (r.error as any) ?? null;
-    if (error && /applicant_nickname/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
-      const legacySelect = ME_STORE_SELECT.replace(/,\s*applicant_nickname\s*(?=,)/, "");
-      const r2 = await supabase
-        .from("stores")
-        .select(legacySelect)
-        .eq("owner_user_id", userId)
-        .order("created_at", { ascending: false });
-      data = r2.data as unknown[] | null;
-      error = (r2.error as any) ?? null;
-    }
     if (error && /menu_sold_out_bottom/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
       const legacySelect = ME_STORE_SELECT.replace(/,\s*menu_sold_out_bottom\s*(?=,)/, "");
       const r3 = await supabase

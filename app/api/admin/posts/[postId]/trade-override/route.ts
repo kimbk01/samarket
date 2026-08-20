@@ -56,13 +56,12 @@ export async function POST(
   if (action === "cancel_sale") {
     const { data: before } = await sb
       .from(POSTS_TABLE_READ)
-      .select("status, visibility, sold_buyer_id, reserved_buyer_id")
+      .select("status, sold_buyer_id, reserved_buyer_id")
       .eq("id", id)
       .maybeSingle();
 
     const patch: Record<string, unknown> = {
       status: "hidden",
-      visibility: "hidden",
       seller_listing_state: "inquiry",
       reserved_buyer_id: null,
       updated_at: now,
@@ -161,7 +160,6 @@ export async function POST(
   const patchSold: Record<string, unknown> = {
     status: "sold",
     seller_listing_state: "completed",
-    visibility: "public",
     sold_buyer_id: soldBuyerId,
     reserved_buyer_id: null,
     updated_at: now,

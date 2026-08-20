@@ -13282,13 +13282,12 @@ class TradeCategoryMetaRequestLoader {
         const candidates =
           table === "trade_categories"
             ? [
-                /** 로컬/레거시 DB 에서 자주 없는 컬럼(`label`, `icon_key`) 뒤로 — 실패 RTT 누적 방지 */
+                /** Production: `icon` exists, `icon_key` does not — never probe icon_key. */
                 "id, name, slug, icon",
                 "id, name, slug",
                 "id, name, label, key",
-                "id, name, slug, icon_key",
               ]
-            : ["id, name, label, key", "id, name, label, key, slug, icon_key", "id, name, label, key, slug, icon"];
+            : ["id, name, label, key", "id, name, label, key, slug, icon", "id, name, label, key, slug, icon_key"];
         let attemptIndex = 0;
         for (const sel of candidates) {
           attemptIndex += 1;

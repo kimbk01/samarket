@@ -10,7 +10,15 @@ describe("find-admin-menu-item", () => {
   it("finds nested growth ads by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
-    expect(ads?.children?.some((c) => c.key === "ads-applications")).toBe(true);
+    // Cut B: Marketplace 더 알리기 (ads-applications) lives under TRADE; Feed Banner stays Growth.
+    expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-applications")).toBe(false);
+  });
+
+  it("finds Marketplace promo queue under trade", () => {
+    const trade = findAdminMenuByKey(adminMenu, "trade");
+    expect(trade?.children?.some((c) => c.key === "ads-applications")).toBe(true);
+    expect(trade?.children?.some((c) => c.key === "reports-posts")).toBe(true);
   });
 
   it("finds manage under platform-ops", () => {

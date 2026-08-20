@@ -31,7 +31,8 @@ export async function fetchCommunityPostViewerStatesBatch(
     sb
       .from("community_reports")
       .select("target_id")
-      .eq("reporter_id", uid)
+      // Production authority: reporter column is `user_id` (no `reporter_id`).
+      .eq("user_id", uid)
       .eq("target_type", "post")
       .in("target_id", ids),
     authorIdByPostId

@@ -385,8 +385,7 @@ export async function listNeighborhoodFeed(options: {
   const postIds = rows.map((r) => String(r.id));
   mainPostprocessMs = performance.now() - tSyncA;
   /**
-   * `tenure_type` 은 `supabase/migrations/20260401120000_meetings_tenure_type.sql` 기준으로 고정.
-   * 컬럼 미적용 DB에서의 2라운드 폴백은 RTT 낭비라 제거(운영 스키마가 마이그레이션을 따른다는 전제).
+   * Production `meetings` has no `tenure_type` — select without it; default tenure short in map.
    */
   const meetingsPromise =
     postIds.length > 0
@@ -396,12 +395,12 @@ export async function listNeighborhoodFeed(options: {
           try {
             let rMeet = await sb
               .from("meetings")
-              .select("id, post_id, meeting_date, tenure_type, cover_image_url, community_messenger_room_id")
+              .select("id, post_id, meeting_date, cover_image_url, community_messenger_room_id")
               .in("post_id", postIds);
             if (rMeet.error && isMissingDbColumnError(rMeet.error, "community_messenger_room_id")) {
               const rMeetNarrow = await sb
                 .from("meetings")
-                .select("id, post_id, meeting_date, tenure_type, cover_image_url")
+                .select("id, post_id, meeting_date, cover_image_url")
                 .in("post_id", postIds);
               rMeet = rMeetNarrow as typeof rMeet;
             }
@@ -612,19 +611,13 @@ async function fetchMeetingLinkByPostId(
   const trySelect = async (cols: string) =>
     sb.from("meetings").select(cols).eq("post_id", postId).maybeSingle();
 
-  let { data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url, community_messenger_room_id");
+  let { data, error } = await trySelect("id, meeting_date, cover_image_url, community_messenger_room_id");
   if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
-    ({ data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url"));
-  }
-  if (error && isMissingDbColumnError(error, "tenure_type")) {
     ({ data, error } = await trySelect("id, meeting_date, cover_image_url"));
   }
   if (error && isMissingDbColumnError(error, "cover_image_url")) {
-    ({ data, error } = await trySelect("id, meeting_date, tenure_type, community_messenger_room_id"));
+    ({ data, error } = await trySelect("id, meeting_date, community_messenger_room_id"));
     if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
-      ({ data, error } = await trySelect("id, meeting_date, tenure_type"));
-    }
-    if (error && isMissingDbColumnError(error, "tenure_type")) {
       ({ data, error } = await trySelect("id, meeting_date"));
     }
   }
@@ -839,11 +832,11 @@ export async function isNeighborhoodMeetingId(meetingId: string): Promise<boolea
   return !!(data as { id?: string }).id;
 }
 
-/** DB 마이그레이션 단계별로 컬럼이 다를 수 있어 select 를 단계적으로 시도 */
+/** DB 마이그레이션 단계별로 컬럼이 다를 수 있어 select 를 단계적으로 시도.
+ * Production has no `tenure_type` — levels that probe it first are omitted. */
 const MEETING_DETAIL_SELECT_LEVELS: string[] = [
-  "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, community_messenger_room_id, password_hash, welcome_message, cover_image_url, region_text, category_text, platform_approval_required, platform_approval_status, allow_feed, allow_album_upload",
-  "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, password_hash",
-  "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, status, is_closed, chat_room_id",
+  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, community_messenger_room_id, password_hash, welcome_message, cover_image_url, region_text, category_text, platform_approval_required, platform_approval_status, allow_feed, allow_album_upload",
+  "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, password_hash",
   "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, status, is_closed, chat_room_id",
   "id, post_id, title, description, location_text, meeting_date, max_members, created_by, join_policy, status, is_closed, chat_room_id",
 ];

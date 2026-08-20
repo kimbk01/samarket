@@ -108,25 +108,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
   }
 
-  // Prod may lack posts.visibility — never fail the whole writer on SELECT column miss (S3 closeout).
-  const selectFull =
-    "id, status, visibility, title, sold_buyer_id, reserved_buyer_id, seller_listing_state";
+  // Production has no posts.visibility — select without it (no fail→retry probe).
   const selectNoVis =
     "id, status, title, sold_buyer_id, reserved_buyer_id, seller_listing_state";
   let before: Record<string, unknown> | null = null;
   {
-    const first = await sb.from(POSTS_TABLE_READ).select(selectFull).eq("id", postId).maybeSingle();
-    if (first.error && /visibility|column|42703/i.test(String(first.error.message))) {
-      const second = await sb.from(POSTS_TABLE_READ).select(selectNoVis).eq("id", postId).maybeSingle();
-      if (second.error) {
-        return NextResponse.json({ ok: false, error: second.error.message }, { status: 500 });
-      }
-      before = (second.data as Record<string, unknown> | null) ?? null;
-    } else if (first.error) {
+    const first = await sb.from(POSTS_TABLE_READ).select(selectNoVis).eq("id", postId).maybeSingle();
+    if (first.error) {
       return NextResponse.json({ ok: false, error: first.error.message }, { status: 500 });
-    } else {
-      before = (first.data as Record<string, unknown> | null) ?? null;
     }
+    before = (first.data as Record<string, unknown> | null) ?? null;
   }
 
   if (!before) {
@@ -135,9 +126,9 @@ export async function POST(
 
   const nextVisibility = status === "hidden" || status === "deleted" ? "hidden" : "public";
   const now = new Date().toISOString();
+  // Production has no posts.visibility — status is the write authority.
   const patch: Record<string, unknown> = {
     status,
-    visibility: nextVisibility,
     updated_at: now,
   };
 

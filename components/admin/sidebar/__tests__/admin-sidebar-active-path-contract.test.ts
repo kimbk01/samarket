@@ -72,8 +72,8 @@ describe("admin sidebar active path authority", () => {
       expectCount: 1,
     },
     {
-      name: "moderation reports root",
-      workspaceKey: "moderation",
+      name: "trade reports root",
+      workspaceKey: "trade",
       path: "/admin/reports",
       expectLeaf: "/admin/reports",
       expectCount: 1,

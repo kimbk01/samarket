@@ -298,15 +298,20 @@ async function loadCategoryMetaByIds(
 
   const fetchTableBatch = async (table: string) => {
     const withType = table === "categories";
+    // Production: categories has icon_key; trade_categories has icon (no icon_key).
     let res = await client
       .from(table)
-      .select(withType ? "id, name, slug, icon_key, type" : "id, name, slug, icon_key")
+      .select(
+        withType
+          ? "id, name, slug, icon_key, type"
+          : "id, name, slug, icon"
+      )
       .in("id", categoryIds);
     if (res.error && res.data == null && withType) {
       res = await client.from(table).select("id, name, slug, icon_key").in("id", categoryIds);
     }
-    if (res.error && res.data == null) {
-      res = await client.from(table).select("id, name, slug, icon").in("id", categoryIds);
+    if (res.error && res.data == null && !withType) {
+      res = await client.from(table).select("id, name, slug").in("id", categoryIds);
     }
     if (res.error && res.data == null) {
       res = await client.from(table).select("id, name, slug").in("id", categoryIds);
@@ -336,13 +341,13 @@ async function loadCategoryMetaByIds(
   for (const id of stillMissing.slice(0, 80)) {
     for (const table of ["trade_categories", "categories"]) {
       const sel =
-        table === "categories" ? "id, name, slug, icon_key, type" : "id, name, slug, icon_key";
+        table === "categories" ? "id, name, slug, icon_key, type" : "id, name, slug, icon";
       let r = await client.from(table).select(sel).eq("id", id).maybeSingle();
       if (r.error && table === "categories") {
         r = await client.from(table).select("id, name, slug, icon_key").eq("id", id).maybeSingle();
       }
-      if (r.error) {
-        r = await client.from(table).select("id, name, slug, icon").eq("id", id).maybeSingle();
+      if (r.error && table === "trade_categories") {
+        r = await client.from(table).select("id, name, slug").eq("id", id).maybeSingle();
       }
       const row = r.data as {
         id: string;

@@ -42,7 +42,7 @@ describe("admin-workspace-routing", () => {
       "customer-platform"
     );
     expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("members");
-    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("moderation");
+    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/trade", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/community/posts", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/philife/sections", "master").id).toBe("community");

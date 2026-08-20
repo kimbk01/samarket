@@ -48,13 +48,15 @@ function mapBaseRow(r: Record<string, unknown>): Omit<
   CommunityReportAdminRow,
   "post_title" | "post_topic_slug" | "post_author_id" | "reporter_label" | "author_label"
 > {
+  // Production: user_id + reason (DTO keeps reporter_id / reason_type / reason_text names).
+  const reason = r.reason != null ? String(r.reason) : r.reason_text != null ? String(r.reason_text) : null;
   return {
     id: String(r.id),
     target_type: String(r.target_type ?? ""),
     target_id: String(r.target_id ?? ""),
-    reporter_id: String(r.reporter_id ?? ""),
-    reason_type: String(r.reason_type ?? ""),
-    reason_text: r.reason_text != null ? String(r.reason_text) : null,
+    reporter_id: String(r.user_id ?? r.reporter_id ?? ""),
+    reason_type: String(r.reason_type ?? (reason ? reason.split(":")[0]?.trim() : "") ?? ""),
+    reason_text: reason,
     status: String(r.status ?? ""),
     admin_memo: r.admin_memo != null ? String(r.admin_memo) : null,
     processed_at: r.processed_at != null ? String(r.processed_at) : null,
@@ -70,7 +72,7 @@ export async function getCommunityReportByIdForAdmin(reportId: string): Promise<
     const { data, error } = await sb
       .from("community_reports")
       .select(
-        "id, target_type, target_id, reporter_id, reason_type, reason_text, status, admin_memo, processed_at, created_at"
+        "id, target_type, target_id, user_id, reason, status, admin_memo, processed_at, created_at"
       )
       .eq("id", id)
       .maybeSingle();
@@ -180,9 +182,7 @@ export async function listCommunityReportsForAdmin(
 
     let q = sb
       .from("community_reports")
-      .select(
-        "id, target_type, target_id, reporter_id, reason_type, reason_text, status, admin_memo, processed_at, created_at"
-      )
+      .select("id, target_type, target_id, user_id, reason, status, admin_memo, processed_at, created_at")
       .eq("target_type", "post")
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -193,7 +193,7 @@ export async function listCommunityReportsForAdmin(
       q = q.eq("status", opts.status.trim());
     }
     if (opts.targetId?.trim()) q = q.eq("target_id", opts.targetId.trim());
-    if (opts.reporterId?.trim()) q = q.eq("reporter_id", opts.reporterId.trim());
+    if (opts.reporterId?.trim()) q = q.eq("user_id", opts.reporterId.trim());
     if (opts.createdFrom?.trim()) q = q.gte("created_at", opts.createdFrom.trim());
     if (opts.createdTo?.trim()) q = q.lte("created_at", opts.createdTo.trim());
     if (targetIdsFilter) {

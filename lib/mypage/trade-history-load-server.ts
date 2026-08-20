@@ -39,12 +39,10 @@ const PURCHASE_SEL =
 const PURCHASE_COUNT_SEL = "id, post_id, seller_id, buyer_id";
 
 /**
- * 건수 SELECT — Production `posts` 에 없는 `author_id`·`category_id` 를 넣지 않는다.
- * `board_id` 컬럼 폴백은 이번 42703 Top-2 범위 밖(별도 컷).
- * posts.type 컬럼은 레거시 DB에 없을 수 있어 SELECT 에 넣지 않음 — 판별은 trade_category_id·board_id·메타.
+ * 건수 SELECT — Production `posts` 에 없는 `author_id`·`category_id`·`board_id` 를 넣지 않는다.
+ * posts.type 컬럼은 레거시 DB에 없을 수 있어 SELECT 에 넣지 않음 — 판별은 trade_category_id·메타.
  */
 const POSTS_SALES_COUNT_SELECT_TIERS = [
-  "id, user_id, title, meta, board_id, trade_category_id",
   "id, user_id, title, meta, trade_category_id",
   "id, user_id, title, meta",
 ] as const;

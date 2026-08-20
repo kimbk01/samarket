@@ -44,8 +44,9 @@ export async function loadCommunityActivityHubServer(
       .limit(20),
     sb
       .from("community_reports")
-      .select("id, target_type, target_id, reason_type, status, created_at")
-      .eq("reporter_id", uid)
+      // Production: reporter=`user_id`, reason text=`reason` (no reporter_id/reason_type).
+      .select("id, target_type, target_id, reason, status, created_at")
+      .eq("user_id", uid)
       .order("created_at", { ascending: false })
       .limit(20),
     sb
@@ -150,7 +151,7 @@ export async function loadCommunityActivityHubServer(
               : targetType === "comment"
                 ? "커뮤니티 댓글 신고"
                 : "커뮤니티 신고",
-          reasonType: String(row.reason_type ?? "etc"),
+          reasonType: String(row.reason ?? row.reason_type ?? "etc"),
           status: String(row.status ?? "open"),
           createdAt: String(row.created_at ?? ""),
         };

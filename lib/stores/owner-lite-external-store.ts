@@ -109,6 +109,14 @@ let initialHydrateIdleId: number | null = null;
 /** Pathname when idle hydrate was scheduled — compared again at execution. */
 let scheduledHydratePathname: string | null = null;
 let snapshotLoadedAtMs: number | null = hydratedFromSession != null ? Date.now() : null;
+/** Idle auto-hydrate skips network when memory/session snapshot is still fresh. */
+const OWNER_LITE_IDLE_HYDRATE_FRESH_MS = 60_000;
+
+function isOwnerLiteSnapshotFreshForIdleHydrate(): boolean {
+  if (!hasLoadedOnce) return false;
+  if (snapshotLoadedAtMs == null) return false;
+  return Date.now() - snapshotLoadedAtMs < OWNER_LITE_IDLE_HYDRATE_FRESH_MS;
+}
 
 function emit() {
   for (const l of listeners) l();
@@ -257,6 +265,21 @@ export function subscribeOwnerLiteStore(listener: () => void) {
           snapshot = { loading: false, ownerStore: null, ownerStores: [] };
           emit();
         }
+        return;
+      }
+      if (isOwnerLiteSnapshotFreshForIdleHydrate()) {
+        pushMypageNetMarker({
+          event: "owner_lite_store_auto_hydrate_skipped",
+          viewerId: getCurrentUser()?.id?.trim() ?? null,
+          subscriber: "subscribeOwnerLiteStore",
+          subscribeReason: "fresh_session_snapshot",
+          autoHydrate: true,
+          activeSubscriberCount: subscriberCount,
+          hasSnapshot: hasLoadedOnce,
+          snapshotAgeMs: snapshotLoadedAtMs != null ? Date.now() - snapshotLoadedAtMs : null,
+          schedulePathname: scheduled ?? undefined,
+          executionPathname: executionPath,
+        });
         return;
       }
       void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>

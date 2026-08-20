@@ -83,24 +83,11 @@ function str(row: Record<string, unknown>, key: string): string {
 }
 
 async function countReportsFiled(sb: SupabaseClient, uid: string): Promise<OverviewMetric<number>> {
-  const byReporter = await asCount(
-    sb.from("community_reports").select("id", { count: "exact", head: true }).eq("reporter_id", uid),
-  );
-  if (byReporter.ok || !/reporter_id/i.test(byReporter.error)) return byReporter;
+  // Production authority: community_reports.user_id (no reporter_id).
   return asCount(sb.from("community_reports").select("id", { count: "exact", head: true }).eq("user_id", uid));
 }
 
 async function latestReportAt(sb: SupabaseClient, uid: string): Promise<OverviewMetric<string | null>> {
-  const byReporter = await asLatest(
-    sb
-      .from("community_reports")
-      .select("created_at")
-      .eq("reporter_id", uid)
-      .order("created_at", { ascending: false })
-      .limit(1),
-    "created_at",
-  );
-  if (byReporter.ok || !/reporter_id/i.test(byReporter.error ?? "")) return byReporter;
   return asLatest(
     sb.from("community_reports").select("created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(1),
     "created_at",
@@ -233,22 +220,12 @@ export async function loadMemberCommunityTab(
 
   if (opts.section === "reports") {
     const total = summary.reportsFiled;
-    const documented = await sb
+    const { data, error } = await sb
       .from("community_reports")
-      .select("id, target_type, target_id, reason_type, status, created_at")
-      .eq("reporter_id", uid)
+      .select("id, target_type, target_id, reason, status, created_at")
+      .eq("user_id", uid)
       .order("created_at", { ascending: false })
       .range(opts.from, opts.to);
-    const live =
-      documented.error && /reporter_id|reason_type/i.test(documented.error.message)
-        ? await sb
-            .from("community_reports")
-            .select("id, target_type, target_id, reason, status, created_at")
-            .eq("user_id", uid)
-            .order("created_at", { ascending: false })
-            .range(opts.from, opts.to)
-        : documented;
-    const { data, error } = live;
     if (error) return { ...empty, total: { ok: false, error: error.message } };
     return {
       ...empty,
