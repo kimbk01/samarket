@@ -78,9 +78,14 @@ describe("CUT F seller promotion unification", () => {
   });
 
   it("admin ad-applications mounts trade and community promotion queues", () => {
-    const page = src("app/admin/ad-applications/page.tsx");
-    expect(page).toContain('domain="trade"');
-    expect(page).toContain('domain="community"');
+    const route = src("app/admin/ad-applications/page.tsx");
+    expect(route).toContain("AdminAdApplicationsPage");
+    expect(route).not.toContain('domain="trade"');
+    expect(route).not.toContain('domain="community"');
+    const page = src("components/admin/ads/AdminAdApplicationsPage.tsx");
+    expect(page).toContain("<AdminCommunityPromotionQueue domain=\"trade\" />");
+    expect(page).toContain("<AdminCommunityPromotionQueue domain=\"community\" />");
+    expect(page).toContain("AdminFeedAdRequestQueue");
     const api = src("app/api/admin/trade-promotion-orders/[id]/route.ts");
     expect(api).toContain("requireAdminApiUser");
     expect(api).toContain("export async function GET");
