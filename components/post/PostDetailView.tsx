@@ -35,14 +35,7 @@ import { ProductImageGallery } from "@/components/product/detail/ProductImageGal
 import {
   imageResolveTradePostDetailImageUrls,
 } from "@/lib/image";
-import {
-  TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA,
-  TRADE_POST_DETAIL_BOTTOM_SELLER_BAND,
-  TRADE_POST_DETAIL_BOTTOM_SHELL,
-  TRADE_POST_DETAIL_SCROLL_PAD_BUYER,
-  TRADE_POST_DETAIL_SCROLL_PAD_SELLER,
-  tradePostDetailSellerBandVisible,
-} from "@/components/product/detail/product-detail-bottom-constants";
+import { TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { getCarTradeLabel } from "@/lib/posts/car-trade-label";
 import {
@@ -182,28 +175,17 @@ function PostDetailSellerProfileRow({
   );
 }
 
-/** 거래 상세 하단 — 본인 글 D-Point 홍보만 (FB 마켓플레이스형) */
-function TradePostDetailActionBar({
-  canApplyTradeAd,
-  onTradeAdOpen,
-}: {
-  canApplyTradeAd: boolean;
-  onTradeAdOpen: () => void;
-}) {
+/** 거래 상세 본문 — 본인 글 D-Point 홍보 CTA (sticky 하단 바 금지 · 홍보 시트와 겹침 방지) */
+function TradePostDetailInlinePromoteCta({ onTradeAdOpen }: { onTradeAdOpen: () => void }) {
   const { safeT } = useI18n();
-  if (!canApplyTradeAd) return null;
   const promoteLabel = safeT("trade_promo_detail_cta", {
     fallbackKo: "더 알리기",
     fallbackEn: "Promote",
   });
   return (
-    <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
-      <div className={TRADE_POST_DETAIL_BOTTOM_SELLER_BAND}>
-        <button type="button" className={TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} onClick={onTradeAdOpen}>
-          {promoteLabel}
-        </button>
-      </div>
-    </div>
+    <button type="button" className={`w-full ${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA}`} onClick={onTradeAdOpen}>
+      {promoteLabel}
+    </button>
   );
 }
 
@@ -905,10 +887,6 @@ export function PostDetailView({
   const showChat =
     post.type !== "community" && chatEnabled && (category == null || category.settings?.has_chat !== false);
 
-  const sellerBandVisible = tradePostDetailSellerBandVisible({
-    canApplyTradeAd,
-  });
-
   const detailMetaJob =
     post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
       ? (post.meta as Record<string, unknown>)
@@ -1136,7 +1114,7 @@ export function PostDetailView({
     <>
       {chatError ? (
         <p
-          className={`fixed ${sellerBandVisible ? "bottom-[72px]" : "bottom-[max(10px,var(--safe-bottom))]"} left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center sam-text-body-secondary text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+          className={`fixed bottom-[max(10px,var(--safe-bottom))] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center sam-text-body-secondary text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
         >
           {chatError}
         </p>
@@ -1224,7 +1202,6 @@ export function PostDetailView({
     ...(isRealEstateSpec && post.city ? { city: post.city } : {}),
   };
 
-  const showStickyBar = sellerBandVisible;
   const jobsDescriptionHeading =
     jobDetailDirection === "hiring" ? t("ui_jobs_detail_description_heading") : t("ui_jobs_detail_intro_heading");
   const descriptionHeading = isJobsSpec ? jobsDescriptionHeading : t("ui_post_product_description_heading");
@@ -1233,16 +1210,7 @@ export function PostDetailView({
     "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft text-[13px] font-semibold text-sam-fg last:border-r-0";
 
   return (
-    <div
-      ref={rootRef}
-      className={`w-full min-w-0 bg-sam-app ${
-        sellerBandVisible
-          ? TRADE_POST_DETAIL_SCROLL_PAD_SELLER
-          : showStickyBar
-            ? TRADE_POST_DETAIL_SCROLL_PAD_BUYER
-            : "pb-[max(10px,var(--safe-bottom))]"
-      }`}
-    >
+    <div ref={rootRef} className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]">
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
         {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
           <section data-ui5-slot="photos" className={TRADE_FB_DETAIL_IMAGE_SECTION}>
@@ -1412,6 +1380,16 @@ export function PostDetailView({
           </section>
         ) : null}
 
+        {canApplyTradeAd ? (
+          <section
+            data-ui5-slot="promote"
+            data-post-detail-action-bar="true"
+            className={`${TRADE_WRITE_FB_SECTION} min-w-0`}
+          >
+            <TradePostDetailInlinePromoteCta onTradeAdOpen={() => setPromoteSheetOpen(true)} />
+          </section>
+        ) : null}
+
         <section
           id={POST_DETAIL_SELLER_ANCHOR_ID}
           data-post-detail-seller="true"
@@ -1467,12 +1445,6 @@ export function PostDetailView({
         ) : null}
       </div>
 
-      {showStickyBar ? (
-        <TradePostDetailActionBar
-          canApplyTradeAd={canApplyTradeAd}
-          onTradeAdOpen={() => setPromoteSheetOpen(true)}
-        />
-      ) : null}
       {postDetailSharedOverlays}
     </div>
   );

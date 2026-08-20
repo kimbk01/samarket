@@ -11,7 +11,7 @@ function slotIndex(haystack: string, slot: string): number {
 }
 
 describe("marketplace UI-5 DETAIL visual hierarchy", () => {
-  it("document flow is photo → price → title → location → item → description → inline-chat → seller → actions → discovery", () => {
+  it("document flow is photo → price → title → location → item → description → inline-chat → promote → seller → actions → discovery", () => {
     const view = src("components/post/PostDetailView.tsx");
     const slots = [
       "photos",
@@ -21,6 +21,7 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
       "item",
       "description",
       "inline-chat",
+      "promote",
       "seller",
       "actions",
       "discovery",
@@ -54,13 +55,15 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
     expect(view).not.toContain("!isRealEstateSpec && listingLocationLine");
   });
 
-  it("buyer primary actions are after seller; sticky bar does not host favorite", () => {
+  it("buyer primary actions are after seller; promote CTA is inline (no sticky bottom host)", () => {
     const view = src("components/post/PostDetailView.tsx");
     expect(slotIndex(view, "actions")).toBeGreaterThan(slotIndex(view, "seller"));
     expect(slotIndex(view, "discovery")).toBeGreaterThan(slotIndex(view, "actions"));
-    const bar = view.slice(view.indexOf("function TradePostDetailActionBar"), view.indexOf("function PostDetailSellerPromoButtons"));
-    expect(bar).not.toContain("TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN");
-    expect(bar).not.toContain("onFavorite");
+    expect(slotIndex(view, "promote")).toBeGreaterThan(slotIndex(view, "inline-chat"));
+    expect(slotIndex(view, "promote")).toBeLessThan(slotIndex(view, "seller"));
+    expect(view).toContain("TradePostDetailInlinePromoteCta");
+    expect(view).not.toContain("TradePostDetailActionBar");
+    expect(view).not.toContain("TRADE_POST_DETAIL_BOTTOM_SHELL");
     expect(view).toContain("promoteBuyerPrimaryActions");
     expect(view).toContain("shareEnabled={!promoteBuyerPrimaryActions}");
   });
