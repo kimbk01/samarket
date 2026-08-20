@@ -52,7 +52,8 @@ export async function POST(
 
   const { data: row, error: fetchErr } = await sbAny
     .from("transaction_reviews")
-    .select("id, reviewee_id, is_hidden_by_admin")
+    // Production has no is_hidden_by_admin — select identity only.
+    .select("id, reviewee_id")
     .eq("id", reviewId)
     .maybeSingle();
 
@@ -65,18 +66,16 @@ export async function POST(
 
   const revieweeId = String((row as { reviewee_id?: string }).reviewee_id ?? "");
 
-  if (action === "hide_review") {
-    const { error } = await sbAny
-      .from("transaction_reviews")
-      .update({ is_hidden_by_admin: true })
-      .eq("id", reviewId);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  } else if (action === "restore_review") {
-    const { error } = await sbAny
-      .from("transaction_reviews")
-      .update({ is_hidden_by_admin: false })
-      .eq("id", reviewId);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (action === "hide_review" || action === "restore_review") {
+    // Production SSOT: column may be absent — degrade to moderation_actions + audit only.
+    const patch =
+      action === "hide_review"
+        ? { is_hidden_by_admin: true }
+        : { is_hidden_by_admin: false };
+    const { error } = await sbAny.from("transaction_reviews").update(patch).eq("id", reviewId);
+    if (error && !/is_hidden_by_admin|column|42703/i.test(String(error.message))) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
   }
 
   await sbAny.from("moderation_actions").insert({
@@ -93,7 +92,11 @@ export async function POST(
     target_type: "transaction_review",
     target_id: reviewId,
     action,
-    after_json: { note, revieweeId },
+    after_json: {
+      note,
+      revieweeId,
+      hiddenColumnApplied: action === "hide_review" || action === "restore_review" ? "best_effort" : null,
+    },
   });
 
   return NextResponse.json({ ok: true });
