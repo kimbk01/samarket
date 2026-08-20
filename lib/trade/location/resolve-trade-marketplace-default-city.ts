@@ -10,7 +10,6 @@ import { collectMasterCityMunicipalityCandidatesForNationalLgu } from "@/lib/tra
 import {
   buildTradeCityScopeFromCanonical,
   rememberTradeLguDisplayLabel,
-  TRADE_LOCATION_HYDRATE_INVALID_RAW,
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
 
@@ -29,21 +28,20 @@ async function fetchNationalLguCityScope(
   if (!res.ok) return null;
 
   const json = (await res.json()) as {
-    ok?: boolean;
     resolution?: {
       status?: string;
       canonicalId?: string;
       lgu?: { displayName?: string; canonicalId?: string };
     };
   };
-  if (json.ok === false || json.resolution?.status !== "resolved") return null;
+  if (json.resolution?.status !== "resolved") return null;
 
   const canonicalId =
-    (typeof json.resolution?.canonicalId === "string" && json.resolution.canonicalId) ||
-    (typeof json.resolution?.lgu?.canonicalId === "string" && json.resolution.lgu.canonicalId) ||
+    (typeof json.resolution.canonicalId === "string" && json.resolution.canonicalId) ||
+    (typeof json.resolution.lgu?.canonicalId === "string" && json.resolution.lgu.canonicalId) ||
     "";
   const displayName =
-    (typeof json.resolution?.lgu?.displayName === "string" &&
+    (typeof json.resolution.lgu?.displayName === "string" &&
       json.resolution.lgu.displayName.trim()) ||
     "";
   if (!canonicalId) return null;
@@ -77,15 +75,16 @@ async function ensureViewerReadyForAddressDefaults(): Promise<boolean> {
 }
 
 /**
- * UNSET URL hydrate — no master → ALL; master with LGU resolve fail → invalid (not silent ALL).
- * Session/defaults not ready → recoverable invalid (boot retry), not silent ALL.
+ * UNSET URL hydrate — master CITY + distance 전체 (no radius).
+ * No master → ALL. Master present but LGU map fail → ALL (47002b90e / reset SSOT parity).
+ * Session/defaults not ready → UNSET (no URL write; boot retry).
  */
 export async function resolveTradeMarketplaceMasterHydrateScope(opts?: {
   forceAddressRefresh?: boolean;
 }): Promise<TradeLocationScope> {
   try {
     if (!(await ensureViewerReadyForAddressDefaults())) {
-      return { mode: "invalid", raw: TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_HYDRATE_ERROR };
+      return { mode: "unset" };
     }
 
     const snapshot = await fetchAddressDefaultsSnapshot({
@@ -95,17 +94,16 @@ export async function resolveTradeMarketplaceMasterHydrateScope(opts?: {
     });
 
     if (!snapshot?.ok) {
-      return { mode: "invalid", raw: TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_HYDRATE_ERROR };
+      return { mode: "unset" };
     }
 
     const master = pickUserAddressMasterRow(snapshot.defaults);
     if (!master) return { mode: "all" };
 
     const city = await resolveNationalLguCityScopeFromMaster(master);
-    if (city) return city;
-    return { mode: "invalid", raw: TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_LGU_UNRESOLVED };
+    return city ?? { mode: "all" };
   } catch {
-    return { mode: "invalid", raw: TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_HYDRATE_ERROR };
+    return { mode: "unset" };
   }
 }
 

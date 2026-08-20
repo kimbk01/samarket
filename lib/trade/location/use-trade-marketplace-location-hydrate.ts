@@ -35,8 +35,8 @@ function scopeNeedsMarketplaceLocationHydrate(scope: TradeLocationScope): boolea
 
 /**
  * Missing URL location is UNSET. Hydrate to master CITY + distance 전체 (no radius).
- * Fallback: explicit ALL only when no master address; LGU fail → invalid.
- * Recoverable invalid (hydrate tokens) re-runs seed — not tab-sticky.
+ * Fallback: explicit ALL when no master or master LGU map fails (47002b90e parity).
+ * Recoverable invalid URLs from older builds re-seed; session pending stays UNSET.
  * Master address change resets location + market filters to the same default.
  */
 export function useTradeMarketplaceLocationHydrate(): {
@@ -89,6 +89,8 @@ export function useTradeMarketplaceLocationHydrate(): {
         isRecoverableTradeLocationHydrateInvalid(scope) || scope.mode === "unset"
       );
       if (runId !== runIdRef.current) return;
+
+      if (next.mode === "unset") return;
 
       writeTradeBrowseCommittedScope(next);
       lastCommittedScopeRef.current = next;
