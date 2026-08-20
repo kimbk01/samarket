@@ -1,5 +1,5 @@
-import { AdminChatListPage } from "@/components/admin/chats/AdminChatListPage";
+import { AdminMessengerDomainRoomList } from "@/components/admin/chats/AdminMessengerDomainRoomList";
 
 export default function AdminChatsGroupPage() {
-  return <AdminChatListPage mode="group" />;
+  return <AdminMessengerDomainRoomList mode="group" />;
 }

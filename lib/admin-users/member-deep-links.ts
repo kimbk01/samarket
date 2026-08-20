@@ -72,7 +72,7 @@ export function memberGroupAdminHref(): string {
 }
 
 export function memberOrderRoomAdminHref(): string {
-  return "/admin/chats/business";
+  return "/admin/order-chats";
 }
 
 export function memberInquiryAdminHref(userId: string): string {

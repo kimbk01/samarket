@@ -50,6 +50,8 @@ type RoomRow = {
   admin_note?: string | null;
   moderated_by?: string | null;
   moderated_at?: string | null;
+  chat_domain?: string | null;
+  domain_identity_key?: string | null;
 };
 
 type ParticipantRow = {
@@ -178,6 +180,21 @@ export type AdminCommunityMessengerRoomSummary = {
   unreadTotal: number;
   adminNote: string;
 };
+
+/** Admin domain list — CM chat_domain filter only (no fake community/business). */
+export const ADMIN_CM_DOMAIN_LIST_DOMAINS = ["general_direct", "group", "store_order"] as const;
+export type AdminCmDomainListDomain = (typeof ADMIN_CM_DOMAIN_LIST_DOMAINS)[number];
+
+export type AdminCommunityMessengerDomainRoomRow = AdminCommunityMessengerRoomSummary & {
+  chatDomain: AdminCmDomainListDomain;
+  domainIdentityKey: string;
+  memberUserIds: string[];
+  openReportCount: number;
+};
+
+export function isAdminCmDomainListDomain(value: unknown): value is AdminCmDomainListDomain {
+  return typeof value === "string" && (ADMIN_CM_DOMAIN_LIST_DOMAINS as readonly string[]).includes(value);
+}
 
 export type AdminCommunityMessengerFriendRequest = {
   id: string;
@@ -1131,4 +1148,72 @@ export async function runAdminCommunityMessengerReportAction(input: {
     .eq("id", input.reportId);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+const DOMAIN_ROOM_SELECT =
+  "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at, chat_domain, domain_identity_key";
+
+/**
+ * Thin Admin list by `chat_domain`. No message preload. Cap ~200, order by last_message_at.
+ * Detail SSOT remains `/admin/chats/messenger/[id]`.
+ */
+export async function listAdminCommunityMessengerRoomsByDomain(
+  domain: AdminCmDomainListDomain,
+  limit = 200
+): Promise<AdminCommunityMessengerDomainRoomRow[]> {
+  const capped = Math.min(Math.max(1, Math.floor(limit) || 200), 200);
+  const { data: rooms, error } = await (sb() as any)
+    .from("community_messenger_rooms")
+    .select(DOMAIN_ROOM_SELECT)
+    .eq("chat_domain", domain)
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(capped);
+  if (error) throw new Error(error.message);
+
+  const roomRows = (rooms ?? []) as RoomRow[];
+  if (!roomRows.length) return [];
+
+  const roomIds = roomRows.map((row) => row.id);
+  const { data: participantData } = await (sb() as any)
+    .from("community_messenger_participants")
+    .select("id, room_id, user_id, role, unread_count, joined_at, last_read_at")
+    .in("room_id", roomIds);
+  const participants = (participantData ?? []) as ParticipantRow[];
+
+  const reportCountByRoom = new Map<string, number>();
+  const { data: reportRows } = await (sb() as any)
+    .from("community_messenger_reports")
+    .select("room_id, status")
+    .in("room_id", roomIds)
+    .in("status", ["received", "reviewing"]);
+  for (const row of (reportRows ?? []) as Array<{ room_id?: string | null }>) {
+    const rid = t(row.room_id);
+    if (!rid) continue;
+    reportCountByRoom.set(rid, (reportCountByRoom.get(rid) ?? 0) + 1);
+  }
+
+  const profileMap = await getProfileMap([
+    ...participants.map((p) => p.user_id),
+    ...roomRows.map((r) => t(r.created_by)),
+    ...roomRows.map((r) => t(r.owner_user_id)),
+  ]);
+
+  const byRoom = new Map<string, ParticipantRow[]>();
+  for (const p of participants) {
+    const list = byRoom.get(p.room_id) ?? [];
+    list.push(p);
+    byRoom.set(p.room_id, list);
+  }
+
+  return roomRows.map((room) => {
+    const roomParticipants = byRoom.get(room.id) ?? [];
+    const summary = mapRoomSummary(room, roomParticipants, profileMap);
+    return {
+      ...summary,
+      chatDomain: domain,
+      domainIdentityKey: t(room.domain_identity_key),
+      memberUserIds: roomParticipants.map((p) => p.user_id),
+      openReportCount: reportCountByRoom.get(room.id) ?? 0,
+    };
+  });
 }

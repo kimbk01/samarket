@@ -1,5 +1,6 @@
-import { AdminChatListPage } from "@/components/admin/chats/AdminChatListPage";
+import { redirect } from "next/navigation";
 
+/** ALIAS — no CM domain `business`. Canonical = store_order via order-chats LIVE. */
 export default function AdminChatsBusinessPage() {
-  return <AdminChatListPage mode="business" />;
+  redirect("/admin/order-chats");
 }

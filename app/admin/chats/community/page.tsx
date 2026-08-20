@@ -1,5 +1,6 @@
-import { AdminChatListPage } from "@/components/admin/chats/AdminChatListPage";
+import { redirect } from "next/navigation";
 
+/** ALIAS — no CM domain `community`. Canonical = general_direct. */
 export default function AdminChatsCommunityPage() {
-  return <AdminChatListPage mode="community" />;
+  redirect("/admin/chats/general");
 }

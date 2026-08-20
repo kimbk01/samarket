@@ -152,8 +152,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "chat-messenger": "admin_menu_chat_messenger",
   "chat-messenger-perf": "admin_menu_chat_messenger_performance",
   "chat-group": "admin_menu_chat_group",
-  "chat-community": "admin_menu_chat_community",
-  "chat-business": "admin_menu_chat_business",
+  "chat-general": "admin_menu_chat_general",
 
   // Trade family extras (Cut B)
   "trade-users": "admin_menu_users",
@@ -574,7 +573,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/stores/orders/logs",
             status: "done",
           },
-          { key: "delivery-order-chats", title: "", path: "/admin/order-chats", status: "partial" },
+          {
+            key: "delivery-order-chats",
+            title: "",
+            path: "/admin/order-chats",
+            matchPaths: ["/admin/chats/business"],
+            status: "done",
+          },
         ],
       },
       { key: "delivery-ops-console", title: "", path: "/admin/ops-console", status: "done" },
@@ -653,9 +658,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/chats/messenger-performance",
         status: "done",
       },
-      { key: "chat-group", title: "", path: "/admin/chats/group", status: "partial" },
-      { key: "chat-community", title: "", path: "/admin/chats/community", status: "partial" },
-      { key: "chat-business", title: "", path: "/admin/chats/business", status: "partial" },
+      {
+        key: "chat-general",
+        title: "",
+        path: "/admin/chats/general",
+        matchPaths: ["/admin/chats/community"],
+        status: "done",
+      },
+      { key: "chat-group", title: "", path: "/admin/chats/group", status: "done" },
     ],
   },
 

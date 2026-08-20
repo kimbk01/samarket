@@ -226,10 +226,20 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_room_hint:
       "주문 {orderId}의 대화는 해당 참여자 메신저 방에서 확인합니다. 관리자 전용 레거시 조회/메모 API는 제거되었습니다.",
     admin_do_chat_list_merged:
-      "STUB: Admin 주문채팅 목록은 미연결입니다. 멤버 메신저 배달 채팅함 링크만 제공합니다.",
+      "연결된 store_order 메신저 방이 있는 주문을 표시합니다. (조회 전용)",
     admin_do_chat_stub_badge: "STUB · Admin 주문채팅 목록 미연결",
     admin_do_chat_stub_hint:
       "운영 identity는 Messenger store_order 방입니다. 이 화면은 링크 허브만 제공합니다 — 목록 PASS로 보지 마세요.",
+    admin_do_chat_list_loading: "불러오는 중…",
+    admin_do_chat_list_empty: "채팅 없음",
+    admin_do_chat_list_error: "주문 채팅 목록을 불러오지 못했습니다.",
+    admin_do_chat_col_order: "주문",
+    admin_do_chat_col_store: "매장",
+    admin_do_chat_col_customer: "고객",
+    admin_do_chat_col_last: "최근 메시지",
+    admin_do_chat_open_room: "메신저 방 열기",
+    admin_do_chat_lookup_empty:
+      "이 주문에 연결된 메신저 채팅방이 없습니다. (조회 전용 — 방을 생성하지 않습니다)",
     admin_do_chat_open_inbox: "배달 채팅함 열기",
     admin_do_chat_store_orders: "매장 주문 관리",
     admin_do_admin_memo: "관리자 메모",
@@ -576,10 +586,20 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_room_hint:
       "Conversation for order {orderId} is in participants' messenger room. Legacy admin view/memo APIs removed.",
     admin_do_chat_list_merged:
-      "STUB: Admin order-chat list is not wired. Links only to the member messenger delivery inbox.",
+      "Shows orders that already have a store_order messenger room (lookup only).",
     admin_do_chat_stub_badge: "STUB · Admin order-chat list not wired",
     admin_do_chat_stub_hint:
       "Ops identity is Messenger store_order rooms. This page is a link hub only — do not mark the list as PASS.",
+    admin_do_chat_list_loading: "Loading…",
+    admin_do_chat_list_empty: "No chats",
+    admin_do_chat_list_error: "Could not load order chats.",
+    admin_do_chat_col_order: "Order",
+    admin_do_chat_col_store: "Store",
+    admin_do_chat_col_customer: "Customer",
+    admin_do_chat_col_last: "Last message",
+    admin_do_chat_open_room: "Open messenger room",
+    admin_do_chat_lookup_empty:
+      "No messenger room is linked to this order. (Lookup only — rooms are not created here.)",
     admin_do_chat_open_inbox: "Open delivery inbox",
     admin_do_chat_store_orders: "Store order management",
     admin_do_admin_memo: "Admin memo",
