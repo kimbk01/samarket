@@ -11,7 +11,6 @@ import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
 import {
   buildTradePostsStatusAndCategoryAndFilter,
-  buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
   POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE,
 } from "@/lib/posts/trade-posts-category-filter";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
@@ -226,25 +225,6 @@ async function fetchHomePostsMappedRange(
     if (!res.error && Array.isArray(res.data)) {
       data = res.data;
       break outer;
-    }
-    if (
-      tradeCategoryIds?.length &&
-      res.error &&
-      typeof res.error.message === "string" &&
-      /category_id/i.test(res.error.message)
-    ) {
-      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(
-        tradeCategoryIds,
-        statusOr
-      );
-      if (!fallbackAnd) {
-        return [];
-      }
-      const retry = await runHomePostsSelect(selectFields, fallbackAnd);
-      if (!retry.error && Array.isArray(retry.data)) {
-        data = retry.data;
-        break outer;
-      }
     }
   }
 

@@ -13,25 +13,18 @@ export const POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE = 64;
 const DEFAULT_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
 
 /**
- * `trade_category_id`·`category_id` 둘 다 OR 매칭 (마이그레이션·레거시 호환).
+ * 거래 목록 카테고리 필터 — Production `posts` authority 는 `trade_category_id` 만.
+ * 존재하지 않는 `posts.category_id` 를 넣어 42703 fail→retry 하지 않는다.
  */
 export function buildTradePostsStatusAndCategoryAndFilter(
   tradeCategoryIds: string[],
   statusOrInner: string = DEFAULT_STATUS_OR
 ): string {
-  const cleaned = [...new Set(tradeCategoryIds.map((x) => x.trim()).filter(Boolean))];
-  if (cleaned.length === 0) return "";
-  const parts: string[] = [];
-  for (let i = 0; i < cleaned.length; i += POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE) {
-    const chunk = cleaned.slice(i, i + POSTGREST_TRADE_CATEGORY_IN_CHUNK_SIZE);
-    const csv = chunk.join(",");
-    parts.push(`trade_category_id.in.(${csv})`, `category_id.in.(${csv})`);
-  }
-  return `(or(${statusOrInner}),or(${parts.join(",")}))`;
+  return buildTradePostsStatusAndTradeCategoryOnlyAndFilter(tradeCategoryIds, statusOrInner);
 }
 
 /**
- * 스키마에 `category_id` 가 없을 때 폴백 — `trade_category_id` 만 청크 OR.
+ * `trade_category_id` 청크 OR (홈·마켓 피드 동일).
  */
 export function buildTradePostsStatusAndTradeCategoryOnlyAndFilter(
   tradeCategoryIds: string[],

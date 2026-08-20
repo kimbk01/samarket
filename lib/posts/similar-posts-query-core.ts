@@ -121,16 +121,8 @@ export async function fetchSimilarPostsWithSupabase(
   };
 
   if (cid) {
-    const tryOr = await run(
-      base().or(`trade_category_id.eq.${cid},category_id.eq.${cid}`)
-    );
-    if (tryOr.length > 0) return applyRegionFallback(tryOr);
-
     const tryTrade = await run(base().eq("trade_category_id", cid));
     if (tryTrade.length > 0) return applyRegionFallback(tryTrade);
-
-    const tryCat = await run(base().eq("category_id", cid));
-    if (tryCat.length > 0) return applyRegionFallback(tryCat);
   }
 
   const recent = await run(base());

@@ -10,10 +10,7 @@ import {
   normalizePostPrice,
 } from "./post-normalize";
 import { applyPostgrestAndGroup } from "./apply-postgrest-and-group";
-import {
-  buildTradePostsStatusAndCategoryAndFilter,
-  buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
-} from "./trade-posts-category-filter";
+import { buildTradePostsStatusAndCategoryAndFilter } from "./trade-posts-category-filter";
 import { jobRegionConstraintForSlug } from "@/lib/jobs/job-list-region-db-filter";
 import { jobCategoryValuesForIndustrySlug } from "@/lib/jobs/job-list-industry-db-filter";
 import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
@@ -301,18 +298,6 @@ export async function fetchPostsRangeForTradeCategories(
     if (error && looksLikeMissingColumnOrSchemaError(error.message)) {
       selectCols = "*";
       const res = await run(selectCols);
-      data = res.data;
-      error = res.error;
-    }
-    /** 스키마에 category_id 가 없는 경우 trade_category_id 만 사용 */
-    if (error && typeof error?.message === "string" && /category_id/i.test(error.message)) {
-      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(ids, extras?.statusOr);
-      if (!fallbackAnd) return [];
-      let q = (sb.from(POSTS_TABLE_READ) as any).select(selectCols);
-      applyPostgrestAndGroup(q, fallbackAnd);
-      q = applyJobFilters(q);
-      q = applySort(q);
-      const res = await q.range(rangeFrom, rangeToInclusive);
       data = res.data;
       error = res.error;
     }

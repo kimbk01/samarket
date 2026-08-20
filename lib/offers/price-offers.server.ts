@@ -172,7 +172,8 @@ function serviceError(status: number, error: string, code: string): Err {
 
 /**
  * 가격 제안 API 소유권·게이트 전용 — `POST_TRADE_DETAIL_SELECT` 단계 로드가 컬럼/환경 때문에 실패해도
- * `id` + `user_id` (+ `author_id`) 만으로 글 소유자 판별이 가능해야 한다.
+ * `id` + `user_id` 만으로 글 소유자 판별이 가능해야 한다.
+ * Production `posts` / `posts_masked` 에 `author_id` 컬럼이 없어 SELECT 에 넣지 않는다.
  */
 async function loadPostRowMinimalForOfferGate(
   sb: SupabaseClient,
@@ -189,22 +190,22 @@ async function loadPostRowMinimalForOfferGate(
    */
   const { data: postRows, error: postsErr } = await sb
     .from("posts")
-    .select("id, user_id, author_id")
+    .select("id, user_id")
     .in("id", candidates);
 
   if (!postsErr && Array.isArray(postRows) && postRows.length > 0) {
     const rows = postRows as Record<string, unknown>[];
-    const preferred = rows.find((row) => Boolean(trimString(row.user_id) || trimString(row.author_id)));
+    const preferred = rows.find((row) => Boolean(trimString(row.user_id)));
     return preferred ?? rows[0] ?? null;
   }
 
   const tables = [...new Set([POSTS_TABLE_READ, "posts_masked"])].filter((t) => t !== "posts");
   for (const idKey of candidates) {
     for (const table of tables) {
-      const { data, error } = await sb.from(table).select("id, user_id, author_id").eq("id", idKey).maybeSingle();
+      const { data, error } = await sb.from(table).select("id, user_id").eq("id", idKey).maybeSingle();
       if (!error && data && typeof data === "object") {
         const row = data as Record<string, unknown>;
-        if (Boolean(trimString(row.user_id) || trimString(row.author_id))) {
+        if (Boolean(trimString(row.user_id))) {
           return row;
         }
       }

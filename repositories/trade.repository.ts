@@ -54,7 +54,7 @@ export async function getSellerItemsFromDb(
     const q = sb
       .from(POSTS_TABLE_READ)
       .select(selectCols)
-      .or(`user_id.eq.${sellerId},author_id.eq.${sellerId}`)
+      .eq("user_id", sellerId)
       .in("status", ["active", "sold"])
       .neq("id", excludePostId)
       .order("created_at", { ascending: false })
@@ -108,18 +108,6 @@ export async function getSimilarPoolByCategoryFromDb(
   const categoryId = input.categoryId?.trim() ?? "";
   if (!excludePostId) return [];
 
-  const base = sb
-    .from(POSTS_TABLE_READ)
-    .select(POST_TRADE_LIST_SELECT)
-    .eq("status", "active")
-    .neq("id", excludePostId)
-    .order("created_at", { ascending: false })
-    .limit(SIMILAR_ITEMS_POOL);
-
-  const q = categoryId
-    ? base.or(`trade_category_id.eq.${categoryId},category_id.eq.${categoryId}`)
-    : base;
-
   const rows = await runSelectWithFallback(async (selectCols) => {
     const base = sb
       .from(POSTS_TABLE_READ)
@@ -128,9 +116,7 @@ export async function getSimilarPoolByCategoryFromDb(
       .neq("id", excludePostId)
       .order("created_at", { ascending: false })
       .limit(SIMILAR_ITEMS_POOL);
-    const query = categoryId
-      ? base.or(`trade_category_id.eq.${categoryId},category_id.eq.${categoryId}`)
-      : base;
+    const query = categoryId ? base.eq("trade_category_id", categoryId) : base;
     const { data, error } = await query;
     return { data, error };
   });

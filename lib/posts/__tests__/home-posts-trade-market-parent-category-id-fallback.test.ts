@@ -19,12 +19,6 @@ function makeSb(calls: string[]) {
           q.range = async () => {
             const and = url.searchParams.get("and") ?? "";
             calls.push(and);
-            if (and.includes(",category_id.in") || and.includes("(category_id.in")) {
-              return {
-                error: { message: "column posts.category_id does not exist" },
-                data: null,
-              };
-            }
             return {
               error: null,
               data: [
@@ -49,8 +43,8 @@ function makeSb(calls: string[]) {
   };
 }
 
-describe("HOME tradeMarketParent category_id fallback", () => {
-  it("retries trade_category_id-only and-group when category_id is missing", async () => {
+describe("HOME tradeMarketParent category filter", () => {
+  it("filters trade_category_id only — does not query missing posts.category_id", async () => {
     const calls: string[] = [];
     const pack = await loadHomePostsPage(
       makeSb(calls) as never,
@@ -62,7 +56,7 @@ describe("HOME tradeMarketParent category_id fallback", () => {
       "status.is.null,status.not.in.(hidden,sold)"
     );
     expect(calls.some((and) => and.includes(",category_id.in") || and.includes("(category_id.in"))).toBe(
-      true
+      false
     );
     expect(
       calls.some(
