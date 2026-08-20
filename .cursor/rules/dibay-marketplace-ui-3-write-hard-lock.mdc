@@ -1,6 +1,11 @@
 ---
 description: HARD LOCK — DIBAY Marketplace UI-3 WRITE visual hierarchy
-alwaysApply: true
+alwaysApply: false
+globs:
+  - components/write/**
+  - components/trade/**
+  - app/(main)/write/**
+  - lib/trade/category-form/**
 ---
 
 # DIBAY Marketplace UI-3 WRITE HARD LOCK

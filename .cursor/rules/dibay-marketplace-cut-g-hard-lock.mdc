@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT G (heart boolean parity, LIST+DETAIL report, DETAIL share)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/favorites/**
+  - components/post/**
+  - lib/trade/share-trade-listing.ts
+  - components/home/**
+  - components/market/**
+  - app/(main)/post/**
 ---
 
 # DIBAY Marketplace CUT G HARD LOCK

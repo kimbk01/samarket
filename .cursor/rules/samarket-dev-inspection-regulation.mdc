@@ -1,129 +1,88 @@
 ---
-description: 디바이 개발 검사 규정 — 개발 중·git add·git push 단계별 게이트
+description: Dev / commit / push inspection gates — one pass per state; FAIL/ABORT retry only the broken command.
 alwaysApply: true
 ---
 
 # 디바이 개발 검사 규정
 
-## 0. 동일 상태 1회 원칙
+Agent 행동·중복 금지 원칙은 `dibay-agent-execution-contract.mdc` 와 같다. Deploy 권한은 `dibay-production-deploy-authority-hard-lock.mdc`. i18n **제품** 계약은 `samarket-i18n-core.mdc`.
 
-```text
-같은 변경 상태에서 동일한 full 검사를 두 번 하지 않는다.
-```
+## 0. 동일 상태 1회
 
-- **약화 목적 아님** — 중복만 제거한다.
-- `typecheck:build`(working tree) ≠ `verify-index-tsc`(git index). dirty tree 구멍 차단용 index-tsc는 pre-commit에 **남긴다**.
-- add 직전에서 이미 PASS한 `lint` / `verify:i18n-key-exposure` 를 pre-commit에서 **다시 돌리지 않는다**.
-- push 직전: add/commit 이후 코드가 안 바뀌었으면 lint·tsc·i18n·unit·verify를 **재실행하지 않는다**. `npm run build` 1회(+ 아직 안 돌린 diff contract만).
+같은 code/git 상태에서 동일 full 검사를 **두 번 하지 않는다**.
 
-## 1. 개발 중 (일반 수정)
+- WT `typecheck:build` ≠ hook `verify-index-tsc` (index) — 둘은 입력이 다름
+- add에서 PASS한 lint / `verify:i18n-key-exposure` 를 hook·push에서 **다시 돌리지 않는다**
+- commit 후 코드 미변경이면 lint/tsc/i18n/unit/이미 PASS한 verify **재실행 금지**
 
-**매 수정·저장마다 전체 CI 검사 금지.**
+## 1. Development
 
-| 금지 (개발 중 매번) | 대신 |
-|---------------------|------|
-| 전체 i18n (`check:i18n`, `verify:i18n-key-exposure`) | 새 key만 `check:i18n-staged` |
-| 전체 `npm run lint` | 수정 파일 lint/타입은 IDE·필요 시 해당 경로만 |
-| 전체 `npm run build` | 실행하지 않음 |
-| 무관한 `verify:*` 일괄 실행 | 수정 범위 관련만, 사용자 요청 시 |
+**매 수정마다 full CI 금지.**
 
-- 수정한 **파일·기능 범위**만 빠르게 확인한다.
-- 검사 때문에 개발 흐름을 매번 멈추지 않는다.
-
-## 2. i18n 작업 (요약)
-
-상세: `.cursor/rules/samarket-i18n-output-regulation.mdc` · `.cursor/rules/samarket-i18n-work-regulation.mdc`
-
-- 개발 중: **새 key**만 ko/en (`check:i18n-staged`) · **key 원문 UI 노출 금지**
-- 전체 i18n 전수 검사 **금지** (개발 중)
-- **`git add` 직전 1회**: `verify:i18n-key-exposure`
-- fallback: **key 반환 금지** → 사용자용 문장
-
-## 3. COMMIT 준비 (`git add` 직전) — full 검사 1회
-
-스테이징·커밋 전에 **아래를 한 번** 실행한다. 통과 전에는 커밋하지 않는다.
-
-| 순서 | 명령 | 비고 |
-|------|------|------|
-| 1 | `npm run lint` | error 1개라도 FAIL — **이 단계의 lint 권한** |
-| 2 | `npm run typecheck:build` | WT 타입. test 스테이징 시 `typecheck:test` |
-| 3 | `npm run verify:i18n-key-exposure` | **이 단계의 full i18n 권한** |
-| 4 | 관련 `verify:*` | diff 범위만 — `samarket-pre-commit-verification.mdc` |
-| 5 | 관련 unit test | `vitest run <이번 수정 테스트>` |
-
-**이 단계에서는 `npm run build` 금지** (push 직전).
-
-PASS 후 `git add` → `git commit`. commit 훅이 lint/i18n full을 **반복하지 않는다**.
-
-## 4. PRE-COMMIT (`.githooks` → `npm run verify:pre-commit`)
-
-커밋에만 의미 있는 **짧은/고유** 게이트만:
-
-| 명령 | 이유 |
+| 금지 | 대신 |
 |------|------|
-| `verify-deploy-imports.mjs --staged` | staged `@/` import |
-| `verify-i18n-staged-catalog.mjs --staged` | staged catalog 키 대칭(경량) |
-| `verify-index-tsc.mjs` (+ test 시 `--test`) | **index** full tsc — WT와 입력 다름 |
-| `verify-staged-call-v4-incoming-boundary.mjs` | call-v4 경계(해당 시) |
+| 전체 lint / build / full i18n | 수정 범위만 · 새 key면 `check:i18n-staged` |
+| 무관 `verify:*` 일괄 | diff 관련만, 사용자 요청 시 |
 
-**금지(중복):** hook 안에서 `npm run lint` · `npm run verify:i18n-key-exposure` · `npm run typecheck:build`(WT) 재실행.
+## 2. Commit pre-gate (`git add` 직전) — 각 1회
 
-## 5. `git push` 직전
+사용자가 **커밋을 요청**했을 때만. 통과 전 커밋 금지. **이 단계에서 `npm run build` 금지.**
 
-| 순서 | 명령 | 비고 |
-|------|------|------|
-| 1 | `npm run build` | **1회**. GHA는 next build 없음 (Vercel authority) |
-| 2 | 미실행 diff contract | snapshot E2E·parity 등 add에서 안 돌린 것만 |
+1. `npm run lint` — error 1개라도 FAIL
+2. `npm run typecheck:build` — test 스테이징 시 `typecheck:test` 추가
+3. `npm run verify:i18n-key-exposure`
+4. diff **관련** `verify:*` 만 (아래 표)
+5. 관련 unit: `vitest run <경로>`
 
-commit 이후 **코드 미변경**이면 lint / typecheck / i18n / unit / 이미 PASS한 verify **재실행 금지**.
+코드 품질: unused 제거 · raw `<img>`→Thumbnail · 임시 eslint-disable / CI용 하드코딩 금지 · 범위 밖 대규모 리팩터 금지.
 
-### Build Aborted vs Build FAIL
+PASS → `git add` → `git commit`.
 
-| CASE | 증거 | 행동 |
-|------|------|------|
-| **A — 코드 FAIL** | Type error · module not found · Next build error | 원인 수정 → **깨진 검사만** 재실행 → build |
-| **B — Aborted / 환경 종료** | 코드 오류 evidence 없음 | 코드 수정 금지 · PASS 게이트 재실행 금지 · **`npm run build`만** 재시도 |
+## 3. Pre-commit hook
 
-§6(구 §5)과 동일: 전체 CI 재실행 금지.
+`.githooks` → `verify:pre-commit` 이 **INDEX/staged integrity**를 검증한다  
+(staged deploy-imports · staged i18n catalog · index-tsc · call-v4 boundary 해당 시).
 
-## 6. CI 오류 수정 원칙
+**Agent가 동일 full lint/i18n/WT typecheck를 hook 대신·추가로 중복 실행하지 않는다.**
 
-- 오류가 난 항목만 정확히 수정한다.
-- 임시 우회·eslint-disable·CI 통과용 하드코딩 **금지**
-- 기존 구조·API·DB schema **크게 변경 금지**
-- 불필요한 전체 리팩토링 **금지**
-- 수정 후 **같은 검사만** 다시 실행
+## 4. Push (`git push` 직전)
 
-## 7. Cursor Agent 작업 지시
+사용자가 **푸시를 요청**했을 때만.
 
-- **개발 중**: 전체 lint/build/i18n/verify 실행하지 말 것.
-- **`git add` 직전에만** §3 실행.
-- **`git push` 직전에만** §5 (`build` + 미실행 contract).
-- Build **Aborted**(CASE B)면 **build만** 재시도. lint/tsc/i18n부터 다시 돌리지 말 것.
-- 사용자가 커밋/푸시를 명시 요청하기 전에는 검사·커밋을 선제 실행하지 않는다.
+1. `npm run build` **1회**
+2. add에서 안 돌린 **diff 관련** contract만
 
-## 최종 보고 (`git add` / 커밋 제안 전)
+### Retry
+
+| CASE | 행동 |
+|------|------|
+| FAIL (코드 오류) | **깨진 검사만** 수정·재실행 |
+| ABORTED / interrupted (코드 오류 evidence 없음) | **해당 command만** 재시도 · PASS 게이트 재실행 금지 |
+
+## 5. verify:* (경로 → 대표)
+
+관련 없으면 건너뛴다. 여러 도메인이면 해당하는 것만.
+
+| 수정 영역 | verify (대표) |
+|-----------|---------------|
+| `app/` 라우트·api | `verify:routes` |
+| 거래 상세·채팅·`/post` | `verify:trade-hot-path-contract` |
+| 거래 홈·`/market` | `verify:trade-primary-tab-transition` |
+| 메신저 방 viewport/keyboard | `verify:cm-room-keyboard-layout-contract` |
+| 메신저 홈·Realtime | `verify:messenger-home` 등 관련만 |
+| 스토어 cart/결제/browse | 해당 `verify:store-*` / `verify:stores-*` |
+| 오너 주문·셸 | 해당 `verify:owner-*` |
+| Call V4 FSI/boundary | `verify:call-v4-incoming-fsi-fallback-boundary` |
+| Delivery product lock | `verify:delivery-product-hard-lock` |
+| 도메인 `.mdc`에 verify가 적힌 경우 | 그 명령만 |
+
+스냅샷 RPC/E2E는 DB·RPC 계약 변경 시 — push 직전 우선.
+
+## 6. 보고 (커밋/푸시 제안 시)
 
 | 단계 | 명령 | 결과 |
 |------|------|------|
-| 1 | `npm run lint` | PASS / FAIL |
-| 2 | `npm run typecheck:build` | PASS / FAIL |
-| 3 | `npm run verify:i18n-key-exposure` | PASS / FAIL |
-| 4a | `npm run verify:…` (관련만) | PASS / FAIL |
-| 4b | `vitest run …` (관련만) | PASS / FAIL |
+| 1–5 | add pre-gate | PASS/FAIL |
+| build | `npm run build` | PASS/FAIL/ABORTED |
 
-## 최종 보고 (`git push` 제안 전)
-
-| 단계 | 명령 | 결과 |
-|------|------|------|
-| 5 | `npm run build` | PASS / FAIL / ABORTED |
-| 6 | 추가 contract (필요 시) | PASS / FAIL |
-
-ABORTED면 표에 적고 **build만** 재시도한 뒤 다시 보고. 1–4 재실행 금지.
-
-## 관련 규칙
-
-- `.cursor/rules/samarket-pre-commit-verification.mdc` — verify:* 선택 표·코드 품질
-- `.cursor/rules/samarket-i18n-work-regulation.mdc` — i18n 구현·key·fallback
-- `.cursor/rules/samarket-double-check-review.mdc` — 계약·관측 논리 재점검
-- Production deploy: `git push origin main` → Vercel Git Integration only (`vercel --prod` 금지)
+ABORTED면 build만 재시도 후 보고. 1–5 재실행 금지.

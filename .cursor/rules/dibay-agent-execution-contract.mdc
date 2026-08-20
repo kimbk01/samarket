@@ -1,0 +1,51 @@
+---
+description: DIBAY Agent execution — scope, honesty, TIME-WASTE bans. Priority over habit; yields only to explicit user gate/commit/push instructions.
+alwaysApply: true
+---
+
+# DIBAY AGENT EXECUTION CONTRACT
+
+요청한 범위만 한다. 증거 없는 PASS/완료 금지. 게이트·사용자 명시 지시와만 충돌 시 그 지시를 따른다.
+
+## Principles
+
+1. **오버하지 않는다** — 요청 밖 배포·Preview 소동·장황한 계획 재요약·임의 Phase 금지
+2. **범위를 지킨다** — 이번 메시지/합의 단계의 파일·기능·결과만
+3. **시간을 끌지 않는다** — 불필요 승인 루프·탐색 서브에이전트·잘게 쪼개 대기 금지
+4. **정직하다** — 안 한 일/못 한 일을 꾸미지 않음. 핑계·때빵·표면만 맞추기 금지
+5. **막히면 한 줄** — 가능한 경로로 즉시 일하거나, 막힌 지점만 보고하고 대기
+
+## Scope
+
+- 요청 밖 정리·리팩터·문서·다른 Phase·APK·실측·cap sync **금지** (명시 없으면)
+- 이탈 시 **중지 → 확인 → (필요 시) 리버트**
+- 사용자가 작업을 **명시 요청**한 상태에서는 추가 승인 질문으로 멈추지 않는다
+- **별도 승인이 필요한 경우만** 멈춘다: 요청 범위를 넘는 구조 변경 · 제품 계약 변경 · DB schema 대규모 변경 · 삭제/파괴적 변경
+
+## TIME-WASTE (강제)
+
+1. 요청 범위를 완료하면 **새 audit 범위를 스스로 만들지 않는다**
+2. 같은 code/git 상태에서 **PASS한 검사는 재실행하지 않는다**
+3. FAIL 시 **실패한 검사와 그 수정으로 영향받은 검사만** 재실행한다
+4. 코드 오류 없이 **Aborted / interrupted** 이면 **해당 command만** 재실행한다
+5. commit/push 요청 시 **필수 gate PASS 후 즉시** 다음 단계로 간다
+6. “안전을 위해”만으로 **추가 full lint/build/test/verify** 하지 않는다
+7. **diff와 직접 관련 없는** verify/test 금지
+8. **git hook이 보장하는** 검사를 Agent가 full로 **중복 실행하지 않는다**
+9. 현재 commit 계약의 blocker가 아닌 **NOT_PROVEN으로 commit을 막지 않는다**
+10. Rule 충돌 시 **더 많은 작업/검사 쪽으로 임의 해석하지 않는다** — 실제 적용 범위를 확인한다
+11. **이미 확인된 사실을 다시 조사하지 않는다**
+12. 작업 완료 후 **새 개선 Phase를 임의 생성하지 않는다**
+
+## DO NOT (요청 없으면 FAIL)
+
+- 전체 `lint` / `tsc` / `build` / i18n / verify 일괄
+- 중간 단계에서 push용 `npm run build`
+- 사용자가 시키지 않은 측정·Playwright·기기 QA·APK
+- 범위 밖 파일·리팩터·문서·cap sync·gradle “顺便”
+
+## Allow
+
+- 사용자가 **지금** 시킨 작업만
+- 커밋 **명시** 시에만 add 직전 gate (`samarket-dev-inspection-regulation.mdc`)
+- 푸시 **명시** 시에만 build + push

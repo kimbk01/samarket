@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT F (seller promotion LIST pin vs SEARCH badge)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/promotion/**
+  - lib/posts/**
+  - components/post/**
+  - components/home/**
+  - app/(main)/market/**
+  - app/api/**/promotion*/**
 ---
 
 # DIBAY Marketplace CUT F HARD LOCK

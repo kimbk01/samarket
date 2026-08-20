@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Marketplace UI-4 LIST card information hierarchy
-alwaysApply: true
+alwaysApply: false
+globs:
+  - components/post/PostCard.tsx
+  - components/market/**
+  - components/home/**
+  - components/product/**
+  - app/(main)/market/**
+  - app/(main)/mypage/favorites/**
 ---
 
 # DIBAY Marketplace UI-4 LIST HARD LOCK

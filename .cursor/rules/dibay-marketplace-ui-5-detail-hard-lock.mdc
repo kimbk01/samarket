@@ -1,6 +1,11 @@
 ---
 description: HARD LOCK — DIBAY Marketplace UI-5 DETAIL visual hierarchy
-alwaysApply: true
+alwaysApply: false
+globs:
+  - components/post/**
+  - app/(main)/post/**
+  - lib/trade/**
+  - services/trade/**
 ---
 
 # DIBAY Marketplace UI-5 DETAIL HARD LOCK

@@ -1,6 +1,16 @@
 ---
 description: 체감 속도·거래·메신저 핫패스 수정 시 — 이전 상태 대조·계약 검증 필수 (리턴 방지)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - services/trade/**
+  - lib/trade/**
+  - components/post/**
+  - components/home/**
+  - lib/community-messenger/**
+  - components/community-messenger/**
+  - docs/trade-perf*.md
+  - docs/samarket-native-feel*.md
+  - docs/samarket-performance*.md
 ---
 
 # 성능·체감 속도 관련 수정 — 필수 절차

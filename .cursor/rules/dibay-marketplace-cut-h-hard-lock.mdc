@@ -1,6 +1,11 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT H (HOME list freshness CTA, no silent unshift)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/marketplace/home-list-freshness.ts
+  - components/home/**
+  - app/(main)/market/**
+  - lib/posts/**
 ---
 
 # DIBAY Marketplace CUT H HARD LOCK

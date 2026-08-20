@@ -1,10 +1,12 @@
 ---
-description: DIBAY 전역 UI i18n(ko/en) 마이그레이션 — 신규·수정 화면 필수
-globs:
-  - app/**/*.tsx
-  - components/**/*.tsx
-  - lib/**/*.ts
+description: DIBAY 전역 UI i18n(ko/en) 마이그레이션 로드맵 — 마이그레이션 트랙/카탈로그 작업 시
 alwaysApply: false
+globs:
+  - lib/i18n/**
+  - docs/i18n*.md
+  - docs/i18n-*/**
+  - scripts/check-hardcoded-korean.mjs
+  - scripts/**/i18n*
 ---
 
 # DIBAY i18n (ko / en only)
@@ -25,7 +27,7 @@ alwaysApply: false
 
 ## 단계 게이트
 
-**개발 중** (`samarket-i18n-output-regulation.mdc` · `samarket-dev-inspection-regulation.mdc`):
+**개발 중** (`samarket-i18n-core.mdc` · `samarket-dev-inspection-regulation.mdc`):
 
 ```bash
 npm run check:i18n-staged

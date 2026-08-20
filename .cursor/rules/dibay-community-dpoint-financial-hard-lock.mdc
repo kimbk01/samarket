@@ -1,6 +1,11 @@
 ---
 description: HARD LOCK — Community D-Point financial reward / reversal / ledger
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/community-points/**
+  - app/api/**/community*point*/**
+  - lib/points/**
+  - scripts/**/community-dpoint*
 ---
 
 # DIBAY Community D-Point Financial HARD LOCK

@@ -1,6 +1,10 @@
 ---
 description: HARD LOCK — DIBAY Marketplace UI-6 MY selling listings
-alwaysApply: true
+alwaysApply: false
+globs:
+  - components/mypage/**
+  - app/(main)/mypage/products/**
+  - lib/mypage/**
 ---
 
 # DIBAY Marketplace UI-6 MY SELLING LISTINGS HARD LOCK

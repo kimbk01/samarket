@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT B (sell-side LIST default, explicit opposite intent remains)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/marketplace/**
+  - lib/posts/**
+  - app/api/posts/**
+  - app/(main)/market/**
+  - components/home/**
+  - components/market/**
 ---
 
 # DIBAY Marketplace CUT B HARD LOCK

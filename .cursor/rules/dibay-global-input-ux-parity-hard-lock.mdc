@@ -1,6 +1,12 @@
 ---
 description: HARD LOCK — Global input UX: one product contract, multiple platform/orientation adapters (not one geometry formula)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/ui/form-keyboard*.ts
+  - lib/ui/*keyboard*
+  - lib/ui/*viewport*
+  - components/**/*keyboard*
+  - hooks/**/*keyboard*
 ---
 
 # DIBAY Global Input UX Parity HARD LOCK

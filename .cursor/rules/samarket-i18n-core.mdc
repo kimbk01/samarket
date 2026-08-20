@@ -1,0 +1,36 @@
+---
+description: DIBAY i18n core — no key literal in UI, sentence fallbacks, ko/en new keys. When to run i18n commands = samarket-dev-inspection-regulation.
+alwaysApply: true
+---
+
+# DIBAY i18n Core
+
+검사 **시점·명령**은 `samarket-dev-inspection-regulation.mdc` 만 따른다. 이 Rule에서 lint/verify/build 명령을 반복하지 않는다.
+
+## DO (제품 계약)
+
+1. UI(화면·토스트·모달·뱃지·버튼·placeholder·empty·error·loading)에 **i18n key 원문 노출 금지** (`snake_case` key / catalog self-key)
+2. **fallback = 사용자 문장** — key·slug·humanize를 fallback으로 쓰지 않음
+3. **신규 key = ko/en catalog 동시** (`lib/i18n/catalog/*.ts`) + 기본 fallback 문장
+
+## UI 출력
+
+| 계층 | API |
+|------|-----|
+| React | `t()` / `safeT()` |
+| safe | `safeTranslate()` / `safeTranslateText()` |
+| 알림·DB key | `notifySafeT()` / 도메인 resolver |
+
+금지: JSX에 key literal · `t(key) \|\| key` · `safeT(key, key)` · UI 경로에 raw `translate()`.
+
+허용 예:
+
+```ts
+safeT("some_key", { fallbackKo: "준비 중입니다", fallbackEn: "Preparing" })
+```
+
+## 구현 참조
+
+- `lib/i18n/safe-translate.ts`
+- `components/i18n/AppLanguageProvider.tsx`
+- `lib/notifications/notify-safe-translate.ts`

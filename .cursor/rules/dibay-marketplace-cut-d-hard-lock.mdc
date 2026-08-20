@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT D (member review write UI removal)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/**
+  - lib/mypage/**
+  - lib/chats/**
+  - components/mypage/**
+  - app/(main)/mypage/**
+  - lib/notifications/**
 ---
 
 # DIBAY Marketplace CUT D HARD LOCK

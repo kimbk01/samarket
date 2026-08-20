@@ -1,6 +1,12 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT I (6-profile WRITE/LIST/DETAIL/FILTER runtime matrix)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/category-form/**
+  - components/write/trade/**
+  - components/trade/**
+  - app/(main)/write/**
+  - app/(main)/market/**
 ---
 
 # DIBAY Marketplace CUT I HARD LOCK

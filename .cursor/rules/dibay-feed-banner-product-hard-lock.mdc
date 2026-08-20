@@ -1,6 +1,13 @@
 ---
 description: HARD LOCK — DIBAY Feed Banner product (surface/cadence/selector/creatives/financial/native)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/ads/**
+  - app/api/feed-ads/**
+  - app/api/me/feed-ad*/**
+  - app/api/admin/**/feed-ad*/**
+  - components/**/feed*ad*/**
+  - components/ads/**
 ---
 
 # DIBAY Feed Banner Product HARD LOCK

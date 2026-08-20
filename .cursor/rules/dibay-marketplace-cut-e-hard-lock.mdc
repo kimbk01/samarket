@@ -1,6 +1,12 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT E (buyer purchase surface removal)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/chats/**
+  - lib/mypage/**
+  - components/mypage/**
+  - app/(main)/mypage/**
+  - components/account/**
 ---
 
 # DIBAY Marketplace CUT E HARD LOCK

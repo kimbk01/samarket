@@ -1,6 +1,11 @@
 ---
 description: CONTRACT FROZEN — DIBAY Messenger 4-domain chat-window UI (not room-key infra)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/messenger/**
+  - lib/community-messenger/**
+  - components/community-messenger/**
+  - lib/chats/surfaces/**
 ---
 
 # DIBAY Messenger 4-Domain Room UI CUT

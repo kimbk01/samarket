@@ -1,6 +1,16 @@
 ---
 description: HARD LOCK — DIBAY Global Notification SSOT (Member / Owner / Admin)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/notifications/**
+  - lib/admin/**/admin-bell*
+  - lib/admin/**/action-queue*
+  - lib/admin/**/admin-action-queue*
+  - app/api/me/notifications/**
+  - app/api/admin/admin-bell/**
+  - components/**/Notification*/**
+  - components/**/notification*/**
+  - components/admin/notifications/**
 ---
 
 # DIBAY Global Notification SSOT HARD LOCK

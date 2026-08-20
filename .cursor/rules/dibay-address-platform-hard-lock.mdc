@@ -1,6 +1,13 @@
 ---
 description: ADDRESS PLATFORM contract — master SSOT, writers, snapshot, region privacy
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/**/address*/**
+  - lib/profile/**
+  - lib/trade/location/**
+  - components/**/address*/**
+  - app/api/**/address*/**
+  - docs/dibay-address*.md
 ---
 
 # DIBAY Address Platform HARD LOCK

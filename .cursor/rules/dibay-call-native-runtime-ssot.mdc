@@ -1,6 +1,13 @@
 ---
 description: DIBAY Call Native Runtime top-level SSOT
-alwaysApply: true
+alwaysApply: false
+globs:
+  - android/**
+  - ios/**
+  - lib/community-messenger/call*/**
+  - lib/chat-domain/ports/call*
+  - docs/dibay-call*.md
+  - components/community-messenger/call*/**
 ---
 
 # DIBAY Call Native Runtime SSOT

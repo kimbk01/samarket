@@ -1,6 +1,11 @@
 ---
 description: HARD LOCK — iOS Cap packageClassList Call outgoing plugins only
-alwaysApply: true
+alwaysApply: false
+globs:
+  - ios/**
+  - scripts/patch-ios-capacitor-package-class-list.mjs
+  - scripts/**/*ios*call*package*
+  - scripts/**/*package-classlist*
 ---
 
 # iOS Outgoing packageClassList HARD LOCK

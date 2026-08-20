@@ -1,6 +1,14 @@
 ---
 description: 체감 성능·최적화 작업 시 헌장·트랙 상태 준수 및 새 창 연속성
-alwaysApply: true
+alwaysApply: false
+globs:
+  - docs/samarket-native-feel-charter.md
+  - docs/samarket-performance-track-state.md
+  - docs/samarket-perf*.md
+  - services/trade/**
+  - lib/community-messenger/**
+  - components/community-messenger/**
+  - components/home/**
 ---
 
 # 체감 성능 운영 (네이티브급 목표)

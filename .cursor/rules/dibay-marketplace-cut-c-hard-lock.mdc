@@ -1,6 +1,12 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT C (SEARCH discovery expansion T1–T4)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/marketplace/**
+  - lib/posts/**
+  - app/api/posts/**
+  - app/(main)/market/**
+  - components/market/**
 ---
 
 # DIBAY Marketplace CUT C HARD LOCK

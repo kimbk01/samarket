@@ -1,6 +1,12 @@
 ---
 description: 변경·성능·핫패스 작업 시 오류·누락·중복·병목 더블체크
-alwaysApply: true
+alwaysApply: false
+globs:
+  - services/trade/**
+  - lib/trade/**
+  - lib/community-messenger/**
+  - lib/notifications/**
+  - lib/stores/**
 ---
 
 # 더블체크 (항시)

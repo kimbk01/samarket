@@ -1,6 +1,14 @@
 ---
 description: DIBAY Cache/Cookie/Storage SSOT — Community feed stale identity HARD LOCK
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/**/philife*feed*/**
+  - lib/**/neighborhood*feed*/**
+  - lib/community/**
+  - lib/**/feed*cache*/**
+  - components/philife/**
+  - app/(main)/philife/**
+  - app/(main)/community/**
 ---
 
 # DIBAY Cache / Cookie / Storage SSOT HARD LOCK

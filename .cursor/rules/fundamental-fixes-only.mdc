@@ -1,6 +1,14 @@
 ---
 description: 채팅·Realtime·성능은 근본 구조로만 해결 — 임시 조치 금지
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/community-messenger/**
+  - lib/chats/**
+  - lib/order-chat/**
+  - lib/shared-order-chat/**
+  - lib/chat-domain/**
+  - components/community-messenger/**
+  - components/chat/**
 ---
 
 # 근본 대책만 (임시 구성 금지)

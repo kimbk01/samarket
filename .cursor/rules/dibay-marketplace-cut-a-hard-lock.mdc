@@ -1,6 +1,15 @@
 ---
 description: HARD LOCK — DIBAY Marketplace CUT A (topic/root options, child narrowing, member terms)
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/trade/**
+  - components/trade/**
+  - components/write/trade/**
+  - components/admin/menus/**
+  - app/(main)/market/**
+  - app/(main)/write/**
+  - app/api/posts/**
+  - lib/posts/**
 ---
 
 # DIBAY Marketplace CUT A HARD LOCK

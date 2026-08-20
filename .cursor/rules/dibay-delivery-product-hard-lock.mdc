@@ -1,6 +1,17 @@
 ---
 description: HARD LOCK — DIBAY Delivery product authority / atomicity / recovery
-alwaysApply: true
+alwaysApply: false
+globs:
+  - lib/stores/**
+  - lib/store-order*/**
+  - lib/order-chat/**
+  - lib/shared-order-chat/**
+  - components/stores/**
+  - app/(main)/stores/**
+  - app/api/stores/**
+  - app/api/**/store-order*/**
+  - scripts/**/delivery*
+  - scripts/**/store-order*
 ---
 
 # DIBAY Delivery Product HARD LOCK
