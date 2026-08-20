@@ -98,7 +98,7 @@ let snapshot: OwnerLiteStoreState = hydratedFromSession ?? EMPTY;
 const listeners = new Set<() => void>();
 
 /** Active-store session write → realign OwnerLite preferred row (CTA / nav / FAB). */
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
   window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, () => {
     if (!snapshot.ownerStores.length) return;
     const next = pickOwnerLiteActiveStore(snapshot.ownerStores);
