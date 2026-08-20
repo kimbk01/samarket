@@ -134,4 +134,33 @@ describe("platform admin menu SSOT contract", () => {
     expect(growthAds.some((c) => c.key === "ads-applications")).toBe(false);
     expect(growthAds.some((c) => c.key === "ads-feed-applications")).toBe(true);
   });
+
+  it("Delivery workspace groups leaves by characteristic sections (pathless headers)", () => {
+    const delivery = findAdminMenuByKey(adminMenu, "delivery");
+    const topKeys = (delivery?.children ?? []).map((c) => c.key);
+    expect(topKeys).toEqual([
+      "delivery-section-settings",
+      "delivery-section-operations",
+      "delivery-section-management",
+      "delivery-section-platform",
+    ]);
+    for (const key of topKeys) {
+      const section = findAdminMenuByKey(adminMenu, key);
+      expect(section?.path, key).toBeUndefined();
+      expect(section?.children?.length ?? 0).toBeGreaterThan(0);
+    }
+    expect(findAdminMenuByKey(adminMenu, "store-settings-taxonomy")?.path).toContain(
+      "/admin/stores/application-settings"
+    );
+    expect(findAdminMenuByKey(adminMenu, "stores-commerce")?.path).toBe("/admin/stores");
+    expect(findAdminMenuByKey(adminMenu, "store-settlements-admin")?.path).toBe(
+      "/admin/store-settlements"
+    );
+    expect(findAdminMenuByKey(adminMenu, "runtime-health")?.path).toBe("/admin/runtime-health");
+    // hollow settlement/report stay out of order-ops children
+    const orderOps = findAdminMenuByKey(adminMenu, "delivery-orders");
+    const orderKeys = new Set((orderOps?.children ?? []).map((c) => c.key));
+    expect(orderKeys.has("delivery-orders-settlement")).toBe(false);
+    expect(orderKeys.has("delivery-orders-reports")).toBe(false);
+  });
 });
