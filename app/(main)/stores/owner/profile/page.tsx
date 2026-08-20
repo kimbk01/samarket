@@ -11,7 +11,11 @@ import {
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  fetchMeStoresListDeduped,
+  invalidateMeStoresListDedupedCache,
+} from "@/lib/me/fetch-me-stores-deduped";
+import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 
 type Phase =
   | { kind: "loading" }
@@ -83,7 +87,11 @@ function MyBusinessProfilePageInner() {
                 storeId={phase.row.id}
                 storeSlug={phase.row.slug}
                 row={phase.row}
-                onSaved={() => void load()}
+                onSaved={() => {
+                  invalidateMeStoresListDedupedCache();
+                  refreshOwnerLiteStore();
+                  void load();
+                }}
               />
             </div>
           ) : null}

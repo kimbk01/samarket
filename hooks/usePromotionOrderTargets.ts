@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  fetchMeStoresListDeduped,
+  parseStoreRowsFromMeStoresJson,
+} from "@/lib/me/fetch-me-stores-deduped";
 
 export interface PromotionProductOption {
   id: string;
@@ -30,14 +34,15 @@ export function usePromotionOrderTargets(): {
     setLoading(true);
     setUnauthorized(false);
     try {
-      const [postsRes, storesRes] = await runSingleFlight("me:promotion-targets", () =>
+      // Stores: me-stores TTL/single-flight authority. Posts remain independent.
+      const [postsRes, storesResult] = await runSingleFlight("me:promotion-targets", () =>
         Promise.all([
           fetch("/api/my/posts", { cache: "no-store", credentials: "include" }),
-          fetch("/api/me/stores", { cache: "no-store", credentials: "include" }),
+          fetchMeStoresListDeduped(),
         ])
       );
 
-      if (postsRes.status === 401 || storesRes.status === 401) {
+      if (postsRes.status === 401 || storesResult.status === 401) {
         setUnauthorized(true);
         setProductOptions([]);
         setShopOptions([]);
@@ -57,28 +62,17 @@ export function usePromotionOrderTargets(): {
         setProductOptions([]);
       }
 
-      if (storesRes.ok) {
-        const j = (await storesRes.json()) as {
-          stores?: {
-            id?: string;
-            store_name?: string;
-            shopName?: string;
-            approval_status?: string;
-            approvalStatusRaw?: string;
-            status?: string;
-          }[];
-        };
-        const shops = (j.stores ?? [])
+      if (storesResult.status === 200) {
+        const stores = parseStoreRowsFromMeStoresJson(storesResult.json) ?? [];
+        const shops = stores
           .filter((s) => {
             if (!s.id) return false;
-            const st = String(
-              s.approval_status ?? s.approvalStatusRaw ?? s.status ?? ""
-            ).toLowerCase();
+            const st = String(s.approval_status ?? "").toLowerCase();
             return st === "approved" || st === "active";
           })
           .map((s) => ({
             id: String(s.id),
-            shopName: String(s.store_name ?? s.shopName ?? "").trim() || "(매장)",
+            shopName: String(s.store_name ?? "").trim() || "(매장)",
           }));
         setShopOptions(shops);
       } else {

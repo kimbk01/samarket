@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
+import { loadMeStoresListForUser, invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
@@ -333,5 +333,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "slug_collision" }, { status: 409 });
   }
 
+  invalidateMeStoresListServerCache(userId);
   return NextResponse.json({ ok: true, store: inserted });
 }

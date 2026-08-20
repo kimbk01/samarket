@@ -88,3 +88,62 @@ describe("OwnerHubMeStoresCacheSeed contract (source)", () => {
     expect(src).toContain("seedOwnerLiteStoreFromStores");
   });
 });
+
+describe("me-stores client network authority (source)", () => {
+  it("approved-stores map and promotion targets use fetchMeStoresListDeduped", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const mapSrc = fs.readFileSync(
+      path.join(process.cwd(), "lib/addresses/fetch-approved-stores-map.ts"),
+      "utf8"
+    );
+    const promoSrc = fs.readFileSync(
+      path.join(process.cwd(), "hooks/usePromotionOrderTargets.ts"),
+      "utf8"
+    );
+    const applySrc = fs.readFileSync(
+      path.join(process.cwd(), "app/(main)/stores/owner/apply/page.tsx"),
+      "utf8"
+    );
+    expect(mapSrc).toContain("fetchMeStoresListDeduped");
+    expect(mapSrc).not.toMatch(/fetch\(["'`]\/api\/me\/stores["'`]/);
+    expect(promoSrc).toContain("fetchMeStoresListDeduped");
+    expect(promoSrc).not.toMatch(/fetch\(["'`]\/api\/me\/stores["'`]/);
+    expect(applySrc).toContain("fetchMeStoresListDeduped");
+    expect(applySrc).toContain("parseStoreRowsFromMeStoresJson");
+    // POST create may still call /api/me/stores; list read must use deduped.
+    expect(applySrc).toMatch(/method:\s*["']POST["']/);
+    expect(applySrc).toMatch(/fetchMeStoresListDeduped\(\)/);
+  });
+
+  it("store PATCH/POST invalidate server me-stores Map", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const patchSrc = fs.readFileSync(
+      path.join(process.cwd(), "app/api/me/stores/[storeId]/route.ts"),
+      "utf8"
+    );
+    const postSrc = fs.readFileSync(path.join(process.cwd(), "app/api/me/stores/route.ts"), "utf8");
+    const loadSrc = fs.readFileSync(
+      path.join(process.cwd(), "lib/me/load-me-stores-for-user.ts"),
+      "utf8"
+    );
+    expect(loadSrc).toContain("export function invalidateMeStoresListServerCache");
+    expect(patchSrc).toContain("invalidateMeStoresListServerCache");
+    expect(postSrc).toContain("invalidateMeStoresListServerCache");
+  });
+
+  it("owner profile/basic-info/settings invalidate client TTL after mutation", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    for (const rel of [
+      "app/(main)/stores/owner/profile/page.tsx",
+      "app/(main)/stores/owner/basic-info/page.tsx",
+      "app/(main)/stores/owner/settings/page.tsx",
+    ]) {
+      const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+      expect(src).toContain("invalidateMeStoresListDedupedCache");
+      expect(src).toContain("refreshOwnerLiteStore");
+    }
+  });
+});

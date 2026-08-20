@@ -25,6 +25,10 @@ import {
 } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
+import {
+  fetchMeStoresListDeduped,
+  parseStoreRowsFromMeStoresJson,
+} from "@/lib/me/fetch-me-stores-deduped";
 
 const HAS_ANY_STORE = true;
 
@@ -72,10 +76,9 @@ export default function BusinessApplyRoute() {
     setExistingLoading(true);
     void (async () => {
       try {
-        const res = await fetch("/api/me/stores", { credentials: "include", cache: "no-store" });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; stores?: any[] };
+        const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
-        const stores = Array.isArray(j.stores) ? j.stores : [];
+        const stores = status === 200 ? parseStoreRowsFromMeStoresJson(json) ?? [] : [];
         // 정책: 1회 신청만 허용 → 내 매장이 하나라도 있으면 추가 신청 차단
         setExistingStore((HAS_ANY_STORE && stores.length > 0 ? stores[0] : null) ?? null);
         const uname = String(profileSeed?.username ?? "").trim().replace(/^@+/, "");

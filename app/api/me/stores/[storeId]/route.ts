@@ -13,6 +13,7 @@ import {
   parseFiniteLatitude,
   parseFiniteLongitude,
 } from "@/lib/geo/parse-finite-geographic-coord";
+import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -455,6 +456,7 @@ export async function PATCH(
   }
 
   clearStoreHomeFeedServerCache();
+  invalidateMeStoresListServerCache(userId);
 
   const slugRaw = (updated as unknown as { slug?: string }).slug;
   const publicSlug = typeof slugRaw === "string" ? slugRaw.trim() : "";

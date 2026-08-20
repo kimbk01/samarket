@@ -22,7 +22,11 @@ import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdmi
 
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  fetchMeStoresListDeduped,
+  invalidateMeStoresListDedupedCache,
+} from "@/lib/me/fetch-me-stores-deduped";
+import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 
 
 
@@ -158,7 +162,11 @@ function MyBusinessBasicInfoPageInner() {
 
                 row={phase.row}
 
-                onSaved={() => void load()}
+                onSaved={() => {
+                  invalidateMeStoresListDedupedCache();
+                  refreshOwnerLiteStore();
+                  void load();
+                }}
 
               />
 

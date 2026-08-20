@@ -9,7 +9,11 @@ import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdmi
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  fetchMeStoresListDeduped,
+  invalidateMeStoresListDedupedCache,
+} from "@/lib/me/fetch-me-stores-deduped";
+import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 
 type Phase =
   | { kind: "loading" }
@@ -70,6 +74,8 @@ function MyBusinessSettingsPageInner() {
       });
       const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+      invalidateMeStoresListDedupedCache();
+      refreshOwnerLiteStore();
       if (json.store?.id === row.id) {
         setPhase({ kind: "ok", row: json.store });
       } else {
@@ -100,6 +106,8 @@ function MyBusinessSettingsPageInner() {
         });
         const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
         if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+        invalidateMeStoresListDedupedCache();
+        refreshOwnerLiteStore();
         if (json.store?.id === row.id) {
           setPhase({ kind: "ok", row: json.store });
         } else {

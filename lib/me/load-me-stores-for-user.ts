@@ -30,6 +30,19 @@ const meStoresServerCache = new Map<
 >();
 
 /**
+ * Store row mutation 직후 — 서버 Map TTL이 stale owned-store projection을 유지하지 않게 한다.
+ * `userId` 없으면 전체 clear (auth 경계·테스트용).
+ */
+export function invalidateMeStoresListServerCache(userId?: string | null): void {
+  const key = typeof userId === "string" ? userId.trim() : "";
+  if (key) {
+    meStoresServerCache.delete(key);
+    return;
+  }
+  meStoresServerCache.clear();
+}
+
+/**
  * GET /api/me/stores 와 동일 본문 — Route·RSC 선로딩에서 공유.
  */
 export async function loadMeStoresListForUser(
