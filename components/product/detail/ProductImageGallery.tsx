@@ -58,6 +58,9 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
                 alt={title ? `${title} - ${i + 1}` : ""}
                 className="block h-auto w-full max-h-[min(70vh,520px)] object-contain object-center"
                 draggable={false}
+                loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : "auto"}
+                decoding="async"
               />
             ) : (
               <div className="flex min-h-[160px] w-full items-center justify-center bg-sam-surface-muted text-sm text-sam-meta">

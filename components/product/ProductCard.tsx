@@ -14,6 +14,7 @@ import {
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { prefetchTradePostDetailHeroImage } from "@/lib/image/prefetch-trade-detail-hero";
 
 interface ProductCardProps {
   product: Product;
@@ -24,11 +25,19 @@ export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const isSold = product.status === "sold";
   const detailHref = `/post/${product.id}`;
+  const heroRaw = product.thumbnail || product.images?.[0] || null;
 
   return (
     <Link
       href={detailHref}
-      onPointerEnter={() => void router.prefetch(detailHref)}
+      onPointerDown={() => {
+        prefetchTradePostDetailHeroImage(heroRaw);
+        void router.prefetch(detailHref);
+      }}
+      onPointerEnter={() => {
+        prefetchTradePostDetailHeroImage(heroRaw);
+        void router.prefetch(detailHref);
+      }}
       onFocus={() => void router.prefetch(detailHref)}
       onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
       className={`relative flex gap-3 rounded-ui-rect bg-sam-surface p-3 ${isSold ? "opacity-60" : ""}`}

@@ -55,13 +55,43 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(lastForwardAxisRef.current).toBe("ltr");
   });
 
-  it("same pillar uses subtle", () => {
+  it("same pillar list surfaces use subtle", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/market/foo", {
       popstateBack: false,
       lastForwardAxisRef,
     });
     expect(k).toBe("subtle");
+  });
+
+  it("market list to trade post detail uses rtl-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("rtl-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+    expect(routeTransitionClassForKind(k)).toBe("main-shell-route-enter-rtl-forward");
+    expect(routeTransitionPushAxisForKind(k)).toBe("rtl");
+  });
+
+  it("trade post detail back to market list uses ltr-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/post/abc-1", "/market", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("ltr-back");
+  });
+
+  it("mypage products list to trade post detail uses rtl-forward not seller-hub ltr-back", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage/products", "/post/abc-1", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("rtl-forward");
   });
 
   it("popstate after rtl-forward uses ltr-back", () => {

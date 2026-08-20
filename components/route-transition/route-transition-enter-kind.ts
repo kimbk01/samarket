@@ -20,6 +20,11 @@ import {
   isMarketplaceSellerHubPath,
   marketplaceSellerHubDepth,
 } from "@/lib/trade/marketplace/marketplace-seller-hub-slide";
+import {
+  isMarketplaceListSurfacePath,
+  isTradePostDetailPath,
+  marketplaceDetailStackDepth,
+} from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -163,6 +168,24 @@ export function computeRouteTransitionEnterKind(
     if (dNext > dPrev) kind = "address-platform-forward";
     else if (dNext < dPrev) kind = "address-platform-back";
     else kind = "subtle";
+  } else if (
+    (isTradePostDetailPath(nextPath) && isMarketplaceListSurfacePath(prevPath)) ||
+    (isTradePostDetailPath(prevPath) && isMarketplaceListSurfacePath(nextPath)) ||
+    (isTradePostDetailPath(prevPath) && isTradePostDetailPath(nextPath))
+  ) {
+    const dPrev = marketplaceDetailStackDepth(prevPath);
+    const dNext = marketplaceDetailStackDepth(nextPath);
+    if (isTradePostDetailPath(prevPath) && isTradePostDetailPath(nextPath) && prevPath !== nextPath) {
+      kind = opts.popstateBack ? "ltr-back" : "rtl-forward";
+      if (!opts.popstateBack) opts.lastForwardAxisRef.current = "rtl";
+    } else if (opts.popstateBack) {
+      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
+    } else if (dNext > dPrev) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else {
+      kind = "ltr-back";
+    }
   } else if (isMarketplaceSellerHubPath(prevPath) || isMarketplaceSellerHubPath(nextPath)) {
     const dPrev = marketplaceSellerHubDepth(prevPath);
     const dNext = marketplaceSellerHubDepth(nextPath);

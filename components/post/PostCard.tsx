@@ -28,6 +28,7 @@ import {
 import {
   imageSanitizeViewerMediaUrl,
   loadTradeFeedThumbnailFetchUrl,
+  prefetchTradePostDetailHeroImage,
 } from "@/lib/image";
 import {
   TRADE_FEED_META_COLUMN_CLASS,
@@ -213,9 +214,11 @@ export const PostCard = memo(function PostCard({
         href={detailHref}
         prefetch
         onPointerDown={() => {
+          prefetchTradePostDetailHeroImage(thumbnailUrl);
           void router.prefetch(detailHref);
         }}
         onPointerEnter={() => {
+          prefetchTradePostDetailHeroImage(thumbnailUrl);
           void router.prefetch(detailHref);
         }}
         onFocus={() => {

@@ -56,8 +56,11 @@ if (!view.includes("tradePostDetailSellerBandVisible")) {
 if (!view.includes("sellerBandVisible")) {
   fail("PostDetailView must gate band on sellerBandVisible");
 }
-if (!view.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER")) {
-  fail("PostDetailView must select PRIMARY_ROW_ABOVE_SELLER when band visible");
+if (!view.includes("TRADE_POST_DETAIL_BOTTOM_SELLER_BAND")) {
+  fail("PostDetailView must use TRADE_POST_DETAIL_BOTTOM_SELLER_BAND for owner promote bar");
+}
+if (view.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW")) {
+  fail("PostDetailView must not render buyer PRIMARY_ROW — chat is inline");
 }
 if (view.includes("pb-28") || view.includes('"pb-24"') || view.includes("`pb-24`")) {
   fail("PostDetailView must not use fixed pb-28/pb-24 scroll pads");

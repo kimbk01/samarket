@@ -127,6 +127,8 @@ export {
   TRADE_POST_DETAIL_TIER_FETCH_PX,
 } from "@/lib/image/image-trade-detail";
 
+export { prefetchTradePostDetailHeroImage } from "@/lib/image/prefetch-trade-detail-hero";
+
 export {
   imageResolveTradePostDetailRelatedDisplayUrl,
   imageResolveTradePostDetailRelatedThumbRaw,
