@@ -1,5 +1,5 @@
 /**
- * Trade post detail bottom bar — safe-bottom exactly once + empty seller band 0.
+ * Trade post detail — no sticky bottom bar · inline owner promote · sheet not covered.
  *
  * Usage: npm run verify:trade-detail-bottom-safe-contract
  */
@@ -25,39 +25,21 @@ const constants = read(constantsPath);
 const view = read(viewPath);
 const sheet = read(sheetPath);
 
-if (!constants.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER")) {
-  fail("missing TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER");
-}
-if (!/TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW\s*=\s*[`'"][^`'"]*pb-\[max\(10px,var\(--safe-bottom\)\)\]/.test(constants)) {
-  fail("PRIMARY_ROW (buyer) must consume max(10px,var(--safe-bottom))");
-}
-if (!/TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER\s*=\s*[`'"][^`'"]*pb-0/.test(constants)) {
-  fail("PRIMARY_ROW_ABOVE_SELLER must use pb-0 (no safe-bottom)");
-}
-if (/TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW_ABOVE_SELLER\s*=\s*[`'"][^`'"]*safe-bottom/.test(constants)) {
-  fail("PRIMARY_ROW_ABOVE_SELLER must not reference --safe-bottom");
-}
-if (!/TRADE_POST_DETAIL_BOTTOM_SELLER_BAND\s*=\s*[`'"][^`'"]*pb-\[max\(10px,var\(--safe-bottom\)\)\]/.test(constants)) {
-  fail("SELLER_BAND must be the bottom-most safe consumer");
-}
-if (/TRADE_POST_DETAIL_BOTTOM_SELLER_BAND\s*=\s*[`'"][^`'"]*\bpt-3\b/.test(constants)) {
-  fail("SELLER_BAND must not keep oversized pt-3");
-}
-if (!constants.includes("tradePostDetailSellerBandVisible")) {
-  fail("missing tradePostDetailSellerBandVisible helper");
-}
-if (!constants.includes("TRADE_POST_DETAIL_SCROLL_PAD_BUYER") || !constants.includes("TRADE_POST_DETAIL_SCROLL_PAD_SELLER")) {
-  fail("missing scroll pad SSOT tokens");
+if (!constants.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA")) {
+  fail("missing TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA");
 }
 
-if (!view.includes("tradePostDetailSellerBandVisible")) {
-  fail("PostDetailView must use tradePostDetailSellerBandVisible");
+if (view.includes("TRADE_POST_DETAIL_BOTTOM_SHELL")) {
+  fail("PostDetailView must not render sticky TRADE_POST_DETAIL_BOTTOM_SHELL");
 }
-if (!view.includes("sellerBandVisible")) {
-  fail("PostDetailView must gate band on sellerBandVisible");
+if (view.includes("TRADE_POST_DETAIL_BOTTOM_SELLER_BAND")) {
+  fail("PostDetailView must not render sticky TRADE_POST_DETAIL_BOTTOM_SELLER_BAND");
 }
-if (!view.includes("TRADE_POST_DETAIL_BOTTOM_SELLER_BAND")) {
-  fail("PostDetailView must use TRADE_POST_DETAIL_BOTTOM_SELLER_BAND for owner promote bar");
+if (view.includes("tradePostDetailSellerBandVisible") || /\bsellerBandVisible\b/.test(view)) {
+  fail("PostDetailView must not gate a sticky seller band");
+}
+if (view.includes("TRADE_POST_DETAIL_SCROLL_PAD_BUYER") || view.includes("TRADE_POST_DETAIL_SCROLL_PAD_SELLER")) {
+  fail("PostDetailView must not reserve sticky-bar scroll pad");
 }
 if (view.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW")) {
   fail("PostDetailView must not render buyer PRIMARY_ROW — chat is inline");
@@ -65,8 +47,14 @@ if (view.includes("TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW")) {
 if (view.includes("pb-28") || view.includes('"pb-24"') || view.includes("`pb-24`")) {
   fail("PostDetailView must not use fixed pb-28/pb-24 scroll pads");
 }
-if (!view.includes("TRADE_POST_DETAIL_SCROLL_PAD_BUYER") || !view.includes("TRADE_POST_DETAIL_SCROLL_PAD_SELLER")) {
-  fail("PostDetailView must use scroll pad SSOT");
+if (!view.includes('data-ui5-slot="promote"')) {
+  fail("PostDetailView must place owner promote CTA inline (data-ui5-slot=promote)");
+}
+if (!view.includes("TradePostDetailInlinePromoteCta")) {
+  fail("PostDetailView must render TradePostDetailInlinePromoteCta");
+}
+if (!view.includes("pb-[max(10px,var(--safe-bottom))]")) {
+  fail("PostDetailView page must consume max(10px,var(--safe-bottom)) once");
 }
 
 if (/\bpb-8\b/.test(sheet)) {
