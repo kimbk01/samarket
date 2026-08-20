@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { fetchAdminPostsManagementProducts } from "@/lib/admin-products/admin-posts-management-data";
+import {
+  fetchAdminPostById,
+  fetchAdminPostsManagementProducts,
+} from "@/lib/admin-products/admin-posts-management-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +13,9 @@ export const dynamic = "force-dynamic";
 /**
  * 게시물 관리 목록 — 서비스 롤로 posts + 카테고리 조인
  * GET /api/admin/posts-management (관리자 세션)
+ * GET /api/admin/posts-management?id= — 동일 authority, id 1건 (목록 window find 아님)
  */
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
@@ -32,8 +36,11 @@ export async function GET(_req: NextRequest) {
   const anon = createClient(url, anonKey);
   const svc = tryCreateSupabaseServiceClient();
   const supabase = usedServiceRole && svc ? svc : anon;
+  const postId = req.nextUrl.searchParams.get("id")?.trim() ?? "";
 
-  const { products, queryError } = await fetchAdminPostsManagementProducts(supabase);
+  const { products, queryError } = postId
+    ? await fetchAdminPostById(supabase, postId)
+    : await fetchAdminPostsManagementProducts(supabase);
   return NextResponse.json({
     products,
     queryError,

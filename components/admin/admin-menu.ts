@@ -403,7 +403,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     title: "",
     children: [
       { key: "trade-hub", title: "", path: "/admin/trade", status: "done" },
-      { key: "trade-products", title: "", path: "/admin/products", status: "partial" },
       { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
       {
         key: "jobs-management",
@@ -411,11 +410,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/posts-management?tab=jobs",
         status: "done",
       },
-      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
-      { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
-      { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
       { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
-      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
       { key: "chat-trade-flow", title: "", path: "/admin/trade-flow", status: "done" },
       {
         key: "chat-trade-complete",
@@ -423,6 +418,10 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/chats/trade-complete",
         status: "done",
       },
+      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
+      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
+      { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
+      { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
     ],
   },
 

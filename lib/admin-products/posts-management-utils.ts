@@ -319,8 +319,10 @@ export function filterAndSortPostsManagement(
 
   if (sellerSearch.trim()) {
     const q = sellerSearch.trim().toLowerCase();
-    list = list.filter((p) =>
-      (p.seller?.nickname ?? p.sellerId ?? "").toLowerCase().includes(q)
+    list = list.filter(
+      (p) =>
+        (p.seller?.nickname ?? p.sellerId ?? "").toLowerCase().includes(q) ||
+        (p.title ?? "").toLowerCase().includes(q)
     );
   }
   if (categorySearch.trim()) {

@@ -1,4 +1,6 @@
 import { AdminProductDetailPage } from "@/components/admin/products/AdminProductDetailPage";
+import { fetchAdminPostById } from "@/lib/admin-products/admin-posts-management-data";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -6,5 +8,9 @@ interface PageProps {
 
 export default async function AdminProductDetailRoute({ params }: PageProps) {
   const { id } = await params;
-  return <AdminProductDetailPage productId={id} />;
+  const sb = tryCreateSupabaseServiceClient();
+  const initialProduct = sb
+    ? ((await fetchAdminPostById(sb, id)).products[0] ?? null)
+    : null;
+  return <AdminProductDetailPage productId={id} initialProduct={initialProduct} />;
 }

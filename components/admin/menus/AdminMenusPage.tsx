@@ -4,7 +4,6 @@ import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MenuManagementTable } from "./MenuManagementTable";
 import { CategorySubtopicsModal } from "./CategorySubtopicsModal";
@@ -13,7 +12,10 @@ import type { CategoryFormPayload, CategoryFormSettingsPayload } from "@/compone
 import { updateCategory } from "@/lib/categories/updateCategory";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  ConsoleButton,
+  SectionHeader,
+} from "@/components/admin/trade-console/trade-console-ui";
 
 async function requestPruneOrphanMarketBottomNav(): Promise<void> {
   try {
@@ -147,9 +149,16 @@ export function AdminMenusPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_menu_trade_mgmt_title" />
-      <p className="sam-text-body text-sam-muted">{t("admin_menu_trade_mgmt_subtitle")}</p>
+    <div className="space-y-4" data-admin>
+      <SectionHeader
+        title={t("admin_menu_trade_mgmt_title")}
+        description={t("admin_menu_trade_mgmt_subtitle")}
+        actions={
+          <ConsoleButton variant="primary" onClick={() => setCreateOpen(true)}>
+            {t("admin_cat_menu_add")}
+          </ConsoleButton>
+        }
+      />
       <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_menu_trade_sync_p1")}{" "}
         <span className="font-mono sam-text-helper text-sam-fg">/market/…</span>
@@ -164,13 +173,6 @@ export function AdminMenusPage() {
 
       <div className="flex items-center justify-between">
         <span className="sam-text-body text-sam-muted">{t("admin_menu_trade_items_heading")}</span>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className={Sam.btn.primary}
-        >
-          {t("admin_cat_menu_add")}
-        </button>
       </div>
 
       {supabaseAvailable === false && (

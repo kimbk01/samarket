@@ -14,6 +14,7 @@ import { adminDeliveryAdminMessages } from "./admin-delivery-admin";
 import { adminDeliveryOrdersMessages } from "./admin-delivery-orders";
 import { adminDeliveryOperationsMessages } from "./admin-delivery-operations";
 import { adminPostsManagementMessages } from "./admin-posts-management";
+import { adminTradeConsoleMessages } from "./admin-trade-console";
 import { adminProductsMessages } from "./admin-products";
 import { adminSettingsMessages } from "./admin-settings";
 import { adminTradeMessages } from "./admin-trade";
@@ -2328,6 +2329,7 @@ export const adminMessages = {
     ...adminDeliveryAdminMessages.ko,
     ...adminProductsMessages.ko,
     ...adminPostsManagementMessages.ko,
+    ...adminTradeConsoleMessages.ko,
     ...adminSystemUsageMessages.ko,
     ...adminPointsNotificationsMessages.ko,
     ...adminSettingsMessages.ko,
@@ -4622,6 +4624,7 @@ export const adminMessages = {
     ...adminDeliveryAdminMessages.en,
     ...adminProductsMessages.en,
     ...adminPostsManagementMessages.en,
+    ...adminTradeConsoleMessages.en,
     ...adminSystemUsageMessages.en,
     ...adminPointsNotificationsMessages.en,
     ...adminSettingsMessages.en,

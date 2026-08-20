@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
 import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import {
@@ -14,6 +13,13 @@ import {
   matchAdminTradeFlowSessionToDeepLink,
   parseAdminTradeFlowDeepLink,
 } from "@/lib/admin-products/admin-trade-deep-link";
+import { AdminTradeCompletionPage } from "@/components/admin/chats/AdminTradeCompletionPage";
+import {
+  ConsoleButton,
+  SectionHeader,
+  TabStrip,
+} from "@/components/admin/trade-console/trade-console-ui";
+import { useRouter } from "next/navigation";
 
 interface SessionRow {
   id: string;
@@ -63,7 +69,9 @@ interface ReviewRow {
 
 export function AdminTradeFlowPage() {
   const { t, safeT } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const panel = searchParams.get("panel") === "complete" ? "complete" : "flow";
   const deepLink = useMemo(() => parseAdminTradeFlowDeepLink(searchParams), [searchParams]);
   const deepLinkActive = adminTradeFlowDeepLinkActive(deepLink);
   const reviewRoleLabels = useMemo(
@@ -164,8 +172,60 @@ export function AdminTradeFlowPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <AdminPageHeader titleKey="admin_page_trade_flow" />
+    <div className="space-y-3" data-admin>
+      <SectionHeader
+        title={safeT("admin_trade_operations_title", {
+          fallbackKo: "거래 운영",
+          fallbackEn: "Trade operations",
+        })}
+        description={safeT("admin_trade_operations_desc", {
+          fallbackKo: "trade-flow + trade-complete — product_chats / chat_rooms authority 유지.",
+          fallbackEn: "trade-flow + trade-complete — keep product_chats / chat_rooms authority.",
+        })}
+        actions={
+          <ConsoleButton variant="secondary" onClick={() => void load()} disabled={loading}>
+            {safeT("admin_posts_mgmt_refresh", {
+              fallbackKo: "새로고침",
+              fallbackEn: "Refresh",
+            })}
+          </ConsoleButton>
+        }
+      />
+
+      <TabStrip
+        tabs={[
+          {
+            id: "flow",
+            label: safeT("admin_trade_ops_tab_flow", {
+              fallbackKo: "거래 세션",
+              fallbackEn: "Sessions",
+            }),
+            count: loading ? null : visibleSessions.length,
+          },
+          {
+            id: "complete",
+            label: safeT("admin_trade_ops_tab_complete", {
+              fallbackKo: "구매자 확인",
+              fallbackEn: "Buyer confirm",
+            }),
+            count: null,
+            disconnected: true,
+          },
+        ]}
+        active={panel}
+        onChange={(id) => {
+          const q = new URLSearchParams(searchParams.toString());
+          if (id === "complete") q.set("panel", "complete");
+          else q.delete("panel");
+          const qs = q.toString();
+          router.replace(qs ? `/admin/trade-flow?${qs}` : "/admin/trade-flow");
+        }}
+      />
+
+      {panel === "complete" ? (
+        <AdminTradeCompletionPage embedded />
+      ) : (
+        <>
       {deepLinkActive && focusedSession ? (
         <div
           data-testid="admin-trade-flow-deep-link-focus"
@@ -388,6 +448,8 @@ export function AdminTradeFlowPage() {
               )}
             </div>
           </section>
+        </>
+      )}
         </>
       )}
     </div>

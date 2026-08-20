@@ -94,7 +94,7 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           )}
         </ul>
         <Link
-          href="/admin/products"
+          href="/admin/posts-management"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
           {t("admin_dashboard_view_all")}

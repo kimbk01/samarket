@@ -4,8 +4,6 @@ import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { forwardRef, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
-import { listTradeStatusBadge } from "@/lib/products/seller-listing-state";
-import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import {
   updatePostBumpAdmin,
   updatePostStatusAdmin,
@@ -19,10 +17,14 @@ import {
   buildAdminTradeChatsHref,
   buildAdminTradeFlowHref,
 } from "@/lib/admin-products/admin-trade-deep-link";
-import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { POSTS_MGMT_TAB_LABEL_KEY, postsMgmtLocale } from "./posts-management-i18n";
+import {
+  ConsoleButton,
+  TradePromoBadge,
+  TradeStatusBadge,
+} from "@/components/admin/trade-console/trade-console-ui";
 
 interface AdminPostsManagementTableProps {
   products: Product[];
@@ -41,9 +43,10 @@ export const AdminPostsManagementTable = forwardRef<
   { products, showProductIdColumn = false, onHorizontalScroll, onActionSuccess },
   ref
 ) {
-  const { t, tt, language } = useI18n();
+  const { t, language } = useI18n();
   const locale = postsMgmtLocale(language);
   const [actionRowId, setActionRowId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   const runTradeOverride = async (action: "cancel_sale" | "force_complete", p: Product) => {
     const actionLabel =
@@ -52,10 +55,12 @@ export const AdminPostsManagementTable = forwardRef<
         : t("admin_posts_mgmt_confirm_force_complete_label");
     const titleSnippet = `${p.title.slice(0, 48)}${p.title.length > 48 ? "…" : ""}`;
     if (
-      !(await dibayConfirm({ title: t("admin_posts_mgmt_confirm_trade_override", {
+      !(await dibayConfirm({
+        title: t("admin_posts_mgmt_confirm_trade_override", {
           title: titleSnippet,
           action: actionLabel,
-        }) }))
+        }),
+      }))
     ) {
       return;
     }
@@ -86,7 +91,7 @@ export const AdminPostsManagementTable = forwardRef<
       } else {
         const toStatus =
           action === "hide" ? "hidden" : action === "restore" ? "active" : "deleted";
-        res = await updatePostStatusAdmin(p.id, toStatus as any);
+        res = await updatePostStatusAdmin(p.id, toStatus as "hidden" | "active" | "deleted");
       }
 
       if (!res.ok) {
@@ -100,385 +105,321 @@ export const AdminPostsManagementTable = forwardRef<
     }
   };
 
+  const toggleAll = () => {
+    if (selected.size === products.length) setSelected(new Set());
+    else setSelected(new Set(products.map((p) => p.id)));
+  };
+
   return (
     <div
       ref={ref}
       onScroll={onHorizontalScroll}
-      className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm [-webkit-overflow-scrolling:touch]"
+      className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface [-webkit-overflow-scrolling:touch]"
     >
-      <table
-        className={`w-full border-collapse sam-text-body ${showProductIdColumn ? "min-w-[1480px]" : "min-w-[1360px]"}`}
-      >
-        <thead>
-          <tr className="border-b border-sam-border bg-sam-app">
-            {showProductIdColumn && (
-              <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-                {t("admin_posts_mgmt_th_product_id")}
-              </th>
-            )}
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_thumbnail")}
+      {selected.size > 0 ? (
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-surface px-3 py-2">
+          <span className="sam-text-body-secondary font-medium">{selected.size}개 선택됨</span>
+          <ConsoleButton
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void (async () => {
+                for (const id of selected) {
+                  const p = products.find((x) => x.id === id);
+                  if (p) await runAction("restore", p);
+                }
+              })();
+            }}
+          >
+            {t("admin_posts_mgmt_action_unhide")}
+          </ConsoleButton>
+          <ConsoleButton
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void (async () => {
+                for (const id of selected) {
+                  const p = products.find((x) => x.id === id);
+                  if (p) await runAction("hide", p);
+                }
+              })();
+            }}
+          >
+            {t("admin_posts_mgmt_action_hide")}
+          </ConsoleButton>
+          <ConsoleButton
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void (async () => {
+                for (const id of selected) {
+                  const p = products.find((x) => x.id === id);
+                  if (p) await runAction("delete", p);
+                }
+              })();
+            }}
+          >
+            {t("admin_posts_mgmt_action_force_delete")}
+          </ConsoleButton>
+        </div>
+      ) : null}
+
+      <table className="w-full table-fixed text-left sam-text-body-secondary">
+        <thead className="border-b border-sam-border bg-sam-surface-muted/80 sam-text-xxs text-sam-muted">
+          <tr>
+            <th className="w-8 px-2 py-2">
+              <input
+                type="checkbox"
+                checked={selected.size === products.length && products.length > 0}
+                onChange={toggleAll}
+                aria-label="전체 선택"
+              />
             </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_title_web")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_seller")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_reserved_buyer")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_sold_buyer")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_trade_ops")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_web_section")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_category")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_kind")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_price")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_deal_type")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_status")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_trade_display")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_likes")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_chats")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_reports")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_created")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_visibility")}
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_posts_mgmt_th_actions")}
-            </th>
+            {showProductIdColumn ? (
+              <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_product_id")}</th>
+            ) : null}
+            <th className="w-[20%] px-2 py-2">상품</th>
+            <th className="w-[11%] px-2 py-2">{t("admin_posts_mgmt_th_seller")}</th>
+            <th className="w-[12%] px-2 py-2">{t("admin_posts_mgmt_th_category")}</th>
+            <th className="w-[9%] px-2 py-2">{t("admin_posts_mgmt_th_price")}</th>
+            <th className="w-[10%] px-2 py-2">지역</th>
+            <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_status")}</th>
+            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_likes")}</th>
+            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_chats")}</th>
+            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_reports")}</th>
+            <th className="w-[7%] px-2 py-2">광고</th>
+            <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_created")}</th>
+            <th className="w-14 px-2 py-2 text-center">{t("admin_posts_mgmt_th_actions")}</th>
           </tr>
         </thead>
-        <tbody>
-          {products.map((p) => (
-            <tr
-              key={p.id}
-              className="border-b border-sam-border-soft hover:bg-sam-app"
-            >
-              {showProductIdColumn && (
-                <td className="whitespace-nowrap px-3 py-2.5">
+        <tbody className="divide-y divide-sam-border-soft">
+          {products.map((p) => {
+            const section = inferPostsManagementSection(p);
+            const catLabel = p.categoryName ?? p.category ?? p.categorySlug ?? "—";
+            const market = getMarketCategoryPath(p.categorySlug);
+            return (
+              <tr key={p.id} className="hover:bg-sam-surface-muted/40">
+                <td className="px-2 py-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => {
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(p.id)) next.delete(p.id);
+                        else next.add(p.id);
+                        return next;
+                      });
+                    }}
+                    aria-label={`${p.title} 선택`}
+                  />
+                </td>
+                {showProductIdColumn ? (
+                  <td className="px-2 py-2 font-mono sam-text-xxs">
+                    <Link
+                      href={`/admin/products/${p.id}`}
+                      className="text-signature hover:underline"
+                      title={p.id}
+                    >
+                      {p.id.slice(0, 8)}…
+                    </Link>
+                  </td>
+                ) : null}
+                <td className="px-2 py-2">
                   <Link
                     href={`/admin/products/${p.id}`}
-                    className="font-mono sam-text-body-secondary text-signature hover:underline"
-                    title={p.id}
+                    className="flex min-w-0 items-center gap-2 hover:underline"
                   >
-                    {p.id.slice(0, 8)}…
+                    {p.thumbnail ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin ops thumb
+                      <img
+                        src={p.thumbnail}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
+                      />
+                    ) : (
+                      <span className="inline-flex h-10 w-10 shrink-0 rounded-ui-rect bg-sam-surface-muted" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-sam-fg">{p.title}</span>
+                      <span className="block truncate sam-text-xxs text-sam-muted">
+                        {t(POSTS_MGMT_TAB_LABEL_KEY[section])}
+                      </span>
+                    </span>
                   </Link>
                 </td>
-              )}
-              <td className="px-3 py-2.5">
-                {p.thumbnail ? (
-                  <img
-                    src={p.thumbnail}
-                    alt=""
-                    className="h-10 w-10 rounded object-cover"
-                  />
-                ) : (
-                  <span className="text-sam-meta">-</span>
-                )}
-              </td>
-              <td className="max-w-[220px] px-3 py-2.5 text-sam-fg">
-                <div className="truncate font-medium">
+                <td className="px-2 py-2">
                   <Link
-                    href={getPublicProductPath(p.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/admin/users/${p.sellerId}`}
                     className="text-signature hover:underline"
-                    title={t("admin_posts_mgmt_title_view_web")}
                   >
-                    {p.title}
-                  </Link>
-                </div>
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                <Link
-                  href={`/admin/users/${p.sellerId}`}
-                  className="text-signature hover:underline"
-                >
-                  <span className="block">{p.seller?.nickname ?? p.sellerId ?? "-"}</span>
-                  {p.seller?.username ? (
-                    <span className="mt-0.5 block font-mono sam-text-xxs text-sam-muted tabular-nums">
-                      @{p.seller.username}
-                    </span>
-                  ) : null}
-                </Link>
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                {p.reservedBuyerId ? (
-                  <Link
-                    href={`/admin/users/${p.reservedBuyerId}`}
-                    className="font-mono sam-text-body-secondary text-signature hover:underline"
-                    title={p.reservedBuyerId}
-                  >
-                    {p.reservedBuyerId.slice(0, 8)}…
-                  </Link>
-                ) : (
-                  <span className="text-sam-meta">—</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                {p.soldBuyerId ? (
-                  <Link
-                    href={`/admin/users/${p.soldBuyerId}`}
-                    className="font-mono sam-text-body-secondary text-signature hover:underline"
-                    title={p.soldBuyerId}
-                  >
-                    {p.soldBuyerId.slice(0, 8)}…
-                  </Link>
-                ) : (
-                  <span className="text-sam-meta">—</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                <div className="flex flex-col gap-1">
-                  <Link
-                    href={buildAdminTradeChatsHref(p)}
-                    className="sam-text-helper text-signature hover:underline"
-                  >
-                    {t("admin_posts_mgmt_link_trade_chats")}
-                  </Link>
-                  <Link
-                    href={buildAdminTradeFlowHref(p)}
-                    className="sam-text-helper text-signature hover:underline"
-                  >
-                    {t("admin_posts_mgmt_link_trade_flow")}
-                  </Link>
-                </div>
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                {(() => {
-                  const market = getMarketCategoryPath(p.categorySlug);
-                  const section = inferPostsManagementSection(p);
-                  const label = t(POSTS_MGMT_TAB_LABEL_KEY[section]);
-
-                  const body = (
-                    <>
-                      <span className="inline-block rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-medium text-sam-fg">
-                        {label}
+                    <span className="block truncate">{p.seller?.nickname ?? p.sellerId ?? "—"}</span>
+                    {p.seller?.username ? (
+                      <span className="block truncate font-mono sam-text-xxs text-sam-muted">
+                        @{p.seller.username}
                       </span>
-                      {(p.serviceType || p.serviceSlug) && (
-                        <div className="mt-1 font-mono sam-text-xxs leading-tight text-sam-meta">
-                          {p.serviceType ?? ""}
-                          {p.serviceSlug ? ` · ${p.serviceSlug}` : ""}
-                        </div>
-                      )}
-                    </>
-                  );
-
-                  if (!market) return body;
-
-                  return (
+                    ) : null}
+                  </Link>
+                </td>
+                <td className="truncate px-2 py-2 text-sam-muted">
+                  {market && catLabel !== "—" ? (
                     <Link
                       href={market}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block hover:opacity-90"
-                      title={t("admin_posts_mgmt_title_category_list")}
+                      className="text-signature hover:underline"
                     >
-                      {body}
+                      {catLabel}
                     </Link>
-                  );
-                })()}
-              </td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-muted">
-                {(() => {
-                  const label =
-                    p.categoryName ?? p.category ?? p.categorySlug ?? "-";
-                  const market = getMarketCategoryPath(p.categorySlug);
-                  if (market && label !== "-") {
-                    return (
-                      <Link
-                        href={market}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-signature hover:underline"
-                      >
-                        {label}
-                      </Link>
-                    );
-                  }
-                  return label;
-                })()}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
-                {inferPostsManagementSection(p) === "used-car"
-                  ? tt(getCarTradeLabelKo(p.postMeta) ?? "—")
-                  : "—"}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-fg">
-                {p.isFreeShare ? t("admin_posts_mgmt_price_free_share") : formatPrice(p.price ?? 0)}
-              </td>
-              <td className="px-3 py-2.5 text-sam-muted">
-                {p.isFreeShare
-                  ? t("admin_posts_mgmt_deal_free")
-                  : t("admin_posts_mgmt_deal_sale")}
-              </td>
-              <td className="px-3 py-2.5">
-                <AdminStatusBadge status={p.status} />
-              </td>
-              <td className="px-3 py-2.5">
-                {(() => {
-                  const badge = listTradeStatusBadge(p.sellerListingState, p.status);
-                  if (!badge) {
-                    return <span className="sam-text-helper text-sam-meta">—</span>;
-                  }
-                  return (
-                    <span
-                      className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${badge.className}`}
-                    >
-                      {tt(badge.label)}
-                    </span>
-                  );
-                })()}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-muted">
-                {p.likesCount ?? 0}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-muted">
-                {p.chatCount ?? 0}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                {(p.reportCount ?? 0) > 0 ? (
-                  <Link
-                    href={`/admin/reports?target=${p.id}`}
-                    className="font-medium text-amber-600 hover:underline"
-                  >
-                    {p.reportCount}
-                  </Link>
-                ) : (
-                  <span className="text-sam-muted">0</span>
-                )}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.createdAt).toLocaleDateString(locale)}
-              </td>
-              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {p.visibility === "hidden" || p.status === "hidden" ? (
-                  <span className="text-amber-600">{t("admin_posts_mgmt_visibility_hidden")}</span>
-                ) : (
-                  <span className="text-green-600">{t("admin_posts_mgmt_visibility_visible")}</span>
-                )}
-              </td>
-              <td className="relative px-3 py-2.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActionRowId(actionRowId === p.id ? null : p.id)
-                  }
-                  className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-                >
-                  {t("admin_posts_mgmt_actions_menu")}
-                </button>
-                {actionRowId === p.id && (
-                  <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] rounded border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
-                    <Link
-                      href={getPublicProductPath(p.id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-                    >
-                      {t("admin_posts_mgmt_action_view_web")}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => runTradeOverride("cancel_sale", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-amber-800 hover:bg-amber-50"
-                    >
-                      {t("admin_posts_mgmt_action_cancel_sale")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => runTradeOverride("force_complete", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-signature/5"
-                    >
-                      {t("admin_posts_mgmt_action_force_complete")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => runAction("hide", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-                    >
-                      {t("admin_posts_mgmt_action_hide")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => runAction("restore", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-                    >
-                      {t("admin_posts_mgmt_action_unhide")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => runAction("delete", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-600 hover:bg-sam-app"
-                    >
-                      {t("admin_posts_mgmt_action_force_delete")}
-                    </button>
+                  ) : (
+                    catLabel
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums text-sam-fg">
+                  {p.isFreeShare ? t("admin_posts_mgmt_price_free_share") : formatPrice(p.price ?? 0)}
+                </td>
+                <td className="truncate px-2 py-2 text-sam-muted">{p.location || "—"}</td>
+                <td className="px-2 py-2">
+                  <TradeStatusBadge status={p.status} />
+                </td>
+                <td className="px-2 py-2 text-center tabular-nums">{p.likesCount ?? 0}</td>
+                <td className="px-2 py-2 text-center tabular-nums">{p.chatCount ?? 0}</td>
+                <td className="px-2 py-2 text-center">
+                  {(p.reportCount ?? 0) > 0 ? (
                     <Link
                       href={`/admin/reports?target=${p.id}`}
-                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      className="font-medium text-amber-600 hover:underline"
                     >
-                      {t("admin_posts_mgmt_action_view_reports")}
+                      {p.reportCount}
                     </Link>
+                  ) : (
+                    <span className="text-sam-muted">0</span>
+                  )}
+                </td>
+                <td className="px-2 py-2">
+                  <TradePromoBadge
+                    active={Boolean(p.hasPromotionOverlay || p.isPromoted || p.isBoosted)}
+                  />
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted">
+                  {new Date(p.createdAt).toLocaleDateString(locale)}
+                </td>
+                <td className="relative px-2 py-2 text-center">
+                  <div className="inline-flex items-center gap-1">
                     <Link
-                      href={`/admin/users/${p.sellerId}`}
-                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      href={`/admin/products/${p.id}`}
+                      className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
                     >
-                      {t("admin_posts_mgmt_action_seller_sanction")}
+                      관리
                     </Link>
                     <button
                       type="button"
-                      onClick={() => runAction("bump", p)}
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      onClick={() => setActionRowId(actionRowId === p.id ? null : p.id)}
+                      className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
+                      aria-label={t("admin_posts_mgmt_actions_menu")}
                     >
-                      {t("admin_posts_mgmt_action_bump")}
-                    </button>
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-                    >
-                      {t("admin_posts_mgmt_action_banned_memo")}
+                      ⋯
                     </button>
                   </div>
-                )}
-              </td>
-            </tr>
-          ))}
+                  {actionRowId === p.id ? (
+                    <div className="absolute right-0 top-full z-10 mt-1 min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 text-left shadow-sam-elevated">
+                      <Link
+                        href={getPublicProductPath(p.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_view_web")}
+                      </Link>
+                      <Link
+                        href={buildAdminTradeChatsHref(p)}
+                        className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_link_trade_chats")}
+                      </Link>
+                      <Link
+                        href={buildAdminTradeFlowHref(p)}
+                        className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_link_trade_flow")}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void runTradeOverride("cancel_sale", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-amber-800 hover:bg-amber-50"
+                      >
+                        {t("admin_posts_mgmt_action_cancel_sale")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runTradeOverride("force_complete", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-signature/5"
+                      >
+                        {t("admin_posts_mgmt_action_force_complete")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("hide", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_hide")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("restore", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_unhide")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("delete", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-600 hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_force_delete")}
+                      </button>
+                      <Link
+                        href={`/admin/reports?target=${p.id}`}
+                        className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_view_reports")}
+                      </Link>
+                      <Link
+                        href={`/admin/users/${p.sellerId}`}
+                        className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_seller_sanction")}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void runAction("bump", p)}
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
+                      >
+                        {t("admin_posts_mgmt_action_bump")}
+                      </button>
+                      <div className="my-1 border-t border-red-200" />
+                      <button
+                        type="button"
+                        disabled
+                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-700/50"
+                      >
+                        DB 영구 삭제 · NOT_READY
+                      </button>
+                    </div>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
-      {actionRowId && (
+      {actionRowId ? (
         <div
           className="fixed inset-0 z-0"
           aria-hidden
           onClick={() => setActionRowId(null)}
         />
-      )}
+      ) : null}
     </div>
   );
 });

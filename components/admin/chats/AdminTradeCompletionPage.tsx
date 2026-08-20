@@ -23,7 +23,7 @@ interface Row {
   lastMessageAt: string | null;
 }
 
-export function AdminTradeCompletionPage() {
+export function AdminTradeCompletionPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useI18n();
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,10 +87,14 @@ export function AdminTradeCompletionPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_trade_completion" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        {t("admin_page_trade_completion_desc")}
-      </p>
+      {embedded ? null : (
+        <>
+          <AdminPageHeader titleKey="admin_page_trade_completion" />
+          <p className="sam-text-body-secondary text-sam-muted">
+            {t("admin_page_trade_completion_desc")}
+          </p>
+        </>
+      )}
       {error ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {error}

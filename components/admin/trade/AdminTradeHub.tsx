@@ -1,182 +1,285 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { fetchAdminPostsManagementDeduped } from "@/lib/admin/fetch-admin-posts-management-deduped";
+import type { Product } from "@/lib/types/product";
+import {
+  ConsoleButton,
+  KpiGrid,
+  OpsPanel,
+  SectionHeader,
+  TradeStatusBadge,
+} from "@/components/admin/trade-console/trade-console-ui";
 
-type HubCard = {
-  href: string;
-  titleKey: MessageKey;
-  descriptionKey: MessageKey;
-  noteKey?: MessageKey;
-  /** true — 라우트 미구현, Link/prefetch 금지(404 방지) */
-  pendingRoute?: true;
-};
-
-type HubSection = {
-  titleKey: MessageKey;
-  items: HubCard[];
-};
-
-const SECTIONS: HubSection[] = [
-  {
-    titleKey: "admin_trade_hub_section_menu_chips",
-    items: [
-      {
-        href: "/admin/trade/settings",
-        titleKey: "admin_menu_trade_settings",
-        descriptionKey: "admin_trade_hub_desc_settings",
-      },
-      {
-        href: "/admin/menus/trade",
-        titleKey: "admin_menu_menu_trade",
-        descriptionKey: "admin_trade_hub_desc_menu_trade",
-      },
-    ],
-  },
-  {
-    titleKey: "admin_trade_hub_section_posts_products",
-    items: [
-      {
-        href: "/admin/products",
-        titleKey: "admin_menu_trade_products",
-        descriptionKey: "admin_trade_hub_desc_products",
-      },
-      {
-        href: "/admin/posts-management",
-        titleKey: "admin_menu_posts_management",
-        descriptionKey: "admin_trade_hub_desc_posts_management",
-      },
-    ],
-  },
-  {
-    titleKey: "admin_trade_hub_section_favorites_offers",
-    items: [
-      {
-        href: "/admin/favorites",
-        titleKey: "admin_menu_trade_likes",
-        descriptionKey: "admin_trade_hub_desc_favorites",
-      },
-      {
-        href: "/admin/price-offers",
-        titleKey: "admin_menu_trade_offers",
-        descriptionKey: "admin_trade_hub_desc_offers",
-        noteKey: "admin_trade_hub_note_route_404",
-        pendingRoute: true,
-      },
-      {
-        href: "/admin/trade-status",
-        titleKey: "admin_menu_trade_status",
-        descriptionKey: "admin_trade_hub_desc_trade_status",
-        noteKey: "admin_trade_hub_note_page_prep",
-        pendingRoute: true,
-      },
-    ],
-  },
-  {
-    titleKey: "admin_trade_hub_section_chat_flow",
-    items: [
-      {
-        href: "/admin/chats/trade",
-        titleKey: "admin_menu_chat_trade",
-        descriptionKey: "admin_trade_hub_desc_trade_chat",
-      },
-      {
-        href: "/admin/trade-flow",
-        titleKey: "admin_menu_chat_flow",
-        descriptionKey: "admin_trade_hub_desc_trade_flow",
-      },
-    ],
-  },
-  {
-    titleKey: "admin_trade_hub_section_reviews_ads",
-    items: [
-      {
-        href: "/admin/reviews",
-        titleKey: "admin_menu_trade_reviews",
-        descriptionKey: "admin_trade_hub_desc_reviews",
-      },
-      {
-        href: "/admin/post-ads",
-        titleKey: "admin_menu_ads_posts",
-        descriptionKey: "admin_trade_hub_desc_post_ads",
-      },
-      {
-        href: "/admin/trade-post-ads",
-        titleKey: "admin_menu_trade_post_ads",
-        descriptionKey: "admin_trade_hub_desc_trade_post_ads",
-      },
-      {
-        href: "/admin/trade-ad-policies",
-        titleKey: "admin_menu_trade_ad_policies",
-        descriptionKey: "admin_trade_hub_desc_ad_policies",
-      },
-      {
-        href: "/admin/home-feed",
-        titleKey: "admin_menu_ads_home_feed",
-        descriptionKey: "admin_trade_hub_desc_home_feed",
-      },
-    ],
-  },
-];
-
+/**
+ * Trade Dashboard — approved console chrome.
+ * KPI without aggregation contract stay `—`. External queues LINK only.
+ */
 export function AdminTradeHub() {
-  const { t } = useI18n();
-  const sections = useMemo(
-    () =>
-      SECTIONS.map((section) => ({
-        title: t(section.titleKey),
-        items: section.items.map((card) => ({
-          href: card.href,
-          title: t(card.titleKey),
-          description: t(card.descriptionKey),
-          note: card.noteKey ? t(card.noteKey) : undefined,
-          pendingRoute: card.pendingRoute === true,
-        })),
-      })),
-    [t]
-  );
+  const { t, safeT } = useI18n();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { status, json: raw } = await fetchAdminPostsManagementDeduped();
+      if (status >= 200 && status < 300 && raw && typeof raw === "object") {
+        const data = raw as { products?: Product[] };
+        setProducts(Array.isArray(data.products) ? data.products : []);
+      } else {
+        setProducts([]);
+      }
+    } catch {
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const recent = products.slice(0, 8);
+  const listingTotal = loading ? null : products.length;
 
   return (
-    <div className="space-y-6" data-admin>
-      <AdminPageHeader titleKey="admin_menu_trade_hub" descriptionKey="admin_trade_hub_desc" />
-      <div className="space-y-6">
-        {sections.map((section) => (
-          <section key={section.title}>
-            <h2 className="mb-2 sam-text-body-secondary font-semibold uppercase tracking-wide text-sam-muted">
-              {section.title}
+    <div className="space-y-4" data-admin>
+      <SectionHeader
+        title={safeT("admin_trade_dashboard_title", {
+          fallbackKo: "거래 운영",
+          fallbackEn: "Trade operations",
+        })}
+        description={safeT("admin_trade_dashboard_desc", {
+          fallbackKo: "Marketplace의 게시물, 거래, 신고, 홍보 상태를 관리합니다.",
+          fallbackEn: "Manage marketplace listings, trades, reports, and promotions.",
+        })}
+        actions={
+          <>
+            <ConsoleButton variant="secondary" onClick={() => void load()} disabled={loading}>
+              {safeT("admin_posts_mgmt_refresh", {
+                fallbackKo: "새로고침",
+                fallbackEn: "Refresh",
+              })}
+            </ConsoleButton>
+            <Link href="/admin/posts-management" prefetch={false}>
+              <ConsoleButton variant="primary">
+                {t("admin_menu_posts_management")}
+              </ConsoleButton>
+            </Link>
+          </>
+        }
+      />
+
+      <KpiGrid
+        items={[
+          {
+            label: safeT("admin_trade_kpi_listings", {
+              fallbackKo: "전체 게시물",
+              fallbackEn: "Listings",
+            }),
+            value: listingTotal,
+            disconnected: listingTotal == null,
+          },
+          {
+            label: safeT("admin_trade_kpi_active", {
+              fallbackKo: "판매중",
+              fallbackEn: "Active",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_sold", {
+              fallbackKo: "판매완료",
+              fallbackEn: "Sold",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_reports", {
+              fallbackKo: "신고 대기",
+              fallbackEn: "Reports pending",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_trades", {
+              fallbackKo: "진행 거래",
+              fallbackEn: "Open trades",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_promo", {
+              fallbackKo: "홍보중",
+              fallbackEn: "Promoted",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_reviews", {
+              fallbackKo: "후기",
+              fallbackEn: "Reviews",
+            }),
+            value: null,
+            disconnected: true,
+          },
+          {
+            label: safeT("admin_trade_kpi_hidden", {
+              fallbackKo: "숨김",
+              fallbackEn: "Hidden",
+            }),
+            value: null,
+            disconnected: true,
+          },
+        ]}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <OpsPanel
+          title={safeT("admin_trade_ops_queues", {
+            fallbackKo: "운영 대기",
+            fallbackEn: "Ops queues",
+          })}
+          rows={[
+            {
+              label: safeT("admin_trade_ops_reports", {
+                fallbackKo: "신고 검토",
+                fallbackEn: "Reports",
+              }),
+              count: null,
+              href: "/admin/reports",
+              disconnected: true,
+            },
+            {
+              label: safeT("admin_trade_ops_flow", {
+                fallbackKo: "거래 운영",
+                fallbackEn: "Trade flow",
+              }),
+              count: null,
+              href: "/admin/trade-flow",
+              disconnected: true,
+            },
+            {
+              label: safeT("admin_trade_ops_complete", {
+                fallbackKo: "구매자 확인",
+                fallbackEn: "Buyer confirm",
+              }),
+              count: null,
+              href: "/admin/chats/trade-complete",
+              disconnected: true,
+            },
+            {
+              label: safeT("admin_trade_ops_promo", {
+                fallbackKo: "더 알리기",
+                fallbackEn: "Promote",
+              }),
+              count: null,
+              href: "/admin/ad-applications",
+              disconnected: true,
+            },
+          ]}
+        />
+
+        <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
+          <div className="flex items-center justify-between border-b border-sam-border px-3 py-2">
+            <h2 className="sam-text-body font-semibold text-sam-fg">
+              {safeT("admin_trade_link_panel", {
+                fallbackKo: "기존 화면 LINK",
+                fallbackEn: "Linked surfaces",
+              })}
             </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {section.items.map((card) => (
-                <li key={card.href}>
-                  {card.pendingRoute ? (
-                    <div
-                      className="block h-full cursor-not-allowed rounded-ui-rect border border-dashed border-sam-border bg-sam-surface/80 p-4 sam-text-body opacity-90"
-                      aria-disabled="true"
-                    >
-                      <span className="font-medium text-sam-fg">{card.title}</span>
-                      <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
-                      {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
-                    </div>
-                  ) : (
-                    <Link
-                      href={card.href}
-                      prefetch={false}
-                      className="block h-full rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body shadow-sm transition hover:border-signature/40 hover:bg-sam-app/80"
-                    >
-                      <span className="font-medium text-sam-fg">{card.title}</span>
-                      <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
-                      {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+          </div>
+          <ul className="divide-y divide-sam-border-soft sam-text-body-secondary">
+            {[
+              { href: "/admin/reports", label: t("admin_menu_reports") },
+              { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
+              { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
+              { href: "/admin/menus/trade", label: t("admin_menu_menu_trade") },
+              { href: "/admin/trade/settings", label: t("admin_menu_trade_settings") },
+              { href: "/admin/favorites", label: t("admin_menu_trade_likes") },
+              { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },
+              { href: "/admin/ad-applications", label: t("admin_menu_ads_applications") },
+            ].map((row) => (
+              <li key={row.href}>
+                <Link
+                  href={row.href}
+                  prefetch={false}
+                  className="flex items-center justify-between px-3 py-2.5 hover:bg-sam-surface-muted/80"
+                >
+                  <span>{row.label}</span>
+                  <span className="text-signature">↗</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
+
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
+        <div className="flex items-center justify-between border-b border-sam-border px-3 py-2">
+          <h2 className="sam-text-body font-semibold text-sam-fg">
+            {safeT("admin_trade_recent_listings", {
+              fallbackKo: "최근 게시물",
+              fallbackEn: "Recent listings",
+            })}
+          </h2>
+          <Link
+            href="/admin/posts-management"
+            prefetch={false}
+            className="sam-text-body-secondary font-medium text-signature hover:underline"
+          >
+            {t("admin_menu_posts_management")}
+          </Link>
+        </div>
+        {loading ? (
+          <p className="px-3 py-6 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
+        ) : recent.length === 0 ? (
+          <p className="px-3 py-6 text-center sam-text-body text-sam-muted">—</p>
+        ) : (
+          <table className="w-full table-fixed text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
+              <tr>
+                <th className="px-3 py-2">상품</th>
+                <th className="px-3 py-2">판매자</th>
+                <th className="px-3 py-2">상태</th>
+                <th className="px-3 py-2">등록</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-sam-border-soft">
+              {recent.map((p) => (
+                <tr key={p.id} className="hover:bg-sam-surface-muted/40">
+                  <td className="truncate px-3 py-2">
+                    <Link
+                      href={`/admin/products/${p.id}`}
+                      className="font-medium text-signature hover:underline"
+                    >
+                      {p.title}
+                    </Link>
+                  </td>
+                  <td className="truncate px-3 py-2">
+                    {p.seller?.nickname ?? p.sellerId ?? "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <TradeStatusBadge status={p.status} />
+                  </td>
+                  <td className="px-3 py-2 sam-text-xxs text-sam-muted">
+                    {new Date(p.createdAt).toLocaleDateString("ko-KR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }

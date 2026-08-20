@@ -558,3 +558,43 @@ export async function fetchAdminPostsManagementProducts(
     queryError: lastErrText || "posts 조회 실패(모든 SELECT 단계 오류)",
   };
 }
+
+/**
+ * Admin Control Center — 동일 SELECT 티어·enrich, id 1건만.
+ * 목록 limit 1000 window에서 find 하지 않는다.
+ */
+export async function fetchAdminPostById(
+  supabase: unknown,
+  postId: string
+): Promise<AdminPostsManagementFetchResult> {
+  const client = supabase as any;
+  const id = String(postId ?? "").trim();
+  if (!id) {
+    return { products: [], queryError: null };
+  }
+
+  let lastErrText = "";
+
+  for (const select of POSTS_SELECT_TIERS) {
+    try {
+      const res = await client.from(POSTS_TABLE_READ).select(select).eq("id", id).maybeSingle();
+      if (res.error) {
+        lastErrText = formatSupabaseError(res.error);
+        continue;
+      }
+      if (!res.data) {
+        return { products: [], queryError: null };
+      }
+      const products = await enrichPostsToProducts(supabase, [res.data as AdminProductRow]);
+      return { products, queryError: null };
+    } catch (e) {
+      lastErrText = e instanceof Error ? e.message : String(e);
+      continue;
+    }
+  }
+
+  return {
+    products: [],
+    queryError: lastErrText || "posts 조회 실패(모든 SELECT 단계 오류)",
+  };
+}

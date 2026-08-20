@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const LINKS: { href: string; labelKey: MessageKey }[] = [
-  { href: "/admin/products", labelKey: "admin_menu_trade_products" },
+  { href: "/admin/posts-management", labelKey: "admin_menu_posts_management" },
   { href: "/admin/users", labelKey: "admin_menu_users" },
   { href: "/admin/reports", labelKey: "admin_menu_reports" },
   { href: "/admin/chats", labelKey: "admin_menu_chat" },

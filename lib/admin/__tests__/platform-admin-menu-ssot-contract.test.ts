@@ -28,6 +28,7 @@ const REDIRECT_ONLY_PATHS = [
   "/admin/delivery/bottom-nav",
   "/admin/menus",
   "/admin/posts",
+  "/admin/products",
   "/admin/behavior-events",
   "/admin/order-notifications/settings",
   "/admin/operations",

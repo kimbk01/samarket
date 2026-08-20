@@ -20,13 +20,17 @@ import {
   type PostsManagementFilters,
 } from "@/lib/admin-products/posts-management-utils";
 import type { Product } from "@/lib/types/product";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminPostsManagementFilterBar } from "./AdminPostsManagementFilterBar";
 import { AdminPostsManagementTable } from "./AdminPostsManagementTable";
 import { fetchAdminPostsManagementDeduped } from "@/lib/admin/fetch-admin-posts-management-deduped";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { POSTS_MGMT_TAB_LABEL_KEY } from "./posts-management-i18n";
+import {
+  ConsoleButton,
+  SectionHeader,
+  TabStrip,
+} from "@/components/admin/trade-console/trade-console-ui";
 
 /** 한 페이지 표시 건수 */
 const POSTS_MANAGEMENT_PAGE_SIZE = 40;
@@ -39,7 +43,7 @@ export interface AdminPostsManagementPageProps {
 export function AdminPostsManagementPage({
   initialProducts = [],
 }: AdminPostsManagementPageProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") ?? "all";
   const tab: PostsManagementTab =
@@ -53,6 +57,11 @@ export function AdminPostsManagementPage({
   const [categorySearch, setCategorySearch] = useState("");
   const [productIdSearch, setProductIdSearch] = useState("");
   const [showProductIdColumn, setShowProductIdColumn] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  /** Status strip (승인 Listings IA) — maps onto existing PostsManagementFilters. */
+  const [statusView, setStatusView] = useState<
+    "all" | "active" | "sold" | "hidden" | "reported"
+  >("all");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   /** 마지막 API/폴백 조회 메타(빈 목록 원인 구분) */
   const [listQueryError, setListQueryError] = useState<string | null>(null);
@@ -242,59 +251,199 @@ export function AdminPostsManagementPage({
     setSellerSearch("");
     setCategorySearch("");
     setProductIdSearch("");
+    setStatusView("all");
   }, []);
 
-  const showTable = !loading && filtered.length > 0;
+  const applyStatusView = useCallback((id: string) => {
+    const next = id as typeof statusView;
+    setStatusView(next);
+    setFilters((prev) => {
+      const base = { ...prev, status: "" as const, hasReport: false, hiddenOnly: false };
+      if (next === "active") return { ...base, status: "active" };
+      if (next === "sold") return { ...base, status: "sold" };
+      if (next === "hidden") return { ...base, hiddenOnly: true };
+      if (next === "reported") return { ...base, hasReport: true };
+      return base;
+    });
+  }, []);
+
+  const statusCounts = useMemo(() => {
+    const inTab = products.filter((p) => {
+      // reuse tab matcher via filter with default filters
+      return filterAndSortPostsManagement(
+        [p],
+        tab,
+        DEFAULT_POSTS_MANAGEMENT_FILTERS,
+        "",
+        "",
+        ""
+      ).length > 0;
+    });
+    return {
+      all: inTab.length,
+      active: inTab.filter((p) => p.status === "active").length,
+      sold: inTab.filter((p) => p.status === "sold").length,
+      hidden: inTab.filter(
+        (p) => p.status === "hidden" || p.visibility === "hidden"
+      ).length,
+      reported: inTab.filter((p) => (p.reportCount ?? 0) > 0).length,
+    };
+  }, [products, tab]);
 
   return (
-    <div className={`min-w-0 space-y-4${showBottomFixedScroll ? " pb-14" : ""}`}>
-      <AdminPageHeader titleKey="admin_posts_mgmt_page_title" />
-      <div className="flex flex-wrap items-center gap-2 border-b border-sam-border pb-3">
+    <div className={`min-w-0 space-y-3${showBottomFixedScroll ? " pb-14" : ""}`} data-admin>
+      <SectionHeader
+        title={t("admin_posts_mgmt_page_title")}
+        description={safeT("admin_posts_mgmt_page_desc", {
+          fallbackKo: "Marketplace에 등록된 모든 거래 게시물을 관리합니다.",
+          fallbackEn: "Manage all marketplace trade listings.",
+        })}
+        actions={
+          <>
+            <span className="sam-text-body-secondary tabular-nums text-sam-muted">
+              {t("admin_posts_mgmt_stats_loaded", {
+                loaded: String(products.length),
+                filtered: String(filtered.length),
+              })}
+            </span>
+            <ConsoleButton
+              variant="secondary"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              {safeT("admin_posts_mgmt_refresh", {
+                fallbackKo: "새로고침",
+                fallbackEn: "Refresh",
+              })}
+            </ConsoleButton>
+          </>
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={sellerSearch || productIdSearch}
+          onChange={(e) => {
+            const v = e.target.value;
+            const looksLikeId = /^[0-9a-f-]{8,}$/i.test(v.trim());
+            if (looksLikeId) {
+              setProductIdSearch(v);
+              setSellerSearch("");
+            } else {
+              setSellerSearch(v);
+              setProductIdSearch("");
+            }
+          }}
+          placeholder={safeT("admin_posts_mgmt_search_placeholder", {
+            fallbackKo: "제목 · 판매자 · ID 검색",
+            fallbackEn: "Search title, seller, or ID",
+          })}
+          className="sam-input max-w-md min-w-[200px] flex-1"
+        />
+        <ConsoleButton
+          variant="secondary"
+          onClick={() => setFilterOpen((v) => !v)}
+        >
+          {safeT("admin_posts_mgmt_filters_toggle", {
+            fallbackKo: "필터",
+            fallbackEn: "Filters",
+          })}
+        </ConsoleButton>
+      </div>
+
+      <TabStrip
+        tabs={[
+          {
+            id: "all",
+            label: safeT("admin_posts_mgmt_status_all", {
+              fallbackKo: "전체",
+              fallbackEn: "All",
+            }),
+            count: loading ? null : statusCounts.all,
+          },
+          {
+            id: "active",
+            label: safeT("admin_posts_mgmt_status_active", {
+              fallbackKo: "판매중",
+              fallbackEn: "Active",
+            }),
+            count: loading ? null : statusCounts.active,
+          },
+          {
+            id: "sold",
+            label: safeT("admin_posts_mgmt_status_sold_tab", {
+              fallbackKo: "판매완료",
+              fallbackEn: "Sold",
+            }),
+            count: loading ? null : statusCounts.sold,
+          },
+          {
+            id: "hidden",
+            label: safeT("admin_posts_mgmt_status_hidden_tab", {
+              fallbackKo: "숨김",
+              fallbackEn: "Hidden",
+            }),
+            count: loading ? null : statusCounts.hidden,
+          },
+          {
+            id: "reported",
+            label: safeT("admin_posts_mgmt_status_reported", {
+              fallbackKo: "신고 있음",
+              fallbackEn: "Reported",
+            }),
+            count: loading ? null : statusCounts.reported,
+          },
+        ]}
+        active={statusView}
+        onChange={applyStatusView}
+      />
+
+      <div className="flex flex-wrap items-center gap-1">
         {POSTS_MANAGEMENT_TABS.map((tabValue) => (
           <Link
             key={tabValue}
             href={`/admin/posts-management?tab=${tabValue}`}
-            className={`rounded-ui-rect px-4 py-2 sam-text-body font-medium ${
+            className={`rounded-ui-rect px-2.5 py-1 sam-text-xxs ${
               tab === tabValue
-                ? "bg-signature text-white"
-                : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
+                ? "bg-signature/15 font-medium text-signature"
+                : "text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"
             }`}
           >
             {t(POSTS_MGMT_TAB_LABEL_KEY[tabValue])}{" "}
-            <span className="opacity-90">
-              ({!loading ? countProductsForTab(products, tabValue) : "–"})
+            <span className="tabular-nums opacity-80">
+              {!loading ? countProductsForTab(products, tabValue) : "–"}
             </span>
           </Link>
         ))}
       </div>
-      <AdminPostsManagementFilterBar
-        tab={tab}
-        filters={filters}
-        products={products}
-        sellerSearch={sellerSearch}
-        categorySearch={categorySearch}
-        productIdSearch={productIdSearch}
-        showProductIdColumn={showProductIdColumn}
-        onFiltersChange={setFilters}
-        onSellerSearchChange={setSellerSearch}
-        onCategorySearchChange={setCategorySearch}
-        onProductIdSearchChange={setProductIdSearch}
-        onShowProductIdColumnChange={setShowProductIdColumn}
-      />
-      {!loading && products.length > 0 && (
+
+      {filterOpen ? (
+        <AdminPostsManagementFilterBar
+          tab={tab}
+          filters={filters}
+          products={products}
+          sellerSearch={sellerSearch}
+          categorySearch={categorySearch}
+          productIdSearch={productIdSearch}
+          showProductIdColumn={showProductIdColumn}
+          onFiltersChange={setFilters}
+          onSellerSearchChange={setSellerSearch}
+          onCategorySearchChange={setCategorySearch}
+          onProductIdSearchChange={setProductIdSearch}
+          onShowProductIdColumnChange={setShowProductIdColumn}
+        />
+      ) : null}
+
+      {!loading && filtered.length > 0 ? (
         <p className="sam-text-body-secondary text-sam-muted">
-          {t("admin_posts_mgmt_stats_loaded", {
-            loaded: String(products.length),
-            filtered: String(filtered.length),
+          {t("admin_posts_mgmt_stats_page_range", {
+            start: String(pageStart + 1),
+            end: String(pageEnd),
+            pageSize: String(POSTS_MANAGEMENT_PAGE_SIZE),
           })}
-          {filtered.length > 0 &&
-            t("admin_posts_mgmt_stats_page_range", {
-              start: String(pageStart + 1),
-              end: String(pageEnd),
-              pageSize: String(POSTS_MANAGEMENT_PAGE_SIZE),
-            })}
         </p>
-      )}
+      ) : null}
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           {t("common_loading")}
