@@ -11,7 +11,7 @@ function slotIndex(haystack: string, slot: string): number {
 }
 
 describe("marketplace UI-5 DETAIL visual hierarchy", () => {
-  it("document flow is photo → price → title → location → item → description → seller → actions → discovery", () => {
+  it("document flow is photo → price → title → location → item → description → inline-chat → seller → actions → discovery", () => {
     const view = src("components/post/PostDetailView.tsx");
     const slots = [
       "photos",
@@ -20,6 +20,7 @@ describe("marketplace UI-5 DETAIL visual hierarchy", () => {
       "location",
       "item",
       "description",
+      "inline-chat",
       "seller",
       "actions",
       "discovery",

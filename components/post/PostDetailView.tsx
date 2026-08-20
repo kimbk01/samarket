@@ -1317,20 +1317,6 @@ export function PostDetailView({
               {formatTimeAgo(post.created_at)}
             </p>
           ) : null}
-          {showInlineChatCard ? (
-            <TradeDetailInlineChatCard
-              sellerName={inlineChatSellerName}
-              continueChat={Boolean(existingTradeRoomId)}
-              disabled={inlineChatDisabled}
-              busy={chatCtaBusy || jobApplyBusy}
-              blockTitle={inlineChatBlockTitle}
-              onSend={handleInlineChatSend}
-              onContinueChat={handleChat}
-              onPointerEnter={scheduleTradeChatPrepare}
-              onPointerLeave={cancelTradeChatPrepare}
-              onPointerDown={onTradeChatCtaPointerDown}
-            />
-          ) : null}
         </section>
 
         <section data-ui5-slot="item" className={TRADE_WRITE_FB_SECTION}>
@@ -1408,6 +1394,23 @@ export function PostDetailView({
             <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}
         </section>
+
+        {showInlineChatCard ? (
+          <section data-ui5-slot="inline-chat" className={`${TRADE_WRITE_FB_SECTION} min-w-0`}>
+            <TradeDetailInlineChatCard
+              sellerName={inlineChatSellerName}
+              continueChat={Boolean(existingTradeRoomId)}
+              disabled={inlineChatDisabled}
+              busy={chatCtaBusy || jobApplyBusy}
+              blockTitle={inlineChatBlockTitle}
+              onSend={handleInlineChatSend}
+              onContinueChat={handleChat}
+              onPointerEnter={scheduleTradeChatPrepare}
+              onPointerLeave={cancelTradeChatPrepare}
+              onPointerDown={onTradeChatCtaPointerDown}
+            />
+          </section>
+        ) : null}
 
         <section
           id={POST_DETAIL_SELLER_ANCHOR_ID}
