@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 /**
  * git commit 직전 게이트 — CI `check`의 tsc 실패(부분 커밋)를 로컬에서 선차단.
- * tsc 는 working tree 가 아니라 git index 를 본다. dirty 파일이 타입을 메워
- * Vercel/CI 만 터지던 구멍(1bfd71913 / a00f341)을 막는다.
+ *
+ * AUTHORITY (unique vs Cursor add-pre):
+ * - staged @/ import tree
+ * - staged i18n catalog key symmetry (light)
+ * - TypeScript on **git index** (not working tree) — closes dirty-tree hole
+ * - staged call-v4 incoming boundary when touched
+ *
+ * NOT here (Cursor `git add` 직전 §3 / CI 가 담당 — 동일 상태 중복 금지):
+ * - npm run lint
+ * - npm run typecheck:build (working tree)
+ * - npm run verify:i18n-key-exposure (full)
+ *
  * 전체 CI 대체 아님. GHA는 `npm run ci` (next build 없음). Vercel이 Next build authority.
  */
 import { spawnSync } from "node:child_process";
@@ -51,8 +61,6 @@ const steps = [
   ...(stagedNeedsTestTypecheck()
     ? [["node", ["scripts/verify-index-tsc.mjs", "--test"], "TypeScript test graph (git index)"]]
     : []),
-  ["npm", ["run", "lint"], "ESLint"],
-  ["npm", ["run", "verify:i18n-key-exposure"], "i18n key exposure"],
   [
     "node",
     ["scripts/verify-staged-call-v4-incoming-boundary.mjs"],
