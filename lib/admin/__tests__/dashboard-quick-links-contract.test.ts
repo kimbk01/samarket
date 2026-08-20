@@ -79,11 +79,11 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
     ]);
   });
 
-  it("delivery ops quick link uses workspace first leaf under Store settings", () => {
+  it("delivery ops quick link uses workspace first leaf (business list)", () => {
     const delivery = projectDashboardQuickLinks("master").ops.find(
       (l) => l.menuKey === "delivery"
     );
-    expect(delivery?.href).toBe("/admin/stores/application-settings");
+    expect(delivery?.href).toBe("/admin/business");
     expect(delivery?.labelKey).toBe("admin_menu_delivery");
   });
 
