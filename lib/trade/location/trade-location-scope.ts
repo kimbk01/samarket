@@ -40,6 +40,20 @@ export { TRADE_LOCATION_RADIUS_PARAM };
 /** Address-book return: seed City from master once then strip */
 export const TRADE_LOCATION_SEED_PARAM = "tradeLocSeed" as const;
 
+/** Hydrate wrote these when master LGU mapping failed — safe to re-run seed. */
+export const TRADE_LOCATION_HYDRATE_INVALID_RAW = {
+  MASTER_LGU_UNRESOLVED: "master_lgu_unresolved",
+  MASTER_HYDRATE_ERROR: "master_hydrate_error",
+} as const;
+
+export function isRecoverableTradeLocationHydrateInvalid(scope: TradeLocationScope): boolean {
+  if (scope.mode !== "invalid") return false;
+  return (
+    scope.raw === TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_LGU_UNRESOLVED ||
+    scope.raw === TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_HYDRATE_ERROR
+  );
+}
+
 export function tradeLocationScopeEquals(a: TradeLocationScope, b: TradeLocationScope): boolean {
   if (a.mode !== b.mode) return false;
   if (a.mode === "all" || a.mode === "unset") return true;

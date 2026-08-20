@@ -163,7 +163,8 @@ export function HomeProductList({
     () => parseTradeLocationScopeFromSearchParams(searchParams),
     [searchParams]
   );
-  const locationInvalid = locationScope.mode === "invalid";
+  const locationInvalid =
+    locationScope.mode === "invalid" && !locationUnresolved;
   const locationUnset = locationScope.mode === "unset";
   const locationAll = locationScope.mode === "all";
   const locGate = marketplaceLocationFetchGate(locationScope);
@@ -735,8 +736,7 @@ export function HomeProductList({
   const showError = listState === "error";
   const showLoading =
     !locationInvalid &&
-    !locationUnresolved &&
-    (listState === "loading" || locationUnset);
+    (locationUnresolved || listState === "loading" || locationUnset);
   const rootClass = "min-w-0 w-full max-w-full";
   /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
   const listClass = TRADE_FEED_LIST_WRAP_CLASS;

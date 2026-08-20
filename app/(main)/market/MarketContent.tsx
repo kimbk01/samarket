@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
-import { useTradeMarketplaceLocationHydrate } from "@/lib/trade/location/use-trade-marketplace-location-hydrate";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
@@ -48,7 +47,6 @@ export function MarketContent({
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
   clientFeedInstantBoot?: boolean;
 }) {
-  useTradeMarketplaceLocationHydrate();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();

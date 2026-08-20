@@ -553,6 +553,28 @@ export function AppRouteTransition({
         return undefined;
       }
 
+      /**
+       * MAIN hub chrome (Header+Body ONE surface): dual-panel push 는 body 만 슬라이드해
+       * 헤더 없이 본문만 들어오는 2단계 체감을 만든다 — hub fallback enter 로 전체 surface 이동.
+       */
+      if (
+        pushAxis &&
+        hubChromeHeader &&
+        !prefersReducedMotion() &&
+        !pendingMenuIntent?.mainShellCrossGroupPush
+      ) {
+        lastPushAxisRef.current = null;
+        pushSessionActiveRef.current = false;
+        setPushSession(null);
+        setPushHandoff(null);
+        stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
+        renderedRef.current = { pathname: pathKey, node: children };
+        if (el) {
+          return beginHubFallbackEnter(el, pushAxis, pathKey);
+        }
+        return undefined;
+      }
+
       if (pushAxis && !prefersReducedMotion() && !pendingMenuIntent?.mainShellCrossGroupPush) {
         if (pushSessionActiveRef.current) {
           renderedRef.current = { pathname: pathKey, node: children };

@@ -34,6 +34,12 @@ describe("main hub intent transition contract", () => {
     expect(art).not.toContain("beginHubNewOnlyRtlEnter");
   });
 
+  it("does not dual-panel push when hub header shares ONE transform surface", () => {
+    const art = read("components/route-transition/AppRouteTransition.tsx");
+    expect(art).toContain("hubChromeHeader");
+    expect(art).toMatch(/hubChromeHeader[\s\S]*beginHubFallbackEnter/);
+  });
+
   it("does not revive COVER overlay / dual-panel / frozen DOM", () => {
     const art = read("components/route-transition/AppRouteTransition.tsx");
     expect(art).toContain('MAIN_HUB_TRANSITION_KIND = "main-hub"');

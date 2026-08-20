@@ -154,9 +154,10 @@ describe("marketplace browse SSOT wiring contract", () => {
   it("L5 — hydrate does not silent ALL on master LGU fail", () => {
     const hydrate = read("lib/trade/location/use-trade-marketplace-location-hydrate.ts");
     expect(hydrate).toContain("resolveTradeMarketplaceMasterHydrateScope");
+    expect(hydrate).toContain("isRecoverableTradeLocationHydrateInvalid");
     expect(hydrate).not.toMatch(/masterCity\s*\?\?\s*\{\s*mode:\s*"all"\s*\}/);
     const resolver = read("lib/trade/location/resolve-trade-marketplace-default-city.ts");
-    expect(resolver).toContain("master_lgu_unresolved");
+    expect(resolver).toContain("TRADE_LOCATION_HYDRATE_INVALID_RAW.MASTER_LGU_UNRESOLVED");
   });
 
   it("R1 — filter-only reset keeps q, location, category", () => {
