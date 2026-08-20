@@ -103,13 +103,17 @@ export function AdminReportListPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
             {safeT("admin_report_filter_target_chip", {
-              fallbackKo: "대상 게시물",
-              fallbackEn: "Target listing",
+              fallbackKo: "대상",
+              fallbackEn: "Target",
             })}
             :
           </span>
           <Link
-            href={`/admin/products/${encodeURIComponent(targetFromQuery)}`}
+            href={
+              filters.reportSource === "community_feed"
+                ? `/admin/community/posts/${encodeURIComponent(targetFromQuery)}`
+                : `/admin/products/${encodeURIComponent(targetFromQuery)}`
+            }
             className="font-mono text-signature hover:underline"
             prefetch={false}
           >
@@ -133,6 +137,36 @@ export function AdminReportListPage() {
           </Link>
         </div>
       ) : null}
+      <div
+        className="flex flex-wrap gap-x-4 gap-y-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper"
+        data-testid="admin-report-domain-authority-links"
+      >
+        <span className="text-sam-muted">
+          {safeT("admin_report_domain_entries_label", {
+            fallbackKo: "도메인 진입",
+            fallbackEn: "Domain entry",
+          })}
+          :
+        </span>
+        <Link href="/admin/reports?domain=trade" className="text-signature underline" prefetch={false}>
+          Trade
+        </Link>
+        <Link href="/admin/community/reports" className="text-signature underline" prefetch={false}>
+          Community
+        </Link>
+        <Link href="/admin/store-reports" className="text-signature underline" prefetch={false}>
+          Delivery
+        </Link>
+        <Link href="/admin/chats/reported" className="text-signature underline" prefetch={false}>
+          Messenger
+        </Link>
+        <Link href="/admin/reports/log" className="text-sam-muted underline" prefetch={false}>
+          {safeT("admin_report_audit_ledger_link", {
+            fallbackKo: "제재 원장",
+            fallbackEn: "Sanction ledger",
+          })}
+        </Link>
+      </div>
       <AdminReportFilterBar filters={filters} onChange={setFilters} />
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">

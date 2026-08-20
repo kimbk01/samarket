@@ -187,6 +187,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
           reportId={report.id}
           targetUserId={report.targetUserId}
           targetLabel={report.targetTitle ?? report.targetId}
+          targetType={report.targetType}
           onActionSuccess={refreshDetail}
         />
       </AdminCard>

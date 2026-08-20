@@ -20,7 +20,7 @@ function communityStatusToReportStatus(s: string): ReportStatus {
   return "pending";
 }
 
-/** 통합 신고 목록용 — community_reports → Report 형태 */
+/** 통합 신고 목록용 — community_reports → Report 형태 (표시 병합 only) */
 export function mapCommunityReportsToReports(
   rows: CommunityReportAdminRow[],
   nicknameById: Record<string, string>
@@ -29,13 +29,14 @@ export function mapCommunityReportsToReports(
     const code = (r.reason_type ?? "").trim() || "etc";
     const label = REASON_LABELS[code] ?? code;
     const title = r.post_title?.trim() || r.target_id;
+    const authorId = (r.post_author_id ?? "").trim();
     return {
       id: r.id,
       reporterId: r.reporter_id,
       reporterNickname: nicknameById[r.reporter_id] ?? r.reporter_id,
       targetType: "community",
       targetId: r.target_id,
-      targetUserId: "",
+      targetUserId: authorId,
       targetTitle: r.target_type === "post" ? title : `${r.target_type} ${r.target_id.slice(0, 8)}…`,
       productTitle: r.target_type === "post" ? r.post_title ?? undefined : undefined,
       reasonCode: code,
@@ -44,6 +45,8 @@ export function mapCommunityReportsToReports(
       createdAt: r.created_at,
       status: communityStatusToReportStatus(r.status),
       reportSource: "community_feed",
+      /** Unified detail router still works; prefer community list deep context. */
+      adminDetailHref: `/admin/reports/${encodeURIComponent(r.id)}`,
     };
   });
 }

@@ -181,6 +181,18 @@ export const adminMessages = {
       "표시 큐만 합칩니다. 원장 테이블은 분리됩니다 — Trade=reports · Community=community_reports. 조치는 해당 도메인 상세 writer만 사용하세요. 계정 제재는 MCC/제재 원장과 별개입니다.",
     admin_report_domain_all_hint:
       "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
+    admin_report_domain_entries_label: "도메인 진입",
+    admin_report_audit_ledger_link: "제재 원장",
+    admin_report_action_mcc_only: "계정 제재는 MCC에서만 실행됩니다.",
+    admin_report_action_chat_no_ledger: "채팅 신고에는 회원 원장 제재를 넣을 수 없습니다.",
+    admin_report_authority_banner:
+      "콘텐츠 조치(기각/숨김)=Trade reports writer · 계정 정지·차단=MCC만 집행 · 경고/채팅제한=sanctions 원장(비집행).",
+    admin_report_content_actions_label: "콘텐츠 조치",
+    admin_report_ledger_actions_label: "원장 기록 (비집행)",
+    admin_report_account_actions_label: "계정 제재 (MCC)",
+    admin_report_open_mcc_sanction: "MCC에서 계정 제재 열기",
+    admin_report_mcc_target_missing:
+      "계정 제재용 회원 ID가 없습니다. 대상 회원/게시글을 확인하세요.",
     admin_report_filter_domain_aria: "신고 도메인",
     admin_report_filter_domain_all: "도메인: 전체(표시만)",
     admin_report_filter_domain_trade: "Trade · reports 테이블",
@@ -2526,6 +2538,18 @@ export const adminMessages = {
       "Display queue only. Tables stay separate — Trade=reports · Community=community_reports. Act only via that domain’s detail writer. Account sanctions are separate (MCC / sanction ledger).",
     admin_report_domain_all_hint:
       "Domain filter is All. Narrow to Trade or Community before acting.",
+    admin_report_domain_entries_label: "Domain entry",
+    admin_report_audit_ledger_link: "Sanction ledger",
+    admin_report_action_mcc_only: "Account sanctions run only in MCC.",
+    admin_report_action_chat_no_ledger: "Chat reports cannot write member ledger sanctions.",
+    admin_report_authority_banner:
+      "Content (reject/hide)=Trade reports writer · Account suspend/ban=MCC only · Warn/chat_ban=sanctions ledger (non-enforcing).",
+    admin_report_content_actions_label: "Content actions",
+    admin_report_ledger_actions_label: "Ledger notes (non-enforcing)",
+    admin_report_account_actions_label: "Account sanctions (MCC)",
+    admin_report_open_mcc_sanction: "Open account sanction in MCC",
+    admin_report_mcc_target_missing:
+      "No member id for MCC sanction. Check the target user/listing.",
     admin_report_filter_domain_aria: "Report domain",
     admin_report_filter_domain_all: "Domain: all (display only)",
     admin_report_filter_domain_trade: "Trade · reports table",

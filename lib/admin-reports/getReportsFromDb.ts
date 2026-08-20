@@ -109,13 +109,21 @@ export async function getReportsForAdminFromDb(): Promise<Report[]> {
       const ttRaw = (r.target_type ?? "").toLowerCase();
       const targetIdOut =
         ttRaw === "product" || ttRaw === "post" || ttRaw === "comment" ? productId : r.target_id;
+      const targetUserIdOut =
+        targetType === "product"
+          ? targetUserIdForProduct || ""
+          : targetType === "user"
+            ? r.target_id
+            : targetType === "chat"
+              ? ""
+              : "";
       return {
         id: r.id,
         reporterId: r.reporter_id,
         reporterNickname: nicknameById[r.reporter_id],
         targetType,
         targetId: targetIdOut,
-        targetUserId: targetType === "product" ? (targetUserIdForProduct || "") : r.target_id,
+        targetUserId: targetUserIdOut,
         targetTitle,
         productTitle: targetType === "product" ? productTitleById[productId] : undefined,
         reasonCode: r.reason_code,
@@ -193,6 +201,8 @@ export async function getReportByIdFromDb(reportId: string): Promise<Report | nu
       }
     } else if (targetType === "chat") {
       targetTitle = `채팅 ${r.target_id}`;
+      // Never treat room/message id as profiles.user_id (P1-2 P0 guard).
+      targetUserIdOut = "";
     }
 
     return {

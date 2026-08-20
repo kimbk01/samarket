@@ -22,7 +22,7 @@ type StoreReportRow = {
 };
 
 export function DeliveryReportsClient() {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [rows, setRows] = useState<StoreReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,13 +59,20 @@ export function DeliveryReportsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader titleKey="admin_do_reports_title" backHref="/admin/stores/orders" />
-      <p className="mb-3 sam-text-body-secondary leading-relaxed text-sam-muted">
-        <code className="rounded bg-sam-app px-1 sam-text-helper">store_reports</code>{" "}
+      <p
+        className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        data-testid="admin-delivery-report-authority-banner"
+      >
         {t("admin_do_reports_intro")}{" "}
+        <code className="rounded bg-sam-app px-1">store_reports</code>
+        {" · "}
+        {safeT("admin_do_reports_same_authority", {
+          fallbackKo: "동일 authority. 조치 콘솔:",
+          fallbackEn: "Same authority. Action console:",
+        })}{" "}
         <Link href="/admin/store-reports" className="font-medium text-signature underline">
           {t("admin_do_reports_console")}
-        </Link>{" "}
-        {t("admin_do_reports_console_suffix")}
+        </Link>
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
