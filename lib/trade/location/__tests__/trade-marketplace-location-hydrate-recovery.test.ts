@@ -13,6 +13,10 @@ import {
   rememberTradeListReturnHref,
 } from "@/lib/trade/location/trade-list-return-href";
 import { resolveTradeNationalLgu } from "@/lib/trade/location/national/resolve-trade-national-lgu";
+import { tradeMarketplaceCityScopeFromMasterAddress } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import { buildTradeLocationHref } from "@/lib/trade/location/trade-location-scope";
+import { marketplaceBrowseStateToGetPostsForHomeOptions, parseMarketplaceBrowseStateFromSearchParams } from "@/lib/trade/marketplace/marketplace-browse-state";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 
 describe("trade marketplace location hydrate recovery", () => {
   it("recoverable invalid tokens include hydrate failure raw values", () => {
@@ -175,5 +179,72 @@ describe("trade marketplace location hydrate recovery", () => {
         value: prev,
       });
     }
+  });
+
+  it("Pasay master maps to city locationAnchor + 전체 (no location=all)", () => {
+    const master = {
+      id: "addr-pasay",
+      userId: "u1",
+      labelType: "home",
+      linkedStoreId: null,
+      nickname: null,
+      recipientName: null,
+      phoneNumber: null,
+      countryCode: "PH",
+      countryName: "Philippines",
+      province: "Metro Manila",
+      cityMunicipality: "Pasay City",
+      barangay: null,
+      district: null,
+      streetAddress: null,
+      buildingName: null,
+      unitFloorRoom: null,
+      landmark: null,
+      latitude: null,
+      longitude: null,
+      placeId: null,
+      formattedAddress: null,
+      roadAddress: null,
+      detailAddress: null,
+      deliveryNote: null,
+      fullAddress: null,
+      neighborhoodName: null,
+      appRegionId: "manila",
+      appCityId: "m36",
+      useForLife: true,
+      useForTrade: true,
+      useForDelivery: true,
+      isDefaultMaster: true,
+      isDefaultLife: false,
+      isDefaultTrade: false,
+      isDefaultDelivery: false,
+      isActive: true,
+      sortOrder: 0,
+      lastUsedAt: null,
+      createdAt: "",
+      updatedAt: "",
+    } satisfies UserAddressDTO;
+
+    const scope = tradeMarketplaceCityScopeFromMasterAddress(master);
+    expect(scope).toEqual({
+      mode: "city",
+      lguId: "pasay",
+      canonicalId: "1381100000",
+      radiusKm: null,
+    });
+
+    const href = buildTradeLocationHref("/market", "", scope!);
+    const sp = new URLSearchParams(href.split("?")[1] ?? "");
+    expect(sp.get("location")).toBe("city");
+    expect(sp.get("lgu")).toBe("pasay");
+    expect(sp.get("radius")).toBeNull();
+    expect(sp.get("location")).not.toBe("all");
+
+    const opts = marketplaceBrowseStateToGetPostsForHomeOptions(
+      parseMarketplaceBrowseStateFromSearchParams(sp)
+    );
+    expect(opts.locationAll).toBe(false);
+    expect(opts.lguCityId).toBe("pasay");
+    expect(opts.radiusKm).toBeNull();
   });
 });

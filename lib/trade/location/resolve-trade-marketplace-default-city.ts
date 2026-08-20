@@ -1,17 +1,39 @@
 /**
  * Address SSOT → Marketplace CITY projection (no second address book).
- * Browser-only (fetch).
+ * Browser-only (fetch). LGU mapping uses the existing Address → product City table.
  */
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { pickUserAddressMasterRow } from "@/lib/addresses/user-address-master-ssot";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { collectMasterCityMunicipalityCandidatesForNationalLgu } from "@/lib/trade/location/resolve-master-city-for-national-lgu";
+import { resolveTradeLguCityFromInternal } from "@/lib/trade/location/trade-lgu-city-rollup";
 import {
   buildTradeCityScopeFromCanonical,
   rememberTradeLguDisplayLabel,
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
+
+function cityScopeFromProductLguId(
+  lguId: string,
+  displayName: string
+): Extract<TradeLocationScope, { mode: "city" }> | null {
+  const scope = buildTradeCityScopeFromCanonical(lguId, null);
+  if (!scope) return null;
+  if (displayName.trim()) rememberTradeLguDisplayLabel(scope.canonicalId, displayName.trim());
+  return scope;
+}
+
+/** Master row → CITY + distance 전체 (radius omitted). Sync; no session, no HTTP. */
+export function tradeMarketplaceCityScopeFromMasterAddress(
+  master: UserAddressDTO
+): Extract<TradeLocationScope, { mode: "city" }> | null {
+  const appLoc = mapUserAddressToAppLocation(master);
+  if (!appLoc) return null;
+  const lgu = resolveTradeLguCityFromInternal(appLoc.regionId, appLoc.cityId);
+  if (!lgu) return null;
+  return cityScopeFromProductLguId(lgu.id, lgu.displayName);
+}
 
 async function fetchNationalLguCityScope(
   cityMunicipality: string,
@@ -45,13 +67,15 @@ async function fetchNationalLguCityScope(
       json.resolution.lgu.displayName.trim()) ||
     "";
   if (!canonicalId) return null;
-  if (displayName) rememberTradeLguDisplayLabel(canonicalId, displayName);
-  return buildTradeCityScopeFromCanonical(canonicalId, null);
+  return cityScopeFromProductLguId(canonicalId, displayName) ?? buildTradeCityScopeFromCanonical(canonicalId, null);
 }
 
 async function resolveNationalLguCityScopeFromMaster(
   master: UserAddressDTO
 ): Promise<Extract<TradeLocationScope, { mode: "city" }> | null> {
+  const fromTable = tradeMarketplaceCityScopeFromMasterAddress(master);
+  if (fromTable) return fromTable;
+
   const candidates = collectMasterCityMunicipalityCandidatesForNationalLgu(master);
   for (const fields of candidates) {
     const withProvince = await fetchNationalLguCityScope(
@@ -67,30 +91,16 @@ async function resolveNationalLguCityScopeFromMaster(
   return null;
 }
 
-async function ensureViewerReadyForAddressDefaults(): Promise<boolean> {
-  if (typeof window === "undefined") return true;
-  if (getCurrentUser()?.id?.trim()) return true;
-  const uid = (await getCurrentUserIdForDb())?.trim();
-  return Boolean(uid);
-}
-
 /**
- * UNSET URL hydrate — master CITY + distance 전체 (no radius).
- * No master → ALL. Master present but LGU map fail → ALL (47002b90e / reset SSOT parity).
- * Session/defaults not ready → UNSET (no URL write; boot retry).
+ * UNSET URL hydrate — current address-book master is authority.
+ * CITY + distance 전체. No master → ALL. Do not write ALL while master exists and maps.
+ * Session pending / defaults fail → UNSET (no URL write).
  */
-export async function resolveTradeMarketplaceMasterHydrateScope(opts?: {
-  forceAddressRefresh?: boolean;
-}): Promise<TradeLocationScope> {
+export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<TradeLocationScope> {
   try {
-    if (!(await ensureViewerReadyForAddressDefaults())) {
-      return { mode: "unset" };
-    }
-
     const snapshot = await fetchAddressDefaultsSnapshot({
       caller: "trade_location_scope",
       reason: "trade_location_seed",
-      force: opts?.forceAddressRefresh === true,
     });
 
     if (!snapshot?.ok) {

@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
+import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { pickUserAddressMasterRow } from "@/lib/addresses/user-address-master-ssot";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { isTradeBrowseLocationPath } from "@/lib/trade/location/trade-browse-location-paths";
 import { writeTradeBrowseCommittedScope } from "@/lib/trade/location/trade-browse-committed-session";
@@ -15,18 +17,27 @@ import {
 } from "@/lib/trade/location/trade-location-scope";
 import { resolveTradeMarketplaceMasterAddressResetHref } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 import { applyMarketplaceBrowseResetClientEffects } from "@/lib/trade/marketplace/marketplace-browse-reset-client-effects";
-import { resolveTradeMarketplaceMasterHydrateScope } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
+import {
+  resolveTradeMarketplaceMasterHydrateScope,
+  tradeMarketplaceCityScopeFromMasterAddress,
+} from "@/lib/trade/location/resolve-trade-marketplace-default-city";
 
 let sharedHydrateFlight: Promise<TradeLocationScope> | null = null;
 
-function runSharedMarketplaceLocationHydrate(forceAddressRefresh: boolean): Promise<TradeLocationScope> {
+function runSharedMarketplaceLocationHydrate(): Promise<TradeLocationScope> {
   if (sharedHydrateFlight) return sharedHydrateFlight;
-  sharedHydrateFlight = resolveTradeMarketplaceMasterHydrateScope({
-    forceAddressRefresh,
-  }).finally(() => {
+  sharedHydrateFlight = resolveTradeMarketplaceMasterHydrateScope().finally(() => {
     sharedHydrateFlight = null;
   });
   return sharedHydrateFlight;
+}
+
+function peekMasterCityScopeFromAddressCache(): Extract<TradeLocationScope, { mode: "city" }> | null {
+  const snapshot = peekFreshAddressDefaultsSnapshot();
+  if (!snapshot?.ok) return null;
+  const master = pickUserAddressMasterRow(snapshot.defaults);
+  if (!master) return null;
+  return tradeMarketplaceCityScopeFromMasterAddress(master);
 }
 
 function scopeNeedsMarketplaceLocationHydrate(scope: TradeLocationScope): boolean {
@@ -34,10 +45,8 @@ function scopeNeedsMarketplaceLocationHydrate(scope: TradeLocationScope): boolea
 }
 
 /**
- * Missing URL location is UNSET. Hydrate to master CITY + distance 전체 (no radius).
- * Fallback: explicit ALL when no master or master LGU map fails (47002b90e parity).
- * Recoverable invalid URLs from older builds re-seed; session pending stays UNSET.
- * Master address change resets location + market filters to the same default.
+ * /market unset → current address-book master CITY + distance 전체.
+ * Do not wait on reset, session location, or ALL-first. Master id change still resets.
  */
 export function useTradeMarketplaceLocationHydrate(): {
   scope: TradeLocationScope;
@@ -66,6 +75,28 @@ export function useTradeMarketplaceLocationHydrate(): {
   const runHydrate = useCallback(async () => {
     if (onLocationStack) return;
 
+    if (scopeNeedsMarketplaceLocationHydrate(scope)) {
+      const cachedCity = peekMasterCityScopeFromAddressCache();
+      const runId = ++runIdRef.current;
+      setHydrating(true);
+      try {
+        const next = cachedCity ?? (await runSharedMarketplaceLocationHydrate());
+        if (runId !== runIdRef.current) return;
+        if (next.mode === "unset") return;
+
+        writeTradeBrowseCommittedScope(next);
+        lastCommittedScopeRef.current = next;
+
+        if (tradeLocationScopeEquals(scope, next)) return;
+
+        const href = buildTradeLocationHref(pathname || "/market", searchKey, next);
+        router.replace(href, { scroll: false });
+      } finally {
+        if (runId === runIdRef.current) setHydrating(false);
+      }
+      return;
+    }
+
     const resetHref = await resolveTradeMarketplaceMasterAddressResetHref(
       pathname || "/market",
       searchKey
@@ -78,29 +109,6 @@ export function useTradeMarketplaceLocationHydrate(): {
 
     if (scope.mode === "city" || scope.mode === "all") {
       writeTradeBrowseCommittedScope(scope);
-      return;
-    }
-    if (!scopeNeedsMarketplaceLocationHydrate(scope)) return;
-
-    const runId = ++runIdRef.current;
-    setHydrating(true);
-    try {
-      const next = await runSharedMarketplaceLocationHydrate(
-        isRecoverableTradeLocationHydrateInvalid(scope) || scope.mode === "unset"
-      );
-      if (runId !== runIdRef.current) return;
-
-      if (next.mode === "unset") return;
-
-      writeTradeBrowseCommittedScope(next);
-      lastCommittedScopeRef.current = next;
-
-      if (tradeLocationScopeEquals(scope, next)) return;
-
-      const href = buildTradeLocationHref(pathname || "/market", searchKey, next);
-      router.replace(href, { scroll: false });
-    } finally {
-      if (runId === runIdRef.current) setHydrating(false);
     }
   }, [onLocationStack, pathname, router, scope, searchKey]);
 
@@ -124,7 +132,7 @@ export function useTradeMarketplaceLocationHydrate(): {
     setHydrating(scopeNeedsMarketplaceLocationHydrate(scope));
   }, [scope]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void runHydrate();
   }, [runHydrate]);
 

@@ -151,12 +151,17 @@ describe("marketplace browse SSOT wiring contract", () => {
     expect(sp.get("priceMin")).toBe("500");
   });
 
-  it("L5 — hydrate falls back to ALL when master LGU map fails (47002b90e parity)", () => {
+  it("L5 — unset hydrate uses address-book master CITY before reset; no force refresh", () => {
     const hydrate = read("lib/trade/location/use-trade-marketplace-location-hydrate.ts");
     expect(hydrate).toContain("resolveTradeMarketplaceMasterHydrateScope");
-    expect(hydrate).toContain("isRecoverableTradeLocationHydrateInvalid");
+    expect(hydrate).toContain("tradeMarketplaceCityScopeFromMasterAddress");
+    const seedAt = hydrate.indexOf("peekMasterCityScopeFromAddressCache");
+    const resetCallAt = hydrate.lastIndexOf("resolveTradeMarketplaceMasterAddressResetHref");
+    expect(seedAt).toBeGreaterThan(0);
+    expect(seedAt).toBeLessThan(resetCallAt);
+    expect(hydrate).not.toContain("forceAddressRefresh");
     const resolver = read("lib/trade/location/resolve-trade-marketplace-default-city.ts");
-    expect(resolver).toContain("return city ?? { mode: \"all\" }");
+    expect(resolver).toContain("resolveTradeLguCityFromInternal");
     expect(resolver).not.toContain("MASTER_LGU_UNRESOLVED");
   });
 
