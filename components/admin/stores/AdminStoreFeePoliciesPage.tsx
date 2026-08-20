@@ -7,7 +7,7 @@ import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-over
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-type Row = {
+type PolicyRow = {
   id: string;
   policy_name: string;
   store_id: string | null;
@@ -23,38 +23,90 @@ type Row = {
   priority: number;
   memo?: string | null;
   is_archived?: boolean;
-  archived_at?: string | null;
-  archived_by?: string | null;
-  archive_reason?: string | null;
-  created_at?: string;
 };
 
-type StoreRow = { id: string; store_name?: string | null; slug?: string | null };
-type CategoryRow = { id: string; name: string; slug: string; is_active: boolean };
-type TopicRow = {
-  id: string;
+type RateLite = {
+  fee_percent: number | null;
+  fixed_fee: number | null;
+  policy_id: string | null;
+  policy_name: string | null;
+};
+
+type OverviewStore = {
+  store_id: string;
+  store_name: string;
+  slug: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  topic_id: string | null;
+  topic_name: string | null;
+  ladder: {
+    platform: RateLite;
+    category: RateLite;
+    topic: RateLite;
+    store: RateLite;
+  };
+  effective: {
+    fee_percent: number;
+    fixed_fee: number;
+    scope: "store" | "topic" | "category" | "default" | "missing_policy";
+    policy_id: string | null;
+    policy_name: string;
+    missing: boolean;
+  };
+};
+
+type OverviewCategory = {
+  category_id: string;
   name: string;
   slug: string;
-  store_category_id: string;
-  is_active: boolean;
+  store_count: number;
+  policy: { id: string; fee_percent: number; fixed_fee: number; policy_name: string } | null;
 };
 
-function fmtMoney(n: number) {
-  const v = Math.round(Number(n) || 0);
-  return `${v.toLocaleString("en-PH")} PHP`;
-}
+type OverviewTopic = {
+  topic_id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  store_count: number;
+  policy: { id: string; fee_percent: number; fixed_fee: number; policy_name: string } | null;
+};
 
-function fmtPercent(n: number) {
+type Overview = {
+  summary: {
+    stores_total: number;
+    applied_default: number;
+    applied_category: number;
+    applied_topic: number;
+    applied_store: number;
+    missing_policy: number;
+    reserved_future: number;
+    inactive_policies: number;
+  };
+  platform_default: {
+    id: string;
+    policy_name: string;
+    fee_percent: number;
+    fixed_fee: number;
+    delivery_fee_mode: string;
+    delivery_fee_percent: number;
+  } | null;
+  categories: OverviewCategory[];
+  topics: OverviewTopic[];
+  stores: OverviewStore[];
+};
+
+type ApplyTarget =
+  | { kind: "default"; policyId: string | null }
+  | { kind: "category"; categoryId: string; name: string; policyId: string | null }
+  | { kind: "topic"; topicId: string; name: string; policyId: string | null }
+  | { kind: "store"; storeId: string; name: string; policyId: string | null };
+
+function fmtPercent(n: number | null | undefined) {
   const v = Number(n);
-  if (!Number.isFinite(v)) return "0%";
-  return `${v.toFixed(2)}%`;
-}
-
-function scopeLabelKey(r: Row): MessageKey {
-  if (r.store_id) return "admin_stores_fee_scope_store";
-  if (r.topic_id) return "admin_stores_fee_scope_topic";
-  if (r.category_id) return "admin_stores_fee_scope_category";
-  return "admin_stores_fee_scope_default";
+  if (!Number.isFinite(v)) return "—";
+  return `${v.toFixed(1)}%`;
 }
 
 function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
@@ -110,62 +162,6 @@ function feePolicyErrorMessage(
   return c || t("admin_stores_fee_err_generic");
 }
 
-function formatArchivedBy(id: string | null | undefined): string {
-  const s = typeof id === "string" ? id.trim() : "";
-  return s || "—";
-}
-
-function targetScopeDescription(
-  r: Row,
-  stores: StoreRow[],
-  categories: CategoryRow[],
-  topics: TopicRow[],
-  t: (key: MessageKey, params?: Record<string, string | number>) => string
-): string {
-  if (r.store_id) {
-    const s = stores.find((x) => x.id === r.store_id);
-    const tail = s
-      ? `${String(s.store_name ?? t("common_store"))}${s.slug ? ` /${s.slug}` : ""}`
-      : r.store_id;
-    if (r.topic_id) {
-      const tp = topics.find((x) => x.id === r.topic_id);
-      const tt = tp ? `${tp.name} (${tp.slug})` : r.topic_id;
-      return t("admin_stores_fee_scope_store_topic_pivot", { tail, topic: tt });
-    }
-    if (r.category_id) {
-      const c = categories.find((x) => x.id === r.category_id);
-      const ct = c ? `${c.name} (${c.slug})` : r.category_id;
-      return t("admin_stores_fee_scope_store_pivot", { tail, category: ct });
-    }
-    return t("admin_stores_fee_scope_store_label", { tail });
-  }
-  if (r.topic_id) {
-    const tp = topics.find((x) => x.id === r.topic_id);
-    const c = categories.find((x) => x.id === (tp?.store_category_id ?? r.category_id ?? ""));
-    const primary = c ? `${c.name}` : "";
-    const secondary = tp ? `${tp.name} (${tp.slug})` : r.topic_id;
-    return t("admin_stores_fee_scope_topic_label", {
-      name: primary ? `${primary} > ${secondary}` : secondary,
-    });
-  }
-  if (r.category_id) {
-    const c = categories.find((x) => x.id === r.category_id);
-    return c
-      ? t("admin_stores_fee_scope_category_label", { name: `${c.name} (${c.slug})` })
-      : t("admin_stores_fee_scope_category_label", { name: r.category_id });
-  }
-  return t("admin_stores_fee_scope_global");
-}
-
-function feeSummary(r: Row): string {
-  return `${fmtPercent(r.fee_percent)} + ${fmtMoney(r.fixed_fee)}`;
-}
-
-function isoToDateInput(iso: string | null | undefined): string {
-  const s = typeof iso === "string" ? iso.trim() : "";
-  return s ? s.slice(0, 10) : "";
-}
-
 function dateInputToIsoRangeStart(d: string): string | null {
   const t = d.trim();
   if (!t) return null;
@@ -182,118 +178,83 @@ function dateInputToIsoRangeEnd(d: string): string | null {
   return new Date(ms).toISOString();
 }
 
+function scopePriority(kind: ApplyTarget["kind"]): number {
+  if (kind === "store") return 1;
+  if (kind === "topic") return 50;
+  if (kind === "category") return 75;
+  return 100;
+}
+
+function reasonKey(scope: OverviewStore["effective"]["scope"]): MessageKey {
+  if (scope === "store") return "admin_stores_fee_reason_store";
+  if (scope === "topic") return "admin_stores_fee_reason_topic";
+  if (scope === "category") return "admin_stores_fee_reason_category";
+  if (scope === "missing_policy") return "admin_stores_fee_reason_missing";
+  return "admin_stores_fee_reason_default";
+}
+
 export function AdminStoreFeePoliciesPage() {
   const { t } = useI18n();
-  const [rows, setRows] = useState<Row[]>([]);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [legacyRows, setLegacyRows] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [storeQuery, setStoreQuery] = useState("");
+  const [detailStoreId, setDetailStoreId] = useState<string | null>(null);
 
-  const [archiveModalRow, setArchiveModalRow] = useState<Row | null>(null);
-  const [archiveReasonDraft, setArchiveReasonDraft] = useState("");
-  const [archiveModalError, setArchiveModalError] = useState<string | null>(null);
-
-  const [restoreModalRow, setRestoreModalRow] = useState<Row | null>(null);
-  const [restoreModalError, setRestoreModalError] = useState<string | null>(null);
-
-  const [stores, setStores] = useState<StoreRow[]>([]);
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [topics, setTopics] = useState<TopicRow[]>([]);
-  const [refLoading, setRefLoading] = useState(false);
-
-  const [mode, setMode] = useState<"create" | "edit">("create");
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const [policyType, setPolicyType] = useState<"default" | "category" | "topic" | "store">("default");
-  const [name, setName] = useState("");
+  const [applyTarget, setApplyTarget] = useState<ApplyTarget | null>(null);
   const [feePercent, setFeePercent] = useState("");
   const [fixedFee, setFixedFee] = useState("0");
   const [deliveryMode, setDeliveryMode] = useState<"none" | "percent">("none");
   const [deliveryPercent, setDeliveryPercent] = useState("0");
-  const [priority, setPriority] = useState("100");
+  const [timing, setTiming] = useState<"now" | "schedule">("now");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
-  const [isActive, setIsActive] = useState(true);
   const [memo, setMemo] = useState("");
 
-  const [storeQuery, setStoreQuery] = useState("");
-  const [selectedStoreId, setSelectedStoreId] = useState("");
-  const [categoryQuery, setCategoryQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [topicQuery, setTopicQuery] = useState("");
-  const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [archiveModalRow, setArchiveModalRow] = useState<PolicyRow | null>(null);
+  const [archiveReasonDraft, setArchiveReasonDraft] = useState("");
+  const [archiveModalError, setArchiveModalError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const qs = new URLSearchParams();
-      qs.set("active_only", "0");
-      if (includeArchived) qs.set("include_archived", "1");
-      const res = await fetch(`/api/admin/store-fee-policies?${qs.toString()}`, { credentials: "include" });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; policies?: Row[] };
-      if (!json.ok) {
-        setRows([]);
-        setError(feePolicyApiErrorCode(json.error, res.status));
+      const [oRes, pRes] = await Promise.all([
+        fetch("/api/admin/store-fee-policies/overview", { credentials: "include" }),
+        fetch("/api/admin/store-fee-policies?active_only=0&include_archived=1", {
+          credentials: "include",
+        }),
+      ]);
+      const oJson = (await oRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      } & Partial<Overview>;
+      const pJson = (await pRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        policies?: PolicyRow[];
+      };
+      if (!oJson.ok) {
+        setOverview(null);
+        setError(feePolicyApiErrorCode(oJson.error, oRes.status));
         return;
       }
-      setRows(Array.isArray(json.policies) ? json.policies : []);
+      setOverview({
+        summary: oJson.summary!,
+        platform_default: oJson.platform_default ?? null,
+        categories: oJson.categories ?? [],
+        topics: oJson.topics ?? [],
+        stores: oJson.stores ?? [],
+      });
+      if (pJson.ok) setLegacyRows(Array.isArray(pJson.policies) ? pJson.policies : []);
     } catch {
-      setRows([]);
+      setOverview(null);
       setError("network_error");
     } finally {
       setLoading(false);
-    }
-  }, [includeArchived]);
-
-  const loadRefs = useCallback(async () => {
-    setRefLoading(true);
-    try {
-      const [sRes, tRes] = await Promise.all([
-        fetch("/api/admin/stores?status=all", { credentials: "include" }),
-        fetch("/api/admin/stores/taxonomy", { credentials: "include" }),
-      ]);
-      const sJson = (await sRes.json().catch(() => ({}))) as { ok?: boolean; stores?: any[] };
-      const tJson = (await tRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        categories?: any[];
-        topics?: any[];
-      };
-      setStores(
-        Array.isArray(sJson.stores)
-          ? sJson.stores.map((r) => ({
-              id: String(r.id),
-              store_name: (r.store_name ?? null) as any,
-              slug: (r.slug ?? null) as any,
-            }))
-          : []
-      );
-      setCategories(
-        Array.isArray(tJson.categories)
-          ? tJson.categories.map((c) => ({
-              id: String(c.id),
-              name: String(c.name ?? ""),
-              slug: String(c.slug ?? ""),
-              is_active: Boolean(c.is_active),
-            }))
-          : []
-      );
-      setTopics(
-        Array.isArray(tJson.topics)
-          ? tJson.topics.map((tp) => ({
-              id: String(tp.id),
-              name: String(tp.name ?? ""),
-              slug: String(tp.slug ?? ""),
-              store_category_id: String(tp.store_category_id ?? ""),
-              is_active: Boolean(tp.is_active),
-            }))
-          : []
-      );
-    } catch {
-      // optional
-    } finally {
-      setRefLoading(false);
     }
   }, []);
 
@@ -301,178 +262,97 @@ export function AdminStoreFeePoliciesPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    void loadRefs();
-  }, [loadRefs]);
-
-  const effectiveDefaults = useMemo(() => {
-    const base = rows.find(
-      (r) => r.is_active && !r.is_archived && !r.store_id && !r.category_id && !r.topic_id
-    );
-    return base ?? null;
-  }, [rows]);
-
-  const resetFormForCreate = useCallback(() => {
-    setMode("create");
-    setEditingId(null);
-    setPolicyType("default");
-    setName("");
-    setFeePercent(effectiveDefaults != null ? String(effectiveDefaults.fee_percent) : "");
+  const openApply = useCallback((target: ApplyTarget, seedPercent?: number) => {
+    setApplyTarget(target);
+    setFeePercent(seedPercent != null && Number.isFinite(seedPercent) ? String(seedPercent) : "");
     setFixedFee("0");
     setDeliveryMode("none");
     setDeliveryPercent("0");
-    setPriority("100");
+    setTiming("now");
     setStartsAt("");
     setEndsAt("");
-    setIsActive(true);
     setMemo("");
-    setStoreQuery("");
-    setSelectedStoreId("");
-    setCategoryQuery("");
-    setSelectedCategoryId("");
-    setTopicQuery("");
-    setSelectedTopicId("");
-  }, [effectiveDefaults]);
-
-  const startEdit = useCallback((r: Row) => {
-    setMode("edit");
-    setEditingId(r.id);
-    setPolicyType(
-      r.store_id ? "store" : r.topic_id ? "topic" : r.category_id ? "category" : "default"
-    );
-    setName(r.policy_name ?? "");
-    setFeePercent(String(r.fee_percent ?? 0));
-    setFixedFee(String(r.fixed_fee ?? 0));
-    setDeliveryMode(r.delivery_fee_mode === "percent" ? "percent" : "none");
-    setDeliveryPercent(String(r.delivery_fee_percent ?? 0));
-    setPriority(String(r.priority ?? 100));
-    setStartsAt(isoToDateInput(r.starts_at));
-    setEndsAt(isoToDateInput(r.ends_at));
-    setIsActive(Boolean(r.is_active));
-    setMemo(typeof r.memo === "string" ? r.memo : "");
-    setSelectedStoreId(r.store_id ?? "");
-    setSelectedCategoryId(r.category_id ?? "");
-    setSelectedTopicId(r.topic_id ?? "");
+    setError(null);
   }, []);
 
-  const storeOptions = useMemo(() => {
-    const q = storeQuery.trim().toLowerCase();
-    if (!q) return stores.slice(0, 25);
-    return stores
-      .filter(
-        (s) =>
-          String(s.store_name ?? "").toLowerCase().includes(q) ||
-          String(s.slug ?? "").toLowerCase().includes(q) ||
-          String(s.id).includes(q)
-      )
-      .slice(0, 25);
-  }, [storeQuery, stores]);
+  const closeApply = useCallback(() => {
+    if (busy) return;
+    setApplyTarget(null);
+  }, [busy]);
 
-  const categoryOptions = useMemo(() => {
-    const q = categoryQuery.trim().toLowerCase();
-    if (!q) return categories.slice(0, 25);
-    return categories
-      .filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q) || c.id.includes(q))
-      .slice(0, 25);
-  }, [categories, categoryQuery]);
-
-  const topicOptions = useMemo(() => {
-    const q = topicQuery.trim().toLowerCase();
-    const parent = selectedCategoryId.trim();
-    const base = parent ? topics.filter((tp) => tp.store_category_id === parent) : topics;
-    if (!q) return base.slice(0, 40);
-    return base
-      .filter(
-        (tp) =>
-          tp.name.toLowerCase().includes(q) || tp.slug.toLowerCase().includes(q) || tp.id.includes(q)
-      )
-      .slice(0, 40);
-  }, [selectedCategoryId, topicQuery, topics]);
-
-  const submit = useCallback(async () => {
-    const n = name.trim();
-    if (!n) return;
+  const submitApply = useCallback(async () => {
+    if (!applyTarget) return;
     if (!Number.isFinite(Number(feePercent))) return;
     setBusy(true);
     setError(null);
 
+    const autoName =
+      applyTarget.kind === "default"
+        ? "Platform Default"
+        : applyTarget.kind === "category"
+          ? applyTarget.name
+          : applyTarget.kind === "topic"
+            ? applyTarget.name
+            : applyTarget.name;
+
     const body: Record<string, unknown> = {
-      policy_name: n,
+      policy_name: autoName.slice(0, 80),
       fee_percent: Number(feePercent),
-      fixed_fee: Number(fixedFee),
+      fixed_fee: Math.max(0, Math.round(Number(fixedFee) || 0)),
       delivery_fee_mode: deliveryMode,
-      delivery_fee_percent: Number(deliveryPercent),
-      is_active: isActive,
-      priority: Number(priority),
-      starts_at: dateInputToIsoRangeStart(startsAt),
-      ends_at: dateInputToIsoRangeEnd(endsAt),
-      memo: memo.trim() ? memo.trim() : null,
+      delivery_fee_percent: Number(deliveryPercent) || 0,
+      is_active: true,
+      priority: scopePriority(applyTarget.kind),
+      starts_at: timing === "schedule" ? dateInputToIsoRangeStart(startsAt) : null,
+      ends_at: timing === "schedule" ? dateInputToIsoRangeEnd(endsAt) : null,
+      memo: memo.trim() ? memo.trim().slice(0, 1000) : null,
+      store_id: null,
+      category_id: null,
+      topic_id: null,
     };
 
-    if (policyType === "default") {
-      body.store_id = null;
-      body.category_id = null;
-      body.topic_id = null;
-    } else if (policyType === "category") {
-      body.store_id = null;
-      body.category_id = selectedCategoryId || null;
-      body.topic_id = null;
-    } else if (policyType === "topic") {
-      body.store_id = null;
-      body.topic_id = selectedTopicId || null;
-      body.category_id = selectedCategoryId || null;
-    } else {
-      body.store_id = selectedStoreId || null;
-      body.category_id = selectedCategoryId || null;
-      body.topic_id = selectedTopicId || null;
-    }
+    if (applyTarget.kind === "category") body.category_id = applyTarget.categoryId;
+    if (applyTarget.kind === "topic") body.topic_id = applyTarget.topicId;
+    if (applyTarget.kind === "store") body.store_id = applyTarget.storeId;
 
     try {
-      const res =
-        mode === "create"
-          ? await fetch("/api/admin/store-fee-policies", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            })
-          : await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(editingId ?? "")}`, {
-              method: "PATCH",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            });
+      const editingId = applyTarget.policyId;
+      const res = editingId
+        ? await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(editingId)}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch("/api/admin/store-fee-policies", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!json.ok) {
         setError(feePolicyApiErrorCode(json.error, res.status));
         return;
       }
+      setApplyTarget(null);
       await load();
-      resetFormForCreate();
     } catch {
       setError("network_error");
     } finally {
       setBusy(false);
     }
   }, [
+    applyTarget,
     deliveryMode,
     deliveryPercent,
-    editingId,
-    endsAt,
     feePercent,
     fixedFee,
-    isActive,
     load,
     memo,
-    mode,
-    name,
-    policyType,
-    priority,
-    resetFormForCreate,
-    selectedCategoryId,
-    selectedStoreId,
-    selectedTopicId,
     startsAt,
+    endsAt,
+    timing,
   ]);
 
   const deactivate = useCallback(
@@ -501,27 +381,11 @@ export function AdminStoreFeePoliciesPage() {
     [load]
   );
 
-  const anyModalOpen = archiveModalRow !== null || restoreModalRow !== null;
-
-  const closeArchiveModal = useCallback((force?: boolean) => {
-    if (!force && busy) return;
-    setArchiveModalRow(null);
-    setArchiveReasonDraft("");
-    setArchiveModalError(null);
-  }, [busy]);
-
-  const closeRestoreModal = useCallback((force?: boolean) => {
-    if (!force && busy) return;
-    setRestoreModalRow(null);
-    setRestoreModalError(null);
-  }, [busy]);
-
   const confirmArchive = useCallback(async () => {
     const row = archiveModalRow;
     if (!row) return;
     setBusy(true);
     setArchiveModalError(null);
-    setError(null);
     try {
       const reason = archiveReasonDraft.trim();
       const res = await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(row.id)}`, {
@@ -535,41 +399,38 @@ export function AdminStoreFeePoliciesPage() {
         setArchiveModalError(feePolicyErrorMessage(t, feePolicyApiErrorCode(json.error, res.status)));
         return;
       }
-      closeArchiveModal(true);
+      setArchiveModalRow(null);
+      setArchiveReasonDraft("");
       await load();
     } catch {
       setArchiveModalError(feePolicyErrorMessage(t, "network_error"));
     } finally {
       setBusy(false);
     }
-  }, [archiveModalRow, archiveReasonDraft, closeArchiveModal, load, t]);
+  }, [archiveModalRow, archiveReasonDraft, load, t]);
 
-  const confirmRestore = useCallback(async () => {
-    const row = restoreModalRow;
-    if (!row) return;
-    setBusy(true);
-    setRestoreModalError(null);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/store-fee-policies/${encodeURIComponent(row.id)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_archived: false }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!json.ok) {
-        setRestoreModalError(feePolicyErrorMessage(t, feePolicyApiErrorCode(json.error, res.status)));
-        return;
-      }
-      closeRestoreModal(true);
-      await load();
-    } catch {
-      setRestoreModalError(feePolicyErrorMessage(t, "network_error"));
-    } finally {
-      setBusy(false);
-    }
-  }, [closeRestoreModal, load, restoreModalRow, t]);
+  const filteredStores = useMemo(() => {
+    const list = overview?.stores ?? [];
+    const q = storeQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (s) =>
+        s.store_name.toLowerCase().includes(q) ||
+        (s.slug ?? "").toLowerCase().includes(q) ||
+        (s.category_name ?? "").toLowerCase().includes(q) ||
+        (s.topic_name ?? "").toLowerCase().includes(q)
+    );
+  }, [overview?.stores, storeQuery]);
+
+  const detailStore = useMemo(
+    () => overview?.stores.find((s) => s.store_id === detailStoreId) ?? null,
+    [detailStoreId, overview?.stores]
+  );
+
+  const inactiveLegacy = useMemo(
+    () => legacyRows.filter((r) => !r.is_active || r.is_archived),
+    [legacyRows]
+  );
 
   return (
     <div className="space-y-4">
@@ -582,426 +443,292 @@ export function AdminStoreFeePoliciesPage() {
         </p>
       ) : null}
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-sam-fg">
-          {mode === "create" ? t("admin_stores_fee_form_create") : t("admin_stores_fee_form_edit")}
-        </h2>
-        <p className="mt-1 sam-text-helper text-sam-muted">
-          {t("admin_stores_fee_form_hint")}
-          {effectiveDefaults ? (
-            <span className="ml-1 text-sam-muted">
-              {t("admin_stores_fee_form_current_default", {
-                name: effectiveDefaults.policy_name,
-                percent: fmtPercent(effectiveDefaults.fee_percent),
-                fixed: fmtMoney(effectiveDefaults.fixed_fee),
-              })}
-            </span>
-          ) : null}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <select
-            className="rounded border border-sam-border px-2 py-1.5 text-sm"
-            value={policyType}
-            onChange={(e) => setPolicyType(e.target.value as any)}
-          >
-            <option value="default">{t("admin_stores_fee_scope_default")}</option>
-            <option value="category">{t("admin_stores_fee_scope_category")}</option>
-            <option value="topic">{t("admin_stores_fee_scope_topic")}</option>
-            <option value="store">{t("admin_stores_fee_scope_store")}</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm text-sam-fg">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            {t("common_active")}
-          </label>
-          <input
-            type="date"
-            className="rounded border border-sam-border px-2 py-1.5 text-sm"
-            value={startsAt}
-            onChange={(e) => setStartsAt(e.target.value)}
-          />
-          <input
-            type="date"
-            className="rounded border border-sam-border px-2 py-1.5 text-sm"
-            value={endsAt}
-            onChange={(e) => setEndsAt(e.target.value)}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            className="w-56 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder={t("admin_stores_fee_ph_name")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder={t("admin_stores_fee_ph_percent")}
-            value={feePercent}
-            onChange={(e) => setFeePercent(e.target.value)}
-            inputMode="decimal"
-          />
-          <input
-            className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder={t("admin_stores_fee_ph_fixed")}
-            value={fixedFee}
-            onChange={(e) => setFixedFee(e.target.value)}
-            inputMode="numeric"
-          />
-          <select
-            className="rounded border border-sam-border px-2 py-1.5 text-sm"
-            value={deliveryMode}
-            onChange={(e) => setDeliveryMode(e.target.value as any)}
-          >
-            <option value="none">{t("admin_stores_fee_delivery_none")}</option>
-            <option value="percent">{t("admin_stores_fee_delivery_percent")}</option>
-          </select>
-          {deliveryMode === "percent" ? (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={loading || busy}
+          onClick={() => void load()}
+          className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sm disabled:opacity-40"
+        >
+          {t("admin_stores_fee_refresh")}
+        </button>
+      </div>
+
+      {loading && !overview ? (
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+      ) : overview ? (
+        <>
+          {/* Summary */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_summary_title")}</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {(
+                [
+                  ["admin_stores_fee_summary_stores", overview.summary.stores_total],
+                  ["admin_stores_fee_summary_default", overview.summary.applied_default],
+                  ["admin_stores_fee_summary_category", overview.summary.applied_category],
+                  ["admin_stores_fee_summary_topic", overview.summary.applied_topic],
+                  ["admin_stores_fee_summary_store", overview.summary.applied_store],
+                  ["admin_stores_fee_summary_missing", overview.summary.missing_policy],
+                ] as const
+              ).map(([key, val]) => (
+                <div key={key} className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">{t(key)}</p>
+                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-sam-fg">{val}</p>
+                </div>
+              ))}
+            </div>
+            {overview.summary.reserved_future > 0 ? (
+              <p className="mt-2 sam-text-xxs text-sam-muted">
+                {t("admin_stores_fee_summary_reserved")}: {overview.summary.reserved_future}
+              </p>
+            ) : null}
+          </section>
+
+          {/* Platform default */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_platform_title")}</h2>
+                <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_platform_help")}</p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                onClick={() =>
+                  openApply(
+                    {
+                      kind: "default",
+                      policyId: overview.platform_default?.id ?? null,
+                    },
+                    overview.platform_default?.fee_percent
+                  )
+                }
+              >
+                {overview.platform_default ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
+              </button>
+            </div>
+            {overview.platform_default ? (
+              <div className="mt-4">
+                <p className="text-3xl font-bold tabular-nums text-sam-fg">
+                  {fmtPercent(overview.platform_default.fee_percent)}
+                </p>
+                {overview.platform_default.fixed_fee > 0 ? (
+                  <p className="mt-1 sam-text-helper text-sam-muted">
+                    + {overview.platform_default.fixed_fee} PHP
+                  </p>
+                ) : null}
+                <p className="mt-2 sam-text-xxs text-sam-muted">
+                  {t("admin_stores_fee_platform_stores", {
+                    count: overview.summary.applied_default,
+                  })}
+                </p>
+                {overview.platform_default.id ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="mt-3 text-sm text-sam-muted underline disabled:opacity-40"
+                    onClick={() => void deactivate(overview.platform_default!.id)}
+                  >
+                    {t("admin_stores_fee_deactivate")}
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-amber-800">{t("admin_stores_fee_platform_missing")}</p>
+            )}
+          </section>
+
+          {/* Taxonomy */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_taxonomy_title")}</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_taxonomy_help")}</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
+                <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+                  <tr>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_primary")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_secondary")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_fee")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_applied_stores")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overview.categories.map((cat) => {
+                    const childTopics = overview.topics.filter((tp) => tp.category_id === cat.category_id);
+                    return (
+                      <FragmentCategory
+                        key={cat.category_id}
+                        cat={cat}
+                        topics={childTopics}
+                        t={t}
+                        busy={busy}
+                        onSetCategory={() =>
+                          openApply(
+                            {
+                              kind: "category",
+                              categoryId: cat.category_id,
+                              name: cat.name,
+                              policyId: cat.policy?.id ?? null,
+                            },
+                            cat.policy?.fee_percent
+                          )
+                        }
+                        onSetTopic={(tp) =>
+                          openApply(
+                            {
+                              kind: "topic",
+                              topicId: tp.topic_id,
+                              name: `${cat.name} > ${tp.name}`,
+                              policyId: tp.policy?.id ?? null,
+                            },
+                            tp.policy?.fee_percent
+                          )
+                        }
+                        onDeactivate={(id) => void deactivate(id)}
+                      />
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Stores */}
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_stores_title")}</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_stores_help")}</p>
             <input
-              className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-              placeholder={t("admin_stores_fee_ph_delivery_percent")}
-              value={deliveryPercent}
-              onChange={(e) => setDeliveryPercent(e.target.value)}
-              inputMode="decimal"
+              className="mt-3 w-full max-w-md rounded border border-sam-border px-2 py-1.5 text-sm"
+              placeholder={t("admin_stores_fee_search_store_list")}
+              value={storeQuery}
+              onChange={(e) => setStoreQuery(e.target.value)}
             />
-          ) : null}
-          <input
-            className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="priority"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            inputMode="numeric"
-          />
-          <button
-            type="button"
-            disabled={
-              busy ||
-              !name.trim() ||
-              feePercent.trim() === "" ||
-              !Number.isFinite(Number(feePercent)) ||
-              (policyType === "store" && !selectedStoreId) ||
-              (policyType === "category" && !selectedCategoryId) ||
-              (policyType === "topic" && !selectedTopicId)
-            }
-            onClick={() => void submit()}
-            className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
-            {mode === "create" ? t("admin_stores_fee_create") : t("common_save")}
-          </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => void load()}
-            className="rounded border border-sam-border px-3 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
-          >
-            {t("admin_stores_fee_refresh")}
-          </button>
-          {mode === "edit" ? (
+            <div className="mt-3 overflow-x-auto">
+              <table className="min-w-[860px] w-full text-left sam-text-body-secondary">
+                <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+                  <tr>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_store")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_taxonomy")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_effective")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_fee_th_reason")}</th>
+                    <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStores.map((s) => (
+                    <tr key={s.store_id} className="border-b border-sam-border-soft">
+                      <td className="px-3 py-2 font-medium text-sam-fg">
+                        {s.store_name}
+                        {s.slug ? (
+                          <span className="ml-1 sam-text-xxs font-normal text-sam-muted">/{s.slug}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-sam-muted">
+                        {[s.category_name, s.topic_name].filter(Boolean).join(" > ") || "—"}
+                      </td>
+                      <td className="px-3 py-2 font-semibold tabular-nums text-sam-fg">
+                        {s.effective.missing ? "—" : fmtPercent(s.effective.fee_percent)}
+                      </td>
+                      <td className="px-3 py-2 text-sam-muted">{t(reasonKey(s.effective.scope))}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="text-sm text-sam-ink underline"
+                            onClick={() => setDetailStoreId(s.store_id)}
+                          >
+                            {t("admin_stores_fee_detail_title")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-sm text-sam-ink underline disabled:opacity-40"
+                            onClick={() =>
+                              openApply(
+                                {
+                                  kind: "store",
+                                  storeId: s.store_id,
+                                  name: s.store_name,
+                                  policyId: s.ladder.store.policy_id,
+                                },
+                                s.ladder.store.fee_percent ?? s.effective.fee_percent
+                              )
+                            }
+                          >
+                            {t("admin_stores_fee_set_rate")}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Advanced */}
+          <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/40 p-4">
             <button
               type="button"
-              onClick={resetFormForCreate}
-              className="rounded border border-sam-border px-3 py-2 text-sm font-medium text-sam-fg"
+              className="text-sm font-medium text-sam-fg underline"
+              onClick={() => setShowAdvanced((v) => !v)}
             >
-              {t("admin_stores_fee_switch_create")}
+              {showAdvanced ? t("admin_stores_fee_hide_advanced") : t("admin_stores_fee_show_advanced")}
             </button>
-          ) : null}
-        </div>
+            <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_stores_fee_advanced_help")}</p>
+            {showAdvanced ? (
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
+                  <thead className="border-b border-sam-border-soft text-sam-muted">
+                    <tr>
+                      <th className="px-2 py-1">{t("admin_stores_fee_th_name")}</th>
+                      <th className="px-2 py-1">{t("admin_stores_fee_th_fee")}</th>
+                      <th className="px-2 py-1">{t("admin_stores_fee_th_active")}</th>
+                      <th className="px-2 py-1">{t("admin_stores_settlements_th_action")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inactiveLegacy.map((r) => (
+                      <tr key={r.id} className="border-b border-sam-border-soft text-sam-muted">
+                        <td className="px-2 py-1">{r.policy_name}</td>
+                        <td className="px-2 py-1">{fmtPercent(r.fee_percent)}</td>
+                        <td className="px-2 py-1">
+                          {r.is_archived ? t("admin_stores_fee_archived_badge") : r.is_active ? "ON" : "OFF"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {!r.is_archived ? (
+                            <button
+                              type="button"
+                              className="text-sm underline"
+                              disabled={busy}
+                              onClick={() => {
+                                setArchiveModalRow(r);
+                                setArchiveReasonDraft("");
+                                setArchiveModalError(null);
+                              }}
+                            >
+                              {t("admin_stores_fee_archive")}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        </>
+      ) : null}
 
-        {policyType === "store" ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <div>
-              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_store")}</p>
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder={t("admin_stores_fee_search_store")}
-                value={storeQuery}
-                onChange={(e) => setStoreQuery(e.target.value)}
-              />
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                value={selectedStoreId}
-                onChange={(e) => setSelectedStoreId(e.target.value)}
-                disabled={refLoading}
-              >
-                <option value="">{t("admin_stores_fee_pick_optional")}</option>
-                {storeOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {String(s.store_name ?? t("common_store"))} {s.slug ? `/${s.slug}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_category_optional")}</p>
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder={t("admin_stores_fee_search_category")}
-                value={categoryQuery}
-                onChange={(e) => setCategoryQuery(e.target.value)}
-              />
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                value={selectedCategoryId}
-                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                disabled={refLoading}
-              >
-                <option value="">{t("admin_stores_fee_pick_none")}</option>
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : null}
-
-        {policyType === "category" ? (
-          <div className="mt-3">
-            <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_category")}</p>
-            <input
-              className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-              placeholder={t("admin_stores_fee_search_category")}
-              value={categoryQuery}
-              onChange={(e) => setCategoryQuery(e.target.value)}
-            />
-            <select
-              className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-              value={selectedCategoryId}
-              onChange={(e) => setSelectedCategoryId(e.target.value)}
-              disabled={refLoading}
-            >
-              <option value="">{t("admin_stores_fee_pick_optional")}</option>
-              {categoryOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.slug})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-
-        {policyType === "topic" ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <div>
-              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_category_primary")}</p>
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder={t("admin_stores_fee_search_category")}
-                value={categoryQuery}
-                onChange={(e) => setCategoryQuery(e.target.value)}
-              />
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                value={selectedCategoryId}
-                onChange={(e) => {
-                  setSelectedCategoryId(e.target.value);
-                  setSelectedTopicId("");
-                }}
-                disabled={refLoading}
-              >
-                <option value="">{t("admin_stores_fee_pick_optional")}</option>
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_topic")}</p>
-              <input
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder={t("admin_stores_fee_search_topic")}
-                value={topicQuery}
-                onChange={(e) => setTopicQuery(e.target.value)}
-              />
-              <select
-                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                value={selectedTopicId}
-                onChange={(e) => setSelectedTopicId(e.target.value)}
-                disabled={refLoading}
-              >
-                <option value="">{t("admin_stores_fee_pick_optional")}</option>
-                {topicOptions.map((tp) => (
-                  <option key={tp.id} value={tp.id}>
-                    {tp.name} ({tp.slug})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-3">
-          <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_memo_label")}</p>
-          <textarea
-            className="mt-1 w-full rounded border border-sam-border px-2 py-2 text-sm"
-            rows={3}
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder={t("admin_stores_fee_memo_ph")}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2">
-        <label className="flex items-center gap-2 text-sm text-sam-fg">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            disabled={loading || busy}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-          />
-          {t("admin_stores_fee_include_archived")}
-        </label>
-        <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_archived_hint")}</p>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
-      ) : rows.length === 0 ? (
-        <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
-          {t("admin_stores_fee_empty")}
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-          <table className="min-w-[960px] w-full text-left sam-text-body-secondary">
-            <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
-              <tr>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_name")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_target")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_fee")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_delivery")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_period")}</th>
-                <th className="px-3 py-2">priority</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_active")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_archive")}</th>
-                <th className="px-3 py-2">{t("admin_stores_fee_th_memo")}</th>
-                <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className={`border-b border-sam-border-soft ${r.is_archived ? "bg-slate-50 text-slate-600" : ""}`}
-                >
-                  <td className={`px-3 py-2 font-medium ${r.is_archived ? "text-slate-700" : "text-sam-fg"}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{r.policy_name}</span>
-                      {r.is_archived ? (
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 sam-text-xxs font-medium text-slate-700">
-                          {t("admin_stores_fee_archived_badge")}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-sam-muted">
-                    {targetScopeDescription(r, stores, categories, topics, t)}
-                  </td>
-                  <td className="px-3 py-2">
-                    {fmtPercent(r.fee_percent)} + {fmtMoney(r.fixed_fee)}
-                  </td>
-                  <td className="px-3 py-2 text-sam-muted">
-                    {r.delivery_fee_mode === "percent" ? fmtPercent(r.delivery_fee_percent) : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-sam-muted">
-                    {(r.starts_at ?? "").slice(0, 10) || "—"} ~ {(r.ends_at ?? "").slice(0, 10) || "—"}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-sam-muted">{r.priority}</td>
-                  <td className="px-3 py-2">{r.is_active ? "ON" : "OFF"}</td>
-                  <td className="px-3 py-2 sam-text-xxs text-sam-muted">
-                    {r.is_archived ? (
-                      <div className="space-y-1.5">
-                        <div>
-                          <span className="text-slate-500">{t("admin_stores_fee_archived_at")}</span>{" "}
-                          <span className="font-mono text-slate-700">
-                            {(r.archived_at ?? "").slice(0, 19).replace("T", " ") || "—"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">{t("admin_stores_fee_archived_by")}</span>{" "}
-                          <span className="break-all font-mono text-slate-700">{formatArchivedBy(r.archived_by)}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">{t("admin_stores_fee_archive_reason")}</span>{" "}
-                          <span className="break-words text-slate-700">
-                            {typeof r.archive_reason === "string" && r.archive_reason.trim()
-                              ? r.archive_reason
-                              : "—"}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-3 py-2 sam-text-xxs text-sam-muted">
-                    {typeof r.memo === "string" && r.memo.trim()
-                      ? r.memo.length > 60
-                        ? `${r.memo.slice(0, 60)}…`
-                        : r.memo
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={busy || anyModalOpen || Boolean(r.is_archived)}
-                        className="rounded border border-sam-border px-2 py-1 sam-text-xxs text-sam-fg disabled:opacity-40"
-                        onClick={() => startEdit(r)}
-                      >
-                        {t("common_edit")}
-                      </button>
-                      {r.is_active && !r.is_archived ? (
-                        <button
-                          type="button"
-                          disabled={busy || anyModalOpen}
-                          className="rounded border border-amber-300 px-2 py-1 sam-text-xxs text-amber-900 disabled:opacity-40"
-                          onClick={() => void deactivate(r.id)}
-                        >
-                          {t("admin_stores_fee_deactivate")}
-                        </button>
-                      ) : null}
-                      {!r.is_archived ? (
-                        <button
-                          type="button"
-                          disabled={busy || anyModalOpen}
-                          className="rounded border border-slate-400 px-2 py-1 sam-text-xxs text-slate-800 disabled:opacity-40"
-                          onClick={() => {
-                            setArchiveModalRow(r);
-                            setArchiveReasonDraft("");
-                            setArchiveModalError(null);
-                          }}
-                        >
-                          {t("admin_stores_fee_archive")}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy || anyModalOpen}
-                          className="rounded border border-emerald-400 px-2 py-1 sam-text-xxs text-emerald-900 disabled:opacity-40"
-                          onClick={() => {
-                            setRestoreModalRow(r);
-                            setRestoreModalError(null);
-                          }}
-                        >
-                          {t("admin_stores_fee_restore")}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {archiveModalRow ? (
+      {/* Apply modal */}
+      {applyTarget ? (
         <DibayOverlayRoot
           open
-          onClose={busy ? undefined : closeArchiveModal}
+          onClose={closeApply}
           dismissible={!busy}
           placement="center"
           zRole="dialog"
@@ -1009,104 +736,273 @@ export function AdminStoreFeePoliciesPage() {
           <div
             className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
+            aria-labelledby="fee-apply-title"
           >
-            <h2 className={OverlayUi.title}>{t("admin_stores_fee_archive_modal_title")}</h2>
-            <p className={`mt-2 ${OverlayUi.caption}`}>{t("admin_stores_fee_archive_modal_desc")}</p>
-          <dl className="mt-4 space-y-2 sam-text-body-secondary">
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
-              <dd className="font-medium text-sam-fg">{archiveModalRow.policy_name}</dd>
+            <h2 id="fee-apply-title" className={OverlayUi.title}>
+              {t("admin_stores_fee_apply_title")}
+            </h2>
+            <div className={`${OverlayUi.body} mt-3 space-y-3`}>
+              <div>
+                <p className={OverlayUi.caption}>{t("admin_stores_fee_apply_target")}</p>
+                <p className="text-sm text-sam-fg">
+                  {applyTarget.kind === "default"
+                    ? t("admin_stores_fee_scope_default")
+                    : applyTarget.kind === "category"
+                      ? `${t("admin_stores_fee_scope_category")}: ${applyTarget.name}`
+                      : applyTarget.kind === "topic"
+                        ? `${t("admin_stores_fee_scope_topic")}: ${applyTarget.name}`
+                        : `${t("admin_stores_fee_scope_store")}: ${applyTarget.name}`}
+                </p>
+              </div>
+              <label className="block">
+                <span className={OverlayUi.caption}>{t("admin_stores_fee_apply_rate")}</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
+                    value={feePercent}
+                    onChange={(e) => setFeePercent(e.target.value)}
+                    inputMode="decimal"
+                  />
+                  <span className="text-sm text-sam-muted">%</span>
+                </div>
+              </label>
+              <label className="block">
+                <span className={OverlayUi.caption}>{t("admin_stores_fee_fixed_optional")}</span>
+                <input
+                  className="mt-1 w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
+                  value={fixedFee}
+                  onChange={(e) => setFixedFee(e.target.value)}
+                  inputMode="numeric"
+                />
+              </label>
+              <label className="block">
+                <span className={OverlayUi.caption}>{t("admin_stores_fee_delivery_optional")}</span>
+                <select
+                  className="mt-1 rounded border border-sam-border px-2 py-1.5 text-sm"
+                  value={deliveryMode}
+                  onChange={(e) => setDeliveryMode(e.target.value as "none" | "percent")}
+                >
+                  <option value="none">{t("admin_stores_fee_delivery_none")}</option>
+                  <option value="percent">{t("admin_stores_fee_delivery_percent")}</option>
+                </select>
+                {deliveryMode === "percent" ? (
+                  <input
+                    className="ml-2 w-24 rounded border border-sam-border px-2 py-1.5 text-sm"
+                    value={deliveryPercent}
+                    onChange={(e) => setDeliveryPercent(e.target.value)}
+                    inputMode="decimal"
+                  />
+                ) : null}
+              </label>
+              <fieldset>
+                <legend className={OverlayUi.caption}>{t("admin_stores_fee_apply_timing")}</legend>
+                <label className="mt-1 flex items-center gap-2 text-sm">
+                  <input type="radio" checked={timing === "now"} onChange={() => setTiming("now")} />
+                  {t("admin_stores_fee_apply_now")}
+                </label>
+                <label className="mt-1 flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    checked={timing === "schedule"}
+                    onChange={() => setTiming("schedule")}
+                  />
+                  {t("admin_stores_fee_apply_schedule")}
+                </label>
+                {timing === "schedule" ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      type="date"
+                      className="rounded border border-sam-border px-2 py-1.5 text-sm"
+                      value={startsAt}
+                      onChange={(e) => setStartsAt(e.target.value)}
+                    />
+                    <input
+                      type="date"
+                      className="rounded border border-sam-border px-2 py-1.5 text-sm"
+                      value={endsAt}
+                      onChange={(e) => setEndsAt(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+              </fieldset>
+              <label className="block">
+                <span className={OverlayUi.caption}>{t("admin_stores_fee_apply_reason")}</span>
+                <textarea
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+                  rows={2}
+                  value={memo}
+                  onChange={(e) => setMemo(e.target.value)}
+                  placeholder={t("admin_stores_fee_memo_ph")}
+                />
+              </label>
             </div>
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-              <dd>{targetScopeDescription(archiveModalRow, stores, categories, topics, t)}</dd>
+            <div className={`${OverlayUi.actionsRow} mt-4`}>
+              <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={closeApply}>
+                {t("admin_stores_fee_apply_cancel")}
+              </DibayOverlayButton>
+              <DibayOverlayButton
+                roleTone="primary"
+                disabled={busy || feePercent.trim() === "" || !Number.isFinite(Number(feePercent))}
+                onClick={() => void submitApply()}
+              >
+                {t("admin_stores_fee_apply_submit")}
+              </DibayOverlayButton>
             </div>
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
-              <dd>{feeSummary(archiveModalRow)}</dd>
-            </div>
-          </dl>
-          <label className={`mt-4 block ${OverlayUi.caption}`}>
-            {t("admin_stores_fee_archive_reason_ph")}
-          </label>
-          <textarea
-            value={archiveReasonDraft}
-            onChange={(e) => setArchiveReasonDraft(e.target.value)}
-            rows={4}
-            disabled={busy}
-            maxLength={2000}
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
-            placeholder={t("admin_stores_fee_archive_reason_ph")}
-          />
-          {archiveModalError ? (
-            <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
-              {archiveModalError}
-            </p>
-          ) : null}
-          <div className={`${OverlayUi.actionsRow} mt-4`}>
-            <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={() => closeArchiveModal()}>
-              {t("common_cancel")}
-            </DibayOverlayButton>
-            <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void confirmArchive()}>
-              {t("admin_stores_fee_archive")}
-            </DibayOverlayButton>
-          </div>
           </div>
         </DibayOverlayRoot>
       ) : null}
 
-      {restoreModalRow ? (
+      {/* Store detail */}
+      {detailStore ? (
         <DibayOverlayRoot
           open
-          onClose={busy ? undefined : closeRestoreModal}
-          dismissible={!busy}
+          onClose={() => setDetailStoreId(null)}
+          dismissible
           placement="center"
           zRole="dialog"
         >
           <div
             className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
+            aria-labelledby="fee-detail-title"
           >
-            <h2 className={OverlayUi.title}>{t("admin_stores_fee_restore_modal_title")}</h2>
-            <p className={`mt-2 ${OverlayUi.caption}`}>{t("admin_stores_fee_restore_modal_desc")}</p>
-          <div className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-            {t("admin_stores_fee_restore_warn")}
+            <h2 id="fee-detail-title" className={OverlayUi.title}>
+              {t("admin_stores_fee_detail_title")}
+            </h2>
+            <div className={`${OverlayUi.body} mt-3 space-y-3`}>
+              <p className="font-medium text-sam-fg">
+                {detailStore.store_name}
+                {detailStore.slug ? (
+                  <span className="ml-1 text-sam-muted">/{detailStore.slug}</span>
+                ) : null}
+              </p>
+              <p className="sam-text-helper text-sam-muted">
+                {[detailStore.category_name, detailStore.topic_name].filter(Boolean).join(" > ") ||
+                  "—"}
+              </p>
+              <div>
+                <p className={OverlayUi.caption}>{t("admin_stores_fee_detail_current")}</p>
+                <p className="text-3xl font-bold tabular-nums text-sam-fg">
+                  {detailStore.effective.missing
+                    ? "—"
+                    : fmtPercent(detailStore.effective.fee_percent)}
+                </p>
+                <p className="mt-1 text-sm text-sam-muted">
+                  {t(reasonKey(detailStore.effective.scope))}
+                </p>
+              </div>
+              <div>
+                <p className={OverlayUi.caption}>{t("admin_stores_fee_ladder_title")}</p>
+                <ul className="mt-2 space-y-1 text-sm text-sam-fg">
+                  {(
+                    [
+                      ["platform", "admin_stores_fee_reason_default"],
+                      ["category", "admin_stores_fee_reason_category"],
+                      ["topic", "admin_stores_fee_reason_topic"],
+                      ["store", "admin_stores_fee_reason_store"],
+                    ] as const
+                  ).map(([key, labelKey]) => {
+                    const rate = detailStore.ladder[key];
+                    const winner =
+                      (key === "platform" && detailStore.effective.scope === "default") ||
+                      (key === "category" && detailStore.effective.scope === "category") ||
+                      (key === "topic" && detailStore.effective.scope === "topic") ||
+                      (key === "store" && detailStore.effective.scope === "store");
+                    return (
+                      <li key={key} className={winner ? "font-semibold" : "text-sam-muted"}>
+                        {t(labelKey)}:{" "}
+                        {rate.fee_percent == null
+                          ? t("admin_stores_fee_ladder_unset")
+                          : fmtPercent(rate.fee_percent)}
+                        {winner ? ` ${t("admin_stores_fee_ladder_winner")}` : ""}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+            <div className={`${OverlayUi.actionsRow} mt-4`}>
+              <DibayOverlayButton roleTone="secondary" onClick={() => setDetailStoreId(null)}>
+                {t("admin_stores_fee_apply_cancel")}
+              </DibayOverlayButton>
+              <DibayOverlayButton
+                roleTone="primary"
+                onClick={() => {
+                  const s = detailStore;
+                  setDetailStoreId(null);
+                  openApply(
+                    {
+                      kind: "store",
+                      storeId: s.store_id,
+                      name: s.store_name,
+                      policyId: s.ladder.store.policy_id,
+                    },
+                    s.ladder.store.fee_percent ?? s.effective.fee_percent
+                  );
+                }}
+              >
+                {t("admin_stores_fee_set_rate")}
+              </DibayOverlayButton>
+            </div>
           </div>
-          <dl className="mt-4 space-y-2 sam-text-body-secondary">
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
-              <dd className="font-medium text-sam-fg">{restoreModalRow.policy_name}</dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
-              <dd>{targetScopeDescription(restoreModalRow, stores, categories, topics, t)}</dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
-              <dd>{feeSummary(restoreModalRow)}</dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("admin_stores_fee_th_active")}</dt>
-              <dd>
-                {restoreModalRow.is_active
-                  ? t("admin_stores_fee_restore_active_on")
-                  : t("admin_stores_fee_restore_active_off")}
-              </dd>
-            </div>
-          </dl>
-          {restoreModalError ? (
-            <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
-              {restoreModalError}
+        </DibayOverlayRoot>
+      ) : null}
+
+      {/* Archive modal */}
+      {archiveModalRow ? (
+        <DibayOverlayRoot
+          open
+          onClose={() => {
+            if (busy) return;
+            setArchiveModalRow(null);
+            setArchiveReasonDraft("");
+            setArchiveModalError(null);
+          }}
+          dismissible={!busy}
+          placement="center"
+          zRole="dialog"
+        >
+          <div
+            className={`${OverlayUi.dialogPanel} !max-w-md`}
+            onClick={(e) => e.stopPropagation()}
+            aria-labelledby="fee-archive-title"
+          >
+            <h2 id="fee-archive-title" className={OverlayUi.title}>
+              {t("admin_stores_fee_archive_modal_title")}
+            </h2>
+            <p className={`${OverlayUi.bodySecondary} mt-2`}>
+              {t("admin_stores_fee_archive_modal_desc")}
             </p>
-          ) : null}
-          <div className={`${OverlayUi.actionsRow} mt-4`}>
-            <DibayOverlayButton roleTone="secondary" disabled={busy} onClick={() => closeRestoreModal()}>
-              {t("common_cancel")}
-            </DibayOverlayButton>
-            <DibayOverlayButton roleTone="primary" disabled={busy} loading={busy} onClick={() => void confirmRestore()}>
-              {t("admin_stores_fee_restore")}
-            </DibayOverlayButton>
-          </div>
+            <textarea
+              className="mt-3 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+              rows={3}
+              value={archiveReasonDraft}
+              onChange={(e) => setArchiveReasonDraft(e.target.value)}
+              placeholder={t("admin_stores_fee_archive_reason_ph")}
+            />
+            {archiveModalError ? (
+              <p className="mt-2 text-sm text-amber-800">{archiveModalError}</p>
+            ) : null}
+            <div className={`${OverlayUi.actionsRow} mt-4`}>
+              <DibayOverlayButton
+                roleTone="secondary"
+                disabled={busy}
+                onClick={() => {
+                  setArchiveModalRow(null);
+                  setArchiveReasonDraft("");
+                  setArchiveModalError(null);
+                }}
+              >
+                {t("admin_stores_fee_apply_cancel")}
+              </DibayOverlayButton>
+              <DibayOverlayButton
+                roleTone="destructive"
+                disabled={busy}
+                onClick={() => void confirmArchive()}
+              >
+                {t("admin_stores_fee_archive")}
+              </DibayOverlayButton>
+            </div>
           </div>
         </DibayOverlayRoot>
       ) : null}
@@ -1114,3 +1010,82 @@ export function AdminStoreFeePoliciesPage() {
   );
 }
 
+function FragmentCategory({
+  cat,
+  topics,
+  t,
+  busy,
+  onSetCategory,
+  onSetTopic,
+  onDeactivate,
+}: {
+  cat: OverviewCategory;
+  topics: OverviewTopic[];
+  t: (key: MessageKey, params?: Record<string, string | number>) => string;
+  busy: boolean;
+  onSetCategory: () => void;
+  onSetTopic: (tp: OverviewTopic) => void;
+  onDeactivate: (id: string) => void;
+}) {
+  return (
+    <>
+      <tr className="border-b border-sam-border-soft bg-sam-app/50">
+        <td className="px-3 py-2 font-medium text-sam-fg">{cat.name}</td>
+        <td className="px-3 py-2 text-sam-muted">—</td>
+        <td className="px-3 py-2 tabular-nums">
+          {cat.policy ? fmtPercent(cat.policy.fee_percent) : t("admin_stores_fee_inherit")}
+        </td>
+        <td className="px-3 py-2 tabular-nums text-sam-muted">{cat.store_count}</td>
+        <td className="px-3 py-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} className="text-sm underline disabled:opacity-40" onClick={onSetCategory}>
+              {cat.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
+            </button>
+            {cat.policy ? (
+              <button
+                type="button"
+                disabled={busy}
+                className="text-sm text-sam-muted underline disabled:opacity-40"
+                onClick={() => onDeactivate(cat.policy!.id)}
+              >
+                {t("admin_stores_fee_deactivate")}
+              </button>
+            ) : null}
+          </div>
+        </td>
+      </tr>
+      {topics.map((tp) => (
+        <tr key={tp.topic_id} className="border-b border-sam-border-soft">
+          <td className="px-3 py-2 pl-6 text-sam-muted">└</td>
+          <td className="px-3 py-2 text-sam-fg">{tp.name}</td>
+          <td className="px-3 py-2 tabular-nums">
+            {tp.policy ? fmtPercent(tp.policy.fee_percent) : t("admin_stores_fee_inherit")}
+          </td>
+          <td className="px-3 py-2 tabular-nums text-sam-muted">{tp.store_count}</td>
+          <td className="px-3 py-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                className="text-sm underline disabled:opacity-40"
+                onClick={() => onSetTopic(tp)}
+              >
+                {tp.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
+              </button>
+              {tp.policy ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="text-sm text-sam-muted underline disabled:opacity-40"
+                  onClick={() => onDeactivate(tp.policy!.id)}
+                >
+                  {t("admin_stores_fee_deactivate")}
+                </button>
+              ) : null}
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}

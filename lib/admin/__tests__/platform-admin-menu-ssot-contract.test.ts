@@ -135,16 +135,27 @@ describe("platform admin menu SSOT contract", () => {
     expect(growthAds.some((c) => c.key === "ads-feed-applications")).toBe(true);
   });
 
-  it("Delivery workspace groups leaves by characteristic sections (pathless headers)", () => {
+  it("Delivery workspace: business list first, then policies + characteristic sections", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
     expect(topKeys).toEqual([
+      "business-shops",
+      "delivery-section-policies",
       "delivery-section-settings",
       "delivery-section-operations",
       "delivery-section-management",
       "delivery-section-platform",
     ]);
-    for (const key of topKeys) {
+    expect(findAdminMenuByKey(adminMenu, "business-shops")?.path).toBe("/admin/business");
+    const policySection = findAdminMenuByKey(adminMenu, "delivery-section-policies");
+    expect(policySection?.path).toBeUndefined();
+    const policyKeys = (policySection?.children ?? []).map((c) => c.key);
+    expect(policyKeys).toEqual(["store-fee-policies-admin", "delivery-distance"]);
+    expect(findAdminMenuByKey(adminMenu, "store-fee-policies-admin")?.path).toBe(
+      "/admin/store-fee-policies"
+    );
+    expect(findAdminMenuByKey(adminMenu, "delivery-distance")?.path).toBe("/admin/delivery-distance");
+    for (const key of topKeys.filter((k) => k.startsWith("delivery-section-"))) {
       const section = findAdminMenuByKey(adminMenu, key);
       expect(section?.path, key).toBeUndefined();
       expect(section?.children?.length ?? 0).toBeGreaterThan(0);

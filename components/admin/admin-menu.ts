@@ -121,6 +121,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-promotions": "admin_menu_community_promotions",
 
   // Delivery — section headers (path 없음) + leaves
+  "delivery-section-policies": "admin_menu_delivery_section_policies",
   "delivery-section-settings": "admin_menu_delivery_section_settings",
   "delivery-section-operations": "admin_menu_delivery_section_operations",
   "delivery-section-management": "admin_menu_delivery_section_management",
@@ -405,11 +406,26 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── DELIVERY ───────────────────────────────────
-  // 특성별 섹션: 매장설정 / 운영 / 관리 / 플랫폼 (path 없는 section header)
+  // 상단 업체 리스트 → 정책(수수료·거리) → 매장설정 / 운영 / 관리 / 플랫폼
   {
     key: "delivery",
     title: "",
     children: [
+      { key: "business-shops", title: "", path: "/admin/business", status: "done" },
+      {
+        key: "delivery-section-policies",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-fee-policies-admin",
+            title: "",
+            path: "/admin/store-fee-policies",
+            status: "done",
+          },
+          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
+        ],
+      },
       {
         key: "delivery-section-settings",
         title: "",
@@ -434,13 +450,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/stores/bottom-nav",
             matchPaths: ["/admin/delivery/bottom-nav"],
             status: "done",
-          },
-          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
-          {
-            key: "store-fee-policies-admin",
-            title: "",
-            path: "/admin/store-fee-policies",
-            status: "partial",
           },
           {
             key: "commerce-settings-admin",
@@ -564,7 +573,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/store-reviews",
             status: "partial",
           },
-          { key: "business-shops", title: "", path: "/admin/business", status: "done" },
         ],
       },
       {
