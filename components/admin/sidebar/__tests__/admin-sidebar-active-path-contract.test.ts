@@ -79,7 +79,14 @@ describe("admin sidebar active path authority", () => {
       expectCount: 1,
     },
     {
-      name: "trade reports domain query",
+      name: "trade reports product-open query",
+      workspaceKey: "trade",
+      path: "/admin/reports?domain=trade&target_type=product",
+      expectLeaf: "/admin/reports?domain=trade&target_type=product",
+      expectCount: 1,
+    },
+    {
+      name: "trade reports domain-only query",
       workspaceKey: "trade",
       path: "/admin/reports?domain=trade",
       expectLeaf: "/admin/reports?domain=trade",

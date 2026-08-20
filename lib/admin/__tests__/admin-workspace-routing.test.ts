@@ -39,7 +39,18 @@ describe("admin-workspace-routing", () => {
     expect(resolveActiveWorkspace("/admin/customer-platform", "master").id).toBe("system");
     expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("common");
     expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("common");
+    // Trade reports leaf = product SSOT; domain-only + target= deep links stay Trade via matchPaths
+    // (menu match requires all declared query keys — longer leaf alone would fall through to Common).
     expect(resolveActiveWorkspace("/admin/reports?domain=trade", "master").id).toBe("trade");
+    expect(
+      resolveActiveWorkspace("/admin/reports?domain=trade&target_type=product", "master").id
+    ).toBe("trade");
+    expect(
+      resolveActiveWorkspace(
+        "/admin/reports?domain=trade&target_type=product&target=post-1",
+        "master"
+      ).id
+    ).toBe("trade");
     expect(resolveActiveWorkspace("/admin/trade", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/community/posts", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/philife/sections", "master").id).toBe("community");

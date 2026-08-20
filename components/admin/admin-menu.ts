@@ -367,7 +367,9 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       {
         key: "reports-posts",
         title: "",
+        // SSOT leaf = product-open semantic; domain-only URL stays Trade via matchPaths.
         path: "/admin/reports?domain=trade&target_type=product",
+        matchPaths: ["/admin/reports?domain=trade"],
         status: "done",
       },
       { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },

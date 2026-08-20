@@ -24,12 +24,12 @@ describe("domain admin SSOT IA contract", () => {
   it("Common owns global reports and audit; Trade reports are domain-scoped only", () => {
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
     expect(findAdminMenuByKey(adminMenu, "audit-logs")?.path).toBe("/admin/audit-logs");
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
-      "/admin/reports?domain=trade&target_type=product"
-    );
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.matchPaths ?? []).not.toContain(
-      "/admin/reports"
-    );
+    const tradeReports = findAdminMenuByKey(adminMenu, "reports-posts");
+    // Leaf SSOT = product-open. Live domain authority still uses ?domain=trade only —
+    // that shorter URL must remain on matchPaths or workspace routing regresses to Common.
+    expect(tradeReports?.path).toBe("/admin/reports?domain=trade&target_type=product");
+    expect(tradeReports?.matchPaths).toEqual(["/admin/reports?domain=trade"]);
+    expect(tradeReports?.matchPaths ?? []).not.toContain("/admin/reports");
   });
 
   it("splits promo presentation by domain (no bare multi-queue leaf under Trade)", () => {
