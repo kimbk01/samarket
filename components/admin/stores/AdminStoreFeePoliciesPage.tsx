@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
@@ -30,6 +30,8 @@ type RateLite = {
   fixed_fee: number | null;
   policy_id: string | null;
   policy_name: string | null;
+  starts_at?: string | null;
+  memo?: string | null;
 };
 
 type OverviewStore = {
@@ -73,16 +75,44 @@ type OverviewTopic = {
   policy: { id: string; fee_percent: number; fixed_fee: number; policy_name: string } | null;
 };
 
+type ScheduledChange = {
+  id: string;
+  scope: "store" | "topic" | "category" | "default";
+  target_label: string;
+  fee_percent: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  policy_name: string;
+};
+
+type VerificationRow = {
+  settlement_id: string;
+  order_id: string;
+  store_name: string;
+  gross_amount: number;
+  policy_fee_percent: number | null;
+  settlement_fee_percent: number;
+  calculated_fee_amount: number;
+  settlement_fee_amount: number;
+  matched: boolean;
+  settlement_status: string | null;
+  created_at: string | null;
+};
+
 type Overview = {
   summary: {
     stores_total: number;
     applied_default: number;
     applied_category: number;
     applied_topic: number;
+    applied_business: number;
     applied_store: number;
     missing_policy: number;
     reserved_future: number;
     inactive_policies: number;
+    pct_business: number;
+    pct_store: number;
+    pct_default: number;
   };
   platform_default: {
     id: string;
@@ -95,6 +125,8 @@ type Overview = {
   categories: OverviewCategory[];
   topics: OverviewTopic[];
   stores: OverviewStore[];
+  scheduled_changes: ScheduledChange[];
+  verification: VerificationRow[];
 };
 
 type ApplyTarget =
@@ -103,10 +135,23 @@ type ApplyTarget =
   | { kind: "topic"; topicId: string; name: string; policyId: string | null }
   | { kind: "store"; storeId: string; name: string; policyId: string | null };
 
+type TabId = "status" | "taxonomy" | "stores" | "history" | "verify";
+
 function fmtPercent(n: number | null | undefined) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "—";
   return `${v.toFixed(1)}%`;
+}
+
+function fmtMoney(n: number) {
+  return `${Math.round(n).toLocaleString()} PHP`;
+}
+
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toISOString().slice(0, 10);
 }
 
 function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
@@ -193,6 +238,10 @@ function reasonKey(scope: OverviewStore["effective"]["scope"]): MessageKey {
   return "admin_stores_fee_reason_default";
 }
 
+function panelClass() {
+  return "rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm";
+}
+
 export function AdminStoreFeePoliciesPage() {
   const { t } = useI18n();
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -200,9 +249,11 @@ export function AdminStoreFeePoliciesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [tab, setTab] = useState<TabId>("status");
+  const [sampleQuery, setSampleQuery] = useState("");
+  const [sampleStoreId, setSampleStoreId] = useState<string | null>(null);
   const [storeQuery, setStoreQuery] = useState("");
-  const [detailStoreId, setDetailStoreId] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [applyTarget, setApplyTarget] = useState<ApplyTarget | null>(null);
   const [feePercent, setFeePercent] = useState("");
@@ -242,14 +293,41 @@ export function AdminStoreFeePoliciesPage() {
         setError(feePolicyApiErrorCode(oJson.error, oRes.status));
         return;
       }
+      const stores = oJson.stores ?? [];
       setOverview({
-        summary: oJson.summary!,
+        summary: {
+          stores_total: oJson.summary?.stores_total ?? 0,
+          applied_default: oJson.summary?.applied_default ?? 0,
+          applied_category: oJson.summary?.applied_category ?? 0,
+          applied_topic: oJson.summary?.applied_topic ?? 0,
+          applied_business:
+            oJson.summary?.applied_business ??
+            (oJson.summary?.applied_category ?? 0) + (oJson.summary?.applied_topic ?? 0),
+          applied_store: oJson.summary?.applied_store ?? 0,
+          missing_policy: oJson.summary?.missing_policy ?? 0,
+          reserved_future: oJson.summary?.reserved_future ?? 0,
+          inactive_policies: oJson.summary?.inactive_policies ?? 0,
+          pct_business: oJson.summary?.pct_business ?? 0,
+          pct_store: oJson.summary?.pct_store ?? 0,
+          pct_default: oJson.summary?.pct_default ?? 0,
+        },
         platform_default: oJson.platform_default ?? null,
         categories: oJson.categories ?? [],
         topics: oJson.topics ?? [],
-        stores: oJson.stores ?? [],
+        stores,
+        scheduled_changes: oJson.scheduled_changes ?? [],
+        verification: oJson.verification ?? [],
       });
       if (pJson.ok) setLegacyRows(Array.isArray(pJson.policies) ? pJson.policies : []);
+      setSampleStoreId((prev) => {
+        if (prev && stores.some((s) => s.store_id === prev)) return prev;
+        if (stores.length === 0) return null;
+        const preferred =
+          stores.find((s) => s.effective.scope === "store") ??
+          stores.find((s) => !s.effective.missing) ??
+          stores[0];
+        return preferred.store_id;
+      });
     } catch {
       setOverview(null);
       setError("network_error");
@@ -409,6 +487,24 @@ export function AdminStoreFeePoliciesPage() {
     }
   }, [archiveModalRow, archiveReasonDraft, load, t]);
 
+  const sampleHits = useMemo(() => {
+    const list = overview?.stores ?? [];
+    const q = sampleQuery.trim().toLowerCase();
+    if (!q) return list.slice(0, 8);
+    return list
+      .filter(
+        (s) =>
+          s.store_name.toLowerCase().includes(q) ||
+          (s.slug ?? "").toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [overview?.stores, sampleQuery]);
+
+  const sampleStore = useMemo(
+    () => overview?.stores.find((s) => s.store_id === sampleStoreId) ?? null,
+    [overview?.stores, sampleStoreId]
+  );
+
   const filteredStores = useMemo(() => {
     const list = overview?.stores ?? [];
     const q = storeQuery.trim().toLowerCase();
@@ -422,20 +518,61 @@ export function AdminStoreFeePoliciesPage() {
     );
   }, [overview?.stores, storeQuery]);
 
-  const detailStore = useMemo(
-    () => overview?.stores.find((s) => s.store_id === detailStoreId) ?? null,
-    [detailStoreId, overview?.stores]
-  );
-
   const inactiveLegacy = useMemo(
     () => legacyRows.filter((r) => !r.is_active || r.is_archived),
     [legacyRows]
   );
 
+  const tabs: Array<{ id: TabId; label: MessageKey }> = [
+    { id: "status", label: "admin_stores_fee_tab_status" },
+    { id: "taxonomy", label: "admin_stores_fee_tab_taxonomy" },
+    { id: "stores", label: "admin_stores_fee_tab_stores" },
+    { id: "history", label: "admin_stores_fee_tab_history" },
+    { id: "verify", label: "admin_stores_fee_tab_verify" },
+  ];
+
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_store_fee_policies" />
-      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_fee_desc")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <AdminPageHeader titleKey="admin_page_store_fee_policies" />
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_stores_fee_desc")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={loading || busy}
+            onClick={() => void load()}
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sm disabled:opacity-40"
+          >
+            {t("admin_stores_fee_refresh")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !overview}
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sm disabled:opacity-40"
+            onClick={() => setTab("history")}
+          >
+            {t("admin_stores_fee_tab_history")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !overview}
+            className="rounded bg-sam-ink px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            onClick={() =>
+              openApply(
+                {
+                  kind: "default",
+                  policyId: overview?.platform_default?.id ?? null,
+                },
+                overview?.platform_default?.fee_percent
+              )
+            }
+          >
+            {t("admin_stores_fee_create")}
+          </button>
+        </div>
+      </div>
 
       {error ? (
         <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
@@ -443,288 +580,285 @@ export function AdminStoreFeePoliciesPage() {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={loading || busy}
-          onClick={() => void load()}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          {t("admin_stores_fee_refresh")}
-        </button>
-      </div>
-
       {loading && !overview ? (
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : overview ? (
         <>
-          {/* Summary */}
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_summary_title")}</h2>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              {(
-                [
-                  ["admin_stores_fee_summary_stores", overview.summary.stores_total],
-                  ["admin_stores_fee_summary_default", overview.summary.applied_default],
-                  ["admin_stores_fee_summary_category", overview.summary.applied_category],
-                  ["admin_stores_fee_summary_topic", overview.summary.applied_topic],
-                  ["admin_stores_fee_summary_store", overview.summary.applied_store],
-                  ["admin_stores_fee_summary_missing", overview.summary.missing_policy],
-                ] as const
-              ).map(([key, val]) => (
-                <div key={key} className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">{t(key)}</p>
-                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-sam-fg">{val}</p>
-                </div>
-              ))}
-            </div>
-            {overview.summary.reserved_future > 0 ? (
-              <p className="mt-2 sam-text-xxs text-sam-muted">
-                {t("admin_stores_fee_summary_reserved")}: {overview.summary.reserved_future}
-              </p>
-            ) : null}
-          </section>
-
-          {/* Platform default */}
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_platform_title")}</h2>
-                <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_platform_help")}</p>
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-                onClick={() =>
-                  openApply(
-                    {
-                      kind: "default",
-                      policyId: overview.platform_default?.id ?? null,
-                    },
-                    overview.platform_default?.fee_percent
-                  )
-                }
-              >
-                {overview.platform_default ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
-              </button>
-            </div>
-            {overview.platform_default ? (
-              <div className="mt-4">
-                <p className="text-3xl font-bold tabular-nums text-sam-fg">
-                  {fmtPercent(overview.platform_default.fee_percent)}
-                </p>
-                {overview.platform_default.fixed_fee > 0 ? (
-                  <p className="mt-1 sam-text-helper text-sam-muted">
-                    + {overview.platform_default.fixed_fee} PHP
-                  </p>
-                ) : null}
-                <p className="mt-2 sam-text-xxs text-sam-muted">
-                  {t("admin_stores_fee_platform_stores", {
-                    count: overview.summary.applied_default,
-                  })}
-                </p>
-                {overview.platform_default.id ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="mt-3 text-sm text-sam-muted underline disabled:opacity-40"
-                    onClick={() => void deactivate(overview.platform_default!.id)}
-                  >
-                    {t("admin_stores_fee_deactivate")}
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-amber-800">{t("admin_stores_fee_platform_missing")}</p>
-            )}
-          </section>
-
-          {/* Taxonomy */}
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_taxonomy_title")}</h2>
-            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_taxonomy_help")}</p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
-                <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
-                  <tr>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_primary")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_secondary")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_fee")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_applied_stores")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {overview.categories.map((cat) => {
-                    const childTopics = overview.topics.filter((tp) => tp.category_id === cat.category_id);
-                    return (
-                      <FragmentCategory
-                        key={cat.category_id}
-                        cat={cat}
-                        topics={childTopics}
-                        t={t}
-                        busy={busy}
-                        onSetCategory={() =>
-                          openApply(
-                            {
-                              kind: "category",
-                              categoryId: cat.category_id,
-                              name: cat.name,
-                              policyId: cat.policy?.id ?? null,
-                            },
-                            cat.policy?.fee_percent
-                          )
-                        }
-                        onSetTopic={(tp) =>
-                          openApply(
-                            {
-                              kind: "topic",
-                              topicId: tp.topic_id,
-                              name: `${cat.name} > ${tp.name}`,
-                              policyId: tp.policy?.id ?? null,
-                            },
-                            tp.policy?.fee_percent
-                          )
-                        }
-                        onDeactivate={(id) => void deactivate(id)}
-                      />
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Stores */}
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_stores_title")}</h2>
-            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_stores_help")}</p>
-            <input
-              className="mt-3 w-full max-w-md rounded border border-sam-border px-2 py-1.5 text-sm"
-              placeholder={t("admin_stores_fee_search_store_list")}
-              value={storeQuery}
-              onChange={(e) => setStoreQuery(e.target.value)}
+          <section className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-6">
+            <KpiCard
+              label={t("admin_stores_fee_kpi_platform")}
+              value={fmtPercent(overview.platform_default?.fee_percent)}
+              hint={overview.platform_default?.policy_name ?? t("admin_stores_fee_platform_missing")}
             />
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-[860px] w-full text-left sam-text-body-secondary">
-                <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
-                  <tr>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_store")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_taxonomy")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_effective")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_fee_th_reason")}</th>
-                    <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStores.map((s) => (
-                    <tr key={s.store_id} className="border-b border-sam-border-soft">
-                      <td className="px-3 py-2 font-medium text-sam-fg">
-                        {s.store_name}
-                        {s.slug ? (
-                          <span className="ml-1 sam-text-xxs font-normal text-sam-muted">/{s.slug}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2 text-sam-muted">
-                        {[s.category_name, s.topic_name].filter(Boolean).join(" > ") || "—"}
-                      </td>
-                      <td className="px-3 py-2 font-semibold tabular-nums text-sam-fg">
-                        {s.effective.missing ? "—" : fmtPercent(s.effective.fee_percent)}
-                      </td>
-                      <td className="px-3 py-2 text-sam-muted">{t(reasonKey(s.effective.scope))}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="text-sm text-sam-ink underline"
-                            onClick={() => setDetailStoreId(s.store_id)}
-                          >
-                            {t("admin_stores_fee_detail_title")}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            className="text-sm text-sam-ink underline disabled:opacity-40"
-                            onClick={() =>
-                              openApply(
-                                {
-                                  kind: "store",
-                                  storeId: s.store_id,
-                                  name: s.store_name,
-                                  policyId: s.ladder.store.policy_id,
-                                },
-                                s.ladder.store.fee_percent ?? s.effective.fee_percent
-                              )
-                            }
-                          >
-                            {t("admin_stores_fee_set_rate")}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <KpiCard
+              label={t("admin_stores_fee_kpi_business")}
+              value={t("admin_stores_fee_kpi_count_stores", {
+                count: overview.summary.applied_business,
+              })}
+              hint={t("admin_stores_fee_kpi_pct", { pct: overview.summary.pct_business })}
+            />
+            <KpiCard
+              label={t("admin_stores_fee_kpi_store")}
+              value={t("admin_stores_fee_kpi_count_stores", {
+                count: overview.summary.applied_store,
+              })}
+              hint={t("admin_stores_fee_kpi_pct", { pct: overview.summary.pct_store })}
+            />
+            <KpiCard
+              label={t("admin_stores_fee_kpi_default")}
+              value={t("admin_stores_fee_kpi_count_stores", {
+                count: overview.summary.applied_default,
+              })}
+              hint={t("admin_stores_fee_kpi_pct", { pct: overview.summary.pct_default })}
+            />
+            <KpiCard
+              label={t("admin_stores_fee_kpi_scheduled")}
+              value={String(overview.summary.reserved_future)}
+              hint={t("admin_stores_fee_schedule_title")}
+            />
+            <KpiCard
+              label={t("admin_stores_fee_kpi_errors")}
+              value={String(overview.summary.missing_policy)}
+              hintTone={overview.summary.missing_policy > 0 ? "danger" : "ok"}
+            />
           </section>
 
-          {/* Advanced */}
-          <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/40 p-4">
-            <button
-              type="button"
-              className="text-sm font-medium text-sam-fg underline"
-              onClick={() => setShowAdvanced((v) => !v)}
-            >
-              {showAdvanced ? t("admin_stores_fee_hide_advanced") : t("admin_stores_fee_show_advanced")}
-            </button>
-            <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_stores_fee_advanced_help")}</p>
-            {showAdvanced ? (
+          <div className="flex flex-wrap gap-1 border-b border-sam-border-soft">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`px-3 py-2 text-sm ${
+                  tab === item.id
+                    ? "border-b-2 border-sam-ink font-semibold text-sam-fg"
+                    : "text-sam-muted hover:text-sam-fg"
+                }`}
+                onClick={() => setTab(item.id)}
+              >
+                {t(item.label)}
+              </button>
+            ))}
+          </div>
+
+          {tab === "status" ? (
+            <StatusTab
+              overview={overview}
+              t={t}
+              busy={busy}
+              sampleQuery={sampleQuery}
+              sampleHits={sampleHits}
+              sampleStore={sampleStore}
+              onSampleQuery={setSampleQuery}
+              onPickSample={(id) => {
+                setSampleStoreId(id);
+                setSampleQuery("");
+              }}
+              onOpenApply={openApply}
+              onOpenTaxonomy={() => setTab("taxonomy")}
+              onOpenVerify={() => setTab("verify")}
+            />
+          ) : null}
+
+          {tab === "taxonomy" ? (
+            <TaxonomyTable
+              overview={overview}
+              t={t}
+              busy={busy}
+              onSetCategory={(cat) =>
+                openApply(
+                  {
+                    kind: "category",
+                    categoryId: cat.category_id,
+                    name: cat.name,
+                    policyId: cat.policy?.id ?? null,
+                  },
+                  cat.policy?.fee_percent
+                )
+              }
+              onSetTopic={(cat, tp) =>
+                openApply(
+                  {
+                    kind: "topic",
+                    topicId: tp.topic_id,
+                    name: `${cat.name} > ${tp.name}`,
+                    policyId: tp.policy?.id ?? null,
+                  },
+                  tp.policy?.fee_percent
+                )
+              }
+              onDeactivate={(id) => void deactivate(id)}
+            />
+          ) : null}
+
+          {tab === "stores" ? (
+            <section className={panelClass()}>
+              <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_stores_title")}</h2>
+              <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_stores_help")}</p>
+              <input
+                className="mt-3 w-full max-w-md rounded border border-sam-border px-2 py-1.5 text-sm"
+                placeholder={t("admin_stores_fee_search_store_list")}
+                value={storeQuery}
+                onChange={(e) => setStoreQuery(e.target.value)}
+              />
               <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
-                  <thead className="border-b border-sam-border-soft text-sam-muted">
+                <table className="min-w-[860px] w-full text-left sam-text-body-secondary">
+                  <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
                     <tr>
-                      <th className="px-2 py-1">{t("admin_stores_fee_th_name")}</th>
-                      <th className="px-2 py-1">{t("admin_stores_fee_th_fee")}</th>
-                      <th className="px-2 py-1">{t("admin_stores_fee_th_active")}</th>
-                      <th className="px-2 py-1">{t("admin_stores_settlements_th_action")}</th>
+                      <th className="px-3 py-2">{t("admin_stores_fee_th_store")}</th>
+                      <th className="px-3 py-2">{t("admin_stores_fee_th_taxonomy")}</th>
+                      <th className="px-3 py-2">{t("admin_stores_fee_th_effective")}</th>
+                      <th className="px-3 py-2">{t("admin_stores_fee_th_reason")}</th>
+                      <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {inactiveLegacy.map((r) => (
-                      <tr key={r.id} className="border-b border-sam-border-soft text-sam-muted">
-                        <td className="px-2 py-1">{r.policy_name}</td>
-                        <td className="px-2 py-1">{fmtPercent(r.fee_percent)}</td>
-                        <td className="px-2 py-1">
-                          {r.is_archived ? t("admin_stores_fee_archived_badge") : r.is_active ? "ON" : "OFF"}
+                    {filteredStores.map((s) => (
+                      <tr key={s.store_id} className="border-b border-sam-border-soft">
+                        <td className="px-3 py-2 font-medium text-sam-fg">
+                          {s.store_name}
+                          {s.slug ? (
+                            <span className="ml-1 sam-text-xxs font-normal text-sam-muted">
+                              /{s.slug}
+                            </span>
+                          ) : null}
                         </td>
-                        <td className="px-2 py-1">
-                          {!r.is_archived ? (
+                        <td className="px-3 py-2 text-sam-muted">
+                          {[s.category_name, s.topic_name].filter(Boolean).join(" > ") ||
+                            t("admin_stores_fee_none_dash")}
+                        </td>
+                        <td className="px-3 py-2 font-semibold tabular-nums text-sam-fg">
+                          {s.effective.missing ? "—" : fmtPercent(s.effective.fee_percent)}
+                        </td>
+                        <td className="px-3 py-2 text-sam-muted">{t(reasonKey(s.effective.scope))}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              className="text-sm underline"
-                              disabled={busy}
+                              className="text-sm text-sam-ink underline"
                               onClick={() => {
-                                setArchiveModalRow(r);
-                                setArchiveReasonDraft("");
-                                setArchiveModalError(null);
+                                setSampleStoreId(s.store_id);
+                                setTab("status");
                               }}
                             >
-                              {t("admin_stores_fee_archive")}
+                              {t("admin_stores_fee_open_sample")}
                             </button>
-                          ) : null}
+                            <button
+                              type="button"
+                              disabled={busy}
+                              className="text-sm text-sam-ink underline disabled:opacity-40"
+                              onClick={() =>
+                                openApply(
+                                  {
+                                    kind: "store",
+                                    storeId: s.store_id,
+                                    name: s.store_name,
+                                    policyId: s.ladder.store.policy_id,
+                                  },
+                                  s.ladder.store.fee_percent ?? s.effective.fee_percent
+                                )
+                              }
+                            >
+                              {t("admin_stores_fee_set_rate")}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : null}
-          </section>
+            </section>
+          ) : null}
+
+          {tab === "history" ? (
+            <section className={panelClass()}>
+              <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_schedule_title")}</h2>
+              <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_history_hint")}</p>
+              {overview.scheduled_changes.length === 0 ? (
+                <p className="mt-3 text-sm text-sam-muted">{t("admin_stores_fee_schedule_empty")}</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {overview.scheduled_changes.map((row) => (
+                    <li
+                      key={row.id}
+                      className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium text-sam-fg">{row.target_label}</p>
+                      <p className="mt-0.5 tabular-nums text-sam-muted">
+                        {fmtPercent(row.fee_percent)} · {fmtDate(row.starts_at)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-4 border-t border-sam-border-soft pt-3">
+                <button
+                  type="button"
+                  className="text-sm font-medium text-sam-fg underline"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                >
+                  {showAdvanced
+                    ? t("admin_stores_fee_hide_advanced")
+                    : t("admin_stores_fee_show_advanced")}
+                </button>
+                {showAdvanced ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
+                      <thead className="border-b border-sam-border-soft text-sam-muted">
+                        <tr>
+                          <th className="px-2 py-1">{t("admin_stores_fee_th_name")}</th>
+                          <th className="px-2 py-1">{t("admin_stores_fee_th_fee")}</th>
+                          <th className="px-2 py-1">{t("admin_stores_fee_th_active")}</th>
+                          <th className="px-2 py-1">{t("admin_stores_settlements_th_action")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inactiveLegacy.map((r) => (
+                          <tr key={r.id} className="border-b border-sam-border-soft text-sam-muted">
+                            <td className="px-2 py-1">{r.policy_name}</td>
+                            <td className="px-2 py-1">{fmtPercent(r.fee_percent)}</td>
+                            <td className="px-2 py-1">
+                              {r.is_archived
+                                ? t("admin_stores_fee_archived_badge")
+                                : r.is_active
+                                  ? "ON"
+                                  : "OFF"}
+                            </td>
+                            <td className="px-2 py-1">
+                              {!r.is_archived ? (
+                                <button
+                                  type="button"
+                                  className="text-sm underline"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setArchiveModalRow(r);
+                                    setArchiveReasonDraft("");
+                                    setArchiveModalError(null);
+                                  }}
+                                >
+                                  {t("admin_stores_fee_archive")}
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "verify" ? <VerifyTable overview={overview} t={t} /> : null}
+
+          <footer className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 px-4 py-3 sam-text-xxs text-sam-muted">
+            <p>{t("admin_stores_fee_footer_rule")}</p>
+            <p className="mt-1">{t("admin_stores_fee_footer_formula")}</p>
+          </footer>
         </>
       ) : null}
 
-      {/* Apply modal */}
       {applyTarget ? (
         <DibayOverlayRoot
           open
@@ -852,103 +986,6 @@ export function AdminStoreFeePoliciesPage() {
         </DibayOverlayRoot>
       ) : null}
 
-      {/* Store detail */}
-      {detailStore ? (
-        <DibayOverlayRoot
-          open
-          onClose={() => setDetailStoreId(null)}
-          dismissible
-          placement="center"
-          zRole="dialog"
-        >
-          <div
-            className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[90vh] overflow-y-auto`}
-            onClick={(e) => e.stopPropagation()}
-            aria-labelledby="fee-detail-title"
-          >
-            <h2 id="fee-detail-title" className={OverlayUi.title}>
-              {t("admin_stores_fee_detail_title")}
-            </h2>
-            <div className={`${OverlayUi.body} mt-3 space-y-3`}>
-              <p className="font-medium text-sam-fg">
-                {detailStore.store_name}
-                {detailStore.slug ? (
-                  <span className="ml-1 text-sam-muted">/{detailStore.slug}</span>
-                ) : null}
-              </p>
-              <p className="sam-text-helper text-sam-muted">
-                {[detailStore.category_name, detailStore.topic_name].filter(Boolean).join(" > ") ||
-                  "—"}
-              </p>
-              <div>
-                <p className={OverlayUi.caption}>{t("admin_stores_fee_detail_current")}</p>
-                <p className="text-3xl font-bold tabular-nums text-sam-fg">
-                  {detailStore.effective.missing
-                    ? "—"
-                    : fmtPercent(detailStore.effective.fee_percent)}
-                </p>
-                <p className="mt-1 text-sm text-sam-muted">
-                  {t(reasonKey(detailStore.effective.scope))}
-                </p>
-              </div>
-              <div>
-                <p className={OverlayUi.caption}>{t("admin_stores_fee_ladder_title")}</p>
-                <ul className="mt-2 space-y-1 text-sm text-sam-fg">
-                  {(
-                    [
-                      ["platform", "admin_stores_fee_reason_default"],
-                      ["category", "admin_stores_fee_reason_category"],
-                      ["topic", "admin_stores_fee_reason_topic"],
-                      ["store", "admin_stores_fee_reason_store"],
-                    ] as const
-                  ).map(([key, labelKey]) => {
-                    const rate = detailStore.ladder[key];
-                    const winner =
-                      (key === "platform" && detailStore.effective.scope === "default") ||
-                      (key === "category" && detailStore.effective.scope === "category") ||
-                      (key === "topic" && detailStore.effective.scope === "topic") ||
-                      (key === "store" && detailStore.effective.scope === "store");
-                    return (
-                      <li key={key} className={winner ? "font-semibold" : "text-sam-muted"}>
-                        {t(labelKey)}:{" "}
-                        {rate.fee_percent == null
-                          ? t("admin_stores_fee_ladder_unset")
-                          : fmtPercent(rate.fee_percent)}
-                        {winner ? ` ${t("admin_stores_fee_ladder_winner")}` : ""}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-            <div className={`${OverlayUi.actionsRow} mt-4`}>
-              <DibayOverlayButton roleTone="secondary" onClick={() => setDetailStoreId(null)}>
-                {t("admin_stores_fee_apply_cancel")}
-              </DibayOverlayButton>
-              <DibayOverlayButton
-                roleTone="primary"
-                onClick={() => {
-                  const s = detailStore;
-                  setDetailStoreId(null);
-                  openApply(
-                    {
-                      kind: "store",
-                      storeId: s.store_id,
-                      name: s.store_name,
-                      policyId: s.ladder.store.policy_id,
-                    },
-                    s.ladder.store.fee_percent ?? s.effective.fee_percent
-                  );
-                }}
-              >
-                {t("admin_stores_fee_set_rate")}
-              </DibayOverlayButton>
-            </div>
-          </div>
-        </DibayOverlayRoot>
-      ) : null}
-
-      {/* Archive modal */}
       {archiveModalRow ? (
         <DibayOverlayRoot
           open
@@ -1010,82 +1047,520 @@ export function AdminStoreFeePoliciesPage() {
   );
 }
 
-function FragmentCategory({
-  cat,
-  topics,
+function KpiCard({
+  label,
+  value,
+  hint,
+  hintTone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  hintTone?: "ok" | "danger";
+}) {
+  return (
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 shadow-sm">
+      <p className="sam-text-xxs text-sam-muted">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-sam-fg">{value}</p>
+      {hint ? (
+        <p
+          className={`mt-1 sam-text-xxs ${
+            hintTone === "danger"
+              ? "text-red-600"
+              : hintTone === "ok"
+                ? "text-emerald-700"
+                : "text-sam-muted"
+          }`}
+        >
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusTab({
+  overview,
   t,
   busy,
+  sampleQuery,
+  sampleHits,
+  sampleStore,
+  onSampleQuery,
+  onPickSample,
+  onOpenApply,
+  onOpenTaxonomy,
+  onOpenVerify,
+}: {
+  overview: Overview;
+  t: (key: MessageKey, params?: Record<string, string | number>) => string;
+  busy: boolean;
+  sampleQuery: string;
+  sampleHits: OverviewStore[];
+  sampleStore: OverviewStore | null;
+  onSampleQuery: (v: string) => void;
+  onPickSample: (id: string) => void;
+  onOpenApply: (target: ApplyTarget, seedPercent?: number) => void;
+  onOpenTaxonomy: () => void;
+  onOpenVerify: () => void;
+}) {
+  const ladderRows = sampleStore
+    ? ([
+        {
+          key: "store" as const,
+          label: "admin_stores_fee_priority_1" as MessageKey,
+          rate: sampleStore.ladder.store,
+          winner: sampleStore.effective.scope === "store",
+        },
+        {
+          key: "topic" as const,
+          label: "admin_stores_fee_priority_2" as MessageKey,
+          rate: sampleStore.ladder.topic,
+          winner: sampleStore.effective.scope === "topic",
+        },
+        {
+          key: "category" as const,
+          label: "admin_stores_fee_priority_3" as MessageKey,
+          rate: sampleStore.ladder.category,
+          winner: sampleStore.effective.scope === "category",
+        },
+        {
+          key: "platform" as const,
+          label: "admin_stores_fee_priority_4" as MessageKey,
+          rate: sampleStore.ladder.platform,
+          winner: sampleStore.effective.scope === "default",
+        },
+      ] as const)
+    : [];
+
+  const winnerRate = sampleStore
+    ? sampleStore.effective.scope === "store"
+      ? sampleStore.ladder.store
+      : sampleStore.effective.scope === "topic"
+        ? sampleStore.ladder.topic
+        : sampleStore.effective.scope === "category"
+          ? sampleStore.ladder.category
+          : sampleStore.ladder.platform
+    : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 xl:grid-cols-3">
+        <section className={panelClass()}>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_priority_title")}</h2>
+          <ol className="mt-3 space-y-2">
+            {(
+              [
+                ["1", "admin_stores_fee_priority_1", "admin_stores_fee_priority_1_desc"],
+                ["2", "admin_stores_fee_priority_2", "admin_stores_fee_priority_2_desc"],
+                ["3", "admin_stores_fee_priority_3", "admin_stores_fee_priority_3_desc"],
+                ["4", "admin_stores_fee_priority_4", "admin_stores_fee_priority_4_desc"],
+              ] as const
+            ).map(([n, title, desc]) => (
+              <li
+                key={n}
+                className="flex gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sam-ink text-xs font-semibold text-white">
+                  {n}
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-sam-fg">{t(title)}</p>
+                  <p className="sam-text-xxs text-sam-muted">{t(desc)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            disabled={busy}
+            className="mt-3 text-sm text-sam-ink underline disabled:opacity-40"
+            onClick={() =>
+              onOpenApply(
+                {
+                  kind: "default",
+                  policyId: overview.platform_default?.id ?? null,
+                },
+                overview.platform_default?.fee_percent
+              )
+            }
+          >
+            {t("admin_stores_fee_platform_edit")}
+          </button>
+        </section>
+
+        <section className={panelClass()}>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_sample_title")}</h2>
+          <div className="relative mt-3">
+            <input
+              className="w-full rounded border border-sam-border px-2 py-1.5 text-sm"
+              placeholder={t("admin_stores_fee_sample_search_ph")}
+              value={sampleQuery}
+              onChange={(e) => onSampleQuery(e.target.value)}
+            />
+            {sampleQuery.trim() ? (
+              <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded border border-sam-border bg-sam-surface shadow">
+                {sampleHits.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-sam-muted">{t("admin_stores_fee_sample_empty")}</li>
+                ) : (
+                  sampleHits.map((s) => (
+                    <li key={s.store_id}>
+                      <button
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-sam-app"
+                        onClick={() => onPickSample(s.store_id)}
+                      >
+                        {s.store_name}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : null}
+          </div>
+          {sampleStore ? (
+            <div className="mt-3 space-y-2">
+              <p className="text-sm font-medium text-sam-fg">{sampleStore.store_name}</p>
+              <p className="sam-text-xxs text-sam-muted">
+                {[sampleStore.category_name, sampleStore.topic_name].filter(Boolean).join(" > ") ||
+                  t("admin_stores_fee_none_dash")}
+              </p>
+              <ul className="space-y-1.5">
+                {ladderRows.map((row) => (
+                  <li
+                    key={row.key}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${
+                      row.winner
+                        ? "border border-emerald-300 bg-emerald-50 font-semibold text-emerald-900"
+                        : "bg-sam-app text-sam-muted"
+                    }`}
+                  >
+                    <span>{t(row.label)}</span>
+                    <span className="tabular-nums">
+                      {row.rate.fee_percent == null
+                        ? t("admin_stores_fee_ladder_unset")
+                        : fmtPercent(row.rate.fee_percent)}
+                      {row.winner ? ` · ${t("admin_stores_fee_sample_active")}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+                <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_detail_current")}</p>
+                <p className="text-2xl font-bold tabular-nums text-sam-fg">
+                  {sampleStore.effective.missing
+                    ? "—"
+                    : fmtPercent(sampleStore.effective.fee_percent)}
+                </p>
+                <p className="mt-1 sam-text-xxs text-sam-muted">
+                  {t(reasonKey(sampleStore.effective.scope))}
+                </p>
+                {winnerRate?.policy_id ? (
+                  <p className="mt-1 sam-text-xxs text-sam-muted">
+                    {t("admin_stores_fee_sample_policy_id")}: {winnerRate.policy_id.slice(0, 8)}
+                  </p>
+                ) : null}
+                {winnerRate?.starts_at ? (
+                  <p className="sam-text-xxs text-sam-muted">
+                    {t("admin_stores_fee_sample_start")}: {fmtDate(winnerRate.starts_at)}
+                  </p>
+                ) : null}
+                {winnerRate?.memo ? (
+                  <p className="sam-text-xxs text-sam-muted">
+                    {t("admin_stores_fee_sample_memo")}: {winnerRate.memo}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                className="text-sm text-sam-ink underline disabled:opacity-40"
+                onClick={() =>
+                  onOpenApply(
+                    {
+                      kind: "store",
+                      storeId: sampleStore.store_id,
+                      name: sampleStore.store_name,
+                      policyId: sampleStore.ladder.store.policy_id,
+                    },
+                    sampleStore.ladder.store.fee_percent ?? sampleStore.effective.fee_percent
+                  )
+                }
+              >
+                {t("admin_stores_fee_set_rate")}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-sam-muted">{t("admin_stores_fee_sample_empty")}</p>
+          )}
+        </section>
+
+        <section className={panelClass()}>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_schedule_title")}</h2>
+          {overview.scheduled_changes.length === 0 ? (
+            <p className="mt-3 text-sm text-sam-muted">{t("admin_stores_fee_schedule_empty")}</p>
+          ) : (
+            <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+              {overview.scheduled_changes.map((row) => (
+                <li
+                  key={row.id}
+                  className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-sm"
+                >
+                  <p className="font-medium text-sam-fg">{row.target_label}</p>
+                  <p className="mt-0.5 tabular-nums text-sam-muted">
+                    {fmtPercent(row.fee_percent)} {t("admin_stores_fee_schedule_to")}{" "}
+                    {fmtDate(row.starts_at)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-sam-fg">
+              {t("admin_stores_fee_taxonomy_table_title")}
+            </h2>
+            <button type="button" className="text-sm text-sam-ink underline" onClick={onOpenTaxonomy}>
+              {t("admin_stores_fee_manage")}
+            </button>
+          </div>
+          <TaxonomyTable
+            overview={overview}
+            t={t}
+            busy={busy}
+            compact
+            onSetCategory={(cat) =>
+              onOpenApply(
+                {
+                  kind: "category",
+                  categoryId: cat.category_id,
+                  name: cat.name,
+                  policyId: cat.policy?.id ?? null,
+                },
+                cat.policy?.fee_percent
+              )
+            }
+            onSetTopic={(cat, tp) =>
+              onOpenApply(
+                {
+                  kind: "topic",
+                  topicId: tp.topic_id,
+                  name: `${cat.name} > ${tp.name}`,
+                  policyId: tp.policy?.id ?? null,
+                },
+                tp.policy?.fee_percent
+              )
+            }
+            onDeactivate={() => undefined}
+          />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_verify_title")}</h2>
+              <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_verify_subtitle")}</p>
+            </div>
+            <button type="button" className="text-sm text-sam-ink underline" onClick={onOpenVerify}>
+              {t("admin_stores_fee_manage")}
+            </button>
+          </div>
+          <VerifyTable overview={overview} t={t} compact />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaxonomyTable({
+  overview,
+  t,
+  busy,
+  compact,
   onSetCategory,
   onSetTopic,
   onDeactivate,
 }: {
-  cat: OverviewCategory;
-  topics: OverviewTopic[];
+  overview: Overview;
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
   busy: boolean;
-  onSetCategory: () => void;
-  onSetTopic: (tp: OverviewTopic) => void;
+  compact?: boolean;
+  onSetCategory: (cat: OverviewCategory) => void;
+  onSetTopic: (cat: OverviewCategory, tp: OverviewTopic) => void;
   onDeactivate: (id: string) => void;
 }) {
+  const platformPct = overview.platform_default?.fee_percent ?? null;
+  const cats = compact ? overview.categories.slice(0, 6) : overview.categories;
+
   return (
-    <>
-      <tr className="border-b border-sam-border-soft bg-sam-app/50">
-        <td className="px-3 py-2 font-medium text-sam-fg">{cat.name}</td>
-        <td className="px-3 py-2 text-sam-muted">—</td>
-        <td className="px-3 py-2 tabular-nums">
-          {cat.policy ? fmtPercent(cat.policy.fee_percent) : t("admin_stores_fee_inherit")}
-        </td>
-        <td className="px-3 py-2 tabular-nums text-sam-muted">{cat.store_count}</td>
-        <td className="px-3 py-2">
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={busy} className="text-sm underline disabled:opacity-40" onClick={onSetCategory}>
-              {cat.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
-            </button>
-            {cat.policy ? (
-              <button
-                type="button"
-                disabled={busy}
-                className="text-sm text-sam-muted underline disabled:opacity-40"
-                onClick={() => onDeactivate(cat.policy!.id)}
-              >
-                {t("admin_stores_fee_deactivate")}
-              </button>
-            ) : null}
-          </div>
-        </td>
-      </tr>
-      {topics.map((tp) => (
-        <tr key={tp.topic_id} className="border-b border-sam-border-soft">
-          <td className="px-3 py-2 pl-6 text-sam-muted">└</td>
-          <td className="px-3 py-2 text-sam-fg">{tp.name}</td>
-          <td className="px-3 py-2 tabular-nums">
-            {tp.policy ? fmtPercent(tp.policy.fee_percent) : t("admin_stores_fee_inherit")}
-          </td>
-          <td className="px-3 py-2 tabular-nums text-sam-muted">{tp.store_count}</td>
-          <td className="px-3 py-2">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                className="text-sm underline disabled:opacity-40"
-                onClick={() => onSetTopic(tp)}
-              >
-                {tp.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
-              </button>
-              {tp.policy ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="text-sm text-sam-muted underline disabled:opacity-40"
-                  onClick={() => onDeactivate(tp.policy!.id)}
-                >
-                  {t("admin_stores_fee_deactivate")}
-                </button>
-              ) : null}
-            </div>
-          </td>
-        </tr>
-      ))}
-    </>
+    <section className={panelClass()}>
+      {!compact ? (
+        <>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_taxonomy_title")}</h2>
+          <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_taxonomy_help")}</p>
+        </>
+      ) : null}
+      <div className={`${compact ? "" : "mt-3"} overflow-x-auto`}>
+        <table className="min-w-[720px] w-full text-left sam-text-body-secondary">
+          <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+            <tr>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_primary")}</th>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_secondary")}</th>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_policy_kind")}</th>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_base_fee")}</th>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_current_fee")}</th>
+              <th className="px-3 py-2">{t("admin_stores_fee_th_applied_stores")}</th>
+              <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cats.map((cat) => {
+              const childTopics = overview.topics.filter((tp) => tp.category_id === cat.category_id);
+              const shownTopics = compact ? childTopics.slice(0, 3) : childTopics;
+              return (
+                <Fragment key={cat.category_id}>
+                  <tr className="border-b border-sam-border-soft bg-sam-app/50">
+                    <td className="px-3 py-2 font-medium text-sam-fg">{cat.name}</td>
+                    <td className="px-3 py-2 text-sam-muted">{t("admin_stores_fee_none_dash")}</td>
+                    <td className="px-3 py-2">{t("admin_stores_fee_kind_primary")}</td>
+                    <td className="px-3 py-2 tabular-nums">{fmtPercent(platformPct)}</td>
+                    <td className="px-3 py-2 tabular-nums font-medium">
+                      {cat.policy
+                        ? fmtPercent(cat.policy.fee_percent)
+                        : t("admin_stores_fee_inherit_parent")}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-sam-muted">{cat.store_count}</td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="text-sm underline disabled:opacity-40"
+                        onClick={() => onSetCategory(cat)}
+                      >
+                        {cat.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
+                      </button>
+                      {!compact && cat.policy ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="ml-2 text-sm text-sam-muted underline disabled:opacity-40"
+                          onClick={() => onDeactivate(cat.policy!.id)}
+                        >
+                          {t("admin_stores_fee_deactivate")}
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                  {shownTopics.map((tp) => (
+                    <tr key={tp.topic_id} className="border-b border-sam-border-soft">
+                      <td className="px-3 py-2 pl-6 text-sam-muted">└</td>
+                      <td className="px-3 py-2 text-sam-fg">{tp.name}</td>
+                      <td className="px-3 py-2">{t("admin_stores_fee_kind_secondary")}</td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {cat.policy ? fmtPercent(cat.policy.fee_percent) : fmtPercent(platformPct)}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums font-medium">
+                        {tp.policy
+                          ? fmtPercent(tp.policy.fee_percent)
+                          : t("admin_stores_fee_inherit_parent")}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-sam-muted">{tp.store_count}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="text-sm underline disabled:opacity-40"
+                          onClick={() => onSetTopic(cat, tp)}
+                        >
+                          {tp.policy ? t("admin_stores_fee_edit") : t("admin_stores_fee_set_rate")}
+                        </button>
+                        {!compact && tp.policy ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="ml-2 text-sm text-sam-muted underline disabled:opacity-40"
+                            onClick={() => onDeactivate(tp.policy!.id)}
+                          >
+                            {t("admin_stores_fee_deactivate")}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function VerifyTable({
+  overview,
+  t,
+  compact,
+}: {
+  overview: Overview;
+  t: (key: MessageKey, params?: Record<string, string | number>) => string;
+  compact?: boolean;
+}) {
+  const rows = compact ? overview.verification.slice(0, 8) : overview.verification;
+  return (
+    <section className={panelClass()}>
+      {!compact ? (
+        <>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_fee_verify_title")}</h2>
+          <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_fee_verify_subtitle")}</p>
+        </>
+      ) : null}
+      {rows.length === 0 ? (
+        <p className="mt-3 text-sm text-sam-muted">{t("admin_stores_fee_verify_empty")}</p>
+      ) : (
+        <div className={`${compact ? "" : "mt-3"} overflow-x-auto`}>
+          <table className="min-w-[640px] w-full text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+              <tr>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_store")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_verify_policy")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_verify_calc")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_verify_settlement")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_verify_result")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={`${r.settlement_id}-${r.order_id}`} className="border-b border-sam-border-soft">
+                  <td className="px-3 py-2">
+                    <p className="font-medium text-sam-fg">{r.store_name}</p>
+                    <p className="sam-text-xxs text-sam-muted">#{r.order_id}</p>
+                  </td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {fmtPercent(r.policy_fee_percent ?? r.settlement_fee_percent)}
+                  </td>
+                  <td className="px-3 py-2 tabular-nums">{fmtMoney(r.calculated_fee_amount)}</td>
+                  <td className="px-3 py-2 tabular-nums">{fmtMoney(r.settlement_fee_amount)}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`text-sm font-medium ${
+                        r.matched ? "text-emerald-700" : "text-red-600"
+                      }`}
+                    >
+                      {r.matched
+                        ? t("admin_stores_fee_verify_match")
+                        : t("admin_stores_fee_verify_mismatch")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
