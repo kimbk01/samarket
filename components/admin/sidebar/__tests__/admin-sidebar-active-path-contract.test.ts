@@ -78,6 +78,13 @@ describe("admin sidebar active path authority", () => {
       expectLeaf: "/admin/reports",
       expectCount: 1,
     },
+    {
+      name: "trade reports domain query",
+      workspaceKey: "trade",
+      path: "/admin/reports?domain=trade",
+      expectLeaf: "/admin/reports?domain=trade",
+      expectCount: 1,
+    },
   ];
 
   it.each(cases)("$name → leaf=$expectLeaf count=$expectCount", (c) => {

@@ -38,17 +38,26 @@ export const REASON_CODE_OPTIONS: { value: string; labelKey: MessageKey }[] = [
   ...REASON_ENTRIES.map((o) => ({ value: o.code, labelKey: o.labelKey })),
 ];
 
+export type AdminReportDomainFilter = "" | "reports" | "community_feed";
+
 export function filterReports(
   reports: Report[],
   filters: {
     targetType: ReportTargetType | "";
     status: ReportStatus | "";
     reasonCode: string;
+    /** Domain table SSOT — not a unified report store. */
+    reportSource?: AdminReportDomainFilter;
     /** Deep-link: /admin/reports?target=<postId|targetId> */
     targetId?: string;
   }
 ): Report[] {
   let list = [...reports];
+  if (filters.reportSource === "reports") {
+    list = list.filter((r) => (r.reportSource ?? "reports") === "reports");
+  } else if (filters.reportSource === "community_feed") {
+    list = list.filter((r) => r.reportSource === "community_feed");
+  }
   if (filters.targetType) {
     list = list.filter((r) => r.targetType === filters.targetType);
   }
@@ -67,4 +76,23 @@ export function filterReports(
     });
   }
   return list;
+}
+
+/** CUT 1/2 — query domain → table filter (Trade menu defaults to reports). */
+export function resolveAdminReportDomainFromQuery(params: {
+  domain?: string | null;
+  from?: string | null;
+}): AdminReportDomainFilter {
+  const domain = (params.domain ?? "").trim().toLowerCase();
+  if (domain === "trade" || domain === "reports" || domain === "marketplace") return "reports";
+  if (domain === "community" || domain === "community_feed" || domain === "feed") {
+    return "community_feed";
+  }
+  if (domain === "all" || domain === "") {
+    const from = (params.from ?? "").trim().toLowerCase();
+    if (from === "trade") return "reports";
+    if (from === "community") return "community_feed";
+    return "";
+  }
+  return "";
 }

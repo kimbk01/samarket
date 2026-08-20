@@ -27,7 +27,7 @@ interface AdminReportTableProps {
 }
 
 export function AdminReportTable({ reports }: AdminReportTableProps) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
@@ -53,7 +53,15 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                 {r.id.slice(0, 8)}…
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-helper text-sam-muted">
-                {r.reportSource === "community_feed" ? t("admin_report_source_feed") : t("admin_report_source_db")}
+                {r.reportSource === "community_feed"
+                  ? safeT("admin_report_source_feed", {
+                      fallbackKo: "Community · community_reports",
+                      fallbackEn: "Community · community_reports",
+                    })
+                  : safeT("admin_report_source_db", {
+                      fallbackKo: "Trade · reports",
+                      fallbackEn: "Trade · reports",
+                    })}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(r.createdAt).toLocaleString(localeForTable(language))}
@@ -83,7 +91,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
               </td>
               <td className="px-3 py-2.5 text-right">
                 <Link
-                  href={`/admin/reports/${r.id}`}
+                  href={r.adminDetailHref ?? `/admin/reports/${r.id}`}
                   className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
                   {t("admin_report_detail_cta")}

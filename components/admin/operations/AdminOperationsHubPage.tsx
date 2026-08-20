@@ -8,7 +8,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 
 export function AdminOperationsHubPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
 
   const links = useMemo(
     () =>
@@ -45,6 +45,17 @@ export function AdminOperationsHubPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_ops_hub_page_title" backHref="/admin" />
+      <div
+        className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        data-admin-surface="orphan_quarantine"
+      >
+        {safeT("admin_ops_hub_quarantine_banner", {
+          fallbackKo:
+            "ORPHAN / QUARANTINE · /admin/operations 은 레거시 링크 허브입니다. Domain SSOT 메뉴(Trade/Community/Delivery/Messenger)를 우선하세요.",
+          fallbackEn:
+            "ORPHAN / QUARANTINE · /admin/operations is a legacy link hub. Prefer Domain SSOT menus (Trade/Community/Delivery/Messenger).",
+        })}
+      </div>
       <AdminCard titleKey="admin_ops_hub_card_quick_links">
         <ul className="space-y-3 sam-text-body">
           {links.map((x) => (

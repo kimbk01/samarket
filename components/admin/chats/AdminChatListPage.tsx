@@ -402,13 +402,12 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         ? t("admin_chat_empty_trade")
         : mode === "reported"
           ? t("admin_chat_empty_reported")
-          : mode === "business"
-            ? t("admin_chat_empty_business")
-            : mode === "community"
-              ? t("admin_chat_empty_community")
-              : mode === "group"
-                ? t("admin_chat_empty_group")
-                : t("admin_chat_empty_all")
+          : mode === "business" || mode === "community" || mode === "group"
+            ? safeT("admin_chat_hollow_empty", {
+                fallbackKo: "HOLLOW — Admin 목록 미연결 (데이터 없음이 아님).",
+                fallbackEn: "HOLLOW — Admin list not wired (not a proven empty dataset).",
+              })
+            : t("admin_chat_empty_all")
       : deepLinkActive && deepLinkedFiltered.length === 0
         ? safeT("admin_trade_deep_link_no_match", {
             fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
@@ -418,9 +417,40 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
           ? t("admin_chat_empty_filtered")
           : t("admin_chat_empty_hidden_only");
 
+  const isHollowMessengerMode =
+    mode === "business" || mode === "community" || mode === "group";
+
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey={getTitleKey(mode)} />
+      {mode === "trade" ? (
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted"
+          data-testid="admin-trade-chat-identity-banner"
+          data-admin-chat-authority="product_chats"
+        >
+          {safeT("admin_trade_chat_identity_banner", {
+            fallbackKo:
+              "Trade OPS identity: product_chats 우선 · 동일 listing×seller×buyer 이면 chat_rooms는 fallback · Community Messenger trade room UUID는 별도(혼동 금지).",
+            fallbackEn:
+              "Trade OPS identity: prefer product_chats; chat_rooms is fallback for the same listing×seller×buyer; CM trade room UUIDs are separate — do not mix.",
+          })}
+        </div>
+      ) : null}
+      {isHollowMessengerMode ? (
+        <div
+          className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          data-admin-surface="hollow"
+          data-testid="admin-chat-hollow-banner"
+        >
+          {safeT("admin_chat_hollow_banner", {
+            fallbackKo:
+              "HOLLOW · 이 Messenger Admin mode는 목록 writer가 연결되지 않았습니다. 빈 목록을 PASS로 보지 마세요. 실제 운영은 /admin/chats/messenger 또는 도메인별 메신저 경로를 사용하세요.",
+            fallbackEn:
+              "HOLLOW · This Messenger Admin mode has no wired list writer. An empty list is not PASS. Use /admin/chats/messenger or domain messenger paths for real ops.",
+          })}
+        </div>
+      ) : null}
       {deepLinkActive && deepLink.postId ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">

@@ -159,13 +159,13 @@ export const adminMessages = {
     admin_order_notifications_title: "운영 알림",
     admin_order_notifications_desc:
       "주문·매장·시스템 인앱 알림을 확인합니다. 계정별 설정은 알림 설정에서 변경할 수 있습니다.",
-    admin_report_list_title: "통합 신고 목록",
+    admin_report_list_title: "신고 목록 (도메인 표시 큐)",
     admin_report_list_description:
-      "기존 reports와 커뮤니티 피드 신고(community_reports)를 한 표에 시간순으로 모읍니다. 상세보기에서 유형에 맞게 처리합니다.",
+      "표시만 합칩니다. Trade는 reports, Community는 community_reports 테이블을 씁니다. 도메인 필터 후 해당 상세 writer로만 조치하세요. 계정 제재는 MCC·제재 원장과 별개입니다.",
     admin_report_list_empty_filtered: "조건에 맞는 신고가 없습니다.",
     admin_report_not_found: "신고를 찾을 수 없습니다.",
     admin_report_th_id: "신고 id",
-    admin_report_th_source: "출처",
+    admin_report_th_source: "도메인·원장",
     admin_report_th_date: "신고일",
     admin_report_th_reporter: "신고자",
     admin_report_th_target_type: "대상 타입",
@@ -175,8 +175,19 @@ export const adminMessages = {
     admin_report_th_status: "상태",
     admin_report_th_resolver: "처리자",
     admin_report_th_detail: "상세보기",
-    admin_report_source_feed: "피드",
-    admin_report_source_db: "DB",
+    admin_report_source_feed: "Community · community_reports",
+    admin_report_source_db: "Trade · reports",
+    admin_report_domain_ssot_banner:
+      "표시 큐만 합칩니다. 원장 테이블은 분리됩니다 — Trade=reports · Community=community_reports. 조치는 해당 도메인 상세 writer만 사용하세요. 계정 제재는 MCC/제재 원장과 별개입니다.",
+    admin_report_domain_all_hint:
+      "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
+    admin_report_filter_domain_aria: "신고 도메인",
+    admin_report_filter_domain_all: "도메인: 전체(표시만)",
+    admin_report_filter_domain_trade: "Trade · reports 테이블",
+    admin_report_filter_domain_community: "Community · community_reports",
+    admin_ad_applications_title: "광고·홍보 신청 (도메인별 큐)",
+    admin_ad_applications_desc:
+      "한 화면에 세 큐를 두지만 테이블·writer는 분리됩니다. Trade=point_promotion_orders(domain=trade) · Community=point_promotion_orders(domain=community) · Feed Banner=feed_ad_requests. 레거시 trade_post_ads는 /admin/trade-post-ads.",
     admin_report_detail_cta: "상세보기",
     admin_report_target_product: "상품·게시글",
     admin_report_target_chat: "채팅",
@@ -225,7 +236,7 @@ export const adminMessages = {
     admin_report_moderation_delete_product: "상품 삭제",
     admin_sanction_ledger_title: "제재 원장",
     admin_sanction_ledger_intro:
-      "관리자가 신고에 대해 수행한 조치 로그입니다. (report_actions + reports)",
+      "신고 콘텐츠 조치 로그(report_actions + reports)입니다. 계정 상태(profiles.status / user_moderation_events)와는 별도 원장입니다.",
     admin_sanction_ledger_empty: "기록이 없습니다.",
     admin_sanction_ledger_th_at: "처리일시",
     admin_sanction_ledger_th_action: "조치",
@@ -1574,6 +1585,12 @@ export const adminMessages = {
     admin_chat_list_title_trade: "거래채팅",
     admin_chat_list_title_reported: "신고채팅",
     admin_chat_removed: "제거된 채팅",
+    admin_chat_hollow_empty: "HOLLOW — Admin 목록 미연결 (데이터 없음이 아님).",
+    admin_chat_hollow_banner:
+      "HOLLOW · 이 Messenger Admin mode는 목록 writer가 연결되지 않았습니다. 빈 목록을 PASS로 보지 마세요. 실제 운영은 /admin/chats/messenger 또는 도메인별 메신저 경로를 사용하세요.",
+    admin_trade_chat_identity_banner:
+      "Trade OPS identity: product_chats 우선 · 동일 listing×seller×buyer 이면 chat_rooms는 fallback · Community Messenger trade room UUID는 별도(혼동 금지).",
+    admin_chat_storage_th: "저장소",
     admin_chat_hidden_list_only: "선택한 방을 이 화면 목록에서만 숨겼습니다. 새로고침하면 다시 보입니다.",
     admin_chat_no_deletable_rooms: "삭제할 수 있는 방이 없습니다.",
     admin_chat_delete_confirm:
@@ -2487,13 +2504,13 @@ export const adminMessages = {
     admin_order_notifications_title: "Ops alerts",
     admin_order_notifications_desc:
       "View in-app alerts for orders, stores, and system events. Change per-account settings on the notification settings page.",
-    admin_report_list_title: "Unified reports",
+    admin_report_list_title: "Reports (domain display queue)",
     admin_report_list_description:
-      "Legacy reports and community feed reports (community_reports) in one table, newest first. Use detail to handle each type.",
+      "Display-only merge. Trade uses reports; Community uses community_reports. Filter by domain, then act only via that detail writer. Account sanctions are separate (MCC / sanction ledger).",
     admin_report_list_empty_filtered: "No reports match the current filters.",
     admin_report_not_found: "Report not found.",
     admin_report_th_id: "Report id",
-    admin_report_th_source: "Source",
+    admin_report_th_source: "Domain · ledger",
     admin_report_th_date: "Reported at",
     admin_report_th_reporter: "Reporter",
     admin_report_th_target_type: "Target type",
@@ -2503,8 +2520,19 @@ export const adminMessages = {
     admin_report_th_status: "Status",
     admin_report_th_resolver: "Resolver",
     admin_report_th_detail: "Details",
-    admin_report_source_feed: "Feed",
-    admin_report_source_db: "DB",
+    admin_report_source_feed: "Community · community_reports",
+    admin_report_source_db: "Trade · reports",
+    admin_report_domain_ssot_banner:
+      "Display queue only. Tables stay separate — Trade=reports · Community=community_reports. Act only via that domain’s detail writer. Account sanctions are separate (MCC / sanction ledger).",
+    admin_report_domain_all_hint:
+      "Domain filter is All. Narrow to Trade or Community before acting.",
+    admin_report_filter_domain_aria: "Report domain",
+    admin_report_filter_domain_all: "Domain: all (display only)",
+    admin_report_filter_domain_trade: "Trade · reports table",
+    admin_report_filter_domain_community: "Community · community_reports",
+    admin_ad_applications_title: "Ad / promote requests (per-domain queues)",
+    admin_ad_applications_desc:
+      "Three queues on one route; tables and writers stay separate. Trade=point_promotion_orders(domain=trade) · Community=point_promotion_orders(domain=community) · Feed Banner=feed_ad_requests. Legacy trade_post_ads: /admin/trade-post-ads.",
     admin_report_detail_cta: "View details",
     admin_report_target_product: "Product / post",
     admin_report_target_chat: "Chat",
@@ -2552,7 +2580,8 @@ export const adminMessages = {
     admin_report_moderation_blind_product: "Blind listing",
     admin_report_moderation_delete_product: "Delete listing",
     admin_sanction_ledger_title: "Sanction ledger",
-    admin_sanction_ledger_intro: "Log of moderation actions on reports (report_actions + reports).",
+    admin_sanction_ledger_intro:
+      "Content-action log on reports (report_actions + reports). Separate from account status (profiles.status / user_moderation_events).",
     admin_sanction_ledger_empty: "No records.",
     admin_sanction_ledger_th_at: "Action time",
     admin_sanction_ledger_th_action: "Action",
@@ -3901,6 +3930,12 @@ export const adminMessages = {
     admin_chat_list_title_trade: "Trade chats",
     admin_chat_list_title_reported: "Reported chats",
     admin_chat_removed: "Removed chats",
+    admin_chat_hollow_empty: "HOLLOW — Admin list not wired (not a proven empty dataset).",
+    admin_chat_hollow_banner:
+      "HOLLOW · This Messenger Admin mode has no wired list writer. An empty list is not PASS. Use /admin/chats/messenger or domain messenger paths for real ops.",
+    admin_trade_chat_identity_banner:
+      "Trade OPS identity: prefer product_chats; chat_rooms is fallback for the same listing×seller×buyer; CM trade room UUIDs are separate — do not mix.",
+    admin_chat_storage_th: "Storage",
     admin_chat_hidden_list_only: "The selected rooms were hidden only from this screen list. Refresh to see them again.",
     admin_chat_no_deletable_rooms: "There are no rooms that can be deleted.",
     admin_chat_delete_confirm:

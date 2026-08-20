@@ -155,7 +155,7 @@ export function AdminTradeHub() {
                 fallbackEn: "Reports",
               }),
               count: loading ? null : counts?.reportsPending ?? null,
-              href: "/admin/reports",
+              href: "/admin/reports?domain=trade",
               disconnected: !loading && counts?.reportsPending == null,
             },
             {
@@ -202,7 +202,7 @@ export function AdminTradeHub() {
               { href: "/admin/posts-management", label: t("admin_menu_posts_management") },
               { href: "/admin/trade-flow", label: t("admin_menu_chat_flow") },
               { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
-              { href: "/admin/reports", label: t("admin_menu_reports") },
+              { href: "/admin/reports?domain=trade", label: t("admin_menu_reports") },
               { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
               { href: "/admin/ad-applications", label: t("admin_menu_ads_applications") },
               { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },

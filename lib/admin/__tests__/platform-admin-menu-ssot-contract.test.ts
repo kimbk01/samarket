@@ -94,7 +94,7 @@ describe("platform admin menu SSOT contract", () => {
     expect(messengerKids.some((c) => c.key === "reports")).toBe(false);
     expect(messengerKids.some((c) => c.key === "reviews")).toBe(false);
     expect(findAdminMenuByKey(adminMenu, "moderation")).toBeTruthy();
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/reports");
+    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/reports?domain=trade");
   });
 
   it("Cut B: Trade workspace owns Marketplace ops leaves (routes KEEP)", () => {

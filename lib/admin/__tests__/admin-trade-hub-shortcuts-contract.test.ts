@@ -14,7 +14,7 @@ describe("Cut C Trade Hub 1-click shortcuts", () => {
       "/admin/posts-management",
       "/admin/trade-flow",
       "/admin/chats/trade",
-      "/admin/reports",
+      "/admin/reports?domain=trade",
       "/admin/reviews",
       "/admin/ad-applications",
       "/admin/trade-post-ads",

@@ -225,7 +225,10 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_room_hint:
       "주문 {orderId}의 대화는 해당 참여자 메신저 방에서 확인합니다. 관리자 전용 레거시 조회/메모 API는 제거되었습니다.",
     admin_do_chat_list_merged:
-      "주문 채팅 목록은 메신저 배달 채팅함으로 통합되었습니다.",
+      "STUB: Admin 주문채팅 목록은 미연결입니다. 멤버 메신저 배달 채팅함 링크만 제공합니다.",
+    admin_do_chat_stub_badge: "STUB · Admin 주문채팅 목록 미연결",
+    admin_do_chat_stub_hint:
+      "운영 identity는 Messenger store_order 방입니다. 이 화면은 링크 허브만 제공합니다 — 목록 PASS로 보지 마세요.",
     admin_do_chat_open_inbox: "배달 채팅함 열기",
     admin_do_chat_store_orders: "매장 주문 관리",
     admin_do_admin_memo: "관리자 메모",
@@ -570,7 +573,11 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_delivery_table: "Delivery order table",
     admin_do_chat_room_hint:
       "Conversation for order {orderId} is in participants' messenger room. Legacy admin view/memo APIs removed.",
-    admin_do_chat_list_merged: "Order chat list is merged into messenger delivery inbox.",
+    admin_do_chat_list_merged:
+      "STUB: Admin order-chat list is not wired. Links only to the member messenger delivery inbox.",
+    admin_do_chat_stub_badge: "STUB · Admin order-chat list not wired",
+    admin_do_chat_stub_hint:
+      "Ops identity is Messenger store_order rooms. This page is a link hub only — do not mark the list as PASS.",
     admin_do_chat_open_inbox: "Open delivery inbox",
     admin_do_chat_store_orders: "Store order management",
     admin_do_admin_memo: "Admin memo",

@@ -22,7 +22,7 @@ export function AdminChatTable({
   onToggleRow,
   onToggleAllVisible,
 }: AdminChatTableProps) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const visibleIds = rooms.map((r) => r.id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -53,6 +53,12 @@ export function AdminChatTable({
               />
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_room_id")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
+              {safeT("admin_chat_storage_th", {
+                fallbackKo: "저장소",
+                fallbackEn: "Storage",
+              })}
+            </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_product_title")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_seller")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_buyer")}</th>
@@ -85,6 +91,15 @@ export function AdminChatTable({
               </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
                 {r.id.slice(0, 8)}…
+              </td>
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-xxs text-sam-muted">
+                {r.adminChatStorage === "product_chats"
+                  ? "product_chats"
+                  : r.adminChatStorage === "meeting_open_chat"
+                    ? "meeting_open_chat"
+                    : r.adminChatStorage === "chat_rooms"
+                      ? "chat_rooms"
+                      : "—"}
               </td>
               <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
                 {r.productTitle}

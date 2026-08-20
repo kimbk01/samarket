@@ -2,6 +2,8 @@
 export const adminOperationsHubMessages = {
   ko: {
     admin_ops_hub_page_title: "운영 허브",
+    admin_ops_hub_quarantine_banner:
+      "ORPHAN / QUARANTINE · /admin/operations 은 레거시 링크 허브입니다. Domain SSOT 메뉴(Trade/Community/Delivery/Messenger)를 우선하세요.",
     admin_ops_hub_card_quick_links: "빠른 이동",
     admin_ops_hub_card_chat_backend: "채팅 조치 (백엔드)",
     admin_ops_hub_link_chats: "채팅 관리",
@@ -21,6 +23,8 @@ export const adminOperationsHubMessages = {
   },
   en: {
     admin_ops_hub_page_title: "Operations hub",
+    admin_ops_hub_quarantine_banner:
+      "ORPHAN / QUARANTINE · /admin/operations is a legacy link hub. Prefer Domain SSOT menus (Trade/Community/Delivery/Messenger).",
     admin_ops_hub_card_quick_links: "Quick links",
     admin_ops_hub_card_chat_backend: "Chat actions (backend)",
     admin_ops_hub_link_chats: "Chat management",
