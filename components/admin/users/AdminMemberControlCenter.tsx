@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type {
@@ -28,6 +29,14 @@ import {
   ADMIN_USERS_LITE_PAGE_BG,
 } from "@/lib/ui/admin-users-lite-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
+
+const FROM_POST_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseFromPostId(raw: string | null): string | null {
+  const id = String(raw ?? "").trim();
+  return id && FROM_POST_UUID_RE.test(id) ? id : null;
+}
 
 export const ADMIN_MEMBER_CC_TABS = [
   "overview",
@@ -81,8 +90,10 @@ export function AdminMemberControlCenter({
   initialTab?: string | null;
   onUpdated?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const { isSuperAdmin } = useAdminMe();
+  const searchParams = useSearchParams();
+  const fromPostId = parseFromPostId(searchParams.get("fromPost"));
   const [tab, setTab] = useState<AdminMemberCcTab>(() => parseCcTab(initialTab));
   const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(() => new Set([parseCcTab(initialTab)]));
   const [editPermissions, setEditPermissions] = useState(false);
@@ -112,9 +123,23 @@ export function AdminMemberControlCenter({
             <span className="mx-1.5 text-[#98a2b3]">›</span>
             <span className="text-[#344054]">{t("admin_users_detail_title")}</span>
           </nav>
-          <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
-            {t("admin_users_lite_back_to_list")}
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {fromPostId ? (
+              <Link
+                href={`/admin/products/${fromPostId}`}
+                prefetch={false}
+                className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
+              >
+                {safeT("admin_users_back_to_post", {
+                  fallbackKo: "← 게시물로",
+                  fallbackEn: "← Back to listing",
+                })}
+              </Link>
+            ) : null}
+            <Link href="/admin/users" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}>
+              {t("admin_users_lite_back_to_list")}
+            </Link>
+          </div>
         </div>
         <AdminMemberMasterHeader
           user={user}

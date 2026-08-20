@@ -105,6 +105,8 @@ export const adminPostsManagementMessages = {
     admin_posts_mgmt_confirm_trade_override:
       "「{title}」\n{action} 처리할까요?",
     admin_posts_mgmt_action_failed: "처리 실패",
+    admin_posts_mgmt_need_buyer: "판매 확정 구매자가 없어 완료 처리할 수 없습니다.",
+    admin_posts_mgmt_pick_buyer: "판매 확정 구매자 UUID",
   },
   en: {
     admin_posts_mgmt_page_title: "Post management",
@@ -211,6 +213,8 @@ export const adminPostsManagementMessages = {
     admin_posts_mgmt_confirm_trade_override:
       "「{title}」\nProceed with {action}?",
     admin_posts_mgmt_action_failed: "Action failed",
+    admin_posts_mgmt_need_buyer: "No confirmed buyer — cannot force complete.",
+    admin_posts_mgmt_pick_buyer: "Confirmed buyer UUID",
   },
   
 } as const;

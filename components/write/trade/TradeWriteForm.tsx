@@ -262,6 +262,11 @@ interface TradeWriteFormProps {
     description: string;
     price?: string;
   };
+  /**
+   * Admin taxonomy preview — same renderer, no createPost / update write.
+   * DO NOT use on member write surfaces.
+   */
+  previewOnly?: boolean;
 }
 
 export function TradeWriteForm(props: TradeWriteFormProps) {
@@ -287,6 +292,7 @@ function TradeMarketplaceWriteFormInner({
   tradePolicy = null,
   rootTopicSelect,
   listingChromeSeed,
+  previewOnly = false,
 }: TradeWriteFormProps) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -1556,6 +1562,15 @@ function TradeMarketplaceWriteFormInner({
       setExtendedSubmitting: React.Dispatch<React.SetStateAction<boolean>>
     ) => {
       if (!controller) return;
+      if (previewOnly) {
+        await dibayAlert({
+          title:
+            language === "en"
+              ? "Preview only — listing is not created."
+              : "미리보기입니다. 게시물은 등록되지 않습니다.",
+        });
+        return;
+      }
       if (!controller.validate()) return;
       setErrors({});
       setExtendedSubmitting(true);
@@ -1638,12 +1653,21 @@ function TradeMarketplaceWriteFormInner({
         setExtendedSubmitting(false);
       }
     },
-    [editPostId, onSuccess, router, t]
+    [editPostId, onSuccess, previewOnly, language, router, t]
   );
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (previewOnly) {
+        await dibayAlert({
+          title:
+            language === "en"
+              ? "Preview only — listing is not created."
+              : "미리보기입니다. 게시물은 등록되지 않습니다.",
+        });
+        return;
+      }
       if (isJobsProfile) {
         await submitExtendedProfile(jobsControllerRef.current, setJobsSubmitting);
         return;
@@ -1914,6 +1938,8 @@ function TradeMarketplaceWriteFormInner({
       isExchangeProfile,
       submitExtendedProfile,
       tradeComposition,
+      previewOnly,
+      language,
     ]
   );
 

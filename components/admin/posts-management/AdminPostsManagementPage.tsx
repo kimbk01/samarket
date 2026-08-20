@@ -38,10 +38,12 @@ const POSTS_MANAGEMENT_PAGE_SIZE = 40;
 export interface AdminPostsManagementPageProps {
   /** 서버에서 서비스 롤로 미리 불러온 목록 (RLS·API userId 없이도 표시) */
   initialProducts?: Product[];
+  initialTotal?: number;
 }
 
 export function AdminPostsManagementPage({
   initialProducts = [],
+  initialTotal = 0,
 }: AdminPostsManagementPageProps) {
   const { t, safeT } = useI18n();
   const searchParams = useSearchParams();
@@ -63,6 +65,7 @@ export function AdminPostsManagementPage({
     "all" | "active" | "sold" | "hidden" | "reported"
   >("all");
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [serverTotal, setServerTotal] = useState(initialTotal);
   /** 마지막 API/폴백 조회 메타(빈 목록 원인 구분) */
   const [listQueryError, setListQueryError] = useState<string | null>(null);
   const [listUsedServiceRole, setListUsedServiceRole] = useState(false);
@@ -73,21 +76,36 @@ export function AdminPostsManagementPage({
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
   const [tableClientWidth, setTableClientWidth] = useState(0);
 
+  const serverStatus =
+    statusView === "active" || statusView === "sold" || statusView === "hidden"
+      ? statusView
+      : filters.status || undefined;
+
   const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; page?: number }) => {
       const silent = opts?.silent ?? false;
+      const page = opts?.page ?? currentPage;
       if (!silent) setLoading(true);
 
       try {
-        const { status, json: raw } = await fetchAdminPostsManagementDeduped();
+        const { status, json: raw } = await fetchAdminPostsManagementDeduped({
+          page,
+          pageSize: POSTS_MANAGEMENT_PAGE_SIZE,
+          status: serverStatus || undefined,
+          productId: productIdSearch.trim() || undefined,
+        });
         if (status >= 200 && status < 300 && raw && typeof raw === "object") {
           const data = raw as {
             products?: Product[];
+            total?: number;
             queryError?: string | null;
             usedServiceRole?: boolean;
           };
           if (Array.isArray(data.products)) {
             setProducts(data.products);
+            setServerTotal(
+              typeof data.total === "number" ? data.total : data.products.length
+            );
             setListQueryError(data.queryError ?? null);
             setListUsedServiceRole(data.usedServiceRole ?? false);
             if (!silent) setLoading(false);
@@ -100,34 +118,38 @@ export function AdminPostsManagementPage({
 
       const { products: list, queryError } = await getAdminProductsFromDb();
       setProducts(list);
+      setServerTotal(list.length);
       setListQueryError(queryError);
       setListUsedServiceRole(false);
       if (!silent) setLoading(false);
     },
-    []
+    [currentPage, serverStatus, productIdSearch]
   );
 
   const refreshList = useCallback(() => {
-    void load({ silent: true });
-  }, [load]);
+    void load({ silent: true, page: currentPage });
+  }, [load, currentPage]);
 
   useEffect(() => {
-    if (initialProducts.length > 0) {
+    if (initialProducts.length > 0 && currentPage === 1 && !productIdSearch && !serverStatus) {
       setProducts(initialProducts);
+      setServerTotal(initialTotal);
       setLoading(false);
       return;
     }
-    void load();
-  }, [initialProducts.length, load]);
+    void load({ page: currentPage });
+  // intentional server-page reload (omit `load` from deps)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, serverStatus, productIdSearch]);
 
   // 웹에서 판매자가 문의중/예약중/판매완료로 상태 변경하면 DB(posts.status)가 바뀌지만,
   // 어드민 페이지는 기본적으로 실시간 갱신을 안 하므로 '바로 업데이트'를 위해 폴링합니다.
   useEffect(() => {
     const id = window.setInterval(() => {
-      void load({ silent: true });
+      void load({ silent: true, page: currentPage });
     }, 5000);
     return () => window.clearInterval(id);
-  }, [load]);
+  }, [load, currentPage]);
 
   const filtered = useMemo(
     () =>
@@ -137,22 +159,19 @@ export function AdminPostsManagementPage({
         filters,
         sellerSearch,
         categorySearch,
-        productIdSearch
+        "" // productId already server-filtered
       ),
-    [products, tab, filters, sellerSearch, categorySearch, productIdSearch]
+    [products, tab, filters, sellerSearch, categorySearch]
   );
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filtered.length / POSTS_MANAGEMENT_PAGE_SIZE)
+    Math.ceil(Math.max(serverTotal, 1) / POSTS_MANAGEMENT_PAGE_SIZE)
   );
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * POSTS_MANAGEMENT_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + POSTS_MANAGEMENT_PAGE_SIZE, filtered.length);
-  const paginatedFiltered = useMemo(
-    () => filtered.slice(pageStart, pageEnd),
-    [filtered, pageStart, pageEnd]
-  );
+  const pageEnd = Math.min(pageStart + filtered.length, serverTotal);
+  const paginatedFiltered = filtered;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -169,6 +188,7 @@ export function AdminPostsManagementPage({
     filters.webVisibleOnly,
     filters.jobListingKind,
     productIdSearch,
+    statusView,
   ]);
 
   useEffect(() => {
@@ -176,7 +196,6 @@ export function AdminPostsManagementPage({
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
-
   const onTableHorizontalScroll = useCallback(() => {
     const t = tableScrollRef.current;
     const b = bottomScrollRef.current;
@@ -305,6 +324,9 @@ export function AdminPostsManagementPage({
                 loaded: String(products.length),
                 filtered: String(filtered.length),
               })}
+              {serverTotal > 0 ? (
+                <span className="ml-1 text-sam-meta">/ {serverTotal}</span>
+              ) : null}
             </span>
             <ConsoleButton
               variant="secondary"
@@ -593,7 +615,7 @@ export function AdminPostsManagementPage({
               {t("admin_posts_mgmt_pagination_info", {
                 page: String(safePage),
                 totalPages: String(totalPages),
-                total: String(filtered.length),
+                total: String(serverTotal),
               })}
             </p>
             <div className="flex flex-wrap items-center gap-2">

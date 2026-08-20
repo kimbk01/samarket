@@ -44,15 +44,17 @@ describe("CUT A2 admin taxonomy SSOT", () => {
     const page = read("components/admin/categories/AdminCategoriesPage.tsx");
     expect(page).toContain('href="/admin/menus/trade"');
     expect(page).toContain("admin_cat_trade_ssot_prefix");
-    expect(adminCategoriesMessages.ko.admin_cat_trade_ssot_link).toBe("주제 관리 (거래)");
-    expect(adminCategoriesMessages.en.admin_cat_trade_ssot_link).toBe("Topic management (trade)");
+    expect(adminCategoriesMessages.ko.admin_cat_trade_ssot_link).toBe("거래 메뉴 설정");
+    expect(adminCategoriesMessages.en.admin_cat_trade_ssot_link).toBe("Trade menu settings");
   });
 
-  it("admin copy uses 주제 / 카테고리 / 옵션", () => {
+  it("admin copy uses 주제 / 카테고리 / 옵션 (T0)", () => {
     expect(adminMessages.ko.admin_menu_menu_trade).toBe("주제 (거래)");
-    expect(adminMessages.en.admin_menu_menu_trade).toBe("Topics (trade)");
-    expect(adminMenusMessages.ko.admin_menu_trade_mgmt_title).toBe("주제 관리 (거래)");
-    expect(adminMenusMessages.en.admin_menu_trade_mgmt_title).toBe("Topic management (trade)");
+    expect(adminMessages.en.admin_menu_menu_trade).toBe("Subjects (trade)");
+    expect(adminMenusMessages.ko.admin_menu_trade_mgmt_title).toBe("거래 메뉴 설정");
+    expect(adminMenusMessages.en.admin_menu_trade_mgmt_title).toBe("Trade menu settings");
+    expect(adminMenusMessages.ko.admin_menu_trade_items_heading).toBe("주제");
+    expect(adminMenusMessages.en.admin_menu_trade_items_heading).toBe("Subjects");
     expect(adminMenusMessages.ko.admin_menu_subtopic_manage).toBe("카테고리 관리");
     expect(adminMenusMessages.en.admin_menu_subtopic_manage).toBe("Manage categories");
     expect(adminCategoriesMessages.ko.admin_cat_composition_title).toBe("옵션");

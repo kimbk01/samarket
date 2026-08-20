@@ -5,19 +5,25 @@ import { fetchAdminPostsManagementProducts } from "@/lib/admin-products/admin-po
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { Product } from "@/lib/types/product";
 
-async function loadPostsServerSide(): Promise<Product[]> {
+async function loadPostsServerSide(): Promise<{ products: Product[]; total: number }> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return [];
-  const { products } = await fetchAdminPostsManagementProducts(sb);
-  return products;
+  if (!sb) return { products: [], total: 0 };
+  const { products, total } = await fetchAdminPostsManagementProducts(sb, {
+    page: 1,
+    pageSize: 40,
+  });
+  return { products, total: total ?? products.length };
 }
 
 export default async function AdminPostsManagementRoute() {
-  const initialProducts = await loadPostsServerSide();
+  const initial = await loadPostsServerSide();
 
   return (
     <Suspense fallback={<AdminLoadingFallback />}>
-      <AdminPostsManagementPage initialProducts={initialProducts} />
+      <AdminPostsManagementPage
+        initialProducts={initial.products}
+        initialTotal={initial.total}
+      />
     </Suspense>
   );
 }

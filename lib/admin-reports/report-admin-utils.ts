@@ -44,6 +44,8 @@ export function filterReports(
     targetType: ReportTargetType | "";
     status: ReportStatus | "";
     reasonCode: string;
+    /** Deep-link: /admin/reports?target=<postId|targetId> */
+    targetId?: string;
   }
 ): Report[] {
   let list = [...reports];
@@ -55,6 +57,14 @@ export function filterReports(
   }
   if (filters.reasonCode) {
     list = list.filter((r) => r.reasonCode === filters.reasonCode);
+  }
+  const targetId = (filters.targetId ?? "").trim();
+  if (targetId) {
+    const q = targetId.toLowerCase();
+    list = list.filter((r) => {
+      const id = (r.targetId ?? "").trim().toLowerCase();
+      return id === q || id.includes(q);
+    });
   }
   return list;
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchAdminPostsManagementDeduped } from "@/lib/admin/fetch-admin-posts-management-deduped";
 import type { Product } from "@/lib/types/product";
+import type { AdminTradeOverviewCounts } from "@/lib/admin-products/admin-trade-overview-counts";
 import {
   ConsoleButton,
   KpiGrid,
@@ -14,25 +15,38 @@ import {
 } from "@/components/admin/trade-console/trade-console-ui";
 
 /**
- * Trade Dashboard — approved console chrome.
- * KPI without aggregation contract stay `—`. External queues LINK only.
+ * Trade Overview — lightweight KPI (COUNT) + recent page-1 listings + LINK shortcuts.
  */
 export function AdminTradeHub() {
   const { t, safeT } = useI18n();
   const [products, setProducts] = useState<Product[]>([]);
+  const [counts, setCounts] = useState<AdminTradeOverviewCounts | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { status, json: raw } = await fetchAdminPostsManagementDeduped();
-      if (status >= 200 && status < 300 && raw && typeof raw === "object") {
-        const data = raw as { products?: Product[] };
+      const [overviewRes, listRes] = await Promise.all([
+        fetch("/api/admin/trade/overview", { credentials: "include", cache: "no-store" }).then((r) =>
+          r.json().catch(() => ({}))
+        ),
+        fetchAdminPostsManagementDeduped({ page: 1, pageSize: 8 }),
+      ]);
+
+      if (overviewRes?.ok && overviewRes.counts) {
+        setCounts(overviewRes.counts as AdminTradeOverviewCounts);
+      } else {
+        setCounts(null);
+      }
+
+      if (listRes.status >= 200 && listRes.status < 300 && listRes.json && typeof listRes.json === "object") {
+        const data = listRes.json as { products?: Product[] };
         setProducts(Array.isArray(data.products) ? data.products : []);
       } else {
         setProducts([]);
       }
     } catch {
+      setCounts(null);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -44,7 +58,8 @@ export function AdminTradeHub() {
   }, [load]);
 
   const recent = products.slice(0, 8);
-  const listingTotal = loading ? null : products.length;
+  const kpi = (v: number | null | undefined) =>
+    loading ? null : v == null ? null : v;
 
   return (
     <div className="space-y-4" data-admin>
@@ -81,64 +96,48 @@ export function AdminTradeHub() {
               fallbackKo: "전체 게시물",
               fallbackEn: "Listings",
             }),
-            value: listingTotal,
-            disconnected: listingTotal == null,
+            value: kpi(counts?.listingsTotal),
+            disconnected: !loading && counts?.listingsTotal == null,
           },
           {
             label: safeT("admin_trade_kpi_active", {
               fallbackKo: "판매중",
               fallbackEn: "Active",
             }),
-            value: null,
-            disconnected: true,
+            value: kpi(counts?.listingsActive),
+            disconnected: !loading && counts?.listingsActive == null,
           },
           {
             label: safeT("admin_trade_kpi_sold", {
               fallbackKo: "판매완료",
               fallbackEn: "Sold",
             }),
-            value: null,
-            disconnected: true,
-          },
-          {
-            label: safeT("admin_trade_kpi_reports", {
-              fallbackKo: "신고 대기",
-              fallbackEn: "Reports pending",
-            }),
-            value: null,
-            disconnected: true,
-          },
-          {
-            label: safeT("admin_trade_kpi_trades", {
-              fallbackKo: "진행 거래",
-              fallbackEn: "Open trades",
-            }),
-            value: null,
-            disconnected: true,
-          },
-          {
-            label: safeT("admin_trade_kpi_promo", {
-              fallbackKo: "홍보중",
-              fallbackEn: "Promoted",
-            }),
-            value: null,
-            disconnected: true,
-          },
-          {
-            label: safeT("admin_trade_kpi_reviews", {
-              fallbackKo: "후기",
-              fallbackEn: "Reviews",
-            }),
-            value: null,
-            disconnected: true,
+            value: kpi(counts?.listingsSold),
+            disconnected: !loading && counts?.listingsSold == null,
           },
           {
             label: safeT("admin_trade_kpi_hidden", {
               fallbackKo: "숨김",
               fallbackEn: "Hidden",
             }),
-            value: null,
-            disconnected: true,
+            value: kpi(counts?.listingsHidden),
+            disconnected: !loading && counts?.listingsHidden == null,
+          },
+          {
+            label: safeT("admin_trade_kpi_reports", {
+              fallbackKo: "신고 대기",
+              fallbackEn: "Reports pending",
+            }),
+            value: kpi(counts?.reportsPending),
+            disconnected: !loading && counts?.reportsPending == null,
+          },
+          {
+            label: safeT("admin_trade_kpi_promo", {
+              fallbackKo: "홍보중",
+              fallbackEn: "Promoted",
+            }),
+            value: kpi(counts?.promoActive),
+            disconnected: !loading && counts?.promoActive == null,
           },
         ]}
       />
@@ -155,9 +154,9 @@ export function AdminTradeHub() {
                 fallbackKo: "신고 검토",
                 fallbackEn: "Reports",
               }),
-              count: null,
+              count: loading ? null : counts?.reportsPending ?? null,
               href: "/admin/reports",
-              disconnected: true,
+              disconnected: !loading && counts?.reportsPending == null,
             },
             {
               label: safeT("admin_trade_ops_flow", {
@@ -166,7 +165,7 @@ export function AdminTradeHub() {
               }),
               count: null,
               href: "/admin/trade-flow",
-              disconnected: true,
+              disconnected: false,
             },
             {
               label: safeT("admin_trade_ops_complete", {
@@ -174,17 +173,17 @@ export function AdminTradeHub() {
                 fallbackEn: "Buyer confirm",
               }),
               count: null,
-              href: "/admin/chats/trade-complete",
-              disconnected: true,
+              href: "/admin/trade-flow?panel=complete",
+              disconnected: false,
             },
             {
               label: safeT("admin_trade_ops_promo", {
                 fallbackKo: "더 알리기",
                 fallbackEn: "Promote",
               }),
-              count: null,
+              count: loading ? null : counts?.promoPending ?? null,
               href: "/admin/ad-applications",
-              disconnected: true,
+              disconnected: !loading && counts?.promoPending == null,
             },
           ]}
         />
@@ -193,21 +192,19 @@ export function AdminTradeHub() {
           <div className="flex items-center justify-between border-b border-sam-border px-3 py-2">
             <h2 className="sam-text-body font-semibold text-sam-fg">
               {safeT("admin_trade_link_panel", {
-                fallbackKo: "기존 화면 LINK",
-                fallbackEn: "Linked surfaces",
+                fallbackKo: "바로가기",
+                fallbackEn: "Shortcuts",
               })}
             </h2>
           </div>
           <ul className="divide-y divide-sam-border-soft sam-text-body-secondary">
             {[
+              { href: "/admin/posts-management", label: t("admin_menu_posts_management") },
               { href: "/admin/reports", label: t("admin_menu_reports") },
-              { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
+              { href: "/admin/trade-flow", label: t("admin_menu_chat_flow") },
               { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
-              { href: "/admin/menus/trade", label: t("admin_menu_menu_trade") },
-              { href: "/admin/trade/settings", label: t("admin_menu_trade_settings") },
-              { href: "/admin/favorites", label: t("admin_menu_trade_likes") },
-              { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },
               { href: "/admin/ad-applications", label: t("admin_menu_ads_applications") },
+              { href: "/admin/menus/trade", label: t("admin_menu_menu_trade") },
             ].map((row) => (
               <li key={row.href}>
                 <Link
@@ -248,10 +245,18 @@ export function AdminTradeHub() {
           <table className="w-full table-fixed text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">상품</th>
-                <th className="px-3 py-2">판매자</th>
-                <th className="px-3 py-2">상태</th>
-                <th className="px-3 py-2">등록</th>
+                <th className="px-3 py-2">
+                  {safeT("admin_trade_th_listing", { fallbackKo: "상품", fallbackEn: "Listing" })}
+                </th>
+                <th className="px-3 py-2">
+                  {safeT("admin_trade_th_seller", { fallbackKo: "판매자", fallbackEn: "Seller" })}
+                </th>
+                <th className="px-3 py-2">
+                  {safeT("admin_trade_th_status", { fallbackKo: "상태", fallbackEn: "Status" })}
+                </th>
+                <th className="px-3 py-2">
+                  {safeT("admin_trade_th_created", { fallbackKo: "등록", fallbackEn: "Created" })}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
@@ -272,7 +277,7 @@ export function AdminTradeHub() {
                     <TradeStatusBadge status={p.status} />
                   </td>
                   <td className="px-3 py-2 sam-text-xxs text-sam-muted">
-                    {new Date(p.createdAt).toLocaleDateString("ko-KR")}
+                    {new Date(p.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
               ))}

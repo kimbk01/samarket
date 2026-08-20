@@ -132,7 +132,7 @@ export const adminCategoriesMessages = {
     admin_cat_post_link: "페이지 이동",
     admin_cat_label_slug_url: "slug (URL)",
     admin_cat_trade_ssot_prefix: "거래 마켓의 주제 · 카테고리 · 옵션은",
-    admin_cat_trade_ssot_link: "주제 관리 (거래)",
+    admin_cat_trade_ssot_link: "거래 메뉴 설정",
     admin_cat_trade_ssot_suffix: "에서 관리합니다. 이 화면은 전체 타입 목록입니다.",
   },
   en: {
@@ -267,7 +267,7 @@ export const adminCategoriesMessages = {
     admin_cat_post_link: "Link page",
     admin_cat_label_slug_url: "slug (URL)",
     admin_cat_trade_ssot_prefix: "Trade market topics, categories, and options are managed in",
-    admin_cat_trade_ssot_link: "Topic management (trade)",
+    admin_cat_trade_ssot_link: "Trade menu settings",
     admin_cat_trade_ssot_suffix: ". This page is the all-types list.",
   },
   

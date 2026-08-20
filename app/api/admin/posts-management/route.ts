@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 게시물 관리 목록 — 서비스 롤로 posts + 카테고리 조인
- * GET /api/admin/posts-management (관리자 세션)
- * GET /api/admin/posts-management?id= — 동일 authority, id 1건 (목록 window find 아님)
+ * 게시물 관리 목록 — 서비스 롤로 posts page + light enrich
+ * GET /api/admin/posts-management?page=&pageSize=&status=&productId=&title=&region=
+ * GET /api/admin/posts-management?id= — 1건 (detail)
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
   if (!url || !anonKey) {
     return NextResponse.json({
       products: [],
+      total: 0,
+      page: 1,
+      pageSize: 40,
       queryError:
         "NEXT_PUBLIC_SUPABASE_URL 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY가 .env.local에 없습니다. 둘 다 필요합니다.",
       usedServiceRole: false,
@@ -36,14 +39,38 @@ export async function GET(req: NextRequest) {
   const anon = createClient(url, anonKey);
   const svc = tryCreateSupabaseServiceClient();
   const supabase = usedServiceRole && svc ? svc : anon;
-  const postId = req.nextUrl.searchParams.get("id")?.trim() ?? "";
+  const sp = req.nextUrl.searchParams;
+  const postId = sp.get("id")?.trim() ?? "";
 
-  const { products, queryError } = postId
-    ? await fetchAdminPostById(supabase, postId)
-    : await fetchAdminPostsManagementProducts(supabase);
+  if (postId) {
+    const { products, queryError } = await fetchAdminPostById(supabase, postId);
+    return NextResponse.json({
+      products,
+      total: products.length,
+      page: 1,
+      pageSize: 1,
+      queryError,
+      usedServiceRole,
+    });
+  }
+
+  const pageRaw = parseInt(sp.get("page") ?? "1", 10);
+  const sizeRaw = parseInt(sp.get("pageSize") ?? "40", 10);
+  const result = await fetchAdminPostsManagementProducts(supabase, {
+    page: Number.isFinite(pageRaw) ? pageRaw : 1,
+    pageSize: Number.isFinite(sizeRaw) ? sizeRaw : 40,
+    status: sp.get("status")?.trim() || undefined,
+    productId: sp.get("productId")?.trim() || undefined,
+    title: sp.get("title")?.trim() || undefined,
+    region: sp.get("region")?.trim() || undefined,
+  });
+
   return NextResponse.json({
-    products,
-    queryError,
+    products: result.products,
+    total: result.total ?? result.products.length,
+    page: result.page ?? 1,
+    pageSize: result.pageSize ?? 40,
+    queryError: result.queryError,
     usedServiceRole,
   });
 }

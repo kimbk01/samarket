@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Admin V1 — compose approved Field Library ids onto a trade category.
+ * Admin V1 — compose approved Field Library ids onto a trade ROOT category.
+ * T2: operator-friendly chrome (no profileId / W·L·D·E / raw ids).
  * Cannot invent fields / storagePath / validators.
- * Phase 4: surface verify matrix (W/L/D/E) from Field Library + resolve.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   getTradeSeedComposition,
   resolveTradeCompositionProfileId,
@@ -15,11 +15,8 @@ import {
 } from "@/lib/trade/category-form";
 import { TRADE_FIELD_LIBRARY } from "@/lib/trade/category-form/field-library";
 import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labels";
+import { tradeFieldWidgetOperatorLabel } from "@/lib/trade/category-form/field-widget-operator-label";
 import { parseTradeFieldCompositionPayload } from "@/lib/trade/category-form/parse-field-composition";
-import {
-  adminSurfaceBadgeChars,
-  buildAdminCompositionSurfaceMatrix,
-} from "@/lib/trade/category-form/admin-composition-surface-matrix";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -37,8 +34,9 @@ function seedOverlays(iconKey: string, slug: string): TradeCompositionFieldOverl
 }
 
 export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange }: Props) {
-  const { language, t } = useI18n();
+  const { language, t, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const [addOpen, setAddOpen] = useState(false);
 
   const rows = useMemo(() => {
     const parsed = parseTradeFieldCompositionPayload(value);
@@ -47,16 +45,6 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
   }, [value, iconKey, slug]);
 
   const libraryIds = useMemo(() => Object.keys(TRADE_FIELD_LIBRARY).sort(), []);
-
-  const matrix = useMemo(
-    () =>
-      buildAdminCompositionSurfaceMatrix({
-        iconKey,
-        slug,
-        fieldComposition: value,
-      }),
-    [iconKey, slug, value]
-  );
 
   const emit = (nextRows: TradeCompositionFieldOverlay[]) => {
     onChange(serializeTradeFieldCompositionPayload({ v: 1, fields: nextRows }));
@@ -87,6 +75,7 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
     if (!id || rows.some((r) => r.id === id)) return;
     const maxOrder = rows.reduce((m, r) => Math.max(m, r.order), 0);
     emit([...rows, { id, active: true, required: false, order: maxOrder + 10 }]);
+    setAddOpen(false);
   };
 
   const removeField = (id: string) => {
@@ -94,103 +83,147 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
   };
 
   const unused = libraryIds.filter((id) => !rows.some((r) => r.id === id));
+  const sorted = rows.slice().sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
   return (
-    <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_composition_title")}</p>
+        <p className="sam-text-body font-semibold text-sam-fg">
+          {safeT("admin_menu_trade_options_heading", {
+            fallbackKo: "등록 옵션",
+            fallbackEn: "Listing options",
+          })}
+        </p>
         <button type="button" onClick={() => onChange(null)} className={`${Sam.btn.ghost} ${Sam.btn.sm}`}>
           {t("admin_cat_composition_reset_seed")}
         </button>
       </div>
-      <p className="sam-text-xxs text-sam-muted">{t("admin_cat_composition_hint")}</p>
+      <p className="sam-text-body-secondary text-sam-muted">
+        {safeT("admin_menu_trade_options_hint", {
+          fallbackKo: "필드 라이브러리에서 고른 옵션만 등록·필수·순서를 조정합니다. 선택값(제조사 목록 등)은 별도 관리입니다.",
+          fallbackEn: "Add options from the field library and set required/order. Select enums are managed separately.",
+        })}
+      </p>
 
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-2">
-        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_cat_composition_matrix_title")}</p>
-        <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("admin_cat_composition_matrix_hint")}</p>
-        <p className="mt-1 sam-text-xxs text-sam-muted">
-          {t("admin_cat_composition_profile")}: {matrix.profileId} · {t("admin_cat_composition_layout")}:{" "}
-          {matrix.layoutVariant} · {matrix.source}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span className={matrix.counts.write > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
-            {t("admin_cat_composition_surface_write")} {matrix.counts.write}
-          </span>
-          <span className={matrix.counts.list > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
-            {t("admin_cat_composition_surface_list")} {matrix.counts.list}
-          </span>
-          <span className={matrix.counts.detail > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
-            {t("admin_cat_composition_surface_detail")} {matrix.counts.detail}
-          </span>
-          <span className={matrix.counts.edit > 0 ? Sam.chip.activeCombo : Sam.chip.inactiveCombo}>
-            {t("admin_cat_composition_surface_edit")} {matrix.counts.edit}
-          </span>
-        </div>
-      </div>
-
-      <ul className="space-y-2">
-        {rows
-          .slice()
-          .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
-          .map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center gap-2 rounded-ui-rect bg-sam-app px-2 py-1.5 sam-text-helper"
-            >
-              <span className="min-w-[7rem] font-medium text-sam-fg">{tradeFieldAdminLabel(r.id, lang)}</span>
-              <span className={Sam.chip.activeCombo}>
-                {adminSurfaceBadgeChars(matrix.fieldSurfaces[r.id]) || "—"}
-              </span>
-              <label className={`flex items-center gap-1 ${r.active !== false ? "text-sam-primary" : "text-sam-muted"}`}>
-                <input
-                  type="checkbox"
-                  checked={r.active !== false}
-                  onChange={(e) => updateRow(r.id, { active: e.target.checked })}
-                  className="rounded"
-                />
-                {t("admin_cat_composition_active")}
-              </label>
-              <label className="flex items-center gap-1 text-sam-muted">
-                <input
-                  type="checkbox"
-                  checked={r.required === true}
-                  onChange={(e) => updateRow(r.id, { required: e.target.checked })}
-                  className="rounded"
-                />
-                {t("admin_cat_composition_required")}
-              </label>
-              <span className="text-sam-meta">#{r.order}</span>
-              <button type="button" className="text-sam-primary" onClick={() => move(r.id, -1)}>
-                ↑
-              </button>
-              <button type="button" className="text-sam-primary" onClick={() => move(r.id, 1)}>
-                ↓
-              </button>
-              <button type="button" className="text-sam-danger" onClick={() => removeField(r.id)}>
-                {t("admin_cat_delete")}
-              </button>
-            </li>
-          ))}
+      <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border bg-sam-surface">
+        {sorted.length === 0 ? (
+          <li className="px-3 py-6 text-center sam-text-body text-sam-muted">
+            {safeT("admin_menu_trade_options_empty", {
+              fallbackKo: "등록된 옵션이 없습니다.",
+              fallbackEn: "No options yet.",
+            })}
+          </li>
+        ) : (
+          sorted.map((r, index) => {
+            const def = TRADE_FIELD_LIBRARY[r.id];
+            const widgetLabel = tradeFieldWidgetOperatorLabel(def?.widget, lang);
+            const requiredLabel = r.required
+              ? safeT("admin_cat_composition_required", { fallbackKo: "필수", fallbackEn: "Required" })
+              : safeT("admin_menu_trade_option_optional", {
+                  fallbackKo: "선택",
+                  fallbackEn: "Optional",
+                });
+            return (
+              <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="sam-text-body font-medium text-sam-fg">{tradeFieldAdminLabel(r.id, lang)}</p>
+                  <p className="sam-text-xxs text-sam-muted">
+                    {widgetLabel} · {requiredLabel} ·{" "}
+                    {safeT("admin_menu_trade_option_order", {
+                      fallbackKo: "순서 {n}",
+                      fallbackEn: "Order {n}",
+                      vars: { n: index + 1 },
+                    })}
+                    {r.active === false
+                      ? ` · ${safeT("admin_menu_status_inactive", { fallbackKo: "비활성", fallbackEn: "Inactive" })}`
+                      : ""}
+                  </p>
+                </div>
+                <label className="flex items-center gap-1 sam-text-xxs text-sam-muted">
+                  <input
+                    type="checkbox"
+                    checked={r.active !== false}
+                    onChange={(e) => updateRow(r.id, { active: e.target.checked })}
+                    className="rounded"
+                  />
+                  {t("admin_cat_composition_active")}
+                </label>
+                <label className="flex items-center gap-1 sam-text-xxs text-sam-muted">
+                  <input
+                    type="checkbox"
+                    checked={r.required === true}
+                    onChange={(e) => updateRow(r.id, { required: e.target.checked })}
+                    className="rounded"
+                  />
+                  {t("admin_cat_composition_required")}
+                </label>
+                <button type="button" className="sam-text-body-secondary text-signature" onClick={() => move(r.id, -1)}>
+                  ↑
+                </button>
+                <button type="button" className="sam-text-body-secondary text-signature" onClick={() => move(r.id, 1)}>
+                  ↓
+                </button>
+                <button type="button" className="sam-text-body-secondary text-red-600" onClick={() => removeField(r.id)}>
+                  {safeT("admin_menu_trade_option_remove", {
+                    fallbackKo: "제거",
+                    fallbackEn: "Remove",
+                  })}
+                </button>
+              </li>
+            );
+          })
+        )}
       </ul>
+
       {unused.length > 0 ? (
-        <div>
-          <label className="block sam-text-helper text-sam-muted">{t("admin_cat_composition_add")}</label>
-          <select
-            className={`mt-1 w-full ${Sam.input.select}`}
-            defaultValue=""
-            onChange={(e) => {
-              const id = e.target.value;
-              if (id) addField(id);
-              e.target.value = "";
-            }}
-          >
-            <option value="">{t("admin_cat_composition_add_ph")}</option>
-            {unused.map((id) => (
-              <option key={id} value={id}>
-                {tradeFieldAdminLabel(id, lang)}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-2">
+          {!addOpen ? (
+            <button
+              type="button"
+              className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm}`}
+              onClick={() => setAddOpen(true)}
+            >
+              {safeT("admin_menu_trade_option_add", {
+                fallbackKo: "+ 옵션 추가",
+                fallbackEn: "+ Add option",
+              })}
+            </button>
+          ) : (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+              <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
+                {safeT("admin_menu_trade_option_pick", {
+                  fallbackKo: "옵션 선택",
+                  fallbackEn: "Choose option",
+                })}
+              </p>
+              <ul className="max-h-56 space-y-1 overflow-y-auto">
+                {unused.map((id) => {
+                  const def = TRADE_FIELD_LIBRARY[id];
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-ui-rect px-2 py-2 text-left hover:bg-sam-surface-muted"
+                        onClick={() => addField(id)}
+                      >
+                        <span className="sam-text-body text-sam-fg">{tradeFieldAdminLabel(id, lang)}</span>
+                        <span className="sam-text-xxs text-sam-muted">
+                          {tradeFieldWidgetOperatorLabel(def?.widget, lang)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                type="button"
+                className={`mt-2 ${Sam.btn.ghost} ${Sam.btn.sm}`}
+                onClick={() => setAddOpen(false)}
+              >
+                {t("common_cancel")}
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
     </div>

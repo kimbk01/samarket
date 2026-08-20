@@ -6,6 +6,12 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/admin/posts/bulk-delete
  * body: { ids: string[] } — 거래 posts 테이블 영구 삭제
+ *
+ * CONTRACT (Trade Admin L10):
+ * - Trade Post CC / posts-management permanent CTA = DISABLED · NOT_READY
+ *   (dependency preview 미완 — do not wire those CTAs here)
+ * - Legacy community admin bulk tool may still call this API
+ * - Reject explicit trade_admin surface until permanent-delete cut ships
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -40,6 +46,21 @@ export async function POST(req: NextRequest) {
     json = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const surface =
+    json && typeof json === "object" && "surface" in json
+      ? String((json as { surface?: unknown }).surface ?? "").trim().toLowerCase()
+      : "";
+  if (surface === "trade_admin" || surface === "posts_management" || surface === "product_cc") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "permanent_delete_not_ready",
+        message: "Trade Admin permanent delete is NOT_READY (dependency preview incomplete).",
+      },
+      { status: 501 }
+    );
   }
 
   const ids = parseIds(json);

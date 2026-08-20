@@ -168,6 +168,10 @@ export const adminTradeMessages = {
     admin_trade_ad_policies_save_failed: "저장 실패",
     admin_trade_th_time: "시각",
     admin_trade_th_points: "포인트",
+    admin_trade_th_created: "등록",
+    admin_trade_th_listing: "상품",
+    admin_trade_th_seller: "판매자",
+    admin_trade_th_status: "상태",
   },
   en: {
     admin_trade_hub_desc:
@@ -334,6 +338,10 @@ export const adminTradeMessages = {
     admin_trade_ad_policies_save_failed: "Save failed",
     admin_trade_th_time: "Time",
     admin_trade_th_points: "Points",
+    admin_trade_th_created: "Created",
+    admin_trade_th_listing: "Listing",
+    admin_trade_th_seller: "Seller",
+    admin_trade_th_status: "Status",
   },
   
 } as const;

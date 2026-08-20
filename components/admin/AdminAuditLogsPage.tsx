@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -34,10 +35,20 @@ function JsonBlock({ label, v }: { label: string; v: unknown }) {
 
 export function AdminAuditLogsPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const targetTypeFromQuery = (searchParams.get("target_type") ?? "").trim();
+  const targetIdFromQuery = (searchParams.get("target_id") ?? "").trim();
+
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(targetTypeFromQuery);
+  const [targetIdFilter, setTargetIdFilter] = useState(targetIdFromQuery);
+
+  useEffect(() => {
+    setFilter(targetTypeFromQuery);
+    setTargetIdFilter(targetIdFromQuery);
+  }, [targetTypeFromQuery, targetIdFromQuery]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +56,7 @@ export function AdminAuditLogsPage() {
     try {
       const q = new URLSearchParams();
       if (filter.trim()) q.set("target_type", filter.trim());
+      if (targetIdFilter.trim()) q.set("target_id", targetIdFilter.trim());
       const res = await fetch(`/api/admin/audit-logs?${q.toString()}`, { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
@@ -68,7 +80,7 @@ export function AdminAuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, t]);
+  }, [filter, targetIdFilter, t]);
 
   useEffect(() => {
     void load();
@@ -86,6 +98,14 @@ export function AdminAuditLogsPage() {
             placeholder={t("admin_audit_filter_target_placeholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs text-sam-muted">target_id</span>
+          <input
+            className="mt-0.5 block min-w-[220px] rounded-ui-rect border border-sam-border px-2 py-1.5 font-mono text-sm"
+            value={targetIdFilter}
+            onChange={(e) => setTargetIdFilter(e.target.value)}
           />
         </label>
         <button

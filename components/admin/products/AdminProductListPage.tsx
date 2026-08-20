@@ -1,3 +1,8 @@
+/**
+ * ORPHAN / QUARANTINED — not mounted by any live Admin route.
+ * Product list SSOT = `/admin/posts-management` (`AdminPostsManagementPage`).
+ * Do not re-wire this page into Trade NAV without a new cut.
+ */
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";

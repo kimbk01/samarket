@@ -42,7 +42,7 @@ describe("admin composition surface matrix (Phase 4)", () => {
     expect(m.fieldSurfaces.mileage).toBeUndefined();
   });
 
-  it("CategoryFieldCompositionEditor wires matrix helper and CategoryFormModal mounts editor", () => {
+  it("CategoryFieldCompositionEditor stays Field Library picker; CategoryFormModal mounts editor", () => {
     const editor = readFileSync(
       resolve(process.cwd(), "components/admin/categories/CategoryFieldCompositionEditor.tsx"),
       "utf8"
@@ -51,8 +51,9 @@ describe("admin composition surface matrix (Phase 4)", () => {
       resolve(process.cwd(), "components/admin/categories/CategoryFormModal.tsx"),
       "utf8"
     );
-    expect(editor).toContain("buildAdminCompositionSurfaceMatrix");
-    expect(editor).toContain("admin_cat_composition_matrix_title");
+    expect(editor).toContain("TRADE_FIELD_LIBRARY");
+    expect(editor).toContain("serializeTradeFieldCompositionPayload");
+    expect(editor).not.toContain("buildAdminCompositionSurfaceMatrix");
     expect(modal).toContain("CategoryFieldCompositionEditor");
     expect(modal).toContain("field_composition");
   });

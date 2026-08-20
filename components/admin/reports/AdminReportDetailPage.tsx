@@ -122,12 +122,39 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
           <div>
             <dt className="text-sam-muted">{t("admin_report_dt_reporter")}</dt>
             <dd>
-              {report.reporterNickname ?? report.reporterId} ({report.reporterId})
+              {report.reporterId ? (
+                <Link
+                  href={`/admin/users/${report.reporterId}`}
+                  className="text-signature hover:underline"
+                  prefetch={false}
+                >
+                  {report.reporterNickname ?? report.reporterId}
+                </Link>
+              ) : (
+                (report.reporterNickname ?? "—")
+              )}{" "}
+              {report.reporterId ? (
+                <span className="font-mono sam-text-body-secondary text-sam-muted">
+                  ({report.reporterId})
+                </span>
+              ) : null}
             </dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_report_dt_target_user")}</dt>
-            <dd className="font-mono sam-text-body-secondary">{report.targetUserId || "—"}</dd>
+            <dd className="font-mono sam-text-body-secondary">
+              {report.targetUserId ? (
+                <Link
+                  href={`/admin/users/${report.targetUserId}`}
+                  className="text-signature hover:underline"
+                  prefetch={false}
+                >
+                  {report.targetUserId}
+                </Link>
+              ) : (
+                "—"
+              )}
+            </dd>
           </div>
           {report.targetType === "product" && report.targetId && (
             <div>
@@ -141,7 +168,11 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                 >
                   {t("admin_report_link_open_post")}
                 </Link>
-                <Link href="/admin/community/posts" className="sam-text-body-secondary text-sam-muted hover:underline">
+                <Link
+                  href={`/admin/products/${report.targetId}`}
+                  className="text-signature hover:underline"
+                  prefetch={false}
+                >
                   {t("admin_report_link_posts_admin_list")}
                 </Link>
               </dd>

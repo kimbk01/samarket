@@ -1,13 +1,13 @@
 "use client";
 
-import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { forwardRef, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import {
   updatePostBumpAdmin,
-  updatePostStatusAdmin,
 } from "@/lib/admin-posts/updatePostAdmin";
+import { confirmAndUpdateAdminPostStatus } from "@/lib/admin-posts/confirm-admin-post-moderation";
 import {
   getMarketCategoryPath,
   getPublicProductPath,
@@ -43,10 +43,43 @@ export const AdminPostsManagementTable = forwardRef<
   { products, showProductIdColumn = false, onHorizontalScroll, onActionSuccess },
   ref
 ) {
-  const { t, language } = useI18n();
+  const { t, language, safeT } = useI18n();
   const locale = postsMgmtLocale(language);
   const [actionRowId, setActionRowId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+
+  const moderationLabels = {
+    hideTitle: safeT("admin_products_confirm_hide", {
+      fallbackKo: "이 게시물을 숨기시겠습니까?",
+      fallbackEn: "Hide this listing?",
+    }),
+    restoreTitle: safeT("admin_products_confirm_restore", {
+      fallbackKo: "숨김을 해제할까요?",
+      fallbackEn: "Restore this listing?",
+    }),
+    deleteTitle: safeT("admin_products_confirm_soft_delete", {
+      fallbackKo: "소프트 삭제할까요? (영구 삭제 아님)",
+      fallbackEn: "Soft-delete this listing? (not permanent)",
+    }),
+    markSoldTitle: safeT("admin_products_confirm_mark_sold", {
+      fallbackKo: "판매완료로 표시할까요?",
+      fallbackEn: "Mark as sold?",
+    }),
+    markActiveTitle: safeT("admin_products_confirm_mark_active", {
+      fallbackKo: "판매중으로 되돌릴까요?",
+      fallbackEn: "Mark as active?",
+    }),
+    reasonPlaceholder: safeT("admin_products_reason_placeholder", {
+      fallbackKo: "사유를 입력하세요",
+      fallbackEn: "Enter a reason",
+    }),
+    softDeleteHint: safeT("admin_products_soft_delete_hint", {
+      fallbackKo: "status=deleted 로 표시됩니다. DB 영구 삭제가 아닙니다.",
+      fallbackEn: "Sets status=deleted. Not a permanent DB delete.",
+    }),
+    cancelLabel: t("common_cancel"),
+    confirmLabel: t("common_confirm"),
+  };
 
   const runTradeOverride = async (action: "cancel_sale" | "force_complete", p: Product) => {
     const actionLabel =
@@ -64,12 +97,59 @@ export const AdminPostsManagementTable = forwardRef<
     ) {
       return;
     }
+
+    let buyerId: string | null =
+      (typeof p.soldBuyerId === "string" && p.soldBuyerId.trim()) ||
+      (typeof p.reservedBuyerId === "string" && p.reservedBuyerId.trim()) ||
+      null;
+
+    if (action === "force_complete" && !buyerId) {
+      try {
+        const br = await fetch(`/api/admin/posts/${encodeURIComponent(p.id)}/buyers`, {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const bj = (await br.json().catch(() => ({}))) as {
+          ok?: boolean;
+          uniqueBuyerIds?: string[];
+          error?: string;
+        };
+        const ids = Array.isArray(bj.uniqueBuyerIds) ? bj.uniqueBuyerIds.filter(Boolean) : [];
+        if (ids.length === 1) {
+          buyerId = ids[0]!;
+        } else if (ids.length > 1) {
+          const picked = await dibayPrompt({
+            title: safeT("admin_posts_mgmt_pick_buyer", {
+              fallbackKo: "판매 확정 구매자 UUID",
+              fallbackEn: "Confirmed buyer UUID",
+            }),
+            description: ids.map((id) => `· ${id}`).join("\n"),
+            required: true,
+            confirmTone: "destructive",
+          });
+          if (picked == null) return;
+          buyerId = picked.trim();
+        } else {
+          await dibayAlert({
+            title: safeT("admin_posts_mgmt_need_buyer", {
+              fallbackKo: "판매 확정 구매자가 없어 완료 처리할 수 없습니다.",
+              fallbackEn: "No confirmed buyer — cannot force complete.",
+            }),
+          });
+          return;
+        }
+      } catch (e) {
+        await dibayAlert({ title: (e as Error)?.message ?? t("admin_posts_mgmt_action_failed") });
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`/api/admin/posts/${encodeURIComponent(p.id)}/trade-override`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, buyerId }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
@@ -85,15 +165,29 @@ export const AdminPostsManagementTable = forwardRef<
 
   const runAction = async (action: "hide" | "restore" | "delete" | "bump", p: Product) => {
     try {
-      let res: { ok: boolean; error?: string };
       if (action === "bump") {
-        res = await updatePostBumpAdmin(p.id);
-      } else {
-        const toStatus =
-          action === "hide" ? "hidden" : action === "restore" ? "active" : "deleted";
-        res = await updatePostStatusAdmin(p.id, toStatus as "hidden" | "active" | "deleted");
+        const res = await updatePostBumpAdmin(p.id);
+        if (!res.ok) {
+          await dibayAlert({ title: res.error ?? t("admin_posts_mgmt_action_failed") });
+          return;
+        }
+        setActionRowId(null);
+        onActionSuccess?.();
+        return;
       }
 
+      const res = await confirmAndUpdateAdminPostStatus({
+        action,
+        product: {
+          id: p.id,
+          title: p.title,
+          sellerLabel: p.seller?.nickname ?? p.sellerId,
+          reservedBuyerId: p.reservedBuyerId,
+          soldBuyerId: p.soldBuyerId,
+        },
+        labels: moderationLabels,
+      });
+      if (res == null) return;
       if (!res.ok) {
         await dibayAlert({ title: res.error ?? t("admin_posts_mgmt_action_failed") });
         return;
@@ -250,7 +344,7 @@ export const AdminPostsManagementTable = forwardRef<
                 </td>
                 <td className="px-2 py-2">
                   <Link
-                    href={`/admin/users/${p.sellerId}`}
+                    href={`/admin/users/${p.sellerId}?fromPost=${encodeURIComponent(p.id)}`}
                     className="text-signature hover:underline"
                   >
                     <span className="block truncate">{p.seller?.nickname ?? p.sellerId ?? "—"}</span>
@@ -385,7 +479,7 @@ export const AdminPostsManagementTable = forwardRef<
                         {t("admin_posts_mgmt_action_view_reports")}
                       </Link>
                       <Link
-                        href={`/admin/users/${p.sellerId}`}
+                        href={`/admin/users/${p.sellerId}?fromPost=${encodeURIComponent(p.id)}`}
                         className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                       >
                         {t("admin_posts_mgmt_action_seller_sanction")}

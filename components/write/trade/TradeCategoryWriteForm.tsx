@@ -23,6 +23,8 @@ export type TradeCategoryWriteFormProps = {
     description: string;
     price?: string;
   };
+  /** Admin taxonomy WRITE preview — no DB write */
+  previewOnly?: boolean;
 };
 
 /** @deprecated import from `@/lib/trade/category-form/write-form-profile` */
@@ -50,6 +52,7 @@ export function TradeCategoryWriteForm({
   tradePolicy,
   rootTopicSelect,
   listingChromeSeed,
+  previewOnly,
 }: TradeCategoryWriteFormProps) {
   return (
     <TradeWriteForm
@@ -63,6 +66,7 @@ export function TradeCategoryWriteForm({
       tradePolicy={tradePolicy}
       rootTopicSelect={rootTopicSelect}
       listingChromeSeed={listingChromeSeed}
+      previewOnly={previewOnly}
     />
   );
 }

@@ -1,0 +1,28 @@
+---
+description: 공통 UI 수정은 iOS·APK·Windows·태블릿에 같이 적용. 한 기기만 고치고 끝내면 FAIL.
+alwaysApply: true
+---
+
+# DIBAY 공통 UI — iOS / APK / Windows / 태블릿
+
+공통 화면·컴포넌트·토큰을 바꾸면 **모든 클라이언트에 동일 제품 UI가 나가야 한다.**
+
+대상: **iOS** · **Android APK** · **Windows** · **태블릿**.
+
+## 강제
+
+- 공통 WRITE / LIST / DETAIL / 셸 / 토큰 / 공유 컴포넌트 수정 = 위 4 대상 모두에 적용
+- 한 플랫폼·한 폰 크기만 맞추고 나머지를 나중에 두면 **FAIL**
+- 공통 변경을 iOS-only / APK-only / desktop-only 분기로 숨기지 않는다
+
+## 허용 (공통이 아닌 것)
+
+- Native-only 권한·플러그인·CallKit/FCM 등 플랫폼 고유 런타임
+- 키보드·safe-area·inset **계산**은 기존 Global Input UX LOCK 유지  
+  (`동일 UX 계약 ≠ 동일 px 공식`)
+
+## DO NOT
+
+- `if (iOS)` / `if (Capacitor)` / 폭 미디어쿼리로 공통 레이아웃·카피·섹션을 다른 제품으로 갈라놓기
+- 폰에서만 본 결과를 태블릿·Windows PASS로 선언
+- 공통 UI를 바꾸면서 태블릿/Windows를 범위 밖으로 빼기

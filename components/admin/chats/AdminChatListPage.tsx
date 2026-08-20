@@ -178,16 +178,20 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         ]);
       }
 
-      const merged = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)].filter(
-        (r) =>
-          (r.messageCount ?? 0) > 0 ||
-          (r.lastMessage ?? "").trim() !== ""
-      )
-        .sort((a, b) => {
-          const ta = new Date(a.lastMessageAt).getTime();
-          const tb = new Date(b.lastMessageAt).getTime();
-          return tb - ta;
-        });
+      const mergedAll = [...mergeChatRoomsForAdmin(fromProductChats, fromChatRooms)];
+      /** Deep-link postId: keep rooms even without messages so listing→chat drill works. */
+      const postFocus = mode === "trade" ? deepLink.postId : "";
+      const merged = (
+        postFocus
+          ? mergedAll
+          : mergedAll.filter(
+              (r) => (r.messageCount ?? 0) > 0 || (r.lastMessage ?? "").trim() !== ""
+            )
+      ).sort((a, b) => {
+        const ta = new Date(a.lastMessageAt).getTime();
+        const tb = new Date(b.lastMessageAt).getTime();
+        return tb - ta;
+      });
       if (cancelled) return;
       if (merged.length > 0) {
         setRooms(merged);
@@ -212,7 +216,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [mode, reloadToken]);
+  }, [mode, reloadToken, deepLink.postId]);
 
   const filtered = useMemo(
     () => filterAndSortChatRooms(rooms, filters, searchQuery),
@@ -412,6 +416,34 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey={getTitleKey(mode)} />
+      {deepLinkActive && deepLink.postId ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
+          <span className="text-sam-muted">
+            {safeT("admin_chat_filter_post_chip", {
+              fallbackKo: "게시물",
+              fallbackEn: "Listing",
+            })}
+            :
+          </span>
+          <Link
+            href={`/admin/products/${encodeURIComponent(deepLink.postId)}`}
+            className="font-mono text-signature hover:underline"
+            prefetch={false}
+          >
+            {deepLink.postId}
+          </Link>
+          <Link
+            href="/admin/chats/trade"
+            className="sam-text-xxs text-sam-muted hover:underline"
+            prefetch={false}
+          >
+            {safeT("admin_chat_clear_post_filter", {
+              fallbackKo: "필터 해제",
+              fallbackEn: "Clear filter",
+            })}
+          </Link>
+        </div>
+      ) : null}
       {deepLinkActive && focusedRoom ? (
         <div
           data-testid="admin-trade-chat-deep-link-focus"

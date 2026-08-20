@@ -86,6 +86,11 @@ function mapRowToProduct(
     metaNorm && typeof metaNorm.visibility === "string" && metaNorm.visibility.trim()
       ? metaNorm.visibility.trim()
       : row.visibility ?? "public";
+  const images =
+    Array.isArray(row.images) && row.images.length > 0
+      ? row.images.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+      : undefined;
+
   return {
     id: row.id,
     title: row.title ?? "",
@@ -94,6 +99,8 @@ function mapRowToProduct(
     createdAt: row.created_at ?? now,
     status: (row.status ?? "active") as Product["status"],
     thumbnail,
+    images,
+    description: typeof row.content === "string" ? row.content : undefined,
     likesCount: row.favorite_count ?? 0,
     chatCount: row.chat_count ?? 0,
     isBoosted: false,
@@ -169,21 +176,69 @@ const POSTS_SELECT_TIERS = [
   "*",
 ] as const;
 
-async function queryPostsWithFallbackOrder(
+export type AdminPostsListQuery = {
+  page?: number;
+  pageSize?: number;
+  /** posts.status exact */
+  status?: string;
+  /** post id exact (uuid/substring via ilike only if not uuid — use eq when uuid) */
+  productId?: string;
+  /** title ilike */
+  title?: string;
+  /** city/region ilike */
+  region?: string;
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function queryPostsPage(
   client: any,
-  select: string
-): Promise<{ data: unknown; error: unknown }> {
-  let res = await client.from(POSTS_TABLE_READ).select(select).order("created_at", { ascending: false }).limit(1000);
+  select: string,
+  q: Required<Pick<AdminPostsListQuery, "page" | "pageSize">> & AdminPostsListQuery
+): Promise<{ data: unknown; error: unknown; count: number | null }> {
+  const from = (q.page - 1) * q.pageSize;
+  const to = from + q.pageSize - 1;
+
+  const applyFilters = (builder: any) => {
+    let b = builder;
+    if (q.status) b = b.eq("status", q.status);
+    if (q.productId) {
+      if (UUID_RE.test(q.productId)) b = b.eq("id", q.productId);
+      else b = b.ilike("id", `%${q.productId}%`);
+    }
+    if (q.title) b = b.ilike("title", `%${q.title}%`);
+    if (q.region) {
+      b = b.or(`city.ilike.%${q.region}%,region.ilike.%${q.region}%`);
+    }
+    return b;
+  };
+
+  let res = await applyFilters(
+    client
+      .from(POSTS_TABLE_READ)
+      .select(select, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to)
+  );
   if (res.error) {
     const msg = formatSupabaseError(res.error).toLowerCase();
     if (msg.includes("created_at") || msg.includes("column") || msg.includes("42703")) {
-      res = await client.from(POSTS_TABLE_READ).select(select).order("id", { ascending: false }).limit(1000);
+      res = await applyFilters(
+        client
+          .from(POSTS_TABLE_READ)
+          .select(select, { count: "exact" })
+          .order("id", { ascending: false })
+          .range(from, to)
+      );
     }
   }
   if (res.error) {
-    res = await client.from(POSTS_TABLE_READ).select(select).limit(1000);
+    res = await applyFilters(
+      client.from(POSTS_TABLE_READ).select(select, { count: "exact" }).range(from, to)
+    );
   }
-  return res;
+  return { data: res.data, error: res.error, count: typeof res.count === "number" ? res.count : null };
 }
 
 function pickNonEmpty(a: string | undefined | null, b: string | undefined | null): string {
@@ -342,8 +397,10 @@ async function loadServiceMetaByIds(
 
 async function enrichPostsToProducts(
   supabase: unknown,
-  list: AdminProductRow[]
+  list: AdminProductRow[],
+  opts?: { lightList?: boolean }
 ): Promise<Product[]> {
+  const lightList = opts?.lightList === true;
   const client = supabase as any;
 
   const categoryIds = [
@@ -409,56 +466,59 @@ async function enrichPostsToProducts(
 
   const reportCountByTarget: Record<string, number> = {};
   const chatCountByPostId: Record<string, number> = {};
+  const promoActiveByTarget: Record<string, true> = {};
   const productChatsByPostId: Record<string, Array<{ id: string; buyer_id: string | null }>> = {};
   const chatRoomsByPostId: Record<string, Array<{ id: string; buyer_id: string | null }>> = {};
 
   const postIds = list.map((r) => r.id).filter(Boolean);
   const uniquePostIds = [...new Set(postIds)];
 
-  // chat_count 컬럼이 트리거로 갱신되지 않는 환경도 있어서,
-  // product_chats / chat_rooms를 직접 집계해 정확한 채팅방 수를 표시합니다.
-  // 동일 SELECT로 Admin CTA deep-link용 room/productChat id도 고릅니다.
+  // List: count only (N+1 금지 · page batch). Detail: also preferred room ids.
   try {
     const { data: chatRows } = await client
       .from("product_chats")
-      .select("id, post_id, buyer_id")
+      .select(lightList ? "post_id" : "id, post_id, buyer_id")
       .in("post_id", uniquePostIds);
 
     if (Array.isArray(chatRows)) {
       chatRows.forEach((r: { id?: string; post_id?: string; buyer_id?: string | null }) => {
-        if (!r?.post_id || !r?.id) return;
+        if (!r?.post_id) return;
         chatCountByPostId[r.post_id] = (chatCountByPostId[r.post_id] ?? 0) + 1;
-        (productChatsByPostId[r.post_id] ??= []).push({
-          id: r.id,
-          buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
-        });
+        if (!lightList && r.id) {
+          (productChatsByPostId[r.post_id] ??= []).push({
+            id: r.id,
+            buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
+          });
+        }
       });
     }
   } catch {
     /* product_chats 없을 수 있음 */
   }
 
-  try {
-    const { data: roomRows } = await client
-      .from("chat_rooms")
-      .select("id, item_id, buyer_id")
-      .eq("room_type", "item_trade")
-      .in("item_id", uniquePostIds);
+  if (!lightList) {
+    try {
+      const { data: roomRows } = await client
+        .from("chat_rooms")
+        .select("id, item_id, buyer_id")
+        .eq("room_type", "item_trade")
+        .in("item_id", uniquePostIds);
 
-    if (Array.isArray(roomRows)) {
-      roomRows.forEach((r: { id?: string; item_id?: string | null; buyer_id?: string | null }) => {
-        if (!r?.item_id || !r?.id) return;
-        (chatRoomsByPostId[r.item_id] ??= []).push({
-          id: r.id,
-          buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
+      if (Array.isArray(roomRows)) {
+        roomRows.forEach((r: { id?: string; item_id?: string | null; buyer_id?: string | null }) => {
+          if (!r?.item_id || !r?.id) return;
+          (chatRoomsByPostId[r.item_id] ??= []).push({
+            id: r.id,
+            buyer_id: typeof r.buyer_id === "string" ? r.buyer_id : null,
+          });
         });
-      });
+      }
+    } catch {
+      /* chat_rooms 없을 수 있음 */
     }
-  } catch {
-    /* chat_rooms 없을 수 있음 */
   }
 
-  if (Object.keys(chatCountByPostId).length === 0) {
+  if (Object.keys(chatCountByPostId).length === 0 && !lightList) {
     for (const [itemId, rooms] of Object.entries(chatRoomsByPostId)) {
       chatCountByPostId[itemId] = rooms.length;
     }
@@ -483,6 +543,28 @@ async function enrichPostsToProducts(
         /* reports 없을 수 있음 */
       }
     }
+
+    // CUT F Product A — live window only (page batch, no full entitlement dump)
+    const nowIso = new Date().toISOString();
+    try {
+      const { data: promoRows } = await client
+        .from("point_promotion_orders")
+        .select("target_id")
+        .eq("target_type", "product")
+        .eq("domain", "trade")
+        .eq("order_status", "active")
+        .lte("start_at", nowIso)
+        .gte("end_at", nowIso)
+        .in("target_id", uniquePostIds);
+      if (Array.isArray(promoRows)) {
+        promoRows.forEach((r: { target_id?: string | null }) => {
+          const id = typeof r?.target_id === "string" ? r.target_id.trim() : "";
+          if (id) promoActiveByTarget[id] = true;
+        });
+      }
+    } catch {
+      /* point_promotion_orders 없을 수 있음 */
+    }
   }
 
   return list.map((row) => {
@@ -491,17 +573,20 @@ async function enrichPostsToProducts(
     if (chatCount != null) p.chatCount = chatCount;
     const reportCount = reportCountByTarget[row.id];
     if (reportCount != null && reportCount > 0) p.reportCount = reportCount;
-    const preferredBuyer =
-      (typeof p.soldBuyerId === "string" && p.soldBuyerId.trim()) ||
-      (typeof p.reservedBuyerId === "string" && p.reservedBuyerId.trim()) ||
-      "";
-    const ids = pickPreferredTradeChatIds({
-      preferredBuyerId: preferredBuyer,
-      chatRooms: chatRoomsByPostId[row.id] ?? [],
-      productChats: productChatsByPostId[row.id] ?? [],
-    });
-    if (ids.tradeChatRoomId) p.tradeChatRoomId = ids.tradeChatRoomId;
-    if (ids.tradeProductChatId) p.tradeProductChatId = ids.tradeProductChatId;
+    if (promoActiveByTarget[row.id]) p.hasPromotionOverlay = true;
+    if (!lightList) {
+      const preferredBuyer =
+        (typeof p.soldBuyerId === "string" && p.soldBuyerId.trim()) ||
+        (typeof p.reservedBuyerId === "string" && p.reservedBuyerId.trim()) ||
+        "";
+      const ids = pickPreferredTradeChatIds({
+        preferredBuyerId: preferredBuyer,
+        chatRooms: chatRoomsByPostId[row.id] ?? [],
+        productChats: productChatsByPostId[row.id] ?? [],
+      });
+      if (ids.tradeChatRoomId) p.tradeChatRoomId = ids.tradeChatRoomId;
+      if (ids.tradeProductChatId) p.tradeProductChatId = ids.tradeProductChatId;
+    }
     return p;
   });
 }
@@ -510,17 +595,31 @@ export type AdminPostsManagementFetchResult = {
   products: Product[];
   /** posts SELECT 단계가 모두 실패했을 때만 (성공 후 0건이면 null) */
   queryError: string | null;
+  total?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 export async function fetchAdminPostsManagementProducts(
-  supabase: unknown
+  supabase: unknown,
+  listQuery?: AdminPostsListQuery
 ): Promise<AdminPostsManagementFetchResult> {
   const client = supabase as any;
   let lastErrText = "";
+  const page = Math.max(1, Math.floor(listQuery?.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(listQuery?.pageSize ?? 40)));
+  const q: AdminPostsListQuery & { page: number; pageSize: number } = {
+    page,
+    pageSize,
+    status: listQuery?.status?.trim() || undefined,
+    productId: listQuery?.productId?.trim() || undefined,
+    title: listQuery?.title?.trim() || undefined,
+    region: listQuery?.region?.trim() || undefined,
+  };
 
   for (const select of POSTS_SELECT_TIERS) {
     try {
-      const res = await queryPostsWithFallbackOrder(client, select);
+      const res = await queryPostsPage(client, select, q);
 
       if (res.error) {
         lastErrText = formatSupabaseError(res.error);
@@ -535,11 +634,17 @@ export async function fetchAdminPostsManagementProducts(
         const selLabel =
           select === "*" ? "*" : select.length > 70 ? `${select.slice(0, 70)}…` : select;
         console.info(
-          `[admin posts-management] posts 조회 OK — select: ${selLabel} (${list.length}건)`
+          `[admin posts-management] posts page OK — select: ${selLabel} (${list.length}/${res.count ?? "?"} p${page})`
         );
       }
-      const products = await enrichPostsToProducts(supabase, list);
-      return { products, queryError: null };
+      const products = await enrichPostsToProducts(supabase, list, { lightList: true });
+      return {
+        products,
+        queryError: null,
+        total: res.count ?? list.length,
+        page,
+        pageSize,
+      };
     } catch (e) {
       lastErrText = e instanceof Error ? e.message : String(e);
       continue;
@@ -556,6 +661,9 @@ export async function fetchAdminPostsManagementProducts(
   return {
     products: [],
     queryError: lastErrText || "posts 조회 실패(모든 SELECT 단계 오류)",
+    total: 0,
+    page,
+    pageSize,
   };
 }
 

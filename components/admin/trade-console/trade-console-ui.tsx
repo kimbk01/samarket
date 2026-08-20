@@ -67,8 +67,10 @@ export function KpiGrid({
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
         >
           <p className="sam-text-xxs text-sam-muted">{k.label}</p>
-          {k.disconnected || k.value == null ? (
+          {k.disconnected ? (
             <DisconnectedValue />
+          ) : k.value == null ? (
+            <p className="sam-text-section-title font-semibold tabular-nums text-sam-muted">…</p>
           ) : (
             <p className="sam-text-section-title font-semibold tabular-nums text-sam-fg">{k.value}</p>
           )}
@@ -99,8 +101,10 @@ export function OpsPanel({
               className="flex items-center justify-between px-3 py-2.5 hover:bg-sam-surface-muted/80"
             >
               <span className="sam-text-body-secondary text-sam-fg">{row.label}</span>
-              {row.disconnected || row.count == null ? (
+              {row.disconnected ? (
                 <DisconnectedValue />
+              ) : row.count == null ? (
+                <span className="sam-text-body-secondary text-signature">↗</span>
               ) : (
                 <span className="min-w-[2rem] text-right font-semibold tabular-nums text-sam-fg">
                   {row.count}

@@ -15,13 +15,29 @@ export function TradePrototypeShell({ children }: { children: React.ReactNode })
   const pathname = usePathname() ?? "";
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-admin>
-      <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 sam-text-body-secondary text-amber-900">
-        <strong>UI PROTOTYPE</strong> — 거래 Admin 재설계 mock. 데이터·API 미연결. Owner 검토 후 제품 반영.
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-admin data-trade-prototype="quarantined">
+      <div className="shrink-0 space-y-1 border-b border-amber-300 bg-amber-50 px-4 py-2.5 sam-text-body-secondary text-amber-950">
+        <p>
+          <strong>QUARANTINED · MOCK ONLY</strong> — 제품 Trade Admin 아님. DB/API 미연결.
+        </p>
+        <p className="sam-text-xxs">
+          실운영:{" "}
+          <Link href="/admin/trade" prefetch={false} className="font-medium text-signature underline">
+            /admin/trade
+          </Link>
+          {" · "}
+          <Link
+            href="/admin/posts-management"
+            prefetch={false}
+            className="font-medium text-signature underline"
+          >
+            /admin/posts-management
+          </Link>
+        </p>
       </div>
       <nav
         className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-sam-border bg-sam-surface px-3 py-1.5"
-        aria-label="거래 prototype 화면"
+        aria-label="거래 prototype 화면 (quarantine)"
       >
         {TRADE_PROTOTYPE_SUBNAV.map((item) => {
           const active = subnavActive(pathname, item.href);

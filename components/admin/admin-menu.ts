@@ -411,11 +411,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
-      { key: "chat-trade-flow", title: "", path: "/admin/trade-flow", status: "done" },
       {
-        key: "chat-trade-complete",
+        key: "chat-trade-flow",
         title: "",
-        path: "/admin/chats/trade-complete",
+        path: "/admin/trade-flow",
+        // MERGE: buyer-confirm was a duplicate leaf at /chats/trade-complete
+        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
         status: "done",
       },
       { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
