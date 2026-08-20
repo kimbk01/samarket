@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
@@ -36,7 +36,7 @@ import {
   writeBusinessApplySessionDraft,
 } from "@/lib/business/business-apply-form-session-draft";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
+import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   resolveStoreTaxonomyPrimaryDisplayName,
@@ -88,8 +88,8 @@ const APPLY_DISPLAY_VALUE_CLASS =
 
 const APPLY_DISPLAY_VALUE_MONO_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} font-mono`;
 
-/** 전화번호 — 편집 가능하나 테두리·배경 없는 텍스트형 */
-const APPLY_PHONE_VALUE_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} w-full border-0 bg-transparent p-0 shadow-none outline-none ring-0 placeholder:font-normal placeholder:text-[length:var(--sm-font-input)] placeholder:text-sam-meta focus:border-0 focus:outline-none focus:ring-0`;
+/** 전화번호 — 인증 프로필 읽기 전용 */
+const APPLY_PHONE_VALUE_CLASS = APPLY_DISPLAY_VALUE_CLASS;
 
 /** 1·2차 업종 select — 우측 ▼ (native appearance-none 보조) */
 const APPLY_SELECT_WRAP_CLASS = "relative min-w-0 w-full";
@@ -451,19 +451,12 @@ export function BusinessApplyForm({
         <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
           <div>
             <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              maxLength={18}
-              value={formatPhMobileDisplayPlus63(values.phone)}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
-              }
-              required
-              className={APPLY_PHONE_VALUE_CLASS}
-              placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
-            />
+            <p className={APPLY_PHONE_VALUE_CLASS}>
+              {values.phone.trim()
+                ? formatPhMobileDisplayPlus63(values.phone)
+                : PH_MOBILE_PLUS63_PLACEHOLDER}
+            </p>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("business_phase7_709")}</p>
           </div>
           <div>
             <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
@@ -478,26 +471,14 @@ export function BusinessApplyForm({
         </OwnerStoreAdminDashSection>
 
         <OwnerStoreAdminDashSection title={t("business_phase7_323")}>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={handleOpenAddressBook}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-left disabled:opacity-70"
-            aria-label={t("business_phase7_672")}
-          >
-            <p className="sam-text-body font-semibold text-sam-fg">
-              {t("business_phase7_669")} <span className="text-red-500">*</span>
-            </p>
-            <div className="mt-1.5 min-w-0">
-              {!addressReady ? (
-                <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
-              ) : addressDefault?.id ? (
-                <AddressListRowBody row={addressDefault} badgeStyle="starbucks" />
-              ) : (
-                <p className="sam-text-body text-sam-muted">{t("business_phase7_671")}</p>
-              )}
-            </div>
-          </button>
+          <OwnerAddressBookSnapshotCard
+            bare
+            snapshotMode="representative"
+            returnToPath="/stores/owner/apply"
+            addressReady={addressReady}
+            addressDefault={addressDefault}
+            onOpenAddressBook={handleOpenAddressBook}
+          />
         </OwnerStoreAdminDashSection>
 
         <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
@@ -588,7 +569,7 @@ export function BusinessApplyForm({
                 disabled={disabled}
                 onClick={() => {
                   clearBusinessApplySessionDraft();
-                  router.push("/stores/owner");
+                  router.push("/mypage");
                 }}
                 onPointerDown={(e) => {
                   if (!disabled) triggerInteractionFeedback("light", e);

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
@@ -17,7 +18,6 @@ import {
   STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS,
 } from "@/components/stores/home/hub/StoresOwnerApplyHeaderChrome";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import { STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS } from "@/lib/design/stores-home-header-chrome";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import {
   getBrowsePrimaryBySlug,
@@ -29,47 +29,94 @@ import {
   fetchMeStoresListDeduped,
   parseStoreRowsFromMeStoresJson,
 } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  evaluateClientProfileRequirements,
+  requireProfileCompletionClient,
+} from "@/lib/profile/require-profile-completion.client";
+import { buildProfileEditHref } from "@/lib/profile/profile-completion-modal-client";
+import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
+import type { Profile } from "@/lib/types/profile";
+import type { ProfileRow } from "@/lib/profile/types";
+import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
 
 const HAS_ANY_STORE = true;
+const APPLY_PATH = "/stores/owner/apply";
+
+function profileRowForGate(p: ProfileRow): Profile {
+  return {
+    id: p.id,
+    email: p.email ?? "",
+    nickname: (p.nickname ?? p.display_name ?? "").trim() || "user",
+    avatar_url: p.avatar_url ?? null,
+    display_name: p.display_name,
+    username: p.username,
+    phone: p.phone,
+    phone_verified: p.phone_verified === true,
+    phone_verified_at: p.phone_verified_at ?? null,
+    phone_verification_method: p.phone_verification_method ?? null,
+    role: p.role ?? undefined,
+    provider: p.provider ?? null,
+    auth_provider: p.auth_provider ?? null,
+    temperature: 50,
+  };
+}
 
 export default function BusinessApplyRoute() {
   const { t } = useI18n();
   const router = useRouter();
-  const pathname = usePathname() ?? "/stores/owner/apply";
+  const pathname = usePathname() ?? APPLY_PATH;
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [profileSeed, setProfileSeed] = useState<BusinessApplyProfileSeed | null>(null);
+  const [profileRow, setProfileRow] = useState<Profile | null>(null);
   const [existingStore, setExistingStore] = useState<any | null>(null);
   const [existingLoading, setExistingLoading] = useState(true);
   const [computedStoreSlug, setComputedStoreSlug] = useState<string>("");
+  const [gateLoading, setGateLoading] = useState(true);
+  const [gateMissing, setGateMissing] = useState<ProfileRequirementField[] | null>(null);
 
+  const refreshGate = useCallback(async (profile: Profile | null) => {
+    if (!profile) {
+      setGateMissing(["phone_verified", "display_name", "default_address"]);
+      setGateLoading(false);
+      return;
+    }
+    const evaluation = await evaluateClientProfileRequirements(profile, "owner_store_register");
+    setGateMissing(evaluation.satisfied ? [] : evaluation.missingFields);
+    setGateLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setGateLoading(true);
       const p = await getMyProfile();
       if (cancelled) return;
       if (!p) {
         setProfileSeed(null);
+        setProfileRow(null);
+        await refreshGate(null);
         return;
       }
       const loc = decodeProfileAppLocationPair(p.region_code, p.region_name);
       const uname = String(p.username ?? "").trim().replace(/^@+/, "");
+      setProfileRow(profileRowForGate(p));
       setProfileSeed({
-        applicantNickname: (p.nickname ?? "").trim(),
+        applicantNickname: "",
         phoneDigits: parsePhMobileInput(p.phone ?? ""),
         regionId: loc.regionId,
         cityId: loc.cityId,
-        addressStreetLine: (p.address_street_line ?? "").trim(),
-        addressDetail: (p.address_detail ?? "").trim(),
+        addressStreetLine: "",
+        addressDetail: "",
         profileBio: (p.bio ?? "").trim(),
         username: uname,
       });
+      await refreshGate(profileRowForGate(p));
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshGate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +126,6 @@ export default function BusinessApplyRoute() {
         const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
         const stores = status === 200 ? parseStoreRowsFromMeStoresJson(json) ?? [] : [];
-        // 정책: 1회 신청만 허용 → 내 매장이 하나라도 있으면 추가 신청 차단
         setExistingStore((HAS_ANY_STORE && stores.length > 0 ? stores[0] : null) ?? null);
         const uname = String(profileSeed?.username ?? "").trim().replace(/^@+/, "");
         const base = uname
@@ -102,6 +148,17 @@ export default function BusinessApplyRoute() {
   const handleSubmit = async (values: BusinessApplyFormValues) => {
     const gated = await requireAuthAction("owner_dashboard", async () => {}, { next: pathname });
     if (!gated) return;
+
+    if (profileRow) {
+      const profileOk = await requireProfileCompletionClient(profileRow, "owner_store_register", {
+        next: pathname,
+      });
+      if (!profileOk) {
+        await refreshGate(profileRow);
+        return;
+      }
+    }
+
     setSubmitError(null);
     const nick = values.applicantNickname.trim();
     if (!nick || nick.length > 20) {
@@ -109,7 +166,7 @@ export default function BusinessApplyRoute() {
       return;
     }
     const phoneRes = normalizeOptionalPhMobileDb(values.phone);
-    if (!phoneRes.ok) {
+    if (!phoneRes.ok || !phoneRes.value) {
       setSubmitError(t("phone_rule"));
       return;
     }
@@ -178,6 +235,9 @@ export default function BusinessApplyRoute() {
           setSubmitError(t("business_phase7_690"));
         } else if (json?.error === "request_note_too_long") {
           setSubmitError(t("business_phase7_696"));
+        } else if (json?.error === "master_address_required") {
+          setSubmitError(t("business_phase7_671"));
+          await refreshGate(profileRow);
         } else if (json?.error === "owner_not_in_auth_users") {
           setSubmitError(t("business_phase7_691"));
         } else {
@@ -194,13 +254,28 @@ export default function BusinessApplyRoute() {
     }
   };
 
+  const gateBlocked = !gateLoading && gateMissing != null && gateMissing.length > 0;
+  const needPhone = gateMissing?.includes("phone_verified") ?? false;
+  const needName = gateMissing?.includes("display_name") ?? false;
+  const needAddress = gateMissing?.includes("default_address") ?? false;
+
+  const openAddressForGate = () => {
+    openMemberAddressBook(router, {
+      caller: "owner",
+      mode: "select",
+      purpose: "store_owner_apply_gate_master",
+      apply: { kind: "set_default_master" },
+      restore: { kind: "href", href: APPLY_PATH },
+    });
+  };
+
   return (
-    <div className="delivery-ui min-w-0 w-full max-w-full bg-[color:var(--delivery-bg-main)]">
+    <div className="min-w-0 w-full max-w-full bg-[var(--biz-app-bg)]">
       <StoresOwnerApplyHeaderChrome />
       <div
-        className={`mx-auto max-w-[42rem] px-[var(--delivery-page-x)] pb-0 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}
+        className={`mx-auto max-w-[42rem] px-2 pb-0 sm:px-2 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}
       >
-        {existingLoading ? (
+        {existingLoading || gateLoading ? (
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
             {t("business_phase7_676")}
           </div>
@@ -216,6 +291,41 @@ export default function BusinessApplyRoute() {
               {String(existingStore.store_name ?? "").trim() || t("store_fallback_name")}
             </p>
           </div>
+        ) : gateBlocked ? (
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+            <p className="sam-text-body font-semibold text-sam-fg">{t("business_phase7_702")}</p>
+            <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("business_phase7_703")}</p>
+            <ul className="mt-3 list-disc space-y-1 pl-5 sam-text-body text-sam-fg">
+              {needPhone ? <li>{t("business_phase7_704")}</li> : null}
+              {needName ? <li>{t("business_phase7_705")}</li> : null}
+              {needAddress ? <li>{t("business_phase7_706")}</li> : null}
+            </ul>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              {needPhone || needName ? (
+                <Link
+                  href={buildProfileEditHref({
+                    returnTo: APPLY_PATH,
+                    required: [
+                      ...(needPhone ? (["phone_verified"] as const) : []),
+                      ...(needName ? (["display_name"] as const) : []),
+                    ],
+                  })}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-white"
+                >
+                  {t("business_phase7_707")}
+                </Link>
+              ) : null}
+              {needAddress ? (
+                <button
+                  type="button"
+                  onClick={openAddressForGate}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
+                >
+                  {t("business_phase7_708")}
+                </button>
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
         {submitError ? (
@@ -223,7 +333,8 @@ export default function BusinessApplyRoute() {
             {submitError}
           </div>
         ) : null}
-        {!existingStore ? (
+
+        {!existingStore && !gateLoading && !gateBlocked ? (
           <BusinessApplyForm
             profileSeed={profileSeed}
             computedStoreSlug={computedStoreSlug}
@@ -231,11 +342,13 @@ export default function BusinessApplyRoute() {
             submitLabel={submitting ? t("business_phase7_678") : t("business_phase7_679")}
             disabled={submitting}
           />
-        ) : (
+        ) : null}
+
+        {existingStore && !existingLoading ? (
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
             {t("business_phase7_677")}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

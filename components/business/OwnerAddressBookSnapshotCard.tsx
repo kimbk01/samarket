@@ -19,6 +19,7 @@ export function OwnerAddressBookSnapshotCard({
   bare = false,
   snapshotMode = "representative",
   listError = null,
+  onOpenAddressBook,
 }: {
   /** `encodeURIComponent` 전 원 경로 (예: `/stores/owner/basic-info?storeId=…`) */
   returnToPath: string;
@@ -35,6 +36,11 @@ export function OwnerAddressBookSnapshotCard({
   snapshotMode?: OwnerAddressBookSnapshotMode;
   /** 주소 목록 API 실패 시 — `addressReady` 가 true 일 때만 표시 */
   listError?: string | null;
+  /**
+   * 있으면 raw `?returnTo=` push 대신 호출 — 입점 신청은 `openMemberAddressBook` + draft.
+   * 없으면 기존 returnTo 경로(기본 정보 등).
+   */
+  onOpenAddressBook?: () => void;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -70,7 +76,13 @@ export function OwnerAddressBookSnapshotCard({
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => router.push(`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`)}
+          onClick={() => {
+            if (onOpenAddressBook) {
+              onOpenAddressBook();
+              return;
+            }
+            router.push(`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`);
+          }}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
         >
           <AddressKindHeadPin kind="master" className="mr-1 inline-flex h-4 w-4 align-[-2px] [&_svg]:h-4 [&_svg]:w-[0.85rem]" />

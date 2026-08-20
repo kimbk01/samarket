@@ -93,7 +93,8 @@ export const ACTION_PROFILE_REQUIREMENTS: Record<ProfileActionType, ProfileRequi
   delivery_cart_add: ACTION_ACCESS_BASE_FIELDS,
   delivery_order: [...ACTION_ACCESS_BASE_FIELDS, "default_address", "recipient_phone"],
   order_chat: ACTION_ACCESS_BASE_FIELDS,
-  owner_store_register: ["phone_verified"],
+  /** 입점 신청 — 전화 인증 + 표시명 + 주소록 대표 주소 */
+  owner_store_register: [...ACTION_ACCESS_BASE_FIELDS, "default_address"],
 };
 
 export type ProfileCompletionModalVariant =

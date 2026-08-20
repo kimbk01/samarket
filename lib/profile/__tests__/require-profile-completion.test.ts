@@ -72,6 +72,21 @@ describe("require-profile-completion", () => {
     }
   });
 
+  it("owner_store_register requires phone, display_name, and default_address", () => {
+    const missing = evaluateProfileRequirements(
+      { ...completeBaseProfile, has_default_address: false },
+      "owner_store_register"
+    );
+    expect(missing.satisfied).toBe(false);
+    expect(missing.missingFields).toContain("default_address");
+
+    const ok = evaluateProfileRequirements(
+      { ...completeBaseProfile, has_default_address: true },
+      "owner_store_register"
+    );
+    expect(ok.satisfied).toBe(true);
+  });
+
   it("auto-assigned handle with phone and display_name passes community_write", () => {
     const result = evaluateProfileRequirements(
       {

@@ -6,6 +6,7 @@ import { useOwnerMobileStackViewportLock } from "@/lib/business/use-owner-mobile
 /**
  * `/stores/owner/apply` — `isStoreOwnerAdminRoute` 가 메인 `<main>` 세로 스크롤을 막으므로
  * `BusinessAdminShell` 과 같이 문서 스크롤을 잠그고 내부 `overflow-y-auto` 만 스크롤한다.
+ * 배경은 오너 `--biz-app-bg` (배달 delivery-bg 혼용 금지).
  */
 export function StoresOwnerApplyShell({ children }: { children: ReactNode }) {
   useOwnerMobileStackViewportLock(true);
