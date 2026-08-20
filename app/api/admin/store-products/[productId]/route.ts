@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -81,6 +82,15 @@ export async function PATCH(
     console.error("[admin/store-products PATCH]", upErr);
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
+
+  await appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: null,
+    target_type: "store_product",
+    target_id: id,
+    action: `store_product.${action}`,
+    after_json: { ...patch, memo },
+  });
 
   return NextResponse.json({ ok: true });
 }

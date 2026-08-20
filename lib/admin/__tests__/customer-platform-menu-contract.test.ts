@@ -7,7 +7,10 @@ import {
 } from "@/lib/admin/find-admin-menu-item";
 
 describe("customer-platform menu IA", () => {
-  it("exposes Customer Platform as a top-level group", () => {
+  it("nests Customer Platform under system workspace", () => {
+    expect(adminMenu.some((w) => w.key === "customer-platform")).toBe(false);
+    const system = requireAdminMenuByKey(adminMenu, "system");
+    expect(system.children?.some((c) => c.key === "customer-platform")).toBe(true);
     const cp = requireAdminMenuByKey(adminMenu, "customer-platform");
     expect(cp.path).toBeUndefined();
     expect(cp.children?.some((c) => c.key === "cp-dashboard")).toBe(true);
@@ -35,8 +38,10 @@ describe("customer-platform menu IA", () => {
     );
   });
 
-  it("keeps member points under CP member assets only", () => {
-    expect(findAdminMenuByKey(adminMenu, "common")).toBeUndefined();
+  it("keeps member points under CP member assets only (not Common workspace leaves)", () => {
+    const common = requireAdminMenuByKey(adminMenu, "common");
+    const commonPaths = (common.children ?? []).map((c) => c.path);
+    expect(commonPaths).not.toContain("/admin/point-charges");
     expect(findAdminMenuByKey(adminMenu, "cp-member-assets")).toBeTruthy();
     expect(findAdminMenuByKey(adminMenu, "points-charge")?.path).toBe("/admin/point-charges");
   });

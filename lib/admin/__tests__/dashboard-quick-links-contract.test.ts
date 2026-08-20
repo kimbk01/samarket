@@ -70,14 +70,12 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
       "/admin/release-notes",
       "/admin/system",
       "/admin/backup",
-      "/admin/audit-logs",
     ]);
     expect(dev.map((l) => l.labelKey)).toEqual([
       "admin_menu_dev_qa",
       "admin_menu_dev_release_notes",
       "admin_menu_dev_system_status",
       "admin_menu_dev_backup",
-      "admin_menu_dev_audit",
     ]);
   });
 

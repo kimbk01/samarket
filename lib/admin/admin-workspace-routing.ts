@@ -13,16 +13,12 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 export type AdminWorkspaceId =
   | "dashboard"
-  | "customer-platform"
-  | "members"
-  | "moderation"
-  | "trade"
+  | "common"
   | "community"
+  | "trade"
   | "delivery"
   | "messenger"
-  | "growth"
-  | "app-config"
-  | "platform-ops";
+  | "system";
 
 export type AdminWorkspaceDescriptor = {
   id: AdminWorkspaceId;
@@ -32,11 +28,39 @@ export type AdminWorkspaceDescriptor = {
   item: AdminMenuItem;
 };
 
+type AdminPathParts = {
+  pathname: string;
+  search: string;
+  hash: string;
+};
+
+function normalizePathname(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) return pathname.slice(0, -1);
+  return pathname || "/admin";
+}
+
+function splitAdminPath(path: string): AdminPathParts {
+  const hashIdx = path.indexOf("#");
+  const hash = hashIdx >= 0 ? path.slice(hashIdx) : "";
+  const beforeHash = hashIdx >= 0 ? path.slice(0, hashIdx) : path;
+  const queryIdx = beforeHash.indexOf("?");
+  if (queryIdx < 0) {
+    return { pathname: normalizePathname(beforeHash), search: "", hash };
+  }
+  return {
+    pathname: normalizePathname(beforeHash.slice(0, queryIdx)),
+    search: beforeHash.slice(queryIdx),
+    hash,
+  };
+}
+
 function normalizePath(path: string): string {
-  const noHash = path.split("#")[0] ?? path;
-  const noQuery = noHash.split("?")[0] ?? noHash;
-  if (noQuery.length > 1 && noQuery.endsWith("/")) return noQuery.slice(0, -1);
-  return noQuery || "/admin";
+  return splitAdminPath(path).pathname;
+}
+
+function normalizeMenuPath(path: string): string {
+  const parts = splitAdminPath(path);
+  return `${parts.pathname}${parts.search}${parts.hash}`;
 }
 
 /** Collect navigable menu paths including matchPaths (pending included for matching). */
@@ -60,15 +84,39 @@ export function collectWorkspaceMatchPaths(item: AdminMenuItem): string[] {
  * `/admin` matches only exact home (not every /admin/*).
  */
 export function adminPathMatches(currentPath: string, menuPath: string): boolean {
-  const current = normalizePath(currentPath);
-  const target = normalizePath(menuPath);
-  if (target === "/admin") return current === "/admin";
-  return current === target || current.startsWith(`${target}/`);
+  const current = splitAdminPath(currentPath);
+  const target = splitAdminPath(menuPath);
+  if (target.pathname === "/admin") {
+    if (current.pathname !== "/admin") return false;
+  } else if (
+    current.pathname !== target.pathname &&
+    !current.pathname.startsWith(`${target.pathname}/`)
+  ) {
+    return false;
+  }
+
+  if (target.search) {
+    const required = new URLSearchParams(target.search);
+    const actual = new URLSearchParams(current.search);
+    for (const [key, value] of required.entries()) {
+      if (actual.get(key) !== value) return false;
+    }
+  }
+
+  if (target.hash && current.hash !== target.hash) return false;
+  return true;
 }
 
 function bestMatchLength(currentPath: string, menuPath: string): number {
   if (!adminPathMatches(currentPath, menuPath)) return -1;
-  return normalizePath(menuPath).length;
+  const current = splitAdminPath(currentPath);
+  const target = splitAdminPath(menuPath);
+  let score = target.pathname.length * 1000;
+  if (target.search) score += target.search.length;
+  if (target.hash) score += 100 + target.hash.length;
+  if (!target.hash && !current.hash) score += 50;
+  if (current.pathname === target.pathname) score += 1;
+  return score;
 }
 
 /** First non-pending leaf path under a workspace (fallback: workspace.path). */
@@ -124,7 +172,7 @@ export function resolveActiveWorkspace(
   menu: AdminMenuItem[] = adminMenu
 ): AdminWorkspaceDescriptor {
   const workspaces = listAdminWorkspaces(role, menu);
-  const current = normalizePath(pathname);
+  const current = normalizeMenuPath(pathname);
 
   let best: AdminWorkspaceDescriptor | null = null;
   let bestLen = -1;
@@ -208,7 +256,7 @@ export function resolveAdminBreadcrumb(
     crumbs.push({
       key: node.key,
       titleKey: node.titleKey,
-      path: node.path && !node.pendingRoute ? normalizePath(node.path) : undefined,
+      path: node.path && !node.pendingRoute ? normalizeMenuPath(node.path) : undefined,
     });
   }
   return crumbs;

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getCommunityReportByIdForAdmin } from "@/lib/community-feed/admin-community-reports";
@@ -101,6 +103,27 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       targetId: String((before as { target_id?: string }).target_id ?? ""),
     });
   }
+
+  const meta = getAuditRequestMeta(req);
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: null,
+    target_type: "community_report",
+    target_id: rid,
+    action: `community_report.status_${status}`,
+    before_json: {
+      status: prevStatus,
+      target_type: (before as { target_type?: string | null }).target_type ?? null,
+      target_id: (before as { target_id?: string | null }).target_id ?? null,
+    },
+    after_json: {
+      status,
+      admin_memo: memo,
+      processed_at: done ? "set" : null,
+    },
+    ip: meta.ip,
+    user_agent: meta.userAgent,
+  });
 
   return NextResponse.json({ ok: true });
 }

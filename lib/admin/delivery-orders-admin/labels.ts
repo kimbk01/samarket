@@ -37,6 +37,7 @@ export const SETTLEMENT_LABEL: Record<SettlementStatus, string> = {
   paid: doAdminSettlementStatusLabel("paid"),
   held: doAdminSettlementStatusLabel("held"),
   cancelled: doAdminSettlementStatusLabel("cancelled"),
+  unknown: doAdminSettlementStatusLabel("unknown"),
 };
 
 /** @deprecated use `doAdminActionStatusLabel` */

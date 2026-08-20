@@ -59,21 +59,21 @@ describe("admin sidebar active path authority", () => {
     },
     {
       name: "inquiry query",
-      workspaceKey: "customer-platform",
+      workspaceKey: "system",
       path: "/admin/member-notes?kind=inquiry",
       expectLeaf: "/admin/member-notes?kind=inquiry",
       expectCount: 1,
     },
     {
       name: "inbox query sibling",
-      workspaceKey: "customer-platform",
+      workspaceKey: "system",
       path: "/admin/member-notes?kind=inbox",
       expectLeaf: "/admin/member-notes?kind=inbox",
       expectCount: 1,
     },
     {
-      name: "trade reports root",
-      workspaceKey: "trade",
+      name: "common reports root",
+      workspaceKey: "common",
       path: "/admin/reports",
       expectLeaf: "/admin/reports",
       expectCount: 1,
@@ -107,7 +107,7 @@ describe("admin sidebar active path authority", () => {
   });
 
   it("distinguishes inquiry vs inbox", () => {
-    const scope = workspacePaths("customer-platform");
+    const scope = workspacePaths("system");
     expect(isLeafMenuActive("/admin/member-notes?kind=inquiry", "/admin/member-notes?kind=inquiry", scope)).toBe(
       true
     );
@@ -117,7 +117,7 @@ describe("admin sidebar active path authority", () => {
   });
 
   it("distinguishes CP hash siblings (dashboard vs action-queue vs monitoring)", () => {
-    const scope = workspacePaths("customer-platform");
+    const scope = workspacePaths("system");
     expect(activeLeaves(scope, "/admin/customer-platform")).toEqual(["/admin/customer-platform"]);
     expect(activeLeaves(scope, "/admin/customer-platform#action-queue")).toEqual([
       "/admin/customer-platform#action-queue",
@@ -137,7 +137,7 @@ describe("admin sidebar active path authority", () => {
     for (const path of [
       "/admin",
       "/admin/",
-      "/admin/customer-platform",
+      "/admin/common",
       "/admin/users",
       "/admin/reports",
       "/admin/stores",

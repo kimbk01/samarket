@@ -915,6 +915,7 @@ export async function runAdminCommunityMessengerRoomAction(input: {
 }): Promise<{ ok: boolean; error?: string }> {
   const now = new Date().toISOString();
   const note = t(input.note);
+  const client = sb() as any;
   const patch: Record<string, unknown> = {
     moderated_by: input.adminUserId,
     moderated_at: now,
@@ -928,11 +929,38 @@ export async function runAdminCommunityMessengerRoomAction(input: {
   if (input.action === "readonly_on") patch.is_readonly = true;
   if (input.action === "readonly_off") patch.is_readonly = false;
 
-  const { error } = await (sb() as any)
+  const { data: beforeData } = await client
+    .from("community_messenger_rooms")
+    .select("id, room_status, is_readonly, admin_note, moderated_by, moderated_at")
+    .eq("id", input.roomId)
+    .maybeSingle();
+
+  const { error } = await client
     .from("community_messenger_rooms")
     .update(patch)
     .eq("id", input.roomId);
   if (error) return { ok: false, error: error.message };
+  const before = beforeData as Record<string, unknown> | null;
+  await appendAuditLog(client, {
+    actor_type: "admin",
+    actor_id: input.adminUserId,
+    target_type: "community_messenger_room",
+    target_id: input.roomId,
+    action: `community_messenger_room.${input.action}`,
+    before_json: before
+      ? {
+          room_status: before.room_status ?? null,
+          is_readonly: before.is_readonly ?? null,
+          admin_note: before.admin_note ?? null,
+          moderated_by: before.moderated_by ?? null,
+          moderated_at: before.moderated_at ?? null,
+        }
+      : null,
+    after_json: {
+      action: input.action,
+      ...patch,
+    },
+  });
   return { ok: true };
 }
 

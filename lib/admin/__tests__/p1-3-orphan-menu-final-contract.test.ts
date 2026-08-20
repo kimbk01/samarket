@@ -36,7 +36,9 @@ describe("P1-3 Admin orphan / menu finalization", () => {
     const legacy = findAdminMenuByKey(adminMenu, "ads-legacy");
     expect(legacy?.status).toBe("partial");
     expect(findAdminMenuByKey(adminMenu, "ads-feed")?.status).toBe("done");
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe("/admin/ad-applications");
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
+    );
   });
 
   it("legacy boards/comments show quarantine banners (not Community SSOT)", () => {

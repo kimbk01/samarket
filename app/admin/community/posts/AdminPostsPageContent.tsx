@@ -5,14 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getAdminPosts } from "@/lib/admin-posts/getAdminPosts";
-import { updatePostStatusAdmin } from "@/lib/admin-posts/updatePostAdmin";
-import type { PostWithMeta } from "@/lib/posts/schema";
-import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-
-type PostsTab = "trade" | "community";
 
 type CommunityPostRow = {
   id: string;
@@ -56,17 +50,6 @@ export function AdminPostsPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const statusTradeOptions = useMemo(
-    () =>
-      [
-        { value: "active" as const, labelKey: "admin_trade_post_status_active" as const },
-        { value: "reserved" as const, labelKey: "admin_trade_post_status_reserved" as const },
-        { value: "sold" as const, labelKey: "admin_trade_post_status_sold" as const },
-        { value: "hidden" as const, labelKey: "admin_trade_post_status_hidden" as const },
-      ] as const,
-    []
-  );
-
   const communityStatusOptions = useMemo(
     () =>
       [
@@ -77,8 +60,6 @@ export function AdminPostsPageContent() {
     []
   );
 
-  const [tab, setTab] = useState<PostsTab>("community");
-  const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
   const [communityTopicFilter, setCommunityTopicFilter] = useState(
     () => searchParams.get("topicSlug") ?? ""
@@ -108,13 +89,10 @@ export function AdminPostsPageContent() {
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const [selectedCommunity, setSelectedCommunity] = useState<Set<string>>(() => new Set());
-  const [selectedTrade, setSelectedTrade] = useState<Set<string>>(() => new Set());
   const communitySelectAllRef = useRef<HTMLInputElement>(null);
-  const tradeSelectAllRef = useRef<HTMLInputElement>(null);
   const skipUrlWriteRef = useRef(true);
 
   useEffect(() => {
-    if (tab !== "community") return;
     if (skipUrlWriteRef.current) {
       skipUrlWriteRef.current = false;
       return;
@@ -136,7 +114,6 @@ export function AdminPostsPageContent() {
     const next = q.toString() ? `${pathname}?${q.toString()}` : pathname;
     router.replace(next);
   }, [
-    tab,
     pathname,
     router,
     communityTopicFilter,
@@ -148,11 +125,6 @@ export function AdminPostsPageContent() {
     communityCreatedFrom,
     communityCreatedTo,
   ]);
-
-  const loadTrade = useCallback(async () => {
-    const list = await getAdminPosts();
-    setPosts(list);
-  }, []);
 
   const loadCommunity = useCallback(async () => {
     setCommunityErr("");
@@ -205,13 +177,9 @@ export function AdminPostsPageContent() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    if (tab === "trade") {
-      await loadTrade();
-    } else {
-      await loadCommunity();
-    }
+    await loadCommunity();
     setLoading(false);
-  }, [tab, loadTrade, loadCommunity]);
+  }, [loadCommunity]);
 
   useEffect(() => {
     void load();
@@ -254,20 +222,6 @@ export function AdminPostsPageContent() {
     return String(row.topicSlug ?? row.topic_slug ?? row.category ?? "").trim();
   }, []);
 
-  useEffect(() => {
-    setSelectedCommunity(new Set());
-    setSelectedTrade(new Set());
-    setActionMsg(null);
-  }, [tab]);
-
-  const handleStatusChange = useCallback(
-    async (postId: string, status: PostWithMeta["status"]) => {
-      const res = await updatePostStatusAdmin(postId, status);
-      if (res.ok) void loadTrade();
-    },
-    [loadTrade]
-  );
-
   const patchCommunityPost = useCallback(
     async (id: string, status: string) => {
       setCommunityBusyId(id);
@@ -307,16 +261,6 @@ export function AdminPostsPageContent() {
     if (el) el.indeterminate = someCommunitySelected && !allCommunitySelected;
   }, [someCommunitySelected, allCommunitySelected]);
 
-  const tradeIdsVisible = posts.map((p) => p.id);
-  const allTradeSelected =
-    tradeIdsVisible.length > 0 && tradeIdsVisible.every((id) => selectedTrade.has(id));
-  const someTradeSelected = tradeIdsVisible.some((id) => selectedTrade.has(id));
-
-  useEffect(() => {
-    const el = tradeSelectAllRef.current;
-    if (el) el.indeterminate = someTradeSelected && !allTradeSelected;
-  }, [someTradeSelected, allTradeSelected]);
-
   const toggleCommunityRow = useCallback((id: string, checked: boolean) => {
     setSelectedCommunity((prev) => {
       const next = new Set(prev);
@@ -334,25 +278,6 @@ export function AdminPostsPageContent() {
       });
     },
     [communityIdsVisible]
-  );
-
-  const toggleTradeRow = useCallback((id: string, checked: boolean) => {
-    setSelectedTrade((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const toggleAllTrade = useCallback(
-    (checked: boolean) => {
-      setSelectedTrade(() => {
-        if (!checked) return new Set();
-        return new Set(tradeIdsVisible);
-      });
-    },
-    [tradeIdsVisible]
   );
 
   const bulkDeleteCommunity = useCallback(async () => {
@@ -398,79 +323,12 @@ export function AdminPostsPageContent() {
     }
   }, [selectedCommunity, loadCommunity, tr]);
 
-  const bulkDeleteTrade = useCallback(async () => {
-    const ids = [...selectedTrade];
-    if (ids.length === 0) return;
-    if (!(await dibayConfirm({ title: tr("admin_posts_confirm_bulk_delete_trade", { count: ids.length }), confirmTone: "destructive" }))) {
-      return;
-    }
-    setBulkBusy(true);
-    setActionMsg(null);
-    try {
-      const res = await fetch("/api/admin/posts/bulk-delete", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        deletedCount?: number;
-        notFoundOrSkipped?: string[];
-      };
-      if (!res.ok || !j.ok) {
-        setActionMsg(j.error ?? tr("admin_posts_err_trade_bulk_delete"));
-        return;
-      }
-      setSelectedTrade(new Set());
-      const skipped =
-        j.notFoundOrSkipped?.length ?
-          tr("admin_posts_msg_skipped_suffix", { skipped: j.notFoundOrSkipped.length })
-        : "";
-      setActionMsg(
-        tr("admin_posts_msg_bulk_deleted_trade", {
-          deleted: j.deletedCount ?? 0,
-          skipped,
-        })
-      );
-      await loadTrade();
-    } finally {
-      setBulkBusy(false);
-    }
-  }, [selectedTrade, loadTrade, tr]);
-
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        titleKey="admin_posts_page_title"
-        description={tab === "community" ? tr("admin_posts_help_community_short") : undefined}
+        titleKey="admin_menu_community_posts"
+        description={tr("admin_posts_help_community_short")}
       />
-
-      <div className="flex flex-wrap gap-2 border-b border-sam-border pb-2">
-        <button
-          type="button"
-          onClick={() => setTab("community")}
-          className={`rounded-ui-rect px-3 py-2 sam-text-body font-medium ${
-            tab === "community"
-              ? "bg-signature text-white"
-              : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
-          }`}
-        >
-          {tr("admin_posts_tab_community")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("trade")}
-          className={`rounded-ui-rect px-3 py-2 sam-text-body font-medium ${
-            tab === "trade"
-              ? "bg-signature text-white"
-              : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
-          }`}
-        >
-          {tr("admin_posts_tab_trade")}
-        </button>
-      </div>
 
       {actionMsg ? (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">
@@ -478,207 +336,88 @@ export function AdminPostsPageContent() {
         </div>
       ) : null}
 
-      {tab === "trade" ? (
-        <p className="sam-text-body-secondary text-sam-muted">
-          {tr("admin_posts_help_trade_before_code")}
-          <code className="rounded bg-sam-surface-muted px-1">posts</code>
-          {tr("admin_posts_help_trade_after_code")}
-        </p>
-      ) : null}
-
-      {tab === "community" ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-0.5">
-            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_topic")}</span>
-            <input
-              type="text"
-              value={communityTopicFilter}
-              onChange={(e) => setCommunityTopicFilter(e.target.value)}
-              placeholder={tr("admin_posts_col_topic")}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            />
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_author")}</span>
-            <input
-              type="text"
-              value={communityUserFilter}
-              onChange={(e) => setCommunityUserFilter(e.target.value)}
-              placeholder={tr("admin_posts_filter_author_id")}
-              className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            />
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
-            <select
-              value={communityStatusFilter}
-              onChange={(e) => {
-                setCommunityStatusFilter(e.target.value);
-                if (e.target.value) setCommunityPeriod("");
-              }}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            >
-              <option value="">{tr("admin_posts_filter_all_status")}</option>
-              {communityStatusOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {tr(o.labelKey)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex cursor-pointer items-center gap-1.5 self-end pb-2 sam-text-body-secondary">
-            <input
-              type="checkbox"
-              checked={communityReportedOnly}
-              onChange={(e) => setCommunityReportedOnly(e.target.checked)}
-            />
-            {tr("admin_posts_filter_reported_only")}
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_from")}</span>
-            <input
-              type="date"
-              value={communityCreatedFrom}
-              onChange={(e) => {
-                setCommunityCreatedFrom(e.target.value);
-                if (e.target.value) setCommunityPeriod("");
-              }}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            />
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_to")}</span>
-            <input
-              type="date"
-              value={communityCreatedTo}
-              onChange={(e) => {
-                setCommunityCreatedTo(e.target.value);
-                if (e.target.value) setCommunityPeriod("");
-              }}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => void loadCommunity()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_topic")}</span>
+          <input
+            type="text"
+            value={communityTopicFilter}
+            onChange={(e) => setCommunityTopicFilter(e.target.value)}
+            placeholder={tr("admin_posts_col_topic")}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_col_author")}</span>
+          <input
+            type="text"
+            value={communityUserFilter}
+            onChange={(e) => setCommunityUserFilter(e.target.value)}
+            placeholder={tr("admin_posts_filter_author_id")}
+            className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
+          <select
+            value={communityStatusFilter}
+            onChange={(e) => {
+              setCommunityStatusFilter(e.target.value);
+              if (e.target.value) setCommunityPeriod("");
+            }}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
           >
-            {tr("admin_feed_posts_refresh")}
-          </button>
-        </div>
-      ) : null}
-
-      {tab === "trade" && !loading && posts.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="sam-text-body-secondary text-sam-fg">
-            {tr("admin_posts_bulk_selected", { count: selectedTrade.size })}
-          </span>
-          <button
-            type="button"
-            disabled={bulkBusy || selectedTrade.size === 0}
-            onClick={() => void bulkDeleteTrade()}
-            className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
-          >
-            {tr("admin_posts_bulk_delete_db")}
-          </button>
-        </div>
-      ) : null}
+            <option value="">{tr("admin_posts_filter_all_status")}</option>
+            {communityStatusOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {tr(o.labelKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex cursor-pointer items-center gap-1.5 self-end pb-2 sam-text-body-secondary">
+          <input
+            type="checkbox"
+            checked={communityReportedOnly}
+            onChange={(e) => setCommunityReportedOnly(e.target.checked)}
+          />
+          {tr("admin_posts_filter_reported_only")}
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_from")}</span>
+          <input
+            type="date"
+            value={communityCreatedFrom}
+            onChange={(e) => {
+              setCommunityCreatedFrom(e.target.value);
+              if (e.target.value) setCommunityPeriod("");
+            }}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_posts_filter_to")}</span>
+          <input
+            type="date"
+            value={communityCreatedTo}
+            onChange={(e) => {
+              setCommunityCreatedTo(e.target.value);
+              if (e.target.value) setCommunityPeriod("");
+            }}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void loadCommunity()}
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
+        >
+          {tr("admin_feed_posts_refresh")}
+        </button>
+      </div>
 
       {loading ? (
         <div className="py-12 text-center sam-text-body text-sam-muted">{tr("common_loading")}</div>
-      ) : tab === "trade" ? (
-        posts.length === 0 ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-            {tr("admin_posts_empty_trade")}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-            <table className="w-full text-left sam-text-body">
-              <thead>
-                <tr className="border-b border-sam-border bg-sam-app">
-                  <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
-                    <input
-                      ref={tradeSelectAllRef}
-                      type="checkbox"
-                      checked={allTradeSelected}
-                      onChange={(e) => toggleAllTrade(e.target.checked)}
-                      className="rounded border-sam-border"
-                      title={tr("admin_posts_title_select_all_visible")}
-                      aria-label={tr("admin_posts_aria_select_all_trade")}
-                    />
-                  </th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_listing_location")}</th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_type")}</th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_created")}</th>
-                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {posts.map((p) => {
-                  const metaRec =
-                    p.meta && typeof p.meta === "object" && !Array.isArray(p.meta)
-                      ? (p.meta as Record<string, unknown>)
-                      : undefined;
-                  const listingLocLine =
-                    resolveTradePostListingLocationLine(metaRec, p.region, p.city, p.trade_lgu_id) ??
-                    dash;
-                  return (
-                    <tr key={p.id} className="border-b border-sam-border-soft">
-                      <td className="px-2 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedTrade.has(p.id)}
-                          onChange={(e) => toggleTradeRow(p.id, e.target.checked)}
-                          className="rounded border-sam-border"
-                          aria-label={tr("admin_posts_aria_select_row", { label: p.title.slice(0, 20) })}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <Link href={`/post/${p.id}`} className="text-signature hover:underline">
-                          {p.title}
-                        </Link>
-                      </td>
-                      <td
-                        className="max-w-[220px] truncate p-3 text-sam-muted"
-                        title={listingLocLine === dash ? undefined : listingLocLine}
-                      >
-                        {listingLocLine}
-                      </td>
-                      <td className="p-3 text-sam-muted">{p.type}</td>
-                      <td className="p-3">
-                        <select
-                          value={p.status}
-                          onChange={(e) =>
-                            handleStatusChange(p.id, e.target.value as PostWithMeta["status"])
-                          }
-                          className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
-                        >
-                          {statusTradeOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {tr(o.labelKey)}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-3 text-sam-muted">{formatTimeAgo(p.created_at)}</td>
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(p.id, "hidden")}
-                          className="sam-text-body-secondary text-red-600 hover:underline"
-                        >
-                          {tr("admin_feed_posts_action_hide")}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
       ) : (
         <>
           {communityErr ? (

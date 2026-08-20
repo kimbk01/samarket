@@ -1,6 +1,6 @@
-import { DeliveryReportsClient } from "@/components/admin/delivery-orders/DeliveryReportsClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminStoreOrderReportsPage() {
-  return <DeliveryReportsClient />;
+  permanentRedirect("/admin/store-reports");
 }
 

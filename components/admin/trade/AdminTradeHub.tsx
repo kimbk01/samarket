@@ -182,7 +182,7 @@ export function AdminTradeHub() {
                 fallbackEn: "Promote",
               }),
               count: loading ? null : counts?.promoPending ?? null,
-              href: "/admin/ad-applications",
+              href: "/admin/ad-applications?domain=trade",
               disconnected: !loading && counts?.promoPending == null,
             },
           ]}
@@ -204,7 +204,7 @@ export function AdminTradeHub() {
               { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
               { href: "/admin/reports?domain=trade", label: t("admin_menu_reports") },
               { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
-              { href: "/admin/ad-applications", label: t("admin_menu_ads_applications") },
+              { href: "/admin/ad-applications?domain=trade", label: t("admin_menu_ads_applications") },
               { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },
               { href: "/admin/favorites", label: t("admin_menu_trade_likes") },
               { href: "/admin/users?from=trade", label: t("admin_menu_users") },

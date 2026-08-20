@@ -228,6 +228,12 @@ export function AdminCommunityReportsPage({
                       <td className="py-2 pr-2">{r.status}</td>
                       <td className="py-2">
                         <div className="flex flex-wrap gap-1">
+                          <Link
+                            href={`/admin/reports/${encodeURIComponent(r.id)}`}
+                            className="rounded border border-sam-border px-2 py-0.5 sam-text-xxs text-sam-primary hover:bg-sam-app"
+                          >
+                            {tr("admin_report_th_detail")}
+                          </Link>
                           {(["reviewing", "resolved", "dismissed"] as const).map((s) => (
                             <button
                               key={s}

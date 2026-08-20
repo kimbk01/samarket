@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   approveCommunityPaidExposure,
@@ -37,6 +39,14 @@ export async function PATCH(
   };
   const action = (body.action ?? "").trim();
 
+  const { data: before } = await sb
+    .from("point_promotion_orders")
+    .select("id, domain, target_id, order_status, point_cost, review_reason")
+    .eq("id", orderId)
+    .eq("domain", "community")
+    .maybeSingle();
+  const meta = getAuditRequestMeta(req);
+
   if (action === "approve") {
     const res = await approveCommunityPaidExposure(sb, {
       orderId,
@@ -45,6 +55,17 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: admin.userId,
+      target_type: "community_promotion_order",
+      target_id: orderId,
+      action: "community_promotion_order.approve",
+      before_json: before ? (before as Record<string, unknown>) : null,
+      after_json: { action, order_status: "active", endAt: res.endAt },
+      ip: meta.ip,
+      user_agent: meta.userAgent,
+    });
     return NextResponse.json({ ok: true, endAt: res.endAt });
   }
 
@@ -56,6 +77,17 @@ export async function PATCH(
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: admin.userId,
+      target_type: "community_promotion_order",
+      target_id: orderId,
+      action: "community_promotion_order.reject",
+      before_json: before ? (before as Record<string, unknown>) : null,
+      after_json: { action, order_status: "rejected", reason: body.reason ?? "" },
+      ip: meta.ip,
+      user_agent: meta.userAgent,
+    });
     return NextResponse.json({ ok: true });
   }
 

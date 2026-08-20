@@ -63,16 +63,13 @@ function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string
   return out;
 }
 
-/** Ops workspaces — 구 community/trade/delivery/messenger + moderation */
+/** Ops workspaces — derived from the 7-workspace adminMenu SSOT. */
 const OPS_DOMAIN_KEYS = [
-  "customer-platform",
-  "members",
-  "moderation",
+  "common",
   "trade",
   "community",
   "delivery",
   "messenger",
-  "growth",
 ] as const;
 
 const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>

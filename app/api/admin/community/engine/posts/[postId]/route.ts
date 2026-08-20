@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 import {
@@ -109,12 +111,41 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  const { data: before } = await sb
+    .from("community_posts")
+    .select("id, status, is_reported, title, user_id")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await sb.from("community_posts").update(patch).eq("id", id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   if (body.status === "hidden" || body.status === "deleted") {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
   }
+
+  const meta = getAuditRequestMeta(req);
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: admin.userId,
+    target_type: "community_post",
+    target_id: id,
+    action:
+      typeof body.status === "string"
+        ? `community_post.status_${body.status}`
+        : "community_post.update",
+    before_json: before
+      ? {
+          status: (before as { status?: string | null }).status ?? null,
+          is_reported: (before as { is_reported?: boolean | null }).is_reported ?? null,
+          title: (before as { title?: string | null }).title ?? null,
+          user_id: (before as { user_id?: string | null }).user_id ?? null,
+        }
+      : null,
+    after_json: patch,
+    ip: meta.ip,
+    user_agent: meta.userAgent,
+  });
 
   return NextResponse.json({ ok: true });
 }

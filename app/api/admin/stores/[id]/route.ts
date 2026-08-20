@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -126,6 +127,19 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
   }
 
+
+  const auditOk = async (extra?: Record<string, unknown>) => {
+    await appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: null,
+      target_type: "store",
+      target_id: id,
+      action: `store.${action}`,
+      after_json: { action, reason, ...(extra ?? {}) },
+    });
+    return NextResponse.json({ ok: true });
+  };
+
   if (
     action === "approve_store" ||
     action === "start_review" ||
@@ -180,7 +194,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH store]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   if (action === "set_owner_identity_editable") {
@@ -193,7 +207,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH identity flag]", idErr);
       return NextResponse.json({ ok: false, error: idErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   if (action === "set_store_visible") {
@@ -209,7 +223,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH is_visible]", visErr);
       return NextResponse.json({ ok: false, error: visErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   if (action === "set_admin_memo") {
@@ -221,7 +235,7 @@ export async function PATCH(
       }
       return NextResponse.json({ ok: false, error: memoErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   if (action === "set_store_name") {
@@ -234,7 +248,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH store_name]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   if (action === "approve_sales" || action === "reject_sales" || action === "suspend_sales") {
@@ -276,7 +290,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH sales]", pErr);
       return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true });
+    return auditOk();
   }
 
   return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });

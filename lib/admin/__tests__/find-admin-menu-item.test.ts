@@ -22,6 +22,8 @@ describe("find-admin-menu-item", () => {
   });
 
   it("finds manage under platform-ops", () => {
+    const system = findAdminMenuByKey(adminMenu, "system");
+    expect(system?.children?.some((c) => c.key === "platform-ops")).toBe(true);
     const manage = findAdminMenuByKey(adminMenu, "manage");
     expect(manage?.roles).toEqual(["admin", "master"]);
   });

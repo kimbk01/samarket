@@ -15,7 +15,14 @@ export type OrderStatus =
   | "refund_requested"
   | "refunded";
 
-export type SettlementStatus = "scheduled" | "processing" | "paid" | "held" | "cancelled";
+export type SettlementStatus =
+  | "scheduled"
+  | "processing"
+  | "paid"
+  | "held"
+  | "cancelled"
+  /** Order list projection without store_settlements join — open real settlement SSOT */
+  | "unknown";
 
 export type AdminActionStatus =
   | "none"

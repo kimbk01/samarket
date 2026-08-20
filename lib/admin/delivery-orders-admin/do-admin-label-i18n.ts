@@ -39,6 +39,7 @@ const SETTLEMENT_KEYS: Record<SettlementStatus, MessageKey> = {
   paid: "admin_do_ss_paid",
   held: "admin_do_ss_held",
   cancelled: "admin_do_ss_cancelled",
+  unknown: "admin_do_ss_unknown",
 };
 
 const ADMIN_ACTION_KEYS: Record<Exclude<AdminActionStatus, "none">, MessageKey> = {

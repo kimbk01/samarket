@@ -11,16 +11,12 @@ const ROOT = path.resolve(__dirname, "../../..");
 
 const WORKSPACE_KEYS = [
   "dashboard",
-  "customer-platform",
-  "members",
-  "moderation",
-  "trade",
+  "common",
   "community",
+  "trade",
   "delivery",
   "messenger",
-  "growth",
-  "app-config",
-  "platform-ops",
+  "system",
 ] as const;
 
 const REDIRECT_ONLY_PATHS = [
@@ -43,7 +39,7 @@ function pageExistsForMenuPath(menuPath: string): boolean {
 }
 
 describe("platform admin menu SSOT contract", () => {
-  it("exposes exactly 11 top-level workspaces", () => {
+  it("exposes exactly 7 top-level workspaces", () => {
     expect(adminMenu.map((w) => w.key)).toEqual([...WORKSPACE_KEYS]);
   });
 
@@ -75,26 +71,33 @@ describe("platform admin menu SSOT contract", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  it("keeps Growth as sole owner of promoted-items and member-benefits", () => {
+  it("keeps system/growth as sole owner of promoted-items and member-benefits", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
     expect(findAdminMenuByKey(adminMenu, "ads-benefits")?.path).toBe("/admin/member-benefits");
-    const growth = findAdminMenuByKey(adminMenu, "growth");
-    expect(growth).toBeTruthy();
+    const system = findAdminMenuByKey(adminMenu, "system");
+    const systemKeys = new Set((system?.children ?? []).map((c) => c.key));
+    expect(systemKeys.has("growth")).toBe(true);
   });
 
-  it("keeps notification domain settings under app-config only", () => {
+  it("keeps notification domain settings under system/app-config only", () => {
     expect(findAdminMenuByKey(adminMenu, "settings-notifications")?.path).toBe(
       "/admin/settings/notifications"
     );
     expect(findAdminMenuByKey(adminMenu, "app-config")).toBeTruthy();
   });
 
-  it("separates moderation from messenger", () => {
+  it("moves common reports and chat reports to their canonical workspaces", () => {
+    const commonKids = findAdminMenuByKey(adminMenu, "common")?.children ?? [];
+    expect(commonKids.some((c) => c.key === "global-reports")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
+
     const messengerKids = findAdminMenuByKey(adminMenu, "messenger")?.children ?? [];
     expect(messengerKids.some((c) => c.key === "reports")).toBe(false);
     expect(messengerKids.some((c) => c.key === "reviews")).toBe(false);
-    expect(findAdminMenuByKey(adminMenu, "moderation")).toBeTruthy();
+    expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "moderation")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/reports?domain=trade");
+    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.matchPaths).toBeUndefined();
   });
 
   it("Cut B: Trade workspace owns Marketplace ops leaves (routes KEEP)", () => {
@@ -111,18 +114,20 @@ describe("platform admin menu SSOT contract", () => {
     expect(tradeKeys.has("delivery-orders-settlement")).toBe(false);
     expect([...tradeKeys].some((k) => /payment|settlement/i.test(k))).toBe(false);
 
-    const moderationKeys = new Set(
-      (findAdminMenuByKey(adminMenu, "moderation")?.children ?? []).map((c) => c.key)
+    const commonKeys = new Set(
+      (findAdminMenuByKey(adminMenu, "common")?.children ?? []).map((c) => c.key)
     );
-    expect(moderationKeys.has("reports-posts")).toBe(false);
-    expect(moderationKeys.has("reviews-trade")).toBe(false);
+    expect(commonKeys.has("reports-posts")).toBe(false);
+    expect(commonKeys.has("reviews-trade")).toBe(false);
 
     const messengerKeys = new Set(
       (findAdminMenuByKey(adminMenu, "messenger")?.children ?? []).map((c) => c.key)
     );
     expect(messengerKeys.has("chat-trade")).toBe(false);
+    expect(messengerKeys.has("chat-trade-messenger")).toBe(true);
 
     const growthAds = findAdminMenuByKey(adminMenu, "ads")?.children ?? [];
     expect(growthAds.some((c) => c.key === "ads-applications")).toBe(false);
+    expect(growthAds.some((c) => c.key === "ads-feed-applications")).toBe(true);
   });
 });

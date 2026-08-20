@@ -11,46 +11,46 @@ import {
 } from "@/lib/admin/admin-workspace-routing";
 
 describe("admin-workspace-routing", () => {
-  it("lists 11 workspaces for master", () => {
+  it("lists 7 workspaces for master", () => {
     const ws = listAdminWorkspaces("master");
     expect(ws.map((w) => w.id)).toEqual([
       "dashboard",
-      "customer-platform",
-      "members",
-      "moderation",
-      "trade",
+      "common",
       "community",
+      "trade",
       "delivery",
       "messenger",
-      "growth",
-      "app-config",
-      "platform-ops",
+      "system",
     ]);
   });
 
-  it("hides platform-ops system-only leaves for operator but keeps workspace if manage filtered", () => {
+  it("keeps system workspace for operator while filtering role-gated nested leaves", () => {
     const master = listAdminWorkspaces("master").map((w) => w.id);
     const operator = listAdminWorkspaces("operator").map((w) => w.id);
-    expect(master).toContain("platform-ops");
-    // manage+system both role-gated — operator may still see empty platform-ops filtered away
-    expect(operator.includes("platform-ops")).toBe(false);
+    expect(master).toContain("system");
+    expect(operator).toContain("system");
+    expect(findWorkspaceItem("system", "operator")?.children?.some((c) => c.key === "platform-ops")).toBe(
+      false
+    );
   });
 
   it("resolves active workspace from pathname and matchPaths", () => {
     expect(resolveActiveWorkspace("/admin", "master").id).toBe("dashboard");
-    expect(resolveActiveWorkspace("/admin/customer-platform", "master").id).toBe(
-      "customer-platform"
-    );
-    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("members");
-    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("trade");
+    expect(resolveActiveWorkspace("/admin/customer-platform", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("common");
+    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("common");
+    expect(resolveActiveWorkspace("/admin/reports?domain=trade", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/trade", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/community/posts", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/philife/sections", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/stores/orders", "master").id).toBe("delivery");
     expect(resolveActiveWorkspace("/admin/chats/messenger", "master").id).toBe("messenger");
-    expect(resolveActiveWorkspace("/admin/promoted-items", "master").id).toBe("growth");
-    expect(resolveActiveWorkspace("/admin/settings", "master").id).toBe("app-config");
-    expect(resolveActiveWorkspace("/admin/system", "master").id).toBe("platform-ops");
+    expect(resolveActiveWorkspace("/admin/chats/trade?from=messenger", "master").id).toBe(
+      "messenger"
+    );
+    expect(resolveActiveWorkspace("/admin/promoted-items", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/settings", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/system", "master").id).toBe("system");
   });
 
   it("does not treat every /admin/* as HOME", () => {
@@ -59,10 +59,10 @@ describe("admin-workspace-routing", () => {
   });
 
   it("computes workspace roots from SSOT leaves", () => {
-    const cp = adminMenu.find((w) => w.key === "customer-platform")!;
-    expect(resolveWorkspaceRootPath(cp)).toBe("/admin/customer-platform");
-    const members = adminMenu.find((w) => w.key === "members")!;
-    expect(resolveWorkspaceRootPath(members)).toBe("/admin/users");
+    const common = adminMenu.find((w) => w.key === "common")!;
+    expect(resolveWorkspaceRootPath(common)).toBe("/admin/users");
+    const system = adminMenu.find((w) => w.key === "system")!;
+    expect(resolveWorkspaceRootPath(system)).toBe("/admin/customer-platform");
   });
 
   it("builds breadcrumb from workspace chain", () => {
@@ -88,3 +88,7 @@ describe("admin-workspace-routing", () => {
     expect(isPlatformAdminPathname("/stores/owner/orders")).toBe(false);
   });
 });
+
+function findWorkspaceItem(key: string, role: "master" | "admin" | "operator" | "viewer") {
+  return listAdminWorkspaces(role).find((w) => w.id === key)?.item;
+}

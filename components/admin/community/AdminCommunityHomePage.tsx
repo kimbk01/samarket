@@ -76,6 +76,9 @@ export function AdminCommunityHomePage({
           <Link href="/admin/community/reports" className="text-sam-primary hover:underline">
             {t("admin_menu_community_reports")}
           </Link>
+          <Link href="/admin/community/promotions" className="text-sam-primary hover:underline">
+            {t("admin_menu_community_promotions")}
+          </Link>
           <Link href="/admin/community/settings" className="text-sam-primary hover:underline">
             {t("admin_menu_feed_settings")}
           </Link>

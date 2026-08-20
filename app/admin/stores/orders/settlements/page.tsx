@@ -1,6 +1,6 @@
-import { DeliverySettlementsClient } from "@/components/admin/delivery-orders/DeliverySettlementsClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminStoreOrderSettlementsPage() {
-  return <DeliverySettlementsClient />;
+  permanentRedirect("/admin/store-settlements");
 }
 

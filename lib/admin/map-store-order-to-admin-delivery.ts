@@ -154,9 +154,10 @@ export function mapStoreOrderToAdminDelivery(p: {
     finalAmount: Math.round(Number(o.payment_amount) || 0),
     paymentStatus: o.payment_status as PaymentStatus,
     orderStatus: o.order_status as OrderStatus,
-    settlementStatus: "scheduled",
+    // Settlement truth: /admin/store-settlements. Do not invent scheduled.
+    settlementStatus: "unknown",
     adminActionStatus: "none",
-    adminMemo: "",
+    adminMemo: (o.admin_note ?? "").trim(),
     hasReport: false,
     createdAt: o.created_at,
     updatedAt: o.updated_at ?? o.created_at,
