@@ -45,6 +45,9 @@ export const adminBoardsMessages = {
     admin_board_err_supabase_short: "Supabase 서버 설정을 확인하세요.",
     admin_board_err_save_failed: "저장 실패",
     admin_board_err_network: "네트워크 오류",
+    admin_legacy_boards_quarantine_banner:
+      "LEGACY · boards 테이블 표면입니다. Community 운영 SSOT는 주제/게시물입니다.",
+    admin_legacy_boards_goto_topics: "커뮤니티 주제",
   },
   en: {
     admin_board_page_title: "Board management",
@@ -92,6 +95,8 @@ export const adminBoardsMessages = {
     admin_board_err_supabase_short: "Check Supabase server configuration.",
     admin_board_err_save_failed: "Save failed",
     admin_board_err_network: "Network error",
+    admin_legacy_boards_quarantine_banner:
+      "LEGACY · boards table surface. Community ops SSOT is topics/posts.",
+    admin_legacy_boards_goto_topics: "Community topics",
   },
-  
 } as const;

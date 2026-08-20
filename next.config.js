@@ -116,6 +116,12 @@ const nextConfig = {
         destination: "/mypage/customer-center",
         permanent: false,
       },
+      /** P1-3 — orphan ops hub → Admin home (HTTP 307; RSC-only redirect is 200+CSR) */
+      {
+        source: "/admin/operations",
+        destination: "/admin",
+        permanent: false,
+      },
       /** Slice 5 Activity — legacy list shells → trade hub (HTTP 307; RSC-only redirect is 200+CSR) */
       {
         source: "/mypage/purchases",

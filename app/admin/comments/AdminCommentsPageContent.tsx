@@ -11,7 +11,7 @@ import { formatTimeAgo } from "@/lib/utils/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 export function AdminCommentsPageContent() {
-  const { t: tr } = useI18n();
+  const { t: tr, safeT } = useI18n();
   const [comments, setComments] = useState<AdminCommentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +38,29 @@ export function AdminCommentsPageContent() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-surface="legacy" data-admin-quarantine="comments">
       <AdminPageHeader titleKey="admin_comments_page_title" />
+      <p
+        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        data-testid="admin-legacy-comments-quarantine-banner"
+      >
+        {safeT("admin_legacy_comments_quarantine_banner", {
+          fallbackKo:
+            "LEGACY · 구 comments 표면입니다. Community 댓글 운영 SSOT는 커뮤니티 댓글입니다.",
+          fallbackEn:
+            "LEGACY · old comments surface. Community comment ops SSOT is Community comments.",
+        })}{" "}
+        <Link
+          href="/admin/community/comments"
+          className="font-medium text-signature underline"
+          prefetch={false}
+        >
+          {safeT("admin_legacy_comments_goto_community", {
+            fallbackKo: "커뮤니티 댓글",
+            fallbackEn: "Community comments",
+          })}
+        </Link>
+      </p>
       {loading ? (
         <div className="py-12 text-center sam-text-body text-sam-muted">{tr("common_loading")}</div>
       ) : comments.length === 0 ? (

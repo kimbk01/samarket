@@ -477,7 +477,10 @@ export const adminMessages = {
       "기간·D-Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
     admin_feed_ad_toast_title: "배너 광고 신청",
     admin_feed_ad_toast_open: "신청 상세 보기",
-    admin_menu_ads_legacy: "기타 광고 운영",
+    admin_menu_ads_legacy: "레거시 광고 (비권장)",
+    admin_legacy_comments_quarantine_banner:
+      "LEGACY · 구 comments 표면입니다. Community 댓글 운영 SSOT는 커뮤니티 댓글입니다.",
+    admin_legacy_comments_goto_community: "커뮤니티 댓글",
     admin_feed_ads_create: "피드 광고 만들기",
     admin_feed_ads_hint: "Trade/Community 피드에 노출할 관리자 광고를 만듭니다.",
     admin_feed_ads_empty: "등록된 피드 광고가 없습니다.",
@@ -2848,7 +2851,10 @@ export const adminMessages = {
       "Duration and D-Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
     admin_feed_ad_toast_title: "Banner ad request",
     admin_feed_ad_toast_open: "Open request",
-    admin_menu_ads_legacy: "Other ad ops",
+    admin_menu_ads_legacy: "Legacy ads (not preferred)",
+    admin_legacy_comments_quarantine_banner:
+      "LEGACY · old comments surface. Community comment ops SSOT is Community comments.",
+    admin_legacy_comments_goto_community: "Community comments",
     admin_feed_ads_create: "Create feed ad",
     admin_feed_ads_hint: "Create admin ads for Trade/Community feeds.",
     admin_feed_ads_empty: "No feed ads yet.",

@@ -14,7 +14,7 @@ const BOARD_LIST_ERROR_KEYS: Record<string, MessageKey> = {
 };
 
 export function AdminBoardsPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [boards, setBoards] = useState<AdminBoardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function AdminBoardsPage() {
   }, [load]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-surface="legacy" data-admin-quarantine="boards">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader titleKey="admin_board_page_title" />
         <button
@@ -66,6 +66,24 @@ export function AdminBoardsPage() {
           {t("admin_board_add_btn")}
         </button>
       </div>
+
+      <p
+        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        data-testid="admin-legacy-boards-quarantine-banner"
+      >
+        {safeT("admin_legacy_boards_quarantine_banner", {
+          fallbackKo:
+            "LEGACY · boards 테이블 표면입니다. Community 운영 SSOT는 주제/게시물입니다.",
+          fallbackEn:
+            "LEGACY · boards table surface. Community ops SSOT is topics/posts.",
+        })}{" "}
+        <Link href="/admin/community/topics" className="font-medium text-signature underline" prefetch={false}>
+          {safeT("admin_legacy_boards_goto_topics", {
+            fallbackKo: "커뮤니티 주제",
+            fallbackEn: "Community topics",
+          })}
+        </Link>
+      </p>
 
       <AdminBoardCreateForm open={createOpen} onClose={() => setCreateOpen(false)} onCreated={() => void load()} />
 
