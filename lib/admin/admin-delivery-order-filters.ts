@@ -31,10 +31,8 @@ function matchesFilters(o: AdminDeliveryOrder, f: OrderListFilters): boolean {
   }
   if (f.orderStatus && o.orderStatus !== f.orderStatus) return false;
   if (f.paymentStatus && o.paymentStatus !== f.paymentStatus) return false;
-  if (f.settlementStatus && o.settlementStatus !== f.settlementStatus) return false;
+  // settlementStatus / reportsOnly / heldSettlementOnly are hollow on order projection — ignored.
   if (f.orderType && o.orderType !== f.orderType) return false;
-  if (f.reportsOnly && !o.hasReport) return false;
-  if (f.heldSettlementOnly && o.settlementStatus !== "held") return false;
   if (f.dateFrom) {
     const t = new Date(o.createdAt).getTime();
     if (t < new Date(f.dateFrom).getTime()) return false;

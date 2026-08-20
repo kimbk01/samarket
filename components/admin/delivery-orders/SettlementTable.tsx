@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * ORPHAN — only used by quarantined DeliverySettlementsClient.
+ */
 import Link from "next/link";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { SettlementStatusBadge } from "./DeliveryOrderBadges";

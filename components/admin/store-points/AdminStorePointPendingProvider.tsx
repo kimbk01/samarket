@@ -39,6 +39,8 @@ type Ctx = {
   pendingCount: number;
   userChargePendingCount: number;
   feedAdPendingCount: number;
+  /** TRADE_PROMO_PENDING — sidebar Trade ads-applications only */
+  tradePromoPendingCount: number;
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
@@ -47,6 +49,7 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   pendingCount: 0,
   userChargePendingCount: 0,
   feedAdPendingCount: 0,
+  tradePromoPendingCount: 0,
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -80,6 +83,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [pendingCount, setPendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
+  const [tradePromoPendingCount, setTradePromoPendingCount] = useState(0);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [toast, setToast] = useState(false);
   const [feedAdToast, setFeedAdToast] = useState<FeedAdToast | null>(null);
@@ -208,6 +212,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             store_charges?: number;
             user_charges?: number;
             feed_ad_requests?: number;
+            trade_promo_pending?: number;
           };
         };
         return { resOk: res.ok, json };
@@ -217,9 +222,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         const storeCharges = Math.max(0, Math.floor(Number(json.by_category?.store_charges) || 0));
         const userCharges = Math.max(0, Math.floor(Number(json.by_category?.user_charges) || 0));
         const feedAds = Math.max(0, Math.floor(Number(json.by_category?.feed_ad_requests) || 0));
+        const tradePromo = Math.max(0, Math.floor(Number(json.by_category?.trade_promo_pending) || 0));
         setPendingCount(storeCharges);
         setUserChargePendingCount(userCharges);
         setFeedAdPendingCount(feedAds);
+        setTradePromoPendingCount(tradePromo);
         if (!feedSoundHydratedRef.current) {
           feedSoundHydratedRef.current = true;
           void detectNewFeedAds();
@@ -428,10 +435,18 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       pendingCount,
       userChargePendingCount,
       feedAdPendingCount,
+      tradePromoPendingCount,
       adminBellCount,
       refresh,
     }),
-    [adminBellCount, pendingCount, userChargePendingCount, feedAdPendingCount, refresh]
+    [
+      adminBellCount,
+      pendingCount,
+      userChargePendingCount,
+      feedAdPendingCount,
+      tradePromoPendingCount,
+      refresh,
+    ]
   );
 
   return (

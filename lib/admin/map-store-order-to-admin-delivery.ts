@@ -154,10 +154,11 @@ export function mapStoreOrderToAdminDelivery(p: {
     finalAmount: Math.round(Number(o.payment_amount) || 0),
     paymentStatus: o.payment_status as PaymentStatus,
     orderStatus: o.order_status as OrderStatus,
-    // Settlement truth: /admin/store-settlements. Do not invent scheduled.
+    // Settlement authority = store_settlements only. This projection is not settlement status.
     settlementStatus: "unknown",
     adminActionStatus: "none",
     adminMemo: (o.admin_note ?? "").trim(),
+    // Order↔store_reports has no FK — do not invent; UI must not treat false as "verified no report".
     hasReport: false,
     createdAt: o.created_at,
     updatedAt: o.updated_at ?? o.created_at,

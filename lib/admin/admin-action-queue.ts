@@ -19,6 +19,7 @@ export type AdminActionQueueCategory =
   | "store_charges"
   | "user_charges"
   | "feed_ad_requests"
+  | "trade_promo_pending"
   | "reports"
   | "store_reports"
   | "delivery_alerts"
@@ -43,6 +44,8 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   store_charges: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   user_charges: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   feed_ad_requests: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  /** TRADE_PROMO_PENDING — point_promotion_orders domain=trade · pending_review */
+  trade_promo_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
   reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
   store_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
   member_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
@@ -55,6 +58,8 @@ export type AdminActionQueueCounts = {
   store_charges: number;
   user_charges: number;
   feed_ad_requests: number;
+  /** TRADE_PROMO_PENDING semantic */
+  trade_promo_pending: number;
   reports: number;
   store_reports: number;
   delivery_alerts: number;
@@ -72,6 +77,7 @@ export type AdminActionQueueCounts = {
     reports: number;
     alerts: number;
     feed_ad_requests: number;
+    trade_promo_pending: number;
     member_inquiry_open: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
@@ -96,6 +102,7 @@ export async function loadAdminActionQueueCounts(input: {
     store_charges: 0,
     user_charges: 0,
     feed_ad_requests: 0,
+    trade_promo_pending: 0,
     reports: 0,
     store_reports: 0,
     delivery_alerts: 0,
@@ -111,6 +118,7 @@ export async function loadAdminActionQueueCounts(input: {
       reports: 0,
       alerts: 0,
       feed_ad_requests: 0,
+      trade_promo_pending: 0,
       member_inquiry_open: 0,
       store_inquiry_open: 0,
       platform_inquiry_open: 0,
@@ -127,6 +135,7 @@ export async function loadAdminActionQueueCounts(input: {
     storeReportsRes,
     alertsRes,
     feedAdRes,
+    tradePromoRes,
     memberInquiryRes,
     storeInquiryRes,
     platformInquiryRes,
@@ -163,6 +172,13 @@ export async function loadAdminActionQueueCounts(input: {
           .eq("status", "pending_review")
           .limit(500)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    storesSb
+      ? storesSb
+          .from("point_promotion_orders")
+          .select("id", { count: "exact", head: true })
+          .eq("domain", "trade")
+          .eq("order_status", "pending_review")
+      : Promise.resolve({ count: 0, error: null }),
     notesSb
       ? notesSb
           .from("member_admin_note_threads")
@@ -216,6 +232,11 @@ export async function loadAdminActionQueueCounts(input: {
       );
     }).length;
   })();
+  const trade_promo_pending =
+    tradePromoRes.error &&
+    /point_promotion_orders|schema cache|does not exist/i.test(tradePromoRes.error.message ?? "")
+      ? 0
+      : safeCount(tradePromoRes);
   const reports = safeCount(reportsRes);
   const store_reports = safeCount(storeReportsRes);
   const delivery_alerts = safeCount(alertsRes);
@@ -233,6 +254,7 @@ export async function loadAdminActionQueueCounts(input: {
   const total =
     charges +
     feed_ad_requests +
+    trade_promo_pending +
     reportsCombined +
     delivery_alerts +
     member_inquiry_open +
@@ -244,6 +266,7 @@ export async function loadAdminActionQueueCounts(input: {
     store_charges,
     user_charges,
     feed_ad_requests,
+    trade_promo_pending,
     reports,
     store_reports,
     delivery_alerts,
@@ -259,6 +282,7 @@ export async function loadAdminActionQueueCounts(input: {
       reports: reportsCombined,
       alerts: delivery_alerts,
       feed_ad_requests,
+      trade_promo_pending,
       member_inquiry_open,
       store_inquiry_open,
       platform_inquiry_open,

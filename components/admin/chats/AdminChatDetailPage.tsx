@@ -165,7 +165,7 @@ interface AdminChatDetailPageProps {
 }
 
 export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
   const [room, setRoom] = useState<AdminChatRoom | null>(null);
@@ -266,7 +266,14 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_page_chat_detail" backHref="/admin/chats" />
+      <AdminPageHeader
+        titleKey="admin_page_chat_detail"
+        backHref={
+          room.roomType === "item_trade" || Boolean(room.productId)
+            ? "/admin/chats/trade"
+            : "/admin/chats"
+        }
+      />
 
       <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">
@@ -281,8 +288,30 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {room.productTitle}
+              {room.productId ? (
+                <Link
+                  href={`/admin/products/${encodeURIComponent(room.productId)}`}
+                  className="text-signature hover:underline"
+                >
+                  {room.productTitle || room.productId}
+                </Link>
+              ) : (
+                room.productTitle
+              )}
             </p>
+            {room.productId ? (
+              <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 sam-text-body-secondary">
+                <Link
+                  href={`/admin/trade-flow?postId=${encodeURIComponent(room.productId)}`}
+                  className="font-medium text-signature hover:underline"
+                >
+                  {safeT("admin_chat_open_trade_flow", {
+                    fallbackKo: "거래 운영",
+                    fallbackEn: "Trade flow",
+                  })}
+                </Link>
+              </p>
+            ) : null}
             <p className="sam-text-body-secondary text-sam-muted">ID: {room.id}</p>
             {room.roomType ? (
               <p className="sam-text-helper text-signature">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -23,12 +24,6 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
         o.orderStatus
       )
     );
-    const schedAmt = orders
-      .filter((o) => o.settlementStatus === "scheduled")
-      .reduce((s, o) => s + (o.settlement?.settlementAmount ?? 0), 0);
-    const heldAmt = orders
-      .filter((o) => o.settlementStatus === "held")
-      .reduce((s, o) => s + (o.settlement?.settlementAmount ?? 0), 0);
 
     const byStore = new Map<string, number>();
     for (const o of orders) {
@@ -47,8 +42,6 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
       cancelledToday: cancelledToday.length,
       refundReqToday: refundReqToday.length,
       inProgress: inProgress.length,
-      schedAmt,
-      heldAmt,
       top5,
       paidSumToday,
     };
@@ -63,16 +56,20 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-3">
         {card(t("admin_do_kpi_today_orders"), data.todayCount)}
         {card(t("admin_do_kpi_today_completed"), data.completedToday)}
         {card(t("admin_do_kpi_today_cancelled"), data.cancelledToday)}
         {card(t("admin_do_kpi_today_refund_req"), data.refundReqToday)}
         {card(t("admin_do_kpi_in_progress"), data.inProgress)}
         {card(t("admin_do_kpi_paid_sum_today"), formatMoneyPhp(data.paidSumToday))}
-        {card(t("admin_do_kpi_settlement_scheduled"), formatMoneyPhp(data.schedAmt))}
-        {card(t("admin_do_kpi_settlement_held"), formatMoneyPhp(data.heldAmt))}
       </div>
+      <p className="sam-text-helper text-sam-muted">
+        {t("admin_do_kpi_settlement_see_ledger")}{" "}
+        <Link href="/admin/store-settlements" className="text-signature underline">
+          /admin/store-settlements
+        </Link>
+      </p>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
         <p className="text-xs font-semibold text-sam-fg">{t("admin_do_kpi_store_top5")}</p>
         <ol className="mt-2 space-y-1 text-sm">

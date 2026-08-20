@@ -41,16 +41,20 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { pendingCount, userChargePendingCount, feedAdPendingCount } = useAdminStorePointPendingCount();
+  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount } =
+    useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
+  /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
   const menuBadge =
     item.key === STORE_POINT_CHARGES_MENU_KEY && pendingCount > 0
       ? pendingCount
       : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
         ? userChargePendingCount
-        : item.key === "ads-applications" && feedAdPendingCount > 0
-          ? feedAdPendingCount
-          : 0;
+        : item.key === "ads-applications" && tradePromoPendingCount > 0
+          ? tradePromoPendingCount
+          : item.key === "ads-feed-applications" && feedAdPendingCount > 0
+            ? feedAdPendingCount
+            : 0;
 
   const childActive = hasChildren
     ? hasActiveDescendantInMenu(item.children ?? [], currentPath)

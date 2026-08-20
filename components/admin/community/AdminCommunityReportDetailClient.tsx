@@ -23,7 +23,7 @@ function dateLocaleTag(language: AppLanguageCode): string {
 
 export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: CommunityReportAdminRow }) {
   const router = useRouter();
-  const { t: tr, language } = useI18n();
+  const { t: tr, safeT, language } = useI18n();
   const dateLocale = dateLocaleTag(language);
   const dash = tr("admin_users_empty_placeholder");
   const [row, setRow] = useState(initialRow);
@@ -214,7 +214,53 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
         </div>
       </AdminCard>
 
+      <AdminCard
+        title={safeT("admin_community_report_separate_actions_title", {
+          fallbackKo: "별도 조치 (신고 처리와 분리)",
+          fallbackEn: "Separate actions (not report resolve)",
+        })}
+      >
+        <p className="mb-3 sam-text-helper text-sam-muted">
+          {safeT("admin_community_report_separate_actions_hint", {
+            fallbackKo:
+              "신고 상태/메모 처리는 콘텐츠 숨김·계정 제재가 아닙니다. 각 조치는 해당 writer 화면에서만 하세요. 단일 조치 타임라인은 없습니다.",
+            fallbackEn:
+              "Resolving a report (status/memo) is not content hide or account sanction. Use each writer’s screen. There is no single action timeline.",
+          })}
+        </p>
+        <div className="flex flex-wrap gap-3 sam-text-body-secondary">
+          {postId ? (
+            <Link
+              href={`/admin/community/posts/${encodeURIComponent(postId)}`}
+              className="font-medium text-signature hover:underline"
+            >
+              {safeT("admin_community_report_open_content_moderation", {
+                fallbackKo: "콘텐츠 숨김 → 게시글 상세",
+                fallbackEn: "Content hide → post detail",
+              })}
+            </Link>
+          ) : null}
+          {authorId ? (
+            <Link
+              href={`/admin/users/${encodeURIComponent(authorId)}`}
+              className="font-medium text-signature hover:underline"
+            >
+              {safeT("admin_report_open_mcc_sanction", {
+                fallbackKo: "MCC에서 계정 제재 열기",
+                fallbackEn: "Open account sanction in MCC",
+              })}
+            </Link>
+          ) : null}
+        </div>
+      </AdminCard>
+
       <AdminCard titleKey="admin_feed_report_memo_card_title">
+        <p className="mb-3 sam-text-helper text-sam-muted">
+          {safeT("admin_community_report_resolve_only_hint", {
+            fallbackKo: "이 카드는 신고 상태·메모만 변경합니다. 게시글 숨김은 위 별도 조치로 이동하세요.",
+            fallbackEn: "This card only changes report status/memo. Use the separate action above to hide a post.",
+          })}
+        </p>
         <label className="mb-3 flex flex-col gap-1 sam-text-body-secondary">
           <span className="text-sam-muted">{tr("admin_feed_report_memo_label")}</span>
           <textarea

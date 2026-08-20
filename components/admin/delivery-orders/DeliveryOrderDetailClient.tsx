@@ -11,7 +11,6 @@ import {
   AdminActionStatusBadge,
   OrderStatusBadge,
   PaymentStatusBadge,
-  SettlementStatusBadge,
 } from "./DeliveryOrderBadges";
 import { AdminOrderTimeline } from "./AdminOrderTimeline";
 import { OrderAmountCard } from "./OrderAmountCard";
@@ -205,7 +204,6 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       <div className="flex flex-wrap gap-2 text-sm">
         <PaymentStatusBadge status={order.paymentStatus} />
         <OrderStatusBadge status={order.orderStatus} />
-        <SettlementStatusBadge status={order.settlementStatus} />
         <AdminActionStatusBadge status={order.adminActionStatus} />
       </div>
 
@@ -253,10 +251,13 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             <dt className="text-sam-muted">{t("admin_do_dt_refund_status")}</dt>
             <dd>{refundState}</dd>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <dt className="text-sam-muted">{t("admin_do_dt_settlement_status")}</dt>
-            <dd>
-              <SettlementStatusBadge status={order.settlementStatus} />
+            <dd className="sam-text-helper text-sam-muted">
+              {t("admin_do_settlement_not_on_order")}{" "}
+              <Link href="/admin/store-settlements" className="text-signature underline">
+                /admin/store-settlements
+              </Link>
             </dd>
           </div>
         </dl>
@@ -292,6 +293,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
 
       {order.settlement && (
         <AdminCard titleKey="admin_do_card_settlement">
+          <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_do_settlement_snapshot_not_authority")}</p>
           <dl className="text-sm">
             <div className="flex justify-between">
               <dt className="text-sam-muted">{t("admin_do_dt_gross_sales")}</dt>
@@ -317,10 +319,12 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </AdminCard>
       )}
 
-      {(order.hasReport || order.disputeMemo) && (
+      {(order.disputeMemo || order.disputeStatus) && (
         <AdminCard titleKey="admin_do_card_dispute">
-          {order.hasReport ? (
-            <p className="text-sm text-amber-900">{t("admin_do_dispute_flag")}</p>
+          {order.disputeStatus ? (
+            <p className="text-sm text-amber-900">
+              {t("admin_do_dispute_status_line", { status: order.disputeStatus })}
+            </p>
           ) : null}
           {order.disputeMemo ? (
             <p className="mt-2 text-sm">
@@ -329,9 +333,10 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             </p>
           ) : null}
           <p className="mt-2 text-xs">
-            <Link href="/admin/stores/orders/reports" className="text-signature underline">
+            <Link href="/admin/store-reports" className="text-signature underline">
               {t("admin_do_go_dispute_console")}
             </Link>
+            <span className="text-sam-muted"> · {t("admin_do_report_no_order_fk")}</span>
           </p>
         </AdminCard>
       )}

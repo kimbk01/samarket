@@ -7,7 +7,6 @@ import {
   AdminActionStatusBadge,
   OrderStatusBadge,
   PaymentStatusBadge,
-  SettlementStatusBadge,
 } from "./DeliveryOrderBadges";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -104,8 +103,6 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
             <th className="px-2 py-2">{t("admin_do_th_amount")}</th>
             <th className="px-2 py-2">{t("admin_do_th_payment")}</th>
             <th className="px-2 py-2">{t("admin_do_th_order_status")}</th>
-            <th className="px-2 py-2">{t("admin_do_th_settlement")}</th>
-            <th className="px-2 py-2">{t("admin_do_th_report")}</th>
             <th className="px-2 py-2">{t("admin_do_th_measure")}</th>
             <th className="px-2 py-2">{t("admin_do_common_action")}</th>
           </tr>
@@ -113,10 +110,8 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
         <tbody>
           {rows.map((o) => {
             const src = o.orderSource ?? "store_db";
-            const detailHref =
-              src === "store_db"
-                ? `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`
-                : `/admin/stores/orders/${encodeURIComponent(o.id)}`;
+            const consoleHref = `/admin/stores/orders/${encodeURIComponent(o.id)}`;
+            const actionHref = `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`;
             const sla = slaBadgeLabel(o);
             return (
               <tr key={`${src}-${o.id}`} className="border-b border-sam-border-soft align-top hover:bg-sam-app/80">
@@ -201,16 +196,19 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                   <OrderStatusBadge status={o.orderStatus} />
                 </td>
                 <td className="px-2 py-2">
-                  <SettlementStatusBadge status={o.settlementStatus} />
-                </td>
-                <td className="px-2 py-2 text-center">{o.hasReport ? "⚠" : "—"}</td>
-                <td className="px-2 py-2">
                   <AdminActionStatusBadge status={o.adminActionStatus} />
                 </td>
                 <td className="px-2 py-2 whitespace-nowrap">
-                  <Link href={detailHref} className="font-medium text-signature hover:underline">
-                    {t("admin_do_common_detail")}
-                  </Link>
+                  <div className="flex flex-col gap-0.5">
+                    <Link href={consoleHref} className="font-medium text-signature hover:underline">
+                      {t("admin_do_common_detail")}
+                    </Link>
+                    {src === "store_db" ? (
+                      <Link href={actionHref} className="sam-text-xxs text-sam-muted hover:underline">
+                        {t("admin_do_nav_store_orders")}
+                      </Link>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             );

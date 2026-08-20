@@ -15,13 +15,24 @@ import { AdminReportTable } from "./AdminReportTable";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 
-function buildDefaultFilters(reportSource: AdminReportFilters["reportSource"]): AdminReportFilters {
+function buildDefaultFilters(
+  reportSource: AdminReportFilters["reportSource"],
+  targetType: AdminReportFilters["targetType"] = ""
+): AdminReportFilters {
   return {
     reportSource,
-    targetType: "",
+    targetType,
     status: "",
     reasonCode: "",
   };
+}
+
+function resolveTargetTypeFromQuery(raw: string | null): AdminReportFilters["targetType"] {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "product" || v === "community" || v === "chat" || v === "user") {
+    return v;
+  }
+  return "";
 }
 
 export function AdminReportListPage() {
@@ -32,18 +43,24 @@ export function AdminReportListPage() {
     domain: searchParams.get("domain"),
     from: searchParams.get("from"),
   });
+  const targetTypeFromQuery = resolveTargetTypeFromQuery(
+    searchParams.get("target_type") ?? searchParams.get("targetType")
+  );
 
   const [filters, setFilters] = useState<AdminReportFilters>(() =>
-    buildDefaultFilters(domainFromQuery)
+    buildDefaultFilters(domainFromQuery, targetTypeFromQuery)
   );
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setFilters((prev) =>
-      prev.reportSource === domainFromQuery ? prev : { ...prev, reportSource: domainFromQuery }
-    );
-  }, [domainFromQuery]);
+    setFilters((prev) => {
+      const nextSource = prev.reportSource === domainFromQuery ? prev.reportSource : domainFromQuery;
+      const nextType = prev.targetType === targetTypeFromQuery ? prev.targetType : targetTypeFromQuery;
+      if (nextSource === prev.reportSource && nextType === prev.targetType) return prev;
+      return { ...prev, reportSource: nextSource, targetType: nextType };
+    });
+  }, [domainFromQuery, targetTypeFromQuery]);
 
   const load = useCallback(async () => {
     setLoading(true);

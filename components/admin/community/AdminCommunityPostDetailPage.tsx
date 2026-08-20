@@ -260,6 +260,12 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           >
             {tr("admin_menu_community_reports")}
           </Link>
+          <Link
+            href="/admin/community/promotions"
+            className="text-signature hover:underline"
+          >
+            {tr("admin_menu_community_promotions")}
+          </Link>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">

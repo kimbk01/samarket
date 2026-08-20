@@ -133,8 +133,8 @@ export function AdminOrderChatList() {
                   className="font-medium text-signature underline"
                 >
                   {safeT("admin_do_chat_open_room", {
-                    fallbackKo: "메신저 방 열기",
-                    fallbackEn: "Open messenger room",
+                    fallbackKo: "주문 채팅 열기",
+                    fallbackEn: "Open order chat",
                   })}
                 </Link>
                 <div className="mt-1">

@@ -290,12 +290,33 @@ export function AdminTradeFlowPage() {
                       }`}
                     >
                       <td className="px-3 py-2 font-mono sam-text-helper">
-                        <Link href={tradeChatNotificationHref(s.id, "product_chat")} className="text-signature hover:underline" target="_blank">
-                          {s.id.slice(0, 8)}…
-                        </Link>
+                        <div className="flex flex-col gap-0.5">
+                          <Link
+                            href={`/admin/chats/trade?postId=${encodeURIComponent(s.post_id)}&productChatId=${encodeURIComponent(s.id)}`}
+                            className="text-signature hover:underline"
+                          >
+                            {s.id.slice(0, 8)}…
+                          </Link>
+                          <Link
+                            href={tradeChatNotificationHref(s.id, "product_chat")}
+                            className="sam-text-xxs text-sam-muted hover:underline"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {safeT("admin_trade_flow_open_member_chat", {
+                              fallbackKo: "멤버 채팅",
+                              fallbackEn: "Member chat",
+                            })}
+                          </Link>
+                        </div>
                       </td>
                       <td className="max-w-[180px] truncate px-3 py-2 text-sam-fg" title={s.postTitle}>
-                        {s.postTitle ?? s.post_id}
+                        <Link
+                          href={`/admin/products/${encodeURIComponent(s.post_id)}`}
+                          className="text-signature hover:underline"
+                        >
+                          {s.postTitle ?? s.post_id}
+                        </Link>
                       </td>
                       <td className="px-3 py-2 text-sam-fg">{s.postStatus ?? "—"}</td>
                       <td className="max-w-[100px] truncate px-3 py-2 text-sam-fg" title={s.sellerListingState ?? ""}>

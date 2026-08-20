@@ -393,8 +393,22 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
       <table className="min-w-[1100px] w-full border-collapse text-[13px]">
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase tracking-wide text-[#475467]">
-            <th className="px-3 py-2">{t("admin_users_lite_col_member")}</th>
-            <th className="px-3 py-2">{safeT("admin_users_col_member_id", { fallbackKo: "회원 ID", fallbackEn: "Member ID" })}</th>
+            <th className="px-3 py-2">
+              {variant === "admin"
+                ? safeT("admin_users_col_staff_person", {
+                    fallbackKo: "스태프",
+                    fallbackEn: "Staff",
+                  })
+                : t("admin_users_lite_col_member")}
+            </th>
+            <th className="px-3 py-2">
+              {variant === "admin"
+                ? safeT("admin_users_col_staff_user_id", {
+                    fallbackKo: "스태프 사용자 ID",
+                    fallbackEn: "Staff user ID",
+                  })
+                : safeT("admin_users_col_member_id", { fallbackKo: "회원 ID", fallbackEn: "Member ID" })}
+            </th>
             {variant === "admin" ? (
               <th className="px-3 py-2">{t("admin_users_col_email")}</th>
             ) : (

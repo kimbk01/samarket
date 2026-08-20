@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayPrompt } from "@/components/ui/dibay-overlay";
 
@@ -146,7 +147,14 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           {rows.map((row) => {
             const busy = busyId === row.id;
             const canAct = row.orderStatus === "pending_review";
-            const listingHref = isTrade ? `/post/${encodeURIComponent(row.targetId)}` : "";
+            const adminTargetHref = isTrade
+              ? `/admin/products/${encodeURIComponent(row.targetId)}`
+              : `/admin/community/posts/${encodeURIComponent(row.targetId)}`;
+            const publicHref = isTrade
+              ? `/post/${encodeURIComponent(row.targetId)}`
+              : `/philife/${encodeURIComponent(row.targetId)}`;
+            const showPublic =
+              isTrade ? row.listingEligible !== false : Boolean(row.targetId);
             return (
               <li key={row.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
@@ -160,27 +168,48 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       ? ` · ${row.listingStatus}${row.listingEligible === false ? " (비공개)" : ""}`
                       : ""}
                   </p>
-                  {listingHref && row.listingEligible !== false ? (
-                    <a
-                      href={listingHref}
-                      target="_blank"
-                      rel="noreferrer"
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    <Link
+                      href={adminTargetHref}
                       className="sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
                     >
-                      {safeT("admin_trade_promo_open_listing", {
-                        fallbackKo: "매물 상세 확인",
-                        fallbackEn: "Open listing",
-                      })}
-                    </a>
-                  ) : isTrade ? (
-                    <p className="sam-text-helper text-sam-muted">
-                      {safeT("admin_trade_promo_review_snapshot", {
-                        fallbackKo: "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
-                        fallbackEn:
-                          "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
-                      })}
-                    </p>
-                  ) : null}
+                      {isTrade
+                        ? safeT("admin_trade_promo_open_admin_listing", {
+                            fallbackKo: "관리 매물",
+                            fallbackEn: "Admin listing",
+                          })
+                        : safeT("admin_comm_promo_open_admin_post", {
+                            fallbackKo: "관리 게시글",
+                            fallbackEn: "Admin post",
+                          })}
+                    </Link>
+                    {showPublic ? (
+                      <a
+                        href={publicHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
+                      >
+                        {isTrade
+                          ? safeT("admin_trade_promo_open_listing", {
+                              fallbackKo: "매물 상세 확인",
+                              fallbackEn: "Open listing",
+                            })
+                          : safeT("admin_comm_promo_open_site_post", {
+                              fallbackKo: "사이트에서 보기",
+                              fallbackEn: "View on site",
+                            })}
+                      </a>
+                    ) : isTrade ? (
+                      <p className="sam-text-helper text-sam-muted">
+                        {safeT("admin_trade_promo_review_snapshot", {
+                          fallbackKo: "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
+                          fallbackEn:
+                            "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
                   {row.reviewReason ? (
                     <p className="sam-text-helper text-sam-muted">{row.reviewReason}</p>
                   ) : null}

@@ -78,12 +78,12 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
 
   // Members
   users: "admin_menu_users",
-  "global-reports": "admin_menu_reports_all",
+  "global-reports": "admin_menu_reports_observation",
   "audit-logs": "admin_menu_dev_audit",
   "push-devices": "admin_menu_push_devices",
 
   // Moderation
-  "reports-posts": "admin_menu_reports_all",
+  "reports-posts": "admin_menu_trade_reports",
   "reports-logs": "admin_menu_reports_logs",
   "reviews-trade": "admin_menu_trade_reviews",
   "store-reports-admin": "admin_menu_store_reports",
@@ -127,7 +127,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-products-admin": "admin_menu_store_products",
   "delivery-orders": "admin_menu_delivery_ops",
   "delivery-orders-list": "admin_menu_delivery_order_list",
-  "delivery-orders-action-queue": "admin_menu_store_orders",
+  "delivery-orders-action-queue": "admin_menu_store_orders_action_queue",
   "delivery-orders-cancel": "admin_menu_delivery_cancel",
   "delivery-orders-refund": "admin_menu_delivery_refund",
   "delivery-orders-settlement": "admin_menu_delivery_settlement",
@@ -155,21 +155,21 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "chat-messenger": "admin_menu_chat_messenger",
   "chat-messenger-perf": "admin_menu_chat_messenger_performance",
   "messenger-advanced": "admin_menu_messenger_advanced",
-  "chat-trade-messenger": "admin_menu_chat_trade",
-  "delivery-order-chats-messenger": "admin_menu_order_chats",
+  "chat-trade-messenger": "admin_menu_chat_trade_messenger_ref",
+  "delivery-order-chats-messenger": "admin_menu_order_chats_messenger_ref",
   "chat-group": "admin_menu_chat_group",
   "chat-general": "admin_menu_chat_general",
 
   // Trade family extras (Cut B)
   "trade-users": "admin_menu_users",
-  "trade-audit": "admin_menu_dev_audit",
+  "trade-audit": "admin_menu_trade_audit",
 
   // Growth
   ads: "admin_menu_ads",
   "ads-applications": "admin_menu_ads_applications",
-  "ads-paid": "admin_menu_ads_paid",
+  "ads-paid": "admin_menu_ads_paid_legacy",
   "ads-feed": "admin_menu_ads_feed",
-  "ads-feed-applications": "admin_menu_ads_applications",
+  "ads-feed-applications": "admin_menu_ads_feed_applications",
   "ads-feed-products": "admin_menu_ads_feed_products",
   "ads-legacy": "admin_menu_ads_legacy",
   "ads-products": "admin_menu_ads_products",
@@ -367,7 +367,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       {
         key: "reports-posts",
         title: "",
-        path: "/admin/reports?domain=trade",
+        path: "/admin/reports?domain=trade&target_type=product",
         status: "done",
       },
       { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },

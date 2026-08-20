@@ -1,19 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminOrderChatList } from "@/components/admin/delivery-orders/AdminOrderChatList";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
- * 주문·채팅 관련 관리 화면으로의 허브 (404 방지 및 운영 동선 통일).
+ * Delivery order-chat hub — lookup list + cross-links.
+ * Authority = Delivery (store_orders). Messenger may open this with ?from=messenger as REFERENCE only.
  */
-export default function AdminOrderChatsHubPage() {
-  const { t } = useI18n();
+function AdminOrderChatsHubInner() {
+  const { t, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const fromMessenger = (searchParams.get("from") ?? "").trim().toLowerCase() === "messenger";
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <AdminPageHeader titleKey="admin_order_chats_hub_title" descriptionKey="admin_order_chats_hub_desc" />
+
+      {fromMessenger ? (
+        <div
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          data-testid="admin-messenger-order-reference-banner"
+          data-admin-entry="messenger-reference"
+        >
+          {safeT("admin_messenger_order_reference_banner", {
+            fallbackKo:
+              "REFERENCE · Messenger 메뉴 진입입니다. 주문 채팅 Authority는 Delivery(/admin/order-chats · store_orders lookup)입니다. 방 생성·소유 이전 없음.",
+            fallbackEn:
+              "REFERENCE · Entered from Messenger menu. Order-chat authority stays on Delivery (/admin/order-chats · store_orders lookup). No create or ownership move.",
+          })}
+        </div>
+      ) : null}
 
       <AdminCard title={t("admin_order_chats_recent_title")}>
         <AdminOrderChatList />
@@ -71,13 +92,21 @@ export default function AdminOrderChatsHubPage() {
       </div>
 
       <p className="sam-text-helper leading-relaxed text-sam-muted">
-        주문 채팅 원장은 <code className="rounded bg-sam-app px-1">community_messenger_*</code>로 통합되었습니다. 주문
-        UUID는{" "}
-        <Link href="/admin/store-orders" className="text-signature underline">
-          {t("admin_order_chats_link_store_action")}
-        </Link>
-        에서 조회하고, 실제 대화는 메신저 배달 채팅함에서 확인합니다.
+        {safeT("admin_order_chats_foot_authority", {
+          fallbackKo:
+            "주문 채팅 Authority = Delivery(store_orders lookup). CM room은 메시지 chrome 참조만 합니다. 주문 UUID는 매장 주문(액션)에서 확인하고, 연결된 방이 있을 때만 대화 UI를 엽니다(생성 없음).",
+          fallbackEn:
+            "Order-chat authority = Delivery (store_orders lookup). CM rooms are message chrome only. Resolve order UUIDs in store orders (actions) and open chat UI only when a room already exists (no create).",
+        })}
       </p>
     </div>
+  );
+}
+
+export default function AdminOrderChatsHubPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminOrderChatsHubInner />
+    </Suspense>
   );
 }

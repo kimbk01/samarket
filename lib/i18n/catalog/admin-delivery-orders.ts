@@ -220,16 +220,16 @@ export const adminDeliveryOrdersMessages = {
     admin_do_orders_empty: "조건에 맞는 주문이 없습니다.",
     admin_do_chat_title: "주문 채팅",
     admin_do_chat_desc:
-      "배달·매장 주문 채팅은 community_messenger 원장으로 통합되었습니다.",
+      "배달·매장 주문 채팅은 Delivery Authority입니다. CM room은 메시지 chrome 참조만 합니다(생성·소유 이전 금지).",
     admin_do_chat_open_store_orders: "매장 주문(액션)에서 열기",
     admin_do_chat_delivery_table: "배달 주문 상세(표)",
     admin_do_chat_room_hint:
-      "주문 {orderId}의 대화는 해당 참여자 메신저 방에서 확인합니다. 관리자 전용 레거시 조회/메모 API는 제거되었습니다.",
+      "주문 {orderId}의 대화는 연결된 메신저 방에서 확인합니다. Admin은 조회만 하며 방을 만들지 않습니다.",
     admin_do_chat_list_merged:
-      "연결된 store_order 메신저 방이 있는 주문을 표시합니다. (조회 전용)",
+      "연결된 store_order 메신저 방이 있는 주문을 표시합니다. (Delivery lookup · 방 생성 없음)",
     admin_do_chat_stub_badge: "STUB · Admin 주문채팅 목록 미연결",
     admin_do_chat_stub_hint:
-      "운영 identity는 Messenger store_order 방입니다. 이 화면은 링크 허브만 제공합니다 — 목록 PASS로 보지 마세요.",
+      "Authority = Delivery(store_orders lookup). Messenger는 참조 entry만 — 빈 목록을 PASS로 보지 마세요.",
     admin_do_chat_list_loading: "불러오는 중…",
     admin_do_chat_list_empty: "채팅 없음",
     admin_do_chat_list_error: "주문 채팅 목록을 불러오지 못했습니다.",
@@ -237,7 +237,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_col_store: "매장",
     admin_do_chat_col_customer: "고객",
     admin_do_chat_col_last: "최근 메시지",
-    admin_do_chat_open_room: "메신저 방 열기",
+    admin_do_chat_open_room: "주문 채팅 열기",
     admin_do_chat_lookup_empty:
       "이 주문에 연결된 메신저 채팅방이 없습니다. (조회 전용 — 방을 생성하지 않습니다)",
     admin_do_chat_open_inbox: "배달 채팅함 열기",
@@ -294,6 +294,14 @@ export const adminDeliveryOrdersMessages = {
     admin_do_kpi_paid_sum_today: "오늘 결제합(유료)",
     admin_do_kpi_settlement_scheduled: "정산 예정(합계)",
     admin_do_kpi_settlement_held: "정산 보류(합계)",
+    admin_do_kpi_settlement_see_ledger: "정산 KPI는 주문 목록이 아니라 정산 원장에서 확인하세요.",
+    admin_do_filter_hollow_note:
+      "정산·매장 신고는 이 목록 projection에 연결되지 않습니다. 정산=/admin/store-settlements · 신고=/admin/store-reports",
+    admin_do_settlement_not_on_order: "이 주문 화면에 정산 상태가 없습니다. 원장:",
+    admin_do_settlement_snapshot_not_authority:
+      "아래 수치는 스냅샷일 수 있으며 정산 권한은 /admin/store-settlements 입니다.",
+    admin_do_dispute_status_line: "분쟁 상태: {status}",
+    admin_do_report_no_order_fk: "주문↔store_reports FK 없음 — 신고 원장만 사용",
     admin_do_kpi_store_top5: "매장별 주문 Top 5",
     admin_do_kpi_no_orders: "표시할 주문이 없습니다.",
     admin_do_kpi_store_rank: "{rank}. {name} — {count}건",
@@ -359,7 +367,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_ss_paid: "정산 완료",
     admin_do_ss_held: "정산 보류",
     admin_do_ss_cancelled: "정산 취소",
-    admin_do_ss_unknown: "정산 미확인",
+    admin_do_ss_unknown: "정산 미연결 (주문 projection 아님)",
     admin_do_aa_manual_hold: "수동 보류",
     admin_do_aa_admin_cancelled: "관리자 취소",
     admin_do_aa_dispute_reviewing: "분쟁 검토",
@@ -581,16 +589,17 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refund_req_empty: "No pending refund requests.",
     admin_do_orders_empty: "No orders match filters.",
     admin_do_chat_title: "Order chat",
-    admin_do_chat_desc: "Delivery/store order chat is unified in community_messenger.",
+    admin_do_chat_desc:
+      "Delivery owns store-order chat. CM rooms are message chrome only (no create / ownership move).",
     admin_do_chat_open_store_orders: "Open from store orders (actions)",
     admin_do_chat_delivery_table: "Delivery order table",
     admin_do_chat_room_hint:
-      "Conversation for order {orderId} is in participants' messenger room. Legacy admin view/memo APIs removed.",
+      "Conversation for order {orderId} is in the linked messenger room. Admin is lookup-only and does not create rooms.",
     admin_do_chat_list_merged:
-      "Shows orders that already have a store_order messenger room (lookup only).",
+      "Shows orders that already have a store_order messenger room (Delivery lookup — no create).",
     admin_do_chat_stub_badge: "STUB · Admin order-chat list not wired",
     admin_do_chat_stub_hint:
-      "Ops identity is Messenger store_order rooms. This page is a link hub only — do not mark the list as PASS.",
+      "Authority = Delivery (store_orders lookup). Messenger is reference entry only — do not mark an empty list as PASS.",
     admin_do_chat_list_loading: "Loading…",
     admin_do_chat_list_empty: "No chats",
     admin_do_chat_list_error: "Could not load order chats.",
@@ -598,7 +607,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_chat_col_store: "Store",
     admin_do_chat_col_customer: "Customer",
     admin_do_chat_col_last: "Last message",
-    admin_do_chat_open_room: "Open messenger room",
+    admin_do_chat_open_room: "Open order chat",
     admin_do_chat_lookup_empty:
       "No messenger room is linked to this order. (Lookup only — rooms are not created here.)",
     admin_do_chat_open_inbox: "Open delivery inbox",
@@ -655,6 +664,14 @@ export const adminDeliveryOrdersMessages = {
     admin_do_kpi_paid_sum_today: "Paid sum today",
     admin_do_kpi_settlement_scheduled: "Scheduled settlement",
     admin_do_kpi_settlement_held: "Held settlement",
+    admin_do_kpi_settlement_see_ledger: "Settlement KPIs belong on the settlements ledger, not this order list.",
+    admin_do_filter_hollow_note:
+      "Settlement and store reports are not on this order projection. Settlements=/admin/store-settlements · Reports=/admin/store-reports",
+    admin_do_settlement_not_on_order: "No settlement status on this order screen. Ledger:",
+    admin_do_settlement_snapshot_not_authority:
+      "Figures below may be a snapshot; settlement authority is /admin/store-settlements.",
+    admin_do_dispute_status_line: "Dispute status: {status}",
+    admin_do_report_no_order_fk: "No Order↔store_reports FK — use the reports ledger only",
     admin_do_kpi_store_top5: "Top 5 stores by orders",
     admin_do_kpi_no_orders: "No orders to show.",
     admin_do_kpi_store_rank: "{rank}. {name} — {count}",
@@ -719,7 +736,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_ss_paid: "Settled",
     admin_do_ss_held: "On hold",
     admin_do_ss_cancelled: "Settlement cancelled",
-    admin_do_ss_unknown: "Settlement unknown",
+    admin_do_ss_unknown: "Settlement not linked (not on order projection)",
     admin_do_aa_manual_hold: "Manual hold",
     admin_do_aa_admin_cancelled: "Admin cancelled",
     admin_do_aa_dispute_reviewing: "Dispute review",

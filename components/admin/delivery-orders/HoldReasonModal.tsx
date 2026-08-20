@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * ORPHAN residual — settlement hold UI not wired to live AdminStoreSettlementsPage.
+ */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryReasonModal } from "./DeliveryReasonModal";
 

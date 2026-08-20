@@ -34,7 +34,7 @@ function JsonBlock({ label, v }: { label: string; v: unknown }) {
 }
 
 export function AdminAuditLogsPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const searchParams = useSearchParams();
   const targetTypeFromQuery = (searchParams.get("target_type") ?? "").trim();
   const targetIdFromQuery = (searchParams.get("target_id") ?? "").trim();
@@ -89,6 +89,17 @@ export function AdminAuditLogsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_log_audit" />
+      <div
+        className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+        data-testid="admin-audit-ownership-banner"
+      >
+        {safeT("admin_audit_ownership_banner", {
+          fallbackKo:
+            "COMMON storage convention · audit_logs 테이블입니다. Domain별 전용 ledger(신고/정산/Feed 재무 등)를 모두 담는 통합 원장이 아닙니다. 대상 Domain 화면의 원장을 우선하세요.",
+          fallbackEn:
+            "COMMON storage convention · audit_logs table. Not a unified ledger of every Domain (reports/settlements/Feed finance). Prefer each Domain’s own ledger.",
+        })}
+      </div>
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_audit_legacy_desc")}</p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block">

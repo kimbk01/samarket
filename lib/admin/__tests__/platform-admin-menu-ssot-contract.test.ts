@@ -96,7 +96,9 @@ describe("platform admin menu SSOT contract", () => {
     expect(messengerKids.some((c) => c.key === "reviews")).toBe(false);
     expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);
     expect(findAdminMenuByKey(adminMenu, "moderation")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe("/admin/reports?domain=trade");
+    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
+      "/admin/reports?domain=trade&target_type=product"
+    );
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.matchPaths).toBeUndefined();
   });
 

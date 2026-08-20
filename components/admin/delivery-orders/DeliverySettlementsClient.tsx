@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * ORPHAN / QUARANTINE (Slice 4 Delivery vertical).
+ * Not mounted by any route. Real settlement authority = AdminStoreSettlementsPage
+ * at /admin/store-settlements. Do not rewire this hollow store_orders projection
+ * as settlement ops. Legacy path stores/orders/settlements redirects permanently.
+ */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";

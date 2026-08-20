@@ -115,17 +115,17 @@ export function CustomerPlatformDashboardPage() {
     {
       href: "/admin/feed-ad-requests",
       count: aq?.feed_ad_pending ?? 0,
-      titleKey: "admin_feed_ad_toast_title",
-      titleKo: "피드 배너 광고 심사",
-      titleEn: "Feed banner ad review",
+      titleKey: "admin_menu_ads_feed_applications",
+      titleKo: "피드 배너 광고 심사 (Growth)",
+      titleEn: "Feed banner ad review (Growth)",
       domain: "member",
     },
     {
       href: "/admin/reports",
       count: aq?.reports_pending ?? 0,
-      titleKey: "admin_menu_reports",
-      titleKo: "신고 (회원·매장)",
-      titleEn: "Reports (member · store)",
+      titleKey: "admin_menu_reports_observation",
+      titleKo: "신고 표시 큐 (관찰)",
+      titleEn: "Reports display queue (observation)",
       domain: "member",
     },
     {

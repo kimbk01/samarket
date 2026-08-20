@@ -318,7 +318,7 @@ export function AdminProductDetailPage({
           meta={String(chatCount)}
         />
         <DrillRow
-          href={`/admin/reports?target=${encodeURIComponent(product.id)}`}
+          href={`/admin/reports?domain=trade&target_type=product&target=${encodeURIComponent(product.id)}`}
           label={safeT("admin_products_drill_reports", {
             fallbackKo: "신고",
             fallbackEn: "Reports",
@@ -326,7 +326,7 @@ export function AdminProductDetailPage({
           meta={String(reportCount)}
         />
         <DrillRow
-          href="/admin/ad-applications"
+          href="/admin/ad-applications?domain=trade"
           label={safeT("admin_products_drill_promo", {
             fallbackKo: "홍보",
             fallbackEn: "Promotion",

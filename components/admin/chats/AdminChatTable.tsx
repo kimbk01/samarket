@@ -102,7 +102,16 @@ export function AdminChatTable({
                       : "—"}
               </td>
               <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
-                {r.productTitle}
+                {r.productId ? (
+                  <Link
+                    href={`/admin/products/${encodeURIComponent(r.productId)}`}
+                    className="text-signature hover:underline"
+                  >
+                    {r.productTitle || r.productId}
+                  </Link>
+                ) : (
+                  r.productTitle
+                )}
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg" title={r.sellerId}>
                 {r.sellerNickname}

@@ -207,8 +207,8 @@ export function DeliveryOrdersDashboardClient() {
     { href: "/admin/order-notifications", label: t("admin_do_nav_ops_alerts") },
     { href: "/admin/stores/orders/cancellations", label: t("admin_do_nav_cancellations") },
     { href: "/admin/stores/orders/refunds", label: t("admin_do_nav_refunds") },
-    { href: "/admin/stores/orders/settlements", label: t("admin_do_nav_settlements") },
-    { href: "/admin/stores/orders/reports", label: t("admin_do_nav_reports") },
+    { href: "/admin/store-settlements", label: t("admin_do_nav_settlements") },
+    { href: "/admin/store-reports", label: t("admin_do_nav_reports") },
     { href: "/admin/stores/orders/logs", label: t("admin_do_nav_logs") },
   ];
 

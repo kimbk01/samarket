@@ -381,7 +381,7 @@ export const AdminPostsManagementTable = forwardRef<
                 <td className="px-2 py-2 text-center">
                   {(p.reportCount ?? 0) > 0 ? (
                     <Link
-                      href={`/admin/reports?target=${p.id}`}
+                      href={`/admin/reports?domain=trade&target_type=product&target=${encodeURIComponent(p.id)}`}
                       className="font-medium text-amber-600 hover:underline"
                     >
                       {p.reportCount}
@@ -473,7 +473,7 @@ export const AdminPostsManagementTable = forwardRef<
                         {t("admin_posts_mgmt_action_force_delete")}
                       </button>
                       <Link
-                        href={`/admin/reports?target=${p.id}`}
+                        href={`/admin/reports?domain=trade&target_type=product&target=${encodeURIComponent(p.id)}`}
                         className="block px-3 py-2 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                       >
                         {t("admin_posts_mgmt_action_view_reports")}

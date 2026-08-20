@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * ORPHAN — only used by quarantined DeliverySettlementsClient.
+ * Real settlement table UI lives under AdminStoreSettlementsPage.
+ */
 import type { SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useDoAdminStatusLabels } from "./useDoAdminStatusLabels";

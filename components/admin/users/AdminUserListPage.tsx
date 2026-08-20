@@ -46,7 +46,7 @@ type AdminUsersListResult = {
 };
 
 export function AdminUserListPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("all");
   const [searchDraft, setSearchDraft] = useState("");
@@ -274,7 +274,12 @@ export function AdminUserListPage() {
         ? "admin_users_tab_general"
         : tab === "store"
           ? "admin_users_tab_store"
-          : "admin_users_tab_admin";
+          : "admin_users_tab_staff";
+
+  const pageHeadingKey: MessageKey =
+    tab === "admin" ? "admin_users_staff_page_title" : "admin_users_lite_breadcrumb_members";
+  const breadcrumbRootKey: MessageKey =
+    tab === "admin" ? "admin_users_staff_page_title" : "admin_users_lite_breadcrumb_members";
 
   const staffByUserId = useMemo(() => {
     const map = new Map<string, AdminStaff>();
@@ -399,16 +404,24 @@ export function AdminUserListPage() {
   return (
     <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
       <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
-        <span>{t("admin_users_lite_breadcrumb_members")}</span>
+        <span>{t(breadcrumbRootKey)}</span>
         <span className="mx-1.5 text-[#98a2b3]">›</span>
         <span className="text-[#344054]">{t(tabTitleKey)}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[#101828]">
-            {t("admin_users_lite_breadcrumb_members")}
-          </h1>
+          <h1 className="text-xl font-bold text-[#101828]">{t(pageHeadingKey)}</h1>
+          {tab === "admin" ? (
+            <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-[#667085]">
+              {safeT("admin_users_staff_privilege_banner", {
+                fallbackKo:
+                  "SYSTEM privilege · admin_memberships 스태프입니다. COMMON 회원(profiles) 신원과 다릅니다. 계정 제재는 MCC에서 회원 대상으로 처리합니다.",
+                fallbackEn:
+                  "SYSTEM privilege · admin_memberships staff. Not COMMON member (profiles) identity. Account sanctions stay on MCC against members.",
+              })}
+            </p>
+          ) : null}
           <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
             <button
               type="button"
@@ -452,7 +465,7 @@ export function AdminUserListPage() {
                   : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
               }
             >
-              {t("admin_users_tab_admin")}
+              {t("admin_users_tab_staff")}
             </button>
           </div>
         </div>

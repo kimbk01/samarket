@@ -125,8 +125,8 @@ export function AdminTradeHub() {
           },
           {
             label: safeT("admin_trade_kpi_reports", {
-              fallbackKo: "신고 대기",
-              fallbackEn: "Reports pending",
+              fallbackKo: "상품 신고 대기",
+              fallbackEn: "Product reports open",
             }),
             value: kpi(counts?.reportsPending),
             disconnected: !loading && counts?.reportsPending == null,
@@ -151,11 +151,11 @@ export function AdminTradeHub() {
           rows={[
             {
               label: safeT("admin_trade_ops_reports", {
-                fallbackKo: "신고 검토",
-                fallbackEn: "Reports",
+                fallbackKo: "상품 신고 검토",
+                fallbackEn: "Product report review",
               }),
               count: loading ? null : counts?.reportsPending ?? null,
-              href: "/admin/reports?domain=trade",
+              href: "/admin/reports?domain=trade&target_type=product",
               disconnected: !loading && counts?.reportsPending == null,
             },
             {
@@ -202,7 +202,10 @@ export function AdminTradeHub() {
               { href: "/admin/posts-management", label: t("admin_menu_posts_management") },
               { href: "/admin/trade-flow", label: t("admin_menu_chat_flow") },
               { href: "/admin/chats/trade", label: t("admin_menu_chat_trade") },
-              { href: "/admin/reports?domain=trade", label: t("admin_menu_reports") },
+              {
+                href: "/admin/reports?domain=trade&target_type=product",
+                label: t("admin_menu_trade_reports"),
+              },
               { href: "/admin/reviews", label: t("admin_menu_trade_reviews") },
               { href: "/admin/ad-applications?domain=trade", label: t("admin_menu_ads_applications") },
               { href: "/admin/trade-post-ads", label: t("admin_menu_trade_post_ads") },

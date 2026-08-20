@@ -139,6 +139,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   const searchParams = useSearchParams();
   const deepLink = useMemo(() => parseAdminTradeChatDeepLink(searchParams), [searchParams]);
   const deepLinkActive = mode === "trade" && adminTradeChatDeepLinkActive(deepLink);
+  const fromMessenger = (searchParams.get("from") ?? "").trim().toLowerCase() === "messenger";
   const [filters, setFilters] = useState<AdminChatFilters>(() => getInitialFilters(mode));
   const [searchQuery, setSearchQuery] = useState("");
   const [rooms, setRooms] = useState<AdminChatRoom[]>([]);
@@ -434,6 +435,20 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
               "Trade OPS identity: product_chats 우선 · 동일 listing×seller×buyer 이면 chat_rooms는 fallback · Community Messenger trade room UUID는 별도(혼동 금지).",
             fallbackEn:
               "Trade OPS identity: prefer product_chats; chat_rooms is fallback for the same listing×seller×buyer; CM trade room UUIDs are separate — do not mix.",
+          })}
+        </div>
+      ) : null}
+      {mode === "trade" && fromMessenger ? (
+        <div
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
+          data-testid="admin-messenger-trade-reference-banner"
+          data-admin-entry="messenger-reference"
+        >
+          {safeT("admin_messenger_trade_reference_banner", {
+            fallbackKo:
+              "REFERENCE · Messenger 메뉴 진입입니다. Trade 채팅 Authority는 Trade Domain(/admin/chats/trade)입니다. Messenger는 소유·생성하지 않습니다.",
+            fallbackEn:
+              "REFERENCE · Entered from Messenger menu. Trade chat authority stays on Trade (/admin/chats/trade). Messenger does not own or create rooms.",
           })}
         </div>
       ) : null}

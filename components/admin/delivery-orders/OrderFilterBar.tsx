@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import type { OrderListFilters } from "@/lib/admin/delivery-orders-admin/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DO_ORDER_STATUS_LIST,
   DO_PAYMENT_STATUS_LIST,
-  DO_SETTLEMENT_STATUS_LIST,
   useDoAdminStatusLabels,
 } from "./useDoAdminStatusLabels";
 
@@ -16,8 +16,8 @@ export function OrderFilterBar({
   filters: OrderListFilters;
   onChange: (f: OrderListFilters) => void;
 }) {
-  const { t } = useI18n();
-  const { orderStatus, paymentStatus, settlementStatus } = useDoAdminStatusLabels();
+  const { t, safeT } = useI18n();
+  const { orderStatus, paymentStatus } = useDoAdminStatusLabels();
 
   const patch = (p: Partial<OrderListFilters>) => {
     const next = { ...filters, ...p };
@@ -29,6 +29,14 @@ export function OrderFilterBar({
   return (
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <p className="text-sm font-semibold text-sam-fg">{t("admin_do_filter_title")}</p>
+      <p className="sam-text-helper text-sam-muted">
+        {safeT("admin_do_filter_hollow_note", {
+          fallbackKo:
+            "정산·매장 신고는 이 목록 projection에 연결되지 않습니다. 정산=/admin/store-settlements · 신고=/admin/store-reports",
+          fallbackEn:
+            "Settlement and store reports are not on this order projection. Settlements=/admin/store-settlements · Reports=/admin/store-reports",
+        })}
+      </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs text-sam-muted">
           {t("admin_do_filter_start")}
@@ -79,21 +87,6 @@ export function OrderFilterBar({
           </select>
         </label>
         <label className="block text-xs text-sam-muted">
-          {t("admin_do_filter_settlement_status")}
-          <select
-            value={filters.settlementStatus}
-            onChange={(e) => patch({ settlementStatus: e.target.value })}
-            className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-          >
-            <option value="">{t("admin_do_common_all")}</option>
-            {DO_SETTLEMENT_STATUS_LIST.map((k) => (
-              <option key={k} value={k}>
-                {settlementStatus(k)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-xs text-sam-muted">
           {t("admin_do_filter_order_type")}
           <select
             value={filters.orderType}
@@ -134,22 +127,12 @@ export function OrderFilterBar({
         </label>
       </div>
       <div className="flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={filters.reportsOnly}
-            onChange={(e) => patch({ reportsOnly: e.target.checked })}
-          />
-          {t("admin_do_filter_report_only")}
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={filters.heldSettlementOnly}
-            onChange={(e) => patch({ heldSettlementOnly: e.target.checked })}
-          />
-          {t("admin_do_filter_settlement_hold")}
-        </label>
+        <Link href="/admin/store-settlements" className="text-signature hover:underline">
+          {t("admin_do_nav_settlements")}
+        </Link>
+        <Link href="/admin/store-reports" className="text-signature hover:underline">
+          {t("admin_do_nav_reports")}
+        </Link>
       </div>
     </div>
   );
