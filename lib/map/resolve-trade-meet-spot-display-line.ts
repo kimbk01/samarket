@@ -139,7 +139,7 @@ async function geocodeAtLocation(
 ): Promise<{ results: google.maps.GeocoderResult[]; status: google.maps.GeocoderStatus }> {
   return new Promise((resolve) => {
     geocoder.geocode({ location: marker, language: GOOGLE_MAPS_ADDRESS_LANGUAGE }, (results, status) => {
-      resolve({ results: results ?? [], status });
+      resolve({ results: results ?? [], status: status as google.maps.GeocoderStatus });
     });
   });
 }

@@ -35,13 +35,12 @@ export async function POST(
   }
 
   const mode = normalizeAdminUserDeleteMode(body.mode);
-  const reason = String(body.reason ?? "").trim();
   if (!mode) {
     return NextResponse.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
-  if (!reason) {
-    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
-  }
+  const reason =
+    String(body.reason ?? "").trim() ||
+    (mode === "purge" ? "admin_permanent_delete" : "admin_withdraw");
 
   /** withdraw · purge 모두 users 권한. */
   const gate = await requireAdminPermission("users");
@@ -73,19 +72,7 @@ export async function POST(
   }
 
   const nickname = String((targetProfile as { nickname?: string }).nickname ?? "").trim();
-  const displayName = String((targetProfile as { display_name?: string }).display_name ?? "").trim();
-  const confirmNickname = String(body.confirmNickname ?? "").trim();
-  if (mode === "purge") {
-    if (!confirmNickname) {
-      return NextResponse.json({ ok: false, error: "confirm_nickname_required" }, { status: 400 });
-    }
-    const confirmOk =
-      (nickname.length > 0 && confirmNickname === nickname) ||
-      (displayName.length > 0 && confirmNickname === displayName);
-    if (!confirmOk) {
-      return NextResponse.json({ ok: false, error: "confirm_nickname_mismatch" }, { status: 400 });
-    }
-  }
+  /** 영구 삭제·탈퇴: 닉네임 재입력 확인 제거. UI는 dibayConfirm 만 사용. */
 
   const fromStatus = String((targetProfile as { status?: string }).status ?? "");
   const now = new Date().toISOString();
@@ -159,7 +146,13 @@ export async function POST(
     target_id: userId,
     action: mode === "purge" ? "user_purge" : "user_withdraw",
     before_json: { status: fromStatus, nickname },
-    after_json: { mode, purged: mode === "purge" },
+    after_json: {
+      mode,
+      purged: mode === "purge",
+      reason,
+      at: now,
+      actorId: actor.userId,
+    },
   });
 
   if (mode === "purge") {

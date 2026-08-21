@@ -30,6 +30,7 @@ import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
+import { AdminDeletionRequestsQueue } from "./AdminDeletionRequestsQueue";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 
@@ -506,6 +507,7 @@ export function AdminUserListPage() {
       {tab === "admin" && staffError ? (
         <p className="text-[12px] text-[#b42318]">{staffError}</p>
       ) : null}
+      {(tab === "all" || tab === "general") ? <AdminDeletionRequestsQueue /> : null}
       <AdminUserListSummaryCards summary={memberSummary} />
       <AdminUserFilterBar
         searchDraft={searchDraft}
@@ -566,12 +568,12 @@ export function AdminUserListPage() {
         insetForAdminSidebar={sidebarExpanded}
       />
 
-      {showCreateMember && adminUserId && (
+      {showCreateMember ? (
         <CreateMemberForm
           onClose={() => setShowCreateMember(false)}
           onSuccess={refreshMembers}
         />
-      )}
+      ) : null}
       {showCreateAdmin && (
         <CreateAdminForm
           onClose={() => setShowCreateAdmin(false)}

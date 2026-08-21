@@ -828,7 +828,10 @@ export async function sumBuyerStoreOrderMessengerUnread(
     .eq("buyer_user_id", uid)
     .not("community_messenger_room_id", "is", null);
   const hidden = [...hiddenOrderIds].map((id) => id.trim()).filter(Boolean);
-  if (hidden.length) q = q.not("id", "in", `(${hidden.join(",")})`);
+  if (hidden.length) {
+    // supabase PostgrestFilterBuilder 제네릭 깊이 폭주(TS2589) — 런타임 필터 유지
+    q = (q as any).not("id", "in", `(${hidden.join(",")})`);
+  }
   const { data: orders } = await q;
   const roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
     .map((row) => trimText(row.community_messenger_room_id))

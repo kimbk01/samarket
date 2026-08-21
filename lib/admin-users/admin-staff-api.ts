@@ -45,6 +45,19 @@ export async function createAdminStaffApi(
   return { ok: true, id: String(data.id ?? "") };
 }
 
+/** 기존 일반 회원 → admin_memberships 승격 (POST /api/admin/staff + userId) */
+export async function promoteMemberToAdminApi(input: {
+  userId: string;
+  role: AdminRole;
+  permissions: AdminPermissionKey[];
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  return createAdminStaffApi({
+    userId: input.userId,
+    role: input.role,
+    permissions: input.permissions,
+  });
+}
+
 export async function updateAdminStaffApi(
   id: string,
   input: { displayName?: string; role?: AdminRole; permissions?: AdminPermissionKey[] }

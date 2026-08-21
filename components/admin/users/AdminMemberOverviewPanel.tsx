@@ -293,7 +293,10 @@ export function AdminMemberOverviewPanel({
             <ul className="space-y-1">
               {ops.slice(0, 4).map((item) => (
                 <li key={item.id} className="text-[12px] text-[#344054]">
-                  {formatAdminLiteDateTime(item.createdAt, locale, empty)} {item.action}
+                  {formatAdminLiteDateTime(item.createdAt, locale, empty)}{" "}
+                  {item.actionLabel || item.action}
+                  {" · "}
+                  {item.actorLoginId || item.actorId || "—"}
                 </li>
               ))}
             </ul>

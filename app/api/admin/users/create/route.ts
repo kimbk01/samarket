@@ -235,8 +235,29 @@ export async function POST(req: NextRequest) {
 
   const id = created.user?.id;
   if (authError || !id) {
+    const raw = String(authError?.message ?? "").trim();
+    const lower = raw.toLowerCase();
+    if (
+      lower.includes("already been registered") ||
+      lower.includes("already registered") ||
+      lower.includes("user already exists") ||
+      lower.includes("email_exists") ||
+      lower.includes("duplicate")
+    ) {
+      return jsonFieldError(
+        "email",
+        "admin_users_err_email_taken",
+        409,
+        raw || "이미 사용 중인 로그인 이메일(또는 아이디)입니다."
+      );
+    }
     return NextResponse.json(
-      { ok: false, error: authError?.message || "실제 회원 생성에 실패했습니다.", field: "form" },
+      {
+        ok: false,
+        error: raw || "실제 회원 생성에 실패했습니다.",
+        field: "form",
+        errorKey: "admin_users_err_create_failed",
+      },
       { status: 500 }
     );
   }

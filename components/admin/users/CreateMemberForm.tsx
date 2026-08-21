@@ -25,7 +25,7 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
+import { dibayAlert, DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 const ACCOUNT_TYPE_OPTIONS: {
@@ -139,6 +139,28 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
     if (Object.keys(validation).length > 0) {
       setFieldErrors(validation);
+      const lines = Object.entries(validation).map(([field, key]) => {
+        const label =
+          field === "username"
+            ? t("admin_users_label_username")
+            : field === "password"
+              ? t("admin_users_label_password")
+              : field === "nickname"
+                ? t("admin_users_label_nickname")
+                : field === "name"
+                  ? t("admin_users_label_name")
+                  : field === "email"
+                    ? t("admin_users_label_email")
+                    : field === "contactPhone"
+                      ? t("admin_users_label_contact_optional")
+                      : field === "addressSearch" || field === "addressDetail"
+                        ? t("admin_users_label_address_optional")
+                        : field;
+        return `· ${label}: ${t(key as MessageKey)}`;
+      });
+      await dibayAlert({
+        title: [t("admin_users_err_create_failed"), ...lines].join("\n"),
+      });
       return;
     }
     setFieldErrors({});
@@ -208,50 +230,44 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         field?: string;
         user?: { email?: string };
       };
-      if (!res.ok) {
+      if (!res.ok || !data.ok) {
         const mapped = mapAdminCreateMemberApiField(data.field);
-        if (mapped) {
-          setFieldErrors({
-            [mapped]: data.errorKey ?? mapServerFieldToKey(mapped, res.status, data.error),
-          });
-          return;
-        }
+        const errKey =
+          (data.errorKey as MessageKey | undefined) ??
+          (mapped ? mapServerFieldToKey(mapped, res.status, data.error) : undefined);
+        let message = data.error?.trim() || "";
         if (res.status === 401) {
-          setFormError(t("admin_users_err_login_retry"));
-          setFieldErrors({ form: "admin_users_err_login_retry" });
-          return;
+          message = t("admin_users_err_login_retry");
+        } else if (res.status === 403) {
+          message = t("admin_users_err_admin_only_create");
+        } else if (errKey) {
+          const translated = t(errKey);
+          if (translated && translated !== errKey) message = translated;
+          else if (!message) message = t("admin_users_err_create_failed");
+        } else if (!message) {
+          message = t("admin_users_err_create_failed");
         }
-        if (res.status === 403) {
-          setFormError(t("admin_users_err_admin_only_create"));
-          setFieldErrors({ form: "admin_users_err_admin_only_create" });
-          return;
-        }
-        setFormError(data.error || t("admin_users_err_create_failed"));
-        setFieldErrors({ form: "admin_users_err_create_failed" });
-        return;
-      }
-      if (data.ok) {
-        onSuccess();
-        setCreatedLoginId(id);
-        const em =
-          typeof data.user?.email === "string" && data.user.email.trim()
-            ? data.user.email.trim()
-            : resolvedAuthEmailPreview.value || email.trim();
-        setCreatedLoginEmail(em);
-      } else {
-        const mapped = mapAdminCreateMemberApiField(data.field);
         if (mapped) {
-          setFieldErrors({
-            [mapped]: mapServerFieldToKey(mapped, res.status, data.error),
-          });
+          setFieldErrors({ [mapped]: errKey ?? "admin_users_err_create_failed" });
         } else {
-          setFormError(data.error || t("admin_users_err_create_failed"));
           setFieldErrors({ form: "admin_users_err_create_failed" });
         }
+        setFormError(message);
+        await dibayAlert({ title: message });
+        return;
       }
+      onSuccess();
+      setCreatedLoginId(id);
+      const em =
+        typeof data.user?.email === "string" && data.user.email.trim()
+          ? data.user.email.trim()
+          : resolvedAuthEmailPreview.value || email.trim();
+      setCreatedLoginEmail(em);
     } catch {
-      setFormError(t("admin_users_err_request"));
+      const msg = t("admin_users_err_request");
+      setFormError(msg);
       setFieldErrors({ form: "admin_users_err_request" });
+      await dibayAlert({ title: msg });
     } finally {
       setSubmitting(false);
     }

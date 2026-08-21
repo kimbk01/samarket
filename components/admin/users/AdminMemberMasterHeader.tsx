@@ -20,6 +20,7 @@ import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { EditMemberForm } from "./EditMemberForm";
+import { PromoteMemberToAdminSheet } from "./PromoteMemberToAdminSheet";
 import {
   displayNameForDetailUser,
   formatAdminLiteDate,
@@ -112,6 +113,7 @@ export function AdminMemberMasterHeader({
   const actions = memberModerationActionsForStatus(user.moderation_status);
   const [showEdit, setShowEdit] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [showPromote, setShowPromote] = useState(false);
   const [busy, setBusy] = useState(false);
   const editUser = useMemo(() => toEditUser(user, display), [user, display]);
   const phone = formatPhMobileDisplay(user.contact_phone ?? "") || user.contact_phone?.trim() || empty;
@@ -153,22 +155,6 @@ export function AdminMemberMasterHeader({
   );
 
   const runWithdraw = useCallback(async () => {
-    const reason = await dibayPrompt({
-      title: safeT("admin_users_delete_reason_prompt", {
-        fallbackKo: "삭제 사유를 입력해 주세요.",
-        fallbackEn: "Enter a reason for deletion.",
-      }),
-      required: true,
-    });
-    if (!reason?.trim()) return;
-    const typed = await dibayPrompt({
-      title: safeT("admin_users_delete_confirm_nickname_prompt", {
-        fallbackKo: `확인을 위해 「${display}」을 입력해 주세요.`,
-        fallbackEn: `Type「${display}」 to confirm.`,
-      }),
-      required: true,
-    });
-    if (!typed?.trim() || typed.trim() !== display) return;
     if (
       !(await dibayConfirm({
         title: safeT("admin_users_lite_delete_confirm", {
@@ -186,7 +172,7 @@ export function AdminMemberMasterHeader({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "withdraw", reason: reason.trim(), confirmNickname: typed.trim() }),
+        body: JSON.stringify({ mode: "withdraw", reason: "admin_withdraw" }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
@@ -197,31 +183,14 @@ export function AdminMemberMasterHeader({
     } finally {
       setBusy(false);
     }
-  }, [display, safeT, t, user.id]);
+  }, [safeT, t, user.id]);
 
   const runPurge = useCallback(async () => {
-    const confirmName = (user.nickname ?? "").trim() || display;
-    const reason = await dibayPrompt({
-      title: safeT("admin_users_delete_reason_prompt", {
-        fallbackKo: "삭제 사유를 입력해 주세요.",
-        fallbackEn: "Enter a reason for deletion.",
-      }),
-      required: true,
-    });
-    if (!reason?.trim()) return;
-    const typed = await dibayPrompt({
-      title: safeT("admin_users_purge_confirm_nickname_prompt", {
-        fallbackKo: `영구 삭제 확인: 「${confirmName}」을 입력해 주세요.`,
-        fallbackEn: `Permanent delete: type「${confirmName}」.`,
-      }),
-      required: true,
-    });
-    if (!typed?.trim() || typed.trim() !== confirmName) return;
     if (
       !(await dibayConfirm({
         title: safeT("admin_users_purge_confirm", {
-          fallbackKo: "Auth·프로필을 영구 삭제합니다. 되돌릴 수 없습니다. 계속할까요?",
-          fallbackEn: "Permanently delete Auth + profile. This cannot be undone. Continue?",
+          fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
+          fallbackEn: "Permanently delete this member? This cannot be undone.",
         }),
         confirmTone: "destructive",
       }))
@@ -236,8 +205,7 @@ export function AdminMemberMasterHeader({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "purge",
-          reason: reason.trim(),
-          confirmNickname: typed.trim(),
+          reason: "admin_permanent_delete",
         }),
       });
       const data = (await res.json()) as {
@@ -260,7 +228,7 @@ export function AdminMemberMasterHeader({
     } finally {
       setBusy(false);
     }
-  }, [display, safeT, t, user.id, user.nickname]);
+  }, [safeT, t, user.id]);
 
   return (
     <div className="rounded-lg border border-[#e4e7ec] bg-white px-4 py-3">
@@ -385,6 +353,18 @@ export function AdminMemberMasterHeader({
                     })}
                   </button>
                 ) : null}
+                {!isAdmin && isSuperAdmin ? (
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-[#2563eb] hover:bg-[#eff6ff]"
+                    onClick={() => {
+                      setShowManage(false);
+                      setShowPromote(true);
+                    }}
+                  >
+                    {t("admin_users_action_promote_admin")}
+                  </button>
+                ) : null}
                 {isAdmin && isSuperAdmin && onEditPermissions ? (
                   <button
                     type="button"
@@ -408,6 +388,17 @@ export function AdminMemberMasterHeader({
           onClose={() => setShowEdit(false)}
           onSuccess={() => {
             setShowEdit(false);
+            onUpdated?.();
+          }}
+        />
+      ) : null}
+      {showPromote ? (
+        <PromoteMemberToAdminSheet
+          userId={user.id}
+          displayName={display}
+          onClose={() => setShowPromote(false)}
+          onSuccess={() => {
+            setShowPromote(false);
             onUpdated?.();
           }}
         />

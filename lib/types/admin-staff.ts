@@ -50,9 +50,12 @@ export interface AdminStaff {
 }
 
 export type CreateAdminInput = {
-  loginId: string;
-  password: string;
-  displayName: string;
+  /** 신규 스태프 계정 생성 시 필수. 기존 회원 승격 시에는 생략. */
+  loginId?: string;
+  password?: string;
+  displayName?: string;
   role: AdminRole;
   permissions: AdminPermissionKey[];
+  /** 기존 일반 회원에게 관리자 membership 부여 */
+  userId?: string;
 };

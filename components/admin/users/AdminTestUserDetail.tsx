@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -312,25 +312,6 @@ export function AdminMemberDetail({
   }, [onSendMessage, router, user.id]);
 
   const handleDelete = useCallback(async () => {
-    const reason = await dibayPrompt({
-      title: safeT("admin_users_delete_reason_prompt", {
-        fallbackKo: "삭제 사유를 입력해 주세요.",
-        fallbackEn: "Enter a reason for deletion.",
-      }),
-      required: true,
-    });
-    if (!reason?.trim()) return;
-
-    const display = displayNameForDetailUser(user);
-    const typed = await dibayPrompt({
-      title: safeT("admin_users_delete_confirm_nickname_prompt", {
-        fallbackKo: `확인을 위해 닉네임「${display}」을 입력해 주세요.`,
-        fallbackEn: `Type nickname「${display}」 to confirm.`,
-      }),
-      required: true,
-    });
-    if (!typed?.trim() || typed.trim() !== display) return;
-
     if (
       !(await dibayConfirm({
         title: safeT("admin_users_lite_delete_confirm", {
@@ -349,7 +330,7 @@ export function AdminMemberDetail({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "withdraw", reason: reason.trim(), confirmNickname: typed.trim() }),
+        body: JSON.stringify({ mode: "withdraw", reason: "admin_withdraw" }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
@@ -366,7 +347,54 @@ export function AdminMemberDetail({
     } finally {
       setDeleting(false);
     }
-  }, [onDeleted, presentation, t, user]);
+  }, [onDeleted, presentation, safeT, t, user.id]);
+
+  const handlePurge = useCallback(async () => {
+    if (
+      !(await dibayConfirm({
+        title: safeT("admin_users_purge_confirm", {
+          fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
+          fallbackEn: "Permanently delete this member? This cannot be undone.",
+        }),
+        confirmTone: "destructive",
+      }))
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/delete`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "purge", reason: "admin_permanent_delete" }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        blockers?: string[];
+      };
+      if (!res.ok || !data.ok) {
+        const blockerText =
+          Array.isArray(data.blockers) && data.blockers.length > 0 ? `\n${data.blockers.join(", ")}` : "";
+        await dibayAlert({
+          title: `${data.message ?? data.error ?? t("admin_users_action_failed")}${blockerText}`,
+        });
+        return;
+      }
+      if (presentation === "modal") {
+        onDeleted?.();
+        return;
+      }
+      window.location.href = "/admin/users";
+    } catch {
+      await dibayAlert({ title: t("admin_users_error_network") });
+    } finally {
+      setDeleting(false);
+    }
+  }, [onDeleted, presentation, safeT, t, user.id]);
 
   const editFieldBtn = (
     <button
@@ -635,6 +663,16 @@ export function AdminMemberDetail({
                 tone="danger"
                 disabled={deleting}
                 onClick={() => void handleDelete()}
+              />
+              <ActionButton
+                label={safeT("admin_users_purge_account", {
+                  fallbackKo: "영구 삭제",
+                  fallbackEn: "Permanent delete",
+                })}
+                icon={<Trash2 className="h-4 w-4" />}
+                tone="danger"
+                disabled={deleting}
+                onClick={() => void handlePurge()}
               />
             </div>
           </DetailCard>

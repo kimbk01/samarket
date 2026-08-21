@@ -94,8 +94,12 @@ export function AdminMemberControlCenter({
   const { isSuperAdmin } = useAdminMe();
   const searchParams = useSearchParams();
   const fromPostId = parseFromPostId(searchParams.get("fromPost"));
-  const [tab, setTab] = useState<AdminMemberCcTab>(() => parseCcTab(initialTab));
-  const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(() => new Set([parseCcTab(initialTab)]));
+  const [tab, setTab] = useState<AdminMemberCcTab>(() =>
+    parseCcTab(initialTab ?? searchParams.get("tab"))
+  );
+  const [visited, setVisited] = useState<Set<AdminMemberCcTab>>(
+    () => new Set([parseCcTab(initialTab ?? searchParams.get("tab"))])
+  );
   const [editPermissions, setEditPermissions] = useState(false);
 
   const selectTab = (next: AdminMemberCcTab) => {
