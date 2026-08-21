@@ -9,8 +9,10 @@ import {
   MYPAGE_HOME_ICON_WRAP_CLASS,
   MYPAGE_HOME_MENU_TITLE_CLASS,
   MYPAGE_HOME_META_TEXT_CLASS,
+  MYPAGE_HOME_ROW_ARMED_CLASS,
   MYPAGE_HOME_ROW_CLASS,
   MYPAGE_HOME_ROW_DIVIDER_CLASS,
+  MYPAGE_HOME_ROW_PRESS_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
 export type MyInfoMenuTrailing = "chevron" | "value" | "badge" | "status" | "none";
@@ -23,6 +25,9 @@ export function MyInfoMenuItem({
   trailing = "chevron",
   tone = "default",
   first = false,
+  pressFeedback = false,
+  armed = false,
+  onNavigate,
   onPress,
 }: {
   title: string;
@@ -40,11 +45,24 @@ export function MyInfoMenuItem({
   tone?: "default" | "danger";
   /** 섹션 첫 행 — 상단 구분선 생략 */
   first?: boolean;
+  /** 매장 CTA 등 — scale 0.98 pressed feedback */
+  pressFeedback?: boolean;
+  /** 매장 진입 등 — 탭 직후~이동 전 armed 톤 */
+  armed?: boolean;
+  /** Link 클릭 직전(기본 네비게이션 유지) — 캐시 무효화 등 */
+  onNavigate?: () => void;
   /** 비로그인 — Link 대신 탭 시 로그인 유도 */
   onPress?: () => void;
 }) {
   const titleClass = tone === "danger" ? MYPAGE_HOME_DANGER_TEXT_CLASS : MYPAGE_HOME_MENU_TITLE_CLASS;
-  const rowClass = `${MYPAGE_HOME_ROW_CLASS} ${first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS}`;
+  const rowClass = [
+    MYPAGE_HOME_ROW_CLASS,
+    first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS,
+    pressFeedback ? MYPAGE_HOME_ROW_PRESS_CLASS : "",
+    armed ? MYPAGE_HOME_ROW_ARMED_CLASS : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const showChevron = trailing === "chevron";
   const showAccessory = accessory != null && trailing !== "none";
 
@@ -70,7 +88,11 @@ export function MyInfoMenuItem({
   }
 
   return (
-    <Link href={href} className={rowClass}>
+    <Link
+      href={href}
+      className={rowClass}
+      onClick={onNavigate ? () => onNavigate() : undefined}
+    >
       {inner}
     </Link>
   );

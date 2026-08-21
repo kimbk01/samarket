@@ -16,6 +16,7 @@ import {
   storeLocationPatchTouchesCoords,
 } from "@/lib/stores/build-store-location-patch";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
+import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,7 +137,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, approval_status, is_visible, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
+      "id, owner_user_id, approval_status, is_visible, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -229,6 +230,10 @@ export async function PATCH(
     if (upErr) {
       console.error("[admin/stores PATCH store]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    }
+    const ownerUserId = String((store as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
+    if (ownerUserId) {
+      invalidateMeStoresListServerCache(ownerUserId);
     }
     return auditOk(before, patch);
   }

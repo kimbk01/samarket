@@ -66,6 +66,10 @@ function isStoreOwnerApplyPath(path: string | null | undefined): boolean {
   return p === "/stores/owner/apply" || p.startsWith("/stores/owner/apply/");
 }
 
+function isStoresOwnerHubRootPath(path: string | null | undefined): boolean {
+  return normalizePathKey(path) === "/stores/owner";
+}
+
 function syncLastForwardAxisAfterKind(
   kind: RouteTransitionEnterKind,
   ref: MutableRefObject<"ltr" | "rtl" | null>
@@ -78,7 +82,11 @@ function syncLastForwardAxisAfterKind(
     ref.current = "rtl";
     return;
   }
-  if (kind === "ltr-back" || kind === "rtl-back" || kind === "store-apply-back") {
+  if (kind === "ltr-back" || kind === "rtl-back" || kind === "store-apply-back" || kind === "store-enter-back") {
+    ref.current = null;
+    return;
+  }
+  if (kind === "store-enter-forward") {
     ref.current = null;
     return;
   }
@@ -154,6 +162,10 @@ export function computeRouteTransitionEnterKind(
     kind = "store-apply-forward";
   } else if (isStoreOwnerApplyPath(prevPath) && isMypagePath(nextPath)) {
     kind = "store-apply-back";
+  } else if (isStoresOwnerHubRootPath(nextPath) && isMypagePath(prevPath)) {
+    kind = "store-enter-forward";
+  } else if (isStoresOwnerHubRootPath(prevPath) && isMypagePath(nextPath)) {
+    kind = "store-enter-back";
   } else if (isProfileEditRoute(nextPath) && isMypagePath(prevPath) && !isProfileEditRoute(prevPath)) {
     kind = "profile-edit-forward";
   } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {

@@ -65,6 +65,13 @@ export const MYPAGE_HOME_STAT_VALUE_ACCENT_CLASS =
 export const MYPAGE_HOME_ROW_CLASS =
   "flex min-h-[52px] w-full min-w-0 items-center gap-3 px-4 transition-colors hover:bg-[#F2F0EB]/60 active:bg-[#E8F3EE] sm:px-5";
 
+/** 매장 CTA 등 — Overlay pressed scale 0.98 정렬 */
+export const MYPAGE_HOME_ROW_PRESS_CLASS =
+  "touch-manipulation transition-transform duration-100 ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100";
+
+/** 매장 진입 탭 직후~라우트 전환 전 선택(armed) 톤 */
+export const MYPAGE_HOME_ROW_ARMED_CLASS = "bg-[#E8F3EE]";
+
 export const MYPAGE_HOME_ROW_DIVIDER_CLASS = "border-t border-[#D4E9E2]/80";
 
 export const MYPAGE_HOME_ICON_WRAP_CLASS =

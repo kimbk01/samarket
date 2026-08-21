@@ -187,6 +187,36 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(lastForwardAxisRef.current).toBe(null);
   });
 
+  it("mypage to store owner hub uses store-enter-forward (bottom-up 440ms)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage", "/stores/owner", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("store-enter-forward");
+    expect(lastForwardAxisRef.current).toBe(null);
+  });
+
+  it("store owner hub back to mypage uses store-enter-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/owner", "/mypage", {
+      popstateBack: true,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("store-enter-back");
+    expect(lastForwardAxisRef.current).toBe(null);
+  });
+
+  it("mypage to store owner apply still uses store-apply-forward (not store-enter)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage", "/stores/owner/apply", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("store-apply-forward");
+  });
+
+
   it("mypage to profile edit uses profile-edit-forward", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind(

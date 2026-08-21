@@ -21,8 +21,9 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
-import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import { refreshOwnerLiteStore, useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import {
+  invalidateMeStoresListDedupedCache,
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
@@ -101,13 +102,7 @@ export function MyInfoStoreMenuSection({
   const { safeT, t } = useI18n();
   const ownerLite = useOwnerLiteStore();
 
-  const derived = (() => {
-    if (ownerStoreGateProp != null) {
-      return {
-        gate: ownerStoreGateProp,
-        firstId: ownerStoreGateFirstIdProp?.trim() || null,
-      };
-    }
+  const deriveFromLive = () => {
     const storesFromLite = ownerLite.ownerStores;
     let stores: StoreRow[] = storesFromLite;
     if (stores.length === 0) {
@@ -130,10 +125,28 @@ export function MyInfoStoreMenuSection({
         ? preferredId || approvedId || stores[0]?.id?.trim() || null
         : stores[0]?.id?.trim() || null;
     return { gate, firstId };
+  };
+
+  const derived = (() => {
+    const live = deriveFromLive();
+    if (ownerStoreGateProp == null) return live;
+    // Cold SSR seed must not block post-approval CTA: live approved wins over stale pending/empty seed.
+    if (ownerStoreGateProp.kind !== "approved" && live.gate.kind === "approved") {
+      return live;
+    }
+    return {
+      gate: ownerStoreGateProp,
+      firstId: ownerStoreGateFirstIdProp?.trim() || live.firstId,
+    };
   })();
 
   const ownerEntry = resolveMypageHomeStoreOwnerEntry(derived.gate, derived.firstId);
   const rows = [ownerEntry, ...MYPAGE_HOME_STORE_TAIL_ITEMS];
+
+  const prepareStoreEnterNavigation = () => {
+    invalidateMeStoresListDedupedCache();
+    refreshOwnerLiteStore();
+  };
 
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
@@ -144,6 +157,8 @@ export function MyInfoStoreMenuSection({
           badgeStatus != null && String(badgeStatus).trim()
             ? formatStoreApprovalStatusI18n(String(badgeStatus), t)
             : undefined;
+        const isOwnerCta = index === 0;
+        const isStoreEnter = isOwnerCta && derived.gate.kind === "approved";
         return (
           <MyInfoMenuItem
             key={`${item.titleKey}:${item.href}`}
@@ -153,7 +168,17 @@ export function MyInfoStoreMenuSection({
             icon={renderMypageHomeMenuIcon(item.icon)}
             trailing={accessory ? "status" : "chevron"}
             accessory={accessory}
-            onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+            pressFeedback={isOwnerCta}
+            armed={isStoreEnter}
+            onNavigate={isStoreEnter ? prepareStoreEnterNavigation : undefined}
+            onPress={
+              onItemPress
+                ? () => {
+                    if (isStoreEnter) prepareStoreEnterNavigation();
+                    onItemPress(item.href);
+                  }
+                : undefined
+            }
           />
         );
       })}

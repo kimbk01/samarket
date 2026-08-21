@@ -27,6 +27,10 @@ export type RouteTransitionEnterKind =
   | "store-apply-forward"
   /** `/stores/owner/apply` → 내정보 — 370ms 좌→우 */
   | "store-apply-back"
+  /** 내정보 → `/stores/owner` 매장 진입 — 440ms 하→상 */
+  | "store-enter-forward"
+  /** `/stores/owner` → 내정보 — 440ms 상→하(exit) */
+  | "store-enter-back"
   /** 내정보 → 프로필 수정 — 440ms 우→좌 80% */
   | "profile-edit-forward"
   /** 프로필 수정 → 내정보 — 360ms 좌→우 80% */
@@ -123,6 +127,8 @@ export function routeTransitionPushAxisForKind(
       return "ltr";
     case "none":
     case "subtle":
+    case "store-enter-forward":
+    case "store-enter-back":
       return null;
     default: {
       const _exhaustive: never = kind;
@@ -139,6 +145,8 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "main-shell-route-enter-subtle",
   "store-owner-apply-route-enter-rtl-forward",
   "store-owner-apply-route-enter-ltr-back",
+  "store-owner-enter-route-enter-up",
+  "store-owner-enter-route-exit-down",
   "profile-edit-route-enter-forward",
   "profile-edit-route-enter-back",
   "address-platform-route-enter-forward",
@@ -148,6 +156,7 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
 export const ROUTE_TRANSITION_EXIT_CLASSES = [
   "main-shell-route-exit-ltr",
   "main-shell-route-exit-rtl",
+  "store-owner-enter-route-exit-down",
 ] as const;
 
 export type RouteTransitionEnterClass = (typeof ROUTE_TRANSITION_ENTER_CLASSES)[number];
@@ -170,6 +179,10 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "store-owner-apply-route-enter-rtl-forward";
     case "store-apply-back":
       return "store-owner-apply-route-enter-ltr-back";
+    case "store-enter-forward":
+      return "store-owner-enter-route-enter-up";
+    case "store-enter-back":
+      return null;
     case "profile-edit-forward":
       return "profile-edit-route-enter-forward";
     case "profile-edit-back":
@@ -196,8 +209,11 @@ export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind):
     case "rtl-back":
     case "store-apply-forward":
       return "main-shell-route-exit-rtl";
+    case "store-enter-back":
+      return "store-owner-enter-route-exit-down";
     case "none":
     case "subtle":
+    case "store-enter-forward":
     case "profile-edit-forward":
     case "profile-edit-back":
     case "address-platform-forward":
@@ -227,6 +243,8 @@ export function ownerStackRouteTransitionClassForKind(
       return "owner-stack-route-enter-ltr-back";
     case "store-apply-forward":
     case "store-apply-back":
+    case "store-enter-forward":
+    case "store-enter-back":
     case "profile-edit-forward":
     case "profile-edit-back":
     case "address-platform-forward":

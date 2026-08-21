@@ -99,7 +99,12 @@ export async function loadMypageHubExtrasServer(
         revision_note: s.revision_note ?? null,
       }));
       ownerStoreGate = getOwnerStoreGateState(forGate);
-      ownerStoreGateFirstId = list[0]?.id?.trim() ?? null;
+      const approvedId =
+        list.find((s) => String(s.approval_status ?? "") === "approved")?.id?.trim() ?? null;
+      ownerStoreGateFirstId =
+        ownerStoreGate.kind === "approved"
+          ? approvedId || list[0]?.id?.trim() || null
+          : list[0]?.id?.trim() || null;
 
       const targetStore =
         list.find(
