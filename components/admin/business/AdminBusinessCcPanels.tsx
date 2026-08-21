@@ -282,6 +282,27 @@ export function AdminBusinessCcDeliveryCard({
           <dd>{delivery.hoursLabel ?? "—"}</dd>
         </div>
         <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_weekdays")}</dt>
+          <dd>{delivery.weekdaysLabel ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_auto_hours")}</dt>
+          <dd>
+            {yn(t, delivery.autoHoursEnabled)}
+            {delivery.scheduleEnforced != null
+              ? ` · schedule_enforced=${delivery.scheduleEnforced ? t("admin_biz_yn_yes") : t("admin_biz_yn_no")}`
+              : ""}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_prep_time")}</dt>
+          <dd>
+            {delivery.prepTimeMinutes == null
+              ? "—"
+              : t("admin_biz_prep_minutes", { minutes: String(delivery.prepTimeMinutes) })}
+          </dd>
+        </div>
+        <div>
           <dt className="text-sam-muted">{t("admin_biz_label_break")}</dt>
           <dd>{delivery.breakRangeLabel ?? "—"}</dd>
         </div>
@@ -349,6 +370,7 @@ export function AdminBusinessCcDeliveryCard({
       </div>
 
       <p className="sam-text-helper text-sam-muted">{t("admin_biz_hours_admin_write")}</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_hours_owner_ssot_hint")}</p>
       <Link href={businessCcDeliveryDistanceHref()} className="text-signature hover:underline">
         {t("admin_biz_cta_delivery_distance")}
       </Link>

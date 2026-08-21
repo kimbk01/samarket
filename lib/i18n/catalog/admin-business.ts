@@ -105,6 +105,12 @@ export const adminBusinessMessages = {
     admin_biz_status_rejected: "반려",
     admin_biz_hours_admin_write:
       "영업시간 Admin Writer(set_business_hours)는 PATCH에 연결됨. 상세 UI 에디터는 최소 구현 — 사장님 콘솔 SSOT와 동일 sanitize.",
+    admin_biz_hours_owner_ssot_hint:
+      "요일 문구·자동스케줄·휴게·준비시간·최소주문·고객 배달비는 Store Manager(business_hours_json) SSOT입니다. Platform Admin은 감독 조회 + is_open/채널 플래그만 조치합니다.",
+    admin_biz_label_weekdays: "영업시간 문구 (weekdays)",
+    admin_biz_label_auto_hours: "자동 영업시간",
+    admin_biz_label_prep_time: "준비 시간",
+    admin_biz_prep_minutes: "{minutes}분",
     admin_biz_result_count: "{count}건",
     admin_biz_manage_taxonomy: "업종 배정 변경",
     admin_biz_save_taxonomy: "업종 저장",
@@ -332,6 +338,12 @@ export const adminBusinessMessages = {
     admin_biz_status_rejected: "Rejected",
     admin_biz_hours_admin_write:
       "Admin Writer set_business_hours is on PATCH (same sanitize as owner). Detail UI editor is minimal — use owner console for full hours UX.",
+    admin_biz_hours_owner_ssot_hint:
+      "Weekdays text, auto schedule, break, prep time, min order, and customer delivery fee live on Store Manager business_hours_json SSOT. Platform Admin supervises those fields and only acts on is_open / channel flags.",
+    admin_biz_label_weekdays: "Hours text (weekdays)",
+    admin_biz_label_auto_hours: "Auto business hours",
+    admin_biz_label_prep_time: "Prep time",
+    admin_biz_prep_minutes: "{minutes} min",
     admin_biz_result_count: "{count} results",
     admin_biz_manage_taxonomy: "Change category assignment",
     admin_biz_save_taxonomy: "Save category",

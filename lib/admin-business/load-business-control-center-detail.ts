@@ -49,6 +49,14 @@ export type BusinessCcDeliverySnapshot = {
   frontOpenForCommerce: boolean;
   inBreak: boolean;
   hoursLabel: string | null;
+  /** Free-text weekdays line from business_hours_json (Owner form) */
+  weekdaysLabel: string | null;
+  /** auto_business_hours.enabled */
+  autoHoursEnabled: boolean | null;
+  /** auto_business_hours.schedule_enforced */
+  scheduleEnforced: boolean | null;
+  /** business_hours_json.prep_time_minutes */
+  prepTimeMinutes: number | null;
   breakRangeLabel: string | null;
   /**
    * CUSTOMER charged delivery fee (business_hours_json commerce extras).
@@ -250,17 +258,41 @@ export async function loadBusinessControlCenterDetail(
   const dbIsOpen = typeof row.is_open === "boolean" ? row.is_open : null;
   const commerce = resolveCommerceForStatusControl(row.business_hours_json, dbIsOpen);
   const extras = parseCommerceExtrasFromHoursJson(row.business_hours_json);
-  const autoHours = (() => {
-    const raw = row.business_hours_json;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    const a = (raw as Record<string, unknown>).auto_business_hours;
+  const hoursRaw =
+    row.business_hours_json &&
+    typeof row.business_hours_json === "object" &&
+    !Array.isArray(row.business_hours_json)
+      ? (row.business_hours_json as Record<string, unknown>)
+      : null;
+  const weekdaysLabel = (() => {
+    if (!hoursRaw) return null;
+    const wd =
+      typeof hoursRaw.weekdays === "string"
+        ? hoursRaw.weekdays.trim()
+        : typeof hoursRaw.weekdays_hours === "string"
+          ? hoursRaw.weekdays_hours.trim()
+          : "";
+    return wd || null;
+  })();
+  const autoRec = (() => {
+    if (!hoursRaw) return null;
+    const a = hoursRaw.auto_business_hours;
     if (!a || typeof a !== "object" || Array.isArray(a)) return null;
-    const rec = a as Record<string, unknown>;
-    if (rec.enabled !== true || rec.schedule_enforced !== true) return null;
-    const open = typeof rec.open === "string" ? rec.open.trim() : "";
-    const close = typeof rec.close === "string" ? rec.close.trim() : "";
+    return a as Record<string, unknown>;
+  })();
+  const autoHoursEnabled = autoRec ? autoRec.enabled === true : null;
+  const scheduleEnforced = autoRec ? autoRec.schedule_enforced === true : null;
+  const autoHours = (() => {
+    if (!autoRec || autoRec.enabled !== true || autoRec.schedule_enforced !== true) return null;
+    const open = typeof autoRec.open === "string" ? autoRec.open.trim() : "";
+    const close = typeof autoRec.close === "string" ? autoRec.close.trim() : "";
     if (!open || !close) return null;
     return `${open} ~ ${close}`;
+  })();
+  const prepTimeMinutes = (() => {
+    if (!hoursRaw) return null;
+    const raw = hoursRaw.prep_time_minutes ?? hoursRaw.prepTimeMinutes;
+    return asFiniteNumber(raw);
   })();
 
   const delivery: BusinessCcDeliverySnapshot = {
@@ -271,7 +303,11 @@ export async function loadBusinessControlCenterDetail(
     isOpen: dbIsOpen,
     frontOpenForCommerce: commerce.isOpenForCommerce,
     inBreak: commerce.inBreak,
-    hoursLabel: autoHours,
+    hoursLabel: autoHours ?? weekdaysLabel,
+    weekdaysLabel,
+    autoHoursEnabled,
+    scheduleEnforced,
+    prepTimeMinutes,
     breakRangeLabel: commerce.breakConfigured ? commerce.breakRangeLabel || null : null,
     customerDeliveryFeeMode: extras.deliveryFeeMode,
     customerDeliveryFeePhp: extras.deliveryFeePhp,
