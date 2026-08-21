@@ -17,6 +17,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status")?.trim();
+  const storeId = searchParams.get("store_id")?.trim() || "";
 
   let q = sb
     .from("store_products")
@@ -26,6 +27,9 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false })
     .limit(400);
 
+  if (storeId) {
+    q = q.eq("store_id", storeId);
+  }
   if (status && status !== "all") {
     q = q.eq("product_status", status);
   }

@@ -1,0 +1,50 @@
+import { describe, expect, it } from "vitest";
+import {
+  businessCcAuditHref,
+  businessCcDeliveryDistanceHref,
+  businessCcEntryReviewHref,
+  businessCcFeePoliciesHref,
+  businessCcOrdersByStoreHref,
+  businessCcOwnerMemberHref,
+  businessCcProductsHref,
+  businessCcPublicStoreHref,
+  businessCcReviewsHref,
+  businessCcStoreOrdersHref,
+} from "@/lib/admin-business/business-control-center-links";
+
+describe("business-control-center-links", () => {
+  it("keeps storeId in orders path", () => {
+    expect(businessCcOrdersByStoreHref("abc-123")).toBe(
+      "/admin/stores/orders/by-store/abc-123"
+    );
+    expect(businessCcStoreOrdersHref("abc-123")).toBe(
+      "/admin/store-orders?store_id=abc-123"
+    );
+  });
+
+  it("deep-links products/reviews/audit with store_id", () => {
+    expect(businessCcProductsHref("abc-123")).toBe(
+      "/admin/store-products?store_id=abc-123"
+    );
+    expect(businessCcReviewsHref("abc-123")).toBe(
+      "/admin/store-reviews?store_id=abc-123"
+    );
+    expect(businessCcAuditHref("abc-123")).toBe(
+      "/admin/audit-logs?target_type=store&target_id=abc-123"
+    );
+  });
+
+  it("encodes entry review query", () => {
+    expect(businessCcEntryReviewHref("CM KIM")).toBe("/admin/stores?q=CM%20KIM");
+  });
+
+  it("points fee and distance to existing SSOT admin routes", () => {
+    expect(businessCcFeePoliciesHref()).toBe("/admin/store-fee-policies");
+    expect(businessCcDeliveryDistanceHref()).toBe("/admin/delivery-distance");
+  });
+
+  it("links owner and public store", () => {
+    expect(businessCcOwnerMemberHref("user-1")).toBe("/admin/users/user-1");
+    expect(businessCcPublicStoreHref("my-slug")).toBe("/stores/my-slug");
+  });
+});

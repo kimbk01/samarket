@@ -1,70 +1,77 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  filterBusinessProfiles,
-  type AdminBusinessFilters,
-} from "@/lib/business/business-utils";
-import { mapAdminStoreRowToBusinessProfile } from "@/lib/admin-business/map-admin-store-to-business";
-import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import type { BusinessProfile } from "@/lib/types/business";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminBusinessFilterBar } from "./AdminBusinessFilterBar";
-import { AdminBusinessTable } from "./AdminBusinessTable";
+import { AdminBusinessFilterBar, type AdminBusinessListFilters } from "./AdminBusinessFilterBar";
+import { AdminBusinessTable, type AdminBusinessListRow } from "./AdminBusinessTable";
 
-const DEFAULT_FILTERS: AdminBusinessFilters = {
-  status: "",
+const DEFAULT_FILTERS: AdminBusinessListFilters = {
+  status: "all",
+  q: "",
 };
 
 export function AdminBusinessListPage() {
   const { t } = useI18n();
-  const [filters, setFilters] = useState<AdminBusinessFilters>(DEFAULT_FILTERS);
-  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
+  const [filters, setFilters] = useState<AdminBusinessListFilters>(DEFAULT_FILTERS);
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [rows, setRows] = useState<AdminBusinessListRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(filters.q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [filters.q]);
+
+  const qs = useMemo(() => {
+    const parts: string[] = [];
+    if (filters.status && filters.status !== "all") {
+      parts.push(`status=${encodeURIComponent(filters.status)}`);
+    }
+    if (debouncedQ) parts.push(`q=${encodeURIComponent(debouncedQ)}`);
+    return parts.length ? `?${parts.join("&")}` : "";
+  }, [filters.status, debouncedQ]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/stores", { cache: "no-store", credentials: "include" });
+      const res = await fetch(`/api/admin/stores${qs}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
       const j = (await res.json()) as {
         ok?: boolean;
-        stores?: Array<StoreRow & { applicant_nickname?: string | null }>;
+        stores?: AdminBusinessListRow[];
       };
-      const rows = j.ok && Array.isArray(j.stores) ? j.stores : [];
-      setProfiles(
-        rows.map((row) =>
-          mapAdminStoreRowToBusinessProfile(
-            row as StoreRow & Record<string, unknown>,
-            String(row.applicant_nickname ?? "")
-          )
-        )
-      );
+      setRows(j.ok && Array.isArray(j.stores) ? j.stores : []);
     } catch {
-      setProfiles([]);
+      setRows([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [qs]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const filtered = useMemo(() => filterBusinessProfiles(profiles, filters), [profiles, filters]);
-
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_biz_page_list" />
-      <AdminBusinessFilterBar filters={filters} onChange={setFilters} />
+      <AdminBusinessFilterBar
+        filters={filters}
+        onChange={setFilters}
+        resultCount={rows.length}
+        loading={loading}
+      />
       {loading ? (
         <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
-      ) : filtered.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           {t("admin_biz_empty_list")}
         </div>
       ) : (
-        <AdminBusinessTable profiles={filtered} />
+        <AdminBusinessTable rows={rows} />
       )}
     </div>
   );

@@ -148,6 +148,10 @@ export async function GET(req: Request) {
   const filteredListWithApplicant = qText
     ? listWithApplicant.filter((s) => {
         const qLower = qText.toLowerCase();
+        const id = String((s as { id?: unknown }).id ?? "").trim().toLowerCase();
+        const ownerId = String((s as { owner_user_id?: unknown }).owner_user_id ?? "")
+          .trim()
+          .toLowerCase();
         const handle = String((s as any).owner_handle ?? "").trim().toLowerCase().replace(/^@+/, "");
         const storeName = String((s as any).store_name ?? "").trim().toLowerCase();
         const slug = String((s as any).slug ?? "").trim().toLowerCase();
@@ -155,7 +159,17 @@ export async function GET(req: Request) {
         const kakao = String((s as any).kakao_id ?? "").trim().toLowerCase();
         const applicant = String((s as any).applicant_nickname ?? "").trim().toLowerCase();
         const requestNote = String((s as any).application_request_note ?? "").trim().toLowerCase();
+        const categoryId = String((s as { store_category_id?: unknown }).store_category_id ?? "")
+          .trim()
+          .toLowerCase();
+        const topicId = String((s as { store_topic_id?: unknown }).store_topic_id ?? "")
+          .trim()
+          .toLowerCase();
         return (
+          id.includes(qLower) ||
+          ownerId.includes(qLower) ||
+          categoryId.includes(qLower) ||
+          topicId.includes(qLower) ||
           storeName.includes(qLower) ||
           slug.includes(qLower) ||
           phone.includes(qLower) ||

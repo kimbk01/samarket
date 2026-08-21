@@ -58,12 +58,14 @@ type OrderFilters = {
   orderId: string;
   orderNo: string;
   orderStatus: string;
+  storeId: string;
 };
 
 const emptyFilters: OrderFilters = {
   orderId: "",
   orderNo: "",
   orderStatus: "",
+  storeId: "",
 };
 
 type Props = {
@@ -76,9 +78,11 @@ function buildOrdersQueryString(f: OrderFilters) {
   const oid = f.orderId.trim();
   const ono = f.orderNo.trim();
   const os = f.orderStatus.trim();
+  const sid = f.storeId.trim();
   if (oid) params.set("order_id", oid);
   if (ono) params.set("order_no", ono);
   if (os) params.set("order_status", os);
+  if (sid) params.set("store_id", sid);
   return params.toString();
 }
 
@@ -110,6 +114,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     orderId: (initialFilters?.orderId ?? "").trim(),
     orderNo: (initialFilters?.orderNo ?? "").trim(),
     orderStatus: (initialFilters?.orderStatus ?? "").trim(),
+    storeId: (initialFilters?.storeId ?? "").trim(),
   };
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -117,7 +122,10 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const hasUrlInitial =
-    Boolean(initial.orderId) || Boolean(initial.orderNo) || Boolean(initial.orderStatus);
+    Boolean(initial.orderId) ||
+    Boolean(initial.orderNo) ||
+    Boolean(initial.orderStatus) ||
+    Boolean(initial.storeId);
   const [applied, setApplied] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
   const [draft, setDraft] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
 
@@ -354,6 +362,15 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       <p className="sam-text-helper text-sam-muted">{t("admin_stores_orders_refund_desc")}</p>
 
       <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary">
+        <label className="flex flex-col gap-0.5">
+          <span className="text-sam-muted">store_id</span>
+          <input
+            className="min-w-[220px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono sam-text-helper"
+            value={draft.storeId}
+            onChange={(ev) => setDraft((d) => ({ ...d, storeId: ev.target.value }))}
+            placeholder="UUID"
+          />
+        </label>
         <label className="flex flex-col gap-0.5">
           <span className="text-sam-muted">order_id (UUID)</span>
           <input

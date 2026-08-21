@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayPrompt } from "@/components/ui/dibay-overlay";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 
 type Row = {
   id: string;
@@ -30,16 +33,20 @@ const FILTERS: { value: string; labelKey: MessageKey }[] = [
 
 export function AdminStoreProductsPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const qs = useMemo(
-    () => (filter === "all" ? "" : `?status=${encodeURIComponent(filter)}`),
-    [filter]
-  );
+  const qs = useMemo(() => {
+    const parts: string[] = [];
+    if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
+    if (storeIdFilter) parts.push(`store_id=${encodeURIComponent(storeIdFilter)}`);
+    return parts.length ? `?${parts.join("&")}` : "";
+  }, [filter, storeIdFilter]);
 
   const errorText =
     error === "forbidden"
@@ -109,6 +116,14 @@ export function AdminStoreProductsPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_store_products" />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
+      {storeIdFilter ? (
+        <p className="sam-text-helper text-sam-muted">
+          store_id={storeIdFilter}{" "}
+          <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
+            {t("admin_biz_cta_back_store")}
+          </Link>
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (

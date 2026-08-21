@@ -6,6 +6,7 @@ import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-serv
 import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
 import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
@@ -84,16 +85,6 @@ function parseLng(v: unknown): number | null | "invalid" {
   return n == null ? "invalid" : n;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function parseUuidOrNull(v: unknown): "omit" | null | string | "invalid" {
-  if (v === undefined) return "omit";
-  if (v === null) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-  return UUID_RE.test(s) ? s : "invalid";
-}
-
 /**
  * 매장 오너: 공개 페이지(/stores/[slug])에 노출되는 프로필 필드 수정
  * 슬러그·승인 상태·오너는 변경하지 않음
@@ -164,71 +155,21 @@ export async function PATCH(
       patch.business_type = trimOrNull(body.business_type);
     }
 
-    const nextCat =
-      body.store_category_id !== undefined
-        ? parseUuidOrNull(body.store_category_id)
-        : "omit";
-    if (nextCat === "invalid") {
-      return NextResponse.json({ ok: false, error: "invalid_store_category_id" }, { status: 400 });
-    }
-    const nextTopic =
-      body.store_topic_id !== undefined ? parseUuidOrNull(body.store_topic_id) : "omit";
-    if (nextTopic === "invalid") {
-      return NextResponse.json({ ok: false, error: "invalid_store_topic_id" }, { status: 400 });
-    }
-
-    const effectiveCategoryId =
-      nextCat === "omit" ? (currentRow.store_category_id as string | null) : nextCat;
-    let effectiveTopicId =
-      nextTopic === "omit" ? (currentRow.store_topic_id as string | null) : nextTopic;
-
-    if (nextCat !== "omit" && nextTopic === "omit") {
-      if (effectiveTopicId && effectiveCategoryId) {
-        const { data: existingTopic } = await sb
-          .from("store_topics")
-          .select("store_category_id")
-          .eq("id", effectiveTopicId)
-          .maybeSingle();
-        if (existingTopic && existingTopic.store_category_id !== effectiveCategoryId) {
-          effectiveTopicId = null;
-        }
+    if (body.store_category_id !== undefined || body.store_topic_id !== undefined) {
+      const built = await buildStoreTaxonomyPatch(sb, {
+        currentCategoryId:
+          typeof currentRow.store_category_id === "string"
+            ? currentRow.store_category_id
+            : null,
+        currentTopicId:
+          typeof currentRow.store_topic_id === "string" ? currentRow.store_topic_id : null,
+        store_category_id: body.store_category_id,
+        store_topic_id: body.store_topic_id,
+      });
+      if (!built.ok) {
+        return NextResponse.json({ ok: false, error: built.error }, { status: 400 });
       }
-    }
-
-    if (effectiveTopicId) {
-      const { data: topicRow, error: topicErr } = await sb
-        .from("store_topics")
-        .select("store_category_id")
-        .eq("id", effectiveTopicId)
-        .maybeSingle();
-      if (topicErr) {
-        console.error("[PATCH /api/me/stores/storeId] topic check", topicErr);
-        return NextResponse.json({ ok: false, error: topicErr.message }, { status: 500 });
-      }
-      if (!topicRow) {
-        return NextResponse.json({ ok: false, error: "store_topic_not_found" }, { status: 400 });
-      }
-      if (
-        effectiveCategoryId != null &&
-        topicRow.store_category_id !== effectiveCategoryId
-      ) {
-        return NextResponse.json(
-          { ok: false, error: "store_topic_category_mismatch" },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (nextCat !== "omit" && nextCat === null) {
-      patch.store_category_id = null;
-      patch.store_topic_id = null;
-    } else {
-      if (nextCat !== "omit") patch.store_category_id = nextCat;
-      if (nextTopic !== "omit") {
-        patch.store_topic_id = nextTopic;
-      } else if (nextCat !== "omit" && !effectiveTopicId && currentRow.store_topic_id) {
-        patch.store_topic_id = null;
-      }
+      Object.assign(patch, built.patch);
     }
   }
 

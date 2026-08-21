@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 
 type Row = {
   id: string;
@@ -21,6 +24,8 @@ type Row = {
 
 export function AdminStoreReviewsPage() {
   const { t, language } = useI18n();
+  const searchParams = useSearchParams();
+  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +46,10 @@ export function AdminStoreReviewsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/store-reviews", { credentials: "include" });
+      const qs = storeIdFilter
+        ? `?store_id=${encodeURIComponent(storeIdFilter)}`
+        : "";
+      const res = await fetch(`/api/admin/store-reviews${qs}`, { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
         setError("forbidden");
@@ -60,7 +68,7 @@ export function AdminStoreReviewsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeIdFilter]);
 
   useEffect(() => {
     void load();
@@ -86,6 +94,14 @@ export function AdminStoreReviewsPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_store_reviews" />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_reviews_desc")}</p>
+      {storeIdFilter ? (
+        <p className="sam-text-helper text-sam-muted">
+          store_id={storeIdFilter}{" "}
+          <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
+            {t("admin_biz_cta_back_store")}
+          </Link>
+        </p>
+      ) : null}
       {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
       {loading ? (
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
