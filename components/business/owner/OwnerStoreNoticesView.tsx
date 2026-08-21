@@ -20,6 +20,7 @@ import {
 } from "@/lib/business/owner-admin-list-ui";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 
 type NoticeRow = {
   id: string;
@@ -62,6 +63,7 @@ export function OwnerStoreNoticesView() {
   >(null);
   const [busy, setBusy] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(editor != null);
 
   useEffect(() => {
     if (storeId) {
@@ -290,6 +292,7 @@ export function OwnerStoreNoticesView() {
           }}
           title={editor.mode === "new" ? t("business_phase7_437") : t("business_phase7_438")}
           anchor="device-bottom"
+          contentPaddingBottomPx={contentPaddingBottomPx}
           footer={
             <div className={`${OverlayUi.actionsRow} mt-4 border-t border-[color:var(--overlay-border)] pt-4`}>
               <DibayOverlayButton roleTone="secondary" type="button" disabled={busy} onClick={() => setEditor(null)}>

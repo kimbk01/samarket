@@ -14,11 +14,11 @@ import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 
 type Section = {
   id: string;
@@ -43,8 +43,6 @@ export function OwnerMenuCategoriesClient({
   rscBootstrapError?: string;
 }) {
   const { t } = useI18n();
-  /** 본문이 고정 저장·취소 바에 가리지 않도록 */
-  const editScrollBottomPaddingClass = OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS;
   const [sections, setSections] = useState<Section[]>(() =>
     (initialSections ?? []).map((s) => ({
       id: s.id,
@@ -66,6 +64,19 @@ export function OwnerMenuCategoriesClient({
     return rscBootstrapError;
   });
   const [screen, setScreen] = useState<"list" | "edit">("list");
+
+  const {
+    keyboardOpen,
+    effectiveViewportBottom,
+    formPadStyle,
+    footerPadStyle,
+    footerFixedClassName,
+  } = useOwnerAdminFormKeyboard({ enabled: screen === "edit" });
+  /** Scroll root = page `OwnerAdminPageScrollShell` (__scroll) — no nested overflow. */
+  useFormKeyboardFocusVisibility({
+    enabled: screen === "edit",
+    effectiveViewportBottom,
+  });
 
   /** 카테고리 추가·편집 — `BusinessAdminShell` 오너 하단 탭 숨김(저장·취소 바만) */
   useEffect(() => {
@@ -349,9 +360,7 @@ export function OwnerMenuCategoriesClient({
   if (screen === "edit") {
     return (
       <>
-        <div
-          className={`flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-sam-app ${editScrollBottomPaddingClass}`}
-        >
+        <div className="flex flex-col bg-sam-app" style={formPadStyle}>
           <nav className="sam-tabs" aria-label={t("business_phase7_304")}>
             <button
               type="button"
@@ -450,7 +459,10 @@ export function OwnerMenuCategoriesClient({
           <div
             role="toolbar"
             aria-label={t("business_phase7_303")}
-            className={ownerStoreAdminFooterFixedClass()}
+            data-form-keyboard-footer="1"
+            data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+            className={footerFixedClassName}
+            style={footerPadStyle}
           >
             <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
               <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>

@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 
 const PRESET_PREP_MINUTES = [10, 15, 20, 30, 40, 50, 60] as const;
 
@@ -36,6 +37,7 @@ export function OwnerOrderAcceptSheet({
   }, [open]);
 
   const customNum = Math.floor(Number(customRaw.trim()));
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(open);
   let resolved = NaN;
   if (mode === "preset") {
     resolved = presetPick ?? NaN;
@@ -55,6 +57,7 @@ export function OwnerOrderAcceptSheet({
       zIndexClass={overlayClassName ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : undefined}
       ariaLabel={t("business_phase7_339")}
       panelClassName="!max-w-md"
+      contentPaddingBottomPx={contentPaddingBottomPx}
     >
       <p className={`mt-1 ${OverlayUi.bodySecondary}`}>{t("business_phase7_340")}</p>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -132,7 +132,7 @@ function SettlementRowCard({
 /** 매장 어드민 — 정산 내역 (`/stores/owner/settlements?storeId=`) */
 export function OwnerStoreSettlementsView() {
   const { t, language } = useI18n();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
 
   const [rows, setRows] = useState<OwnerStoreSettlementRow[]>([]);

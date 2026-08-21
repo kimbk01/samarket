@@ -28,9 +28,11 @@ describe("owner orders deeplink contract", () => {
     expect(view).not.toMatch(/if \(loadInFlightRef\.current\) return;/);
   });
 
-  it("hub orders refresh on orders route avoids forceNetwork refetch storm", () => {
+  it("orders list does not full-load from hub subscribeOrdersRefresh (row-patch authority)", () => {
     const view = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
-    expect(view).toContain('forceNetwork: false, reason: "hub_orders_refresh"');
+    expect(view).not.toContain("hub_orders_refresh");
+    expect(view).not.toContain("subscribeOrdersRefresh");
+    expect(view).toContain("useOwnerStoreOrdersRealtime");
   });
 
   it("OwnerHubRuntimeProvider does not invalidate list cache on every UPDATE", () => {

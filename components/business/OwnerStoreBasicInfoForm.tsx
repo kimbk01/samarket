@@ -44,11 +44,11 @@ import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-sh
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import {
   OWNER_BASIC_INFO_LEAVE_EVENT,
   setOwnerBasicInfoDirty,
@@ -277,6 +277,15 @@ export function OwnerStoreBasicInfoForm({
   /** 메인 앱 BottomNav(1000) 바로 위에 두기 — `/stores/owner/*` 세부는 탭이 꺼져 있어 보통 false */
   const dockActionBarAboveMainBottomNav =
     !hideAppBottomNav && shellFlags.showBottomNav;
+
+  const {
+    keyboardOpen,
+    effectiveViewportBottom,
+    formPadStyle,
+    footerPadStyle,
+    footerFixedClassName,
+  } = useOwnerAdminFormKeyboard({ aboveBottomNav: dockActionBarAboveMainBottomNav });
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
 
   const primaryIndustries = useMemo(
     () => listBrowsePrimaryIndustries(),
@@ -844,7 +853,8 @@ export function OwnerStoreBasicInfoForm({
           if (!isDirty) return;
           void saveBasicInfo();
         }}
-        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS}`}
+        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}
+        style={formPadStyle}
       >
         <OwnerStoreAdminDashSection title={t("business_phase7_026")} surfaceTone="bizSoft">
           <OwnerBasicInfoBrandingHero
@@ -1133,9 +1143,10 @@ export function OwnerStoreBasicInfoForm({
         <footer
           role="contentinfo"
           aria-label={t("business_phase7_039")}
-          className={ownerStoreAdminFooterFixedClass({
-            aboveBottomNav: dockActionBarAboveMainBottomNav,
-          })}
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+          className={footerFixedClassName}
+          style={footerPadStyle}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {error ?

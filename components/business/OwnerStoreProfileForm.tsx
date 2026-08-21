@@ -55,11 +55,11 @@ import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-sh
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import {
   OWNER_BASIC_INFO_LEAVE_EVENT,
   setOwnerBasicInfoDirty,
@@ -436,6 +436,15 @@ export function OwnerStoreProfileForm({
   const dockActionBarAboveMainBottomNav =
     !hideAppBottomNav && shellFlags.showBottomNav;
 
+  const {
+    keyboardOpen,
+    effectiveViewportBottom,
+    formPadStyle,
+    footerPadStyle,
+    footerFixedClassName,
+  } = useOwnerAdminFormKeyboard({ aboveBottomNav: dockActionBarAboveMainBottomNav });
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
+
   const [values, setValues] = useState<OwnerStoreProfileFormValues>(() => rowToFormValues(row));
   const [publicCommerceDetailOpen, setPublicCommerceDetailOpen] = useState(() =>
     hasPersistedPublicCommerceDetail(rowToFormValues(row))
@@ -714,7 +723,8 @@ export function OwnerStoreProfileForm({
           if (!isDirty) return;
           void saveStoreProfile();
         }}
-        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS}`}
+        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}
+        style={formPadStyle}
       >
       <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_159")}>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-[var(--biz-text)]">
@@ -1310,9 +1320,10 @@ export function OwnerStoreProfileForm({
         <footer
           role="contentinfo"
           aria-label={t("business_phase7_070")}
-          className={ownerStoreAdminFooterFixedClass({
-            aboveBottomNav: dockActionBarAboveMainBottomNav,
-          })}
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+          className={footerFixedClassName}
+          style={footerPadStyle}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             {error ?

@@ -21,10 +21,10 @@ import {
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
@@ -44,7 +44,6 @@ import {
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
-import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
 export type BusinessApplyProfileSeed = {
@@ -101,8 +100,6 @@ const APPLY_CATEGORY_COL_CLASS = "flex min-w-0 flex-col";
 const APPLY_CATEGORY_LABEL_CLASS = `${APPLY_FIELD_LABEL_CLASS} mb-1 min-h-[2.75rem] leading-snug`;
 const APPLY_CATEGORY_SELECT_CLASS = `${OWNER_STORE_PROFILE_SELECT_CLASS} block w-full min-h-[var(--sam-input-min-height)]`;
 
-const FOOTER_BAR_HEIGHT_PX = 60;
-
 const DEFAULT_VALUES: Omit<
   BusinessApplyFormValues,
   "categoryPrimarySlug" | "categorySubSlug"
@@ -148,7 +145,12 @@ export function BusinessApplyForm({
 }: BusinessApplyFormProps) {
   const { t, language } = useI18n();
   const router = useRouter();
-  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
+  const {
+    keyboardOpen,
+    formPadStyle,
+    footerPadStyle,
+    footerFixedClassName,
+  } = useOwnerAdminFormKeyboard();
   const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
@@ -372,9 +374,7 @@ export function BusinessApplyForm({
         id="business-apply-form"
         onSubmit={handleSubmit}
         className={`${OWNER_STORE_STACK_Y_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
-        style={{
-          paddingBottom: `calc(${FOOTER_BAR_HEIGHT_PX}px + ${effectiveBottomInset}px)`,
-        }}
+        style={formPadStyle}
       >
         <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
           <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
@@ -559,8 +559,8 @@ export function BusinessApplyForm({
           aria-label={t("business_phase7_177")}
           data-form-keyboard-footer="1"
           data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-          className={`${OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS} bottom-0`}
-          style={{ paddingBottom: `${effectiveBottomInset}px` }}
+          className={footerFixedClassName}
+          style={footerPadStyle}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>

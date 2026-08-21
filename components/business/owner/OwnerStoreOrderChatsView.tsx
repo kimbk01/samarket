@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
+import { OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS, OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ChatRow = {
@@ -43,7 +43,7 @@ function formatListTime(iso: string, language: AppLanguageCode): string {
 
 export function OwnerStoreOrderChatsView() {
   const { t, language } = useI18n();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
@@ -126,13 +126,16 @@ export function OwnerStoreOrderChatsView() {
   }
 
   return (
-    <div className={`flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
+    <div className="flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)]">
       <div className="shrink-0 border-b border-[#E5E7EB] bg-white py-2">
         <p className="text-[13px] text-[#8C8C8C]">
           {t("store_owner_chats_list_hint", { storeName: state.storeName })}
         </p>
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-2">
+      <ul
+        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS} min-h-0 flex-1 py-2`}
+        data-owner-scroll-host="order-chats-list"
+      >
         {state.chats.length === 0 ?
           <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
             <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />

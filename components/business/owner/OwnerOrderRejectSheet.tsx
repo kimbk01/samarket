@@ -5,6 +5,7 @@ import { Biz } from "@/lib/ui/biz-component-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 
 const REASON_KEYS = [
   "business_phase7_343",
@@ -49,6 +50,7 @@ export function OwnerOrderRejectSheet({
   const otherFallback = t(OTHER_REASON_KEY);
   const label =
     reasonKey === OTHER_REASON_KEY ? other.trim() || otherFallback : t(reasonKey);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(open);
 
   return (
     <DibayBottomSheet
@@ -60,6 +62,7 @@ export function OwnerOrderRejectSheet({
       anchor="above-bottom-nav"
       ariaLabel={title ?? t("business_phase7_261")}
       panelClassName="!max-w-md"
+      contentPaddingBottomPx={contentPaddingBottomPx}
     >
       <p className={`mt-1 ${OverlayUi.bodySecondary}`}>{description ?? t("business_phase7_137")}</p>
 

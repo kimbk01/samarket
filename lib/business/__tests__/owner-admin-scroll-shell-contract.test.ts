@@ -84,7 +84,10 @@ describe("owner admin scroll shell contract", () => {
     ]) {
       const src = readRepo(rel);
       expect(src).toContain("owner-admin-footer-actions");
-      expect(src).toContain("OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS");
+      expect(src).toContain("useOwnerAdminFormKeyboard");
+      expect(src).toContain("formPadStyle");
+      expect(src).toContain("data-form-keyboard-footer");
+      expect(src).not.toContain("OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS");
       expect(src).not.toMatch(/\{isDirty\s*\?\s*\n?\s*<BodyPortal>/);
       expect(src).toMatch(/disabled=\{!isDirty \|\|/);
     }
@@ -96,6 +99,9 @@ describe("owner admin scroll shell contract", () => {
     expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
     expect(shared).toContain("divide-x divide-sam-border");
     expect(shared).toContain("bg-signature text-white");
+    expect(shared).not.toMatch(/max-w-\[42rem\]/);
+    expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_BAR_CLASS");
+    expect(shared).toMatch(/OWNER_STORE_ADMIN_FOOTER_INNER_CLASS[\s\S]*min-w-0/);
 
     for (const rel of [
       "components/business/OwnerStoreProfileForm.tsx",
@@ -109,5 +115,82 @@ describe("owner admin scroll shell contract", () => {
       expect(src).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
       expect(src).not.toMatch(/Biz\.btnPrimary/);
     }
+  });
+
+  it("settlements page uses OwnerAdminPageScrollShell (compact scroll host)", () => {
+    const src = readRepo("app/(main)/stores/owner/settlements/page.tsx");
+    expect(src).toContain("OwnerAdminPageScrollShell");
+    expect(src).toContain("OwnerStoreSettlementsView");
+  });
+
+  it("order-chats list scroll root uses compact shell __scroll (bottom-nav hide SSOT)", () => {
+    const src = readRepo("components/business/owner/OwnerStoreOrderChatsView.tsx");
+    expect(src).toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+    expect(src).toContain('data-owner-scroll-host="order-chats-list"');
+    expect(src).not.toMatch(/<ul className="min-h-0 flex-1 overflow-y-auto/);
+  });
+
+  it("orders list scroll root uses compact shell __scroll (sticky chrome stays outside)", () => {
+    const src = readRepo("components/business/owner/OwnerStoreOrdersMobileBody.tsx");
+    expect(src).toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+    expect(src).toContain('data-owner-scroll-host="orders-list"');
+  });
+
+  it("points page pads for owner bottom nav", () => {
+    const src = readRepo("app/(main)/stores/owner/points/page.tsx");
+    expect(src).toContain("OwnerAdminPageScrollShell");
+    expect(src).not.toMatch(/padForOwnerBottomNav=\{false\}/);
+  });
+
+  it("owner form keyboard SSOT reuses Form viewport (no parallel authority)", () => {
+    const hook = readRepo("lib/business/use-owner-admin-form-keyboard.ts");
+    expect(hook).toContain("useFormKeyboardViewport");
+    expect(hook).toContain("ownerAdminFormBodyPadStyle");
+    expect(hook).toContain("ownerAdminFormFooterInsetStyle");
+    expect(hook).not.toMatch(/useMobileKeyboardInset/);
+
+    for (const rel of [
+      "components/business/BusinessApplyForm.tsx",
+      "components/business/OwnerStoreProfileForm.tsx",
+      "components/business/OwnerStoreBasicInfoForm.tsx",
+      "components/business/owner/OwnerMenuCategoriesClient.tsx",
+    ]) {
+      const src = readRepo(rel);
+      expect(src).toContain("useOwnerAdminFormKeyboard");
+      expect(src).toContain("data-form-keyboard-footer");
+      expect(src).not.toMatch(/pb-\[var\(--safe-bottom\)\]/);
+      expect(src).not.toContain("OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS");
+    }
+  });
+
+  it("owner BottomSheet keyboard reuses Form viewport via contentPaddingBottomPx", () => {
+    const hook = readRepo("lib/business/use-owner-admin-bottom-sheet-keyboard.ts");
+    expect(hook).toContain("useFormKeyboardViewport");
+    expect(hook).toContain("contentPaddingBottomPx");
+    expect(hook).not.toMatch(/useMobileKeyboardInset/);
+    expect(hook).not.toMatch(/addEventListener\(\s*["']resize["']/);
+
+    for (const rel of [
+      "components/business/owner/OwnerStoreBannersView.tsx",
+      "components/business/owner/OwnerStoreNoticesView.tsx",
+      "components/business/owner/OwnerOrderAcceptSheet.tsx",
+      "components/business/owner/OwnerOrderRejectSheet.tsx",
+    ]) {
+      const src = readRepo(rel);
+      expect(src).toContain("useOwnerAdminBottomSheetKeyboard");
+      expect(src).toContain("contentPaddingBottomPx");
+    }
+  });
+
+  it("menu-categories edit does not nest overflow-y under ScrollShell", () => {
+    const src = readRepo("components/business/owner/OwnerMenuCategoriesClient.tsx");
+    expect(src).not.toMatch(/overflow-y-auto overscroll-y-contain bg-sam-app/);
+    expect(src).toContain("useOwnerAdminFormKeyboard");
+  });
+
+  it("ensure order-chat writer uses canonical owner route (no /my/business hop)", () => {
+    const src = readRepo("lib/chats/surfaces/order-chat-surface.ts");
+    expect(src).toContain("/stores/owner/order-chat/");
+    expect(src).not.toContain("/my/business/store-order-chat/");
   });
 });

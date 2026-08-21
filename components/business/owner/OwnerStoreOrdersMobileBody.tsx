@@ -20,6 +20,7 @@ import {
 } from "@/lib/business/owner-mobile-orders-tab";
 import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
+import { OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_ORDER_TAB_IDS.map(
   (id) => {
     const labelById: Record<(typeof OWNER_MOBILE_ORDER_TAB_IDS)[number], MessageKey> = {
@@ -291,7 +292,8 @@ export function OwnerStoreOrdersMobileBody({
         ref={(el) => {
           listScrollRef.current = el;
         }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,var(--safe-bottom))]"
+        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} min-h-0 flex-1 pb-[max(0.5rem,var(--safe-bottom))]`}
+        data-owner-scroll-host="orders-list"
       >
         <div className="space-y-2.5 py-3">
           {deepLinkMissBanner}

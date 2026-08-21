@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import {
   useCallback,
   useEffect,
@@ -64,7 +65,6 @@ import {
   parseOwnerOrdersOpsAttention,
   shouldOwnerOrdersForceNetwork,
 } from "@/lib/business/owner-orders-entry-policy";
-import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerStoreOrdersMobileBody";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -110,9 +110,8 @@ function completedAtMs(o: OrderRow): number {
 
 export function OwnerStoreOrdersView() {
   const { t } = useI18n();
-  const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const tab = useMemo(() => parseStoreOrderTab(searchParams.get("tab")), [searchParams]);
   const urlStoreId = useMemo(() => searchParams.get("storeId")?.trim() ?? "", [searchParams]);
   const highlightOrderId = useMemo(() => searchParams.get("order_id")?.trim() ?? "", [searchParams]);
@@ -128,7 +127,6 @@ export function OwnerStoreOrdersView() {
     () => shouldOwnerOrdersForceNetwork(entryParams),
     [entryParams]
   );
-  const hubRuntime = useOwnerHubRuntime();
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
   const deepLinkEnrichAttemptsRef = useRef(0);
@@ -372,19 +370,6 @@ export function OwnerStoreOrdersView() {
       silent: state.kind === "ok",
     });
   }, [highlightOrderId, urlStoreId, load, state.kind]);
-
-  useEffect(() => {
-    const sub = hubRuntime?.subscribeOrdersRefresh;
-    if (!sub) return;
-    return sub(() => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      const onOrders =
-        pathname === "/stores/owner/orders" || pathname.endsWith("/store-orders");
-      if (!onOrders) return;
-      /** 주문 화면은 `useOwnerStoreOrdersRealtime` 가 행 패치 — 전체 목록 refetch 폭주 방지 */
-      void load({ silent: true, forceNetwork: false, reason: "hub_orders_refresh" });
-    });
-  }, [hubRuntime, pathname, load]);
 
   const ordersStoreId = state.kind === "ok" ? state.storeId : null;
 
@@ -632,7 +617,10 @@ export function OwnerStoreOrdersView() {
     );
   }, [state, searchParams, router]);
 
-  useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }));
+  /** bfcache `pageshow` only — visibility catch-up는 아래 poll effect가 단일 권한 */
+  useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }), {
+    enableVisibilityRefetch: false,
+  });
 
   const pollStoreId = state.kind === "ok" ? state.storeId : null;
   const pollStoreName = state.kind === "ok" ? state.storeName : "";

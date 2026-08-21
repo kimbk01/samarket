@@ -1,8 +1,11 @@
 /**
  * Owner FAB / Owner Header meaning contract.
  *
- * Owner FAB  = Owner-role store attention only (orders / inquiry+review / store-scoped order chat).
- * Owner Header = same Owner projection sum.
+ * SSOT (C_store lock aa2d46b09 + c-store-authority-contract):
+ * - FAB orders  = C_store orderAttention
+ * - FAB store   = C_store inquiryAttention only (REVIEW = UNKNOWN_BLOCKED)
+ * - FAB order chat = B_store storeOrderChatUnread (separate axis)
+ * - Owner Header ops = C_store only (orders + inquiry) — NOT B_store chat
  * Forbidden inputs: Customer buyer_order, General/Group, Trade, App Icon total, Bell unread.
  */
 const fs = require("fs");
@@ -70,10 +73,16 @@ if (!ordersBody.includes("orderAttention")) {
 }
 
 const storeBody = bodyOf(policy, "resolveFabOwnerStoreBadgeCount") ?? "";
-if (!storeBody.includes("inquiryAttention") || !storeBody.includes("ownerReviewAttention")) {
-  failures.push(`${policyRel}: FAB store badge must read inquiryAttention + ownerReviewAttention`);
+const storeBodyCode = storeBody.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+if (!storeBodyCode.includes("inquiryAttention")) {
+  failures.push(`${policyRel}: FAB store badge must read inquiryAttention`);
 }
-if (storeBody.includes("orderAttention") || storeBody.includes("storeOrderChatUnread")) {
+if (storeBodyCode.includes("ownerReviewAttention")) {
+  failures.push(
+    `${policyRel}: FAB store badge must ignore ownerReviewAttention (REVIEW = UNKNOWN_BLOCKED)`
+  );
+}
+if (storeBodyCode.includes("orderAttention") || storeBodyCode.includes("storeOrderChatUnread")) {
   failures.push(`${policyRel}: FAB store badge must exclude order / order-chat axes`);
 }
 
@@ -87,14 +96,24 @@ if (orderChatBody.includes("storeOrderOwnerUnreadRooms")) {
   );
 }
 
+/** Header ops = C_store (orders + store/inquiry). B_store chat stays on FAB order-chat axis only. */
+const HEADER_OPS_RESOLVERS = [
+  "resolveFabOwnerOrdersBadgeCount",
+  "resolveFabOwnerStoreBadgeCount",
+];
 const headerBody = bodyOf(policy, "resolveOwnerOperationsCenterAttentionCount") ?? "";
 if (!headerBody) {
   failures.push(`${policyRel}: missing Owner header operations attention resolver`);
 } else {
-  for (const fn of OWNER_RESOLVERS) {
+  for (const fn of HEADER_OPS_RESOLVERS) {
     if (!headerBody.includes(fn)) {
       failures.push(`${policyRel}: Owner header attention must compose ${fn}`);
     }
+  }
+  if (headerBody.includes("resolveFabOwnerOrderChatBadgeCount")) {
+    failures.push(
+      `${policyRel}: Owner header ops must not compose B_store resolveFabOwnerOrderChatBadgeCount`
+    );
   }
   for (const axis of FORBIDDEN_OWNER_AXES) {
     if (headerBody.includes(axis)) {
