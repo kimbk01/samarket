@@ -326,6 +326,12 @@ export function AdminMemberOpsPanel({
             {safeT("admin_users_cc_cta_messenger_view", { fallbackKo: "메신저 보기", fallbackEn: "View messenger" })}
           </Link>
         </div>
+        <p className="text-xs text-[#98a2b3]">
+          {safeT("admin_users_cc_cta_notify_unsupported", {
+            fallbackKo: "알림 보내기 — 지원되지 않음",
+            fallbackEn: "Send notification — not supported",
+          })}
+        </p>
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
