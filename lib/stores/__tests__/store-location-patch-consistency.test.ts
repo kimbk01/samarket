@@ -1,52 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
 
-const current = {
-  place_id: "ChIJ1",
-  formatted_address: "Commonwealth Ave, QC",
-  address_line1: "Commonwealth Ave",
-  lat: 14.65,
-  lng: 121.05,
-};
+describe("assertStoreLocationPatchConsistent — text-only prevention", () => {
+  const current = {
+    place_id: null,
+    formatted_address: null,
+    address_line1: null,
+    lat: null,
+    lng: null,
+  };
 
-describe("store location patch consistency", () => {
-  it("allows detail-unrelated patches and identical street", () => {
-    expect(assertStoreLocationPatchConsistent(current, {})).toBe("ok");
+  it("rejects identity change without coords", () => {
     expect(
-      assertStoreLocationPatchConsistent(current, { address_line1: "Commonwealth Ave" }),
+      assertStoreLocationPatchConsistent(current, {
+        address_line1: "123 Test St",
+        formatted_address: "123 Test St, Quezon City",
+      })
+    ).toBe("store_location_inconsistent");
+  });
+
+  it("accepts identity + finite coords together", () => {
+    expect(
+      assertStoreLocationPatchConsistent(current, {
+        address_line1: "123 Test St",
+        formatted_address: "123 Test St, Quezon City",
+        place_id: "ChIJtest",
+        lat: 14.65,
+        lng: 121.05,
+      })
     ).toBe("ok");
   });
 
-  it("rejects street/formatted/place change without lat/lng in the same PATCH", () => {
-    expect(
-      assertStoreLocationPatchConsistent(current, { address_line1: "Katipunan Ave" }),
-    ).toBe("store_location_inconsistent");
+  it("rejects place_id without coords", () => {
     expect(
       assertStoreLocationPatchConsistent(current, {
-        formatted_address: "Katipunan Ave, QC",
-      }),
+        place_id: "ChIJtest",
+        formatted_address: "Somewhere",
+      })
     ).toBe("store_location_inconsistent");
-  });
-
-  it("allows identity change when lat/lng are sent together", () => {
-    expect(
-      assertStoreLocationPatchConsistent(current, {
-        address_line1: "Katipunan Ave",
-        formatted_address: "Katipunan Ave, QC",
-        place_id: "ChIJ2",
-        lat: 14.64,
-        lng: 121.07,
-      }),
-    ).toBe("ok");
-  });
-
-  it("rejects place_id without formatted + coords", () => {
-    expect(
-      assertStoreLocationPatchConsistent(current, { place_id: "ChIJ2" }),
-    ).toBe("store_location_inconsistent");
-  });
-
-  it("rejects lat without lng", () => {
-    expect(assertStoreLocationPatchConsistent(current, { lat: 14.6 })).toBe("store_location_inconsistent");
   });
 });

@@ -167,7 +167,7 @@ export function StoresBrowsePrimaryView({
     return `${primarySlug}|${sub}`;
   }, [primarySlug, searchParams]);
   /** 거리 정책 운영 적용 전까지 기본 browse 목록 요청에는 좌표를 싣지 않는다. */
-  const browseDistanceCoordsEnabled = false;
+  const browseDistanceCoordsEnabled = true;
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();

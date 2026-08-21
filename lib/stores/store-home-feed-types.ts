@@ -29,6 +29,11 @@ export type StoreHomeFeedItem = {
   /** 카드 표시 거리(km): home-feed 는 haversine 직선만 */
   distanceKm: number | null;
   straightDistanceKm?: number | null;
+  /** Admin 거리 정책 적용 여부 (serviceability) */
+  distancePolicyApplied?: boolean;
+  /** 배달 가능 거리 초과 (또는 매장 좌표 없음으로 판정 불가) */
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
   /** @deprecated home-feed 응답에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
   featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];

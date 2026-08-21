@@ -19,6 +19,9 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   delivery_region_city_required: "store_err_delivery_region_city_google_hint",
   store_pickup_disabled: "store_err_pickup_disabled",
   store_delivery_disabled: "store_err_delivery_disabled",
+  delivery_out_of_range: "store_err_delivery_out_of_range",
+  delivery_store_coords_required: "store_err_delivery_store_coords_required",
+  delivery_customer_coords_required: "store_err_delivery_customer_coords_required",
   payment_method_required: "store_err_payment_method",
   payment_method_invalid: "store_err_payment_method",
 };

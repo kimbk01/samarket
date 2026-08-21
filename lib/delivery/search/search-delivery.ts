@@ -1,4 +1,11 @@
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import {
+  evaluateStoreDeliveryServiceability,
+  loadDeliveryServiceabilityRuntimeContext,
+  serviceabilityDeprioritizeRank,
+} from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function sanitizeForIlike(raw: string): string {
   return raw
@@ -27,6 +34,12 @@ export type DeliverySearchStoreResult = {
   district: string | null;
   city: string | null;
   region: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  distanceKm?: number | null;
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
+  distancePolicyApplied?: boolean;
 };
 
 export type DeliverySearchMenuResult = {
@@ -76,6 +89,10 @@ export async function searchDeliveryDomain(input: {
   q: string;
   storeLimit?: number;
   menuLimit?: number;
+  /** Optional — when omitted, tries logged-in master address via supabase auth cookie path is caller responsibility */
+  userId?: string | null;
+  customerLat?: number | null;
+  customerLng?: number | null;
 }): Promise<{
   ok: true;
   stores: DeliverySearchStoreResult[];
@@ -155,6 +172,8 @@ export async function searchDeliveryDomain(input: {
         "district",
         "city",
         "region",
+        "lat",
+        "lng",
       ].join(", ")
     )
     .eq("approval_status", "approved")
@@ -217,6 +236,8 @@ export async function searchDeliveryDomain(input: {
           "district",
           "city",
           "region",
+          "lat",
+          "lng",
         ].join(", ")
       )
       .in("id", storeIdsFromProducts)
@@ -240,6 +261,8 @@ export async function searchDeliveryDomain(input: {
         district: (row as any).district != null ? String((row as any).district) : null,
         city: (row as any).city != null ? String((row as any).city) : null,
         region: (row as any).region != null ? String((row as any).region) : null,
+        lat: (row as any).lat != null ? Number((row as any).lat) : null,
+        lng: (row as any).lng != null ? Number((row as any).lng) : null,
       });
     }
   }
@@ -260,12 +283,63 @@ export async function searchDeliveryDomain(input: {
     byId.set(s.id, s);
     merged.push(s);
   }
-  const mergedStores = merged.slice(0, storeLimit);
+  const mergedStoresRaw = merged.slice(0, storeLimit);
+
+  let customerLat =
+    input.customerLat != null && Number.isFinite(Number(input.customerLat))
+      ? Number(input.customerLat)
+      : null;
+  let customerLng =
+    input.customerLng != null && Number.isFinite(Number(input.customerLng))
+      ? Number(input.customerLng)
+      : null;
+  if ((customerLat == null || customerLng == null) && input.userId) {
+    try {
+      const defaults = await getUserAddressDefaults(sb as SupabaseClient, input.userId);
+      const la = defaults.master?.latitude;
+      const ln = defaults.master?.longitude;
+      if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
+      if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const svcCtx = await loadDeliveryServiceabilityRuntimeContext(sb as SupabaseClient);
+  const annotated = mergedStoresRaw.map((s) => {
+    const svc = evaluateStoreDeliveryServiceability({
+      ctx: svcCtx,
+      storeId: s.id,
+      customerLat,
+      customerLng,
+      storeLat: s.lat,
+      storeLng: s.lng,
+    });
+    const outOfRange =
+      svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+    return {
+      ...s,
+      distanceKm: svc.distanceKm,
+      distanceOutOfRange: outOfRange,
+      maxDeliveryDistanceKm: svc.applies ? svc.maxKm : null,
+      distancePolicyApplied: svc.applies,
+      _svcRank: serviceabilityDeprioritizeRank(svc),
+    };
+  });
+  annotated.sort((a, b) => a._svcRank - b._svcRank);
+  const mergedStores: DeliverySearchStoreResult[] = annotated.map(({ _svcRank: _, ...rest }) => rest);
 
   const menus: DeliverySearchMenuResult[] = [];
-  const storeMetaById = new Map<string, { slug: string; store_name: string }>();
+  const storeMetaById = new Map<string, { slug: string; store_name: string; out?: boolean }>();
   for (const [id, row] of deliveryStoreById) {
     storeMetaById.set(id, { slug: row.slug, store_name: row.store_name });
+  }
+  for (const s of mergedStores) {
+    storeMetaById.set(s.id, {
+      slug: s.slug,
+      store_name: s.store_name,
+      out: s.distanceOutOfRange === true,
+    });
   }
   for (const p of prodsRaw) {
     if (menus.length >= menuLimit) break;
@@ -273,6 +347,8 @@ export async function searchDeliveryDomain(input: {
     const store_id = String(p.store_id ?? "");
     const meta = storeMetaById.get(store_id);
     if (!id || !store_id || !meta) continue;
+    /** Out-of-range stores: keep store in list with badge, but do not surface orderable menus. */
+    if (meta.out) continue;
     const price = Number(p.price);
     const discount_price = p.discount_price != null ? Number(p.discount_price) : null;
     menus.push({

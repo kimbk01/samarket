@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   fetchStoresHomeFeedDeduped,
   forgetStoresHomeFeedFetchSingleFlight,
@@ -222,6 +223,15 @@ export function StoresHomeHub({
     void loadFeed();
     return () => abortRef.current?.abort();
   }, [loadFeed, feedReady]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      if (!feedReady) return;
+      void loadFeed({ force: true, silent: true });
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [feedReady, loadFeed]);
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;

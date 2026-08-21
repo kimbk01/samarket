@@ -1088,6 +1088,11 @@ export const storeCommerceUiMessages = {
     store_err_delivery_address_required: "배달·배송 주소를 입력해 주세요.",
     store_err_pickup_disabled: "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요.",
     store_err_delivery_disabled: "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요.",
+    store_err_delivery_out_of_range: "선택하신 주소는 이 매장의 배달 가능 거리를 벗어났습니다.",
+    store_err_delivery_store_coords_required:
+      "이 매장은 배달 위치가 아직 등록되지 않아 배달 주문을 받을 수 없습니다.",
+    store_err_delivery_customer_coords_required:
+      "배달 주소에 위치 좌표가 없습니다. 주소를 다시 저장해 주세요.",
     store_view_menu_link: "{storeName} 메뉴 보기",
     store_checkout_request_owner_hint:
       "입력하시면 매장 사장님 주문 관리 화면에 '고객 요청 사항'으로 표시됩니다.",
@@ -1660,6 +1665,9 @@ export const storeCommerceUiMessages = {
       "주문이 완료(completed)되면 정산 예정 건이 생성됩니다. 실제 입금·보류 해제는 플랫폼 운영에서 처리하며, 이 화면에서는 조회만 가능합니다.",
     store_owner_settlement_delay_days: "완료 후 약 {days}일 뒤 지급 예정일이 잡힙니다.",
     store_owner_settlement_fee_percent: "현재 적용 수수료 {percent}%",
+    store_owner_settlement_fee_rate: "앞으로 적용될 수수료 {rate}",
+    store_owner_settlement_fee_current_hint:
+      "위 요율은 현재 정책입니다. 이미 완료된 주문 정산 행의 수수료는 완료 시점 스냅샷을 따릅니다.",
     store_owner_settlement_fee_source: "정책 출처: {source}",
     store_owner_settlement_fee_source_store: "매장 개별 정책",
     store_owner_settlement_fee_source_topic: "2차 업종 정책",
@@ -1667,7 +1675,7 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_fee_source_default: "플랫폼 기본 정책",
     store_owner_settlement_fee_source_commerce_settings: "커머스 설정(레거시)",
     store_owner_settlement_rate_line:
-      "수수료율 {rate}% · 기준 {base} · 플랫폼 인식 {revenue} · 환입 {reversal}",
+      "적용 요율 {rate} · 기준 {base} · 플랫폼 인식 {revenue} · 환입 {reversal}",
     store_owner_settlement_order_status_line: "주문상태 {status} · 결제액 {paid}",
     store_owner_settlement_filter_from: "시작일",
     store_owner_settlement_filter_to: "종료일",
@@ -2792,6 +2800,11 @@ export const storeCommerceUiMessages = {
     store_err_delivery_address_required: "Enter a delivery or shipping address.",
     store_err_pickup_disabled: "This store does not accept pickup orders. Change fulfillment.",
     store_err_delivery_disabled: "This store does not offer delivery. Change fulfillment.",
+    store_err_delivery_out_of_range: "Your selected address is outside this store's delivery range.",
+    store_err_delivery_store_coords_required:
+      "This store has not registered a delivery location yet, so delivery orders are unavailable.",
+    store_err_delivery_customer_coords_required:
+      "Your delivery address is missing map coordinates. Please save the address again.",
     store_view_menu_link: "View {storeName} menu",
     store_checkout_request_owner_hint:
       "If provided, this appears as the customer request on the store owner's order screen.",
@@ -3367,6 +3380,9 @@ export const storeCommerceUiMessages = {
       "A settlement entry is created when an order is completed. Payouts and holds are handled by platform ops; this screen is read-only.",
     store_owner_settlement_delay_days: "Payout is scheduled about {days} days after completion.",
     store_owner_settlement_fee_percent: "Effective fee {percent}%",
+    store_owner_settlement_fee_rate: "Fee for new completions {rate}",
+    store_owner_settlement_fee_current_hint:
+      "The rate above is the current policy. Per-order settlement rows keep the fee snapshotted at completion.",
     store_owner_settlement_fee_source: "Policy source: {source}",
     store_owner_settlement_fee_source_store: "Store override",
     store_owner_settlement_fee_source_topic: "Secondary category policy",
@@ -3374,7 +3390,7 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_fee_source_default: "Platform default policy",
     store_owner_settlement_fee_source_commerce_settings: "Commerce settings (legacy)",
     store_owner_settlement_rate_line:
-      "Rate {rate}% · base {base} · platform recognized {revenue} · reversal {reversal}",
+      "Applied rate {rate} · base {base} · platform recognized {revenue} · reversal {reversal}",
     store_owner_settlement_order_status_line: "Order {status} · paid {paid}",
     store_owner_settlement_filter_from: "From",
     store_owner_settlement_filter_to: "To",

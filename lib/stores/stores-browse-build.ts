@@ -12,6 +12,10 @@ import type {
   DeliveryStoreDistanceOverrides,
   DeliveryRideTimeSource,
 } from "@/lib/delivery/delivery-ops-settings";
+import {
+  evaluateDeliveryServiceability,
+  resolveEffectiveStoreDistancePolicy,
+} from "@/lib/delivery/evaluate-delivery-serviceability";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import {
@@ -399,23 +403,29 @@ function resolveStoreDistancePolicy(
   ctx: Pick<StoresBrowseRequestContext, "deliveryDistancePolicy" | "storeDistanceOverrides">,
   storeId: string
 ): { applies: boolean; maxKm: number | null } {
-  const global = ctx.deliveryDistancePolicy;
-  if (!global.enabled) return { applies: false, maxKm: null };
-  const override = ctx.storeDistanceOverrides.stores[storeId];
-  if (override?.mode === "disabled") return { applies: false, maxKm: override.maxKm ?? global.defaultMaxKm };
-  const applies = override?.mode === "enabled" || global.enabled;
-  return {
-    applies,
-    maxKm: override?.maxKm ?? global.defaultMaxKm,
-  };
+  const e = resolveEffectiveStoreDistancePolicy(
+    ctx.deliveryDistancePolicy,
+    ctx.storeDistanceOverrides,
+    storeId
+  );
+  return { applies: e.applies, maxKm: e.maxKm };
 }
 
 function resolveDistanceForSort(
   ctx: StoresBrowseRequestContext,
   row: StoreBrowseRow
 ): { distanceKm: number | null; outOfRange: boolean; applies: boolean } {
-  const policy = resolveStoreDistancePolicy(ctx, row.id);
-  if (!policy.applies || ctx.origin.lat == null || ctx.origin.lng == null) {
+  /** SERVICEABILITY display uses haversine only. Google route km is ETA/display enrichment, not eligibility. */
+  const svc = evaluateDeliveryServiceability({
+    policy: ctx.deliveryDistancePolicy,
+    overrides: ctx.storeDistanceOverrides,
+    storeId: row.id,
+    customerLat: ctx.origin.lat,
+    customerLng: ctx.origin.lng,
+    storeLat: row.lat,
+    storeLng: row.lng,
+  });
+  if (!svc.applies) {
     return { distanceKm: null, outOfRange: false, applies: false };
   }
   const routeMeters = ctx.routeMetricsByStoreId?.get(row.id)?.routeDistanceMeters ?? null;
@@ -426,10 +436,8 @@ function resolveDistanceForSort(
     routeMeters >= 0
       ? routeMeters / 1000
       : null;
-  const straightKm = haversineKm(ctx.origin.lat, ctx.origin.lng, row.lat, row.lng);
-  const distanceKm = routeKm ?? straightKm;
-  const outOfRange =
-    policy.maxKm != null && distanceKm != null && Number.isFinite(distanceKm) && distanceKm > policy.maxKm;
+  const distanceKm = routeKm ?? svc.distanceKm;
+  const outOfRange = svc.reason === "out_of_range" || svc.reason === "missing_store_coords";
   return { distanceKm, outOfRange, applies: true };
 }
 

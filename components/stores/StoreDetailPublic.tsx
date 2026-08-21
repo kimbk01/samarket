@@ -24,6 +24,11 @@ import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store
 import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { StoreDetailCartChrome } from "@/components/stores/detail/StoreDetailCartChrome";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  fetchStoreDeliveryServiceabilityClient,
+  isDeliveryDistanceOrderBlocked,
+} from "@/lib/stores/fetch-store-delivery-serviceability-client";
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
@@ -253,6 +258,7 @@ export function StoreDetailPublic({
   const [menuSearchOpen, setMenuSearchOpen] = useState(false);
   const [fulfillmentMode, setFulfillmentMode] =
     useState<StorePublicFulfillmentMode>("local_delivery");
+  const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
   const [headerSolid, setHeaderSolid] = useState(false);
   const [favoriteSeed, setFavoriteSeed] = useState(() => initialSnap.favoriteSeed);
   const [recentOrderCountMeta, setRecentOrderCountMeta] = useState(() => initialSnap.recentOrderCountMeta);
@@ -1198,6 +1204,32 @@ export function StoreDetailPublic({
 
   useEffect(() => {
     const slugKey = store?.slug?.trim();
+    if (!slugKey) {
+      setDistanceOutOfRange(false);
+      return;
+    }
+    let cancelled = false;
+    let ac: AbortController | null = null;
+    const run = () => {
+      ac?.abort();
+      ac = new AbortController();
+      void fetchStoreDeliveryServiceabilityClient(slugKey, ac.signal).then((svc) => {
+        if (cancelled) return;
+        setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc));
+      });
+    };
+    run();
+    const onAddressesUpdated = () => run();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => {
+      cancelled = true;
+      ac?.abort();
+      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    };
+  }, [store?.slug]);
+
+  useEffect(() => {
+    const slugKey = store?.slug?.trim();
     if (!slugKey) return;
     const h = (e: Event) => {
       const d = (e as CustomEvent<StoreFulfillmentPrefChangedDetail>).detail;
@@ -1650,6 +1682,7 @@ export function StoreDetailPublic({
       closedDetail={
         commerce?.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
       }
+      distanceOutOfRange={distanceOutOfRange}
     >
       <StoreDetailSummarySection
         headerElevated={headerSolid || !heroVisualForHeader}

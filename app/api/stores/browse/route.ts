@@ -136,7 +136,7 @@ export async function GET(req: Request) {
       enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
     };
     const distancePolicyKey = [
-      "off",
+      deliveryDistancePolicy.enabled ? "on" : "off",
       deliveryDistancePolicy.source,
       deliveryDistancePolicy.defaultMaxKm ?? "none",
       Object.entries(distanceSettings.overrides.stores)

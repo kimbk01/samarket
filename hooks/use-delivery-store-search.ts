@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 export type DeliverySearchStore = {
   id: string;
@@ -92,6 +93,15 @@ export function useDeliveryStoreSearch(debounceMs = 250) {
   useEffect(() => {
     if (debouncedQ.trim().length < 1) return;
     void runSearch(debouncedQ);
+  }, [debouncedQ, runSearch]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      if (debouncedQ.trim().length < 1) return;
+      void runSearch(debouncedQ);
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [debouncedQ, runSearch]);
 
   const reset = useCallback(() => {

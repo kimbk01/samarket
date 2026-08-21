@@ -10,6 +10,11 @@ import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-la
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
+import {
+  evaluateStoreDeliveryServiceability,
+  loadDeliveryServiceabilityRuntimeContext,
+  serviceabilityDeprioritizeRank,
+} from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -112,9 +117,10 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
-  const [origin, deliveryRideTimeSource] = await Promise.all([
+  const [origin, deliveryRideTimeSource, serviceabilityCtx] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
     loadDeliveryRideTimeSource(supabase),
+    loadDeliveryServiceabilityRuntimeContext(supabase),
   ]);
   const userLat = origin.lat;
   const userLng = origin.lng;
@@ -126,6 +132,9 @@ export async function GET(req: Request) {
     userLng,
     originKey: origin.cacheKeyPart,
     deliveryRideTimeSource,
+    distancePolicyKey: serviceabilityCtx.policy.enabled
+      ? `on:${serviceabilityCtx.policy.defaultMaxKm ?? "none"}`
+      : "off",
   });
 
   const cached = getStoreHomeFeedCache(cacheKey);
@@ -222,14 +231,32 @@ export async function GET(req: Request) {
 
     if (userLat != null && userLng != null) {
       rows = [...rows].sort((a, b) => {
+        const ea = effectiveById.get(a.id) ?? a;
+        const eb = effectiveById.get(b.id) ?? b;
+        const sa = evaluateStoreDeliveryServiceability({
+          ctx: serviceabilityCtx,
+          storeId: a.id,
+          customerLat: userLat,
+          customerLng: userLng,
+          storeLat: ea.lat,
+          storeLng: ea.lng,
+        });
+        const sb = evaluateStoreDeliveryServiceability({
+          ctx: serviceabilityCtx,
+          storeId: b.id,
+          customerLat: userLat,
+          customerLng: userLng,
+          storeLat: eb.lat,
+          storeLng: eb.lng,
+        });
+        const oor = serviceabilityDeprioritizeRank(sa) - serviceabilityDeprioritizeRank(sb);
+        if (oor !== 0) return oor;
         const dr = districtRank(a.district, district) - districtRank(b.district, district);
         if (dr !== 0) return dr;
         const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
         if (feat !== 0) return feat;
-        const ea = effectiveById.get(a.id) ?? a;
-        const eb = effectiveById.get(b.id) ?? b;
-        const da = haversineKm(userLat, userLng, ea.lat, ea.lng);
-        const db = haversineKm(userLat, userLng, eb.lat, eb.lng);
+        const da = sa.distanceKm ?? haversineKm(userLat, userLng, ea.lat, ea.lng);
+        const db = sb.distanceKm ?? haversineKm(userLat, userLng, eb.lat, eb.lng);
         if (da != null && db != null && da !== db) return da - db;
         if (da != null && db == null) return -1;
         if (da == null && db != null) return 1;
@@ -310,9 +337,24 @@ export async function GET(req: Request) {
         minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
 
       let distanceKm: number | null = null;
+      let distancePolicyApplied = false;
+      let distanceOutOfRange = false;
+      let maxDeliveryDistanceKm: number | null = null;
       if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
-        distanceKm = haversineKm(userLat, userLng, effective.lat, effective.lng);
+        const svc = evaluateStoreDeliveryServiceability({
+          ctx: serviceabilityCtx,
+          storeId: r.id,
+          customerLat: userLat,
+          customerLng: userLng,
+          storeLat: effective.lat,
+          storeLng: effective.lng,
+        });
+        distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
+        distancePolicyApplied = svc.applies;
+        distanceOutOfRange =
+          svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+        maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
       }
 
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
@@ -364,14 +406,19 @@ export async function GET(req: Request) {
         commerce,
         distanceKm: displayDistanceKm,
         straightDistanceKm: distanceKm,
+        distancePolicyApplied,
+        distanceOutOfRange,
+        maxDeliveryDistanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
       };
     });
 
-    /** 지금 주문 가능(영업중·배달) 우선 — 이미 거리·피처드 정렬 반영 후 상단부 재정렬 */
+    /** 지금 주문 가능(영업중·배달) 우선 — 이미 거리·피처드 정렬 반영 후 상단부 재정렬 (거리 초과는 하단 유지) */
     const openDeliveryFirst = [...stores].sort((a, b) => {
+      const oor = Number(!!a.distanceOutOfRange) - Number(!!b.distanceOutOfRange);
+      if (oor !== 0) return oor;
       const score = (s: StoreHomeFeedItem) =>
         (s.status === "open" ? 4 : s.status === "preparing" ? 2 : 0) + (s.deliveryAvailable ? 1 : 0);
       const d = score(b) - score(a);

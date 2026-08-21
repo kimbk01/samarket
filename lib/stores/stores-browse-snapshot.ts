@@ -36,7 +36,6 @@ import {
 } from "@/lib/stores/stores-browse-build";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { fetchRouteLegMetricsByStoreId } from "@/lib/geo/google-routes-two-wheeler-matrix";
 
 const SNAPSHOT_SINGLE_FLIGHT_PREFIX = "sb1-stores-browse-snapshot:";
 const ROUTE = "/api/stores/browse";
@@ -232,27 +231,19 @@ function buildBreakdown(input: {
   };
 }
 
+/**
+ * Browse list MUST NOT call Google Route Matrix for distance policy.
+ * SERVICEABILITY = haversine only (`evaluateDeliveryServiceability`).
+ * Google Routes remain on ETA/checkout paths (`delivery-eta`, ride_time_source=google) — separate authority.
+ * Previously: policy.enabled + source===google triggered Matrix for every listed store (HIGH cost risk).
+ */
 async function loadBrowseRouteMetricsIfNeeded(
   ctx: StoresBrowseRequestContext,
-  filteredRows: StoreBrowseRow[],
+  _filteredRows: StoreBrowseRow[],
 ): Promise<StoresBrowseRequestContext> {
-  if (
-    ctx.deliveryDistancePolicy.source !== "google" ||
-    !ctx.deliveryDistancePolicy.enabled ||
-    ctx.origin.lat == null ||
-    ctx.origin.lng == null
-  ) {
-    return ctx;
-  }
-  const eligible = filteredRows
-    .filter((row) => ctx.storeDistanceOverrides.stores[row.id]?.mode !== "disabled")
-    .map((row) => ({ id: row.id, lat: row.lat, lng: row.lng }));
-  if (eligible.length === 0) return ctx;
-  const routeMetricsByStoreId = await fetchRouteLegMetricsByStoreId({
-    user: { lat: ctx.origin.lat, lng: ctx.origin.lng },
-    stores: eligible,
-  });
-  return { ...ctx, routeMetricsByStoreId };
+  void _filteredRows;
+  if (ctx.routeMetricsByStoreId) return ctx;
+  return { ...ctx, routeMetricsByStoreId: null };
 }
 
 async function finishFromPayload(

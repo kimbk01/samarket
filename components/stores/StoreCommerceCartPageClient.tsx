@@ -38,6 +38,10 @@ import {
   postMeStoreOrder,
 } from "@/lib/stores/store-delivery-api-client";
 import {
+  fetchStoreDeliveryServiceabilityClient,
+  isDeliveryDistanceOrderBlocked,
+} from "@/lib/stores/fetch-store-delivery-serviceability-client";
+import {
   parseStoreCartHeadFromPublicJson,
   peekStoreCartHeadFromPublicCache,
   peekStoreCartHeadFromSummaryCache,
@@ -248,6 +252,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         )
   );
   const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
+  const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const profilePhoneDigitsRef = useRef("");
@@ -1040,6 +1045,32 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [bootstrapCheckoutIdentity, lines.length]);
 
   useEffect(() => {
+    const slug = store?.slug?.trim() || storeSlug.trim();
+    if (!slug || fulfillment !== "local_delivery" || lines.length === 0) {
+      setDistanceOutOfRange(false);
+      return;
+    }
+    let cancelled = false;
+    let ac: AbortController | null = null;
+    const run = () => {
+      ac?.abort();
+      ac = new AbortController();
+      void fetchStoreDeliveryServiceabilityClient(slug, ac.signal).then((svc) => {
+        if (cancelled) return;
+        setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc));
+      });
+    };
+    run();
+    const onAddressesUpdated = () => run();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => {
+      cancelled = true;
+      ac?.abort();
+      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    };
+  }, [store?.slug, storeSlug, fulfillment, lines.length, selectedAddressId, deliveryUserAddressIdForSubmit]);
+
+  useEffect(() => {
     if (!addressBookHydrated) return;
     setSelectedAddressId((sel) => {
       const defaultSel = resolveCartDefaultDeliverySelectionId(savedAddresses, profileSnap);
@@ -1139,8 +1170,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const ownerOrderBlocked = store?.can_order_store === false;
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
+  const distanceOrderBlocked = fulfillment === "local_delivery" && distanceOutOfRange;
   const checkoutBlocked =
-    ownerOrderBlocked || (frontCommerce != null && !frontCommerce.isOpenForCommerce);
+    ownerOrderBlocked ||
+    distanceOrderBlocked ||
+    (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
   const navigateToStoreMenu = useCallback(async () => {
     const slugFromStore = store?.slug?.trim();
@@ -1231,6 +1265,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (busy || orderSubmitFlightRef.current) return;
     if (ownerOrderBlocked) {
       setErr(ownerOrderBlockedMessage);
+      return;
+    }
+    if (distanceOrderBlocked) {
+      setErr(t("store_err_delivery_out_of_range"));
       return;
     }
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
@@ -2067,7 +2105,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {t("store_delivery_courier_line", { label: commerce.deliveryCourierLabel.trim() })}
           </p>
         ) : null}
-        {checkoutBlocked && frontCommerce ? (
+        {distanceOrderBlocked ? (
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
+            {t("store_err_delivery_out_of_range")}
+          </p>
+        ) : null}
+        {checkoutBlocked && frontCommerce && !distanceOrderBlocked ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {frontCommerce.inBreak
               ? t("store_menu_blocked_break", { range: frontCommerce.breakRangeLabel })

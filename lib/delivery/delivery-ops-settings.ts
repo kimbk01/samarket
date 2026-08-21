@@ -18,6 +18,14 @@ export type DeliveryDistancePolicy = {
   enabled: boolean;
   source: DeliveryDistanceSource;
   defaultMaxKm: number | null;
+  /**
+   * OUT-OF-RANGE PRODUCT POLICY LOCK (DIBAY — not legacy):
+   * POLICY B = DEPRIORITIZE
+   * - Discovery (home/browse/search/category): eligible first; OOR sinks to bottom + badge
+   * - Detail / cart / checkout / order: same evaluateDeliveryServiceability → block if ineligible
+   * POLICY A (hide from list) is NOT the locked product contract.
+   * Admin copy: admin_delivery_distance_over_policy
+   */
   overDistanceBehavior: "deprioritize";
 };
 
@@ -41,8 +49,11 @@ export const DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES: DeliveryStoreDistanceOve
   stores: {},
 };
 
-/** 운영 적용 전까지 배달 browse 거리 정책은 항상 OFF. 저장된 세부 설정은 보존한다. */
-export const DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED = false;
+/**
+ * When true, `admin_settings.delivery_distance_policy.enabled` is honored at runtime
+ * (browse sort/badge + checkout server gate). Serviceability uses haversine only — never Google.
+ */
+export const DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED = true;
 
 export function normalizeDeliveryRideTimeSource(raw: unknown): DeliveryRideTimeSource {
   const s = String(raw ?? "").trim().toLowerCase();

@@ -67,6 +67,11 @@ type ApplyBody = {
   categorySubSlug?: string;
   /** DB에 taxonomy 행이 없을 때 표시용 (클라 병합 목록 기준) */
   categoryLabelLine?: string;
+  /** Optional store pin — address identity requires finite lat+lng together */
+  lat?: number | null;
+  lng?: number | null;
+  placeId?: string | null;
+  formattedAddress?: string | null;
 };
 
 /** 매장 등록 신청 (1건 제한: 진행중·승인 매장이 있으면 409) */
@@ -217,6 +222,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  /**
+   * STORE LOCATION CONTRACT:
+   * Member master is gate/evidence only (`application_address_book`) — NEVER seeds stores.lat/lng.
+   * Do not write address identity (region/city/street) without finite lat/lng in the same insert
+   * (FIRST BREAK: text-only store rows → Admin "좌표 없음").
+   * Physical store location is set after approval via owner basic-info / shop address sync.
+   */
+  const placeLat =
+    body.lat != null && Number.isFinite(Number(body.lat)) ? Number(body.lat) : null;
+  const placeLng =
+    body.lng != null && Number.isFinite(Number(body.lng)) ? Number(body.lng) : null;
+  const placeId = String(body.placeId ?? "").trim() || null;
+  const formattedAddress = String(body.formattedAddress ?? "").trim() || null;
+
   const regionRaw = String(body.region ?? "").trim();
   const cityRaw = String(body.city ?? "").trim();
   const streetRaw = String(body.addressStreetLine ?? body.addressLabel ?? "").trim();
@@ -229,6 +248,11 @@ export async function POST(req: NextRequest) {
   });
   const street = normAddr.address1;
   const detail = normAddr.address2;
+  const hasAddressIdentity = !!(street || formattedAddress || placeId);
+  const hasCoords = placeLat != null && placeLng != null;
+  if (hasAddressIdentity && !hasCoords) {
+    return NextResponse.json({ ok: false, error: "store_location_coords_required" }, { status: 400 });
+  }
 
   let applicationAddressBook: ReturnType<typeof formatAddressBookCardPresentation> = null;
   try {
@@ -255,15 +279,24 @@ export async function POST(req: NextRequest) {
     description,
     kakao_id: kakaoId,
     phone: phoneNorm.value,
-    region: normAddr.region,
-    city: normAddr.city,
-    /** 피드·정렬 보조 — 주소 한 줄과 동기 */
-    district: street,
-    address_line1: street,
-    address_line2: detail,
     approval_status: "pending",
     is_visible: false,
   };
+
+  if (hasCoords) {
+    insertPayload = {
+      ...insertPayload,
+      region: normAddr.region,
+      city: normAddr.city,
+      district: street,
+      address_line1: street,
+      address_line2: detail,
+      lat: placeLat,
+      lng: placeLng,
+      ...(placeId ? { place_id: placeId } : {}),
+      ...(formattedAddress ? { formatted_address: formattedAddress } : {}),
+    };
+  }
 
   const postInsertSelect =
     "id, owner_user_id, store_name, slug, business_type, description, kakao_id, phone, region, city, district, address_line1, address_line2, approval_status, rejected_reason, created_at, updated_at, approved_at, profile_image_url";

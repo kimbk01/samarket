@@ -25,6 +25,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   cartLineKindCount,
   minOrderPhp,
   closedDetail,
+  distanceOutOfRange,
 }: {
   storeId: string;
   slug: string;
@@ -36,6 +37,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   cartLineKindCount: number;
   minOrderPhp: number | null;
   closedDetail?: string | null;
+  distanceOutOfRange?: boolean;
 }) {
   const sheetOpen = useStoreProductSheetUIStore(selectStoreProductSheetIsOpen);
 
@@ -56,6 +58,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
       cartLineKindCount={cartLineKindCount}
       minOrderPhp={minOrderPhp}
       closedDetail={closedDetail}
+      distanceOutOfRange={distanceOutOfRange}
       onCartPreviewOpen={() => openStoreCartPreview({ storeId, storeSlug: slug })}
     />
   );
@@ -69,6 +72,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   fulfillmentMode,
   minOrderPhp,
   closedDetail,
+  distanceOutOfRange = false,
   children,
 }: {
   storeId: string;
@@ -78,6 +82,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   fulfillmentMode: StorePublicFulfillmentMode;
   minOrderPhp: number | null;
   closedDetail?: string | null;
+  distanceOutOfRange?: boolean;
   children: React.ReactNode;
 }) {
   const { subtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
@@ -105,6 +110,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
         cartLineKindCount={itemCount}
         minOrderPhp={minOrderPhp}
         closedDetail={closedDetail}
+        distanceOutOfRange={distanceOutOfRange}
       />
     </div>
   );

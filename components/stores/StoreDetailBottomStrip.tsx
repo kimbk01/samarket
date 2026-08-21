@@ -41,6 +41,7 @@ export function StoreDetailBottomStrip({
   cartLineKindCount,
   minOrderPhp,
   closedDetail,
+  distanceOutOfRange = false,
   onCartPreviewOpen,
 }: {
   slug: string;
@@ -52,18 +53,24 @@ export function StoreDetailBottomStrip({
   cartLineKindCount: number;
   minOrderPhp: number | null;
   closedDetail?: string | null;
+  /** Policy ON + current address out of store range — block checkout CTA */
+  distanceOutOfRange?: boolean;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
 
+  const deliveryBlockedByDistance =
+    distanceOutOfRange && fulfillmentMode === "local_delivery";
+
   const modeLabel = useMemo(() => {
     if (fulfillmentMode === "local_delivery") {
+      if (deliveryBlockedByDistance) return t("store_delivery_distance_out_of_range");
       return deliveryAvailable
         ? t("store_bottom_fulfillment_delivery")
         : t("store_delivery_no_short");
     }
     return t("store_bottom_fulfillment_pickup");
-  }, [deliveryAvailable, fulfillmentMode, t]);
+  }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t]);
 
   const statusText = useMemo(() => {
     if (!isOpen) {
@@ -72,11 +79,14 @@ export function StoreDetailBottomStrip({
         ? t("store_bottom_status_break", { detail })
         : t("store_bottom_status_closed");
     }
+    if (deliveryBlockedByDistance) {
+      return t("store_err_delivery_out_of_range");
+    }
     if (deliveryAvailable && fulfillmentMode === "local_delivery") {
       return t("store_bottom_status_delivery_open");
     }
     return t("store_bottom_status_pickup_open");
-  }, [closedDetail, deliveryAvailable, fulfillmentMode, isOpen, t]);
+  }, [closedDetail, deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, isOpen, t]);
 
   const minNeed =
     fulfillmentMode === "local_delivery" &&
@@ -117,6 +127,10 @@ export function StoreDetailBottomStrip({
                 <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
                   {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
                 </p>
+              ) : deliveryBlockedByDistance ? (
+                <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
+                  {t("store_err_delivery_out_of_range")}
+                </p>
               ) : (
                 <p className={STORE_COMMERCE_ACTION_HINT_OK_CLASS}>
                   {deliveryAvailable && fulfillmentMode === "local_delivery"
@@ -140,21 +154,38 @@ export function StoreDetailBottomStrip({
           )}
         </div>
         {active ? (
-          <Link
-            href={cartHref}
-            onClick={onCheckoutNavigate}
-            className={storeCommerceActionSideCtaClass(false)}
-            aria-label={t("store_go_checkout_aria")}
-          >
-            {cartQtyTotal > 0 ? (
-              <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
-                {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
+          deliveryBlockedByDistance ? (
+            <span
+              className={storeCommerceActionSideCtaClass(true)}
+              aria-disabled="true"
+              aria-label={t("store_err_delivery_out_of_range")}
+            >
+              {cartQtyTotal > 0 ? (
+                <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
+                  {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
+                </span>
+              ) : null}
+              <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+                {t("store_bottom_checkout_btn")}
               </span>
-            ) : null}
-            <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-              {t("store_bottom_checkout_btn")}
             </span>
-          </Link>
+          ) : (
+            <Link
+              href={cartHref}
+              onClick={onCheckoutNavigate}
+              className={storeCommerceActionSideCtaClass(false)}
+              aria-label={t("store_go_checkout_aria")}
+            >
+              {cartQtyTotal > 0 ? (
+                <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
+                  {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
+                </span>
+              ) : null}
+              <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
+                {t("store_bottom_checkout_btn")}
+              </span>
+            </Link>
+          )
         ) : (
           <button
             type="button"

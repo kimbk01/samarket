@@ -346,6 +346,7 @@ export function AdminDeliveryDistanceSettingsPage() {
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_store")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_location")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_coords")}</th>
+                <th className="px-2 py-2">{t("admin_delivery_distance_th_effective")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_mode")}</th>
                 <th className="px-2 py-2">{t("admin_delivery_distance_th_max")}</th>
               </tr>
@@ -353,13 +354,13 @@ export function AdminDeliveryDistanceSettingsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
                     {t("common_loading")}
                   </td>
                 </tr>
               ) : filteredStores.length === 0 ? (
                 <tr>
-                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={5}>
+                  <td className="px-2 py-6 text-center text-sam-muted" colSpan={6}>
                     {t("admin_delivery_distance_store_empty")}
                   </td>
                 </tr>
@@ -368,6 +369,17 @@ export function AdminDeliveryDistanceSettingsPage() {
                   const override = overridesDraft.stores[store.id] ?? { mode: "inherit" as const, maxKm: null };
                   const loc = [store.region, store.city, store.district].filter(Boolean).join(" · ");
                   const hasCoords = store.lat != null && store.lng != null;
+                  const globalOn = policyDraft.enabled;
+                  const effectiveSource =
+                    !globalOn || override.mode === "disabled"
+                      ? "off"
+                      : override.mode === "enabled"
+                        ? "store"
+                        : "global";
+                  const effectiveMax =
+                    override.mode === "disabled"
+                      ? null
+                      : override.maxKm ?? policyDraft.defaultMaxKm;
                   return (
                     <tr key={store.id} className="border-b border-sam-border-soft align-top">
                       <td className="px-2 py-2">
@@ -377,12 +389,41 @@ export function AdminDeliveryDistanceSettingsPage() {
                       <td className="px-2 py-2 text-sam-muted">{loc || t("admin_delivery_distance_unknown")}</td>
                       <td className="px-2 py-2">
                         {hasCoords ? (
-                          <span className="text-sam-muted">
-                            {Number(store.lat).toFixed(4)}, {Number(store.lng).toFixed(4)}
-                          </span>
+                          <div>
+                            <span className="text-sam-muted">
+                              {Number(store.lat).toFixed(4)}, {Number(store.lng).toFixed(4)}
+                            </span>
+                            <div className="mt-1 sam-text-helper text-green-700">
+                              {t("admin_delivery_distance_ready")}
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-red-700">{t("admin_delivery_distance_coords_missing")}</span>
+                          <div>
+                            <span className="text-red-700">{t("admin_delivery_distance_coords_missing")}</span>
+                            <p className="mt-1 max-w-xs sam-text-helper text-sam-muted">
+                              {t("admin_delivery_distance_coords_missing_hint")}
+                            </p>
+                            {globalOn ? (
+                              <div className="mt-1 sam-text-helper text-red-700">
+                                {t("admin_delivery_distance_not_ready")}
+                              </div>
+                            ) : null}
+                          </div>
                         )}
+                      </td>
+                      <td className="px-2 py-2 text-sam-muted">
+                        {effectiveSource === "off"
+                          ? t("admin_delivery_distance_policy_source_off")
+                          : effectiveSource === "store"
+                            ? t("admin_delivery_distance_policy_source_store")
+                            : t("admin_delivery_distance_policy_source_global")}
+                        {effectiveSource !== "off" ? (
+                          <div className="sam-text-helper">
+                            {effectiveMax == null
+                              ? t("admin_delivery_distance_no_limit")
+                              : `${effectiveMax} km`}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-2 py-2">
                         <select

@@ -30,6 +30,8 @@ export function buildStoreHomeFeedCacheKey(input: {
   originKey?: string | null;
   deliveryRideTimeSource?: "store" | "google";
   uiLang?: string;
+  /** serviceability policy segment — must bust cache when Admin toggles range */
+  distancePolicyKey?: string;
 }): string {
   return [
     input.region ?? "",
@@ -40,6 +42,7 @@ export function buildStoreHomeFeedCacheKey(input: {
     normalizeCoordForCache(input.userLng),
     input.deliveryRideTimeSource ?? "store",
     input.uiLang ?? "",
+    input.distancePolicyKey ?? "off",
   ].join("|");
 }
 

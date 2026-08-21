@@ -39,6 +39,9 @@ import {
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
+import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
+import { evaluateDeliveryServiceability } from "@/lib/delivery/evaluate-delivery-serviceability";
+import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
 import {
   getUserAddressDefaults,
   markUserAddressUsed,
@@ -406,11 +409,63 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  let serviceabilitySnapshot: {
+    checkout_store_latitude: number | null;
+    checkout_store_longitude: number | null;
+    checkout_serviceability_eligible: boolean;
+    checkout_serviceability_max_km: number | null;
+    checkout_serviceability_reason: string;
+  } | null = null;
+
+  if (fulfillment === "local_delivery") {
+    const distanceSettings = await loadDeliveryDistanceSettings(sb);
+    const policy = {
+      ...distanceSettings.policy,
+      enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
+    };
+    const svc = evaluateDeliveryServiceability({
+      policy,
+      overrides: distanceSettings.overrides,
+      storeId,
+      customerLat: deliveryAddressSnapshot?.latitude,
+      customerLng: deliveryAddressSnapshot?.longitude,
+      storeLat,
+      storeLng,
+    });
+    serviceabilitySnapshot = {
+      checkout_store_latitude: storeLat,
+      checkout_store_longitude: storeLng,
+      checkout_serviceability_eligible: svc.eligible,
+      checkout_serviceability_max_km: svc.maxKm,
+      checkout_serviceability_reason: svc.reason,
+    };
+    if (!svc.eligible) {
+      const error =
+        svc.reason === "missing_customer_coords"
+          ? "delivery_customer_coords_required"
+          : svc.reason === "missing_store_coords"
+            ? "delivery_store_coords_required"
+            : "delivery_out_of_range";
+      return NextResponse.json(
+        {
+          ok: false,
+          error,
+          distance_km: svc.distanceKm,
+          max_km: svc.maxKm,
+          reason: svc.reason,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const etaSnapshot = await computeStoreOrderCheckoutEtaSnapshot({
     sb,
     buyerUserId: buyerId,
     fulfillment,
     deliveryUserAddressId,
+    deliverySnapshotLat: deliveryAddressSnapshot?.latitude ?? null,
+    deliverySnapshotLng: deliveryAddressSnapshot?.longitude ?? null,
     storeLat,
     storeLng,
     business_hours_json: store.business_hours_json,
@@ -497,6 +552,20 @@ export async function POST(req: NextRequest) {
       },
       idempotent: true,
     });
+  }
+
+  if (serviceabilitySnapshot && STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
+    const { error: snapErr } = await sb
+      .from("store_orders")
+      .update(serviceabilitySnapshot)
+      .eq("id", orderId);
+    if (snapErr) {
+      console.error("[POST /api/me/store-orders] serviceability snapshot", snapErr.message);
+    }
+  } else if (serviceabilitySnapshot && !STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY) {
+    console.info(
+      "[POST /api/me/store-orders] serviceability snapshot skipped — STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY=false (apply migration 20261120140000 first)"
+    );
   }
 
   if (deliveryUserAddressId) {
