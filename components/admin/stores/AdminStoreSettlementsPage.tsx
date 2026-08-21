@@ -88,9 +88,16 @@ function netAmount(r: Row): number {
   return Number(r.net_settlement_amount ?? r.settlement_amount) || 0;
 }
 
+/** % fee + fixed only — delivery/reversal are separate ledger columns. */
 function platformFeeSum(r: Row): number {
-  if (r.platform_commission_revenue != null) return Number(r.platform_commission_revenue) || 0;
   return (Number(r.platform_fee_amount ?? 0) || 0) + (Number(r.fixed_fee_amount ?? 0) || 0);
+}
+
+function fmtAppliedRate(r: Row): string {
+  const pct = Number(r.platform_fee_percent);
+  const fixed = Math.round(Number(r.fixed_fee_amount ?? 0) || 0);
+  if (!Number.isFinite(pct)) return fixed > 0 ? `— + ${fixed} PHP` : "—";
+  return `${pct}% + ${fixed} PHP`;
 }
 
 function allowedModes(row: Row): Record<OpsMode, boolean> {
@@ -403,13 +410,22 @@ export function AdminStoreSettlementsPage() {
   const renderAmountBreakdown = (row: Row) => (
     <>
       {t("admin_stores_settlements_th_gross")} {formatMoneyPhp(Number(row.gross_amount) || 0)} ·{" "}
-      {t("admin_stores_settlements_th_platform_fee")} {formatMoneyPhp(platformFeeSum(row))} ·{" "}
+      {t("admin_stores_settlements_th_rate")}: {fmtAppliedRate(row)} ·{" "}
+      {t("admin_stores_settlements_th_platform_fee")} {formatMoneyPhp(platformFeeSum(row))}
+      <span className="text-sam-muted">
+        {" "}
+        (% {formatMoneyPhp(Number(row.platform_fee_amount ?? 0) || 0)} +{" "}
+        {t("admin_stores_settlements_th_fixed")}{" "}
+        {formatMoneyPhp(Number(row.fixed_fee_amount ?? 0) || 0)})
+      </span>
+      {" · "}
       {t("admin_stores_settlements_th_delivery")}{" "}
       {formatMoneyPhp(Number(row.delivery_income_amount ?? 0) || 0)} · {t("admin_stores_settlements_th_refund")}{" "}
       {formatMoneyPhp(Number(row.refund_amount ?? 0) || 0)}
       <div className="mt-1 font-medium text-sam-fg">
         {t("admin_stores_settlements_detail_net_label", { amount: formatMoneyPhp(netAmount(row)) })}
       </div>
+      <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_stores_settlements_snapshot_note")}</p>
     </>
   );
 
@@ -568,6 +584,7 @@ export function AdminStoreSettlementsPage() {
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_customer")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_vendor")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_gross")}</th>
+                <th className="px-2 py-2">{t("admin_stores_settlements_th_rate")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_platform_fee")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_delivery")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_refund")}</th>
@@ -607,7 +624,14 @@ export function AdminStoreSettlementsPage() {
                       </div>
                     </td>
                     <td className="px-2 py-2">{formatMoneyPhp(Number(r.gross_amount) || 0)}</td>
-                    <td className="px-2 py-2">{formatMoneyPhp(platformFeeSum(r))}</td>
+                    <td className="px-2 py-2 tabular-nums sam-text-xxs">{fmtAppliedRate(r)}</td>
+                    <td className="px-2 py-2">
+                      <span className="tabular-nums">{formatMoneyPhp(platformFeeSum(r))}</span>
+                      <span className="mt-0.5 block sam-text-xxs text-sam-muted">
+                        % {formatMoneyPhp(Number(r.platform_fee_amount ?? 0) || 0)} +{" "}
+                        {formatMoneyPhp(Number(r.fixed_fee_amount ?? 0) || 0)}
+                      </span>
+                    </td>
                     <td className="px-2 py-2">{formatMoneyPhp(Number(r.delivery_income_amount ?? 0) || 0)}</td>
                     <td className="px-2 py-2">{formatMoneyPhp(Number(r.refund_amount ?? 0) || 0)}</td>
                     <td className="px-2 py-2 font-medium">

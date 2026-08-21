@@ -148,7 +148,7 @@ export async function GET() {
     sb
       .from("store_settlements")
       .select(
-        "id, store_id, order_id, gross_amount, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_fee_amount, applied_fee_policy_id, applied_fee_policy_snapshot, settlement_status, created_at"
+        "id, store_id, order_id, gross_amount, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_income_amount, applied_fee_policy_id, applied_fee_policy_snapshot, settlement_status, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(80),
@@ -378,7 +378,7 @@ export async function GET() {
     const rate = Number(s.platform_fee_percent) || 0;
     const fee = Math.round(Number(s.platform_fee_amount) || 0);
     const fixedSettled = Math.round(Number(s.fixed_fee_amount) || 0);
-    const deliveryAmt = Math.round(Number((s as { delivery_fee_amount?: number }).delivery_fee_amount) || 0);
+    const deliveryIncome = Math.round(Number(s.delivery_income_amount) || 0);
     const snap =
       s.applied_fee_policy_snapshot && typeof s.applied_fee_policy_snapshot === "object"
         ? (s.applied_fee_policy_snapshot as Record<string, unknown>)
@@ -390,9 +390,10 @@ export async function GET() {
       snap && typeof snap.delivery_fee_mode === "string" ? snap.delivery_fee_mode : "none";
     const snapDeliveryPct =
       snap && snap.delivery_fee_percent != null ? Number(snap.delivery_fee_percent) : 0;
+    // Rebuild % + fixed from snapshot; delivery income is already ledgered separately.
     const calc = calculateOrderCommission({
       commissionBaseAmount: gross,
-      deliveryFeeAmount: deliveryAmt,
+      deliveryFeeAmount: 0,
       feePercent: snapRate != null && Number.isFinite(snapRate) ? snapRate : rate,
       fixedFee: snapFixed,
       deliveryFeeMode: snapDeliveryMode,
@@ -409,19 +410,23 @@ export async function GET() {
       store_id: String(s.store_id ?? ""),
       store_name: st ? String(st.store_name ?? "") : String(s.store_id ?? "").slice(0, 8),
       gross_amount: gross,
-      policy_fee_percent: snapRate,
+      policy_fee_percent: snapRate != null && Number.isFinite(snapRate) ? snapRate : rate,
+      policy_fixed_fee: snapFixed,
       settlement_fee_percent: rate,
+      settlement_fixed_fee: fixedSettled,
+      settlement_delivery_income: deliveryIncome,
       calculated_fee_amount: calculatedTotal,
       settlement_fee_amount: settlementTotal,
       matched:
-        settlementTotal === calculatedTotal && (snapRate == null || snapRate === rate),
+        settlementTotal === calculatedTotal &&
+        (snapRate == null || !Number.isFinite(snapRate) || snapRate === rate) &&
+        snapFixed === fixedSettled,
       settlement_status: s.settlement_status,
       created_at: s.created_at,
       applied_fee_policy_id: s.applied_fee_policy_id ?? null,
     };
   });
 
-  const storesTotal = stores.length || 1;
   const appliedBusiness = countCategory + countTopic;
   const mismatchCount = verification.filter((v) => !v.matched).length;
 
@@ -438,9 +443,6 @@ export async function GET() {
       reserved_future: scheduled.length,
       inactive_policies: policies.filter((r) => !r.is_active && !r.is_archived).length,
       verification_mismatch: mismatchCount,
-      pct_business: Math.round((appliedBusiness / storesTotal) * 1000) / 10,
-      pct_store: Math.round((countStore / storesTotal) * 1000) / 10,
-      pct_default: Math.round((countDefault / storesTotal) * 1000) / 10,
     },
     platform_default: platform
       ? {

@@ -43,6 +43,7 @@ export type OwnerStoreSettlementsMeta = {
   refund_requested_count?: number;
   pending_delivery_count?: number;
   settlement_fee_percent?: number;
+  settlement_fixed_fee?: number;
   settlement_fee_scope?: string;
   settlement_fee_policy_name?: string;
   settlement_delay_days?: number;

@@ -88,7 +88,7 @@ function SettlementRowCard({
       </p>
       <p className="mt-0.5 sam-text-xxs text-sam-meta">
         {t("store_owner_settlement_rate_line", {
-          rate: String(Number(row.platform_fee_percent ?? 0) || 0),
+          rate: `${Number(row.platform_fee_percent ?? 0) || 0}% + ${Math.round(Number(row.fixed_fee_amount ?? 0) || 0)} PHP`,
           base: formatMoneyPhp(Number(row.commission_base_amount ?? row.gross_amount) || 0),
           revenue: formatMoneyPhp(Number(row.platform_commission_revenue ?? 0) || 0),
           reversal: formatMoneyPhp(Number(row.commission_reversal_amount ?? 0) || 0),
@@ -258,11 +258,12 @@ export function OwnerStoreSettlementsView() {
             ) : null}
             {meta.settlement_fee_percent != null ? (
               <li>
-                {t("store_owner_settlement_fee_percent", {
-                  percent: String(meta.settlement_fee_percent),
+                {t("store_owner_settlement_fee_rate", {
+                  rate: `${meta.settlement_fee_percent}% + ${Math.round(Number(meta.settlement_fixed_fee) || 0)} PHP`,
                 })}
               </li>
             ) : null}
+            <li>{t("store_owner_settlement_fee_current_hint")}</li>
             {meta.settlement_fee_scope ? (
               <li>
                 {t("store_owner_settlement_fee_source", {

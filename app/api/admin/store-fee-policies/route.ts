@@ -86,7 +86,8 @@ function windowOverlaps(aStart: string | null, aEnd: string | null, bStart: stri
   const aE = aEnd ? new Date(aEnd).getTime() : Number.POSITIVE_INFINITY;
   const bS = bStart ? new Date(bStart).getTime() : Number.NEGATIVE_INFINITY;
   const bE = bEnd ? new Date(bEnd).getTime() : Number.POSITIVE_INFINITY;
-  return aS <= bE && bS <= aE;
+  // Half-open [start, end) — matches resolver ends_at.gt / starts_at.lte.
+  return aS < bE && bS < aE;
 }
 
 type FeeScope = "store" | "topic" | "category" | "default";

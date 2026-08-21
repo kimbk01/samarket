@@ -90,6 +90,7 @@ export async function GET(req: Request) {
     meta = {
       store_name: nameByStore[filterStoreId] ?? "",
       settlement_fee_percent: effective.feePercent,
+      settlement_fixed_fee: effective.fixedFee,
       settlement_fee_scope: effective.scope,
       settlement_fee_policy_name: effective.policyName,
       settlement_delay_days: commerce.settlementDelayDays,
