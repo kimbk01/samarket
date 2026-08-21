@@ -193,9 +193,9 @@ export function AdminBusinessOpsFilterBar({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {kpi ? (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
           {KPI_DEFS.map((def) => {
             const active = activeKpi(def);
             const n = def.value(kpi);
@@ -244,17 +244,17 @@ export function AdminBusinessOpsFilterBar({
         </div>
       ) : null}
 
-      <div className="rounded-ui-rect border border-sam-border bg-white p-3 shadow-sm sm:p-4">
+      <div className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-white p-3 shadow-sm sm:p-4">
         <input
           value={filters.q}
           onChange={(e) => onChange({ ...filters, q: e.target.value })}
           placeholder={t("admin_biz_ops_search_ph")}
-          className="h-10 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-body text-sam-fg outline-none focus:border-signature"
+          className="h-10 w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-body text-sam-fg outline-none focus:border-signature"
         />
 
         {/* Mockup: one horizontal filter strip; tablet/narrow → overflow-x scroll (no vertical stack). */}
-        <div className="mt-3 flex items-center gap-2">
-          <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+        <div className="mt-3 flex w-full min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] touch-pan-x">
             <div className="flex w-max flex-nowrap items-center gap-2 pb-0.5">
               <select
                 className={selectClass}
@@ -291,7 +291,9 @@ export function AdminBusinessOpsFilterBar({
               >
                 {ADMIN_STORE_STATUS_FILTER.map((f) => (
                   <option key={f.value} value={f.value}>
-                    {t(f.labelKey)}
+                    {f.value === "all"
+                      ? `${t("admin_biz_ops_filter_approval")}: ${t("admin_biz_ops_filter_all")}`
+                      : t(f.labelKey)}
                   </option>
                 ))}
               </select>

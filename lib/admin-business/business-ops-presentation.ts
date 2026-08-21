@@ -130,6 +130,53 @@ export function formatRegionLine(input: {
   return parts.join(" · ") || "";
 }
 
+/** List row only — city (fallback region). Never dump street/district/full address. */
+export function formatOpsListCityLine(input: {
+  city?: string | null;
+  region?: string | null;
+}): string {
+  const city = typeof input.city === "string" ? input.city.trim() : "";
+  if (city) return city;
+  const region = typeof input.region === "string" ? input.region.trim() : "";
+  return region;
+}
+
+/** Detail identity — full human location (structured + formatted, de-duplicated). */
+export function formatOpsDetailAddressLine(input: {
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  detail_address?: string | null;
+  formatted_address?: string | null;
+}): string {
+  const structured = [
+    input.region,
+    input.city,
+    input.district,
+    input.address_line1,
+    input.address_line2,
+    input.detail_address,
+  ]
+    .map((p) => (typeof p === "string" ? p.trim() : ""))
+    .filter(Boolean);
+  const unique: string[] = [];
+  for (const part of structured) {
+    if (unique.some((u) => u === part || u.includes(part) || part.includes(u))) continue;
+    unique.push(part);
+  }
+  const joined = unique.join(" · ");
+  const formatted =
+    typeof input.formatted_address === "string" ? input.formatted_address.trim() : "";
+  if (!formatted) return joined;
+  if (!joined) return formatted;
+  if (formatted === joined || formatted.includes(joined) || joined.includes(formatted)) {
+    return formatted.length >= joined.length ? formatted : joined;
+  }
+  return `${joined} · ${formatted}`;
+}
+
 export function taxonomyName(
   rel:
     | { name?: string | null; name_en?: string | null }

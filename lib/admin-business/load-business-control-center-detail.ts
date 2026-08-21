@@ -18,7 +18,7 @@ import {
   presentStoreOpenKind,
   resolveBusinessOpsOwnerIdentity,
   taxonomyName,
-  formatRegionLine,
+  formatOpsDetailAddressLine,
   type BusinessOpsOpenKind,
   type BusinessOpsSettlementKind,
 } from "@/lib/admin-business/business-ops-presentation";
@@ -502,10 +502,15 @@ export async function loadBusinessControlCenterDetail(
     categoryName: taxonomyName(
       row.store_categories as { name?: string | null } | { name?: string | null }[] | null
     ),
-    regionLine: formatRegionLine({
+    regionLine: formatOpsDetailAddressLine({
       region: typeof row.region === "string" ? row.region : null,
       city: typeof row.city === "string" ? row.city : null,
       district: typeof row.district === "string" ? row.district : null,
+      address_line1: typeof row.address_line1 === "string" ? row.address_line1 : null,
+      address_line2: typeof row.address_line2 === "string" ? row.address_line2 : null,
+      detail_address: typeof row.detail_address === "string" ? row.detail_address : null,
+      formatted_address:
+        typeof row.formatted_address === "string" ? row.formatted_address : null,
     }),
     ratingAvg: asFiniteNumber(row.rating_avg),
     reviewCountFromStore: Math.max(0, Math.floor(Number(row.review_count) || reviewCount)),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { forwardRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   businessOpsOpenLabelKey,
@@ -73,36 +74,46 @@ function StoreCell({ r }: { r: AdminBusinessListOpsRow }) {
   const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
   const meta = [r.categoryName, r.regionLine].filter(Boolean).join(" · ");
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex w-[240px] max-w-[240px] items-center gap-2.5">
       <StoreThumb url={r.profileImageUrl} />
-      <div className="min-w-0">
-        <Link href={detailHref} className="font-semibold text-sam-fg hover:text-signature">
+      <div className="min-w-0 flex-1">
+        <Link
+          href={detailHref}
+          className="block truncate font-semibold text-sam-fg hover:text-signature"
+        >
           {r.storeName.trim() || t("admin_stores_no_store_name")}
         </Link>
-        {meta ? <div className="sam-text-helper text-sam-muted truncate">{meta}</div> : null}
+        {meta ? (
+          <div className="sam-text-helper truncate text-sam-muted">{meta}</div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export function AdminBusinessTable({
-  rows,
-  viewMode,
-}: {
-  rows: AdminBusinessListOpsRow[];
-  viewMode: "list" | "grid";
-}) {
+const TH =
+  "whitespace-nowrap px-3 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-sam-muted";
+const TD = "align-top whitespace-nowrap px-3 py-3";
+
+export const AdminBusinessTable = forwardRef<
+  HTMLDivElement,
+  {
+    rows: AdminBusinessListOpsRow[];
+    viewMode: "list" | "grid";
+    onHorizontalScroll?: () => void;
+  }
+>(function AdminBusinessTable({ rows, viewMode, onHorizontalScroll }, ref) {
   const { t, language } = useI18n();
 
   if (viewMode === "grid") {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => {
           const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
           return (
             <div
               key={r.id}
-              className="rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm"
+              className="min-w-0 rounded-ui-rect border border-sam-border bg-white p-4 shadow-sm"
             >
               <StoreCell r={r} />
               <div className="mt-3 flex flex-wrap gap-1.5">
@@ -120,18 +131,18 @@ export function AdminBusinessTable({
                 ) : null}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sam-text-helper">
-                <div>
+                <div className="min-w-0">
                   <div className="text-sam-muted">{t("admin_biz_ops_th_today")}</div>
-                  <div className="font-medium tabular-nums">
+                  <div className="truncate font-medium tabular-nums">
                     {t("admin_biz_ops_today_n", { n: String(r.todayOrderCount) })}
                     {r.todaySalesAmount > 0 ? (
                       <span className="text-sam-muted"> · {formatMoneyPhp(r.todaySalesAmount)}</span>
                     ) : null}
                   </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-sam-muted">{t("admin_biz_ops_th_credit")}</div>
-                  <div className="font-medium tabular-nums">
+                  <div className="truncate font-medium tabular-nums">
                     {r.pointBalance == null
                       ? "—"
                       : t("admin_biz_ops_credit_n", { n: r.pointBalance.toLocaleString() })}
@@ -154,30 +165,26 @@ export function AdminBusinessTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-white shadow-sm">
-      <table className="w-full min-w-[1280px] border-collapse sam-text-body">
+    <div
+      ref={ref}
+      onScroll={onHorizontalScroll}
+      className="w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain rounded-ui-rect border border-sam-border bg-white shadow-sm [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] touch-pan-x"
+    >
+      {/* w-max: never compress columns on resize — parent scrolls horizontally instead */}
+      <table className="w-max min-w-[1320px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-slate-50">
-            {[
-              "admin_biz_ops_th_store",
-              "admin_biz_ops_th_owner",
-              "admin_biz_ops_th_open",
-              "admin_biz_ops_th_order_delivery",
-              "admin_biz_ops_th_today",
-              "admin_biz_ops_th_credit",
-              "admin_biz_ops_th_settle",
-              "admin_biz_ops_th_rating",
-              "admin_biz_ops_th_reports",
-              "admin_biz_ops_th_last_order",
-              "admin_biz_ops_th_manage",
-            ].map((k) => (
-              <th
-                key={k}
-                className="px-3 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-sam-muted"
-              >
-                {t(k as "admin_biz_ops_th_store")}
-              </th>
-            ))}
+            <th className={TH}>{t("admin_biz_ops_th_store")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_owner")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_open")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_order_delivery")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_today")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_credit")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_settle")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_rating")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_reports")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_last_order")}</th>
+            <th className={TH}>{t("admin_biz_ops_th_manage")}</th>
           </tr>
         </thead>
         <tbody>
@@ -185,14 +192,14 @@ export function AdminBusinessTable({
             const detailHref = `/admin/business/${encodeURIComponent(r.id)}`;
             return (
               <tr key={r.id} className="border-b border-sam-border-soft hover:bg-slate-50/80">
-                <td className="px-3 py-3">
+                <td className={TD}>
                   <StoreCell r={r} />
                 </td>
-                <td className="px-3 py-3">
+                <td className={TD}>
                   {r.owner.ok ? (
                     <Link
                       href={businessCcOwnerMemberHref(r.owner.ownerUserId)}
-                      className="font-medium text-sam-fg hover:text-signature"
+                      className="inline-block max-w-[180px] truncate font-medium text-sam-fg hover:text-signature"
                     >
                       {r.owner.label}
                     </Link>
@@ -200,7 +207,7 @@ export function AdminBusinessTable({
                     <span className="text-amber-800">{t("admin_biz_ops_owner_missing")}</span>
                   )}
                 </td>
-                <td className="px-3 py-3">
+                <td className={TD}>
                   <div className="space-y-1">
                     <span
                       className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${openBadgeClass(
@@ -214,36 +221,38 @@ export function AdminBusinessTable({
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-3 text-[12px] leading-5">
-                  <div className="font-medium text-sky-700">
-                    {t("admin_biz_ops_in_progress_n", { n: String(r.inProgressOrderCount) })}
-                    {" / "}
-                    <span className="text-emerald-700">
-                      {t("admin_biz_ops_delivering_n", { n: String(r.deliveringOrderCount) })}
-                    </span>
-                  </div>
-                  <div className={r.orderable ? "text-emerald-700" : "text-red-600"}>
-                    {r.orderable
-                      ? t("admin_biz_ops_orderable_yes")
-                      : t("admin_biz_ops_orderable_no")}
-                  </div>
-                  <div
-                    className={
-                      r.deliveryAvailable === true
-                        ? "text-emerald-700"
+                <td className={TD}>
+                  <div className="text-[12px] leading-5">
+                    <div className="font-medium text-sky-700">
+                      {t("admin_biz_ops_in_progress_n", { n: String(r.inProgressOrderCount) })}
+                      {" / "}
+                      <span className="text-emerald-700">
+                        {t("admin_biz_ops_delivering_n", { n: String(r.deliveringOrderCount) })}
+                      </span>
+                    </div>
+                    <div className={r.orderable ? "text-emerald-700" : "text-red-600"}>
+                      {r.orderable
+                        ? t("admin_biz_ops_orderable_yes")
+                        : t("admin_biz_ops_orderable_no")}
+                    </div>
+                    <div
+                      className={
+                        r.deliveryAvailable === true
+                          ? "text-emerald-700"
+                          : r.deliveryAvailable === false
+                            ? "text-red-600"
+                            : "text-sam-muted"
+                      }
+                    >
+                      {r.deliveryAvailable === true
+                        ? t("admin_biz_ops_delivery_yes")
                         : r.deliveryAvailable === false
-                          ? "text-red-600"
-                          : "text-sam-muted"
-                    }
-                  >
-                    {r.deliveryAvailable === true
-                      ? t("admin_biz_ops_delivery_yes")
-                      : r.deliveryAvailable === false
-                        ? t("admin_biz_ops_delivery_no")
-                        : "—"}
+                          ? t("admin_biz_ops_delivery_no")
+                          : "—"}
+                    </div>
                   </div>
                 </td>
-                <td className="px-3 py-3 tabular-nums">
+                <td className={`${TD} tabular-nums`}>
                   <div className="font-semibold">
                     {t("admin_biz_ops_today_n", { n: String(r.todayOrderCount) })}
                   </div>
@@ -251,12 +260,12 @@ export function AdminBusinessTable({
                     {r.todaySalesAmount > 0 ? formatMoneyPhp(r.todaySalesAmount) : "—"}
                   </div>
                 </td>
-                <td className="px-3 py-3 font-semibold tabular-nums">
+                <td className={`${TD} font-semibold tabular-nums`}>
                   {r.pointBalance == null
                     ? "—"
                     : t("admin_biz_ops_credit_n", { n: r.pointBalance.toLocaleString() })}
                 </td>
-                <td className="px-3 py-3">
+                <td className={TD}>
                   <span
                     className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${settleBadgeClass(
                       r.settlementKind
@@ -265,22 +274,22 @@ export function AdminBusinessTable({
                     {t(businessOpsSettlementLabelKey(r.settlementKind))}
                   </span>
                 </td>
-                <td className="px-3 py-3 tabular-nums">
+                <td className={`${TD} tabular-nums`}>
                   {r.ratingAvg == null
                     ? "—"
                     : `★ ${r.ratingAvg.toFixed(1)} (${r.reviewCount})`}
                 </td>
                 <td
-                  className={`px-3 py-3 tabular-nums font-semibold ${
+                  className={`${TD} tabular-nums font-semibold ${
                     r.openReportCount > 0 ? "text-red-600" : "text-sam-muted"
                   }`}
                 >
                   {r.openReportCount}
                 </td>
-                <td className="px-3 py-3 whitespace-nowrap text-[12px] text-sam-muted">
+                <td className={`${TD} text-[12px] text-sam-muted`}>
                   {formatRelative(r.lastOrderAt, language)}
                 </td>
-                <td className="px-3 py-3">
+                <td className={TD}>
                   <Link
                     href={detailHref}
                     className="inline-flex rounded-ui-rect border border-signature bg-signature px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90"
@@ -295,4 +304,4 @@ export function AdminBusinessTable({
       </table>
     </div>
   );
-}
+});

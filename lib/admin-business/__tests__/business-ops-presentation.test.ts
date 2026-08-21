@@ -3,6 +3,8 @@ import {
   presentSettlementKind,
   presentStoreOpenKind,
   resolveBusinessOpsOwnerIdentity,
+  formatOpsListCityLine,
+  formatOpsDetailAddressLine,
 } from "@/lib/admin-business/business-ops-presentation";
 
 describe("business-ops-presentation", () => {
@@ -33,5 +35,34 @@ describe("business-ops-presentation", () => {
   it("maps temp close from is_open false", () => {
     const { kind } = presentStoreOpenKind(null, false);
     expect(kind).toBe("temp_closed");
+  });
+
+  it("list location uses city only", () => {
+    expect(
+      formatOpsListCityLine({
+        region: "Metro Manila",
+        city: "Quezon City",
+      })
+    ).toBe("Quezon City");
+    expect(
+      formatOpsListCityLine({
+        region: "Metro Manila",
+        city: null,
+      })
+    ).toBe("Metro Manila");
+  });
+
+  it("detail location includes full address parts", () => {
+    expect(
+      formatOpsDetailAddressLine({
+        region: "Metro Manila",
+        city: "Quezon City",
+        district: "Payatas",
+        address_line1: "LOWER GROUND",
+        address_line2: null,
+        detail_address: null,
+        formatted_address: null,
+      })
+    ).toBe("Metro Manila · Quezon City · Payatas · LOWER GROUND");
   });
 });

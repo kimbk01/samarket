@@ -7,7 +7,7 @@ import {
   BUSINESS_OPS_DELIVERING_ORDER_STATUSES,
   BUSINESS_OPS_IN_PROGRESS_ORDER_STATUSES,
   BUSINESS_OPS_PENDING_APPROVAL,
-  formatRegionLine,
+  formatOpsListCityLine,
   hoursLabelFromBusinessHoursJson,
   presentSettlementKind,
   presentStoreOpenKind,
@@ -41,6 +41,7 @@ export type AdminBusinessListOpsRow = {
   storeName: string;
   profileImageUrl: string | null;
   categoryName: string;
+  /** List: city only (see formatOpsListCityLine). Detail uses full address line. */
   regionLine: string;
   approvalStatus: string;
   hoursLabel: string | null;
@@ -585,10 +586,9 @@ export async function loadAdminBusinessListOps(
           | { name?: string | null }[]
           | null
       ),
-      regionLine: formatRegionLine({
-        region: typeof full.region === "string" ? full.region : lightRow.region,
+      regionLine: formatOpsListCityLine({
         city: typeof full.city === "string" ? full.city : lightRow.city,
-        district: typeof full.district === "string" ? full.district : null,
+        region: typeof full.region === "string" ? full.region : lightRow.region,
       }),
       approvalStatus: String(full.approval_status ?? lightRow.approval_status ?? ""),
       hoursLabel: hoursLabelFromBusinessHoursJson(hoursJson),

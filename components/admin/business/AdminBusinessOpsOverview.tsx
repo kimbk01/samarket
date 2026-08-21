@@ -141,7 +141,9 @@ export function AdminBusinessOpsIdentityHeader({
             <h2 className="text-xl font-bold tracking-tight text-sam-fg">
               {(store.store_name ?? "").trim() || t("admin_stores_no_store_name")}
             </h2>
-            {meta ? <p className="sam-text-body text-sam-muted">{meta}</p> : null}
+            {meta ? (
+              <p className="sam-text-body break-words text-sam-muted">{meta}</p>
+            ) : null}
             <p className="sam-text-body text-sam-fg">
               {owner.identityOk !== false && owner.displayLabel ? (
                 <Link
