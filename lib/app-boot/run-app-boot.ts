@@ -97,9 +97,29 @@ async function deferBootGuestForRecovery(
   markSessionRecoveringFromClient(`app_boot:${reason}`);
   setAppBootHydrating();
   if (profileStatus !== undefined && applyBootProfileEvidence(profileStatus, profileJson, user ?? null)) {
-    /* profile cache primed while Supabase user catches up */
+    /* profile evidence already emitted ready — recovery may still prime Supabase */
   }
-  void runRecoverableGuestRecovery(`app_boot:${reason}`);
+  const recovered = await runRecoverableGuestRecovery(`app_boot:${reason}`).catch(() => false);
+  if (startEpoch !== bootEpoch) return true;
+  /**
+   * CUT-A — recovery must not leave boot in permanent `hydrating`.
+   * Profile evidence already ready → keep. Else terminal anonymous so delivery
+   * feed gate can leave pending blank (address CTA + root feed allowed).
+   */
+  if (!isAppBootReady()) {
+    if (recovered) {
+      const retry = await resolveBootProfileMinimal().catch(() => ({ status: 401, json: null }));
+      if (startEpoch !== bootEpoch) return true;
+      if (applyBootProfileEvidence(retry.status, retry.json, null)) {
+        markBootMetricsApiDone();
+        recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+        return true;
+      }
+    }
+    establishGuestAuthState("app_boot_terminal_guest_after_recovery");
+    markSessionTerminalGuestFromClient("app_boot_recovery_unresolved");
+    setAppBootAnonymous();
+  }
   markBootMetricsApiDone();
   recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
   return true;
@@ -218,7 +238,16 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
     const handled = await resolveBootWhenGetUserEmpty(sb, startEpoch, t0, status, json, userError);
     if (handled) return;
     user = (await dedupeSupabaseAuthGetUser(sb)).data.user;
-    if (!user?.id) return;
+    if (!user?.id) {
+      /** CUT-A — never leave `hydrating` without ready|anonymous */
+      if (startEpoch !== bootEpoch) return;
+      establishGuestAuthState("app_boot_terminal_guest_confirmed");
+      markSessionTerminalGuestFromClient("app_boot_get_user_empty_after_retry");
+      setAppBootAnonymous();
+      markBootMetricsApiDone();
+      recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+      return;
+    }
   }
 
   if (isStale()) return;
@@ -241,7 +270,30 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
     } else {
+      /**
+       * CUT-A — profile 401 + non-terminal recovery must not park forever in hydrating.
+       * Await one recovery; if still not ready, terminal anonymous (cookie/API may still
+       * serve public home-feed; address CTA remains for location).
+       */
       setAppBootHydrating();
+      const recovered = await runRecoverableGuestRecovery("app_boot_profile_401").catch(() => false);
+      if (startEpoch !== bootEpoch) return;
+      if (recovered) {
+        const retry = await fetchAppBootProfileMinimal();
+        if (startEpoch !== bootEpoch) return;
+        status = retry.status;
+        json = retry.json;
+        if (applyBootProfileEvidence(status, json, user)) {
+          markBootMetricsApiDone();
+          recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+          return;
+        }
+      }
+      if (!isAppBootReady()) {
+        establishGuestAuthState("app_boot_terminal_guest_profile_401");
+        markSessionTerminalGuestFromClient("app_boot_profile_401_unresolved");
+        setAppBootAnonymous();
+      }
       markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;

@@ -51,6 +51,11 @@ function regionFromBootProfile(): UserRegion | null {
 /**
  * Prefer boot profile when ready; allow sync `primaryRegion` before boot so cold
  * does not sit on blank while region is already known from local/mock.
+ *
+ * Delivery feed readiness ≠ delivery address readiness:
+ * - Boot ready + no region → root feed (`""`) — address CTA may still show in header.
+ * - Boot not ready + no primaryRegion → not ready (pending). Boot must not stay
+ *   hydrating forever (CUT-A / ensureAppBoot exit paths).
  */
 export function resolveStoresHomeFeedQueryGate(primaryRegion: UserRegion | null): StoresHomeFeedQueryGate {
   if (isAppBootReady()) {
@@ -65,7 +70,7 @@ export function resolveStoresHomeFeedQueryGate(primaryRegion: UserRegion | null)
     if (primaryRegion) {
       return { ready: true, querySuffix: storeHomeFeedRegionOnlySuffix(primaryRegion) };
     }
-    /** Authenticated, no location anywhere — root feed once. */
+    /** Authenticated, no location anywhere — root feed once (address CTA separate). */
     return { ready: true, querySuffix: "" };
   }
 

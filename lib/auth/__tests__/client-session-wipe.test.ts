@@ -9,6 +9,10 @@ vi.mock("@/components/app/AppBootProvider", () => ({
   invalidateAppBootForAuthUpgrade: vi.fn(),
 }));
 
+vi.mock("@/lib/app-boot/run-app-boot", () => ({
+  ensureAppBoot: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
     removeAllChannels: vi.fn().mockResolvedValue(undefined),

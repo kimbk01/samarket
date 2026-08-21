@@ -8,6 +8,18 @@ const establishGuestAuthState = vi.fn();
 const establishRecoverableGuestAuthState = vi.fn();
 const awaitClientSupabaseSessionReady = vi.fn();
 
+const { bootReadyFlag, setAppBootAnonymous, setAppBootHydrating, setAppBootProfile } = vi.hoisted(() => {
+  const bootReadyFlag = { value: false };
+  return {
+    bootReadyFlag,
+    setAppBootAnonymous: vi.fn(),
+    setAppBootHydrating: vi.fn(),
+    setAppBootProfile: vi.fn(() => {
+      bootReadyFlag.value = true;
+    }),
+  };
+});
+
 vi.mock("@/lib/auth/dedupe-supabase-get-user-client", () => ({
   dedupeSupabaseAuthGetUser: (...args: unknown[]) => dedupeSupabaseAuthGetUser(...args),
 }));
@@ -44,10 +56,10 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 vi.mock("@/lib/app-boot/app-boot-store", () => ({
-  isAppBootReady: () => false,
-  setAppBootAnonymous: vi.fn(),
-  setAppBootHydrating: vi.fn(),
-  setAppBootProfile: vi.fn(),
+  isAppBootReady: () => bootReadyFlag.value,
+  setAppBootAnonymous,
+  setAppBootHydrating,
+  setAppBootProfile,
 }));
 
 vi.mock("@/lib/profile/fetch-me-profile-deduped", () => ({
@@ -61,6 +73,10 @@ vi.mock("@/hooks/use-client-membership-state", () => ({
 describe("run-app-boot recoverable guest", () => {
   beforeEach(() => {
     vi.resetModules();
+    bootReadyFlag.value = false;
+    setAppBootAnonymous.mockClear();
+    setAppBootHydrating.mockClear();
+    setAppBootProfile.mockClear();
     dedupeSupabaseAuthGetUser.mockReset();
     fetchAppBootProfileMinimal.mockReset();
     fetchAuthSessionNoStore.mockReset();

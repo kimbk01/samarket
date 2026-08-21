@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
@@ -50,6 +50,7 @@ import {
   STORES_HOME_BELOW_FOLD_ROOT_MARGIN,
   STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
 } from "@/lib/stores/stores-home-lcp-policy";
+import { getAppBootSnapshot, subscribeAppBoot } from "@/lib/app-boot/app-boot-store";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -65,6 +66,11 @@ export function StoresHomeHub({
   recentOrder: RecentOrderPreview | null;
 }) {
   const { t, language } = useI18n();
+  const bootStatus = useSyncExternalStore(
+    subscribeAppBoot,
+    () => getAppBootSnapshot().status,
+    () => getAppBootSnapshot().status
+  );
 
   /** SSR·hydration 동일 초기값 — `window`/`liveStore` 는 layout effect 에서만 주입 */
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
@@ -297,6 +303,7 @@ export function StoresHomeHub({
       data-stores-perf="shell"
       data-stores-home-feed-ready={feedReady ? "1" : "0"}
       data-stores-home-query-suffix={querySuffix || ""}
+      data-app-boot-status={bootStatus}
     >
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />

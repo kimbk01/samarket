@@ -1,6 +1,6 @@
 "use client";
 
-import { setAppBootAnonymous, setAppBootLoading } from "@/lib/app-boot/app-boot-store";
+import { setAppBootAnonymous } from "@/lib/app-boot/app-boot-store";
 import { bindAuthUserId } from "@/lib/auth/client-instance-id";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
@@ -47,8 +47,13 @@ export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
   logGuestAuthBootMarker("cookie_sync_after_login_done", { user_id: profile.id });
   bindAuthUserId(profile.id);
   setSupabaseProfileCache(profile);
-  setAppBootLoading();
+  /**
+   * CUT-A — do not park boot in `hydrating` via setAppBootLoading().
+   * Re-enter ensureAppBoot so lite profile → ready|anonymous completes.
+   */
   dispatchTestAuthChanged();
+  const { ensureAppBoot } = await import("@/lib/app-boot/run-app-boot");
+  void ensureAppBoot();
   return true;
 }
 

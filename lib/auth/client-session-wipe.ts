@@ -186,12 +186,19 @@ function shouldClearBrowserCacheStorage(reason: ClientSessionWipeReason): boolea
   return reason === "user_logout" || reason === "account_switched";
 }
 
-/** cold boot·세션 없음 INITIAL_SESSION — storage/realtime wipe 없이 auth·boot 캐시만 정리 */
+/** cold boot·세션 없음 — storage/realtime wipe 없이 auth·boot 캐시만 정리 */
 export function syncSignedOutClientCaches(): void {
   if (typeof window === "undefined") return;
   resetAuthClientCaches();
   resetSignupGateSessionFlags();
   dispatchTestAuthChanged();
+  /**
+   * CUT-A — invalidateAppBootAll leaves status=idle and aborts in-flight boot.
+   * Re-arm ensureAppBoot so delivery feed gate can reach ready|anonymous.
+   */
+  void import("@/lib/app-boot/run-app-boot").then(({ ensureAppBoot }) => {
+    void ensureAppBoot();
+  });
 }
 
 /** performClientLogout 직후 SIGNED_OUT 이벤트 중복 full wipe 방지 */

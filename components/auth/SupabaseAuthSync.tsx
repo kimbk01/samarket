@@ -17,7 +17,7 @@ import {
 } from "@/lib/auth/client-session-wipe";
 import { isExplicitLogoutIntentActive } from "@/lib/auth/explicit-logout-intent";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
-import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import { getAppBootSnapshot, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
@@ -25,6 +25,7 @@ import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instan
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
+import { isTerminalGuestAuthEstablished } from "@/lib/auth/guest-auth-state";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
@@ -41,6 +42,14 @@ function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
     if (!user) {
       if (shouldClearProfileCacheOnGetUserFailure(user, error)) {
         lastKnownAuthUserId = null;
+        /**
+         * CUT-A — boot already anonymous/terminal guest: wipe+re-ensure loops
+         * (ready → syncSignedOut → idle → ensure → ready → …).
+         */
+        const bootStatus = getAppBootSnapshot().status;
+        if (bootStatus === "anonymous" || isTerminalGuestAuthEstablished()) {
+          return;
+        }
         syncSignedOutClientCaches();
       }
       return;
@@ -126,10 +135,15 @@ export function SupabaseAuthSync() {
           logGuestAuthBootMarker("initial_session_empty_recovering", {
             hadLastKnownUserId: !!lastKnownAuthUserId,
           });
+          /**
+           * CUT-A — marker `initial_session_empty_no_wipe` must mean no boot wipe.
+           * Previous `syncSignedOutClientCaches()` → invalidateAppBootAll() aborted
+           * in-flight ensureAppBoot (epoch bump + idle) and left /stores feedReady=0 forever.
+           * Recoverable guest is already set by dibay-session-manager; AppBoot owns terminal anonymous.
+           */
           logGuestAuthBootMarker("initial_session_empty_no_wipe", {
             hadLastKnownUserId: !!lastKnownAuthUserId,
           });
-          syncSignedOutClientCaches();
         } else {
           if (lastKnownAuthUserId && lastKnownAuthUserId === session.user.id) {
             logGuestAuthBootMarker("initial_session_recovered_authenticated", {

@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const setAppBootAnonymous = vi.fn();
-const setAppBootLoading = vi.fn();
 const setSupabaseProfileCache = vi.fn();
 const bindAuthUserId = vi.fn();
 const dispatchTestAuthChanged = vi.fn();
+const ensureAppBoot = vi.fn(async () => undefined);
 
 vi.mock("@/lib/app-boot/app-boot-store", () => ({
   setAppBootAnonymous,
-  setAppBootLoading,
+}));
+
+vi.mock("@/lib/app-boot/run-app-boot", () => ({
+  ensureAppBoot,
 }));
 
 vi.mock("@/lib/auth/client-instance-id", async (importOriginal) => {
@@ -90,7 +93,7 @@ describe("auth-session-immediate.client", () => {
     expect(ok).toBe(true);
     expect(bindAuthUserId).toHaveBeenCalledWith("user-1");
     expect(setSupabaseProfileCache).toHaveBeenCalled();
-    expect(setAppBootLoading).toHaveBeenCalled();
+    expect(ensureAppBoot).toHaveBeenCalled();
     expect(dispatchTestAuthChanged).toHaveBeenCalled();
 
     applyImmediateLogoutClientState();

@@ -28,6 +28,16 @@ describe("cross-platform auth lifecycle SSOT contract", () => {
     expect(sync).toContain("signed_out_unexpected_no_wipe");
   });
 
+  it("SupabaseAuthSync INITIAL_SESSION empty does not wipe boot (CUT-A)", () => {
+    const sync = read("components/auth/SupabaseAuthSync.tsx");
+    expect(sync).toContain("initial_session_empty_no_wipe");
+    const initialBlock = sync.slice(
+      sync.indexOf('if (event === "INITIAL_SESSION")'),
+      sync.indexOf('if (event === "SIGNED_IN"'),
+    );
+    expect(initialBlock).not.toContain("syncSignedOutClientCaches()");
+  });
+
   it("AuthSessionBoundary holds login exit while recovering", () => {
     const boundary = read("components/auth/AuthSessionBoundary.tsx");
     expect(boundary).toContain("isRecoveringPhase");

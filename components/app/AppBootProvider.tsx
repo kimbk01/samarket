@@ -58,6 +58,16 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
     clearChunkReloadSessionFlag();
     setAppBootShell();
     markBootMetricsReactMounted();
+    if (typeof window !== "undefined") {
+      (
+        window as Window & {
+          __dibayAppBootProbe?: () => ReturnType<typeof getAppBootSnapshot> & { ready: boolean };
+        }
+      ).__dibayAppBootProbe = () => {
+        const snap = getAppBootSnapshot();
+        return { ...snap, ready: snap.status === "ready" || snap.status === "anonymous" };
+      };
+    }
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
