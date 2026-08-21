@@ -18,6 +18,7 @@ import {
   type AdminCreateMemberFieldErrors,
   type AdminCreateMemberFormField,
 } from "@/lib/admin-users/admin-create-member-fields";
+import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
   formatPhMobileDisplayPlus63,
   normalizePhMobileDb,
@@ -101,15 +102,26 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
   const resolvedAuthEmailPreview = useMemo(() => {
     const custom = email.trim().toLowerCase();
-    if (!custom) return { kind: "need_email" as const, value: null as string | null };
+    const loginId = username.trim().toLowerCase();
+    if (!custom) {
+      if (loginId.length >= 2) {
+        return { kind: "manual" as const, value: buildManualMemberAuthEmail(loginId) };
+      }
+      return { kind: "need_email" as const, value: null as string | null };
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custom)) return { kind: "invalid_custom" as const, value: custom };
     return { kind: "explicit" as const, value: custom };
-  }, [email]);
+  }, [email, username]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    setAddressAttempted(true);
+    const addressTouched =
+      addressAttempted ||
+      Boolean(address.unitFloorRoom.trim()) ||
+      Boolean(address.placeId.trim()) ||
+      Boolean(address.formattedAddress.trim());
+    if (addressTouched) setAddressAttempted(true);
 
     const validation = validateAdminCreateMemberForm(
       {
@@ -122,7 +134,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         accountType,
         address,
       },
-      { addressAttempted: true, phoneRuleKey: "phone_rule" }
+      { addressAttempted: addressTouched, phoneRuleKey: "phone_rule" }
     );
 
     if (Object.keys(validation).length > 0) {
@@ -224,7 +236,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         const em =
           typeof data.user?.email === "string" && data.user.email.trim()
             ? data.user.email.trim()
-            : email.trim();
+            : resolvedAuthEmailPreview.value || email.trim();
         setCreatedLoginEmail(em);
       } else {
         const mapped = mapAdminCreateMemberApiField(data.field);
@@ -352,7 +364,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             </div>
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                {t("admin_users_label_email")}
+                {t("admin_users_label_email")}{" "}
+                <span className="font-normal text-sam-meta">{t("admin_users_optional_paren")}</span>
               </label>
               <input
                 type="email"

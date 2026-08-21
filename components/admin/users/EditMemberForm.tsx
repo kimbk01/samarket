@@ -45,6 +45,8 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const [phone, setPhone] = useState(user.phone ?? "");
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
   const [phoneStatus, setPhoneStatus] = useState(() => inferPhoneValue(user));
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -85,6 +87,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       dibayId?: string;
       email?: string;
       phone?: string;
+      password?: string;
     } = {};
     if (nextNickname !== user.nickname) body.nickname = nextNickname;
     const nextDibayId = dibayId.trim().replace(/^@+/, "").toLowerCase();
@@ -99,6 +102,18 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     const effectiveMember = memberLocked ? user.memberType : memberType;
     if (effectiveMember !== user.memberType) body.memberType = effectiveMember;
     if (phoneStatus !== inferPhoneValue(user)) body.phoneVerificationStatus = phoneStatus;
+
+    if (newPassword || confirmPassword) {
+      if (newPassword.length < 4) {
+        setError(t("admin_users_err_password_min"));
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError(t("admin_users_err_password_mismatch"));
+        return;
+      }
+      body.password = newPassword;
+    }
 
     if (Object.keys(body).length === 0) {
       setError(t("admin_users_err_no_changes"));
@@ -247,6 +262,39 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
                 </span>
               </>
             ) : null}
+          </label>
+
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password")}</span>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={4}
+              maxLength={128}
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+              placeholder={t("admin_users_ph_password_min")}
+            />
+            <span className="mt-1 block sam-text-xxs text-sam-muted">
+              {t("admin_users_auth_password_hint")}
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password_confirm")}</span>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              minLength={4}
+              maxLength={128}
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+              placeholder={t("admin_users_ph_password_min")}
+            />
           </label>
 
           <label className="block">

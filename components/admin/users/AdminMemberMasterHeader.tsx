@@ -98,7 +98,8 @@ export function AdminMemberMasterHeader({
 }) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
-  const { isSuperAdmin } = useAdminMe();
+  const { isSuperAdmin, hasPermission } = useAdminMe();
+  const canManageMember = isSuperAdmin || hasPermission("users");
   const locale = language === "en" ? "en-US" : "ko-KR";
   const empty = t("admin_users_empty_placeholder");
   const display = displayNameForDetailUser(user);
@@ -198,6 +199,69 @@ export function AdminMemberMasterHeader({
     }
   }, [display, safeT, t, user.id]);
 
+  const runPurge = useCallback(async () => {
+    const confirmName = (user.nickname ?? "").trim() || display;
+    const reason = await dibayPrompt({
+      title: safeT("admin_users_delete_reason_prompt", {
+        fallbackKo: "삭제 사유를 입력해 주세요.",
+        fallbackEn: "Enter a reason for deletion.",
+      }),
+      required: true,
+    });
+    if (!reason?.trim()) return;
+    const typed = await dibayPrompt({
+      title: safeT("admin_users_purge_confirm_nickname_prompt", {
+        fallbackKo: `영구 삭제 확인: 「${confirmName}」을 입력해 주세요.`,
+        fallbackEn: `Permanent delete: type「${confirmName}」.`,
+      }),
+      required: true,
+    });
+    if (!typed?.trim() || typed.trim() !== confirmName) return;
+    if (
+      !(await dibayConfirm({
+        title: safeT("admin_users_purge_confirm", {
+          fallbackKo: "Auth·프로필을 영구 삭제합니다. 되돌릴 수 없습니다. 계속할까요?",
+          fallbackEn: "Permanently delete Auth + profile. This cannot be undone. Continue?",
+        }),
+        confirmTone: "destructive",
+      }))
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/delete`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "purge",
+          reason: reason.trim(),
+          confirmNickname: typed.trim(),
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        blockers?: string[];
+      };
+      if (!res.ok || !data.ok) {
+        const blockerText =
+          Array.isArray(data.blockers) && data.blockers.length > 0
+            ? `\n${data.blockers.join(", ")}`
+            : "";
+        await dibayAlert({
+          title: `${data.message ?? data.error ?? t("admin_users_action_failed")}${blockerText}`,
+        });
+        return;
+      }
+      window.location.href = "/admin/users";
+    } finally {
+      setBusy(false);
+    }
+  }, [display, safeT, t, user.id, user.nickname]);
+
   return (
     <div className="rounded-lg border border-[#e4e7ec] bg-white px-4 py-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -263,6 +327,19 @@ export function AdminMemberMasterHeader({
           <button type="button" className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY} onClick={() => setShowEdit(true)}>
             {t("admin_users_lite_action_edit_info")}
           </button>
+          {canManageMember ? (
+            <button
+              type="button"
+              className="rounded-md border border-[#fecdca] bg-[#fef3f2] px-3 py-1.5 text-[13px] font-semibold text-[#b42318] hover:bg-[#fee4e2]"
+              disabled={busy}
+              onClick={() => void runPurge()}
+            >
+              {safeT("admin_users_purge_account", {
+                fallbackKo: "영구 삭제",
+                fallbackEn: "Permanent delete",
+              })}
+            </button>
+          ) : null}
           <div className="relative">
             <button
               type="button"
@@ -291,8 +368,23 @@ export function AdminMemberMasterHeader({
                   className="block w-full px-3 py-1.5 text-left text-[#b42318] hover:bg-[#fef3f2]"
                   onClick={() => void runWithdraw()}
                 >
-                  {t("admin_users_lite_delete_account")}
+                  {safeT("admin_users_lite_withdraw_account", {
+                    fallbackKo: "탈퇴 처리(익명화)",
+                    fallbackEn: "Withdraw (anonymize)",
+                  })}
                 </button>
+                {canManageMember ? (
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left font-semibold text-[#b42318] hover:bg-[#fef3f2]"
+                    onClick={() => void runPurge()}
+                  >
+                    {safeT("admin_users_purge_account", {
+                      fallbackKo: "영구 삭제",
+                      fallbackEn: "Permanent delete",
+                    })}
+                  </button>
+                ) : null}
                 {isAdmin && isSuperAdmin && onEditPermissions ? (
                   <button
                     type="button"

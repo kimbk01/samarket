@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 /**
  * Auth admin + profile auth fields. Server-only service role.
  * DO NOT: email existence → verified; provider from email domain.
+ * DO NOT: return plaintext password (Auth stores hashes only).
  */
 export async function GET(
   _req: Request,
@@ -72,4 +73,58 @@ export async function GET(
         }
       : null,
   });
+}
+
+/**
+ * Admin password set/reset for a member Auth user.
+ * Plaintext password is never readable; only replacement is supported.
+ */
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const gate = await requireAdminPermission("users");
+  if (!gate.ok) return gate.response;
+
+  const { id } = await params;
+  const userId = id?.trim() ?? "";
+  if (!userId || !isAdminMemberUuidSearch(userId)) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+  }
+
+  let body: { password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const password = String(body.password ?? "");
+  if (!password || password.length < 4) {
+    return NextResponse.json(
+      { ok: false, error: "password_min", errorKey: "admin_users_err_password_min" },
+      { status: 400 }
+    );
+  }
+  if (password.length > 128) {
+    return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
+  }
+
+  const { data: authData, error: loadErr } = await gate.sb.auth.admin.getUserById(userId);
+  if (loadErr || !authData?.user) {
+    return NextResponse.json(
+      { ok: false, error: "auth_user_not_found", message: loadErr?.message ?? "Auth user not found" },
+      { status: 404 }
+    );
+  }
+
+  const { error: updateErr } = await gate.sb.auth.admin.updateUserById(userId, { password });
+  if (updateErr) {
+    return NextResponse.json(
+      { ok: false, error: "password_update_failed", message: updateErr.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }

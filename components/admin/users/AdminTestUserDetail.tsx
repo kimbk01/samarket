@@ -627,7 +627,10 @@ export function AdminMemberDetail({
                 disabled
               />
               <ActionButton
-                label={t("admin_users_lite_delete_account")}
+                label={safeT("admin_users_lite_withdraw_account", {
+                  fallbackKo: "탈퇴 처리(익명화)",
+                  fallbackEn: "Withdraw (anonymize)",
+                })}
                 icon={<Trash2 className="h-4 w-4" />}
                 tone="danger"
                 disabled={deleting}

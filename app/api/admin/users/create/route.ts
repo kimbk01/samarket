@@ -17,6 +17,7 @@ import {
 import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,7 +163,8 @@ export async function POST(req: NextRequest) {
   if (!name || name.length > 50) {
     return jsonFieldError("name", "admin_users_err_name_length", 400);
   }
-  if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+  /** 이메일을 비우면 수동 회원 규칙 `loginId@manual.local`. */
+  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     return jsonFieldError("email", "admin_users_err_email_invalid", 400);
   }
   if (!["development_member", "operations_member"].includes(accountTypeRaw)) {
@@ -179,7 +181,7 @@ export async function POST(req: NextRequest) {
 
   const contactPhone = phNorm.value;
   const phoneFields = profilePhoneStorageFieldsFromDb09(contactPhone);
-  const email = emailRaw;
+  const email = emailRaw || buildManualMemberAuthEmail(username);
   const nowIso = new Date().toISOString();
 
   let regionId = regionIdLegacy;

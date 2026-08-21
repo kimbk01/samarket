@@ -51,7 +51,8 @@ export function validateAdminCreateMemberForm(
     errors.name = "admin_users_err_name_length";
   }
   const em = input.email.trim();
-  if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+  /** 빈 이메일 = 서버/클라가 `loginId@manual.local` 로 보정. 값이 있을 때만 형식 검사. */
+  if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
     errors.email = "admin_users_err_email_invalid";
   }
   if (input.contactPhoneDigits.trim()) {
@@ -87,17 +88,25 @@ export function mapAdminCreateMemberApiField(
 ): AdminCreateMemberFormField | null {
   switch (field) {
     case "username":
+      return "username";
     case "password":
+      return "password";
     case "nickname":
+      return "nickname";
     case "name":
+      return "name";
     case "email":
+      return "email";
     case "contactPhone":
+      return "contactPhone";
     case "address":
       return "addressSearch";
     case "addressDetail":
       return "addressDetail";
     case "accountType":
       return "accountType";
+    case "form":
+      return "form";
     default:
       return null;
   }

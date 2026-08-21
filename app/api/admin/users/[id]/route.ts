@@ -639,7 +639,7 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireAdminPermission("users_edit_membership");
+  const gate = await requireAdminPermission("users");
   if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
@@ -655,6 +655,7 @@ export async function PATCH(
     dibayId?: string;
     phone?: string;
     email?: string;
+    password?: string;
   };
   try {
     body = await req.json();
@@ -680,8 +681,22 @@ export async function PATCH(
     nicknameRaw !== undefined && nicknameRaw !== null && String(nicknameRaw).trim() !== "";
   const hasDibayId = dibayIdRaw !== undefined && dibayIdRaw !== null;
   const hasEmail = emailRaw !== undefined && emailRaw !== null;
-  if (!hasMember && !hasPhone && !hasNickname && !hasDibayId && !hasPhoneNumber && !hasEmail) {
+  const passwordRaw = body.password;
+  const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
+  if (!hasMember && !hasPhone && !hasNickname && !hasDibayId && !hasPhoneNumber && !hasEmail && !hasPassword) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
+  }
+
+  let nextPassword: string | null = null;
+  if (hasPassword) {
+    const pwd = String(passwordRaw);
+    if (pwd.length < 4) {
+      return NextResponse.json({ ok: false, error: "password_min" }, { status: 400 });
+    }
+    if (pwd.length > 128) {
+      return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
+    }
+    nextPassword = pwd;
   }
 
   let requestedMemberType: UsersPatchMemberTypeInput | null = null;
@@ -785,7 +800,8 @@ export async function PATCH(
     nextNickname === null &&
     nextDibayId === undefined &&
     nextPhonePatch === null &&
-    nextEmail === undefined
+    nextEmail === undefined &&
+    nextPassword === null
   ) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
@@ -826,18 +842,46 @@ export async function PATCH(
     patch.auth_login_email = nextEmail;
   }
 
-  if (Object.keys(patch).length === 0) {
-    // Grant/revoke already applied via membership helper with dual-write
-    return NextResponse.json({ ok: true });
-  }
-
-  const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
-  if (updateError) {
-    return NextResponse.json({ ok: false, error: mapProfileUpdateError(updateError.message || "update_failed") }, { status: 500 });
+  if (Object.keys(patch).length > 0) {
+    const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
+    if (updateError) {
+      return NextResponse.json({ ok: false, error: mapProfileUpdateError(updateError.message || "update_failed") }, { status: 500 });
+    }
   }
 
   if (phoneStatus !== null) {
     await syncPhoneVerifiedServerCache(userId);
+  }
+
+  /** profiles 변경과 Auth 로그인 자격(이메일·비번·닉네임)을 함께 맞춤. */
+  const authPatch: {
+    email?: string;
+    password?: string;
+    email_confirm?: boolean;
+    user_metadata?: Record<string, unknown>;
+  } = {};
+  if (nextEmail !== undefined && nextEmail) {
+    authPatch.email = nextEmail;
+    authPatch.email_confirm = true;
+  }
+  if (nextPassword) {
+    authPatch.password = nextPassword;
+  }
+  if (nextNickname !== null) {
+    authPatch.user_metadata = { nickname: nextNickname, full_name: nextNickname };
+  }
+  if (Object.keys(authPatch).length > 0) {
+    const { error: authErr } = await sb.auth.admin.updateUserById(userId, authPatch as never);
+    if (authErr) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "auth_update_failed",
+          message: authErr.message || "Auth update failed after profile save",
+        },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });
