@@ -7,12 +7,14 @@ import type {
   BusinessCcDeliverySnapshot,
   BusinessCcFeeSnapshot,
   BusinessCcKpiSummary,
+  BusinessCcOpsOverview,
   BusinessCcOwner,
   BusinessCcSalesPermission,
   BusinessCcStats,
 } from "@/lib/admin-business/load-business-control-center-detail";
 import type { AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminStoreReviewPanel } from "@/components/admin/stores/AdminStoreReviewPanel";
@@ -21,7 +23,6 @@ import { AdminBusinessLogList } from "./AdminBusinessLogList";
 import {
   AdminBusinessCcDeliveryCard,
   AdminBusinessCcFeeCard,
-  AdminBusinessCcKpiPanel,
   AdminBusinessCcLinks,
   AdminBusinessCcStatusPanel,
   AdminBusinessCcSummary,
@@ -34,6 +35,13 @@ import {
   AdminBusinessCcOpsFlagsEditor,
   AdminBusinessCcTaxonomyEditor,
 } from "./AdminBusinessCcManageEditors";
+import {
+  AdminBusinessOpsIdentityHeader,
+  AdminBusinessOpsOverviewGrid,
+  AdminBusinessOpsQuickActions,
+  AdminBusinessOpsRiskPanel,
+} from "./AdminBusinessOpsOverview";
+import { businessCcPointsHref } from "@/lib/admin-business/business-control-center-links";
 
 const SENSITIVE_ACTIONS = new Set([
   "approve_store",
@@ -53,6 +61,35 @@ const SENSITIVE_ACTIONS = new Set([
   "set_business_hours",
   "set_delivery_flags",
 ]);
+
+type TabId =
+  | "overview"
+  | "basic"
+  | "hours"
+  | "products"
+  | "orders"
+  | "delivery"
+  | "points"
+  | "fee"
+  | "settlement"
+  | "reviews"
+  | "reports"
+  | "history";
+
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "overview", labelKey: "admin_biz_ops_nav_overview" },
+  { id: "basic", labelKey: "admin_biz_ops_nav_basic" },
+  { id: "hours", labelKey: "admin_biz_ops_nav_hours" },
+  { id: "products", labelKey: "admin_biz_ops_nav_products" },
+  { id: "orders", labelKey: "admin_biz_ops_nav_orders" },
+  { id: "delivery", labelKey: "admin_biz_ops_nav_delivery" },
+  { id: "points", labelKey: "admin_biz_ops_nav_points" },
+  { id: "fee", labelKey: "admin_biz_ops_nav_fee" },
+  { id: "settlement", labelKey: "admin_biz_ops_nav_settlement" },
+  { id: "reviews", labelKey: "admin_biz_ops_nav_reviews" },
+  { id: "reports", labelKey: "admin_biz_ops_nav_reports" },
+  { id: "history", labelKey: "admin_biz_ops_nav_history" },
+];
 
 function mapAuditAction(action: string): BusinessProfileLogActionType {
   const a = action.toLowerCase();
@@ -137,17 +174,40 @@ type CcPayload = {
   kpi: BusinessCcKpiSummary;
   fee: BusinessCcFeeSnapshot;
   delivery: BusinessCcDeliverySnapshot;
+  ops: BusinessCcOpsOverview;
   logs: BusinessProfileLog[];
   adminMemo: string;
+};
+
+const emptyOps: BusinessCcOpsOverview = {
+  openKind: "closed",
+  settlementKind: "ok",
+  categoryName: "",
+  regionLine: "",
+  ratingAvg: null,
+  reviewCountFromStore: 0,
+  pointBalance: null,
+  pointCommerceBlocked: false,
+  recentPointCredit: null,
+  recentPointDebit: null,
+  todayOrderCount: 0,
+  todaySalesAmount: 0,
+  productActiveCount: 0,
+  productSoldOutCount: 0,
+  productInactiveCount: 0,
+  reportTotalCount: 0,
+  trend7d: [],
 };
 
 export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPageProps) {
   const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
+  const [tab, setTab] = useState<TabId>("overview");
   const [memoInput, setMemoInput] = useState("");
   const [payload, setPayload] = useState<CcPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
 
   useEffect(() => {
@@ -171,6 +231,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           kpi?: BusinessCcKpiSummary;
           fee?: BusinessCcFeeSnapshot;
           delivery?: BusinessCcDeliverySnapshot;
+          ops?: BusinessCcOpsOverview;
           logs?: Array<{
             id: string;
             actionType: string;
@@ -189,7 +250,11 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             displayLabel: String(j.ownerNickname ?? ""),
             username: null,
             handle: null,
+            identityOk: Boolean(String(j.ownerNickname ?? "").trim()),
           };
+          if (owner.identityOk == null) {
+            owner.identityOk = Boolean(owner.displayLabel.trim());
+          }
           const reviewRow = toReviewRow(j.store, owner);
           const memo =
             typeof j.store.admin_internal_memo === "string"
@@ -263,6 +328,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               storeOverrideMode: null,
               storeOverrideMaxKm: null,
             },
+            ops: j.ops ?? emptyOps,
             logs: (j.logs ?? []).map((log) => ({
               id: log.id,
               businessProfileId: profileId,
@@ -289,7 +355,10 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
 
   const runStoreAction = async (
     action: string,
-    body?: { reason?: string; enabled?: boolean; store_name?: string }
+    body?: { reason?: string; enabled?: boolean; store_name?: string } & Record<
+      string,
+      unknown
+    >
   ): Promise<boolean> => {
     if (SENSITIVE_ACTIONS.has(action)) {
       const ok = await dibayConfirm({
@@ -346,122 +415,243 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     );
   }
 
-  const { store, owner, sales, stats, kpi, fee, delivery, logs } = payload;
+  const { store, owner, sales, stats, kpi, fee, delivery, ops, logs } = payload;
 
   return (
     <div className="space-y-4" key={profileId} data-store-id={profileId}>
       <AdminPageHeader titleKey="admin_biz_page_cc" backHref="/admin/business" />
-      <AdminBusinessCcSummary
+
+      <AdminBusinessOpsIdentityHeader
         store={store}
         owner={owner}
+        ops={ops}
         sales={sales}
-        stats={stats}
-        fee={fee}
         delivery={delivery}
       />
 
-      <AdminCard titleKey="admin_biz_card_kpi">
-        <AdminBusinessCcKpiPanel storeId={store.id} kpi={kpi} />
-      </AdminCard>
+      <nav className="flex flex-wrap gap-1 border-b border-sam-border pb-2">
+        {TABS.map((item) => {
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              className={`rounded px-2.5 py-1.5 sam-text-helper font-medium ${
+                active
+                  ? "bg-signature text-white"
+                  : "text-sam-fg hover:bg-sam-surface-muted"
+              }`}
+            >
+              {t(item.labelKey)}
+            </button>
+          );
+        })}
+      </nav>
 
-      <AdminCard titleKey="admin_biz_card_status">
-        <AdminBusinessCcStatusPanel store={store} sales={sales} delivery={delivery} />
-      </AdminCard>
+      {tab === "overview" ? (
+        <div className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <AdminBusinessOpsOverviewGrid
+              storeId={store.id}
+              storeName={store.store_name}
+              ops={ops}
+              delivery={delivery}
+              kpi={kpi}
+              onGoTab={(id) => setTab(id as TabId)}
+            />
+            <div className="space-y-3">
+              <AdminBusinessOpsQuickActions
+                busy={actionBusy}
+                isOpen={delivery.isOpen}
+                trend={ops.trend7d}
+                onGoHours={() => setTab("hours")}
+                onTempClose={() =>
+                  void runStoreAction("set_delivery_flags", {
+                    is_open: false,
+                    delivery_available: delivery.deliveryAvailable ?? undefined,
+                    pickup_available: delivery.pickupAvailable ?? undefined,
+                  })
+                }
+                onResumeOpen={() =>
+                  void runStoreAction("set_delivery_flags", {
+                    is_open: true,
+                    delivery_available: delivery.deliveryAvailable ?? undefined,
+                    pickup_available: delivery.pickupAvailable ?? undefined,
+                  })
+                }
+                onSalesLimit={() => void runStoreAction("suspend_sales")}
+                pointsHref={businessCcPointsHref(store.store_name || store.slug)}
+              />
+              <AdminBusinessOpsRiskPanel
+                store={store}
+                ops={ops}
+                sales={sales}
+                delivery={delivery}
+                kpi={kpi}
+              />
+            </div>
+          </div>
 
-      <AdminCard titleKey="admin_biz_card_ops">
-        <AdminStoreReviewTheme>
-          <AdminStoreReviewPanel
-            store={store}
-            actionBusy={actionBusy}
-            onRunAction={(action, payloadArgs) => runStoreAction(action, payloadArgs)}
-            onSetOwnerIdentityEditable={(enabled) =>
-              void runStoreAction("set_owner_identity_editable", { enabled })
-            }
-            identityActionBusy={actionBusy}
-          />
-        </AdminStoreReviewTheme>
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_category">
-        <AdminBusinessCcTaxonomyEditor
-          store={store}
-          busy={actionBusy}
-          onSaved={refreshDetail}
-        />
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_contact">
-        <AdminBusinessCcContactEditor
-          store={store}
-          busy={actionBusy}
-          onSaved={refreshDetail}
-        />
-        <AdminBusinessCcLocationEditor
-          store={store}
-          busy={actionBusy}
-          onSaved={refreshDetail}
-        />
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_delivery">
-        <AdminBusinessCcDeliveryCard delivery={delivery} />
-        <AdminBusinessCcOpsFlagsEditor
-          storeId={store.id}
-          deliveryAvailable={delivery.deliveryAvailable}
-          pickupAvailable={delivery.pickupAvailable}
-          isOpen={delivery.isOpen}
-          busy={actionBusy}
-          onSaved={refreshDetail}
-        />
-        <AdminBusinessCcDeliveryOverrideEditor
-          storeId={store.id}
-          currentMode={delivery.storeOverrideMode}
-          currentMaxKm={delivery.storeOverrideMaxKm}
-          onSaved={refreshDetail}
-        />
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_fee">
-        <AdminBusinessCcFeeCard fee={fee} />
-        <AdminBusinessCcFeeOverrideEditor
-          storeId={store.id}
-          fee={fee}
-          onSaved={refreshDetail}
-        />
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_links">
-        <AdminBusinessCcLinks
-          storeId={store.id}
-          ownerUserId={owner.ownerUserId}
-          storeName={store.store_name}
-          slug={store.slug}
-          stats={stats}
-        />
-      </AdminCard>
-
-      <AdminCard titleKey="admin_biz_card_memo">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={memoInput}
-            onChange={(e) => setMemoInput(e.target.value)}
-            placeholder={t("admin_biz_memo_ph")}
-            className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
-          />
-          <button
-            type="button"
-            onClick={() => void handleSaveMemo()}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
+          <details
+            className="rounded-ui-rect border border-sam-border bg-sam-app shadow-sm"
+            open={advancedOpen}
+            onToggle={(e) => setAdvancedOpen((e.target as HTMLDetailsElement).open)}
           >
-            {t("common_save")}
-          </button>
+            <summary className="cursor-pointer px-4 py-3 sam-text-helper font-medium text-sam-muted">
+              {t("admin_biz_ops_advanced")}
+            </summary>
+            <div className="space-y-4 border-t border-sam-border px-4 py-4">
+              <AdminBusinessCcSummary
+                store={store}
+                owner={owner}
+                sales={sales}
+                stats={stats}
+                fee={fee}
+                delivery={delivery}
+              />
+              <AdminBusinessCcStatusPanel store={store} sales={sales} delivery={delivery} />
+            </div>
+          </details>
         </div>
-      </AdminCard>
+      ) : null}
 
-      <AdminCard titleKey="admin_biz_card_history">
-        <AdminBusinessLogList logs={logs} />
-      </AdminCard>
+      {tab === "basic" ? (
+        <div className="space-y-4">
+          <AdminCard titleKey="admin_biz_card_ops">
+            <AdminStoreReviewTheme>
+              <AdminStoreReviewPanel
+                store={store}
+                actionBusy={actionBusy}
+                onRunAction={(action, payloadArgs) => runStoreAction(action, payloadArgs)}
+                onSetOwnerIdentityEditable={(enabled) =>
+                  void runStoreAction("set_owner_identity_editable", { enabled })
+                }
+                identityActionBusy={actionBusy}
+              />
+            </AdminStoreReviewTheme>
+          </AdminCard>
+          <AdminCard titleKey="admin_biz_card_category">
+            <AdminBusinessCcTaxonomyEditor
+              store={store}
+              busy={actionBusy}
+              onSaved={refreshDetail}
+            />
+          </AdminCard>
+          <AdminCard titleKey="admin_biz_card_contact">
+            <AdminBusinessCcContactEditor
+              store={store}
+              busy={actionBusy}
+              onSaved={refreshDetail}
+            />
+            <AdminBusinessCcLocationEditor
+              store={store}
+              busy={actionBusy}
+              onSaved={refreshDetail}
+            />
+          </AdminCard>
+          <AdminCard titleKey="admin_biz_card_memo">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={memoInput}
+                onChange={(e) => setMemoInput(e.target.value)}
+                placeholder={t("admin_biz_memo_ph")}
+                className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSaveMemo()}
+                className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
+              >
+                {t("common_save")}
+              </button>
+            </div>
+          </AdminCard>
+        </div>
+      ) : null}
+
+      {tab === "hours" ? (
+        <AdminCard titleKey="admin_biz_card_delivery">
+          <AdminBusinessCcOpsFlagsEditor
+            storeId={store.id}
+            deliveryAvailable={delivery.deliveryAvailable}
+            pickupAvailable={delivery.pickupAvailable}
+            isOpen={delivery.isOpen}
+            busy={actionBusy}
+            onSaved={refreshDetail}
+          />
+        </AdminCard>
+      ) : null}
+
+      {tab === "delivery" ? (
+        <AdminCard titleKey="admin_biz_card_delivery">
+          <AdminBusinessCcDeliveryCard delivery={delivery} />
+          <AdminBusinessCcOpsFlagsEditor
+            storeId={store.id}
+            deliveryAvailable={delivery.deliveryAvailable}
+            pickupAvailable={delivery.pickupAvailable}
+            isOpen={delivery.isOpen}
+            busy={actionBusy}
+            onSaved={refreshDetail}
+          />
+          <AdminBusinessCcDeliveryOverrideEditor
+            storeId={store.id}
+            currentMode={delivery.storeOverrideMode}
+            currentMaxKm={delivery.storeOverrideMaxKm}
+            onSaved={refreshDetail}
+          />
+        </AdminCard>
+      ) : null}
+
+      {tab === "fee" ? (
+        <AdminCard titleKey="admin_biz_card_fee">
+          <AdminBusinessCcFeeCard fee={fee} />
+          <AdminBusinessCcFeeOverrideEditor
+            storeId={store.id}
+            fee={fee}
+            onSaved={refreshDetail}
+          />
+        </AdminCard>
+      ) : null}
+
+      {tab === "reports" ? (
+        <AdminCard titleKey="admin_biz_card_ops">
+          <AdminStoreReviewTheme>
+            <AdminStoreReviewPanel
+              store={store}
+              actionBusy={actionBusy}
+              onRunAction={(action, payloadArgs) => runStoreAction(action, payloadArgs)}
+              onSetOwnerIdentityEditable={(enabled) =>
+                void runStoreAction("set_owner_identity_editable", { enabled })
+              }
+              identityActionBusy={actionBusy}
+            />
+          </AdminStoreReviewTheme>
+        </AdminCard>
+      ) : null}
+
+      {tab === "history" ? (
+        <AdminCard titleKey="admin_biz_card_history">
+          <AdminBusinessLogList logs={logs} />
+        </AdminCard>
+      ) : null}
+
+      {tab === "products" ||
+      tab === "orders" ||
+      tab === "points" ||
+      tab === "settlement" ||
+      tab === "reviews" ? (
+        <AdminCard titleKey="admin_biz_card_links">
+          <AdminBusinessCcLinks
+            storeId={store.id}
+            ownerUserId={owner.ownerUserId}
+            storeName={store.store_name}
+            slug={store.slug}
+            stats={stats}
+          />
+        </AdminCard>
+      ) : null}
     </div>
   );
 }

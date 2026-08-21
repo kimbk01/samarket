@@ -138,6 +138,12 @@ export function OwnerStoreOrdersView() {
   const prevHighlightOrderIdRef = useRef(highlightOrderId);
   const freshListStrippedRef = useRef(false);
   const loadInFlightRef = useRef(false);
+  /** non-silent load 겹침 시 drop 하면 state=loading 고착 — 마지막 요청만 이어 실행 */
+  const loadPendingRef = useRef<{
+    silent?: boolean;
+    reason?: string;
+    forceNetwork?: boolean;
+  } | null>(null);
   const [deepLinkEnrichSettled, setDeepLinkEnrichSettled] = useState(false);
 
   /** 펼치기 UI — URL만 쓰면 Suspense 리마운트로 취소 탭·버튼이 먹통이 될 수 있음 */
@@ -150,6 +156,8 @@ export function OwnerStoreOrdersView() {
       ownerOrdersEntrySearchParamsFromUrlSearchParams(searchParams)
     )
   );
+  const stateKindRef = useRef(state.kind);
+  stateKindRef.current = state.kind;
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -209,7 +217,14 @@ export function OwnerStoreOrdersView() {
       silent,
     });
     if (!silent) {
-      if (loadInFlightRef.current) return;
+      if (loadInFlightRef.current) {
+        loadPendingRef.current = {
+          silent: false,
+          reason: opts?.reason,
+          forceNetwork: opts?.forceNetwork,
+        };
+        return;
+      }
       loadInFlightRef.current = true;
       setState({ kind: "loading" });
     }
@@ -314,7 +329,14 @@ export function OwnerStoreOrdersView() {
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
     } finally {
-      if (!silent) loadInFlightRef.current = false;
+      if (!silent) {
+        loadInFlightRef.current = false;
+        const pending = loadPendingRef.current;
+        loadPendingRef.current = null;
+        if (pending) {
+          void load(pending);
+        }
+      }
     }
   }, [urlStoreId, t]);
 
@@ -329,10 +351,10 @@ export function OwnerStoreOrdersView() {
     }
     void load({
       reason: force ? (oid ? "notification_deeplink" : "orders_entry_fresh") : "mount",
-      silent: !force && state.kind === "ok",
+      silent: !force && stateKindRef.current === "ok",
       forceNetwork: force,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount: 초기 ok 캐시면 silent 백그라운드 정합만
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/load-identity: ok면 silent 정합, loading이면 반드시 비silent
   }, [load]);
 
   useEffect(() => {

@@ -21,6 +21,13 @@ describe("owner orders deeplink contract", () => {
     );
   });
 
+  it("OwnerStoreOrdersView queues overlapping non-silent loads instead of dropping them", () => {
+    const view = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
+    expect(view).toContain("loadPendingRef");
+    expect(view).toContain("stateKindRef.current === \"ok\"");
+    expect(view).not.toMatch(/if \(loadInFlightRef\.current\) return;/);
+  });
+
   it("hub orders refresh on orders route avoids forceNetwork refetch storm", () => {
     const view = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
     expect(view).toContain('forceNetwork: false, reason: "hub_orders_refresh"');

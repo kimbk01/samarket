@@ -92,6 +92,7 @@ export async function GET(
     kpi: detail.kpi,
     fee: detail.fee,
     delivery: detail.delivery,
+    ops: detail.ops,
     logs: detail.logs,
   });
 }

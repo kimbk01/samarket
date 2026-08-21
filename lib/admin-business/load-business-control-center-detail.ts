@@ -12,9 +12,18 @@ import {
   loadBusinessCcKpiSummary,
   type BusinessCcKpiSummary,
 } from "@/lib/admin-business/load-business-cc-kpi";
+import { loadStorePointSummary } from "@/lib/stores/load-store-point-summary";
+import {
+  presentSettlementKind,
+  presentStoreOpenKind,
+  resolveBusinessOpsOwnerIdentity,
+  taxonomyName,
+  formatRegionLine,
+  type BusinessOpsOpenKind,
+  type BusinessOpsSettlementKind,
+} from "@/lib/admin-business/business-ops-presentation";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveEffectiveStoreFeePolicy } from "@/lib/stores/store-fee-policy-resolve";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export type { BusinessCcKpiSummary };
 
@@ -86,6 +95,29 @@ export type BusinessCcOwner = {
   displayLabel: string;
   username: string | null;
   handle: string | null;
+  /** false when profiles resolve failed — never show UUID as name */
+  identityOk?: boolean;
+};
+
+export type BusinessCcOpsOverview = {
+  openKind: BusinessOpsOpenKind;
+  settlementKind: BusinessOpsSettlementKind;
+  categoryName: string;
+  regionLine: string;
+  ratingAvg: number | null;
+  reviewCountFromStore: number;
+  pointBalance: number | null;
+  pointCommerceBlocked: boolean;
+  recentPointCredit: number | null;
+  recentPointDebit: number | null;
+  todayOrderCount: number;
+  todaySalesAmount: number;
+  productActiveCount: number;
+  productSoldOutCount: number;
+  productInactiveCount: number;
+  reportTotalCount: number;
+  /** Last 7 local days — order count + payment sum (proven from store_orders). */
+  trend7d: Array<{ day: string; orderCount: number; salesAmount: number }>;
 };
 
 export type BusinessCcAuditLog = {
@@ -131,6 +163,7 @@ export async function loadBusinessControlCenterDetail(
       kpi: BusinessCcKpiSummary;
       fee: BusinessCcFeeSnapshot;
       delivery: BusinessCcDeliverySnapshot;
+      ops: BusinessCcOpsOverview;
       logs: BusinessCcAuditLog[];
     }
   | { ok: false; error: "store_not_found" | "load_failed"; message?: string }
@@ -152,8 +185,31 @@ export async function loadBusinessControlCenterDetail(
   const row = store as Record<string, unknown>;
   const ownerUserId = String(row.owner_user_id ?? "").trim();
 
-  const [profRes, salesRes, productCount, reviewCount, feeResolved, storeFeeOverrideRes, svcCtx, auditRes] =
-    await Promise.all([
+  const dayStart = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  })();
+
+  const [
+    profRes,
+    salesRes,
+    productCount,
+    reviewCount,
+    feeResolved,
+    storeFeeOverrideRes,
+    svcCtx,
+    auditRes,
+    pointSummary,
+    todayOrdersRes,
+    productActiveRes,
+    productSoldOutRes,
+    productInactiveRes,
+    reportTotalRes,
+    ledgerRes,
+    settleStatusRes,
+    trendOrdersRes,
+  ] = await Promise.all([
       ownerUserId
         ? sb
             .from("profiles")
@@ -195,19 +251,74 @@ export async function loadBusinessControlCenterDetail(
         .eq("target_id", id)
         .order("created_at", { ascending: false })
         .limit(50),
+      loadStorePointSummary(sb, {
+        storeId: id,
+        storeCategoryId:
+          typeof row.store_category_id === "string" ? row.store_category_id : null,
+      }),
+      sb
+        .from("store_orders")
+        .select("id, payment_amount, created_at")
+        .eq("store_id", id)
+        .gte("created_at", dayStart),
+      sb
+        .from("store_products")
+        .select("id", { count: "exact", head: true })
+        .eq("store_id", id)
+        .eq("product_status", "active"),
+      sb
+        .from("store_products")
+        .select("id", { count: "exact", head: true })
+        .eq("store_id", id)
+        .eq("product_status", "sold_out"),
+      sb
+        .from("store_products")
+        .select("id", { count: "exact", head: true })
+        .eq("store_id", id)
+        .in("product_status", ["hidden", "blocked"]),
+      countRows(sb, "store_reports", id),
+      sb
+        .from("store_point_ledger")
+        .select("amount, entry_type, created_at")
+        .eq("store_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      sb
+        .from("store_settlements")
+        .select("settlement_status")
+        .eq("store_id", id)
+        .in("settlement_status", ["held", "pending", "processing", "scheduled"])
+        .limit(20),
+      sb
+        .from("store_orders")
+        .select("payment_amount, created_at")
+        .eq("store_id", id)
+        .gte(
+          "created_at",
+          (() => {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - 6);
+            return d.toISOString();
+          })()
+        )
+        .limit(5000),
     ]);
 
-  let displayLabel = "";
-  let username: string | null = null;
-  if (profRes.data) {
-    const p = profRes.data as Record<string, unknown>;
-    const display = String(p.display_name ?? p.nickname ?? "").trim();
-    username = String(p.username ?? "").trim().replace(/^@+/, "") || null;
-    displayLabel = labelFromDisplayAndUsername(display, username ?? "").trim();
-  }
-  if (!displayLabel) {
-    displayLabel = ownerUserId ? ownerUserId.slice(0, 8) : "—";
-  }
+  const ownerIdentity = resolveBusinessOpsOwnerIdentity({
+    ownerUserId,
+    displayName: profRes.data
+      ? String((profRes.data as Record<string, unknown>).display_name ?? "")
+      : null,
+    nickname: profRes.data
+      ? String((profRes.data as Record<string, unknown>).nickname ?? "")
+      : null,
+    username: profRes.data
+      ? String((profRes.data as Record<string, unknown>).username ?? "")
+      : null,
+  });
+  const displayLabel = ownerIdentity.ok ? ownerIdentity.label : "";
+  const username = ownerIdentity.ok ? ownerIdentity.username : null;
 
   const salesRaw = salesRes.data as Record<string, unknown> | null;
   const salesPermission: BusinessCcSalesPermission = salesRaw
@@ -336,6 +447,82 @@ export async function loadBusinessControlCenterDetail(
   const stats: BusinessCcStats = { productCount, reviewCount };
   const kpi = await loadBusinessCcKpiSummary(sb, id, stats);
 
+  let recentPointCredit: number | null = null;
+  let recentPointDebit: number | null = null;
+  if (!ledgerRes.error && Array.isArray(ledgerRes.data)) {
+    for (const entry of ledgerRes.data) {
+      const amount = Math.round(Number((entry as { amount?: unknown }).amount) || 0);
+      if (amount > 0 && recentPointCredit == null) recentPointCredit = amount;
+      if (amount < 0 && recentPointDebit == null) recentPointDebit = Math.abs(amount);
+      if (recentPointCredit != null && recentPointDebit != null) break;
+    }
+  }
+
+  const settleStatuses = (settleStatusRes.data ?? []).map((r) =>
+    String((r as { settlement_status?: unknown }).settlement_status ?? "")
+  );
+  const openKind = presentStoreOpenKind(row.business_hours_json, dbIsOpen).kind;
+
+  const todayOrderRows = todayOrdersRes.data ?? [];
+  const todayOrderCount = todayOrderRows.length;
+  let todaySalesAmount = 0;
+  for (const r of todayOrderRows) {
+    todaySalesAmount += Math.max(0, Math.round(Number((r as { payment_amount?: unknown }).payment_amount) || 0));
+  }
+
+  const trendMap = new Map<string, { orderCount: number; salesAmount: number }>();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    trendMap.set(key, { orderCount: 0, salesAmount: 0 });
+  }
+  for (const r of trendOrdersRes.data ?? []) {
+    const at = String((r as { created_at?: unknown }).created_at ?? "");
+    if (!at) continue;
+    const key = new Date(at).toISOString().slice(0, 10);
+    const bucket = trendMap.get(key);
+    if (!bucket) continue;
+    bucket.orderCount += 1;
+    bucket.salesAmount += Math.max(
+      0,
+      Math.round(Number((r as { payment_amount?: unknown }).payment_amount) || 0)
+    );
+  }
+  const trend7d = [...trendMap.entries()].map(([day, v]) => ({
+    day,
+    orderCount: v.orderCount,
+    salesAmount: v.salesAmount,
+  }));
+
+  const ops: BusinessCcOpsOverview = {
+    openKind,
+    settlementKind: presentSettlementKind(settleStatuses),
+    categoryName: taxonomyName(
+      row.store_categories as { name?: string | null } | { name?: string | null }[] | null
+    ),
+    regionLine: formatRegionLine({
+      region: typeof row.region === "string" ? row.region : null,
+      city: typeof row.city === "string" ? row.city : null,
+      district: typeof row.district === "string" ? row.district : null,
+    }),
+    ratingAvg: asFiniteNumber(row.rating_avg),
+    reviewCountFromStore: Math.max(0, Math.floor(Number(row.review_count) || reviewCount)),
+    pointBalance: pointSummary ? pointSummary.pointBalance : asFiniteNumber(row.point_balance),
+    pointCommerceBlocked:
+      pointSummary?.pointCommerceBlocked === true || row.point_commerce_blocked === true,
+    recentPointCredit,
+    recentPointDebit,
+    todayOrderCount,
+    todaySalesAmount,
+    productActiveCount: Math.max(0, Math.floor(Number(productActiveRes.count) || 0)),
+    productSoldOutCount: Math.max(0, Math.floor(Number(productSoldOutRes.count) || 0)),
+    productInactiveCount: Math.max(0, Math.floor(Number(productInactiveRes.count) || 0)),
+    reportTotalCount: reportTotalRes,
+    trend7d,
+  };
+
   return {
     ok: true,
     store: row,
@@ -344,12 +531,14 @@ export async function loadBusinessControlCenterDetail(
       displayLabel,
       username,
       handle: username ? `@${username}` : null,
+      identityOk: ownerIdentity.ok,
     },
     salesPermission,
     stats,
     kpi,
     fee,
     delivery,
+    ops,
     logs,
   };
 }
