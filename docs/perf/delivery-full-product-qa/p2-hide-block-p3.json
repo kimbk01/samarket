@@ -1,0 +1,92 @@
+{
+  "before": "active",
+  "hide": {
+    "action": "hide",
+    "status": 200,
+    "j": {
+      "ok": true
+    }
+  },
+  "afterHide": "hidden",
+  "activate1": {
+    "action": "activate",
+    "status": 200,
+    "j": {
+      "ok": true
+    }
+  },
+  "afterActivate1": "active",
+  "block": {
+    "action": "block",
+    "status": 200,
+    "j": {
+      "ok": true
+    }
+  },
+  "afterBlock": "blocked",
+  "activate2": {
+    "action": "activate",
+    "status": 200,
+    "j": {
+      "ok": true
+    }
+  },
+  "afterActivate2": "active",
+  "p3": {
+    "tabs": [
+      "dibaY 관리자",
+      "HOME",
+      "공통",
+      "커뮤니티",
+      "거래",
+      "배달",
+      "채팅",
+      "시스템",
+      "한국어",
+      "English",
+      "홈페이지",
+      "10",
+      "배달",
+      "업체",
+      "정책▼",
+      "매장설정▼",
+      "운영▼",
+      "관리▼",
+      "플랫폼▼",
+      "배달",
+      "‹",
+      "테스트1 (@aa11)",
+      "공개 매장",
+      "개요",
+      "기본정보",
+      "영업관리",
+      "메뉴/상품",
+      "주문",
+      "배달",
+      "포인트",
+      "수수료",
+      "정산",
+      "리뷰",
+      "신고/제재",
+      "변경이력",
+      "업체별 주문",
+      "정산",
+      "비즈 크레딧",
+      "메뉴/상품",
+      "후기"
+    ],
+    "prep": false,
+    "weekdays": false,
+    "autoHours": false,
+    "minOrder": false,
+    "deliveryFee": true,
+    "snippet": [
+      "영업 중",
+      "영업관리",
+      "영업 중",
+      "오늘 영업시간: 매일 09:00–08:59 (Asia/Manila)",
+      "고객 배달비 —",
+      "영업 상태 관리"
+    ]
+  }
+}

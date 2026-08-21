@@ -1,0 +1,116 @@
+{
+  "ledger": {
+    "status": 200,
+    "count": 15,
+    "adminAdjust": [
+      {
+        "id": "9ad041e1-098c-4612-b07e-80ede26f7a0a",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": -3,
+        "balanceAfter": 10222143,
+        "description": "DIBAY_QA_D2_1787324867669",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T15:07:56.885461+00:00"
+      },
+      {
+        "id": "130b3c2e-4619-4683-80a1-f68501624fdd",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": 3,
+        "balanceAfter": 10222146,
+        "description": "DIBAY_QA_G2_1787324856612",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T15:07:45.906563+00:00"
+      },
+      {
+        "id": "e6bc22ab-6b03-408f-987a-9089c5bede8e",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": -2,
+        "balanceAfter": 10222143,
+        "description": "DIBAY_QA_D1_1787324845658",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T15:07:34.910235+00:00"
+      },
+      {
+        "id": "8da824c6-cab5-4a03-ab26-56f738869d64",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": 2,
+        "balanceAfter": 10222145,
+        "description": "DIBAY_QA_G1_1787324834173",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T15:07:23.881394+00:00"
+      },
+      {
+        "id": "c75cfe54-c51c-4c49-8f6f-f00b6b6f28e9",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": 1,
+        "balanceAfter": 10222143,
+        "description": "DIBAY_QA_CREDIT_GRANT_1",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T14:55:15.023098+00:00"
+      },
+      {
+        "id": "9e77e4a7-aee0-443d-8dc9-f0ce296a0ab4",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": -1,
+        "balanceAfter": 10222142,
+        "description": "DIBAY_QA_CREDIT_DEDUCT_1",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T14:53:24.225511+00:00"
+      },
+      {
+        "id": "59c07bdb-35c4-45ab-bc70-e830dbca9c1f",
+        "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+        "storeName": "나의 오른손딸방",
+        "orderId": null,
+        "entryType": "admin_adjust",
+        "amount": 1,
+        "balanceAfter": 10222143,
+        "description": "DIBAY_QA_CREDIT_GRANT_1",
+        "actorType": "admin",
+        "actorUserId": "11111111-1111-1111-1111-111111111111",
+        "createdAt": "2026-08-21T14:53:23.844924+00:00"
+      }
+    ]
+  },
+  "restoreAttempts": [
+    {
+      "status": 200,
+      "j": {
+        "ok": true
+      },
+      "body": {
+        "action": "sold_out",
+        "sold_out": false
+      }
+    }
+  ],
+  "getProd": {
+    "status": 405,
+    "j": {}
+  },
+  "prepVisible": false
+}

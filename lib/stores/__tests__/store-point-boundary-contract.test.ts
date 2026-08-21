@@ -130,4 +130,18 @@ describe("store-point-boundary-contract (Phase 4 Slice 4)", () => {
     expect(adjust).not.toMatch(/from\("stores"\)\.update/);
     expect(approve).not.toMatch(/from\("stores"\)\.update/);
   });
+
+  it("admin_adjust related_id uses gen_random_uuid (not admin_user_id)", () => {
+    const sql = readFileSync(
+      resolve(
+        process.cwd(),
+        "supabase/migrations/20261121150000_fix_store_point_admin_adjust_related_id.sql"
+      ),
+      "utf8"
+    );
+    expect(sql).toContain("gen_random_uuid()");
+    expect(sql).toMatch(/v_related_id\s*:=\s*gen_random_uuid\(\)::text/);
+    expect(sql).not.toMatch(/related_id[\s\S]{0,40}COALESCE\(p_admin_user_id/);
+    expect(sql).toMatch(/DO NOT drop\/weaken uq_store_point_ledger_related_spend/);
+  });
 });

@@ -1,0 +1,184 @@
+{
+  "at": "2026-08-21T15:12:40.716Z",
+  "origin": "https://samarket.vercel.app",
+  "migration": "20261121150000_fix_store_point_admin_adjust_related_id.sql applied via supabase db query --linked",
+  "store": {
+    "id": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "slug": "aa11",
+    "name": "나의 오른손딸방",
+    "productId": "5c3800d3-675b-4edd-a7dc-ac91252a473b"
+  },
+  "matrix": {
+    "CREDIT.BALANCE_BEFORE": {
+      "result": "PASS",
+      "detail": "{\"listStatus\":200,\"balance\":10222143,\"row\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"store_name\":\"나의 오른손딸방\",\"point_balance\":10222143,\"point_commerce_blocked\":false,\"point_block_reason\":null},\"rawKeys\":[\"ok\",\"stores\",\"total\",\"offset\",\"limit\"]}",
+      "at": "2026-08-21T15:07:14.173Z"
+    },
+    "CREDIT.GRANT_1": {
+      "result": "PASS",
+      "detail": "{\"g1\":{\"via\":\"ui\",\"status\":200,\"j\":{\"ok\":true,\"result\":{\"ok\":true,\"delta\":2,\"store_id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"related_id\":\"a06c62ef-2b23-4e62-8430-c611194465d5\",\"balance_after\":10222145}}},\"afterG1\":{\"listStatus\":200,\"balance\":10222145,\"row\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"store_name\":\"나의 오른손딸방\",\"point_balance\":10222145,\"point_commerce_blocked\":false,\"point_block_reason\":null},\"rawKeys\":[\"ok\",\"stores\",\"total\",\"offset\",\"limit\"]}}",
+      "at": "2026-08-21T15:07:25.658Z"
+    },
+    "CREDIT.DEDUCT_1": {
+      "result": "PASS",
+      "detail": "{\"d1\":{\"via\":\"ui\",\"status\":200,\"j\":{\"ok\":true,\"result\":{\"ok\":true,\"delta\":-2,\"store_id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"related_id\":\"99836242-b5c8-4a91-a44f-4e645827f597\",\"balance_after\":10222143}}},\"afterD1\":{\"listStatus\":200,\"balance\":10222143,\"row\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"store_name\":\"나의 오른손딸방\",\"point_balance\":10222143,\"point_commerce_blocked\":false,\"point_block_reason\":null},\"rawKeys\":[\"ok\",\"stores\",\"total\",\"offset\",\"limit\"]}}",
+      "at": "2026-08-21T15:07:36.612Z"
+    },
+    "CREDIT.GRANT_2": {
+      "result": "PASS",
+      "detail": "{\"g2\":{\"via\":\"ui\",\"status\":200,\"j\":{\"ok\":true,\"result\":{\"ok\":true,\"delta\":3,\"store_id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"related_id\":\"52cfed57-9942-4112-99ec-6298dba87dfd\",\"balance_after\":10222146}}},\"afterG2\":{\"listStatus\":200,\"balance\":10222146,\"row\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"store_name\":\"나의 오른손딸방\",\"point_balance\":10222146,\"point_commerce_blocked\":false,\"point_block_reason\":null},\"rawKeys\":[\"ok\",\"stores\",\"total\",\"offset\",\"limit\"]}}",
+      "at": "2026-08-21T15:07:47.669Z"
+    },
+    "CREDIT.DEDUCT_2": {
+      "result": "PASS",
+      "detail": "{\"d2\":{\"via\":\"ui\",\"status\":200,\"j\":{\"ok\":true,\"result\":{\"ok\":true,\"delta\":-3,\"store_id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"related_id\":\"0af51d02-7b6d-487d-b83e-818dcacb5df7\",\"balance_after\":10222143}}},\"afterD2\":{\"listStatus\":200,\"balance\":10222143,\"row\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"store_name\":\"나의 오른손딸방\",\"point_balance\":10222143,\"point_commerce_blocked\":false,\"point_block_reason\":null},\"rawKeys\":[\"ok\",\"stores\",\"total\",\"offset\",\"limit\"]}}",
+      "at": "2026-08-21T15:07:58.523Z"
+    },
+    "CREDIT.BALANCE": {
+      "result": "PASS",
+      "detail": "{\"before\":10222143,\"after\":10222143,\"expected\":10222143}",
+      "at": "2026-08-21T15:07:58.523Z"
+    },
+    "CREDIT.LEDGER": {
+      "result": "FAIL",
+      "detail": "status=400 sample=[]",
+      "at": "2026-08-21T15:07:58.786Z"
+    },
+    "ADMIN.P1_LOCATION": {
+      "result": "PASS",
+      "detail": "{\"lat0\":14.6821058,\"lng0\":121.0855747,\"lat1\":14.682116,\"lng1\":121.085585,\"locSave\":{\"status\":200,\"j\":{\"ok\":true,\"store_orders_checkout_geo_sync\":{\"orders_updated\":21,\"errors\":[]}}},\"mid\":14.682116,\"locRestore\":{\"status\":200,\"j\":{\"ok\":true,\"store_orders_checkout_geo_sync\":{\"orders_updated\":21,\"errors\":[]}}}}",
+      "at": "2026-08-21T15:08:18.800Z"
+    },
+    "ADMIN.P1_CANCEL_STORE_ID": {
+      "result": "PASS",
+      "detail": "href=https://samarket.vercel.app/admin/stores/orders/cancellations?store_id=19085860-52d2-4183-b033-e71fcb58bcec head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▲\\n입점 심사\\n메뉴·상품 검수\\n주문 운영\\n▲\\n주문 목록\\n주문 액션\\n취소 요청\\n환불 요청\\n감사 로그\\n주문 채팅\\n운영 콘솔\\n운영 통계\\n라이더\\n운영 알림\\n액션 큐\\n자동 액션\\n결제 이벤트\\n관리\"",
+      "at": "2026-08-21T15:08:26.360Z"
+    },
+    "ADMIN.P1_REFUND_STORE_ID": {
+      "result": "PASS",
+      "detail": "href=https://samarket.vercel.app/admin/stores/orders/refunds?store_id=19085860-52d2-4183-b033-e71fcb58bcec head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▲\\n입점 심사\\n메뉴·상품 검수\\n주문 운영\\n▲\\n주문 목록\\n주문 액션\\n취소 요청\\n환불 요청\\n감사 로그\\n주문 채팅\\n운영 콘솔\\n운영 통계\\n라이더\\n운영 알림\\n액션 큐\\n자동 액션\\n결제 이벤트\\n관리\"",
+      "at": "2026-08-21T15:08:33.923Z"
+    },
+    "ADMIN.P1_REPORT_STORE_ID": {
+      "result": "PASS",
+      "detail": "href=https://samarket.vercel.app/admin/store-reports?store_id=19085860-52d2-4183-b033-e71fcb58bcec head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▼\\n관리\\n▲\\n정산\\n신고\\n리뷰\\n플랫폼\\n▼\\nMASTER\\n배달\\n/\\n관리\\n/\\n신고\\n매장·상품 신고\\n\\n열린 건만 기각·조치할 수 있습니다. 메모는 내부 기록용입니다.\\n\\nstore_id=19085\"",
+      "at": "2026-08-21T15:08:41.468Z"
+    },
+    "ADMIN.P1_BACK_CONTEXT": {
+      "result": "PASS",
+      "detail": "dibaY 관리자\nHOME\n공통\n커뮤니티\n거래\n배달\n채팅\n시스템\n한국어\nEnglish\n홈페이지\n10\n배달\n업체\n정책\n▼\n매장설정\n▼\n운영\n▼\n관리\n▼\n플랫폼\n▼\nMASTER\n배달\n/\n업체\n‹\n업체 Control Center\n나의 오른손딸방\n\n식당 · Quezon City · Payata",
+      "at": "2026-08-21T15:08:49.039Z"
+    },
+    "ADMIN.P2_PRODUCT_FILTER": {
+      "result": "PASS",
+      "detail": "dibaY 관리자\nHOME\n공통\n커뮤니티\n거래\n배달\n채팅\n시스템\n한국어\nEnglish\n홈페이지\n10\n배달\n업체\n정책\n▼\n매장설정\n▼\n운영\n▲\n입점 심사\n메뉴·상품 검수\n주문 운영\n▼\n운영 콘솔\n운영 통계\n라이더\n운영 알림\n액션 큐\n자동 액션\n결제 이벤트\n관리\n▼\n플랫폼\n▼\nMASTER\n배달\n/\n운영\n/\n메뉴·상품 검수\n매장 상품 검수\n\n차단(blocked)·숨김·판매중 복구. 공개 목록은 a",
+      "at": "2026-08-21T15:08:58.085Z"
+    },
+    "ADMIN.P2_SOLD_OUT": {
+      "result": "PASS",
+      "detail": "sold_out control clicked (verify restore below)",
+      "at": "2026-08-21T15:09:00.344Z"
+    },
+    "ADMIN.P2_REVIEW": {
+      "result": "PASS",
+      "detail": "actions=false head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▼\\n관리\\n▲\\n정산\\n신고\\n리뷰\\n플랫폼\\n▼\\nMASTER\\n배달\\n/\\n관리\\n/\\n리뷰\\n매장 리뷰 검수\\n\\n노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.\\n\\nstore_id=19085860-52d2-4183-b033-e71\"",
+      "at": "2026-08-21T15:09:07.993Z"
+    },
+    "ADMIN.P2_KPI": {
+      "result": "PASS",
+      "detail": "apiStatus=404 head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▼\\n관리\\n▼\\n플랫폼\\n▼\\nMASTER\\n배달\\n/\\n업체\\n‹\\n업체 Control Center\\n나의 오른손딸방\\n\\n식당 · Quezon City · Payatas · eee CM KIM FOOD MART · LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila\\n\\n테스\"",
+      "at": "2026-08-21T15:09:16.351Z"
+    },
+    "ADMIN.P3_WEEKDAYS": {
+      "result": "PASS",
+      "detail": "dibaY 관리자\nHOME\n공통\n커뮤니티\n거래\n배달\n채팅\n시스템\n한국어\nEnglish\n홈페이지\n10\n배달\n업체\n정책\n▼\n매장설정\n▼\n운영\n▼\n관리\n▼\n플랫폼\n▼\nMASTER\n배달\n/\n업체\n‹\n업체 Control Center\n나의 오른손딸방\n\n식당 · Quezon City · Payatas · eee CM KIM FOOD MART · LOWER GROUND,",
+      "at": "2026-08-21T15:09:16.351Z"
+    },
+    "ADMIN.P3_PREP": {
+      "result": "NOT_PROVEN",
+      "detail": "dibaY 관리자\nHOME\n공통\n커뮤니티\n거래\n배달\n채팅\n시스템\n한국어\nEnglish\n홈페이지\n10\n배달\n업체\n정책\n▼\n매장설정\n▼\n운영\n▼\n관리\n▼\n플랫폼\n▼\nMASTER\n배달\n/\n업체\n‹\n업체 Control Center\n나의 오른손딸방\n\n식당 · Quezon City · Payatas · eee CM KIM FOOD MART · LOWER GROUND,",
+      "at": "2026-08-21T15:09:16.351Z"
+    },
+    "ADMIN.P3_HOURS": {
+      "result": "PASS",
+      "detail": "dibaY 관리자\nHOME\n공통\n커뮤니티\n거래\n배달\n채팅\n시스템\n한국어\nEnglish\n홈페이지\n10\n배달\n업체\n정책\n▼\n매장설정\n▼\n운영\n▼\n관리\n▼\n플랫폼\n▼\nMASTER\n배달\n/\n업체\n‹\n업체 Control Center\n나의 오른손딸방\n\n식당 · Quezon City · Payatas · eee CM KIM FOOD MART · LOWER GROUND,",
+      "at": "2026-08-21T15:09:16.351Z"
+    },
+    "ADMIN.SETTLEMENT_MOBILE_OPS": {
+      "result": "PASS",
+      "detail": "buttons=[{\"text\":\"입금·지급\",\"w\":62.844444274902344},{\"text\":\"입금·지급\",\"w\":62.844444274902344},{\"text\":\"입금·지급\",\"w\":62.844444274902344},{\"text\":\"입금·지급\",\"w\":62.844444274902344}] head=\"dibaY 관리자\\nHOME\\n공통\\n커뮤니티\\n거래\\n배달\\n채팅\\n시스템\\n한국어\\nEnglish\\n홈페이지\\n10\\n배달\\n업체\\n정책\\n▼\\n매장설정\\n▼\\n운영\\n▼\\n관리\\n▲\\n정산\\n신고\\n리뷰\\n플랫폼\\n▼\\nMASTER\\n배달\\n/\\n관리\\n/\\n정산\\n매장 정산센터\\n\\n주문 완료(completed) 시점에 원장이 생성됩니다. 기간 필터는 원장의 생성 시각(UTC) 기준입니다. 완료 반영 열은 주문이 completed일 때의 주문 수\"",
+      "at": "2026-08-21T15:09:25.428Z"
+    },
+    "SM.SETTLEMENT": {
+      "result": "PASS",
+      "detail": "정산 안내\n\n주문이 완료(completed)되면 정산 예정 건이 생성됩니다. 실제 입금·보류 해제는 플랫폼 운영에서 처리하며, 이 화면에서는 조회만 가능합니다.\n\n완료 후 약 7일 뒤 지급 예정일이 잡힙니다.\n앞으로 적용될 수수료 7% + 0 PHP\n위 요율은 현재 정책입니다. 이미 완료된 주문 정산 행의 수수료는 완료 시점 스냅샷을 따릅니다.\n정책 출처: 1차 업종 정책\n새로고침\n주문 관리\n\n기간은 정산 원장 생성일(완료 인식) 기준입니다. 표시 수수료율은 현재 정책이며, 주문별 수수료는 스냅샷을 따릅니다.\n\n정산 요약\n\n나의 오른손딸방 · 전체 6건 기준\n\n총 매",
+      "at": "2026-08-21T15:09:49.980Z"
+    },
+    "SM.FEE_EXPLANATION": {
+      "result": "PASS",
+      "detail": "정산 안내\n\n주문이 완료(completed)되면 정산 예정 건이 생성됩니다. 실제 입금·보류 해제는 플랫폼 운영에서 처리하며, 이 화면에서는 조회만 가능합니다.\n\n완료 후 약 7일 뒤 지급 예정일이 잡힙니다.\n앞으로 적용될 수수료 7% + 0 PHP\n위 요율은 현재 정책입니다. 이미 완료된 주문 정산 행의 수수료는 완료 시점 스냅샷을 따릅니다.\n정책 출처: 1차 업종 정책\n새로고침\n주문 관리\n\n기간은 정산 원장 생성일(완료 인식) 기준입니다. 표시 수수료율은 현재 정책이며, 주문별 수수료는 스냅샷을 따릅니다.\n\n정산 요약\n\n나의 오른손딸방 · 전체 6건 기준\n\n총 매",
+      "at": "2026-08-21T15:09:49.980Z"
+    },
+    "SM.CREDIT_VISIBILITY": {
+      "result": "PASS",
+      "detail": "Business Credit\n\n10,222,143P\n\n보유 Business Credit\n\n입금 계좌 문의\nBusiness Credit 충전 신청\n입금 계좌 문의\n\n입금 계좌가 필요하면 아래 버튼으로 문의해 주세요. 충전 신청과 별도로 처리됩니다.\n\n입금 계좌 안내\n\n관리자가 안내한 계좌 정보입니다.\n\nXndn\n입금 계좌 문의하기\nBusiness Credit 충전 신청\n\n현재 보유 Business Credit: 10,222,14",
+      "at": "2026-08-21T15:09:58.024Z"
+    },
+    "OWNER.LOADING_BARE_URL": {
+      "result": "PASS",
+      "detail": "pass=12 fail=0 /12",
+      "at": "2026-08-21T15:11:10.668Z"
+    },
+    "BG_FG.STORE_MANAGER": {
+      "result": "PASS",
+      "detail": "신규주문\n7\n진행중\n8\n배달중\n6\n완료\n6\n취소\n12\n신규 주문\n7\n준비(조리)중\n4\n배달중\n6\n오늘 완료\n2\n전체 유형\n최신순 ▾\n신규\n배달\n14분 46초 경과\n\nSO1787324192170c1b4\n\nq테스트1 (@qqqq)\n\n09 12 112 1211\n\nMaster B Tower, Unit B1786773693109,",
+      "at": "2026-08-21T15:11:25.023Z"
+    },
+    "AUTH.OWNER_SELF_GRANT": {
+      "result": "PASS",
+      "detail": "{\"status\":403,\"j\":{\"ok\":false,\"error\":\"관리자만 가능합니다.\"}}",
+      "at": "2026-08-21T15:11:25.479Z"
+    },
+    "AUTH.BUYER_SELF_GRANT": {
+      "result": "PASS",
+      "detail": "{\"status\":403,\"j\":{\"ok\":false,\"error\":\"관리자만 가능합니다.\"}}",
+      "at": "2026-08-21T15:11:37.724Z"
+    },
+    "DOUBLE_TAP.ORDER_CREATE": {
+      "result": "PASS",
+      "detail": "{\"posts\":1,\"orderIds\":[\"fef042a5-79d8-4ad2-bdc1-20a6b98f1727\"]}",
+      "at": "2026-08-21T15:12:27.674Z"
+    },
+    "BG_FG.BUYER": {
+      "result": "PASS",
+      "detail": "‹\n주문 상세\n배달, 픽업 주문 상세\n매장\n\n나의 오른손딸방\n\nSO1787325113353b806\n\n현재 주문 상태\n\n매장 접수 대기중\n\n매장에서 주문을 확인하면 진행 안내를 바로 보여 드릴게요.\n\n표준 단계: 주문접수 · 결제 배달 주문 · 결제 완료(현장·직접 정산)\n\n주문 채팅은 매장과 소통용이며, 취소·환불 처리 ",
+      "at": "2026-08-21T15:12:40.712Z"
+    },
+    "GAP.ADMIN_TO_SM_MESSAGE": {
+      "result": "NEW_PRODUCT_GAP",
+      "detail": "No dedicated Platform Admin → Store Manager operational message channel found; admin_memo=internal; member notes≠store ops",
+      "at": "2026-08-21T15:12:40.716Z"
+    },
+    "GAP.REFUND_AFTER_PAID": {
+      "result": "PRODUCT_POLICY",
+      "detail": "NOT_SUPPORTED completed+paid",
+      "at": "2026-08-21T15:12:40.716Z"
+    },
+    "GAP.REFUND_REJECT": {
+      "result": "PRODUCT_GAP",
+      "detail": "NOT_SUPPORTED writer missing",
+      "at": "2026-08-21T15:12:40.716Z"
+    },
+    "GAP.PARTIAL_REFUND": {
+      "result": "PRODUCT_GAP",
+      "detail": "NOT_SUPPORTED",
+      "at": "2026-08-21T15:12:40.716Z"
+    },
+    "IOS": {
+      "result": "NOT_PROVEN",
+      "detail": "DEVICE UNAVAILABLE",
+      "at": "2026-08-21T15:12:40.716Z"
+    }
+  },
+  "notes": []
+}
