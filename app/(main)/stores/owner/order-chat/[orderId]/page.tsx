@@ -7,7 +7,12 @@ import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-o
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import {
+  MESSENGER_ROOM_RETURN_QUERY_KEY,
+  sanitizeMessengerRoomReturnHref,
+} from "@/lib/community-messenger/messenger-entry-origin";
 
 /** 매장 오너 주문 채팅 — 스냅샷만으로 진입(별도 owner 컨텍스트 조회 제거) */
 export default function OwnerStoreOrderChatPage({
@@ -84,5 +89,7 @@ async function OwnerStoreOrderChatPageBody({
     headline: result.storeName,
   });
   roomUrl.searchParams.set("cm_ctx", cmCtx);
+  const ret = sanitizeMessengerRoomReturnHref(OwnerRoutes.orderChats(result.storeId));
+  if (ret) roomUrl.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, ret);
   redirect(`${roomUrl.pathname}${roomUrl.search}`);
 }

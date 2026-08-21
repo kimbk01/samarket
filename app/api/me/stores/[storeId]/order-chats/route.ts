@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import { buildMessengerContextMetaFromStoreOrder } from "@/lib/community-messenger/store-order-messenger-context";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
@@ -182,6 +183,8 @@ export async function GET(
         messenger_href: buildStoreOrderMessengerRoomHref(roomId, {
           contextMeta,
           entryOrigin: "delivery",
+          /** Owner list → room → Back 은 order-chats list 로 복귀 (list/room authority 분리 유지) */
+          returnHref: OwnerRoutes.orderChats(id),
         }),
       };
     })

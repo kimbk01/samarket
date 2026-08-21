@@ -69,9 +69,9 @@ export function orderMessengerRoomHref(roomId: string): string {
   return buildStoreOrderMessengerRoomHref(roomId);
 }
 
-/** 메신저 방 id 가 없을 때 — RSC 가 `ensureStoreOrderMessengerRoom` 후 메신저로 리다이렉트 */
+/** 메신저 방 id 가 없을 때 — canonical owner ensure route (`/stores/owner/order-chat/:id`) */
 export function storeOrderChatEnsureRedirectHref(orderId: string): string {
   const id = orderId.trim();
   if (!id) return ORDER_CHAT_MESSENGER_LIST_HREF;
-  return `/my/business/store-order-chat/${encodeURIComponent(id)}`;
+  return `/stores/owner/order-chat/${encodeURIComponent(id)}`;
 }

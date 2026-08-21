@@ -39,7 +39,11 @@ export const OwnerRoutes = {
   productNew: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products/new`, storeId),
   productEdit: (productId: string, storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/products/${encodeURIComponent(productId)}/edit`, storeId),
-  menu: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/menu`, storeId),
+  /**
+   * 하단 「메뉴」탭 canonical — 상품 허브와 동일 (`/menu` redirect hop 금지).
+   * 레거시 `/stores/owner/menu` inbound만 redirect 유지.
+   */
+  menu: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products`, storeId),
   menuCategories: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/menu-categories`, storeId),
   banners: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/banners`, storeId),
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
