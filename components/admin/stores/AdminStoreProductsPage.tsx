@@ -214,6 +214,16 @@ export function AdminStoreProductsPage() {
                             {t("common_hidden")}
                           </button>
                         )}
+                        {(r.product_status === "active" || r.product_status === "hidden") && (
+                          <button
+                            type="button"
+                            disabled={dis}
+                            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-left sam-text-helper text-amber-950 disabled:opacity-50"
+                            onClick={() => void run(r.id, "sold_out")}
+                          >
+                            {t("admin_stores_product_sold_out")}
+                          </button>
+                        )}
                         {r.product_status !== "active" && r.product_status !== "deleted" && (
                           <button
                             type="button"
@@ -222,6 +232,26 @@ export function AdminStoreProductsPage() {
                             onClick={() => void run(r.id, "activate")}
                           >
                             {t("admin_stores_product_activate")}
+                          </button>
+                        )}
+                        {r.admin_review_status !== "approved" && (
+                          <button
+                            type="button"
+                            disabled={dis}
+                            className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
+                            onClick={() => void run(r.id, "approve_review")}
+                          >
+                            {t("admin_stores_product_approve_review")}
+                          </button>
+                        )}
+                        {r.admin_review_status !== "rejected" && (
+                          <button
+                            type="button"
+                            disabled={dis}
+                            className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-left sam-text-helper disabled:opacity-50"
+                            onClick={() => void run(r.id, "reject_review")}
+                          >
+                            {t("admin_stores_product_reject_review")}
                           </button>
                         )}
                       </div>

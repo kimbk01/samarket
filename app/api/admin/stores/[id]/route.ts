@@ -11,6 +11,11 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { normalizePhMobileDb } from "@/lib/utils/ph-mobile";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
+import {
+  buildStoreLocationPatchFields,
+  storeLocationPatchTouchesCoords,
+} from "@/lib/stores/build-store-location-patch";
+import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +32,16 @@ type PatchBody = {
   phone?: string | null;
   description?: string | null;
   email?: string | null;
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   business_hours_json?: Record<string, unknown> | null;
   delivery_available?: boolean;
   pickup_available?: boolean;
@@ -74,6 +89,7 @@ export async function GET(
     owner: detail.owner,
     salesPermission: detail.salesPermission,
     stats: detail.stats,
+    kpi: detail.kpi,
     fee: detail.fee,
     delivery: detail.delivery,
     logs: detail.logs,
@@ -119,7 +135,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, approval_status, is_visible, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity"
+      "id, approval_status, is_visible, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -345,6 +361,92 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
     return auditOk(before, patch);
+  }
+
+  if (action === "set_store_location") {
+    const built = buildStoreLocationPatchFields(
+      {
+        region: store.region as string | null,
+        city: store.city as string | null,
+        district: store.district as string | null,
+        address_line1: store.address_line1 as string | null,
+        address_line2: store.address_line2 as string | null,
+        place_id: store.place_id as string | null,
+        formatted_address: store.formatted_address as string | null,
+        lat: store.lat,
+        lng: store.lng,
+      },
+      {
+        ...(body.region !== undefined ? { region: body.region } : {}),
+        ...(body.city !== undefined ? { city: body.city } : {}),
+        ...(body.district !== undefined ? { district: body.district } : {}),
+        ...(body.address_line1 !== undefined ? { address_line1: body.address_line1 } : {}),
+        ...(body.address_line2 !== undefined ? { address_line2: body.address_line2 } : {}),
+        ...(body.place_id !== undefined ? { place_id: body.place_id } : {}),
+        ...(body.formatted_address !== undefined
+          ? { formatted_address: body.formatted_address }
+          : {}),
+        ...(body.detail_address !== undefined ? { detail_address: body.detail_address } : {}),
+        ...(body.lat !== undefined ? { lat: body.lat } : {}),
+        ...(body.lng !== undefined ? { lng: body.lng } : {}),
+      }
+    );
+    if (!built.ok) {
+      return NextResponse.json({ ok: false, error: built.error }, { status: 400 });
+    }
+    if (!built.touched) {
+      return NextResponse.json({ ok: false, error: "location_fields_required" }, { status: 400 });
+    }
+    const before = {
+      region: store.region,
+      city: store.city,
+      district: store.district,
+      address_line1: store.address_line1,
+      address_line2: store.address_line2,
+      place_id: store.place_id,
+      formatted_address: store.formatted_address,
+      detail_address: (store as { detail_address?: string | null }).detail_address,
+      lat: store.lat,
+      lng: store.lng,
+    };
+    const { error: upErr } = await sb.from("stores").update(built.patch).eq("id", id);
+    if (upErr) {
+      console.error("[admin/stores PATCH location]", upErr);
+      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    }
+    let store_orders_checkout_geo_sync: unknown;
+    if (storeLocationPatchTouchesCoords(built.patch)) {
+      store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
+        sb as never,
+        id
+      );
+    }
+    await appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: actorId,
+      target_type: "store",
+      target_id: id,
+      action: `store.${action}`,
+      before_json: before,
+      after_json: { action, reason, ...built.patch },
+      ip: rm.ip,
+      user_agent: rm.userAgent,
+    });
+    const slug = typeof store.slug === "string" ? store.slug.trim() : "";
+    if (slug) {
+      try {
+        clearStoreHomeFeedServerCache();
+        invalidateStorePublicCachesForSlugOnServer(slug);
+      } catch {
+        /* best-effort */
+      }
+    }
+    return NextResponse.json({
+      ok: true,
+      ...(store_orders_checkout_geo_sync !== undefined
+        ? { store_orders_checkout_geo_sync }
+        : {}),
+    });
   }
 
   if (action === "set_business_hours") {

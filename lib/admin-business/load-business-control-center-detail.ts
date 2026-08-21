@@ -5,8 +5,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveEffectiveStoreDistancePolicy } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { loadDeliveryServiceabilityRuntimeContext } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import {
+  resolveCommerceForStatusControl,
+} from "@/lib/admin-business/build-store-status-control";
+import {
+  loadBusinessCcKpiSummary,
+  type BusinessCcKpiSummary,
+} from "@/lib/admin-business/load-business-cc-kpi";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveEffectiveStoreFeePolicy } from "@/lib/stores/store-fee-policy-resolve";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+
+export type { BusinessCcKpiSummary };
 
 export type BusinessCcSalesPermission = {
   allowed_to_sell: boolean;
@@ -33,7 +43,21 @@ export type BusinessCcFeeSnapshot = {
 export type BusinessCcDeliverySnapshot = {
   deliveryAvailable: boolean | null;
   pickupAvailable: boolean | null;
+  /** DB flag only — not Customer front-open */
   isOpen: boolean | null;
+  /** resolveStoreFrontOpen SSOT (checkout) */
+  frontOpenForCommerce: boolean;
+  inBreak: boolean;
+  hoursLabel: string | null;
+  breakRangeLabel: string | null;
+  /**
+   * CUSTOMER charged delivery fee (business_hours_json commerce extras).
+   * NOT platform commission delivery_fee_mode on store_fee_policies.
+   */
+  customerDeliveryFeeMode: string | null;
+  customerDeliveryFeePhp: number | null;
+  customerMinOrderPhp: number | null;
+  customerFreeDeliveryOverPhp: number | null;
   lat: number | null;
   lng: number | null;
   distancePolicyEnabled: boolean;
@@ -96,6 +120,7 @@ export async function loadBusinessControlCenterDetail(
       owner: BusinessCcOwner;
       salesPermission: BusinessCcSalesPermission;
       stats: BusinessCcStats;
+      kpi: BusinessCcKpiSummary;
       fee: BusinessCcFeeSnapshot;
       delivery: BusinessCcDeliverySnapshot;
       logs: BusinessCcAuditLog[];
@@ -222,12 +247,36 @@ export async function loadBusinessControlCenterDetail(
     id
   );
 
+  const dbIsOpen = typeof row.is_open === "boolean" ? row.is_open : null;
+  const commerce = resolveCommerceForStatusControl(row.business_hours_json, dbIsOpen);
+  const extras = parseCommerceExtrasFromHoursJson(row.business_hours_json);
+  const autoHours = (() => {
+    const raw = row.business_hours_json;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const a = (raw as Record<string, unknown>).auto_business_hours;
+    if (!a || typeof a !== "object" || Array.isArray(a)) return null;
+    const rec = a as Record<string, unknown>;
+    if (rec.enabled !== true || rec.schedule_enforced !== true) return null;
+    const open = typeof rec.open === "string" ? rec.open.trim() : "";
+    const close = typeof rec.close === "string" ? rec.close.trim() : "";
+    if (!open || !close) return null;
+    return `${open} ~ ${close}`;
+  })();
+
   const delivery: BusinessCcDeliverySnapshot = {
     deliveryAvailable:
       typeof row.delivery_available === "boolean" ? row.delivery_available : null,
     pickupAvailable:
       typeof row.pickup_available === "boolean" ? row.pickup_available : null,
-    isOpen: typeof row.is_open === "boolean" ? row.is_open : null,
+    isOpen: dbIsOpen,
+    frontOpenForCommerce: commerce.isOpenForCommerce,
+    inBreak: commerce.inBreak,
+    hoursLabel: autoHours,
+    breakRangeLabel: commerce.breakConfigured ? commerce.breakRangeLabel || null : null,
+    customerDeliveryFeeMode: extras.deliveryFeeMode,
+    customerDeliveryFeePhp: extras.deliveryFeePhp,
+    customerMinOrderPhp: extras.minOrderPhp,
+    customerFreeDeliveryOverPhp: extras.freeDeliveryOverPhp,
     lat: asFiniteNumber(row.lat),
     lng: asFiniteNumber(row.lng),
     distancePolicyEnabled: Boolean(svcCtx.policy.enabled),
@@ -248,6 +297,9 @@ export async function loadBusinessControlCenterDetail(
     })
   );
 
+  const stats: BusinessCcStats = { productCount, reviewCount };
+  const kpi = await loadBusinessCcKpiSummary(sb, id, stats);
+
   return {
     ok: true,
     store: row,
@@ -258,7 +310,8 @@ export async function loadBusinessControlCenterDetail(
       handle: username ? `@${username}` : null,
     },
     salesPermission,
-    stats: { productCount, reviewCount },
+    stats,
+    kpi,
     fee,
     delivery,
     logs,

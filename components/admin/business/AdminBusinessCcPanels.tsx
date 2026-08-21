@@ -11,12 +11,14 @@ import { sbStatusBadgeClass } from "@/components/admin/stores/admin-store-review
 import type {
   BusinessCcDeliverySnapshot,
   BusinessCcFeeSnapshot,
+  BusinessCcKpiSummary,
   BusinessCcOwner,
   BusinessCcSalesPermission,
   BusinessCcStats,
 } from "@/lib/admin-business/load-business-control-center-detail";
 import {
   businessCcAuditHref,
+  businessCcCancellationsHref,
   businessCcDeliveryDistanceHref,
   businessCcEntryReviewHref,
   businessCcFeePoliciesHref,
@@ -25,10 +27,18 @@ import {
   businessCcPointsHref,
   businessCcProductsHref,
   businessCcPublicStoreHref,
+  businessCcRefundsHref,
+  businessCcReportsHref,
   businessCcReviewsHref,
+  businessCcSettlementsHref,
   businessCcStoreOrdersHref,
   businessCcTaxonomyHref,
 } from "@/lib/admin-business/business-control-center-links";
+import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  buildStoreStatusControl,
+  type StoreStatusAxisRow,
+} from "@/lib/admin-business/build-store-status-control";
 
 function CopyId({ value, labelKey }: { value: string; labelKey: MessageKey }) {
   const { t } = useI18n();
@@ -52,6 +62,80 @@ function CopyId({ value, labelKey }: { value: string; labelKey: MessageKey }) {
 function yn(t: (k: MessageKey) => string, v: boolean | null | undefined): string {
   if (v == null) return "—";
   return v ? t("admin_biz_yn_yes") : t("admin_biz_yn_no");
+}
+
+const AXIS_TITLE_KEYS: Record<StoreStatusAxisRow["id"], MessageKey> = {
+  approval: "admin_biz_status_axis_approval",
+  visibility: "admin_biz_status_axis_visibility",
+  sales: "admin_biz_status_axis_sales",
+  front_open: "admin_biz_status_axis_front_open",
+  hours: "admin_biz_status_axis_hours",
+  delivery_channel: "admin_biz_status_axis_delivery",
+  pickup_channel: "admin_biz_status_axis_pickup",
+  distance_policy: "admin_biz_status_axis_distance",
+  sanction: "admin_biz_status_axis_sanction",
+};
+
+export function AdminBusinessCcStatusPanel({
+  store,
+  sales,
+  delivery,
+}: {
+  store: AdminStoreReviewRow;
+  sales: BusinessCcSalesPermission;
+  delivery: BusinessCcDeliverySnapshot;
+}) {
+  const { t } = useI18n();
+  const rows = buildStoreStatusControl({
+    approvalStatus: store.approval_status,
+    isVisible: store.is_visible,
+    sales,
+    delivery,
+    commerce: {
+      isOpenForCommerce: delivery.frontOpenForCommerce,
+      inBreak: delivery.inBreak,
+      breakConfigured: Boolean(delivery.breakRangeLabel),
+      breakRangeLabel: delivery.breakRangeLabel ?? "",
+    },
+    hoursLabel: delivery.hoursLabel,
+    suspendedReason: store.suspended_reason ?? null,
+  });
+
+  return (
+    <div className="space-y-3">
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_status_panel_hint")}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-sam-border-soft sam-text-helper text-sam-muted">
+              <th className="py-2 pr-2 font-medium">{t("admin_biz_status_col_axis")}</th>
+              <th className="py-2 pr-2 font-medium">{t("admin_biz_status_col_value")}</th>
+              <th className="py-2 pr-2 font-medium">{t("admin_biz_status_col_meaning")}</th>
+              <th className="py-2 pr-2 font-medium">{t("admin_biz_status_col_writer")}</th>
+              <th className="py-2 pr-2 font-medium">{t("admin_biz_status_col_customer")}</th>
+              <th className="py-2 font-medium">{t("admin_biz_status_col_order")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b border-sam-border-soft align-top">
+                <td className="py-2 pr-2 sam-text-helper font-medium text-sam-fg">
+                  {t(AXIS_TITLE_KEYS[row.id])}
+                </td>
+                <td className="py-2 pr-2 font-mono text-[12px] text-sam-fg">{row.value}</td>
+                <td className="py-2 pr-2 sam-text-helper text-sam-muted">{t(row.meaningKey)}</td>
+                <td className="py-2 pr-2 sam-text-helper text-sam-muted">{t(row.writerKey)}</td>
+                <td className="py-2 pr-2 sam-text-helper text-sam-muted">
+                  {t(row.customerEffectKey)}
+                </td>
+                <td className="py-2 sam-text-helper text-sam-muted">{t(row.orderEffectKey)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export function AdminBusinessCcSummary({
@@ -104,6 +188,8 @@ export function AdminBusinessCcSummary({
             {t("admin_biz_label_stats")}: {stats.productCount} / {stats.reviewCount}
             {" · "}
             {t("admin_biz_label_fee_scope")}: {fee.missing ? t("admin_biz_fee_missing") : fee.scope}
+            {" · "}
+            {t("admin_biz_label_front_open")}: {yn(t, delivery.frontOpenForCommerce)}
             {" · "}
             {t("admin_biz_label_delivery_flag")}: {yn(t, delivery.deliveryAvailable)}
           </p>
@@ -167,50 +253,106 @@ export function AdminBusinessCcDeliveryCard({
     : "—";
 
   return (
-    <dl className="grid gap-2 sam-text-body sm:grid-cols-2">
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_delivery_flag")}</dt>
-        <dd>{yn(t, delivery.deliveryAvailable)}</dd>
+    <div className="space-y-4">
+      <dl className="grid gap-2 sam-text-body sm:grid-cols-2">
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_delivery_flag")}</dt>
+          <dd>{yn(t, delivery.deliveryAvailable)}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_pickup_flag")}</dt>
+          <dd>{yn(t, delivery.pickupAvailable)}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_is_open")}</dt>
+          <dd>
+            {yn(t, delivery.isOpen)}{" "}
+            <span className="sam-text-helper text-sam-muted">(DB is_open)</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_front_open")}</dt>
+          <dd>
+            {yn(t, delivery.frontOpenForCommerce)}
+            {delivery.inBreak ? ` · ${t("admin_biz_label_in_break")}` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_hours")}</dt>
+          <dd>{delivery.hoursLabel ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_break")}</dt>
+          <dd>{delivery.breakRangeLabel ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_coords")}</dt>
+          <dd className="font-mono text-[12px]">{coords}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_distance_policy")}</dt>
+          <dd>{yn(t, delivery.distancePolicyEnabled)}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_distance_applies")}</dt>
+          <dd>{yn(t, delivery.applies)}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_max_km")}</dt>
+          <dd>{delivery.maxKm == null ? "—" : delivery.maxKm}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_policy_source")}</dt>
+          <dd>{delivery.policySource}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-sam-muted">{t("admin_biz_label_store_override")}</dt>
+          <dd>{overrideLabel}</dd>
+        </div>
+      </dl>
+
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+        <p className="sam-text-helper font-medium text-sam-fg">
+          {t("admin_biz_customer_delivery_fee_title")}
+        </p>
+        <p className="mt-1 sam-text-helper text-sam-muted">
+          {t("admin_biz_customer_delivery_fee_hint")}
+        </p>
+        <dl className="mt-2 grid gap-2 sam-text-body sm:grid-cols-2">
+          <div>
+            <dt className="text-sam-muted">{t("admin_biz_label_customer_fee_mode")}</dt>
+            <dd>{delivery.customerDeliveryFeeMode ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">{t("admin_biz_label_customer_fee_php")}</dt>
+            <dd>
+              {delivery.customerDeliveryFeePhp == null
+                ? "—"
+                : delivery.customerDeliveryFeePhp}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">{t("admin_biz_label_min_order")}</dt>
+            <dd>
+              {delivery.customerMinOrderPhp == null ? "—" : delivery.customerMinOrderPhp}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">{t("admin_biz_label_free_delivery_over")}</dt>
+            <dd>
+              {delivery.customerFreeDeliveryOverPhp == null
+                ? "—"
+                : delivery.customerFreeDeliveryOverPhp}
+            </dd>
+          </div>
+        </dl>
       </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_pickup_flag")}</dt>
-        <dd>{yn(t, delivery.pickupAvailable)}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_is_open")}</dt>
-        <dd>{yn(t, delivery.isOpen)}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_coords")}</dt>
-        <dd className="font-mono text-[12px]">{coords}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_distance_policy")}</dt>
-        <dd>{yn(t, delivery.distancePolicyEnabled)}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_distance_applies")}</dt>
-        <dd>{yn(t, delivery.applies)}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_max_km")}</dt>
-        <dd>{delivery.maxKm == null ? "—" : delivery.maxKm}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_policy_source")}</dt>
-        <dd>{delivery.policySource}</dd>
-      </div>
-      <div className="sm:col-span-2">
-        <dt className="text-sam-muted">{t("admin_biz_label_store_override")}</dt>
-        <dd>{overrideLabel}</dd>
-      </div>
-      <p className="sm:col-span-2 sam-text-helper text-sam-muted">{t("admin_biz_hours_admin_write")}</p>
-      <div className="sm:col-span-2">
-        <Link href={businessCcDeliveryDistanceHref()} className="text-signature hover:underline">
-          {t("admin_biz_cta_delivery_distance")}
-        </Link>
-      </div>
-    </dl>
+
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_hours_admin_write")}</p>
+      <Link href={businessCcDeliveryDistanceHref()} className="text-signature hover:underline">
+        {t("admin_biz_cta_delivery_distance")}
+      </Link>
+    </div>
   );
 }
 
@@ -227,47 +369,200 @@ export function AdminBusinessCcFeeCard({ fee }: { fee: BusinessCcFeeSnapshot }) 
     );
   }
   return (
-    <dl className="grid gap-2 sam-text-body sm:grid-cols-2">
-      <div className="sm:col-span-2 sam-text-helper text-sam-muted">
-        {t("admin_biz_fee_precedence", { scope: fee.scope })}
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_fee_scope")}</dt>
-        <dd className="font-medium">{fee.scope}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_fee_policy")}</dt>
-        <dd>{fee.policyName}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_fee_percent")}</dt>
-        <dd>{fee.feePercent}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_fee_fixed")}</dt>
-        <dd>{fee.fixedFee}</dd>
-      </div>
-      <div>
-        <dt className="text-sam-muted">{t("admin_biz_label_fee_delivery")}</dt>
-        <dd>
-          {fee.deliveryFeeMode}
-          {fee.deliveryFeeMode === "percent" ? ` (${fee.deliveryFeePercent}%)` : ""}
-        </dd>
-      </div>
-      {fee.policyId ? (
+    <div className="space-y-3">
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_platform_fee_hint")}</p>
+      <dl className="grid gap-2 sam-text-body sm:grid-cols-2">
+        <div className="sm:col-span-2 sam-text-helper text-sam-muted">
+          {t("admin_biz_fee_precedence", { scope: fee.scope })}
+        </div>
         <div>
-          <dt className="text-sam-muted">{t("admin_biz_label_policy_id")}</dt>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_scope")}</dt>
+          <dd className="font-medium">{fee.scope}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_inheritance")}</dt>
           <dd>
-            <CopyId value={fee.policyId} labelKey="admin_biz_cta_copy" />
+            {fee.scope === "store"
+              ? t("admin_biz_fee_source_store")
+              : fee.scope === "topic"
+                ? t("admin_biz_fee_source_topic")
+                : fee.scope === "category"
+                  ? t("admin_biz_fee_source_category")
+                  : fee.scope === "default"
+                    ? t("admin_biz_fee_source_default")
+                    : fee.scope}
           </dd>
         </div>
-      ) : null}
-      <div className="sm:col-span-2">
-        <Link href={businessCcFeePoliciesHref()} className="text-signature hover:underline">
-          {t("admin_biz_cta_fee")}
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_policy")}</dt>
+          <dd>{fee.policyName}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_percent")}</dt>
+          <dd>{fee.feePercent}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_fixed")}</dt>
+          <dd>{fee.fixedFee}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_label_fee_delivery")}</dt>
+          <dd>
+            {fee.deliveryFeeMode}
+            {fee.deliveryFeeMode === "percent" ? ` (${fee.deliveryFeePercent}%)` : ""}
+            <span className="ml-1 sam-text-helper text-sam-muted">
+              ({t("admin_biz_label_platform_delivery_take")})
+            </span>
+          </dd>
+        </div>
+        {fee.policyId ? (
+          <div>
+            <dt className="text-sam-muted">{t("admin_biz_label_policy_id")}</dt>
+            <dd>
+              <CopyId value={fee.policyId} labelKey="admin_biz_cta_copy" />
+            </dd>
+          </div>
+        ) : null}
+        <div className="sm:col-span-2">
+          <dt className="text-sam-muted">{t("admin_biz_label_store_override")}</dt>
+          <dd>
+            {fee.storeOverridePolicyId
+              ? `${fee.storeOverrideFeePercent ?? "—"}% (${fee.storeOverridePolicyId.slice(0, 8)}…)`
+              : t("admin_biz_yn_no")}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <Link href={businessCcFeePoliciesHref()} className="text-signature hover:underline">
+            {t("admin_biz_cta_fee")}
+          </Link>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+export function AdminBusinessCcKpiPanel({
+  storeId,
+  kpi,
+}: {
+  storeId: string;
+  kpi: BusinessCcKpiSummary;
+}) {
+  const { t } = useI18n();
+  const oc = kpi.orderStatusCounts;
+  const sc = kpi.settlementStatusCounts;
+
+  return (
+    <div className="space-y-4">
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_kpi_hint")}</p>
+
+      <dl className="grid gap-2 sam-text-body sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_orders_in_progress")}</dt>
+          <dd className="font-medium">{kpi.inProgressOrderCount}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_order_status")}</dt>
+          <dd className="sam-text-helper">
+            pending {oc.pending} · in_progress {oc.inProgress} · completed {oc.completed} ·
+            cancelled {oc.cancelled} · refund_requested {oc.refundRequested}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_sold_out")}</dt>
+          <dd className="font-medium">
+            {kpi.soldOutProductCount}
+            <span className="ml-1 sam-text-helper font-normal text-sam-muted">
+              / {kpi.productCount}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_settlement_status")}</dt>
+          <dd className="sam-text-helper">
+            pending {sc.pending} · processing {sc.processing} · held {sc.held} · paid {sc.paid} ·
+            cancelled {sc.cancelled}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_reports")}</dt>
+          <dd className="font-medium">{kpi.openReportCount}</dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{t("admin_biz_kpi_reviews")}</dt>
+          <dd className="font-medium">
+            {kpi.reviewCount}
+            <span className="ml-1 sam-text-helper font-normal text-sam-muted">
+              ({t("admin_biz_kpi_reviews_hidden")}: {kpi.hiddenReviewCount})
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="sam-text-helper font-medium text-sam-fg">
+              {t("admin_biz_kpi_recent_orders")}
+            </p>
+            <Link href={businessCcOrdersByStoreHref(storeId)} className="text-signature hover:underline sam-text-helper">
+              {t("admin_biz_cta_orders_by_store")}
+            </Link>
+          </div>
+          {kpi.recentOrders.length === 0 ? (
+            <p className="sam-text-helper text-sam-muted">{t("admin_biz_kpi_empty")}</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {kpi.recentOrders.map((o) => (
+                <li key={o.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
+                  <span className="font-mono text-sam-fg">{o.orderNo || o.id.slice(0, 8)}</span>
+                  <span className="text-sam-muted">{o.orderStatus}</span>
+                  <span className="text-sam-fg">{formatMoneyPhp(o.paymentAmount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="sam-text-helper font-medium text-sam-fg">
+              {t("admin_biz_kpi_recent_settlements")}
+            </p>
+            <Link href={businessCcSettlementsHref(storeId)} className="text-signature hover:underline sam-text-helper">
+              {t("admin_biz_cta_settlements")}
+            </Link>
+          </div>
+          {kpi.recentSettlements.length === 0 ? (
+            <p className="sam-text-helper text-sam-muted">{t("admin_biz_kpi_empty")}</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {kpi.recentSettlements.map((s) => (
+                <li key={s.id} className="flex flex-wrap justify-between gap-2 sam-text-helper">
+                  <span className="font-mono text-sam-fg">{s.id.slice(0, 8)}</span>
+                  <span className="text-sam-muted">{s.settlementStatus}</span>
+                  <span className="text-sam-fg">
+                    {s.netAmount == null ? "—" : formatMoneyPhp(s.netAmount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link href={businessCcProductsHref(storeId)} className={linkBtnClass}>
+          {t("admin_biz_cta_products")}
+        </Link>
+        <Link href={businessCcReportsHref(storeId)} className={linkBtnClass}>
+          {t("admin_biz_cta_reports")}
+        </Link>
+        <Link href={businessCcReviewsHref(storeId)} className={linkBtnClass}>
+          {t("admin_biz_cta_reviews")}
         </Link>
       </div>
-    </dl>
+    </div>
   );
 }
 
@@ -300,6 +595,21 @@ export function AdminBusinessCcLinks({
       note: "READY",
     },
     {
+      href: businessCcCancellationsHref(storeId),
+      labelKey: "admin_biz_cta_cancellations",
+      note: "READY",
+    },
+    {
+      href: businessCcRefundsHref(storeId),
+      labelKey: "admin_biz_cta_refunds",
+      note: "READY",
+    },
+    {
+      href: businessCcSettlementsHref(storeId),
+      labelKey: "admin_biz_cta_settlements",
+      note: "READY",
+    },
+    {
       href: businessCcProductsHref(storeId),
       labelKey: "admin_biz_cta_products",
       note: `READY · ${stats.productCount}`,
@@ -308,6 +618,11 @@ export function AdminBusinessCcLinks({
       href: businessCcReviewsHref(storeId),
       labelKey: "admin_biz_cta_reviews",
       note: `READY · ${stats.reviewCount}`,
+    },
+    {
+      href: businessCcReportsHref(storeId),
+      labelKey: "admin_biz_cta_reports",
+      note: "READY",
     },
     {
       href: businessCcAuditHref(storeId),

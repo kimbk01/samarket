@@ -6,6 +6,7 @@ import type { BusinessProfileLog, BusinessProfileLogActionType } from "@/lib/typ
 import type {
   BusinessCcDeliverySnapshot,
   BusinessCcFeeSnapshot,
+  BusinessCcKpiSummary,
   BusinessCcOwner,
   BusinessCcSalesPermission,
   BusinessCcStats,
@@ -20,13 +21,17 @@ import { AdminBusinessLogList } from "./AdminBusinessLogList";
 import {
   AdminBusinessCcDeliveryCard,
   AdminBusinessCcFeeCard,
+  AdminBusinessCcKpiPanel,
   AdminBusinessCcLinks,
+  AdminBusinessCcStatusPanel,
   AdminBusinessCcSummary,
 } from "./AdminBusinessCcPanels";
 import {
   AdminBusinessCcContactEditor,
   AdminBusinessCcDeliveryOverrideEditor,
   AdminBusinessCcFeeOverrideEditor,
+  AdminBusinessCcLocationEditor,
+  AdminBusinessCcOpsFlagsEditor,
   AdminBusinessCcTaxonomyEditor,
 } from "./AdminBusinessCcManageEditors";
 
@@ -44,6 +49,7 @@ const SENSITIVE_ACTIONS = new Set([
   "set_store_name",
   "set_store_taxonomy",
   "set_store_contact",
+  "set_store_location",
   "set_business_hours",
   "set_delivery_flags",
 ]);
@@ -100,6 +106,10 @@ function toReviewRow(
     district: typeof store.district === "string" ? store.district : null,
     address_line1: typeof store.address_line1 === "string" ? store.address_line1 : null,
     address_line2: typeof store.address_line2 === "string" ? store.address_line2 : null,
+    place_id: typeof store.place_id === "string" ? store.place_id : null,
+    formatted_address:
+      typeof store.formatted_address === "string" ? store.formatted_address : null,
+    detail_address: typeof store.detail_address === "string" ? store.detail_address : null,
     lat: typeof store.lat === "number" ? store.lat : null,
     lng: typeof store.lng === "number" ? store.lng : null,
     profile_image_url:
@@ -124,6 +134,7 @@ type CcPayload = {
   owner: BusinessCcOwner;
   sales: BusinessCcSalesPermission;
   stats: BusinessCcStats;
+  kpi: BusinessCcKpiSummary;
   fee: BusinessCcFeeSnapshot;
   delivery: BusinessCcDeliverySnapshot;
   logs: BusinessProfileLog[];
@@ -157,6 +168,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           ownerNickname?: string;
           salesPermission?: BusinessCcSalesPermission;
           stats?: BusinessCcStats;
+          kpi?: BusinessCcKpiSummary;
           fee?: BusinessCcFeeSnapshot;
           delivery?: BusinessCcDeliverySnapshot;
           logs?: Array<{
@@ -184,11 +196,36 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               ? j.store.admin_internal_memo
               : "";
           setMemoInput(memo);
+          const stats = j.stats ?? { productCount: 0, reviewCount: 0 };
           setPayload({
             store: reviewRow,
             owner,
             sales: j.salesPermission ?? null,
-            stats: j.stats ?? { productCount: 0, reviewCount: 0 },
+            stats,
+            kpi: j.kpi ?? {
+              inProgressOrderCount: 0,
+              orderStatusCounts: {
+                pending: 0,
+                inProgress: 0,
+                completed: 0,
+                cancelled: 0,
+                refundRequested: 0,
+              },
+              recentOrders: [],
+              soldOutProductCount: 0,
+              productCount: stats.productCount,
+              recentSettlements: [],
+              settlementStatusCounts: {
+                pending: 0,
+                processing: 0,
+                held: 0,
+                paid: 0,
+                cancelled: 0,
+              },
+              openReportCount: 0,
+              reviewCount: stats.reviewCount,
+              hiddenReviewCount: 0,
+            },
             fee: j.fee ?? {
               scope: "missing_policy",
               policyId: null,
@@ -205,6 +242,14 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               deliveryAvailable: null,
               pickupAvailable: null,
               isOpen: null,
+              frontOpenForCommerce: false,
+              inBreak: false,
+              hoursLabel: null,
+              breakRangeLabel: null,
+              customerDeliveryFeeMode: null,
+              customerDeliveryFeePhp: null,
+              customerMinOrderPhp: null,
+              customerFreeDeliveryOverPhp: null,
               lat: null,
               lng: null,
               distancePolicyEnabled: false,
@@ -297,10 +342,10 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     );
   }
 
-  const { store, owner, sales, stats, fee, delivery, logs } = payload;
+  const { store, owner, sales, stats, kpi, fee, delivery, logs } = payload;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" key={profileId} data-store-id={profileId}>
       <AdminPageHeader titleKey="admin_biz_page_cc" backHref="/admin/business" />
       <AdminBusinessCcSummary
         store={store}
@@ -310,6 +355,14 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         fee={fee}
         delivery={delivery}
       />
+
+      <AdminCard titleKey="admin_biz_card_kpi">
+        <AdminBusinessCcKpiPanel storeId={store.id} kpi={kpi} />
+      </AdminCard>
+
+      <AdminCard titleKey="admin_biz_card_status">
+        <AdminBusinessCcStatusPanel store={store} sales={sales} delivery={delivery} />
+      </AdminCard>
 
       <AdminCard titleKey="admin_biz_card_ops">
         <AdminStoreReviewTheme>
@@ -339,10 +392,23 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           busy={actionBusy}
           onSaved={refreshDetail}
         />
+        <AdminBusinessCcLocationEditor
+          store={store}
+          busy={actionBusy}
+          onSaved={refreshDetail}
+        />
       </AdminCard>
 
       <AdminCard titleKey="admin_biz_card_delivery">
         <AdminBusinessCcDeliveryCard delivery={delivery} />
+        <AdminBusinessCcOpsFlagsEditor
+          storeId={store.id}
+          deliveryAvailable={delivery.deliveryAvailable}
+          pickupAvailable={delivery.pickupAvailable}
+          isOpen={delivery.isOpen}
+          busy={actionBusy}
+          onSaved={refreshDetail}
+        />
         <AdminBusinessCcDeliveryOverrideEditor
           storeId={store.id}
           currentMode={delivery.storeOverrideMode}

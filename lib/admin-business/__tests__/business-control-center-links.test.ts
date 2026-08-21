@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   businessCcAuditHref,
+  businessCcCancellationsHref,
   businessCcDeliveryDistanceHref,
   businessCcEntryReviewHref,
   businessCcFeePoliciesHref,
@@ -8,7 +9,10 @@ import {
   businessCcOwnerMemberHref,
   businessCcProductsHref,
   businessCcPublicStoreHref,
+  businessCcRefundsHref,
+  businessCcReportsHref,
   businessCcReviewsHref,
+  businessCcSettlementsHref,
   businessCcStoreOrdersHref,
 } from "@/lib/admin-business/business-control-center-links";
 
@@ -22,7 +26,7 @@ describe("business-control-center-links", () => {
     );
   });
 
-  it("deep-links products/reviews/audit with store_id", () => {
+  it("deep-links products/reviews/audit/settlements with store_id", () => {
     expect(businessCcProductsHref("abc-123")).toBe(
       "/admin/store-products?store_id=abc-123"
     );
@@ -31,6 +35,21 @@ describe("business-control-center-links", () => {
     );
     expect(businessCcAuditHref("abc-123")).toBe(
       "/admin/audit-logs?target_type=store&target_id=abc-123"
+    );
+    expect(businessCcSettlementsHref("abc-123")).toBe(
+      "/admin/store-settlements?store_id=abc-123"
+    );
+  });
+
+  it("deep-links cancellations/refunds/reports with store_id", () => {
+    expect(businessCcCancellationsHref("abc-123")).toBe(
+      "/admin/stores/orders/cancellations?store_id=abc-123"
+    );
+    expect(businessCcRefundsHref("abc-123")).toBe(
+      "/admin/stores/orders/refunds?store_id=abc-123"
+    );
+    expect(businessCcReportsHref("abc-123")).toBe(
+      "/admin/store-reports?store_id=abc-123"
     );
   });
 

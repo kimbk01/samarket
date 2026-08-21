@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
@@ -111,6 +112,8 @@ function allowedModes(row: Row): Record<OpsMode, boolean> {
 
 export function AdminStoreSettlementsPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const storeIdFromUrl = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
   const [summary, setSummary] = useState<ServerSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +122,7 @@ export function AdminStoreSettlementsPage() {
 
   const [stores, setStores] = useState<StoreOpt[]>([]);
 
-  const [filterStoreId, setFilterStoreId] = useState("");
+  const [filterStoreId, setFilterStoreId] = useState(storeIdFromUrl);
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [filterOrderNo, setFilterOrderNo] = useState("");
@@ -128,6 +131,10 @@ export function AdminStoreSettlementsPage() {
   const [filterHeldOnly, setFilterHeldOnly] = useState(false);
   const [filterUnpaidOnly, setFilterUnpaidOnly] = useState(false);
   const [filterRefundOnly, setFilterRefundOnly] = useState(false);
+
+  useEffect(() => {
+    setFilterStoreId(storeIdFromUrl);
+  }, [storeIdFromUrl]);
 
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [opsRow, setOpsRow] = useState<Row | null>(null);

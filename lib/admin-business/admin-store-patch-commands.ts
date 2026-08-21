@@ -63,6 +63,21 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.phone", "stores.description", "stores.email"],
     table: "stores",
   },
+  set_store_location: {
+    writes: [
+      "stores.region",
+      "stores.city",
+      "stores.district",
+      "stores.address_line1",
+      "stores.address_line2",
+      "stores.place_id",
+      "stores.formatted_address",
+      "stores.detail_address",
+      "stores.lat",
+      "stores.lng",
+    ],
+    table: "stores",
+  },
   set_business_hours: {
     writes: ["stores.business_hours_json"],
     table: "stores",
@@ -95,15 +110,13 @@ export function isAdminStorePatchAction(action: string): action is AdminStorePat
  * Out of this PATCH — use existing SSOT APIs / shared domain commands instead:
  * - store fee override: POST|PATCH /api/admin/store-fee-policies
  * - delivery distance store override: PUT /api/admin/delivery/settings
- * - address/coords: Owner PATCH /api/me/stores/[storeId] only
- *   (normalizeStoreAddressPh + assertStoreLocationPatchConsistent +
- *    refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged).
- *   Admin simple address PATCH = BLOCKER. Shared domain command = NOT_SHAREABLE_YET
- *   until those three steps are extracted as one callable used by Owner+Admin.
+ * - address/coords: action `set_store_location` on this endpoint AND Owner
+ *   PATCH /api/me/stores/[storeId] — both call `buildStoreLocationPatchFields`
+ *   (+ checkout geo refresh when lat/lng change). Do not free-form update coords.
  */
 export const ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS = {
   fee_store_override: "POST|PATCH /api/admin/store-fee-policies",
   delivery_distance_store_override: "PUT /api/admin/delivery/settings",
   address_coords:
-    "PATCH /api/me/stores/[storeId] (owner; admin NOT_READY — BLOCKER_IF_SIMPLE_PATCH)",
+    "set_store_location (admin) | PATCH /api/me/stores/[storeId] (owner) via buildStoreLocationPatchFields",
 } as const;

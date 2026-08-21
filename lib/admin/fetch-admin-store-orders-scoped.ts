@@ -23,8 +23,10 @@ export function fetchAdminStoreOrdersForBuyer(buyerUserId: string) {
   return fetchAdminStoreOrdersQueryDeduped(qs);
 }
 
-export function fetchAdminStoreOrdersByOrderStatus(orderStatus: string) {
+export function fetchAdminStoreOrdersByOrderStatus(orderStatus: string, storeId?: string) {
   const s = orderStatus.trim();
-  const qs = `order_status=${encodeURIComponent(s)}&${BASE}`;
-  return fetchAdminStoreOrdersQueryDeduped(qs);
+  const sid = (storeId ?? "").trim();
+  const parts = [`order_status=${encodeURIComponent(s)}`, BASE];
+  if (sid) parts.unshift(`store_id=${encodeURIComponent(sid)}`);
+  return fetchAdminStoreOrdersQueryDeduped(parts.join("&"));
 }

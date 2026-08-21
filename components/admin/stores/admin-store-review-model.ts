@@ -33,6 +33,9 @@ export type AdminStoreReviewRow = {
   district: string | null;
   address_line1: string | null;
   address_line2: string | null;
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
   lat: number | null;
   lng: number | null;
   profile_image_url: string | null;

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 관리자: 매장·상품 신고 목록 */
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
@@ -16,13 +16,21 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: rows, error } = await sb
+  const storeIdFilter = req.nextUrl.searchParams.get("store_id")?.trim() || "";
+
+  let q = sb
     .from("store_reports")
     .select(
       "id, reporter_user_id, target_type, target_id, store_id, reason_type, message, status, action_type, action_memo, reviewed_at, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(400);
+
+  if (storeIdFilter) {
+    q = q.eq("store_id", storeIdFilter);
+  }
+
+  const { data: rows, error } = await q;
 
   if (error) {
     if (error.message?.includes("store_reports") && error.message.includes("does not exist")) {
@@ -51,6 +59,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    store_id: storeIdFilter || null,
     reports: list.map((r) => ({
       ...r,
       store_name: names[r.store_id as string] ?? "",

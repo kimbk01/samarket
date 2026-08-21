@@ -3,6 +3,7 @@
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
@@ -12,9 +13,12 @@ import {
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { RefundRequestTable } from "./RefundRequestTable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 
 export function DeliveryRefundsClient() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +34,10 @@ export function DeliveryRefundsClient() {
     setLoading(true);
     setError(null);
     try {
-      const { status, json } = await fetchAdminStoreOrdersByOrderStatus("refund_requested");
+      const { status, json } = await fetchAdminStoreOrdersByOrderStatus(
+        "refund_requested",
+        storeIdFilter || undefined
+      );
       const j = json as { ok?: boolean; error?: string };
       if (status < 200 || status >= 300 || j.ok === false) {
         setRows([]);
@@ -44,11 +51,11 @@ export function DeliveryRefundsClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeIdFilter]);
 
   useEffect(() => {
     void load();
-  }, [load, t]);
+  }, [load]);
 
   const approve = async (orderId: string) => {
     if (
@@ -90,6 +97,18 @@ export function DeliveryRefundsClient() {
           {t("admin_do_nav_store_orders")}
         </Link>
       </p>
+      {storeIdFilter ? (
+        <p className="mb-2 sam-text-helper text-sam-muted">
+          store_id={storeIdFilter}{" "}
+          <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
+            {t("admin_biz_cta_back_store")}
+          </Link>
+          {" · "}
+          <Link href="/admin/stores/orders/refunds" className="text-signature hover:underline">
+            {t("admin_do_common_clear_store_filter")}
+          </Link>
+        </p>
+      ) : null}
       {toast ? <p className="mb-2 text-sm text-sam-fg">{toast}</p> : null}
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">

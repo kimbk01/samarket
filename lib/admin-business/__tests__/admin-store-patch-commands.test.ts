@@ -9,6 +9,7 @@ describe("admin-store-patch-commands", () => {
   it("gates unknown actions", () => {
     expect(isAdminStorePatchAction("set_store_taxonomy")).toBe(true);
     expect(isAdminStorePatchAction("set_store_contact")).toBe(true);
+    expect(isAdminStorePatchAction("set_store_location")).toBe(true);
     expect(isAdminStorePatchAction("free_form_update")).toBe(false);
   });
 
@@ -20,6 +21,7 @@ describe("admin-store-patch-commands", () => {
       "stores.store_topic_id"
     );
     expect(ADMIN_STORE_PATCH_COMMANDS.set_store_contact.writes).toContain("stores.phone");
+    expect(ADMIN_STORE_PATCH_COMMANDS.set_store_location.writes).toContain("stores.lat");
   });
 
   it("keeps fee/distance on external SSOT writers", () => {
@@ -29,5 +31,8 @@ describe("admin-store-patch-commands", () => {
     expect(
       ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.delivery_distance_store_override
     ).toContain("delivery/settings");
+    expect(ADMIN_STORE_MANAGEMENT_EXTERNAL_WRITERS.address_coords).toContain(
+      "buildStoreLocationPatchFields"
+    );
   });
 });

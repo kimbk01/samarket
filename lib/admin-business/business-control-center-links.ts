@@ -24,6 +24,23 @@ export function businessCcAuditHref(storeId: string): string {
   return `/admin/audit-logs?target_type=store&target_id=${encodeURIComponent(storeId.trim())}`;
 }
 
+/** Settlements list — UI seeds filter from store_id (API already filters). */
+export function businessCcSettlementsHref(storeId: string): string {
+  return `/admin/store-settlements?store_id=${encodeURIComponent(storeId.trim())}`;
+}
+
+export function businessCcCancellationsHref(storeId: string): string {
+  return `/admin/stores/orders/cancellations?store_id=${encodeURIComponent(storeId.trim())}`;
+}
+
+export function businessCcRefundsHref(storeId: string): string {
+  return `/admin/stores/orders/refunds?store_id=${encodeURIComponent(storeId.trim())}`;
+}
+
+export function businessCcReportsHref(storeId: string): string {
+  return `/admin/store-reports?store_id=${encodeURIComponent(storeId.trim())}`;
+}
+
 export function businessCcEntryReviewHref(storeNameOrSlug?: string): string {
   const q = String(storeNameOrSlug ?? "").trim();
   return q ? `/admin/stores?q=${encodeURIComponent(q)}` : "/admin/stores";

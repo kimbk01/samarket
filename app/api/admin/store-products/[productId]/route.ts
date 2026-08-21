@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import {
+  buildAdminStoreProductPatch,
+  isAdminStoreProductAction,
+} from "@/lib/stores/admin-store-product-ops";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -12,9 +17,9 @@ type PatchBody = {
 };
 
 /**
- * block → product_status blocked, admin_review rejected
- * hide → hidden
- * activate → active (검수 승인 처리)
+ * Limited Admin product ops on store_products SSOT.
+ * block / hide / activate / sold_out / approve_review / reject_review
+ * — not Owner menu CRUD.
  */
 export async function PATCH(
   req: NextRequest,
@@ -37,7 +42,10 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const action = String(body.action ?? "").trim();
+  const actionRaw = String(body.action ?? "").trim();
+  if (!isAdminStoreProductAction(actionRaw)) {
+    return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });
+  }
   const memo = String(body.memo ?? "").trim() || null;
 
   const sb = tryGetSupabaseForStores();
@@ -47,7 +55,7 @@ export async function PATCH(
 
   const { data: row, error: findErr } = await sb
     .from("store_products")
-    .select("id")
+    .select("id, product_status, admin_review_status")
     .eq("id", id)
     .maybeSingle();
 
@@ -55,27 +63,11 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  let patch: Record<string, unknown> = {};
-  if (action === "block") {
-    patch = {
-      product_status: "blocked",
-      admin_review_status: "rejected",
-      admin_review_memo: memo,
-    };
-  } else if (action === "hide") {
-    patch = {
-      product_status: "hidden",
-      admin_review_memo: memo,
-    };
-  } else if (action === "activate") {
-    patch = {
-      product_status: "active",
-      admin_review_status: "approved",
-      admin_review_memo: memo,
-    };
-  } else {
-    return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 });
-  }
+  const patch = buildAdminStoreProductPatch(actionRaw, memo);
+  const before = {
+    product_status: row.product_status,
+    admin_review_status: (row as { admin_review_status?: string }).admin_review_status,
+  };
 
   const { error: upErr } = await sb.from("store_products").update(patch).eq("id", id);
   if (upErr) {
@@ -83,12 +75,14 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
 
+  const actorId = await getRouteUserId();
   await appendAuditLog(sb, {
     actor_type: "admin",
-    actor_id: null,
+    actor_id: actorId,
     target_type: "store_product",
     target_id: id,
-    action: `store_product.${action}`,
+    action: `store_product.${actionRaw}`,
+    before_json: before,
     after_json: { ...patch, memo },
   });
 

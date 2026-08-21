@@ -200,7 +200,6 @@ export function AdminBusinessCcContactEditor({
   return (
     <div className="space-y-3 border-t border-sam-border-soft pt-3">
       <p className="sam-text-helper font-medium text-sam-fg">{t("admin_biz_manage_contact")}</p>
-      <p className="sam-text-helper text-sam-muted">{t("admin_biz_address_not_ready")}</p>
       <p className="sam-text-helper text-sam-muted">{t("admin_biz_email_field_note")}</p>
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_phone")}</span>
@@ -222,6 +221,169 @@ export function AdminBusinessCcContactEditor({
       </label>
       <button type="button" className={btnPrimaryClass} disabled={busy || saving} onClick={() => void save()}>
         {t("admin_biz_save_contact")}
+      </button>
+    </div>
+  );
+}
+
+export function AdminBusinessCcLocationEditor({
+  store,
+  busy,
+  onSaved,
+}: {
+  store: AdminStoreReviewRow;
+  busy?: boolean;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [region, setRegion] = useState(store.region ?? "");
+  const [city, setCity] = useState(store.city ?? "");
+  const [address1, setAddress1] = useState(store.address_line1 ?? store.district ?? "");
+  const [address2, setAddress2] = useState(store.address_line2 ?? "");
+  const [detailAddress, setDetailAddress] = useState(store.detail_address ?? "");
+  const [placeId, setPlaceId] = useState(store.place_id ?? "");
+  const [formatted, setFormatted] = useState(store.formatted_address ?? "");
+  const [lat, setLat] = useState(store.lat != null ? String(store.lat) : "");
+  const [lng, setLng] = useState(store.lng != null ? String(store.lng) : "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setRegion(store.region ?? "");
+    setCity(store.city ?? "");
+    setAddress1(store.address_line1 ?? store.district ?? "");
+    setAddress2(store.address_line2 ?? "");
+    setDetailAddress(store.detail_address ?? "");
+    setPlaceId(store.place_id ?? "");
+    setFormatted(store.formatted_address ?? "");
+    setLat(store.lat != null ? String(store.lat) : "");
+    setLng(store.lng != null ? String(store.lng) : "");
+  }, [
+    store.id,
+    store.region,
+    store.city,
+    store.address_line1,
+    store.district,
+    store.address_line2,
+    store.detail_address,
+    store.place_id,
+    store.formatted_address,
+    store.lat,
+    store.lng,
+  ]);
+
+  const save = async () => {
+    const ok = await dibayConfirm({
+      title: t("admin_biz_action_confirm_title"),
+      confirmLabel: t("admin_biz_yes"),
+      cancelLabel: t("admin_biz_no"),
+    });
+    if (!ok) return;
+
+    const latTrim = lat.trim();
+    const lngTrim = lng.trim();
+    let latVal: number | null | undefined;
+    let lngVal: number | null | undefined;
+    if (latTrim === "" && lngTrim === "") {
+      latVal = undefined;
+      lngVal = undefined;
+    } else if (latTrim === "" || lngTrim === "") {
+      await dibayAlert({ title: t("admin_biz_location_coords_pair") });
+      return;
+    } else {
+      const la = Number(latTrim);
+      const ln = Number(lngTrim);
+      if (!Number.isFinite(la) || !Number.isFinite(ln)) {
+        await dibayAlert({ title: t("admin_biz_location_coords_invalid") });
+        return;
+      }
+      latVal = la;
+      lngVal = ln;
+    }
+
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        action: "set_store_location",
+        region: region.trim() || null,
+        city: city.trim() || null,
+        address_line1: address1.trim() || null,
+        address_line2: address2.trim() || null,
+        detail_address: detailAddress.trim() || null,
+        place_id: placeId.trim() || null,
+        formatted_address: formatted.trim() || null,
+      };
+      if (latVal !== undefined && lngVal !== undefined) {
+        body.lat = latVal;
+        body.lng = lngVal;
+      }
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(store.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 border-t border-sam-border-soft pt-3">
+      <p className="sam-text-helper font-medium text-sam-fg">{t("admin_biz_manage_location")}</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_location_hint")}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_region")}</span>
+          <input className={inputClass} value={region} disabled={busy || saving} onChange={(e) => setRegion(e.target.value)} />
+        </label>
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_city")}</span>
+          <input className={inputClass} value={city} disabled={busy || saving} onChange={(e) => setCity(e.target.value)} />
+        </label>
+      </div>
+      <label className="block space-y-1">
+        <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_address1")}</span>
+        <input className={inputClass} value={address1} disabled={busy || saving} onChange={(e) => setAddress1(e.target.value)} />
+      </label>
+      <label className="block space-y-1">
+        <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_address2")}</span>
+        <input className={inputClass} value={address2} disabled={busy || saving} onChange={(e) => setAddress2(e.target.value)} />
+      </label>
+      <label className="block space-y-1">
+        <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_detail_address")}</span>
+        <input
+          className={inputClass}
+          value={detailAddress}
+          disabled={busy || saving}
+          onChange={(e) => setDetailAddress(e.target.value)}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_formatted_address")}</span>
+        <input className={inputClass} value={formatted} disabled={busy || saving} onChange={(e) => setFormatted(e.target.value)} />
+      </label>
+      <label className="block space-y-1">
+        <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_place_id")}</span>
+        <input className={inputClass} value={placeId} disabled={busy || saving} onChange={(e) => setPlaceId(e.target.value)} />
+      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_lat")}</span>
+          <input className={inputClass} value={lat} disabled={busy || saving} onChange={(e) => setLat(e.target.value)} />
+        </label>
+        <label className="block space-y-1">
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_label_lng")}</span>
+          <input className={inputClass} value={lng} disabled={busy || saving} onChange={(e) => setLng(e.target.value)} />
+        </label>
+      </div>
+      <button type="button" className={btnPrimaryClass} disabled={busy || saving} onClick={() => void save()}>
+        {t("admin_biz_save_location")}
       </button>
     </div>
   );
@@ -470,6 +632,108 @@ export function AdminBusinessCcDeliveryOverrideEditor({
           {t("admin_biz_save_delivery_override")}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Same stores row flags as Owner — set_delivery_flags (is_open / delivery / pickup). */
+export function AdminBusinessCcOpsFlagsEditor({
+  storeId,
+  deliveryAvailable,
+  pickupAvailable,
+  isOpen,
+  busy,
+  onSaved,
+}: {
+  storeId: string;
+  deliveryAvailable: boolean | null;
+  pickupAvailable: boolean | null;
+  isOpen: boolean | null;
+  busy?: boolean;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [deliveryOn, setDeliveryOn] = useState(deliveryAvailable !== false);
+  const [pickupOn, setPickupOn] = useState(pickupAvailable !== false);
+  const [openOn, setOpenOn] = useState(isOpen !== false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDeliveryOn(deliveryAvailable !== false);
+    setPickupOn(pickupAvailable !== false);
+    setOpenOn(isOpen !== false);
+  }, [storeId, deliveryAvailable, pickupAvailable, isOpen]);
+
+  const save = async () => {
+    const ok = await dibayConfirm({
+      title: t("admin_biz_action_confirm_title"),
+      confirmLabel: t("admin_biz_yes"),
+      cancelLabel: t("admin_biz_no"),
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_delivery_flags",
+          delivery_available: deliveryOn,
+          pickup_available: pickupOn,
+          is_open: openOn,
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        await dibayAlert({ title: j.error ?? t("common_content_unavailable") });
+        return;
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
+      <p className="sam-text-helper font-medium text-sam-fg">{t("admin_biz_manage_ops_flags")}</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_biz_ops_flags_hint")}</p>
+      <label className="flex items-center gap-2 sam-text-body">
+        <input
+          type="checkbox"
+          checked={openOn}
+          disabled={busy || saving}
+          onChange={(e) => setOpenOn(e.target.checked)}
+        />
+        {t("admin_biz_label_is_open")} (is_open)
+      </label>
+      <label className="flex items-center gap-2 sam-text-body">
+        <input
+          type="checkbox"
+          checked={deliveryOn}
+          disabled={busy || saving}
+          onChange={(e) => setDeliveryOn(e.target.checked)}
+        />
+        {t("admin_biz_label_delivery_flag")}
+      </label>
+      <label className="flex items-center gap-2 sam-text-body">
+        <input
+          type="checkbox"
+          checked={pickupOn}
+          disabled={busy || saving}
+          onChange={(e) => setPickupOn(e.target.checked)}
+        />
+        {t("admin_biz_label_pickup_flag")}
+      </label>
+      <button
+        type="button"
+        className={btnPrimaryClass}
+        disabled={busy || saving}
+        onClick={() => void save()}
+      >
+        {t("admin_biz_save_ops_flags")}
+      </button>
     </div>
   );
 }

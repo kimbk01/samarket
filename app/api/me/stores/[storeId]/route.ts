@@ -8,12 +8,10 @@ import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
-import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
-import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
 import {
-  parseFiniteLatitude,
-  parseFiniteLongitude,
-} from "@/lib/geo/parse-finite-geographic-coord";
+  buildStoreLocationPatchFields,
+  storeLocationPatchTouchesCoords,
+} from "@/lib/stores/build-store-location-patch";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 
 export const runtime = "nodejs";
@@ -71,18 +69,6 @@ function trimOrNull(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   const t = String(v).trim();
   return t || null;
-}
-
-function parseLat(v: unknown): number | null | "invalid" {
-  if (v === null || v === undefined || v === "") return null;
-  const n = parseFiniteLatitude(v);
-  return n == null ? "invalid" : n;
-}
-
-function parseLng(v: unknown): number | null | "invalid" {
-  if (v === null || v === undefined || v === "") return null;
-  const n = parseFiniteLongitude(v);
-  return n == null ? "invalid" : n;
 }
 
 /**
@@ -190,25 +176,6 @@ export async function PATCH(
   }
   if (body.kakao_id !== undefined) patch.kakao_id = trimOrNull(body.kakao_id);
 
-  if (body.region !== undefined) patch.region = trimOrNull(body.region);
-  if (body.city !== undefined) patch.city = trimOrNull(body.city);
-
-  // Backward compatibility: historically district mirrored "주소1".
-  // If caller sends district only, treat it as address_line1 input.
-  const districtIn = body.district !== undefined ? trimOrNull(body.district) : undefined;
-  const address1In =
-    body.address_line1 !== undefined
-      ? trimOrNull(body.address_line1)
-      : districtIn !== undefined
-        ? districtIn
-        : undefined;
-  const address2In = body.address_line2 !== undefined ? trimOrNull(body.address_line2) : undefined;
-
-  if (address1In !== undefined) patch.address_line1 = address1In;
-  if (address2In !== undefined) patch.address_line2 = address2In;
-  if (body.place_id !== undefined) patch.place_id = trimOrNull(body.place_id);
-  if (body.formatted_address !== undefined) patch.formatted_address = trimOrNull(body.formatted_address);
-  if (body.detail_address !== undefined) patch.detail_address = trimOrNull(body.detail_address);
   if (body.email !== undefined) {
     const et = trimOrNull(body.email);
     if (et === null) {
@@ -278,77 +245,37 @@ export async function PATCH(
     }
   }
 
-  if (body.lat !== undefined) {
-    const la = parseLat(body.lat);
-    if (la === "invalid") {
-      return NextResponse.json({ ok: false, error: "invalid_lat" }, { status: 400 });
-    }
-    patch.lat = la;
-  }
-  if (body.lng !== undefined) {
-    const ln = parseLng(body.lng);
-    if (ln === "invalid") {
-      return NextResponse.json({ ok: false, error: "invalid_lng" }, { status: 400 });
-    }
-    patch.lng = ln;
-  }
-
-  // Address normalization (PH). Enforce a single canonical storage format.
-  const addressTouched =
-    body.region !== undefined ||
-    body.city !== undefined ||
-    body.district !== undefined ||
-    body.address_line1 !== undefined ||
-    body.address_line2 !== undefined;
-  if (addressTouched) {
-    const nextRegion =
-      patch.region !== undefined ? (patch.region as string | null) : (currentRow.region as string | null);
-    const nextCity =
-      patch.city !== undefined ? (patch.city as string | null) : (currentRow.city as string | null);
-    const nextA1 =
-      patch.address_line1 !== undefined
-        ? (patch.address_line1 as string | null)
-        : ((currentRow.address_line1 as string | null) ?? (currentRow.district as string | null));
-    const nextA2 =
-      patch.address_line2 !== undefined
-        ? (patch.address_line2 as string | null)
-        : (currentRow.address_line2 as string | null);
-
-    const norm = normalizeStoreAddressPh({
-      region: nextRegion,
-      city: nextCity,
-      address1: nextA1,
-      address2: nextA2,
-    });
-
-    patch.region = norm.region;
-    patch.city = norm.city;
-    patch.address_line1 = norm.address1;
-    patch.address_line2 = norm.address2;
-    patch.district = norm.address1;
-  }
-
-  const locCheck = assertStoreLocationPatchConsistent(
+  const locationBuilt = buildStoreLocationPatchFields(
     {
+      region: currentRow.region as string | null,
+      city: currentRow.city as string | null,
+      district: currentRow.district as string | null,
+      address_line1: currentRow.address_line1 as string | null,
+      address_line2: currentRow.address_line2 as string | null,
       place_id: (currentRow as { place_id?: string | null }).place_id,
       formatted_address: (currentRow as { formatted_address?: string | null }).formatted_address,
-      address_line1: (currentRow as { address_line1?: string | null }).address_line1,
       lat: (currentRow as { lat?: unknown }).lat,
       lng: (currentRow as { lng?: unknown }).lng,
     },
     {
-      ...(patch.place_id !== undefined ? { place_id: patch.place_id as string | null } : {}),
-      ...(patch.formatted_address !== undefined
-        ? { formatted_address: patch.formatted_address as string | null }
+      ...(body.region !== undefined ? { region: body.region } : {}),
+      ...(body.city !== undefined ? { city: body.city } : {}),
+      ...(body.district !== undefined ? { district: body.district } : {}),
+      ...(body.address_line1 !== undefined ? { address_line1: body.address_line1 } : {}),
+      ...(body.address_line2 !== undefined ? { address_line2: body.address_line2 } : {}),
+      ...(body.place_id !== undefined ? { place_id: body.place_id } : {}),
+      ...(body.formatted_address !== undefined
+        ? { formatted_address: body.formatted_address }
         : {}),
-      ...(patch.address_line1 !== undefined ? { address_line1: patch.address_line1 as string | null } : {}),
-      ...(patch.lat !== undefined ? { lat: patch.lat as number | null } : {}),
-      ...(patch.lng !== undefined ? { lng: patch.lng as number | null } : {}),
-    },
+      ...(body.detail_address !== undefined ? { detail_address: body.detail_address } : {}),
+      ...(body.lat !== undefined ? { lat: body.lat } : {}),
+      ...(body.lng !== undefined ? { lng: body.lng } : {}),
+    }
   );
-  if (locCheck !== "ok") {
-    return NextResponse.json({ ok: false, error: locCheck }, { status: 400 });
+  if (!locationBuilt.ok) {
+    return NextResponse.json({ ok: false, error: locationBuilt.error }, { status: 400 });
   }
+  Object.assign(patch, locationBuilt.patch);
 
   const resolvedCategoryId =
     patch.store_category_id !== undefined
@@ -403,7 +330,7 @@ export async function PATCH(
   const publicSlug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (publicSlug) invalidateStorePublicCachesForSlugOnServer(publicSlug);
 
-  if ("lat" in patch || "lng" in patch) {
+  if (storeLocationPatchTouchesCoords(locationBuilt.patch)) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
       sb as never,
       sid
