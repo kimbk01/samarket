@@ -112,8 +112,9 @@ const KPI_DEFS: {
   },
 ];
 
+/** Compact chip selects — never stretch to full row (tablet uses horizontal scroll). */
 const selectClass =
-  "h-9 rounded-ui-rect border border-sam-border bg-white px-2.5 sam-text-helper text-sam-fg shadow-sm";
+  "!h-9 !w-auto min-w-[8.75rem] max-w-[13rem] shrink-0 rounded-ui-rect border border-sam-border bg-white px-2.5 sam-text-helper text-sam-fg shadow-sm";
 
 export function AdminBusinessOpsFilterBar({
   filters,
@@ -154,6 +155,42 @@ export function AdminBusinessOpsFilterBar({
       ([k, v]) => (filters as Record<string, string>)[k] === v
     );
   };
+
+  const sortAndView = (
+    <div className="flex shrink-0 items-center gap-2">
+      <select
+        className={selectClass}
+        value={filters.sort}
+        onChange={(e) => onChange({ ...filters, sort: e.target.value })}
+        aria-label={t("admin_biz_ops_sort")}
+      >
+        <option value="last_order">{t("admin_biz_ops_sort_last_order")}</option>
+        <option value="created">{t("admin_biz_ops_sort_created")}</option>
+        <option value="reports">{t("admin_biz_ops_sort_reports")}</option>
+        <option value="name">{t("admin_biz_ops_sort_name")}</option>
+      </select>
+      <div className="inline-flex shrink-0 overflow-hidden rounded-ui-rect border border-sam-border">
+        <button
+          type="button"
+          className={`px-2.5 py-1.5 sam-text-helper ${
+            viewMode === "list" ? "bg-signature text-white" : "bg-white text-sam-fg"
+          }`}
+          onClick={() => onViewModeChange("list")}
+        >
+          {t("admin_biz_ops_view_list")}
+        </button>
+        <button
+          type="button"
+          className={`px-2.5 py-1.5 sam-text-helper ${
+            viewMode === "grid" ? "bg-signature text-white" : "bg-white text-sam-fg"
+          }`}
+          onClick={() => onViewModeChange("grid")}
+        >
+          {t("admin_biz_ops_view_grid")}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -208,143 +245,115 @@ export function AdminBusinessOpsFilterBar({
       ) : null}
 
       <div className="rounded-ui-rect border border-sam-border bg-white p-3 shadow-sm sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <input
-            value={filters.q}
-            onChange={(e) => onChange({ ...filters, q: e.target.value })}
-            placeholder={t("admin_biz_ops_search_ph")}
-            className="h-10 w-full max-w-xl rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-body text-sam-fg outline-none focus:border-signature"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className={selectClass}
-              value={filters.sort}
-              onChange={(e) => onChange({ ...filters, sort: e.target.value })}
-              aria-label={t("admin_biz_ops_sort")}
-            >
-              <option value="last_order">{t("admin_biz_ops_sort_last_order")}</option>
-              <option value="created">{t("admin_biz_ops_sort_created")}</option>
-              <option value="reports">{t("admin_biz_ops_sort_reports")}</option>
-              <option value="name">{t("admin_biz_ops_sort_name")}</option>
-            </select>
-            <div className="inline-flex overflow-hidden rounded-ui-rect border border-sam-border">
+        <input
+          value={filters.q}
+          onChange={(e) => onChange({ ...filters, q: e.target.value })}
+          placeholder={t("admin_biz_ops_search_ph")}
+          className="h-10 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-body text-sam-fg outline-none focus:border-signature"
+        />
+
+        {/* Mockup: one horizontal filter strip; tablet/narrow → overflow-x scroll (no vertical stack). */}
+        <div className="mt-3 flex items-center gap-2">
+          <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+            <div className="flex w-max flex-nowrap items-center gap-2 pb-0.5">
+              <select
+                className={selectClass}
+                value={filters.category_id}
+                onChange={(e) => onChange({ ...filters, category_id: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_category")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                {filterOptions.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={selectClass}
+                value={filters.region}
+                onChange={(e) => onChange({ ...filters, region: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_region")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                {filterOptions.regions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={selectClass}
+                value={filters.approval}
+                onChange={(e) => onChange({ ...filters, approval: e.target.value })}
+              >
+                {ADMIN_STORE_STATUS_FILTER.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {t(f.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={selectClass}
+                value={filters.open}
+                onChange={(e) => onChange({ ...filters, open: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_open")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                <option value="open">{t("admin_biz_ops_open_open")}</option>
+                <option value="closed">{t("admin_biz_ops_open_closed")}</option>
+                <option value="break">{t("admin_biz_ops_open_break")}</option>
+                <option value="temp_closed">{t("admin_biz_ops_open_temp_closed")}</option>
+              </select>
+              <select
+                className={selectClass}
+                value={filters.settlement}
+                onChange={(e) => onChange({ ...filters, settlement: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_settlement")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                <option value="ok">{t("admin_biz_ops_settle_ok")}</option>
+                <option value="needs_check">{t("admin_biz_ops_settle_needs_check")}</option>
+                <option value="held">{t("admin_biz_ops_settle_held")}</option>
+              </select>
+              <select
+                className={selectClass}
+                value={filters.report}
+                onChange={(e) => onChange({ ...filters, report: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_report")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                <option value="open">{t("admin_biz_ops_filter_report_open")}</option>
+                <option value="none">{t("admin_biz_ops_filter_report_none")}</option>
+              </select>
+              <select
+                className={selectClass}
+                value={filters.restriction}
+                onChange={(e) => onChange({ ...filters, restriction: e.target.value })}
+              >
+                <option value="">
+                  {t("admin_biz_ops_filter_restriction")}: {t("admin_biz_ops_filter_all")}
+                </option>
+                <option value="yes">{t("admin_biz_ops_filter_yes")}</option>
+                <option value="no">{t("admin_biz_ops_filter_no")}</option>
+              </select>
               <button
                 type="button"
-                className={`px-2.5 py-1.5 sam-text-helper ${
-                  viewMode === "list" ? "bg-signature text-white" : "bg-white text-sam-fg"
-                }`}
-                onClick={() => onViewModeChange("list")}
+                className="h-9 shrink-0 rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-helper font-medium whitespace-nowrap text-sam-fg hover:bg-sam-surface-muted"
+                onClick={() => onChange({ ...DEFAULT_OPS_FILTERS })}
               >
-                {t("admin_biz_ops_view_list")}
-              </button>
-              <button
-                type="button"
-                className={`px-2.5 py-1.5 sam-text-helper ${
-                  viewMode === "grid" ? "bg-signature text-white" : "bg-white text-sam-fg"
-                }`}
-                onClick={() => onViewModeChange("grid")}
-              >
-                {t("admin_biz_ops_view_grid")}
+                {t("admin_biz_ops_filter_reset")}
               </button>
             </div>
           </div>
+          {sortAndView}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <select
-            className={selectClass}
-            value={filters.category_id}
-            onChange={(e) => onChange({ ...filters, category_id: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_category")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            {filterOptions.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className={selectClass}
-            value={filters.region}
-            onChange={(e) => onChange({ ...filters, region: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_region")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            {filterOptions.regions.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <select
-            className={selectClass}
-            value={filters.approval}
-            onChange={(e) => onChange({ ...filters, approval: e.target.value })}
-          >
-            {ADMIN_STORE_STATUS_FILTER.map((f) => (
-              <option key={f.value} value={f.value}>
-                {t(f.labelKey)}
-              </option>
-            ))}
-          </select>
-          <select
-            className={selectClass}
-            value={filters.open}
-            onChange={(e) => onChange({ ...filters, open: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_open")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            <option value="open">{t("admin_biz_ops_open_open")}</option>
-            <option value="closed">{t("admin_biz_ops_open_closed")}</option>
-            <option value="break">{t("admin_biz_ops_open_break")}</option>
-            <option value="temp_closed">{t("admin_biz_ops_open_temp_closed")}</option>
-          </select>
-          <select
-            className={selectClass}
-            value={filters.settlement}
-            onChange={(e) => onChange({ ...filters, settlement: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_settlement")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            <option value="ok">{t("admin_biz_ops_settle_ok")}</option>
-            <option value="needs_check">{t("admin_biz_ops_settle_needs_check")}</option>
-            <option value="held">{t("admin_biz_ops_settle_held")}</option>
-          </select>
-          <select
-            className={selectClass}
-            value={filters.report}
-            onChange={(e) => onChange({ ...filters, report: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_report")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            <option value="open">{t("admin_biz_ops_filter_report_open")}</option>
-            <option value="none">{t("admin_biz_ops_filter_report_none")}</option>
-          </select>
-          <select
-            className={selectClass}
-            value={filters.restriction}
-            onChange={(e) => onChange({ ...filters, restriction: e.target.value })}
-          >
-            <option value="">
-              {t("admin_biz_ops_filter_restriction")}: {t("admin_biz_ops_filter_all")}
-            </option>
-            <option value="yes">{t("admin_biz_ops_filter_yes")}</option>
-            <option value="no">{t("admin_biz_ops_filter_no")}</option>
-          </select>
-          <button
-            type="button"
-            className="h-9 rounded-ui-rect border border-sam-border bg-sam-app px-3 sam-text-helper font-medium text-sam-fg hover:bg-sam-surface-muted"
-            onClick={() => onChange({ ...DEFAULT_OPS_FILTERS })}
-          >
-            {t("admin_biz_ops_filter_reset")}
-          </button>
-        </div>
         <p className="mt-2 sam-text-helper text-sam-muted">
           {loading
             ? t("common_loading")
