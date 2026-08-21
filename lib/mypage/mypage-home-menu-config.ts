@@ -13,6 +13,8 @@ import {
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
 import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
+import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 
 export type {
   MypageHomeLinkMenuItem,
@@ -61,12 +63,8 @@ export const MYPAGE_HOME_TRADE_ITEMS: MypageHomeLinkMenuItem[] = [
   },
 ];
 
-export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
-  {
-    href: "/stores/owner/apply",
-    titleKey: "mypage_comp_menu_store_register_title",
-    icon: "store",
-  },
+/** Store section rows after the owner-entry row (orders / rider) — unchanged by gate. */
+export const MYPAGE_HOME_STORE_TAIL_ITEMS: MypageHomeLinkMenuItem[] = [
   {
     href: MYPAGE_HOME_STORE_ORDERS_HREF,
     titleKey: "mypage_comp_menu_store_order_history_title",
@@ -77,6 +75,51 @@ export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
     titleKey: "mypage_comp_menu_store_rider_title",
     icon: "truck",
   },
+];
+
+/**
+ * Presentation only — does NOT re-implement `getOwnerStoreGateState`.
+ * `null` gate (unknown / guest) → apply entry (same as empty).
+ */
+export type MypageHomeStoreOwnerEntry = MypageHomeLinkMenuItem & {
+  /** pending 계열만 — `formatStoreApprovalStatusI18n` 에 넘길 DB status */
+  approvalStatusForBadge?: string | null;
+};
+
+export function resolveMypageHomeStoreOwnerEntry(
+  gate: OwnerStoreGateState | null,
+  firstStoreId?: string | null,
+): MypageHomeStoreOwnerEntry {
+  if (!gate || gate.kind === "empty") {
+    return {
+      href: OwnerRoutes.apply(),
+      titleKey: "mypage_hub_store_apply",
+      icon: "store",
+    };
+  }
+  if (gate.kind === "approved") {
+    return {
+      href: OwnerRoutes.hub(firstStoreId),
+      titleKey: "mypage_comp_menu_store_enter_title",
+      icon: "store",
+    };
+  }
+  return {
+    href: OwnerRoutes.hub(),
+    titleKey: "mypage_comp_menu_store_approval_progress_title",
+    icon: "store",
+    approvalStatusForBadge: gate.approval_status || null,
+  };
+}
+
+/** @deprecated Prefer `resolveMypageHomeStoreOwnerEntry` + `MYPAGE_HOME_STORE_TAIL_ITEMS`. */
+export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
+  {
+    href: OwnerRoutes.apply(),
+    titleKey: "mypage_hub_store_apply",
+    icon: "store",
+  },
+  ...MYPAGE_HOME_STORE_TAIL_ITEMS,
 ];
 
 /**

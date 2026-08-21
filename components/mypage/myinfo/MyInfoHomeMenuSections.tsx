@@ -11,12 +11,22 @@ import {
   MYPAGE_HOME_DANGER_ITEMS,
   MYPAGE_HOME_POLICY_ITEMS,
   MYPAGE_HOME_SERVICE_ITEMS,
-  MYPAGE_HOME_STORE_ITEMS,
+  MYPAGE_HOME_STORE_TAIL_ITEMS,
   MYPAGE_HOME_SUPPORT_ITEMS,
   MYPAGE_HOME_TRADE_ITEMS,
+  resolveMypageHomeStoreOwnerEntry,
   type MypageHomeMenuItemConfig,
 } from "@/lib/mypage/mypage-home-menu-config";
 import type { MessageKey } from "@/lib/i18n/messages";
+import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
+import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
+import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
+import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import {
+  parseStoreRowsFromMeStoresJson,
+  peekMeStoresListClientCache,
+} from "@/lib/me/fetch-me-stores-deduped";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 function renderAccountItem(
   item: MypageHomeMenuItemConfig,
@@ -77,21 +87,76 @@ export function MyInfoTradeMenuSection({ onItemPress }: { onItemPress?: (href: s
   );
 }
 
-/** Flow: store_order */
-export function MyInfoStoreMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
-  const { safeT } = useI18n();
+/** Flow: store_order — first row follows Owner gate (empty/pending/approved); no me-stores list fetch here. */
+export function MyInfoStoreMenuSection({
+  onItemPress,
+  ownerStoreGate: ownerStoreGateProp,
+  ownerStoreGateFirstId: ownerStoreGateFirstIdProp,
+}: {
+  onItemPress?: (href: string) => void;
+  /** Prefer hub extras when available; otherwise derived from OwnerLite snapshot (no network on /mypage). */
+  ownerStoreGate?: OwnerStoreGateState | null;
+  ownerStoreGateFirstId?: string | null;
+} = {}) {
+  const { safeT, t } = useI18n();
+  const ownerLite = useOwnerLiteStore();
+
+  const derived = (() => {
+    if (ownerStoreGateProp != null) {
+      return {
+        gate: ownerStoreGateProp,
+        firstId: ownerStoreGateFirstIdProp?.trim() || null,
+      };
+    }
+    const storesFromLite = ownerLite.ownerStores;
+    let stores: StoreRow[] = storesFromLite;
+    if (stores.length === 0) {
+      const peek = peekMeStoresListClientCache();
+      const fromPeek = peek ? parseStoreRowsFromMeStoresJson(peek.json) : null;
+      if (fromPeek && fromPeek.length > 0) stores = fromPeek;
+    }
+    const forGate = stores.map((s) => ({
+      id: s.id,
+      approval_status: String(s.approval_status ?? ""),
+      rejected_reason: s.rejected_reason ?? null,
+      revision_note: s.revision_note ?? null,
+    }));
+    const gate = getOwnerStoreGateState(forGate);
+    const approvedId =
+      stores.find((s) => String(s.approval_status ?? "") === "approved")?.id?.trim() ?? null;
+    const preferredId = ownerLite.ownerStore?.id?.trim() || null;
+    const firstId =
+      gate.kind === "approved"
+        ? preferredId || approvedId || stores[0]?.id?.trim() || null
+        : stores[0]?.id?.trim() || null;
+    return { gate, firstId };
+  })();
+
+  const ownerEntry = resolveMypageHomeStoreOwnerEntry(derived.gate, derived.firstId);
+  const rows = [ownerEntry, ...MYPAGE_HOME_STORE_TAIL_ITEMS];
+
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
-      {MYPAGE_HOME_STORE_ITEMS.map((item, index) => (
-        <MyInfoMenuItem
-          key={item.href}
-          first={index === 0}
-          href={item.href}
-          title={safeT(item.titleKey)}
-          icon={renderMypageHomeMenuIcon(item.icon)}
-          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
-        />
-      ))}
+      {rows.map((item, index) => {
+        const badgeStatus =
+          "approvalStatusForBadge" in item ? item.approvalStatusForBadge : undefined;
+        const accessory =
+          badgeStatus != null && String(badgeStatus).trim()
+            ? formatStoreApprovalStatusI18n(String(badgeStatus), t)
+            : undefined;
+        return (
+          <MyInfoMenuItem
+            key={`${item.titleKey}:${item.href}`}
+            first={index === 0}
+            href={item.href}
+            title={safeT(item.titleKey)}
+            icon={renderMypageHomeMenuIcon(item.icon)}
+            trailing={accessory ? "status" : "chevron"}
+            accessory={accessory}
+            onPress={onItemPress ? () => onItemPress(item.href) : undefined}
+          />
+        );
+      })}
     </MyInfoMenuSection>
   );
 }

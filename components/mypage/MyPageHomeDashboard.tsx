@@ -21,6 +21,7 @@ import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useMypageHubScrollRestore } from "@/lib/mypage/use-mypage-hub-scroll-restore";
+import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 
 /**
  * Legacy IA — single behavior-flow column (all viewports).
@@ -31,11 +32,13 @@ export function MyPageHomeDashboard({
   projection,
   onProfileRefresh,
   needsRelogin = false,
+  ownerStoreGateSeed = null,
 }: {
   projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
   /** Local session present but profile resolve failed — show re-login, not endless checking. */
   needsRelogin?: boolean;
+  ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
 }) {
   const { setOnProfileUpdated } = useMypageProfileSheets();
   useMypageHubScrollRestore(true);
@@ -58,7 +61,10 @@ export function MyPageHomeDashboard({
         )}
 
         <MyInfoTradeMenuSection />
-        <MyInfoStoreMenuSection />
+        <MyInfoStoreMenuSection
+          ownerStoreGate={ownerStoreGateSeed?.ownerStoreGate}
+          ownerStoreGateFirstId={ownerStoreGateSeed?.ownerStoreGateFirstId}
+        />
         {!needsRelogin ? <MypagePointsAssetSummary /> : null}
         <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
         <MyInfoServiceMenuSection />

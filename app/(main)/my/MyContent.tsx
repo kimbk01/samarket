@@ -25,6 +25,7 @@ import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/My
 import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -48,7 +49,12 @@ function resolveLegacyMyPageRedirectTarget(args: {
  * CONTRACT: no full-page spinner; session member → home shell immediately;
  * guest only after membership confirms guest (not during checking with cached user).
  */
-export function MyContent() {
+export function MyContent({
+  ownerStoreGateSeed = null,
+}: {
+  /** RSC cold authority for store menu CTA — OwnerLite/TTL may be empty on first paint. */
+  ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
@@ -151,6 +157,7 @@ export function MyContent() {
             projection={projection}
             onProfileRefresh={() => void refresh()}
             needsRelogin={needsRelogin}
+            ownerStoreGateSeed={ownerStoreGateSeed}
           />
         </div>
       </div>

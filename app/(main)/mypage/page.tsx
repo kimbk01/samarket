@@ -1,10 +1,12 @@
 import { MyContent } from "../my/MyContent";
+import { loadMypageOwnerStoreGateSeedServer } from "@/lib/my/load-mypage-owner-store-gate-seed";
 
 /**
  * `/mypage` — Cold Boot / Bottom Tab Cache-First.
- * DO NOT: blocking RSC server shell await — first paint 를 RSC 에 묶지 않음.
- * Snapshot: `useMypageHubModel` persistent/session peek → background load.
+ * DO NOT: await full hub extras / CMS / trade counts on this route.
+ * DO: tiny owner-store gate seed so cold OwnerLite/TTL empty still resolves the store menu CTA.
  */
-export default function MypagePage() {
-  return <MyContent />;
+export default async function MypagePage() {
+  const ownerStoreGateSeed = await loadMypageOwnerStoreGateSeedServer();
+  return <MyContent ownerStoreGateSeed={ownerStoreGateSeed} />;
 }

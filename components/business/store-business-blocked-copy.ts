@@ -40,9 +40,10 @@ export function showStoreBusinessProfilePreviewLink(
   );
 }
 
+/**
+ * R1: apply CTA only when no store row exists.
+ * rejected / revision / suspended keep the existing store → Owner Hub, never re-apply.
+ */
 export function showStoreBusinessApplyLink(state: OwnerStoreGateState): boolean {
-  return (
-    state.kind === "empty" ||
-    (state.kind === "pending" && state.approval_status === "rejected")
-  );
+  return state.kind === "empty";
 }

@@ -363,7 +363,7 @@ export function useMypageHubModel(
             setOwnerStoreGateFirstId(null);
           }
         } else if (!cancelled) {
-          setOwnerStoreGate(null);
+          setOwnerStoreGate(getOwnerStoreGateState([]));
           setOwnerStoreGateFirstId(null);
         }
 

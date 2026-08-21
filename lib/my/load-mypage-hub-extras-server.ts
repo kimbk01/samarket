@@ -83,7 +83,10 @@ export async function loadMypageHubExtrasServer(
   let ownerStoreGateFirstId: string | null = null;
   let storeAttention: number | null = null;
 
-  if (hasOwnerStore && storesResult.ok && sbStores) {
+  if (!hasOwnerStore) {
+    ownerStoreGate = getOwnerStoreGateState([]);
+    ownerStoreGateFirstId = null;
+  } else if (hasOwnerStore && storesResult.ok && sbStores) {
     const list = storesResult.stores;
     if (list.length === 0) {
       ownerStoreGate = getOwnerStoreGateState([]);
