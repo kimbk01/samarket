@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
 import { markBootMetricsShellReady } from "@/lib/startup/startup-metrics";
 import {
@@ -129,7 +130,12 @@ export function ConditionalAppShell({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  /**
+   * DO NOT useSearchParams() here — this shell wraps `/stores/owner/**` above page Suspense.
+   * Suspending remount paints only `Loading…` with no `data-biz` Owner shell.
+   * Reuse Owner Admin non-suspending search SSOT (`window.location.search`).
+   */
+  const searchParams = useOwnerAdminUrlSearchParams();
   const routeSearch = searchParams.toString();
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");

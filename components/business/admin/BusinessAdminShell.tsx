@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import {
   useCallback,
   useEffect,
@@ -107,7 +108,7 @@ export function BusinessAdminShell({
   const { t } = useI18n();
   const isHub = entry === "hub";
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
   const hubRuntime = useOwnerHubRuntime();
@@ -359,13 +360,14 @@ export function BusinessAdminShell({
     () => null
   );
 
-  const shellOrderAlertsBadge =
-    isOwnerOrdersRoute && bridgedOrdersAttentionBadge != null
-      ? bridgedOrdersAttentionBadge
-      : orderAlertsBadge;
-
+  /**
+   * Badge authority:
+   * - Orders route: list bridge (visible attention) when present
+   * - Else with hub Runtime: Runtime RT + 45s counts only (no Shell duplicate poll)
+   * - Else (Runtime absent): Shell fallback poll
+   */
   useEffect(() => {
-    if (isHub && hubRuntime) return;
+    if (hubRuntime) return;
     if (isOwnerOrdersRoute) return;
     if (!orderCountsStoreId) {
       setOrderAlertsBadge(0);
@@ -399,14 +401,16 @@ export function BusinessAdminShell({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [orderCountsStoreId, isHub, hubRuntime, isOwnerOrdersRoute]);
+  }, [orderCountsStoreId, hubRuntime, isOwnerOrdersRoute]);
 
-  const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? shellOrderAlertsBadge;
   /**
    * Admin surface only — hub WhenEnabled was always EMPTY on `/stores/owner*`.
-   * Display authority = shell order counts / hubRuntime (not Owner Header 3-axis sum).
+   * Display authority = orders bridge / hubRuntime / Shell fallback (not Owner Header 3-axis sum).
    */
-  const ownerOrderAttentionCount = isHub ? hubOrderAlertsBadge : shellOrderAlertsBadge;
+  const ownerOrderAttentionCount =
+    isOwnerOrdersRoute && bridgedOrdersAttentionBadge != null
+      ? bridgedOrdersAttentionBadge
+      : (hubRuntime?.orderAlertsBadge ?? orderAlertsBadge);
   const ownerHeaderBellCount = ownerOrderAttentionCount;
 
   const ownerStoreIdForBell = (selectedRow?.id ?? storeIdParam).trim();
@@ -417,7 +421,7 @@ export function BusinessAdminShell({
     : null;
 
   const ownerMobileBottomNavChatBadge =
-    hubOrderAlertsBadge > 0 ? Math.min(hubOrderAlertsBadge, 99) : 0;
+    ownerOrderAttentionCount > 0 ? Math.min(ownerOrderAttentionCount, 99) : 0;
 
   const navCtx = useMemo(() => {
     if (!selectedRow) {
@@ -436,9 +440,9 @@ export function BusinessAdminShell({
       approvalStatus: String(selectedRow.approval_status),
       isVisible: selectedRow.is_visible === true,
       canSell: storeRowCanSell(selectedRow),
-      orderAlertsBadge: isHub ? hubOrderAlertsBadge : shellOrderAlertsBadge,
+      orderAlertsBadge: ownerOrderAttentionCount,
     };
-  }, [selectedRow, shellOrderAlertsBadge, isHub, hubOrderAlertsBadge]);
+  }, [selectedRow, ownerOrderAttentionCount]);
 
   const sectionDefs = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
@@ -585,7 +589,10 @@ export function BusinessAdminShell({
   if (!isHub) {
     if (loadErr && (!stores || stores.length === 0)) {
       return (
-        <div className="min-h-screen bg-sam-app px-4 py-8">
+        <div
+          data-biz="1"
+          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+        >
           <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
             type="button"
@@ -600,16 +607,28 @@ export function BusinessAdminShell({
 
     if (!selectedRow) {
       return (
-        <div className="min-h-screen bg-sam-app px-4 py-8">
+        <div
+          data-biz="1"
+          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+        >
           <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
         </div>
       );
     }
   }
 
+  /**
+   * Empty hub (no selected store) — header exception: `StoresOwnerStackHeader`
+   * (no storeId for `OwnerMobileAdminHeader`). Layout stays compact shell height
+   * (no `min-h-screen` escape from owner stack).
+   */
   if (isHub && !selectedRow) {
     return (
-      <div className="min-h-screen min-w-0 overflow-x-hidden bg-sam-app">
+      <div
+        data-biz="1"
+        data-owner-empty-hub-shell="1"
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+      >
         <StoresOwnerStackHeader
           variant="hub"
           hideTitle
@@ -619,9 +638,9 @@ export function BusinessAdminShell({
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)] sm:px-2 ${ownerMainBottomPad}`}
+          className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${ownerUnifiedMainLayoutClass} ${ownerMainBottomPad}`}
         >
-          {children}
+          <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
         </main>
       </div>
     );
@@ -629,7 +648,10 @@ export function BusinessAdminShell({
 
   if (!selectedRow) {
     return (
-      <div className="min-h-screen bg-sam-app px-4 py-8">
+      <div
+        data-biz="1"
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+      >
         <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
       </div>
     );

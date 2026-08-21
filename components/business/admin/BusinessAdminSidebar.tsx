@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { ChevronRight } from "lucide-react";
 import type {
   BusinessAdminSidebarItem,
@@ -31,7 +32,7 @@ export function BusinessAdminSidebar({
   className?: string;
 }) {
   const { t } = useI18n();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const router = useRouter();
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: BusinessAdminSidebarItem) => {

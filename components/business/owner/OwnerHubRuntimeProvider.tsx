@@ -10,8 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
@@ -37,10 +37,7 @@ import {
   peekOwnerHubOrderCountsCache,
   seedOwnerHubOrderCountsCache,
 } from "@/lib/stores/owner-hub-order-counts-cache";
-import {
-  invalidateOwnerHubDashboardOrdersCache,
-  peekOwnerHubDashboardOrdersCache,
-} from "@/lib/stores/owner-hub-dashboard-orders-cache";
+import { peekOwnerHubDashboardOrdersCache } from "@/lib/stores/owner-hub-dashboard-orders-cache";
 import { scheduleOwnerDashboardAfterFirstPaint } from "@/lib/business/owner-dashboard-waterfall";
 import { recordOwnerHubStoreOrderRealtimeRow } from "@/lib/business/owner-hub-pending-order-bridge";
 import { invalidateOwnerStoreOrdersListCacheCoalesced } from "@/lib/delivery/owner/owner-store-orders-list-cache-invalidate-coalesce";
@@ -50,7 +47,10 @@ type OwnerHubRuntimeValue = {
   selectedRow: StoreRow | null;
   orderAlertsBadge: number;
   refreshOrderAttention: () => Promise<void>;
-  /** 대시보드 주문 타임라인 — Runtime Realtime 1곳만 구독 */
+  /**
+   * Dashboard (and similar) may subscribe for ops-snapshot cache refresh.
+   * Orders list must NOT full-load from this — `useOwnerStoreOrdersRealtime` owns row patch.
+   */
   subscribeOrdersRefresh: (listener: () => void) => () => void;
 };
 
@@ -91,7 +91,7 @@ export function OwnerHubRuntimeProvider({
   initialStores: StoreRow[] | null;
   children: ReactNode;
 }) {
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
   const [stores, setStores] = useState<StoreRow[] | null>(() => {

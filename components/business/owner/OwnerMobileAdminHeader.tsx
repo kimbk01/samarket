@@ -1,7 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { ChevronDown } from "lucide-react";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -68,7 +69,7 @@ export function OwnerMobileAdminHeader({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const hubRuntime = useOwnerHubRuntime();
   const biz = useBusinessAdminStore();
   const trailingCtx = useOwnerMobileAdminHeaderTrailing();

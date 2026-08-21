@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -11,7 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { isSamarketNavPerfConsoleEnabled } from "@/lib/debug/samarket-client-console-flags";
 import { isCommunityMessengerDeepRoutePath } from "@/lib/navigation/community-messenger-deep-route-path";
 import { registerPendingMenuNavigationClear } from "@/lib/navigation/pending-menu-navigation-bridge";
@@ -151,7 +151,8 @@ function resolvePendingShellKind(intent: MenuNavigationIntent | null): MenuPendi
 }
 
 function SearchParamsSync({ onSearch }: { onSearch: (next: string) => void }) {
-  const searchParams = useSearchParams();
+  /** Non-suspending — same SSOT as Owner Admin (`window.location.search`). */
+  const searchParams = useOwnerAdminUrlSearchParams();
   const search = searchParams.toString();
   useEffect(() => {
     onSearch(search);
@@ -338,9 +339,7 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
 
   return (
     <LatestMenuNavigationContext.Provider value={value}>
-      <Suspense fallback={null}>
-        <SearchParamsSync onSearch={setCurrentSearch} />
-      </Suspense>
+      <SearchParamsSync onSearch={setCurrentSearch} />
       {children}
     </LatestMenuNavigationContext.Provider>
   );

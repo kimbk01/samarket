@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { scheduleBottomNavBootIdlePrewarm } from "@/lib/main-menu/bottom-nav-boot-idle-prewarm";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { useRegion } from "@/contexts/RegionContext";
 import { shouldRunApkBottomNavRoutePrefetch } from "@/lib/platform/apk-remote-webview-perf";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 
 /**
  * APK cold start — 하단 탭 비활성 도메인 client prewarm + RSC prefetch (idle 1회).
+ *
+ * DO NOT useSearchParams() — this host mounts above ConditionalAppShell with no Suspense;
+ * suspending blocks Owner Admin shell (`data-biz`) the same way as ConditionalAppShell.
  */
 export function BottomNavBootIdlePrewarmHost() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const router = useRouter();
   const { primaryRegion } = useRegion();
   const tabs = useMainBottomNavTabs();

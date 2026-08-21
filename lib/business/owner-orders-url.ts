@@ -1,5 +1,6 @@
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import type { StoreOrderTabId } from "@/lib/business/store-orders-tab";
+import { notifyOwnerAdminUrlSearchChanged } from "@/lib/business/use-owner-admin-url-search-params";
 
 /**
  * 주문 카드 펼치기·접기 — Next `router.replace` 대신 history API.
@@ -20,4 +21,5 @@ export function replaceOwnerOrdersUrlQuery(params: {
     chatOrderId: params.chatOrderId,
   });
   window.history.replaceState(window.history.state, "", href);
+  notifyOwnerAdminUrlSearchChanged();
 }

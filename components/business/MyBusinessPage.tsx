@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BUSINESS_PROFILE_STATUS_KEYS } from "@/lib/business/business-owner-ui-labels";
 import {
   BusinessOperationalChecklistPending,
@@ -73,7 +73,7 @@ export function MyBusinessPage({
   initialServerState?: MyBusinessServerInitial | null;
 } = {}) {
   const { t } = useI18n();
-  const searchParams = useSearchParams();
+  const searchParams = useOwnerAdminUrlSearchParams();
   const preferredStoreId = searchParams.get("storeId")?.trim() ?? "";
 
   const [state, setState] = useState<LoadState>(() => {

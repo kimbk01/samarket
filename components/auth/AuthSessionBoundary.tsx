@@ -70,6 +70,20 @@ export function AuthSessionBoundary({ children }: Props) {
   }
 
   const phase = getSessionPhase();
+  /**
+   * Store Manager `/stores/owner/**` — AuthSessionBoundary must not replace the tree
+   * with standalone `Loading…`. Owner Shell (`data-biz`) + StoreBusinessGuard own gate UX.
+   * Use `window.location.pathname` — hard/APK first paint can have empty `usePathname()`.
+   */
+  const pathForOwnerGate =
+    (pathname && pathname.trim()) ||
+    (typeof window !== "undefined" ? window.location.pathname : "");
+  const isOwnerAdminRoute =
+    pathForOwnerGate === "/stores/owner" || pathForOwnerGate.startsWith("/stores/owner/");
+  if (isOwnerAdminRoute && !isAuthExitNavigateStarted()) {
+    return <>{children}</>;
+  }
+
   const holdForRecovery =
     membership.status === "checking" ||
     isRecoveringPhase(phase) ||
