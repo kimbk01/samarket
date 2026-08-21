@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
+  calculateOrderCommission,
   isMissingStoreFeePolicy,
   resolveEffectiveStoreFeePolicy,
   type StoreFeePolicyScope,
@@ -26,6 +27,8 @@ type PolicyLite = {
   ends_at: string | null;
   priority: number;
   memo: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 function inWindow(row: PolicyLite, nowMs: number): boolean {
@@ -89,7 +92,32 @@ function scopeOf(r: PolicyLite): "store" | "topic" | "category" | "default" {
   return "default";
 }
 
-/** Admin fee-policy cockpit — same resolver as settlement; no second engine. */
+function targetLabel(
+  r: PolicyLite,
+  storeById: Map<string, { store_name?: string | null }>,
+  catById: Map<string, { name?: string | null }>,
+  topicById: Map<string, { name?: string | null; store_category_id: string }>
+): string {
+  const sc = scopeOf(r);
+  if (sc === "store" && r.store_id) {
+    return String(storeById.get(r.store_id)?.store_name ?? r.store_id);
+  }
+  if (sc === "topic" && r.topic_id) {
+    const tp = topicById.get(r.topic_id);
+    const cat = tp ? catById.get(tp.store_category_id) : null;
+    return cat ? `${cat.name} > ${tp?.name}` : String(tp?.name ?? r.topic_id);
+  }
+  if (sc === "category" && r.category_id) {
+    return String(catById.get(r.category_id)?.name ?? r.category_id);
+  }
+  return "Platform Default";
+}
+
+/**
+ * Admin fee-policy cockpit overview.
+ * Same resolver as settlement — no second engine.
+ * Industry “apply all” = one category/topic policy row; store overrides still win.
+ */
 export async function GET() {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -103,7 +131,7 @@ export async function GET() {
     sb
       .from("store_fee_policies")
       .select(
-        "id, policy_name, store_id, category_id, topic_id, fee_percent, fixed_fee, delivery_fee_mode, delivery_fee_percent, is_active, is_archived, starts_at, ends_at, priority, memo"
+        "id, policy_name, store_id, category_id, topic_id, fee_percent, fixed_fee, delivery_fee_mode, delivery_fee_percent, is_active, is_archived, starts_at, ends_at, priority, memo, created_at, updated_at"
       )
       .limit(500),
     sb.from("store_categories").select("id, name, slug, is_active").order("name").limit(100),
@@ -120,10 +148,10 @@ export async function GET() {
     sb
       .from("store_settlements")
       .select(
-        "id, store_id, order_id, gross_amount, platform_fee_percent, platform_fee_amount, fixed_fee_amount, applied_fee_policy_id, applied_fee_policy_snapshot, settlement_status, created_at"
+        "id, store_id, order_id, gross_amount, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_fee_amount, applied_fee_policy_id, applied_fee_policy_snapshot, settlement_status, created_at"
       )
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(80),
   ]);
 
   if (polRes.error) {
@@ -157,47 +185,6 @@ export async function GET() {
   const topicById = new Map(topics.map((tp) => [tp.id, tp]));
   const storeById = new Map(stores.map((s) => [s.id, s]));
 
-  const categoryPolicies = categories.map((c) => {
-    const pol = pickActive(policies, (r) => !r.store_id && !r.topic_id && r.category_id === c.id);
-    return {
-      category_id: c.id,
-      name: c.name,
-      slug: c.slug,
-      is_active: Boolean(c.is_active),
-      store_count: stores.filter((s) => s.store_category_id === c.id).length,
-      policy: pol
-        ? {
-            id: pol.id,
-            policy_name: pol.policy_name,
-            fee_percent: Number(pol.fee_percent) || 0,
-            fixed_fee: Math.round(Number(pol.fixed_fee) || 0),
-            priority: pol.priority,
-          }
-        : null,
-    };
-  });
-
-  const topicPolicies = topics.map((tp) => {
-    const pol = pickActive(policies, (r) => !r.store_id && r.topic_id === tp.id);
-    return {
-      topic_id: tp.id,
-      category_id: tp.store_category_id,
-      name: tp.name,
-      slug: tp.slug,
-      is_active: Boolean(tp.is_active),
-      store_count: stores.filter((s) => s.store_topic_id === tp.id).length,
-      policy: pol
-        ? {
-            id: pol.id,
-            policy_name: pol.policy_name,
-            fee_percent: Number(pol.fee_percent) || 0,
-            fixed_fee: Math.round(Number(pol.fixed_fee) || 0),
-            priority: pol.priority,
-          }
-        : null,
-    };
-  });
-
   const storeRows: Array<{
     store_id: string;
     store_name: string;
@@ -206,6 +193,7 @@ export async function GET() {
     category_name: string | null;
     topic_id: string | null;
     topic_name: string | null;
+    has_store_override: boolean;
     ladder: {
       platform: ReturnType<typeof rateOf>;
       category: ReturnType<typeof rateOf>;
@@ -261,6 +249,7 @@ export async function GET() {
       category_name: categoryId ? (catById.get(categoryId)?.name ?? null) : null,
       topic_id: topicId,
       topic_name: topicId ? (topicById.get(topicId)?.name ?? null) : null,
+      has_store_override: Boolean(storePol),
       ladder: {
         platform: rateOf(platform),
         category: rateOf(catPol),
@@ -278,6 +267,67 @@ export async function GET() {
     });
   }
 
+  const categoryPolicies = categories.map((c) => {
+    const pol = pickActive(policies, (r) => !r.store_id && !r.topic_id && r.category_id === c.id);
+    const inCat = storeRows.filter((s) => s.category_id === c.id);
+    const overrideCount = inCat.filter((s) => s.has_store_override).length;
+    const topicWinsCount = inCat.filter(
+      (s) => !s.has_store_override && s.ladder.topic.policy_id != null
+    ).length;
+    const wouldApplyCount = Math.max(0, inCat.length - overrideCount - topicWinsCount);
+    return {
+      category_id: c.id,
+      name: c.name,
+      slug: c.slug,
+      is_active: Boolean(c.is_active),
+      store_count: inCat.length,
+      override_store_count: overrideCount,
+      topic_wins_store_count: topicWinsCount,
+      would_apply_store_count: wouldApplyCount,
+      policy: pol
+        ? {
+            id: pol.id,
+            policy_name: pol.policy_name,
+            fee_percent: Number(pol.fee_percent) || 0,
+            fixed_fee: Math.round(Number(pol.fixed_fee) || 0),
+            priority: pol.priority,
+            starts_at: pol.starts_at,
+            ends_at: pol.ends_at,
+            memo: pol.memo,
+          }
+        : null,
+    };
+  });
+
+  const topicPolicies = topics.map((tp) => {
+    const pol = pickActive(policies, (r) => !r.store_id && r.topic_id === tp.id);
+    const inTopic = storeRows.filter((s) => s.topic_id === tp.id);
+    const overrideCount = inTopic.filter((s) => s.has_store_override).length;
+    const wouldApplyCount = Math.max(0, inTopic.length - overrideCount);
+    return {
+      topic_id: tp.id,
+      category_id: tp.store_category_id,
+      name: tp.name,
+      slug: tp.slug,
+      is_active: Boolean(tp.is_active),
+      store_count: inTopic.length,
+      override_store_count: overrideCount,
+      would_apply_store_count: wouldApplyCount,
+      policy: pol
+        ? {
+            id: pol.id,
+            policy_name: pol.policy_name,
+            fee_percent: Number(pol.fee_percent) || 0,
+            fixed_fee: Math.round(Number(pol.fixed_fee) || 0),
+            priority: pol.priority,
+            starts_at: pol.starts_at,
+            ends_at: pol.ends_at,
+            memo: pol.memo,
+          }
+        : null,
+    };
+  });
+
   const nowMs = Date.now();
   const scheduled = policies
     .filter((r) => {
@@ -287,62 +337,93 @@ export async function GET() {
       return Number.isFinite(t) && t > nowMs;
     })
     .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())
-    .slice(0, 20)
-    .map((r) => {
-      const sc = scopeOf(r);
-      let target_label = r.policy_name;
-      if (sc === "store" && r.store_id) {
-        const st = storeById.get(r.store_id);
-        target_label = String(st?.store_name ?? r.store_id);
-      } else if (sc === "topic" && r.topic_id) {
-        const tp = topicById.get(r.topic_id);
-        const cat = tp ? catById.get(tp.store_category_id) : null;
-        target_label = cat ? `${cat.name} > ${tp?.name}` : String(tp?.name ?? r.topic_id);
-      } else if (sc === "category" && r.category_id) {
-        target_label = String(catById.get(r.category_id)?.name ?? r.category_id);
-      } else if (sc === "default") {
-        target_label = "Platform Default";
-      }
-      return {
-        id: r.id,
-        scope: sc,
-        target_label,
-        fee_percent: Number(r.fee_percent) || 0,
-        starts_at: r.starts_at,
-        ends_at: r.ends_at,
-        policy_name: r.policy_name,
-      };
-    });
+    .slice(0, 40)
+    .map((r) => ({
+      id: r.id,
+      scope: scopeOf(r),
+      target_label: targetLabel(r, storeById, catById, topicById),
+      fee_percent: Number(r.fee_percent) || 0,
+      fixed_fee: Math.round(Number(r.fixed_fee) || 0),
+      starts_at: r.starts_at,
+      ends_at: r.ends_at,
+      policy_name: r.policy_name,
+      memo: r.memo,
+    }));
+
+  const policyHistory = [...policies]
+    .sort((a, b) => {
+      const au = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const bu = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return bu - au;
+    })
+    .slice(0, 60)
+    .map((r) => ({
+      id: r.id,
+      scope: scopeOf(r),
+      target_label: targetLabel(r, storeById, catById, topicById),
+      fee_percent: Number(r.fee_percent) || 0,
+      fixed_fee: Math.round(Number(r.fixed_fee) || 0),
+      is_active: Boolean(r.is_active),
+      is_archived: Boolean(r.is_archived),
+      starts_at: r.starts_at,
+      ends_at: r.ends_at,
+      memo: r.memo,
+      created_at: r.created_at ?? null,
+      updated_at: r.updated_at ?? null,
+      policy_name: r.policy_name,
+    }));
 
   const verification = settlements.map((s) => {
     const gross = Math.round(Number(s.gross_amount) || 0);
     const rate = Number(s.platform_fee_percent) || 0;
     const fee = Math.round(Number(s.platform_fee_amount) || 0);
-    const expected = Math.floor((gross * rate) / 100);
+    const fixedSettled = Math.round(Number(s.fixed_fee_amount) || 0);
+    const deliveryAmt = Math.round(Number((s as { delivery_fee_amount?: number }).delivery_fee_amount) || 0);
     const snap =
       s.applied_fee_policy_snapshot && typeof s.applied_fee_policy_snapshot === "object"
         ? (s.applied_fee_policy_snapshot as Record<string, unknown>)
         : null;
-    const snapRate =
-      snap && snap.fee_percent != null ? Number(snap.fee_percent) : null;
+    const snapRate = snap && snap.fee_percent != null ? Number(snap.fee_percent) : null;
+    const snapFixed =
+      snap && snap.fixed_fee != null ? Math.round(Number(snap.fixed_fee) || 0) : fixedSettled;
+    const snapDeliveryMode =
+      snap && typeof snap.delivery_fee_mode === "string" ? snap.delivery_fee_mode : "none";
+    const snapDeliveryPct =
+      snap && snap.delivery_fee_percent != null ? Number(snap.delivery_fee_percent) : 0;
+    const calc = calculateOrderCommission({
+      commissionBaseAmount: gross,
+      deliveryFeeAmount: deliveryAmt,
+      feePercent: snapRate != null && Number.isFinite(snapRate) ? snapRate : rate,
+      fixedFee: snapFixed,
+      deliveryFeeMode: snapDeliveryMode,
+      deliveryFeePercent: snapDeliveryPct,
+    });
+    const calculatedTotal = calc.platformFeeAmount + calc.fixedFeeAmount;
+    const settlementTotal = fee + fixedSettled;
     const st = storeById.get(String(s.store_id ?? ""));
     return {
-      settlement_id: String(s.id).slice(0, 8),
-      order_id: String(s.order_id ?? "").slice(0, 8),
+      settlement_id: String(s.id),
+      settlement_id_short: String(s.id).slice(0, 8),
+      order_id: String(s.order_id ?? ""),
+      order_id_short: String(s.order_id ?? "").slice(0, 8),
+      store_id: String(s.store_id ?? ""),
       store_name: st ? String(st.store_name ?? "") : String(s.store_id ?? "").slice(0, 8),
       gross_amount: gross,
       policy_fee_percent: snapRate,
       settlement_fee_percent: rate,
-      calculated_fee_amount: expected,
-      settlement_fee_amount: fee,
-      matched: fee === expected && (snapRate == null || snapRate === rate),
+      calculated_fee_amount: calculatedTotal,
+      settlement_fee_amount: settlementTotal,
+      matched:
+        settlementTotal === calculatedTotal && (snapRate == null || snapRate === rate),
       settlement_status: s.settlement_status,
       created_at: s.created_at,
+      applied_fee_policy_id: s.applied_fee_policy_id ?? null,
     };
   });
 
   const storesTotal = stores.length || 1;
   const appliedBusiness = countCategory + countTopic;
+  const mismatchCount = verification.filter((v) => !v.matched).length;
 
   return NextResponse.json({
     ok: true,
@@ -356,6 +437,7 @@ export async function GET() {
       missing_policy: countMissing,
       reserved_future: scheduled.length,
       inactive_policies: policies.filter((r) => !r.is_active && !r.is_archived).length,
+      verification_mismatch: mismatchCount,
       pct_business: Math.round((appliedBusiness / storesTotal) * 1000) / 10,
       pct_store: Math.round((countStore / storesTotal) * 1000) / 10,
       pct_default: Math.round((countDefault / storesTotal) * 1000) / 10,
@@ -374,10 +456,16 @@ export async function GET() {
           memo: platform.memo,
         }
       : null,
+    apply_semantics: {
+      industry_mode: "policy_row_upsert",
+      store_override_wins: true,
+      note: "Industry policy does not overwrite active store overrides.",
+    },
     categories: categoryPolicies,
     topics: topicPolicies,
     stores: storeRows,
     scheduled_changes: scheduled,
+    policy_history: policyHistory,
     verification,
     settlements_error: setRes.error?.message ?? null,
   });
