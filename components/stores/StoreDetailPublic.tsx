@@ -1424,7 +1424,10 @@ export function StoreDetailPublic({
     pathname,
     decodedSlug,
     blockMenuTabsAnchor,
-    deferCategoryAnchorForFocusProduct: Boolean(focusProductId) || focusEntryPreparing || Boolean(peekStoreMenuFocusEntryIntent()),
+    deferCategoryAnchorForFocusProduct:
+      Boolean(pinFocusProductId) ||
+      focusEntryPreparing ||
+      Boolean(peekStoreMenuFocusEntryIntent()),
     menusLoading,
     menuTabsMeasurable: storeMenuRootActive && !menusLoading && menuSectionsFiltered.length > 0,
     menuStickyMeasureRef,

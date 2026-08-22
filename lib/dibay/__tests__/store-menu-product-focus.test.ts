@@ -202,7 +202,7 @@ describe("store-menu-product-focus landing", () => {
     expect(isStoreMenuSectionHeaderLandingAligned(2, 105)).toBe(true);
   });
 
-  it("scrollStoreMenuFocusEntryIntoView aligns section then product", () => {
+  it("scrollStoreMenuFocusEntryIntoView aligns section header under sticky", () => {
     const sectionIndex = 1;
     const productId = "prod-focus";
     const sectionEl = document.createElement("div");

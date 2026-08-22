@@ -138,7 +138,8 @@ function syncScrollNudgeToTargetTop(
 }
 
 /**
- * focusProduct entry — category header 먼저 sticky 에 맞춘 뒤 product sync nudge.
+ * focusProduct entry — category section header만 sticky 하단에 맞춘다.
+ * product 행 sync nudge 금지(섹션 내 하위 행이면 header가 viewport 위로 밀림).
  */
 export function scrollStoreMenuFocusEntryIntoView(
   sectionIndex: number,
@@ -165,9 +166,23 @@ export function scrollStoreMenuFocusEntryIntoView(
   }
 
   syncScrollNudgeToTargetTop(sectionEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
-  syncScrollNudgeToTargetTop(productEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
   applyFocusProductRing(productId);
   return true;
+}
+
+/** pin·spacer settle 후 section header만 미세 보정 */
+export function nudgeStoreMenuSectionHeaderToSticky(
+  sectionIndex: number,
+  stickyBottomPx: number
+): boolean {
+  if (typeof window === "undefined") return false;
+  const sectionEl = document.getElementById(storeMenuSectionDomId(sectionIndex));
+  if (!sectionEl) return false;
+  const stickyBottom = Number.isFinite(stickyBottomPx) ? stickyBottomPx : 0;
+  if (!(stickyBottom > 0)) return false;
+  const scrollRoot = getMainAppScrollRoot();
+  syncScrollNudgeToTargetTop(sectionEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
+  return isStoreMenuSectionHeaderLandingAligned(sectionIndex, stickyBottom);
 }
 
 /**

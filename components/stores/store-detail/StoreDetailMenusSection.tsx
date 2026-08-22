@@ -5,11 +5,11 @@ import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   clearStoreMenuProductFocusRing,
-  isStoreMenuProductFocusLandingAligned,
   isStoreMenuSectionHeaderLandingAligned,
-  measureStoreMenuProductFocusDeltaPx,
+  measureStoreMenuSectionHeaderDeltaPx,
   resolveStoreMenuFocusStickyBottomPx,
   scrollStoreMenuFocusEntryIntoView,
+  nudgeStoreMenuSectionHeaderToSticky,
   storeMenuProductDomId,
 } from "@/lib/dibay/store-menu-product-focus";
 import { isStoreMenuFocusStickyGeometryReady } from "@/lib/dibay/store-menu-focus-entry";
@@ -175,31 +175,19 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         : 0;
       const tabsH = Math.max(tabsHeightPx, measuredTabsH, 48);
       const vh = typeof window !== "undefined" ? window.innerHeight : 0;
-      const fallback = resolveStoreMenuFocusStickyBottomPx({
-        tabsEl: null,
+      const resolved = resolveStoreMenuFocusStickyBottomPx({
+        tabsEl,
         tabsHeightPx: tabsH,
-        pinned: false,
+        pinned,
         viewportHeightPx: vh,
       });
       const live = tabsEl?.getBoundingClientRect().bottom ?? 0;
       // Pinned tabs sit near the header — reject in-flow bottoms still mid-page
-      if (live > 0 && vh > 0 && live < vh && live <= fallback + 32) return live;
-      return fallback;
+      if (live > 0 && vh > 0 && live < vh && live <= resolved + 32) return live;
+      return resolved;
     };
 
-    const stickyForLand = () => {
-      const tabsEl = menuStickyMeasureRef.current;
-      const measuredTabsH = tabsEl
-        ? Math.round(tabsEl.getBoundingClientRect().height)
-        : 0;
-      const tabsH = Math.max(tabsHeightPx, measuredTabsH, 48);
-      return resolveStoreMenuFocusStickyBottomPx({
-        tabsEl: null,
-        tabsHeightPx: tabsH,
-        pinned: false,
-        viewportHeightPx: typeof window !== "undefined" ? window.innerHeight : 0,
-      });
-    };
+    const stickyForLand = stickyBottomNow;
 
     const productReady = (): HTMLElement | null => {
       const lastIdx = Math.max(0, menuSectionsFiltered.length - 1);
@@ -238,23 +226,38 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     };
 
     const finish = () => {
-      const sticky = stickyBottomNow();
-      deliveryPresentationMarkEvent("focusFinal", {
-        productId,
-        deltaPx: measureStoreMenuProductFocusDeltaPx(productId, sticky),
-      });
-      focusHandledRef.current = productId;
+      if (focusHandledRef.current === productId) return;
       onFocusEntryReady?.();
-      onFocusProductHandled?.();
+
+      let settleFrames = 0;
+      const settleAfterReveal = () => {
+        if (cancelled) return;
+        settleFrames += 1;
+        const sticky = stickyBottomNow();
+        nudgeStoreMenuSectionHeaderToSticky(sectionIndex, sticky);
+        if (
+          !isStoreMenuSectionHeaderLandingAligned(sectionIndex, sticky) &&
+          settleFrames < 12
+        ) {
+          rafId = requestAnimationFrame(settleAfterReveal);
+          return;
+        }
+        deliveryPresentationMarkEvent("focusFinal", {
+          productId,
+          sectionIndex,
+          deltaPx: measureStoreMenuSectionHeaderDeltaPx(sectionIndex, sticky),
+        });
+        focusHandledRef.current = productId;
+        onFocusProductHandled?.();
+      };
+      rafId = requestAnimationFrame(settleAfterReveal);
     };
 
     const tryFinishIfAligned = (): boolean => {
       const sticky = stickyBottomNow();
       const vh = typeof window !== "undefined" ? window.innerHeight : 0;
       if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) return false;
-      const productAligned = isStoreMenuProductFocusLandingAligned(productId, sticky);
-      const sectionAligned = isStoreMenuSectionHeaderLandingAligned(sectionIndex, sticky);
-      if (!productAligned && !sectionAligned) return false;
+      if (!isStoreMenuSectionHeaderLandingAligned(sectionIndex, sticky)) return false;
       finish();
       return true;
     };
@@ -314,6 +317,11 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         return;
       }
 
+      nudgeStoreMenuSectionHeaderToSticky(sectionIndex, stickyBottomNow());
+      if (tryFinishIfAligned()) {
+        return;
+      }
+
       framesWaited += 1;
       if (framesWaited >= maxWaitFrames) {
         tryFinishIfAligned();
@@ -338,6 +346,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     onFocusEntryReady,
     onFocusEntryScrollSpyLock,
     tabsHeightPx,
+    pinned,
   ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);

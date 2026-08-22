@@ -48,7 +48,9 @@ export function useDeferredMenuSectionHydration(
       setHydratedThrough(maxIndex);
       return;
     }
-    setHydratedThrough(resolveHydratedThrough(forceHydrateThroughIndex));
+    setHydratedThrough((prev) =>
+      Math.max(prev, resolveHydratedThrough(forceHydrateThroughIndex))
+    );
     deferLoggedRef.current = false;
   }, [deferEnabled, maxIndex, sections, sectionsStructureKey, forceHydrateThroughIndex, resolveHydratedThrough]);
 

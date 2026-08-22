@@ -204,6 +204,44 @@ function installNetwork(page) {
   return requests;
 }
 
+async function measureFocusLandingGeometry(page) {
+  return page.evaluate(() => {
+    const TOLERANCE = 8;
+    const tabs =
+      document.querySelector('[data-store-category-tabs="pinned"]') ||
+      document.querySelector('[data-store-category-tabs="flow"]');
+    const tabsRect = tabs?.getBoundingClientRect();
+    const tabsBottom = tabsRect?.bottom ?? null;
+    const tabsTop = tabsRect?.top ?? null;
+    const focusEvent = [...(window.__dibayDeliveryPresentation?.events || [])]
+      .reverse()
+      .find((event) => event.name === "focusFinal");
+    const sectionIndex = focusEvent?.detail?.sectionIndex ?? 0;
+    const section = document.getElementById(`store-sec-${sectionIndex}`);
+    const sectionTop = section?.getBoundingClientRect().top ?? null;
+    const hero = document.getElementById("store-hero-media");
+    const heroBottom = hero?.getBoundingClientRect().bottom ?? null;
+    const sectionDelta =
+      sectionTop != null && tabsBottom != null ? sectionTop - tabsBottom : null;
+    const sectionAligned =
+      sectionDelta != null &&
+      sectionDelta >= -TOLERANCE &&
+      sectionDelta <= TOLERANCE;
+    const heroCleared =
+      heroBottom == null || tabsTop == null || heroBottom <= tabsTop + 2;
+    return {
+      sectionIndex,
+      tabsBottom,
+      tabsTop,
+      sectionTop,
+      sectionDelta,
+      sectionAligned,
+      heroBottom,
+      heroCleared,
+    };
+  });
+}
+
 async function probeSnapshot(page) {
   return page.evaluate(() => {
     const shell = document.querySelector("[data-delivery-presentation-shell]");
@@ -444,6 +482,7 @@ async function runSoftSequence(browser, viewport) {
       .slice(requestStart)
       .filter((request) => request.kind === "browse");
     const duringParkedScroll = entered.scrollTop;
+    const focusGeometry = focusProduct ? await measureFocusLandingGeometry(page) : null;
     const timeline = await backWithTimeline(page);
     const after = await probeSnapshot(page);
     const counts = eventCounts(after, eventStart);
@@ -473,6 +512,7 @@ async function runSoftSequence(browser, viewport) {
       requests: requestWindow,
       duplicateRequests: Object.entries(exactCounts).filter(([, count]) => count > 1),
       parkedBrowseRequests,
+      focusGeometry,
       resources: activeResourceVector(after),
     });
   };
@@ -582,6 +622,7 @@ async function main() {
   const tabletGrowth = resourceGrowth(tablet);
   const firstScroll = scrollVerdict(phone.cycles[2], phone.cycles[2].before.scrollTop);
   const focus = phone.cycles[0].focus;
+  const focusGeometry = phone.cycles[0].focusGeometry;
   const focusFinalDelta = focus.focusFinal.at(-1)?.detail?.deltaPx ?? null;
   const focusPass =
     focus.focusIntent === 1 &&
@@ -589,7 +630,11 @@ async function main() {
     focus.focusLand === 1 &&
     focus.focusUrlCleanup === 1 &&
     focus.scrollIntoView.length === 1 &&
-    focus.focusFinal.length === 1;
+    focus.focusFinal.length === 1 &&
+    focusGeometry?.sectionAligned === true &&
+    focusGeometry?.heroCleared === true &&
+    focusFinalDelta != null &&
+    Math.abs(focusFinalDelta) <= 8;
   const phoneSurfacePass = phone.cycles.every(
     (cycle) =>
       cycle.entered.browseCount === 1 &&
@@ -665,6 +710,7 @@ async function main() {
       correction: Math.max(0, focus.focusLand - 1),
       urlCleanup: focus.focusUrlCleanup,
       finalDeltaPx: focusFinalDelta,
+      geometry: focusGeometry,
     },
     scroll: firstScroll,
     phone,
