@@ -1346,6 +1346,7 @@ export function StoreDetailPublic({
     pathname,
     decodedSlug,
     blockMenuTabsAnchor,
+    deferCategoryAnchorForFocusProduct: Boolean(focusProductId),
     menusLoading,
     menuTabsMeasurable: storeMenuRootActive && !menusLoading && menuSectionsFiltered.length > 0,
     menuStickyMeasureRef,

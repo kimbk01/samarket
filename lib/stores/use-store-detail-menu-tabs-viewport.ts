@@ -44,6 +44,11 @@ export function useStoreDetailMenuTabsViewport(args: {
   decodedSlug: string;
   /** true 면 탭 앵커 보류 — 목록 seed·캐시 shell 이 있으면 false 로 두어 메뉴 탭을 summary 완료 전에도 준비 */
   blockMenuTabsAnchor: boolean;
+  /**
+   * browse `focusProduct` landing 이 스크롤 owner — category 탭 앵커 스크롤 skip.
+   * paint gate 는 ready 로 두고, anchored 마크로 focus 종료 후 재앵커 점프를 막는다.
+   */
+  deferCategoryAnchorForFocusProduct?: boolean;
   menusLoading: boolean;
   menuTabsMeasurable: boolean;
   menuStickyMeasureRef: RefObject<HTMLDivElement | null>;
@@ -52,6 +57,7 @@ export function useStoreDetailMenuTabsViewport(args: {
     pathname,
     decodedSlug,
     blockMenuTabsAnchor,
+    deferCategoryAnchorForFocusProduct = false,
     menusLoading,
     menuTabsMeasurable,
     menuStickyMeasureRef,
@@ -96,11 +102,21 @@ export function useStoreDetailMenuTabsViewport(args: {
   );
 
   useLayoutEffect(() => {
-    if (!isMenuRoot || blockMenuTabsAnchor || !slugKey) return;
+    if (!isMenuRoot || !slugKey) return;
+    if (deferCategoryAnchorForFocusProduct) {
+      // focus landing owns viewport — mark anchored without scrolling
+      void consumeStoreDetailMenuTabsLanding();
+      anchoredSlugRef.current = slugKey;
+      anchorKindRef.current = "refine";
+      setMenuTabsViewportReady(true);
+      return;
+    }
+    if (blockMenuTabsAnchor) return;
     applyMenuTabsAnchor(false);
   }, [
     isMenuRoot,
     blockMenuTabsAnchor,
+    deferCategoryAnchorForFocusProduct,
     slugKey,
     pathname,
     menusLoading,
@@ -110,11 +126,12 @@ export function useStoreDetailMenuTabsViewport(args: {
 
   useLayoutEffect(() => {
     if (!isMenuRoot || !slugKey) return;
+    if (deferCategoryAnchorForFocusProduct) return;
     if (!consumeStoreDetailMenuTabsLanding()) return;
     anchoredSlugRef.current = null;
     anchorKindRef.current = "none";
     return runAfterFrames(2, () => applyMenuTabsAnchor(true));
-  }, [isMenuRoot, slugKey, pathname, applyMenuTabsAnchor]);
+  }, [isMenuRoot, slugKey, pathname, deferCategoryAnchorForFocusProduct, applyMenuTabsAnchor]);
 
   useLayoutEffect(() => {
     if (!isMenuRoot) {

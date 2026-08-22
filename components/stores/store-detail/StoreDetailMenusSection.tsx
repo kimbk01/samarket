@@ -2,8 +2,13 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode, RefObject } from "react";
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { scrollStoreMenuProductIntoView } from "@/lib/dibay/store-menu-product-focus";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  isStoreMenuProductFocusLandingAligned,
+  resolveStoreMenuFocusStickyBottomPx,
+  scrollStoreMenuProductIntoView,
+  storeMenuProductDomId,
+} from "@/lib/dibay/store-menu-product-focus";
 import { findMenuSectionIndexForProduct } from "@/lib/stores/group-store-products-by-menu";
 import { deliveryMenuVisibleMarkFirstSectionReady } from "@/lib/dibay/delivery-menu-visible-trace";
 import { markMenusColdFillFirstInteractable } from "@/lib/stores/menus-cold-fill-deep-breakdown";
@@ -86,7 +91,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   const canInteract = canSell && !menuSelectBlocked;
   const menuBoardRef = useRef<StoreMenuBoardListHandle>(null);
   const tabsSentinelRef = useRef<HTMLDivElement>(null);
-  const { pinned, tabsHeightPx, tabsBottomPx } = useStoreDetailCategoryTabsPin({
+  const { pinned, tabsHeightPx } = useStoreDetailCategoryTabsPin({
     sentinelRef: tabsSentinelRef,
     tabsRef: menuStickyMeasureRef,
     enabled: true,
@@ -95,68 +100,141 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   const firstVisibleRef = useRef(false);
   const firstInteractableRef = useRef(false);
   const focusHandledRef = useRef<string | null>(null);
+  /** strip 후에도 spacer 유지 — 제거 시 scrollMax clamp 로 landing 재이탈 */
+  const [retainFocusScrollSpacer, setRetainFocusScrollSpacer] = useState(false);
 
   useEffect(() => {
     focusHandledRef.current = null;
   }, [focusProductId]);
 
   useEffect(() => {
+    if (focusProductId) setRetainFocusScrollSpacer(true);
+  }, [focusProductId]);
+
+  /**
+   * P0 — focusProduct landing: 단일 scroll owner.
+   * deferred section hydrate + layout 안정화 후 auto 1회(+1 rAF 보정 최대 1회).
+   * geometry PASS 전에 URL strip 금지.
+   */
+  useLayoutEffect(() => {
     const productId = focusProductId?.trim();
     if (!productId || menusLoading) return;
     if (focusHandledRef.current === productId) return;
 
     const sectionIndex = findMenuSectionIndexForProduct(menuSectionsFiltered, productId);
     if (sectionIndex < 0) {
-      focusHandledRef.current = productId;
-      onFocusProductHandled?.();
       return;
     }
 
-    const stickyBottom = () => tabsBottomPx();
+    let cancelled = false;
+    let rafId = 0;
+    let framesWaited = 0;
+    const maxWaitFrames = 180;
+    let lastElScrollKey: string | null = null;
+    let stableFrames = 0;
+    let didScroll = false;
+    let didCorrect = false;
+    let alignedStableFrames = 0;
 
-    const focusCategorySection = () => {
-      menuBoardRef.current?.ensureSectionsHydratedThrough(sectionIndex);
-      setActiveMenuSection(sectionIndex);
-      scrollStoreSectionIntoView(sectionIndex);
+    const stickyBottomNow = () =>
+      resolveStoreMenuFocusStickyBottomPx({
+        tabsEl: menuStickyMeasureRef.current,
+        tabsHeightPx,
+        pinned,
+      });
+
+    const productReady = (): HTMLElement | null => {
+      const lastIdx = Math.max(0, menuSectionsFiltered.length - 1);
+      menuBoardRef.current?.ensureSectionsHydratedThrough(lastIdx);
+      if (!menuBoardRef.current?.isSectionHydrated(lastIdx)) return null;
+      if (!menuBoardRef.current?.isSectionHydrated(sectionIndex)) return null;
+      const spacer = document.querySelector("[data-store-menu-focus-scroll-spacer]");
+      if (!spacer) return null;
+      if (spacer.getBoundingClientRect().height < 64) return null;
+      const el = document.getElementById(storeMenuProductDomId(productId));
+      if (!el) return null;
+      if (!(el.getBoundingClientRect().height > 0)) return null;
+      return el;
     };
 
-    const finishFocus = () => {
-      focusHandledRef.current = productId;
-      onFocusProductHandled?.();
-    };
-
-    const tryComplete = (): boolean => {
-      focusCategorySection();
-      const highlighted = scrollStoreMenuProductIntoView(productId, stickyBottom());
-      if (highlighted) {
-        finishFocus();
-        return true;
+    const layoutStable = (el: HTMLElement): boolean => {
+      const key = `${Math.round(el.getBoundingClientRect().top)}:${Math.round(el.getBoundingClientRect().height)}:${Math.round(document.querySelector("[data-store-menu-focus-scroll-spacer]")?.getBoundingClientRect().height ?? 0)}`;
+      if (key === lastElScrollKey) {
+        stableFrames += 1;
+      } else {
+        lastElScrollKey = key;
+        stableFrames = 0;
+        alignedStableFrames = 0;
       }
-      return false;
+      return stableFrames >= 2;
     };
 
-    focusCategorySection();
+    const land = (): boolean => {
+      const sticky = stickyBottomNow();
+      if (!(sticky > 0)) return false;
+      return scrollStoreMenuProductIntoView(productId, sticky, { behavior: "auto" });
+    };
 
-    const delays = [80, 240, 480, 720];
-    const timers = delays.map((ms) =>
-      window.setTimeout(() => {
-        if (focusHandledRef.current === productId) return;
-        if (tryComplete()) return;
-        if (ms === delays[delays.length - 1]!) finishFocus();
-      }, ms)
-    );
+    const tick = () => {
+      if (cancelled) return;
+      setActiveMenuSection(sectionIndex);
+      const el = productReady();
+      if (!el) {
+        framesWaited += 1;
+        if (framesWaited >= maxWaitFrames) return;
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      if (!didScroll) {
+        if (!layoutStable(el)) {
+          framesWaited += 1;
+          if (framesWaited >= maxWaitFrames) return;
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+        didScroll = true;
+        alignedStableFrames = 0;
+        land();
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const sticky = stickyBottomNow();
+      if (isStoreMenuProductFocusLandingAligned(productId, sticky)) {
+        alignedStableFrames += 1;
+        // 레이아웃 확정 후 연속 프레임에서만 strip (조기 PASS 방지)
+        if (alignedStableFrames >= 2) {
+          focusHandledRef.current = productId;
+          onFocusProductHandled?.();
+          return;
+        }
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      alignedStableFrames = 0;
+      if (!didCorrect) {
+        didCorrect = true;
+        land();
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      // geometry mismatch — strip 금지
+    };
+
+    rafId = requestAnimationFrame(tick);
     return () => {
-      for (const t of timers) window.clearTimeout(t);
+      cancelled = true;
+      cancelAnimationFrame(rafId);
     };
   }, [
     focusProductId,
     menusLoading,
     menuSectionsFiltered,
     menuStickyMeasureRef,
-    scrollStoreSectionIntoView,
     setActiveMenuSection,
     onFocusProductHandled,
-    tabsBottomPx,
+    tabsHeightPx,
+    pinned,
   ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);
@@ -224,6 +302,10 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   );
 
   const stickyTop = storeDetailCategoryTabsStickyTopCss();
+  const showFocusScrollSpacer = Boolean(focusProductId) || retainFocusScrollSpacer;
+  const focusScrollSpacerCss = showFocusScrollSpacer
+    ? `calc(100dvh - (var(--safe-top, 0px) + var(--delivery-header-h, 48px) + ${Math.max(tabsHeightPx, 48)}px))`
+    : null;
 
   return (
     <div id="store-menu-panel">
@@ -284,23 +366,32 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       {menusLoading ? (
         <StoreDetailMenusSkeleton />
       ) : (
-        <StoreMenuBoardList
-          ref={menuBoardRef}
-          storeSlug={storeSlug}
-          sections={menuSectionsFiltered}
-          canSell={canSell}
-          menuSelectBlocked={menuSelectBlocked}
-          menuSelectHint={menuSelectHint}
-          sectionDomId={(i) => `store-sec-${i}`}
-          sectionScrollMarginCss={sectionScrollMarginCss}
-          onOpenProduct={onOpenProductSheet}
-          onQuickAddProduct={onQuickAddProduct}
-          onFirstCategoryProductPaint={
-            onMenuFirstVisible
-              ? () => reportFirstVisible("first_category_card")
-              : undefined
-          }
-        />
+        <>
+          <StoreMenuBoardList
+            ref={menuBoardRef}
+            storeSlug={storeSlug}
+            sections={menuSectionsFiltered}
+            canSell={canSell}
+            menuSelectBlocked={menuSelectBlocked}
+            menuSelectHint={menuSelectHint}
+            sectionDomId={(i) => `store-sec-${i}`}
+            sectionScrollMarginCss={sectionScrollMarginCss}
+            onOpenProduct={onOpenProductSheet}
+            onQuickAddProduct={onQuickAddProduct}
+            onFirstCategoryProductPaint={
+              onMenuFirstVisible
+                ? () => reportFirstVisible("first_category_card")
+                : undefined
+            }
+          />
+          {focusScrollSpacerCss ?
+            <div
+              aria-hidden
+              data-store-menu-focus-scroll-spacer
+              style={{ height: focusScrollSpacerCss }}
+            />
+          : null}
+        </>
       )}
     </div>
   );

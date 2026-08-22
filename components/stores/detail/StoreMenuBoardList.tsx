@@ -12,6 +12,7 @@ import { countMenuBoardItems } from "@/lib/dibay/store-menu-viewport-policy";
 
 export type StoreMenuBoardListHandle = {
   ensureSectionsHydratedThrough: (sectionIndex: number) => void;
+  isSectionHydrated: (sectionIndex: number) => boolean;
 };
 
 export const StoreMenuBoardList = forwardRef<
@@ -58,8 +59,9 @@ export const StoreMenuBoardList = forwardRef<
       ensureSectionsHydratedThrough: (sectionIndex: number) => {
         ensureHydratedThrough(sectionIndex, "tab_or_scroll");
       },
+      isSectionHydrated: (sectionIndex: number) => isSectionHydrated(sectionIndex),
     }),
-    [ensureHydratedThrough]
+    [ensureHydratedThrough, isSectionHydrated]
   );
 
   if (!canSell) {
