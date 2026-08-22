@@ -9,6 +9,7 @@ import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-a
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { StoresHomeTier1ScrollShell } from "@/components/stores/home/hub/StoresHomeTier1ScrollShell";
+import { STORES_HOME_CHROME_INNER_DATA_ATTR } from "@/lib/stores/stores-home-header-layout";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
@@ -89,7 +90,7 @@ export function StoresHomeHeaderChrome() {
         data-stores-home-header
         className={`${STORES_HOME_HEADER_SHELL_CLASS} z-[3]`}
       >
-        <div className={STORES_HOME_HEADER_INNER_CLASS}>
+        <div {...{ [STORES_HOME_CHROME_INNER_DATA_ATTR]: "" }} className={STORES_HOME_HEADER_INNER_CLASS}>
           <div
             className={`${STORES_HOME_HEADER_ACTION_ROW_CLASS} ${STORES_HOME_HEADER_HOME_ADDRESS_ROW_GRID_CLASS}`}
           >

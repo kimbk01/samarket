@@ -251,8 +251,13 @@ assertIncludes(
 );
 assertIncludes(
   hub,
+  "StoresHomeScrollContentStart",
+  "hub must mount scroll content start for tier3 geometry boundary"
+);
+assertNotIncludes(
+  hub,
   "StoresHomeSecondaryRevealSentinel",
-  "hub must mount secondary reveal sentinel in scroll body"
+  "hero proxy sentinel forbidden"
 );
 assertNotIncludes(
   hub,
@@ -265,14 +270,59 @@ assertIncludes(
   "stores home width SSOT must export chrome max width"
 );
 assertIncludes(
+  read("lib/stores/stores-home-header-layout.ts"),
+  "STORES_HOME_CHROME_INNER_DATA_ATTR",
+  "stores home width SSOT must export chrome inner data marker"
+);
+assertIncludes(
   read("lib/stores/stores-home-header-scroll-chrome.ts"),
   "resolveBottomNavScrollChromeAction",
   "tier1 scroll hide must use shared scroll chrome hysteresis"
 );
 assertIncludes(
   read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
-  "resolveStoresHomeSecondaryRevealedFromScroll",
-  "tier2 reveal must use scroll-root sentinel hysteresis"
+  "resolveStoresHomeSecondaryRevealedFromGeometry",
+  "tier2 reveal must use tier3 bottom vs scroll-content-start geometry"
+);
+assertIncludes(
+  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
+  "registerStoresHomeTier3Boundary",
+  "tier2 reveal boundary must register tier3 bottom"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
+  "registerStoresHomeSecondaryRevealSentinel",
+  "hero proxy sentinel registration forbidden"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-header-scroll-chrome.ts"),
+  ".scrollTop",
+  "tier1 motion must not write scrollTop"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
+  ".scrollTop",
+  "tier2 reveal must not write scrollTop"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-header-scroll-chrome.ts"),
+  "scrollTop +=",
+  "tier1 scrollTop delta forbidden"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
+  "scrollTop +=",
+  "tier2 scrollTop delta forbidden"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-header-scroll-chrome.ts"),
+  "compensateScroll",
+  "tier1 scroll compensation forbidden"
+);
+assertNotIncludes(
+  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
+  "compensateScroll",
+  "tier2 scroll compensation forbidden"
 );
 assertNotIncludes(
   read("lib/stores/stores-home-category-chrome-store.ts"),
@@ -608,8 +658,13 @@ assertNotIncludes(
 
 assertIncludes(
   hub,
+  "StoresHomeScrollContentStart",
+  "hub must mount scroll content start marker"
+);
+assertNotIncludes(
+  hub,
   "StoresHomeSecondaryRevealSentinel",
-  "hub must mount secondary reveal sentinel"
+  "hero proxy sentinel forbidden in hub"
 );
 
 assertNotIncludes(

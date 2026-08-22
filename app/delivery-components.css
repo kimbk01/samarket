@@ -1155,32 +1155,54 @@
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
   }
 
-  /** `/stores` home TIER1 — scroll hide (TIER3 anchor unaffected) */
+  /** `/stores` home TIER1 — grid collapse in sticky header (no scrollTop correction) */
   [data-stores-home-tier1-shell] {
-    max-height: var(--stores-home-tier1-band-max-h, 5.5rem);
-    transition:
-      max-height 240ms cubic-bezier(0.33, 1, 0.68, 1),
-      opacity 200ms ease;
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 240ms cubic-bezier(0.33, 1, 0.68, 1);
   }
 
   [data-stores-home-tier1-shell][data-hidden="true"] {
-    max-height: 0;
-    opacity: 0;
+    grid-template-rows: 0fr;
     pointer-events: none;
   }
 
-  /** `/stores` home TIER2 — contextual reveal below TIER3 (cold entry hidden) */
+  [data-stores-home-tier1-inner] {
+    min-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity 200ms ease;
+  }
+
+  [data-stores-home-tier1-shell][data-hidden="true"] [data-stores-home-tier1-inner] {
+    opacity: 0;
+  }
+
+  /** `/stores` home TIER2 — overlay reveal below TIER3 (content-driven grid, no layout band token) */
   [data-stores-home-tier2-reveal] {
-    max-height: 0;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
     opacity: 0;
     pointer-events: none;
+    background: color-mix(in srgb, var(--dibay-domain-surface, var(--sector-header-bg)) 98%, transparent);
     transition:
-      max-height 240ms cubic-bezier(0.33, 1, 0.68, 1),
+      grid-template-rows 240ms cubic-bezier(0.33, 1, 0.68, 1),
       opacity 200ms ease;
   }
 
+  [data-stores-home-tier2-reveal] > section {
+    min-height: 0;
+    overflow: hidden;
+  }
+
   [data-stores-home-tier2-reveal][data-revealed="true"] {
-    max-height: var(--delivery-home-subcategory-reveal-h);
+    grid-template-rows: 1fr;
     opacity: 1;
     pointer-events: auto;
   }

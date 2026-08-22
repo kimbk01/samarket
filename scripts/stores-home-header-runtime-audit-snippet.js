@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
  * `/stores` header 1·2·3 runtime audit — inject in browser console or Playwright evaluate.
- * Reports tier instance counts, visibility, width delta, scroll compensation hints.
  */
 (function storesHomeHeaderRuntimeAudit() {
   const tierSel = {
-    1: '[data-stores-home-tier="1"], [data-stores-home-header]',
+    1: '[data-stores-home-tier="1"]',
     2: '[data-stores-home-tier="2"]',
     3: '[data-stores-home-tier="3"]',
   };
@@ -14,7 +13,7 @@
     return [...document.querySelectorAll(sel)].filter((el) => {
       const r = el.getBoundingClientRect();
       const style = getComputedStyle(el);
-      return r.width > 0 && r.height > 0 && style.visibility !== "hidden" && style.opacity !== "0";
+      return r.width > 0 && r.height > 2 && style.visibility !== "hidden" && Number(style.opacity) > 0.05;
     });
   }
 
@@ -30,14 +29,17 @@
     tier1Visible: countVisible(tierSel[1]).length,
     tier2Visible: countVisible(tierSel[2]).length,
     tier3Visible: countVisible(tierSel[3]).length,
-    tier1Hidden: document.querySelector('[data-stores-home-tier1-shell]')?.getAttribute("data-hidden"),
+    tier1Hidden: document.querySelector("[data-stores-home-tier1-shell]")?.getAttribute("data-hidden"),
     tier2Revealed: document.querySelector("[data-stores-home-tier2-reveal]")?.getAttribute("data-revealed"),
     scrollTop: document.querySelector("[data-main-hub-scroll-body]")?.scrollTop ?? null,
+    contentStartTop: document.querySelector("[data-stores-home-scroll-content-start]")?.getBoundingClientRect().top ?? null,
+    tier3Bottom: document.querySelector("[data-stores-home-tier3-boundary]")?.getBoundingClientRect().bottom ?? null,
+    proxySentinel: document.querySelectorAll("[data-stores-home-secondary-reveal-sentinel]").length,
   };
 
-  const t1 = document.querySelector('[data-stores-home-tier="1"]');
-  const t2 = document.querySelector('[data-stores-home-tier="2"]');
-  const t3 = document.querySelector('[data-stores-home-tier="3"]');
+  const t1 = document.querySelector(tierSel[1]);
+  const t2 = document.querySelector(tierSel[2]);
+  const t3 = document.querySelector(tierSel[3]);
   const body = document.querySelector(".stores-home-hub");
 
   const edges = {};
