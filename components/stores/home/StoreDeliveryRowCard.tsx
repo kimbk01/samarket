@@ -31,6 +31,7 @@ import {
   deliveryStoreDetailPrefetch,
   deliveryStoreDetailPrefetchForTap,
 } from "@/lib/dibay/delivery-store-detail-prefetch";
+import { armStoreMenuFocusEntryIntent } from "@/lib/dibay/store-menu-focus-entry-intent";
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
@@ -438,6 +439,7 @@ function StoreDeliveryRowCardInner({
   const navigateToStore = useCallback(
     (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
       const href = buildStoreDetailHref(data.slug, focusProductId);
+      if (focusProductId) armStoreMenuFocusEntryIntent(focusProductId);
       resetDeliveryStoreMenusPrewarmForTests();
       saveDeliveryListScrollBeforeStoreNavigation();
       const browsePrimary =

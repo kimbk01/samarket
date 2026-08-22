@@ -9,6 +9,7 @@ import {
   scrollStoreMenuProductIntoView,
   storeMenuProductDomId,
 } from "@/lib/dibay/store-menu-product-focus";
+import { isStoreMenuFocusStickyGeometryReady } from "@/lib/dibay/store-menu-focus-entry";
 import { findMenuSectionIndexForProduct } from "@/lib/stores/group-store-products-by-menu";
 import { deliveryMenuVisibleMarkFirstSectionReady } from "@/lib/dibay/delivery-menu-visible-trace";
 import { markMenusColdFillFirstInteractable } from "@/lib/stores/menus-cold-fill-deep-breakdown";
@@ -57,6 +58,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   commerceCartStoreId,
   focusProductId,
   onFocusProductHandled,
+  onFocusEntryReady,
+  focusEntryPreparing = false,
   menuProductsForReviewRail,
   onOpenReviews,
 }: {
@@ -85,6 +88,9 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   /** browse·검색 등 — 해당 상품 행으로 스크롤 */
   focusProductId?: string | null;
   onFocusProductHandled?: () => void;
+  /** PREPARING 해제 — 첫 노출 = 최종 정렬 frame */
+  onFocusEntryReady?: () => void;
+  focusEntryPreparing?: boolean;
   menuProductsForReviewRail?: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
@@ -102,9 +108,12 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   const focusHandledRef = useRef<string | null>(null);
   /** strip 후에도 spacer 유지 — 제거 시 scrollMax clamp 로 landing 재이탈 */
   const [retainFocusScrollSpacer, setRetainFocusScrollSpacer] = useState(false);
+  /** product당 scroll 1회 — effect 재진입 시 재 scroll 금지 */
+  const focusScrollCommittedRef = useRef<string | null>(null);
 
   useEffect(() => {
     focusHandledRef.current = null;
+    focusScrollCommittedRef.current = null;
   }, [focusProductId]);
 
   useEffect(() => {
@@ -112,8 +121,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   }, [focusProductId]);
 
   /**
-   * P0 — focusProduct landing: 단일 scroll owner.
-   * deferred section hydrate + layout 안정화 후 auto 1회(+1 rAF 보정 최대 1회).
+   * focusProduct entry — 단일 scroll authority.
+   * PREPARING 동안만 position 확정(최대 1회 auto). reveal 이후·effect 재진입 correction 금지.
    * geometry PASS 전에 URL strip 금지.
    */
   useLayoutEffect(() => {
@@ -123,6 +132,12 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
 
     const sectionIndex = findMenuSectionIndexForProduct(menuSectionsFiltered, productId);
     if (sectionIndex < 0) {
+      // menus still empty / not yet grouped — wait; only abort when menus settled without product
+      if (!menusLoading && menuSectionsFiltered.length > 0) {
+        focusHandledRef.current = productId;
+        onFocusEntryReady?.();
+        onFocusProductHandled?.();
+      }
       return;
     }
 
@@ -130,18 +145,39 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     let rafId = 0;
     let framesWaited = 0;
     const maxWaitFrames = 180;
-    let lastElScrollKey: string | null = null;
-    let stableFrames = 0;
-    let didScroll = false;
-    let didCorrect = false;
-    let alignedStableFrames = 0;
 
-    const stickyBottomNow = () =>
-      resolveStoreMenuFocusStickyBottomPx({
-        tabsEl: menuStickyMeasureRef.current,
-        tabsHeightPx,
-        pinned,
+    const stickyBottomNow = () => {
+      const tabsEl = menuStickyMeasureRef.current;
+      const measuredTabsH = tabsEl
+        ? Math.round(tabsEl.getBoundingClientRect().height)
+        : 0;
+      const tabsH = Math.max(tabsHeightPx, measuredTabsH, 48);
+      const vh = typeof window !== "undefined" ? window.innerHeight : 0;
+      const fallback = resolveStoreMenuFocusStickyBottomPx({
+        tabsEl: null,
+        tabsHeightPx: tabsH,
+        pinned: false,
+        viewportHeightPx: vh,
       });
+      const live = tabsEl?.getBoundingClientRect().bottom ?? 0;
+      // Pinned tabs sit near the header — reject in-flow bottoms still mid-page
+      if (live > 0 && vh > 0 && live < vh && live <= fallback + 32) return live;
+      return fallback;
+    };
+
+    const stickyForLand = () => {
+      const tabsEl = menuStickyMeasureRef.current;
+      const measuredTabsH = tabsEl
+        ? Math.round(tabsEl.getBoundingClientRect().height)
+        : 0;
+      const tabsH = Math.max(tabsHeightPx, measuredTabsH, 48);
+      return resolveStoreMenuFocusStickyBottomPx({
+        tabsEl: null,
+        tabsHeightPx: tabsH,
+        pinned: false,
+        viewportHeightPx: typeof window !== "undefined" ? window.innerHeight : 0,
+      });
+    };
 
     const productReady = (): HTMLElement | null => {
       const lastIdx = Math.max(0, menuSectionsFiltered.length - 1);
@@ -157,22 +193,25 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       return el;
     };
 
-    const layoutStable = (el: HTMLElement): boolean => {
-      const key = `${Math.round(el.getBoundingClientRect().top)}:${Math.round(el.getBoundingClientRect().height)}:${Math.round(document.querySelector("[data-store-menu-focus-scroll-spacer]")?.getBoundingClientRect().height ?? 0)}`;
-      if (key === lastElScrollKey) {
-        stableFrames += 1;
-      } else {
-        lastElScrollKey = key;
-        stableFrames = 0;
-        alignedStableFrames = 0;
-      }
-      return stableFrames >= 2;
+    const landOnce = (): boolean => {
+      const tabsEl = menuStickyMeasureRef.current;
+      const measuredTabsH = tabsEl
+        ? Math.round(tabsEl.getBoundingClientRect().height)
+        : 0;
+      if (!(measuredTabsH >= 40 || tabsHeightPx >= 40)) return false;
+      const sticky = stickyForLand();
+      const vh = typeof window !== "undefined" ? window.innerHeight : 0;
+      if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) return false;
+      return scrollStoreMenuProductIntoView(productId, sticky, {
+        behavior: "auto",
+        syncNudge: true,
+      });
     };
 
-    const land = (): boolean => {
-      const sticky = stickyBottomNow();
-      if (!(sticky > 0)) return false;
-      return scrollStoreMenuProductIntoView(productId, sticky, { behavior: "auto" });
+    const finish = () => {
+      focusHandledRef.current = productId;
+      onFocusEntryReady?.();
+      onFocusProductHandled?.();
     };
 
     const tick = () => {
@@ -181,44 +220,53 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       const el = productReady();
       if (!el) {
         framesWaited += 1;
-        if (framesWaited >= maxWaitFrames) return;
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-      if (!didScroll) {
-        if (!layoutStable(el)) {
-          framesWaited += 1;
-          if (framesWaited >= maxWaitFrames) return;
-          rafId = requestAnimationFrame(tick);
+        if (framesWaited >= maxWaitFrames) {
+          finish();
           return;
         }
-        didScroll = true;
-        alignedStableFrames = 0;
-        land();
         rafId = requestAnimationFrame(tick);
         return;
       }
 
       const sticky = stickyBottomNow();
-      if (isStoreMenuProductFocusLandingAligned(productId, sticky)) {
-        alignedStableFrames += 1;
-        // 레이아웃 확정 후 연속 프레임에서만 strip (조기 PASS 방지)
-        if (alignedStableFrames >= 2) {
-          focusHandledRef.current = productId;
-          onFocusProductHandled?.();
+      const vh = typeof window !== "undefined" ? window.innerHeight : 0;
+      if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) {
+        framesWaited += 1;
+        if (framesWaited >= maxWaitFrames) {
+          finish();
           return;
         }
         rafId = requestAnimationFrame(tick);
         return;
       }
-      alignedStableFrames = 0;
-      if (!didCorrect) {
-        didCorrect = true;
-        land();
+
+      if (focusScrollCommittedRef.current !== productId) {
+        focusScrollCommittedRef.current = productId;
+        if (!landOnce()) {
+          focusScrollCommittedRef.current = null;
+          framesWaited += 1;
+          if (framesWaited >= maxWaitFrames) {
+            finish();
+            return;
+          }
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
         rafId = requestAnimationFrame(tick);
         return;
       }
-      // geometry mismatch — strip 금지
+
+      if (isStoreMenuProductFocusLandingAligned(productId, sticky)) {
+        finish();
+        return;
+      }
+
+      framesWaited += 1;
+      if (framesWaited >= maxWaitFrames) {
+        finish();
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
@@ -233,8 +281,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     menuStickyMeasureRef,
     setActiveMenuSection,
     onFocusProductHandled,
+    onFocusEntryReady,
     tabsHeightPx,
-    pinned,
   ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);
@@ -302,13 +350,14 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   );
 
   const stickyTop = storeDetailCategoryTabsStickyTopCss();
-  const showFocusScrollSpacer = Boolean(focusProductId) || retainFocusScrollSpacer;
+  const showFocusScrollSpacer =
+    Boolean(focusProductId) || retainFocusScrollSpacer || focusEntryPreparing;
   const focusScrollSpacerCss = showFocusScrollSpacer
     ? `calc(100dvh - (var(--safe-top, 0px) + var(--delivery-header-h, 48px) + ${Math.max(tabsHeightPx, 48)}px))`
     : null;
 
   return (
-    <div id="store-menu-panel">
+    <div id="store-menu-panel" data-store-focus-entry-preparing={focusEntryPreparing ? "true" : "false"}>
       {!menusLoading && storeSlug ? (
         <StoreMenuReviewFlowLink
           storeSlug={storeSlug}

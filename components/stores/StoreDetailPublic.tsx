@@ -32,6 +32,7 @@ import {
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
+import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { StoreReviewsSlidePanel } from "@/components/stores/store-detail/StoreReviewsSlidePanel";
 import type { StoreMenuReviewRailProduct } from "@/components/stores/StoreMenuReviewFlowLink";
 import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
@@ -39,9 +40,15 @@ import { buildStoreMenuReviewRailProducts } from "@/lib/stores/build-store-menu-
 import { StoreDetailSummarySection } from "@/components/stores/store-detail/StoreDetailSummarySection";
 import {
   groupStoreProductsByMenuSectionModel,
+  findMenuSectionIndexForProduct,
   pinFocusedProductInMenuSections,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
+import { storeMenuFocusEntryNeedsPreparation } from "@/lib/dibay/store-menu-focus-entry";
+import {
+  clearStoreMenuFocusEntryIntent,
+  peekStoreMenuFocusEntryIntent,
+} from "@/lib/dibay/store-menu-focus-entry-intent";
 import { localizeMenuSectionHeadings } from "@/lib/stores/localize-menu-section-headings";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
@@ -210,6 +217,47 @@ export function StoreDetailPublic({
   const commerceCartActions = useStoreCommerceCartActionsOptional();
   const decodedSlug = useMemo(() => decodeSlugSegment(slug), [slug]);
 
+  const focusPinProductIdRef = useRef<string | null>(focusProductId);
+  if (focusProductId) focusPinProductIdRef.current = focusProductId;
+  const [retainFocusPin, setRetainFocusPin] = useState(() => Boolean(focusProductId));
+  const [focusEntryPreparing, setFocusEntryPreparing] = useState(() => {
+    if (storeMenuFocusEntryNeedsPreparation(focusProductId)) return true;
+    if (storeMenuFocusEntryNeedsPreparation(peekStoreMenuFocusEntryIntent())) return true;
+    if (typeof window === "undefined") return false;
+    return storeMenuFocusEntryNeedsPreparation(
+      new URLSearchParams(window.location.search).get("focusProduct")
+    );
+  });
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromUrl =
+      focusProductId ||
+      peekStoreMenuFocusEntryIntent() ||
+      new URLSearchParams(window.location.search).get("focusProduct");
+    if (storeMenuFocusEntryNeedsPreparation(fromUrl)) {
+      setFocusEntryPreparing(true);
+    }
+  }, [focusProductId, pathname, decodedSlug]);
+
+  useEffect(() => {
+    // store 전환 시 pin/preparing 재동기화
+    const armed = peekStoreMenuFocusEntryIntent();
+    const nextFocus = focusProductId || armed;
+    setRetainFocusPin(Boolean(nextFocus));
+    setFocusEntryPreparing(storeMenuFocusEntryNeedsPreparation(nextFocus));
+    if (nextFocus) focusPinProductIdRef.current = nextFocus;
+  }, [decodedSlug]); // eslint-disable-line react-hooks/exhaustive-deps -- slug boundary only
+
+  useEffect(() => {
+    if (!focusProductId) return;
+    setRetainFocusPin(true);
+    setFocusEntryPreparing(true);
+    focusPinProductIdRef.current = focusProductId;
+  }, [focusProductId]);
+
+  const pinFocusProductId =
+    focusProductId ?? (retainFocusPin ? focusPinProductIdRef.current : null);
   const initialSnap = useMemo(
     () => getStorePublicInitialSnapshot(initialApiResponse),
     [initialApiResponse]
@@ -1142,11 +1190,11 @@ export function StoreDetailPublic({
             ),
           }))
           .filter((s) => s.items.length > 0);
-    if (focusProductId && !q) {
-      sections = pinFocusedProductInMenuSections(sections, focusProductId);
+    if (pinFocusProductId && !q) {
+      sections = pinFocusedProductInMenuSections(sections, pinFocusProductId);
     }
     return localizeMenuSectionHeadings(sections, language);
-  }, [menuSections, menuQuery, focusProductId, language]);
+  }, [menuSections, menuQuery, pinFocusProductId, language]);
 
   const menuProductsForReviewRail = useMemo((): StoreMenuReviewRailProduct[] => {
     const sectionItems = menuSectionsFiltered.flatMap((s) => s.items);
@@ -1189,6 +1237,20 @@ export function StoreDetailPublic({
       menuSectionsFiltered.length === 0 ? 0 : Math.min(i, Math.max(0, menuSectionsFiltered.length - 1))
     );
   }, [menuSectionsFiltered.length]);
+
+  /** focus entry — 첫 paint 전 target category 확정 (Bungeoppang→KIMBAP 금지) */
+  useLayoutEffect(() => {
+    const id = pinFocusProductId?.trim();
+    if (!id || menuSectionsFiltered.length === 0) return;
+    const idx = findMenuSectionIndexForProduct(menuSectionsFiltered, id);
+    if (idx < 0) return;
+    setActiveMenuSection((prev) => (prev === idx ? prev : idx));
+  }, [pinFocusProductId, menuSectionScrollKey, menuSectionsFiltered]);
+
+  const onFocusEntryReady = useCallback(() => {
+    clearStoreMenuFocusEntryIntent();
+    setFocusEntryPreparing(false);
+  }, []);
 
   useEffect(() => {
     if (!store?.slug || typeof window === "undefined") return;
@@ -1346,7 +1408,7 @@ export function StoreDetailPublic({
     pathname,
     decodedSlug,
     blockMenuTabsAnchor,
-    deferCategoryAnchorForFocusProduct: Boolean(focusProductId),
+    deferCategoryAnchorForFocusProduct: Boolean(focusProductId) || focusEntryPreparing || Boolean(peekStoreMenuFocusEntryIntent()),
     menusLoading,
     menuTabsMeasurable: storeMenuRootActive && !menusLoading && menuSectionsFiltered.length > 0,
     menuStickyMeasureRef,
@@ -1568,6 +1630,8 @@ export function StoreDetailPublic({
     return <StoreOwnerNoticeCards notices={menuTopNotices} infoHrefBase={infoHrefBase} />;
   }, [menuTopNotices, storeForPaint?.slug]);
 
+  const showFocusEntryPreparing = focusEntryPreparing;
+
   /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거 */
   const viewportShell = (inner: ReactNode, opts?: { anchorPaintGate?: boolean }) => (
     <div
@@ -1685,6 +1749,20 @@ export function StoreDetailPublic({
       }
       distanceOutOfRange={distanceOutOfRange}
     >
+      {showFocusEntryPreparing ? (
+        <div
+          className="pointer-events-auto fixed inset-0 z-[80] flex items-center justify-center bg-sam-app"
+          data-store-focus-entry="preparing"
+          role="status"
+          aria-busy="true"
+        >
+          <StoreDeliveryBufferingSpinner />
+        </div>
+      ) : null}
+      <div
+        aria-hidden={showFocusEntryPreparing}
+        data-store-focus-entry-surface={showFocusEntryPreparing ? "preparing" : "ready"}
+      >
       <StoreDetailSummarySection
         headerElevated={headerSolid || !heroVisualForHeader}
         fallbackHref={fallbackHref}
@@ -1761,6 +1839,8 @@ export function StoreDetailPublic({
         menuTopSlot={menuTopSlot}
         focusProductId={focusProductId}
         onFocusProductHandled={onFocusProductHandled}
+        onFocusEntryReady={onFocusEntryReady}
+        focusEntryPreparing={showFocusEntryPreparing}
         menuProductsForReviewRail={menuProductsForReviewRail}
         onOpenReviews={handleOpenReviewsPanel}
       />
@@ -1791,7 +1871,7 @@ export function StoreDetailPublic({
           {t("store_report_store")}
         </Link>
       </div>
-
+      </div>
     </StoreDetailCartChrome>,
     { anchorPaintGate: true }
   );

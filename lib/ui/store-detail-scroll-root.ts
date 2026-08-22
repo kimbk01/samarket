@@ -83,7 +83,17 @@ export function setStoreDetailScrollTop(
   const y = Math.max(0, Math.floor(top));
   const behavior = opts?.behavior ?? "auto";
   if (isDocumentScrollRoot(root)) {
+    if (behavior === "auto") {
+      window.scrollTo(0, y);
+      document.documentElement.scrollTop = y;
+      if (document.body) document.body.scrollTop = y;
+      return;
+    }
     window.scrollTo({ top: y, behavior });
+    return;
+  }
+  if (behavior === "auto") {
+    root.scrollTop = y;
     return;
   }
   root.scrollTo({ top: y, behavior });

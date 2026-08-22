@@ -1,11 +1,8 @@
 import {
   getMainAppScrollRoot,
+  getMainAppScrollTop,
   setMainAppScrollTop,
 } from "@/lib/layout/main-app-scroll-root";
-import {
-  measureStoreDetailElementScrollTop,
-  isDocumentScrollRoot,
-} from "@/lib/ui/store-detail-scroll-root";
 import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
 import { STORE_DETAIL_TABS_PIN_EXIT_PX } from "@/lib/ui/store-detail-viewport-tuning";
 
@@ -30,18 +27,24 @@ const FOCUS_RING_CLASSES = ["ring-2", "ring-sam-primary", "ring-offset-2", "ring
 
 /**
  * focus landing sticky 하단 — pinned 탭 실측이 있으면 그것, 없으면 header+tabs 높이 합.
- * (in-flow 미pin 탭의 getBoundingClientRect().bottom 은 쓰지 않음)
+ * in-flow 미안정 탭(bottom >= viewport)은 READY 가 아니므로 fallback 사용.
  */
 export function resolveStoreMenuFocusStickyBottomPx(opts: {
   tabsEl: HTMLElement | null | undefined;
   tabsHeightPx: number;
   pinned: boolean;
+  viewportHeightPx?: number;
 }): number {
   const tabsH = Math.max(0, opts.tabsHeightPx);
   const fallback = readStoreDetailFixedHeaderOffsetPxCached() + tabsH;
+  const vh =
+    opts.viewportHeightPx ??
+    (typeof window !== "undefined" ? window.innerHeight : 0);
   if (opts.pinned && opts.tabsEl) {
     const bottom = opts.tabsEl.getBoundingClientRect().bottom;
-    if (Number.isFinite(bottom) && bottom > 0) return bottom;
+    if (Number.isFinite(bottom) && bottom > 0 && (vh <= 0 || bottom < vh)) {
+      return bottom;
+    }
   }
   return fallback;
 }
@@ -69,14 +72,12 @@ export function isStoreMenuProductFocusLandingAligned(
 
 /**
  * sticky 하단 기준으로 메뉴 행 정렬 스크롤.
- * 좌표계 = 카테고리 탭 앵커와 동일 계열:
- * y = measureElementScrollTop(el) − stickyInset
- * (viewport absolute stickyBottom − rootTop = stickyInset)
+ * Prefer scroll-margin + scrollIntoView (single browser scroll), then sync nudge.
  */
 export function scrollStoreMenuProductIntoView(
   productId: string,
   stickyBottomPx: number,
-  opts?: { behavior?: ScrollBehavior }
+  opts?: { behavior?: ScrollBehavior; syncNudge?: boolean }
 ): boolean {
   if (typeof window === "undefined") return false;
   const el = document.getElementById(storeMenuProductDomId(productId));
@@ -84,14 +85,29 @@ export function scrollStoreMenuProductIntoView(
   const stickyBottom = Number.isFinite(stickyBottomPx) ? stickyBottomPx : 0;
   if (!(stickyBottom > 0)) return false;
   const scrollRoot = getMainAppScrollRoot();
-  const elScrollTop = measureStoreDetailElementScrollTop(el, scrollRoot);
-  const rootTop = isDocumentScrollRoot(scrollRoot) ? 0 : scrollRoot.getBoundingClientRect().top;
-  const stickyInset = stickyBottom - rootTop;
-  const y = elScrollTop - stickyInset;
-  setMainAppScrollTop(Math.max(0, y), {
-    behavior: opts?.behavior ?? "auto",
-    scrollRoot,
-  });
+  const behavior = opts?.behavior ?? "auto";
+
+  const prevMargin = el.style.scrollMarginTop;
+  el.style.scrollMarginTop = `${Math.max(0, Math.round(stickyBottom))}px`;
+  try {
+    el.scrollIntoView({ block: "start", behavior });
+  } finally {
+    el.style.scrollMarginTop = prevMargin;
+  }
+
+  if (opts?.syncNudge !== false) {
+    void scrollRoot.offsetHeight;
+    const delta = el.getBoundingClientRect().top - stickyBottom;
+    if (Number.isFinite(delta) && Math.abs(delta) > 1 && Math.abs(delta) <= 800) {
+      const nudged = getMainAppScrollTop(scrollRoot) + delta;
+      setMainAppScrollTop(Math.max(0, nudged), {
+        behavior: "auto",
+        scrollRoot,
+      });
+      void scrollRoot.offsetHeight;
+    }
+  }
+
   el.classList.add(...FOCUS_RING_CLASSES);
   window.setTimeout(() => {
     el.classList.remove(...FOCUS_RING_CLASSES);

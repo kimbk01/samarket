@@ -29,7 +29,8 @@ vi.mock("@/lib/layout/main-app-scroll-root", () => {
   };
   return {
     getMainAppScrollRoot: () => root,
-    getMainAppScrollTop: () => mockScrollTop,
+    getMainAppScrollTop: (root?: { scrollTop: number }) =>
+      root && typeof root.scrollTop === "number" ? root.scrollTop : mockScrollTop,
     setMainAppScrollTop: (top: number) => {
       mockScrollTop = top;
     },
@@ -82,32 +83,63 @@ describe("store-menu-product-focus landing", () => {
         tabsEl: tabs,
         tabsHeightPx: 52,
         pinned: true,
+        viewportHeightPx: 800,
       })
     ).toBe(105);
   });
 
-  it("scroll formula matches section scroll: scrollTop + (elTop - stickyBottom)", () => {
+  it("rejects in-flow stickyBottom that exceeds viewport (uses fallback)", () => {
+    const tabs = document.createElement("div");
+    tabs.getBoundingClientRect = () =>
+      ({
+        top: 700,
+        bottom: 754,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 54,
+        x: 0,
+        y: 700,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    expect(
+      resolveStoreMenuFocusStickyBottomPx({
+        tabsEl: tabs,
+        tabsHeightPx: 52,
+        pinned: true,
+        viewportHeightPx: 601,
+      })
+    ).toBe(53 + 52);
+  });
+
+  it("scrollIntoView + sync nudge lands under sticky", () => {
     const id = "prod-1";
     const el = document.createElement("div");
     el.id = storeMenuProductDomId(id);
+    let top = 500;
     el.getBoundingClientRect = () =>
       ({
-        top: 500,
-        bottom: 620,
+        top,
+        bottom: top + 120,
         left: 0,
         right: 390,
         width: 390,
         height: 120,
         x: 0,
-        y: 500,
+        y: top,
         toJSON: () => ({}),
       }) as DOMRect;
+    el.scrollIntoView = vi.fn(() => {
+      // pretend browser scrolled so top ≈ sticky (105)
+      top = 105;
+      mockScrollTop = 495;
+    });
     document.body.appendChild(el);
 
     setMainAppScrollTop(100);
-    const ok = scrollStoreMenuProductIntoView(id, 105, { behavior: "auto" });
+    const ok = scrollStoreMenuProductIntoView(id, 105, { behavior: "auto", syncNudge: true });
     expect(ok).toBe(true);
-    // initial scrollTop 100 + (500 - 105) = 495
+    expect(el.scrollIntoView).toHaveBeenCalled();
     expect(getMainAppScrollTop()).toBe(495);
   });
 
