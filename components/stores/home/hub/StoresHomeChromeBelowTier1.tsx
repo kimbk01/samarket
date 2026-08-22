@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { memo, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomePrimaryCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
 import { StoresHomeSubCategoryRail } from "@/components/stores/home/hub/StoresHomeSubCategoryRail";
@@ -16,14 +16,12 @@ import {
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
-import { STORES_HOME_CHROME_INNER_CLASS, STORES_HOME_CHROME_INNER_DATA_ATTR } from "@/lib/stores/stores-home-header-layout";
+import { STORES_HOME_CHROME_INNER_CLASS } from "@/lib/stores/stores-home-header-layout";
 import {
   getStoresHomeSecondaryRevealedServerSnapshot,
   getStoresHomeSecondaryRevealedSnapshot,
-  registerStoresHomeTier3Boundary,
   subscribeStoresHomeSecondaryRevealed,
 } from "@/lib/stores/stores-home-secondary-reveal-chrome";
-import { noteStoresHomeTier2RevealedChanged } from "@/lib/stores/stores-home-header-runtime-instrumentation";
 import {
   STORES_HOME_PRIMARY_CATEGORY_SCROLL,
   STORES_HOME_PRIMARY_CATEGORY_ICON_INNER,
@@ -106,10 +104,7 @@ function StoresHomePrimaryCategoryRail({
 
   return (
     <div data-stores-home-tier="3" className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY}>
-      <div
-        {...{ [STORES_HOME_CHROME_INNER_DATA_ATTR]: "" }}
-        className={`${STORES_HOME_CHROME_INNER_CLASS} flex items-center pt-1.5 pb-1`}
-      >
+      <div className={`${STORES_HOME_CHROME_INNER_CLASS} flex items-center pt-1.5 pb-1`}>
         <div ref={scrollRef} className={STORES_HOME_PRIMARY_CATEGORY_SCROLL} role="tablist" aria-label={ariaLabel}>
           {tabs}
         </div>
@@ -142,7 +137,7 @@ function StoresHomeTier2RevealShell({
       aria-hidden={!revealed}
     >
       <section className={STORES_HOME_SUB_CATEGORY_SECTION_BODY} aria-label="store sub categories">
-        <div {...{ [STORES_HOME_CHROME_INNER_DATA_ATTR]: "" }} className={`${STORES_HOME_CHROME_INNER_CLASS} pb-2 pt-0`}>
+        <div className={`${STORES_HOME_CHROME_INNER_CLASS} pb-2 pt-0`}>
           <StoresHomeSubCategoryRail primarySlug={primarySlug} subs={subs} language={language} />
         </div>
       </section>
@@ -155,7 +150,6 @@ function StoresHomeTier2RevealShell({
  * DO NOT: scroll-body duplicate · sticky/body swap · scroll-driven navigation.
  */
 export function StoresHomeChromeBelowTier1() {
-  const tier3BoundaryRef = useRef<HTMLDivElement>(null);
   const snap = useSyncExternalStore(
     subscribeStoresHomeCategoryChrome,
     getStoresHomeCategoryChromeSnapshot,
@@ -167,15 +161,6 @@ export function StoresHomeChromeBelowTier1() {
     getStoresHomeSecondaryRevealedServerSnapshot
   );
 
-  useLayoutEffect(() => {
-    registerStoresHomeTier3Boundary(tier3BoundaryRef.current);
-    return () => registerStoresHomeTier3Boundary(null);
-  }, [snap.taxonomyReady]);
-
-  useEffect(() => {
-    noteStoresHomeTier2RevealedChanged(secondaryRevealed);
-  }, [secondaryRevealed]);
-
   if (!snap.taxonomyReady) {
     return <StoresHomePrimaryCategoriesSkeleton />;
   }
@@ -183,21 +168,13 @@ export function StoresHomeChromeBelowTier1() {
   if (snap.primaries.length === 0) return null;
 
   return (
-    <div data-stores-home-chrome-below-tier1 className="relative w-full shrink-0">
-      <div className="relative w-full shrink-0">
-        <StoresHomePrimaryCategoryRailMemo
-          primaries={snap.primaries}
-          activeSlug={snap.activeSlug}
-          language={snap.language}
-          ariaLabel={snap.primaryAriaLabel}
-        />
-        <div
-          ref={tier3BoundaryRef}
-          data-stores-home-tier3-boundary
-          className="pointer-events-none absolute bottom-0 left-0 right-0 h-0"
-          aria-hidden
-        />
-      </div>
+    <div data-stores-home-chrome-below-tier1 className="w-full shrink-0">
+      <StoresHomePrimaryCategoryRailMemo
+        primaries={snap.primaries}
+        activeSlug={snap.activeSlug}
+        language={snap.language}
+        ariaLabel={snap.primaryAriaLabel}
+      />
       <StoresHomeTier2RevealShell
         primarySlug={snap.activeSlug}
         subs={snap.subs}

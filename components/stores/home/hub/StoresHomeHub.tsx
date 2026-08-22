@@ -29,10 +29,9 @@ import { pickStoresHomePrimaryRowList } from "@/lib/stores/stores-home-feed-disp
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
-import { STORES_HOME_CHROME_INNER_DATA_ATTR, STORES_HOME_CHROME_PAGE_X_CLASS } from "@/lib/stores/stores-home-header-layout";
 import { STORES_HOME_CONTENT_COLUMN_CLASS, STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { StoresHomeScrollContentStart } from "@/components/stores/home/hub/StoresHomeScrollContentStart";
+import { StoresHomeSecondaryRevealSentinel } from "@/components/stores/home/hub/StoresHomeSecondaryRevealSentinel";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
@@ -326,7 +325,6 @@ export function StoresHomeHub({
       data-stores-home-query-suffix={querySuffix || ""}
       data-app-boot-status={bootStatus}
     >
-      <StoresHomeScrollContentStart />
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />
       <StoresHomePullRefreshRegister
@@ -334,11 +332,9 @@ export function StoresHomeHub({
           await loadFeed({ silent: false, force: true });
         }}
       />
-      <div
-        {...{ [STORES_HOME_CHROME_INNER_DATA_ATTR]: "" }}
-        className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} ${STORES_HOME_CHROME_PAGE_X_CLASS} pt-1`}
-      >
+      <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
         <StoresHomeHeroBanner />
+        <StoresHomeSecondaryRevealSentinel />
 
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
