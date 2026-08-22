@@ -13,6 +13,17 @@ describe("use-bottom-nav-scroll-hide-behavior", () => {
     expect(resolveBottomNavScrollHideEnabled("/market/used-goods", false)).toBe(true);
   });
 
+  it("disables hide on /mypage hub (scroll-hide translateY shake lock)", () => {
+    expect(resolveBottomNavScrollHideEnabled("/mypage", false)).toBe(false);
+    expect(resolveBottomNavScrollHideEnabled("/mypage", true)).toBe(false);
+  });
+
+  it("preserves hide on other hubs while /mypage stays disabled", () => {
+    expect(resolveBottomNavScrollHideEnabled("/stores", false)).toBe(true);
+    expect(resolveBottomNavScrollHideEnabled("/philife", false)).toBe(true);
+    expect(resolveBottomNavScrollHideEnabled("/mypage", false)).toBe(false);
+  });
+
   it("enables hide on philife neighborhood post detail", () => {
     const postId = "0b4b9807-ca82-4bbd-aa97-012833581ba2";
     expect(resolveBottomNavScrollHideEnabled(`/philife/${postId}`, false)).toBe(true);

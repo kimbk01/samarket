@@ -40,8 +40,9 @@ function isMessengerHubListOverflowing(): boolean {
 }
 
 /**
- * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·내정보 홈·메신저 통화 기록·친구 목록 :
+ * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·메신저 통화 기록·친구 목록 :
  * 아래로 스크롤 시 하단 탭을 접기.
+ * `/mypage` hub — scroll-hide DISABLED (runtime: bottom-nav translateY caused perceived shake).
  */
 export function resolveBottomNavScrollHideEnabled(
   pathNoQuery: string,
@@ -52,7 +53,8 @@ export function resolveBottomNavScrollHideEnabled(
     return !headerMessengerFromPhilife;
   }
   if (isPhilifeNeighborhoodPostDetailPathname(pathNoQuery)) return true;
-  if (pathNoQuery === "/mypage") return true;
+  /** `/mypage` hub: keep bottom nav fixed — do not enable scroll-hide */
+  if (pathNoQuery === "/mypage") return false;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
   if (pathNoQuery === "/stores" || pathNoQuery.startsWith("/stores/")) return true;
   if (isMessengerCallLogsBottomNavScrollHideSurface(pathNoQuery, search)) return true;
