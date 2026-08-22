@@ -19,6 +19,13 @@ export const STORE_POPULARITY_WINDOW_DAYS = 30;
  */
 export const STORE_POPULARITY_TIME_FIELD = "created_at" as const;
 
+export type StoreCompletedOrderCountLoadStatus = "ok" | "error";
+
+export type StoreCompletedOrderCountLoadResult = {
+  status: StoreCompletedOrderCountLoadStatus;
+  counts: Map<string, number>;
+};
+
 export type StorePopularityMetric = {
   storeId: string;
   completedOrderCount30d: number;
@@ -54,14 +61,15 @@ export function normalizeStoreCompletedOrderCountMap(
 
 /**
  * One batch RPC — N+1 forbidden for discovery paths.
+ * On RPC failure returns status=error with empty counts (not per-id fake zeros).
  */
-export async function loadStoreCompletedOrderCount30dMap(
+export async function loadStoreCompletedOrderCount30dMapWithStatus(
   sb: SupabaseClient,
   storeIds: readonly string[],
   opts?: { sinceIso?: string; now?: Date }
-): Promise<Map<string, number>> {
+): Promise<StoreCompletedOrderCountLoadResult> {
   const ids = [...new Set(storeIds.map((id) => String(id).trim()).filter(Boolean))];
-  if (ids.length === 0) return new Map();
+  if (ids.length === 0) return { status: "ok", counts: new Map() };
 
   const since = opts?.sinceIso ?? resolveStorePopularitySinceIso(opts?.now ?? new Date());
 
@@ -72,9 +80,9 @@ export async function loadStoreCompletedOrderCount30dMap(
 
   if (error) {
     if (!String(error.message || "").includes("get_store_completed_order_counts")) {
-      console.error("[loadStoreCompletedOrderCount30dMap]", error.message);
+      console.error("[loadStoreCompletedOrderCount30dMapWithStatus]", error.message);
     }
-    return normalizeStoreCompletedOrderCountMap(ids, []);
+    return { status: "error", counts: new Map() };
   }
 
   const raw = Array.isArray(data) ? data : [];
@@ -85,7 +93,21 @@ export async function loadStoreCompletedOrderCount30dMap(
     }))
     .filter((r) => r.store_id.length > 0);
 
-  return normalizeStoreCompletedOrderCountMap(ids, rows);
+  return { status: "ok", counts: normalizeStoreCompletedOrderCountMap(ids, rows) };
+}
+
+/** Legacy helper — RPC failure normalizes missing ids to zero (display/shelf paths). */
+export async function loadStoreCompletedOrderCount30dMap(
+  sb: SupabaseClient,
+  storeIds: readonly string[],
+  opts?: { sinceIso?: string; now?: Date }
+): Promise<Map<string, number>> {
+  const result = await loadStoreCompletedOrderCount30dMapWithStatus(sb, storeIds, opts);
+  if (result.status === "error") {
+    const ids = [...new Set(storeIds.map((id) => String(id).trim()).filter(Boolean))];
+    return normalizeStoreCompletedOrderCountMap(ids, []);
+  }
+  return result.counts;
 }
 
 export function resolveStorePopularityEligibilityRank(input: StoreDiscoveryEligibilityInput): number {

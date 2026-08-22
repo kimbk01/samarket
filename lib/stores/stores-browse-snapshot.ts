@@ -34,7 +34,8 @@ import {
   type StoresBrowseAssembleResult,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
-import { loadStoreCompletedOrderCount30dMap } from "@/lib/stores/store-discovery-popular-store";
+import { loadBrowseDiscoveryCandidateRows, selectBrowseStoreRowsForRanking } from "@/lib/stores/store-discovery-candidate";
+import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -301,24 +302,41 @@ async function finishFromPayload(
     ctx.wantsAllSubs,
     Math.round(input.readMs)
   );
-  const prefilteredRows = resolveBrowseFilteredStoreRows(ctx, bundle.taxonomySlice, bundle.storeRowsRaw);
+  const directCandidates = await loadBrowseDiscoveryCandidateRows(sb, ctx, bundle.taxonomySlice);
+  const storeRowsForRank = selectBrowseStoreRowsForRanking(
+    directCandidates,
+    bundle.storeRowsRaw
+  );
+  if (directCandidates.status === "error") {
+    console.error(
+      "[stores-browse-snapshot] browse candidate load error — snapshot store rows not used for ranking"
+    );
+  }
+  const bundleForRank = { ...bundle, storeRowsRaw: storeRowsForRank };
+
+  const prefilteredRows = resolveBrowseFilteredStoreRows(ctx, bundleForRank.taxonomySlice, storeRowsForRank);
+  const needsOrderCounts = ctx.sort === "popular" || ctx.sort === "default";
   let completedOrderCount30dById: Map<string, number> | null = null;
-  if (ctx.sort === "popular") {
-    completedOrderCount30dById = await loadStoreCompletedOrderCount30dMap(
+  let completedOrderCountStatus: "ok" | "error" = "ok";
+  if (needsOrderCounts) {
+    const loadResult = await loadStoreCompletedOrderCount30dMapWithStatus(
       sb,
       prefilteredRows.map((r) => r.id)
     );
+    completedOrderCount30dById = loadResult.counts;
+    completedOrderCountStatus = loadResult.status;
   }
   const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
   const prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
     ctxWithDistance,
-    bundle.taxonomySlice,
-    bundle.storeRowsRaw,
+    bundleForRank.taxonomySlice,
+    storeRowsForRank,
     prefilteredRows,
-    completedOrderCount30dById
+    completedOrderCount30dById,
+    completedOrderCountStatus
   );
   const assemble0 = devPerfNow();
-  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundle, prefetchedFilter);
+  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundleForRank, prefetchedFilter);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
     totalMs: input.totalMs,

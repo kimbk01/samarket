@@ -7,6 +7,10 @@ import {
   resolveStoreDiscoveryHomeDisplayStatus,
 } from "@/lib/stores/store-discovery-eligibility";
 import { sortStoreDiscoveryHomeFeedRows } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  loadHomeDiscoveryCandidateRows,
+  STORE_HOME_FEED_RESPONSE_MAX,
+} from "@/lib/stores/store-discovery-candidate";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
@@ -32,7 +36,7 @@ import {
 } from "@/lib/stores/store-list-delivery-origin";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
-import { loadStoreCompletedOrderCount30dMap } from "@/lib/stores/store-discovery-popular-store";
+import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -148,68 +152,18 @@ export async function GET(req: Request) {
   }
 
   try {
-    let q = supabase
-      .from("stores")
-      .select(
-        `
-        id,
-        owner_user_id,
-        store_name,
-        slug,
-        region,
-        city,
-        district,
-        place_id,
-        formatted_address,
-        detail_address,
-        address_line1,
-        address_line2,
-        lat,
-        lng,
-        profile_image_url,
-        description,
-        is_open,
-        point_commerce_blocked,
-        business_hours_json,
-        created_at,
-        rating_avg,
-        review_count,
-        delivery_available,
-        pickup_available,
-        visit_available,
-        is_featured,
-        store_categories ( slug, name )
-      `
-      )
-      .eq("approval_status", "approved")
-      .eq("is_visible", true)
-      .order("created_at", { ascending: false })
-      .limit(120);
-
-    // region/district는 정렬(districtRank·거리)에만 사용. 프로필 동네 표기와 DB region/district 문자열이
-    // 조금만 달라도 ilike WHERE에 걸려 0건이 되는 문제를 피함 (browse API와 동일한 정책).
-    if (searchQ) {
-      const pat = `%${searchQ}%`;
-      q = q.or(`store_name.ilike."${pat}",slug.ilike."${pat}"`);
+    const candidateLoad = await loadHomeDiscoveryCandidateRows(supabase, { searchQ });
+    if (candidateLoad.status === "error") {
+      console.error("[api/stores/home-feed] candidate load error");
     }
+    let rows: FeedRow[] = candidateLoad.rows as FeedRow[];
 
-    const { data, error } = await q;
-
-    if (error) {
-      console.error("[api/stores/home-feed]", error);
+    if (rows.length === 0 && !searchQ) {
       return NextResponse.json(
-        { ok: false, stores: [], error: error.message },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
+        { ok: true, stores: [] as StoreHomeFeedItem[], meta: { source: "supabase" as const } },
+        { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
       );
     }
-
-    let rows: FeedRow[] = (data ?? []).map((r) => {
-      const o = r as FeedRow & { store_categories?: RelOne | RelOne[] };
-      return {
-        ...o,
-        store_categories: embedOne(o.store_categories),
-      };
-    });
     const ownerDefaults = await loadOwnerDefaultAddressByUserId(
       supabase,
       rows.map((r) => String(r.owner_user_id ?? "")),
@@ -256,7 +210,7 @@ export async function GET(req: Request) {
     }
 
     const allRowIds = rows.map((r) => r.id);
-    const completedOrderCount30dById = await loadStoreCompletedOrderCount30dMap(supabase, allRowIds);
+    const orderLoad = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, allRowIds);
 
     rows = sortStoreDiscoveryHomeFeedRows(rows, {
       district,
@@ -264,9 +218,11 @@ export async function GET(req: Request) {
       distanceKmById: userLat != null && userLng != null ? distById : null,
       outOfRangeById: userLat != null && userLng != null ? outOfRangeById : null,
       hasGeo: userLat != null && userLng != null,
+      completedOrderCount30dById: orderLoad.counts,
+      completedOrderCountStatus: orderLoad.status,
     });
 
-    rows = rows.slice(0, 48);
+    rows = rows.slice(0, STORE_HOME_FEED_RESPONSE_MAX);
 
     if (process.env.NODE_ENV === "development" && userLat != null && userLng != null && rows.length > 0) {
       devLogRoutesSkipped("list_screen_disabled", "api/stores/home-feed");
@@ -410,7 +366,8 @@ export async function GET(req: Request) {
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
-        completedOrderCount30d: completedOrderCount30dById.get(r.id) ?? 0,
+        completedOrderCount30d:
+          orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,
         discoveryEligibilityRank: eligibilityRankById.get(r.id) ?? 99,
       };
     });
@@ -420,10 +377,7 @@ export async function GET(req: Request) {
       stores,
       meta: {
         source: "supabase" as const,
-        sorted_by:
-          userLat != null && userLng != null
-            ? "eligibility_district_distance_rating"
-            : "eligibility_district_distance_rating",
+        sorted_by: "eligibility_district_distance_orders_rating",
         origin_source: origin.source,
         origin_address_id: origin.addressId,
       },

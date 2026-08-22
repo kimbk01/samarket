@@ -1,5 +1,11 @@
 import { districtRank } from "@/lib/geo/haversine-km";
 import { compareStoreDiscoveryEligibilityRank } from "@/lib/stores/store-discovery-eligibility";
+import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
+import {
+  compareStoreDiscoveryRecommendedRows,
+  sortStoreDiscoveryRecommendedRows,
+  toStoreDiscoveryRecommendedContext,
+} from "@/lib/stores/store-discovery-recommended-ranking";
 
 export type StoreBrowseServerSortId = "default" | "distance" | "rating" | "reviews" | "popular";
 
@@ -34,8 +40,9 @@ export type StoreDiscoverySortContext = {
   distanceKmById: Map<string, number | null> | null;
   outOfRangeById: Map<string, boolean> | null;
   hasGeo: boolean;
-  /** P1-A — required when sort=popular */
+  /** P1-A / CUT1 — default + popular */
   completedOrderCount30dById?: Map<string, number> | null;
+  completedOrderCountStatus?: StoreCompletedOrderCountLoadStatus;
 };
 
 function stableSlug(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -107,6 +114,7 @@ function reviewsCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number 
 }
 
 function popularCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  if (ctx.completedOrderCountStatus === "error") return ratingCmp(a, b);
   const map = ctx.completedOrderCount30dById;
   const ac = map?.get(a.id) ?? 0;
   const bc = map?.get(b.id) ?? 0;
@@ -139,21 +147,20 @@ export function compareStoreDiscoveryBrowseRows(
     case "popular":
       return popularCmp(ctx, a, b);
     case "default":
-    default: {
-      if (ctx.hasGeo) {
-        const oor = outOfRangeCmp(ctx, a, b);
-        if (oor !== 0) return oor;
-      }
-      const dr = districtCmp(ctx, a, b);
-      if (dr !== 0) return dr;
-      if (ctx.hasGeo) {
-        const dist = distanceCmp(ctx, a, b);
-        if (dist !== 0) return dist;
-      }
-      const rated = ratingCmp(a, b);
-      if (rated !== 0) return rated;
-      return stableSlug(a, b);
-    }
+    default:
+      return compareStoreDiscoveryRecommendedRows(
+        toStoreDiscoveryRecommendedContext({
+          district: ctx.district,
+          eligibilityRankById: ctx.eligibilityRankById,
+          distanceKmById: ctx.distanceKmById,
+          outOfRangeById: ctx.outOfRangeById,
+          hasGeo: ctx.hasGeo,
+          completedOrderCount30dById: ctx.completedOrderCount30dById,
+          completedOrderCountStatus: ctx.completedOrderCountStatus ?? "ok",
+        }),
+        a,
+        b
+      );
   }
 }
 
@@ -168,14 +175,20 @@ export function sortStoreDiscoveryHomeFeedRows<T extends StoreDiscoverySortRow>(
   rows: T[],
   ctx: Omit<StoreDiscoverySortContext, "sort">
 ): T[] {
-  return sortStoreDiscoveryBrowseRows(rows, { ...ctx, sort: "default" });
+  return sortStoreDiscoveryRecommendedRows(
+    rows,
+    toStoreDiscoveryRecommendedContext({
+      ...ctx,
+      completedOrderCountStatus: ctx.completedOrderCountStatus ?? "ok",
+    })
+  );
 }
 
 export function resolveStoreBrowseSortedByMeta(
   sort: StoreBrowseServerSortId,
   hasGeo: boolean
 ):
-  | "eligibility_district_distance_rating"
+  | "eligibility_district_distance_orders_rating"
   | "eligibility_distance"
   | "eligibility_rating"
   | "eligibility_reviews"
@@ -191,7 +204,9 @@ export function resolveStoreBrowseSortedByMeta(
       return "eligibility_popular";
     case "default":
     default:
-      return hasGeo ? "eligibility_district_distance_rating" : "eligibility_district_distance_rating";
+      return hasGeo
+        ? "eligibility_district_distance_orders_rating"
+        : "eligibility_district_distance_orders_rating";
   }
 }
 

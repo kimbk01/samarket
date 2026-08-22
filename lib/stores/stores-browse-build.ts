@@ -10,6 +10,7 @@ import {
   sortStoreDiscoveryBrowseRows,
   type StoreBrowseServerSortId,
 } from "@/lib/stores/store-discovery-browse-sort";
+import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -387,7 +388,7 @@ export type StoresBrowseResponseBody = {
     sub: string;
     all_topics: boolean;
     sorted_by:
-      | "eligibility_district_distance_rating"
+      | "eligibility_district_distance_orders_rating"
       | "eligibility_distance"
       | "eligibility_rating"
       | "eligibility_reviews"
@@ -541,6 +542,7 @@ export function resolveBrowseFilteredSortedStoreRows(
   storeRowsRaw: unknown[],
   prefilteredRows?: StoreBrowseRow[],
   completedOrderCount30dById?: Map<string, number> | null,
+  completedOrderCountStatus?: StoreCompletedOrderCountLoadStatus,
 ): BrowseFilteredStoreRowsResult {
   const { district, origin } = ctx;
   const userLat = origin.lat;
@@ -564,6 +566,9 @@ export function resolveBrowseFilteredSortedStoreRows(
   const statusById = buildBrowseStoreStatusMap(rows, outOfRangeById);
   const eligibilityRankById = buildBrowseEligibilityRankMap(rows, outOfRangeById);
 
+  const needsOrderCounts = sort === "popular" || sort === "default";
+  const orderStatus = completedOrderCountStatus ?? "ok";
+
   rows = sortStoreDiscoveryBrowseRows(rows, {
     district,
     sort,
@@ -571,8 +576,8 @@ export function resolveBrowseFilteredSortedStoreRows(
     distanceKmById: distanceEnabled ? distById : null,
     outOfRangeById: distanceEnabled ? outOfRangeById : null,
     hasGeo: distanceEnabled,
-    completedOrderCount30dById:
-      sort === "popular" ? (completedOrderCount30dById ?? new Map()) : null,
+    completedOrderCount30dById: needsOrderCounts ? (completedOrderCount30dById ?? new Map()) : null,
+    completedOrderCountStatus: needsOrderCounts ? orderStatus : "ok",
   });
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);

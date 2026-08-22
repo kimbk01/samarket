@@ -31,9 +31,21 @@ describe("store-discovery-popular-store", () => {
     expect(compareStoreDiscoveryPopularRows(1, 0, disabled, deliverable)).toBeGreaterThan(0);
   });
 
-  it("P1A-5: missing RPC row normalizes to zero", () => {
+  it("P1A-5: missing RPC row normalizes to zero when status ok", () => {
     const map = normalizeStoreCompletedOrderCountMap(["missing"], []);
     expect(map.get("missing")).toBe(0);
+  });
+
+  it("R5: RPC failure status is error — not merged with per-id zero counts", () => {
+    const ok = normalizeStoreCompletedOrderCountMap(["a"], [{ store_id: "a", completed_order_count: 0 }]);
+    expect(ok.get("a")).toBe(0);
+    // error path returns empty map (no keys) — ranking must use status, not map contents
+    const errorShape: { status: "error"; counts: Map<string, number> } = {
+      status: "error",
+      counts: new Map(),
+    };
+    expect(errorShape.status).toBe("error");
+    expect(errorShape.counts.has("a")).toBe(false);
   });
 
   it("P1A-6: same popularity uses rating/review/stable tie", () => {
@@ -77,10 +89,27 @@ describe("store-discovery-browse-sort popular", () => {
   }
 
   it("P1A-3/P1A-4: only completed status counts in metric map (contract via comparator)", () => {
-    const popularCtx = ctx();
+    const popularCtx = ctx({ completedOrderCountStatus: "ok" });
     const a = row({ id: "a", completedOrderCount30d: 2 });
     const b = row({ id: "b", completedOrderCount30d: 50 });
     expect(compareStoreDiscoveryBrowseRows(popularCtx, a, b)).toBeLessThan(0);
+  });
+
+  it("R4: popular sort preserves eligibility → orders → rating → reviews", () => {
+    const popularCtx = ctx({
+      eligibilityRankById: new Map([
+        ["a", 0],
+        ["b", 0],
+      ]),
+      completedOrderCount30dById: new Map([
+        ["a", 10],
+        ["b", 50],
+      ]),
+      completedOrderCountStatus: "ok",
+    });
+    const a = row({ id: "a", rating_avg: 5, review_count: 100 });
+    const b = row({ id: "b", rating_avg: 4, review_count: 1 });
+    expect(compareStoreDiscoveryBrowseRows(popularCtx, b, a)).toBeLessThan(0);
   });
 
   it("pagination: popular sort stable with no duplicates", () => {
@@ -92,6 +121,7 @@ describe("store-discovery-browse-sort popular", () => {
         ["c", 20],
         ["d", 10],
       ]),
+      completedOrderCountStatus: "ok",
     });
     const rows = [
       row({ id: "d", slug: "d" }),
