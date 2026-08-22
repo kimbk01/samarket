@@ -5,6 +5,7 @@ import {
   DELIVERY_CONSUMER_HEADER_ACTION_SIZE_PX,
 } from "@/lib/design/delivery-chrome";
 import { SAM_TIER1_HEADER_ICON_CLUSTER_CLASS } from "@/lib/ui/tier1-header-icon";
+import { STORES_HOME_CHROME_INNER_CLASS } from "@/lib/stores/stores-home-header-layout";
 
 /** `/stores` delivery header — domain pale surface (image SSOT); existing actions only */
 export const STORES_HOME_HEADER_ICON_BTN_CLASS =
@@ -34,7 +35,7 @@ export const STORES_HOME_HEADER_SHELL_CLASS =
 
 /** 홈·browse·입점 — 52px 밴드 안에 액션 행 세로 중앙 (PTR 힌트는 행 아래 추가) */
 export const STORES_HOME_HEADER_INNER_CLASS =
-  "mx-auto flex w-full min-w-0 max-w-[768px] flex-col justify-center px-[var(--delivery-page-x)] py-2";
+  `${STORES_HOME_CHROME_INNER_CLASS} flex flex-col justify-center py-2`;
 
 export const STORES_HOME_HEADER_ACTION_ROW_CLASS =
   "grid h-[length:var(--delivery-header-action)] items-center gap-1.5";

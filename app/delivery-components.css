@@ -1155,6 +1155,36 @@
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
   }
 
+  /** `/stores` home TIER1 — scroll hide (TIER3 anchor unaffected) */
+  [data-stores-home-tier1-shell] {
+    max-height: var(--stores-home-tier1-band-max-h, 5.5rem);
+    transition:
+      max-height 240ms cubic-bezier(0.33, 1, 0.68, 1),
+      opacity 200ms ease;
+  }
+
+  [data-stores-home-tier1-shell][data-hidden="true"] {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /** `/stores` home TIER2 — contextual reveal below TIER3 (cold entry hidden) */
+  [data-stores-home-tier2-reveal] {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      max-height 240ms cubic-bezier(0.33, 1, 0.68, 1),
+      opacity 200ms ease;
+  }
+
+  [data-stores-home-tier2-reveal][data-revealed="true"] {
+    max-height: var(--delivery-home-subcategory-reveal-h);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   /** browse 4단(2차) — sentinel+IO 접힘, height 0 즉시 (transition 금지 — 떨림 방지) */
   [data-stores-browse-subtopic-collapse] {
     overflow: hidden;

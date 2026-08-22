@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
+import { StoresHomeChromeBelowTier1 } from "@/components/stores/home/hub/StoresHomeChromeBelowTier1";
 import {
   fetchStoresTaxonomyDeduped,
   clearStoresTaxonomyClientCache,
@@ -21,11 +21,8 @@ import {
   type StoresHomeTaxonomyState,
 } from "@/lib/stores/stores-home-taxonomy-client";
 import {
-  getStoresHomeCategoryChromeSnapshot,
-  getStoresHomeCategoryChromeServerSnapshot,
   patchStoresHomeCategoryChrome,
   setStoresHomeCategoryChromeHandlers,
-  subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
@@ -46,7 +43,6 @@ function sortPrimariesRestaurantFirst<T extends { slug: string; sort_order?: num
   return sorted;
 }
 
-
 function resolveSubsForPrimary(
   taxonomy: StoresHomeTaxonomyState | null,
   primary: StoreTaxonomyCategory | undefined
@@ -60,9 +56,9 @@ function resolveSubsForPrimary(
 }
 
 /**
- * CONTRACT — 홈 카테고리 상태·핸들러.
- * 레이아웃: 헤더 → 2차(`StoresHomeSubCategoryPanel`) → 1차(`StoresHomePrimaryCategoryPanel`).
- * 2차 숨김: 1차 → 헤더 stickyBelow 고정 + 탭은 browse 이동.
+ * CONTRACT — taxonomy state + navigation handlers only (no layout UI).
+ * TIER layout: TIER1 RegionBar · TIER3+TIER2 `StoresHomeChromeBelowTier1` stickyBelow.
+ * Primary CTA → always `/stores/browse/{slug}` (scroll-independent).
  */
 export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
@@ -71,14 +67,8 @@ export function StoresHomeQuickCategories() {
   const activePtrDomain = useMainHubPtrDomain();
   const isStoresHubRoot = activePtrDomain === "stores";
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const subCategoryInView = useSyncExternalStore(
-    subscribeStoresHomeCategoryChrome,
-    () => getStoresHomeCategoryChromeSnapshot().subCategoryInView,
-    () => getStoresHomeCategoryChromeServerSnapshot().subCategoryInView
-  );
   const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
   const [taxonomyReady, setTaxonomyReady] = useState(false);
-  const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [activeSlug, setActiveSlug] = useState(RESTAURANT_SLUG);
   const cacheAppliedRef = useRef(false);
 
@@ -152,27 +142,12 @@ export function StoresHomeQuickCategories() {
   );
 
   useLayoutEffect(() => {
-    if (pickedSlug && !primaries.some((p) => p.slug === pickedSlug)) {
-      setPickedSlug(null);
-    }
     if (activeSlug && !primaries.some((p) => p.slug === activeSlug)) {
       const fallback =
         primaries.find((p) => p.slug === RESTAURANT_SLUG)?.slug ?? primaries[0]?.slug ?? RESTAURANT_SLUG;
       setActiveSlug(fallback);
     }
-  }, [activeSlug, pickedSlug, primaries]);
-
-  const prewarmBrowseForSlug = useCallback(
-    (subSlug?: string | null) => {
-      scheduleStoresBrowseListPrewarm({
-        language,
-        primary: activeSlug,
-        sub: subSlug,
-        primaryRegion,
-      });
-    },
-    [activeSlug, language, primaryRegion]
-  );
+  }, [activeSlug, primaries]);
 
   const prewarmBrowsePrimary = useCallback(
     (primarySlug: string) => {
@@ -191,51 +166,42 @@ export function StoresHomeQuickCategories() {
       const next = slug.trim().toLowerCase();
       if (!next) return;
       prewarmBrowsePrimary(next);
-
-      const subVisible = getStoresHomeCategoryChromeSnapshot().subCategoryInView;
-      if (subVisible) {
-        if (next === activeSlug && pickedSlug !== null) return;
-        setPickedSlug(next);
-        if (next !== activeSlug) setActiveSlug(next);
-        return;
-      }
-
-      setPickedSlug(next);
-      setActiveSlug(next);
       router.push(storesBrowsePrimaryPath(next));
     },
-    [activeSlug, pickedSlug, prewarmBrowsePrimary, router]
+    [prewarmBrowsePrimary, router]
   );
 
   useLayoutEffect(() => {
     setStoresHomeCategoryChromeHandlers({
       onSelectPrimary: handleSelectPrimary,
       onPrewarmPrimary: prewarmBrowsePrimary,
-      onPrewarmSub: prewarmBrowseForSlug,
+      onPrewarmSub: (subSlug) => {
+        scheduleStoresBrowseListPrewarm({
+          language,
+          primary: activeSlug,
+          sub: subSlug,
+          primaryRegion,
+        });
+      },
     });
-  }, [handleSelectPrimary, prewarmBrowseForSlug, prewarmBrowsePrimary]);
+  }, [activeSlug, handleSelectPrimary, language, prewarmBrowsePrimary, primaryRegion]);
 
   useLayoutEffect(() => {
     patchStoresHomeCategoryChrome({
       taxonomyReady,
       primaries,
       activeSlug,
-      pickedSlug,
       subs,
       language,
       primaryAriaLabel: t("store_primary_industry_aria"),
     });
-  }, [activeSlug, language, pickedSlug, primaries, subs, t, taxonomyReady]);
+  }, [activeSlug, language, primaries, subs, t, taxonomyReady]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras || !isStoresHubRoot) return;
-    if (taxonomyReady && !subCategoryInView) {
-      setMainTier1Extras({ stickyBelow: STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW });
-    } else {
-      setMainTier1Extras(null);
-    }
+    setMainTier1Extras({ stickyBelow: <StoresHomeChromeBelowTier1 /> });
     return () => setMainTier1Extras(null);
-  }, [isStoresHubRoot, setMainTier1Extras, subCategoryInView, taxonomyReady]);
+  }, [isStoresHubRoot, setMainTier1Extras]);
 
   return null;
 }

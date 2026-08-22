@@ -2,13 +2,12 @@ import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/sto
 
 const RESTAURANT_SLUG = "restaurant";
 
-/** SSR·hydration — 카테고리 skeleton. DO NOT: taxonomy seed/fallback 아이콘 선렌더 */
+/** SSR·hydration — category skeleton. DO NOT: taxonomy seed/fallback 아이콘 선렌더 */
 export const STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT = {
   taxonomyReady: false,
-  subCategoryInView: false,
   primaries: [] as StoreTaxonomyCategory[],
+  /** Active primary for TIER2 secondary rail labels (default restaurant). Navigation does not read this. */
   activeSlug: RESTAURANT_SLUG,
-  pickedSlug: null as string | null,
   subs: [] as StoreTaxonomyTopic[],
   language: "ko" as const,
   primaryAriaLabel: "",
@@ -16,11 +15,8 @@ export const STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT = {
 
 export type StoresHomeCategoryChromeSnapshot = {
   taxonomyReady: boolean;
-  /** 2차 업종 패널이 뷰포트에 보이면 true — 숨김 시 1차 탭은 browse 이동 */
-  subCategoryInView: boolean;
   primaries: StoreTaxonomyCategory[];
   activeSlug: string;
-  pickedSlug: string | null;
   subs: StoreTaxonomyTopic[];
   language: "ko" | "en";
   primaryAriaLabel: string;
@@ -57,9 +53,7 @@ function rowsShallowEqualById<T extends { id: string | number }>(a: T[], b: T[])
 function snapshotsEqual(a: StoresHomeCategoryChromeSnapshot, b: StoresHomeCategoryChromeSnapshot): boolean {
   return (
     a.taxonomyReady === b.taxonomyReady &&
-    a.subCategoryInView === b.subCategoryInView &&
     a.activeSlug === b.activeSlug &&
-    a.pickedSlug === b.pickedSlug &&
     a.language === b.language &&
     a.primaryAriaLabel === b.primaryAriaLabel &&
     rowsShallowEqualById(a.primaries, b.primaries) &&
@@ -84,7 +78,6 @@ export function patchStoresHomeCategoryChrome(
   patch: Partial<StoresHomeCategoryChromeSnapshot>
 ): void {
   const next: StoresHomeCategoryChromeSnapshot = { ...snapshot, ...patch };
-  /** DO NOT: 동일 snapshot 이면 notify — stickyBelow 불필요 리렌더 방지 */
   if (snapshotsEqual(snapshot, next)) return;
   snapshot = next;
   notify();
@@ -106,7 +99,7 @@ export function resetStoresHomePrimaryScrollToStart(): void {
   primaryScrollEl?.scrollTo({ left: 0, behavior: "auto" });
 }
 
-/** `/stores` 이탈 시 chrome 상태 초기화 — stickyBelow 참조는 유지 */
+/** `/stores` 이탈 시 chrome 상태 초기화 */
 export function resetStoresHomeCategoryChromeSnapshot(): void {
   snapshot = { ...STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT, language: snapshot.language };
   notify();
