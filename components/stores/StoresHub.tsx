@@ -12,6 +12,10 @@ import {
   isAppBootReady,
   subscribeAppBoot,
 } from "@/lib/app-boot/app-boot-store";
+import {
+  getAppBootProfileFetchCacheEpoch,
+  subscribeAppBootProfileFetchCache,
+} from "@/lib/app-boot/fetch-app-boot-profile";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import type {
   RecentOrderPreview,
@@ -95,9 +99,15 @@ export function StoresHub() {
     () => isAppBootReady(),
     () => false
   );
+  /** CUT-B — re-resolve when profile-lite cache lands (public feed before boot ready). */
+  const profileLiteEpoch = useSyncExternalStore(
+    subscribeAppBootProfileFetchCache,
+    getAppBootProfileFetchCacheEpoch,
+    () => 0
+  );
   const feedGate = useMemo(
     () => resolveStoresHomeFeedQueryGate(primaryRegion),
-    [primaryRegion, bootStatus, bootReady]
+    [primaryRegion, bootStatus, bootReady, profileLiteEpoch]
   );
   const querySuffix = feedGate.querySuffix;
   const feedReady = feedGate.ready;

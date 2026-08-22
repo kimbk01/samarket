@@ -160,6 +160,17 @@ export function invalidateMeStoreOrdersHubSummaryCache(): void {
 }
 
 function primeStoreHubSummaryCache(cacheKey: string, value: StoreApiJsonResponse): void {
+  /**
+   * CUT-B — cache 401 briefly so mount + prewarm do not double-fetch guest hub_summary.
+   * 200 keeps normal TTL; other errors stay uncached.
+   */
+  if (value.status === 401) {
+    storeHubSummaryCache.set(cacheKey, {
+      expiresAt: Date.now() + 10_000,
+      value,
+    });
+    return;
+  }
   if (value.status !== 200) {
     storeHubSummaryCache.delete(cacheKey);
     return;
@@ -702,13 +713,18 @@ export async function fetchStoresHomeFeedDeduped(
   const lang = resolveStoresHomePrewarmLanguage(opts.language);
   const flight = runSingleFlight(`stores:api:home-feed:${lang}:${suffix}`, async () => {
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
+    /**
+     * CUT-B — do not attach caller AbortSignal to the shared flight fetch.
+     * Hub useLayoutEffect cleanup was aborting the in-flight network when feedReady
+     * flipped early (public root before boot), leaving feedReady=1 with 0 rows and
+     * no subsequent home-feed. Waiters still cancel via `withAbortSignal` below.
+     */
     const res = await fetch(`/api/stores/home-feed${suffix}`, {
       cache: "no-store",
       headers: {
         ...storesApiAcceptLanguageHeader(lang),
         ...storesHomeClientCallSourceHeader(opts.clientCallSource),
       },
-      signal: opts.signal,
     });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };

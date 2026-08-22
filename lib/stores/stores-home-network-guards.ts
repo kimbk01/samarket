@@ -204,29 +204,24 @@ export function markStoresHomeHubSummaryNetwork(): void {
 
 
 export function shouldSkipStoresHomeHubSummaryFetch(opts?: {
-
   force?: boolean;
-
   /** bfcache `pageshow` — visibility 와 달리 기존처럼 재검증 허용 */
-
   fromBfcacheRestore?: boolean;
-
 }): boolean {
-
   if (opts?.force || opts?.fromBfcacheRestore) return false;
-
   const snap = readMeStoreOrdersHubSummaryCache();
-
   if (snap.isFresh) return true;
-
-  if (snap.value && Date.now() - hubSummaryLastNetworkAt < HUB_SUMMARY_MIN_REFETCH_GAP_MS) {
-
+  /**
+   * CUT-B — even when 401 was not previously treated as "fresh value" for UI,
+   * a recent network mark must suppress mount+prewarm double hit.
+   */
+  if (hubSummaryLastNetworkAt > 0 && Date.now() - hubSummaryLastNetworkAt < HUB_SUMMARY_MIN_REFETCH_GAP_MS) {
     return true;
-
   }
-
+  if (snap.value && Date.now() - hubSummaryLastNetworkAt < HUB_SUMMARY_MIN_REFETCH_GAP_MS) {
+    return true;
+  }
   return false;
-
 }
 
 

@@ -27,6 +27,7 @@ import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-clie
 import { closeAllServiceWorkerNotifications } from "@/lib/push/push-manager";
 import { clearUserSettingsClientCache } from "@/lib/settings/user-settings-store";
 import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
+import { invalidateMeStoreOrdersHubSummaryCache } from "@/lib/stores/store-delivery-api-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
@@ -220,6 +221,8 @@ export function invalidateGuestCachesForFreshLogin(): void {
   clearGuestAuthState();
   invalidateAppBootForAuthUpgrade();
   invalidateClientMembershipResolveFlight();
+  /** CUT-B1 — drop guest hub_summary 401 negative cache so login can refetch. */
+  invalidateMeStoreOrdersHubSummaryCache();
   resetSignupGateSessionFlags();
   dispatchTestAuthChanged();
 }

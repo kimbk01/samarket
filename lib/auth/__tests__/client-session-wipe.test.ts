@@ -13,6 +13,10 @@ vi.mock("@/lib/app-boot/run-app-boot", () => ({
   ensureAppBoot: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/lib/stores/store-delivery-api-client", () => ({
+  invalidateMeStoreOrdersHubSummaryCache: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: () => ({
     removeAllChannels: vi.fn().mockResolvedValue(undefined),
@@ -145,11 +149,15 @@ describe("wipeClientSessionState storage allowlist", () => {
     const { invalidateAppBootAll, invalidateAppBootForAuthUpgrade } = await import(
       "@/components/app/AppBootProvider"
     );
+    const { invalidateMeStoreOrdersHubSummaryCache } = await import(
+      "@/lib/stores/store-delivery-api-client"
+    );
 
     invalidateGuestCachesForFreshLogin();
 
     expect(vi.mocked(invalidateAppBootForAuthUpgrade)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(invalidateAppBootAll)).not.toHaveBeenCalled();
+    expect(vi.mocked(invalidateMeStoreOrdersHubSummaryCache)).toHaveBeenCalledTimes(1);
   });
 
   it("clears ephemeral keys on account_switched same as user_logout", async () => {
