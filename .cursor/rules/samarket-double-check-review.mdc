@@ -13,9 +13,19 @@ globs:
 
 코드 수정·리뷰·성능 라운드 종료 전에 아래를 **한 번 더** 훑는다.
 
+## DOUBLE CHECK ≠ automatic command rerun
+
+**DOUBLE CHECK = evidence review** (현재 diff · 기존 실행 결과 · 관측 · 미검증 항목).  
+**DOUBLE CHECK ≠** 같은 git state에서 이미 PASS한 lint · typecheck · verify · vitest · runtime **자동 재실행**.
+
+재실행은 다음만: relevant code changed after PASS · previous result invalidated · previous command failed/incomplete · user explicitly requested rerun · `samarket-dev-inspection-regulation` commit/push gate.
+
+`dibay-agent-execution-contract` TIME-WASTE와 충돌 시 **재실행 금지** 쪽을 따른다.
+
 ## 오류 (Errors)
 
-- `tsc` / 해당 도메인 검증 스크립트(예: `verify:trade-hot-path-contract`)가 요구되면 실행했는가.
+- REQUIRED verify/tsc가 **아직 미실행·FAIL·무효**이면 실행·수정. **이미 PASS**이면 결과·diff만 대조 — 무조건 재실행하지 않는다.
+- 해당 도메인 검증(예: `verify:trade-hot-path-contract`)은 **diff가 그 contract를 침범**했거나 gate/사용자 명시일 때만 REQUIRED.
 - 새 분기·조기 `return`에서 trace·metrics·에러 로그가 **불일치·미갱신**으로 남지 않는가.
 - 비동기 `Promise.all`에서 한쪽 실패 시 다른 쪽 결과 사용·폐기가 의도와 맞는가.
 

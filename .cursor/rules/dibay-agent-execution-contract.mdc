@@ -19,8 +19,57 @@ alwaysApply: true
 
 - 요청 밖 정리·리팩터·문서·다른 Phase·APK·실측·cap sync **금지** (명시 없으면)
 - 이탈 시 **중지 → 확인 → (필요 시) 리버트**
-- 사용자가 작업을 **명시 요청**한 상태에서는 추가 승인 질문으로 멈추지 않는다
 - **별도 승인이 필요한 경우만** 멈춘다: 요청 범위를 넘는 구조 변경 · 제품 계약 변경 · DB schema 대규모 변경 · 삭제/파괴적 변경
+
+## User-requested sequence (AUDIT / REPORT gate)
+
+**NO EXTRA APPROVAL ≠ SKIP USER-REQUESTED AUDIT/REPORT GATE.**
+
+사용자가 **순서·중간 STOP**을 지정하면 그 순서가 실행 authority다. "추가 승인 질문 금지"를 **감사·보고 단계 생략** 근거로 쓰지 않는다.
+
+| 사용자 지시 | Agent 행동 |
+|---|---|
+| 「감사해서 보고해」 / 「먼저 확인해서 보고해」 | AUDIT → REPORT → **STOP** (구현·수정 금지) |
+| 「감사하고 문제 있으면 수정해」 | AUDIT → confirmed problem → FIX |
+| 「보고부터 해라」 / 「보고만」 | REPORT (필요 시 AUDIT) → **STOP** |
+
+「추가 승인 질문 금지」는 사용자가 **이미 실행·수정·커밋·푸시까지 명확히 승인**한 경우에만 적용한다.  
+(명시 실행 승인 ≠ AUDIT/REPORT gate 생략.)  
+같은 메시지에 **보고-only**와 **구현**이 함께 있으면 **보고-only·순서 지정**을 우선한다.
+
+## Historical evidence vs current PASS
+
+Domain HARD LOCK·문서의 `PASS` · `FINAL` · `CLOSED` · `LOCKED` · `STABLE` · device/production baseline 문구는 **작성 당시 historical evidence**다.
+
+**HISTORICAL PASS ≠ CURRENT PASS.** 이번 턴에서 재실행·재측정하지 않았으면 `HISTORICAL EVIDENCE`로만 인용한다.  
+`CURRENT PASS` · `CURRENT RUNTIME PASS` · `CURRENT PRODUCTION PASS` · `ALL PASS` · `PRODUCTION READY`는 **이번 실행 evidence**가 있을 때만.
+
+HARD LOCK 본문의 과거 PASS 문구를 삭제·개정하지 않는다. Global contract가 **현재 증거로 승격**하는 것을 막는다.
+
+## REQUIRED vs OPTIONAL verification
+
+| REQUIRED (자동·게이트) | OPTIONAL (자동 실행 금지) |
+|---|---|
+| current diff가 **침범한** contract verify | 관련 있을 **수도** 있는 추가 조사 |
+| `samarket-dev-inspection-regulation` commit/push gate | broad audit · 새 bug hunt |
+| 사용자 명시 runtime/device/production verification | unrelated domain verification |
+| | **같은 git state에서 이미 PASS한** lint/tsc/verify/vitest/runtime **재실행** |
+
+Domain HARD LOCK 적용 ≠ 그 문서의 **전체 historical QA 재실행**.  
+분리: **PRODUCT CONTRACT** (유지) · **CURRENT CHANGE REQUIREMENT** (diff 침범분만) · **HISTORICAL EVIDENCE** (인용만).
+
+## Commit / push time lock
+
+commit/push **요청** + REQUIRED gate **PASS** 후:
+
+- **NO NEW AUDIT** · **NO NEW TEST INVENTION** · **NO NEW REFACTOR** · **NO NEW BUG HUNT**
+- 즉시 `git add` → `git commit` (push 요청 시 build gate 후 `git push origin main`)
+
+`samarket-dev-inspection-regulation` 필수 gate는 **생략하지 않는다**.
+
+## Current vs historical reporting
+
+최종 보고의 **CURRENT** PASS/FAIL은 **이번 실행**만. 과거 HARD LOCK baseline은 **HISTORICAL ONLY**로 구분 표기. 섞지 않는다.
 
 ## TIME-WASTE (강제)
 
