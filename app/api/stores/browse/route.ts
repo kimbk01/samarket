@@ -26,6 +26,7 @@ import {
   logBrowseRoutePerf,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
+import { parseStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
 import {
   tryLoadStoresBrowseFromSnapshot,
 } from "@/lib/stores/stores-browse-snapshot";
@@ -102,6 +103,9 @@ export async function GET(req: Request) {
   const cityQ = (searchParams.get("city") ?? "").trim();
   const pageQ = (searchParams.get("page") ?? "1").trim() || "1";
   const limitQ = (searchParams.get("limit") ?? String(BROWSE_STORE_LIMIT)).trim() || String(BROWSE_STORE_LIMIT);
+  const sortQ = parseStoreBrowseServerSortParam(searchParams.get("sort"));
+  const page = Math.max(1, Math.floor(Number(pageQ)) || 1);
+  const limit = Math.max(1, Math.min(120, Math.floor(Number(limitQ)) || BROWSE_STORE_LIMIT));
   const origin = resolveBrowseRouteOrigin(searchParams);
 
   if (!primary) {
@@ -153,6 +157,7 @@ export async function GET(req: Request) {
       geoPart: origin.cacheGeoPart,
       page: pageQ,
       limit: limitQ,
+      sort: sortQ,
       uiLang,
     })}:distance=${distancePolicyKey}`;
 
@@ -199,6 +204,9 @@ export async function GET(req: Request) {
       deliveryRideTimeSource,
       deliveryDistancePolicy,
       storeDistanceOverrides: distanceSettings.overrides,
+      sort: sortQ,
+      page,
+      limit,
     };
 
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {

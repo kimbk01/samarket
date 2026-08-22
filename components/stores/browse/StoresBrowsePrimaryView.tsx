@@ -371,6 +371,7 @@ export function StoresBrowsePrimaryView({
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
     if (d) q.set("district", d);
+    if (listSort !== "default") q.set("sort", listSort);
     if (
       browseDistanceCoordsEnabled &&
       browseUserGeo &&
@@ -390,6 +391,7 @@ export function StoresBrowsePrimaryView({
     browseDistanceCoordsEnabled,
     browseUserGeo?.lat,
     browseUserGeo?.lng,
+    listSort,
   ]);
 
   const browseListContextKey = useMemo(
@@ -401,8 +403,9 @@ export function StoresBrowsePrimaryView({
         primaryRegion?.cityId ?? "",
         primaryRegion?.barangay ?? "",
         browseDistanceCoordsEnabled && browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
+        listSort,
       ].join("|"),
-    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo]
+    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo, listSort]
   );
 
   /** prewarm·pointerdown 은 geo 없는 키 — 마운트 직후 동기 peek 폴백 */
@@ -624,7 +627,10 @@ export function StoresBrowsePrimaryView({
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {
     if (!remoteRows?.length) return remoteRows;
-    return sortBrowseStores(remoteRows, listSort, hasGeo, language);
+    if (listSort === "fast") {
+      return sortBrowseStores(remoteRows, listSort, hasGeo, language);
+    }
+    return remoteRows;
   }, [remoteRows, listSort, hasGeo, language]);
 
   const browseRowCardCacheRef = useRef<Map<string, StoreRowCardData>>(new Map());

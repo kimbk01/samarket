@@ -14,6 +14,7 @@ export function browseListCacheKey(parts: {
   geoPart: string;
   page: string;
   limit: string;
+  sort: string;
   /** Accept-Language 기반 UI 언어 — 사전 번역 필드 혼선 방지 */
   uiLang: string;
 }): string {
@@ -26,6 +27,7 @@ export function browseListCacheKey(parts: {
     parts.geoPart,
     parts.page,
     parts.limit,
+    parts.sort,
     parts.uiLang,
   ].join("\0");
 }

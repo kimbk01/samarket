@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
+import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
-import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
-import { resolveStoreFrontOrderable } from "@/lib/stores/store-point-commerce-block";
+import {
+  resolveStoreDiscoveryEligibility,
+  resolveStoreDiscoveryHomeDisplayStatus,
+} from "@/lib/stores/store-discovery-eligibility";
+import { sortStoreDiscoveryHomeFeedRows } from "@/lib/stores/store-discovery-browse-sort";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
@@ -13,7 +16,6 @@ import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings
 import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
-  serviceabilityDeprioritizeRank,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -218,53 +220,47 @@ export async function GET(req: Request) {
       ]),
     );
 
-    const byFeaturedDistrictRating = (a: FeedRow, b: FeedRow) => {
-      const dr = districtRank(a.district, district) - districtRank(b.district, district);
-      if (dr !== 0) return dr;
-      const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
-      if (feat !== 0) return feat;
-      const ratingB = Number(b.rating_avg ?? 0);
-      const ratingA = Number(a.rating_avg ?? 0);
-      if (ratingB !== ratingA) return ratingB - ratingA;
-      return (b.review_count ?? 0) - (a.review_count ?? 0);
-    };
-
-    if (userLat != null && userLng != null) {
-      rows = [...rows].sort((a, b) => {
-        const ea = effectiveById.get(a.id) ?? a;
-        const eb = effectiveById.get(b.id) ?? b;
-        const sa = evaluateStoreDeliveryServiceability({
+    const eligibilityRankById = new Map<string, number>();
+    const outOfRangeById = new Map<string, boolean>();
+    const distById = new Map<string, number | null>();
+    for (const r of rows) {
+      const effective = effectiveById.get(r.id) ?? r;
+      let outOfRange = false;
+      let distanceKm: number | null = null;
+      if (userLat != null && userLng != null) {
+        const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
-          storeId: a.id,
+          storeId: r.id,
           customerLat: userLat,
           customerLng: userLng,
-          storeLat: ea.lat,
-          storeLng: ea.lng,
+          storeLat: effective.lat,
+          storeLng: effective.lng,
         });
-        const sb = evaluateStoreDeliveryServiceability({
-          ctx: serviceabilityCtx,
-          storeId: b.id,
-          customerLat: userLat,
-          customerLng: userLng,
-          storeLat: eb.lat,
-          storeLng: eb.lng,
-        });
-        const oor = serviceabilityDeprioritizeRank(sa) - serviceabilityDeprioritizeRank(sb);
-        if (oor !== 0) return oor;
-        const dr = districtRank(a.district, district) - districtRank(b.district, district);
-        if (dr !== 0) return dr;
-        const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
-        if (feat !== 0) return feat;
-        const da = sa.distanceKm ?? haversineKm(userLat, userLng, ea.lat, ea.lng);
-        const db = sb.distanceKm ?? haversineKm(userLat, userLng, eb.lat, eb.lng);
-        if (da != null && db != null && da !== db) return da - db;
-        if (da != null && db == null) return -1;
-        if (da == null && db != null) return 1;
-        return byFeaturedDistrictRating(a, b);
-      });
-    } else {
-      rows = [...rows].sort(byFeaturedDistrictRating);
+        outOfRange =
+          svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+        distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
+      }
+      outOfRangeById.set(r.id, outOfRange);
+      distById.set(r.id, distanceKm);
+      eligibilityRankById.set(
+        r.id,
+        resolveStoreDiscoveryEligibility({
+          business_hours_json: r.business_hours_json,
+          is_open: r.is_open,
+          point_commerce_blocked: r.point_commerce_blocked,
+          delivery_available: r.delivery_available,
+          distanceOutOfRange: outOfRange,
+        }).rank
+      );
     }
+
+    rows = sortStoreDiscoveryHomeFeedRows(rows, {
+      district,
+      eligibilityRankById,
+      distanceKmById: userLat != null && userLng != null ? distById : null,
+      outOfRangeById: userLat != null && userLng != null ? outOfRangeById : null,
+      hasGeo: userLat != null && userLng != null,
+    });
 
     rows = rows.slice(0, 48);
 
@@ -316,8 +312,7 @@ export async function GET(req: Request) {
 
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
-      const scheduleOpen = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
-      const orderable = resolveStoreFrontOrderable(scheduleOpen, r);
+      const rowOutOfRange = outOfRangeById.get(r.id) === true;
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
       const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
       const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
@@ -336,9 +331,8 @@ export async function GET(req: Request) {
       const minOrderLabel =
         minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
 
-      let distanceKm: number | null = null;
+      let distanceKm: number | null = distById.get(r.id) ?? null;
       let distancePolicyApplied = false;
-      let distanceOutOfRange = false;
       let maxDeliveryDistanceKm: number | null = null;
       if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
@@ -352,8 +346,6 @@ export async function GET(req: Request) {
         });
         distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
         distancePolicyApplied = svc.applies;
-        distanceOutOfRange =
-          svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
         maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
       }
 
@@ -386,11 +378,13 @@ export async function GET(req: Request) {
         primarySlug: cat?.slug ?? null,
         primaryNameKo: cat?.name ?? null,
         regionLabel,
-        status: orderable
-          ? "open"
-          : r.is_open === false && !r.point_commerce_blocked
-            ? "closed"
-            : "preparing",
+        status: resolveStoreDiscoveryHomeDisplayStatus({
+          business_hours_json: r.business_hours_json,
+          is_open: r.is_open,
+          point_commerce_blocked: r.point_commerce_blocked,
+          delivery_available: r.delivery_available,
+          distanceOutOfRange: rowOutOfRange,
+        }),
         rating: r.rating_avg != null ? Number(r.rating_avg) : 0,
         reviewCount: r.review_count ?? 0,
         deliveryAvailable: !!r.delivery_available,
@@ -407,7 +401,7 @@ export async function GET(req: Request) {
         distanceKm: displayDistanceKm,
         straightDistanceKm: distanceKm,
         distancePolicyApplied,
-        distanceOutOfRange,
+        distanceOutOfRange: rowOutOfRange,
         maxDeliveryDistanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
@@ -415,26 +409,15 @@ export async function GET(req: Request) {
       };
     });
 
-    /** 지금 주문 가능(영업중·배달) 우선 — 이미 거리·피처드 정렬 반영 후 상단부 재정렬 (거리 초과는 하단 유지) */
-    const openDeliveryFirst = [...stores].sort((a, b) => {
-      const oor = Number(!!a.distanceOutOfRange) - Number(!!b.distanceOutOfRange);
-      if (oor !== 0) return oor;
-      const score = (s: StoreHomeFeedItem) =>
-        (s.status === "open" ? 4 : s.status === "preparing" ? 2 : 0) + (s.deliveryAvailable ? 1 : 0);
-      const d = score(b) - score(a);
-      if (d !== 0) return d;
-      return 0;
-    });
-
     const payload = {
       ok: true as const,
-      stores: openDeliveryFirst,
+      stores,
       meta: {
         source: "supabase" as const,
         sorted_by:
           userLat != null && userLng != null
-            ? "open_delivery_featured_distance_rating"
-            : "open_delivery_featured_rating",
+            ? "eligibility_district_distance_rating"
+            : "eligibility_district_distance_rating",
         origin_source: origin.source,
         origin_address_id: origin.addressId,
       },

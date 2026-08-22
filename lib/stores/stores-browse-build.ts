@@ -1,8 +1,15 @@
-import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
+import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
-import { resolveStoreFrontOrderable } from "@/lib/stores/store-point-commerce-block";
+import {
+  resolveStoreDiscoveryBrowseDisplayStatus,
+  resolveStoreDiscoveryEligibility,
+} from "@/lib/stores/store-discovery-eligibility";
+import {
+  resolveStoreBrowseSortedByMeta,
+  sortStoreDiscoveryBrowseRows,
+  type StoreBrowseServerSortId,
+} from "@/lib/stores/store-discovery-browse-sort";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -353,6 +360,9 @@ export type StoresBrowseRequestContext = {
   deliveryDistancePolicy: DeliveryDistancePolicy;
   storeDistanceOverrides: DeliveryStoreDistanceOverrides;
   routeMetricsByStoreId?: Map<string, { rideMinutes: number | null; routeDistanceMeters: number | null }> | null;
+  sort: StoreBrowseServerSortId;
+  page: number;
+  limit: number;
 };
 
 export type StoresBrowseDbBundle = {
@@ -377,8 +387,13 @@ export type StoresBrowseResponseBody = {
     sub: string;
     all_topics: boolean;
     sorted_by:
-      | "status_district_featured_distance_rating"
-      | "status_district_featured_rating";
+      | "eligibility_district_distance_rating"
+      | "eligibility_distance"
+      | "eligibility_rating"
+      | "eligibility_reviews";
+    sort: StoreBrowseServerSortId;
+    page: number;
+    limit: number;
     origin_source: BrowseRouteOrigin["source"];
     origin_address_id: null;
     delivery_ride_time_source: DeliveryRideTimeSource;
@@ -448,21 +463,46 @@ export type BrowseFilteredStoreRowsResult = {
   distanceSortMs: number;
 };
 
-function resolveBrowseStoreRowStatus(row: StoreBrowseRow): BrowseStoreListItem["status"] {
-  const commerceState = resolveStoreFrontCommerceState(row.business_hours_json, row.is_open);
-  const orderable = resolveStoreFrontOrderable(commerceState.isOpenForCommerce, row);
-  if (orderable) return "open";
-  if (commerceState.inBreak) return "resting";
-  if (!commerceState.isOpenForCommerce && row.point_commerce_blocked !== true) return "closed";
-  return "preparing";
+function resolveBrowseStoreRowStatus(
+  row: StoreBrowseRow,
+  distanceOutOfRange = false
+): BrowseStoreListItem["status"] {
+  return resolveStoreDiscoveryBrowseDisplayStatus({
+    business_hours_json: row.business_hours_json,
+    is_open: row.is_open,
+    point_commerce_blocked: row.point_commerce_blocked,
+    delivery_available: row.delivery_available,
+    distanceOutOfRange,
+  });
 }
 
-function buildBrowseStoreStatusMap(rows: StoreBrowseRow[]): Map<string, BrowseStoreListItem["status"]> {
+function buildBrowseStoreStatusMap(
+  rows: StoreBrowseRow[],
+  outOfRangeById: Map<string, boolean>
+): Map<string, BrowseStoreListItem["status"]> {
   const statusById = new Map<string, BrowseStoreListItem["status"]>();
   for (const row of rows) {
-    statusById.set(row.id, resolveBrowseStoreRowStatus(row));
+    statusById.set(row.id, resolveBrowseStoreRowStatus(row, outOfRangeById.get(row.id) === true));
   }
   return statusById;
+}
+
+function buildBrowseEligibilityRankMap(
+  rows: StoreBrowseRow[],
+  outOfRangeById: Map<string, boolean>
+): Map<string, number> {
+  const rankById = new Map<string, number>();
+  for (const row of rows) {
+    const eligibility = resolveStoreDiscoveryEligibility({
+      business_hours_json: row.business_hours_json,
+      is_open: row.is_open,
+      point_commerce_blocked: row.point_commerce_blocked,
+      delivery_available: row.delivery_available,
+      distanceOutOfRange: outOfRangeById.get(row.id) === true,
+    });
+    rankById.set(row.id, eligibility.rank);
+  }
+  return rankById;
 }
 
 /** RPC/legacy 후보에서 sub·orphan 규칙으로 행만 추림 (정렬·거리 전) */
@@ -508,63 +548,34 @@ export function resolveBrowseFilteredSortedStoreRows(
     prefilteredRows ?? resolveBrowseFilteredStoreRows(ctx, taxonomySlice, storeRowsRaw);
 
   const distanceSort0 = devPerfNow();
-  const statusById = buildBrowseStoreStatusMap(rows);
-  const statusRank = (row: StoreBrowseRow) => (statusById.get(row.id) === "open" ? 0 : 1);
-  const stableSlug = (a: StoreBrowseRow, b: StoreBrowseRow) =>
-    String(a.slug ?? "").localeCompare(String(b.slug ?? ""));
-
-  const stableId = (a: StoreBrowseRow, b: StoreBrowseRow) => String(a.id).localeCompare(String(b.id));
-
-  const byDistrictFeaturedRating = (a: StoreBrowseRow, b: StoreBrowseRow) => {
-    const status = statusRank(a) - statusRank(b);
-    if (status !== 0) return status;
-    const dr = districtRank(a.district, district) - districtRank(b.district, district);
-    if (dr !== 0) return dr;
-    const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
-    if (feat !== 0) return feat;
-    const ratingB = Number(b.rating_avg ?? 0);
-    const ratingA = Number(a.rating_avg ?? 0);
-    if (ratingB !== ratingA) return ratingB - ratingA;
-    const rev = (b.review_count ?? 0) - (a.review_count ?? 0);
-    if (rev !== 0) return rev;
-    const slugCmp = stableSlug(a, b);
-    if (slugCmp !== 0) return slugCmp;
-    return stableId(a, b);
-  };
-
-  let distById: Map<string, number | null> | null = null;
   const distanceEnabled = ctx.deliveryDistancePolicy.enabled && userLat != null && userLng != null;
-  if (distanceEnabled) {
-    const distMap = new Map<string, number | null>();
-    const outOfRangeMap = new Map<string, boolean>();
-    for (const r of rows) {
-      const d = resolveDistanceForSort(ctx, r);
-      distMap.set(r.id, d.distanceKm);
-      outOfRangeMap.set(r.id, d.outOfRange);
-    }
-    distById = distMap;
-    rows = [...rows].sort((a, b) => {
-      const status = statusRank(a) - statusRank(b);
-      if (status !== 0) return status;
-      const ao = outOfRangeMap.get(a.id) === true ? 1 : 0;
-      const bo = outOfRangeMap.get(b.id) === true ? 1 : 0;
-      if (ao !== bo) return ao - bo;
-      const dr = districtRank(a.district, district) - districtRank(b.district, district);
-      if (dr !== 0) return dr;
-      const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
-      if (feat !== 0) return feat;
-      const da = distMap.get(a.id) ?? null;
-      const db = distMap.get(b.id) ?? null;
-      if (da != null && db != null && da !== db) return da - db;
-      if (da != null && db == null) return -1;
-      if (da == null && db != null) return 1;
-      return byDistrictFeaturedRating(a, b);
-    });
-  } else {
-    rows = [...rows].sort(byDistrictFeaturedRating);
+  const sort = ctx.sort;
+
+  const outOfRangeById = new Map<string, boolean>();
+  const distById = new Map<string, number | null>();
+  for (const r of rows) {
+    const d = resolveDistanceForSort(ctx, r);
+    distById.set(r.id, d.distanceKm);
+    outOfRangeById.set(r.id, d.outOfRange);
   }
 
-  rows = rows.slice(0, BROWSE_STORE_LIMIT);
+  const statusById = buildBrowseStoreStatusMap(rows, outOfRangeById);
+  const eligibilityRankById = buildBrowseEligibilityRankMap(rows, outOfRangeById);
+
+  rows = sortStoreDiscoveryBrowseRows(rows, {
+    district,
+    sort,
+    eligibilityRankById,
+    distanceKmById: distanceEnabled ? distById : null,
+    outOfRangeById: distanceEnabled ? outOfRangeById : null,
+    hasGeo: distanceEnabled,
+  });
+
+  const page = Math.max(1, Math.floor(ctx.page) || 1);
+  const limit = Math.max(1, Math.min(BROWSE_STORE_FETCH_CAP, Math.floor(ctx.limit) || BROWSE_STORE_LIMIT));
+  const pageStart = (page - 1) * limit;
+  rows = rows.slice(pageStart, pageStart + limit);
+
   const distanceSortMs = devPerfNow() - distanceSort0;
 
   if (
@@ -577,7 +588,7 @@ export function resolveBrowseFilteredSortedStoreRows(
     devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
   }
 
-  return { rows, distById, statusById, distanceSortMs };
+  return { rows, distById: distanceEnabled ? distById : null, statusById, distanceSortMs };
 }
 
 export function assembleStoresBrowseResponse(
@@ -655,7 +666,9 @@ export function assembleStoresBrowseResponse(
       (r.business_type ?? "").trim().length > 0 ?
         parseBizTypePrimarySub(r.business_type, primary, primaryAliases)
       : null;
-    const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r);
+    const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
+    const rowDistance = resolveDistanceForSort(ctx, r);
+    const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, rowDistance.outOfRange);
     const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
     const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
@@ -664,8 +677,6 @@ export function assembleStoresBrowseResponse(
     if (distById) {
       distanceKm = distById.get(r.id) ?? null;
     }
-    const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
-    const rowDistance = resolveDistanceForSort(ctx, r);
 
     const isSameAddress = isSameDeliveryAddressForList(
       {
@@ -749,10 +760,10 @@ export function assembleStoresBrowseResponse(
       primary,
       sub,
       all_topics: wantsAllSubs,
-      sorted_by:
-        deliveryDistancePolicy.enabled && userLat != null && userLng != null
-          ? "status_district_featured_distance_rating"
-          : "status_district_featured_rating",
+      sorted_by: resolveStoreBrowseSortedByMeta(ctx.sort, userLat != null && userLng != null),
+      sort: ctx.sort,
+      page: ctx.page,
+      limit: ctx.limit,
       origin_source: origin.source,
       origin_address_id: null,
       delivery_ride_time_source: deliveryRideTimeSource,
