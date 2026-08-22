@@ -11,7 +11,7 @@ import { StoresBrowseHeaderPrimaryTabs } from "@/components/stores/browse/Stores
 import { StoresBrowseHeaderSubTopicChips } from "@/components/stores/browse/StoresBrowseHeaderSubTopicChips";
 import { StoresBrowsePrimaryIndustryMenuPanel } from "@/components/stores/browse/StoresBrowsePrimaryIndustryMenuPanel";
 import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
-import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
+import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
@@ -42,7 +42,6 @@ import {
   STORES_HOME_HEADER_BROWSE_TABS_INNER_CLASS,
   STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS,
   STORES_HOME_HEADER_BROWSE_TITLE_CLASS,
-  STORES_HOME_HEADER_ICON_BTN_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
 
@@ -59,22 +58,9 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-      />
-    </svg>
-  );
-}
-
 /**
  * `/stores/browse/*` — 녹색 3단 헤더
- * 1단: 뒤로 · 제목 · 검색 · 알림
+ * 1단: 뒤로 · 제목 · 검색 · 주문 · 카트 · 알림 (CUT-D)
  * 2단: 핀·주소 표시 + ▼ 주소 시트
  * 3단(①): 1차 업종 텍스트 탭 + ▼
  * ▼ 패널: 2단(주소) 하단선·z-20 (4단 2차 칩 위)
@@ -152,18 +138,11 @@ export function StoresBrowseHeaderChrome() {
             />
             <h1 className={STORES_HOME_HEADER_BROWSE_TITLE_CLASS}>{title}</h1>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-              <button
-                ref={searchTriggerRef}
-                type="button"
-                className={STORES_HOME_HEADER_ICON_BTN_CLASS}
-                aria-label={t("store_search_placeholder")}
-                aria-haspopup="dialog"
-                aria-expanded={searchOpen}
-                onClick={() => setSearchOpen(true)}
-              >
-                <SearchIcon />
-              </button>
-              <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
+              <StoresConsumerHeaderActions
+                searchOpen={searchOpen}
+                onOpenSearch={() => setSearchOpen(true)}
+                searchTriggerRef={searchTriggerRef}
+              />
             </div>
           </div>
           <div className={STORES_HOME_HEADER_BROWSE_ADDRESS_ROW_CLASS}>

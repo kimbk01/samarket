@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
+import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
@@ -17,7 +17,6 @@ import {
   STORES_HOME_HEADER_ADDRESS_LINE_CLASS,
   STORES_HOME_HEADER_ADDRESS_PIN_CLASS,
   STORES_HOME_HEADER_HOME_ADDRESS_ROW_GRID_CLASS,
-  STORES_HOME_HEADER_ICON_BTN_CLASS,
   STORES_HOME_HEADER_INNER_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
@@ -43,19 +42,6 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-      />
-    </svg>
-  );
-}
-
 function StoresHomePtrSpinner() {
   return (
     <span
@@ -68,6 +54,7 @@ function StoresHomePtrSpinner() {
 /**
  * CONTRACT — `/stores` 배민형 고정 헤더 + 당김 새로고침 힌트.
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
+ * CUT-D — header actions = search · orders · cart · bell (`StoresConsumerHeaderActions`).
  */
 export function StoresHomeHeaderChrome() {
   const { t, language } = useI18n();
@@ -124,18 +111,11 @@ export function StoresHomeHeaderChrome() {
               <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
             </button>
             <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
-              <button
-                ref={searchTriggerRef}
-                type="button"
-                className={STORES_HOME_HEADER_ICON_BTN_CLASS}
-                aria-label={t("store_search_placeholder")}
-                aria-haspopup="dialog"
-                aria-expanded={searchOpen}
-                onClick={() => setSearchOpen(true)}
-              >
-                <SearchIcon />
-              </button>
-              <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
+              <StoresConsumerHeaderActions
+                searchOpen={searchOpen}
+                onOpenSearch={() => setSearchOpen(true)}
+                searchTriggerRef={searchTriggerRef}
+              />
             </div>
           </div>
           <div

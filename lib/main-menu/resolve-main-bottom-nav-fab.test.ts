@@ -8,29 +8,22 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 
 describe("resolve-main-bottom-nav-fab", () => {
-  it("isMainBottomNavFabDeliverySurface — 1차 배달 페이지", () => {
-    expect(isMainBottomNavFabDeliverySurface("/stores")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/stores/cart")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/orders")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/mypage/store-orders")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/stores/search")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/stores/browse/restaurant")).toBe(true);
+  it("isMainBottomNavFabDeliverySurface — CUT-D consumer FAB off", () => {
+    expect(isMainBottomNavFabDeliverySurface("/stores")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/stores/cart")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/orders")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/mypage/store-orders")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/stores/search")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/stores/browse/restaurant")).toBe(false);
     expect(isMainBottomNavFabDeliverySurface("/stores/foo/cart")).toBe(false);
   });
 
-  it("resolveMainBottomNavFabForPath — stores 탭 FAB", () => {
+  it("resolveMainBottomNavFabForPath — CUT-D always null on delivery surfaces", () => {
     const tabs = BOTTOM_NAV_ITEMS.map((tab) =>
       tab.id === "stores" ? { ...tab, fab: getDefaultDeliveryFabConfig() } : tab
     );
-    const resolved = resolveMainBottomNavFabForPath("/stores/cart", tabs);
-    expect(resolved?.parentTabId).toBe("stores");
-    expect(resolved?.items.length).toBe(5);
-  });
-
-  it("resolveMainBottomNavFabForPath — stores 탭 코드 기본 FAB", () => {
-    const resolved = resolveMainBottomNavFabForPath("/stores", BOTTOM_NAV_ITEMS);
-    expect(resolved?.parentTabId).toBe("stores");
-    expect(resolved?.items.length).toBe(5);
+    expect(resolveMainBottomNavFabForPath("/stores/cart", tabs)).toBeNull();
+    expect(resolveMainBottomNavFabForPath("/stores", BOTTOM_NAV_ITEMS)).toBeNull();
   });
 
   it("resolveMainBottomNavFabForPath — FAB 명시 비활성 시 null", () => {
@@ -50,5 +43,10 @@ describe("resolve-main-bottom-nav-fab", () => {
     expect(isMainBottomNavFabHrefActive("/stores/owner", "/stores/owner")).toBe(true);
     expect(isMainBottomNavFabHrefActive("/stores/owner/orders", "/stores/owner")).toBe(true);
     expect(isMainBottomNavFabHrefActive("/stores/browse/restaurant", "/stores/owner")).toBe(false);
+  });
+
+  it("getDefaultDeliveryFabConfig — admin/editor structure retained", () => {
+    expect(getDefaultDeliveryFabConfig().enabled).toBe(true);
+    expect(getDefaultDeliveryFabConfig().items.length).toBe(5);
   });
 });

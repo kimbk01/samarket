@@ -1,6 +1,5 @@
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { isStoresDeliveryHubChromePath } from "@/lib/design/delivery-chrome";
 import {
   isDeliveryCartBottomNavPath,
   isDeliveryOrderHistoryBottomNavPath,
@@ -16,12 +15,9 @@ import {
 import { createMainBottomNavFabStoreAdminItem } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 import { OWNER_ROUTES_BASE } from "@/lib/business/owner-routes";
 
-/** 1차 FAB 노출 — 배달 허브(browse·search)·장바구니·주문내역 */
+/** 1차 FAB 노출 — CUT-D: consumer floating hub FAB removed (header owns actions). */
 export function isMainBottomNavFabDeliverySurface(pathname: string | null | undefined): boolean {
-  const p = normalizeDeliveryBottomNavPath(pathname);
-  if (isStoresDeliveryHubChromePath(p)) return true;
-  if (isDeliveryCartBottomNavPath(p)) return true;
-  if (isDeliveryOrderHistoryBottomNavPath(p)) return true;
+  void pathname;
   return false;
 }
 

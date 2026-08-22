@@ -1,6 +1,6 @@
 # 배달 하단 FAB 섹터 계약
 
-배달 탭 보조 메뉴(`MainBottomNavFabSector`) — `/stores`·장바구니·주문내역 등에서 노출.
+배달 탭 보조 메뉴(`MainBottomNavFabSector`) — CUT-D 이후 소비자 허브에서는 **미노출**. 구현·verify·어드민 편집기 구조는 유지한다.
 
 **단일 구현:** `components/layout/MainBottomNavFabSector.tsx`  
 **토큰:** `lib/layout/main-bottom-nav-fab-sector-config.ts`  
@@ -139,3 +139,4 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 | 2026-05-27 | `/stores/browse/*`·`/stores/search` — `isStoresDeliveryHubChromePath` 헤더·FAB 동일 계약 |
 | 2026-05-29 | 캡션 줄바꿈·가로 스크롤 제거, 펼침 shell overflow visible·패널 뱃지, clamp 반응형, 스토어 어드민 gold 강조 |
 | 2026-06-05 | 접힘 ‹ 장바구니 뱃지 — cart hydrate 게이트, ops `__toggle-ops-badge` 분리 |
+| 2026-08-22 | CUT-D — `isMainBottomNavFabDeliverySurface` always false; consumer hub FAB not mounted; header owns search·orders·cart·bell. Store detail `StoreDetailCartChrome` unchanged. |

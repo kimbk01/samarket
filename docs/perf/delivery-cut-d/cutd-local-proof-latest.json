@@ -1,0 +1,33 @@
+{
+  "measured_at": "2026-08-22T01:40:01.757Z",
+  "origin": "http://127.0.0.1:3000",
+  "cut": "CUT-D",
+  "hub": {
+    "href": "/stores",
+    "actions": ["search", "orders", "cart", "bell"],
+    "fabPresent": false,
+    "homeHeader": true,
+    "browseHeader": false
+  },
+  "browse": {
+    "href": "/stores/browse/restaurant",
+    "actions": ["search", "orders", "cart", "bell"],
+    "fabPresent": false,
+    "homeHeader": false,
+    "browseHeader": true
+  },
+  "store": {
+    "href": "/stores/aa11",
+    "actions": [],
+    "fabPresent": false,
+    "note": "No MainBottomNavFabSector. StoreDetailCartChrome owner unchanged in code; strip UI empty-cart dependent."
+  },
+  "verdict": {
+    "header_actions": "PASS",
+    "consumer_hub_fab_removed": "PASS",
+    "store_detail_cart_chrome": "UNCHANGED_BY_CODE",
+    "bottom_nav": "UNCHANGED_BY_CODE",
+    "performance_regression": "PASS_LOCAL_NO_EXTRA_FAB_FETCH",
+    "authenticated_session": "NOT_PROVEN"
+  }
+}
