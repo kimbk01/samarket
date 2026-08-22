@@ -12,7 +12,10 @@ import {
   shouldDeferMenuSectionHydration,
 } from "@/lib/dibay/store-menu-viewport-policy";
 
-export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
+export function useDeferredMenuSectionHydration(
+  sections: MenuSection[],
+  forceHydrateThroughIndex: number | null = null
+) {
   const sectionsStructureKey = useMemo(
     () => sections.map((s) => `${s.heading}:${s.items.length}`).join("|"),
     [sections]
@@ -23,8 +26,17 @@ export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
   );
   const maxIndex = Math.max(0, sections.length - 1);
 
+  const resolveHydratedThrough = useCallback(
+    (forced: number | null) => {
+      const base = deferEnabled ? initialDeferredHydratedThroughIndex(sections) : maxIndex;
+      if (forced == null || forced < 0) return base;
+      return Math.max(base, Math.min(maxIndex, forced));
+    },
+    [deferEnabled, maxIndex, sections]
+  );
+
   const [hydratedThrough, setHydratedThrough] = useState(() =>
-    deferEnabled ? initialDeferredHydratedThroughIndex(sections) : maxIndex
+    resolveHydratedThrough(forceHydrateThroughIndex)
   );
 
   const hydratedThroughRef = useRef(hydratedThrough);
@@ -36,9 +48,16 @@ export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
       setHydratedThrough(maxIndex);
       return;
     }
-    setHydratedThrough(initialDeferredHydratedThroughIndex(sections));
+    setHydratedThrough(resolveHydratedThrough(forceHydrateThroughIndex));
     deferLoggedRef.current = false;
-  }, [deferEnabled, maxIndex, sections, sectionsStructureKey]);
+  }, [deferEnabled, maxIndex, sections, sectionsStructureKey, forceHydrateThroughIndex, resolveHydratedThrough]);
+
+  useEffect(() => {
+    if (forceHydrateThroughIndex == null || forceHydrateThroughIndex < 0) return;
+    setHydratedThrough((prev) =>
+      Math.max(prev, Math.min(maxIndex, forceHydrateThroughIndex))
+    );
+  }, [forceHydrateThroughIndex, maxIndex]);
 
   useEffect(() => {
     if (!deferEnabled || deferLoggedRef.current) return;

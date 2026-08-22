@@ -2,10 +2,14 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   isStoreMenuProductFocusLandingAligned,
+  isStoreMenuSectionHeaderLandingAligned,
   measureStoreMenuProductFocusDeltaPx,
+  measureStoreMenuSectionHeaderDeltaPx,
   resolveStoreMenuFocusStickyBottomPx,
+  scrollStoreMenuFocusEntryIntoView,
   scrollStoreMenuProductIntoView,
   storeMenuProductDomId,
+  storeMenuSectionDomId,
   STORE_MENU_FOCUS_LANDING_TOLERANCE_PX,
 } from "@/lib/dibay/store-menu-product-focus";
 import { getMainAppScrollTop, setMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
@@ -176,5 +180,74 @@ describe("store-menu-product-focus landing", () => {
         toJSON: () => ({}),
       }) as DOMRect;
     expect(isStoreMenuProductFocusLandingAligned(id, 105)).toBe(false);
+  });
+
+  it("section header alignment uses same tolerance", () => {
+    const sec = document.createElement("div");
+    sec.id = storeMenuSectionDomId(2);
+    sec.getBoundingClientRect = () =>
+      ({
+        top: 107,
+        bottom: 140,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 33,
+        x: 0,
+        y: 107,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    document.body.appendChild(sec);
+    expect(measureStoreMenuSectionHeaderDeltaPx(2, 105)).toBe(2);
+    expect(isStoreMenuSectionHeaderLandingAligned(2, 105)).toBe(true);
+  });
+
+  it("scrollStoreMenuFocusEntryIntoView aligns section then product", () => {
+    const sectionIndex = 1;
+    const productId = "prod-focus";
+    const sectionEl = document.createElement("div");
+    sectionEl.id = storeMenuSectionDomId(sectionIndex);
+    let sectionTop = 400;
+    sectionEl.getBoundingClientRect = () =>
+      ({
+        top: sectionTop,
+        bottom: sectionTop + 40,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 40,
+        x: 0,
+        y: sectionTop,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    sectionEl.scrollIntoView = vi.fn(() => {
+      sectionTop = 105;
+      mockScrollTop = 295;
+    });
+
+    const productEl = document.createElement("div");
+    productEl.id = storeMenuProductDomId(productId);
+    const productTop = 520;
+    productEl.getBoundingClientRect = () =>
+      ({
+        top: productTop,
+        bottom: productTop + 120,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 120,
+        x: 0,
+        y: productTop,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    document.body.appendChild(sectionEl);
+    document.body.appendChild(productEl);
+
+    const ok = scrollStoreMenuFocusEntryIntoView(sectionIndex, productId, 105, {
+      behavior: "auto",
+    });
+    expect(ok).toBe(true);
+    expect(sectionEl.scrollIntoView).toHaveBeenCalled();
   });
 });

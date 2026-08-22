@@ -5,8 +5,9 @@ import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   isStoreMenuProductFocusLandingAligned,
+  isStoreMenuSectionHeaderLandingAligned,
   resolveStoreMenuFocusStickyBottomPx,
-  scrollStoreMenuProductIntoView,
+  scrollStoreMenuFocusEntryIntoView,
   storeMenuProductDomId,
 } from "@/lib/dibay/store-menu-product-focus";
 import { isStoreMenuFocusStickyGeometryReady } from "@/lib/dibay/store-menu-focus-entry";
@@ -59,6 +60,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   focusProductId,
   onFocusProductHandled,
   onFocusEntryReady,
+  onFocusEntryScrollSpyLock,
   focusEntryPreparing = false,
   menuProductsForReviewRail,
   onOpenReviews,
@@ -90,6 +92,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   onFocusProductHandled?: () => void;
   /** PREPARING 해제 — 첫 노출 = 최종 정렬 frame */
   onFocusEntryReady?: () => void;
+  /** focus land 동안 scroll spy 고정 */
+  onFocusEntryScrollSpyLock?: (sectionIndex: number) => void;
   focusEntryPreparing?: boolean;
   menuProductsForReviewRail?: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
@@ -202,9 +206,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       const sticky = stickyForLand();
       const vh = typeof window !== "undefined" ? window.innerHeight : 0;
       if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) return false;
-      return scrollStoreMenuProductIntoView(productId, sticky, {
+      return scrollStoreMenuFocusEntryIntoView(sectionIndex, productId, sticky, {
         behavior: "auto",
-        syncNudge: true,
       });
     };
 
@@ -214,14 +217,30 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       onFocusProductHandled?.();
     };
 
+    const tryFinishIfAligned = (): boolean => {
+      const sticky = stickyBottomNow();
+      const vh = typeof window !== "undefined" ? window.innerHeight : 0;
+      if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) return false;
+      const productAligned = isStoreMenuProductFocusLandingAligned(productId, sticky);
+      const sectionAligned = isStoreMenuSectionHeaderLandingAligned(sectionIndex, sticky);
+      if (!productAligned && !sectionAligned) return false;
+      finish();
+      return true;
+    };
+
     const tick = () => {
       if (cancelled) return;
+      onFocusEntryScrollSpyLock?.(sectionIndex);
       setActiveMenuSection(sectionIndex);
       const el = productReady();
       if (!el) {
         framesWaited += 1;
         if (framesWaited >= maxWaitFrames) {
-          finish();
+          if (focusScrollCommittedRef.current !== productId) {
+            landOnce();
+            focusScrollCommittedRef.current = productId;
+          }
+          tryFinishIfAligned();
           return;
         }
         rafId = requestAnimationFrame(tick);
@@ -233,7 +252,11 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) {
         framesWaited += 1;
         if (framesWaited >= maxWaitFrames) {
-          finish();
+          if (focusScrollCommittedRef.current !== productId) {
+            landOnce();
+            focusScrollCommittedRef.current = productId;
+          }
+          tryFinishIfAligned();
           return;
         }
         rafId = requestAnimationFrame(tick);
@@ -246,7 +269,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
           focusScrollCommittedRef.current = null;
           framesWaited += 1;
           if (framesWaited >= maxWaitFrames) {
-            finish();
+            tryFinishIfAligned();
             return;
           }
           rafId = requestAnimationFrame(tick);
@@ -256,14 +279,13 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         return;
       }
 
-      if (isStoreMenuProductFocusLandingAligned(productId, sticky)) {
-        finish();
+      if (tryFinishIfAligned()) {
         return;
       }
 
       framesWaited += 1;
       if (framesWaited >= maxWaitFrames) {
-        finish();
+        tryFinishIfAligned();
         return;
       }
       rafId = requestAnimationFrame(tick);
@@ -282,6 +304,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     setActiveMenuSection,
     onFocusProductHandled,
     onFocusEntryReady,
+    onFocusEntryScrollSpyLock,
     tabsHeightPx,
   ]);
 
@@ -350,6 +373,12 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   );
 
   const stickyTop = storeDetailCategoryTabsStickyTopCss();
+  const focusHydrateThroughIndex = useMemo(() => {
+    const id = focusProductId?.trim();
+    if (!id || !focusEntryPreparing) return null;
+    const idx = findMenuSectionIndexForProduct(menuSectionsFiltered, id);
+    return idx >= 0 ? idx : null;
+  }, [focusProductId, focusEntryPreparing, menuSectionsFiltered]);
   const showFocusScrollSpacer =
     Boolean(focusProductId) || retainFocusScrollSpacer || focusEntryPreparing;
   const focusScrollSpacerCss = showFocusScrollSpacer
@@ -432,6 +461,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
                 ? () => reportFirstVisible("first_category_card")
                 : undefined
             }
+            forceHydrateThroughIndex={focusHydrateThroughIndex}
           />
           {focusScrollSpacerCss ?
             <div

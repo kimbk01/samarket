@@ -48,6 +48,7 @@ import {
 import {
   invalidateStoresBrowseSessionCache,
   peekStoresBrowseListPaintCache,
+  peekStoresBrowseSessionCache,
   readInitialBrowseListSessionSnapshot,
   writeStoresBrowseSessionCache,
 } from "@/lib/stores/stores-browse-client-session-cache";
@@ -403,7 +404,7 @@ export function StoresBrowsePrimaryView({
     sp.delete("user_lng");
     return sp.toString();
   }, [browseQuerySuffix]);
-  const prevBrowseListContextKeyRef = useRef<string | null>(null);
+  const prevBrowseListContextKeyRef = useRef<string | null>(browseListContextKey);
   const browseHadListForContextRef = useRef(browseEverPaintedListRef.current);
   const remoteCacheRef = useRef<
     Map<string, { rows: BrowseStoreListItem[]; source: BrowseFeedMetaSource }>
@@ -551,8 +552,20 @@ export function StoresBrowsePrimaryView({
       browseHadListForContextRef.current = true;
       if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
     } else if (ctxChanged && !geoOnlyChange) {
-      setRemoteRows(undefined);
-      setRemoteLoading(true);
+      const sessionPaint =
+        peekStoresBrowseSessionCache(browseQuerySuffix, language) ??
+        peekStoresBrowseSessionCache(browseQuerySuffixWithoutGeo, language);
+      if (sessionPaint?.rows?.length) {
+        setRemoteRows(sessionPaint.rows);
+        setFeedSource(sessionPaint.source);
+        setRemoteLoading(false);
+        browseHadListForContextRef.current = true;
+        browseEverPaintedListRef.current = true;
+        remoteCacheRef.current.set(browseListContextKey, sessionPaint);
+      } else {
+        setRemoteRows(undefined);
+        setRemoteLoading(true);
+      }
     }
     const silent = !!cached || browseHadListForContextRef.current;
     void loadRemoteRef.current({ silent });

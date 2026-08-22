@@ -44,7 +44,7 @@ import {
   pinFocusedProductInMenuSections,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
-import { storeMenuFocusEntryNeedsPreparation } from "@/lib/dibay/store-menu-focus-entry";
+import { storeMenuFocusEntryNeedsPreparation, STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS } from "@/lib/dibay/store-menu-focus-entry";
 import {
   clearStoreMenuFocusEntryIntent,
   peekStoreMenuFocusEntryIntent,
@@ -228,6 +228,12 @@ export function StoreDetailPublic({
       new URLSearchParams(window.location.search).get("focusProduct")
     );
   });
+  const focusPreparingSinceRef = useRef(0);
+  useLayoutEffect(() => {
+    if (focusEntryPreparing) {
+      focusPreparingSinceRef.current = performance.now();
+    }
+  }, [focusEntryPreparing]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -1248,8 +1254,28 @@ export function StoreDetailPublic({
   }, [pinFocusProductId, menuSectionScrollKey, menuSectionsFiltered]);
 
   const onFocusEntryReady = useCallback(() => {
-    clearStoreMenuFocusEntryIntent();
-    setFocusEntryPreparing(false);
+    const reveal = () => {
+      clearStoreMenuFocusEntryIntent();
+      setFocusEntryPreparing(false);
+    };
+    const elapsed =
+      focusPreparingSinceRef.current > 0
+        ? performance.now() - focusPreparingSinceRef.current
+        : STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS;
+    const delay = Math.max(0, STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS - elapsed);
+    if (delay > 0) {
+      window.setTimeout(reveal, delay);
+      return;
+    }
+    reveal();
+  }, []);
+
+  const onFocusEntryScrollSpyLock = useCallback((sectionIndex: number) => {
+    menuScrollSpyLockRef.current = {
+      target: sectionIndex,
+      until: performance.now() + 4_000,
+    };
+    setActiveMenuSection((prev) => (prev === sectionIndex ? prev : sectionIndex));
   }, []);
 
   useEffect(() => {
@@ -1305,6 +1331,7 @@ export function StoreDetailPublic({
   }, [store?.slug]);
 
   const syncActiveMenuSectionFromScroll = useCallback(() => {
+    if (focusEntryPreparing) return;
     if (menuSectionsFiltered.length <= 1) return;
     const lock = menuScrollSpyLockRef.current;
     if (lock && performance.now() < lock.until) {
@@ -1321,7 +1348,7 @@ export function StoreDetailPublic({
       if (top <= stickyBottom + 6) best = i;
     });
     setActiveMenuSection((prev) => (prev === best ? prev : best));
-  }, [menuSectionsFiltered]);
+  }, [focusEntryPreparing, menuSectionsFiltered]);
 
   useStoreDetailScrollRootScroll(
     syncActiveMenuSectionFromScroll,
@@ -1761,6 +1788,7 @@ export function StoreDetailPublic({
       ) : null}
       <div
         aria-hidden={showFocusEntryPreparing}
+        className={showFocusEntryPreparing ? "invisible" : undefined}
         data-store-focus-entry-surface={showFocusEntryPreparing ? "preparing" : "ready"}
       >
       <StoreDetailSummarySection
@@ -1840,6 +1868,7 @@ export function StoreDetailPublic({
         focusProductId={focusProductId}
         onFocusProductHandled={onFocusProductHandled}
         onFocusEntryReady={onFocusEntryReady}
+        onFocusEntryScrollSpyLock={onFocusEntryScrollSpyLock}
         focusEntryPreparing={showFocusEntryPreparing}
         menuProductsForReviewRail={menuProductsForReviewRail}
         onOpenReviews={handleOpenReviewsPanel}

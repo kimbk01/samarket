@@ -5,6 +5,9 @@
 
 export type StoreMenuFocusEntryPhase = "idle" | "preparing" | "ready" | "complete";
 
+/** PREPARING 최소 노출 — 즉시 reveal 깜빡임 방지 */
+export const STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS = 120;
+
 /** READY sticky: 0 < stickyBottom < viewportHeight */
 export function isStoreMenuFocusStickyGeometryReady(
   stickyBottomPx: number,

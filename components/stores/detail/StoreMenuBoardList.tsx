@@ -30,6 +30,8 @@ export const StoreMenuBoardList = forwardRef<
     onOpenProduct?: (productId: string) => void;
     onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
     onFirstCategoryProductPaint?: () => void;
+    /** focusProduct PREPARING — target section 까지 sync hydrate */
+    forceHydrateThroughIndex?: number | null;
   }
 >(function StoreMenuBoardList(
   {
@@ -45,13 +47,14 @@ export const StoreMenuBoardList = forwardRef<
     onOpenProduct,
     onQuickAddProduct,
     onFirstCategoryProductPaint,
+    forceHydrateThroughIndex = null,
   },
   ref
 ) {
   const { t } = useI18n();
   const boardFlatCount = useMemo(() => countMenuBoardItems(sections), [sections]);
   const { deferEnabled, sentinelRef, ensureHydratedThrough, isSectionHydrated } =
-    useDeferredMenuSectionHydration(sections);
+    useDeferredMenuSectionHydration(sections, forceHydrateThroughIndex ?? null);
 
   useImperativeHandle(
     ref,

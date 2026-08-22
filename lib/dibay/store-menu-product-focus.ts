@@ -70,6 +70,90 @@ export function isStoreMenuProductFocusLandingAligned(
   return delta >= -tolerancePx && delta <= tolerancePx;
 }
 
+export function storeMenuSectionDomId(sectionIndex: number): string {
+  return `store-sec-${sectionIndex}`;
+}
+
+/** category section header top − stickyBottom */
+export function measureStoreMenuSectionHeaderDeltaPx(
+  sectionIndex: number,
+  stickyBottomPx: number
+): number | null {
+  if (typeof document === "undefined") return null;
+  const el = document.getElementById(storeMenuSectionDomId(sectionIndex));
+  if (!el) return null;
+  return el.getBoundingClientRect().top - stickyBottomPx;
+}
+
+export function isStoreMenuSectionHeaderLandingAligned(
+  sectionIndex: number,
+  stickyBottomPx: number,
+  tolerancePx: number = STORE_MENU_FOCUS_LANDING_TOLERANCE_PX
+): boolean {
+  const delta = measureStoreMenuSectionHeaderDeltaPx(sectionIndex, stickyBottomPx);
+  if (delta == null || !Number.isFinite(delta)) return false;
+  return delta >= -tolerancePx && delta <= tolerancePx;
+}
+
+function applyFocusProductRing(productId: string): void {
+  const el = document.getElementById(storeMenuProductDomId(productId));
+  if (!el) return;
+  el.classList.add(...FOCUS_RING_CLASSES);
+  window.setTimeout(() => {
+    el.classList.remove(...FOCUS_RING_CLASSES);
+  }, 2200);
+}
+
+function syncScrollNudgeToTargetTop(
+  targetTopPx: number,
+  stickyBottomPx: number,
+  scrollRoot: HTMLElement
+): void {
+  void scrollRoot.offsetHeight;
+  const delta = targetTopPx - stickyBottomPx;
+  if (Number.isFinite(delta) && Math.abs(delta) > 1 && Math.abs(delta) <= 800) {
+    const nudged = getMainAppScrollTop(scrollRoot) + delta;
+    setMainAppScrollTop(Math.max(0, nudged), {
+      behavior: "auto",
+      scrollRoot,
+    });
+    void scrollRoot.offsetHeight;
+  }
+}
+
+/**
+ * focusProduct entry — category header 먼저 sticky 에 맞춘 뒤 product sync nudge.
+ */
+export function scrollStoreMenuFocusEntryIntoView(
+  sectionIndex: number,
+  productId: string,
+  stickyBottomPx: number,
+  opts?: { behavior?: ScrollBehavior }
+): boolean {
+  if (typeof window === "undefined") return false;
+  const sectionEl = document.getElementById(storeMenuSectionDomId(sectionIndex));
+  const productEl = document.getElementById(storeMenuProductDomId(productId));
+  if (!sectionEl || !productEl) return false;
+  const stickyBottom = Number.isFinite(stickyBottomPx) ? stickyBottomPx : 0;
+  if (!(stickyBottom > 0)) return false;
+  const scrollRoot = getMainAppScrollRoot();
+  const behavior = opts?.behavior ?? "auto";
+  const margin = `${Math.max(0, Math.round(stickyBottom))}px`;
+
+  const prevSectionMargin = sectionEl.style.scrollMarginTop;
+  sectionEl.style.scrollMarginTop = margin;
+  try {
+    sectionEl.scrollIntoView({ block: "start", behavior });
+  } finally {
+    sectionEl.style.scrollMarginTop = prevSectionMargin;
+  }
+
+  syncScrollNudgeToTargetTop(sectionEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
+  syncScrollNudgeToTargetTop(productEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
+  applyFocusProductRing(productId);
+  return true;
+}
+
 /**
  * sticky 하단 기준으로 메뉴 행 정렬 스크롤.
  * Prefer scroll-margin + scrollIntoView (single browser scroll), then sync nudge.
@@ -96,21 +180,9 @@ export function scrollStoreMenuProductIntoView(
   }
 
   if (opts?.syncNudge !== false) {
-    void scrollRoot.offsetHeight;
-    const delta = el.getBoundingClientRect().top - stickyBottom;
-    if (Number.isFinite(delta) && Math.abs(delta) > 1 && Math.abs(delta) <= 800) {
-      const nudged = getMainAppScrollTop(scrollRoot) + delta;
-      setMainAppScrollTop(Math.max(0, nudged), {
-        behavior: "auto",
-        scrollRoot,
-      });
-      void scrollRoot.offsetHeight;
-    }
+    syncScrollNudgeToTargetTop(el.getBoundingClientRect().top, stickyBottom, scrollRoot);
   }
 
-  el.classList.add(...FOCUS_RING_CLASSES);
-  window.setTimeout(() => {
-    el.classList.remove(...FOCUS_RING_CLASSES);
-  }, 2200);
+  applyFocusProductRing(productId);
   return true;
 }

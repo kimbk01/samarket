@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isStoreMenuFocusStickyGeometryReady,
   storeMenuFocusEntryNeedsPreparation,
+  STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS,
 } from "@/lib/dibay/store-menu-focus-entry";
 
 describe("store-menu-focus-entry", () => {
@@ -16,5 +17,9 @@ describe("store-menu-focus-entry", () => {
     expect(isStoreMenuFocusStickyGeometryReady(754, 601)).toBe(false);
     expect(isStoreMenuFocusStickyGeometryReady(0, 601)).toBe(false);
     expect(isStoreMenuFocusStickyGeometryReady(105, 601)).toBe(true);
+  });
+
+  it("min preparing ms is positive", () => {
+    expect(STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS).toBeGreaterThan(0);
   });
 });
