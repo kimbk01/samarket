@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
@@ -25,6 +26,7 @@ function StoresHomeFoodCardInner({
   /** perf 마커만 — LCP 경쟁 없음(항상 lazy) */
   markStoreCardPerf?: boolean;
 }) {
+  const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
 
   useLayoutEffect(() => {
@@ -75,6 +77,20 @@ function StoresHomeFoodCardInner({
           {formatPrice(entry.price)}
         </p>
         <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.storeName}</p>
+        {entry.etaLabel ?
+          <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.etaLabel}</p>
+        : null}
+        {entry.rating > 0 ?
+          <p className={`line-clamp-1 ${STORES_HOME_META}`}>★ {entry.rating.toFixed(1)}</p>
+        : null}
+        {entry.deliveryFeeLabel ?
+          <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.deliveryFeeLabel}</p>
+        : null}
+        {entry.discountEvidence === "delivery_fee_strike" && entry.deliveryFeeStrikePhp != null && entry.deliveryFeeStrikePhp > 0 ?
+          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-primary)] ${STORES_HOME_META}`}>
+            {t("store_badge_instant_discount")}
+          </p>
+        : null}
       </div>
     </Link>
   );

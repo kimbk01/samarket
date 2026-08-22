@@ -1407,6 +1407,77 @@ assertNotIncludes(
   "browse subtopic collapse must not animate height (flicker)"
 );
 
+assertNotIncludes(
+  deliveryComponents,
+  "transition: height 200ms ease",
+  "browse subtopic collapse must not animate height (flicker)"
+);
+
+// CUT3 — composer authority (HOME organic feed)
+assertIncludes(
+  hub,
+  "composeStoresHomeFeed",
+  "hub must invoke composer once"
+);
+assertIncludes(
+  hub,
+  "composition?.slot0Food",
+  "hub must render composer slot0 food rail"
+);
+assertIncludes(
+  hub,
+  "composition?.slot1Stores",
+  "hub must render composer slot1 primary row"
+);
+assertNotIncludes(
+  hub,
+  "pickStoresHomeOpenNow",
+  "hub must not use legacy openNow picker"
+);
+assertNotIncludes(
+  hub,
+  "pickStoresHomePrimaryRowList",
+  "hub must not use legacy primary row picker"
+);
+assertNotIncludes(
+  hub,
+  "splitStoresHomeFeed",
+  "hub must not split feed locally"
+);
+assertNotIncludes(
+  belowFold,
+  "splitStoresHomeFeed",
+  "below-fold must not split feed"
+);
+assertNotIncludes(
+  belowFold,
+  "StoresHomeStoreDiscoveryRail",
+  "below-fold must not mount vertical discovery rail"
+);
+assertIncludes(
+  belowFold,
+  "StoresHomeFoodDiscoveryRail",
+  "below-fold must use food discovery rail"
+);
+assertIncludes(
+  belowFold,
+  "composition.slot2Food",
+  "below-fold must consume composer slot2"
+);
+if (!fs.existsSync(path.join(root, "lib/stores/stores-home-composer.ts"))) {
+  fail("CUT3 composer module must exist");
+}
+assertNotIncludes(
+  foodCard,
+  "인기",
+  "food card must not show fake popular menu label"
+);
+assertNotIncludes(
+  foodCard,
+  "🔥",
+  "food card must not show fake popular emoji label"
+);
+
 if (process.exitCode !== 1) {
 
   console.log("verify-stores-home-hub-contract: ok");

@@ -21,11 +21,7 @@ import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed
 import { writeStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
-import {
-  flattenStoresHomeFoodEntries,
-  pickStoresHomeOpenNow,
-} from "@/lib/stores/stores-home-feed-sections";
-import { pickStoresHomePrimaryRowList } from "@/lib/stores/stores-home-feed-display-contract";
+import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
@@ -266,18 +262,33 @@ export function StoresHomeHub({
     enableVisibilityRefetch: true,
   });
 
-  const openNowStores = useMemo(() => pickStoresHomeOpenNow(stores), [stores]);
-  const primaryRowStores = useMemo(() => pickStoresHomePrimaryRowList(stores), [stores]);
-  const fastFood = useMemo(() => flattenStoresHomeFoodEntries(openNowStores, 16), [openNowStores]);
+  const composition = useMemo(
+    () => (stores.length > 0 ? composeStoresHomeFeed(stores) : null),
+    [stores]
+  );
+  const slot0Food = composition?.slot0Food ?? [];
+  const primaryRowStores = composition?.slot1Stores ?? [];
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
 
   const eagerStoreIds = useMemo(() => {
     const ids = new Set<string>();
     for (const s of primaryRowStores) ids.add(s.id);
-    for (const entry of fastFood) ids.add(entry.storeId);
+    for (const entry of slot0Food) ids.add(entry.storeId);
+    if (composition) {
+      for (const slot of [
+        composition.slot2Food,
+        composition.slot3Food,
+        composition.slot4Food,
+        composition.slot5Food,
+      ]) {
+        for (const entry of slot) ids.add(entry.storeId);
+      }
+      for (const s of composition.slot6NearbyStores) ids.add(s.id);
+      for (const s of composition.slot6RestStores) ids.add(s.id);
+    }
     return [...ids];
-  }, [fastFood, primaryRowStores]);
+  }, [composition, primaryRowStores, slot0Food]);
 
   const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
@@ -305,7 +316,8 @@ export function StoresHomeHub({
   const renderBelowFold = useCallback(
     () => (
       <StoresHomeHubBelowFold
-        stores={stores}
+        composition={composition}
+        totalStoreCount={stores.length}
         loading={loading}
         meta={meta}
         hydratedByStoreId={hydratedByStoreId}
@@ -313,7 +325,7 @@ export function StoresHomeHub({
         registerListItem={registerListItem}
       />
     ),
-    [getPhase, hydratedByStoreId, loading, meta, registerListItem, stores]
+    [composition, getPhase, hydratedByStoreId, loading, meta, registerListItem, stores.length]
   );
 
   return (
@@ -337,14 +349,14 @@ export function StoresHomeHub({
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
         : <>
-            {fastFood.length > 0 ?
+            {slot0Food.length > 0 ?
               <StoresHomeSectionShell
                 title={t("store_order_now_title")}
                 actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
                 actionLabel={t("store_browse_view_all")}
               >
                 <div className={STORES_HOME_RAIL_SCROLL}>
-                  {fastFood.map((entry, idx) => {
+                  {slot0Food.map((entry, idx) => {
                     const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
                     return (
                       <StoresHomeFoodCard

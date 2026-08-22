@@ -1,44 +1,34 @@
 "use client";
 
-import Link from "next/link";
-import { startTransition, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
 import {
-  flattenStoresHomeFoodEntries,
-  splitStoresHomeFeed,
-  type StoresHomeFeedSections,
-} from "@/lib/stores/stores-home-feed-sections";
-import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
-import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
-import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
-import {
-  cancelScheduledWhenBrowserIdle,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
-import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
-import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
-import { StoresHomeFeedList } from "@/components/stores/home/hub/StoresHomeFeedList";
-import { StoresHomeStoreDiscoveryRail } from "@/components/stores/home/hub/StoresHomeStoreDiscoveryRail";
-import {
-  pickStoresHomePrimaryRowList,
+  buildStoresHomeBelowFoldFeedSectionsFromComposition,
   STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS,
 } from "@/lib/stores/stores-home-feed-display-contract";
+import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
+import { StoresHomeFoodDiscoveryRail } from "@/components/stores/home/hub/StoresHomeFoodDiscoveryRail";
+import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
+import { StoresHomeFeedList } from "@/components/stores/home/hub/StoresHomeFeedList";
+import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
+import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
+import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 
 /**
- * 첫 레일 아래 섹션 — 뷰포트 진입 후에만 마운트·피드 분할(split) 실행.
- * `open` 매장 row 는 `StoresHomePrimaryStoreRowListSection`(hero 직후) — 여기서 exclude.
- * DO NOT: 부모에서 below-fold JSX 를 매 렌더 동기 생성( long task ).
+ * 첫 레일 아래 섹션 — 뷰포트 진입 후 마운트.
+ * CUT3 — `composition` 은 Hub 에서 1회 compose; 여기서 재-split 금지.
  */
 export function StoresHomeHubBelowFold({
-  stores,
+  composition,
+  totalStoreCount,
   loading,
   meta,
   hydratedByStoreId,
   getPhase,
   registerListItem,
 }: {
-  stores: StoreHomeFeedItem[];
+  composition: StoresHomeFeedComposition | null;
+  totalStoreCount: number;
   loading: boolean;
   meta: { source?: string } | null;
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
@@ -46,69 +36,49 @@ export function StoresHomeHubBelowFold({
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
 }) {
   const { t } = useI18n();
-  const [sections, setSections] = useState<StoresHomeFeedSections | null>(null);
-  const primaryRowStoreCount = pickStoresHomePrimaryRowList(stores).length;
 
-  useEffect(() => {
-    if (stores.length === 0) {
-      setSections(null);
-      return;
-    }
-    let cancelled = false;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      if (cancelled) return;
-      const next = splitStoresHomeFeed(stores);
-      startTransition(() => {
-        if (!cancelled) setSections(next);
-      });
-    }, 80);
-    return () => {
-      cancelled = true;
-      cancelScheduledWhenBrowserIdle(idleId);
-    };
-  }, [stores]);
-
-  const recFood = useMemo(
-    () => (sections ? flattenStoresHomeFoodEntries(sections.premium, 8) : []),
-    [sections]
-  );
-
-  if (!sections) {
+  if (!composition) {
     return <div className="min-h-[8rem]" aria-hidden />;
   }
 
+  const primaryRowStoreCount = composition.slot1Stores.length;
+  const feedSections = buildStoresHomeBelowFoldFeedSectionsFromComposition(composition);
+
   return (
     <>
-      <StoresHomeStoreDiscoveryRail
+      <StoresHomeFoodDiscoveryRail
         title={t("store_home_popular_stores_title")}
-        stores={sections.popularStores}
+        entries={composition.slot2Food}
+        hydratedByStoreId={hydratedByStoreId}
         actionHref={STORES_HOME_SECTION_BROWSE.popular()}
         actionLabel={t("store_browse_view_all")}
       />
 
-      <StoresHomeStoreDiscoveryRail
+      <StoresHomeFoodDiscoveryRail
         title={t("store_badge_menu_discount")}
-        stores={sections.discounted}
+        entries={composition.slot3Food}
+        hydratedByStoreId={hydratedByStoreId}
         adHint={t("store_badge_instant_discount")}
         actionHref={STORES_HOME_SECTION_BROWSE.discount()}
         actionLabel={t("store_browse_view_all")}
       />
 
-      <StoresHomeStoreDiscoveryRail
+      <StoresHomeFoodDiscoveryRail
         title={t("store_spot_recommended_subtitle")}
-        stores={sections.topRated}
+        entries={composition.slot4Food}
+        hydratedByStoreId={hydratedByStoreId}
         actionHref={STORES_HOME_SECTION_BROWSE.topRated()}
         actionLabel={t("store_browse_view_all")}
       />
 
-      {recFood.length > 0 ?
+      {composition.slot5Food.length > 0 ?
         <StoresHomeSectionShell title={t("store_spot_recommended_title")}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {recFood.slice(0, 4).map((entry) => {
+            {composition.slot5Food.slice(0, 4).map((entry) => {
               const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
               return (
                 <StoresHomeFoodCard
-                  key={`rec-${entry.storeId}-${entry.productId}`}
+                  key={`featured-${entry.storeId}-${entry.productId}`}
                   entry={entry}
                   imageUrl={img.imageUrl}
                   loadingImage={img.loading}
@@ -126,11 +96,11 @@ export function StoresHomeHubBelowFold({
       : null}
 
       <StoresHomeFeedList
-        sections={sections}
+        sections={feedSections}
         loading={loading}
         excludeSectionKeys={STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS}
         primaryRowStoreCount={primaryRowStoreCount}
-        totalStoreCount={stores.length}
+        totalStoreCount={totalStoreCount}
         hydratedByStoreId={hydratedByStoreId}
         getPhase={getPhase}
         registerListItem={registerListItem}

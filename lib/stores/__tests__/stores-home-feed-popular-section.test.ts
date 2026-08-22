@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildStoresHomePopularShelf,
-  splitStoresHomeFeed,
-} from "@/lib/stores/stores-home-feed-sections";
+  composeStoresHomeFeed,
+  STORES_HOME_POPULAR_SHELF_MAX,
+} from "@/lib/stores/stores-home-composer";
+import { STORE_HOME_FEED_RESPONSE_MAX } from "@/lib/stores/store-discovery-candidate";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFeedItem {
@@ -28,7 +29,9 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     deliveryFeeStrikePhp: partial.deliveryFeeStrikePhp ?? null,
     paymentMethodsLine: "",
     distanceKm: partial.distanceKm ?? null,
-    featuredItems: partial.featuredItems ?? [{ productId: "p1", name: "메뉴", price: 500 }],
+    featuredItems: partial.featuredItems ?? [
+      { productId: `p-${partial.id}`, name: "메뉴", price: 500 },
+    ],
     profileImageUrl: null,
     isFeatured: partial.isFeatured ?? false,
     commerce: {
@@ -49,17 +52,17 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
   };
 }
 
-describe("stores-home-feed popular section", () => {
+describe("stores-home-feed popular section (CUT3 composer)", () => {
   it("orders 0 → popular shelf hidden", () => {
-    const sections = splitStoresHomeFeed([
+    const composition = composeStoresHomeFeed([
       item({ id: "a", completedOrderCount30d: 0 }),
       item({ id: "b", completedOrderCount30d: 0 }),
     ]);
-    expect(sections.popularStores).toEqual([]);
+    expect(composition.slot2Food).toEqual([]);
   });
 
-  it("H1: open deliverable popular stores rank above closed despite lower raw count", () => {
-    const sections = splitStoresHomeFeed([
+  it("slot2 populated even when stores already in Slot0 — deprioritized not excluded", () => {
+    const composition = composeStoresHomeFeed([
       item({
         id: "a",
         status: "open",
@@ -71,65 +74,7 @@ describe("stores-home-feed popular section", () => {
         id: "b",
         status: "open",
         deliveryAvailable: true,
-        completedOrderCount30d: 50,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "c",
-        status: "closed",
-        completedOrderCount30d: 200,
-        discoveryEligibilityRank: 5,
-      }),
-    ]);
-    expect(sections.popularStores.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(sections.popularStores[0]?.id).toBe("a");
-  });
-
-  it("H2: dedupe preference does not leave only low-order leftover when primary consumed top popular", () => {
-    const primaryIds = new Set(["a", "b"]);
-    const shelf = buildStoresHomePopularShelf(
-      [
-        item({
-          id: "a",
-          status: "open",
-          deliveryAvailable: true,
-          completedOrderCount30d: 100,
-          discoveryEligibilityRank: 0,
-        }),
-        item({
-          id: "b",
-          status: "open",
-          deliveryAvailable: true,
-          completedOrderCount30d: 80,
-          discoveryEligibilityRank: 0,
-        }),
-        item({
-          id: "c",
-          status: "open",
-          deliveryAvailable: true,
-          completedOrderCount30d: 20,
-          discoveryEligibilityRank: 0,
-        }),
-      ],
-      primaryIds
-    );
-    expect(shelf.map((s) => s.id)).toEqual(["a", "b", "c"]);
-  });
-
-  it("H3: primary-only canonical popular → overlap allowed, not closed backfill", () => {
-    const sections = splitStoresHomeFeed([
-      item({
-        id: "a",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 30,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "b",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 25,
+        completedOrderCount30d: 80,
         discoveryEligibilityRank: 0,
       }),
       item({
@@ -139,6 +84,58 @@ describe("stores-home-feed popular section", () => {
         completedOrderCount30d: 20,
         discoveryEligibilityRank: 0,
       }),
+    ]);
+    expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["a", "b", "c"]);
+    expect(composition.slot2Food.length).toBe(3);
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("48-store fixture — popular shelf not starved by Slot0/1", () => {
+    const stores = Array.from({ length: STORE_HOME_FEED_RESPONSE_MAX }, (_, i) =>
+      item({
+        id: `s${i}`,
+        status: "open",
+        deliveryAvailable: true,
+        completedOrderCount30d: 100 - i,
+        discoveryEligibilityRank: 0,
+        deliveryFeeStrikePhp: i % 5 === 0 ? 20 : null,
+        rating: 4.5,
+        reviewCount: 10,
+      })
+    );
+    const composition = composeStoresHomeFeed(stores);
+    expect(composition.slot2Food.length).toBeGreaterThan(0);
+    expect(composition.slot2Food.length).toBeLessThanOrEqual(STORES_HOME_POPULAR_SHELF_MAX);
+  });
+
+  it("open-band ranks above closed within popular metric ordering", () => {
+    const composition = composeStoresHomeFeed([
+      item({
+        id: "open-low",
+        status: "open",
+        deliveryAvailable: true,
+        completedOrderCount30d: 10,
+        discoveryEligibilityRank: 0,
+      }),
+      item({
+        id: "closed-high",
+        status: "closed",
+        completedOrderCount30d: 500,
+        discoveryEligibilityRank: 5,
+      }),
+    ]);
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["open-low", "closed-high"]);
+  });
+
+  it("no overlap backfill from closed-only when open candidates exist", () => {
+    const composition = composeStoresHomeFeed([
+      item({
+        id: "a",
+        status: "open",
+        deliveryAvailable: true,
+        completedOrderCount30d: 30,
+        discoveryEligibilityRank: 0,
+      }),
       item({
         id: "closed-only",
         status: "closed",
@@ -146,56 +143,20 @@ describe("stores-home-feed popular section", () => {
         discoveryEligibilityRank: 5,
       }),
     ]);
-    expect(sections.popularStores.map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(sections.popularStores.some((s) => s.id === "closed-only")).toBe(false);
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "closed-only"]);
   });
 
-  it("H4: enough non-primary popular candidates → primary dedupe without semantic loss", () => {
-    const stores = [
+  it("caps popular shelf without duplicate fill", () => {
+    const stores = Array.from({ length: 30 }, (_, i) =>
       item({
-        id: "a",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 100,
+        id: `s${i}`,
+        completedOrderCount30d: 100 - i,
         discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "b",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 90,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "c",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 80,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "d",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 70,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "e",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 60,
-        discoveryEligibilityRank: 0,
-      }),
-      item({
-        id: "f",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 50,
-        discoveryEligibilityRank: 0,
-      }),
-    ];
-    const shelf = buildStoresHomePopularShelf(stores, new Set(["a", "b"]));
-    expect(shelf.map((s) => s.id)).toEqual(["c", "d", "e", "f"]);
+      })
+    );
+    const composition = composeStoresHomeFeed(stores);
+    expect(composition.slot2Food.length).toBeLessThanOrEqual(STORES_HOME_POPULAR_SHELF_MAX);
+    const ids = composition.slot2Food.map((e) => e.storeId);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  flattenStoresHomeFoodEntries,
-  pickStoresHomeOpenNow,
-  splitStoresHomeFeed,
-} from "@/lib/stores/stores-home-feed-sections";
+import { flattenStoresHomeFoodEntries } from "@/lib/stores/stores-home-feed-sections";
+import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFeedItem {
@@ -29,7 +26,9 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     deliveryFeeStrikePhp: partial.deliveryFeeStrikePhp ?? null,
     paymentMethodsLine: "",
     distanceKm: partial.distanceKm ?? 1.2,
-    featuredItems: partial.featuredItems ?? [{ productId: "p1", name: "치킨", price: 500 }],
+    featuredItems: partial.featuredItems ?? [
+      { productId: `p-${partial.id}`, name: "치킨", price: 500 },
+    ],
     profileImageUrl: null,
     isFeatured: partial.isFeatured ?? false,
     commerce: {
@@ -48,33 +47,6 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
   };
 }
 
-describe("pickStoresHomeOpenNow", () => {
-  it("returns open delivery stores without full split", () => {
-    const stores = [
-      item({ id: "a", status: "open", deliveryAvailable: true }),
-      item({ id: "b", status: "closed", deliveryAvailable: true }),
-      item({ id: "c", status: "open", deliveryAvailable: false }),
-    ];
-    const open = pickStoresHomeOpenNow(stores);
-    expect(open.map((s) => s.id)).toEqual(["a"]);
-  });
-});
-
-describe("splitStoresHomeFeed", () => {
-  it("partitions without duplicate ids", () => {
-    const stores = [
-      item({ id: "a", isFeatured: true }),
-      item({ id: "b", status: "open", deliveryAvailable: true }),
-      item({ id: "c", deliveryFeeStrikePhp: 50 }),
-      item({ id: "d", distanceKm: 0.5 }),
-    ];
-    const s = splitStoresHomeFeed(stores);
-    const all = [...s.openNow, ...s.premium, ...s.discounted, ...s.topRated, ...s.nearby, ...s.feedRest];
-    const ids = all.map((x) => x.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-});
-
 describe("flattenStoresHomeFoodEntries", () => {
   it("maps first featured item per store", () => {
     const entries = flattenStoresHomeFoodEntries([
@@ -91,5 +63,17 @@ describe("flattenStoresHomeFoodEntries", () => {
       }),
     ]);
     expect(entries[0]?.imageUrl).toBe("https://cdn/menu.jpg");
+  });
+});
+
+describe("composeStoresHomeFeed slot0", () => {
+  it("returns open delivery stores only in slot0", () => {
+    const stores = [
+      item({ id: "a", status: "open", deliveryAvailable: true }),
+      item({ id: "b", status: "closed", deliveryAvailable: true }),
+      item({ id: "c", status: "open", deliveryAvailable: false }),
+    ];
+    const composition = composeStoresHomeFeed(stores);
+    expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["a"]);
   });
 });

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildStoresHomeBelowFoldFeedSectionsFromComposition,
   detectStoresHomeEmptyRowListRegression,
   pickStoresHomePrimaryRowList,
   resolveStoresHomeBelowFoldFeedBlocks,
   shouldStoresHomeBelowFoldShowEmptyFallback,
   STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS,
 } from "@/lib/stores/stores-home-feed-display-contract";
-import { splitStoresHomeFeed } from "@/lib/stores/stores-home-feed-sections";
+import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFeedItem {
@@ -32,7 +33,9 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     deliveryFeeStrikePhp: partial.deliveryFeeStrikePhp ?? null,
     paymentMethodsLine: "",
     distanceKm: partial.distanceKm ?? null,
-    featuredItems: partial.featuredItems ?? [{ productId: "p1", name: "메뉴", price: 500 }],
+    featuredItems: partial.featuredItems ?? [
+      { productId: `p-${partial.id}`, name: "메뉴", price: 500 },
+    ],
     profileImageUrl: null,
     isFeatured: partial.isFeatured ?? false,
     commerce: {
@@ -52,29 +55,26 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
 }
 
 describe("stores-home-feed-display-contract", () => {
-  it("typical open stores without distanceKm — primary row must carry the list", () => {
+  it("open stores in slot0 — remainder stores carry primary row", () => {
     const stores = [
-      item({ id: "a" }),
-      item({ id: "b" }),
-      item({ id: "c" }),
+      item({ id: "a", status: "open", deliveryAvailable: true }),
+      item({ id: "b", status: "closed", deliveryAvailable: true }),
+      item({ id: "c", status: "closed", deliveryAvailable: true }),
     ];
-    const sections = splitStoresHomeFeed(stores);
+    const composition = composeStoresHomeFeed(stores);
+    const sections = buildStoresHomeBelowFoldFeedSectionsFromComposition(composition);
     const primary = pickStoresHomePrimaryRowList(stores);
     const belowFold = resolveStoresHomeBelowFoldFeedBlocks(
       sections,
       STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS
     );
 
-    expect(primary).toHaveLength(3);
-    expect(sections.openNow).toHaveLength(3);
+    expect(composition.slot0Food).toHaveLength(1);
+    expect(primary).toHaveLength(2);
+    expect(primary.map((s) => s.id)).toEqual(["b", "c"]);
     expect(belowFold).toHaveLength(0);
-    expect(detectStoresHomeEmptyRowListRegression({
-      totalStoreCount: stores.length,
-      primaryRowStoreCount: primary.length,
-      belowFoldBlockCount: belowFold.length,
-    })).toBe(false);
     expect(
-      shouldStoresHomeBelowFoldShowEmptyFallback({
+      detectStoresHomeEmptyRowListRegression({
         totalStoreCount: stores.length,
         primaryRowStoreCount: primary.length,
         belowFoldBlockCount: belowFold.length,
@@ -82,14 +82,18 @@ describe("stores-home-feed-display-contract", () => {
     ).toBe(false);
   });
 
-  it("detects regression when open is excluded below-fold but primary row is missing", () => {
+  it("two open-only stores fill slot0 — primary row empty", () => {
     const stores = [item({ id: "a" }), item({ id: "b" })];
-    const sections = splitStoresHomeFeed(stores);
+    const composition = composeStoresHomeFeed(stores);
+    const sections = buildStoresHomeBelowFoldFeedSectionsFromComposition(composition);
     const belowFold = resolveStoresHomeBelowFoldFeedBlocks(
       sections,
       STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS
     );
+    const primary = pickStoresHomePrimaryRowList(stores);
 
+    expect(composition.slot0Food).toHaveLength(2);
+    expect(primary).toHaveLength(0);
     expect(belowFold).toHaveLength(0);
     expect(
       detectStoresHomeEmptyRowListRegression({
@@ -100,17 +104,19 @@ describe("stores-home-feed-display-contract", () => {
     ).toBe(true);
   });
 
-  it("closed-only feed still allows below-fold rest without primary row", () => {
+  it("closed-only feed uses primary row — below-fold rest optional", () => {
     const stores = [item({ id: "a", status: "closed", deliveryAvailable: true })];
-    const sections = splitStoresHomeFeed(stores);
+    const composition = composeStoresHomeFeed(stores);
+    const sections = buildStoresHomeBelowFoldFeedSectionsFromComposition(composition);
     const primary = pickStoresHomePrimaryRowList(stores);
     const belowFold = resolveStoresHomeBelowFoldFeedBlocks(
       sections,
       STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS
     );
 
-    expect(primary).toHaveLength(0);
-    expect(belowFold.some((b) => b.key === "rest")).toBe(true);
+    expect(primary).toHaveLength(1);
+    expect(primary[0]?.id).toBe("a");
+    expect(belowFold).toHaveLength(0);
     expect(
       detectStoresHomeEmptyRowListRegression({
         totalStoreCount: stores.length,
@@ -118,5 +124,17 @@ describe("stores-home-feed-display-contract", () => {
         belowFoldBlockCount: belowFold.length,
       })
     ).toBe(false);
+  });
+
+  it("primary row is recommended remainder — not identical to slot0 open pool", () => {
+    const stores = [
+      item({ id: "open-a", status: "open", deliveryAvailable: true }),
+      item({ id: "open-b", status: "open", deliveryAvailable: true }),
+      item({ id: "closed-c", status: "closed", deliveryAvailable: true }),
+    ];
+    const composition = composeStoresHomeFeed(stores);
+    const primary = pickStoresHomePrimaryRowList(stores);
+    expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["open-a", "open-b"]);
+    expect(primary.map((s) => s.id)).toEqual(["closed-c"]);
   });
 });
