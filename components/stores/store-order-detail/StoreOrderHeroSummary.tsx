@@ -27,13 +27,17 @@ function InfoRow({
   label,
   value,
   sub,
+  /** Keep fee-row sub slot reserved so async meta cannot rebase summary height after land. */
+  reserveSubSlot = false,
   action,
 }: {
   label: string;
   value: ReactNode;
   sub?: string | null;
+  reserveSubSlot?: boolean;
   action?: ReactNode;
 }) {
+  const showSubSlot = Boolean(sub) || reserveSubSlot;
   return (
     <div className="grid max-w-full grid-cols-[max-content_1fr] gap-x-2.5 gap-y-0 py-1.5 text-[12px] leading-snug">
       <div className="shrink-0 whitespace-nowrap font-bold text-neutral-900">{label}</div>
@@ -42,9 +46,16 @@ function InfoRow({
           <p className="min-w-0 whitespace-normal break-words font-bold text-neutral-900">{value}</p>
           {action}
         </div>
-        {sub ? (
-          <p className="mt-0.5 text-[11px] font-semibold" style={{ color: STORE_ORDER_BRAND.accentSoftText }}>
-            {sub}
+        {showSubSlot ? (
+          <p
+            className="mt-0.5 text-[11px] font-semibold"
+            style={{
+              color: STORE_ORDER_BRAND.accentSoftText,
+              visibility: sub ? "visible" : "hidden",
+            }}
+            aria-hidden={sub ? undefined : true}
+          >
+            {sub || "\u00a0"}
           </p>
         ) : null}
       </div>
@@ -413,7 +424,12 @@ export function StoreOrderHeroSummary({
                   <InfoRow label={t("store_prep_time_label")} value={heroPrepDisplay} />
                   <InfoRow label={t("store_delivery_time")} value={heroRideDisplay} />
                   <InfoRow label={t("store_route_distance")} value={heroDistDisplay} />
-                  <InfoRow label={t("store_delivery_fee")} value={feeDisplay} sub={deliverySub} />
+                  <InfoRow
+                    label={t("store_delivery_fee")}
+                    value={feeDisplay}
+                    sub={deliverySub}
+                    reserveSubSlot={deliveryAvailable}
+                  />
                   {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
                 </>
               ) : (

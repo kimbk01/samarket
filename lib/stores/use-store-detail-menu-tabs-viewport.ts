@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { isFeaturedEntryScrollPrepareActive } from "@/lib/dibay/featured-entry-position-authority";
 import { consumeStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { notifyStoreDetailMenuTabsAnchored } from "@/lib/dibay/store-detail-menu-tabs-events";
 import { isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
@@ -74,6 +75,7 @@ export function useStoreDetailMenuTabsViewport(args: {
 
   const applyMenuTabsAnchor = useCallback(
     (force: boolean) => {
+      if (isFeaturedEntryScrollPrepareActive()) return;
       const tabsEl = menuStickyMeasureRef.current;
       const kind: AnchorKind = menuTabsMeasurable && tabsEl ? "refine" : "estimate";
 

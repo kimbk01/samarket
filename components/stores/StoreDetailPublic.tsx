@@ -54,6 +54,16 @@ import {
   type StoreDetailReadyInputs,
 } from "@/lib/dibay/store-detail-ready-authority";
 import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
+import { isFeaturedEntryScrollPrepareActive } from "@/lib/dibay/featured-entry-position-authority";
+import { resolveStoreDetailChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
+import { useDeliveryStoreChromeHost } from "@/components/delivery/presentation/DeliveryStoreChromeHostContext";
+import {
+  occupancyAuditHeaderPortalInline,
+  occupancyAuditTabsPortalInline,
+  readDeliveryOccupancyAuditMode,
+} from "@/lib/dibay/delivery-occupancy-audit-mode";
+import { markFeaturedO3Reservation } from "@/lib/dibay/featured-o3-reservation-evidence";
+import { useDeliveryPresentationApi } from "@/components/delivery/presentation/DeliveryPresentationShell";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { localizeMenuSectionHeadings } from "@/lib/stores/localize-menu-section-headings";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
@@ -214,6 +224,8 @@ export function StoreDetailPublic({
   const storeLifecycle = useDeliverySurfaceLifecycle("store");
   const storeActive = storeLifecycle === "active";
   const storeEffectsEnabled = storeLifecycle !== "exiting";
+  const presentationApi = useDeliveryPresentationApi();
+  const { hostEl: chromeHostEl, active: storeChromeActive } = useDeliveryStoreChromeHost();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -234,7 +246,12 @@ export function StoreDetailPublic({
   });
   /** focus land input for READY authority — not a presentation owner */
   const [focusTargetReady, setFocusTargetReady] = useState(() => !focusEntryPreparing);
+  const [featuredEntryPositionReady, setFeaturedEntryPositionReady] = useState(false);
   const [detailRevealed, setDetailRevealed] = useState(false);
+
+  useEffect(() => {
+    setFeaturedEntryPositionReady(false);
+  }, [decodedSlug, focusProductId]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -1257,6 +1274,11 @@ export function StoreDetailPublic({
     setFocusTargetReady(true);
   }, []);
 
+  const onFeaturedEntryPositionReady = useCallback(() => {
+    setFeaturedEntryPositionReady(true);
+    setFocusTargetReady(true);
+  }, []);
+
   const onFocusEntryScrollSpyLock = useCallback((sectionIndex: number) => {
     menuScrollSpyLockRef.current = {
       target: sectionIndex,
@@ -1552,6 +1574,7 @@ export function StoreDetailPublic({
   const scrollStoreSectionIntoView = useCallback(
     (sectionIndex: number) => {
       if (typeof window === "undefined") return;
+      if (isFeaturedEntryScrollPrepareActive()) return;
       const el = document.getElementById(`store-sec-${sectionIndex}`);
       const sticky = menuStickyMeasureRef.current;
       if (!el || !sticky) return;
@@ -1652,6 +1675,30 @@ export function StoreDetailPublic({
 
   const showFocusEntryPreparing = focusEntryPreparing;
 
+  const featuredSoftHosted = presentationApi.shouldHostStore();
+  const occupancyAuditMode =
+    typeof document !== "undefined" ? readDeliveryOccupancyAuditMode() : null;
+  const chromePortalTarget = useMemo(
+    () =>
+      resolveStoreDetailChromePortalTarget({
+        softHosted: featuredSoftHosted,
+        chromeHostEl,
+        chromeActive: storeChromeActive,
+        forceInline: occupancyAuditHeaderPortalInline(occupancyAuditMode),
+      }),
+    [featuredSoftHosted, chromeHostEl, storeChromeActive, occupancyAuditMode]
+  );
+  const tabsChromePortalTarget = useMemo(
+    () =>
+      resolveStoreDetailChromePortalTarget({
+        softHosted: featuredSoftHosted,
+        chromeHostEl,
+        chromeActive: storeChromeActive,
+        forceInline: occupancyAuditTabsPortalInline(occupancyAuditMode),
+      }),
+    [featuredSoftHosted, chromeHostEl, storeChromeActive, occupancyAuditMode]
+  );
+
   const readyInputs: StoreDetailReadyInputs = {
     shellReady: Boolean(storeForPaint),
     menusReady: !menusLoading,
@@ -1697,7 +1744,7 @@ export function StoreDetailPublic({
   /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거.
    * DO NOT opacity/invisible-mask incomplete enter — READY + DeliveryPresentationShell own reveal. */
   const viewportShell = (inner: ReactNode) => (
-    <div className="w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
+    <div className="relative w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
       {inner}
     </div>
   );
@@ -1768,6 +1815,60 @@ export function StoreDetailPublic({
   const heroImageUrl = storeGalleryUrls[0] || null;
   const heroVisualForHeader =
     Boolean(String(heroImageUrl ?? "").trim()) || publicBanners.length > 0;
+  const hasHeroVisualForCollapse = heroVisualForHeader;
+  const liveCollapseTopFulfillmentCard =
+    (headerSolid || !heroVisualForHeader) && hasHeroVisualForCollapse;
+
+  /**
+   * O3 — Pin fulfillment-card collapse while chrome host owns header presentation.
+   * Render-phase ref (not useLayoutEffect state): snapshot must exist before chrome
+   * activates in the same commit — no null→live fallback frame.
+   */
+  const pinnedCollapseTopFulfillmentCardRef = useRef<boolean | null>(null);
+  if (!featuredSoftHosted) {
+    pinnedCollapseTopFulfillmentCardRef.current = null;
+  } else if (!storeChromeActive) {
+    pinnedCollapseTopFulfillmentCardRef.current = liveCollapseTopFulfillmentCard;
+  }
+  const pinnedCollapseTopFulfillmentCard = pinnedCollapseTopFulfillmentCardRef.current;
+
+  const collapseTopFulfillmentCard =
+    featuredSoftHosted &&
+    storeChromeActive &&
+    pinnedCollapseTopFulfillmentCard != null
+      ? pinnedCollapseTopFulfillmentCard
+      : liveCollapseTopFulfillmentCard;
+
+  const headerElevatedForO3 = headerSolid || !heroVisualForHeader;
+
+  useLayoutEffect(() => {
+    markFeaturedO3Reservation(
+      storeChromeActive
+        ? "chrome_active_render"
+        : featuredSoftHosted
+          ? "hold_or_soft_hosted"
+          : "not_soft_hosted",
+      {
+        featuredSoftHosted,
+        storeChromeActive,
+        liveCollapse: liveCollapseTopFulfillmentCard,
+        pinnedCollapse: pinnedCollapseTopFulfillmentCard,
+        effectiveCollapse: collapseTopFulfillmentCard,
+        headerSolid,
+        heroVisualForHeader,
+        headerElevated: headerElevatedForO3,
+      }
+    );
+  }, [
+    featuredSoftHosted,
+    storeChromeActive,
+    liveCollapseTopFulfillmentCard,
+    pinnedCollapseTopFulfillmentCard,
+    collapseTopFulfillmentCard,
+    headerSolid,
+    heroVisualForHeader,
+    headerElevatedForO3,
+  ]);
   const storeAddressLines = formatStorePickupAddressLines({
     region: detailStore.region,
     city: detailStore.city,
@@ -1812,9 +1913,21 @@ export function StoreDetailPublic({
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}
         data-store-detail-ready={readyToReveal ? "1" : "0"}
         data-store-detail-data-ready={dataReady ? "1" : "0"}
+        data-store-featured-entry-ready={featuredEntryPositionReady ? "1" : "0"}
+        data-o3-live-collapse={liveCollapseTopFulfillmentCard ? "1" : "0"}
+        data-o3-pinned-collapse={
+          pinnedCollapseTopFulfillmentCard == null
+            ? "null"
+            : pinnedCollapseTopFulfillmentCard
+              ? "1"
+              : "0"
+        }
+        data-o3-effective-collapse={collapseTopFulfillmentCard ? "1" : "0"}
+        data-o3-chrome-active={storeChromeActive ? "1" : "0"}
       >
       <StoreDetailSummarySection
         headerElevated={headerSolid || !heroVisualForHeader}
+        collapseTopFulfillmentCard={collapseTopFulfillmentCard}
         fallbackHref={fallbackHref}
         store={detailStore}
         heroImageUrl={heroImageUrl}
@@ -1862,6 +1975,7 @@ export function StoreDetailPublic({
             <StoreOwnerNoticeCards notices={storeTopNotices} infoHrefBase={infoPath} />
           ) : undefined
         }
+        chromePortalTarget={chromePortalTarget}
       />
 
       <StoreDetailMenusSection
@@ -1890,8 +2004,11 @@ export function StoreDetailPublic({
         focusProductId={focusProductId}
         onFocusProductHandled={onFocusProductHandled}
         onFocusEntryReady={onFocusEntryReady}
+        onFeaturedEntryPositionReady={onFeaturedEntryPositionReady}
         onFocusEntryScrollSpyLock={onFocusEntryScrollSpyLock}
         focusEntryPreparing={showFocusEntryPreparing}
+        chromePortalTarget={tabsChromePortalTarget}
+        featuredSoftHosted={featuredSoftHosted}
         menuProductsForReviewRail={menuProductsForReviewRail}
         onOpenReviews={handleOpenReviewsPanel}
       />

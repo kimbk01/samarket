@@ -16,6 +16,7 @@ import { fetchMeCheckoutContactDeduped } from "@/lib/me/fetch-me-checkout-contac
 import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 import { StoreHeader } from "@/components/stores/detail/StoreHeader";
 import { StoreNoticeBar } from "@/components/stores/detail/StoreNoticeBar";
+import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 
 type CommerceSnap = {
   breakConfigured: boolean;
@@ -71,6 +72,9 @@ export function StoreDetailSummarySection({
   bannersSlot,
   storeManagedNoticesSlot,
   commerceCartStoreId,
+  chromePortalTarget,
+  /** Layout reservation SSOT — independent of chrome host presentation ownership */
+  collapseTopFulfillmentCard,
 }: {
   headerElevated: boolean;
   fallbackHref: string;
@@ -103,6 +107,8 @@ export function StoreDetailSummarySection({
   /** 매장 공지(store_notices placement=store_top) */
   storeManagedNoticesSlot?: ReactNode;
   commerceCartStoreId: string;
+  chromePortalTarget?: StoreChromePortalTarget;
+  collapseTopFulfillmentCard: boolean;
 }) {
   const [rideSource, setRideSource] = useState<"store" | "google" | null>(null);
   const [heroDeliveryTimeDisplay, setHeroDeliveryTimeDisplay] = useState<string>("—");
@@ -183,6 +189,7 @@ export function StoreDetailSummarySection({
           <StoreOrderStickyHeader
             elevated={headerElevated}
             heroGlassOverlayButtons
+            chromePortalTarget={chromePortalTarget}
             fallbackHref={fallbackHref}
             storeSlug={store.slug}
             storeName={store.store_name}
@@ -199,10 +206,7 @@ export function StoreDetailSummarySection({
           <StoreOrderHeroSummary
             storeName={store.store_name}
             profileImageUrl={heroImageUrl}
-            collapseTopFulfillmentCard={
-              headerElevated &&
-              (!!(heroImageUrl && heroImageUrl.trim()) || Boolean(bannersSlot))
-            }
+            collapseTopFulfillmentCard={collapseTopFulfillmentCard}
             heroBannerSlot={bannersSlot}
             ratingAvg={
               store.rating_avg != null && Number.isFinite(Number(store.rating_avg))

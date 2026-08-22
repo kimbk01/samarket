@@ -13,6 +13,7 @@ import {
   measureStoreDetailElementScrollTop,
   setStoreDetailScrollTop,
 } from "@/lib/ui/store-detail-scroll-root";
+import { isFeaturedEntryScrollPrepareActive } from "@/lib/dibay/featured-entry-position-authority";
 
 const STORE_HERO_MEDIA_ID = "store-hero-media";
 const STORE_NOTICE_BAR_ID = "store-detail-notice-bar";
@@ -89,6 +90,7 @@ export function anchorStoreDetailToMenuTabs(opts?: {
   behavior?: ScrollBehavior;
 }): boolean {
   if (typeof window === "undefined") return false;
+  if (isFeaturedEntryScrollPrepareActive()) return false;
   const scrollRoot = getStoreDetailAppScrollRoot();
   const behavior = opts?.behavior ?? "auto";
   const tabsEl = opts?.tabsEl ?? null;

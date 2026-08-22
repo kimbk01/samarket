@@ -96,7 +96,7 @@ export function isStoreMenuSectionHeaderLandingAligned(
   return delta >= -tolerancePx && delta <= tolerancePx;
 }
 
-function applyFocusProductRing(productId: string): void {
+export function applyStoreMenuProductFocusRing(productId: string): void {
   const el = document.getElementById(storeMenuProductDomId(productId));
   if (!el) return;
   const prior = focusRingTimers.get(productId);
@@ -166,7 +166,6 @@ export function scrollStoreMenuFocusEntryIntoView(
   }
 
   syncScrollNudgeToTargetTop(sectionEl.getBoundingClientRect().top, stickyBottom, scrollRoot);
-  applyFocusProductRing(productId);
   return true;
 }
 
@@ -214,6 +213,5 @@ export function scrollStoreMenuProductIntoView(
     syncScrollNudgeToTargetTop(el.getBoundingClientRect().top, stickyBottom, scrollRoot);
   }
 
-  applyFocusProductRing(productId);
   return true;
 }

@@ -713,6 +713,8 @@ export function AppRouteTransition({
   }, [pathname, pushSession?.animate, pushSession?.durationMs, pushSession?.targetPath]);
 
   useLayoutEffect(() => {
+    /** DO NOT finish push while animate:false (hold/pending enter). */
+    if (!pushSession?.animate) return;
     if (!pushSession?.targetPath) return;
     if (!pushTargetReached(pathname, pushSession.targetPath)) return;
     const durationMs = pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS;
@@ -727,7 +729,13 @@ export function AppRouteTransition({
       lastPushAxisRef.current = null;
     }, remaining);
     return () => window.clearTimeout(timer);
-  }, [pathname, pushSession?.durationMs, pushSession?.startedAt, pushSession?.targetPath]);
+  }, [
+    pathname,
+    pushSession?.animate,
+    pushSession?.durationMs,
+    pushSession?.startedAt,
+    pushSession?.targetPath,
+  ]);
 
   useLayoutEffect(() => {
     if (!pushSession?.targetPath) return;

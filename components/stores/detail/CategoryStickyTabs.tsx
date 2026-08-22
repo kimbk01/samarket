@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
+import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
+import { storeChromePortalRoot } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 
 function CategoryTabsBar(props: {
   measureRef?: React.RefObject<HTMLDivElement | null>;
@@ -83,11 +86,27 @@ export function CategoryStickyTabs(props: {
   onSelect: (i: number) => void;
   stickyTopCss: string;
   pinned?: boolean;
+  /** @deprecated use chromePortalTarget */
+  deferBodyPortal?: boolean;
+  /** G-B2 soft store: DeliveryStoreChromeHost | hard: body | hold/prepare: inline flow */
+  chromePortalTarget?: StoreChromePortalTarget;
 }) {
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  const resolvedPortalTarget: StoreChromePortalTarget =
+    props.chromePortalTarget ?? (props.deferBodyPortal ? "inline" : "body");
+
+  useEffect(() => {
+    if (!props.pinned || !portalReady || resolvedPortalTarget === "inline") return;
+    if (resolvedPortalTarget === "body") {
+      deliveryPresentationMarkEvent("featuredTabsPortalEnabled");
+      return;
+    }
+    deliveryPresentationMarkEvent("deliveryStoreChromeTabsPortalEnabled");
+  }, [props.pinned, portalReady, resolvedPortalTarget]);
 
   const bar = (
     <CategoryTabsBar
@@ -101,7 +120,12 @@ export function CategoryStickyTabs(props: {
     />
   );
 
-  if (props.pinned && portalReady && typeof document !== "undefined") {
+  const portalRoot =
+    props.pinned && portalReady && resolvedPortalTarget !== "inline"
+      ? storeChromePortalRoot(resolvedPortalTarget)
+      : null;
+
+  if (portalRoot) {
     return createPortal(
       <div
         ref={props.measureRef}
@@ -111,7 +135,7 @@ export function CategoryStickyTabs(props: {
       >
         <div className={`${APP_MAIN_COLUMN_CLASS} bg-white`}>{bar}</div>
       </div>,
-      document.body
+      portalRoot
     );
   }
 

@@ -35,6 +35,12 @@ import {
   type DeliverySurfaceLifecycleState,
 } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { STORE_DETAIL_DATA_READY_EVENT } from "@/lib/dibay/store-detail-ready-authority";
+import { STORE_FEATURED_ENTRY_READY_EVENT } from "@/lib/dibay/featured-entry-position-authority";
+import { DeliveryStoreChromeHostProvider } from "@/components/delivery/presentation/DeliveryStoreChromeHostContext";
+import {
+  occupancyAuditSuppressChromeHost,
+  readDeliveryOccupancyAuditMode,
+} from "@/lib/dibay/delivery-occupancy-audit-mode";
 
 type BrowseSpec = {
   primarySlug: string;
@@ -76,6 +82,25 @@ function parseStoreSlug(pathname: string): string | null {
   return parts[0] ?? null;
 }
 
+function readFeaturedFocusProductId(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("focusProduct")?.trim() || null;
+}
+
+function isStoreDataReadyForSlide(): boolean {
+  return Boolean(
+    document.querySelector("[data-store-detail-data-ready='1']") ||
+      document.querySelector("[data-store-detail-ready='1']")
+  );
+}
+
+function isFeaturedEntryReadyForSlide(): boolean {
+  return Boolean(
+    document.querySelector("[data-store-featured-entry-ready='1']") ||
+      document.documentElement.getAttribute("data-dibay-featured-entry-ready") === "1"
+  );
+}
+
 type SlidePhase = "idle" | "hold_browse" | "sliding_forward" | "idle_store" | "sliding_back";
 
 /**
@@ -111,6 +136,8 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   const browseInstanceIdRef = useRef<string | null>(null);
   const storeInstanceIdRef = useRef<string | null>(null);
   const prevPathRef = useRef(pathKey);
+  const chromeHostRef = useRef<HTMLDivElement | null>(null);
+  const [chromeHostEl, setChromeHostEl] = useState<HTMLElement | null>(null);
 
   const softSession = Boolean(browseSpec);
   /** Prefer sticky hosted slug; fall back to URL slug on first soft-enter paint. */
@@ -217,6 +244,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     deliveryPresentationMarkEvent("holdBrowseForStoreReady");
 
     let started = false;
+    let featuredEntryReady = false;
     const startForward = () => {
       if (started) return;
       started = true;
@@ -228,22 +256,28 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       });
     };
     const startIfReady = () => {
-      /**
-       * Presentation waits for shell+menus only.
-       * Focus land runs after slide (focus must not block presentation).
-       */
+      if (!isStoreDataReadyForSlide()) return;
+      const featuredProductId = readFeaturedFocusProductId();
       if (
-        document.querySelector("[data-store-detail-data-ready='1']") ||
-        document.querySelector("[data-store-detail-ready='1']")
+        featuredProductId &&
+        !featuredEntryReady &&
+        !isFeaturedEntryReadyForSlide()
       ) {
-        startForward();
+        return;
       }
+      startForward();
     };
     const onDataReady = () => startIfReady();
+    const onFeaturedReady = () => {
+      featuredEntryReady = true;
+      startIfReady();
+    };
     window.addEventListener(STORE_DETAIL_DATA_READY_EVENT, onDataReady);
+    window.addEventListener(STORE_FEATURED_ENTRY_READY_EVENT, onFeaturedReady);
     startIfReady();
     return () => {
       window.removeEventListener(STORE_DETAIL_DATA_READY_EVENT, onDataReady);
+      window.removeEventListener(STORE_FEATURED_ENTRY_READY_EVENT, onFeaturedReady);
     };
   }, [slidePhase, showShellStore]);
 
@@ -339,15 +373,44 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     return { transform: "translate3d(0,0,0)", zIndex: 2 };
   }, [showShellStore, slidePhase, forwardAnimate, backAnimate]);
 
+  /**
+   * G-B2 — chrome host active for visible soft-store phases only.
+   * hold_browse: inactive (offscreen prepare — no early chrome exposure).
+   */
+  const occupancyAuditMode =
+    typeof document !== "undefined" ? readDeliveryOccupancyAuditMode() : null;
+  const storeChromeActive =
+    showShellStore &&
+    !occupancyAuditSuppressChromeHost(occupancyAuditMode) &&
+    (slidePhase === "sliding_forward" ||
+      slidePhase === "idle_store" ||
+      slidePhase === "sliding_back");
+
+  useLayoutEffect(() => {
+    setChromeHostEl(chromeHostRef.current);
+  }, [showShellStore, storeChromeActive]);
+
   return (
     <DeliveryPresentationNestContext.Provider value={true}>
       <DeliveryPresentationApiContext.Provider value={api}>
-        <div
-          className="delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-x-hidden"
-          data-delivery-presentation-shell="1"
-          data-delivery-slide-phase={slidePhase}
-          data-delivery-host-store={showShellStore ? "1" : "0"}
-        >
+        <DeliveryStoreChromeHostProvider hostEl={chromeHostEl} active={storeChromeActive}>
+          <div
+            className="delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-x-hidden"
+            data-delivery-presentation-shell="1"
+            data-delivery-slide-phase={slidePhase}
+            data-delivery-host-store={showShellStore ? "1" : "0"}
+            data-delivery-store-chrome-active={storeChromeActive ? "1" : "0"}
+          >
+            {showShellStore ? (
+              <div
+                ref={chromeHostRef}
+                className="pointer-events-none relative col-start-1 row-start-1 min-h-0 w-full [&_*]:pointer-events-auto"
+                data-delivery-store-chrome-host="1"
+                data-delivery-store-chrome-active={storeChromeActive ? "1" : "0"}
+                style={{ zIndex: storeChromeActive ? 4 : 0, transform: "none" }}
+                aria-hidden={!storeChromeActive}
+              />
+            ) : null}
           {showBrowseSurface && browseSpec ? (
             <div
               className="relative col-start-1 row-start-1 min-h-[100dvh] w-full"
@@ -396,6 +459,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
             {children}
           </div>
         </div>
+        </DeliveryStoreChromeHostProvider>
       </DeliveryPresentationApiContext.Provider>
     </DeliveryPresentationNestContext.Provider>
   );

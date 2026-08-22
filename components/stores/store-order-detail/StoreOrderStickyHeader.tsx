@@ -15,6 +15,9 @@ import {
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
+import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
+import type { StoreChromePortalTarget } from "@/lib/dibay/delivery-store-chrome-portal-contract";
+import { storeChromePortalRoot } from "@/lib/dibay/delivery-store-chrome-portal-contract";
 
 const Tier1NotificationAnchor = dynamic(
   () =>
@@ -45,6 +48,10 @@ export function StoreOrderStickyHeader({
   onCartPreviewClick,
   /** CONTRACT: storeMenu = 검색·알림·카트, productDetail = 검색·공유·카트. */
   headerTrailingVariant = "storeMenu",
+  /** @deprecated use chromePortalTarget — inline keeps chrome in StoreSurface (hold_browse prepare). */
+  deferBodyPortal = false,
+  /** G-B2 soft store: DeliveryStoreChromeHost | hard: body | hold: inline */
+  chromePortalTarget,
   /** true: 스크롤 전 히어로 위 액션을 글래스 버튼으로(밝은 사진에서도 보임) */
   heroGlassOverlayButtons = false,
 }: {
@@ -61,13 +68,31 @@ export function StoreOrderStickyHeader({
   /** 빈 카트에서도 프리뷰 시트 열기용 — 카트 링크와 병행 */
   onCartPreviewClick: () => void;
   headerTrailingVariant?: "storeMenu" | "productDetail";
+  deferBodyPortal?: boolean;
+  chromePortalTarget?: StoreChromePortalTarget;
   heroGlassOverlayButtons?: boolean;
 }) {
   const { t } = useI18n();
-  const [portalToBody, setPortalToBody] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   useEffect(() => {
-    setPortalToBody(true);
+    setPortalReady(true);
   }, []);
+
+  const resolvedPortalTarget: StoreChromePortalTarget =
+    chromePortalTarget ?? (deferBodyPortal ? "inline" : "body");
+
+  /** Soft hold/prepare — stay inside transformed StoreSurface (not viewport-fixed). */
+  const chromePositionMode =
+    resolvedPortalTarget === "inline" ? ("contained" as const) : ("viewport-fixed" as const);
+
+  useEffect(() => {
+    if (!portalReady || resolvedPortalTarget === "inline") return;
+    if (resolvedPortalTarget === "body") {
+      deliveryPresentationMarkEvent("featuredHeaderPortalEnabled");
+      return;
+    }
+    deliveryPresentationMarkEvent("deliveryStoreChromeHeaderPortalEnabled");
+  }, [portalReady, resolvedPortalTarget]);
 
   const cartLineKindCount = useStoreCommerceCartHeaderBadgeCount(commerceCartStoreId);
 
@@ -108,7 +133,9 @@ export function StoreOrderStickyHeader({
 
   const header = (
     <header
-      className={`fixed inset-x-0 top-0 z-[60] pt-[var(--safe-top)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
+      className={`${
+        chromePositionMode === "contained" ? "absolute" : "fixed"
+      } inset-x-0 top-0 z-[60] pt-[var(--safe-top)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
         elevated
           ? "border-b border-black/[0.06] bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)]"
           : "border-b border-transparent bg-transparent"
@@ -202,5 +229,10 @@ export function StoreOrderStickyHeader({
     </header>
   );
 
-  return portalToBody ? createPortal(header, document.body) : header;
+  const portalRoot =
+    portalReady && resolvedPortalTarget !== "inline"
+      ? storeChromePortalRoot(resolvedPortalTarget)
+      : null;
+
+  return portalRoot ? createPortal(header, portalRoot) : header;
 }
