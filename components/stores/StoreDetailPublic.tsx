@@ -32,7 +32,6 @@ import {
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
-import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { StoreReviewsSlidePanel } from "@/components/stores/store-detail/StoreReviewsSlidePanel";
 import type { StoreMenuReviewRailProduct } from "@/components/stores/StoreMenuReviewFlowLink";
 import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
@@ -44,11 +43,18 @@ import {
   pinFocusedProductInMenuSections,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
-import { storeMenuFocusEntryNeedsPreparation, STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS } from "@/lib/dibay/store-menu-focus-entry";
+import { storeMenuFocusEntryNeedsPreparation } from "@/lib/dibay/store-menu-focus-entry";
 import {
   clearStoreMenuFocusEntryIntent,
   peekStoreMenuFocusEntryIntent,
 } from "@/lib/dibay/store-menu-focus-entry-intent";
+import {
+  isStoreDetailReadyToReveal,
+  STORE_DETAIL_DATA_READY_EVENT,
+  type StoreDetailReadyInputs,
+} from "@/lib/dibay/store-detail-ready-authority";
+import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
+import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import { localizeMenuSectionHeadings } from "@/lib/stores/localize-menu-section-headings";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
@@ -165,11 +171,6 @@ import {
   peekStoreDetailInstantHydrate,
 } from "@/lib/dibay/store-detail-instant-hydrate";
 import {
-  getStoreDetailTransitionShellSnapshot,
-  hideStoreDetailTransitionShell,
-  subscribeStoreDetailTransitionShell,
-} from "@/lib/dibay/store-detail-transition-shell-store";
-import {
   dibayDeliveryDetailPhase2Log,
   dibayDeliveryDetailPhase2SinceMountOrNav,
 } from "@/lib/dibay/delivery-detail-phase2-trace";
@@ -210,6 +211,9 @@ export function StoreDetailPublic({
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
   const { t, language } = useI18n();
+  const storeLifecycle = useDeliverySurfaceLifecycle("store");
+  const storeActive = storeLifecycle === "active";
+  const storeEffectsEnabled = storeLifecycle !== "exiting";
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -228,12 +232,9 @@ export function StoreDetailPublic({
       new URLSearchParams(window.location.search).get("focusProduct")
     );
   });
-  const focusPreparingSinceRef = useRef(0);
-  useLayoutEffect(() => {
-    if (focusEntryPreparing) {
-      focusPreparingSinceRef.current = performance.now();
-    }
-  }, [focusEntryPreparing]);
+  /** focus land input for READY authority — not a presentation owner */
+  const [focusTargetReady, setFocusTargetReady] = useState(() => !focusEntryPreparing);
+  const [detailRevealed, setDetailRevealed] = useState(false);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -243,6 +244,7 @@ export function StoreDetailPublic({
       new URLSearchParams(window.location.search).get("focusProduct");
     if (storeMenuFocusEntryNeedsPreparation(fromUrl)) {
       setFocusEntryPreparing(true);
+      setFocusTargetReady(false);
     }
   }, [focusProductId, pathname, decodedSlug]);
 
@@ -251,7 +253,9 @@ export function StoreDetailPublic({
     const armed = peekStoreMenuFocusEntryIntent();
     const nextFocus = focusProductId || armed;
     setRetainFocusPin(Boolean(nextFocus));
-    setFocusEntryPreparing(storeMenuFocusEntryNeedsPreparation(nextFocus));
+    const needs = storeMenuFocusEntryNeedsPreparation(nextFocus);
+    setFocusEntryPreparing(needs);
+    setFocusTargetReady(!needs);
     if (nextFocus) focusPinProductIdRef.current = nextFocus;
   }, [decodedSlug]); // eslint-disable-line react-hooks/exhaustive-deps -- slug boundary only
 
@@ -259,9 +263,16 @@ export function StoreDetailPublic({
     if (!focusProductId) return;
     setRetainFocusPin(true);
     setFocusEntryPreparing(true);
+    setFocusTargetReady(false);
     focusPinProductIdRef.current = focusProductId;
   }, [focusProductId]);
 
+  /** M1 — kick menus on first client render (before child effects), same single-flight */
+  if (typeof window !== "undefined" && decodedSlug) {
+    if (!peekStoreMenusPublicCache(decodedSlug)) {
+      void fetchStoreMenusDeduped(decodedSlug, { fetchPath: "store_detail_render_kick" });
+    }
+  }
   const pinFocusProductId =
     focusProductId ?? (retainFocusPin ? focusPinProductIdRef.current : null);
   const initialSnap = useMemo(
@@ -278,16 +289,6 @@ export function StoreDetailPublic({
     () => (typeof window === "undefined" ? null : getStoreDetailListSeedSnapshot(decodedSlug)),
     [decodedSlug]
   );
-
-  const [transitionShellActive, setTransitionShellActive] = useState(
-    () => getStoreDetailTransitionShellSnapshot()
-  );
-
-  useEffect(() => {
-    return subscribeStoreDetailTransitionShell(() => {
-      setTransitionShellActive(getStoreDetailTransitionShellSnapshot());
-    });
-  }, []);
 
   const storeForPaint = useMemo((): StoreDetail | null => {
     if (store) return store;
@@ -461,7 +462,6 @@ export function StoreDetailPublic({
     if (summaryLoading) return;
     if (shellMarkedSlugRef.current === decodedSlug) return;
     shellMarkedSlugRef.current = decodedSlug;
-    hideStoreDetailTransitionShell(decodedSlug);
     dibayPerfOnStoreDetailShellVisible({ slug: decodedSlug });
     deliveryShellEntryMark("shell_visible", { slug: decodedSlug, source: "summary_api" });
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {
@@ -478,7 +478,6 @@ export function StoreDetailPublic({
     if (!store || !isStoreDetailListSeedId(store.id)) return;
     if (shellMarkedSlugRef.current === decodedSlug) return;
     shellMarkedSlugRef.current = decodedSlug;
-    hideStoreDetailTransitionShell(decodedSlug);
     dibayPerfOnStoreDetailShellVisible({ slug: decodedSlug });
     deliveryShellEntryMark("shell_visible", { slug: decodedSlug, source: "list_seed_fallback" });
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {
@@ -796,7 +795,6 @@ export function StoreDetailPublic({
     if (init.hasInstantPaint) {
       setSummaryLoading(false);
     }
-    hideStoreDetailTransitionShell(decodedSlug);
   }, [decodedSlug, applySummaryPayload, applyMenusResponseIfReady, initialSnap]);
 
   const applyBannersAndNotices = useCallback(
@@ -1120,10 +1118,10 @@ export function StoreDetailPublic({
   loadSplitDetailRef.current = loadSplitDetail;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!storeActive || typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [storeActive]);
 
   useLayoutEffect(() => {
     if (initialApiResponse?.status === 200) {
@@ -1254,20 +1252,9 @@ export function StoreDetailPublic({
   }, [pinFocusProductId, menuSectionScrollKey, menuSectionsFiltered]);
 
   const onFocusEntryReady = useCallback(() => {
-    const reveal = () => {
-      clearStoreMenuFocusEntryIntent();
-      setFocusEntryPreparing(false);
-    };
-    const elapsed =
-      focusPreparingSinceRef.current > 0
-        ? performance.now() - focusPreparingSinceRef.current
-        : STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS;
-    const delay = Math.max(0, STORE_MENU_FOCUS_ENTRY_MIN_PREPARING_MS - elapsed);
-    if (delay > 0) {
-      window.setTimeout(reveal, delay);
-      return;
-    }
-    reveal();
+    clearStoreMenuFocusEntryIntent();
+    setFocusEntryPreparing(false);
+    setFocusTargetReady(true);
   }, []);
 
   const onFocusEntryScrollSpyLock = useCallback((sectionIndex: number) => {
@@ -1291,6 +1278,7 @@ export function StoreDetailPublic({
   }, [store?.slug, store?.delivery_available, store?.pickup_available]);
 
   useEffect(() => {
+    if (!storeEffectsEnabled) return;
     const slugKey = store?.slug?.trim();
     if (!slugKey) {
       setDistanceOutOfRange(false);
@@ -1314,7 +1302,7 @@ export function StoreDetailPublic({
       ac?.abort();
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [store?.slug]);
+  }, [storeEffectsEnabled, store?.slug]);
 
   useEffect(() => {
     const slugKey = store?.slug?.trim();
@@ -1353,7 +1341,7 @@ export function StoreDetailPublic({
   useStoreDetailScrollRootScroll(
     syncActiveMenuSectionFromScroll,
     [menuSectionsFiltered.length, menuSectionScrollKey, syncActiveMenuSectionFromScroll],
-    menuSectionsFiltered.length > 1
+    storeActive && menuSectionsFiltered.length > 1
   );
 
   const commerce = useMemo(() => {
@@ -1404,6 +1392,7 @@ export function StoreDetailPublic({
   }, [store, fulfillmentMode]);
 
   useEffect(() => {
+    if (!storeActive) return;
     if (summaryLoading || !store || menusLoading) return;
     const el = menuStickyMeasureRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -1427,11 +1416,11 @@ export function StoreDetailPublic({
       ro.disconnect();
       if (menuStickyMeasureTimerRef.current) clearTimeout(menuStickyMeasureTimerRef.current);
     };
-  }, [summaryLoading, menusLoading, store?.id, menuQuery, menuSearchOpen]);
+  }, [storeActive, summaryLoading, menusLoading, store?.id, menuQuery, menuSearchOpen]);
 
   const storeMenuRootActive = isStoreSlugOrderMenuRoot(pathname ?? "", decodedSlug);
   const blockMenuTabsAnchor = summaryLoading && !storeForPaint;
-  const { menuTabsViewportReady } = useStoreDetailMenuTabsViewport({
+  useStoreDetailMenuTabsViewport({
     pathname,
     decodedSlug,
     blockMenuTabsAnchor,
@@ -1540,13 +1529,14 @@ export function StoreDetailPublic({
   }, []);
 
   const onFocusProductHandled = useCallback(() => {
-    if (!focusProductId || typeof window === "undefined") return;
+    if (!storeActive || !focusProductId || typeof window === "undefined") return;
     const url = new URL(window.location.href);
     if (!url.searchParams.has("focusProduct")) return;
     url.searchParams.delete("focusProduct");
     const qs = url.searchParams.toString();
+    deliveryPresentationMarkEvent("focusUrlCleanup", { productId: focusProductId });
     router.replace(`${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`, { scroll: false });
-  }, [focusProductId, router]);
+  }, [storeActive, focusProductId, router]);
 
   const armMenuScrollSpyLock = useCallback((sectionIndex: number, durationMs = 720) => {
     menuScrollSpyLockRef.current = {
@@ -1659,18 +1649,57 @@ export function StoreDetailPublic({
 
   const showFocusEntryPreparing = focusEntryPreparing;
 
-  /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거 */
-  const viewportShell = (inner: ReactNode, opts?: { anchorPaintGate?: boolean }) => (
-    <div
-      className={`w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]${
-        opts?.anchorPaintGate && storeMenuRootActive && !menuTabsViewportReady ? " invisible" : ""
-      }`}
-    >
+  const readyInputs: StoreDetailReadyInputs = {
+    shellReady: Boolean(storeForPaint),
+    menusReady: !menusLoading,
+    focusRequired: Boolean(focusEntryPreparing || pinFocusProductId),
+    focusTargetReady: focusTargetReady || !Boolean(focusEntryPreparing || pinFocusProductId),
+  };
+  const readyToReveal = isStoreDetailReadyToReveal(readyInputs, detailRevealed);
+  const dataReady = Boolean(storeForPaint) && !menusLoading;
+
+  useLayoutEffect(() => {
+    if (!dataReady || typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent(STORE_DETAIL_DATA_READY_EVENT, {
+        detail: { slug: decodedSlug },
+      })
+    );
+  }, [dataReady, decodedSlug]);
+
+  useLayoutEffect(() => {
+    if (!readyToReveal) return;
+    setDetailRevealed(true);
+  }, [readyToReveal]);
+
+  /** focus required but product absent after menus — unblock READY */
+  useEffect(() => {
+    if (!focusEntryPreparing || menusLoading) return;
+    const id = (focusProductId ?? focusPinProductIdRef.current)?.trim();
+    if (!id) {
+      setFocusTargetReady(true);
+      setFocusEntryPreparing(false);
+      clearStoreMenuFocusEntryIntent();
+      return;
+    }
+    if (menuSectionsFiltered.length === 0) return;
+    const idx = findMenuSectionIndexForProduct(menuSectionsFiltered, id);
+    if (idx < 0) {
+      setFocusTargetReady(true);
+      setFocusEntryPreparing(false);
+      clearStoreMenuFocusEntryIntent();
+    }
+  }, [focusEntryPreparing, menusLoading, focusProductId, menuSectionsFiltered]);
+
+  /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거.
+   * DO NOT opacity/invisible-mask incomplete enter — READY + DeliveryPresentationShell own reveal. */
+  const viewportShell = (inner: ReactNode) => (
+    <div className="w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
       {inner}
     </div>
   );
 
-  if (summaryLoading && !storeForPaint && !transitionShellActive) {
+  if (summaryLoading && !storeForPaint) {
     return viewportShell(
       <StoreDetailQuickShell
         slug={decodedSlug}
@@ -1776,20 +1805,10 @@ export function StoreDetailPublic({
       }
       distanceOutOfRange={distanceOutOfRange}
     >
-      {showFocusEntryPreparing ? (
-        <div
-          className="pointer-events-auto fixed inset-0 z-[80] flex items-center justify-center bg-sam-app"
-          data-store-focus-entry="preparing"
-          role="status"
-          aria-busy="true"
-        >
-          <StoreDeliveryBufferingSpinner />
-        </div>
-      ) : null}
       <div
-        aria-hidden={showFocusEntryPreparing}
-        className={showFocusEntryPreparing ? "invisible" : undefined}
-        data-store-focus-entry-surface={showFocusEntryPreparing ? "preparing" : "ready"}
+        data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}
+        data-store-detail-ready={readyToReveal ? "1" : "0"}
+        data-store-detail-data-ready={dataReady ? "1" : "0"}
       >
       <StoreDetailSummarySection
         headerElevated={headerSolid || !heroVisualForHeader}
@@ -1901,7 +1920,6 @@ export function StoreDetailPublic({
         </Link>
       </div>
       </div>
-    </StoreDetailCartChrome>,
-    { anchorPaintGate: true }
+    </StoreDetailCartChrome>
   );
 }

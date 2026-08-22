@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { StoresHub } from "@/components/stores/StoresHub";
-import { StoresDeliveryLayoutShell } from "@/components/delivery/navigation/StoresDeliveryLayoutShell";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
@@ -29,13 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default function StoresPage() {
   return (
-    <StoresDeliveryLayoutShell>
-      <div
-        className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
-        data-stores-layout-profile="stores-hub"
-      >
-        <StoresHub />
-      </div>
-    </StoresDeliveryLayoutShell>
+    <div
+      className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
+      data-stores-layout-profile="stores-hub"
+    >
+      <StoresHub />
+    </div>
   );
 }

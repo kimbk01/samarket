@@ -4,7 +4,7 @@ import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { StoresBrowsePrimaryView } from "@/components/stores/browse/StoresBrowsePrimaryView";
+import { DeliveryBrowseRouteBridge } from "@/components/delivery/presentation/DeliveryBrowseRouteBridge";
 
 interface PageProps {
   params: Promise<{ primary: string }>;
@@ -100,9 +100,8 @@ async function StoresBrowsePrimaryPageBody({ params, searchParams }: PageProps) 
   const sub = typeof sp.sub === "string" && sp.sub.trim() ? sp.sub.trim().toLowerCase() : null;
   const safePrimary = typeof primary === "string" ? primary.trim().toLowerCase() : "";
 
+  /** ARCH B: route identity only — BrowseSurface lives in DeliveryPresentationShell. */
   return (
-    <div className="bg-sam-app dark:bg-[#18191A]">
-      <StoresBrowsePrimaryView primarySlug={safePrimary} initialSubSlug={sub} />
-    </div>
+    <DeliveryBrowseRouteBridge primarySlug={safePrimary} initialSubSlug={sub} />
   );
 }

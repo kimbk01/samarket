@@ -56,8 +56,8 @@ function structuralChecks() {
         media.includes('surface === "detail-hero"'),
     },
     {
-      id: "transition_stays_lazy",
-      pass: !read("components/stores/detail/StoreDetailTransitionShell.tsx").includes("priority"),
+      id: "transition_shell_removed",
+      pass: !fs.existsSync(path.join(root, "components/stores/detail/StoreDetailTransitionShell.tsx")),
     },
   ];
 }

@@ -10,7 +10,7 @@ describe("delivery consumer enter-kind matrix", () => {
   const cases = [
     ["/stores", "/stores/browse/restaurant", "rtl-forward"],
     ["/stores", "/stores/browse/cafe", "rtl-forward"],
-    ["/stores/browse/restaurant", "/stores/aa11", "rtl-forward"],
+    ["/stores/browse/restaurant", "/stores/aa11", "subtle"],
     ["/stores", "/stores/aa11", "rtl-forward"],
     ["/stores/aa11", "/stores", "ltr-back"],
     ["/stores/browse/restaurant", "/stores", "ltr-back"],
@@ -45,5 +45,14 @@ describe("delivery consumer enter-kind matrix", () => {
       lastForwardAxisRef: ref,
     });
     expect(k).toBe("ltr-back");
+  });
+
+  it("ARCH B2 popstate browse←store uses subtle", () => {
+    const ref = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/aa11", "/stores/browse/restaurant", {
+      popstateBack: true,
+      lastForwardAxisRef: ref,
+    });
+    expect(k).toBe("subtle");
   });
 });

@@ -64,6 +64,22 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("subtle");
   });
 
+  it("ARCH B2: browse ↔ store detail uses subtle (shell owns slide)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/stores/browse/restaurant", "/stores/aa11", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("subtle");
+    expect(
+      computeRouteTransitionEnterKind("/stores/aa11", "/stores/browse/restaurant", {
+        popstateBack: true,
+        lastForwardAxisRef,
+      })
+    ).toBe("subtle");
+  });
+
   it("market list to trade post detail uses rtl-forward", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {

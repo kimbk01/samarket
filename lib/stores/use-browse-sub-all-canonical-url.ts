@@ -27,6 +27,9 @@ export function useBrowseSubAllCanonicalUrl(
 
   useEffect(() => {
     if (!enabled || !primarySlug.trim()) return;
+    const pathOnly = (pathname ?? "").split("?")[0] ?? "";
+    /** Parked browse under store detail must not rewrite URL back to browse. */
+    if (pathOnly !== "/stores/browse" && !pathOnly.startsWith("/stores/browse/")) return;
     if (!shouldCanonicalizeBrowseSubToAll(trimmedSub, subs)) return;
 
     const target = storesBrowseAllPath(primarySlug);

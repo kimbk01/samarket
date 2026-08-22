@@ -31,6 +31,8 @@ describe("delivery-store-detail-prewarm-lifecycle paths", () => {
   it("isStoresBrowseHubPath and isStoresSurfacePath", () => {
     expect(isStoresBrowseHubPath("/stores")).toBe(true);
     expect(isStoresBrowseHubPath("/stores/")).toBe(true);
+    expect(isStoresBrowseHubPath("/stores/browse")).toBe(true);
+    expect(isStoresBrowseHubPath("/stores/browse/restaurant")).toBe(true);
     expect(isStoresBrowseHubPath("/stores/aa11")).toBe(false);
     expect(isStoresSurfacePath("/stores/aa11")).toBe(true);
     expect(isStoresSurfacePath("/community-messenger")).toBe(false);

@@ -4,24 +4,31 @@
 |--------|--------|
 | STORES COLD ENTRY P0 | **CLOSED** |
 | FEATURED FOCUS LANDING (settle delta) | **SUPERSEDED** |
-| FEATURED FOCUS FIRST-FRAME LANDING | **REOPEN** — local viewport 5/5 PASS; **ANDROID APK NOT_PROVEN** |
+| FEATURED FOCUS FIRST-FRAME LANDING | **PASS — ARCH B2** |
+| STORE ENTRY/EXIT SSOT | **LOCKED — ARCH B2**, see `STORE-ENTRY-EXIT-SSOT.md` |
 | OWNER CHILD→CHILD RTL | **PASS** |
 | OWNER CHILD→HUB LTR-BACK | **NOT_PROVEN** |
-| OWNER HUB BOUNDARY REMOUNT | **OBSERVED** |
-| OWNER HUB BOUNDARY FIX | **NOT AUTHORIZED / NOT STARTED** |
 | ANDROID RTL DOM | **PASS** (APK WebView CDP) |
 | IOS | **NOT_PROVEN** |
+| SAMSUNG ARCH B2 | **NOT_PROVEN** |
 
-## Featured smooth entry (this turn)
+## Store enter/exit authorities (canonical)
 
-- Code: PREPARING overlay + single land (`scrollIntoView` + sync nudge) + retain pin after strip
-- Local Playwright phone/tablet viewports (device-matched): **5/5 PASS**
-- Evidence: `featured-focus-entry-local-viewport-gate-latest.json`
-- Report: `FEATURED-FOCUS-ENTRY-SMOOTH-ROOT-FIX.md`
-- **GATE for close: ANDROID APK still required** (APK serves Production until rebuild/deploy)
+| Layer | OWNER |
+|-------|--------|
+| URL / HISTORY / DEEP-LINK | Next Router |
+| BROWSE↔STORE PRESENTATION + SURFACE LIFETIME | `DeliveryPresentationShell` |
+| DELIVERY BROWSE↔STORE APP TRANSITION | `AppRouteTransition` 비관여 |
+| STORE READY | `store-detail-ready-authority` (data only) |
+| FEATURED FOCUS | position/land only |
+
+**Not OWNER:** transition shell (removed), body cover, pre-push wait (removed), Pathname/LayoutRouter freeze experiments (reverted).
+
+See `STORE-ENTRY-EXIT-SSOT.md`.
 
 ## Rules
 
 - Do not close featured first-frame on settle delta alone.
 - Do not treat Chrome/Playwright viewport as APK PASS.
-- Owner hub remount fix still NOT AUTHORIZED.
+- Do not add fullscreen cover/portal/timeout masking to hide menus delay.
+- Regressions reopen the actual ROUTE / SURFACE LIFECYCLE / DATA READY / FOCUS / SCROLL owner only.

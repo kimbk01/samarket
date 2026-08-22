@@ -35,16 +35,15 @@ import { armStoreMenuFocusEntryIntent } from "@/lib/dibay/store-menu-focus-entry
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
-import { readStoreDetailListSeed, writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
+import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import {
   parseBrowsePrimarySlugFromPathname,
   writeStoreDetailBrowseOrigin,
   parseBrowseSubSlugFromSearch,
 } from "@/lib/dibay/store-detail-browse-origin";
-import { showStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
 import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
-import { resetDeliveryStoreMenusPrewarmForTests } from "@/lib/dibay/delivery-store-menus-prewarm";
+import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 import {
   DELIVERY_PERF_TAG_ROUTE_TRANSITION,
   deliveryPerfTraceLog,
@@ -312,7 +311,9 @@ function StoreDeliveryRowCardInner({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
+  const browseLifecycle = useDeliverySurfaceLifecycle("browse");
+  const browseActive = browseLifecycle === "active";
+  const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug, browseActive);
   const setListItemRef = useCallback(
     (node: HTMLElement | null) => {
       viewportRef(node);
@@ -328,20 +329,22 @@ function StoreDeliveryRowCardInner({
       source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
       opts?: { force?: boolean; focusProductId?: string | null }
     ) => {
+      if (!browseActive) return;
       deliveryStoreDetailPrefetch(router, data.slug, source, opts);
     },
-    [router, data.slug]
+    [browseActive, router, data.slug]
   );
 
   const warmFeaturedMenuNavigation = useCallback(
     (productId: string, source: "pointer_enter" | "pointer_down" | "touch_start") => {
+      if (!browseActive) return;
       deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       prefetchStoreDetail(source, {
         force: true,
         focusProductId: productId,
       });
     },
-    [data.slug, prefetchStoreDetail]
+    [browseActive, data.slug, prefetchStoreDetail]
   );
   const d = distLabel(data.distanceKm);
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
@@ -440,7 +443,6 @@ function StoreDeliveryRowCardInner({
     (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
       const href = buildStoreDetailHref(data.slug, focusProductId);
       if (focusProductId) armStoreMenuFocusEntryIntent(focusProductId);
-      resetDeliveryStoreMenusPrewarmForTests();
       saveDeliveryListScrollBeforeStoreNavigation();
       const browsePrimary =
         data.browsePrimarySlug?.trim() ||
@@ -465,12 +467,10 @@ function StoreDeliveryRowCardInner({
         tagline: data.tagline,
         region_badge: data.regionBadge,
       });
-      const seed = readStoreDetailListSeed(data.slug);
-      if (seed) showStoreDetailTransitionShell(seed, href);
+      deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       deliveryShellEntryBeginNavigation(data.slug);
       deliveryShellEntryScheduleRouterPushStart(data.slug, href);
       router.push(href, { scroll: false });
-      deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
       markStoreDetailListSeedNavigation(data.slug);
       dibayPerfRecordStoreCardNavigationIntent(data.slug);

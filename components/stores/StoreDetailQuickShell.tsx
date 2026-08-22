@@ -7,7 +7,6 @@ import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/S
 import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 import { dibayPerfOnStoreDetailShellVisible } from "@/lib/dibay/delivery-flow-perf";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
-import { hideStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
 import {
   DELIVERY_PERF_TAG_STORE_ENTRY,
   deliveryPerfTraceLog,
@@ -68,7 +67,6 @@ export function StoreDetailQuickShell({
     const key = decoded || slug;
     if (!key || pass0LoggedRef.current === key) return;
     pass0LoggedRef.current = key;
-    hideStoreDetailTransitionShell(key);
     dibayPerfOnStoreDetailShellVisible({ slug: key });
     deliveryShellEntryMark("shell_visible", { slug: key, source: "quick_shell" });
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {

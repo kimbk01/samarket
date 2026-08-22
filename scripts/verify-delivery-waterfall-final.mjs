@@ -39,7 +39,6 @@ function read(rel) {
 
 function structuralChecks() {
   const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
-  const shell = read("components/stores/detail/StoreDetailTransitionShell.tsx");
   const summary = read("components/stores/store-detail/StoreDetailSummarySection.tsx");
   const detail = read("components/stores/StoreDetailPublic.tsx");
   const hero = read("components/stores/store-order-detail/StoreOrderHeroSummary.tsx");
@@ -53,8 +52,8 @@ function structuralChecks() {
   checks.push({ id: "home_eager_fold_only", pass: noFullEager });
 
   checks.push({
-    id: "transition_shell_no_priority",
-    pass: !shell.includes("priority") || !/DeliveryMediaImage[\s\S]{0,200}priority/.test(shell),
+    id: "transition_shell_removed",
+    pass: !fs.existsSync(path.join(root, "components/stores/detail/StoreDetailTransitionShell.tsx")),
   });
 
   checks.push({

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
 import { StoreDetailPageEnterTrace } from "@/components/stores/detail/StoreDetailPageEnterTrace";
-import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
+import { DeliveryStoreRouteBridge } from "@/components/delivery/presentation/DeliveryStoreRouteBridge";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { loadStoreSeoMetadataBySlug } from "@/lib/stores/load-store-seo-metadata";
@@ -53,11 +53,14 @@ export default async function StoreDetailPage({
 }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
-  /** 첫 페인트: 클라이언트에서 즉시 shell → split API hydrate (서버 선조회·monolith metadata 제거) */
+  /**
+   * Soft (parked browse): bridge null — DeliveryPresentationShell hosts StoreDetailPublic.
+   * Hard / direct: bridge mounts StoreDetailPublic (RSC page entry preserved).
+   */
   return (
     <>
       <StoreDetailPageEnterTrace slug={safe} />
-      <StoreDetailPublic key={safe} slug={safe} initialApiResponse={null} />
+      <DeliveryStoreRouteBridge slug={safe} />
     </>
   );
 }

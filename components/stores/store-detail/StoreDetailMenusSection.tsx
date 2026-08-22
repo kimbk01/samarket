@@ -4,8 +4,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  clearStoreMenuProductFocusRing,
   isStoreMenuProductFocusLandingAligned,
   isStoreMenuSectionHeaderLandingAligned,
+  measureStoreMenuProductFocusDeltaPx,
   resolveStoreMenuFocusStickyBottomPx,
   scrollStoreMenuFocusEntryIntoView,
   storeMenuProductDomId,
@@ -33,6 +35,8 @@ import {
   deliveryPerfTraceEnabled,
   deliveryPerfTraceLog,
 } from "@/lib/dibay/delivery-perf-trace";
+import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
+import { deliveryPresentationMarkEvent } from "@/lib/dibay/delivery-presentation-evidence";
 
 export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   menusLoading,
@@ -98,13 +102,15 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   menuProductsForReviewRail?: StoreMenuReviewRailProduct[];
   onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
+  const storeLifecycle = useDeliverySurfaceLifecycle("store");
+  const storeActive = storeLifecycle === "active";
   const canInteract = canSell && !menuSelectBlocked;
   const menuBoardRef = useRef<StoreMenuBoardListHandle>(null);
   const tabsSentinelRef = useRef<HTMLDivElement>(null);
   const { pinned, tabsHeightPx } = useStoreDetailCategoryTabsPin({
     sentinelRef: tabsSentinelRef,
     tabsRef: menuStickyMeasureRef,
-    enabled: true,
+    enabled: storeActive,
   });
   const firstSectionReadyRef = useRef(false);
   const firstVisibleRef = useRef(false);
@@ -114,15 +120,27 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   const [retainFocusScrollSpacer, setRetainFocusScrollSpacer] = useState(false);
   /** product당 scroll 1회 — effect 재진입 시 재 scroll 금지 */
   const focusScrollCommittedRef = useRef<string | null>(null);
+  const focusTargetReadyMarkedRef = useRef<string | null>(null);
+  const focusRingProductIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     focusHandledRef.current = null;
     focusScrollCommittedRef.current = null;
+    focusTargetReadyMarkedRef.current = null;
   }, [focusProductId]);
 
   useEffect(() => {
-    if (focusProductId) setRetainFocusScrollSpacer(true);
+    if (focusProductId) {
+      focusRingProductIdRef.current = focusProductId;
+      setRetainFocusScrollSpacer(true);
+    }
   }, [focusProductId]);
+
+  useEffect(() => {
+    if (storeActive) return;
+    clearStoreMenuProductFocusRing(focusRingProductIdRef.current);
+    focusRingProductIdRef.current = null;
+  }, [storeActive]);
 
   /**
    * focusProduct entry — 단일 scroll authority.
@@ -131,7 +149,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
    */
   useLayoutEffect(() => {
     const productId = focusProductId?.trim();
-    if (!productId || menusLoading) return;
+    if (!storeActive || !productId || menusLoading) return;
     if (focusHandledRef.current === productId) return;
 
     const sectionIndex = findMenuSectionIndexForProduct(menuSectionsFiltered, productId);
@@ -194,6 +212,10 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       const el = document.getElementById(storeMenuProductDomId(productId));
       if (!el) return null;
       if (!(el.getBoundingClientRect().height > 0)) return null;
+      if (focusTargetReadyMarkedRef.current !== productId) {
+        focusTargetReadyMarkedRef.current = productId;
+        deliveryPresentationMarkEvent("focusTargetReady", { productId });
+      }
       return el;
     };
 
@@ -206,12 +228,21 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       const sticky = stickyForLand();
       const vh = typeof window !== "undefined" ? window.innerHeight : 0;
       if (!isStoreMenuFocusStickyGeometryReady(sticky, vh)) return false;
-      return scrollStoreMenuFocusEntryIntoView(sectionIndex, productId, sticky, {
+      const landed = scrollStoreMenuFocusEntryIntoView(sectionIndex, productId, sticky, {
         behavior: "auto",
       });
+      if (landed) {
+        deliveryPresentationMarkEvent("focusLand", { productId, sectionIndex });
+      }
+      return landed;
     };
 
     const finish = () => {
+      const sticky = stickyBottomNow();
+      deliveryPresentationMarkEvent("focusFinal", {
+        productId,
+        deltaPx: measureStoreMenuProductFocusDeltaPx(productId, sticky),
+      });
       focusHandledRef.current = productId;
       onFocusEntryReady?.();
       onFocusProductHandled?.();
@@ -297,6 +328,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       cancelAnimationFrame(rafId);
     };
   }, [
+    storeActive,
     focusProductId,
     menusLoading,
     menuSectionsFiltered,

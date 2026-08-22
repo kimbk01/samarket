@@ -24,6 +24,7 @@ export function parseStoreMenuProductDomId(elementId: string): string | null {
 }
 
 const FOCUS_RING_CLASSES = ["ring-2", "ring-sam-primary", "ring-offset-2", "ring-offset-sam-surface"] as const;
+const focusRingTimers = new Map<string, number>();
 
 /**
  * focus landing sticky 하단 — pinned 탭 실측이 있으면 그것, 없으면 header+tabs 높이 합.
@@ -98,10 +99,25 @@ export function isStoreMenuSectionHeaderLandingAligned(
 function applyFocusProductRing(productId: string): void {
   const el = document.getElementById(storeMenuProductDomId(productId));
   if (!el) return;
+  const prior = focusRingTimers.get(productId);
+  if (prior) window.clearTimeout(prior);
   el.classList.add(...FOCUS_RING_CLASSES);
-  window.setTimeout(() => {
+  const timer = window.setTimeout(() => {
+    focusRingTimers.delete(productId);
     el.classList.remove(...FOCUS_RING_CLASSES);
   }, 2200);
+  focusRingTimers.set(productId, timer);
+}
+
+export function clearStoreMenuProductFocusRing(productId: string | null | undefined): void {
+  const id = productId?.trim();
+  if (!id) return;
+  const timer = focusRingTimers.get(id);
+  if (timer) {
+    window.clearTimeout(timer);
+    focusRingTimers.delete(id);
+  }
+  document.getElementById(storeMenuProductDomId(id))?.classList.remove(...FOCUS_RING_CLASSES);
 }
 
 function syncScrollNudgeToTargetTop(

@@ -82,7 +82,7 @@ function readSavedScrollY(routeKey: string): number | null {
       return null;
     }
     const y = Math.max(0, Math.round(Number(parsed.y) || 0));
-    return y > 0 ? y : null;
+    return y;
   } catch {
     return null;
   }

@@ -95,6 +95,7 @@ export function useStoreDetailCategoryTabsPin(args: {
   }, [tabsHeightPx, enabled, recapturePinThreshold, evaluatePin]);
 
   useLayoutEffect(() => {
+    if (!enabled) return;
     const tabs = tabsRef.current;
     if (!tabs || typeof ResizeObserver === "undefined") return;
     const measure = () => {

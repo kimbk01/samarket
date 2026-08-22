@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { registerBrowseSubtopicCollapseSentinel } from "@/lib/stores/browse-subtopic-collapse-chrome";
+import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 
 /**
  * browse 목록 스크롤 본문 최상단 sentinel — 4단 접힘 IO·scroll-root 좌표 루트.
@@ -9,11 +10,17 @@ import { registerBrowseSubtopicCollapseSentinel } from "@/lib/stores/browse-subt
  */
 export function BrowseSubtopicCollapseSentinel({ routeKey }: { routeKey: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const lifecycle = useDeliverySurfaceLifecycle("browse");
+  const active = lifecycle === "active";
 
   useLayoutEffect(() => {
+    if (!active) {
+      registerBrowseSubtopicCollapseSentinel(null);
+      return;
+    }
     registerBrowseSubtopicCollapseSentinel(ref.current);
     return () => registerBrowseSubtopicCollapseSentinel(null);
-  }, [routeKey]);
+  }, [active, routeKey]);
 
   return (
     <div

@@ -78,6 +78,7 @@ import {
   getBrowseListRefreshSnapshot,
   subscribeBrowseListRefresh,
 } from "@/lib/stores/browse-sub-chip-navigation";
+import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 
 function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
   const bySlug = a.slug.localeCompare(b.slug);
@@ -151,6 +152,14 @@ export function StoresBrowsePrimaryView({
   initialSubSlug: string | null;
 }) {
   const { t, safeT, language } = useI18n();
+  const browseLifecycle = useDeliverySurfaceLifecycle("browse");
+  const browseActive = browseLifecycle === "active";
+  const browseCanRestoreScroll =
+    browseLifecycle === "active" || browseLifecycle === "entering";
+  const browseActiveRef = useRef(browseActive);
+  useEffect(() => {
+    browseActiveRef.current = browseActive;
+  }, [browseActive]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -201,6 +210,7 @@ export function StoresBrowsePrimaryView({
   }, [browseUserGeo]);
 
   useEffect(() => {
+    if (!browseActive) return;
     if (!browseDistanceCoordsEnabled) return;
     if (typeof window === "undefined") return;
     let cancelled = false;
@@ -229,7 +239,7 @@ export function StoresBrowsePrimaryView({
       window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
       window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBootProfile);
     };
-  }, [browseDistanceCoordsEnabled]);
+  }, [browseActive, browseDistanceCoordsEnabled]);
 
   const primary = useMemo(() => {
     if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
@@ -248,7 +258,7 @@ export function StoresBrowsePrimaryView({
 
   const subs = useBrowseSubIndustries(primarySlug);
 
-  useBrowseSubAllCanonicalUrl(primarySlug, subs);
+  useBrowseSubAllCanonicalUrl(primarySlug, subs, { enabled: browseActive });
 
   const optimisticSub = useSyncExternalStore(
     subscribeBrowseSubChipOptimisticSub,
@@ -279,8 +289,9 @@ export function StoresBrowsePrimaryView({
   );
 
   useEffect(() => {
+    if (!browseActive) return;
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
-  }, [searchParams]);
+  }, [browseActive, searchParams]);
 
   useEffect(() => {
     // URL/searchParams가 확정되면 optimistic 상태를 해제
@@ -335,6 +346,7 @@ export function StoresBrowsePrimaryView({
   }, [activeSub, primarySlug, remoteRows]);
 
   useEffect(() => {
+    if (!browseActive) return;
     // 뒤로가기(popstate) 복귀 계측 — 동기 핸들러 부담 최소화
     const onPop = () => {
       queueMicrotask(() => {
@@ -348,7 +360,7 @@ export function StoresBrowsePrimaryView({
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [searchParams]);
+  }, [browseActive, searchParams]);
 
   const browseQuerySuffix = useMemo(() => {
     const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
@@ -430,6 +442,7 @@ export function StoresBrowsePrimaryView({
 
   const loadRemote = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
+      if (!browseActiveRef.current) return;
       const silent = !!opts?.silent;
       const force = !!opts?.force;
       const requestId = ++loadRemoteRequestIdRef.current;
@@ -445,6 +458,7 @@ export function StoresBrowsePrimaryView({
           : qsAtStart;
         const { json } = await fetchStoresBrowseDeduped(qs, { language });
         if (
+          !browseActiveRef.current ||
           requestId !== loadRemoteRequestIdRef.current ||
           contextKeyAtStart !== browseListContextKeyRef.current
         ) {
@@ -477,6 +491,7 @@ export function StoresBrowsePrimaryView({
         }
       } catch {
         if (
+          !browseActiveRef.current ||
           requestId !== loadRemoteRequestIdRef.current ||
           contextKeyAtStart !== browseListContextKeyRef.current
         ) {
@@ -489,6 +504,7 @@ export function StoresBrowsePrimaryView({
         }
       } finally {
         if (
+          !browseActiveRef.current ||
           requestId === loadRemoteRequestIdRef.current &&
           contextKeyAtStart === browseListContextKeyRef.current
         ) {
@@ -519,6 +535,10 @@ export function StoresBrowsePrimaryView({
   }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
 
   useEffect(() => {
+    if (!browseActive) {
+      loadRemoteRequestIdRef.current += 1;
+      return;
+    }
     const prevKey = prevBrowseListContextKeyRef.current;
     const ctxChanged = prevKey !== browseListContextKey;
     const geoOnlyChange =
@@ -569,19 +589,29 @@ export function StoresBrowsePrimaryView({
     }
     const silent = !!cached || browseHadListForContextRef.current;
     void loadRemoteRef.current({ silent });
-  }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
+  }, [
+    browseActive,
+    browseListContextKey,
+    browseQuerySuffix,
+    browseQuerySuffixWithoutGeo,
+    peekBrowsePaintCache,
+  ]);
 
   useEffect(() => {
+    if (!browseActive) return;
     if (listRefreshTick === 0) return;
     void loadRemoteRef.current({ force: true, silent: false });
-  }, [listRefreshTick]);
+  }, [browseActive, listRefreshTick]);
 
   useEffect(() => {
     setListSort("default");
   }, [activeSub, primarySlug]);
 
   useRefetchOnPageShowRestore(
-    () => void loadRemoteRef.current({ silent: browseEverPaintedListRef.current, force: true }),
+    () => {
+      if (!browseActiveRef.current) return;
+      void loadRemoteRef.current({ silent: browseEverPaintedListRef.current, force: true });
+    },
     {
       enableVisibilityRefetch: false,
     },
@@ -590,7 +620,11 @@ export function StoresBrowsePrimaryView({
   /** 거리 정책 OFF 기간에는 기본 목록에서 좌표 기반 정렬을 하지 않는다. */
   const hasGeo = browseDistanceCoordsEnabled && browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
-  useDeliveryListScrollRestore(listScrollRouteKey, listLoaded);
+  /**
+   * Soft back: restore while StoreSurface still covers the entering browse.
+   * Hard/remount back uses the same pending-key authority.
+   */
+  useDeliveryListScrollRestore(listScrollRouteKey, listLoaded && browseCanRestoreScroll);
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {
     if (!remoteRows?.length) return remoteRows;
@@ -650,6 +684,7 @@ export function StoresBrowsePrimaryView({
   const browseListReady = !!primary;
 
   const onBrowsePullRefresh = useCallback(async () => {
+    if (!browseActiveRef.current) return;
     invalidateStoresBrowseMemoryCache(primarySlug);
     invalidateStoresBrowseClientCache(browseQuerySuffix, language);
     invalidateStoresBrowseClientCache(browseQuerySuffixWithoutGeo, language);
@@ -693,6 +728,10 @@ export function StoresBrowsePrimaryView({
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
+    if (!browseActive) {
+      setMainTier1Extras(null);
+      return;
+    }
     if (!primary) {
       setMainTier1Extras(null);
       return () => setMainTier1Extras(null);
@@ -703,7 +742,7 @@ export function StoresBrowsePrimaryView({
       stickyBelow: browseStickyBelow,
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, primary, browseStickyBelow, browseHeaderTitle]);
+  }, [browseActive, setMainTier1Extras, primary, browseStickyBelow, browseHeaderTitle]);
 
   if (!primary) {
     return (
@@ -722,7 +761,7 @@ export function StoresBrowsePrimaryView({
     <div className={`min-h-[50vh] bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} dark:bg-[#18191A]`}>
       <BrowseSubtopicCollapseSentinel routeKey={subtopicCollapseRouteKey} />
       <div className="pt-3">
-      {browseListReady ?
+      {browseListReady && browseActive ?
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>

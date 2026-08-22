@@ -226,12 +226,17 @@ export function computeRouteTransitionEnterKind(
     }
   } else if (isDeliveryConsumerStackPath(prevPath) && isDeliveryConsumerStackPath(nextPath)) {
     /**
-     * CUT-C — `/stores` hub → browse → store detail (and back).
-     * Same bottom-nav pillar used to collapse to `subtle`; depth SSOT restores full-page RTL/LTR.
+     * ARCH B2 — browse (depth 1) ↔ store detail root (depth 2):
+     * DeliveryPresentationShell owns the slide. AppRouteTransition must not also transform.
+     * Hub ↔ browse and deeper store stacks keep prior depth RTL/LTR.
      */
     const dPrev = deliveryConsumerStackDepth(prevPath);
     const dNext = deliveryConsumerStackDepth(nextPath);
-    if (opts.popstateBack) {
+    const browseStorePair =
+      (dPrev === 1 && dNext === 2) || (dPrev === 2 && dNext === 1);
+    if (browseStorePair) {
+      kind = "subtle";
+    } else if (opts.popstateBack) {
       kind = dNext < dPrev ? "ltr-back" : "rtl-back";
     } else if (dNext > dPrev) {
       kind = "rtl-forward";

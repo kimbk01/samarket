@@ -24,7 +24,8 @@ export function normalizeDeliveryPathname(pathname: string | null | undefined): 
 
 /** browse hub — viewport ambient prewarm 허용 표면 */
 export function isStoresBrowseHubPath(pathname: string | null | undefined): boolean {
-  return normalizeDeliveryPathname(pathname) === "/stores";
+  const p = normalizeDeliveryPathname(pathname);
+  return p === "/stores" || p === "/stores/browse" || p.startsWith("/stores/browse/");
 }
 
 /** browse hub + 매장 상세 — bottom-nav 이탈 시 abort 제외 대상 */
