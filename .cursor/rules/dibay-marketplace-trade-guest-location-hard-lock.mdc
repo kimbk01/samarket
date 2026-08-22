@@ -1,0 +1,56 @@
+---
+description: HARD LOCK — DIBAY Marketplace trade guest location (unset /market → hydrate ALL, not stuck resolving)
+alwaysApply: false
+globs:
+  - lib/trade/location/**
+  - lib/trade/marketplace/client-location-fetch.ts
+  - components/trade/TradeHeaderLocationPinButton.tsx
+  - components/home/HomeProductList.tsx
+  - components/post/PostListByCategory.tsx
+  - app/(main)/market/**
+---
+
+# DIBAY Marketplace Trade Guest Location HARD LOCK
+
+**HARD LOCK (2026-08-22).** Full doc: `docs/dibay-marketplace-trade-guest-location-hard-lock.md`.
+
+## Baseline
+
+- **FINAL: TRADE GUEST LOCATION LOCKED**
+- GUEST UNSET HYDRATE: **confirmed guest + 401/403 → ALL**
+- GUEST CONFIRMATION: **anonymous boot | terminal guest** (not blind 401)
+- GUEST STEADY STATE: **전체 + nationwide feed** (not `지역을 확인하는 중…`)
+- LOGGED-IN UNSET: **master CITY first** — preserved from L5 seed
+- TRANSIENT !ok: **UNSET + retry** — not ALL
+- MIGRATION: **NO**
+- CUT A–J / UI-1–6: **PRESERVED**
+
+## KEEP
+
+```text
+canCommitTradeGuestNationwideAllFromAddressDefaults
+  recoverable guest / cached user → false
+  anonymous boot | terminal guest → true
+  boot unsettled → false (UNSET retry)
+
+tradeMarketplaceHydrateScopeBeforeMasterResolution
+  confirmed guest + 401/403 → { mode: "all" }
+  other 401/403 / !ok / null → { mode: "unset" }
+  ok → null (master path)
+
+Guest /market first entry must router.replace location=all
+Unset URL must not block fetch after guest hydrate
+```
+
+Authority: `lib/trade/location/trade-marketplace-address-defaults-hydrate-scope.ts` · `resolve-trade-marketplace-default-city.ts`.
+
+This cut changed **guest unset hydrate only**, not logged-in master CITY seed, filter sheet, or SEARCH rank.
+
+## DO NOT (without a new cut)
+
+- Return UNSET for confirmed guest after anonymous boot
+- Map raw 401 to ALL during recoverable boot (master CITY seed regression)
+- Leave guest on perpetual `trade_location_resolving_city`
+- Fetch nationwide while URL is still UNSET (pre-hydrate leak)
+- Delete the SSOT helper or inline divergent 401 handling elsewhere
+- Reopen L5 master seed to break guest ALL

@@ -163,6 +163,17 @@ describe("marketplace browse SSOT wiring contract", () => {
     const resolver = read("lib/trade/location/resolve-trade-marketplace-default-city.ts");
     expect(resolver).toContain("resolveTradeLguCityFromInternal");
     expect(resolver).not.toContain("MASTER_LGU_UNRESOLVED");
+    expect(resolver).toContain("tradeMarketplaceHydrateScopeBeforeMasterResolution");
+  });
+
+  it("GUEST-1 — guest hydrate uses confirmed guest proof, not blind 401 → ALL", () => {
+    const ssot = read("lib/trade/location/trade-marketplace-address-defaults-hydrate-scope.ts");
+    expect(ssot).toContain("canCommitTradeGuestNationwideAllFromAddressDefaults");
+    expect(ssot).toContain("isRecoverableGuestAuthEstablished");
+    expect(ssot).toContain('boot.status === "anonymous"');
+    expect(ssot).toContain("dibay-marketplace-trade-guest-location-hard-lock");
+    const resolver = read("lib/trade/location/resolve-trade-marketplace-default-city.ts");
+    expect(resolver).toContain("tradeMarketplaceHydrateScopeBeforeMasterResolution");
   });
 
   it("R1 — filter-only reset keeps q, location, category", () => {
