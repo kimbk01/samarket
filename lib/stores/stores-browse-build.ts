@@ -390,7 +390,8 @@ export type StoresBrowseResponseBody = {
       | "eligibility_district_distance_rating"
       | "eligibility_distance"
       | "eligibility_rating"
-      | "eligibility_reviews";
+      | "eligibility_reviews"
+      | "eligibility_popular";
     sort: StoreBrowseServerSortId;
     page: number;
     limit: number;
@@ -539,6 +540,7 @@ export function resolveBrowseFilteredSortedStoreRows(
   taxonomySlice: BrowseTaxonomySlice,
   storeRowsRaw: unknown[],
   prefilteredRows?: StoreBrowseRow[],
+  completedOrderCount30dById?: Map<string, number> | null,
 ): BrowseFilteredStoreRowsResult {
   const { district, origin } = ctx;
   const userLat = origin.lat;
@@ -569,6 +571,8 @@ export function resolveBrowseFilteredSortedStoreRows(
     distanceKmById: distanceEnabled ? distById : null,
     outOfRangeById: distanceEnabled ? outOfRangeById : null,
     hasGeo: distanceEnabled,
+    completedOrderCount30dById:
+      sort === "popular" ? (completedOrderCount30dById ?? new Map()) : null,
   });
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);

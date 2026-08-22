@@ -19,6 +19,7 @@ const SECTION_BROWSE_ACTION: Partial<
   Record<StoresHomeFeedSectionKey, { href: () => string; labelKey: "store_browse_view_all" }>
 > = {
   open: { href: STORES_HOME_SECTION_BROWSE.orderNow, labelKey: "store_browse_view_all" },
+  popular: { href: STORES_HOME_SECTION_BROWSE.popular, labelKey: "store_browse_view_all" },
   discount: { href: STORES_HOME_SECTION_BROWSE.discount, labelKey: "store_browse_view_all" },
   top: { href: STORES_HOME_SECTION_BROWSE.topRated, labelKey: "store_browse_view_all" },
   nearby: { href: STORES_HOME_SECTION_BROWSE.nearby, labelKey: "store_browse_view_all" },
@@ -55,6 +56,7 @@ export function StoresHomeFeedList({
   const titleByKey: Record<StoresHomeFeedSectionKey, string> = {
     premium: t("store_spot_recommended_title"),
     open: t("store_order_now_title"),
+    popular: t("store_home_popular_stores_title"),
     discount: t("store_badge_menu_discount"),
     top: t("store_spot_recommended_subtitle"),
     nearby: t("store_neighborhood_more_title"),

@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "fast";
+export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "popular" | "fast";
 
 const SORTS: {
   id: StoreBrowseSortId;
@@ -11,12 +11,14 @@ const SORTS: {
     | "nav_store_sort_distance"
     | "nav_store_sort_rating"
     | "nav_store_sort_reviews"
+    | "nav_store_sort_popular"
     | "nav_store_sort_fast";
 }[] = [
   { id: "default", labelKey: "nav_store_sort_default" },
   { id: "distance", labelKey: "nav_store_sort_distance" },
   { id: "rating", labelKey: "nav_store_sort_rating" },
   { id: "reviews", labelKey: "nav_store_sort_reviews" },
+  { id: "popular", labelKey: "nav_store_sort_popular" },
   { id: "fast", labelKey: "nav_store_sort_fast" },
 ];
 

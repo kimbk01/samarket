@@ -34,6 +34,7 @@ import {
   type StoresBrowseAssembleResult,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
+import { loadStoreCompletedOrderCount30dMap } from "@/lib/stores/store-discovery-popular-store";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -249,6 +250,7 @@ async function loadBrowseRouteMetricsIfNeeded(
 async function finishFromPayload(
   payload: StoresBrowseSnapshotPayloadJson,
   ctx: StoresBrowseRequestContext,
+  sb: SupabaseClient<any>,
   input: { totalMs: number; readMs: number; via: SnapshotReadVia; payloadBuildMs?: number }
 ): Promise<StoresBrowseSnapshotReadResult | null> {
   const early = earlyBrowseBodyFromRpcPayload(
@@ -300,12 +302,20 @@ async function finishFromPayload(
     Math.round(input.readMs)
   );
   const prefilteredRows = resolveBrowseFilteredStoreRows(ctx, bundle.taxonomySlice, bundle.storeRowsRaw);
+  let completedOrderCount30dById: Map<string, number> | null = null;
+  if (ctx.sort === "popular") {
+    completedOrderCount30dById = await loadStoreCompletedOrderCount30dMap(
+      sb,
+      prefilteredRows.map((r) => r.id)
+    );
+  }
   const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
   const prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
     ctxWithDistance,
     bundle.taxonomySlice,
     bundle.storeRowsRaw,
     prefilteredRows,
+    completedOrderCount30dById
   );
   const assemble0 = devPerfNow();
   const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundle, prefetchedFilter);
@@ -359,7 +369,7 @@ export async function tryLoadStoresBrowseFromSnapshot(
       const readMs = devPerfNow() - read0;
 
       if (counter.hit && !counter.stale) {
-        const done = await finishFromPayload(counter.row.payload_json, ctx, {
+        const done = await finishFromPayload(counter.row.payload_json, ctx, sbAny, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
@@ -368,7 +378,7 @@ export async function tryLoadStoresBrowseFromSnapshot(
       }
       if (counter.hit && counter.stale) {
         scheduleStoresBrowseSnapshotRefresh(ctx.primary);
-        const done = await finishFromPayload(counter.row.payload_json, ctx, {
+        const done = await finishFromPayload(counter.row.payload_json, ctx, sbAny, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
@@ -380,7 +390,7 @@ export async function tryLoadStoresBrowseFromSnapshot(
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, ctx.primary, ctx.sub);
     if (!payload) return null;
     await upsertSnapshotCounter(sbAny, bundleKeys, payload);
-    return finishFromPayload(payload, ctx, {
+    return finishFromPayload(payload, ctx, sbAny, {
       totalMs: devPerfNow() - build0,
       readMs: rpcMs || devPerfNow() - build0,
       via: "unified_rpc",

@@ -10,6 +10,8 @@ export const STORES_HOME_SECTION_BROWSE = {
   discount: () => storesBrowsePathWithSort(DEFAULT_PRIMARY, { sub: "all", sort: "default" }),
   /** topRated: rating >= 4 → 평점순 */
   topRated: () => storesBrowsePathWithSort(DEFAULT_PRIMARY, { sub: "all", sort: "rating" }),
+  /** popularStores: completed orders 30d */
+  popular: () => storesBrowsePathWithSort(DEFAULT_PRIMARY, { sub: "all", sort: "popular" }),
   /** nearby: distanceKm 정렬 → 가까운순 */
   nearby: () => storesBrowsePathWithSort(DEFAULT_PRIMARY, { sub: "all", sort: "distance" }),
   recommended: () => storesBrowsePathWithSort(DEFAULT_PRIMARY, { sub: "all", sort: "rating" }),
@@ -18,6 +20,6 @@ export const STORES_HOME_SECTION_BROWSE = {
 
 export function parseStoreBrowseSortParam(raw: string | null | undefined): import("@/components/stores/browse/StoreListFilters").StoreBrowseSortId {
   const s = raw?.trim().toLowerCase();
-  if (s === "distance" || s === "rating" || s === "reviews" || s === "fast") return s;
+  if (s === "distance" || s === "rating" || s === "reviews" || s === "fast" || s === "popular") return s;
   return "default";
 }

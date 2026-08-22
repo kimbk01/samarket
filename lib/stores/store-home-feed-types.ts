@@ -40,4 +40,8 @@ export type StoreHomeFeedItem = {
   profileImageUrl: string | null;
   isFeatured: boolean;
   commerce: BrowseStoreCommerceSnapshot;
+  /** P1-A — completed orders created within STORE_POPULARITY_WINDOW_DAYS */
+  completedOrderCount30d?: number;
+  /** P0 eligibility rank for home popular shelf sort */
+  discoveryEligibilityRank?: number;
 };

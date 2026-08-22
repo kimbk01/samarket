@@ -80,6 +80,13 @@ export function StoresHomeHubBelowFold({
   return (
     <>
       <StoresHomeStoreDiscoveryRail
+        title={t("store_home_popular_stores_title")}
+        stores={sections.popularStores}
+        actionHref={STORES_HOME_SECTION_BROWSE.popular()}
+        actionLabel={t("store_browse_view_all")}
+      />
+
+      <StoresHomeStoreDiscoveryRail
         title={t("store_badge_menu_discount")}
         stores={sections.discounted}
         adHint={t("store_badge_instant_discount")}

@@ -1,9 +1,15 @@
 import { districtRank } from "@/lib/geo/haversine-km";
 import { compareStoreDiscoveryEligibilityRank } from "@/lib/stores/store-discovery-eligibility";
 
-export type StoreBrowseServerSortId = "default" | "distance" | "rating" | "reviews";
+export type StoreBrowseServerSortId = "default" | "distance" | "rating" | "reviews" | "popular";
 
-const VALID_SORTS = new Set<StoreBrowseServerSortId>(["default", "distance", "rating", "reviews"]);
+const VALID_SORTS = new Set<StoreBrowseServerSortId>([
+  "default",
+  "distance",
+  "rating",
+  "reviews",
+  "popular",
+]);
 
 export function parseStoreBrowseServerSortParam(
   raw: string | null | undefined
@@ -28,6 +34,8 @@ export type StoreDiscoverySortContext = {
   distanceKmById: Map<string, number | null> | null;
   outOfRangeById: Map<string, boolean> | null;
   hasGeo: boolean;
+  /** P1-A — required when sort=popular */
+  completedOrderCount30dById?: Map<string, number> | null;
 };
 
 function stableSlug(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -98,6 +106,14 @@ function reviewsCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number 
   return stableSlug(a, b);
 }
 
+function popularCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  const map = ctx.completedOrderCount30dById;
+  const ac = map?.get(a.id) ?? 0;
+  const bc = map?.get(b.id) ?? 0;
+  if (ac !== bc) return bc - ac;
+  return ratingCmp(a, b);
+}
+
 export function compareStoreDiscoveryBrowseRows(
   ctx: StoreDiscoverySortContext,
   a: StoreDiscoverySortRow,
@@ -120,6 +136,8 @@ export function compareStoreDiscoveryBrowseRows(
       return ratingCmp(a, b);
     case "reviews":
       return reviewsCmp(a, b);
+    case "popular":
+      return popularCmp(ctx, a, b);
     case "default":
     default: {
       if (ctx.hasGeo) {
@@ -160,7 +178,8 @@ export function resolveStoreBrowseSortedByMeta(
   | "eligibility_district_distance_rating"
   | "eligibility_distance"
   | "eligibility_rating"
-  | "eligibility_reviews" {
+  | "eligibility_reviews"
+  | "eligibility_popular" {
   switch (sort) {
     case "distance":
       return "eligibility_distance";
@@ -168,6 +187,8 @@ export function resolveStoreBrowseSortedByMeta(
       return "eligibility_rating";
     case "reviews":
       return "eligibility_reviews";
+    case "popular":
+      return "eligibility_popular";
     case "default":
     default:
       return hasGeo ? "eligibility_district_distance_rating" : "eligibility_district_distance_rating";

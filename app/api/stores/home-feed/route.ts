@@ -32,6 +32,7 @@ import {
 } from "@/lib/stores/store-list-delivery-origin";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
+import { loadStoreCompletedOrderCount30dMap } from "@/lib/stores/store-discovery-popular-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -254,6 +255,9 @@ export async function GET(req: Request) {
       );
     }
 
+    const allRowIds = rows.map((r) => r.id);
+    const completedOrderCount30dById = await loadStoreCompletedOrderCount30dMap(supabase, allRowIds);
+
     rows = sortStoreDiscoveryHomeFeedRows(rows, {
       district,
       eligibilityRankById,
@@ -406,6 +410,8 @@ export async function GET(req: Request) {
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
+        completedOrderCount30d: completedOrderCount30dById.get(r.id) ?? 0,
+        discoveryEligibilityRank: eligibilityRankById.get(r.id) ?? 99,
       };
     });
 

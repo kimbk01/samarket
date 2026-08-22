@@ -7,6 +7,7 @@ import {
 export type StoresHomeFeedSectionKey =
   | "premium"
   | "open"
+  | "popular"
   | "discount"
   | "top"
   | "nearby"
@@ -15,7 +16,8 @@ export type StoresHomeFeedSectionKey =
 /**
  * CONTRACT — `/stores` hero 직후 즉시 그리는 `StoreDeliveryRowCard` 목록 소스.
  *
- * `splitStoresHomeFeed` 는 영업 중·배달 가능 매장을 전부 `openNow` 로 넣고 `seen` 에서 제외한다.
+ * `splitStoresHomeFeed` 는 `openNow` 와 `popularStores` 를 각각 canonical metric으로 독립 계산한다.
+ * `popularStores` 는 global `seen` leftover 가 아니라 completed-order ranking 기반 (`stores-home-feed-sections.ts`).
  * below-fold `StoresHomeFeedList` 가 `open` 을 exclude 하면 nearby/rest 가 비는 일반 케이스에서
  * **primary row 가 없으면** 히어로 아래가 빈 화면이 된다 (2026-05 회귀).
  *
@@ -49,6 +51,7 @@ export function resolveStoresHomeBelowFoldFeedBlocks(
   const candidates: StoresHomeBelowFoldFeedBlock[] = [
     { key: "premium", stores: sections.premium },
     { key: "open", stores: sections.openNow },
+    { key: "popular", stores: sections.popularStores },
     { key: "discount", stores: sections.discounted },
     { key: "top", stores: sections.topRated },
     { key: "nearby", stores: sections.nearby },
