@@ -13,6 +13,7 @@ import {
   rememberTradeLguDisplayLabel,
   type TradeLocationScope,
 } from "@/lib/trade/location/trade-location-scope";
+import { tradeMarketplaceHydrateScopeBeforeMasterResolution } from "@/lib/trade/location/trade-marketplace-address-defaults-hydrate-scope";
 
 function cityScopeFromProductLguId(
   lguId: string,
@@ -94,7 +95,8 @@ async function resolveNationalLguCityScopeFromMaster(
 /**
  * UNSET URL hydrate — current address-book master is authority.
  * CITY + distance 전체. No master → ALL. Do not write ALL while master exists and maps.
- * Session pending / defaults fail → UNSET (no URL write).
+ * Guest confirmed (anonymous boot | terminal guest) + address-defaults 401/403 → ALL.
+ * Other !ok → UNSET (no URL write).
  */
 export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<TradeLocationScope> {
   try {
@@ -103,9 +105,9 @@ export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<Trade
       reason: "trade_location_seed",
     });
 
-    if (!snapshot?.ok) {
-      return { mode: "unset" };
-    }
+    const beforeMaster = tradeMarketplaceHydrateScopeBeforeMasterResolution(snapshot);
+    if (beforeMaster) return beforeMaster;
+    if (!snapshot?.ok) return { mode: "unset" };
 
     const master = pickUserAddressMasterRow(snapshot.defaults);
     if (!master) return { mode: "all" };
