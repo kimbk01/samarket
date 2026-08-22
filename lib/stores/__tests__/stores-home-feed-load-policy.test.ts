@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   applyStoresHomeFeedNetworkResult,
+  readStoresHomeFeedExactCacheSnapshot,
   resolveStoresHomeFeedCacheForLoad,
 } from "@/lib/stores/stores-home-feed-load-policy";
 import { primeStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
@@ -96,5 +97,29 @@ describe("stores-home-feed-live-store", () => {
     writeStoresHomeFeedLiveStore("", [store("live-a")], null);
     writeStoresHomeFeedLiveStore("", [], null);
     expect(readStoresHomeFeedLiveStore()?.stores.map((s) => s.id)).toEqual(["live-a"]);
+  });
+});
+
+describe("readStoresHomeFeedExactCacheSnapshot", () => {
+  beforeEach(() => {
+    resetStoresHomeFeedLiveStoreForTests();
+  });
+
+  it("returns exact suffix client cache and ignores root fallback", () => {
+    primeStoreHomeFeedClientCache("", { stores: [store("root")], meta: null });
+    primeStoreHomeFeedClientCache("?region=Manila", { stores: [store("manila")], meta: null });
+    expect(readStoresHomeFeedExactCacheSnapshot("?region=Manila")?.stores.map((s) => s.id)).toEqual([
+      "manila",
+    ]);
+    expect(readStoresHomeFeedExactCacheSnapshot("?region=Quezon")).toBeNull();
+  });
+
+  it("requires live store querySuffix to match", () => {
+    writeStoresHomeFeedLiveStore("?region=Manila", [store("live-m")], null);
+    // live miss for ""; no client entry for "" in this case either after only region live
+    expect(readStoresHomeFeedExactCacheSnapshot("?region=Quezon")).toBeNull();
+    expect(readStoresHomeFeedExactCacheSnapshot("?region=Manila")?.stores.map((s) => s.id)).toEqual([
+      "live-m",
+    ]);
   });
 });

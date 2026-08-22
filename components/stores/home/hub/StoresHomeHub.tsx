@@ -13,6 +13,7 @@ import { getSingleFlightPromise } from "@/lib/http/run-single-flight";
 import { storesHomeFeedSingleFlightKey } from "@/lib/stores/stores-home-network-guards";
 import {
   applyStoresHomeFeedNetworkResult,
+  readStoresHomeFeedExactCacheSnapshot,
   readStoresHomeFeedInitialSnapshot,
   resolveStoresHomeFeedCacheForLoad,
 } from "@/lib/stores/stores-home-feed-load-policy";
@@ -60,7 +61,10 @@ export function StoresHomeHub({
   recentOrder: _recentOrder,
 }: {
   querySuffix: string;
-  /** Phase 4 — false until boot-stable feed key; show height-stable blank, no home-feed yet. */
+  /**
+   * Phase 4 / CUT-B2 — network load may start when true (boot-stable key).
+   * Exact-suffix cached snapshot may paint while false; do not treat as auth/boot ready.
+   */
   feedReady?: boolean;
   buyerState: StoreOrderDashboardBuyerState;
   recentOrder: RecentOrderPreview | null;
@@ -96,7 +100,23 @@ export function StoresHomeHub({
   }, [querySuffix]);
 
   useLayoutEffect(() => {
+    /**
+     * CUT-B2 — before feedReady, paint exact-suffix session/memory cache only.
+     * Do not fetch; do not flip feedReady; no root↔region fallback (avoids wrong key paint).
+     */
     if (!feedReady) {
+      if (feedSnapshotSeededRef.current) return;
+      const exact = readStoresHomeFeedExactCacheSnapshot(querySuffix);
+      if (exact && exact.stores.length > 0) {
+        feedSnapshotSeededRef.current = true;
+        setStores(exact.stores);
+        setMeta(exact.meta);
+        setLoading(false);
+        storesRef.current = exact.stores;
+        metaRef.current = exact.meta;
+        markStoresHomePerf("store-card");
+        return;
+      }
       setLoading(true);
       return;
     }

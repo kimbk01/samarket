@@ -50,6 +50,34 @@ export function readStoresHomeFeedInitialSnapshot(querySuffix: string): StoresHo
   };
 }
 
+/**
+ * CUT-B2 — displayable cache for **exact** `querySuffix` only (no root fallback).
+ * Used to paint before boot/`feedReady` without opening home-feed network or mutating auth.
+ */
+export function readStoresHomeFeedExactCacheSnapshot(
+  querySuffix: string
+): StoresHomeFeedLoadSnapshot | null {
+  const live = readStoresHomeFeedLiveStore();
+  if (live && live.querySuffix === querySuffix && live.stores.length > 0) {
+    return {
+      stores: live.stores,
+      meta: live.meta,
+      fromCache: true,
+      isFresh: false,
+    };
+  }
+  const primary = readStoreHomeFeedClientCache(querySuffix);
+  if (primary.entry && primary.entry.stores.length > 0) {
+    return {
+      stores: primary.entry.stores,
+      meta: primary.entry.meta,
+      fromCache: true,
+      isFresh: primary.isFresh,
+    };
+  }
+  return null;
+}
+
 type HomeFeedJson = {
   ok?: boolean;
   stores?: StoreHomeFeedItem[];
