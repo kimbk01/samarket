@@ -18,9 +18,8 @@ import {
 } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { STORES_DELIVERY_CONTENT_INNER_CLASS } from "@/lib/stores/stores-home-ui";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
-import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
@@ -708,8 +707,8 @@ export function StoresBrowsePrimaryView({
     () => (
       <>
         <StoresBrowsePullRefreshHint />
-        <div className="border-b border-sam-border bg-[#eac784]">
-          <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
+        <div className="w-full shrink-0 border-b border-sam-border bg-[#eac784]">
+          <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pb-2 pt-2`}>
             <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
           </div>
         </div>
@@ -744,7 +743,7 @@ export function StoresBrowsePrimaryView({
   if (!primary) {
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>
+        <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pt-4`}>
           <p className="text-sm text-sam-muted">{t("store_invalid_industry")}</p>
           <Link href="/stores" className="mt-4 inline-block text-sm text-signature">
             {t("store_browse_home_link")}
@@ -761,7 +760,7 @@ export function StoresBrowsePrimaryView({
       {browseListReady && browseActive ?
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
-      <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
+      <section className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} space-y-4 pt-2`}>
         {remoteRows === undefined ?
           <StoreDeliveryListLoading />
         : useRemoteList ?

@@ -81,7 +81,7 @@ export const STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS =
   "delivery-ui relative z-[4] w-full shrink-0 border-t border-[color:var(--dibay-domain-divider,var(--sector-header-border))] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
 
 export const STORES_HOME_HEADER_BROWSE_TABS_INNER_CLASS =
-  "relative mx-auto w-full min-w-0 max-w-[768px] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
+  "relative mx-auto w-full min-w-0 max-w-[768px] px-[var(--delivery-page-x)] bg-[color:var(--dibay-domain-surface,var(--sector-header-bg))]";
 
 /** browse 3단 — 1차 텍스트 탭 행(▼ 패널·2차 칩보다 위) */
 export const STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS =

@@ -1136,6 +1136,42 @@ assertNotIncludes(
   "browse list must not refresh subtopic scroll bindings from primary view"
 );
 
+const storesHomeUi = read("lib/stores/stores-home-ui.ts");
+assertIncludes(
+  storesHomeUi,
+  "STORES_DELIVERY_CONTENT_INNER_CLASS",
+  "stores delivery must expose content inner width SSOT"
+);
+assertIncludes(
+  browsePrimaryView,
+  "STORES_DELIVERY_CONTENT_INNER_CLASS",
+  "browse list must use delivery content inner width SSOT"
+);
+assertNotIncludes(
+  browsePrimaryView,
+  "APP_MAIN_COLUMN_CLASS",
+  "browse list must not use app main column width"
+);
+assertNotIncludes(
+  browsePrimaryView,
+  "PHILIFE_FEED_INSET_X_CLASS",
+  "browse list must not use philife feed inset gutter"
+);
+
+const browseSubTopicChips = read("components/stores/browse/StoresBrowseHeaderSubTopicChips.tsx");
+assertNotIncludes(
+  browseSubTopicChips,
+  "px-[var(--delivery-page-x)]",
+  "browse sub chips must not duplicate delivery gutter on row; parent tabs inner owns inset"
+);
+
+const storesHomeHeaderChrome = read("lib/design/stores-home-header-chrome.ts");
+assertIncludes(
+  storesHomeHeaderChrome,
+  "px-[var(--delivery-page-x)]",
+  "stores home header chrome must use delivery page gutter on browse tabs inner"
+);
+
 const browseSubtopicCollapseChrome = read("lib/stores/browse-subtopic-collapse-chrome.ts");
 assertIncludes(
   browseSubtopicCollapseChrome,

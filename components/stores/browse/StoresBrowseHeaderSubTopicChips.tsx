@@ -241,7 +241,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   const routePrimary = pathname?.match(/^\/stores\/browse\/([^/?]+)/)?.[1]?.trim().toLowerCase() ?? "";
 
   return (
-    <div className={`${STORES_HOME_HEADER_BROWSE_SUB_CHIPS_ROW_CLASS} px-[var(--delivery-page-x)]`}>
+    <div className={STORES_HOME_HEADER_BROWSE_SUB_CHIPS_ROW_CLASS}>
       <div className={STORES_HOME_SUB_CATEGORY_SLIDE_STAGE}>
         {slideTransition ?
           <>

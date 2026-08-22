@@ -1,7 +1,10 @@
 /** `/stores` 홈 hub — delivery 토큰 기반 Tailwind 묶음 */
 
-/** 헤더 `max-w-[768px]` 과 동일 — 태블릿에서 상단 3단·피드 좌우 여백 대칭 */
+/** 헤더 `max-w-[768px]` 과 동일 — 태블릿·APK·iOS·Windows 공통 읽기 폭 */
 export const STORES_HOME_CONTENT_COLUMN_CLASS = "mx-auto w-full min-w-0 max-w-[768px]";
+
+/** `/stores`·`/stores/browse/*` 본문·스티키 행 — 헤더 `STORES_HOME_HEADER_*_INNER` 와 동일 폭·거터 */
+export const STORES_DELIVERY_CONTENT_INNER_CLASS = `${STORES_HOME_CONTENT_COLUMN_CLASS} px-[var(--delivery-page-x)]`;
 
 export const STORES_HOME_STACK = "flex flex-col gap-[var(--delivery-section-gap)]";
 
