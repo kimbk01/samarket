@@ -1,8 +1,8 @@
 "use client";
 
-import { STORES_HOME_CHROME_INNER_CLASS } from "@/lib/stores/stores-home-header-layout";
 import {
   STORES_HOME_PRIMARY_CATEGORY_SCROLL,
+  STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER,
   STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY,
   STORES_HOME_SUB_CATEGORY_RAIL,
   STORES_HOME_SUB_CATEGORY_IMAGE_FRAME,
@@ -18,7 +18,7 @@ export function StoresHomePrimaryCategoriesSkeleton() {
       aria-hidden
       data-stores-home-category-pending="true"
     >
-      <div className={`${STORES_HOME_CHROME_INNER_CLASS} flex items-center pt-1.5 pb-1`}>
+      <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER}>
         <div className={STORES_HOME_PRIMARY_CATEGORY_SCROLL}>
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="flex w-[56px] shrink-0 flex-col items-center gap-1">

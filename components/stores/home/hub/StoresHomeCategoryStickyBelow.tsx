@@ -3,7 +3,6 @@
 import { memo, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomePrimaryCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
-import { StoresHomeSubCategoryRail } from "@/components/stores/home/hub/StoresHomeSubCategoryRail";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import {
@@ -14,45 +13,48 @@ import {
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
-import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
-import { STORES_HOME_CHROME_INNER_CLASS } from "@/lib/stores/stores-home-header-layout";
 import {
-  getStoresHomeSecondaryRevealedServerSnapshot,
-  getStoresHomeSecondaryRevealedSnapshot,
-  subscribeStoresHomeSecondaryRevealed,
-} from "@/lib/stores/stores-home-secondary-reveal-chrome";
-import {
-  STORES_HOME_PRIMARY_CATEGORY_SCROLL,
+  STORES_HOME_CATEGORY_STICKY_STACK,
   STORES_HOME_PRIMARY_CATEGORY_ICON_INNER,
   STORES_HOME_PRIMARY_CATEGORY_ICON_SLOT,
   STORES_HOME_PRIMARY_CATEGORY_LABEL_IDLE,
   STORES_HOME_PRIMARY_CATEGORY_LABEL_SELECTED,
+  STORES_HOME_PRIMARY_CATEGORY_SCROLL,
+  STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED,
+  STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY,
+  STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER,
   STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY,
   STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON,
   STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR,
   STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR_IDLE,
-  STORES_HOME_SUB_CATEGORY_SECTION_BODY,
 } from "@/lib/stores/stores-home-ui";
 
 function StoresHomePrimaryCategoryRail({
   primaries,
   activeSlug,
+  hasPrimarySelection,
+  compactSticky,
   language,
   ariaLabel,
 }: {
   primaries: StoreTaxonomyCategory[];
   activeSlug: string;
+  hasPrimarySelection: boolean;
+  compactSticky: boolean;
   language: "ko" | "en";
   ariaLabel: string;
 }) {
   const { onSelectPrimary, onPrewarmPrimary } = getStoresHomeCategoryChromeHandlers();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollClassName =
+    hasPrimarySelection ? STORES_HOME_PRIMARY_CATEGORY_SCROLL : STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED;
 
   useLayoutEffect(() => {
     registerStoresHomePrimaryScrollEl(scrollRef.current);
     return () => registerStoresHomePrimaryScrollEl(null);
-  }, []);
+  }, [hasPrimarySelection]);
 
   const tabs = primaries.map((p, index) => {
     const on = p.slug === activeSlug;
@@ -87,7 +89,9 @@ function StoresHomePrimaryCategoryRail({
               dimmed={!on}
               imgSize="fill"
               loading={index < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
-              frameClassName={`${STORES_HOME_PRIMARY_CATEGORY_ICON_INNER} ${on ? "scale-110" : "scale-100"}`}
+              frameClassName={`${STORES_HOME_PRIMARY_CATEGORY_ICON_INNER} ${
+                on && !compactSticky ? "scale-110" : "scale-100"
+              }`}
             />
           </span>
         : null}
@@ -103,9 +107,9 @@ function StoresHomePrimaryCategoryRail({
   });
 
   return (
-    <div data-stores-home-tier="3" className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY}>
-      <div className={`${STORES_HOME_CHROME_INNER_CLASS} flex items-center pt-1.5 pb-1`}>
-        <div ref={scrollRef} className={STORES_HOME_PRIMARY_CATEGORY_SCROLL} role="tablist" aria-label={ariaLabel}>
+    <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY}>
+      <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER}>
+        <div ref={scrollRef} className={scrollClassName} role="tablist" aria-label={ariaLabel}>
           {tabs}
         </div>
       </div>
@@ -115,75 +119,67 @@ function StoresHomePrimaryCategoryRail({
 
 const StoresHomePrimaryCategoryRailMemo = memo(StoresHomePrimaryCategoryRail);
 
-function StoresHomeTier2RevealShell({
-  primarySlug,
-  subs,
-  language,
-  revealed,
-}: {
-  primarySlug: string;
-  subs: StoreTaxonomyTopic[];
-  language: "ko" | "en";
-  revealed: boolean;
-}) {
-  if (subs.length === 0) return null;
-
-  return (
-    <div
-      data-stores-home-tier2-reveal
-      data-stores-home-tier="2"
-      data-revealed={revealed ? "true" : "false"}
-      className="w-full shrink-0 overflow-hidden"
-      aria-hidden={!revealed}
-    >
-      <section className={STORES_HOME_SUB_CATEGORY_SECTION_BODY} aria-label="store sub categories">
-        <div className={`${STORES_HOME_CHROME_INNER_CLASS} pb-2 pt-0`}>
-          <StoresHomeSubCategoryRail primarySlug={primarySlug} subs={subs} language={language} />
-        </div>
-      </section>
-    </div>
-  );
-}
-
 /**
- * CONTRACT — `/stores` TIER3 + TIER2 single header-stack instance (`MainTier1Extras.stickyBelow`).
- * DO NOT: scroll-body duplicate · sticky/body swap · scroll-driven navigation.
+ * CONTRACT — 맨 위: **2차 아래** 스크롤 본문 1차. 2차 보일 때만 렌더.
  */
-export function StoresHomeChromeBelowTier1() {
+export function StoresHomePrimaryCategoryPanel() {
   const snap = useSyncExternalStore(
     subscribeStoresHomeCategoryChrome,
     getStoresHomeCategoryChromeSnapshot,
     getStoresHomeCategoryChromeServerSnapshot
   );
-  const secondaryRevealed = useSyncExternalStore(
-    subscribeStoresHomeSecondaryRevealed,
-    getStoresHomeSecondaryRevealedSnapshot,
-    getStoresHomeSecondaryRevealedServerSnapshot
-  );
 
   if (!snap.taxonomyReady) {
-    return <StoresHomePrimaryCategoriesSkeleton />;
+    return (
+      <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY}>
+        <StoresHomePrimaryCategoriesSkeleton />
+      </div>
+    );
   }
 
-  if (snap.primaries.length === 0) return null;
+  if (snap.primaries.length === 0 || !snap.subCategoryInView) return null;
 
   return (
-    <div data-stores-home-chrome-below-tier1 className="w-full shrink-0">
+    <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY}>
       <StoresHomePrimaryCategoryRailMemo
         primaries={snap.primaries}
         activeSlug={snap.activeSlug}
+        hasPrimarySelection={snap.pickedSlug !== null}
+        compactSticky={false}
         language={snap.language}
         ariaLabel={snap.primaryAriaLabel}
-      />
-      <StoresHomeTier2RevealShell
-        primarySlug={snap.activeSlug}
-        subs={snap.subs}
-        language={snap.language}
-        revealed={secondaryRevealed}
       />
     </div>
   );
 }
 
-/** @deprecated — use `StoresHomeChromeBelowTier1` */
-export const STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW = <StoresHomeChromeBelowTier1 />;
+/**
+ * CONTRACT — 2차 숨김 후: **헤더 stickyBelow** 고정 1차(노란). 피드 스크롤과 분리.
+ */
+export function StoresHomePrimaryCategoryHeaderSticky() {
+  const snap = useSyncExternalStore(
+    subscribeStoresHomeCategoryChrome,
+    getStoresHomeCategoryChromeSnapshot,
+    getStoresHomeCategoryChromeServerSnapshot
+  );
+
+  if (!snap.taxonomyReady || snap.subCategoryInView || snap.primaries.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={STORES_HOME_CATEGORY_STICKY_STACK}>
+      <StoresHomePrimaryCategoryRailMemo
+        primaries={snap.primaries}
+        activeSlug={snap.activeSlug}
+        hasPrimarySelection
+        compactSticky
+        language={snap.language}
+        ariaLabel={snap.primaryAriaLabel}
+      />
+    </div>
+  );
+}
+
+/** `MainTier1Extras.stickyBelow` — 2차 숨김 시에만 QuickCategories 가 등록 */
+export const STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW = <StoresHomePrimaryCategoryHeaderSticky />;

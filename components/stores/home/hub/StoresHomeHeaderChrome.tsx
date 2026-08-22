@@ -8,7 +8,6 @@ import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/Stores
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { StoresHomeTier1ScrollShell } from "@/components/stores/home/hub/StoresHomeTier1ScrollShell";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
@@ -84,7 +83,6 @@ export function StoresHomeHeaderChrome() {
 
   return (
     <>
-      <StoresHomeTier1ScrollShell>
       <header
         data-stores-home-header
         className={`${STORES_HOME_HEADER_SHELL_CLASS} z-[3]`}
@@ -147,7 +145,6 @@ export function StoresHomeHeaderChrome() {
           </div>
         </div>
       </header>
-      </StoresHomeTier1ScrollShell>
       {searchOpen ?
         <StoresHomeSearchModal
           open={searchOpen}

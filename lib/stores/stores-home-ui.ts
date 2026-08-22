@@ -1,9 +1,7 @@
-import { STORES_HOME_CONTENT_COLUMN_CLASS } from "@/lib/stores/stores-home-header-layout";
-
 /** `/stores` 홈 hub — delivery 토큰 기반 Tailwind 묶음 */
 
-/** 헤더 chrome SSOT — `stores-home-header-layout.ts` */
-export { STORES_HOME_CONTENT_COLUMN_CLASS };
+/** 헤더 `max-w-[768px]` 과 동일 — 태블릿에서 상단 3단·피드 좌우 여백 대칭 */
+export const STORES_HOME_CONTENT_COLUMN_CLASS = "mx-auto w-full min-w-0 max-w-[768px]";
 
 export const STORES_HOME_STACK = "flex flex-col gap-[var(--delivery-section-gap)]";
 

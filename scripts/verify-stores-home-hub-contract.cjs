@@ -154,7 +154,7 @@ assertNotIncludes(
 
 const quickCategories = read("components/stores/home/hub/StoresHomeQuickCategories.tsx");
 
-const chromeBelowTier1 = read("components/stores/home/hub/StoresHomeChromeBelowTier1.tsx");
+const categorySticky = read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx");
 
 const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
 
@@ -208,94 +208,48 @@ assertNotIncludes(
 
 );
 
-/** Header 1·2·3 SSOT — product contract (not legacy DOM order). */
-assertIncludes(
-  chromeBelowTier1,
-  "StoresHomePrimaryCategoriesSkeleton",
-  "home chrome below tier1 must show tier3 skeleton before taxonomy ready"
-);
-assertIncludes(
-  chromeBelowTier1,
-  'data-stores-home-tier="3"',
-  "tier3 must be single header-stack instance"
-);
-assertIncludes(
-  chromeBelowTier1,
-  'data-stores-home-tier2-reveal',
-  "tier2 must use contextual reveal shell in header stack"
-);
 assertNotIncludes(
-  chromeBelowTier1,
-  "StoresHomePrimaryCategoryPanel",
-  "tier3 scroll-body duplicate forbidden"
-);
-assertNotIncludes(
-  quickCategories,
-  "subCategoryInView",
-  "navigation must not branch on sub panel visibility"
-);
-assertIncludes(
-  quickCategories,
-  "storesBrowsePrimaryPath",
-  "primary CTA must always route to browse"
-);
-assertNotIncludes(
-  quickCategories,
-  "pickedSlug",
-  "home primary must not mutate pickedSlug instead of browse navigation"
-);
-assertIncludes(
-  quickCategories,
-  "StoresHomeChromeBelowTier1",
-  "home must register single chrome below tier1 stickyBelow"
-);
-assertIncludes(
-  hub,
-  "StoresHomeSecondaryRevealSentinel",
-  "hub must mount secondary reveal sentinel in scroll body"
-);
-assertNotIncludes(
-  hub,
-  "StoresHomeCategorySeedPanel",
-  "legacy category seed panel bridge forbidden"
-);
-assertIncludes(
-  read("lib/stores/stores-home-header-layout.ts"),
-  "STORES_HOME_CHROME_MAX_WIDTH_CLASS",
-  "stores home width SSOT must export chrome max width"
-);
-assertIncludes(
-  read("lib/stores/stores-home-header-scroll-chrome.ts"),
-  "resolveBottomNavScrollChromeAction",
-  "tier1 scroll hide must use shared scroll chrome hysteresis"
-);
-assertIncludes(
-  read("lib/stores/stores-home-secondary-reveal-chrome.ts"),
-  "resolveStoresHomeSecondaryRevealedFromScroll",
-  "tier2 reveal must use scroll-root sentinel hysteresis"
-);
-assertNotIncludes(
-  read("lib/stores/stores-home-category-chrome-store.ts"),
-  "subCategoryInView",
-  "category chrome store must not multiplex scroll visibility into navigation"
-);
-assertIncludes(
-  read("app/delivery-components.css"),
-  "data-stores-home-tier1-shell",
-  "tier1 scroll hide CSS contract required"
-);
-assertIncludes(
-  read("app/delivery-components.css"),
-  "data-stores-home-tier2-reveal",
-  "tier2 cold-hidden CSS contract required"
-);
-assertIncludes(
-  read("components/layout/AppStickyHeader.tsx"),
-  "StoresHomeHeaderScrollChromeHost",
-  "AppStickyHeader must mount stores home tier1 scroll chrome host"
+
+  categorySticky,
+
+  "StoresHomeSubCategoryReveal",
+
+  "sticky below must not render 2nd category reveal"
+
 );
 
 assertIncludes(
+
+  categorySticky,
+
+  "StoresHomePrimaryCategoriesSkeleton",
+
+  "home category sticky must show layout skeleton before taxonomy ready"
+
+);
+
+assertIncludes(
+
+  categorySticky,
+
+  "StoresHomePrimaryCategoryPanel",
+
+  "primary category panel must live in scroll body with sticky"
+
+);
+
+assertIncludes(
+
+  categorySticky,
+
+  "STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY",
+
+  "primary category must use scroll-body wrapper below sub panel"
+
+);
+
+assertIncludes(
+
   read("lib/stores/use-stores-home-pull-refresh.ts"),
 
   "DO NOT: 스크롤 본문",
@@ -436,11 +390,115 @@ assertIncludes(
 
 assertNotIncludes(
 
-  chromeBelowTier1,
+  categorySticky,
 
   "HorizontalDragScroll",
 
   "primary category must not use drag scroll that captures pointer after tab select"
+
+);
+
+assertIncludes(
+
+  quickCategories,
+
+  "STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW",
+
+  "home categories must register primary stickyBelow when sub panel hides"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
+
+  "StoresHomePrimaryCategoryHeaderSticky",
+
+  "primary header sticky must render when sub category hidden"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
+
+  "subCategoryInView",
+
+  "scroll-body primary must hide when sub category not in view"
+
+);
+
+const categorySeedClient = read("components/stores/home/hub/StoresHomeCategorySeedPanel.client.tsx");
+
+assertIncludes(
+
+  hub,
+
+  "StoresHomeCategorySeedPanelClient",
+
+  "hub must mount client category hydration bridge"
+
+);
+
+assertIncludes(
+
+  categorySeedClient,
+
+  "StoresHomeSubCategoryPanel",
+
+  "category client bridge must mount 2nd category panel"
+
+);
+
+assertIncludes(
+
+  categorySeedClient,
+
+  "StoresHomePrimaryCategoryPanel",
+
+  "category client bridge must mount 1st category panel after 2nd"
+
+);
+
+const categoryBridgeBody = categorySeedClient.slice(categorySeedClient.indexOf("return ("));
+
+assertIncludes(
+
+  categoryBridgeBody,
+
+  "<StoresHomeSubCategoryPanel />",
+
+  "category bridge render order must mount 2nd category first"
+
+);
+
+assertIncludes(
+
+  categoryBridgeBody,
+
+  "<StoresHomePrimaryCategoryPanel />",
+
+  "category bridge render order must mount 1st category after 2nd"
+
+);
+
+assertIncludes(
+
+  quickCategories,
+
+  "subCategoryInView",
+
+  "home categories must branch primary tap on sub panel visibility"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
+
+  "stores-home-sub-slide-in",
+
+  "sub category panel must slide in on primary change"
 
 );
 
@@ -456,11 +514,21 @@ assertIncludes(
 
 assertIncludes(
 
-  read("components/stores/home/hub/StoresHomeSubCategoryRail.tsx"),
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
 
   "STORES_HOME_SUB_CATEGORY_RAIL",
 
-  "sub category rail must use horizontal swipe rail constant"
+  "sub category panel must use horizontal swipe rail constant"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+
+  "subCategoryInView",
+
+  "category chrome store must track sub panel visibility"
 
 );
 
@@ -608,8 +676,14 @@ assertNotIncludes(
 
 assertIncludes(
   hub,
-  "StoresHomeSecondaryRevealSentinel",
-  "hub must mount secondary reveal sentinel"
+  "StoresHomeCategorySeedPanelClient",
+  "hub must mount interactive category panels"
+);
+
+assertNotIncludes(
+  categorySeedClient,
+  "getElementById",
+  "category client must not remove SSR seed DOM (no SSR seed)"
 );
 
 assertNotIncludes(
@@ -770,15 +844,15 @@ assertIncludes(
 const foodCard = read("components/stores/home/hub/StoresHomeFoodCard.tsx");
 
 assertNotIncludes(
-  read("components/stores/home/hub/StoresHomeSubCategoryRail.tsx"),
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
   "STORES_HOME_RESTAURANT_SUB_ICONS",
-  "sub category rail must not use legacy food fallback PNGs"
+  "sub category panel must not use legacy food fallback PNGs"
 );
 
 assertNotIncludes(
-  chromeBelowTier1,
+  read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
   "STORES_HOME_PRIMARY_CATEGORY_ICONS",
-  "primary category chrome must not use legacy category fallback PNGs"
+  "primary category panel must not use legacy category fallback PNGs"
 );
 assertIncludes(
   foodCard,
@@ -811,9 +885,9 @@ assertIncludes(
 );
 
 assertIncludes(
-  read("lib/stores/stores-home-header-layout.ts"),
-  "STORES_HOME_CHROME_INNER_CLASS",
-  "primary category rail must use chrome inner width SSOT"
+  read("lib/stores/stores-home-ui.ts"),
+  "STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER",
+  "primary category rail must use centered inner column"
 );
 
 assertIncludes(
@@ -854,9 +928,6 @@ function assertFileAbsent(rel, context) {
   "components/stores/home/hub/StoresHomeInitialShell.server.tsx",
   "components/stores/home/hub/StoresHomeInitialShell.client.tsx",
   "components/stores/home/hub/StoresHomeCategorySeedPanel.server.tsx",
-  "components/stores/home/hub/StoresHomeCategorySeedPanel.client.tsx",
-  "components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx",
-  "components/stores/home/hub/StoresHomeSubCategoryPanel.tsx",
   "components/stores/home/hub/stores-home-primary-category-rail-view.tsx",
   "components/stores/home/hub/stores-home-sub-category-rail-view.tsx",
   "components/stores/home/hub/stores-home-hero-banner-view.tsx",
