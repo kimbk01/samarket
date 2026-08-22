@@ -1,13 +1,12 @@
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 
-const RESTAURANT_SLUG = "restaurant";
+export const STORES_HOME_BASELINE_PRIMARY = "restaurant";
 
 /** SSR·hydration — 카테고리 skeleton. DO NOT: taxonomy seed/fallback 아이콘 선렌더 */
 export const STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT = {
   taxonomyReady: false,
-  subCategoryInView: false,
   primaries: [] as StoreTaxonomyCategory[],
-  activeSlug: RESTAURANT_SLUG,
+  activeSlug: STORES_HOME_BASELINE_PRIMARY,
   pickedSlug: null as string | null,
   subs: [] as StoreTaxonomyTopic[],
   language: "ko" as const,
@@ -16,10 +15,9 @@ export const STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT = {
 
 export type StoresHomeCategoryChromeSnapshot = {
   taxonomyReady: boolean;
-  /** 2차 업종 패널이 뷰포트에 보이면 true — 숨김 시 1차 탭은 browse 이동 */
-  subCategoryInView: boolean;
   primaries: StoreTaxonomyCategory[];
   activeSlug: string;
+  /** 사용자가 HOME session에서 명시적으로 선택한 1차 — null이면 2차 hidden */
   pickedSlug: string | null;
   subs: StoreTaxonomyTopic[];
   language: "ko" | "en";
@@ -57,13 +55,22 @@ function rowsShallowEqualById<T extends { id: string | number }>(a: T[], b: T[])
 function snapshotsEqual(a: StoresHomeCategoryChromeSnapshot, b: StoresHomeCategoryChromeSnapshot): boolean {
   return (
     a.taxonomyReady === b.taxonomyReady &&
-    a.subCategoryInView === b.subCategoryInView &&
     a.activeSlug === b.activeSlug &&
     a.pickedSlug === b.pickedSlug &&
     a.language === b.language &&
     a.primaryAriaLabel === b.primaryAriaLabel &&
     rowsShallowEqualById(a.primaries, b.primaries) &&
     rowsShallowEqualById(a.subs, b.subs)
+  );
+}
+
+/** HOME 2차 reveal — 단일 authority (ONE OWNER). */
+export function deriveHomeSecondaryReveal(snap: StoresHomeCategoryChromeSnapshot): boolean {
+  return (
+    snap.taxonomyReady &&
+    snap.pickedSlug !== null &&
+    snap.pickedSlug === snap.activeSlug &&
+    snap.subs.length > 0
   );
 }
 
@@ -90,6 +97,51 @@ export function patchStoresHomeCategoryChrome(
   notify();
 }
 
+export function selectHomePrimary(slug: string): void {
+  const next = slug.trim().toLowerCase();
+  if (!next) return;
+  const { activeSlug, pickedSlug } = snapshot;
+  if (next === activeSlug && pickedSlug !== null) return;
+  patchStoresHomeCategoryChrome({
+    pickedSlug: next,
+    activeSlug: next,
+  });
+}
+
+/** HOME → BROWSE surface transition — session baseline */
+export function resetHomeCategorySession(): void {
+  if (
+    snapshot.pickedSlug === null &&
+    snapshot.activeSlug === STORES_HOME_BASELINE_PRIMARY
+  ) {
+    return;
+  }
+  patchStoresHomeCategoryChrome({
+    pickedSlug: null,
+    activeSlug: STORES_HOME_BASELINE_PRIMARY,
+  });
+  resetStoresHomePrimaryScrollToStart();
+}
+
+export function reconcileHomeCategoryPrimaries(primaries: StoreTaxonomyCategory[]): void {
+  let { activeSlug, pickedSlug } = snapshot;
+  let changed = false;
+  if (pickedSlug && !primaries.some((p) => p.slug === pickedSlug)) {
+    pickedSlug = null;
+    changed = true;
+  }
+  if (activeSlug && !primaries.some((p) => p.slug === activeSlug)) {
+    const fallback =
+      primaries.find((p) => p.slug === STORES_HOME_BASELINE_PRIMARY)?.slug ??
+      primaries[0]?.slug ??
+      STORES_HOME_BASELINE_PRIMARY;
+    activeSlug = fallback;
+    changed = true;
+  }
+  if (!changed) return;
+  patchStoresHomeCategoryChrome({ activeSlug, pickedSlug });
+}
+
 export function setStoresHomeCategoryChromeHandlers(next: StoresHomeCategoryChromeHandlers): void {
   handlers = next;
 }
@@ -106,8 +158,8 @@ export function resetStoresHomePrimaryScrollToStart(): void {
   primaryScrollEl?.scrollTo({ left: 0, behavior: "auto" });
 }
 
-/** `/stores` 이탈 시 chrome 상태 초기화 — stickyBelow 참조는 유지 */
-export function resetStoresHomeCategoryChromeSnapshot(): void {
-  snapshot = { ...STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT, language: snapshot.language };
+/** @internal vitest — taxonomy 포함 전체 초기화 */
+export function resetStoresHomeCategoryChromeForTests(): void {
+  snapshot = { ...STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT };
   notify();
 }

@@ -2,9 +2,8 @@
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { UserRegion } from "@/lib/regions/types";
-import { storesBrowseNavSubSlug } from "@/components/stores/browse/stores-browse-paths";
-import { setBrowsePrimaryTabOptimisticSlug } from "@/lib/stores/browse-primary-tab-navigation";
-import { setBrowseSubChipOptimisticSub } from "@/lib/stores/browse-sub-chip-navigation";
+import { beginBrowsePrimaryPendingNav } from "@/lib/stores/browse-primary-tab-navigation";
+import { beginBrowseSubPendingNav, clearBrowseSubPendingNav } from "@/lib/stores/browse-sub-chip-navigation";
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 
@@ -20,7 +19,7 @@ function scheduleAfterPress(run: () => void): void {
 
 /**
  * CONTRACT — browse·홈 업종 탭/칩 pointerdown 단일 진입.
- * DO NOT: prewarm·햅틱·optimistic 을 컴포넌트마다 복제.
+ * DO NOT: prewarm·햅틱·pending nav 를 컴포넌트마다 복제.
  */
 export function onBrowsePrimaryTaxonomyPointerDown(opts: {
   ev?: TapEvent;
@@ -42,8 +41,8 @@ export function onBrowsePrimaryTaxonomyPointerDown(opts: {
 export function onBrowsePrimaryTaxonomyCommit(primarySlug: string): void {
   const slug = primarySlug.trim().toLowerCase();
   if (!slug) return;
-  setBrowseSubChipOptimisticSub(null);
-  setBrowsePrimaryTabOptimisticSlug(slug);
+  clearBrowseSubPendingNav();
+  beginBrowsePrimaryPendingNav(slug);
 }
 
 export function onBrowseSubTaxonomyPointerDown(opts: {
@@ -64,6 +63,6 @@ export function onBrowseSubTaxonomyPointerDown(opts: {
   });
 }
 
-export function onBrowseSubTaxonomyCommit(subSlug: string): void {
-  setBrowseSubChipOptimisticSub(storesBrowseNavSubSlug(subSlug));
+export function onBrowseSubTaxonomyCommit(primarySlug: string, subSlug: string): void {
+  beginBrowseSubPendingNav(primarySlug, subSlug);
 }

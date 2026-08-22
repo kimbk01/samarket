@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   fetchStoresTaxonomyDeduped,
   clearStoresTaxonomyClientCache,
@@ -17,11 +16,16 @@ import {
   type StoresHomeTaxonomyState,
 } from "@/lib/stores/stores-home-taxonomy-client";
 import {
+  getStoresHomeCategoryChromeSnapshot,
   patchStoresHomeCategoryChrome,
+  reconcileHomeCategoryPrimaries,
+  selectHomePrimary,
   setStoresHomeCategoryChromeHandlers,
+  subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const RESTAURANT_SLUG = "restaurant";
 
@@ -39,7 +43,6 @@ function sortPrimariesRestaurantFirst<T extends { slug: string; sort_order?: num
   return sorted;
 }
 
-
 function resolveSubsForPrimary(
   taxonomy: StoresHomeTaxonomyState | null,
   primary: StoreTaxonomyCategory | undefined
@@ -53,8 +56,8 @@ function resolveSubsForPrimary(
 }
 
 /**
- * CONTRACT — 홈 카테고리 상태·핸들러.
- * 레이아웃: 헤더 → 1차(`StoresHomePrimaryCategoryPanel`) → 2차(`StoresHomeSubCategoryPanel`) — `AppStickyHeader`.
+ * CONTRACT — taxonomy load + chrome store taxonomy patch only.
+ * pickedPrimary/activePrimary authority: `stores-home-category-chrome-store`.
  */
 export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
@@ -63,9 +66,13 @@ export function StoresHomeQuickCategories() {
   const isStoresHubRoot = activePtrDomain === "stores";
   const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
   const [taxonomyReady, setTaxonomyReady] = useState(false);
-  const [pickedSlug, setPickedSlug] = useState<string | null>(null);
-  const [activeSlug, setActiveSlug] = useState(RESTAURANT_SLUG);
   const cacheAppliedRef = useRef(false);
+
+  const activeSlug = useSyncExternalStore(
+    subscribeStoresHomeCategoryChrome,
+    () => getStoresHomeCategoryChromeSnapshot().activeSlug,
+    () => RESTAURANT_SLUG
+  );
 
   useLayoutEffect(() => {
     if (!isStoresHubRoot) return;
@@ -137,15 +144,9 @@ export function StoresHomeQuickCategories() {
   );
 
   useLayoutEffect(() => {
-    if (pickedSlug && !primaries.some((p) => p.slug === pickedSlug)) {
-      setPickedSlug(null);
-    }
-    if (activeSlug && !primaries.some((p) => p.slug === activeSlug)) {
-      const fallback =
-        primaries.find((p) => p.slug === RESTAURANT_SLUG)?.slug ?? primaries[0]?.slug ?? RESTAURANT_SLUG;
-      setActiveSlug(fallback);
-    }
-  }, [activeSlug, pickedSlug, primaries]);
+    if (primaries.length === 0) return;
+    reconcileHomeCategoryPrimaries(primaries);
+  }, [primaries]);
 
   const prewarmBrowseForSlug = useCallback(
     (subSlug?: string | null) => {
@@ -173,15 +174,10 @@ export function StoresHomeQuickCategories() {
 
   const handleSelectPrimary = useCallback(
     (slug: string) => {
-      const next = slug.trim().toLowerCase();
-      if (!next) return;
-      prewarmBrowsePrimary(next);
-
-      if (next === activeSlug && pickedSlug !== null) return;
-      setPickedSlug(next);
-      if (next !== activeSlug) setActiveSlug(next);
+      prewarmBrowsePrimary(slug);
+      selectHomePrimary(slug);
     },
-    [activeSlug, pickedSlug, prewarmBrowsePrimary]
+    [prewarmBrowsePrimary]
   );
 
   useLayoutEffect(() => {
@@ -196,13 +192,11 @@ export function StoresHomeQuickCategories() {
     patchStoresHomeCategoryChrome({
       taxonomyReady,
       primaries,
-      activeSlug,
-      pickedSlug,
       subs,
       language,
       primaryAriaLabel: t("store_primary_industry_aria"),
     });
-  }, [activeSlug, language, pickedSlug, primaries, subs, t, taxonomyReady]);
+  }, [language, primaries, subs, t, taxonomyReady]);
 
   return null;
 }

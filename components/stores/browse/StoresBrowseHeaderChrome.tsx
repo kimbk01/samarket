@@ -20,10 +20,10 @@ import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { useBrowseSubtopicCollapsed } from "@/lib/stores/use-browse-subtopic-collapsed";
 import {
-  getBrowsePrimaryTabOptimisticSlugServerSnapshot,
-  getBrowsePrimaryTabOptimisticSlugSnapshot,
+  getBrowsePrimaryPendingNavServerSnapshot,
+  getBrowsePrimaryPendingNavSnapshot,
   resolveBrowsePrimaryTabActiveSlug,
-  subscribeBrowsePrimaryTabOptimisticSlug,
+  subscribeBrowsePrimaryTabPendingNav,
 } from "@/lib/stores/browse-primary-tab-navigation";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
@@ -83,13 +83,13 @@ export function StoresBrowseHeaderChrome() {
     () => pathname?.match(/^\/stores\/browse\/([^/?]+)/)?.[1]?.trim().toLowerCase() ?? "",
     [pathname]
   );
-  const optimisticPrimary = useSyncExternalStore(
-    subscribeBrowsePrimaryTabOptimisticSlug,
-    getBrowsePrimaryTabOptimisticSlugSnapshot,
-    getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  const pendingPrimaryNav = useSyncExternalStore(
+    subscribeBrowsePrimaryTabPendingNav,
+    getBrowsePrimaryPendingNavSnapshot,
+    getBrowsePrimaryPendingNavServerSnapshot,
   );
   const menuActivePrimarySlug =
-    resolveBrowsePrimaryTabActiveSlug(browsePrimarySlug || null, optimisticPrimary) ?? browsePrimarySlug;
+    resolveBrowsePrimaryTabActiveSlug(browsePrimarySlug || null, pendingPrimaryNav) ?? browsePrimarySlug;
   const extras = useMainTier1ExtrasOptional()?.extras;
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);

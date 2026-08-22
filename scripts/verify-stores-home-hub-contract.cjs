@@ -438,6 +438,36 @@ assertNotIncludes(
 
 );
 
+assertIncludes(
+
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+
+  "deriveHomeSecondaryReveal",
+
+  "home secondary reveal must be single canonical selector in chrome store"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
+
+  "deriveHomeSecondaryReveal",
+
+  "sub category panel must gate on canonical secondary reveal"
+
+);
+
+assertNotIncludes(
+
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+
+  "subCategoryInView",
+
+  "dead subCategoryInView must be removed from chrome store"
+
+);
+
 const categoryHeaderStack = read("components/stores/home/hub/StoresHomeCategoryHeaderStack.tsx");
 
 assertIncludes(
@@ -512,6 +542,26 @@ assertNotIncludes(
 
 );
 
+assertNotIncludes(
+
+  quickCategories,
+
+  "useState<string | null>(null)",
+
+  "home categories must not duplicate pickedSlug in React local state"
+
+);
+
+assertIncludes(
+
+  quickCategories,
+
+  "selectHomePrimary",
+
+  "home primary selection must use chrome store canonical writer"
+
+);
+
 assertIncludes(
 
   read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
@@ -542,13 +592,13 @@ assertIncludes(
 
 );
 
-assertIncludes(
+assertNotIncludes(
 
   read("lib/stores/stores-home-category-chrome-store.ts"),
 
   "subCategoryInView",
 
-  "category chrome store must track sub panel visibility"
+  "chrome store must not retain dead subCategoryInView field"
 
 );
 
@@ -1122,6 +1172,64 @@ assertIncludes(
   "resetBrowseSubtopicCollapseChrome",
   "browse subtopic collapse must reset on route change"
 );
+assertIncludes(
+  browseSubtopicCollapseChrome,
+  "resetBrowseSubtopicCollapseChromeForSessionExit",
+  "browse subtopic collapse must reset expanded baseline on session exit"
+);
+
+const surfaceLifecycle = read("lib/stores/stores-category-surface-lifecycle.ts");
+const deliveryShell = read("components/delivery/presentation/DeliveryPresentationShell.tsx");
+
+assertIncludes(
+  surfaceLifecycle,
+  "applyStoresCategorySurfaceTransition",
+  "category surface lifecycle must expose transition authority"
+);
+assertIncludes(
+  surfaceLifecycle,
+  "resetHomeCategorySession",
+  "category surface lifecycle must reset home session on HOME→BROWSE"
+);
+assertIncludes(
+  surfaceLifecycle,
+  "clearBrowseCategorySession",
+  "category surface lifecycle must clear browse session on BROWSE exit"
+);
+assertIncludes(
+  deliveryShell,
+  "applyStoresCategorySurfaceTransition",
+  "delivery shell must wire category surface lifecycle"
+);
+assertIncludes(
+  deliveryShell,
+  "syncBrowsePrimaryNavSettled",
+  "delivery shell must settle browse primary pending nav"
+);
+assertIncludes(
+  deliveryShell,
+  "syncBrowseSubNavSettled",
+  "delivery shell must settle browse sub pending nav"
+);
+
+assertNotIncludes(
+  browsePrimaryView,
+  "setBrowseSubChipOptimisticSub",
+  "browse primary view must not clear optimistic sub locally"
+);
+
+assertNotIncludes(
+  browsePrimaryTabs,
+  "setBrowsePrimaryTabOptimisticSlug",
+  "browse primary tabs must not clear optimistic primary locally"
+);
+
+assertIncludes(
+  browsePrimaryTabs,
+  "subscribeBrowsePrimaryTabPendingNav",
+  "browse primary tabs must use pending nav store"
+);
+
 assertNotIncludes(
   browseSubtopicCollapseChrome,
   "resolveBottomNavScrollChromeAction",

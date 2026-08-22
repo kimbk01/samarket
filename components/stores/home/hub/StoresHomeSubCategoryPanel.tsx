@@ -11,6 +11,7 @@ import {
 } from "@/lib/i18n/store-browse-label-i18n";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import {
+  deriveHomeSecondaryReveal,
   getStoresHomeCategoryChromeHandlers,
   getStoresHomeCategoryChromeServerSnapshot,
   getStoresHomeCategoryChromeSnapshot,
@@ -153,12 +154,16 @@ export function StoresHomeSubCategoryPanel() {
   }, [snap.activeSlug, snap.subs]);
 
   useLayoutEffect(() => {
-    if (snap.taxonomyReady && snap.subs.length > 0) {
+    if (snap.taxonomyReady && deriveHomeSecondaryReveal(snap)) {
       markStoresHomePerf("category");
     }
-  }, [snap.subs.length, snap.taxonomyReady]);
+  }, [snap]);
 
-  if (!snap.taxonomyReady) {
+  const secondaryReveal = deriveHomeSecondaryReveal(snap);
+
+  if (!secondaryReveal) {
+    if (!transition) return null;
+  } else if (!snap.taxonomyReady) {
     return <StoresHomeCategoriesSkeleton />;
   }
 

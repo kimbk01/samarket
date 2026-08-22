@@ -140,9 +140,14 @@ export function registerBrowseSubtopicCollapseSentinel(el: HTMLElement | null): 
   teardownObserver();
 }
 
-/** primary|sub·이탈 — 강제 펼침 없이 현재 스크롤 좌표로 재판정 (깜빡임 방지) */
+/** browse 내 primary/sub 변경 — 강제 펼침 없이 현재 스크롤 좌표로 재판정 (깜빡임 방지) */
 export function resetBrowseSubtopicCollapseChrome(): void {
   syncCollapsedFromGeometry();
+}
+
+/** BROWSE session exit — 다음 진입 baseline expanded */
+export function resetBrowseSubtopicCollapseChromeForSessionExit(): void {
+  setCollapsed(false);
 }
 
 export function subscribeBrowseSubtopicCollapsed(listener: () => void): () => void {

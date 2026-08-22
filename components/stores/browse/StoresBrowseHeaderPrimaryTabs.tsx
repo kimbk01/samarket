@@ -1,18 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import {
-  getBrowsePrimaryTabOptimisticSlugServerSnapshot,
-  getBrowsePrimaryTabOptimisticSlugSnapshot,
+  getBrowsePrimaryPendingNavServerSnapshot,
+  getBrowsePrimaryPendingNavSnapshot,
   resolveBrowsePrimaryTabActiveSlug,
-  setBrowsePrimaryTabOptimisticSlug,
-  subscribeBrowsePrimaryTabOptimisticSlug,
+  subscribeBrowsePrimaryTabPendingNav,
 } from "@/lib/stores/browse-primary-tab-navigation";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
@@ -57,21 +56,14 @@ export function StoresBrowseHeaderPrimaryTabs({
     return m?.[1]?.trim().toLowerCase() ?? null;
   }, [pathname]);
 
-  const optimisticPrimary = useSyncExternalStore(
-    subscribeBrowsePrimaryTabOptimisticSlug,
-    getBrowsePrimaryTabOptimisticSlugSnapshot,
-    getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  const pendingPrimaryNav = useSyncExternalStore(
+    subscribeBrowsePrimaryTabPendingNav,
+    getBrowsePrimaryPendingNavSnapshot,
+    getBrowsePrimaryPendingNavServerSnapshot,
   );
 
-  const activeSlug = resolveBrowsePrimaryTabActiveSlug(pathnamePrimarySlug, optimisticPrimary);
+  const activeSlug = resolveBrowsePrimaryTabActiveSlug(pathnamePrimarySlug, pendingPrimaryNav);
   const trackRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!optimisticPrimary || !pathnamePrimarySlug) return;
-    if (pathnamePrimarySlug === optimisticPrimary) {
-      setBrowsePrimaryTabOptimisticSlug(null);
-    }
-  }, [optimisticPrimary, pathnamePrimarySlug]);
 
   useLayoutEffect(() => {
     if (!activeSlug || !trackRef.current) return;
@@ -96,7 +88,8 @@ export function StoresBrowseHeaderPrimaryTabs({
           {primaries.map((p) => {
             const slug = p.slug.toLowerCase();
             const on = activeSlug === slug;
-            const pending = optimisticPrimary === slug && pathnamePrimarySlug !== slug;
+            const pending =
+              pendingPrimaryNav?.targetSlug === slug && pathnamePrimarySlug !== slug;
             return (
               <Link
                 key={p.id}

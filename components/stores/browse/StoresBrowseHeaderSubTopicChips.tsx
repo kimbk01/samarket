@@ -20,9 +20,9 @@ import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-querie
 import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import {
-  getBrowseSubChipOptimisticSubServerSnapshot,
-  getBrowseSubChipOptimisticSubSnapshot,
-  subscribeBrowseSubChipOptimisticSub,
+  getBrowseSubPendingNavServerSnapshot,
+  getBrowseSubPendingNavSnapshot,
+  subscribeBrowseSubPendingNav,
   bumpBrowseListRefresh,
 } from "@/lib/stores/browse-sub-chip-navigation";
 import {
@@ -194,13 +194,18 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
     [trimmedBrowseSubParam, subs],
   );
 
-  const optimisticSub = useSyncExternalStore(
-    subscribeBrowseSubChipOptimisticSub,
-    getBrowseSubChipOptimisticSubSnapshot,
-    getBrowseSubChipOptimisticSubServerSnapshot,
+  const pendingSubNav = useSyncExternalStore(
+    subscribeBrowseSubPendingNav,
+    getBrowseSubPendingNavSnapshot,
+    getBrowseSubPendingNavServerSnapshot,
   );
 
-  const activeSub = resolveBrowseSubChipActiveSlug(trimmedBrowseSubParam, optimisticSub, matchedTopicSlug);
+  const activeSub = resolveBrowseSubChipActiveSlug(
+    trimmedBrowseSubParam,
+    matchedTopicSlug,
+    primarySlug,
+    pendingSubNav,
+  );
 
   const primaryReady = useMemo(() => {
     if (!taxonomy?.categories.length) return !!getBrowsePrimaryBySlug(primarySlug);
@@ -226,7 +231,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   }, [primarySlug, subs]);
 
   const onSubNavigate = (slug: string, href: string) => {
-    onBrowseSubTaxonomyCommit(slug);
+    onBrowseSubTaxonomyCommit(primarySlug, slug);
     startTransition(() => router.push(href, { scroll: false }));
   };
 

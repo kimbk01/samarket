@@ -14,7 +14,7 @@ import {
   type ReactNode,
   type TransitionEvent,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { StoresBrowsePrimaryView } from "@/components/stores/browse/StoresBrowsePrimaryView";
 import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
 import {
@@ -41,6 +41,13 @@ import {
   occupancyAuditSuppressChromeHost,
   readDeliveryOccupancyAuditMode,
 } from "@/lib/dibay/delivery-occupancy-audit-mode";
+import {
+  applyStoresCategorySurfaceTransition,
+  isStoresBrowseSurfacePath,
+  parseBrowsePathnamePrimary,
+} from "@/lib/stores/stores-category-surface-lifecycle";
+import { syncBrowsePrimaryNavSettled } from "@/lib/stores/browse-primary-tab-navigation";
+import { syncBrowseSubNavSettled } from "@/lib/stores/browse-sub-chip-navigation";
 
 type BrowseSpec = {
   primarySlug: string;
@@ -117,6 +124,7 @@ export function DeliveryPresentationShell({ children }: { children: ReactNode })
 
 function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
   const pathKey = pathname.split("?")[0] ?? "";
   const onBrowse = isBrowsePath(pathKey);
   const onStore = isStoreConsumerDetailPath(pathKey);
@@ -200,10 +208,18 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const prev = prevPathRef.current;
     if (prev === pathKey) return;
+    applyStoresCategorySurfaceTransition(prev, pathKey);
     const dPrev = deliveryConsumerStackDepth(prev);
     const dNext = deliveryConsumerStackDepth(pathKey);
     prevPathRef.current = pathKey;
     deliveryPresentationMarkEvent("routeChange", { from: prev, to: pathKey });
+
+    if (isStoresBrowseSurfacePath(pathKey)) {
+      const primary = parseBrowsePathnamePrimary(pathKey);
+      const sub = searchParams?.get("sub")?.trim().toLowerCase() ?? "";
+      syncBrowsePrimaryNavSettled(primary);
+      syncBrowseSubNavSettled(primary, sub);
+    }
 
     if (!browseSpec) {
       setHostedStoreSlug(null);
@@ -238,6 +254,14 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
 
     setSlidePhase(onBrowse ? "idle" : onStore ? "idle_store" : "idle");
   }, [pathKey, browseSpec, onBrowse, onStore, storeSlug, softSession]);
+
+  useLayoutEffect(() => {
+    if (!isStoresBrowseSurfacePath(pathKey)) return;
+    const primary = parseBrowsePathnamePrimary(pathKey);
+    const sub = searchParams?.get("sub")?.trim().toLowerCase() ?? "";
+    syncBrowsePrimaryNavSettled(primary);
+    syncBrowseSubNavSettled(primary, sub);
+  }, [pathKey, searchParams]);
 
   useLayoutEffect(() => {
     if (slidePhase !== "hold_browse" || !showShellStore) return;

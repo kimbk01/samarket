@@ -1,10 +1,18 @@
 "use client";
 
+import { storesBrowseNavSubSlug } from "@/components/stores/browse/stores-browse-paths";
+
 /**
- * browse 헤더 2차 칩 ↔ `StoresBrowsePrimaryView` optimistic `sub` 동기화.
- * (헤더는 RegionBar, 본문은 페이지 — 단일 스토어로 탭 하이라이트·목록 쿼리 일치)
+ * browse 헤더 2차 칩 — pathname + ?sub settled 시 URL wins.
+ * pending navigation 동안만 transient highlight·목록 쿼리.
  */
-let optimisticSub: string | null = null;
+
+export type BrowseSubPendingNav = {
+  primarySlug: string;
+  targetSub: string;
+};
+
+let pendingSubNav: BrowseSubPendingNav | null = null;
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -13,26 +21,43 @@ function bump() {
   listeners.forEach((l) => l());
 }
 
-export function setBrowseSubChipOptimisticSub(sub: string | null): void {
-  optimisticSub = sub;
+export function beginBrowseSubPendingNav(primarySlug: string, subSlug: string): void {
+  const primary = primarySlug.trim().toLowerCase();
+  const targetSub = storesBrowseNavSubSlug(subSlug);
+  if (!primary || !targetSub) return;
+  pendingSubNav = { primarySlug: primary, targetSub };
   bump();
 }
 
-export function getBrowseSubChipOptimisticSub(): string | null {
-  return optimisticSub;
+export function clearBrowseSubPendingNav(): void {
+  if (!pendingSubNav) return;
+  pendingSubNav = null;
+  bump();
 }
 
-export function subscribeBrowseSubChipOptimisticSub(listener: () => void): () => void {
+export function getBrowseSubPendingNavSnapshot(): BrowseSubPendingNav | null {
+  return pendingSubNav;
+}
+
+export function subscribeBrowseSubPendingNav(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-export function getBrowseSubChipOptimisticSubSnapshot(): string | null {
-  return optimisticSub;
+export function getBrowseSubPendingNavServerSnapshot(): BrowseSubPendingNav | null {
+  return null;
 }
 
-export function getBrowseSubChipOptimisticSubServerSnapshot(): string | null {
-  return null;
+export function syncBrowseSubNavSettled(
+  pathnamePrimary: string | null,
+  trimmedSubParam: string
+): void {
+  if (!pendingSubNav || !pathnamePrimary) return;
+  const path = pathnamePrimary.trim().toLowerCase();
+  const sub = trimmedSubParam.trim().toLowerCase();
+  if (path === pendingSubNav.primarySlug && sub === pendingSubNav.targetSub) {
+    clearBrowseSubPendingNav();
+  }
 }
 
 /** 2차 칩 재탭 등 — 목록 강제 refetch (헤더 ↔ 본문 경량 신호) */
@@ -55,4 +80,13 @@ export function getBrowseListRefreshSnapshot(): number {
 
 export function getBrowseListRefreshServerSnapshot(): number {
   return 0;
+}
+
+/** @internal vitest */
+export function resetBrowseSubPendingNavForTests(): void {
+  pendingSubNav = null;
+  version = 0;
+  listeners.clear();
+  listRefreshTick = 0;
+  listRefreshListeners.clear();
 }

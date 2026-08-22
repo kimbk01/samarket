@@ -70,10 +70,9 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
 import {
-  getBrowseSubChipOptimisticSubServerSnapshot,
-  getBrowseSubChipOptimisticSubSnapshot,
-  setBrowseSubChipOptimisticSub,
-  subscribeBrowseSubChipOptimisticSub,
+  getBrowseSubPendingNavServerSnapshot,
+  getBrowseSubPendingNavSnapshot,
+  subscribeBrowseSubPendingNav,
   getBrowseListRefreshServerSnapshot,
   getBrowseListRefreshSnapshot,
   subscribeBrowseListRefresh,
@@ -260,10 +259,10 @@ export function StoresBrowsePrimaryView({
 
   useBrowseSubAllCanonicalUrl(primarySlug, subs, { enabled: browseActive });
 
-  const optimisticSub = useSyncExternalStore(
-    subscribeBrowseSubChipOptimisticSub,
-    getBrowseSubChipOptimisticSubSnapshot,
-    getBrowseSubChipOptimisticSubServerSnapshot
+  const pendingSubNav = useSyncExternalStore(
+    subscribeBrowseSubPendingNav,
+    getBrowseSubPendingNavSnapshot,
+    getBrowseSubPendingNavServerSnapshot
   );
   const listRefreshTick = useSyncExternalStore(
     subscribeBrowseListRefresh,
@@ -293,14 +292,12 @@ export function StoresBrowsePrimaryView({
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
   }, [browseActive, searchParams]);
 
-  useEffect(() => {
-    // URL/searchParams가 확정되면 optimistic 상태를 해제
-    setBrowseSubChipOptimisticSub(null);
-  }, [matchedTopicSlug, primarySlug]);
-
-  useEffect(() => () => setBrowseSubChipOptimisticSub(null), []);
-
-  const activeSub = resolveBrowseListQuerySub(trimmedBrowseSubParam, optimisticSub, matchedTopicSlug);
+  const activeSub = resolveBrowseListQuerySub(
+    trimmedBrowseSubParam,
+    matchedTopicSlug,
+    primarySlug,
+    pendingSubNav,
+  );
 
   useEffect(() => {
     // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
