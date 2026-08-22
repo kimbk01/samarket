@@ -25,6 +25,10 @@ import {
   isTradePostDetailPath,
   marketplaceDetailStackDepth,
 } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
+import {
+  deliveryConsumerStackDepth,
+  isDeliveryConsumerStackPath,
+} from "@/lib/stores/delivery-consumer-stack-slide";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -219,6 +223,23 @@ export function computeRouteTransitionEnterKind(
       kind = "ltr-back";
     } else {
       kind = "none";
+    }
+  } else if (isDeliveryConsumerStackPath(prevPath) && isDeliveryConsumerStackPath(nextPath)) {
+    /**
+     * CUT-C — `/stores` hub → browse → store detail (and back).
+     * Same bottom-nav pillar used to collapse to `subtle`; depth SSOT restores full-page RTL/LTR.
+     */
+    const dPrev = deliveryConsumerStackDepth(prevPath);
+    const dNext = deliveryConsumerStackDepth(nextPath);
+    if (opts.popstateBack) {
+      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
+    } else if (dNext > dPrev) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else if (dNext < dPrev) {
+      kind = "ltr-back";
+    } else {
+      kind = "subtle";
     }
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */

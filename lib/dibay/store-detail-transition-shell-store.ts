@@ -1,9 +1,6 @@
 "use client";
 
 import type { StoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
-import { markStoreDetailShellCoverEnter } from "@/lib/dibay/store-detail-nav-intent";
-import { dibayPerfOnStoreDetailPerceivedShellVisible } from "@/lib/dibay/delivery-flow-perf";
-import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
 
 export type StoreDetailTransitionShellState = {
   seed: StoreDetailListSeed;
@@ -27,17 +24,14 @@ export function getStoreDetailTransitionShellSnapshot(): StoreDetailTransitionSh
 }
 
 export function showStoreDetailTransitionShell(seed: StoreDetailListSeed, href: string): void {
-  if (typeof window === "undefined") return;
-  state = { seed, href };
-  markStoreDetailShellCoverEnter();
-  emit();
-  dibayPerfOnStoreDetailPerceivedShellVisible({ slug: seed.slug });
-  deliveryShellEntryMark("shell_perceived_visible", {
-    slug: seed.slug,
-    href,
-    seed_saved: true,
-    source: "transition_overlay",
-  });
+  /**
+   * CUT-C — delivery drill-down uses main-shell full-page `rtl-forward` / `ltr-back`.
+   * Partial portal cover would double-animate with AppRouteTransition; keep API for callers
+   * but do not mount overlay state.
+   */
+  void seed;
+  void href;
+  return;
 }
 
 export function hideStoreDetailTransitionShell(slug?: string): void {
